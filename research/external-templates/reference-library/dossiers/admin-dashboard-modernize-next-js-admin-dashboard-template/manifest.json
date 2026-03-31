@@ -109,5 +109,33 @@
       "reason": "Layout and navigation reference",
       "excerpt": "import { useMediaQuery, Box, Drawer } from \"@mui/material\";\nimport SidebarItems from \"./SidebarItems\";\n\n\n\ninterface ItemType {\n  isMobileSidebarOpen: boolean;\n  onSidebarClose: (event: React.MouseEvent<HTMLElement>) => void;\n  isSidebarOpen: boolean;\n}\n\nconst MSidebar = ({\n  isMobileSidebarOpen,\n  onSidebarClose,\n  isSidebarOpen,\n}: ItemType) => {\n  const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up(\"lg\"));\n\n  const sidebarWidth = \"270px\";\n\n  // Custom CSS for short scrollbar\n  const scrollbarStyles = {\n    '&::-webkit-scrollbar': {\n      width: '7px',\n\n    },\n    '&::-webkit-scrollbar-thumb': {\n      backgroundColor: '#eff2f7',\n      borderRadius: '15px',\n    },\n  };\n\n\n  if (lgUp) {\n    return (\n      <Box\n        sx={{\n          width: sidebarWidth,\n          flexShrink: 0,\n        }}\n      >\n        {/* ------------------------------------------- */}\n        {/* Sidebar for desktop */}\n        {/* ------------------------------------------- */}\n        <Drawer\n          anchor=\"left\"\n          open={isSidebarOpen}\n          variant=\"permanent\"\n          slotProps={{\n            paper: {\n              sx: {\n                boxSizing: \"border-box\",\n                ...scrollbarStyles,\n                width: sidebarWidth,\n              },\n            }\n          }}\n        >\n          {/* ------------------------------------------- */}\n          {/* Sidebar Box */}\n          {/* ------------------------------------------- */}\n          <Box\n            sx={{\n              height: \"100%\",\n            }}\n          >\n\n            <Box>\n              {/* ------------------------------------------- */}\n              {/* Sidebar Items */}\n              {/* ------------------------------------------- */}\n              <SidebarItems />\n            </Box>\n          </Box>\n        </Drawer>\n      </Box >\n    );\n  }\n\n  return (\n    <Drawer\n      anchor=\"left\"\n      open={isMobileSidebarOpen}\n      onClose={onSidebarClose}\n      variant=\"temporary\"\n\n      slotProps={{\n        paper: {\n          sx: {\n            boxShadow: (theme) => theme.shadows[8],\n            ...scrollbarStyles,\n          },\n        }\n      }}\n    >\n      {/* ------------------------------------------- */}\n      {/* Sidebar Box */}\n      {/* ------------------------------------------- */}\n\n// ... truncated"
     }
-  ]
+  ],
+  "runtimeGuidance": {
+    "styleRules": [
+      "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+      "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+      "Preserve clear information density with persistent navigation and scannable panels.",
+      "Keep each auth screen single-purpose, calm, and trustworthy."
+    ],
+    "sectionInventory": [
+      "primary entry section",
+      "supporting content section",
+      "overview metrics",
+      "filters or controls",
+      "table or chart area"
+    ],
+    "avoidPatterns": [
+      "Do not paste large reference code blocks verbatim into the generated site.",
+      "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+      "Avoid turning dashboard references into generic marketing landing pages.",
+      "Avoid mixing auth flows with unrelated landing-page sections."
+    ],
+    "worldClassRubric": [
+      "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+      "Reusable sections with believable content, not generic lorem-style filler.",
+      "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+      "Dense UI must still feel legible, fast, and trustworthy.",
+      "Auth pages should feel ready for real product onboarding."
+    ]
+  }
 }

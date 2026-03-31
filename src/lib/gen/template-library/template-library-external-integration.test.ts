@@ -45,6 +45,10 @@ describe("template-library external templates (committed catalog)", () => {
       expect(e.summary?.trim().length).toBeGreaterThan(0);
       expect(e.recommendedScaffoldFamilies?.length).toBeGreaterThan(0);
       expect(e.qualityScore).toBeGreaterThanOrEqual(45);
+      expect(e.runtimeGuidance?.styleRules?.length ?? 0).toBeGreaterThan(0);
+      expect(e.runtimeGuidance?.sectionInventory?.length ?? 0).toBeGreaterThan(0);
+      expect(e.runtimeGuidance?.avoidPatterns?.length ?? 0).toBeGreaterThan(0);
+      expect(e.runtimeGuidance?.worldClassRubric?.length ?? 0).toBeGreaterThan(0);
       expect(Array.isArray(e.selectedFiles)).toBe(true);
     }
   });

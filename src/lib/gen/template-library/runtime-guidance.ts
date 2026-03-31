@@ -27,7 +27,10 @@ export function deriveTemplateRuntimeGuidance(
     "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
     "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
   ];
-  const sectionInventory: string[] = [];
+  const sectionInventory: string[] = [
+    "primary entry section",
+    "supporting content section",
+  ];
   const avoidPatterns: string[] = [
     "Do not paste large reference code blocks verbatim into the generated site.",
     "Do not let reference aesthetics override the user's actual topic, language, or route plan.",

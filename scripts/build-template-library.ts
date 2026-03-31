@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getScaffoldFamilies } from "../src/lib/gen/scaffolds";
 import type { ScaffoldFamily } from "../src/lib/gen/scaffolds/types";
+import { deriveTemplateRuntimeGuidance } from "../src/lib/gen/template-library/runtime-guidance";
 import type {
   TemplateLibraryCatalogFile,
   TemplateLibraryEntry,
@@ -55,6 +57,7 @@ const SOURCE_ROOT_CANDIDATES = [
 
 const NOISE_LINE_RE =
   /\b(Vercel Agent|Vercel documentation|Deploy at the speed of AI|Ship features, not infrastructure|SDKs by Vercel)\b/i;
+const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldFamilies());
 
 const INVALID_REPO_PATTERNS: Array<{ reason: TemplateLibraryVerdict; pattern: RegExp }> = [
   { reason: "bad_repo_link", pattern: /github\.com\/settings\//i },
@@ -623,7 +626,7 @@ function buildEntry(
   );
   const verdict = decideVerdict(repoUrl.verdict, repoInfo, qualityScore);
 
-  return {
+  const entryBase: TemplateLibraryEntry = {
     id: slug,
     slug,
     title: template.title,
@@ -646,6 +649,11 @@ function buildEntry(
     signals,
     summary: `${template.title} is a ${template.category_name} reference with ${strengths.slice(0, 3).join(", ") || "limited verified signals"}. Verdict: ${verdict}.`,
     selectedFiles,
+  };
+
+  return {
+    ...entryBase,
+    runtimeGuidance: deriveTemplateRuntimeGuidance(entryBase),
   };
 }
 
@@ -801,6 +809,39 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
   };
 }
 
+function validateTemplateLibraryEntries(entries: TemplateLibraryEntry[]): void {
+  for (const entry of entries) {
+    for (const family of entry.recommendedScaffoldFamilies) {
+      if (!KNOWN_SCAFFOLD_FAMILIES.has(family)) {
+        throw new Error(
+          `[template-library] ${entry.id} references unknown scaffold family "${family}"`,
+        );
+      }
+    }
+  }
+}
+
+function validateScaffoldResearchAgainstCatalog(
+  scaffoldResearch: ReturnType<typeof buildScaffoldResearch>,
+  entries: TemplateLibraryEntry[],
+): void {
+  const entryIds = new Set(entries.map((entry) => entry.id));
+  for (const [family, payload] of Object.entries(scaffoldResearch.scaffolds)) {
+    if (!KNOWN_SCAFFOLD_FAMILIES.has(family as ScaffoldFamily)) {
+      throw new Error(
+        `[template-library] scaffold research generated unknown family "${family}"`,
+      );
+    }
+    for (const reference of payload.research.referenceTemplates) {
+      if (!entryIds.has(reference.id)) {
+        throw new Error(
+          `[template-library] scaffold family "${family}" references missing template id "${reference.id}"`,
+        );
+      }
+    }
+  }
+}
+
 function resolveDefaultSourceRoot(): string {
   for (const candidate of SOURCE_ROOT_CANDIDATES) {
     if (fs.existsSync(resolveSummaryPath(candidate))) {
@@ -835,6 +876,9 @@ function main(): void {
   const curatedEntries = entries.filter(
     (entry) => entry.qualityScore >= 45 && !["bad_repo_link", "non_next_template"].includes(entry.verdict),
   );
+  validateTemplateLibraryEntries(curatedEntries);
+  const scaffoldResearch = buildScaffoldResearch(curatedEntries);
+  validateScaffoldResearchAgainstCatalog(scaffoldResearch, curatedEntries);
 
   const catalog: TemplateLibraryCatalogFile = {
     generatedAt: new Date().toISOString(),
@@ -853,7 +897,7 @@ function main(): void {
     curatedTemplates: catalog.curatedTemplates,
     entries: curatedEntries,
   });
-  writeJson(GENERATED_SCAFFOLD_RESEARCH_PATH, buildScaffoldResearch(curatedEntries));
+  writeJson(GENERATED_SCAFFOLD_RESEARCH_PATH, scaffoldResearch);
   writeScaffoldCandidateReport(curatedEntries, {
     outputPath: SCAFFOLD_CANDIDATE_REPORT_PATH,
     source: "scripts/build-template-library.ts",

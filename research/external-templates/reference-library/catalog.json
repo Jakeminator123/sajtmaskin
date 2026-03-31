@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-27T12:57:33.410Z",
+  "generatedAt": "2026-03-31T02:16:04.276Z",
   "sourceRoot": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\research\\external-templates\\raw-discovery\\current",
   "totalTemplates": 69,
   "curatedTemplates": 6,
@@ -115,7 +115,35 @@
           "reason": "Layout and navigation reference",
           "excerpt": "import { useMediaQuery, Box, Drawer } from \"@mui/material\";\nimport SidebarItems from \"./SidebarItems\";\n\n\n\ninterface ItemType {\n  isMobileSidebarOpen: boolean;\n  onSidebarClose: (event: React.MouseEvent<HTMLElement>) => void;\n  isSidebarOpen: boolean;\n}\n\nconst MSidebar = ({\n  isMobileSidebarOpen,\n  onSidebarClose,\n  isSidebarOpen,\n}: ItemType) => {\n  const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up(\"lg\"));\n\n  const sidebarWidth = \"270px\";\n\n  // Custom CSS for short scrollbar\n  const scrollbarStyles = {\n    '&::-webkit-scrollbar': {\n      width: '7px',\n\n    },\n    '&::-webkit-scrollbar-thumb': {\n      backgroundColor: '#eff2f7',\n      borderRadius: '15px',\n    },\n  };\n\n\n  if (lgUp) {\n    return (\n      <Box\n        sx={{\n          width: sidebarWidth,\n          flexShrink: 0,\n        }}\n      >\n        {/* ------------------------------------------- */}\n        {/* Sidebar for desktop */}\n        {/* ------------------------------------------- */}\n        <Drawer\n          anchor=\"left\"\n          open={isSidebarOpen}\n          variant=\"permanent\"\n          slotProps={{\n            paper: {\n              sx: {\n                boxSizing: \"border-box\",\n                ...scrollbarStyles,\n                width: sidebarWidth,\n              },\n            }\n          }}\n        >\n          {/* ------------------------------------------- */}\n          {/* Sidebar Box */}\n          {/* ------------------------------------------- */}\n          <Box\n            sx={{\n              height: \"100%\",\n            }}\n          >\n\n            <Box>\n              {/* ------------------------------------------- */}\n              {/* Sidebar Items */}\n              {/* ------------------------------------------- */}\n              <SidebarItems />\n            </Box>\n          </Box>\n        </Drawer>\n      </Box >\n    );\n  }\n\n  return (\n    <Drawer\n      anchor=\"left\"\n      open={isMobileSidebarOpen}\n      onClose={onSidebarClose}\n      variant=\"temporary\"\n\n      slotProps={{\n        paper: {\n          sx: {\n            boxShadow: (theme) => theme.shadows[8],\n            ...scrollbarStyles,\n          },\n        }\n      }}\n    >\n      {/* ------------------------------------------- */}\n      {/* Sidebar Box */}\n      {/* ------------------------------------------- */}\n\n// ... truncated"
         }
-      ]
+      ],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Keep each auth screen single-purpose, calm, and trustworthy."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Auth pages should feel ready for real product onboarding."
+        ]
+      }
     },
     {
       "id": "realtime-apps-anycable-real-time-starter-kit",
@@ -223,7 +251,29 @@
           "reason": "Useful structural reference",
           "excerpt": "import { cookies } from \"next/headers\";\nimport { RoomActions } from \"./room-actions\";\nimport { redirect } from \"next/navigation\";\nimport { nanoid } from \"nanoid\";\nimport { AvatarActions } from \"./avatar-actions\";\n\nexport function Header({ roomLabel }: { roomLabel: string }) {\n  const username = cookies().get(\"username\")?.value!;\n\n  async function signOut() {\n    \"use server\";\n\n    cookies().delete(\"token\");\n    cookies().delete(\"username\");\n    return redirect(\"/auth\");\n  }\n\n  return (\n    <div className=\"rounded-b-lg border-gray-200 bg-white p-4 shadow-md\">\n      <div className=\"flex items-center justify-between\">\n        <div className=\"flex items-center gap-3\">\n          <RoomActions newRoomId={nanoid()} />\n          <div className=\"flex flex-col\">\n            <div className=\"text-2xs uppercase text-gray-500\">Room</div>\n            <div className=\"truncate font-semibold\">{roomLabel}</div>\n          </div>\n        </div>\n        <div>\n          <AvatarActions usernameOrEmail={username} signOutAction={signOut} />\n        </div>\n      </div>\n    </div>\n  );\n}"
         }
-      ]
+      ],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome.",
+          "Keep navigation structure explicit and reusable across routes."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "marketing-sites-basehub-marketing-website",
@@ -321,7 +371,29 @@
           "reason": "Useful structural reference",
           "excerpt": "# BaseHub token retrieved here: https://basehub.com\nBASEHUB_TOKEN=\"\""
         }
-      ]
+      ],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome.",
+          "Keep navigation structure explicit and reusable across routes."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "ecommerce-builder-io-shopify-commerce",
@@ -418,7 +490,35 @@
           "reason": "Useful structural reference",
           "excerpt": "/** @jsxRuntime classic */\n/** @jsx jsx */\nimport { jsx, Close, Box } from 'theme-ui'\nimport { useResponsiveValue } from '@theme-ui/match-media'\nimport { FC } from 'react'\nimport { BaseModal, ModalCloseTarget } from '@components/modals'\nimport NoSSR from './NoSSR'\n\ninterface Props {\n  open: boolean\n  onClose: () => void\n}\n\nconst Sidebar: FC<Props & { children: React.ReactNode }> = ({\n  children,\n  open = false,\n  onClose,\n}) => {\n  const width = useResponsiveValue(['100%', 500])\n  return (\n    <NoSSR>\n      <BaseModal\n        isOpen={open}\n        onDismiss={onClose}\n        contentProps={{\n          style: {\n            width,\n            position: 'absolute',\n            top: 0,\n            right: 0,\n            height: '100%',\n          },\n        }}\n        contentTransition={{\n          from: { transform: 'translateX(100%)' },\n          enter: { transform: 'translateX(0)' },\n          leave: { transform: 'translateX(100%)' },\n        }}\n      >\n        <ModalCloseTarget>\n          <Box\n            sx={{\n              display: 'flex',\n              justifyContent: 'space-between',\n              py: 1,\n              bg: 'text',\n              color: 'background',\n            }}\n          >\n            <Close />\n          </Box>\n        </ModalCloseTarget>\n        {children}\n      </BaseModal>\n    </NoSSR>\n  )\n}\n\nexport default Sidebar"
         }
-      ]
+      ],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid hiding product information behind vague marketing copy."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible."
+        ]
+      }
     },
     {
       "id": "cms-builder-io-shopify-commerce",
@@ -514,7 +614,35 @@
           "reason": "Useful structural reference",
           "excerpt": "/** @jsxRuntime classic */\n/** @jsx jsx */\nimport { jsx, Close, Box } from 'theme-ui'\nimport { useResponsiveValue } from '@theme-ui/match-media'\nimport { FC } from 'react'\nimport { BaseModal, ModalCloseTarget } from '@components/modals'\nimport NoSSR from './NoSSR'\n\ninterface Props {\n  open: boolean\n  onClose: () => void\n}\n\nconst Sidebar: FC<Props & { children: React.ReactNode }> = ({\n  children,\n  open = false,\n  onClose,\n}) => {\n  const width = useResponsiveValue(['100%', 500])\n  return (\n    <NoSSR>\n      <BaseModal\n        isOpen={open}\n        onDismiss={onClose}\n        contentProps={{\n          style: {\n            width,\n            position: 'absolute',\n            top: 0,\n            right: 0,\n            height: '100%',\n          },\n        }}\n        contentTransition={{\n          from: { transform: 'translateX(100%)' },\n          enter: { transform: 'translateX(0)' },\n          leave: { transform: 'translateX(100%)' },\n        }}\n      >\n        <ModalCloseTarget>\n          <Box\n            sx={{\n              display: 'flex',\n              justifyContent: 'space-between',\n              py: 1,\n              bg: 'text',\n              color: 'background',\n            }}\n          >\n            <Close />\n          </Box>\n        </ModalCloseTarget>\n        {children}\n      </BaseModal>\n    </NoSSR>\n  )\n}\n\nexport default Sidebar"
         }
-      ]
+      ],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "marketing-sites-drupal-marketing-site",
@@ -590,7 +718,34 @@
         "cms": true
       },
       "summary": "Drupal Marketing Site is a Marketing Sites reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: huge_monorepo.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "portfolio-content-wind",
@@ -676,7 +831,34 @@
           "reason": "Dependency and script verification",
           "excerpt": "{\n  \"name\": \"content-wind\",\n  \"description\": \"A personal website theme powered by Nuxt Content, TailwindCSS, Iconify and Vue components.\",\n  \"private\": false,\n  \"version\": \"2.0.0\",\n  \"main\": \"nuxt.config.ts\",\n  \"license\": \"MIT\",\n  \"scripts\": {\n    \"dev\": \"nuxi dev\",\n    \"build\": \"nuxi build\",\n    \"generate\": \"nuxi generate\",\n    \"preview\": \"nuxi preview\",\n    \"lint\": \"eslint .\"\n  },\n  \"dependencies\": {\n    \"@iconify-json/lucide\": \"^1.2.34\",\n    \"@iconify-json/simple-icons\": \"^1.2.30\",\n    \"@nuxt/content\": \"^3.4.0\",\n    \"@nuxt/icon\": \"^1.11.0\",\n    \"@nuxtjs/color-mode\": \"^3.5.2\",\n    \"@tailwindcss/typography\": \"^0.5.16\",\n    \"@tailwindcss/vite\": \"^4.1.3\",\n    \"nuxt\": \"^3.15.4\",\n    \"tailwindcss\": \"^4.1.3\"\n  },\n  \"devDependencies\": {\n    \"@nuxt/eslint\": \"^1.3.0\",\n    \"eslint\": \"^9.24.0\",\n    \"typescript\": \"^5.8.3\"\n  },\n  \"packageManager\": \"pnpm@10.7.1\",\n  \"pnpm\": {\n    \"onlyBuiltDependencies\": [\n      \"@parcel/watcher\",\n      \"better-sqlite3\",\n      \"esbuild\",\n      \"vue-demi\"\n    ]\n  }\n}"
         }
-      ]
+      ],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Let the work itself dominate through imagery, spacing, and case-study framing.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "project showcase",
+          "case study detail",
+          "bio or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid burying the portfolio behind excessive product-marketing sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Visual presentation should feel curated rather than theme-default.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "portfolio-professional-card-astro",
@@ -765,7 +947,34 @@
           "reason": "Dependency and script verification",
           "excerpt": "{\n  \"name\": \"personal-card-astro\",\n  \"type\": \"module\",\n  \"version\": \"0.0.1\",\n  \"scripts\": {\n    \"dev\": \"astro dev\",\n    \"start\": \"astro dev\",\n    \"build\": \"astro build\",\n    \"preview\": \"astro preview\",\n    \"astro\": \"astro\"\n  },\n  \"dependencies\": {\n    \"astro\": \"^4.9.1\"\n  }\n}"
         }
-      ]
+      ],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Let the work itself dominate through imagery, spacing, and case-study framing.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "project showcase",
+          "case study detail",
+          "bio or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid burying the portfolio behind excessive product-marketing sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Visual presentation should feel curated rather than theme-default.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "authentication-nuxt-ai-chatbot",
@@ -849,7 +1058,35 @@
         "cms": false
       },
       "summary": "Nuxt AI Chatbot is a Authentication reference with App Router structure, auth flow reference, dashboard shell patterns. Verdict: non_next_template.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Keep each auth screen single-purpose, calm, and trustworthy."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Auth pages should feel ready for real product onboarding."
+        ]
+      }
     },
     {
       "id": "ai-nuxt-ai-chatbot",
@@ -933,7 +1170,35 @@
         "cms": false
       },
       "summary": "Nuxt AI Chatbot is a AI reference with App Router structure, auth flow reference, dashboard shell patterns. Verdict: non_next_template.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Keep each auth screen single-purpose, calm, and trustworthy."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Auth pages should feel ready for real product onboarding."
+        ]
+      }
     },
     {
       "id": "multi-tenant-apps-b2b-multi-tenant-starter-kit",
@@ -1018,7 +1283,35 @@
         "cms": false
       },
       "summary": "B2B Multi-Tenant Starter Kit is a Multi-Tenant Apps reference with auth flow reference, dashboard shell patterns, pricing or billing structure. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Commercial sections should feel conversion-ready without looking template-generic."
+        ]
+      }
     },
     {
       "id": "saas-next-js-saas-starter",
@@ -1102,7 +1395,35 @@
         "cms": false
       },
       "summary": "Next.js SaaS Starter is a SaaS reference with auth flow reference, dashboard shell patterns, pricing or billing structure. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Commercial sections should feel conversion-ready without looking template-generic."
+        ]
+      }
     },
     {
       "id": "admin-dashboard-next-js-saas-starter",
@@ -1186,7 +1507,35 @@
         "cms": false
       },
       "summary": "Next.js SaaS Starter is a Admin Dashboard reference with auth flow reference, dashboard shell patterns, pricing or billing structure. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Commercial sections should feel conversion-ready without looking template-generic."
+        ]
+      }
     },
     {
       "id": "blog-next-js-portfolio-with-blog",
@@ -1270,7 +1619,35 @@
         "cms": false
       },
       "summary": "Next.js Portfolio with Blog is a Blog reference with dashboard shell patterns, editorial content hierarchy, portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid collapsing editorial references into generic feature-card marketing."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Reading flow should feel deliberate on both desktop and mobile."
+        ]
+      }
     },
     {
       "id": "portfolio-next-js-portfolio-with-blog",
@@ -1354,7 +1731,35 @@
         "cms": false
       },
       "summary": "Next.js Portfolio with Blog is a Portfolio reference with dashboard shell patterns, editorial content hierarchy, portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid collapsing editorial references into generic feature-card marketing."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Reading flow should feel deliberate on both desktop and mobile."
+        ]
+      }
     },
     {
       "id": "blog-portfolio-starter-kit",
@@ -1438,7 +1843,35 @@
         "cms": false
       },
       "summary": "Portfolio Starter Kit is a Blog reference with dashboard shell patterns, editorial content hierarchy, portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid collapsing editorial references into generic feature-card marketing."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Reading flow should feel deliberate on both desktop and mobile."
+        ]
+      }
     },
     {
       "id": "portfolio-portfolio-starter-kit",
@@ -1522,7 +1955,35 @@
         "cms": false
       },
       "summary": "Portfolio Starter Kit is a Portfolio reference with dashboard shell patterns, editorial content hierarchy, portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid collapsing editorial references into generic feature-card marketing."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Reading flow should feel deliberate on both desktop and mobile."
+        ]
+      }
     },
     {
       "id": "ai-slack-agent-template",
@@ -1605,7 +2066,35 @@
         "cms": false
       },
       "summary": "Slack Agent Template is a AI reference with auth flow reference, dashboard shell patterns, multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Keep each auth screen single-purpose, calm, and trustworthy."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Auth pages should feel ready for real product onboarding."
+        ]
+      }
     },
     {
       "id": "saas-stripe-subscription-starter",
@@ -1688,7 +2177,35 @@
         "cms": false
       },
       "summary": "Stripe Subscription Starter is a SaaS reference with auth flow reference, pricing or billing structure, storefront or checkout patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid hiding product information behind vague marketing copy."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible."
+        ]
+      }
     },
     {
       "id": "ecommerce-stripe-subscription-starter",
@@ -1771,7 +2288,35 @@
         "cms": false
       },
       "summary": "Stripe Subscription Starter is a Ecommerce reference with auth flow reference, pricing or billing structure, storefront or checkout patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid hiding product information behind vague marketing copy."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible."
+        ]
+      }
     },
     {
       "id": "authentication-stripe-subscription-starter",
@@ -1854,7 +2399,35 @@
         "cms": false
       },
       "summary": "Stripe Subscription Starter is a Authentication reference with auth flow reference, pricing or billing structure, storefront or checkout patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid hiding product information behind vague marketing copy."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible."
+        ]
+      }
     },
     {
       "id": "multi-tenant-apps-auth-for-subdomains",
@@ -1936,7 +2509,35 @@
         "cms": false
       },
       "summary": "Auth for subdomains is a Multi-Tenant Apps reference with auth flow reference, multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep each auth screen single-purpose, calm, and trustworthy."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Auth pages should feel ready for real product onboarding."
+        ]
+      }
     },
     {
       "id": "starter-image-gallery-starter",
@@ -2019,7 +2620,35 @@
         "cms": false
       },
       "summary": "Image Gallery Starter is a Starter reference with portfolio or gallery presentation, multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Let the work itself dominate through imagery, spacing, and case-study framing.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "project showcase",
+          "case study detail",
+          "bio or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid burying the portfolio behind excessive product-marketing sections.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Visual presentation should feel curated rather than theme-default.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "portfolio-magic-portfolio-for-next-js",
@@ -2102,7 +2731,35 @@
         "cms": false
       },
       "summary": "Magic Portfolio for Next.js is a Portfolio reference with editorial content hierarchy, portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "Let the work itself dominate through imagery, spacing, and case-study framing."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing.",
+          "Avoid burying the portfolio behind excessive product-marketing sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Visual presentation should feel curated rather than theme-default."
+        ]
+      }
     },
     {
       "id": "multi-tenant-apps-multi-tenant-ai-native-todo-list-app-with-nile",
@@ -2184,7 +2841,35 @@
         "cms": false
       },
       "summary": "Multi-tenant AI-native todo list app with Nile is a Multi-Tenant Apps reference with dashboard shell patterns, multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Commercial sections should feel conversion-ready without looking template-generic."
+        ]
+      }
     },
     {
       "id": "starter-next-js-contentlayer-blog-starter",
@@ -2260,7 +2945,35 @@
         "cms": false
       },
       "summary": "Next.js Contentlayer Blog Starter is a Starter reference with editorial content hierarchy, portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "Let the work itself dominate through imagery, spacing, and case-study framing."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing.",
+          "Avoid burying the portfolio behind excessive product-marketing sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Visual presentation should feel curated rather than theme-default."
+        ]
+      }
     },
     {
       "id": "multi-tenant-apps-turso-per-user-starter",
@@ -2342,7 +3055,35 @@
         "cms": false
       },
       "summary": "Turso Per User Starter is a Multi-Tenant Apps reference with auth flow reference, multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep each auth screen single-purpose, calm, and trustworthy."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Auth pages should feel ready for real product onboarding."
+        ]
+      }
     },
     {
       "id": "ecommerce-ecommerce-template-with-crystallize-and-remix",
@@ -2423,7 +3164,35 @@
         "cms": true
       },
       "summary": "Ecommerce Template with Crystallize and Remix is a Ecommerce reference with storefront or checkout patterns, CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "catalog grid",
+          "product detail",
+          "cart or checkout direction"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid hiding product information behind vague marketing copy.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "cms-ecommerce-template-with-crystallize-and-remix",
@@ -2504,7 +3273,35 @@
         "cms": true
       },
       "summary": "Ecommerce Template with Crystallize and Remix is a CMS reference with storefront or checkout patterns, CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "catalog grid",
+          "product detail",
+          "cart or checkout direction"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid hiding product information behind vague marketing copy.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "blog-isr-blog-with-next-js-and-wordpress",
@@ -2585,7 +3382,35 @@
         "cms": true
       },
       "summary": "ISR Blog with Next.js and WordPress is a Blog reference with editorial content hierarchy, CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "cms-isr-blog-with-next-js-and-wordpress",
@@ -2666,7 +3491,35 @@
         "cms": true
       },
       "summary": "ISR Blog with Next.js and WordPress is a CMS reference with editorial content hierarchy, CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "ecommerce-medusa-next-js-ecommerce-store-starter",
@@ -2747,7 +3600,35 @@
         "cms": false
       },
       "summary": "Medusa Next.js Ecommerce Store Starter is a Ecommerce reference with pricing or billing structure, storefront or checkout patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid hiding product information behind vague marketing copy."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible."
+        ]
+      }
     },
     {
       "id": "blog-next-js-contentlayer-blog-starter",
@@ -2822,7 +3703,35 @@
         "cms": false
       },
       "summary": "Next.js Contentlayer Blog Starter is a Blog reference with editorial content hierarchy, portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "Let the work itself dominate through imagery, spacing, and case-study framing."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing.",
+          "Avoid burying the portfolio behind excessive product-marketing sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Visual presentation should feel curated rather than theme-default."
+        ]
+      }
     },
     {
       "id": "cms-prismic-blog",
@@ -2900,7 +3809,35 @@
         "cms": true
       },
       "summary": "Prismic Blog is a CMS reference with editorial content hierarchy, CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "multi-tenant-apps-rewrite-docs-to-mintlify",
@@ -2980,7 +3917,35 @@
         "cms": false
       },
       "summary": "Rewrite docs to Mintlify is a Multi-Tenant Apps reference with multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
@@ -3061,7 +4026,34 @@
         "cms": false
       },
       "summary": "Router.so - Headless Forms and Lead Routing is a Marketing Sites reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep each auth screen single-purpose, calm, and trustworthy.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Auth pages should feel ready for real product onboarding.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "marketing-sites-bulk-redirects-via-a-cms",
@@ -3141,7 +4133,34 @@
         "cms": true
       },
       "summary": "Bulk Redirects via a CMS is a Marketing Sites reference with CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "authentication-chatbot",
@@ -3221,7 +4240,34 @@
         "cms": false
       },
       "summary": "Chatbot is a Authentication reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep each auth screen single-purpose, calm, and trustworthy.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Auth pages should feel ready for real product onboarding.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "ai-chatbot",
@@ -3301,7 +4347,34 @@
         "cms": false
       },
       "summary": "Chatbot is a AI reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep each auth screen single-purpose, calm, and trustworthy.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Auth pages should feel ready for real product onboarding.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "blog-logspot",
@@ -3381,7 +4454,35 @@
         "cms": false
       },
       "summary": "Logspot is a Blog reference with editorial content hierarchy. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "marketing-sites-odyssey",
@@ -3462,7 +4563,34 @@
         "cms": false
       },
       "summary": "Odyssey is a Marketing Sites reference with editorial content hierarchy. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "saas-platforms-starter-kit",
@@ -3542,7 +4670,34 @@
         "cms": false
       },
       "summary": "Platforms Starter Kit is a SaaS reference with multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "multi-tenant-apps-platforms-starter-kit",
@@ -3622,7 +4777,34 @@
         "cms": false
       },
       "summary": "Platforms Starter Kit is a Multi-Tenant Apps reference with multi-tenant or workspace patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "authentication-sveltekit-authentication",
@@ -3703,7 +4885,34 @@
         "cms": false
       },
       "summary": "SvelteKit Authentication is a Authentication reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep each auth screen single-purpose, calm, and trustworthy.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Auth pages should feel ready for real product onboarding.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "admin-dashboard-visactor-next-js-template",
@@ -3784,7 +4993,34 @@
         "cms": false
       },
       "summary": "VisActor Next.js Template is a Admin Dashboard reference with dashboard shell patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Preserve clear information density with persistent navigation and scannable panels.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "overview metrics",
+          "filters or controls",
+          "table or chart area"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid turning dashboard references into generic marketing landing pages."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Dense UI must still feel legible, fast, and trustworthy.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "portfolio-astrozen-personal-portfolio",
@@ -3864,7 +5100,34 @@
         "cms": false
       },
       "summary": "AstroZen Personal Portfolio is a Portfolio reference with portfolio or gallery presentation. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Let the work itself dominate through imagery, spacing, and case-study framing.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "project showcase",
+          "case study detail",
+          "bio or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid burying the portfolio behind excessive product-marketing sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Visual presentation should feel curated rather than theme-default.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "blog-blog-starter-kit",
@@ -3944,7 +5207,34 @@
         "cms": false
       },
       "summary": "Blog Starter Kit is a Blog reference with editorial content hierarchy. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "article hero",
+          "archive list",
+          "author or credibility block"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid collapsing editorial references into generic feature-card marketing."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Reading flow should feel deliberate on both desktop and mobile.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "starter-next-js-app-router-playground",
@@ -4022,7 +5312,34 @@
         "cms": false
       },
       "summary": "Next.js App Router Playground is a Starter reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "starter-next-js-boilerplate",
@@ -4101,7 +5418,34 @@
         "cms": false
       },
       "summary": "Next.js Boilerplate is a Starter reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "ecommerce-next-js-commerce",
@@ -4180,7 +5524,34 @@
         "cms": false
       },
       "summary": "Next.js Commerce is a Ecommerce reference with storefront or checkout patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "catalog grid",
+          "product detail",
+          "cart or checkout direction"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid hiding product information behind vague marketing copy."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "saas-onelink",
@@ -4259,7 +5630,35 @@
         "cms": false
       },
       "summary": "Onelink is a SaaS reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Content-first sites should feel structured, findable, and stable."
+        ]
+      }
     },
     {
       "id": "cms-sanity-next-js-personal-website",
@@ -4338,7 +5737,34 @@
         "cms": true
       },
       "summary": "Sanity + Next.js Personal Website is a CMS reference with CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "ecommerce-sveltekit-commerce",
@@ -4412,7 +5838,34 @@
         "cms": false
       },
       "summary": "SvelteKit Commerce is a Ecommerce reference with storefront or checkout patterns. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "catalog grid",
+          "product detail",
+          "cart or checkout direction"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid hiding product information behind vague marketing copy."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "marketing-sites-astroship",
@@ -4489,7 +5942,28 @@
         "cms": false
       },
       "summary": "Astroship is a Marketing Sites reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "ai-customer-reviews-ai-summary",
@@ -4567,7 +6041,28 @@
         "cms": false
       },
       "summary": "Customer Reviews AI Summary is a AI reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "ai-hume-ai-empathic-voice-interface-starter",
@@ -4638,7 +6133,28 @@
         "cms": false
       },
       "summary": "Hume AI - Empathic Voice Interface Starter is a AI reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "ai-lead-agent",
@@ -4715,7 +6231,34 @@
         "cms": false
       },
       "summary": "Lead Agent is a AI reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "realtime-apps-liveblocks-linear-like-issue-tracker",
@@ -4792,7 +6335,28 @@
         "cms": false
       },
       "summary": "Liveblocks Linear-like Issue Tracker is a Realtime Apps reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "realtime-apps-liveblocks-notion-like-ai-editor",
@@ -4869,7 +6433,28 @@
         "cms": false
       },
       "summary": "Liveblocks Notion-like AI Editor is a Realtime Apps reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "realtime-apps-liveblocks-tldraw-whiteboard",
@@ -4946,7 +6531,28 @@
         "cms": false
       },
       "summary": "Liveblocks Tldraw Whiteboard is a Realtime Apps reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "starter-next-js-enterprise-boilerplate",
@@ -5023,7 +6629,28 @@
         "cms": false
       },
       "summary": "Next.js Enterprise Boilerplate is a Starter reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "saas-next-js-enterprise-boilerplate",
@@ -5100,7 +6727,34 @@
         "cms": false
       },
       "summary": "Next.js Enterprise Boilerplate is a SaaS reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "starter-nuxt-js-3-boilerplate",
@@ -5178,7 +6832,28 @@
         "cms": false
       },
       "summary": "Nuxt.js 3 Boilerplate is a Starter reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "realtime-apps-rollbar-vercel-starter-kit",
@@ -5254,7 +6929,28 @@
         "cms": false
       },
       "summary": "Rollbar + Vercel starter kit is a Realtime Apps reference with limited verified signals. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "saas-liveblocks-starter-kit",
@@ -5336,7 +7032,35 @@
         "cms": false
       },
       "summary": "Liveblocks Starter Kit is a SaaS reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep each auth screen single-purpose, calm, and trustworthy."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "hero",
+          "product proof",
+          "pricing"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Auth pages should feel ready for real product onboarding."
+        ]
+      }
     },
     {
       "id": "authentication-liveblocks-starter-kit",
@@ -5417,7 +7141,34 @@
         "cms": false
       },
       "summary": "Liveblocks Starter Kit is a Authentication reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep each auth screen single-purpose, calm, and trustworthy.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Auth pages should feel ready for real product onboarding.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "realtime-apps-liveblocks-starter-kit",
@@ -5498,7 +7249,34 @@
         "cms": false
       },
       "summary": "Liveblocks Starter Kit is a Realtime Apps reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep each auth screen single-purpose, calm, and trustworthy.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Auth pages should feel ready for real product onboarding.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "authentication-supabase-starter",
@@ -5577,7 +7355,34 @@
         "cms": false
       },
       "summary": "Supabase Starter is a Authentication reference with auth flow reference. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Keep each auth screen single-purpose, calm, and trustworthy.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid mixing auth flows with unrelated landing-page sections."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Auth pages should feel ready for real product onboarding.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     },
     {
       "id": "cms-cms-kit-sanity-next-js-15-visual-site-builder",
@@ -5656,7 +7461,34 @@
         "cms": true
       },
       "summary": "CMS-Kit: Sanity + Next.js 15 Visual Site Builder is a CMS reference with CMS integration hints. Verdict: research_only.",
-      "selectedFiles": []
+      "selectedFiles": [],
+      "runtimeGuidance": {
+        "styleRules": [
+          "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+          "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+        ],
+        "sectionInventory": [
+          "primary entry section",
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
+        ],
+        "avoidPatterns": [
+          "Do not paste large reference code blocks verbatim into the generated site.",
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
+        ],
+        "worldClassRubric": [
+          "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+          "Reusable sections with believable content, not generic lorem-style filler.",
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
+          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+        ]
+      }
     }
   ]
 }

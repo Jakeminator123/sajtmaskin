@@ -92,5 +92,33 @@
       "reason": "Useful structural reference",
       "excerpt": "/** @jsxRuntime classic */\n/** @jsx jsx */\nimport { jsx, Close, Box } from 'theme-ui'\nimport { useResponsiveValue } from '@theme-ui/match-media'\nimport { FC } from 'react'\nimport { BaseModal, ModalCloseTarget } from '@components/modals'\nimport NoSSR from './NoSSR'\n\ninterface Props {\n  open: boolean\n  onClose: () => void\n}\n\nconst Sidebar: FC<Props & { children: React.ReactNode }> = ({\n  children,\n  open = false,\n  onClose,\n}) => {\n  const width = useResponsiveValue(['100%', 500])\n  return (\n    <NoSSR>\n      <BaseModal\n        isOpen={open}\n        onDismiss={onClose}\n        contentProps={{\n          style: {\n            width,\n            position: 'absolute',\n            top: 0,\n            right: 0,\n            height: '100%',\n          },\n        }}\n        contentTransition={{\n          from: { transform: 'translateX(100%)' },\n          enter: { transform: 'translateX(0)' },\n          leave: { transform: 'translateX(100%)' },\n        }}\n      >\n        <ModalCloseTarget>\n          <Box\n            sx={{\n              display: 'flex',\n              justifyContent: 'space-between',\n              py: 1,\n              bg: 'text',\n              color: 'background',\n            }}\n          >\n            <Close />\n          </Box>\n        </ModalCloseTarget>\n        {children}\n      </BaseModal>\n    </NoSSR>\n  )\n}\n\nexport default Sidebar"
     }
-  ]
+  ],
+  "runtimeGuidance": {
+    "styleRules": [
+      "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+      "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+      "Preserve clear information density with persistent navigation and scannable panels.",
+      "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+    ],
+    "sectionInventory": [
+      "primary entry section",
+      "supporting content section",
+      "overview metrics",
+      "filters or controls",
+      "table or chart area"
+    ],
+    "avoidPatterns": [
+      "Do not paste large reference code blocks verbatim into the generated site.",
+      "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+      "Avoid turning dashboard references into generic marketing landing pages.",
+      "Avoid forcing documentation references into pricing-first SaaS structures."
+    ],
+    "worldClassRubric": [
+      "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+      "Reusable sections with believable content, not generic lorem-style filler.",
+      "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+      "Dense UI must still feel legible, fast, and trustworthy.",
+      "Content-first sites should feel structured, findable, and stable."
+    ]
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-27T12:57:33.468Z",
+  "generatedAt": "2026-03-31T02:16:04.275Z",
   "source": "scripts/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
