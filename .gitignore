@@ -194,3 +194,4 @@ STOR_MIGRATION
 internt_jakob/
 
 .env*.local
+files_envvars

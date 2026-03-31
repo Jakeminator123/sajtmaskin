@@ -32,7 +32,7 @@ package-lock.json
 OLD.env.local
 OLD.env.production
 ENV_JAMFORRELSE.txt
-di-d.txt
+#di-d.txt
 
 # --- Data & prompt-dumpar ---
 data/prompt-dumps/*
@@ -108,3 +108,4 @@ services/mpc/docs/**
 services/mpc/logs/
 next-env.d.ts
 archive\scripts-labs-testning_scarf
+files_envvars
