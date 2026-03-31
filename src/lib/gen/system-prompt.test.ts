@@ -408,4 +408,103 @@ describe("buildDynamicContext", () => {
       expect(context).not.toContain("**Forbidden patterns:**");
     });
   });
+
+  describe("prompt assembly integration", () => {
+    it("init website with brief surfaces intent, profile, project context, and original request in order", async () => {
+      const context = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        originalPrompt: "Build a professional law firm website",
+        brief: {
+          projectTitle: "Advokatbyrån Lindström",
+          brandName: "Lindström & Co",
+        },
+        buildSpec: {
+          ...lightFollowUpSpec,
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("## Build Intent: Website");
+      expect(context).toContain("## Generation Profile");
+      expect(context).toContain("- **Style direction:** brand-led");
+      expect(context).toContain("## Project Context");
+      expect(context).toContain("Lindström");
+      expect(context).toContain("## Original Request");
+      expect(context).toContain("Build a professional law firm website");
+
+      const buildIntentIdx = context.indexOf("## Build Intent: Website");
+      const profileIdx = context.indexOf("## Generation Profile");
+      const scaffoldIdx = context.indexOf("## Scaffold");
+      const projectIdx = context.indexOf("## Project Context");
+      const originalIdx = context.indexOf("## Original Request");
+      expect(buildIntentIdx).toBeLessThan(profileIdx);
+      expect(profileIdx).toBeLessThan(scaffoldIdx);
+      expect(scaffoldIdx).toBeLessThan(projectIdx);
+      expect(projectIdx).toBeLessThan(originalIdx);
+    });
+
+    it("init app with route plan surfaces application intent, routes, and multi-page instruction", async () => {
+      const routePlan = {
+        source: "prompt" as const,
+        siteType: "app-shell" as const,
+        reason: "Multi-area dashboard application",
+        routes: [
+          { path: "/dashboard", name: "Dashboard", intent: "Overview and KPIs", required: true },
+          { path: "/settings", name: "Settings", intent: "Workspace and account settings", required: true },
+          { path: "/users", name: "Users", intent: "User and role management", required: true },
+        ],
+      };
+
+      const context = await buildDynamicContext({
+        intent: "app",
+        generationMode: "init",
+        originalPrompt: "Build an internal admin application",
+        routePlan,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          buildIntent: "app",
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("## Build Intent: Application");
+      expect(context).toContain("## Route Plan");
+      expect(context).toContain("/dashboard");
+      expect(context).toContain(
+        "Do not collapse this into a single long landing page. Create real App Router page files for the required routes unless the user explicitly asks to simplify.",
+      );
+
+      const buildIntentIdx = context.indexOf("## Build Intent: Application");
+      const profileIdx = context.indexOf("## Generation Profile");
+      const routePlanIdx = context.indexOf("## Route Plan");
+      expect(buildIntentIdx).toBeLessThan(profileIdx);
+      expect(profileIdx).toBeLessThan(routePlanIdx);
+    });
+
+    it("follow-up light context omits doc and template sections but keeps mode and profile", async () => {
+      const context = await buildDynamicContext({
+        intent: "website",
+        originalPrompt: "Tweak hero copy only; keep layout.",
+        generationMode: "followUp",
+        buildSpec: lightFollowUpSpec,
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).not.toContain("## Relevant Documentation");
+      expect(context).not.toContain("## Relevant Template References");
+      expect(context).not.toContain("## Reference Code Snippets");
+      expect(context).toContain("## Generation Mode: Follow-Up");
+      expect(context).toContain("## Generation Profile");
+    });
+  });
 });

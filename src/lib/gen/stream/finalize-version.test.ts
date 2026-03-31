@@ -573,4 +573,95 @@ describe("finalizeAndSaveVersion", () => {
       }),
     );
   });
+
+  describe("finalize telemetry and persistence", () => {
+    it("init with premium quality target records preflight_passed and fast+deep default telemetry", async () => {
+      const result = await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "premium",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 12_000,
+            refsChars: 4_000,
+            systemContextChars: 18_000,
+          },
+        },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          qualityGateResult: "preflight_passed",
+          meta: expect.objectContaining({
+            buildSpec: expect.objectContaining({
+              qualityTarget: "premium",
+              previewPolicy: "fidelity2",
+            }),
+            finalizePath: "fast+deep",
+            finalizePathReason: "default",
+          }),
+        }),
+      );
+      expect(result.telemetryRecordId).not.toBeNull();
+    });
+
+    it("follow-up with fast verification skips materializeImages and records fast-only light_followup telemetry", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "fast",
+          contextPolicy: "light",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 12_000,
+            refsChars: 4_000,
+            systemContextChars: 18_000,
+          },
+        },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(materializeImages).not.toHaveBeenCalled();
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            finalizePath: "fast-only",
+            finalizePathReason: "light_followup_fast_policy",
+          }),
+        }),
+      );
+    });
+  });
 });
