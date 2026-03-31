@@ -22,7 +22,6 @@ vi.mock("@/lib/gen/stream/finalize-version", () => ({
     }
   },
   finalizeAndSaveVersion: finalizeAndSaveVersionMock,
-  getLastMaterializedUrls: vi.fn(() => new Set()),
 }));
 
 vi.mock("@/lib/mcp/runtime-url", () => ({

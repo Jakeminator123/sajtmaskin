@@ -219,6 +219,8 @@ Kodstäd utan ny bock ändrar inte %-värdet; skriv då en rad i loggen under *K
 | **Efter** pass 2026-03-31 (am) | 2026-03-31 | 12/21   | 57%     | 43%    | Kod: bort ~50 döda funktioner/konstanter (helt borttagna) ur bl.a. `vercel-client` (11 oanvända API-metoder), `blob-service` (3), `stripe` (2), `gen/defaults` (6 modell-/duration-konstanter), `plan-schema` (3), `route-helpers` (2), `setup-contract` (2), `loopia-client` (2), `media-bank` (hela komponenten), `debug` (2), `version-manager` (2), `static-core-loader` (2), `system-prompt` (1), m.fl. Avexporterade ~23 interna helpers: `DETECTION_PIPELINE`, `PLAN_SYSTEM_PROMPT`, `DIAMOND_PACKAGES`, `getBotScore`/`isLikelyBot`, `WIZARD_COST`/`DEPLOY_COSTS`/`OPENCLAW_TIP_COST`/`resolveModelTier`, `evaluateCredits`, `isReasoningModel`, `readCreateChatLock`/`normalizePrompt`/`looksLikeUnsupportedModelError`, m.fl. Verifierat: `npm run typecheck` + `npm run test:ci` grönt (572 tester). `src/lib/gen/scaffolds/*` orört. |
 | **Före** pass 2026-03-31 (an)  | 2026-03-31 | 12/21   | 57%     | 43%    | Zon: builder preview + generation settings + runtime-library-audit — knip “unused export” som bara är intern modul-API. |
 | **Efter** pass 2026-03-31 (an) | 2026-03-31 | 12/21   | 57%     | 43%    | Kod: avexporterade (export bort) `resolveToolLabels` (`BuilderMessageTooling`), `chatVersionFilesUrl` (`chat-version-files-fetch`), `PREVIEW_READY_*` (`usePreviewIframe`), `buildChatGenerationSettingsKey` (`chat-generation-settings`), `RUNTIME_LIBRARY_FAMILIES` (`runtime-library-audit`). Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört; WIP under `api/v0/chats` + `useCreateChat` orörd. |
+| **Före** pass 2026-03-31 (ao)  | 2026-03-31 | 12/21   | 57%     | 43%    | Zon: brett knip-uppföljning — död kod, oanvända zod-scheman, v0-alias, oanvänd suspense-transform, död finalize-state; ärlig Fas A Postgres-policy. |
+| **Efter** pass 2026-03-31 (ao) | 2026-03-31 | 13/21   | 62%     | 38%    | Kod: bort oanvända exports i `chatSchemas` (`modelTiers`, `acceptedModelIds`, `chatIdSchema`, `messageIdSchema`, `versionIdSchema`, `createDeploymentSchema`), v0-alias i `promptAssist`, oanvänd `OPENCLAW_ACTION_TAGS`, oanvända `getEntryToken`/`clearEntryToken`/`hasEntryToken`, död `buildSandboxFiles`, oanvänd `normalizePlannedRoutePath`, oanvänd `createSuspenseTransform`+`applyRules` (typer kvar i `suspense/transform`), oanvänd `_lastMaterializedUrls`/`getLastMaterializedUrls` i `finalize-version`; avexporterade modulinterna helpers i `promptAssistContext`, `post-checks-preview`, `request-metadata`, `preflight-contract`, `image-validator`. Docs: `ENTRY-SYSTEM.md` uppdaterad. Bock: [Fas A ruta 4](#fas-a--baseline-innan-radering) — standard nästa steg = `POSTGRES_URL` i `.env.local` per [`docs/ENV.md`](../../ENV.md); staging/prod kräver explicit beslut före data-ingrepp. Verifierat: `npm run typecheck` + `npm run test:ci` grönt. `src/lib/gen/scaffolds/*` orört (endast delad typfil `suspense/transform`, inget index). |
 
 ---
 
@@ -299,7 +301,7 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 - [x] `npm run typecheck`
 - [x] `npm run test:ci` (Vitest; motsvarar bred `vitest run` i CI-läge)
 - [x] Notera nuvarande `git rev-parse HEAD` i PR-beskrivning om ni gör massradering *(2026-03-31: process i [`.cursor/rules/session-git-docs.mdc`](../../../.cursor/rules/session-git-docs.mdc) — massradering / bred städ-PR)*
-- [ ] Bekräfta **vilken Postgres-URL** som gäller för nästa steg (lokal dev vs staging); **aldrig** anta prod utan explicit beslut
+- [x] Bekräfta **vilken Postgres-URL** som gäller för nästa steg (lokal dev vs staging); **aldrig** anta prod utan explicit beslut *(2026-03-31: **Lokal utveckling och schema-insyn** använder `POSTGRES_URL` från `.env.local` enligt [`docs/ENV.md`](../../ENV.md) och `npm run db:*`-skript. **Staging/prod** får inte antas från planfilen — välj URL explicit i teamet före migrering/dataändring; Fas D kräver fortfarande backup + miljöbesked.)*
 
 **Insyn utan skrivning:** `npm run db:rows` (`[scripts/db-row-overview.mjs](../../../scripts/db-row-overview.mjs)`) — räknar rader per utvald tabell om `POSTGRES_URL` finns i `.env.local`. Används för att avgöra om legacy-tabeller är tomma innan städ; ersätter inte backup eller manuellt miljöbeslut (fas D).
 
@@ -353,13 +355,13 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 
 - **Fas D (Postgres-data):** Körs **inte** i barrel-pass; kräver backup, miljöbeslut och egen PR enligt [Fas D](#fas-d--databas-försiktig-synk--städ--ägs-explicit-här).
 - **Fas A ruta 3 (massradering HEAD):** Bockad 2026-03-31; process i `.cursor/rules/session-git-docs.mdc` (länk till denna plans Fas A).
-- **Fas A ruta 4 (Postgres-URL):** Bekräftas alltid före schema/data-steg — uppdatera inte denna fil med rullande `git rev-parse HEAD` som “sanning”; exempelreferens vid tidigare pass: `436395ab98afba32d3aca00fb1af615cf0309e68`.
+- **Fas A ruta 4 (Postgres-URL):** Bockad 2026-03-31 i [Fas A](#fas-a--baseline-innan-radering) med policy: lokal/städ nästa steg = `.env.local` + `docs/ENV.md`; staging/prod endast efter explicit beslut. Ändra inte denna fil med rullande `git rev-parse HEAD` som URL-“sanning”.
 - **STORDSTAD-filens livscykel:** Så länge städspåret är aktivt ligger planen kvar i `active/`; när [exit nedan](#exit-kriterier-epiken-klar) är uppfyllt flyttas filen till `avklarat/` per befintlig katalogpolicy.
 
 ## Exit-kriterier (epiken klar)
 
 - [x] Fas A–D genomförda eller medvetet nedprioriterade (antecknat i denna fil) *(2026-03-31: D och delar av A enligt § [Nedprioriterade delar](#nedprioriterade-delar) ovan; B/C-spår fortsätter i löpande PR tills sista exit-rutor är gröna.)*
-- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass al)*
+- [x] `typecheck` + överenskommen Vitest-nivå grönt *(standard: `npm run typecheck` + `npm run test:ci`; senast verifierat 2026-03-31 pass ao)*
 - [x] `repo-tree.md` / `docs/README.md` pekar rätt om strukturen ändrats *(2026-03-31: README nav uppdaterad för aktiv storstäd; repo-tree redan i linje med importmönster — uppdatera vid framtida rot-/mappbyten.)*
 - [ ] Databas: schema OK + dokumenterad dataåtgärd om sådan utförts
 - [ ] Flytta denna fil till `avklarat/` och uppdatera [`../README.md`](../README.md)

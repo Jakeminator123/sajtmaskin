@@ -18,10 +18,6 @@ export interface RoutePlan {
   routes: PlannedRoute[];
 }
 
-export function normalizePlannedRoutePath(path: string): string {
-  return normalizeRoutePath(path);
-}
-
 type BriefPageLike = {
   path?: unknown;
   name?: unknown;

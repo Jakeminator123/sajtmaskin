@@ -198,7 +198,7 @@ async function headCheck(url: string): Promise<number | "error"> {
  * Runs checks in parallel with a concurrency limit.
  * @param skipUrls URLs known to be valid (e.g. freshly materialized from Unsplash)
  */
-export async function findBrokenImages(
+async function findBrokenImages(
   refs: ImageRef[],
   skipUrls?: Set<string>,
 ): Promise<BrokenImage[]> {
@@ -307,7 +307,7 @@ async function searchUnsplashReplacement(
  * Attempt to find Unsplash replacements for broken images.
  * Only replaces broken Unsplash URLs (not other hosts).
  */
-export async function findReplacements(
+async function findReplacements(
   broken: BrokenImage[],
   unsplashAccessKey: string | null,
 ): Promise<BrokenImage[]> {
@@ -336,7 +336,7 @@ export async function findReplacements(
  * Replace broken image URLs in file contents with their replacements.
  * Returns updated files and count of replacements made.
  */
-export function applyReplacements(
+function applyReplacements(
   files: TextFile[],
   broken: BrokenImage[],
 ): { files: TextFile[]; replacedCount: number } {

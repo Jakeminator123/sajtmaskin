@@ -44,7 +44,7 @@ function createInitialCounts(): Record<PreflightIssueCategory, number> {
   };
 }
 
-export function detectPreflightIssueCategory(params: {
+function detectPreflightIssueCategory(params: {
   file: string;
   severity: "error" | "warning";
   message: string;

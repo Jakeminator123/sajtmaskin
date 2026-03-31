@@ -97,7 +97,7 @@ Output a JSON object matching the schema exactly. Do not include any explanation
  * @param userPrompt - The user's original website request
  * @returns A structured WebsiteSpec
  */
-export async function generateWebsiteSpec(
+async function generateWebsiteSpec(
   userPrompt: string,
   modelOverride?: string | null,
 ): Promise<WebsiteSpec> {
@@ -132,7 +132,7 @@ export async function generateWebsiteSpec(
  * @param originalPrompt - The user's original prompt (for reference)
  * @returns A formatted prompt for the code generation engine
  */
-export function buildPlatformPromptFromSpec(spec: WebsiteSpec, originalPrompt: string): string {
+function buildPlatformPromptFromSpec(spec: WebsiteSpec, originalPrompt: string): string {
   const pagesDescription = spec.pages
     .map((page) => {
       const sections = page.sections.join(", ");

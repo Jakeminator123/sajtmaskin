@@ -70,18 +70,6 @@ export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): 
 }
 
 /**
- * Prepares files for @vercel/sandbox consumption.
- * Converts CodeFile[] to the Record<string, string> format the sandbox API expects.
- */
-export function buildSandboxFiles(files: CodeFile[]): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const file of files) {
-    result[file.path] = file.content;
-  }
-  return result;
-}
-
-/**
  * Creates a preview URL for a given chatId + versionId.
  * Points to the /api/preview-render endpoint which serves the HTML.
  */

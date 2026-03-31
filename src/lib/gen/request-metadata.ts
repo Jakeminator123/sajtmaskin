@@ -44,7 +44,7 @@ function getFilenameFromUrl(url: string): string {
   }
 }
 
-export function getAttachmentMediaType(attachment: RequestAttachment): string | undefined {
+function getAttachmentMediaType(attachment: RequestAttachment): string | undefined {
   const direct = asTrimmedString(attachment.mimeType);
   if (direct) return direct;
   const filename = asTrimmedString(attachment.filename);
@@ -55,7 +55,7 @@ export function getAttachmentMediaType(attachment: RequestAttachment): string | 
   return inferMediaTypeFromPath(attachment.url);
 }
 
-export function isImageAttachment(attachment: RequestAttachment): boolean {
+function isImageAttachment(attachment: RequestAttachment): boolean {
   return (getAttachmentMediaType(attachment) || "").startsWith("image/");
 }
 
@@ -87,7 +87,7 @@ export function normalizeRequestAttachments(input: unknown): RequestAttachment[]
     .filter((attachment): attachment is RequestAttachment => Boolean(attachment));
 }
 
-export function getVisualReferenceAttachments(
+function getVisualReferenceAttachments(
   attachments: RequestAttachment[],
   max = 4,
 ): RequestAttachment[] {

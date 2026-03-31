@@ -229,7 +229,7 @@ export function getPreviewBlockingReason(
     : null;
 }
 
-export function buildPreviewUnavailableDetails(
+function buildPreviewUnavailableDetails(
   preflight?: PreviewPreflightState | null,
 ): PreviewUnavailableDetails {
   if (isPreviewPendingOnSandbox(preflight)) {

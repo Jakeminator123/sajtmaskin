@@ -38,17 +38,6 @@ import {
   type OwnEnginePostStreamPhaseId,
 } from "./finalize-pipeline-contract";
 
-let _lastMaterializedUrls: Set<string> = new Set();
-
-/**
- * URLs the most recent materializeImages() call resolved from Unsplash.
- * The image validator can skip HEAD-checking these since they were just
- * fetched and confirmed valid seconds earlier.
- */
-export function getLastMaterializedUrls(): Set<string> {
-  return _lastMaterializedUrls;
-}
-
 export type FinalizeProgressCallback = (
   step: OwnEnginePostStreamPhaseId,
   data: Record<string, unknown>,
@@ -190,8 +179,6 @@ async function runFinalizeDeepPath(params: {
     onProgress?.("materialize_images", { phase: "start" });
     try {
       const imgResult = await materializeImages(contentForVersion);
-      // Always refresh so validators never reuse URLs from a previous generation (review: staleness).
-      _lastMaterializedUrls = imgResult.resolvedUrls;
       if (imgResult.replacedCount > 0) {
         contentForVersion = imgResult.content;
         devLogAppend("in-progress", {
@@ -206,12 +193,10 @@ async function runFinalizeDeepPath(params: {
         replacedCount: imgResult.replacedCount,
       });
     } catch (imgErr) {
-      _lastMaterializedUrls = new Set();
       console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
       onProgress?.("materialize_images", { phase: "error" });
     }
   } else {
-    _lastMaterializedUrls = new Set();
     onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
   }
 

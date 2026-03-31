@@ -680,9 +680,6 @@ export function formatPrompt(prompt: string): string {
   return parts.join("\n\n");
 }
 
-/** @deprecated Use `formatPrompt` instead. */
-export const formatPromptForV0 = formatPrompt;
-
 export function buildRewriteSystemPrompt(params: {
   codeContext?: string | null;
   buildIntent?: BuildIntent;
@@ -709,9 +706,6 @@ export function buildRewriteSystemPrompt(params: {
   );
 }
 
-/** @deprecated Use `buildRewriteSystemPrompt` instead. */
-export const buildV0RewriteSystemPrompt = buildRewriteSystemPrompt;
-
 export function buildPolishSystemPrompt(params: {
   buildIntent?: BuildIntent;
   forceEnglish?: boolean;
@@ -730,9 +724,6 @@ export function buildPolishSystemPrompt(params: {
     `Build intent: ${intentLine}`
   );
 }
-
-/** @deprecated Use `buildPolishSystemPrompt` instead. */
-export const buildV0PolishSystemPrompt = buildPolishSystemPrompt;
 
 type Brief = any;
 
@@ -880,9 +871,6 @@ export function buildPromptFromBrief(params: {
     .filter(Boolean)
     .join("\n");
 }
-
-/** @deprecated Use `buildPromptFromBrief` instead. */
-export const buildV0PromptFromBrief = buildPromptFromBrief;
 
 export function buildDynamicInstructionAddendumFromBrief(params: {
   brief: Brief;
