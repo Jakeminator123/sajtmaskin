@@ -617,7 +617,9 @@ async function destroyProjectWorkspace(projectId) {
 }
 
 proxy.on("error", (err, req, res) => {
-  if (isConnRefusedError(err) && res && typeof res.writeHead === "function") {
+  const isHttpResponse = res && typeof res.writeHead === "function";
+
+  if (isConnRefusedError(err) && isHttpResponse) {
     const rawUrl = req?.url || "/";
     const pathname = String(rawUrl).split("?")[0] || "/";
     const info = routeInfoFromPathname(pathname);
@@ -639,10 +641,16 @@ proxy.on("error", (err, req, res) => {
     }
   }
 
-  if (res && !res.headersSent) {
+  if (!isHttpResponse) {
+    // WebSocket upgrade errors pass a Socket, not an HTTP response — just destroy it.
+    if (res && typeof res.destroy === "function") res.destroy();
+    return;
+  }
+
+  if (!res.headersSent) {
     res.writeHead(502, { "content-type": "application/json; charset=utf-8" });
   }
-  if (res && !res.writableEnded) {
+  if (!res.writableEnded) {
     res.end(
       JSON.stringify({
         error: "proxy_failed",
