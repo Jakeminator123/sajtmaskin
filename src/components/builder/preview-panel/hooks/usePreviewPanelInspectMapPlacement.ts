@@ -32,6 +32,8 @@ export function usePreviewPanelInspectMapPlacement(options: {
   previewUrl: string | null;
   versionId: string | null;
   placementMode: boolean;
+  /** När sann, ladda elementkarta/zoner som för placering (t.ex. Visual Composer) utan chat-picker-läge. */
+  composerMode?: boolean;
   iframeLoading: boolean;
   externalLoading: boolean;
   iframeRef: RefObject<HTMLIFrameElement | null>;
@@ -50,6 +52,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     previewUrl,
     versionId,
     placementMode,
+    composerMode = false,
     iframeLoading,
     externalLoading,
     iframeRef,
@@ -63,6 +66,8 @@ export function usePreviewPanelInspectMapPlacement(options: {
     onPlacementComplete,
     inspectEngine,
   } = options;
+
+  const zonesActive = placementMode || Boolean(composerMode);
 
   const [inspectMode, setInspectMode] = useState(false);
   const [elementMap, setElementMap] = useState<ElementMapItem[]>([]);
@@ -183,7 +188,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
 
   const handlePlacementMouseMove = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
-      if (!placementMode) return;
+      if (!zonesActive) return;
       const rect = event.currentTarget.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
       const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
@@ -191,7 +196,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
       const insertion = nearestInsertionPoint(yPercent, sectionZones);
       setHoveredPlacement(insertion);
     },
-    [placementMode, sectionZones],
+    [zonesActive, sectionZones],
   );
 
   const handlePlacementClick = useCallback(
@@ -291,13 +296,13 @@ export function usePreviewPanelInspectMapPlacement(options: {
   }, [inspectorEnabled]);
 
   useEffect(() => {
-    if (!placementMode) return;
+    if (!zonesActive) return;
     setInspectMode(false);
     setHoveredMapElement(null);
-  }, [placementMode]);
+  }, [zonesActive]);
 
   useEffect(() => {
-    if (!placementMode || !previewUrl || !inspectorEnabled) {
+    if (!zonesActive || !previewUrl || !inspectorEnabled) {
       setHoveredPlacement(null);
       return;
     }
@@ -305,7 +310,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     const w = container?.clientWidth || 1280;
     const h = container?.clientHeight || 800;
     void fetchElementMap(previewUrl, w, h);
-  }, [placementMode, previewUrl, fetchElementMap, inspectorEnabled, iframeRef]);
+  }, [zonesActive, previewUrl, fetchElementMap, inspectorEnabled, iframeRef]);
 
   return {
     inspectMode,

@@ -18,7 +18,8 @@ export type PromptSourceKind =
   | "shadcn-block"
   | "shadcn-component"
   | "ai-element"
-  | "approved-plan";
+  | "approved-plan"
+  | "page-block";
 
 export type PromptSourceMeta = {
   sourceKind: PromptSourceKind;
@@ -56,11 +57,22 @@ export type ApprovedPlanPromptSource = {
   rawPlan: Record<string, unknown>;
 };
 
+/** Generellt sajtblock från Visual Composer (ej AI-elements). */
+export type PageBlockPromptSource = {
+  kind: "page-block";
+  label: string;
+  description?: string;
+  implementationPrompt: string;
+  placement?: PlacementOption;
+  detectedSections?: DetectedSection[];
+};
+
 export type PromptSource =
   | InlinePromptSource
   | ShadcnPromptSource
   | AiElementPromptSource
-  | ApprovedPlanPromptSource;
+  | ApprovedPlanPromptSource
+  | PageBlockPromptSource;
 
 export type PromptEnvelopeOptions = {
   placementLabel?: string;
@@ -219,6 +231,39 @@ export function buildPromptSourceMessage(
         ),
         meta: {
           sourceKind: "ai-element",
+          isTechnical: true,
+          preservePayload: true,
+        },
+      };
+    }
+
+    case "page-block": {
+      const depsLabel = "";
+      const body = [
+        source.description?.trim() ? `Beskrivning: ${source.description.trim()}` : null,
+        "",
+        "Implementera följande på landningssidan (föredra `app/page.tsx` om den finns):",
+        source.implementationPrompt.trim(),
+        "",
+        "Behåll befintlig Tailwind-tema, typografi och komponentstil.",
+        "Gör inga onödiga beroenden — använd bara React, Next.js App Router och befintliga UI-mönster.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      return {
+        title: source.label,
+        depsLabel,
+        message: wrapPlacementMessage(
+          "sajtsektion (composer)",
+          source.label,
+          depsLabel,
+          body,
+          source.placement,
+          options,
+        ),
+        meta: {
+          sourceKind: "page-block",
           isTechnical: true,
           preservePayload: true,
         },

@@ -10,6 +10,7 @@ import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
+import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
@@ -39,6 +40,8 @@ import {
   buildPromptSourceMessage,
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
+import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
+import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import { saveProjectData } from "@/lib/project-client";
 import {
@@ -143,6 +146,34 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.previewLifecycle === "recovering" ||
     (!vm.currentPreviewUrl && vm.isAnyStreaming);
   const sendMessage = vm.sendMessage;
+
+  const handleComposerAiFallback = useCallback(
+    async (payload: ComposerAiFallbackPayload) => {
+      if (!vm.chatId) return;
+      const block = getPageBlockById(payload.blockId);
+      if (!block) {
+        toast.error("Okänt sajblock.");
+        return;
+      }
+      const sections = payload.homePageContent ? analyzeSections(payload.homePageContent) : [];
+      const built = buildPromptSourceMessage(
+        {
+          kind: "page-block",
+          label: block.label,
+          description: block.description,
+          implementationPrompt: block.implementationPrompt,
+          placement: payload.placement,
+          detectedSections: sections,
+        },
+        {
+          placementLabel: payload.placementLabel,
+          anchorLabel: payload.anchorSection?.label ?? null,
+        },
+      );
+      await sendMessage(built.message, { promptSourceMeta: built.meta });
+    },
+    [sendMessage, vm.chatId],
+  );
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
   const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
@@ -925,6 +956,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               placementMode={Boolean(pendingPlacementRequest)}
               pendingPlacementItem={pendingPlacementItem}
               onPlacementComplete={handlePlacementComplete}
+              onComposerAiFallback={handleComposerAiFallback}
             />
           </div>
           <div

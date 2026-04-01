@@ -1,6 +1,17 @@
 "use client";
 
-import { AlertCircle, CircleCheck, Code2, ExternalLink, FileText, RefreshCw, Search } from "lucide-react";
+import {
+  AlertCircle,
+  CircleCheck,
+  Code2,
+  ExternalLink,
+  FileText,
+  LayoutGrid,
+  Redo2,
+  RefreshCw,
+  Search,
+  Undo2,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +37,13 @@ interface PreviewPanelChromeProps {
   inspectorEnabled: boolean;
   handleToggleInspect: () => void;
   placementMode: boolean;
+  composerMode: boolean;
+  handleToggleComposer: () => void;
+  composerCanUndo: boolean;
+  composerCanRedo: boolean;
+  composerHistoryBusy: boolean;
+  onComposerUndo: () => void;
+  onComposerRedo: () => void;
   inspectMode: boolean;
   handleToggleElementRegistry: () => void;
   canShowCode: boolean;
@@ -65,6 +83,13 @@ export function PreviewPanelChrome({
   inspectorEnabled,
   handleToggleInspect,
   placementMode,
+  composerMode,
+  handleToggleComposer,
+  composerCanUndo,
+  composerCanRedo,
+  composerHistoryBusy,
+  onComposerUndo,
+  onComposerRedo,
   inspectMode,
   handleToggleElementRegistry,
   canShowCode,
@@ -125,14 +150,76 @@ export function PreviewPanelChrome({
           <Button
             variant="ghost"
             size="sm"
+            onClick={handleToggleComposer}
+            disabled={!previewUrl || placementMode || inspectMode}
+            title={
+              placementMode
+                ? "Avsluta placering först"
+                : inspectMode
+                  ? "Stäng inspektionsläget först"
+                  : composerMode
+                    ? "Stäng Visual Composer"
+                    : "Dra sajblock till previewn (startsida)"
+            }
+            className={cn(
+              "text-gray-400 hover:text-white",
+              composerMode && "bg-violet-900/45 text-violet-200 hover:text-violet-100",
+            )}
+          >
+            <LayoutGrid className="mr-1 h-4 w-4" />
+            Composer
+          </Button>
+          {composerMode ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onComposerUndo}
+                disabled={
+                  !previewUrl ||
+                  placementMode ||
+                  inspectMode ||
+                  composerHistoryBusy ||
+                  !composerCanUndo
+                }
+                title="Ångra senaste direkta patch i Composer"
+                className="text-gray-400 hover:text-white"
+              >
+                <Undo2 className="mr-1 h-4 w-4" />
+                Ångra
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onComposerRedo}
+                disabled={
+                  !previewUrl ||
+                  placementMode ||
+                  inspectMode ||
+                  composerHistoryBusy ||
+                  !composerCanRedo
+                }
+                title="Gör om senast ångrade direkta patch"
+                className="text-gray-400 hover:text-white"
+              >
+                <Redo2 className="mr-1 h-4 w-4" />
+                Gör om
+              </Button>
+            </>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleToggleInspect}
-            disabled={!inspectorEnabled || !previewUrl || placementMode}
+            disabled={!inspectorEnabled || !previewUrl || placementMode || composerMode}
             title={
               !inspectorEnabled
                 ? "Inspector är avstängd via feature flag"
-                : placementMode
-                ? "Placering aktiv - avsluta placering först"
-                : "Markera punkt i preview och skicka till chatten"
+                : composerMode
+                  ? "Stäng Composer först"
+                  : placementMode
+                    ? "Placering aktiv - avsluta placering först"
+                    : "Markera punkt i preview och skicka till chatten"
             }
             className={cn(
               "text-gray-400 hover:text-white",
