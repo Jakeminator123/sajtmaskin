@@ -244,12 +244,15 @@ export async function searchTemplateLibraryWithDiagnostics(
     };
   }
 
+  // text-embedding-3-small has 8192 token limit (~32k chars conservatively).
+  const embeddingInput = query.length > 28_000 ? query.slice(0, 28_000) : query;
+
   let queryEmbedding: number[];
   try {
     const openai = new OpenAI({ apiKey });
     const response = await openai.embeddings.create({
       model: "text-embedding-3-small",
-      input: query,
+      input: embeddingInput,
       dimensions: 1536,
     });
     queryEmbedding = response.data[0].embedding;
