@@ -65,12 +65,12 @@ research/external-templates/repo-cache/**
 research/external-templates/reference-library/
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
-data/scaffold-candidates-curated.json
-src/lib/gen/data/docs-embeddings.json
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
+#data/scaffold-candidates-curated.json
+#src/lib/gen/data/docs-embeddings.json
+#src/lib/gen/scaffolds/scaffold-embeddings.json
+#src/lib/gen/scaffolds/scaffold-research.generated.json
+#src/lib/gen/template-library/template-library-embeddings.json
+#src/lib/gen/template-library/template-library.generated.json
 
 # --- Cursor session / automation / migration ---
 .cursor/plans/

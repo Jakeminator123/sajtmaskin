@@ -2,7 +2,9 @@
 
 **Senast uppdaterad:** 2026-04-01
 
-**Operativt kördokument** för own-engine → finalize → sandbox → iframe. Intent, leveranser och kodpekare: denna fil + [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) (backlog/beslut).
+**Terminologinot:** den relevanta tier-2-previewen just nu är primärt **VM / `preview_host` via Fly.io**. Ordet **`sandbox`** lever kvar i routes, fältnamn och symboler som `sandbox_url` och `/sandbox-preview`, och betyder där ofta legacy naming eller delat tier-2-kontrakt snarare än att Vercel Sandbox är huvudvägen.
+
+**Operativt kördokument** för own-engine → finalize → tier-2-preview → iframe. Intent, leveranser och kodpekare: denna fil + [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) (backlog/beslut).
 
 ## End-to-end: own-engine som ägare och Fidelity 2
 
@@ -12,7 +14,7 @@
 
 1. `POST /api/v0/chats/stream` skapar/uppdaterar engine-chatt och strömmar own-engine-generering.
 2. **Finalize** (`finalize-version.ts`) kör autofix, validering, merge, preflight och sparar **`files_json`** på versionen.
-3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt och väljer sedan **tier-2-provider**: `preview_host` över HTTP eller Vercel Sandbox. Om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt och `SAJTMASKIN_TIER2_RUNTIME` är unset föredras nu `preview_host_then_vercel` som aggressiv men säker default. Standardläge för Vercel-spåret är fortfarande **`dev_only`** (primärt Fidelity 2), men läget kan också lösas per generation från `BuildSpec.previewPolicy` + `BuildSpec.verificationPolicy` innan env-fallback används.
+3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt och väljer sedan **tier-2-provider**: primärt `preview_host` över HTTP (VM via Fly.io), sekundärt Vercel Sandbox. Om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt och `SAJTMASKIN_TIER2_RUNTIME` är unset föredras `preview_host_then_vercel` som aggressiv men säker default. Standardläge för Vercel-spåret är fortfarande **`dev_only`** (när fallbacken faktiskt används), men läget kan också lösas per generation från `BuildSpec.previewPolicy` + `BuildSpec.verificationPolicy` innan env-fallback används.
 4. Vid lyckad readiness / sessionskapande: **`engine_versions.sandbox_url`** sätts (legacy kolumnnamn, men nu kan värdet komma från valfri tier-2-provider); klienten visar **Fidelity 2**. **Enda** produktpreviewvägen är tier 2 via samma `/sandbox-*`-kontrakt; **tier-1 shim** (`/api/preview-render`) är borttagen ur flödet (routen kan finnas kvar för bakåtkompatibilitet men länkas inte från buildern).
 
 **Fidelity 3** (`prodBuildVerified`, `fidelityTier: 3`) när sandbox körs i `dev_then_build` och byggsteget i VM lyckas — antingen via global env (`SAJTMASKIN_SANDBOX_PREVIEW_MODE=dev_then_build`) eller via per-generation policy från `BuildSpec` — se `runtime-url.ts`.
