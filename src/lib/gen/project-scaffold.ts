@@ -106,7 +106,11 @@ const TSCONFIG = `{
 
 const NEXT_CONFIG = `import type { NextConfig } from "next";
 
+/** Tier 2 preview-host (Fly): public URL is /{projectId}/* — without this, CSS/JS request /_next/* and 404. */
+const previewBasePath = process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "";
+
 const nextConfig: NextConfig = {
+  ...(previewBasePath ? { basePath: previewBasePath } : {}),
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

@@ -176,6 +176,21 @@ function spawnNpm(args, options) {
   return spawn("npm", args, options);
 }
 
+/** Older exports without codegen repair: inject basePath hook so Fly /{projectId} previews get CSS/JS. */
+function patchNextConfigForPreviewBasePath(workspaceDir) {
+  const cfgPath = path.join(workspaceDir, "next.config.ts");
+  if (!fs.existsSync(cfgPath)) return;
+  let s = fs.readFileSync(cfgPath, "utf8");
+  if (s.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) return;
+  if (/\bbasePath\s*:/.test(s)) return;
+  const re = /(const\s+nextConfig\s*(?::\s*NextConfig\s*)?=\s*\{)/;
+  if (!re.test(s)) return;
+  const insert =
+    "\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() }\n    : {}),";
+  s = s.replace(re, `$1${insert}`);
+  fs.writeFileSync(cfgPath, s, "utf8");
+}
+
 function writeWorkspaceFiles(projectId, filesJson) {
   const workspaceDir = workspaceDirForProject(projectId);
   ensureDir(workspaceDir);
@@ -365,6 +380,7 @@ async function stopRuntimeForSession(session) {
 }
 
 async function spawnDevServer(session, workspaceDir, runtimePort) {
+  const basePath = `/${session.projectId}`;
   const child = spawnNpm(
     ["run", "dev", "--", "--hostname", LOOPBACK, "--port", String(runtimePort)],
     {
@@ -373,6 +389,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
       env: sanitizedEnv({
         PORT: String(runtimePort),
         HOSTNAME: LOOPBACK,
+        SAJTMASKIN_PREVIEW_BASE_PATH: basePath,
       }),
     },
   );
@@ -432,6 +449,7 @@ async function bootRuntimeForSession(session, options = {}) {
 
   try {
     const workspaceDir = writeWorkspaceFiles(session.projectId, session.filesJson);
+    patchNextConfigForPreviewBasePath(workspaceDir);
     const runtimePort = await resolvePortForProject(session.projectId, Number(session.runtimePort));
     await runInstallCommand(workspaceDir, session.sandboxId, session.filesJson);
     await spawnDevServer(session, workspaceDir, runtimePort);
@@ -442,7 +460,7 @@ async function bootRuntimeForSession(session, options = {}) {
       stored.updatedAt = nowIso();
     });
 
-    waitForReady(`http://${LOOPBACK}:${runtimePort}`)
+    waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(session.projectId)}/`)
       .then(() =>
         appendRuntimeLog(
           session.sandboxId,
@@ -516,8 +534,14 @@ function getRuntimeStateForProject(projectId) {
   };
 }
 
-function rewriteRequestUrl(req, strippedPath, search) {
-  req.url = `${strippedPath || "/"}${search || ""}`;
+/**
+ * Next dev is started with SAJTMASKIN_PREVIEW_BASE_PATH=/{projectId}, so it expects
+ * paths like /{projectId}/ and /{projectId}/_next/... — not stripped to / only.
+ */
+function rewriteRequestUrl(req, projectId, restPath, search) {
+  const prefix = `/${encodeURIComponent(projectId)}`;
+  const tail = !restPath || restPath === "/" ? "" : restPath;
+  req.url = `${prefix}${tail}${search || ""}`;
 }
 
 async function proxyPreviewRequest(req, res, pathname, search = "") {
@@ -526,7 +550,7 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   const state = getRuntimeStateForProject(info.projectId);
   if (!state.session) return false;
   if (state.running && state.runtimePort) {
-    rewriteRequestUrl(req, info.restPath, search);
+    rewriteRequestUrl(req, info.projectId, info.restPath, search);
     proxy.web(req, res, { target: `http://${LOOPBACK}:${state.runtimePort}` });
     return true;
   }
@@ -563,7 +587,7 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   if (!info) return false;
   const runtime = await ensureRuntimeForProject(info.projectId);
   if (!runtime) return false;
-  rewriteRequestUrl(req, info.restPath, search);
+  rewriteRequestUrl(req, info.projectId, info.restPath, search);
   proxy.ws(req, socket, head, { target: `ws://${LOOPBACK}:${runtime.runtimePort}` });
   return true;
 }

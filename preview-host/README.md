@@ -39,6 +39,7 @@ I praktiken betyder det:
 - **`next` is not recognized** efter nedladdning: kör `npm install` fore `npm run dev` (samma som lokalt).
 - **`npm audit fix`**: valfritt rad fran npm, inte ett krav for preview.
 - **Readiness** vantar pa HTTP 200 HTML med tillrackligt med synlig text i `<body>`; tom sida efter nagra forsok loggas som varning men accepteras (annars blockerar vi legitima RSC-/compile-faser for lange).
+- **basePath / CSS som saknas i iframen**: publik URL ar `https://...fly.dev/{projectId}/...`. Utan `basePath` pekar HTML pa `/_next/...` mot hostroten (404) → sidan ser ut som "ren HTML". Runtime satter `SAJTMASKIN_PREVIEW_BASE_PATH=/{projectId}` och proxyn skickar **full** path till `next dev`; `next.config.ts` maste respektera env (scaffold + patch pa workspace vid boot).
 
 ### Drift pa Fly
 
