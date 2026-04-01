@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 import { httpStatusForSandboxPreviewFailure } from "@/lib/gen/sandbox/preview-errors";
@@ -111,7 +112,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       if (
         !parsed.data.forceRestart &&
         typeof versionRow.sandbox_url === "string" &&
-        versionRow.sandbox_url.trim()
+        versionRow.sandbox_url.trim() &&
+        isSandboxPreviewUrl(versionRow.sandbox_url)
       ) {
         return NextResponse.json({
           ok: true,

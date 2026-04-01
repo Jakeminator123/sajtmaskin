@@ -14,32 +14,45 @@ I praktiken betyder det:
 - `engine_versions.files_json` fortsatter vara kanonisk artifact
 - `preview-host` blir en separat tjanst for preview-sessioner, leases, status och senare riktig runtime
 
-## Status just nu
+## Status (2026-04-01)
 
-Vi har redan kommit till en bra forsta milstolpe:
+### Vad som fungerar
 
-- lokal prototyp ar skapad i `preview-host/`
-- `npm run check` fungerar
-- `npm run smoke` fungerar
-- `http://localhost:8080/health` svarar korrekt
-- `flyctl` ar installerat pa Windows
-- `fly auth login` fungerar
-- Fly-app `vm-fly-jakem` ar skapad
-- forsta Fly-deploy har byggt imagen korrekt
-- forsta Fly-machine har skapats
-- publik `/health` fungerar pa `vm-fly-jakem.fly.dev`
-- publik `start -> get -> hibernate` fungerar mot deployad app
-- appen kan nerskalas till **en** Fly-machine; sessioner lagras pa disk (`data/preview-host-store.json`, styr med `PREVIEW_HOST_DATA_DIR` / Fly volume)
-- Fly-konto finns och ar redo for vidare steg
+- Fly-app `vm-fly-jakem` koer pa `performance-2x` (2 ded CPU, 4 GB RAM) i `arn` (Stockholm)
+- 10 GB krypterad Fly volume monterad pa `/data` for workspaces och session-store
+- `preview-host` tar emot projekt via HTTP, koer `npm install` + `npm run dev` pa Fly-maskinen
+- preview-URL `https://vm-fly-jakem.fly.dev/<projectId>` serverar riktiga SSR-renderade Next.js-sajter
+- Sajtmaskins huvudapp har tier-2-providerlager som valjer `preview_host` framfor Vercel Sandbox
+- vantesida visas i iframen medan projektet bootar (auto-reload var 4:e sekund)
+- workspace-caching: `node_modules` ateranvands om `package.json` inte andrats
+- icke-blockerande boot: runtime-processen dor inte av readiness-timeout
 
-Det betyder att:
+### Vad som inte fungerar annu
 
-- lokal utveckling fungerar
-- Fly-inloggning fungerar
-- Fly-bygget fungerar
-- publik preview-host API fungerar
-- vi ar **inte** fast pa setup-niva langre
-- nasta steg ar att koppla huvudappen mot `preview-host` och harda Fly-driften med volume / secrets
+- **Sessions-persistens over deploy/restart**: sessioner lagras delvis i minne och tappas vid Fly-restart/deploy. Session-store pa volymen har metadata men runtime-stateocken (barnprocesser) forsvinner. Det gor att builderns iframe tappar previewn efter varje deploy.
+- **CSP-header**: `frame-src` i huvudappens CSP-policy listar bara `*.vercel.run` / `*.vercel.app`, inte `*.fly.dev`. Det ger report-only-varningar i konsolen (blockerar inte iframen an men bor fixas).
+- **Forsta boot ar seg** (2-5 min for riktiga Next-projekt med tunga deps som `three.js`). Workspace-caching hjalper vid andra koerningen men forsta ar fortfarande lang.
+- **Autofix-loopen**: nar preview misslyckas triggar buildern autofix-reparation som genererar nya versioner. Det kan skapa 3-4 versioner i snabb folid som alla forsoker boota pa Fly parallellt.
+
+### Drift pa Fly
+
+| Resurs | Varde |
+|--------|-------|
+| Maskin | `performance-2x` (2 CPU, 4 GB) |
+| Volume | `preview_host_data`, 10 GB, `/data` |
+| Region | `arn` (Stockholm) |
+| Secret | `PREVIEW_HOST_DATA_DIR=/data` |
+| Kostnad | ca 60-70 USD/man om maskinen star pa 24/7 |
+
+### Env i Sajtmaskins `.env.local` (repo-roten)
+
+```env
+SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://vm-fly-jakem.fly.dev
+SAJTMASKIN_TIER2_RUNTIME=preview_host
+NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev
+```
+
+Lagg **inte** `PREVIEW_HOST_DATA_DIR`, `PREVIEW_HOST_API_KEY` eller `DATA_DIR` i repo-rotens `.env.local`. De hor till Fly-tjansten.
 
 ## Nasta steg nu
 
@@ -52,16 +65,13 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 - satt samma katalog pa en **Fly volume** om du skalar till flera machines
 - valfritt: `PREVIEW_HOST_API_KEY` pa servern + `Authorization: Bearer ...` (eller `X-Preview-Host-Key`) pa klienten
 
-### Nasta praktiska steg
+### Nasta steg (handoff)
 
-Det viktiga nu ar inte fler manuella `curl`-kommandon, utan att gora driftkopplingen korrekt:
-
-1. satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL` i huvudappens `.env.local`
-2. lat huvudappen kora `preview_host_then_vercel` som Tier 2-standard nar base URL finns
-3. lagg till Fly volume / `PREVIEW_HOST_DATA_DIR` innan `preview-host` blir enda produktvag
-4. valfritt: satt `PREVIEW_HOST_API_KEY` pa servern och `SAJTMASKIN_PREVIEW_HOST_API_KEY` i huvudappen
-
-`fly.toml` ar fortsatt satt for en forsiktig en-machine-drift (`min_machines_running = 0`, `auto_stop_machines = "off"`).
+1. **Persistera sessions over restart**: sessioner maste sparas/aterhamtas fran volymen nar `preview-host` startar om, sa att builderns iframe inte tappar sin preview efter deploy.
+2. **CSP-header**: lagg till `*.fly.dev` i `frame-src` i huvudappens CSP-konfiguration (`next.config` eller `middleware.ts`).
+3. **Snabbare forsta boot**: forinstallera baseline-deps i Dockerfile eller cacha `node_modules` pa volymen mer aggressivt.
+4. **Autofix-loop**: throttla antal parallella preview-host-boots per chatt sa att autofix inte skapar 4 samtida install+dev-starter.
+5. **Observerbarhet**: lagg till tydligare loggning av Next.js stdout/stderr i runtime-loggar (just nu damps HMR-brus).
 
 ## Det som nu finns har
 

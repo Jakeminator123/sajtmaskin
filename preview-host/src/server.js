@@ -5,6 +5,17 @@ const { URL } = require("node:url");
 const { randomUUID } = require("node:crypto");
 const { readStoreSync, withStoreLock } = require("./store.js");
 const {
+  buildPreviewUrl,
+  destroyProjectWorkspace,
+  findSessionByProjectId,
+  getRuntimeStateForProject,
+  hibernateProject,
+  proxyPreviewRequest,
+  proxyPreviewUpgrade,
+  queueRuntimeBoot,
+  stopRuntimeForSession,
+} = require("./runtime.js");
+const {
   validateStartPayload,
   validateUpdatePayload,
   validateSessionRefPayload,
@@ -73,6 +84,7 @@ function sessionResponse(session) {
     sessionExpiresAt: session.sessionExpiresAt,
     updatedAt: session.updatedAt,
     createdAt: session.createdAt,
+    runtimePort: Number.isFinite(Number(session.runtimePort)) ? Number(session.runtimePort) : null,
   };
 }
 
@@ -159,7 +171,7 @@ async function routeRequest(req, res) {
   if (req.method === "GET" && url.pathname === "/") {
     return json(res, 200, {
       service: "preview-host",
-      mode: "persistent",
+      mode: "runtime",
       endpoints: [
         "GET /health",
         "POST /preview/session/start",
@@ -169,8 +181,20 @@ async function routeRequest(req, res) {
         "GET /preview/session/:id",
         "GET /preview/sandbox/:sandboxId/status",
         "GET /preview/logs/:sandboxId",
+        "GET /:projectId/*",
       ],
     });
+  }
+
+  if (
+    !url.pathname.startsWith("/preview/") &&
+    url.pathname !== "/" &&
+    url.pathname !== "/health"
+  ) {
+    const proxied = await proxyPreviewRequest(req, res, url.pathname, url.search);
+    if (proxied) {
+      return undefined;
+    }
   }
 
   const needsAuth = url.pathname.startsWith("/preview/");
@@ -190,19 +214,9 @@ async function routeRequest(req, res) {
       if (!session || !isSessionUsable(session, nowMs)) {
         return { type: "missing" };
       }
-      const running = session.status !== "hibernated" && session.status !== "destroyed";
-      if (running) {
-        session.sessionExpiresAt = sessionExpiresAtIso();
-        session.updatedAt = nowIso();
-      }
       return {
         type: "ok",
-        running,
-        sandboxId: session.sandboxId,
-        previewUrl: session.previewUrl,
-        versionId: session.versionId,
-        status: session.status,
-        sessionExpiresAt: session.sessionExpiresAt,
+        session,
       };
     });
     if (statusResult.type === "missing") {
@@ -211,14 +225,28 @@ async function routeRequest(req, res) {
         message: "No active preview session for this sandbox id.",
       });
     }
+    const runtimeState = getRuntimeStateForProject(statusResult.session.projectId);
+    if (!runtimeState.running && statusResult.session.status !== "error" && statusResult.session.status !== "hibernated") {
+      queueRuntimeBoot(statusResult.session.projectId);
+    }
+    if (runtimeState.running) {
+      await withStoreLock((data) => {
+        const session = findSessionBySandboxId(data, sandboxId);
+        if (session) {
+          session.sessionExpiresAt = sessionExpiresAtIso();
+          session.updatedAt = nowIso();
+        }
+      });
+    }
+    const latest = findSessionBySandboxId(readStoreSync(), sandboxId) ?? statusResult.session;
     return json(res, 200, {
       ok: true,
-      running: statusResult.running,
-      sandboxId: statusResult.sandboxId,
-      previewUrl: statusResult.previewUrl,
-      versionId: statusResult.versionId,
-      status: statusResult.status,
-      sessionExpiresAt: statusResult.sessionExpiresAt,
+      running: runtimeState.running,
+      sandboxId: latest.sandboxId,
+      previewUrl: latest.previewUrl,
+      versionId: latest.versionId,
+      status: latest.status,
+      sessionExpiresAt: latest.sessionExpiresAt,
     });
   }
 
@@ -226,37 +254,44 @@ async function routeRequest(req, res) {
     const raw = await readJsonBody(req);
     const validated = validateStartPayload(raw);
     const created = await withStoreLock((data) => {
-      const sessionId = randomUUID();
-      const sandboxId = `sbx_${randomUUID()}`;
-      const createdAt = nowIso();
+      const existing = findSessionByProjectId(data, validated.projectId);
+      const createdAt = existing?.createdAt ?? nowIso();
+      const updatedAt = nowIso();
       const sessionExpiresAt = sessionExpiresAtIso();
-      const previewUrl = `${PREVIEW_BASE_URL.replace(/\/$/, "")}/${validated.projectId}`;
-
+      const sessionId = existing?.sessionId ?? randomUUID();
+      const sandboxId = existing?.sandboxId ?? `sbx_${randomUUID()}`;
       const session = {
         sessionId,
         sandboxId,
         projectId: validated.projectId,
         versionId: validated.versionId,
-        previewUrl,
-        status: "warm_project",
+        previewUrl: buildPreviewUrl(PREVIEW_BASE_URL, validated.projectId),
+        status: "starting",
         lastAction: "start",
         changeClass: validated.changeClass,
-        startOutcome: "fresh",
+        startOutcome: existing ? "resumed" : "fresh",
         preferredBaseImage: validated.preferredBaseImage,
         dependencyFingerprint: validated.dependencyFingerprint,
         resumeStrategy: validated.resumeStrategy,
         filesJson: validated.filesJson,
         createdAt,
-        updatedAt: createdAt,
+        updatedAt,
         sessionExpiresAt,
+        runtimePort: existing?.runtimePort ?? null,
       };
-
       data.sessions[sessionId] = session;
       data.sandboxToSession[sandboxId] = sessionId;
-      appendLog(data, sandboxId, `Session created for project ${validated.projectId}.`);
+      appendLog(
+        data,
+        sandboxId,
+        existing
+          ? `Session reused for project ${validated.projectId}; booting updated runtime.`
+          : `Session created for project ${validated.projectId}.`,
+      );
       return session;
     });
-    return json(res, 201, sessionResponse(created));
+    queueRuntimeBoot(validated.projectId, { restart: true });
+    return json(res, 201, sessionResponse(findSessionById(readStoreSync(), created.sessionId) ?? created));
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/update") {
@@ -279,7 +314,10 @@ async function routeRequest(req, res) {
       session.versionId = validated.versionId;
       session.changeClass = validated.changeClass;
       if (validated.filesJson !== undefined) {
-        session.filesJson = validated.filesJson;
+        session.filesJson = {
+          ...(session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {}),
+          ...validated.filesJson,
+        };
       }
       session.status = "warm_project";
       session.lastAction = "update";
@@ -295,7 +333,8 @@ async function routeRequest(req, res) {
         message: "No preview session matched the provided id.",
       });
     }
-    return json(res, 200, sessionResponse(updated));
+    queueRuntimeBoot(updated.projectId, { restart: true });
+    return json(res, 200, sessionResponse(findSessionById(readStoreSync(), updated.sessionId) ?? updated));
   }
 
   if (req.method === "POST" && url.pathname === "/preview/session/hibernate") {
@@ -324,6 +363,7 @@ async function routeRequest(req, res) {
         message: "No preview session matched the provided id.",
       });
     }
+    await hibernateProject(out.projectId);
     return json(res, 200, sessionResponse(out));
   }
 
@@ -341,20 +381,26 @@ async function routeRequest(req, res) {
       if (!session) {
         return null;
       }
-      const { sessionId, sandboxId } = session;
+      const { sessionId, sandboxId, projectId } = session;
       session.status = "destroyed";
       session.lastAction = "destroy";
       session.updatedAt = nowIso();
       appendLog(data, sandboxId, "Session destroyed.");
       delete data.sessions[sessionId];
       delete data.sandboxToSession[sandboxId];
-      return { sessionId, sandboxId };
+      return { sessionId, sandboxId, projectId };
     });
     if (!destroyed) {
       return json(res, 404, {
         error: "session_not_found",
         message: "No preview session matched the provided id.",
       });
+    }
+    await stopRuntimeForSession(destroyed);
+    try {
+      await destroyProjectWorkspace(destroyed.projectId);
+    } catch {
+      // Best-effort cleanup only; the session is already destroyed.
     }
     return json(res, 200, {
       destroyed: true,
@@ -393,7 +439,7 @@ async function routeRequest(req, res) {
 }
 
 function createServer() {
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     try {
       await routeRequest(req, res);
     } catch (error) {
@@ -405,6 +451,18 @@ function createServer() {
       });
     }
   });
+  server.on("upgrade", async (req, socket, head) => {
+    try {
+      const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+      const handled = await proxyPreviewUpgrade(req, socket, head, url.pathname, url.search);
+      if (!handled) {
+        socket.destroy();
+      }
+    } catch {
+      socket.destroy();
+    }
+  });
+  return server;
 }
 
 if (require.main === module) {

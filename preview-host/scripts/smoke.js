@@ -4,8 +4,6 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createServer } = require("../src/server.js");
-
 async function main() {
   if (!process.env.PREVIEW_HOST_DATA_DIR) {
     process.env.PREVIEW_HOST_DATA_DIR = path.join(
@@ -14,6 +12,8 @@ async function main() {
     );
   }
 
+  process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
+  const { createServer } = require("../src/server.js");
   const server = createServer();
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -37,7 +37,32 @@ async function main() {
       versionId: "ver_1",
       changeClass: "fresh",
       preferredBaseImage: "nextjs-basic",
+      filesJson: {
+        "package.json": JSON.stringify(
+          {
+            name: "demo-project",
+            private: true,
+            scripts: {
+              dev: "node server.js",
+            },
+          },
+          null,
+          2,
+        ),
+        "server.js": [
+          "const http = require('node:http');",
+          "const port = Number(process.env.PORT || 3000);",
+          "const host = process.env.HOSTNAME || '127.0.0.1';",
+          "http.createServer((req, res) => {",
+          "  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });",
+          "  res.end(`<html><body><h1>demo-project</h1><p>${req.url}</p></body></html>`);",
+          "}).listen(port, host);",
+        ].join("\n"),
+      },
     });
+    if (started.status !== 201) {
+      console.error("start failed", started.body);
+    }
     assert.equal(started.status, 201);
     assert.equal(started.body.projectId, "demo-project");
     assert.equal(started.body.lastAction, "start");
@@ -48,8 +73,10 @@ async function main() {
     const st = await getJson(`${baseUrl}/preview/sandbox/${encodeURIComponent(sandboxId)}/status`);
     assert.equal(st.status, 200);
     assert.equal(st.body.ok, true);
-    assert.equal(st.body.running, true);
     assert.equal(st.body.sandboxId, sandboxId);
+
+    const previewHtml = await waitForPreviewHtml(`${baseUrl}/demo-project`, /demo-project/);
+    assert.match(previewHtml, /demo-project/);
 
     const fetched = await getJson(`${baseUrl}/preview/session/${sessionId}`);
     assert.equal(fetched.status, 200);
@@ -117,6 +144,21 @@ async function postJson(url, payload) {
     status: response.status,
     body: await response.json(),
   };
+}
+
+async function waitForPreviewHtml(url, readyPattern) {
+  const deadline = Date.now() + 30_000;
+  let lastHtml = "";
+  while (Date.now() < deadline) {
+    const response = await fetch(url);
+    const html = await response.text();
+    lastHtml = html;
+    if (response.status === 200 && readyPattern.test(html)) {
+      return html;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  throw new Error(`Preview did not become ready in time. Last HTML: ${lastHtml.slice(0, 400)}`);
 }
 
 main().catch((error) => {

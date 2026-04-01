@@ -254,7 +254,7 @@ async function runStartSandboxPreview(
   let vercelAfterPreviewHostFail = false;
 
   if (shouldTryPreviewHost && cid && vid) {
-    const filesJson = Object.fromEntries(projectFiles.map((f) => [f.path, f.content]));
+    const filesJson = Object.fromEntries(runtimeFiles.map((f) => [f.name, f.content]));
     const started = await startPreviewHostSession({
       projectId: cid,
       versionId: vid,

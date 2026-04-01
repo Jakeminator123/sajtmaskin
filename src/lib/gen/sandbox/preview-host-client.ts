@@ -6,7 +6,7 @@ function previewHostAuthHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${key}` };
 }
 
-const START_TIMEOUT_MS = 120_000;
+const START_TIMEOUT_MS = 300_000;
 const STATUS_TIMEOUT_MS = 15_000;
 
 export async function fetchPreviewHostStatus(

@@ -10,6 +10,11 @@ primary_region = "arn"
   PORT = "8080"
   PREVIEW_BASE_URL = "https://vm-fly-jakem.fly.dev"
   PREVIEW_SESSION_TTL_MS = "1800000"
+  PREVIEW_HOST_RUNTIME_READY_MAX_MS = "300000"
+
+[[mounts]]
+  source = "preview_host_data"
+  destination = "/data"
 
 [http_service]
   internal_port = 8080
@@ -20,8 +25,8 @@ primary_region = "arn"
   processes = ["app"]
 
   [[http_service.checks]]
-    interval = "15s"
-    timeout = "5s"
-    grace_period = "10s"
+    interval = "30s"
+    timeout = "10s"
+    grace_period = "30s"
     method = "GET"
     path = "/health"

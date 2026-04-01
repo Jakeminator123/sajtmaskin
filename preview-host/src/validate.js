@@ -76,6 +76,9 @@ function validateStartPayload(payload) {
     changeClass = cc;
   }
   const filesJson = validateFilesJson(p.filesJson, "filesJson");
+  if (!filesJson || Object.keys(filesJson).length === 0) {
+    throw new Error("Invalid filesJson: start requires a non-empty project file set");
+  }
   const preferredBaseImage =
     typeof p.preferredBaseImage === "string" && p.preferredBaseImage.trim()
       ? p.preferredBaseImage.trim().slice(0, 128)
