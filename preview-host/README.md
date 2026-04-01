@@ -40,6 +40,7 @@ I praktiken betyder det:
 - **`npm audit fix`**: valfritt rad fran npm, inte ett krav for preview.
 - **Readiness** vantar pa HTTP 200 HTML med tillrackligt med synlig text i `<body>`; tom sida efter nagra forsok loggas som varning men accepteras (annars blockerar vi legitima RSC-/compile-faser for lange).
 - **basePath / CSS som saknas i iframen**: publik URL ar `https://...fly.dev/{projectId}/...`. Utan `basePath` pekar HTML pa `/_next/...` mot hostroten (404) → sidan ser ut som "ren HTML". Runtime satter `SAJTMASKIN_PREVIEW_BASE_PATH=/{projectId}` och proxyn skickar **full** path till `next dev`; `next.config.ts` maste respektera env (scaffold + patch pa workspace vid boot).
+- **`/placeholder.svg` mot hostroten (404)**: motorn instruerar `<img src="/placeholder.svg?...">`. Webblasaren fragar da `https://...fly.dev/placeholder.svg`, inte under `/{projectId}/`. Preview-host svarar darfor pa `GET /placeholder.svg` med samma SVG som Sajtmaskin-huvudappens `/api/placeholder`. Baseline-scaffold inkluderar aven `app/api/placeholder` + rewrite for zip/sandbox utan Fly.
 
 ### Drift pa Fly
 

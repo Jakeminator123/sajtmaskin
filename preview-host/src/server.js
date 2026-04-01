@@ -20,6 +20,7 @@ const {
   validateUpdatePayload,
   validateSessionRefPayload,
 } = require("./validate.js");
+const { sendRootPlaceholderSvg } = require("./placeholder-svg.js");
 
 const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -168,6 +169,11 @@ async function routeRequest(req, res) {
     });
   }
 
+  if (req.method === "GET" && url.pathname === "/placeholder.svg") {
+    sendRootPlaceholderSvg(res, url);
+    return undefined;
+  }
+
   if (req.method === "GET" && url.pathname === "/") {
     return json(res, 200, {
       service: "preview-host",
@@ -181,6 +187,7 @@ async function routeRequest(req, res) {
         "GET /preview/session/:id",
         "GET /preview/sandbox/:sandboxId/status",
         "GET /preview/logs/:sandboxId",
+        "GET /placeholder.svg",
         "GET /:projectId/*",
       ],
     });

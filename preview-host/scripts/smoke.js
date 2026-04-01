@@ -32,6 +32,14 @@ async function main() {
     assert.equal(health.status, 200);
     assert.equal(health.body.ok, true);
 
+    const phRes = await fetch(
+      `${baseUrl}/placeholder.svg?width=40&height=30&text=${encodeURIComponent("smoke")}`,
+    );
+    assert.equal(phRes.status, 200);
+    assert.match(phRes.headers.get("content-type") || "", /image\/svg\+xml/i);
+    const phBody = await phRes.text();
+    assert.match(phBody, /<svg[\s\S]*smoke[\s\S]*<\/svg>/i);
+
     const started = await postJson(`${baseUrl}/preview/session/start`, {
       projectId: "demo-project",
       versionId: "ver_1",
