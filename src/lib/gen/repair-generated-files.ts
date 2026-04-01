@@ -33,6 +33,7 @@ const EVENT_HANDLERS_RE =
   /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
+const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
 
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 
@@ -322,6 +323,24 @@ export function repairGeneratedFiles(files: CodeFile[]): {
         description: 'Added missing `import Image from "next/image"`',
         file: file.path,
       });
+    }
+
+    if (HTML_SCROLL_SMOOTH_RE.test(content)) {
+      const before = content;
+      content = content.replace(
+        HTML_SCROLL_SMOOTH_RE,
+        (_, pre: string, post: string) => {
+          const cleaned = `${pre}${post}`.replace(/\s{2,}/g, " ").replace(/"\s+"/, '"');
+          return cleaned.replace(/<html\b/, '<html data-scroll-behavior="smooth"');
+        },
+      );
+      if (content !== before) {
+        fixes.push({
+          fixer: "scroll-smooth-html-fixer",
+          description: 'Replaced scroll-smooth className with data-scroll-behavior="smooth" on <html> for Next.js 16 compatibility',
+          file: file.path,
+        });
+      }
     }
 
     const symbolResult = fixMissingLocalSymbolImports(content, file.path, exportIndex);
