@@ -544,17 +544,8 @@ function rewriteRequestUrl(req, projectId, restPath, search) {
   req.url = `${prefix}${tail}${search || ""}`;
 }
 
-async function proxyPreviewRequest(req, res, pathname, search = "") {
-  const info = routeInfoFromPathname(pathname);
-  if (!info) return false;
-  const state = getRuntimeStateForProject(info.projectId);
-  if (!state.session) return false;
-  if (state.running && state.runtimePort) {
-    rewriteRequestUrl(req, info.projectId, info.restPath, search);
-    proxy.web(req, res, { target: `http://${LOOPBACK}:${state.runtimePort}` });
-    return true;
-  }
-  queueRuntimeBoot(info.projectId);
+function sendRuntimeStartingPage(res, session) {
+  if (!res || res.headersSent || res.writableEnded) return;
   res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
   res.end(`<!doctype html>
 <html lang="sv">
@@ -574,11 +565,32 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
     <main>
       <h1>Startar preview</h1>
       <p class="muted">Preview-host bygger projektet och startar Next.js i bakgrunden. Sidan laddar om automatiskt om några sekunder.</p>
-      <p class="muted">Projekt: <code>${state.session.projectId}</code></p>
-      <p class="muted">Status: <code>${state.session.status}</code></p>
+      <p class="muted">Projekt: <code>${session.projectId}</code></p>
+      <p class="muted">Status: <code>${session.status}</code></p>
     </main>
   </body>
 </html>`);
+}
+
+function isConnRefusedError(err) {
+  if (!err) return false;
+  if (err.code === "ECONNREFUSED") return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /ECONNREFUSED/i.test(msg);
+}
+
+async function proxyPreviewRequest(req, res, pathname, search = "") {
+  const info = routeInfoFromPathname(pathname);
+  if (!info) return false;
+  const state = getRuntimeStateForProject(info.projectId);
+  if (!state.session) return false;
+  if (state.running && state.runtimePort) {
+    rewriteRequestUrl(req, info.projectId, info.restPath, search);
+    proxy.web(req, res, { target: `http://${LOOPBACK}:${state.runtimePort}` });
+    return true;
+  }
+  queueRuntimeBoot(info.projectId);
+  sendRuntimeStartingPage(res, state.session);
   return true;
 }
 
@@ -605,6 +617,28 @@ async function destroyProjectWorkspace(projectId) {
 }
 
 proxy.on("error", (err, req, res) => {
+  if (isConnRefusedError(err) && res && typeof res.writeHead === "function") {
+    const rawUrl = req?.url || "/";
+    const pathname = String(rawUrl).split("?")[0] || "/";
+    const info = routeInfoFromPathname(pathname);
+    if (info) {
+      const session = findSessionByProjectId(readStoreSync(), info.projectId);
+      if (session) {
+        void (async () => {
+          try {
+            await stopRuntimeForSession(session);
+          } catch {
+            // ignore; boot will attempt recovery
+          } finally {
+            queueRuntimeBoot(info.projectId, { restart: true });
+          }
+        })();
+        sendRuntimeStartingPage(res, session);
+        return;
+      }
+    }
+  }
+
   if (res && !res.headersSent) {
     res.writeHead(502, { "content-type": "application/json; charset=utf-8" });
   }

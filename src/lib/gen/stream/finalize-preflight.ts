@@ -282,15 +282,14 @@ export async function runFinalizePreflight({
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
     const missingPlannedRoutes = findMissingPlannedRoutes(routePlan, actualRoutes);
     if (missingPlannedRoutes.length > 0) {
-      const severity: FinalizePreflightIssue["severity"] =
-        routePlan?.source === "brief" ? "error" : "warning";
+      // Missing secondary routes should not block preview/Tier 2; autofix or follow-up can add them.
       preflightIssues.push(
         ...missingPlannedRoutes.slice(0, 10).map((route) =>
           createIssue(
             route.path,
-            severity,
+            "warning",
             `Planned route is missing from generated files: ${route.path} (${route.name})`,
-            severity === "error" ? "code_structure_failure" : "non_blocking_quality_warning",
+            "non_blocking_quality_warning",
           )
         ),
       );
