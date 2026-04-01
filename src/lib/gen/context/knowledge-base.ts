@@ -8,6 +8,8 @@ export interface KBMatch {
   score: number;
 }
 
+export type KBSearchMode = "keyword" | "semantic" | "keyword_weak_semantic";
+
 export interface KBSearchOptions {
   query: string;
   maxResults?: number;
@@ -15,6 +17,11 @@ export interface KBSearchOptions {
   categories?: Array<DocSnippet["category"]>;
   /** When false, skip semantic embedding fallback (keyword hits only). Default true. */
   allowSemantic?: boolean;
+}
+
+export interface KBSearchResult {
+  matches: KBMatch[];
+  mode: KBSearchMode;
 }
 
 const STOPWORDS = new Set([
@@ -74,23 +81,25 @@ function keywordSearch(
  * Async version that combines keyword + semantic search.
  * Use this when you can afford the async overhead (e.g. in orchestrate.ts).
  */
-export async function searchKnowledgeBaseAsync(options: KBSearchOptions): Promise<KBMatch[]> {
+export async function searchKnowledgeBaseAsync(options: KBSearchOptions): Promise<KBSearchResult> {
   const { query, maxResults = 5, maxChars = 3000, categories, allowSemantic = true } = options;
 
   const kwResults = keywordSearch(query, maxResults, maxChars, categories);
   const bestScore = kwResults[0]?.score ?? 0;
 
   if (bestScore >= KEYWORD_MIN_QUALITY_SCORE) {
-    return kwResults;
+    return { matches: kwResults, mode: "keyword" };
   }
 
   if (!allowSemantic) {
-    return kwResults;
+    return { matches: kwResults, mode: "keyword" };
   }
 
   try {
     const semanticResults = await searchKnowledgeBaseSemantic(query, maxResults);
-    if (semanticResults.length === 0) return kwResults;
+    if (semanticResults.length === 0) {
+      return { matches: kwResults, mode: "keyword_weak_semantic" };
+    }
 
     const seenIds = new Set(kwResults.map((r) => r.id));
     const merged = [...kwResults];
@@ -105,8 +114,8 @@ export async function searchKnowledgeBaseAsync(options: KBSearchOptions): Promis
       if (merged.length >= maxResults) break;
     }
 
-    return merged.slice(0, maxResults);
+    return { matches: merged.slice(0, maxResults), mode: "semantic" };
   } catch {
-    return kwResults;
+    return { matches: kwResults, mode: "keyword_weak_semantic" };
   }
 }

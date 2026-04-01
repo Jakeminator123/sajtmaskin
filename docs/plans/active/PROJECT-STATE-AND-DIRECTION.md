@@ -10,7 +10,7 @@
 ## 1. Produktintent (kort)
 
 - **Preview-kedja (operativt kördokument):** [`docs/architecture/preview-deploy.md`](../../architecture/preview-deploy.md) — inkl. § *Levererat* (vad som är implementerat och var i kod).
-- **I korthet:** Användaren ska *skriva önskemål → få körbar preview* utan att bli intern orkestratör. **Sandbox** (`npm install` + `npm run dev`) är **primär** preview när runtime startar; **shim** är fallback; **`npm run build`** i sandbox är **egen** signal (deploy-paritet), inte samma som «preview känns levande». **Preflight/quality gate** är ett **tredje lager** — rivs inte.
+- **I korthet:** Användaren ska *skriva önskemål → få körbar preview* utan att bli intern orkestratör. **Tier-2 preview via `preview_host` (Fly.io VM)** är primär när preview-host är konfigurerad; Vercel Sandbox är sekundär/opt-in fallback; **shim** är fallback/diagnostik; **`npm run build`** i Vercel-spåret är **egen** signal (deploy-paritet), inte samma som «preview känns levande». **Preflight/quality gate** är ett **tredje lager** — rivs inte.
 
 ---
 
@@ -34,7 +34,7 @@
 ## 3. Tre lager (får inte kollapsas)
 
 1. **Preflight** — befintlig quality gate (reparation, sanity, SEO/route).  
-2. **Sandbox `dev`** — huvudfidelity för «levande» preview.  
+2. **Tier-2 runtime `dev`** — huvudfidelity för «levande» preview (normalt via `preview_host` när den är konfigurerad).  
 3. **`npm run build`** — separat verifiering / deploy-paritet.
 
 ---

@@ -42,7 +42,7 @@
     },
     {
       "vendor": "Vercel",
-      "title": "AI SDK streamText (library, not a hosted API)",
+      "title": "AI SDK streamText (open-source library, not a hosted API)",
       "url": "https://sdk.vercel.ai/docs/reference/ai-sdk-core/stream-text",
       "appliesTo": "sdk_or_tooling"
     },
@@ -97,10 +97,9 @@
         "anthropic-direct/claude-haiku-4-5-20251001",
         "anthropic-direct/claude-sonnet-4-6",
         "anthropic-direct/claude-opus-4-6"
-      ],
-      "v0Models": []
+      ]
     },
-    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. Prompt assist does not use the v0 Model API; v0Models in allowed is kept empty for schema parity."
+    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*."
   },
   "tokenBudgets": {
     "engineMaxOutputTokens": {

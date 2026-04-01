@@ -135,10 +135,21 @@ function isSessionUsable(session, nowMs) {
   return true;
 }
 
+function isLocalEnvironment() {
+  const host = process.env.HOST ?? "0.0.0.0";
+  const flyApp = process.env.FLY_APP_NAME;
+  return !flyApp && (host === "127.0.0.1" || host === "localhost");
+}
+
 function checkApiKey(req, res) {
   const expected = process.env.PREVIEW_HOST_API_KEY?.trim();
   if (!expected) {
-    return true;
+    if (isLocalEnvironment()) return true;
+    json(res, 503, {
+      error: "configuration_error",
+      message: "PREVIEW_HOST_API_KEY is required in non-local environments.",
+    });
+    return false;
   }
   const auth = req.headers.authorization ?? "";
   const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";

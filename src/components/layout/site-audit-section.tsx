@@ -37,7 +37,8 @@ export function SiteAuditSection({
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [showModeDialog, setShowModeDialog] = useState(false);
-  const lastHandledSubmitSignalRef = useRef<number | undefined>(undefined);
+  // Initialize with current signal so mount does not auto-submit.
+  const lastHandledSubmitSignalRef = useRef<number | undefined>(externalSubmitSignal);
 
   const isUrlControlled = typeof url === "string";
   const currentUrl = isUrlControlled ? url : internalUrl;

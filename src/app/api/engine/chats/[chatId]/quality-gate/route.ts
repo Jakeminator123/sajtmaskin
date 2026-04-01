@@ -24,6 +24,8 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
+/** Uses Vercel Sandbox for verification only (typecheck/build/lint), not as primary user preview runtime. */
+
 const requestSchema = z.object({
   versionId: z.string().min(1),
   checks: z

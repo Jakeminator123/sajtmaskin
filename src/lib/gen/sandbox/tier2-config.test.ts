@@ -13,16 +13,28 @@ afterEach(() => {
 });
 
 describe("getTier2RuntimeMode", () => {
+  it("uses explicit vercel_sandbox when requested", () => {
+    process.env.SAJTMASKIN_TIER2_RUNTIME = "vercel_sandbox";
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://vm-fly-jakem.fly.dev";
+    expect(getTier2RuntimeMode()).toBe("vercel_sandbox");
+  });
+
   it("uses explicit preview_host when requested", () => {
     process.env.SAJTMASKIN_TIER2_RUNTIME = "preview_host";
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://vm-fly-jakem.fly.dev";
     expect(getTier2RuntimeMode()).toBe("preview_host");
   });
 
-  it("prefers preview_host_then_vercel when preview-host is configured and runtime is unset", () => {
-    delete process.env.SAJTMASKIN_TIER2_RUNTIME;
+  it("uses explicit preview_host_then_vercel when requested", () => {
+    process.env.SAJTMASKIN_TIER2_RUNTIME = "preview_host_then_vercel";
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://vm-fly-jakem.fly.dev";
     expect(getTier2RuntimeMode()).toBe("preview_host_then_vercel");
+  });
+
+  it("defaults to strict preview_host when preview-host is configured and runtime is unset", () => {
+    delete process.env.SAJTMASKIN_TIER2_RUNTIME;
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://vm-fly-jakem.fly.dev";
+    expect(getTier2RuntimeMode()).toBe("preview_host");
   });
 
   it("falls back to vercel_sandbox when no preview-host base url exists", () => {

@@ -14,7 +14,7 @@
 
 1. `POST /api/v0/chats/stream` skapar/uppdaterar engine-chatt och strömmar own-engine-generering.
 2. **Finalize** (`finalize-version.ts`) kör autofix, validering, merge, preflight och sparar **`files_json`** på versionen.
-3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt och väljer sedan **tier-2-provider**: primärt `preview_host` över HTTP (VM via Fly.io), sekundärt Vercel Sandbox. Om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt och `SAJTMASKIN_TIER2_RUNTIME` är unset föredras `preview_host_then_vercel` som aggressiv men säker default. Standardläge för Vercel-spåret är fortfarande **`dev_only`** (när fallbacken faktiskt används), men läget kan också lösas per generation från `BuildSpec.previewPolicy` + `BuildSpec.verificationPolicy` innan env-fallback används.
+3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt och väljer sedan **tier-2-provider**: primärt `preview_host` över HTTP (VM via Fly.io), sekundärt Vercel Sandbox. Om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt och `SAJTMASKIN_TIER2_RUNTIME` är unset används nu **`preview_host`** som strikt default (ingen automatisk Vercel-failover). Vercel fallback kräver explicit `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel`. Standardläge för Vercel-spåret är fortfarande **`dev_only`** (när fallbacken faktiskt används), men läget kan också lösas per generation från `BuildSpec.previewPolicy` + `BuildSpec.verificationPolicy` innan env-fallback används.
 4. Vid lyckad readiness / sessionskapande: **`engine_versions.sandbox_url`** sätts (legacy kolumnnamn, men nu kan värdet komma från valfri tier-2-provider); klienten visar **Fidelity 2**. **Enda** produktpreviewvägen är tier 2 via samma `/sandbox-*`-kontrakt; **tier-1 shim** (`/api/preview-render`) är borttagen ur flödet (routen kan finnas kvar för bakåtkompatibilitet men länkas inte från buildern).
 
 **Fidelity 3** (`prodBuildVerified`, `fidelityTier: 3`) när sandbox körs i `dev_then_build` och byggsteget i VM lyckas — antingen via global env (`SAJTMASKIN_SANDBOX_PREVIEW_MODE=dev_then_build`) eller via per-generation policy från `BuildSpec` — se `runtime-url.ts`.
@@ -54,7 +54,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Follow-up underlag | `engine_versions.files_json` via `meta.engineBaseVersionId` (builder) eller annars **preferred** version | `[chatId]/stream/route.ts`, `resolveFollowUpPreviousFiles` i `version-manager.ts`, `useSendMessage.ts` |
 | Autofix / retry-bas | Klientautofix som skickar en reparationsprompt pinnas till **den felande versionen** via `engineBaseVersionId`, så retry inte hoppar till en annan vald version i buildern | `useAutoFix.ts`, `useSendMessage.ts`, `[chatId]/stream/route.ts` |
 | `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `own-engine-sandbox-gate.ts`, `generation-stream.ts` |
-| Tier-2 provider | `preview_host` (HTTP) eller Vercel Sandbox bakom samma `/sandbox-*`-kontrakt; när base URL finns och mode är unset föredras `preview_host_then_vercel` | `sandbox-preview.ts`, `tier2-config.ts`, `preview-host-client.ts`, `tier2-resume.ts` |
+| Tier-2 provider | `preview_host` (HTTP) eller Vercel Sandbox bakom samma `/sandbox-*`-kontrakt; när base URL finns och mode är unset används strikt `preview_host` | `sandbox-preview.ts`, `tier2-config.ts`, `preview-host-client.ts`, `tier2-resume.ts` |
 | Readiness | HTTP-probe efter `npm run dev` (2xx + dokumentlik `Content-Type`) | `runtime-url.ts` (`waitForSandboxDevServerReady`) |
 | Sandbox-only | Publika `done`-/GET-svar har `previewUrl: null` medan `sandboxPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
 | HTTP API | Meningsfulla statuskoder + `retryable` för `/sandbox-preview` | `sandbox-preview-errors.ts`, route |
@@ -89,7 +89,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 1. Efter `done` i SSE är **sandbox** den enda previewytan. I publika event/svar är `previewUrl` och `legacyShimPreviewUrl` **`null`** tills sandbox är redo; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl`.
 2. Kanoniska filer för sandbox är **`filesJson` efter finalize** (merge + preflight), inte rå `contentForVersion`.
-3. Om minst en tier-2-provider är konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Med `preview_host_then_vercel` provas preview-host först och Vercel Sandbox används som fallback vid recoverable fel. För Vercel-spåret körs efter `npm run dev` en **readiness probe** mot preview-URL: **2xx** och dokumentlik `Content-Type` (t.ex. `text/html`), inte bara att undvika 5xx (se `waitForSandboxDevServerReady` i `runtime-url.ts`; timeout: `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `src/lib/env.ts`).
+3. Om minst en tier-2-provider är konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Med explicit `preview_host_then_vercel` provas preview-host först och Vercel Sandbox används som fallback vid recoverable fel; i standardläget med base URL + unset runtime körs strikt `preview_host`. För Vercel-spåret körs efter `npm run dev` en **readiness probe** mot preview-URL: **2xx** och dokumentlik `Content-Type` (t.ex. `text/html`), inte bara att undvika 5xx (se `waitForSandboxDevServerReady` i `runtime-url.ts`; timeout: `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `src/lib/env.ts`).
 4. `engine_versions.sandbox_url` uppdateras vid lyckad sandbox.
 
 **HTTP GET `/api/v0/chats/[chatId]` och `.../versions` (own-engine, 2026-03-30):** publikt fält är `previewUrl`; för own-engine är det **`null`** som huvudsignal tills sandbox finns. Live-preview ligger i **`sandboxUrl`**. Shim till `/api/preview-render` exponeras som **`legacyShimPreviewUrl`** (när `canExposeEnginePreview` tillåter), inte som primär preview-signal. DB-kolumnen är fortfarande `demo_url`, och inbound legacy-payloads tolkas via `resolveInboundPreviewUrl()`. Klienten (`useBuilderCallbacks` vid versionsval, `pickVersionPreviewUrl` vid sync) använder **sandbox först** och **null + bootstrap** när sandbox saknas, i stället för att låsa iframe till shim som standard. Varje GET till `/api/preview-render` loggas med prefix **`[telemetry:legacy-preview-render]`** för uppföljning innan ev. borttagning.
@@ -154,7 +154,7 @@ Tier 2 är **inte** ett enda alltid-igång subsystem. Vercel Sandbox startas på
 |--------|------------|-----|
 | **Ingen tier-2-provider** | varken `SAJTMASKIN_PREVIEW_HOST_BASE_URL` eller fungerande Vercel-credentials finns → API `/sandbox-preview` → **503** `sandbox_disabled` | `tier2-config.ts`, `runtime-url.ts`, `sandbox-preview/route.ts` |
 | **`previewBlocked`** | Preflight kunde inte bygga tier-1 preview (`buildPreviewHtml` tomt / undantag) → `shouldRunOwnEngineSandbox` false | `finalize-preflight.ts`, `own-engine-sandbox-gate.ts` |
-| **Preview-host-fel** | `preview_host` svarar med fel / timeout; vid `preview_host_then_vercel` loggas failover och Vercel Sandbox provas efterat, annars stannar flödet | `sandbox-preview.ts`, `preview-host-client.ts`, `tier2-config.ts` |
+| **Preview-host-fel** | `preview_host` svarar med fel / timeout; i standardläge (strict `preview_host`) stannar flödet, medan explicit `preview_host_then_vercel` loggar failover och provar Vercel Sandbox | `sandbox-preview.ts`, `preview-host-client.ts`, `tier2-config.ts` |
 | **`npm install` / VM-fel** | Vercel-spåret returnerar fel (t.ex. **502** från `/api/sandbox`, eller fel från `createSandboxRuntimeFromFiles`) → `build-error` i SSE, ingen `sandbox_url` | `sandbox-preview.ts`, `runtime-url.ts` |
 | **Readiness-timeout** | Dev-server svarar inte HTTP inom `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` | `runtime-url.ts` |
 | **Misslyckad quality gate** | `verificationState === failed` → `canExposeEnginePreview` är **false** → POST `/sandbox-preview` → **400** `preview_blocked` (bootstrap kan inte «efterstarta» sandbox för den versionen) | `engine-version-lifecycle.ts`, `sandbox-preview/route.ts` |
@@ -166,9 +166,11 @@ Tier 2 är **inte** ett enda alltid-igång subsystem. Vercel Sandbox startas på
 ## Tier-2 provider config
 
 - **Preview-host som primär väg:** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, valfritt `SAJTMASKIN_PREVIEW_HOST_API_KEY`, och `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` för klientens host-detektion.
-- **Aggressiv men säker default:** om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns och `SAJTMASKIN_TIER2_RUNTIME` är unset används `preview_host_then_vercel`.
-- **Hård cutover:** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host`.
+- **Standard med preview-host:** om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns och `SAJTMASKIN_TIER2_RUNTIME` är unset används strikt `preview_host`.
+- **Opt-in fallback:** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` för preview-host först + Vercel-fallback.
+- **Hård cutover (explicit):** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host`.
 - **Vercel fallback / sekundär provider:** `VERCEL_TOKEN`, `VERCEL_OIDC_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` enligt behov.
+- **Verifiering/validering:** quality-gate och server-verify kan fortsatt använda Vercel Sandbox som separat verifierings-VM utan att ändra vilken preview-provider användaren får.
 
 Se även [`docs/ENV.md`](../ENV.md) och `src/lib/env.ts`.
 

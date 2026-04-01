@@ -14,11 +14,17 @@ export type Tier2RuntimeMode = "vercel_sandbox" | "preview_host" | "preview_host
 /**
  * `SAJTMASKIN_TIER2_RUNTIME`: `vercel_sandbox`, `preview_host`, `preview_host_then_vercel`.
  *
- * If unset and `SAJTMASKIN_PREVIEW_HOST_BASE_URL` exists, prefer `preview_host_then_vercel`
- * so preview-host becomes the primary tier-2 path without losing Vercel fallback.
+ * Default policy:
+ * - If unset and `SAJTMASKIN_PREVIEW_HOST_BASE_URL` exists -> `preview_host` (strict Fly/VM primary path)
+ * - If unset and no preview-host base URL exists -> `vercel_sandbox`
+ *
+ * Vercel fallback is opt-in via explicit `preview_host_then_vercel`.
  */
 export function getTier2RuntimeMode(): Tier2RuntimeMode {
   const raw = process.env.SAJTMASKIN_TIER2_RUNTIME?.trim().toLowerCase().replace(/-/g, "_");
+  if (raw === "vercel_sandbox" || raw === "sandbox") {
+    return "vercel_sandbox";
+  }
   if (raw === "preview_host" || raw === "preview_host_only") {
     return "preview_host";
   }
@@ -30,7 +36,7 @@ export function getTier2RuntimeMode(): Tier2RuntimeMode {
     return "preview_host_then_vercel";
   }
   if (getPreviewHostBaseUrl()) {
-    return "preview_host_then_vercel";
+    return "preview_host";
   }
   return "vercel_sandbox";
 }

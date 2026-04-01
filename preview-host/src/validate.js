@@ -1,5 +1,7 @@
 "use strict";
 
+const path = require("node:path");
+
 const CHANGE_CLASSES = new Set(["fresh", "light", "medium", "heavy"]);
 const MAX_FILES = 500;
 const MAX_PATH_LEN = 512;
@@ -11,6 +13,22 @@ function requireTrimString(value, fieldName) {
     throw new Error(`Missing or invalid field: ${fieldName}`);
   }
   return value.trim();
+}
+
+/**
+ * Reject paths that could escape the workspace via traversal, absolute refs,
+ * or Windows drive letters. Only clean relative paths are allowed.
+ */
+function isSafeRelativePath(filePath) {
+  if (!filePath || typeof filePath !== "string") return false;
+  if (path.isAbsolute(filePath)) return false;
+  if (/^[a-zA-Z]:/.test(filePath)) return false;
+  const normalized = path.posix.normalize(filePath.replace(/\\/g, "/"));
+  if (normalized.startsWith("../") || normalized === "..") return false;
+  if (normalized.startsWith("/")) return false;
+  const segments = normalized.split("/");
+  if (segments.some((s) => s === "..")) return false;
+  return true;
 }
 
 /**
@@ -36,6 +54,9 @@ function validateFilesJson(value, fieldName) {
     const pathKey = k.trim();
     if (pathKey.length > MAX_PATH_LEN) {
       throw new Error(`Invalid ${fieldName}: path too long`);
+    }
+    if (!isSafeRelativePath(pathKey)) {
+      throw new Error(`Invalid ${fieldName}: unsafe path "${pathKey}"`);
     }
     if (typeof val !== "string") {
       throw new Error(`Invalid ${fieldName}: values must be strings`);

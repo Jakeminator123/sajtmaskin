@@ -128,8 +128,9 @@ export const serverSchema = z.object({
   /** Optional Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host). */
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
   /**
-   * Tier-2 runtime: `vercel_sandbox` (default), `preview_host`, `preview_host_then_vercel`
-   * (try preview-host first, fall back to Vercel Sandbox).
+   * Tier-2 runtime: `vercel_sandbox`, `preview_host`, `preview_host_then_vercel`.
+   * If unset: defaults to `preview_host` when `SAJTMASKIN_PREVIEW_HOST_BASE_URL` is set,
+   * otherwise falls back to `vercel_sandbox`.
    */
   SAJTMASKIN_TIER2_RUNTIME: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),

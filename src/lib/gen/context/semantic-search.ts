@@ -69,6 +69,8 @@ function expandQuery(query: string): string {
   return `${query}\n\nRelated: ${Array.from(new Set(hints)).join(", ")}`;
 }
 
+const KB_EMBEDDING_QUERY_CHAR_LIMIT = 4_000;
+
 export async function searchKnowledgeBaseSemantic(
   query: string,
   topK: number = 5,
@@ -82,11 +84,16 @@ export async function searchKnowledgeBaseSemantic(
 
   const openai = new OpenAI({ apiKey });
 
+  const truncatedQuery =
+    query.length > KB_EMBEDDING_QUERY_CHAR_LIMIT
+      ? query.slice(0, KB_EMBEDDING_QUERY_CHAR_LIMIT)
+      : query;
+
   let queryEmbedding: number[];
   try {
     const response = await openai.embeddings.create({
       model: DOCS_EMBEDDING_MODEL,
-      input: expandQuery(query),
+      input: expandQuery(truncatedQuery),
       dimensions: DOCS_EMBEDDING_DIMENSIONS,
     });
     queryEmbedding = response.data[0].embedding;

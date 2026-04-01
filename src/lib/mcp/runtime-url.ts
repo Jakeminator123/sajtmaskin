@@ -71,7 +71,9 @@ const SANDBOX_PREVIEW_MODE_VALUES = new Set<SandboxPreviewMode>([
 
 /**
  * Server env `SAJTMASKIN_SANDBOX_PREVIEW_MODE`.
- * Default `dev_only`: Fidelity 2 only (`npm run dev` in VM) — snabbare och produktens primära previewväg.
+ * Default `dev_only`: Fidelity 2 only (`npm run dev` in VM) for the Vercel Sandbox path.
+ * Product-level preview default is controlled by tier-2 provider selection
+ * (`preview_host` vs `vercel_sandbox`) in `tier2-config.ts`.
  * Sätt `dev_then_build` för dev + `npm run build`-verifiering (Fidelity 3-signal när bygget lyckas).
  */
 export function resolveSandboxPreviewModeFromEnv(): SandboxPreviewMode {

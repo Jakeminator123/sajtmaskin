@@ -285,7 +285,7 @@
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). See docs/architecture/preview-deploy.md and docs/ENV.md."
+      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). Tier-2 user preview defaults to preview_host when configured; these credentials are mainly for explicit Vercel tier-2 mode/fallback and quality-gate/server-verify paths."
     },
     {
       "key": "VERCEL_TOKEN_FULL",
@@ -297,13 +297,13 @@
       "key": "VERCEL_TEAM_ID",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Team / org scope (often team_…). Required together with VERCEL_TOKEN + VERCEL_PROJECT_ID for @vercel/sandbox from local dev. Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
+      "notes": "Team / org scope (often team_…). Required together with VERCEL_TOKEN + VERCEL_PROJECT_ID for @vercel/sandbox from local dev (explicit tier-2 fallback/mode + quality-gate/server-verify). Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
     },
     {
       "key": "VERCEL_PROJECT_ID",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Project id (prj_…). Required with VERCEL_TOKEN + VERCEL_TEAM_ID for sandbox from local dev. From Project Settings → General, or .vercel/project.json after vercel link."
+      "notes": "Project id (prj_…). Required with VERCEL_TOKEN + VERCEL_TEAM_ID for @vercel/sandbox from local dev (explicit tier-2 fallback/mode + quality-gate/server-verify). From Project Settings → General, or .vercel/project.json after vercel link."
     },
     {
       "key": "VERCEL_WEBHOOK_SECRET",
@@ -315,7 +315,7 @@
       "key": "VERCEL_OIDC_TOKEN",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development"],
-      "notes": "Alternative to VERCEL_TOKEN+TEAM+PROJECT for @vercel/sandbox: pulled locally via vercel env pull (Vercel CLI). On Vercel-hosted runtimes the platform may inject OIDC; treat pulled .env values as local-only snapshots."
+      "notes": "Alternative to VERCEL_TOKEN+TEAM+PROJECT for @vercel/sandbox: pulled locally via vercel env pull (Vercel CLI). On Vercel-hosted runtimes the platform may inject OIDC; treat pulled .env values as local-only snapshots. Primärt relevant för explicit Vercel tier-2 mode/fallback och quality-gate/server-verify."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",

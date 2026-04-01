@@ -5,6 +5,9 @@
  * fire-and-forget background task. Updates version verification state
  * on the DB; the UI reads server state via version polls.
  *
+ * Note: this module may use Vercel Sandbox as a verification VM, but it does
+ * not control the primary tier-2 preview provider for end users.
+ *
  * Deduplicated: the same versionId will not run twice concurrently.
  */
 import { dbConfigured } from "@/lib/db/client";

@@ -58,7 +58,6 @@ const promptAssistSchema = z.object({
   allowed: z.object({
     gatewayClassModels: z.array(z.string()),
     anthropicDirectModels: z.array(z.string()),
-    v0Models: z.array(z.string()),
   }),
   notes: z.string().optional(),
 });
@@ -167,13 +166,11 @@ export function getQualityToOwnEngineModels(): Record<QualityLevelFromManifest, 
 export function getPromptAssistAllowedFromManifest(): {
   gatewayClassModels: readonly string[];
   anthropicDirectModels: readonly string[];
-  v0Models: readonly string[];
 } {
   const a = getAiModelsManifest().promptAssist.allowed;
   return {
     gatewayClassModels: a.gatewayClassModels,
     anthropicDirectModels: a.anthropicDirectModels,
-    v0Models: a.v0Models,
   };
 }
 

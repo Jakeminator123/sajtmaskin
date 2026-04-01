@@ -180,11 +180,16 @@ function fixLucideLinkImport(code: string, filePath: string): {
     .map((name) => name.trim())
     .filter(Boolean);
 
-  if (!names.includes("Link")) {
+  const hasLinkImport = names.some(
+    (name) => name === "Link" || /^Link\s+as\s+/i.test(name),
+  );
+  if (!hasLinkImport) {
     return { code, fixed: false, fixes: [] };
   }
 
-  const remaining = names.filter((name) => name !== "Link");
+  const remaining = names.filter(
+    (name) => name !== "Link" && !/^Link\s+as\s+/i.test(name),
+  );
   const nextLucideImport = remaining.length > 0
     ? `import { ${remaining.join(", ")} } from "lucide-react";`
     : "";

@@ -62,11 +62,14 @@ export type FollowUpClarification = {
 
 function isUnderspecifiedFollowUp(message: string): boolean {
   const trimmed = message.trim();
-  if (!trimmed || trimmed.length > 120) return false;
+  if (!trimmed || trimmed.length > 300) return false;
   if (!FOLLOW_UP_VAGUE_EDIT_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
   if (FOLLOW_UP_EXPLICIT_DIRECTION_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
   if (FOLLOW_UP_SPECIFIC_TARGET_PATTERNS.some((pattern) => pattern.test(trimmed))) return false;
-  return trimmed.split(/\s+/).length <= 10;
+  const words = trimmed.split(/\s+/);
+  if (words.length <= 10) return true;
+  const specificTargetCount = countPatternMatches(FOLLOW_UP_SPECIFIC_TARGET_PATTERNS, trimmed);
+  return specificTargetCount === 0 && words.length <= 25;
 }
 
 function countPatternMatches(patterns: RegExp[], message: string): number {

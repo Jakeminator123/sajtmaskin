@@ -158,10 +158,29 @@ function readJsonIfExists(filePath) {
   }
 }
 
+const ENV_ALLOWLIST = new Set([
+  "PATH", "HOME", "USER", "SHELL", "LANG", "TERM",
+  "NODE_ENV", "NODE_OPTIONS", "NODE_PATH",
+  "NPM_CONFIG_REGISTRY", "NPM_CONFIG_CACHE",
+  "HOSTNAME", "PORT",
+  "NEXT_TELEMETRY_DISABLED",
+  "SAJTMASKIN_PREVIEW_BASE_PATH",
+  "TMPDIR", "TMP", "TEMP",
+]);
+const ENV_ALLOWLIST_PREFIXES = ["NEXT_PUBLIC_"];
+
 function sanitizedEnv(overrides = {}) {
-  const merged = { ...process.env, ...overrides };
   const out = {};
-  for (const [key, value] of Object.entries(merged)) {
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value !== "string") continue;
+    if (
+      ENV_ALLOWLIST.has(key) ||
+      ENV_ALLOWLIST_PREFIXES.some((prefix) => key.startsWith(prefix))
+    ) {
+      out[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(overrides)) {
     if (typeof value === "string") {
       out[key] = value;
     }

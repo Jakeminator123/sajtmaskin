@@ -17,6 +17,9 @@ const SUMMARY_FILE = "summary.md";
 const META_FILE = "meta.json";
 const LATEST_FILE = "_latest.txt";
 const FALSE_VALUES = new Set(["0", "false", "off", "no"]);
+const MAX_RUN_DIRS = 3;
+const MAX_TIMELINE_ENTRIES_PER_RUN = 1_000;
+const MAX_SUMMARY_TIMELINE_ROWS = 180;
 const runDirBySlug = new Map<string, string>();
 const runDirByChatId = new Map<string, string>();
 
@@ -77,6 +80,23 @@ function ensureRootDir(): void {
   }
 }
 
+function pruneOldRunDirs(): void {
+  try {
+    const entries = fs
+      .readdirSync(ROOT_DIR, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+    if (entries.length <= MAX_RUN_DIRS) return;
+    const toRemove = entries.slice(0, entries.length - MAX_RUN_DIRS);
+    for (const name of toRemove) {
+      fs.rmSync(path.join(ROOT_DIR, name), { recursive: true, force: true });
+    }
+  } catch {
+    // Best-effort cleanup.
+  }
+}
+
 function createRunDir(ts: string, slug: string | null): string {
   ensureRootDir();
   const baseName = `${formatRunTimestamp(ts)}-${slug || "generation"}`;
@@ -89,11 +109,17 @@ function createRunDir(ts: string, slug: string | null): string {
   const dir = path.join(ROOT_DIR, folderName);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(ROOT_DIR, LATEST_FILE), `${folderName}\n`, "utf8");
+  pruneOldRunDirs();
   return dir;
 }
 
 function appendNdjsonLine(filePath: string, entry: StoredGenerationEntry): void {
   fs.appendFileSync(filePath, `${JSON.stringify(entry)}\n`, "utf8");
+}
+
+function writeNdjson(filePath: string, entries: StoredGenerationEntry[]): void {
+  const body = entries.map((entry) => JSON.stringify(entry)).join("\n");
+  fs.writeFileSync(filePath, body ? `${body}\n` : "", "utf8");
 }
 
 function readRunEntries(dir: string): StoredGenerationEntry[] {
@@ -238,10 +264,23 @@ function buildHighlights(entries: StoredGenerationEntry[]): string[] {
 }
 
 function buildTimeline(entries: StoredGenerationEntry[]): string[] {
-  return entries.map((entry) => {
+  const kept =
+    entries.length > MAX_SUMMARY_TIMELINE_ROWS
+      ? entries.slice(-MAX_SUMMARY_TIMELINE_ROWS)
+      : entries;
+  const lines = kept.map((entry) => {
     const detail = readString(entry.summary) || readString(entry.data.type) || "event";
     return `- ${entry.ts.slice(11, 19)} ${detail}`;
   });
+  if (kept.length < entries.length) {
+    lines.unshift(`- ... ${entries.length - kept.length} tidigare events trunkerade`);
+  }
+  return lines;
+}
+
+function trimRunEntries(entries: StoredGenerationEntry[]): StoredGenerationEntry[] {
+  if (entries.length <= MAX_TIMELINE_ENTRIES_PER_RUN) return entries;
+  return entries.slice(-MAX_TIMELINE_ENTRIES_PER_RUN);
 }
 
 function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
@@ -305,17 +344,23 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
 
   if (chatId) {
     const fromChat = runDirByChatId.get(chatId);
-    if (fromChat) {
+    if (fromChat && fs.existsSync(fromChat)) {
       if (slug) runDirBySlug.set(slug, fromChat);
       return fromChat;
+    }
+    if (fromChat && !fs.existsSync(fromChat)) {
+      runDirByChatId.delete(chatId);
     }
   }
 
   if (slug) {
     const fromSlug = runDirBySlug.get(slug);
-    if (fromSlug) {
+    if (fromSlug && fs.existsSync(fromSlug)) {
       if (chatId) runDirByChatId.set(chatId, fromSlug);
       return fromSlug;
+    }
+    if (fromSlug && !fs.existsSync(fromSlug)) {
+      runDirBySlug.delete(slug);
     }
   }
 
@@ -342,8 +387,10 @@ export function writeGenerationLogEntry(params: {
     const runDir = resolveRunDir(entry);
     if (!runDir) return;
 
-    appendNdjsonLine(path.join(runDir, TIMELINE_FILE), entry);
-    const entries = readRunEntries(runDir);
+    const timelinePath = path.join(runDir, TIMELINE_FILE);
+    appendNdjsonLine(timelinePath, entry);
+    const entries = trimRunEntries(readRunEntries(runDir));
+    writeNdjson(timelinePath, entries);
     fs.writeFileSync(path.join(runDir, META_FILE), JSON.stringify(buildMeta(entries), null, 2) + "\n", "utf8");
     fs.writeFileSync(path.join(runDir, SUMMARY_FILE), buildSummary(runDir, entries), "utf8");
   } catch {

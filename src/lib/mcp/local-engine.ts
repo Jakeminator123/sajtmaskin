@@ -119,7 +119,7 @@ export async function loadGeneratedFile(
 export async function createLocalGeneratedRuntime(
   params: CreateLocalGeneratedRuntimeParams,
 ): Promise<LocalGeneratedRuntimeResult> {
-  const { chatId, versionId, mode = "sandbox", ...sandboxOptions } = params;
+  const { chatId, versionId, mode = "preview", ...sandboxOptions } = params;
   const projectId = await getOwnEngineProjectId(chatId);
 
   if (mode === "preview") {

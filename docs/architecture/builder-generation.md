@@ -70,7 +70,7 @@ Om du letar efter domänspecifika byggflöden, se `meritmind-build-flows.md` i a
 
 ## Preview-shim vs sandbox — problemtyper (arbetslista)
 
-*Gäller **allt** som genereras från prompt (egen motor): jämförelse mellan **tier‑1** `/api/preview-render` (snabb kompatibilitetsvy) och **Fidelity 2 / sandbox** (`next dev` i VM), som är **primär** previewväg när sandbox är konfigurerad och lyckas.*
+*Gäller **allt** som genereras från prompt (egen motor): jämförelse mellan **tier‑1** `/api/preview-render` (snabb kompatibilitetsvy) och **Fidelity 2 / tier-2 runtime** (`next dev` i VM), som normalt går via `preview_host` när den är konfigurerad (Vercel Sandbox endast när explicit valt eller som sekundär väg).*
 
 **Kontrakt (2026-03-30):** För own-engine returnerar chat- och versions-API `previewUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; `demoUrl` finns kvar bara i vissa legacy-/inboundlager. Byggaren väljer **sandbox-URL** vid versionsbyte och visar quality-tier «preview» först när **sandbox** finns, inte när bara shim finns.
 
