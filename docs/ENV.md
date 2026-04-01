@@ -77,6 +77,19 @@ Om `SAJTMASKIN_TIER2_RUNTIME` ar unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` fi
 
 ---
 
+## Nedladdat genererat Next-projekt (ZIP / export)
+
+Vanliga “generiska” problem som **inte** beror på Fly eller Sajtmaskin-appens databas:
+
+| Symtom | Förklaring |
+|--------|------------|
+| `'next' is not recognized` | Kör **`npm install`** i projektmappen **före** `npm run dev`. Scripts hittar `next` under `node_modules/.bin` först efter install. |
+| `npm audit fix` i slutet av install | **Valfritt** — det är npm som tipsar om kända sårbarheter i trädet, inte ett krav för att sajten ska starta. |
+| Next skriver om `tsconfig.json` första gången | Scaffold i Sajtmaskin är nu **alignat** med Next 16 (`jsx: react-jsx`, `.next/dev/types` i `include`) så varningen ska sällan visas; om den ändå dyker upp efter uppgradering av Next är det normalt och ofarligt. |
+| Vit / tom sida i Tier 2 | Kan bero på tom `app/page.tsx`, långsam första kompilering, eller RSC som ger lite synlig HTML i första svaret — preflight + preview-host readiness försöker flagga / vänta; se `preview-host/README.md`. |
+
+---
+
 ## Databasskript och skyddsräcken
 
 `npm run db:init`, `npm run db:migrate` och `npm run db:push` är **skrivande** kommandon. De jämför aktuell DB-target i `.env.local` mot `.env.vercel.production.pulled` när den filen finns. Om host/port/databas matchar vägrar de köra som standard.

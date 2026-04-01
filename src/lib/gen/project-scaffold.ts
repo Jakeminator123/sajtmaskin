@@ -18,6 +18,9 @@ const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -92,12 +95,12 @@ const TSCONFIG = `{
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": { "@/*": ["./*"] }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
   "exclude": ["node_modules"]
 }`;
 
@@ -244,8 +247,16 @@ export function cn(...inputs: ClassValue[]) {
 }
 `;
 
+/** Present from first unpack so \`tsc\` / editors agree with Next before first \`next dev\`. */
+const NEXT_ENV_D_TS = `/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// This file is maintained by Next.js — do not edit manually.
+`;
+
 const SCAFFOLD_FILES: Record<string, string> = {
   "package.json": PACKAGE_JSON,
+  "next-env.d.ts": NEXT_ENV_D_TS,
   "tsconfig.json": TSCONFIG,
   "next.config.ts": NEXT_CONFIG,
   "postcss.config.mjs": POSTCSS_CONFIG,

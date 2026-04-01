@@ -14,6 +14,8 @@ const PORT_BASE = parseInt(process.env.PREVIEW_HOST_RUNTIME_PORT_BASE ?? "4100",
 const PORT_COUNT = parseInt(process.env.PREVIEW_HOST_RUNTIME_PORT_COUNT ?? "200", 10);
 const READINESS_MAX_MS = parseInt(process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS ?? "180000", 10);
 const READINESS_INTERVAL_MS = 1200;
+const READINESS_EMPTY_BODY_MIN_CHARS = 50;
+const READINESS_MAX_EMPTY_BODY_RETRIES = 5;
 const WORKSPACES_DIR = path.join(getDataDir(), "workspaces");
 
 const runtimeChildren = new Map();
@@ -199,7 +201,7 @@ function writeWorkspaceFiles(projectId, filesJson) {
   return workspaceDir;
 }
 
-function responseLooksReady(res) {
+function responseHeadersLookLikeHtmlDocument(res) {
   if (!res.ok) return false;
   const ct = res.headers.get("content-type")?.toLowerCase() ?? "";
   if (!ct.trim()) return true;
@@ -210,9 +212,22 @@ function responseLooksReady(res) {
   );
 }
 
+function htmlBodyHasMeaningfulVisibleText(html) {
+  let snippet = html;
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch) {
+    snippet = bodyMatch[1];
+  }
+  const withoutScripts = snippet.replace(/<script[\s\S]*?<\/script>/gi, "");
+  const withoutStyles = withoutScripts.replace(/<style[\s\S]*?<\/style>/gi, "");
+  const visible = withoutStyles.replace(/<[^>]+>/g, "");
+  return visible.trim().length >= READINESS_EMPTY_BODY_MIN_CHARS;
+}
+
 async function waitForReady(url) {
   const deadline = Date.now() + READINESS_MAX_MS;
   let lastError = "";
+  let emptyBodyStreak = 0;
   while (Date.now() < deadline) {
     try {
       const ctrl = new AbortController();
@@ -224,11 +239,26 @@ async function waitForReady(url) {
         headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
       });
       clearTimeout(tid);
-      if (responseLooksReady(res)) {
+      if (!responseHeadersLookLikeHtmlDocument(res)) {
+        emptyBodyStreak = 0;
+        lastError = `HTTP ${res.status}`;
+        await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
+        continue;
+      }
+      const text = await res.text();
+      if (htmlBodyHasMeaningfulVisibleText(text)) {
         return;
       }
-      lastError = `HTTP ${res.status}`;
+      emptyBodyStreak += 1;
+      lastError = "HTTP 200 HTML but body text still empty (compiling or blank page)";
+      if (emptyBodyStreak >= READINESS_MAX_EMPTY_BODY_RETRIES) {
+        console.warn(
+          `[preview-host] Readiness: HTML body still looks empty after ${READINESS_MAX_EMPTY_BODY_RETRIES} attempts; accepting response.`,
+        );
+        return;
+      }
     } catch (err) {
+      emptyBodyStreak = 0;
       lastError = err instanceof Error ? err.message : String(err);
     }
     await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));

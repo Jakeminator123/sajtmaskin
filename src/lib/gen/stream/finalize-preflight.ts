@@ -55,6 +55,108 @@ function serializeFilesToCodeProject(files: CodeFile[]): string {
     .join("\n\n");
 }
 
+/** Heuristic: main app page renders nothing meaningful (no AST — fast preflight). */
+function looksLikeEmptyPage(content: string): boolean {
+  const body = content
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+  if (/return\s+null\s*;/i.test(body)) return true;
+  if (/return\s*\(\s*<>\s*<\/>\s*\)/i.test(body)) return true;
+  if (/return\s*\(\s*<div\s*\/>\s*\)/i.test(body)) return true;
+  const pascalJsx = body.match(/<[A-Z][A-Za-z0-9]*[\s>]/g);
+  if (pascalJsx && pascalJsx.length > 0) return false;
+  const stripped = body.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "");
+  const textish = stripped.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  // Intrinsic-only pages: need some visible copy, not just wrappers
+  return textish.length < 3;
+}
+
+function resolveAppPagePath(files: Array<{ path: string }>): string | null {
+  const normalized = files.map((f) => f.path.replace(/\\/g, "/"));
+  const exact = normalized.find((p) => p === "app/page.tsx" || p.endsWith("/app/page.tsx"));
+  return exact ?? null;
+}
+
+function normPath(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
+/** Catch Tier-2 / export foot-guns (missing next, broken package.json, etc.). */
+function collectTier2HygieneIssues(files: CodeFile[]): FinalizePreflightIssue[] {
+  const issues: FinalizePreflightIssue[] = [];
+  const byNorm = new Map(files.map((f) => [normPath(f.path), f]));
+
+  const pkgFile = files.find((f) => normPath(f.path) === "package.json");
+  if (!pkgFile) {
+    issues.push(
+      createIssue(
+        "package.json",
+        "error",
+        "Missing package.json — Tier 2 needs it for `npm install` + `next dev`.",
+        "dependency_install_failure",
+      ),
+    );
+    return issues;
+  }
+
+  try {
+    const pkg = JSON.parse(pkgFile.content) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    if (!pkg.dependencies?.next) {
+      issues.push(
+        createIssue(
+          "package.json",
+          "error",
+          "Missing `next` in dependencies — preview VM and local `npm run dev` will fail.",
+          "dependency_install_failure",
+        ),
+      );
+    }
+    const devScript = pkg.scripts?.dev ?? "";
+    if (devScript && !/\bnext\b/.test(devScript)) {
+      issues.push(
+        createIssue(
+          "package.json",
+          "warning",
+          "`scripts.dev` does not reference `next` — Tier 2 expects e.g. `next dev`.",
+          "non_blocking_quality_warning",
+        ),
+      );
+    }
+    if (!pkg.devDependencies?.typescript && files.some((f) => /\.tsx?$/.test(f.path))) {
+      issues.push(
+        createIssue(
+          "package.json",
+          "warning",
+          "TypeScript sources present but `typescript` missing from devDependencies.",
+          "non_blocking_quality_warning",
+        ),
+      );
+    }
+  } catch {
+    issues.push(
+      createIssue("package.json", "error", "package.json is not valid JSON.", "dependency_install_failure"),
+    );
+  }
+
+  const hasTsSources = files.some((f) => /\.tsx?$/.test(f.path));
+  if (hasTsSources && !byNorm.has("next-env.d.ts")) {
+    issues.push(
+      createIssue(
+        "next-env.d.ts",
+        "warning",
+        "Missing next-env.d.ts with TypeScript sources — Next creates it on first dev; scaffold should include it.",
+        "non_blocking_quality_warning",
+      ),
+    );
+  }
+
+  return issues;
+}
+
 function createIssue(
   file: string,
   severity: "error" | "warning",
@@ -148,6 +250,7 @@ export async function runFinalizePreflight({
 
     const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
     preflightFileCount = completeProjectFiles.length;
+    preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));
     const sanity = runProjectSanityChecks(completeProjectFiles);
     preflightIssues = [
       ...preflightIssues,
@@ -160,6 +263,22 @@ export async function runFinalizePreflight({
         createIssue(issue.file || "seo", issue.severity, issue.message, issue.category)
       ),
     ];
+
+    const appPagePath = resolveAppPagePath(completeProjectFiles);
+    if (appPagePath) {
+      const pageFile = completeProjectFiles.find((f) => f.path.replace(/\\/g, "/") === appPagePath);
+      if (pageFile?.content && looksLikeEmptyPage(pageFile.content)) {
+        preflightIssues.push(
+          createIssue(
+            appPagePath,
+            "warning",
+            "Main page appears to render empty content.",
+            "non_blocking_quality_warning",
+          ),
+        );
+      }
+    }
+
     const actualRoutes = extractAppRoutePathsFromFilePaths(completeProjectFiles.map((file) => file.path));
     const missingPlannedRoutes = findMissingPlannedRoutes(routePlan, actualRoutes);
     if (missingPlannedRoutes.length > 0) {

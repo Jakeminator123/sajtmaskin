@@ -30,6 +30,7 @@ export const briefRequestSchema = z.object({
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
+  source: z.string().trim().max(80).optional(),
 });
 
 function resolveMaxTokens(requested: number | undefined): number {
@@ -43,6 +44,11 @@ function resolveMaxTokens(requested: number | undefined): number {
     });
   }
   return capped;
+}
+
+function normalizeBriefLogSource(source: string | undefined): string {
+  const normalized = source?.trim();
+  return normalized ? normalized : "unspecified";
 }
 
 const sectionTypeSchema = z.enum([
@@ -381,6 +387,7 @@ export async function generateSiteBriefObject(
     temperature?: number;
     maxTokens?: number;
     abortSignal?: AbortSignal;
+    source?: string;
   },
 ): Promise<SiteBriefGenerationResult> {
   const {
@@ -390,14 +397,20 @@ export async function generateSiteBriefObject(
     temperature,
     maxTokens: requestedMaxTokens,
     abortSignal,
+    source,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
   const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
   const maxTokens = resolveMaxTokens(requestedMaxTokens);
   const userPrompt = buildBriefUserPrompt(prompt, imageGenerations);
+  const briefSource = normalizeBriefLogSource(source);
 
-  debugLog("AI", "Site brief generation", {
+  debugLog("AI", "Brief model call started (same request, direct provider)", {
+    source: briefSource,
     provider: logProvider,
+    transport: "direct_provider_api",
+    sdk: "ai",
+    requestStage: "model_call",
     model: normalizedModel,
     promptLength: prompt.length,
     temperature: typeof temperature === "number" ? temperature : null,
@@ -406,6 +419,7 @@ export async function generateSiteBriefObject(
   });
   devLogAppend("latest", {
     type: "assist.brief.request",
+    source: briefSource,
     provider: logProvider,
     model: normalizedModel,
     prompt,
@@ -594,6 +608,7 @@ export async function tryGenerateServerAutoBrief(params: {
       normalizedModel: runnable,
       imageGenerations: params.imageGenerations,
       abortSignal: params.signal,
+      source: "server_auto_brief",
     });
     return { brief, modelUsed: normalizedModel };
   } catch (e) {

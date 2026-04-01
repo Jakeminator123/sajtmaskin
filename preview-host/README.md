@@ -34,6 +34,12 @@ I praktiken betyder det:
 - **Forsta boot ar seg** (2-5 min for riktiga Next-projekt med tunga deps som `three.js`). Workspace-caching hjalper vid andra koerningen men forsta ar fortfarande lang.
 - **Autofix-loopen**: nar preview misslyckas triggar buildern autofix-reparation som genererar nya versioner. Det kan skapa 3-4 versioner i snabb folid som alla forsoker boota pa Fly parallellt.
 
+### Tier 2 / export — vanliga generiska fel (inte VM-specifika)
+
+- **`next` is not recognized** efter nedladdning: kör `npm install` fore `npm run dev` (samma som lokalt).
+- **`npm audit fix`**: valfritt rad fran npm, inte ett krav for preview.
+- **Readiness** vantar pa HTTP 200 HTML med tillrackligt med synlig text i `<body>`; tom sida efter nagra forsok loggas som varning men accepteras (annars blockerar vi legitima RSC-/compile-faser for lange).
+
 ### Drift pa Fly
 
 | Resurs | Varde |

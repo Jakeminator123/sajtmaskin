@@ -55,7 +55,7 @@ async function main() {
           "const host = process.env.HOSTNAME || '127.0.0.1';",
           "http.createServer((req, res) => {",
           "  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });",
-          "  res.end(`<html><body><h1>demo-project</h1><p>${req.url}</p></body></html>`);",
+          "  res.end(`<html><body><h1>demo-project</h1><p>${req.url}</p><p>Smoke readiness filler so HTML body exceeds the preview-host visible-text threshold.</p></body></html>`);",
           "}).listen(port, host);",
         ].join("\n"),
       },

@@ -22,7 +22,8 @@ export interface GenerateOptions {
 }
 
 /**
- * Generates code from a prompt using AI SDK + OpenAI.
+ * Generates code from a prompt using AI SDK wrappers over direct
+ * OpenAI/Anthropic provider calls.
  *
  * After this stream completes, `finalizeAndSaveVersion` runs the ordered
  * post-stream phases in `finalize-pipeline-contract.ts` (autofix → URLs →

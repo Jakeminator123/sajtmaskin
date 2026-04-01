@@ -44,6 +44,8 @@ type UsePromptAssistParams = {
 // The model uses its own maximum when omitted, avoiding validation failures when the cap is lower than expected.
 // 10 minutes to accommodate slow models or upstream delays
 const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
+const BRIEF_SOURCE_DEEP_PROMPT_ASSIST = "deep_prompt_assist";
+const BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS = "dynamic_instructions";
 
 type PromptAssistMode = "rewrite" | "polish";
 
@@ -63,9 +65,12 @@ type PromptAssistOptions = {
  * Server routes call OpenAI/Anthropic directly (`createDirectModel` + API keys) — not Vercel AI Gateway.
  */
 function promptAssistDebugFields(provider: PromptAssistProvider) {
+  const directProvider = provider === "gateway" ? "openai" : "anthropic";
   return {
-    assistLane: provider === "gateway" ? "openai" : "anthropic",
-    apiRouting: "direct_provider" as const,
+    provider: directProvider,
+    transport: "direct_provider_api" as const,
+    sdk: "ai" as const,
+    ...(provider === "gateway" ? { internalProviderLabel: "gateway" as const } : {}),
   };
 }
 
@@ -222,6 +227,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
       debugLog("AI", "Prompt assist started", {
         ...promptAssistDebugFields(provider),
+        mode,
+        flow: useDeep ? BRIEF_SOURCE_DEEP_PROMPT_ASSIST : `${mode}_shallow`,
         model: normalizedModel,
         deep: useDeep,
         imageGenerations,
@@ -297,6 +304,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
                   temperature: 0.2,
                   prompt: originalPrompt,
                   imageGenerations,
+                  source: BRIEF_SOURCE_DEEP_PROMPT_ASSIST,
                 }),
               });
             } finally {
@@ -324,14 +332,14 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               themeOverride: themeColors,
             });
 
-            debugLog("AI", "Prompt assist completed (brief)", {
+            debugLog("AI", "Prompt assist completed (deep brief -> build prompt)", {
               durationMs: Date.now() - startedAt,
               outputLength: finalPrompt.length,
             });
             toast.success("Prompt förbättrad (brief)", { id: "sajtmaskin:prompt-assist" });
             return applyGuardrails(finalPrompt, "brief", Boolean(wantsEnglish));
           } catch (err) {
-            debugLog("AI", "Brief assist failed, falling back to shallow", {
+            debugLog("AI", "Deep brief failed; falling back to shallow prompt assist", {
               durationMs: Date.now() - startedAt,
               error: err instanceof Error ? err.message : "Unknown error",
             });
@@ -420,9 +428,22 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       const useDeepBrief =
         !options.forceShallow &&
         (options.forceDeepBrief === true || resolvedGatewayDeep);
+      const briefUsesGateway =
+        options.forceDeepBrief === true && !isGatewayAssistModel(normalizedModel)
+          ? true
+          : provider !== "anthropic";
+      const briefProvider = briefUsesGateway ? "gateway" : "anthropic";
+      const briefModel = briefUsesGateway
+        ? isGatewayAssistModel(normalizedModel)
+          ? normalizedModel
+          : normalizeAssistModel(ASSIST_MODEL)
+        : normalizedModel;
 
       debugLog("AI", "Dynamic instructions started", {
         ...promptAssistDebugFields(provider),
+        flow: useDeepBrief ? BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS : "dynamic_instructions_prompt_only",
+        briefProvider: useDeepBrief ? (briefProvider === "gateway" ? "openai" : "anthropic") : null,
+        briefModel: useDeepBrief ? briefModel : null,
         model: normalizedModel,
         deep: useDeepBrief,
         imageGenerations,
@@ -437,17 +458,6 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           themeOverride: themeColors,
         });
       }
-
-      const briefUsesGateway =
-        options.forceDeepBrief === true && !isGatewayAssistModel(normalizedModel)
-          ? true
-          : provider !== "anthropic";
-      const briefProvider = briefUsesGateway ? "gateway" : "anthropic";
-      const briefModel = briefUsesGateway
-        ? isGatewayAssistModel(normalizedModel)
-          ? normalizedModel
-          : normalizeAssistModel(ASSIST_MODEL)
-        : normalizedModel;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
@@ -466,6 +476,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             temperature: 0.2,
             prompt: originalPrompt,
             imageGenerations,
+            source: BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS,
           }),
         });
 

@@ -28,18 +28,23 @@ export async function POST(req: Request) {
         );
       }
 
-      const { prompt, provider, model, temperature, imageGenerations, maxTokens } = parsed.data;
+      const { prompt, provider, model, temperature, imageGenerations, maxTokens, source } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
       const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
+      const briefSource = source?.trim() || "unspecified_client";
 
       const validationError = validateBriefModelForHttp(normalizedModel, provider);
       if (validationError) {
         return NextResponse.json(validationError.body, { status: validationError.status });
       }
 
-      debugLog("AI", "AI brief request received", {
+      debugLog("AI", "Brief HTTP request received (/api/ai/brief)", {
+        source: briefSource,
         provider: logProvider,
+        transport: "direct_provider_api",
+        sdk: "ai",
+        requestStage: "http_request",
         model: normalizedModel,
         promptLength: prompt.length,
         temperature: typeof temperature === "number" ? temperature : null,
@@ -54,6 +59,7 @@ export async function POST(req: Request) {
           imageGenerations,
           temperature,
           maxTokens,
+          source: briefSource,
         });
 
         const headers: Record<string, string> = {
