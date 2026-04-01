@@ -89,4 +89,43 @@ describe("generation-log writer", () => {
     expect(meta.versionId).toBe("ver_1");
     expect(meta.status).toBe("done");
   });
+
+  it("retains only the three latest generation folders", async () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
+    process.chdir(tempDir);
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("SAJTMASKIN_DEV_LOG", "false");
+    vi.stubEnv("GENERATIONSLOGG", "1");
+
+    const { devLogStartGeneration, devLogAppend } = await import("./devLog");
+
+    for (let i = 1; i <= 5; i += 1) {
+      const chatId = `chat_${i}`;
+      devLogStartGeneration({
+        message: `Bygg sajt ${i}`,
+        modelId: "gpt-5.4",
+        slug: `site-${i}`,
+        chatId,
+        generationKind: "create",
+      });
+      devLogAppend("latest", {
+        type: "site.done",
+        chatId,
+        versionId: `ver_${i}`,
+        durationMs: i * 100,
+      });
+    }
+
+    const rootDir = path.join(tempDir, "logs", "generationslogg");
+    const dirs = fs
+      .readdirSync(rootDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+
+    expect(dirs).toHaveLength(3);
+    expect(dirs[0]).toContain("site-3");
+    expect(dirs[1]).toContain("site-4");
+    expect(dirs[2]).toContain("site-5");
+  });
 });
