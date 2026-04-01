@@ -93,7 +93,8 @@ ARTIFACT_TIER_FULL_REPO = "full-repo"
 ARTIFACT_TIER_TUTORIAL = "tutorial-bootstrap"
 ARTIFACT_TIER_MONOREPO = "monorepo-examples"
 
-# Framework-filter: bara Next.js/React-mallar hämtas.
+# Framework-lane som bedöms i metadata / indexering. I research-läge kan även
+# icke-matchande mallar sparas för senare kurering.
 FRAMEWORK_FILTER: List[str] = ["next.js", "react"]
 
 # Titel-/slug-blocklist: templates som passerar framework-filtret men saknar
@@ -217,6 +218,19 @@ COMMAND_PREFIXES = (
     "node ",
 )
 
+NOISY_TEMPLATE_PAGE_LINES = {
+    "deploy",
+    "vercel agent",
+    "vercel documentation",
+    "deploy at the speed of ai",
+    "ship features, not infrastructure",
+    "deploy for every idea",
+    "sdks by vercel",
+}
+NOISY_TEMPLATE_PAGE_PREFIXES = (
+    "ai workflows in live environments",
+)
+
 # Första träffen på github.com/vercel/vercel är ofta sidfot / global UI, inte mallens repo.
 _GITHUB_REPO_RE = re.compile(
     r"https?://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)/?",
@@ -252,7 +266,17 @@ def normalize_github_clone_url(url: Optional[str]) -> Optional[str]:
     if repo.lower().endswith(".git"):
         repo = repo[:-4]
     # Reject non-repo GitHub paths (attachments, avatars, raw content, etc.)
-    reject_owners = {"user-attachments", "avatars", "raw", "objects", "assets", "settings", "orgs", "organizations"}
+    reject_owners = {
+        "user-attachments",
+        "avatars",
+        "raw",
+        "objects",
+        "assets",
+        "settings",
+        "orgs",
+        "organizations",
+        "sponsors",
+    }
     if owner.lower() in reject_owners:
         return None
     return f"https://github.com/{owner}/{repo}"
@@ -445,6 +469,8 @@ class VercelTemplateScraper:
         use_case_badges = self.extract_sidebar_badges(soup, "Use Cases")
         database_badges = self.extract_sidebar_badges(soup, "Database")
         auth_badges = self.extract_sidebar_badges(soup, "Authentication")
+        if not auth_badges:
+            auth_badges = self.extract_sidebar_badges(soup, "Auth")
         is_monorepo = self.detect_monorepo_example(repo_url)
         is_tutorial = self.detect_tutorial_template(page_text, repo_url)
         fw_fn = (
@@ -513,13 +539,27 @@ class VercelTemplateScraper:
 
     @staticmethod
     def extract_page_text(soup: BeautifulSoup) -> str:
-        # Ta bort script/style
-        for tag in soup(["script", "style", "noscript"]):
+        root = soup.find("main") or soup.find("article") or soup.body or soup
+        scoped = BeautifulSoup(str(root), "html.parser")
+
+        for tag in scoped(["script", "style", "noscript", "svg"]):
+            tag.decompose()
+        for tag in scoped.find_all(["nav", "footer"]):
             tag.decompose()
 
-        text = soup.get_text("\n", strip=True)
+        text = scoped.get_text("\n", strip=True)
         lines = [re.sub(r"\s+", " ", line).strip() for line in text.splitlines()]
-        lines = [line for line in lines if line]
+        cleaned: List[str] = []
+        for line in lines:
+            if not line:
+                continue
+            lower = line.lower()
+            if lower in NOISY_TEMPLATE_PAGE_LINES:
+                continue
+            if any(lower.startswith(prefix) for prefix in NOISY_TEMPLATE_PAGE_PREFIXES):
+                continue
+            cleaned.append(line)
+        lines = cleaned
         return "\n".join(lines)
 
     @staticmethod
@@ -595,27 +635,8 @@ class VercelTemplateScraper:
 
     @staticmethod
     def extract_stack_tags(soup: BeautifulSoup) -> List[str]:
-        tags: List[str] = []
-        raw_text = soup.get_text("\n", strip=True)
-        lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
-
-        # Enkel heuristik: hitta "Stack" och ta några rader efteråt
-        for idx, line in enumerate(lines):
-            if line.lower() == "stack":
-                for candidate in lines[idx + 1 : idx + 8]:
-                    if len(candidate) <= 40:
-                        tags.append(candidate)
-                break
-
-        # Rensa dubletter
-        out = []
-        seen = set()
-        for tag in tags:
-            norm = tag.lower()
-            if norm not in seen:
-                seen.add(norm)
-                out.append(tag)
-        return out
+        lines = [line.strip() for line in VercelTemplateScraper.extract_page_text(soup).splitlines() if line.strip()]
+        return VercelTemplateScraper._extract_badges_from_lines(lines, "Stack", max_badges=6)
 
     @staticmethod
     def extract_css_tags(stack_tags: List[str], page_text: str) -> List[str]:
@@ -630,52 +651,60 @@ class VercelTemplateScraper:
 
     @staticmethod
     def extract_sidebar_badges(soup: BeautifulSoup, label: str) -> List[str]:
-        """
-        Parse badge-links from the Vercel template detail page sidebar.
+        lines = [line.strip() for line in VercelTemplateScraper.extract_page_text(soup).splitlines() if line.strip()]
+        return VercelTemplateScraper._extract_badges_from_lines(lines, label, max_badges=6)
 
-        The sidebar has sections like "Use Cases", "Stack", "Database" with
-        short link-badges underneath. We find the label as a visible text node,
-        then collect immediately following <a> siblings whose text is short
-        (badges, not paragraph text).
-        """
-        badges: List[str] = []
+    @staticmethod
+    def _extract_badges_from_lines(lines: List[str], label: str, max_badges: int = 8) -> List[str]:
+        stop_labels = {
+            "stack",
+            "database",
+            "auth",
+            "authentication",
+            "css",
+            "cms",
+            "experimentation",
+            "framework",
+            "github repo",
+            "related templates",
+            "products",
+            "use cases",
+        }
+        target = label.lower()
+        stop_labels.discard(target)
 
-        for span in soup.find_all(["span"]):
-            text = span.get_text(strip=True)
-            if text.lower() != label.lower():
+        seen = set()
+        for idx, line in enumerate(lines):
+            if line.lower() != target:
                 continue
 
-            container = span.parent
-            if not container:
-                continue
-
-            stop_labels = {
-                "stack", "database", "authentication", "css",
-                "cms", "experimentation", "framework",
-                "github repo", "related templates", "use cases",
-            }
-            stop_labels.discard(label.lower())
-
-            label_classes = set(span.get("class") or [])
-
-            for sibling in container.find_all_next(limit=40):
-                if sibling.name == "span" and sibling is not span:
-                    sib_classes = set(sibling.get("class") or [])
-                    if sib_classes & label_classes:
-                        exact = sibling.get_text(strip=True).lower()
-                        if exact in stop_labels:
-                            break
-                if sibling.name == "a":
-                    link_text = sibling.get_text(strip=True)
-                    if not link_text or len(link_text) > 40:
-                        continue
-                    href = (sibling.get("href") or "").lower()
-                    if "/templates/" in href:
-                        badges.append(link_text)
+            badges: List[str] = []
+            for candidate in lines[idx + 1 : idx + 20]:
+                norm = candidate.lower()
+                if norm == target:
+                    continue
+                if norm in stop_labels:
+                    break
+                if norm in NOISY_TEMPLATE_PAGE_LINES:
+                    continue
+                if any(norm.startswith(prefix) for prefix in NOISY_TEMPLATE_PAGE_PREFIXES):
+                    continue
+                if candidate.startswith(("http://", "https://")):
+                    continue
+                if re.match(r"^[A-Z0-9_]{6,}$", candidate):
+                    continue
+                if len(candidate) > 40:
+                    if badges:
+                        break
+                    continue
+                if norm not in seen:
+                    seen.add(norm)
+                    badges.append(candidate)
+                if len(badges) >= max_badges:
+                    break
             if badges:
-                break
-
-        return badges
+                return badges
+        return []
 
     @staticmethod
     def detect_monorepo_example(repo_url: Optional[str]) -> bool:
@@ -705,12 +734,9 @@ class VercelTemplateScraper:
         "React" i sidfot/relaterade mallar räcker inte — kräver Next.js-spår eller
         tydlig React-starter utan konkurrerande primär stack.
         """
-        narrow = " ".join(
-            [title or "", description or "", " ".join(stack_tags), page_text[:6000]]
-        ).lower()
-        full_hay = " ".join(
-            [title or "", description or "", page_text[:12000], " ".join(stack_tags)]
-        ).lower()
+        primary_hay = " ".join([title or "", description or "", " ".join(stack_tags)]).lower()
+        support_excerpt = "\n".join((page_text or "").splitlines()[:80]).lower()
+        support_hay = " ".join([primary_hay, support_excerpt]).lower()
 
         # Primär stack vi inte har hantering för (ord/gränser, längre först)
         non_next_patterns: List[Tuple[str, str]] = [
@@ -731,31 +757,27 @@ class VercelTemplateScraper:
             (r"\bmkdocs\b", "MkDocs"),
         ]
 
-        has_next = (
-            "next.js" in narrow
-            or "nextjs" in narrow
-            or re.search(r"\bnext\.js\b", full_hay)
-        )
+        has_next = "next.js" in primary_hay or "nextjs" in primary_hay
 
         for pat, label in non_next_patterns:
-            if re.search(pat, narrow) and not has_next:
+            if re.search(pat, primary_hay) and not has_next:
                 return False, f"Primär stack: {label} (inte Next.js-lane)"
 
         hits: List[str] = []
-        if has_next or "next.js" in full_hay or "nextjs" in full_hay:
+        if has_next:
             hits.append("Next.js")
-        if re.search(r"\breact\b", narrow):
+        if re.search(r"\breact\b", primary_hay):
             hits.append("React")
-        if "create react app" in narrow:
+        if "create react app" in support_hay:
             hits.append("Create React App")
-        if "react router" in narrow:
+        if "react router" in support_hay:
             hits.append("React Router")
 
         if has_next:
             return True, ", ".join(sorted(set(hits))) if hits else "Next.js"
 
         # Utan Next.js: tillåt bara om React tydligt i titel/beskrivning/stack (smal yta)
-        if re.search(r"\breact\b", narrow) and hits:
+        if re.search(r"\breact\b", primary_hay) and hits:
             return True, ", ".join(sorted(set(hits)))
 
         return False, "Ingen tydlig Next.js/React för denna lane (strikt läge)"
@@ -969,11 +991,12 @@ def write_index_file(
 ) -> None:
     path = root / "INDEX_SV.md"
     lines = [
-        "# Vercel templates – Next.js / React (filtrerat)",
+        "# Vercel templates – bred research-intake",
         "",
-        f"Framework-filter: {', '.join(FRAMEWORK_FILTER)}",
+        f"Framework-lane som bedöms i metadata: {', '.join(FRAMEWORK_FILTER)}",
         "",
-        "Bara mallar som passerar strikt Next.js/React-lane och Vercels framework-filter tas med.",
+        "Mallarna sparas brett för senare kurering. Kontrollera `framework_match` i metadata/summary "
+        "i stället för att anta att alla poster är rena Next.js/React-träffar.",
         "",
         "Mappstruktur (standard): `full-repo/`, `tutorial-bootstrap/`, `monorepo-examples/` "
         "→ use-case-slug → mallmapp. Se `SCRAPE_LAYOUT_SV.md`.",
@@ -994,7 +1017,7 @@ def write_index_file(
         ]
 
         if not templates:
-            lines.append("- Inga Next.js/React-mallar hittades.")
+            lines.append("- Inga mallar hittades.")
             lines.append("")
             continue
 
@@ -1011,16 +1034,18 @@ def write_index_file(
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_scrape_layout_readme(root: Path, extended: bool, flat_layout: bool) -> None:
+def write_scrape_layout_readme(root: Path, extended: bool, flat_layout: bool, legacy_wide: bool) -> None:
     """Kort översikt vid scrape-root (påverkar inte Sajtmaskin-runtime)."""
     core_n = len(USE_CASES_CORE)
     ext_n = len(USE_CASES_EXTENDED)
+    legacy_n = len(USE_CASES_LEGACY_WIDE)
     lines = [
         "# Vercel-scrape — mappstruktur",
         "",
         "## Use cases som körs",
         f"- **Standard:** {core_n} kärnkategorier (marketing, starter, saas, ecommerce, …).",
         f"- **Med `--extended-scrape`:** +{ext_n} (documentation, monorepos).",
+        f"- **Med `--legacy-wide-use-cases`:** bred research-lista på {legacy_n} kategorier.",
         "",
         "## Undermappar per malltyp",
         f"- **`{ARTIFACT_TIER_FULL_REPO}/`** — fristående repo; kloning sker om `--skip-download` inte är satt.",
@@ -1031,7 +1056,8 @@ def write_scrape_layout_readme(root: Path, extended: bool, flat_layout: bool) ->
         "- **Tierad (standard):** `<tier>/<use-case-slug>/<mallmapp>/` (direkt-URL: `…/direct-urls/<slug>/`).",
         "- **Platt (`--flat-layout`):** `<use-case-slug>/<mallmapp>/` som tidigare.",
         "",
-        f"Aktuell körning: extended={'ja' if extended else 'nej'}, flat_layout={'ja' if flat_layout else 'nej'}.",
+        f"Aktuell körning: legacy_wide={'ja' if legacy_wide else 'nej'}, "
+        f"extended={'ja' if extended else 'nej'}, flat_layout={'ja' if flat_layout else 'nej'}.",
         "",
     ]
     (root / "SCRAPE_LAYOUT_SV.md").write_text("\n".join(lines), encoding="utf-8")
@@ -1125,10 +1151,8 @@ def default_output_root() -> Path:
     env = os.environ.get("SAJTMASKIN_VERCEL_SCRAPE_DIR", "").strip()
     if env:
         return Path(env).expanduser()
-    # Syskonmapp till git-repots rot (skript i repo-rot eller under t.ex. scripts/).
-    here = Path(__file__).resolve().parent
-    repo_root = here if (here / ".git").exists() else here.parent
-    return repo_root.parent / "vercel-scrape"
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    return repo_root.parent / "sajtmaskin-template-cache"
 
 
 def apply_arg_defaults(args: argparse.Namespace) -> None:
@@ -1270,11 +1294,19 @@ def _persist_template(
         {
             "template_url": template.template_url,
             "title": template.title,
+            "description": template.description,
             "category_slug": template.category_slug,
             "artifact_tier": template.artifact_tier,
             "repo_url": template.repo_url,
+            "demo_url": template.demo_url,
             "framework_match": template.framework_match,
             "framework_reason": template.framework_reason,
+            "stack_tags": template.stack_tags,
+            "css_tags": template.css_tags,
+            "use_case_badges": template.use_case_badges,
+            "database_badges": template.database_badges,
+            "auth_badges": template.auth_badges,
+            "is_monorepo_example": template.is_monorepo_example,
             "relative_folder": str(template_dir.relative_to(root)).replace("\\", "/"),
             "clone_attempted": clone_attempted,
             "clone_ok": clone_ok,
@@ -1353,38 +1385,16 @@ def run_scrape(args: argparse.Namespace) -> int:
                 )
                 continue
 
+            flags: List[str] = []
             if not template.framework_match:
-                print(f"  [SKIP] Inte Next.js/React -> {template.title}")
-                report_entries.append(
-                    {
-                        "template_url": url,
-                        "title": template.title,
-                        "repo_url": template.repo_url,
-                        "framework_match": False,
-                        "framework_reason": template.framework_reason,
-                        "skip_reason": "framework_mismatch",
-                        "clone_attempted": False,
-                    }
-                )
-                continue
-
+                flags.append("non-nextjs")
             if is_title_blocklisted(template.title):
-                print(f"  [SKIP] Blocklisted (nisch/infra-demo) -> {template.title}")
-                report_entries.append(
-                    {
-                        "template_url": url,
-                        "title": template.title,
-                        "repo_url": template.repo_url,
-                        "framework_match": True,
-                        "skip_reason": "title_blocklisted",
-                        "clone_attempted": False,
-                    }
-                )
-                continue
+                flags.append("blocklisted")
 
             assign_artifact_tier(template)
             direct_slug_by_url[url] = tmpl_slug
-            print(f"  [OK] {template.title} ({template.framework_reason}) [{template.artifact_tier}]")
+            flag_str = f" [{', '.join(flags)}]" if flags else ""
+            print(f"  [OK] {template.title} ({template.framework_reason}) [{template.artifact_tier}]{flag_str}")
             collected["direct-urls"].append(template)
             template_dir = template_output_dir(root, template, flat_layout, direct_slug=tmpl_slug)
             _persist_template(scraper, root, template, template_dir, args, report_entries)
@@ -1428,39 +1438,16 @@ def run_scrape(args: argparse.Namespace) -> int:
                     )
                     continue
 
+                flags: List[str] = []
                 if not template.framework_match:
-                    print(f"  [SKIP] Inte Next.js/React -> {template.title}")
-                    report_entries.append(
-                        {
-                            "template_url": template_url,
-                            "title": template.title,
-                            "repo_url": template.repo_url,
-                            "category_slug": category_slug,
-                            "framework_match": False,
-                            "skip_reason": "framework_mismatch",
-                            "clone_attempted": False,
-                        }
-                    )
-                    continue
-
+                    flags.append("non-nextjs")
                 if is_title_blocklisted(template.title):
-                    print(f"  [SKIP] Blocklisted (nisch/infra-demo) -> {template.title}")
-                    report_entries.append(
-                        {
-                            "template_url": template_url,
-                            "title": template.title,
-                            "repo_url": template.repo_url,
-                            "category_slug": category_slug,
-                            "framework_match": True,
-                            "skip_reason": "title_blocklisted",
-                            "clone_attempted": False,
-                        }
-                    )
-                    continue
+                    flags.append("blocklisted")
 
                 assign_artifact_tier(template)
                 matched_templates.append(template)
-                print(f"  [OK] {template.title} ({template.framework_reason}) [{template.artifact_tier}]")
+                flag_str = f" [{', '.join(flags)}]" if flags else ""
+                print(f"  [OK] {template.title} ({template.framework_reason}) [{template.artifact_tier}]{flag_str}")
 
             collected[category_slug] = matched_templates
 
@@ -1488,7 +1475,7 @@ def run_scrape(args: argparse.Namespace) -> int:
         flat_layout,
         direct_slug_by_url=direct_slug_by_url if args.urls else None,
     )
-    write_scrape_layout_readme(root, extended, flat_layout)
+    write_scrape_layout_readme(root, extended, flat_layout, legacy_wide)
     write_ingestion_report(root, mode, report_entries)
 
     print("[KLAR]")

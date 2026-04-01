@@ -1,8 +1,24 @@
-import rawCatalog from "./template-library.generated.json";
 import type { TemplateLibraryCatalogFile, TemplateLibraryEntry } from "./types";
 
 const EXTERNAL_TEMPLATES_ROOT_MARKER = "/research/external-templates/";
 const DEFAULT_SOURCE_ROOT = "research/external-templates/raw-discovery/current";
+
+const EMPTY_CATALOG: TemplateLibraryCatalogFile = {
+  generatedAt: "",
+  sourceRoot: DEFAULT_SOURCE_ROOT,
+  totalTemplates: 0,
+  curatedTemplates: 0,
+  entries: [],
+};
+
+function loadRawCatalog(): TemplateLibraryCatalogFile {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("./template-library.generated.json") as TemplateLibraryCatalogFile;
+  } catch {
+    return EMPTY_CATALOG;
+  }
+}
 
 function sanitizeCatalogPath(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -37,7 +53,7 @@ function sanitizeCatalog(catalog: TemplateLibraryCatalogFile): TemplateLibraryCa
   };
 }
 
-const catalog = sanitizeCatalog(rawCatalog as TemplateLibraryCatalogFile);
+const catalog = sanitizeCatalog(loadRawCatalog());
 const entryById = new Map((catalog.entries ?? []).map((entry) => [entry.id, entry]));
 
 export function getTemplateLibraryCatalog(): TemplateLibraryCatalogFile {

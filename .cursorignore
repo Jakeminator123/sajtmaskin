@@ -56,21 +56,21 @@ public/images/
 *.webm
 
 # --- Research (tungt); undantag: små indexfiler i raw-discovery & repo-cache ---
-#research/external-templates/raw-discovery/**
-#!research/external-templates/raw-discovery/README.md
-#!research/external-templates/raw-discovery/SCHEMA.md
-#!research/external-templates/raw-discovery/schema.summary.json
-#research/external-templates/repo-cache/**
-#!research/external-templates/repo-cache/README.md
-#research/external-templates/reference-library/
-
-## --- Genererade artefakter (stora JSON) ---
-#data/scaffold-candidates-curated.json
-#src/lib/gen/data/docs-embeddings.json
-#src/lib/gen/scaffolds/scaffold-embeddings.json
-#src/lib/gen/scaffolds/scaffold-research.generated.json
-#src/lib/gen/template-library/template-library-embeddings.json
-#src/lib/gen/template-library/template-library.generated.json
+research/external-templates/raw-discovery/**
+!research/external-templates/raw-discovery/README.md
+!research/external-templates/raw-discovery/SCHEMA.md
+!research/external-templates/raw-discovery/schema.summary.json
+research/external-templates/repo-cache/**
+!research/external-templates/repo-cache/README.md
+research/external-templates/reference-library/
+# --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
+# --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
+data/scaffold-candidates-curated.json
+src/lib/gen/data/docs-embeddings.json
+src/lib/gen/scaffolds/scaffold-embeddings.json
+src/lib/gen/scaffolds/scaffold-research.generated.json
+src/lib/gen/template-library/template-library-embeddings.json
+src/lib/gen/template-library/template-library.generated.json
 
 # --- Cursor session / automation / migration ---
 .cursor/plans/
@@ -109,3 +109,4 @@ services/mpc/logs/
 next-env.d.ts
 archive\scripts-labs-testning_scarf
 files_envars
+#övrigt

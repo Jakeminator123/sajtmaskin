@@ -20,7 +20,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`audit/`](audit/) | Shadcn-mirror + runtime component-library snapshot |
 | [`cli/`](cli/) | `builder-generate.py` (batch mot own-engine API) |
 | [`env/`](env/) | `manage_env.py`, `model_trace_overlay.py` |
-| [`manual/`](manual/) | Övriga manuella verktyg (`vercel_template_cli.py`, `scaffold-pipeline.py`) |
+| [`manual/`](manual/) | Övriga manuella verktyg (`scaffold-pipeline.py`) |
 
 ### Next / dev-server (npm hooks)
 
@@ -34,13 +34,13 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 **Mallflöde (v0-templates i repo):** [`template-library/sync-v0-templates.mjs`](template-library/sync-v0-templates.mjs), [`template-library/validate-templates.mjs`](template-library/validate-templates.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:embeddings`.
 - **Delade TS-moduler (ingen egen CLI):** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
 - **Vercel use-case-skrapning (Python):**
-  - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — kärnkategorier, valfritt `--extended-scrape`, valfritt `--legacy-wide-use-cases` (historisk bred lista, ~25 use cases), tierad utdata, rapporter. **Standard** för manuell inhämtning.
-  - **Tidigare:** `scripts/hamta_sidor.py` (borttagen) motsvaras av `python scripts/template-library/hamta_sidor_branch_emil.py --legacy-wide-use-cases` om du **medvetet** behöver jämföra mot historisk bred lista — **inte** som standard i produktions- eller kanon-researchflöden.
-  - **Kärnlistan** i skriptet = **`USE_CASES_CORE` (12 Vercel-sluggar)** + valfritt **`USE_CASES_EXTENDED` (2)** med `--extended-scrape`. Det är **osammanhängande** med t.ex. **`EVAL_PROMPTS` (15 eval-promptar)** i `src/lib/gen/eval/prompts.ts` — olika domäner, räkna dem inte ihop.
+  - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — tierad utdata, rapporter, bred research-intake som kan markera `framework_match: false` i stället för att kasta bort poster direkt.
+  - **Nuvarande standardflöde:** bred intake med `--legacy-wide-use-cases --per-category 999` till syskonmappen `../sajtmaskin-template-cache`, därefter import + build + embeddings. Smalare läge finns kvar med `--core-use-cases` via `full_template_refresh.py`.
+  - **Kärnlistan** i skriptet = **`USE_CASES_CORE` (12 Vercel-sluggar)** + valfritt **`USE_CASES_EXTENDED` (2)** med `--extended-scrape`; den breda researchlistan = **`USE_CASES_LEGACY_WIDE` (25)**. Detta är **osammanhängande** med t.ex. **`EVAL_PROMPTS` (15 eval-promptar)** i `src/lib/gen/eval/prompts.ts` — olika domäner, räkna dem inte ihop.
   - **Icke-kanon:** lokal **`vercel_templates_levels/`** (gitignored); använd **inte** som källa för “hur många kategorier” produkten har. Spårat alternativ: **`e2e/vercel-templates/`**.
   - Se [`repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
-  - Standard-output ligger **utanför repot** (`../vercel-scrape` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget i [`research/external-templates/README.md`](../research/external-templates/README.md) (**Intake tools**) och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
-- **Vercel template-katalog (Python, `scripts/manual/`):** `scripts/manual/vercel_template_cli.py` — filtergrupper på vercel.com/templates → JSON eller kandidatfil för scaffold-kedjan (se avsnitt nedan). **Ingen** root-wrapper; kör alltid denna sökväg.
+  - Standard-output ligger **utanför repot** (`../sajtmaskin-template-cache` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
+- **~~vercel_template_cli.py~~** (borttagen) — använd `hamta_sidor_branch_emil.py` eller Playwright-discover i stället.
 
 ## Arkiverat labb (`archive/scripts-labs-testning_scarf/`)
 
@@ -52,25 +52,6 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | `scaffold:suite` | `python archive/scripts-labs-testning_scarf/run_scaffold_suite.py` |
 | `first-llm:lab` / live | `python archive/scripts-labs-testning_scarf/first_llm_promptlab.py` / `npx tsx archive/scripts-labs-testning_scarf/run_first_llm_live.ts …` |
 | `testning:codegen-print` | `python archive/scripts-labs-testning_scarf/print_codegen_context.py` |
-
-## vercel_template_cli.py (`scripts/manual/`)
-
-Offline-verktyg som skrapar Vercels **template directory** (flera filterdimensioner: use case, framework, CSS, database, m.m.) och kan exportera GitHub-repo-länkar. **Körs inte i produktion**; det stödjer kurering av externa mallar innan de blir interna scaffolds.
-
-### Förutsättningar
-
-```bash
-pip install requests beautifulsoup4
-```
-
-### Exempel
-
-```bash
-python scripts/manual/vercel_template_cli.py --groups use-case,framework --slugs ai,next.js --json templates.json
-python scripts/manual/vercel_template_cli.py --candidates data/scaffold-candidates-vercel-cli.json
-```
-
-Fullständig pipeline och flaggor beskrivs i filens modul-docstring. Därefter: `npm run scaffolds:curate` (eller er interna rapportkedja), manuell granskning, `scripts/scaffolds/sync-scaffold-refs.mjs`, arbeta i `src/lib/gen/scaffolds/`.
 
 ## Builder batch-generering (`cli/builder-generate.py`)
 
@@ -333,6 +314,14 @@ py scripts/template-library/full_template_refresh.py
 ```
 
 Med inga flaggor startar skriptet i interaktivt läge och pausar innan fönstret stängs, vilket gör det lämpligt även för dubbelklick i Windows om `.py` är kopplat till Python.
+
+Nuvarande default för scrape-steget är **bred research-intake**:
+
+- `--legacy-wide-use-cases`
+- `--per-category=999`
+- output i syskonmappen `../sajtmaskin-template-cache`
+
+Vill du explicit köra det smalare historiska kärnläget använder du `--core-use-cases`.
 
 ## devtest
 
