@@ -405,6 +405,7 @@ function V0TemplateCard({
   const [isCreating, setIsCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const imageUrl = getTemplateImageUrl(template);
+  const useUnoptimizedPreview = imageUrl.startsWith("https://v0.app/chat/api/og/");
   const type = useParams().type as string;
 
   const handlePreviewClick = (event: React.MouseEvent) => {
@@ -451,6 +452,7 @@ function V0TemplateCard({
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            unoptimized={useUnoptimizedPreview}
           />
         </div>
         <div className="space-y-3 p-4">
