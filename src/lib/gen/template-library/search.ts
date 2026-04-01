@@ -78,6 +78,9 @@ function keywordScore(query: string, entry: TemplateLibraryEntry): number {
     entry.description,
     entry.summary,
     entry.stackTags.join(" "),
+    entry.classification.useCaseTags.join(" "),
+    entry.classification.siteFormTags.join(" "),
+    entry.classification.technicalPatternTags.join(" "),
     entry.strengths.join(" "),
     entry.recommendedScaffoldFamilies.join(" "),
   ].join(" "));

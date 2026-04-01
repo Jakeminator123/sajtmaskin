@@ -51,6 +51,11 @@ function makeEntry(
       multiTenant: true,
       cms: false,
     },
+    classification: {
+      useCaseTags: ["saas", "multi-tenant"],
+      siteFormTags: ["app-shell", "landing-page"],
+      technicalPatternTags: ["app-router", "billing", "multi-tenant"],
+    },
     summary: "summary",
     selectedFiles: [{ path: "app/pricing/page.tsx", reason: "pricing", excerpt: "..." }],
     ...partial,

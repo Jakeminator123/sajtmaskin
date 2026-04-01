@@ -10,7 +10,11 @@ Purpose:
 5. Optionally run a DB health check and/or TypeScript typecheck
 
 Default source of truth for the scrape step is an external folder:
-  ../vercel-scrape-fresh
+  ../sajtmaskin-template-cache
+
+Default scrape behavior is broad research intake:
+  --legacy-wide-use-cases
+  --per-category=999
 
 If both `summary-cleaned.json` and `summary.json` exist in the scrape output,
 the cleaned summary is used as canonical import input.
@@ -108,7 +112,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scrape-output",
         default=str(default_scrape_root),
-        help="External scrape output directory (default: ../vercel-scrape-fresh).",
+        help="External scrape output directory (default: ../sajtmaskin-template-cache).",
     )
     parser.add_argument(
         "--skip-scrape",

@@ -57,6 +57,9 @@ describe("template-library external templates (committed catalog)", () => {
       expect(e.categoryName?.trim().length).toBeGreaterThan(0);
       expect(e.summary?.trim().length).toBeGreaterThan(0);
       expect(e.recommendedScaffoldFamilies?.length).toBeGreaterThan(0);
+      expect(e.classification?.useCaseTags?.length ?? 0).toBeGreaterThan(0);
+      expect(e.classification?.siteFormTags?.length ?? 0).toBeGreaterThan(0);
+      expect(Array.isArray(e.classification?.technicalPatternTags)).toBe(true);
       expect(e.qualityScore).toBeGreaterThanOrEqual(45);
       expect(e.runtimeGuidance?.styleRules?.length ?? 0).toBeGreaterThan(0);
       expect(e.runtimeGuidance?.sectionInventory?.length ?? 0).toBeGreaterThan(0);

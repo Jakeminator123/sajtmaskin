@@ -154,10 +154,12 @@ npm run template-library:embeddings
 2. Inspekterar shallow-clonade repos från `research/external-templates/repo-cache/`
 3. Faller bara tillbaka till äldre `_sidor`-repo paths om den valda source-roten
    fortfarande pekar på en legacy-datasetmapp
-4. Skapar `research/external-templates/reference-library/` med katalog + dossiers
-5. Genererar kuraterade research-artefakter för runtime-sökning i `src/lib/gen/template-library/`
-6. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
-7. Skriver en prioriterad scaffold-kandidatsrapport till `data/scaffold-candidates-curated.json`
+4. Separerar extern use-case, site form och technical pattern i katalogens klassificering
+5. Deduplicerar repo-överlapp och demoterar blocklistade / icke-Next referenser till research-only
+6. Skapar `research/external-templates/reference-library/` med katalog + dossiers
+7. Genererar kuraterade research-artefakter för runtime-sökning i `src/lib/gen/template-library/`
+8. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
+9. Skriver en prioriterad scaffold-kandidatsrapport till `data/scaffold-candidates-curated.json`
 
 ### Produktionsgräns
 
@@ -201,6 +203,7 @@ npx tsx scripts/template-library/hydrate-template-library-cache.ts --max=20
 - ingen `install` eller `build`
 - output hamnar i `research/external-templates/repo-cache/` som är gitignorerad
 - `repo-cache` betyder lokal repo-spegel, inte runtime-cache
+- `monorepo-examples` och poster med `framework_match: false` klonas inte i hydrate-steget
 ### Begrepp
 
 - `research/external-templates/raw-discovery/`

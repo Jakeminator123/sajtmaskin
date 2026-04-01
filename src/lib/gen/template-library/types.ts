@@ -41,6 +41,12 @@ export interface TemplateLibrarySignals {
   cms: boolean;
 }
 
+export interface TemplateLibraryClassification {
+  useCaseTags: string[];
+  siteFormTags: string[];
+  technicalPatternTags: string[];
+}
+
 export interface TemplateLibraryRuntimeGuidance {
   styleRules: string[];
   sectionInventory: string[];
@@ -69,6 +75,7 @@ export interface TemplateLibraryEntry {
   weaknesses: string[];
   recommendedScaffoldFamilies: ScaffoldFamily[];
   signals: TemplateLibrarySignals;
+  classification: TemplateLibraryClassification;
   summary: string;
   runtimeGuidance?: TemplateLibraryRuntimeGuidance;
   selectedFiles: TemplateLibrarySelectedFile[];

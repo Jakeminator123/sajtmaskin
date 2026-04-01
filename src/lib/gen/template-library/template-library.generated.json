@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-01T02:26:42.882Z",
+  "generatedAt": "2026-04-01T02:54:13.239Z",
   "sourceRoot": "research/external-templates/raw-discovery/current",
   "totalTemplates": 193,
   "curatedTemplates": 73,
@@ -73,7 +73,19 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Blazity Enterprise Ecommerce Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "Blazity Enterprise Ecommerce Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "starters/shopify-algolia/package.json",
@@ -204,7 +216,20 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Clerk Authentication Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "authentication"
+        ],
+        "siteFormTags": [
+          "auth-flow",
+          "dashboard"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth"
+        ]
+      },
+      "summary": "Clerk Authentication Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: auth-flow, dashboard. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -336,7 +361,20 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Modernize Next.js Admin Dashboard Template is a Admin Dashboard reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "admin-dashboard"
+        ],
+        "siteFormTags": [
+          "dashboard"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "database"
+        ]
+      },
+      "summary": "Modernize Next.js Admin Dashboard Template is a Admin Dashboard reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: dashboard. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "package/README.md",
@@ -468,7 +506,23 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js SaaS Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "authentication",
+          "saas"
+        ],
+        "siteFormTags": [
+          "auth-flow",
+          "dashboard"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "billing",
+          "database"
+        ]
+      },
+      "summary": "Next.js SaaS Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: auth-flow, dashboard. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -604,7 +658,21 @@
         "multiTenant": true,
         "cms": true
       },
-      "summary": "Next.js Waitlist with Notion CMS is a CMS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cms"
+        ],
+        "siteFormTags": [
+          "content-site",
+          "landing-page"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms",
+          "database"
+        ]
+      },
+      "summary": "Next.js Waitlist with Notion CMS is a CMS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Site form: content-site, landing-page. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -735,7 +803,18 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Notion-Powered Next.js Blog is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Notion-Powered Next.js Blog is a Blog reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Site form: editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -870,7 +949,23 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Paddle Billing Subscription Starter is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell",
+          "auth-flow",
+          "dashboard"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "billing",
+          "database"
+        ]
+      },
+      "summary": "Paddle Billing Subscription Starter is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: app-shell, auth-flow, dashboard. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1021,7 +1116,20 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Router.so - Headless Forms and Lead Routing is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "database"
+        ]
+      },
+      "summary": "Router.so - Headless Forms and Lead Routing is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1162,7 +1270,22 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Stripe Subscription Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce",
+          "saas"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "billing",
+          "database"
+        ]
+      },
+      "summary": "Stripe Subscription Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1298,7 +1421,22 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Turso Per User Starter is a Multi-Tenant Apps reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "multi-tenant"
+        ],
+        "siteFormTags": [
+          "app-shell",
+          "dashboard"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "database",
+          "multi-tenant"
+        ]
+      },
+      "summary": "Turso Per User Starter is a Multi-Tenant Apps reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: app-shell, dashboard. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1439,7 +1577,22 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Update Starter: Subscriptions and Auth for SaaS is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell",
+          "auth-flow"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "billing",
+          "database"
+        ]
+      },
+      "summary": "Update Starter: Subscriptions and Auth for SaaS is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: app-shell, auth-flow. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1585,7 +1738,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Your Next Store — Commerce with Next.js and Stripe is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "billing"
+        ]
+      },
+      "summary": "Your Next Store — Commerce with Next.js and Stripe is a Ecommerce reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1715,7 +1880,21 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Chatbot is a AI reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router",
+          "auth",
+          "database"
+        ]
+      },
+      "summary": "Chatbot is a AI reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1840,7 +2019,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Finwise: SaaS Landing Page is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell",
+          "landing-page"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "billing"
+        ]
+      },
+      "summary": "Finwise: SaaS Landing Page is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: app-shell, landing-page. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -1970,7 +2162,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Kinde Next.js Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "authentication"
+        ],
+        "siteFormTags": [
+          "auth-flow",
+          "dashboard"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth"
+        ]
+      },
+      "summary": "Kinde Next.js Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: auth-flow, dashboard. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2095,7 +2300,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Magic Portfolio for Next.js is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog",
+          "portfolio"
+        ],
+        "siteFormTags": [
+          "editorial-site",
+          "portfolio"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Magic Portfolio for Next.js is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: editorial-site, portfolio. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2225,7 +2443,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Morphic: AI-powered answer engine is a AI reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "Morphic: AI-powered answer engine is a AI reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2356,7 +2586,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js App Router Playground is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "starter"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "billing"
+        ]
+      },
+      "summary": "Next.js App Router Playground is a Starter reference with verified Next.js codebase, App Router structure, pricing or billing structure. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2481,7 +2723,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Paddle Mobile Web Payments Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "billing"
+        ]
+      },
+      "summary": "Paddle Mobile Web Payments Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, pricing or billing structure. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2616,7 +2870,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Whop SaaS Template is a Ecommerce reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce",
+          "saas"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth"
+        ]
+      },
+      "summary": "Whop SaaS Template is a Ecommerce reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2643,28 +2910,28 @@
         "styleRules": [
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious.",
-          "Keep each auth screen single-purpose, calm, and trustworthy."
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+          "Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious."
         ],
         "sectionInventory": [
           "primary entry section",
           "supporting content section",
-          "catalog grid",
-          "product detail",
-          "cart or checkout direction"
+          "hero",
+          "product proof",
+          "pricing"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-          "Avoid hiding product information behind vague marketing copy.",
-          "Avoid mixing auth flows with unrelated landing-page sections."
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid hiding product information behind vague marketing copy."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-          "Commerce flows should feel trustworthy, concrete, and price-legible.",
-          "Auth pages should feel ready for real product onboarding."
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Commerce flows should feel trustworthy, concrete, and price-legible."
         ]
       }
     },
@@ -2739,7 +3006,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Arcjet Next.js Example App is a Security reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "security"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "security"
+        ]
+      },
+      "summary": "Arcjet Next.js Example App is a Security reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2863,7 +3143,20 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Blog with Agility CMS and Next.js is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "content-site",
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Blog with Agility CMS and Next.js is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: content-site, editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -2987,7 +3280,19 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Builder.io Personalization Starter is a CMS reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cms"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Builder.io Personalization Starter is a CMS reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -3111,7 +3416,19 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Clean Next.js + Sanity App is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Clean Next.js + Sanity App is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "frontend/README.md",
@@ -3250,7 +3567,21 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Coinbase Commerce is a Web3 reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce",
+          "web3"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "billing",
+          "web3"
+        ]
+      },
+      "summary": "Coinbase Commerce is a Web3 reference with verified Next.js codebase, App Router structure, pricing or billing structure. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -3374,7 +3705,18 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "LaunchPad: Next.js × Strapi Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "LaunchPad: Next.js × Strapi Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "next/README.md",
@@ -3498,7 +3840,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Minimal Next.js SaaS Website Starter is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Minimal Next.js SaaS Website Starter is a SaaS reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -3627,7 +3980,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js + BigCommerce Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, pricing or billing structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "billing"
+        ]
+      },
+      "summary": "Next.js + BigCommerce Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, pricing or billing structure. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -3756,7 +4121,20 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Next.js × Wisp Corporate Blog Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "content-site",
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Next.js × Wisp Corporate Blog Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: content-site, editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -3870,7 +4248,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js Contentlayer Blog Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Next.js Contentlayer Blog Starter is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -3988,7 +4377,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js Portfolio with Pageview Counter is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "portfolio"
+        ],
+        "siteFormTags": [
+          "portfolio"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "database"
+        ]
+      },
+      "summary": "Next.js Portfolio with Pageview Counter is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: portfolio. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4115,7 +4516,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Nim: Minimalist Personal Site is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "portfolio"
+        ],
+        "siteFormTags": [
+          "portfolio"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Nim: Minimalist Personal Site is a Portfolio reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: portfolio. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4233,7 +4645,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Pinexio - Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "documentation"
+        ],
+        "siteFormTags": [
+          "documentation-site"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Pinexio - Documentation Template is a Documentation reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Site form: documentation-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4372,7 +4795,21 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Stablo – Minimal Blog Template is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog",
+          "web3"
+        ],
+        "siteFormTags": [
+          "content-site",
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Stablo – Minimal Blog Template is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: content-site, editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4491,7 +4928,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "VisActor Next.js Template is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell",
+          "dashboard"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "VisActor Next.js Template is a SaaS reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Site form: app-shell, dashboard. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4609,7 +5058,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Ably and Next.js Starter Kit is a Realtime Apps reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "realtime"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "backend-service",
+          "realtime"
+        ]
+      },
+      "summary": "Ably and Next.js Starter Kit is a Realtime Apps reference with verified Next.js codebase, App Router structure, dashboard shell patterns. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4731,7 +5193,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Blue-Green Deployments on Vercel is a Edge Middleware reference with verified Next.js codebase, App Router structure, auth flow reference. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "edge-middleware"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "edge"
+        ]
+      },
+      "summary": "Blue-Green Deployments on Vercel is a Edge Middleware reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4764,7 +5238,7 @@
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
           "Keep each auth screen single-purpose, calm, and trustworthy.",
-          "Keep navigation structure explicit and reusable across routes."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
         ],
         "sectionInventory": [
           "primary entry section",
@@ -4776,13 +5250,15 @@
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-          "Avoid mixing auth flows with unrelated landing-page sections."
+          "Avoid mixing auth flows with unrelated landing-page sections.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-          "Auth pages should feel ready for real product onboarding."
+          "Auth pages should feel ready for real product onboarding.",
+          "Content-first sites should feel structured, findable, and stable."
         ]
       }
     },
@@ -4852,7 +5328,20 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Hostname Rewrites using Edge Middleware is a Edge Middleware reference with verified Next.js codebase, App Router structure, multi-tenant or workspace patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "edge-middleware"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "edge",
+          "multi-tenant"
+        ]
+      },
+      "summary": "Hostname Rewrites using Edge Middleware is a Edge Middleware reference with verified Next.js codebase, App Router structure, multi-tenant or workspace patterns. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -4885,7 +5374,7 @@
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
           "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
-          "Keep navigation structure explicit and reusable across routes."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
         ],
         "sectionInventory": [
           "primary entry section",
@@ -4897,13 +5386,15 @@
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-          "Commercial sections should feel conversion-ready without looking template-generic."
+          "Commercial sections should feel conversion-ready without looking template-generic.",
+          "Content-first sites should feel structured, findable, and stable."
         ]
       }
     },
@@ -4973,7 +5464,20 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Platforms Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, multi-tenant or workspace patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "database",
+          "multi-tenant"
+        ]
+      },
+      "summary": "Platforms Starter Kit is a SaaS reference with verified Next.js codebase, App Router structure, multi-tenant or workspace patterns. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5096,7 +5600,20 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Sanity + Next.js Clean App is a Starter reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "starter"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Sanity + Next.js Clean App is a Starter reference with verified Next.js codebase, App Router structure, CMS integration hints. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "frontend/README.md",
@@ -5233,7 +5750,20 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "BaseHub Marketing Website is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cms"
+        ],
+        "siteFormTags": [
+          "content-site",
+          "landing-page"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "BaseHub Marketing Website is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Site form: content-site, landing-page. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5348,7 +5878,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "LangChain + Next.js Starter is a AI reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "database"
+        ]
+      },
+      "summary": "LangChain + Next.js Starter is a AI reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5470,7 +6012,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js Commerce is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Next.js Commerce is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5592,7 +6145,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js Shopware Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Next.js Shopware Starter is a Ecommerce reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5714,7 +6278,20 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Optimizely SaaS CMS + Next.js 15 is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cms",
+          "saas"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Optimizely SaaS CMS + Next.js 15 is a CMS reference with verified Next.js codebase, App Router structure, CMS integration hints. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5747,27 +6324,27 @@
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
           "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+          "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
         ],
         "sectionInventory": [
           "primary entry section",
           "supporting content section",
-          "navigation",
-          "content blocks",
-          "supporting sidebar or related links"
+          "hero",
+          "product proof",
+          "pricing"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
           "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-          "Avoid forcing documentation references into pricing-first SaaS structures."
+          "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
           "Final output should feel custom and production-grade, not like a renamed starter.",
-          "Content-first sites should feel structured, findable, and stable."
+          "Commercial sections should feel conversion-ready without looking template-generic."
         ]
       }
     },
@@ -5836,7 +6413,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "RAGBot Starter — An Astra DB and OpenAI chatbot is a AI reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router",
+          "database"
+        ]
+      },
+      "summary": "RAGBot Starter — An Astra DB and OpenAI chatbot is a AI reference with verified Next.js codebase, App Router structure, storefront or checkout patterns. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5957,7 +6547,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "AnyCable Real-time Starter Kit is a Realtime Apps reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "realtime"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "auth",
+          "realtime"
+        ]
+      },
+      "summary": "AnyCable Real-time Starter Kit is a Realtime Apps reference with verified Next.js codebase, App Router structure. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -5995,22 +6598,27 @@
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
           "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-          "Keep navigation structure explicit and reusable across routes."
+          "Keep each auth screen single-purpose, calm, and trustworthy."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "login",
+          "signup",
+          "recovery"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy)."
+          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+          "Avoid mixing auth flows with unrelated landing-page sections."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-          "Final output should feel custom and production-grade, not like a renamed starter."
+          "Final output should feel custom and production-grade, not like a renamed starter.",
+          "Auth pages should feel ready for real product onboarding."
         ]
       }
     },
@@ -6077,7 +6685,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "ChatGPT app with Next.js is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "ChatGPT app with Next.js is a AI reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6109,21 +6728,26 @@
         "styleRules": [
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-          "AI-facing sections should feel native to the product, not like pasted chatbot chrome.",
-          "Keep navigation structure explicit and reusable across routes."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
-          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
           "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
         ]
       }
@@ -6192,7 +6816,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Cron OG Cards is a Cron reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cron"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cron",
+          "database"
+        ]
+      },
+      "summary": "Cron OG Cards is a Cron reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6229,20 +6866,26 @@
         "styleRules": [
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
           "Keep navigation structure explicit and reusable across routes."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
-          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
-          "Accessible semantics and responsive layout decisions that survive a real Next.js preview."
+          "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable."
         ]
       }
     },
@@ -6310,7 +6953,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Documents: Simple Next.js Documentation is a Documentation reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "documentation"
+        ],
+        "siteFormTags": [
+          "documentation-site"
+        ],
+        "technicalPatternTags": [
+          "app-router"
+        ]
+      },
+      "summary": "Documents: Simple Next.js Documentation is a Documentation reference with verified Next.js codebase, App Router structure. Site form: documentation-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6416,7 +7070,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Hume AI - Empathic Voice Interface Starter is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "Hume AI - Empathic Voice Interface Starter is a AI reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6449,23 +7115,27 @@
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
           "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy)."
+          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
           "Final output should feel custom and production-grade, not like a renamed starter.",
-          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+          "Content-first sites should feel structured, findable, and stable."
         ]
       }
     },
@@ -6531,7 +7201,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js Convex Template is a Backend reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "backend"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "backend-service",
+          "database"
+        ]
+      },
+      "summary": "Next.js Convex Template is a Backend reference with verified Next.js codebase, App Router structure. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6646,7 +7329,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Next.js Email Client is a Starter reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "starter"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "database"
+        ]
+      },
+      "summary": "Next.js Email Client is a Starter reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6757,7 +7452,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Pinecone - Vercel AI SDK Starter is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "Pinecone - Vercel AI SDK Starter is a AI reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6879,7 +7586,20 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Prismic Blog is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "content-site",
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cms"
+        ]
+      },
+      "summary": "Prismic Blog is a Blog reference with verified Next.js codebase, App Router structure, editorial content hierarchy. Site form: content-site, editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -6979,7 +7699,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Vercel + DBOS Integration is a Cron reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cron"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "cron"
+        ]
+      },
+      "summary": "Vercel + DBOS Integration is a Cron reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -7006,21 +7738,26 @@
         "styleRules": [
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-          "AI-facing sections should feel native to the product, not like pasted chatbot chrome.",
-          "Keep navigation structure explicit and reusable across routes."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
-          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
           "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
         ]
       }
@@ -7089,7 +7826,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Vercel AI Gateway Demo is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "Vercel AI Gateway Demo is a AI reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -7116,21 +7865,26 @@
         "styleRules": [
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-          "AI-facing sections should feel native to the product, not like pasted chatbot chrome.",
-          "Keep navigation structure explicit and reusable across routes."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
-          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
           "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
         ]
       }
@@ -7199,7 +7953,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Vercel x DeepInfra Chatbot is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "Vercel x DeepInfra Chatbot is a AI reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -7236,21 +8002,26 @@
         "styleRules": [
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-          "AI-facing sections should feel native to the product, not like pasted chatbot chrome.",
-          "Keep navigation structure explicit and reusable across routes."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
+          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
-          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
           "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
         ]
       }
@@ -7319,7 +8090,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "x402 AI Starter is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "x402 AI Starter is a AI reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -7357,23 +8140,27 @@
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
           "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy)."
+          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
           "Final output should feel custom and production-grade, not like a renamed starter.",
-          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+          "Content-first sites should feel structured, findable, and stable."
         ]
       }
     },
@@ -7444,7 +8231,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "AgentGPT - AI Agents with Langchain & OpenAI is a AI reference with verified Next.js codebase, auth flow reference, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "auth",
+          "database"
+        ]
+      },
+      "summary": "AgentGPT - AI Agents with Langchain & OpenAI is a AI reference with verified Next.js codebase, auth flow reference, dashboard shell patterns. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "next/package.json",
@@ -7552,7 +8352,20 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Evervault: Encryption Starter Kit for Next.js is a SaaS reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "saas",
+          "security"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "app-router",
+          "security"
+        ]
+      },
+      "summary": "Evervault: Encryption Starter Kit for Next.js is a SaaS reference with verified Next.js codebase, App Router structure. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -7666,7 +8479,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Fullstack Blog with Next.js + Prisma is a Blog reference with verified Next.js codebase, auth flow reference, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "auth",
+          "database"
+        ]
+      },
+      "summary": "Fullstack Blog with Next.js + Prisma is a Blog reference with verified Next.js codebase, auth flow reference, editorial content hierarchy. Site form: editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -7787,7 +8612,22 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "Partner Gallery is a Authentication reference with verified Next.js codebase, auth flow reference, dashboard shell patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "authentication",
+          "portfolio"
+        ],
+        "siteFormTags": [
+          "auth-flow",
+          "portfolio"
+        ],
+        "technicalPatternTags": [
+          "auth",
+          "billing",
+          "database"
+        ]
+      },
+      "summary": "Partner Gallery is a Authentication reference with verified Next.js codebase, auth flow reference, dashboard shell patterns. Site form: auth-flow, portfolio. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "app/package.json",
@@ -7899,7 +8739,19 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "RAG with Vercel AI SDK is a AI reference with verified Next.js codebase, App Router structure. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "ai",
+          "app-router"
+        ]
+      },
+      "summary": "RAG with Vercel AI SDK is a AI reference with verified Next.js codebase, App Router structure. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -7921,20 +8773,26 @@
         "styleRules": [
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm.",
           "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
-          "Do not let reference aesthetics override the user's actual topic, language, or route plan."
+          "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+          "Content-first sites should feel structured, findable, and stable.",
           "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
         ]
       }
@@ -8006,7 +8864,19 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Virtual Event Starter Kit is a Virtual Event reference with verified Next.js codebase, auth flow reference, CMS integration hints. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "virtual-event"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "auth",
+          "database"
+        ]
+      },
+      "summary": "Virtual Event Starter Kit is a Virtual Event reference with verified Next.js codebase, auth flow reference, CMS integration hints. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8131,7 +9001,19 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Beam Internal Blog is a Blog reference with verified Next.js codebase, auth flow reference, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "editorial-site"
+        ],
+        "technicalPatternTags": [
+          "auth",
+          "database"
+        ]
+      },
+      "summary": "Beam Internal Blog is a Blog reference with verified Next.js codebase, auth flow reference, editorial content hierarchy. Site form: editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8246,7 +9128,18 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Builder.io Shopify Commerce is a Ecommerce reference with verified Next.js codebase, dashboard shell patterns, storefront or checkout patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "cms"
+        ]
+      },
+      "summary": "Builder.io Shopify Commerce is a Ecommerce reference with verified Next.js codebase, dashboard shell patterns, storefront or checkout patterns. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8361,7 +9254,16 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Notion-backed Next.js Blog is a Blog reference with verified Next.js codebase, dashboard shell patterns, editorial content hierarchy. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "blog"
+        ],
+        "siteFormTags": [
+          "editorial-site"
+        ],
+        "technicalPatternTags": []
+      },
+      "summary": "Notion-backed Next.js Blog is a Blog reference with verified Next.js codebase, dashboard shell patterns, editorial content hierarchy. Site form: editorial-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8471,7 +9373,19 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Glide Publishing Platform - Next.js Starter is a CMS reference with verified Next.js codebase, CMS integration hints. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cms"
+        ],
+        "siteFormTags": [
+          "app-shell",
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "cms"
+        ]
+      },
+      "summary": "Glide Publishing Platform - Next.js Starter is a CMS reference with verified Next.js codebase, CMS integration hints. Site form: app-shell, content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8588,7 +9502,19 @@
         "multiTenant": true,
         "cms": false
       },
-      "summary": "Hacker News Slack Bot is a SaaS reference with verified Next.js codebase, multi-tenant or workspace patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce",
+          "saas"
+        ],
+        "siteFormTags": [
+          "app-shell"
+        ],
+        "technicalPatternTags": [
+          "database"
+        ]
+      },
+      "summary": "Hacker News Slack Bot is a SaaS reference with verified Next.js codebase, multi-tenant or workspace patterns. Site form: app-shell. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8696,7 +9622,18 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "TiDB Cloud Starter is a Ecommerce reference with verified Next.js codebase, storefront or checkout patterns. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ecommerce"
+        ],
+        "siteFormTags": [
+          "storefront"
+        ],
+        "technicalPatternTags": [
+          "database"
+        ]
+      },
+      "summary": "TiDB Cloud Starter is a Ecommerce reference with verified Next.js codebase, storefront or checkout patterns. Site form: storefront. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8806,7 +9743,16 @@
         "multiTenant": false,
         "cms": false
       },
-      "summary": "BookRecs: Next.js + Weaviate Starter is a AI reference with verified Next.js codebase. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "ai"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": []
+      },
+      "summary": "BookRecs: Next.js + Weaviate Starter is a AI reference with verified Next.js codebase. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",
@@ -8829,23 +9775,27 @@
           "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
           "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
           "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-          "AI-facing sections should feel native to the product, not like pasted chatbot chrome."
+          "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
         ],
         "sectionInventory": [
           "primary entry section",
-          "supporting content section"
+          "supporting content section",
+          "navigation",
+          "content blocks",
+          "supporting sidebar or related links"
         ],
         "avoidPatterns": [
           "Do not paste large reference code blocks verbatim into the generated site.",
           "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy)."
+          "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+          "Avoid forcing documentation references into pricing-first SaaS structures."
         ],
         "worldClassRubric": [
           "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
           "Reusable sections with believable content, not generic lorem-style filler.",
           "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
           "Final output should feel custom and production-grade, not like a renamed starter.",
-          "Interactive or AI-heavy views should still feel grounded in a coherent product shell."
+          "Content-first sites should feel structured, findable, and stable."
         ]
       }
     },
@@ -8912,7 +9862,18 @@
         "multiTenant": false,
         "cms": true
       },
-      "summary": "Next.JS ButterCMS Starter Project is a CMS reference with verified Next.js codebase, CMS integration hints. Verdict: valid.",
+      "classification": {
+        "useCaseTags": [
+          "cms"
+        ],
+        "siteFormTags": [
+          "content-site"
+        ],
+        "technicalPatternTags": [
+          "cms"
+        ]
+      },
+      "summary": "Next.JS ButterCMS Starter Project is a CMS reference with verified Next.js codebase, CMS integration hints. Site form: content-site. Verdict: valid.",
       "selectedFiles": [
         {
           "path": "README.md",

@@ -8,6 +8,7 @@ import {
 } from "../../src/lib/gen/template-library/runtime-guidance";
 import type {
   TemplateLibraryCatalogFile,
+  TemplateLibraryClassification,
   TemplateLibraryEntry,
   TemplateLibraryRepoInfo,
   TemplateLibrarySelectedFile,
@@ -204,6 +205,22 @@ function ensureDir(target: string): void {
 function isTitleBlocklisted(title: string): boolean {
   const lower = title.toLowerCase();
   return TITLE_BLOCKLIST_PATTERNS.some((pattern) => lower.includes(pattern.toLowerCase()));
+}
+
+function uniqueSorted(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]),
+  ).sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeUseCaseTag(value: string): string | null {
+  const slug = slugify(value);
+  if (!slug) return null;
+  if (slug === "marketing-sites") return "marketing";
+  if (slug === "multi-tenant-apps") return "multi-tenant";
+  if (slug === "realtime-apps") return "realtime";
+  if (slug === "vercel-firewall") return "security";
+  return slug;
 }
 
 function assessRepoUrl(rawUrl: string | null | undefined): {
@@ -483,6 +500,128 @@ function detectSignals(entry: RawTemplateRecord, selectedFiles: TemplateLibraryS
   };
 }
 
+function deriveClassification(
+  categorySlug: string,
+  entry: RawTemplateRecord,
+  signals: TemplateLibrarySignals,
+  repoInfo: TemplateLibraryRepoInfo,
+  recommendedScaffoldFamilies: ScaffoldFamily[],
+  selectedFiles: TemplateLibrarySelectedFile[],
+): TemplateLibraryClassification {
+  const businessText = [
+    entry.title,
+    entry.description,
+    categorySlug.replace(/-/g, " "),
+  ]
+    .join("\n")
+    .toLowerCase();
+
+  const useCaseTags = uniqueSorted([
+    normalizeUseCaseTag(categorySlug),
+    /\bsaas|subscription|billing\b/.test(businessText) ? "saas" : null,
+    /\becommerce|commerce|store|storefront|checkout|product\b/.test(businessText) ? "ecommerce" : null,
+    /\bblog|editorial|newsletter|article\b/.test(businessText) ? "blog" : null,
+    /\bportfolio|gallery|creative\b/.test(businessText) ? "portfolio" : null,
+    /\bsecurity|firewall|encryption|bot protection\b/.test(businessText) ? "security" : null,
+    /\bweb3|wallet|nft|blockchain|onchain\b/.test(businessText) ? "web3" : null,
+  ]);
+
+  const selectedPathsText = selectedFiles.map((file) => file.path).join("\n").toLowerCase();
+  const siteFormText = [businessText, selectedPathsText].join("\n").toLowerCase();
+
+  const siteFormTags = uniqueSorted([
+    categorySlug === "marketing-sites" || /\blanding page|waitlist|marketing website|hero\b/.test(siteFormText)
+      ? "landing-page"
+      : null,
+    categorySlug === "admin-dashboard" ||
+    /\bdashboard|analytics|admin dashboard|issue tracker\b/.test(siteFormText) ||
+    /\/dashboard\//.test(selectedPathsText)
+      ? "dashboard"
+      : null,
+    categorySlug === "saas" ||
+    categorySlug === "backend" ||
+    categorySlug === "multi-tenant-apps" ||
+    categorySlug === "realtime-apps" ||
+    /\bworkspace|settings|team nav|issue tracker|editor|platform\b/.test(siteFormText) ||
+    /\/(settings|workspace|team|billing|account)\//.test(selectedPathsText)
+      ? "app-shell"
+      : null,
+    categorySlug === "cms" || /\bcms|content management\b/.test(siteFormText)
+      ? "content-site"
+      : null,
+    categorySlug === "blog" || /\bblog|editorial|newsletter|article\b/.test(siteFormText)
+      ? "editorial-site"
+      : null,
+    categorySlug === "portfolio" || /\bportfolio|gallery|case study|creative\b/.test(siteFormText)
+      ? "portfolio"
+      : null,
+    categorySlug === "ecommerce" || /\becommerce|commerce|shop|storefront|checkout|product detail\b/.test(siteFormText)
+      ? "storefront"
+      : null,
+    categorySlug === "authentication" ||
+    /\bauthentication|login|signup|sign up|oauth|recovery\b/.test(siteFormText) ||
+    /\/(login|signup|forgot-password|register)\//.test(selectedPathsText)
+      ? "auth-flow"
+      : null,
+    categorySlug === "documentation" || /\bdocs|documentation|knowledgebase|nextra\b/.test(siteFormText)
+      ? "documentation-site"
+      : null,
+  ]);
+
+  const technicalText = [
+    entry.title,
+    entry.description,
+    ...(entry.stack_tags ?? []),
+    ...(entry.database_badges ?? []),
+    ...(entry.auth_badges ?? []),
+    ...(entry.css_tags ?? []),
+    entry.framework_reason,
+  ]
+    .join("\n")
+    .toLowerCase();
+
+  const technicalPatternTags = uniqueSorted([
+    repoInfo.hasAppDir || repoInfo.hasSrcAppDir ? "app-router" : null,
+    repoInfo.isMonorepo || entry.is_monorepo_example || entry.artifact_tier === "monorepo-examples"
+      ? "monorepo"
+      : null,
+    /\b(ai|agent|chatbot|llm|openai|ai sdk)\b/.test(technicalText) ? "ai" : null,
+    (entry.auth_badges?.length ?? 0) > 0 || /\b(auth|oauth|clerk|auth0|nextauth|kinde|descope)\b/.test(technicalText)
+      ? "auth"
+      : null,
+    signals.pricing || /\b(stripe|billing|subscription|paddle)\b/.test(technicalText) ? "billing" : null,
+    categorySlug === "cms" || /\b(cms|contentful|sanity|wordpress|payload|drupal|notion cms|builder\.io)\b/.test(technicalText)
+      ? "cms"
+      : null,
+    (entry.database_badges?.length ?? 0) > 0 || /\b(postgres|redis|mysql|prisma|turso|blob|database)\b/.test(technicalText)
+      ? "database"
+      : null,
+    categorySlug === "multi-tenant-apps" || /\b(multi-tenant|subdomain|workspace|per user)\b/.test(technicalText)
+      ? "multi-tenant"
+      : null,
+    categorySlug === "realtime-apps" || /\b(ably|liveblocks|anycable|realtime|websocket)\b/.test(technicalText)
+      ? "realtime"
+      : null,
+    categorySlug.startsWith("edge-") || categorySlug === "vercel-firewall" ? "edge" : null,
+    categorySlug === "cron" ? "cron" : null,
+    categorySlug === "backend" || /\b(express|hono|fastify|flask|django|nestjs|serverless)\b/.test(technicalText)
+      ? "backend-service"
+      : null,
+    categorySlug === "security" || /\b(security|firewall|encryption|bot protection|arcjet|evervault)\b/.test(technicalText)
+      ? "security"
+      : null,
+    categorySlug === "web3" || /\b(wallet|nft|coinbase|web3|blockchain|onchain)\b/.test(technicalText)
+      ? "web3"
+      : null,
+  ]);
+
+  return {
+    useCaseTags: useCaseTags.length > 0 ? useCaseTags : [normalizeUseCaseTag(categorySlug) ?? "starter"],
+    siteFormTags: siteFormTags.length > 0 ? siteFormTags : ["content-site"],
+    technicalPatternTags,
+  };
+}
+
 function deriveStrengths(signals: TemplateLibrarySignals, repoInfo: TemplateLibraryRepoInfo): string[] {
   const strengths: string[] = [];
   if (repoInfo.hasNext) strengths.push("verified Next.js codebase");
@@ -720,6 +859,14 @@ function buildEntry(
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
   const recommendedScaffoldFamilies = recommendScaffoldFamilies(canonicalCategorySlug, signals);
+  const classification = deriveClassification(
+    canonicalCategorySlug,
+    template,
+    signals,
+    repoInfo,
+    recommendedScaffoldFamilies,
+    selectedFiles,
+  );
   const weaknesses = deriveWeaknesses(
     repoUrl.verdict,
     repoInfo,
@@ -766,7 +913,8 @@ function buildEntry(
     weaknesses,
     recommendedScaffoldFamilies,
     signals,
-    summary: `${template.title} is a ${canonicalCategoryName} reference with ${strengths.slice(0, 3).join(", ") || "limited verified signals"}. Verdict: ${verdict}.`,
+    classification,
+    summary: `${template.title} is a ${canonicalCategoryName} reference with ${strengths.slice(0, 3).join(", ") || "limited verified signals"}. Site form: ${classification.siteFormTags.join(", ")}. Verdict: ${verdict}.`,
     selectedFiles,
   };
 
