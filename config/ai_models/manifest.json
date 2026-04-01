@@ -215,7 +215,7 @@
         "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
         "default": 12288,
         "min": 2048,
-        "max": 65536
+        "max": 165536
       }
     },
     {

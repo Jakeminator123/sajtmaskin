@@ -109,6 +109,48 @@ function clipStageOutput(stage: string, rawOutput: string): string {
     .join("\n");
 }
 
+type SandboxFileLike = {
+  name: string;
+  content: string;
+};
+
+function projectOwnsLintSetup(sandboxFiles: SandboxFileLike[]): boolean {
+  const names = new Set(sandboxFiles.map((file) => file.name.replace(/\\/g, "/").toLowerCase()));
+  if (
+    names.has("eslint.config.mjs") ||
+    names.has("eslint.config.js") ||
+    names.has("eslint.config.cjs") ||
+    names.has(".eslintrc") ||
+    names.has(".eslintrc.js") ||
+    names.has(".eslintrc.cjs") ||
+    names.has(".eslintrc.json")
+  ) {
+    return true;
+  }
+
+  const packageJson = sandboxFiles.find((file) => file.name === "package.json");
+  if (!packageJson) return false;
+
+  try {
+    const parsed = JSON.parse(packageJson.content) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+    const deps = {
+      ...(parsed.dependencies ?? {}),
+      ...(parsed.devDependencies ?? {}),
+    };
+    const depNames = Object.keys(deps);
+    if (depNames.some((name) => name === "eslint" || name.startsWith("eslint-") || name.startsWith("@eslint/"))) {
+      return true;
+    }
+    return typeof parsed.scripts?.lint === "string" && parsed.scripts.lint.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function buildCheckShellScript(baseCmd: string, logFile: string): string {
   return [
     "set +e",
@@ -154,6 +196,7 @@ async function runSandboxChecks(
     }
 
     const results: CheckResult[] = [];
+    const ownsLintSetup = projectOwnsLintSetup(sandboxFiles);
     const logSuffix = `${startMs}-${Math.random().toString(36).slice(2, 9)}`;
     const installLogFile = `/tmp/sajtmaskin-qg-install-${logSuffix}.log`;
     const installScript = buildCheckShellScript("npm install --prefer-offline", installLogFile);
@@ -184,6 +227,16 @@ async function runSandboxChecks(
     }
 
     for (const check of checks) {
+      if (check === "lint" && !ownsLintSetup) {
+        results.push({
+          check,
+          passed: true,
+          exitCode: 0,
+          output:
+            "Skipped lint: exported project does not include its own ESLint config or dependency set. This avoids false failures from the sandbox template's inherited eslint.config.mjs.",
+        });
+        continue;
+      }
       const baseCmd = CHECK_COMMANDS[check];
       if (!baseCmd) continue;
       const logFile = `/tmp/sajtmaskin-qg-${check}-${logSuffix}.log`;

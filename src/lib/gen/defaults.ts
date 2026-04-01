@@ -37,9 +37,9 @@ const pa = manifest.promptAssist;
 //   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
 //   # ── Token-gränser ────────────────────────────────────────────
-//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=62768
+//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=82768
 //   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=12288
-//   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=62768
+//   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=82768
 //
 // ============================================================================
 
