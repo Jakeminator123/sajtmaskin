@@ -123,6 +123,15 @@ export const serverSchema = z.object({
   SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL: z.string().optional(),
   /** Max ms to wait for dev server HTTP after `npm run` dev in sandbox (digits only). Default 90000. */
   SAJTMASKIN_SANDBOX_READINESS_MAX_MS: z.string().optional(),
+  /** Fly (or other) preview-host service base URL — tier-2 runtime option. */
+  SAJTMASKIN_PREVIEW_HOST_BASE_URL: z.string().optional(),
+  /** Optional Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host). */
+  SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
+  /**
+   * Tier-2 runtime: `vercel_sandbox` (default), `preview_host`, `preview_host_then_vercel`
+   * (try preview-host first, fall back to Vercel Sandbox).
+   */
+  SAJTMASKIN_TIER2_RUNTIME: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
@@ -186,6 +195,8 @@ export const serverSchema = z.object({
   NEXT_PUBLIC_REGISTRY_BASE_URL: z.string().optional(),
   NEXT_PUBLIC_REGISTRY_STYLE: z.string().optional(),
   NEXT_PUBLIC_SAJTMASKIN_BUILDER_INSPECTOR: z.string().optional(),
+  /** Comma-separated hostname suffixes for tier-2 preview URLs (e.g. `.fly.dev`) — iframe live detection. */
+  NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;

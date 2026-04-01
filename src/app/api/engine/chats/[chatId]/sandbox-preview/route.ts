@@ -13,7 +13,10 @@ import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-
 import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 import { httpStatusForSandboxPreviewFailure } from "@/lib/gen/sandbox/preview-errors";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
-import { isSandboxConfigured, SANDBOX_SETUP_HINT } from "@/lib/mcp/runtime-url";
+import {
+  isTier2PreviewConfigured,
+  TIER2_PREVIEW_SETUP_HINT,
+} from "@/lib/gen/sandbox/tier2-config";
 
 const postBodySchema = z.object({
   versionId: z.string().min(1).optional(),
@@ -25,13 +28,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     try {
       const { chatId } = await ctx.params;
 
-      if (!isSandboxConfigured()) {
+      if (!isTier2PreviewConfigured()) {
         return NextResponse.json(
           {
             ok: false,
             code: "sandbox_disabled",
-            message: "Sandbox is not configured on this deployment.",
-            hint: SANDBOX_SETUP_HINT,
+            message: "Tier-2 preview is not configured on this deployment.",
+            hint: TIER2_PREVIEW_SETUP_HINT,
             retryable: true,
           },
           { status: 503 },
@@ -198,6 +201,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         chatId,
         versionId: versionRow.id,
         outcome: sr.startOutcome,
+        tier2Provider: sr.tier2Meta?.tier2Provider,
+        failoverFrom: sr.tier2Meta?.failoverFrom,
       });
 
       return NextResponse.json({

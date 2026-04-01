@@ -41,7 +41,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob; lokalt kan vissa flöden falla tillbaka till filsystem (`DATA_DIR`). |
 | Betalning | `STRIPE_*` | Om credits/betalning används. |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
-| Sandbox (live preview i VM) | `VERCEL_OIDC_TOKEN` eller `VERCEL_TOKEN` + team/project | Detaljer: `vercel-sandbox-credentials.md` + `preview-deploy.md`. |
+| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + `SAJTMASKIN_TIER2_RUNTIME` (+ `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`) eller `VERCEL_OIDC_TOKEN` / `VERCEL_TOKEN` + team/project | `preview_host` kan ta over som primar vag med Vercel som fallback; detaljer: `vercel-sandbox-credentials.md` + `preview-deploy.md`. |
 | Fil-/konsol-logg (lokal) | `SAJTMASKIN_LOG=true` → `logs/sajtmaskin.log` via `src/lib/logging/file-logger.ts`; `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod) | Varken `SAJTMASKIN_LOG` eller dev-loggnycklarna finns i Zod-schemat; de är runtime-only i `env-policy.json`. |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
 
@@ -56,6 +56,24 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | **Vercel-managed** | Nycklar som plattformen eller Next sätter (t.ex. `NODE_ENV`, `VERCEL_URL`) — **pusha inte** egna värden från laptop om policyn säger motsatsen; se `classification: vercel_managed` i `env-policy.json`. |
 
 `.vercel/.env.*.local` från `vercel env pull` är **snapshot**, inte kanon.
+
+---
+
+## Tier 2 preview-host vs app-env
+
+Nar `preview-host` anvands pa Fly finns **två** olika env-ytor:
+
+- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_TIER2_RUNTIME`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, valfritt `SAJTMASKIN_PREVIEW_HOST_API_KEY`.
+- **Preview-host-tjansten (Fly secrets / env):** `PREVIEW_HOST_API_KEY`, valfritt `PREVIEW_HOST_DATA_DIR`.
+
+Praktisk rekommendation:
+
+- Satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev`
+- Satt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
+- Lat `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` for aggressiv men rimligt saker rollout
+- Satt `PREVIEW_HOST_DATA_DIR=/data` **forst** nar du faktiskt monterat en Fly volume pa `/data`
+
+Om `SAJTMASKIN_TIER2_RUNTIME` ar unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns, behandlar appen nu `preview_host_then_vercel` som standard.
 
 ---
 

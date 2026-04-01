@@ -1,0 +1,15 @@
+{
+  "name": "sajtmaskin-preview-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Isolated preview-host prototype for stateful preview sessions.",
+  "engines": {
+    "node": ">=22.14.0 <23"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "check": "node --check src/server.js",
+    "smoke": "node scripts/smoke.js"
+  }
+}

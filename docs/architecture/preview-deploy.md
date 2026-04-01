@@ -1,6 +1,6 @@
 # Preview, sandbox och deploy
 
-**Senast uppdaterad:** 2026-03-31
+**Senast uppdaterad:** 2026-04-01
 
 **Operativt kördokument** för own-engine → finalize → sandbox → iframe. Intent, leveranser och kodpekare: denna fil + [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) (backlog/beslut).
 
@@ -12,8 +12,8 @@
 
 1. `POST /api/v0/chats/stream` skapar/uppdaterar engine-chatt och strömmar own-engine-generering.
 2. **Finalize** (`finalize-version.ts`) kör autofix, validering, merge, preflight och sparar **`files_json`** på versionen.
-3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt, kör `npm install` + `npm run dev` i Vercel Sandbox. Standardläge är fortfarande **`dev_only`** (primärt Fidelity 2), men läget kan nu också lösas per generation från `BuildSpec.previewPolicy` + `BuildSpec.verificationPolicy` innan env-fallback används.
-4. Vid lyckad readiness: **`engine_versions.sandbox_url`** sätts; klienten visar **Fidelity 2** — `fidelityTier: 2` i `SandboxPreviewResult` (riktig Next dev-server i VM). **Enda** produktpreviewvägen är sandbox; **tier-1 shim** (`/api/preview-render`) är borttagen ur flödet (routen kan finnas kvar för bakåtkompatibilitet men länkas inte från buildern).
+3. `startSandboxPreview` (`sandbox-preview.ts`) bygger fullt projekt och väljer sedan **tier-2-provider**: `preview_host` över HTTP eller Vercel Sandbox. Om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt och `SAJTMASKIN_TIER2_RUNTIME` är unset föredras nu `preview_host_then_vercel` som aggressiv men säker default. Standardläge för Vercel-spåret är fortfarande **`dev_only`** (primärt Fidelity 2), men läget kan också lösas per generation från `BuildSpec.previewPolicy` + `BuildSpec.verificationPolicy` innan env-fallback används.
+4. Vid lyckad readiness / sessionskapande: **`engine_versions.sandbox_url`** sätts (legacy kolumnnamn, men nu kan värdet komma från valfri tier-2-provider); klienten visar **Fidelity 2**. **Enda** produktpreviewvägen är tier 2 via samma `/sandbox-*`-kontrakt; **tier-1 shim** (`/api/preview-render`) är borttagen ur flödet (routen kan finnas kvar för bakåtkompatibilitet men länkas inte från buildern).
 
 **Fidelity 3** (`prodBuildVerified`, `fidelityTier: 3`) när sandbox körs i `dev_then_build` och byggsteget i VM lyckas — antingen via global env (`SAJTMASKIN_SANDBOX_PREVIEW_MODE=dev_then_build`) eller via per-generation policy från `BuildSpec` — se `runtime-url.ts`.
 
@@ -25,7 +25,7 @@
 
 - `engine_chats` / `engine_messages` för chatt- och körmetadata
 - `engine_versions.files_json` för det genererade filträdet
-- `engine_versions.sandbox_url` för senaste lyckade sandbox-preview
+- `engine_versions.sandbox_url` för senaste lyckade tier-2-preview (legacy fältnamn, även för `preview_host`)
 
 `project_data` finns kvar som **app-/builder-snapshot** (t.ex. `chat_id`, legacy `demo_url`, UI-meta, vissa importerade filer/messages), men ska **inte** behandlas som primär källa för sparad own-engine-kod när en version redan finns i `engine_versions`.
 
@@ -52,11 +52,12 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Follow-up underlag | `engine_versions.files_json` via `meta.engineBaseVersionId` (builder) eller annars **preferred** version | `[chatId]/stream/route.ts`, `resolveFollowUpPreviousFiles` i `version-manager.ts`, `useSendMessage.ts` |
 | Autofix / retry-bas | Klientautofix som skickar en reparationsprompt pinnas till **den felande versionen** via `engineBaseVersionId`, så retry inte hoppar till en annan vald version i buildern | `useAutoFix.ts`, `useSendMessage.ts`, `[chatId]/stream/route.ts` |
 | `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `own-engine-sandbox-gate.ts`, `generation-stream.ts` |
+| Tier-2 provider | `preview_host` (HTTP) eller Vercel Sandbox bakom samma `/sandbox-*`-kontrakt; när base URL finns och mode är unset föredras `preview_host_then_vercel` | `sandbox-preview.ts`, `tier2-config.ts`, `preview-host-client.ts`, `tier2-resume.ts` |
 | Readiness | HTTP-probe efter `npm run dev` (2xx + dokumentlik `Content-Type`) | `runtime-url.ts` (`waitForSandboxDevServerReady`) |
 | Sandbox-only | Publika `done`-/GET-svar har `previewUrl: null` medan `sandboxPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
 | HTTP API | Meningsfulla statuskoder + `retryable` för `/sandbox-preview` | `sandbox-preview-errors.ts`, route |
 | Bootstrap-retry | Klienten respekterar `retryable`, **500** med `retryable: true`, `Retry-After` | `sandbox-bootstrap-retry.ts`, `useBuilderPageController.ts` |
-| Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `useSandboxPreviewSession.ts`, `useBuilderSandboxPreview.ts` |
+| Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Recover är nu provider-agnostisk via `tryResumeTier2Runtime`. Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `tier2-resume.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `useSandboxPreviewSession.ts`, `useBuilderSandboxPreview.ts` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `sandbox-preview.ts` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` kan lyfta sandbox från `dev_only` till `dev_then_build` utan att ändra global env-default | `build-spec.ts`, `runtime-url.ts`, `sandbox-preview.ts`, `generation-stream-post-finalize.ts` |
 | Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; sandbox-lifecycle loggar policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `sandbox-lifecycle-telemetry.ts` |
@@ -77,16 +78,16 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 | Tier | Vad | Ungefär |
 |------|-----|--------|
-| 2 — **Sandbox** | Vercel Sandbox / `npm run dev` | Enda live-preview i produkt-UI |
-| 3 — **Build-check** | `npm run build` i sandbox (läge-beroende) | Validering närmare produktion |
+| 2 — **Runtime preview** | `preview_host` eller Vercel Sandbox bakom samma `/sandbox-*`-kontrakt | Enda live-preview i produkt-UI |
+| 3 — **Build-check** | `npm run build` i Vercel Sandbox (läge-beroende) | Validering närmare produktion |
 
-**Produktintent:** **sandbox-URL** är den enda iframe-källan för live-preview. Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `sandbox-preview.ts` → `PreviewPanel.tsx`.
+**Produktintent:** **tier-2-URL** (fortfarande exponerad som `sandboxUrl` / `sandbox_url`) är den enda iframe-källan för live-preview. Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `sandbox-preview.ts` → `PreviewPanel.tsx`.
 
 ## Preview-URL-kedja (legacy `demoUrl` finns kvar internt)
 
 1. Efter `done` i SSE är **sandbox** den enda previewytan. I publika event/svar är `previewUrl` och `legacyShimPreviewUrl` **`null`** tills sandbox är redo; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl`.
 2. Kanoniska filer för sandbox är **`filesJson` efter finalize** (merge + preflight), inte rå `contentForVersion`.
-3. Om sandbox konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Efter `npm run dev` körs en **readiness probe** mot preview-URL: **2xx** och dokumentlik `Content-Type` (t.ex. `text/html`), inte bara att undvika 5xx (se `waitForSandboxDevServerReady` i `runtime-url.ts`; timeout: `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `src/lib/env.ts`).
+3. Om minst en tier-2-provider är konfigurerad och inte `previewBlocked`: `startSandboxPreview` → `sandbox-ready` / `build-error`. Med `preview_host_then_vercel` provas preview-host först och Vercel Sandbox används som fallback vid recoverable fel. För Vercel-spåret körs efter `npm run dev` en **readiness probe** mot preview-URL: **2xx** och dokumentlik `Content-Type` (t.ex. `text/html`), inte bara att undvika 5xx (se `waitForSandboxDevServerReady` i `runtime-url.ts`; timeout: `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` i `src/lib/env.ts`).
 4. `engine_versions.sandbox_url` uppdateras vid lyckad sandbox.
 
 **HTTP GET `/api/v0/chats/[chatId]` och `.../versions` (own-engine, 2026-03-30):** publikt fält är `previewUrl`; för own-engine är det **`null`** som huvudsignal tills sandbox finns. Live-preview ligger i **`sandboxUrl`**. Shim till `/api/preview-render` exponeras som **`legacyShimPreviewUrl`** (när `canExposeEnginePreview` tillåter), inte som primär preview-signal. DB-kolumnen är fortfarande `demo_url`, och inbound legacy-payloads tolkas via `resolveInboundPreviewUrl()`. Klienten (`useBuilderCallbacks` vid versionsval, `pickVersionPreviewUrl` vid sync) använder **sandbox först** och **null + bootstrap** när sandbox saknas, i stället för att låsa iframe till shim som standard. Varje GET till `/api/preview-render` loggas med prefix **`[telemetry:legacy-preview-render]`** för uppföljning innan ev. borttagning.
@@ -95,12 +96,12 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 ### Aktiv preview-session (lease, status, recover)
 
-- **`GET /api/v0/chats/[chatId]/sandbox-status?versionId=`** (valfritt `&sandboxId=`): serverns bild av sessionen — `running` \| `stopped` \| `missing` \| `version_mismatch` samt `sandboxId`, `sandboxUrl`, `sessionExpiresAt`, `reason`. `stopped` när VM inte kan återupptas (`tryResumeSandboxById` misslyckas eller känd terminal status från provider).
+- **`GET /api/v0/chats/[chatId]/sandbox-status?versionId=`** (valfritt `&sandboxId=`): serverns bild av sessionen — `running` \| `stopped` \| `missing` \| `version_mismatch` samt `sandboxId`, `sandboxUrl`, `sessionExpiresAt`, `reason`. `stopped` när den lagrade tier-2-providern inte kan återupptas (`tryResumeTier2Runtime` misslyckas; Vercel VM eller preview-host-status).
 - **`POST /api/v0/chats/[chatId]/sandbox-heartbeat`**: JSON `{ versionId, sandboxId, viewerId }`. Uppdaterar `lastUsedAt` endast om Redis/minnet fortfarande binder samma chat+version+sandboxId.
 - **Klient:** `PreviewPanel` pingar heartbeat ca var 25s (synlig flik) när livscykel är `live`; `sandboxId` hålls i builder-state från lyckad `sandbox-preview` och SSE `sandbox-ready`.
 - **Recover:** Misstanke från iframe (t.ex. transportfel, ready-timeout) → status-GET; om inte `running` → tvingad `sandbox-preview` med `forceRestart`, debounce och maxförsök (se `useBuilderPageController`).
 - **Livscykel-UI:** `PreviewLifecycleState` i `src/lib/builder/preview-lifecycle.ts` — `idle` \| `bootstrapping` \| `live` \| `recovering` \| `failed`.
-- **Telemetri:** loggprefix **`[telemetry:sandbox-lifecycle]`** — heartbeat, `sandbox_status`, recover-faser, `sandbox_start_outcome`, samt policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start.
+- **Telemetri:** loggprefix **`[telemetry:sandbox-lifecycle]`** — heartbeat, `sandbox_status`, recover-faser, `sandbox_start_outcome`, samt policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start. Tier-2-event kan nu bära `tier2Provider`, `failoverFrom` och `willFailover`.
 - **Repair / versionsbyte:** Om SSE `done` sätter **`onlySelectVersionIfWasLatest`: true** uppdateras vald version i byggaren **endast** om användaren redan var på föregående server-«latest» (annars behålls manuellt vald äldre version). Normal egen generering skickar inte flaggan — standard är att följa streamens `versionId`.
 
 **Bootstrap (klient):** `src/lib/builder/sandbox-bootstrap-retry.ts` — samma semantik som ovan; vid `503`/`504` kan servern skicka `Retry-After` (sekunder) som klienten använder som delay före retry (fallback ~6 s).
@@ -143,15 +144,16 @@ Kodstart: `generation-stream.ts`, `finalize-version.ts`, `sandbox-preview.ts`, `
 - **409 DEPLOY_MISSING_ENV** om obligatoriska nycklar saknas.
 - Opt-out: `SAJTMASKIN_DEPLOY_DISABLE_AUTO_FIX` eller `skipAutoFix` i body.
 
-## Felsökning: varför startar inte sandbox «automatiskt»?
+## Felsökning: varför startar inte tier 2 «automatiskt»?
 
-Sandbox är **inte** en separat bakgrundstjänst som alltid är igång — den **startar när** (a) own-engine-strömmen har sparat en version och anropar `startSandboxPreview`, och/eller (b) klienten POST:ar `/api/v0/chats/.../sandbox-preview` (bootstrap i `useBuilderPageController`). Följande **stoppar eller fördröjer** sandbox-preview:
+Tier 2 är **inte** ett enda alltid-igång subsystem. Vercel Sandbox startas på begäran, medan `preview_host` kan vara en liten separat HTTP-tjänst som står uppe på Fly. Själva **preview-starten** sker fortfarande först när (a) own-engine-strömmen har sparat en version och anropar `startSandboxPreview`, och/eller (b) klienten POST:ar `/api/v0/chats/.../sandbox-preview` (bootstrap i `useBuilderPageController`). Följande **stoppar eller fördröjer** tier-2-preview:
 
 | Orsak | Vad händer | Var |
 |--------|------------|-----|
-| **Ingen Vercel-credentials** | `isSandboxConfigured()` är false → sandbox körs inte i strömmen; API `/sandbox-preview` → **503** `sandbox_disabled` | `runtime-url.ts`, `sandbox-preview/route.ts` |
+| **Ingen tier-2-provider** | varken `SAJTMASKIN_PREVIEW_HOST_BASE_URL` eller fungerande Vercel-credentials finns → API `/sandbox-preview` → **503** `sandbox_disabled` | `tier2-config.ts`, `runtime-url.ts`, `sandbox-preview/route.ts` |
 | **`previewBlocked`** | Preflight kunde inte bygga tier-1 preview (`buildPreviewHtml` tomt / undantag) → `shouldRunOwnEngineSandbox` false | `finalize-preflight.ts`, `own-engine-sandbox-gate.ts` |
-| **`npm install` / VM-fel** | `startSandboxPreview` returnerar fel (t.ex. **502** från `/api/sandbox`, eller fel från `createSandboxRuntimeFromFiles`) → `build-error` i SSE, ingen `sandbox_url` | `sandbox-preview.ts`, `runtime-url.ts` |
+| **Preview-host-fel** | `preview_host` svarar med fel / timeout; vid `preview_host_then_vercel` loggas failover och Vercel Sandbox provas efterat, annars stannar flödet | `sandbox-preview.ts`, `preview-host-client.ts`, `tier2-config.ts` |
+| **`npm install` / VM-fel** | Vercel-spåret returnerar fel (t.ex. **502** från `/api/sandbox`, eller fel från `createSandboxRuntimeFromFiles`) → `build-error` i SSE, ingen `sandbox_url` | `sandbox-preview.ts`, `runtime-url.ts` |
 | **Readiness-timeout** | Dev-server svarar inte HTTP inom `SAJTMASKIN_SANDBOX_READINESS_MAX_MS` | `runtime-url.ts` |
 | **Misslyckad quality gate** | `verificationState === failed` → `canExposeEnginePreview` är **false** → POST `/sandbox-preview` → **400** `preview_blocked` (bootstrap kan inte «efterstarta» sandbox för den versionen) | `engine-version-lifecycle.ts`, `sandbox-preview/route.ts` |
 | **Bootstrap villkor** | Bootstrap körs bara om användaren är inloggad, own-engine-chatt (ej v0-stil), **ingen** `sandboxUrl` på versionen än, och `currentPreviewUrl` saknas eller inte är sandbox-URL; hoppar över under aktiv streaming | `useBuilderPageController.ts` |
@@ -159,9 +161,14 @@ Sandbox är **inte** en separat bakgrundstjänst som alltid är igång — den *
 
 **Intent:** När tier 2 lyckas ska `pickVersionPreviewUrl` redan prioritera `sandboxUrl` i UI — problemet är i praktiken att **VM-steget** eller **credentials** saknas, eller att **versionen** är spärrad för preview efter failed verification.
 
-## Sandbox-credentials
+## Tier-2 provider config
 
-Vercel Sandbox token / org: se [`docs/ENV.md`](../ENV.md) (valfria tillägg) och `src/lib/env.ts` — `VERCEL_TOKEN`, `VERCEL_OIDC_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` enligt behov.
+- **Preview-host som primär väg:** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, valfritt `SAJTMASKIN_PREVIEW_HOST_API_KEY`, och `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` för klientens host-detektion.
+- **Aggressiv men säker default:** om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns och `SAJTMASKIN_TIER2_RUNTIME` är unset används `preview_host_then_vercel`.
+- **Hård cutover:** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host`.
+- **Vercel fallback / sekundär provider:** `VERCEL_TOKEN`, `VERCEL_OIDC_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` enligt behov.
+
+Se även [`docs/ENV.md`](../ENV.md) och `src/lib/env.ts`.
 
 ## Webhook / deploy events
 

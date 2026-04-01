@@ -3,7 +3,7 @@ import { shouldRunOwnEngineSandbox } from "@/lib/gen/sandbox/own-engine-sandbox-
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import type { SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
 import { isServerVerifyEligible } from "@/lib/gen/server-verify";
-import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
+import { isTier2PreviewConfigured } from "@/lib/gen/sandbox/tier2-config";
 
 export function getPostFinalizeSandboxContract(
   finalized: FinalizeResult,
@@ -32,7 +32,7 @@ export function shouldTriggerPostFinalizeSandbox(params: {
   parsedFileCount: number;
 }): boolean {
   return shouldRunOwnEngineSandbox({
-    isSandboxConfigured: isSandboxConfigured(),
+    isSandboxConfigured: isTier2PreviewConfigured(),
     sandbox: getPostFinalizeSandboxContract(params.finalized),
     parsedFileCount: params.parsedFileCount,
   });

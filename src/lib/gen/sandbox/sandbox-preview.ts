@@ -3,23 +3,35 @@ import type {
   BuildSpecPreviewPolicy,
   BuildSpecVerificationPolicy,
 } from "../build-spec";
+import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox/env-local";
-import { buildCompleteProject } from "../project-scaffold";
-import { repairGeneratedFiles } from "../repair-generated-files";
+import { startPreviewHostSession } from "@/lib/gen/sandbox/preview-host-client";
 import {
   clearSandboxSessionAsync,
   getActiveSandboxSessionAsync,
   touchSandboxSessionAsync,
 } from "@/lib/gen/sandbox/session-store";
 import {
+  getPreviewHostBaseUrl,
+  getTier2RuntimeMode,
+} from "@/lib/gen/sandbox/tier2-config";
+import { tryResumeTier2Runtime } from "@/lib/gen/sandbox/tier2-resume";
+import { buildCompleteProject } from "../project-scaffold";
+import { repairGeneratedFiles } from "../repair-generated-files";
+import {
   createSandboxRuntimeFromFiles,
+  isSandboxConfigured,
   resolveSandboxPreviewModeFromPolicies,
   resolveSandboxPreviewModeFromEnv,
   SandboxReadinessTimeoutError,
-  tryResumeSandboxById,
   type RuntimeFile,
   type SandboxPreviewMode,
 } from "@/lib/mcp/runtime-url";
+
+export type SandboxPreviewTier2Meta = {
+  tier2Provider: "vercel_sandbox" | "preview_host";
+  failoverFrom?: "preview_host";
+};
 
 export interface SandboxPreviewResult {
   sandboxUrl: string;
@@ -31,6 +43,8 @@ export interface SandboxPreviewResult {
   prodBuildLogSnippet?: string;
   /** VM reused from session vs new provisioning. */
   startOutcome: "resumed" | "recreated";
+  /** Telemetry / UI hints for tier-2 provider (Vercel Sandbox vs preview-host). */
+  tier2Meta?: SandboxPreviewTier2Meta;
 }
 
 export type SandboxPreviewFailureCode = "readiness_timeout";
@@ -140,13 +154,14 @@ async function runStartSandboxPreview(
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActiveSandboxSessionAsync(cid);
     if (sess?.versionId === vid && sess.sandboxId) {
-      const resumed = await tryResumeSandboxById(sess.sandboxId);
+      const resumed = await tryResumeTier2Runtime(sess);
       if (resumed) {
         await touchSandboxSessionAsync({
           chatId: cid,
           sandboxId: resumed.sandboxId,
           sandboxUrl: resumed.primaryUrl,
           versionId: vid,
+          tier2Provider: sess.tier2Provider === "preview_host" ? "preview_host" : "vercel_sandbox",
         });
         return {
           ok: true,
@@ -157,6 +172,9 @@ async function runStartSandboxPreview(
             fidelityTier: 2,
             prodBuildVerified: false,
             startOutcome: "resumed",
+            ...(sess.tier2Provider === "preview_host"
+              ? { tier2Meta: { tier2Provider: "preview_host" as const } }
+              : {}),
           },
         };
       }
@@ -202,6 +220,90 @@ async function runStartSandboxPreview(
   });
   runtimeFiles.push({ name: envLocalPath, content: envBody });
 
+  const mode = getTier2RuntimeMode();
+  const hostUrl = getPreviewHostBaseUrl();
+
+  if (mode === "preview_host") {
+    if (!hostUrl) {
+      return {
+        ok: false,
+        error: {
+          stage: "sandbox-create",
+          message:
+            "SAJTMASKIN_TIER2_RUNTIME=preview_host requires SAJTMASKIN_PREVIEW_HOST_BASE_URL to be set.",
+        },
+      };
+    }
+    if (!cid || !vid) {
+      return {
+        ok: false,
+        error: {
+          stage: "sandbox-create",
+          message: "preview_host tier requires chatId and versionIdForSession.",
+        },
+      };
+    }
+  }
+
+  const shouldTryPreviewHost =
+    (mode === "preview_host" || mode === "preview_host_then_vercel") &&
+    Boolean(hostUrl) &&
+    Boolean(cid) &&
+    Boolean(vid);
+
+  let vercelAfterPreviewHostFail = false;
+
+  if (shouldTryPreviewHost && cid && vid) {
+    const filesJson = Object.fromEntries(projectFiles.map((f) => [f.path, f.content]));
+    const started = await startPreviewHostSession({
+      projectId: cid,
+      versionId: vid,
+      filesJson,
+    });
+    if (started.ok) {
+      await touchSandboxSessionAsync({
+        chatId: cid,
+        sandboxId: started.sandboxId,
+        sandboxUrl: started.sandboxUrl,
+        versionId: vid,
+        tier2Provider: "preview_host",
+      });
+      return {
+        ok: true,
+        result: {
+          sandboxUrl: started.sandboxUrl,
+          sandboxId: started.sandboxId,
+          sandboxPreviewMode: resolvedMode,
+          fidelityTier: 2,
+          prodBuildVerified: false,
+          startOutcome: started.startOutcome,
+          tier2Meta: { tier2Provider: "preview_host" },
+        },
+      };
+    }
+    const allowVercelFallback = mode === "preview_host_then_vercel" && isSandboxConfigured();
+    logSandboxLifecycleTelemetry({
+      kind: "sandbox_preview_failed",
+      chatId: cid,
+      versionId: vid,
+      stage: "sandbox-create",
+      detail: started.message,
+      msSinceEngineStart: 0,
+      tier2Provider: "preview_host",
+      willFailover: allowVercelFallback,
+    });
+    if (!allowVercelFallback) {
+      return {
+        ok: false,
+        error: {
+          stage: "sandbox-create",
+          message: started.message,
+        },
+      };
+    }
+    vercelAfterPreviewHostFail = true;
+  }
+
   try {
     const runtime = await createSandboxRuntimeFromFiles(runtimeFiles, {
       installCommand: "npm install --prefer-offline",
@@ -220,6 +322,7 @@ async function runStartSandboxPreview(
         sandboxId: runtime.sandboxId,
         sandboxUrl,
         versionId: vid,
+        tier2Provider: "vercel_sandbox",
       });
     }
 
@@ -233,6 +336,14 @@ async function runStartSandboxPreview(
         prodBuildVerified: bv ? bv.ok : false,
         prodBuildLogSnippet: bv && !bv.ok ? bv.logSnippet : undefined,
         startOutcome: "recreated",
+        ...(vercelAfterPreviewHostFail
+          ? {
+              tier2Meta: {
+                tier2Provider: "vercel_sandbox" as const,
+                failoverFrom: "preview_host" as const,
+              },
+            }
+          : {}),
       },
     };
   } catch (err) {

@@ -1,0 +1,352 @@
+# Preview Host
+
+Den har mappen ar ett avgransat spar for en framtida separat tjanst som ansvarar for stateful preview/sandbox-runtime. Tanken ar att den ska kunna lyftas ut till ett eget repo senare utan att blanda ihop sig med Sajtmaskins `src/`.
+
+## Detta som alternativ till sandbox
+
+Detta spar ska ses som ett **alternativ till nuvarande sandbox-sparet**.
+
+Tanken ar inte att ersatta own-engine, buildern eller `files_json`, utan att ersatta sjalva runtime-lagret som idag startar preview i sandbox.
+
+I praktiken betyder det:
+
+- Sajtmaskin fortsatter aga generering och versioner
+- `engine_versions.files_json` fortsatter vara kanonisk artifact
+- `preview-host` blir en separat tjanst for preview-sessioner, leases, status och senare riktig runtime
+
+## Status just nu
+
+Vi har redan kommit till en bra forsta milstolpe:
+
+- lokal prototyp ar skapad i `preview-host/`
+- `npm run check` fungerar
+- `npm run smoke` fungerar
+- `http://localhost:8080/health` svarar korrekt
+- `flyctl` ar installerat pa Windows
+- `fly auth login` fungerar
+- Fly-app `vm-fly-jakem` ar skapad
+- forsta Fly-deploy har byggt imagen korrekt
+- forsta Fly-machine har skapats
+- publik `/health` fungerar pa `vm-fly-jakem.fly.dev`
+- publik `start -> get -> hibernate` fungerar mot deployad app
+- appen kan nerskalas till **en** Fly-machine; sessioner lagras pa disk (`data/preview-host-store.json`, styr med `PREVIEW_HOST_DATA_DIR` / Fly volume)
+- Fly-konto finns och ar redo for vidare steg
+
+Det betyder att:
+
+- lokal utveckling fungerar
+- Fly-inloggning fungerar
+- Fly-bygget fungerar
+- publik preview-host API fungerar
+- vi ar **inte** fast pa setup-niva langre
+- nasta steg ar att koppla huvudappen mot `preview-host` och harda Fly-driften med volume / secrets
+
+## Nasta steg nu
+
+Nu ar vi forbi forsta deployen. Det viktigaste nasta steget ar inte fler features direkt, utan att gora prototypen **mer korrekt** for hur den faktiskt fungerar idag.
+
+### Varfor detta behov finns
+
+Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DIR` (default `./data` i containern).
+
+- satt samma katalog pa en **Fly volume** om du skalar till flera machines
+- valfritt: `PREVIEW_HOST_API_KEY` pa servern + `Authorization: Bearer ...` (eller `X-Preview-Host-Key`) pa klienten
+
+### Nasta praktiska steg
+
+Det viktiga nu ar inte fler manuella `curl`-kommandon, utan att gora driftkopplingen korrekt:
+
+1. satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL` i huvudappens `.env.local`
+2. lat huvudappen kora `preview_host_then_vercel` som Tier 2-standard nar base URL finns
+3. lagg till Fly volume / `PREVIEW_HOST_DATA_DIR` innan `preview-host` blir enda produktvag
+4. valfritt: satt `PREVIEW_HOST_API_KEY` pa servern och `SAJTMASKIN_PREVIEW_HOST_API_KEY` i huvudappen
+
+`fly.toml` ar fortsatt satt for en forsiktig en-machine-drift (`min_machines_running = 0`, `auto_stop_machines = "off"`).
+
+## Det som nu finns har
+
+Detta spar ar nu scaffoldat som en liten, helt separat prototyp:
+
+- `package.json` - egen minimal Node-service, utan koppling till huvudappens scripts
+- `src/server.js` - liten HTTP-server med persistent session-store, status-endpoint och valfri API-key
+- `src/store.js` - filbaserad session-store med atomisk write
+- `src/validate.js` - payload/schema-validering for start/update/hibernate/destroy
+- `Dockerfile` - minsta mojliga container for Fly eller annan host
+- `fly.toml` - forsiktig Fly-bas med `arn` som primary region
+- `.dockerignore` - begransar containerkontexten
+- `.gitignore` - ignorerar lokal `data/`-store
+
+Det ar medvetet **inte** kopplat till Sajtmaskins vanliga scaffold-logik, template-library eller befintliga preview-runtime.
+
+## Vad detta ar, enkelt uttryckt
+
+Tank pa detta som en **egen liten server** som senare ska fa ansvar for preview-sessioner.
+
+Inte:
+
+- generera kod
+- vara builder-UI
+- ersatta hela Sajtmaskin
+
+Utan:
+
+- ta emot ett `projectId` och `versionId`
+- skapa eller uppdatera en preview-session
+- komma ihag `sandboxId`, `previewUrl` och status
+- senare kunna prata med riktig Docker/Machines-runtime
+
+Just nu ar detta alltsa en **saker prototyp att bygga vidare pa**, inte den fardiga preview-motorn.
+
+## Snabb lokal korning
+
+Fran `preview-host/`:
+
+- `npm start`
+- `npm run dev`
+- `npm run check`
+- `npm run smoke`
+
+## Rekommenderat nyborjarflode
+
+Om du ar ny pa detta, kor i den har ordningen:
+
+1. `cd preview-host`
+2. `npm run check`
+3. `npm run smoke`
+4. `npm start`
+5. oppna `http://localhost:8080/health`
+
+Om `npm run smoke` gar igenom vet du att grundflodet fungerar:
+
+- start
+- get session
+- update
+- hibernate
+- logs
+- destroy
+
+Viktiga test-endpoints i prototypen:
+
+- `GET /health`
+- `POST /preview/session/start`
+- `POST /preview/session/update`
+- `POST /preview/session/hibernate`
+- `POST /preview/session/destroy`
+- `GET /preview/session/:id`
+- `GET /preview/sandbox/:sandboxId/status`
+- `GET /preview/logs/:sandboxId`
+
+Detta ar nu en **minimal riktig sessionskontrolltjanst** for Tier 2-kontraktet. Det ar fortfarande **inte** en full runtime-motor: ingen riktig Docker-worker, ingen workspace-orkestrering och ingen multi-machine-store ar inkopplad an.
+
+## Fly-drift nu
+
+Fly-appen finns redan. Det praktiska driftflodet nu ar:
+
+1. Ga in i `preview-host/`
+2. valfritt: skapa en volume for `/data`
+3. valfritt: satt `PREVIEW_HOST_API_KEY`
+4. kor `flyctl deploy`
+5. testa `/health`, `start`, `status` och `hibernate` pa den deployade URL:en
+
+Vi ska **inte** koppla GitHub eller vanliga scaffold-floden for detta sparet i forsta laget.
+
+### Det som redan ar satt
+
+Just nu ar dessa val redan gjorda:
+
+- Fly-appnamn: `vm-fly-jakem`
+- Tankt preview-base-url: `https://vm-fly-jakem.fly.dev`
+
+### Historik: varfor `flyctl deploy` gav `app not found`
+
+Felet:
+
+- `Error: app not found`
+
+betyder i det har laget inte att `fly.toml` ar fel, utan att Fly inte annu har en skapad app-resurs med namnet `vm-fly-jakem`.
+
+Med andra ord:
+
+- `fly.toml` pekar pa ett appnamn
+- men Fly-kontot har annu inte fatt appen skapad pa plattformen
+
+Detta var normalt for forsta deployen om man gar direkt pa `flyctl deploy`.
+
+### Nasta konkreta steg i terminalen
+
+Fran `preview-host/`:
+
+1. `flyctl auth whoami`
+2. valfritt: `fly volumes create preview_host_data --size 1 -r arn -a vm-fly-jakem`
+3. valfritt: `fly secrets set PREVIEW_HOST_API_KEY=... -a vm-fly-jakem`
+4. `flyctl deploy`
+5. oppna `https://vm-fly-jakem.fly.dev/health`
+
+Flys officiella CLI-dokumentation for detta spar:
+
+- `fly apps create`: [Fly Docs](https://fly.io/docs/flyctl/apps-create/)
+- deploy: [Fly Docs](https://fly.io/docs/apps/deploy/)
+
+## Vad som ar robust just nu
+
+- Egen isolerad mapp
+- Inga beroenden till huvudappens scaffoldlogik
+- Eget `package.json`
+- Enkel Dockerfil
+- Enkel health check
+- Filbaserad session-store med atomisk write
+- Status-endpoint for provider-agnostisk recover
+- Tydlig payload-validering
+- Ett `smoke`-kommando som testar hela grundflodet
+
+## Vad som kommer senare
+
+Forst nar grundflodet ar stabilt ska vi lagga till:
+
+- Fly volume eller Redis/Postgres for starkare durability over redeploy / machine-replacement
+- riktig runtime bakom sessionerna
+- fler-worker / multi-machine-strategi
+- riktig `previewUrl`-routing
+- skarpare builder-telemetri och rollout-regler
+
+## Tydlig rekommendation
+
+Min slutsats efter att ha last anteckningarna i `ovrigt/sanbox_vm_etc` och jamfort dem med hur Sajtmaskin redan fungerar ar:
+
+- Om malet ar varm pool, samma sandbox per projekt, diff-sync, hibernation och stabil `previewUrl`, da ska du **inte** bygga v1 som en Docker-orkestrerad sandbox-pool inuti en Render-tjanst.
+- Render-dokumentationen visar tydligt stod for Docker-deploys, private services och persistent disks, men jag hittar **inte** tydligt stod for nested Docker / privileged runtime. Disk-backed services ar dessutom single-instance och tappar zero-downtime deploys.
+- Om du vill bygga precis det ni beskrivit i anteckningarna ar den rakaste vagen en **dedikerad Linux-VM** med Docker, Traefik, Redis och Postgres.
+- Om Render ar ett hart krav redan nu ska du medvetet valja en **enklare modell** i v1: ingen egen Docker-pool i tjansten, inga undercontainrar, och betydligt mindre ambition kring warm-empty/warm-project.
+
+Kort sagt:
+
+- **Vill du ha full kontroll och samma sandbox tillbaka per projekt:** kor en egen VM.
+- **Vill du absolut vara pa Render direkt:** bygg en enklare preview-runtime, inte hela den avancerade preview-hosten.
+
+## Varfor detta ar ett separat spar
+
+Sajtmaskin har redan en tydlig produktkedja:
+
+- own-engine ager generering
+- `engine_versions.files_json` ar kanonisk artifact
+- buildern ager versionval, UI och preview-bootstrap
+
+Det nya systemet ska darfor inte ta over generering eller lagring av koden. Det ska bara agera **runtime for preview**.
+
+## Det nya systemet ska aga
+
+- `project -> sandbox` affinity
+- sandbox lease, heartbeat och TTL
+- diff-klassificering for updates
+- restart-policy
+- preview lane kontra verify lane
+- route-register och stabil `previewUrl`
+- loggstream, healthchecks och hibernation
+
+## Sajtmaskin ska fortsatt aga
+
+- own-engine och prompt/generering
+- `engine_chats`, `engine_messages`, `engine_versions`
+- `files_json` som source of truth
+- builder-UI och versionsval
+- beslut om nar preview ska startas eller uppdateras
+
+## Rekommenderad integrationsgrans
+
+Preview-hosten bor vara en separat HTTP-tjanst som Sajtmaskin anropar efter finalize.
+
+Foreslaget minsta kontrakt:
+
+- `POST /preview/session/start`
+- `POST /preview/session/update`
+- `POST /preview/session/hibernate`
+- `POST /preview/session/destroy`
+- `GET /preview/session/:id`
+- `GET /preview/sandbox/:sandboxId/status`
+- `GET /preview/logs/:sandboxId`
+
+Alla `/preview/*`-endpoints kan skyddas med `PREVIEW_HOST_API_KEY` (Bearer eller `X-Preview-Host-Key`).
+
+Payload in fran Sajtmaskin bor minst innehalla:
+
+- `projectId`
+- `versionId`
+- `filesJson`
+- `dependencyFingerprint`
+- `changeClass`
+- `preferredBaseImage`
+- `resumeStrategy`
+
+Svar tillbaka bor minst innehalla:
+
+- `sandboxId`
+- `previewUrl`
+- `startOutcome` = `resumed | recreated | fresh`
+- `sessionExpiresAt`
+- `status`
+
+## Rekommenderad v1-arkitektur
+
+Om du valjer den vagen jag tror mest pa:
+
+- 1 Ubuntu-VM
+- 1 preview-controller
+- 1 worker-daemon pa samma host
+- Docker Engine
+- Traefik
+- Redis
+- Postgres
+- 2 warm-empty sandboxes
+- 1 wildcard subdomain for previews
+
+Viktiga regler att lasa fast tidigt:
+
+- preview ar **stateful per projekt**
+- samma sandbox ska **ateranvandas sa langt det gar**
+- snabb preview och strikt verify ar **olika lanes**
+- `previewUrl` ska vara stabil inom aktiv session
+
+## Restart- och diffpolicy
+
+En enkel men bra klassificering i v1:
+
+- `light`: komponenter, copy, CSS -> skriv filer, lat HMR gora jobbet
+- `medium`: nya routes, layout, API-routes -> restart av dev-server
+- `heavy`: `package.json`, lockfile, `next.config.*` -> reinstall eller ny sandbox
+- `rebuild`: trasig runtime eller stor systemforandring -> skapa ny sandbox
+
+Detta matchar resonemangen i anteckningarna och ligger nara hur Sajtmaskin redan tanker kring preview kontra verify.
+
+## Render-sparet om du maste starta dar
+
+Om du vill prova Render for att komma igang snabbt, gor det med **medvetet reducerad scope**:
+
+- kor en private service eller web service med Docker image
+- lagg workspace/cache pa persistent disk
+- kor **inte** Docker-in-Docker som grundantagande
+- kor en sandbox per projekt som process/workspace, inte en full egen container-pool
+- acceptera att detta ar en overgangslosning, inte slutarkitekturen
+
+Da far du:
+
+- mindre ops i starten
+- snabbare forsta leverans
+- men mindre kontroll over isolation, reuse och scheduler-beteende
+
+## Det jag tycker du ska gora nu
+
+1. Las detta som ett beslut mellan **Render som enkel start** och **egen VM som riktig preview-host**.
+2. Om den langsiktiga malbilden fortfarande ar warm pool + reuse + hibernation: valj egen VM direkt.
+3. Hall den nya tjansten separat fran Sajtmaskins huvudapp och lat den konsumera `files_json` over HTTP.
+4. Bygg bara v1: start, update, heartbeat/status, logs, hibernate, destroy.
+5. Skjut upp Kubernetes, Firecracker, multi-host-scheduler och avancerad autoskalning.
+
+## Min slutliga rekommendation
+
+Det ni har resonerat fram ar tillrackligt specifikt for att jag tycker att du ska behandla detta som en **separat produkt-/infra-komponent**, inte som lite mer sandbox-kod inne i huvudappen.
+
+Om du fragar mig vad jag sjalv hade valt:
+
+- Jag hade skapat ett separat repo utifran den har mappen senare.
+- Jag hade borjat med **en egen Linux-VM** for preview-hosten.
+- Jag hade latit Render vara sekundart eller ett enklare fallback-spar, inte huvudmiljon for en Docker-styrd sandbox-pool.

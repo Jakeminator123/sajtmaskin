@@ -8,7 +8,8 @@ import {
   type SandboxSessionEntry,
 } from "@/lib/gen/sandbox/session-store";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
-import { isSandboxConfigured, tryResumeSandboxById } from "@/lib/mcp/runtime-url";
+import { isTier2PreviewConfigured } from "@/lib/gen/sandbox/tier2-config";
+import { tryResumeTier2Runtime } from "@/lib/gen/sandbox/tier2-resume";
 import type { SandboxStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
 function sessionSoftExpiryAt(entry: SandboxSessionEntry, now: number): number {
@@ -27,7 +28,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json({ ok: false, message: "versionId query parameter is required." }, { status: 400 });
       }
 
-      if (!isSandboxConfigured()) {
+      if (!isTier2PreviewConfigured()) {
         const body: SandboxStatusApiJson = {
           ok: true,
           status: "missing",
@@ -109,7 +110,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      const resumed = await tryResumeSandboxById(session.sandboxId);
+      const resumed = await tryResumeTier2Runtime(session);
       if (!resumed) {
         const body: SandboxStatusApiJson = {
           ok: true,

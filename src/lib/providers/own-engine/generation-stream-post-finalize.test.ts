@@ -11,7 +11,7 @@ const parseCodeProjectMock = vi.hoisted(() =>
 const shouldRunOwnEngineSandbox = vi.hoisted(() => vi.fn(() => false));
 const logSandboxLifecycleTelemetry = vi.hoisted(() => vi.fn());
 const startSandboxPreview = vi.hoisted(() => vi.fn());
-const isSandboxConfigured = vi.hoisted(() => vi.fn(() => false));
+const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getChat,
@@ -47,8 +47,8 @@ vi.mock("@/lib/gen/version-manager", () => ({
   parseCodeFilesFromFilesJson: vi.fn(() => []),
 }));
 
-vi.mock("@/lib/mcp/runtime-url", () => ({
-  isSandboxConfigured,
+vi.mock("@/lib/gen/sandbox/tier2-config", () => ({
+  isTier2PreviewConfigured,
 }));
 
 vi.mock("@/lib/gen/server-verify", () => ({
@@ -105,8 +105,8 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     shouldRunOwnEngineSandbox.mockReturnValue(false);
     logSandboxLifecycleTelemetry.mockReset();
     startSandboxPreview.mockReset();
-    isSandboxConfigured.mockReset();
-    isSandboxConfigured.mockReturnValue(false);
+    isTier2PreviewConfigured.mockReset();
+    isTier2PreviewConfigured.mockReturnValue(false);
   });
 
   it("parses accumulatedContent when recovery flag is set and saved files are empty", async () => {
@@ -152,7 +152,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
 
   it("logs structured sandbox readiness telemetry with policy context", async () => {
     shouldRunOwnEngineSandbox.mockReturnValue(true);
-    isSandboxConfigured.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
     getChat.mockResolvedValue({ project_id: "proj_1" });
     startSandboxPreview.mockResolvedValue({
       ok: true,

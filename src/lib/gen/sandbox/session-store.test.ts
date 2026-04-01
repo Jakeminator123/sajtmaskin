@@ -58,6 +58,18 @@ describe("sandbox-session-store", () => {
     expect(getActiveSandboxSession("c1", { now: 0 })?.versionId).toBe("ver-99");
   });
 
+  it("stores tier2Provider preview_host when set", () => {
+    touchSandboxSession({
+      chatId: "c1",
+      sandboxId: "s1",
+      sandboxUrl: "https://fly.example",
+      versionId: "v1",
+      tier2Provider: "preview_host",
+      now: 0,
+    });
+    expect(getActiveSandboxSession("c1", { now: 0 })?.tier2Provider).toBe("preview_host");
+  });
+
   it("clearSandboxSession removes entry", () => {
     touchSandboxSession({
       chatId: "c1",

@@ -24,18 +24,41 @@ export function isShimOrMissingPreviewUrl(url: string | null | undefined): boole
   return !normalized || isCompatibilityShimPreviewUrl(normalized);
 }
 
+function tier2PreviewHostSuffixesFromEnv(): string[] {
+  if (typeof process === "undefined" || !process.env) return [];
+  const raw = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES?.trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase().replace(/^\./, ""))
+    .filter(Boolean);
+}
+
+function hostMatchesTier2Suffixes(host: string, suffixes: string[]): boolean {
+  const h = host.toLowerCase();
+  for (const sfx of suffixes) {
+    if (!sfx) continue;
+    if (h === sfx || h.endsWith(`.${sfx}`)) return true;
+  }
+  return false;
+}
+
+/** True for tier-2 runtime preview URLs (Vercel Sandbox, preview-host on Fly, etc.) — not the legacy shim. */
 export function isSandboxPreviewUrl(url: string | null | undefined): boolean {
   const normalized = normalizePreviewUrl(url);
   if (!normalized || isCompatibilityShimPreviewUrl(normalized)) {
     return false;
   }
 
+  const suffixes = tier2PreviewHostSuffixesFromEnv();
   try {
     const host = new URL(normalized, PREVIEW_URL_BASE).hostname.toLowerCase();
-    return host.includes("sandbox") || host.endsWith(".vercel.run");
+    if (host.includes("sandbox") || host.endsWith(".vercel.run")) return true;
+    return hostMatchesTier2Suffixes(host, suffixes);
   } catch {
     const fallback = normalized.toLowerCase();
-    return fallback.includes("sandbox") || fallback.includes("vercel.run");
+    if (fallback.includes("sandbox") || fallback.includes("vercel.run")) return true;
+    return hostMatchesTier2Suffixes(fallback, suffixes);
   }
 }
 
