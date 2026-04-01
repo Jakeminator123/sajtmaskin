@@ -244,8 +244,14 @@ export async function searchTemplateLibraryWithDiagnostics(
     };
   }
 
-  // text-embedding-3-small has 8192 token limit (~32k chars conservatively).
-  const embeddingInput = query.length > 28_000 ? query.slice(0, 28_000) : query;
+  // text-embedding-3-small has an 8192-token limit. For template matching we
+  // only need the topic/intent, not verbose follow-up instructions, so cap at
+  // ~6k chars (~1500 tokens) which is more than enough for semantic similarity.
+  const EMBEDDING_QUERY_CHAR_LIMIT = 6_000;
+  const embeddingInput =
+    query.length > EMBEDDING_QUERY_CHAR_LIMIT
+      ? query.slice(0, EMBEDDING_QUERY_CHAR_LIMIT)
+      : query;
 
   let queryEmbedding: number[];
   try {
