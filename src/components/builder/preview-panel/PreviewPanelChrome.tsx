@@ -120,7 +120,7 @@ export function PreviewPanelChrome({
   showExternalWarning,
 }: PreviewPanelChromeProps) {
   return (
-    <>
+    <div className="shrink-0 overflow-y-auto" style={{ maxHeight: "40%" }}>
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold tracking-tight text-white">Preview</h3>
@@ -443,6 +443,6 @@ export function PreviewPanelChrome({
           {integrationError ? <div>Kunde inte hämta integrationsstatus. Media kan saknas i preview.</div> : null}
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

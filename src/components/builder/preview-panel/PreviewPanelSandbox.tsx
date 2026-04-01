@@ -34,7 +34,7 @@ export function PreviewPanelSandbox({
   children,
 }: PreviewPanelSandboxProps) {
   return (
-    <div className="relative flex-1 overflow-hidden bg-gray-950">
+    <div className="relative min-h-0 flex-1 overflow-hidden bg-gray-950">
       {isLoading ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
           <div className="text-center">
