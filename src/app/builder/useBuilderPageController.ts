@@ -597,6 +597,52 @@ export function useBuilderPageController() {
     }
   }, [projectParam, setAppProjectId]);
 
+  // Route entries without an explicit chatId must not inherit stale chat state
+  // from the previous builder session. This is especially important when we
+  // arrive via prompt handoff (`promptId`) or a fresh project URL.
+  useEffect(() => {
+    if (chatIdParam) return;
+
+    const routeRepresentsFreshBuilderEntry = Boolean(projectParam) || hasEntryParams;
+    if (!routeRepresentsFreshBuilderEntry) return;
+
+    const shouldResetChatState = Boolean(chatId);
+    const shouldResetResolvedPrompt = promptId !== null || promptParam !== null;
+    if (!shouldResetChatState && !shouldResetResolvedPrompt) return;
+
+    pendingBriefRef.current = null;
+    pendingSpecRef.current = null;
+
+    if (shouldResetChatState) {
+      setChatId(null);
+      setMessages([]);
+      setCurrentPreviewUrl(null);
+      setSelectedVersionId(null);
+      setV0ProjectId(null);
+    }
+
+    if (shouldResetResolvedPrompt) {
+      promptFetchDoneRef.current = null;
+      setResolvedPrompt(promptParam?.trim() || null);
+    }
+  }, [
+    chatIdParam,
+    projectParam,
+    hasEntryParams,
+    chatId,
+    promptId,
+    promptParam,
+    pendingBriefRef,
+    pendingSpecRef,
+    promptFetchDoneRef,
+    setChatId,
+    setMessages,
+    setCurrentPreviewUrl,
+    setSelectedVersionId,
+    setV0ProjectId,
+    setResolvedPrompt,
+  ]);
+
   // Load latest chat for project when project is in URL but chatId is not
   useEffect(() => {
     if (!projectParam || chatIdParam || chatId) return;

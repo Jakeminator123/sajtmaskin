@@ -38,9 +38,40 @@ function isAvatarRoute(pathname: string): boolean {
   return pathname === "/avatar";
 }
 
+function getTier2PreviewHostCspSources(): string[] {
+  const sources = new Set<string>();
+
+  const baseUrl = process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL?.trim();
+  if (baseUrl) {
+    try {
+      const url = new URL(baseUrl);
+      if (url.origin) {
+        sources.add(url.origin);
+      }
+    } catch {
+      /* ignore invalid preview host URL */
+    }
+  }
+
+  const rawSuffixes = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES?.trim();
+  if (!rawSuffixes) {
+    return Array.from(sources);
+  }
+
+  for (const suffix of rawSuffixes.split(",")) {
+    const normalized = suffix.trim().toLowerCase().replace(/^\./, "");
+    if (!normalized) continue;
+    sources.add(`https://${normalized}`);
+    sources.add(`https://*.${normalized}`);
+  }
+
+  return Array.from(sources);
+}
+
 function buildCspPolicy(pathname: string, nonce: string): string {
   const isDev = process.env.NODE_ENV !== "production";
   const allowDidEmbed = isAvatarRoute(pathname);
+  const tier2PreviewHosts = getTier2PreviewHostCspSources();
 
   if (pathname.startsWith("/api/preview-render")) {
     return [
@@ -49,8 +80,8 @@ function buildCspPolicy(pathname: string, nonce: string): string {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https:",
-      "frame-src 'self' *.vusercontent.net *.vercel.run *.vercel.app",
-      "connect-src 'self' https: *.vusercontent.net *.vercel.run *.vercel.app wss:",
+      `frame-src 'self' *.vusercontent.net *.vercel.run *.vercel.app ${tier2PreviewHosts.join(" ")}`.trim(),
+      `connect-src 'self' https: *.vusercontent.net *.vercel.run *.vercel.app wss: ${tier2PreviewHosts.join(" ")}`.trim(),
       "media-src 'self' blob: data:",
       "object-src 'none'",
       "base-uri 'self'",
@@ -70,8 +101,8 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "*.vercel.run",
     "*.vercel.app",
   ];
-  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app"];
-  const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:"];
+  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...tier2PreviewHosts];
+  const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...tier2PreviewHosts];
   const mediaSrc = [`'self'`, "blob:"];
   const workerSrc = [`'self'`, "blob:"];
 
