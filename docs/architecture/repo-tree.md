@@ -12,7 +12,7 @@
 | `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. `docs/handoffs/` håller bara en pekare — se [`handoffs/README.md`](../handoffs/README.md). |
 | `research/` | Icke-runtime: mall-discovery, dossiers, rådata. [`research/README.md`](../../research/README.md). |
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
-| `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). |
+| `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
 | `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `cli/`, `env/`, `manual/`. |
 | `archive/` | Icke-aktiva labb m.m. — [`archive/README.md`](../../archive/README.md) (t.ex. tidigare `scripts/labs/testning_scarf/`). |
