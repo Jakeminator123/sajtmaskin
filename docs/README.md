@@ -7,7 +7,7 @@
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
 | **Arkitektur** | Kanonisk systembeskrivning, preview/sandbox, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
-| **Aktiva planer** | Backlog, beslut | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/README.md`](plans/README.md) |
+| **Aktiva planer** | Aktiv status, öppna spår, beslut | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/README.md`](plans/README.md) |
 | **Arkiv** | Avklarade planer, handoffs-pekare; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) (`docs/notes/` om du skapar den lokalt) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · storstäd (historik + Fas D-checklista): [`plans/avklarat/STORDSTAD-repo-kod-databas.md`](plans/avklarat/STORDSTAD-repo-kod-databas.md) · post-epic: [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md) · [`archive/README.md`](archive/README.md) · [`handoffs/README.md`](handoffs/README.md) |
 
 ## Terminology (two layers — do not duplicate)
@@ -24,12 +24,12 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kanonisk backlog** (K-rader, Plan 17, beslut). Avslutad post-epic-städ (historik): [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kort aktiv status** med öppna spår, beslut och pekare vidare. Avslutad post-epic-städ (historik): [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
 
-**Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md). Operativ backlog: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) §10.
+**Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md). Aktiv status och öppna spår finns i [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md).
 
 Everything else is deep reference, history, or architecture.
 
@@ -106,7 +106,7 @@ Not runtime dependencies:
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Plans (all buckets) | `docs/plans/README.md` |
 | Plan / agent handoff (historik) | Tidigare `docs/handoffs/*.md` → **git-historik**; pekare [`handoffs/README.md`](handoffs/README.md). Operativt: [`PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
-| Backlog & beslut (kanonisk) | [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
+| Aktiv status & beslut (kanonisk) | [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) |
 | Storstädning (historik, pass-logg, Fas D vid datastäd) | [`STORDSTAD-repo-kod-databas.md`](plans/avklarat/STORDSTAD-repo-kod-databas.md) (arkiverad 2026-03-31) |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (deep brief, runtime vs MCP, fler agenter) | [`docs/contributing/agent-workflows.md`](contributing/agent-workflows.md) |

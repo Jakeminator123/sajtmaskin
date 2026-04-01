@@ -239,7 +239,7 @@ _Kvalitet / LLM_
 - [ ] `p0-pin-template` — Sandbox git-bas (deferred)
 - [x] `p1-generation-package` — kanonisk fan-in: `GenerationInputPackage` + `computeLineageHash()` (`src/lib/gen/generation-input-package.ts`, `orchestrate.ts`, stream-routes)
 - [x] `p1-dep-repair` — ERESOLVE-loop (dep-completer implementerad)
-- [x] `p1-server-owned-repair` — `server-verify` efter finalize, quality-gate → strukturerad felkontext → capped repair (default server, klientfallback); se `PROJECT-STATE-AND-DIRECTION.md` §10
+- [x] `p1-server-owned-repair` — `server-verify` efter finalize, quality-gate → strukturerad felkontext → capped repair (default server, klientfallback); se aktiv status i `PROJECT-STATE-AND-DIRECTION.md`
 - [x] `p1-visual-qa-contract` — Hook efter sandbox (visual-qa.ts, bakom feature-flag)
 - [ ] `p2-lineage` — prompt_lineage per version (deferred)
 - [x] `p2-image-policy` — next.config vs prompt alignade
@@ -248,7 +248,7 @@ _Kvalitet / LLM_
 
 ## Agent 2 av 2 — implementeringsprompt (historisk)
 
-_Planen ligger i `avklarat/`; använd inte detta block som primär agentinstruktion._ Börja från [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) och kanoniska arkitekturdocs. Flera mål nedan är redan levererade — se checklistan ovan och PROJECT-STATE §10 innan du duplicerar arbete.
+_Planen ligger i `avklarat/`; använd inte detta block som primär agentinstruktion._ Börja från [`../active/PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) och kanoniska arkitekturdocs. Flera mål nedan är redan levererade — se checklistan ovan och den aktiva statusfilen innan du duplicerar arbete.
 
 **Historisk prompt** (behålls som referens):
 

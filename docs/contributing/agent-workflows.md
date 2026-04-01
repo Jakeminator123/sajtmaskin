@@ -26,7 +26,7 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 ## Operativa dokument (kör utan separata plan-ID)
 
 - **Preview / sandbox / deploy:** [`preview-deploy.md`](../architecture/preview-deploy.md) — inkl. § *Levererat* och länkar till kod.
-- **Backlog / beslut:** [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
+- **Aktiv status / beslut:** [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
 - **Storstädsepik (arkiverad; pass-logg + Fas D vid datastäd):** [`STORDSTAD-repo-kod-databas.md`](../plans/avklarat/STORDSTAD-repo-kod-databas.md).
 - **Preview-URL i JSON/SSE (klar):** [`KORPLAN-preview-url-api.md`](../plans/avklarat/KORPLAN-preview-url-api.md) (arkiverad körplan).
 
@@ -58,6 +58,6 @@ Kör `npm run typecheck` och `npx vitest run` (plus `npm run lint` vid behov) in
 
 ## Plan / backlog
 
-- [PROJECT-STATE-AND-DIRECTION.md](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — kanonisk backlog  
+- [PROJECT-STATE-AND-DIRECTION.md](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — kort kanonisk aktiv status  
 - [`avklarat/README.md`](../plans/avklarat/README.md) — äldre planhandoff i git-historik
 
