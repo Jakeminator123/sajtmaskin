@@ -1,0 +1,46 @@
+---
+description: OpenClaw bridge -- reads pending tasks from the autonomous sajtmaskin-agent
+globs: "**"
+alwaysApply: false
+---
+
+# OpenClaw Bridge
+
+An autonomous OpenClaw agent periodically reviews this repository and writes
+task suggestions to `.cursor/openclaw-bridge/inbox.jsonl`.
+
+## When to check
+
+At the start of a session, or when the user mentions "bridge", "openclaw",
+or "inbox", read `.cursor/openclaw-bridge/inbox.jsonl` and look for lines
+where `"status":"pending"`.
+
+## inbox.jsonl format
+
+Each line is a JSON object:
+
+```
+{"id":"task-001","ts":"...","type":"task","priority":"high","title":"...","prompt":"...","status":"pending"}
+```
+
+- `status: "pending"` -- not yet picked up
+- `status: "done"` -- already completed
+
+## How to handle tasks
+
+1. Read all pending tasks from inbox.jsonl.
+2. Present them to the user as a summary (title + priority).
+3. Only execute a task if the user explicitly confirms it.
+4. After completing a task, append a result line to `.cursor/openclaw-bridge/outbox.jsonl`:
+
+```
+{"id":"task-001","ts":"...","type":"result","summary":"...","files_changed":["..."],"status":"done"}
+```
+
+5. Do NOT auto-execute tasks without user approval.
+6. Do NOT modify inbox.jsonl -- only append to outbox.jsonl.
+
+## Goal document
+
+The agent's strategic goals are in `.cursor/openclaw-bridge/goal.md`.
+Read it for context on priorities and direction when evaluating tasks.

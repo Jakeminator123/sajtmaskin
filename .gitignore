@@ -215,3 +215,6 @@ internt_jakob/
 
 .env*.local
 files_envvars
+
+# OpenClaw bridge (local agent communication, never commit)
+.cursor/openclaw-bridge/
