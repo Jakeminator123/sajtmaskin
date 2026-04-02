@@ -24,14 +24,19 @@ export const OWN_ENGINE_POST_STREAM_PIPELINE = [
     labelSv: "Bildmaterialisering",
   },
   {
-    id: "polish",
-    label: "Optional polish LLM (copy / placeholders)",
-    labelSv: "Polish",
-  },
-  {
     id: "validate_syntax",
     label: "Syntax validation + targeted fix rounds",
     labelSv: "Syntaxvalidering",
+  },
+  {
+    id: "verifier",
+    label: "Read-only verifier LLM (findings for polish / telemetry)",
+    labelSv: "Verifiering",
+  },
+  {
+    id: "polish",
+    label: "Optional polish LLM (copy / placeholders)",
+    labelSv: "Polish",
   },
   {
     id: "parse_merge_preflight",
@@ -46,12 +51,13 @@ export const OWN_ENGINE_FINALIZE_FAST_PATH_PHASES: OwnEnginePostStreamPhaseId[] 
   "autofix",
   "url_expand",
   "validate_syntax",
+  "verifier",
+  "polish",
   "parse_merge_preflight",
 ];
 
 export const OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES: OwnEnginePostStreamPhaseId[] = [
   "materialize_images",
-  "polish",
 ];
 
 const POST_STREAM_PHASE_ID_SET = new Set<string>(

@@ -5,7 +5,11 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
-import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import {
+  MAX_PROMPT_HANDOFF_CHARS,
+  WARN_CHAT_MESSAGE_CHARS,
+  WARN_CHAT_SYSTEM_CHARS,
+} from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
@@ -143,6 +147,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
         attachmentsCount: requestAttachments.length,
+        hardCap: MAX_PROMPT_HANDOFF_CHARS,
         promptSourceKind: metaPromptSourceKind,
         promptSourceTechnical: metaPromptSourceTechnical,
         promptSourcePreservePayload: metaPromptSourcePreservePayload,

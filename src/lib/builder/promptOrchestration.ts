@@ -12,7 +12,7 @@ import {
   ORCHESTRATION_SOFT_TARGET_WIZARD_CHARS,
 } from "@/lib/builder/promptLimits";
 
-export type PromptStrategy = "direct" | "summarize" | "phase_plan_build_polish";
+export type PromptStrategy = "direct" | "summarize" | "phase_plan_build_polish" | "preserved";
 export type PromptType =
   | "audit"
   | "wizard"
@@ -316,6 +316,10 @@ function trimToTargetByLines(lines: string[], target: number): string {
   return text.length > target ? text.slice(0, target).trim() : text;
 }
 
+/**
+ * Legacy lossy summary — kept only for emergency fallback when the prompt exceeds
+ * hardCap and section-aware compression still fails (should be extremely rare).
+ */
 function summarizeMessage(message: string, target: number): string {
   const intro = firstParagraph(message);
   const important = pickImportantLines(message);
@@ -342,7 +346,34 @@ function summarizeMessage(message: string, target: number): string {
   return intro.length > target ? intro.slice(0, target).trim() : intro;
 }
 
-function buildPhasedMessage(summary: string, promptType: PromptType): string {
+/**
+ * Best-effort preservation when the prompt exceeds hardCap: keep start + end so
+ * constraints and closing instructions survive; avoid dropping 80%+ of prose like summarize did.
+ */
+export function buildSectionAwareHandoff(message: string, maxChars: number): string {
+  if (message.length <= maxChars) return message;
+  const reserve = 280;
+  const usable = Math.max(4_000, maxChars - reserve);
+  const headChars = Math.floor(usable * 0.52);
+  const tailChars = usable - headChars;
+  const head = message.slice(0, headChars);
+  const tail = message.slice(Math.max(0, message.length - tailChars));
+  const omitted = message.length - headChars - tailChars;
+  const bridge =
+    `\n\n---\n\n[System: Middle truncated, ${omitted} characters omitted. Prioritize the beginning and end below.]\n\n---\n\n`;
+  let out = head + bridge + tail;
+  if (out.length > maxChars) {
+    out = summarizeMessage(message, Math.max(1200, maxChars - 200));
+  }
+  return out;
+}
+
+function bodyForPhaseOrPreserved(normalizedMessage: string, hardCap: number): string {
+  if (normalizedMessage.length <= hardCap) return normalizedMessage;
+  return buildSectionAwareHandoff(normalizedMessage, hardCap);
+}
+
+function buildPhasedMessage(userRequestBody: string, promptType: PromptType): string {
   const intro =
     promptType === "audit"
       ? "Large audit context detected. Execute in phases to reduce prompt bloat."
@@ -358,9 +389,15 @@ function buildPhasedMessage(summary: string, promptType: PromptType): string {
     "",
     "If details conflict, prioritize explicit user requirements.",
     "",
-    "Condensed source request:",
-    summary,
+    "Full user request (preserve requirements; do not invent scope beyond it):",
+    userRequestBody,
   ].join("\n");
+}
+
+/** Bytes/chars budget for the user body inside a phased wrapper so total <= hardCap. */
+function maxCharsForPhasedInnerBody(hardCap: number, promptType: PromptType): number {
+  const overhead = buildPhasedMessage("", promptType).length;
+  return Math.max(1_500, hardCap - overhead - 80);
 }
 
 function reductionRatio(original: number, optimized: number): number {
@@ -414,27 +451,35 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     strategy = "phase_plan_build_polish";
     reason = forcePhase ? "force_phase_threshold" : "high_complexity";
     phaseHints = [...PHASE_HINTS];
-    const summary = summarizeMessage(
-      normalizedMessage,
-      isDesignHeavy
-        ? Math.max(1_800, Math.round(budgetTarget * 0.95))
-        : Math.max(1_200, Math.round(budgetTarget * 0.85)),
-    );
-    optimizedMessage = buildPhasedMessage(summary, promptType);
+    const innerCap = maxCharsForPhasedInnerBody(hardCap, promptType);
+    const preservedBody = bodyForPhaseOrPreserved(normalizedMessage, innerCap);
+    optimizedMessage = buildPhasedMessage(preservedBody, promptType);
   } else {
-    strategy = "summarize";
-    reason = isDesignHeavy ? "over_budget_summarized_design_safe" : "over_budget_summarized";
-    const summarizeTarget = isDesignHeavy
-      ? Math.min(hardCap - 120, Math.max(budgetTarget, Math.round(budgetTarget * 1.1)))
-      : budgetTarget;
-    optimizedMessage = summarizeMessage(normalizedMessage, summarizeTarget);
+    strategy = "preserved";
+    reason = isDesignHeavy
+      ? "over_soft_target_full_handoff_design_heavy"
+      : "over_soft_target_full_handoff";
+    const body = bodyForPhaseOrPreserved(normalizedMessage, hardCap);
+    optimizedMessage =
+      body === normalizedMessage
+        ? `[Prompt handoff: Full text preserved (${originalLength} chars). Soft orchestration target ~${budgetTarget} chars — honor every requirement below.]\n\n${normalizedMessage}`
+        : body;
   }
 
   if (optimizedMessage.length > hardCap && !forceDirect) {
-    const emergencyTarget = Math.max(1200, Math.min(hardCap - 200, budgetTarget));
-    optimizedMessage = summarizeMessage(optimizedMessage, emergencyTarget);
+    if (strategy === "phase_plan_build_polish") {
+      const innerCap = maxCharsForPhasedInnerBody(hardCap, promptType);
+      const inner = buildSectionAwareHandoff(normalizedMessage, innerCap);
+      optimizedMessage = buildPhasedMessage(inner, promptType);
+    } else {
+      optimizedMessage = buildSectionAwareHandoff(normalizedMessage, hardCap);
+    }
     if (optimizedMessage.length > hardCap) {
-      optimizedMessage = trimToTargetByLines(optimizedMessage.split("\n"), hardCap);
+      const emergencyTarget = Math.max(1200, Math.min(hardCap - 200, budgetTarget));
+      optimizedMessage = summarizeMessage(optimizedMessage, emergencyTarget);
+      if (optimizedMessage.length > hardCap) {
+        optimizedMessage = trimToTargetByLines(optimizedMessage.split("\n"), hardCap);
+      }
     }
     reason = `${reason}_hard_cap`;
   }

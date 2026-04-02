@@ -272,6 +272,44 @@
       }
     }
   },
+  "postGenerationPasses": {
+    "polishMaxOutputTokens": {
+      "envKey": "SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS",
+      "default": 16000,
+      "min": 4000,
+      "max": 64000
+    },
+    "polishTimeoutMs": {
+      "envKey": "SAJTMASKIN_POLISH_TIMEOUT_MS",
+      "default": 45000,
+      "min": 8000,
+      "max": 180000
+    },
+    "polishMaxFilesWhenUnscoped": {
+      "envKey": "SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED",
+      "default": 14,
+      "min": 4,
+      "max": 40
+    },
+    "verifierMaxOutputTokens": {
+      "envKey": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
+      "default": 8192,
+      "min": 1024,
+      "max": 32000
+    },
+    "verifierTimeoutMs": {
+      "envKey": "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
+      "default": 60000,
+      "min": 10000,
+      "max": 180000
+    },
+    "verifierSnippetCharsPerFile": {
+      "envKey": "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
+      "default": 14000,
+      "min": 3000,
+      "max": 60000
+    }
+  },
   "preGenerationContracts": {
     "defaults": {
       "fallbackDatabaseProvider": "SQLite",
@@ -618,6 +656,20 @@
       ],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
       "notes": "Uses the planner phase from phaseRouting. selected_build_model follows the active build profile model."
+    },
+    {
+      "id": "post_generation_verifier",
+      "title": "Post-generation verifier pass",
+      "description": "Read-only structured review after syntax validation that identifies blocking/quality findings and polish candidate files.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
+      "codeEntry": [
+        "src/lib/gen/verifier-pass.ts",
+        "src/lib/gen/stream/finalize-version.ts",
+        "src/lib/models/phase-routing.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "notes": "Uses the verifier phase from phaseRouting for the active build tier. This pass is read-only and feeds polish scope plus telemetry."
     },
     {
       "id": "post_generation_polish",

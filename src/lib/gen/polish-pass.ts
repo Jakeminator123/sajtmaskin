@@ -2,10 +2,19 @@
  * Optional second-pass LLM refinement focused on copy quality, placeholder
  * removal, CTA clarity, and visual hierarchy. Runs behind feature flag
  * SAJTMASKIN_POLISH_PASS=1.
+ *
+ * Budget and timeout come from manifest `postGenerationPasses`; polish scope can be
+ * limited to verifier `polishCandidates` or heuristically capped file paths.
  */
 import { generateText } from "ai";
 import { getOpenAIModel, DEFAULT_MODEL } from "./models";
 import { parseFilesFromContent } from "./version-manager";
+import { parseCodeProject } from "./parser";
+import { resolvePostGenerationPolishConfig } from "./post-generation-config";
+import {
+  extractCodeProjectSubsetForPaths,
+  pickUnscopedPolishPaths,
+} from "./verifier-pass";
 
 export function isPolishPassEnabled(): boolean {
   const v = process.env.SAJTMASKIN_POLISH_PASS?.trim().toLowerCase();
@@ -24,20 +33,63 @@ Your ONLY job is to improve the provided CodeProject files. You must:
 Return the improved files in the same CodeProject format. Only include files you actually changed.
 Do NOT add comments explaining your changes. Just output the improved code.`;
 
-const POLISH_MAX_TOKENS = 16_000;
-const POLISH_TIMEOUT_MS = 45_000;
+export type PolishPassOptions = {
+  model?: string;
+  abortSignal?: AbortSignal;
+  /** From verifier phase — limits which fences are sent to the model */
+  polishTargetPaths?: string[];
+  maxFilesWhenUnscoped?: number;
+  maxOutputTokens?: number;
+  timeoutMs?: number;
+};
+
+function resolvePolishPayload(
+  content: string,
+  opts: PolishPassOptions,
+): { promptPayload: string; usedScopedPaths: boolean } {
+  const manifestDefaults = resolvePostGenerationPolishConfig();
+  const maxFiles = opts.maxFilesWhenUnscoped ?? manifestDefaults.maxFilesWhenUnscoped;
+  const { files } = parseCodeProject(content);
+
+  if (opts.polishTargetPaths && opts.polishTargetPaths.length > 0) {
+    const pathSet = new Set(opts.polishTargetPaths);
+    const matchedPaths = files.filter((file) => pathSet.has(file.path)).map((file) => file.path);
+    if (matchedPaths.length > 0) {
+      return {
+        promptPayload: extractCodeProjectSubsetForPaths(content, matchedPaths),
+        usedScopedPaths: true,
+      };
+    }
+  }
+
+  if (files.length <= maxFiles) {
+    return { promptPayload: content, usedScopedPaths: false };
+  }
+  const picked = pickUnscopedPolishPaths(files, maxFiles);
+  const sub = extractCodeProjectSubsetForPaths(content, picked);
+  return { promptPayload: sub.length > 400 ? sub : content, usedScopedPaths: picked.length < files.length };
+}
 
 export async function runPolishPass(
   content: string,
-  opts: { model?: string; abortSignal?: AbortSignal },
+  opts: PolishPassOptions = {},
 ): Promise<{ polishedContent: string; filesChanged: number; applied: boolean }> {
   if (!isPolishPassEnabled()) {
     return { polishedContent: content, filesChanged: 0, applied: false };
   }
 
+  const manifestDefaults = resolvePostGenerationPolishConfig();
+  const maxOutputTokens = opts.maxOutputTokens ?? manifestDefaults.maxOutputTokens;
+  const timeoutMs = opts.timeoutMs ?? manifestDefaults.timeoutMs;
+
   const model = getOpenAIModel(opts.model ?? DEFAULT_MODEL);
+  const { promptPayload } = resolvePolishPayload(content, {
+    ...opts,
+    maxFilesWhenUnscoped: opts.maxFilesWhenUnscoped ?? manifestDefaults.maxFilesWhenUnscoped,
+  });
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), POLISH_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   const combinedSignal = opts.abortSignal
     ? AbortSignal.any([opts.abortSignal, controller.signal])
@@ -47,8 +99,8 @@ export async function runPolishPass(
     const result = await generateText({
       model,
       system: POLISH_SYSTEM,
-      prompt: `Review and polish the following generated website code:\n\n${content}`,
-      maxOutputTokens: POLISH_MAX_TOKENS,
+      prompt: `Review and polish the following generated website code:\n\n${promptPayload}`,
+      maxOutputTokens,
       abortSignal: combinedSignal,
     });
 

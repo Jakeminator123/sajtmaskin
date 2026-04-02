@@ -9,6 +9,7 @@ import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
+import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { FEATURES } from "@/lib/config";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
@@ -209,6 +210,7 @@ export async function handleMessageStreamRequest(
           buildIntent: metaBuildIntent,
           isFirstPrompt: false,
           attachmentsCount: requestAttachments.length,
+          hardCap: MAX_PROMPT_HANDOFF_CHARS,
           promptSourceKind: metaPromptSourceKind,
           promptSourceTechnical: metaPromptSourceTechnical,
           promptSourcePreservePayload: metaPromptSourcePreservePayload,

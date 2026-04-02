@@ -7,6 +7,7 @@ import {
   getAiModelsManifest,
   getBriefingDefaultsFromManifest,
   getBuildProfileDefaultOwnEngineModel,
+  getPostGenerationPassesFromManifest,
   getPreGenerationContractsConfigFromManifest,
   getPromptOrchestrationFromManifest,
   getPhaseRoutingFromManifest,
@@ -75,11 +76,12 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(QUALITY_TO_OPENAI_MODEL.max).toBe(q.max);
   });
 
-  it("briefing, phase routing, repair policies, orchestration, and contract config exist for runtime control", () => {
+  it("briefing, phase routing, repair policies, orchestration, post-generation config, and contract config exist for runtime control", () => {
     const briefing = getBriefingDefaultsFromManifest();
     const phaseRouting = getPhaseRoutingFromManifest();
     const repairPolicies = getRepairPoliciesFromManifest();
     const promptOrchestration = getPromptOrchestrationFromManifest();
+    const postGenerationPasses = getPostGenerationPassesFromManifest();
     const contractConfig = getPreGenerationContractsConfigFromManifest();
 
     expect(briefing.requestModel).toBeTruthy();
@@ -102,6 +104,9 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(promptOrchestration.softTargets.freeformChars.default).toBeGreaterThan(0);
     expect(promptOrchestration.phaseThresholds.defaultChars.default).toBeGreaterThan(0);
 
+    expect(postGenerationPasses.polishMaxOutputTokens.default).toBeGreaterThan(0);
+    expect(postGenerationPasses.verifierTimeoutMs.default).toBeGreaterThan(0);
+
     expect(contractConfig.defaults.fallbackDatabaseProvider).toBeTruthy();
     expect(contractConfig.defaults.fallbackAuthProvider).toBeTruthy();
     expect(contractConfig.defaults.fallbackPaymentProvider).toBeTruthy();
@@ -118,5 +123,16 @@ describe("config/ai_models/manifest.json parity", () => {
     const pairs = parseGeneratedSitePlaceholderLines(raw);
     expect(pairs.length).toBeGreaterThan(10);
     expect(pairs.some((p) => p.key === "NEXT_PUBLIC_SUPABASE_URL")).toBe(true);
+  });
+
+  it("documents verifier and polish as separate post-generation workloads", () => {
+    const m = getAiModelsManifest();
+    const verifier = m.workloads.find((w) => w.id === "post_generation_verifier");
+    const polish = m.workloads.find((w) => w.id === "post_generation_polish");
+
+    expect(verifier?.invocation).toBe("ai_generateObject");
+    expect(verifier?.codeEntry).toContain("src/lib/gen/verifier-pass.ts");
+    expect(polish?.invocation).toBe("ai_generateText");
+    expect(polish?.codeEntry).toContain("src/lib/gen/polish-pass.ts");
   });
 });

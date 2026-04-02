@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Sandbox } from "@vercel/sandbox";
 import { z } from "zod";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -13,12 +12,16 @@ import {
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 import { analyzeVisualQuality, isVisualQAEnabled, type VisualQAResult } from "@/lib/gen/visual-qa";
 import {
-  getSandboxCommandTextOutput,
-  isSafeRelativePath,
+  SANDBOX_QUALITY_GATE_COMMANDS,
+  SandboxNotConfiguredError,
+  exportableToSandboxFiles,
+  runSandboxQualityGateChecks,
+  sandboxQualityGateAllPassed,
+  type SandboxQualityGateCheckResult,
+} from "@/lib/gen/sandbox-quality-gate";
+import {
   SANDBOX_SETUP_HINT,
   isSandboxConfigured as isSandboxAuthConfigured,
-  resolveSandboxAccessCredentials,
-  resolveSandboxTemplateGitUrl,
 } from "@/lib/mcp/runtime-url";
 
 export const runtime = "nodejs";
@@ -34,27 +37,20 @@ const requestSchema = z.object({
     .default(["typecheck", "build"]),
 });
 
-type CheckResult = {
-  check: string;
-  passed: boolean;
-  exitCode: number;
-  output: string;
-};
-
 type GateResult = {
   passed: boolean;
-  checks: CheckResult[];
+  checks: SandboxQualityGateCheckResult[];
   sandboxDurationMs: number;
   visualQA?: VisualQAResult;
 };
 
 function buildQualityGateSummaryLog(params: {
-  checkResults: CheckResult[];
+  checkResults: SandboxQualityGateCheckResult[];
   sandboxDurationMs: number;
 }) {
   const { checkResults, sandboxDurationMs } = params;
   return {
-    level: checkResults.every((result) => result.passed) ? "info" as const : "error" as const,
+    level: checkResults.every((result) => result.passed) ? ("info" as const) : ("error" as const),
     category: "preflight:quality-gate",
     message: checkResults.every((result) => result.passed)
       ? "Automatic quality gate passed."
@@ -71,207 +67,12 @@ function buildQualityGateSummaryLog(params: {
   };
 }
 
-function buildVerificationSummary(checkResults: CheckResult[]): string {
+function buildVerificationSummary(checkResults: SandboxQualityGateCheckResult[]): string {
   const failedChecks = checkResults.filter((result) => !result.passed).map((result) => result.check);
   if (failedChecks.length === 0) {
     return "Automatic verification passed.";
   }
   return `Automatic verification failed: ${failedChecks.join(", ")}.`;
-}
-
-/** Base shell commands (no `2>&1`); stderr is merged via log file in runSandboxChecks. */
-const CHECK_COMMANDS: Record<string, string> = {
-  typecheck: "npx tsc --noEmit",
-  build: "npx next build",
-  lint: "npx eslint . --max-warnings=0",
-};
-
-const OUTPUT_CAP_BY_STAGE: Record<string, number> = {
-  install: 16_000,
-  typecheck: 12_000,
-  build: 14_000,
-  lint: 12_000,
-  default: 12_000,
-};
-
-function clipStageOutput(stage: string, rawOutput: string): string {
-  const normalized = rawOutput.trim();
-  if (!normalized) return "";
-  const cap = OUTPUT_CAP_BY_STAGE[stage] ?? OUTPUT_CAP_BY_STAGE.default;
-  if (normalized.length <= cap) return normalized;
-  const head = Math.floor(cap * 0.35);
-  const tail = Math.max(0, cap - head - 64);
-  const omitted = Math.max(0, normalized.length - head - tail);
-  return [
-    normalized.slice(0, head).trimEnd(),
-    `...[${stage} output truncated: ${omitted} chars omitted]...`,
-    normalized.slice(-tail).trimStart(),
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-type SandboxFileLike = {
-  name: string;
-  content: string;
-};
-
-function projectOwnsLintSetup(sandboxFiles: SandboxFileLike[]): boolean {
-  const names = new Set(sandboxFiles.map((file) => file.name.replace(/\\/g, "/").toLowerCase()));
-  if (
-    names.has("eslint.config.mjs") ||
-    names.has("eslint.config.js") ||
-    names.has("eslint.config.cjs") ||
-    names.has(".eslintrc") ||
-    names.has(".eslintrc.js") ||
-    names.has(".eslintrc.cjs") ||
-    names.has(".eslintrc.json")
-  ) {
-    return true;
-  }
-
-  const packageJson = sandboxFiles.find((file) => file.name === "package.json");
-  if (!packageJson) return false;
-
-  try {
-    const parsed = JSON.parse(packageJson.content) as {
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      scripts?: Record<string, string>;
-    };
-    const deps = {
-      ...(parsed.dependencies ?? {}),
-      ...(parsed.devDependencies ?? {}),
-    };
-    const depNames = Object.keys(deps);
-    if (depNames.some((name) => name === "eslint" || name.startsWith("eslint-") || name.startsWith("@eslint/"))) {
-      return true;
-    }
-    return typeof parsed.scripts?.lint === "string" && parsed.scripts.lint.trim().length > 0;
-  } catch {
-    return false;
-  }
-}
-
-function buildCheckShellScript(baseCmd: string, logFile: string): string {
-  return [
-    "set +e",
-    `${baseCmd} > "${logFile}" 2>&1`,
-    "ec=$?",
-    `cat "${logFile}" 2>/dev/null || true`,
-    `rm -f "${logFile}" 2>/dev/null || true`,
-    "exit $ec",
-  ].join("\n");
-}
-
-async function runSandboxChecks(
-  sandboxFiles: Array<{ name: string; content: string }>,
-  checks: string[],
-): Promise<{ results: CheckResult[]; sandboxDurationMs: number }> {
-  if (!isSandboxAuthConfigured()) {
-    throw new SandboxNotConfiguredError();
-  }
-  const access = resolveSandboxAccessCredentials();
-
-  const startMs = Date.now();
-  const sandbox = await Sandbox.create({
-    ...(access ?? {}),
-    source: {
-      type: "git",
-      url: resolveSandboxTemplateGitUrl(),
-    },
-    resources: { vcpus: 2 },
-    timeout: 90_000,
-    ports: [3000],
-    runtime: "node24",
-  });
-
-  try {
-    const writePayload = sandboxFiles
-      .filter((file) => isSafeRelativePath(file.name))
-      .map((file) => ({
-        path: file.name,
-        content: Buffer.from(file.content, "utf-8"),
-      }));
-    if (writePayload.length > 0) {
-      await sandbox.writeFiles(writePayload);
-    }
-
-    const results: CheckResult[] = [];
-    const ownsLintSetup = projectOwnsLintSetup(sandboxFiles);
-    const logSuffix = `${startMs}-${Math.random().toString(36).slice(2, 9)}`;
-    const installLogFile = `/tmp/sajtmaskin-qg-install-${logSuffix}.log`;
-    const installScript = buildCheckShellScript("npm install --prefer-offline", installLogFile);
-    const installResult = await sandbox.runCommand({ cmd: "bash", args: ["-c", installScript] });
-    const installExitCode = installResult.exitCode ?? 1;
-    let installOutput = clipStageOutput(
-      "install",
-      await getSandboxCommandTextOutput(installResult),
-    );
-    if (!installOutput) {
-      installOutput = [
-        `(No log output captured from sandbox; exit ${installExitCode}.)`,
-        "Command: npm install --prefer-offline",
-        "If this persists, the sandbox runner may not be streaming stdout; check Vercel Sandbox logs.",
-      ].join("\n");
-    }
-    results.push({
-      check: "install",
-      passed: installExitCode === 0,
-      exitCode: installExitCode,
-      output:
-        installExitCode === 0
-          ? "npm install --prefer-offline passed."
-          : installOutput,
-    });
-    if (installExitCode !== 0) {
-      return { results, sandboxDurationMs: Date.now() - startMs };
-    }
-
-    for (const check of checks) {
-      if (check === "lint" && !ownsLintSetup) {
-        results.push({
-          check,
-          passed: true,
-          exitCode: 0,
-          output:
-            "Skipped lint: exported project does not include its own ESLint config or dependency set. This avoids false failures from the sandbox template's inherited eslint.config.mjs.",
-        });
-        continue;
-      }
-      const baseCmd = CHECK_COMMANDS[check];
-      if (!baseCmd) continue;
-      const logFile = `/tmp/sajtmaskin-qg-${check}-${logSuffix}.log`;
-      const script = buildCheckShellScript(baseCmd, logFile);
-      const result = await sandbox.runCommand({ cmd: "bash", args: ["-c", script] });
-      let output = clipStageOutput(check, await getSandboxCommandTextOutput(result));
-      const exitCode = result.exitCode ?? 1;
-      const passed = exitCode === 0;
-      if (!passed && !output) {
-        output = [
-          `(No log output captured from sandbox; exit ${exitCode}.)`,
-          `Command: ${baseCmd}`,
-          "If this persists, the sandbox runner may not be streaming stdout; check Vercel Sandbox logs.",
-        ].join("\n");
-      }
-      results.push({
-        check,
-        passed,
-        exitCode,
-        output,
-      });
-    }
-
-    return { results, sandboxDurationMs: Date.now() - startMs };
-  } finally {
-    await sandbox.stop().catch(() => {});
-  }
-}
-
-class SandboxNotConfiguredError extends Error {
-  constructor() {
-    super("Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)");
-  }
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -291,7 +92,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {
-        return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
+      return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
     }
     const internalVersionId = scopedVersion.version.id;
     const codeFiles = await getVersionFiles(internalVersionId);
@@ -308,19 +109,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       }
 
       const completeProjectFiles = buildExportableProject(codeFiles);
-      const sandboxFiles = completeProjectFiles
-        .filter((f) => f.content != null)
-        .map((f) => ({ name: f.path, content: f.content }));
+      const sandboxFiles = exportableToSandboxFiles(completeProjectFiles);
 
       await markVersionVerifying(internalVersionId).catch((err) => {
-          console.warn("[quality-gate] Failed to mark version verifying:", err);
+        console.warn("[quality-gate] Failed to mark version verifying:", err);
       });
 
       try {
-        const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
+        const { results, sandboxDurationMs } = await runSandboxQualityGateChecks(sandboxFiles, checks);
 
         let visualQA: VisualQAResult | undefined;
-        if (isVisualQAEnabled() && results.every((r) => r.passed)) {
+        if (isVisualQAEnabled() && sandboxQualityGateAllPassed(results)) {
           try {
             visualQA = analyzeVisualQuality(
               sandboxFiles.map((f) => ({ path: f.name, content: f.content })),
@@ -331,22 +130,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
 
         const gateResult: GateResult = {
-          passed: results.every((r) => r.passed),
+          passed: sandboxQualityGateAllPassed(results),
           checks: results,
           sandboxDurationMs,
           visualQA,
         };
 
         const logs = [
-            {
-              chatId,
-              versionId: internalVersionId,
-              ...buildQualityGateSummaryLog({
-                checkResults: results,
-                sandboxDurationMs,
-              }),
-            },
-            ...results
+          {
+            chatId,
+            versionId: internalVersionId,
+            ...buildQualityGateSummaryLog({
+              checkResults: results,
+              sandboxDurationMs,
+            }),
+          },
+          ...results
             .filter((r) => !r.passed)
             .map((r) => {
               return {
@@ -360,13 +159,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   command:
                     r.check === "install"
                       ? "npm install --prefer-offline"
-                      : CHECK_COMMANDS[r.check] ?? null,
+                      : SANDBOX_QUALITY_GATE_COMMANDS[r.check] ?? null,
                   output: r.output.slice(0, 12_000),
                   outputLength: r.output.length,
                   exitCode: r.exitCode,
                 },
               };
-          }),
+            }),
         ];
         if (logs.length > 0 && dbConfigured) {
           await createEngineVersionErrorLogs(logs).catch((err) => {
@@ -390,11 +189,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         await failVersionVerification(
           internalVersionId,
           "Automatic verification could not complete.",
-        ).catch(
-          (updateErr) => {
-            console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
-          },
-        );
+        ).catch((updateErr) => {
+          console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
+        });
         if (err instanceof SandboxNotConfiguredError) {
           return NextResponse.json(
             {

@@ -9,6 +9,8 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | **Own engine** | Kodgenerering i buildern | AI SDK `streamText` + `@ai-sdk/openai` / `@ai-sdk/anthropic` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Prompt assist** | Förbättra prompt, chat | `streamText` + `createDirectModel` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Autofix** | Eftergenereringsfixar | `streamText` | `OPENAI_API_KEY` |
+| **Verifier** | Read-only review efter syntax, styr polish-scope | `generateObject` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
+| **Post-generation polish** | Filpolish efter verifier | `generateText` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Embeddings** | Semantisk sök i index | `openai.embeddings.create` | `OPENAI_API_KEY` |
 | **Vissa admin/wizard/inspektor** | Analys, JSON | OpenAI **Responses** API | `OPENAI_API_KEY` eller **Vercel AI Gateway** |
 | **Projektanalys** | Gratis kodöversikt | Responses via Gateway base URL | `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` |
@@ -27,7 +29,7 @@ För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga R
 
 Detta är **parallellt med** `config/codegen-static-prompt.json` + `prompt-static/*.md`: manifest + vanlig text under `config/`, men här är nyttolasten env-placeholders för slutkundsprojekt, inte systemprompt.
 
-**Sandbox (Tier 2):** Både `startSandboxPreview` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) mergar nycklarna från denna fil in i `.env.local` via `buildSandboxEnvLocalContents` i [`src/lib/gen/sandbox-env-local.ts`](../../src/lib/gen/sandbox-env-local.ts). **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
+**Tier-2 preview / VM:** Både `startSandboxPreview` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) mergar nycklarna från denna fil in i `.env.local` via `buildSandboxEnvLocalContents` i [`src/lib/gen/sandbox-env-local.ts`](../../src/lib/gen/sandbox-env-local.ts). Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever kvar i delar av kontraktet och i vissa fallback-/verifieringsspår. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
 
 ## Direkt API vs AI Gateway (viktigt)
 

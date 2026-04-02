@@ -9,6 +9,8 @@ const expandUrls = vi.hoisted(() => vi.fn());
 const materializeImages = vi.hoisted(() => vi.fn());
 const runPolishPass = vi.hoisted(() => vi.fn());
 const isPolishPassEnabled = vi.hoisted(() => vi.fn());
+const runVerifierPass = vi.hoisted(() => vi.fn());
+const resolvePostGenerationPolishConfig = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
@@ -57,6 +59,14 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
 vi.mock("@/lib/gen/polish-pass", () => ({
   runPolishPass,
   isPolishPassEnabled,
+}));
+
+vi.mock("@/lib/gen/verifier-pass", () => ({
+  runVerifierPass,
+}));
+
+vi.mock("@/lib/gen/post-generation-config", () => ({
+  resolvePostGenerationPolishConfig,
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -134,6 +144,8 @@ describe("finalizeAndSaveVersion", () => {
     materializeImages.mockReset();
     runPolishPass.mockReset();
     isPolishPassEnabled.mockReset();
+    runVerifierPass.mockReset();
+    resolvePostGenerationPolishConfig.mockReset();
     buildPreviewHtml.mockReset();
     buildPreviewUrl.mockReset();
     repairGeneratedFiles.mockReset();
@@ -174,11 +186,42 @@ describe("finalizeAndSaveVersion", () => {
     runPolishPass.mockResolvedValue({
       applied: false,
       polishedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
-      filesChanged: [],
+      filesChanged: 0,
     });
     isPolishPassEnabled.mockReturnValue(true);
+    runVerifierPass.mockResolvedValue({
+      blocking: [],
+      quality: [],
+      polishCandidates: [],
+    });
+    resolvePostGenerationPolishConfig.mockReturnValue({
+      maxOutputTokens: 16_000,
+      timeoutMs: 45_000,
+      maxFilesWhenUnscoped: 14,
+    });
     parseFilesFromContent.mockReturnValue(
       JSON.stringify([
+        {
+          path: "package.json",
+          content: JSON.stringify(
+            {
+              name: "unit-test",
+              version: "0.0.0",
+              private: true,
+              scripts: { dev: "next dev", build: "next build" },
+              dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" },
+              devDependencies: { typescript: "5.6.0" },
+            },
+            null,
+            2,
+          ),
+          language: "json",
+        },
+        {
+          path: "next-env.d.ts",
+          content: '/// <reference types="next" />\n',
+          language: "ts",
+        },
         {
           path: "src/app/page.tsx",
           content: "export default function Page() { return <div>Hello</div>; }",
@@ -536,10 +579,15 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(materializeImages).not.toHaveBeenCalled();
+    expect(runVerifierPass).not.toHaveBeenCalled();
     expect(runPolishPass).not.toHaveBeenCalled();
     expect(result.telemetryRecordId).toBe("telemetry_1");
     expect(progressEvents).toContainEqual({
       event: "materialize_images",
+      data: { phase: "skipped", reason: "light_followup_fast_policy" },
+    });
+    expect(progressEvents).toContainEqual({
+      event: "verifier",
       data: { phase: "skipped", reason: "light_followup_fast_policy" },
     });
     expect(progressEvents).toContainEqual({
@@ -654,6 +702,7 @@ describe("finalizeAndSaveVersion", () => {
       });
 
       expect(materializeImages).not.toHaveBeenCalled();
+      expect(runVerifierPass).not.toHaveBeenCalled();
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           meta: expect.objectContaining({

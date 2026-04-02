@@ -27,7 +27,7 @@ export interface GenerateOptions {
  *
  * After this stream completes, `finalizeAndSaveVersion` runs the ordered
  * post-stream phases in `finalize-pipeline-contract.ts` (autofix → URLs →
- * images → optional polish → syntax validate/fix → merge/preflight/persist).
+ * images → syntax validate/fix → verifier LLM → optional polish → merge/preflight/persist).
  *
  * Returns a ReadableStream of SSE events:
  *  `meta`     — chat/version metadata

@@ -120,7 +120,7 @@ export function PreviewPanelChrome({
   showExternalWarning,
 }: PreviewPanelChromeProps) {
   return (
-    <div className="shrink-0 overflow-y-auto" style={{ maxHeight: "40%" }}>
+    <div className="max-h-[40%] shrink-0 overflow-y-auto">
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold tracking-tight text-white">Preview</h3>
@@ -131,7 +131,7 @@ export function PreviewPanelChrome({
             <Badge
               variant="outline"
               className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
-              title="Live-preview med Next.js i sandbox är inte tillgänglig än — ofta miljö, npm install eller byggfel."
+              title="Live-preview med Next.js i tier-2-runtime/VM är inte tillgänglig än — ofta miljö, npm install eller byggfel."
             >
               Live-preview väntar
             </Badge>
@@ -140,7 +140,7 @@ export function PreviewPanelChrome({
             <Badge
               variant="outline"
               className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Next.js körs i sandbox — motsvarar lokal utveckling."
+              title="Next.js körs i tier-2-preview (VM / legacy sandbox-kontrakt) — motsvarar lokal utveckling."
             >
               Next.js
             </Badge>
@@ -317,8 +317,8 @@ export function PreviewPanelChrome({
           <AlertCircle className="h-4 w-4" />
           <AlertTitle className="text-sm text-rose-100">
             {sandboxBuildError.stage === "sandbox_disabled"
-              ? "Sandbox inte tillgänglig"
-              : `Sandbox / build: ${sandboxBuildError.stage}`}
+              ? "Tier-2-preview inte tillgänglig"
+              : `Tier-2 / build: ${sandboxBuildError.stage}`}
           </AlertTitle>
           <AlertDescription
             className={cn(
@@ -337,7 +337,7 @@ export function PreviewPanelChrome({
             <CircleCheck className="h-4 w-4 text-emerald-400" />
             <AlertTitle className="text-sm text-emerald-100">Production build OK</AlertTitle>
             <AlertDescription className="text-[11px] text-emerald-200/90">
-              <code className="font-mono">npm run build</code> lyckades i sandbox — separat signal från
+              <code className="font-mono">npm run build</code> lyckades i verifierings-VM — separat signal från
               dev-preview (<code className="font-mono">npm run dev</code>).
             </AlertDescription>
           </Alert>

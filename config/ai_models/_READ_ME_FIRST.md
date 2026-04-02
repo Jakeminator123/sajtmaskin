@@ -11,6 +11,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
    - **phase routing** för planner / generator / fixer / verifier / deploy-assistant;
    - **repairPolicies** (deterministiska autofix-pass, maxpass i syntax-fix, manuell repair-route, server verify repair);
    - **promptOrchestration** (hard caps, soft targets och phase-trösklar för första prompten / follow-ups);
+   - **postGenerationPasses** (verifier/polish-budgetar och tidsgränser efter syntax);
    - **preGenerationContracts** (provider-regler och fallback-val för databas/auth/betalning/integrationer);
    - **tokenbudgetar** och **route-timeout**-värden (med min/max som i koden);
    - listor över **tillåtna assist-modeller**;
@@ -34,6 +35,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 - `phaseRouting.defaultByTier` använder sentinel-värdet **`selected_build_model`** för att följa vald byggprofil. Det gör att planner/generator/fixer kan fortsätta följa buildprofilen även om du byter `buildProfiles.defaults.*`.
 - `repairPolicies` styr hur aggressivt systemet försöker laga fel efter generering. Höj varsamt: fler pass ger dyrare och långsammare repair-kedjor.
 - `promptOrchestration` styr **inte** modellen direkt utan när prompten skickas som-is, komprimeras eller går över till tydligare phase-plan-build-polish-läge.
+- `postGenerationPasses` styr **inte** generatorn, utan read-only verifier + eventuell file-polish efter syntaxvalidering.
 - `preGenerationContracts.providerRules` beskriver vilka providers och env-nycklar systemet letar efter när det försöker förstå auth/databas/betalning/integrationer från prompten eller briefen.
 - `routeTimeouts` ligger i manifestet, men Next.js route-filer kräver fortfarande literalvärden för `maxDuration`. Dashboard-vyn ska därför hålla manifest och route-filer i synk när du sparar timeout-värden därifrån.
 - Efter ändring: kör `npm run test` eller `npm run test:ci` (minst manifest-parity + befintliga modelltester).

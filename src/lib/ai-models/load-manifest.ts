@@ -144,6 +144,15 @@ const promptOrchestrationSchema = z.object({
   }),
 });
 
+const postGenerationPassesSchema = z.object({
+  polishMaxOutputTokens: tokenBudgetSchema,
+  polishTimeoutMs: intTimeoutSchema,
+  polishMaxFilesWhenUnscoped: numericEnvSettingSchema,
+  verifierMaxOutputTokens: tokenBudgetSchema,
+  verifierTimeoutMs: intTimeoutSchema,
+  verifierSnippetCharsPerFile: numericEnvSettingSchema,
+});
+
 const contractProviderRuleSchema = z.object({
   kind: z.enum(["database", "auth", "payment", "integration"]),
   provider: z.string(),
@@ -215,6 +224,7 @@ const aiModelsManifestSchema = z.object({
   phaseRouting: phaseRoutingSchema,
   repairPolicies: repairPoliciesSchema,
   promptOrchestration: promptOrchestrationSchema,
+  postGenerationPasses: postGenerationPassesSchema,
   preGenerationContracts: preGenerationContractsConfigSchema,
   tokenBudgets: z.object({
     engineMaxOutputTokens: tokenBudgetSchema,
@@ -239,6 +249,7 @@ export type GenerationPhaseFromManifest = z.infer<typeof generationPhaseSchema>;
 export type PhaseRoutingTierFromManifest = z.infer<typeof phaseRoutingTierSchema>;
 export type RepairPoliciesFromManifest = z.infer<typeof repairPoliciesSchema>;
 export type PromptOrchestrationFromManifest = z.infer<typeof promptOrchestrationSchema>;
+export type PostGenerationPassesFromManifest = z.infer<typeof postGenerationPassesSchema>;
 export type ContractProviderRuleFromManifest = z.infer<typeof contractProviderRuleSchema>;
 export type PreGenerationContractsConfigFromManifest = z.infer<
   typeof preGenerationContractsConfigSchema
@@ -323,6 +334,10 @@ export function getRepairPoliciesFromManifest(): RepairPoliciesFromManifest {
 
 export function getPromptOrchestrationFromManifest(): PromptOrchestrationFromManifest {
   return getAiModelsManifest().promptOrchestration;
+}
+
+export function getPostGenerationPassesFromManifest(): PostGenerationPassesFromManifest {
+  return getAiModelsManifest().postGenerationPasses;
 }
 
 export function getPreGenerationContractsConfigFromManifest(): PreGenerationContractsConfigFromManifest {

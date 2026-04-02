@@ -32,8 +32,8 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
 4. **Scaffoldval i `auto`:** `matchScaffold()` är primär keyword-path; `matchScaffoldWithEmbeddings()` använder scaffold-embeddings bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
 5. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, KB och template-library guidance. Template-library-diagnostik (`embedding`, `hybrid_keyword_blend`, `keyword_fallback`, `empty_catalog`) följer sedan med i `streamMeta.templateLibrarySearch`.
-6. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, parse/merge/preflight och sparar versionen innan sandbox följer upp.
-7. **Saved version** hämtas sedan via chat/version/files-routes; sandbox-start kan komma efter `done`.
+6. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, verifier/polish, parse/merge/preflight och sparar versionen innan tier-2-preview följer upp.
+7. **Saved version** hämtas sedan via chat/version/files-routes; tier-2-start kan komma efter `done` (primärt `preview_host`, med legacy `sandbox`-namn kvar i delar av kontraktet).
 
 Snabba lokala orienteringsfiler för nästa agent:
 
@@ -45,13 +45,13 @@ Snabba lokala orienteringsfiler för nästa agent:
 
 Builder **egen motor** använder SSE på engine-routes — det är **kanon** för chat/generation. Övriga SSE-ytor (admin, observability) är **inte** samma backlog som W3; K-009 är stängd — nya behov = ny planrad (tidigare `own-engine-sse-scope.md` i arkivet).
 
-### Livscykel: `done` och sandbox
+### Livscykel: `done` och tier-2 preview
 
-Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assistant + `files_json`), inte att alla sidoeffekter är klara. **Efter `done`** kan servern fortfarande skicka t.ex. **`sandbox-ready`** eller **`build-error`**, och klienten ska fortsätta lyssna tills sandbox-steget är avslutat eller fel rapporterats. Fält som `sandboxPending` på `done` signalerar att preview i sandbox kan komma strax.
+Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assistant + `files_json`), inte att alla sidoeffekter är klara. **Efter `done`** kan servern fortfarande skicka t.ex. **`sandbox-ready`** eller **`build-error`**, och klienten ska fortsätta lyssna tills tier-2-steget är avslutat eller fel rapporterats. Fält som `sandboxPending` på `done` signalerar att tier-2-preview kan komma strax.
 
 Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/stream/builder-stream-contract.ts) och post-finalize i `generation-stream-post-finalize.ts`.
 
-**Progress efter codegen:** `progress.step` för finalize-pipelinen följer `OwnEnginePostStreamPhaseId` i [`finalize-pipeline-contract.ts`](../../src/lib/gen/stream/finalize-pipeline-contract.ts) (t.ex. `validate_syntax`, `parse_merge_preflight`), inte äldre alias som `validation` / `finalizing`.
+**Progress efter codegen:** `progress.step` för finalize-pipelinen följer `OwnEnginePostStreamPhaseId` i [`finalize-pipeline-contract.ts`](../../src/lib/gen/stream/finalize-pipeline-contract.ts) (t.ex. `validate_syntax`, `verifier`, `polish`, `parse_merge_preflight`), inte äldre alias som `validation` / `finalizing`.
 
 **Integration-SS:** eventet `integration` bär kanoniskt `{ items: BuilderIntegrationItemPayload[] }` (se `builder-stream-contract.ts`); klienten tolererar fortfarande en rå array via `coerceIntegrationSignals`.
 

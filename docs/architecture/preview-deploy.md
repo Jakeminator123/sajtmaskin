@@ -63,7 +63,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `sandbox-preview.ts` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` kan lyfta sandbox från `dev_only` till `dev_then_build` utan att ändra global env-default | `build-spec.ts`, `runtime-url.ts`, `sandbox-preview.ts`, `generation-stream-post-finalize.ts` |
 | Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; sandbox-lifecycle loggar policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `sandbox-lifecycle-telemetry.ts` |
-| Finalize fast/deep path | Lätta follow-ups kan stanna på finalize fast path och hoppa över deep-path-steg som bildmaterialisering + polish | `finalize-version.ts`, `finalize-pipeline-contract.ts` |
+| Finalize fast/deep path | Lätta follow-ups kan stanna på finalize fast path och hoppa över deep-path-steg som bildmaterialisering, verifier och polish | `finalize-version.ts`, `finalize-pipeline-contract.ts` |
 | VM-resume | Session återanvänds **före** `buildCompleteProject` när session matchar | `sandbox-preview.ts` |
 | Scaffold | Pinnade versioner i standard-`package.json` (minimal `^`-drift) | `project-scaffold.ts` |
 | Mall | Git-bas + `writeFiles` + `removeSandboxTemplateLeftovers` | `runtime-url.ts` |

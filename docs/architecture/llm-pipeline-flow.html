@@ -115,6 +115,16 @@
     color: var(--accent-purple);
     opacity: 0.8;
   }
+  .node-meta {
+    font-size: 11px;
+  }
+
+  .legend-title {
+    margin-top: 40px;
+    margin-bottom: 20px;
+    font-size: 20px;
+  }
+
 </style>
 </head>
 <body>
@@ -129,40 +139,42 @@
   <div class="mermaid">
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
 flowchart TD
-    A["🖊️ Användare skriver prompt<br/><span style='font-size:11px'>ChatInterface.tsx</span>"] --> B{"Prompt-verktyg?"}
+    A["🖊️ Användare skriver prompt<br/><span class='node-meta'>ChatInterface.tsx</span>"] --> B{"Prompt-verktyg?"}
 
-    B -->|"Skriv om (polish)"| C["buildPolishSystemPrompt<br/>/api/ai/chat mode=polish<br/><span style='font-size:11px'>promptAssist.ts</span>"]
-    B -->|"Förbättra (rewrite)"| D["buildRewriteSystemPrompt<br/>/api/ai/chat mode=rewrite<br/><span style='font-size:11px'>promptAssist.ts</span>"]
+    B -->|"Skriv om (polish)"| C["buildPolishSystemPrompt<br/>/api/ai/chat mode=polish<br/><span class='node-meta'>promptAssist.ts</span>"]
+    B -->|"Förbättra (rewrite)"| D["buildRewriteSystemPrompt<br/>/api/ai/chat mode=rewrite<br/><span class='node-meta'>promptAssist.ts</span>"]
     B -->|"Direkt"| E["Originalprompt oförändrad"]
 
-    C --> F["Guardrails<br/><span style='font-size:11px'>usePromptAssist.ts</span>"]
+    C --> F["Guardrails<br/><span class='node-meta'>usePromptAssist.ts</span>"]
     D --> F
     F --> E
 
     E --> G{"Deep Brief?"}
-    G -->|"Klient-brief (usePromptAssist)"| H["POST /api/ai/brief<br/>generateSiteBriefObject<br/><span style='font-size:11px'>site-brief-generation.ts</span>"]
-    G -->|"Ingen klient-brief"| I["Server auto-brief?<br/><span style='font-size:11px'>server-auto-brief-policy.ts</span>"]
+    G -->|"Klient-brief (usePromptAssist)"| H["POST /api/ai/brief<br/>generateSiteBriefObject<br/><span class='node-meta'>site-brief-generation.ts</span>"]
+    G -->|"Ingen klient-brief"| I["Server auto-brief?<br/><span class='node-meta'>server-auto-brief-policy.ts</span>"]
 
-    I -->|"Ja"| J["tryGenerateServerAutoBrief<br/>prompt = ORIGINAL message<br/><span style='font-size:11px'>site-brief-generation.ts</span>"]
+    I -->|"Ja"| J["tryGenerateServerAutoBrief<br/>prompt = ORIGINAL message<br/><span class='node-meta'>site-brief-generation.ts</span>"]
     I -->|"Nej (audit/followup/teknisk)"| K["Ingen brief"]
 
     H --> L["Brief-objekt"]
     J --> L
     K --> M
 
-    L --> M["orchestratePromptMessage<br/><span style='font-size:11px'>promptOrchestration.ts<br/>DETERMINISTISK — ingen LLM</span>"]
+    L --> M["orchestratePromptMessage<br/><span class='node-meta'>promptOrchestration.ts<br/>DETERMINISTISK — ingen LLM</span>"]
 
     M -->|"direct"| N["Prompt oförändrad"]
-    M -->|"summarize"| O["summarizeMessage<br/><span style='font-size:11px'>Plockar nyckelrader + URL:er</span>"]
-    M -->|"phase_plan_build_polish"| P["buildPhasedMessage<br/><span style='font-size:11px'>Plan → Build → Polish-instruktion</span>"]
+    M -->|"preserved"| N2["Full handoff (+ ev. orkesteringsnotis)<br/><span class='node-meta'>Sektionssparande över hård cap</span>"]
+    M -->|"summarize"| O["summarizeMessage (nödfallback)<br/><span class='node-meta'>Aggressiv sammandragning</span>"]
+    M -->|"phase_plan_build_polish"| P["buildPhasedMessage<br/><span class='node-meta'>Plan → Build + bevarad brödtext</span>"]
 
     N --> Q
+    N2 --> Q
     O --> Q
     P --> Q
 
-    Q["resolveOrchestrationBase<br/><span style='font-size:11px'>orchestrate.ts</span>"] --> R["Välj scaffold + route plan +<br/>inferera kontrakt → BuildSpec"]
-    R --> S["finalizeOrchestrationPrompts<br/><span style='font-size:11px'>system-prompt.ts</span>"]
-    S --> T["Statisk systemprompt<br/>+ dynamisk kontext<br/><span style='font-size:11px'>config/prompt-static/ +<br/>brief + tema + KB</span>"]
+    Q["resolveOrchestrationBase<br/><span class='node-meta'>orchestrate.ts</span>"] --> R["Välj scaffold + route plan +<br/>inferera kontrakt → BuildSpec"]
+    R --> S["finalizeOrchestrationPrompts<br/><span class='node-meta'>system-prompt.ts</span>"]
+    S --> T["Statisk systemprompt<br/>+ dynamisk kontext<br/><span class='node-meta'>config/prompt-static/ +<br/>brief + tema + KB</span>"]
   </div>
 </div>
 
@@ -173,38 +185,40 @@ flowchart TD
   <div class="mermaid">
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
 flowchart TD
-    T["System prompt +<br/>användarprompt + brief"] --> U["streamText (engine.ts)<br/>HUVUD-LLM<br/><span style='font-size:11px'>Modell via phaseRouting<br/>generator-fas</span>"]
+    T["System prompt +<br/>användarprompt + brief"] --> U["streamText (engine.ts)<br/>HUVUD-LLM<br/><span class='node-meta'>Modell via phaseRouting<br/>generator-fas</span>"]
 
     U --> V["Ackumulerad kod"]
-    V --> W["runAutoFix<br/><span style='font-size:11px'>pipeline.ts — loopas<br/>DETERMINISTIC_AUTOFIX_MAX_PASSES<br/>gånger (manifest)</span>"]
+    V --> W["runAutoFix<br/><span class='node-meta'>pipeline.ts — loopas<br/>DETERMINISTIC_AUTOFIX_MAX_PASSES<br/>gånger (manifest)</span>"]
 
-    W --> X["validateAndFix<br/><span style='font-size:11px'>validate-and-fix.ts<br/>esbuild syntax check</span>"]
+    W --> X["validateAndFix<br/><span class='node-meta'>validate-and-fix.ts<br/>esbuild syntax check</span>"]
 
     X -->|"Syntax OK"| Y["Syntaxvaliderad kod"]
-    X -->|"Syntax-fel"| Z["runLlmFixer<br/><span style='font-size:11px'>llm-fixer.ts<br/>SYNTAX_FIX_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
+    X -->|"Syntax-fel"| Z["runLlmFixer<br/><span class='node-meta'>llm-fixer.ts<br/>SYNTAX_FIX_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
     Z --> Y
 
-    Y --> AA{"SAJTMASKIN_POLISH_PASS=1?"}
-    AA -->|"Ja"| AB["runPolishPass<br/><span style='font-size:11px'>polish-pass.ts<br/>Kodrefinering, INTE prompt-polish<br/>Feature flag</span>"]
+    Y --> AV["runVerifierPass (read-only)<br/><span class='node-meta'>verifier-pass.ts · polishCandidates</span>"]
+
+    AV --> AA{"SAJTMASKIN_POLISH_PASS=1?"}
+    AA -->|"Ja"| AB["runPolishPass<br/><span class='node-meta'>polish-pass.ts · manifest budgets<br/>målfiler från verifier</span>"]
     AA -->|"Nej"| AC["Hoppa polish"]
 
     AB --> AD["Spara version i DB +<br/>skapa preview-filer"]
     AC --> AD
 
-    AD --> AE["Deploy till sandbox-VM<br/><span style='font-size:11px'>npm install && npm run dev<br/>→ Tier 2 preview-URL → iframe</span>"]
+    AD --> AE["Deploy till tier-2 runtime<br/><span class='node-meta'>primärt preview_host / Fly VM<br/>→ Tier 2 preview-URL → iframe</span>"]
 
-    AE --> AF["Bakgrundsverifiering<br/><span style='font-size:11px'>server-verify.ts<br/>runQualityGateChecks<br/>(typecheck + next build)</span>"]
+    AE --> AF["Bakgrundsverifiering<br/><span class='node-meta'>server-verify.ts<br/>Vercel Sandbox quality-gate<br/>(typecheck + next build)</span>"]
 
     AF -->|"✅ Alla checks OK"| AG["Version promoverad"]
     AF -->|"❌ Checks misslyckas"| AH["tryServerRepairLoop"]
 
-    AH --> AI["runAutoFix (deterministisk)"]
-    AI --> AJ{"Fixat?"}
+    AH --> AI["runAutoFix + syntax +<br/>Vercel gate repass"]
+    AI --> AJ{"Gate OK efter fix?"}
     AJ -->|"Ja"| AG
-    AJ -->|"Nej"| AK["runLlmFixer<br/><span style='font-size:11px'>SERVER_REPAIR_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
-    AK --> AL{"Fixat?"}
+    AJ -->|"Nej"| AK["runLlmFixer<br/><span class='node-meta'>SERVER_REPAIR_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
+    AK --> AL{"Syntax + gate OK?"}
     AL -->|"Ja"| AG
-    AL -->|"Nej"| AM["Version markerad som failed<br/><span style='font-size:11px'>failVersionVerification</span>"]
+    AL -->|"Nej"| AM["Version markerad som failed<br/><span class='node-meta'>failVersionVerification</span>"]
   </div>
 </div>
 
@@ -215,13 +229,13 @@ flowchart TD
   <div class="mermaid">
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
 flowchart TD
-    R1["POST /api/engine/chats/[chatId]/repair<br/><span style='font-size:11px'>repair/route.ts</span>"] --> R2["Hämta senaste version +<br/>syntaxvalidering"]
+    R1["POST /api/engine/chats/[chatId]/repair<br/><span class='node-meta'>repair/route.ts</span>"] --> R2["Hämta senaste version +<br/>syntaxvalidering"]
 
     R2 --> R3["runAutoFix (deterministisk)"]
     R3 --> R4{"Fel kvar?"}
 
     R4 -->|"Inga fel"| R5["✅ Reparerad (deterministisk)"]
-    R4 -->|"Ja"| R6["LLM repair loop<br/><span style='font-size:11px'>MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
+    R4 -->|"Ja"| R6["LLM repair loop<br/><span class='node-meta'>MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
 
     R6 --> R7["runLlmFixer → runAutoFix → validate"]
     R7 --> R8{"Syntax OK + inga gate-failures?"}
@@ -239,25 +253,25 @@ flowchart TD
   <div class="mermaid">
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
 flowchart LR
-    C1["config/dashboard/app.py<br/><span style='font-size:11px'>Streamlit GUI</span>"] --> C2["config/ai_models/manifest.json<br/><span style='font-size:11px'>Central konfiguration</span>"]
+    C1["config/dashboard/app.py<br/><span class='node-meta'>Streamlit GUI</span>"] --> C2["config/ai_models/manifest.json<br/><span class='node-meta'>Central konfiguration</span>"]
 
-    C2 --> C3["load-manifest.ts<br/><span style='font-size:11px'>Zod-validering + getters</span>"]
+    C2 --> C3["load-manifest.ts<br/><span class='node-meta'>Zod-validering + getters</span>"]
 
-    C3 --> C4["defaults.ts<br/><span style='font-size:11px'>Runtime-konstanter</span>"]
+    C3 --> C4["defaults.ts<br/><span class='node-meta'>Runtime-konstanter</span>"]
 
-    C2 -.->|"Styr"| D1["buildProfiles<br/><span style='font-size:11px'>fast/pro/max/codex/anthropic</span>"]
-    C2 -.->|"Styr"| D2["phaseRouting<br/><span style='font-size:11px'>planner/generator/fixer/verifier</span>"]
-    C2 -.->|"Styr"| D3["repairPolicies<br/><span style='font-size:11px'>autofixPasses / syntaxFix / serverRepair</span>"]
-    C2 -.->|"Styr"| D4["tokenBudgets<br/><span style='font-size:11px'>engine / autofix / assist max tokens</span>"]
-    C2 -.->|"Styr"| D5["promptOrchestration<br/><span style='font-size:11px'>Hard caps / soft targets / phase thresholds</span>"]
-    C2 -.->|"Styr"| D6["promptAssist<br/><span style='font-size:11px'>polish / rewrite / brief modeller</span>"]
-    C2 -.->|"Styr"| D7["preGenerationContracts<br/><span style='font-size:11px'>DB / auth / payment provider-regler</span>"]
+    C2 -.->|"Styr"| D1["buildProfiles<br/><span class='node-meta'>fast/pro/max/codex/anthropic</span>"]
+    C2 -.->|"Styr"| D2["phaseRouting<br/><span class='node-meta'>planner/generator/fixer/verifier</span>"]
+    C2 -.->|"Styr"| D3["repairPolicies<br/><span class='node-meta'>autofixPasses / syntaxFix / serverRepair</span>"]
+    C2 -.->|"Styr"| D4["tokenBudgets<br/><span class='node-meta'>engine / autofix / assist max tokens</span>"]
+    C2 -.->|"Styr"| D5["promptOrchestration<br/><span class='node-meta'>Hard caps / soft targets / phase thresholds</span>"]
+    C2 -.->|"Styr"| D6["promptAssist<br/><span class='node-meta'>polish / rewrite / brief modeller</span>"]
+    C2 -.->|"Styr"| D7["preGenerationContracts<br/><span class='node-meta'>DB / auth / payment provider-regler</span>"]
 
-    C5["config/prompt-static/<br/><span style='font-size:11px'>Statiska promptfragment</span>"] --> C6["config/codegen-static-prompt.json<br/><span style='font-size:11px'>Ordning för promptfragment</span>"]
+    C5["config/prompt-static/<br/><span class='node-meta'>Statiska promptfragment</span>"] --> C6["config/codegen-static-prompt.json<br/><span class='node-meta'>Ordning för promptfragment</span>"]
   </div>
 </div>
 
-<h2 style="margin-top: 40px; margin-bottom: 20px; font-size: 20px;">Legender — nyckelfiler</h2>
+<h2 class="legend-title">Legender — nyckelfiler</h2>
 
 <div class="legend">
   <div class="legend-item blue">

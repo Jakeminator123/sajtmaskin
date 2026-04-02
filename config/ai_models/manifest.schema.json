@@ -3,7 +3,7 @@
   "$id": "https://sajtmaskin.local/config/ai_models/manifest.schema.json",
   "title": "Sajtmaskin AI models manifest",
   "type": "object",
-  "required": ["schemaVersion", "buildProfiles", "promptAssist", "briefing", "phaseRouting", "repairPolicies", "promptOrchestration", "preGenerationContracts", "tokenBudgets", "routeTimeouts", "workloads"],
+  "required": ["schemaVersion", "buildProfiles", "promptAssist", "briefing", "phaseRouting", "repairPolicies", "promptOrchestration", "postGenerationPasses", "preGenerationContracts", "tokenBudgets", "routeTimeouts", "workloads"],
   "additionalProperties": true,
   "properties": {
     "schemaVersion": { "type": "integer", "minimum": 1 },
@@ -164,6 +164,26 @@
             "auditChars": { "$ref": "#/$defs/numericEnvSetting" }
           }
         }
+      }
+    },
+    "postGenerationPasses": {
+      "type": "object",
+      "required": [
+        "polishMaxOutputTokens",
+        "polishTimeoutMs",
+        "polishMaxFilesWhenUnscoped",
+        "verifierMaxOutputTokens",
+        "verifierTimeoutMs",
+        "verifierSnippetCharsPerFile"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "polishMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" },
+        "polishTimeoutMs": { "$ref": "#/$defs/numericEnvSetting" },
+        "polishMaxFilesWhenUnscoped": { "$ref": "#/$defs/numericEnvSetting" },
+        "verifierMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" },
+        "verifierTimeoutMs": { "$ref": "#/$defs/numericEnvSetting" },
+        "verifierSnippetCharsPerFile": { "$ref": "#/$defs/numericEnvSetting" }
       }
     },
     "preGenerationContracts": {
