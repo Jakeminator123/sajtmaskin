@@ -15,6 +15,8 @@ import {
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
 import { runPolishPass, isPolishPassEnabled } from "@/lib/gen/polish-pass";
+import { runVerifierPass } from "@/lib/gen/verifier-pass";
+import { resolvePostGenerationPolishConfig } from "@/lib/gen/post-generation-config";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -201,32 +203,6 @@ async function runFinalizeDeepPath(params: {
     onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
   }
 
-  if (finalizePath.runDeepPath && isPolishPassEnabled() && repairPassIndex === 0) {
-    onProgress?.("polish", { phase: "start" });
-    try {
-      const polishResult = await runPolishPass(contentForVersion, { model });
-      if (polishResult.applied) {
-        contentForVersion = polishResult.polishedContent;
-        devLogAppend("in-progress", {
-          type: "polish-pass",
-          chatId,
-          filesChanged: polishResult.filesChanged,
-          applied: true,
-        });
-      }
-      onProgress?.("polish", {
-        phase: "done",
-        applied: polishResult.applied,
-        filesChanged: polishResult.filesChanged,
-      });
-    } catch (polishErr) {
-      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
-      onProgress?.("polish", { phase: "error" });
-    }
-  } else if (!finalizePath.runDeepPath) {
-    onProgress?.("polish", { phase: "skipped", reason: finalizePath.reason });
-  }
-
   return contentForVersion;
 }
 
@@ -241,6 +217,8 @@ async function runFinalizeFastPath(params: {
   previousFiles?: CodeFile[];
   onProgress?: FinalizeProgressCallback;
   contentForVersion: string;
+  finalizePath: FinalizePathPolicy;
+  repairPassIndex: number;
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -252,6 +230,8 @@ async function runFinalizeFastPath(params: {
     routePlan,
     previousFiles,
     onProgress,
+    finalizePath,
+    repairPassIndex,
   } = params;
   let contentForVersion = params.contentForVersion;
 
@@ -297,6 +277,72 @@ async function runFinalizeFastPath(params: {
     previousFiles,
     stage: "after_validation",
   });
+
+  let verifierPolishCandidates: string[] = [];
+  const verifierTier = resolvedTier ?? "pro";
+  if (finalizePath.runDeepPath && repairPassIndex === 0) {
+    onProgress?.("verifier", { phase: "start" });
+    try {
+      const findings = await runVerifierPass(contentForVersion, { resolvedTier: verifierTier });
+      verifierPolishCandidates = findings.polishCandidates ?? [];
+      devLogAppend("in-progress", {
+        type: "verifier-pass",
+        chatId,
+        blocking: findings.blocking.length,
+        quality: findings.quality.length,
+        polishCandidates: verifierPolishCandidates.length,
+      });
+      onProgress?.("verifier", {
+        phase: "done",
+        blockingCount: findings.blocking.length,
+        qualityCount: findings.quality.length,
+        polishCandidateCount: verifierPolishCandidates.length,
+      });
+    } catch (verifierErr) {
+      console.warn("[verifier-pass] Non-fatal error, skipping:", verifierErr);
+      onProgress?.("verifier", { phase: "error" });
+    }
+  } else {
+    onProgress?.("verifier", {
+      phase: "skipped",
+      reason: finalizePath.runDeepPath ? "repair_pass" : finalizePath.reason,
+    });
+  }
+
+  if (finalizePath.runDeepPath && isPolishPassEnabled() && repairPassIndex === 0) {
+    onProgress?.("polish", { phase: "start" });
+    try {
+      const polishCfg = resolvePostGenerationPolishConfig();
+      const polishResult = await runPolishPass(contentForVersion, {
+        model,
+        polishTargetPaths: verifierPolishCandidates.length > 0 ? verifierPolishCandidates : undefined,
+        maxFilesWhenUnscoped: polishCfg.maxFilesWhenUnscoped,
+        maxOutputTokens: polishCfg.maxOutputTokens,
+        timeoutMs: polishCfg.timeoutMs,
+      });
+      if (polishResult.applied) {
+        contentForVersion = polishResult.polishedContent;
+        devLogAppend("in-progress", {
+          type: "polish-pass",
+          chatId,
+          filesChanged: polishResult.filesChanged,
+          applied: true,
+        });
+      }
+      onProgress?.("polish", {
+        phase: "done",
+        applied: polishResult.applied,
+        filesChanged: polishResult.filesChanged,
+      });
+    } catch (polishErr) {
+      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
+      onProgress?.("polish", { phase: "error" });
+    }
+  } else if (!finalizePath.runDeepPath) {
+    onProgress?.("polish", { phase: "skipped", reason: finalizePath.reason });
+  } else {
+    onProgress?.("polish", { phase: "skipped", reason: "repair_pass_or_disabled" });
+  }
 
   onProgress?.("parse_merge_preflight", { phase: "start" });
 
@@ -485,6 +531,8 @@ export async function finalizeAndSaveVersion(
     previousFiles,
     onProgress,
     contentForVersion,
+    finalizePath,
+    repairPassIndex,
   });
   contentForVersion = fastPathContent;
 

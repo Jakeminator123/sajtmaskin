@@ -215,5 +215,3 @@ export function getAgentTools() {
     emitPlanArtifact,
   };
 }
-
-export type AgentToolName = keyof ReturnType<typeof getAgentTools>;

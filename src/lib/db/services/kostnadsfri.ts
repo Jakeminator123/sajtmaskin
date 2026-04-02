@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { kostnadsfriPages } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
@@ -49,18 +49,3 @@ export async function getKostnadsfriPageBySlug(
   return rows[0] ?? null;
 }
 
-export async function markKostnadsfriConsumed(slug: string): Promise<void> {
-  assertDbConfigured();
-  await db
-    .update(kostnadsfriPages)
-    .set({ consumed_at: new Date(), status: "consumed" })
-    .where(eq(kostnadsfriPages.slug, slug));
-}
-
-export async function getAllKostnadsfriPages(): Promise<KostnadsfriPage[]> {
-  assertDbConfigured();
-  return db
-    .select()
-    .from(kostnadsfriPages)
-    .orderBy(desc(kostnadsfriPages.created_at));
-}

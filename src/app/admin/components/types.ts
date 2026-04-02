@@ -100,30 +100,6 @@ export interface VercelEnvVar {
   type?: string | null;
 }
 
-export interface PromptLog {
-  id: string;
-  event: string;
-  userId: string | null;
-  sessionId: string | null;
-  appProjectId: string | null;
-  v0ProjectId: string | null;
-  chatId: string | null;
-  promptOriginal: string | null;
-  promptFormatted: string | null;
-  systemPrompt: string | null;
-  promptAssistModel: string | null;
-  promptAssistDeep: boolean | null;
-  promptAssistMode: string | null;
-  buildIntent: string | null;
-  buildMethod: string | null;
-  modelTier: string | null;
-  imageGenerations: boolean | null;
-  thinking: boolean | null;
-  attachmentsCount: number | null;
-  meta: Record<string, unknown> | null;
-  createdAt: string | null;
-}
-
 export interface FrontlogEntry {
   ts: string;
   target: string;

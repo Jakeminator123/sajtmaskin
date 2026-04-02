@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  isGenerationLogEnabled,
+  writeGenerationLogEntry,
+} from "./generation-log-writer";
 
 type DevLogTarget = "in-progress" | "latest";
 type DevLogEntry = Record<string, unknown>;
@@ -67,6 +71,10 @@ let latestSlug: string | null = null;
 function isDevLoggingEnabled(): boolean {
   if (process.env.SAJTMASKIN_DEV_LOG === "false") return false;
   return process.env.NODE_ENV !== "production";
+}
+
+function isAnyLocalLogEnabled(): boolean {
+  return isDevLoggingEnabled() || isGenerationLogEnabled();
 }
 
 function resolveDocumentWordLimit(): number {
@@ -396,26 +404,42 @@ function clipByWords(content: string, maxWords: number): string {
 
 function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
   try {
-    ensureRootLogFiles();
     const enriched = enrichEntryWithSlug(entry);
+    const timestamp = new Date().toISOString();
     mirrorSummaryToStdout(target, enriched);
-    const shortSanitized = sanitizeValue(enriched, ROLLING_SANITIZE_OPTIONS);
-    const line = `${new Date().toISOString()} [${target}] ${safeStringify(shortSanitized)}\n`;
-    const current = fs.existsSync(ROOT_LOG_PATH) ? fs.readFileSync(ROOT_LOG_PATH, "utf8") : "";
-    const next = `${current}${line}`;
-    const clipped = next.length > MAX_LOG_CHARS ? next.slice(-MAX_LOG_CHARS) : next;
-    fs.writeFileSync(ROOT_LOG_PATH, clipped, "utf8");
-
     const docSanitized = sanitizeValue(enriched, DOCUMENT_SANITIZE_OPTIONS);
     const slugPart = readString(enriched, "slug");
-    const docHeader = `${new Date().toISOString()} [${target}]${slugPart ? ` [slug:${slugPart}]` : ""}`;
-    const docBlock = `${docHeader}\n${safeStringify(docSanitized, true)}\n\n`;
-    const docCurrent = fs.existsSync(ROOT_DOC_LOG_PATH)
-      ? fs.readFileSync(ROOT_DOC_LOG_PATH, "utf8")
-      : "";
-    const docNext = `${docCurrent}${docBlock}`;
-    const docClipped = clipByWords(docNext, resolveDocumentWordLimit());
-    fs.writeFileSync(ROOT_DOC_LOG_PATH, docClipped, "utf8");
+    const summary = buildConsoleSummary(enriched, target);
+
+    if (isDevLoggingEnabled()) {
+      ensureRootLogFiles();
+      const shortSanitized = sanitizeValue(enriched, ROLLING_SANITIZE_OPTIONS);
+      const line = `${timestamp} [${target}] ${safeStringify(shortSanitized)}\n`;
+      const current = fs.existsSync(ROOT_LOG_PATH) ? fs.readFileSync(ROOT_LOG_PATH, "utf8") : "";
+      const next = `${current}${line}`;
+      const clipped = next.length > MAX_LOG_CHARS ? next.slice(-MAX_LOG_CHARS) : next;
+      fs.writeFileSync(ROOT_LOG_PATH, clipped, "utf8");
+
+      const docHeader = `${timestamp} [${target}]${slugPart ? ` [slug:${slugPart}]` : ""}`;
+      const docBlock = `${docHeader}\n${safeStringify(docSanitized, true)}\n\n`;
+      const docCurrent = fs.existsSync(ROOT_DOC_LOG_PATH)
+        ? fs.readFileSync(ROOT_DOC_LOG_PATH, "utf8")
+        : "";
+      const docNext = `${docCurrent}${docBlock}`;
+      const docClipped = clipByWords(docNext, resolveDocumentWordLimit());
+      fs.writeFileSync(ROOT_DOC_LOG_PATH, docClipped, "utf8");
+    }
+
+    writeGenerationLogEntry({
+      target,
+      ts: timestamp,
+      slug: slugPart,
+      summary,
+      data:
+        docSanitized && typeof docSanitized === "object" && !Array.isArray(docSanitized)
+          ? (docSanitized as Record<string, unknown>)
+          : { value: docSanitized },
+    });
   } catch {
     // Best-effort. Never break API routes due to dev logging.
   }
@@ -423,6 +447,31 @@ function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
 
 if (isDevLoggingEnabled()) {
   ensureRootLogFiles();
+}
+
+export function devLogStartGeneration(params: {
+  message: string;
+  modelId?: string;
+  thinking?: boolean;
+  imageGenerations?: boolean;
+  projectId?: string;
+  slug?: string;
+  chatId?: string | null;
+  generationKind?: "create" | "followup" | "plan";
+}): void {
+  if (!isAnyLocalLogEnabled()) return;
+
+  appendRollingLine("in-progress", {
+    type: "site.start",
+    message: params.message,
+    modelId: params.modelId ?? null,
+    thinking: typeof params.thinking === "boolean" ? params.thinking : null,
+    imageGenerations: typeof params.imageGenerations === "boolean" ? params.imageGenerations : null,
+    projectId: params.projectId ?? null,
+    slug: params.slug ?? null,
+    chatId: params.chatId ?? null,
+    generationKind: params.generationKind ?? "create",
+  });
 }
 
 export function devLogStartNewSite(params: {
@@ -433,25 +482,18 @@ export function devLogStartNewSite(params: {
   projectId?: string;
   slug?: string;
 }): void {
-  if (!isDevLoggingEnabled()) return;
-
-  appendRollingLine("in-progress", {
-    type: "site.start",
-    message: params.message,
-    modelId: params.modelId ?? null,
-    thinking: typeof params.thinking === "boolean" ? params.thinking : null,
-    imageGenerations: typeof params.imageGenerations === "boolean" ? params.imageGenerations : null,
-    projectId: params.projectId ?? null,
-    slug: params.slug ?? null,
+  devLogStartGeneration({
+    ...params,
+    generationKind: "create",
   });
 }
 
 export function devLogAppend(target: DevLogTarget, entry: DevLogEntry): void {
-  if (!isDevLoggingEnabled()) return;
+  if (!isAnyLocalLogEnabled()) return;
   appendRollingLine(target, entry);
 }
 
 export function devLogFinalizeSite(): void {
-  if (!isDevLoggingEnabled()) return;
+  if (!isAnyLocalLogEnabled()) return;
   appendRollingLine("latest", { type: "site.finalized" });
 }

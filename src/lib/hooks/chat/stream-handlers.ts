@@ -196,6 +196,26 @@ export async function handleSseStream(
       }
       if (phase === "error") return ["Autofix misslyckades. Fortsätter med rått innehåll."];
     }
+    if (step === "verifier") {
+      if (phase === "start") {
+        return ["Verifiering: läser av projektet efter syntax (ingen kodändring i detta steg)."];
+      }
+      if (phase === "done") {
+        const bc =
+          typeof payload.blockingCount === "number" && Number.isFinite(payload.blockingCount)
+            ? payload.blockingCount
+            : null;
+        const pc =
+          typeof payload.polishCandidateCount === "number" && Number.isFinite(payload.polishCandidateCount)
+            ? payload.polishCandidateCount
+            : null;
+        return [
+          `Verifiering klar.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${pc !== null ? ` Polish-kandidater: ${pc}.` : ""}`,
+        ];
+      }
+      if (phase === "error") return ["Verifiering misslyckades; polish körs utan målfil-lista."];
+      if (phase === "skipped") return ["Verifiering hoppades över."];
+    }
     if (step === "polish") {
       if (phase === "start") {
         return ["Polish: andra LLM-passet förbättrar texter och tar bort platshållare."];
@@ -264,14 +284,14 @@ export async function handleSseStream(
     }
     if (step === "sandbox") {
       if (phase === "starting") {
-        return ["Startar sandbox-preview (install och dev-server)…"];
+        return ["Startar tier-2-preview (VM / legacy sandbox-kontrakt)…"];
       }
       if (phase === "build-verified") {
-        return ["Production build (npm run build) lyckades i sandbox — separat från dev-preview."];
+        return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
       }
       if (phase === "build-failed") {
         return [
-          "Production build misslyckades i sandbox. Dev-server-preview kan ändå vara användbar.",
+          "Production build misslyckades i verifierings-VM. Dev-server-preview kan ändå vara användbar.",
         ];
       }
     }
@@ -358,7 +378,8 @@ export async function handleSseStream(
             const promptStrategy =
               meta.promptStrategy === "direct" ||
               meta.promptStrategy === "summarize" ||
-              meta.promptStrategy === "phase_plan_build_polish"
+              meta.promptStrategy === "phase_plan_build_polish" ||
+              meta.promptStrategy === "preserved"
                 ? meta.promptStrategy
                 : null;
             const promptType =

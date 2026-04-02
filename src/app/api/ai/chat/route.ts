@@ -113,8 +113,11 @@ export async function POST(req: Request) {
         );
       }
 
-      debugLog("AI", "AI chat request received", {
+      debugLog("AI", "Prompt-assist HTTP request received (/api/ai/chat)", {
         provider: logProvider,
+        transport: "direct_provider_api",
+        sdk: "ai",
+        requestStage: "http_request",
         model: normalizedModel,
         messages: messages.length,
         temperature: typeof temperature === "number" ? temperature : null,
@@ -153,7 +156,11 @@ export async function POST(req: Request) {
           );
         }
 
-        debugLog("AI", "OpenAI prompt assist (direct API)", {
+        debugLog("AI", "Prompt-assist model call started (direct provider)", {
+          provider: "openai",
+          transport: "direct_provider_api",
+          sdk: "ai",
+          requestStage: "model_call",
           model: normalizedModel,
         });
 
@@ -208,6 +215,13 @@ export async function POST(req: Request) {
 
         const anthropic = getAnthropicProvider(apiKey);
         const anthropicModel = resolveAnthropicModelId(normalizedModel);
+        debugLog("AI", "Prompt-assist model call started (direct provider)", {
+          provider: "anthropic",
+          transport: "direct_provider_api",
+          sdk: "ai",
+          requestStage: "model_call",
+          model: normalizedModel,
+        });
         const result = streamText({
           model: anthropic(anthropicModel),
           messages,

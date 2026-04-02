@@ -248,6 +248,7 @@ function V0TemplateCard({ template, disabled, buildIntent }: { template: Templat
   const [isCreating, setIsCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const imageUrl = getTemplateImageUrl(template);
+  const useUnoptimizedPreview = imageUrl.startsWith("https://v0.app/chat/api/og/");
   const type = useParams().type as string;
 
   const handlePreviewClick = (e: React.MouseEvent) => {

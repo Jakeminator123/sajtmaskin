@@ -32,6 +32,10 @@ export type SandboxLifecycleTelemetryEvent =
       outcome: "resumed" | "recreated";
       previewPolicy?: string | null;
       verificationPolicy?: string | null;
+      /** Tier-2 runtime that served this outcome (`preview_host` vs Vercel Sandbox). */
+      tier2Provider?: "vercel_sandbox" | "preview_host";
+      /** Set when Vercel Sandbox ran after `preview_host` failed (failover). */
+      failoverFrom?: "preview_host";
     }
   | {
       kind: "sandbox_preview_ready";
@@ -56,6 +60,9 @@ export type SandboxLifecycleTelemetryEvent =
       previewPolicy?: string | null;
       verificationPolicy?: string | null;
       msSinceEngineStart: number;
+      tier2Provider?: "vercel_sandbox" | "preview_host";
+      /** True when another tier-2 backend will be attempted after this failure. */
+      willFailover?: boolean;
     }
   | {
       kind: "sandbox_url_resync";

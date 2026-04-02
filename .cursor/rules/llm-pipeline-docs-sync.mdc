@@ -1,0 +1,37 @@
+---
+description: Håll LLM-pipeline-docs och diagram synkade vid kodändringar
+globs:
+  - src/lib/gen/autofix/**
+  - src/lib/gen/autofix/rules/**
+  - src/lib/gen/stream/finalize-version.ts
+  - src/lib/gen/server-verify.ts
+  - src/lib/gen/autofix/llm-fixer.ts
+  - src/lib/gen/autofix/fixer-prompt.ts
+  - src/lib/gen/autofix/validate-and-fix.ts
+  - src/app/api/engine/chats/*/repair/**
+  - src/lib/gen/verifier-pass.ts
+  - src/lib/gen/polish-pass.ts
+  - config/ai_models/manifest.json
+---
+
+# LLM-pipeline docs sync
+
+När du ändrar filer i autofix-pipelinen, repair-kedjan, fixer-prompten, verifier/polish, manifest-konfigurationen eller finalize-flödet:
+
+## Alltid uppdatera (i samma commit)
+
+1. **`docs/architecture/builder-generation.md`** — pipeline-steglistan (sektionen "Fixer order") och relaterade beskrivningar.
+2. **`docs/architecture/llm-pipeline-flow.html`** — Mermaid-diagrammet. Lägg till/ta bort noder och pilar som matchar den nya verkligheten. Kontrollera legenden.
+3. **`src/lib/gen/autofix/pipeline.ts`** — den inledande JSDoc-kommentaren som listar fixer-ordning (steg 1-8+).
+
+## Uppdatera vid behov
+
+- **`docs/architecture/preview-deploy.md`** — om ändringen påverkar preview-kedjan eller tier-2-flödet.
+- **`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`** — om ändringen stänger eller öppnar ett spår.
+- **`config/dashboard/domain-map.json`** — om nya `codeReaders` eller `canonicalPaths` tillkommer.
+
+## Principer
+
+- Diagram och docs ska avspegla **faktisk kod**, inte ambition.
+- Använd samma terminologi som `.cursor/rules/terminology.mdc`.
+- Ändra aldrig docs utan att ha verifierat mot koden att beskrivningen stämmer.

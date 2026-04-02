@@ -86,7 +86,7 @@ function checkTagMatching(code: string): string[] {
   const openCounts = new Map<string, number>();
   const closeCounts = new Map<string, number>();
 
-  const codeWithoutSelfClosing = code.replace(/<([A-Z]\w*)\s[^>]*\/>/g, "");
+  const codeWithoutSelfClosing = code.replace(/<([A-Z]\w*)(?:\s[^>]*)?\/>/g, "");
 
   JSX_OPEN_TAG_RE.lastIndex = 0;
   for (const m of codeWithoutSelfClosing.matchAll(JSX_OPEN_TAG_RE)) {

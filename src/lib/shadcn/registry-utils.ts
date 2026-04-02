@@ -85,15 +85,6 @@ export function buildShadcnDocsUrl(
   return `${REGISTRY_BASE_URL}/docs/components${radixPrefix}/${componentName}`;
 }
 
-export function buildShadcnPreviewImageUrl(
-  blockName: string,
-  theme: "light" | "dark",
-  style?: string,
-): string {
-  const previewStyle = resolveShadcnPreviewStyle(style);
-  return `${REGISTRY_BASE_URL}/r/styles/${previewStyle}/${blockName}-${theme}.png`;
-}
-
 export function buildRegistryMarkdownPreview(
   item: ShadcnRegistryItem,
   options: { style?: string; maxLines?: number } = {},

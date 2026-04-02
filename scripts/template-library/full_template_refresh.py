@@ -10,7 +10,11 @@ Purpose:
 5. Optionally run a DB health check and/or TypeScript typecheck
 
 Default source of truth for the scrape step is an external folder:
-  ../vercel-scrape-fresh
+  ../sajtmaskin-template-cache
+
+Default scrape behavior is broad research intake:
+  --legacy-wide-use-cases
+  --per-category=999
 
 If both `summary-cleaned.json` and `summary.json` exist in the scrape output,
 the cleaned summary is used as canonical import input.
@@ -96,7 +100,7 @@ def prompt_float(label: str, default: float) -> float:
 
 
 def parse_args() -> argparse.Namespace:
-    default_scrape_root = (REPO_ROOT.parent / "vercel-scrape-fresh").resolve()
+    default_scrape_root = (REPO_ROOT.parent / "sajtmaskin-template-cache").resolve()
     parser = argparse.ArgumentParser(
         description="Scrape, reset, and rebuild the full external-template pipeline.",
     )
@@ -108,7 +112,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scrape-output",
         default=str(default_scrape_root),
-        help="External scrape output directory (default: ../vercel-scrape-fresh).",
+        help="External scrape output directory (default: ../sajtmaskin-template-cache).",
     )
     parser.add_argument(
         "--skip-scrape",
@@ -152,14 +156,26 @@ def parse_args() -> argparse.Namespace:
     )
 
     # Pass-through options to the Python scraper.
-    parser.add_argument("--per-category", type=int, default=6, help="Max templates per category for the scrape step.")
+    parser.add_argument(
+        "--per-category",
+        type=int,
+        default=999,
+        help="Max templates per category for the scrape step (default: broad research intake).",
+    )
     parser.add_argument("--delay", type=float, default=0.4, help="Pause between scraper HTTP requests.")
     parser.add_argument("--skip-download", action="store_true", help="Pass --skip-download to the scraper.")
     parser.add_argument("--extended-scrape", action="store_true", help="Pass --extended-scrape to the scraper.")
     parser.add_argument(
         "--legacy-wide-use-cases",
         action="store_true",
-        help="Pass --legacy-wide-use-cases to the scraper.",
+        default=True,
+        help="Pass --legacy-wide-use-cases to the scraper (enabled by default for broad research intake).",
+    )
+    parser.add_argument(
+        "--core-use-cases",
+        dest="legacy_wide_use_cases",
+        action="store_false",
+        help="Use the narrower core category list instead of the broad legacy-wide intake.",
     )
     parser.add_argument(
         "--loose-framework-match",
@@ -477,6 +493,11 @@ def main() -> int:
     scrape_output = Path(args.scrape_output).expanduser().resolve()
 
     try:
+        scrub_generated_artifacts(
+            keep_repo_cache=args.keep_repo_cache,
+            dry_run=args.dry_run,
+        )
+
         if not args.skip_scrape:
             scrape_external_templates(args, scrape_output)
         else:
@@ -484,10 +505,6 @@ def main() -> int:
             print(f"Reusing existing scrape output: {scrape_output}")
 
         summary_file = find_summary_file(scrape_output)
-        scrub_generated_artifacts(
-            keep_repo_cache=args.keep_repo_cache,
-            dry_run=args.dry_run,
-        )
         import_canonical_summary(summary_file, dry_run=args.dry_run)
         hydrate_repo_cache(max_repos=args.max_repos, dry_run=args.dry_run)
         rebuild_template_artifacts(dry_run=args.dry_run)

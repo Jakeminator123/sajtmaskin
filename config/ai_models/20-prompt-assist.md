@@ -8,9 +8,7 @@ Prompt assist använder **`provider/model`**-format, t.ex.:
 - `anthropic/claude-sonnet-4.6`
 - `anthropic-direct/claude-opus-4-6` (direktlista med API-format i suffix)
 
-**v0 Model API** (`v0-1.5-md` / `lg`) används **inte** för prompt assist — bara OpenAI/Anthropic direkt.
-
-Tillåtna värden är hårdkodade i [`src/lib/builder/promptAssist.ts`](../../src/lib/builder/promptAssist.ts) **och** dupliceras i **`manifest.json` → `promptAssist.allowed`** för dokumentation och parity-test (`v0Models` är tom).
+Tillåtna värden är hårdkodade i [`src/lib/builder/promptAssist.ts`](../../src/lib/builder/promptAssist.ts) **och** dupliceras i **`manifest.json` → `promptAssist.allowed`** för dokumentation och parity-test.
 
 ## Varför står det fortfarande “gateway” i koden?
 

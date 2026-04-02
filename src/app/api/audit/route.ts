@@ -18,6 +18,10 @@ import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
+import {
+  AUDIT_STRUCTURED_DEFAULT_MODEL,
+  AUDIT_STRUCTURED_FALLBACK_MODELS,
+} from "@/lib/gen/defaults";
 
 // Extend timeout for long-running AI calls
 export const maxDuration = 300; // 5 minutes
@@ -52,12 +56,17 @@ setInterval(cleanupStaleInFlightAudits, 60 * 1000);
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Model configuration (fallback chain) via AI Gateway
+// Model configuration (primary + fallback chain) from config/ai_models/manifest.json
 const AUDIT_MODEL_CANDIDATES = [
-  "openai/gpt-5.2",
-  "anthropic/claude-opus-4.5",
-  "anthropic/claude-sonnet-4.5",
-] as const;
+  AUDIT_STRUCTURED_DEFAULT_MODEL,
+  ...AUDIT_STRUCTURED_FALLBACK_MODELS.filter(
+    (model) => model !== AUDIT_STRUCTURED_DEFAULT_MODEL,
+  ),
+];
+
+function toResponsesModelId(model: string): string {
+  return model.replace(/^openai\//, "");
+}
 
 // Structured output schema for the AI portion of the audit.
 // NOTE: We add audit_type/domain/timestamp/cost on the server after parsing.
@@ -1259,8 +1268,8 @@ export async function POST(request: NextRequest) {
 
     if (FEATURES.useResponsesApi) {
       // ── Responses API path ──────────────────────────────────────
-      const RESPONSES_MODEL = "gpt-5.2";
-      usedModel = RESPONSES_MODEL;
+      const RESPONSES_MODEL = toResponsesModelId(AUDIT_STRUCTURED_DEFAULT_MODEL);
+      usedModel = AUDIT_STRUCTURED_DEFAULT_MODEL;
 
       const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
 
@@ -1336,12 +1345,40 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.info(`[${requestId}] Calling AI Gateway (${usedModel})`);
-      const aiResult = await generateText({
-        model: createDirectModel(usedModel),
-        messages: promptMessages,
-        maxOutputTokens: 16000,
-      });
+      let aiResult: Awaited<ReturnType<typeof generateText>> | null = null;
+      let lastGatewayError: unknown = null;
+      for (const candidateModel of AUDIT_MODEL_CANDIDATES) {
+        usedModel = candidateModel;
+        console.info(`[${requestId}] Calling AI Gateway (${usedModel})`);
+        try {
+          const candidateResult = await generateText({
+            model: createDirectModel(usedModel),
+            messages: promptMessages,
+            maxOutputTokens: 16000,
+          });
+          const candidateText = candidateResult.text || "";
+          if (candidateText.trim().length === 0) {
+            console.warn(`[${requestId}] Empty response from ${usedModel}, trying next fallback`);
+            continue;
+          }
+          aiResult = candidateResult;
+          break;
+        } catch (gatewayError) {
+          lastGatewayError = gatewayError;
+          console.warn(
+            `[${requestId}] Gateway call failed for ${usedModel}:`,
+            gatewayError,
+          );
+        }
+      }
+
+      if (!aiResult) {
+        console.error(`[${requestId}] All configured audit gateway models failed`, lastGatewayError);
+        return NextResponse.json(
+          { success: false, error: "Auditens fallback-kedja kunde inte generera ett svar." },
+          { status: 502 },
+        );
+      }
 
       const apiDuration = Date.now() - requestStartTime;
       console.info(`[${requestId}] Gateway completed in ${apiDuration}ms using ${usedModel}`);

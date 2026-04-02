@@ -38,6 +38,8 @@ function buildRepoTargets(summary: RawSummary): RepoTarget[] {
 
   for (const entry of flattenRawSummary(summary)) {
     if (!entry.framework_match) continue;
+    if (entry.is_monorepo_example) continue;
+    if (entry.artifact_tier === "monorepo-examples") continue;
 
     const repo = normalizeRepoUrl(entry.repo_url);
     if (!repo.normalizedUrl) continue;

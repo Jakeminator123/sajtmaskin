@@ -4,7 +4,7 @@
 
 import type { AuditMode, WebsiteContent } from "@/types/audit";
 
-export type PromptMessage = {
+type PromptMessage = {
   role: "system" | "user";
   content: Array<{
     type: "text";

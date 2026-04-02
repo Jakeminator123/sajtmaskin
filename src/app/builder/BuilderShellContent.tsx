@@ -10,6 +10,7 @@ import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
+import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
@@ -34,6 +35,7 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
+import { postSandboxDestroy } from "@/lib/builder/preview-session/api";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
   buildNeedsAnalysisPrompt,
@@ -420,6 +422,34 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.previewLifecycle === "recovering" ||
     (!vm.currentPreviewUrl && vm.isAnyStreaming);
   const sendMessage = vm.sendMessage;
+
+  const handleComposerAiFallback = useCallback(
+    async (payload: ComposerAiFallbackPayload) => {
+      if (!vm.chatId) return;
+      const block = getPageBlockById(payload.blockId);
+      if (!block) {
+        toast.error("Okänt sajblock.");
+        return;
+      }
+      const sections = payload.homePageContent ? analyzeSections(payload.homePageContent) : [];
+      const built = buildPromptSourceMessage(
+        {
+          kind: "page-block",
+          label: block.label,
+          description: block.description,
+          implementationPrompt: block.implementationPrompt,
+          placement: payload.placement,
+          detectedSections: sections,
+        },
+        {
+          placementLabel: payload.placementLabel,
+          anchorLabel: payload.anchorSection?.label ?? null,
+        },
+      );
+      await sendMessage(built.message, { promptSourceMeta: built.meta });
+    },
+    [sendMessage, vm.chatId],
+  );
   const isDeployActionBusy =
     vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
   const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
@@ -1070,11 +1100,36 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   );
 
   const handleClearPreview = useCallback(() => {
-    vm.setClearedPreviewVersionId(vm.activeVersionId ?? null);
-    vm.setCurrentPreviewUrl(null);
-    void persistPreviewOverride(null, null);
+    void (async () => {
+      const activeVersionId = vm.activeVersionId ?? null;
+      const activeSandboxId = vm.activeSandboxId?.trim() || null;
+
+      if (vm.chatId && activeVersionId && activeSandboxId) {
+        const destroy = await postSandboxDestroy({
+          chatId: vm.chatId,
+          versionId: activeVersionId,
+          sandboxId: activeSandboxId,
+        });
+        if (!destroy || destroy.ok !== true) {
+          toast.error(
+            destroy?.message?.trim() || "Kunde inte stänga live-preview och frigöra VM-sessionen.",
+          );
+          return;
+        }
+      }
+
+      vm.clearSandboxSessionState(activeVersionId);
+      vm.setClearedPreviewVersionId(activeVersionId);
+      vm.setCurrentPreviewUrl(null);
+      void persistPreviewOverride(null, null);
+      void vm.mutateVersions();
+    })();
   }, [
     vm.activeVersionId,
+    vm.activeSandboxId,
+    vm.chatId,
+    vm.clearSandboxSessionState,
+    vm.mutateVersions,
     vm.setClearedPreviewVersionId,
     vm.setCurrentPreviewUrl,
     persistPreviewOverride,

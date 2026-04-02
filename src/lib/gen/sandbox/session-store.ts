@@ -9,6 +9,8 @@
 import { REDIS_KEY_PREFIX } from "@/lib/config";
 import { getRedis } from "@/lib/data/redis";
 
+export type Tier2Provider = "vercel_sandbox" | "preview_host";
+
 export type SandboxSessionEntry = {
   sandboxId: string;
   sandboxUrl: string;
@@ -16,6 +18,11 @@ export type SandboxSessionEntry = {
   versionId: string | null;
   createdAt: number;
   lastUsedAt: number;
+  /**
+   * Which tier-2 backend created this session — drives resume (`tryResumeTier2Runtime`).
+   * Older Redis rows omit this and are treated as {@link Tier2Provider | `vercel_sandbox`}.
+   */
+  tier2Provider?: Tier2Provider;
 };
 
 const DEFAULT_IDLE_MS = 2 * 60 * 60 * 1000;
@@ -30,6 +37,11 @@ function redisSessionKey(chatId: string): string {
   return `${REDIS_SESSION_PREFIX}${encodeURIComponent(chatId)}`;
 }
 
+function parseTier2Provider(raw: unknown): Tier2Provider | undefined {
+  if (raw === "preview_host" || raw === "vercel_sandbox") return raw;
+  return undefined;
+}
+
 function parseSandboxSessionJson(raw: string): SandboxSessionEntry | null {
   try {
     const o = JSON.parse(raw) as Record<string, unknown>;
@@ -40,7 +52,15 @@ function parseSandboxSessionJson(raw: string): SandboxSessionEntry | null {
     let versionId: string | null = null;
     if (typeof o.versionId === "string") versionId = o.versionId.trim() ? o.versionId.trim() : null;
     else if (o.versionId !== null && o.versionId !== undefined) return null;
-    return { sandboxId: o.sandboxId, sandboxUrl: o.sandboxUrl, versionId, createdAt, lastUsedAt };
+    const tier2Provider = parseTier2Provider(o.tier2Provider);
+    return {
+      sandboxId: o.sandboxId,
+      sandboxUrl: o.sandboxUrl,
+      versionId,
+      createdAt,
+      lastUsedAt,
+      ...(tier2Provider ? { tier2Provider } : {}),
+    };
   } catch {
     return null;
   }
@@ -63,7 +83,18 @@ async function writeSandboxSessionToRedis(chatId: string, entry: SandboxSessionE
   const redis = getRedis();
   if (!redis) return;
   try {
-    await redis.setex(redisSessionKey(chatId), REDIS_TTL_SECONDS, JSON.stringify(entry));
+    await redis.setex(
+      redisSessionKey(chatId),
+      REDIS_TTL_SECONDS,
+      JSON.stringify({
+        sandboxId: entry.sandboxId,
+        sandboxUrl: entry.sandboxUrl,
+        versionId: entry.versionId,
+        createdAt: entry.createdAt,
+        lastUsedAt: entry.lastUsedAt,
+        ...(entry.tier2Provider ? { tier2Provider: entry.tier2Provider } : {}),
+      }),
+    );
   } catch (err) {
     console.warn("[sandbox-session] Redis setex failed:", err instanceof Error ? err.message : err);
   }
@@ -91,7 +122,21 @@ export type TouchSandboxSessionParams = {
   sandboxUrl: string;
   versionId?: string | null;
   now?: number;
+  tier2Provider?: Tier2Provider;
 };
+
+function resolveTier2ProviderForTouch(
+  params: TouchSandboxSessionParams,
+  prev: SandboxSessionEntry | undefined,
+): Tier2Provider {
+  if (params.tier2Provider === "preview_host" || params.tier2Provider === "vercel_sandbox") {
+    return params.tier2Provider;
+  }
+  if (prev && prev.sandboxId === params.sandboxId && prev.tier2Provider === "preview_host") {
+    return "preview_host";
+  }
+  return "vercel_sandbox";
+}
 
 export function touchSandboxSession(params: TouchSandboxSessionParams): void {
   const now = params.now ?? Date.now();
@@ -100,12 +145,14 @@ export function touchSandboxSession(params: TouchSandboxSessionParams): void {
     typeof params.versionId === "string" && params.versionId.trim()
       ? params.versionId.trim()
       : null;
+  const tier2Provider = resolveTier2ProviderForTouch(params, prev);
   sessions.set(params.chatId, {
     sandboxId: params.sandboxId,
     sandboxUrl: params.sandboxUrl,
     versionId,
     createdAt: prev?.sandboxId === params.sandboxId ? prev.createdAt : now,
     lastUsedAt: now,
+    tier2Provider,
   });
 }
 

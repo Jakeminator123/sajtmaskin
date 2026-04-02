@@ -15,7 +15,6 @@ import {
   engineMessages,
   engineVersions,
   engineGenerationLogs,
-  versionErrorLogs,
 } from "./schema";
 import { eq, desc, sql } from "drizzle-orm";
 
@@ -64,17 +63,6 @@ export interface GenerationLog {
   duration_ms: number | null;
   success: number;
   error_message: string | null;
-  created_at: string;
-}
-
-export interface VersionErrorLog {
-  id: string;
-  chat_id: string;
-  version_id: string;
-  level: "info" | "warning" | "error";
-  category: string | null;
-  message: string;
-  meta: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -148,12 +136,6 @@ export async function addMessage(
     .where(eq(engineChats.id, chatId));
   const rows = await db.select().from(engineMessages).where(eq(engineMessages.id, id)).limit(1);
   return toRow(rows[0]) as unknown as Message;
-}
-
-/** Removes a single engine message row (e.g. rollback after failed version create). */
-export async function deleteEngineMessage(messageId: string): Promise<boolean> {
-  const result = await db.delete(engineMessages).where(eq(engineMessages.id, messageId));
-  return (result.rowCount ?? 0) > 0;
 }
 
 async function loadVersionById(
@@ -256,15 +238,6 @@ export async function createDraftVersion(
   sandboxUrl?: string,
 ): Promise<Version> {
   return insertDraftVersionRow(db, { chatId, messageId, filesJson, sandboxUrl });
-}
-
-export async function createVersion(
-  chatId: string,
-  messageId: string | null,
-  filesJson: string,
-  sandboxUrl?: string,
-): Promise<Version> {
-  return createDraftVersion(chatId, messageId, filesJson, sandboxUrl);
 }
 
 export async function getLatestVersion(chatId: string): Promise<Version | null> {
@@ -472,59 +445,3 @@ export async function logGeneration(
   return toRow(rows[0]) as unknown as GenerationLog;
 }
 
-export async function createVersionErrorLogs(
-  payloads: Array<{
-    chatId: string;
-    versionId: string;
-    level: "info" | "warning" | "error";
-    category?: string | null;
-    message: string;
-    meta?: Record<string, unknown> | null;
-  }>,
-): Promise<VersionErrorLog[]> {
-  if (payloads.length === 0) return [];
-  const rows = await db
-    .insert(versionErrorLogs)
-    .values(
-      payloads.map((payload) => ({
-        id: uuid(),
-        chat_id: payload.chatId,
-        version_id: payload.versionId,
-        v0_version_id: null,
-        level: payload.level,
-        category: payload.category ?? null,
-        message: payload.message,
-        meta: payload.meta ?? null,
-        created_at: new Date(),
-      })),
-    )
-    .returning();
-  return rows.map((row) => {
-    const normalized = toRow(row) as unknown as Omit<VersionErrorLog, "meta"> & { meta: unknown };
-    return {
-      ...normalized,
-      meta:
-        normalized.meta && typeof normalized.meta === "object"
-          ? (normalized.meta as Record<string, unknown>)
-          : null,
-    };
-  });
-}
-
-export async function getVersionErrorLogs(versionId: string): Promise<VersionErrorLog[]> {
-  const rows = await db
-    .select()
-    .from(versionErrorLogs)
-    .where(eq(versionErrorLogs.version_id, versionId))
-    .orderBy(desc(versionErrorLogs.created_at));
-  return rows.map((row) => {
-    const normalized = toRow(row) as unknown as Omit<VersionErrorLog, "meta"> & { meta: unknown };
-    return {
-      ...normalized,
-      meta:
-        normalized.meta && typeof normalized.meta === "object"
-          ? (normalized.meta as Record<string, unknown>)
-          : null,
-    };
-  });
-}

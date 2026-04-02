@@ -5,7 +5,11 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { normalizeProviderError } from "@/lib/providers/errors/normalize-provider-error";
 import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
-import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import {
+  MAX_PROMPT_HANDOFF_CHARS,
+  WARN_CHAT_MESSAGE_CHARS,
+  WARN_CHAT_SYSTEM_CHARS,
+} from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
@@ -66,10 +70,6 @@ import {
 } from "@/lib/own-engine/session/own-engine-plan-mode";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
-
-export const runtime = "nodejs";
-/** Server stream ceiling (seconds). Client stream safety timeout is separate — see `[chatId]/stream` route comment. */
-export const maxDuration = 800;
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
@@ -148,6 +148,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
         attachmentsCount: requestAttachments.length,
+        hardCap: MAX_PROMPT_HANDOFF_CHARS,
         promptSourceKind: metaPromptSourceKind,
         promptSourceTechnical: metaPromptSourceTechnical,
         promptSourcePreservePayload: metaPromptSourcePreservePayload,
@@ -208,7 +209,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         })
       ) {
         const generated = await tryGenerateServerAutoBrief({
-          prompt: optimizedMessage,
+          prompt: message,
           assistModelHint,
           imageGenerations: resolvedImageGenerations,
           signal: req.signal,
@@ -333,7 +334,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       devLogAppend("in-progress", {
         type: "comm.request.create",
         modelId: resolvedModelId,
+        modelTier: resolvedModelTier,
+        buildProfileId,
+        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
         chatPrivacy: resolvedChatPrivacy,
+        buildIntent: metaBuildIntent,
+        buildMethod: metaBuildMethod,
         message: optimizedMessage,
         slug: metaBuildMethod || metaBuildIntent || undefined,
         promptType: strategyMeta.promptType,
@@ -344,6 +350,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         reductionRatio: strategyMeta.reductionRatio,
         strategyReason: strategyMeta.reason,
         attachmentsCount: requestAttachments.length,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
       });
 
       debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {

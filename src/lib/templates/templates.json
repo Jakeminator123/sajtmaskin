@@ -11,7 +11,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "0DJxVTy2sMb",
+    "title": "Board Portal",
+    "slug": "0DJxVTy2sMb",
+    "view_url": "https://v0.app/templates/0DJxVTy2sMb",
+    "edit_url": "https://v0.app/chat/0DJxVTy2sMb",
+    "preview_image_url": "https://v0.app/chat/api/og/t/0DJxVTy2sMb",
+    "image_filename": "0DJxVTy2sMb.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "0ISEDkDeFFd",
@@ -25,7 +39,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "0NFF1rjZrz5",
@@ -39,21 +53,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
-    "id": "14L1NhWyogJ",
-    "title": "Liquid Glass - Navigation Menu",
-    "slug": "14L1NhWyogJ",
-    "view_url": "https://v0.app/templates/14L1NhWyogJ",
-    "edit_url": "https://v0.app/chat/14L1NhWyogJ",
-    "preview_image_url": "https://v0.app/chat/api/og/t/14L1NhWyogJ",
-    "image_filename": "14L1NhWyogJ.jpg",
+    "id": "0OtwCx7MrG0",
+    "title": "Frosted - Item Selector",
+    "slug": "0OtwCx7MrG0",
+    "view_url": "https://v0.app/templates/0OtwCx7MrG0",
+    "edit_url": "https://v0.app/chat/0OtwCx7MrG0",
+    "preview_image_url": "https://v0.app/chat/api/og/t/0OtwCx7MrG0",
+    "image_filename": "0OtwCx7MrG0.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "components"
+  },
+  {
+    "id": "0pfG2QYNRVs",
+    "title": "Dev Office Toolbox",
+    "slug": "0pfG2QYNRVs",
+    "view_url": "https://v0.app/templates/0pfG2QYNRVs",
+    "edit_url": "https://v0.app/chat/0pfG2QYNRVs",
+    "preview_image_url": "https://v0.app/chat/api/og/t/0pfG2QYNRVs",
+    "image_filename": "0pfG2QYNRVs.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "0UE1nczWzbu",
+    "title": "Image to ASCII",
+    "slug": "0UE1nczWzbu",
+    "view_url": "https://v0.app/templates/0UE1nczWzbu",
+    "edit_url": "https://v0.app/chat/0UE1nczWzbu",
+    "preview_image_url": "https://v0.app/chat/api/og/t/0UE1nczWzbu",
+    "image_filename": "0UE1nczWzbu.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "14oVpZqimBR",
@@ -67,7 +109,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "1CnksjadNl9",
@@ -81,7 +123,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "1DPeR9dunMc",
@@ -95,21 +137,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
-    "id": "1fwaS3xF7MM",
-    "title": "Ai Blog",
-    "slug": "1fwaS3xF7MM",
-    "view_url": "https://v0.app/templates/1fwaS3xF7MM",
-    "edit_url": "https://v0.app/chat/1fwaS3xF7MM",
-    "preview_image_url": "https://v0.app/chat/api/og/t/1fwaS3xF7MM",
-    "image_filename": "1fwaS3xF7MM.jpg",
+    "id": "1FuIGdkaNxS",
+    "title": "rwandan-media",
+    "slug": "1FuIGdkaNxS",
+    "view_url": "https://v0.app/templates/1FuIGdkaNxS",
+    "edit_url": "https://v0.app/chat/1FuIGdkaNxS",
+    "preview_image_url": "https://v0.app/chat/api/og/t/1FuIGdkaNxS",
+    "image_filename": "1FuIGdkaNxS.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "1LDFWEmNDUT",
+    "title": "deep galaxy -r8- cube",
+    "slug": "1LDFWEmNDUT",
+    "view_url": "https://v0.app/templates/1LDFWEmNDUT",
+    "edit_url": "https://v0.app/chat/1LDFWEmNDUT",
+    "preview_image_url": "https://v0.app/chat/api/og/t/1LDFWEmNDUT",
+    "image_filename": "1LDFWEmNDUT.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "1m2t5fg3VWf",
@@ -123,7 +179,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "1Nu0E0eAo9q",
+    "title": "Face Swap Template",
+    "slug": "1Nu0E0eAo9q",
+    "view_url": "https://v0.app/templates/1Nu0E0eAo9q",
+    "edit_url": "https://v0.app/chat/1Nu0E0eAo9q",
+    "preview_image_url": "https://v0.app/chat/api/og/t/1Nu0E0eAo9q",
+    "image_filename": "1Nu0E0eAo9q.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "1QfMmXT8Yl6",
@@ -137,7 +207,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "1qOBpfH2Jz6",
+    "title": "AI Powered Animation Studio",
+    "slug": "1qOBpfH2Jz6",
+    "view_url": "https://v0.app/templates/1qOBpfH2Jz6",
+    "edit_url": "https://v0.app/chat/1qOBpfH2Jz6",
+    "preview_image_url": "https://v0.app/chat/api/og/t/1qOBpfH2Jz6",
+    "image_filename": "1qOBpfH2Jz6.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "1w6b0ZtZeUK",
@@ -151,7 +235,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "components"
   },
   {
     "id": "25Jd26Tc5gR",
@@ -165,21 +249,91 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "33G2ek8YnAG",
-    "title": "DesignThing - a hero for doomscrolling",
-    "slug": "33G2ek8YnAG",
-    "view_url": "https://v0.app/templates/33G2ek8YnAG",
-    "edit_url": "https://v0.app/chat/33G2ek8YnAG",
-    "preview_image_url": "https://v0.app/chat/api/og/t/33G2ek8YnAG",
-    "image_filename": "33G2ek8YnAG.jpg",
+    "id": "2fPrB0auQxF",
+    "title": "Gaming potential test",
+    "slug": "2fPrB0auQxF",
+    "view_url": "https://v0.app/templates/2fPrB0auQxF",
+    "edit_url": "https://v0.app/chat/2fPrB0auQxF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/2fPrB0auQxF",
+    "image_filename": "2fPrB0auQxF.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "2kcjD7bFgAC",
+    "title": "New Project",
+    "slug": "2kcjD7bFgAC",
+    "view_url": "https://v0.app/templates/2kcjD7bFgAC",
+    "edit_url": "https://v0.app/chat/2kcjD7bFgAC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/2kcjD7bFgAC",
+    "image_filename": "2kcjD7bFgAC.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "2La0PO04WOw",
+    "title": "Video to ASCII",
+    "slug": "2La0PO04WOw",
+    "view_url": "https://v0.app/templates/2La0PO04WOw",
+    "edit_url": "https://v0.app/chat/2La0PO04WOw",
+    "preview_image_url": "https://v0.app/chat/api/og/t/2La0PO04WOw",
+    "image_filename": "2La0PO04WOw.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "2uy4cSliqUY",
+    "title": "Databuddy Privacy Policy Generator",
+    "slug": "2uy4cSliqUY",
+    "view_url": "https://v0.app/templates/2uy4cSliqUY",
+    "edit_url": "https://v0.app/chat/2uy4cSliqUY",
+    "preview_image_url": "https://v0.app/chat/api/og/t/2uy4cSliqUY",
+    "image_filename": "2uy4cSliqUY.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "2vrdrTj9KJT",
+    "title": "AI Animation States",
+    "slug": "2vrdrTj9KJT",
+    "view_url": "https://v0.app/templates/2vrdrTj9KJT",
+    "edit_url": "https://v0.app/chat/2vrdrTj9KJT",
+    "preview_image_url": "https://v0.app/chat/api/og/t/2vrdrTj9KJT",
+    "image_filename": "2vrdrTj9KJT.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "2xWfxlQ9V8B",
+    "title": "Embeddings demo",
+    "slug": "2xWfxlQ9V8B",
+    "view_url": "https://v0.app/templates/2xWfxlQ9V8B",
+    "edit_url": "https://v0.app/chat/2xWfxlQ9V8B",
+    "preview_image_url": "https://v0.app/chat/api/og/t/2xWfxlQ9V8B",
+    "image_filename": "2xWfxlQ9V8B.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "350IE4ojQXK",
@@ -193,7 +347,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "3adEm8PRBRJ",
+    "title": "Health condition detector",
+    "slug": "3adEm8PRBRJ",
+    "view_url": "https://v0.app/templates/3adEm8PRBRJ",
+    "edit_url": "https://v0.app/chat/3adEm8PRBRJ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/3adEm8PRBRJ",
+    "image_filename": "3adEm8PRBRJ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "3hu4ItXIX8I",
@@ -207,7 +375,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "3hYTJ9qj9x0",
@@ -221,49 +389,147 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "3hZwaLtyRbc",
-    "title": "Pulse - Engineering Metrics & Incident Response Console",
-    "slug": "3hZwaLtyRbc",
-    "view_url": "https://v0.app/templates/3hZwaLtyRbc",
-    "edit_url": "https://v0.app/chat/3hZwaLtyRbc",
-    "preview_image_url": "https://v0.app/chat/api/og/t/3hZwaLtyRbc",
-    "image_filename": "3hZwaLtyRbc.jpg",
+    "id": "3kUs17TFCI7",
+    "title": "ElevenLabs Music Starter",
+    "slug": "3kUs17TFCI7",
+    "view_url": "https://v0.app/templates/3kUs17TFCI7",
+    "edit_url": "https://v0.app/chat/3kUs17TFCI7",
+    "preview_image_url": "https://v0.app/chat/api/og/t/3kUs17TFCI7",
+    "image_filename": "3kUs17TFCI7.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "3zUCQJJJ9TO",
-    "title": "Interactive 3D Profile Card with Flip Animation",
-    "slug": "3zUCQJJJ9TO",
-    "view_url": "https://v0.app/templates/3zUCQJJJ9TO",
-    "edit_url": "https://v0.app/chat/3zUCQJJJ9TO",
-    "preview_image_url": "https://v0.app/chat/api/og/t/3zUCQJJJ9TO",
-    "image_filename": "3zUCQJJJ9TO.jpg",
+    "id": "3pCtyjkltGj",
+    "title": "AI SaaS Template with multiple agents powered by Vercel Ecosystem.",
+    "slug": "3pCtyjkltGj",
+    "view_url": "https://v0.app/templates/3pCtyjkltGj",
+    "edit_url": "https://v0.app/chat/3pCtyjkltGj",
+    "preview_image_url": "https://v0.app/chat/api/og/t/3pCtyjkltGj",
+    "image_filename": "3pCtyjkltGj.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "4PQrDpMpnP5",
-    "title": "null proxy",
-    "slug": "4PQrDpMpnP5",
-    "view_url": "https://v0.app/templates/4PQrDpMpnP5",
-    "edit_url": "https://v0.app/chat/4PQrDpMpnP5",
-    "preview_image_url": "https://v0.app/chat/api/og/t/4PQrDpMpnP5",
-    "image_filename": "4PQrDpMpnP5.jpg",
+    "id": "3toeHPa3WwQ",
+    "title": "Card Scan Carousel",
+    "slug": "3toeHPa3WwQ",
+    "view_url": "https://v0.app/templates/3toeHPa3WwQ",
+    "edit_url": "https://v0.app/chat/3toeHPa3WwQ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/3toeHPa3WwQ",
+    "image_filename": "3toeHPa3WwQ.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "3yOob5W1Vy7",
+    "title": "Weekly Meal Planning & Nutrition Analysis",
+    "slug": "3yOob5W1Vy7",
+    "view_url": "https://v0.app/templates/3yOob5W1Vy7",
+    "edit_url": "https://v0.app/chat/3yOob5W1Vy7",
+    "preview_image_url": "https://v0.app/chat/api/og/t/3yOob5W1Vy7",
+    "image_filename": "3yOob5W1Vy7.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "4b4SzAt1CLV",
+    "title": "Network Traffic Analyzer (w/mock packet data)",
+    "slug": "4b4SzAt1CLV",
+    "view_url": "https://v0.app/templates/4b4SzAt1CLV",
+    "edit_url": "https://v0.app/chat/4b4SzAt1CLV",
+    "preview_image_url": "https://v0.app/chat/api/og/t/4b4SzAt1CLV",
+    "image_filename": "4b4SzAt1CLV.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "4E26j9y3vqF",
+    "title": "The Model's Dilemma",
+    "slug": "4E26j9y3vqF",
+    "view_url": "https://v0.app/templates/4E26j9y3vqF",
+    "edit_url": "https://v0.app/chat/4E26j9y3vqF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/4E26j9y3vqF",
+    "image_filename": "4E26j9y3vqF.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "4e9eOkrBW2n",
+    "title": "Recreate Figma UI",
+    "slug": "4e9eOkrBW2n",
+    "view_url": "https://v0.app/templates/4e9eOkrBW2n",
+    "edit_url": "https://v0.app/chat/4e9eOkrBW2n",
+    "preview_image_url": "https://v0.app/chat/api/og/t/4e9eOkrBW2n",
+    "image_filename": "4e9eOkrBW2n.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "4IdeA4XOBce",
+    "title": "New Project",
+    "slug": "4IdeA4XOBce",
+    "view_url": "https://v0.app/templates/4IdeA4XOBce",
+    "edit_url": "https://v0.app/chat/4IdeA4XOBce",
+    "preview_image_url": "https://v0.app/chat/api/og/t/4IdeA4XOBce",
+    "image_filename": "4IdeA4XOBce.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "4IGZ1Czb1VF",
+    "title": "Tokyo presentation deck",
+    "slug": "4IGZ1Czb1VF",
+    "view_url": "https://v0.app/templates/4IGZ1Czb1VF",
+    "edit_url": "https://v0.app/chat/4IGZ1Czb1VF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/4IGZ1Czb1VF",
+    "image_filename": "4IGZ1Czb1VF.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "4Ktrsk7vpz1",
+    "title": "Algo trading platform",
+    "slug": "4Ktrsk7vpz1",
+    "view_url": "https://v0.app/templates/4Ktrsk7vpz1",
+    "edit_url": "https://v0.app/chat/4Ktrsk7vpz1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/4Ktrsk7vpz1",
+    "image_filename": "4Ktrsk7vpz1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "4RLlD4wmfPj",
@@ -277,7 +543,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "4ULwmobza2Y",
+    "title": "Self Storage Website",
+    "slug": "4ULwmobza2Y",
+    "view_url": "https://v0.app/templates/4ULwmobza2Y",
+    "edit_url": "https://v0.app/chat/4ULwmobza2Y",
+    "preview_image_url": "https://v0.app/chat/api/og/t/4ULwmobza2Y",
+    "image_filename": "4ULwmobza2Y.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "55iBNfVUvdh",
@@ -291,7 +571,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "5cYIwQim4XM",
@@ -305,7 +585,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "5i8lmS4n11p",
+    "title": "Crypto Trading Website",
+    "slug": "5i8lmS4n11p",
+    "view_url": "https://v0.app/templates/5i8lmS4n11p",
+    "edit_url": "https://v0.app/chat/5i8lmS4n11p",
+    "preview_image_url": "https://v0.app/chat/api/og/t/5i8lmS4n11p",
+    "image_filename": "5i8lmS4n11p.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "5JCqooA0YVi",
@@ -319,7 +613,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "5l1UlEEtjUt",
@@ -333,7 +627,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "5QHYQNBsEpM",
@@ -347,7 +641,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "5TN93pl3bRS",
+    "title": "ElevenLabs Agents Starter",
+    "slug": "5TN93pl3bRS",
+    "view_url": "https://v0.app/templates/5TN93pl3bRS",
+    "edit_url": "https://v0.app/chat/5TN93pl3bRS",
+    "preview_image_url": "https://v0.app/chat/api/og/t/5TN93pl3bRS",
+    "image_filename": "5TN93pl3bRS.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "5vAhV4ZveIk",
@@ -361,21 +669,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
   },
   {
-    "id": "6AG4EJFLafT",
-    "title": "Freelancer Portfolio & Services Website",
-    "slug": "6AG4EJFLafT",
-    "view_url": "https://v0.app/templates/6AG4EJFLafT",
-    "edit_url": "https://v0.app/chat/6AG4EJFLafT",
-    "preview_image_url": "https://v0.app/chat/api/og/t/6AG4EJFLafT",
-    "image_filename": "6AG4EJFLafT.jpg",
+    "id": "5xX7MpdfZpD",
+    "title": "Image Analysis",
+    "slug": "5xX7MpdfZpD",
+    "view_url": "https://v0.app/templates/5xX7MpdfZpD",
+    "edit_url": "https://v0.app/chat/5xX7MpdfZpD",
+    "preview_image_url": "https://v0.app/chat/api/og/t/5xX7MpdfZpD",
+    "image_filename": "5xX7MpdfZpD.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "5zsg1xnPo44",
+    "title": "Home Automation Platform",
+    "slug": "5zsg1xnPo44",
+    "view_url": "https://v0.app/templates/5zsg1xnPo44",
+    "edit_url": "https://v0.app/chat/5zsg1xnPo44",
+    "preview_image_url": "https://v0.app/chat/api/og/t/5zsg1xnPo44",
+    "image_filename": "5zsg1xnPo44.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "62ZUMJIca8e",
+    "title": "Workout tracking website",
+    "slug": "62ZUMJIca8e",
+    "view_url": "https://v0.app/templates/62ZUMJIca8e",
+    "edit_url": "https://v0.app/chat/62ZUMJIca8e",
+    "preview_image_url": "https://v0.app/chat/api/og/t/62ZUMJIca8e",
+    "image_filename": "62ZUMJIca8e.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "6JmmsorAALC",
+    "title": "About Me - Social Profile Card - Frosted Glass UI Design",
+    "slug": "6JmmsorAALC",
+    "view_url": "https://v0.app/templates/6JmmsorAALC",
+    "edit_url": "https://v0.app/chat/6JmmsorAALC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6JmmsorAALC",
+    "image_filename": "6JmmsorAALC.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "6lfx6MQKRO1",
@@ -389,21 +739,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
-    "id": "6QYngsI1qTp",
-    "title": "Brutalist AI SaaS Landing Page",
-    "slug": "6QYngsI1qTp",
-    "view_url": "https://v0.app/templates/6QYngsI1qTp",
-    "edit_url": "https://v0.app/chat/6QYngsI1qTp",
-    "preview_image_url": "https://v0.app/chat/api/og/t/6QYngsI1qTp",
-    "image_filename": "6QYngsI1qTp.jpg",
+    "id": "6MpbaEutNfe",
+    "title": "3D Globe Card Gallery",
+    "slug": "6MpbaEutNfe",
+    "view_url": "https://v0.app/templates/6MpbaEutNfe",
+    "edit_url": "https://v0.app/chat/6MpbaEutNfe",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6MpbaEutNfe",
+    "image_filename": "6MpbaEutNfe.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "components"
+  },
+  {
+    "id": "6NeDUjQz68c",
+    "title": "Mobile app website",
+    "slug": "6NeDUjQz68c",
+    "view_url": "https://v0.app/templates/6NeDUjQz68c",
+    "edit_url": "https://v0.app/chat/6NeDUjQz68c",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6NeDUjQz68c",
+    "image_filename": "6NeDUjQz68c.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "6rnQUvOhgnB",
@@ -417,7 +781,105 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "6tTxN1ckB7d",
+    "title": "Frosted Apple Widget Design",
+    "slug": "6tTxN1ckB7d",
+    "view_url": "https://v0.app/templates/6tTxN1ckB7d",
+    "edit_url": "https://v0.app/chat/6tTxN1ckB7d",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6tTxN1ckB7d",
+    "image_filename": "6tTxN1ckB7d.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "6u6ohes4zFB",
+    "title": "Art Gallery Slider",
+    "slug": "6u6ohes4zFB",
+    "view_url": "https://v0.app/templates/6u6ohes4zFB",
+    "edit_url": "https://v0.app/chat/6u6ohes4zFB",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6u6ohes4zFB",
+    "image_filename": "6u6ohes4zFB.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "6UhtTqtAVaZ",
+    "title": "Financial Dashboard",
+    "slug": "6UhtTqtAVaZ",
+    "view_url": "https://v0.app/templates/6UhtTqtAVaZ",
+    "edit_url": "https://v0.app/chat/6UhtTqtAVaZ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6UhtTqtAVaZ",
+    "image_filename": "6UhtTqtAVaZ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "6VLiqkGu5vw",
+    "title": "Ai Chat Interface",
+    "slug": "6VLiqkGu5vw",
+    "view_url": "https://v0.app/templates/6VLiqkGu5vw",
+    "edit_url": "https://v0.app/chat/6VLiqkGu5vw",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6VLiqkGu5vw",
+    "image_filename": "6VLiqkGu5vw.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "6zbTT0QS4pq",
+    "title": "Microfish Landing Page",
+    "slug": "6zbTT0QS4pq",
+    "view_url": "https://v0.app/templates/6zbTT0QS4pq",
+    "edit_url": "https://v0.app/chat/6zbTT0QS4pq",
+    "preview_image_url": "https://v0.app/chat/api/og/t/6zbTT0QS4pq",
+    "image_filename": "6zbTT0QS4pq.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "7gxDwyxCpxb",
+    "title": "ai-sdk starter",
+    "slug": "7gxDwyxCpxb",
+    "view_url": "https://v0.app/templates/7gxDwyxCpxb",
+    "edit_url": "https://v0.app/chat/7gxDwyxCpxb",
+    "preview_image_url": "https://v0.app/chat/api/og/t/7gxDwyxCpxb",
+    "image_filename": "7gxDwyxCpxb.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "7HOUCTcoR5n",
+    "title": "Integrations Page",
+    "slug": "7HOUCTcoR5n",
+    "view_url": "https://v0.app/templates/7HOUCTcoR5n",
+    "edit_url": "https://v0.app/chat/7HOUCTcoR5n",
+    "preview_image_url": "https://v0.app/chat/api/og/t/7HOUCTcoR5n",
+    "image_filename": "7HOUCTcoR5n.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "7JdqEwKmtIG",
@@ -431,7 +893,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "7LynQs5Dg8M",
@@ -445,7 +907,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "7YygHkO1oj4",
@@ -459,7 +921,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "8CrG385vvd9",
@@ -473,7 +935,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "8DzMBKwa4qM",
@@ -487,7 +949,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "8jIzZQMs1su",
+    "title": "BitFlux",
+    "slug": "8jIzZQMs1su",
+    "view_url": "https://v0.app/templates/8jIzZQMs1su",
+    "edit_url": "https://v0.app/chat/8jIzZQMs1su",
+    "preview_image_url": "https://v0.app/chat/api/og/t/8jIzZQMs1su",
+    "image_filename": "8jIzZQMs1su.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "8jO5g4s3yiw",
+    "title": "live-portrait",
+    "slug": "8jO5g4s3yiw",
+    "view_url": "https://v0.app/templates/8jO5g4s3yiw",
+    "edit_url": "https://v0.app/chat/8jO5g4s3yiw",
+    "preview_image_url": "https://v0.app/chat/api/og/t/8jO5g4s3yiw",
+    "image_filename": "8jO5g4s3yiw.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "8LY3pRthul6",
+    "title": "Logo particles (GPT-5)",
+    "slug": "8LY3pRthul6",
+    "view_url": "https://v0.app/templates/8LY3pRthul6",
+    "edit_url": "https://v0.app/chat/8LY3pRthul6",
+    "preview_image_url": "https://v0.app/chat/api/og/t/8LY3pRthul6",
+    "image_filename": "8LY3pRthul6.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "8QhCJAwn16K",
@@ -501,7 +1005,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "8s5RWy1nOMU",
@@ -515,7 +1019,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "8Y9E0cStKrW",
@@ -529,7 +1033,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "92pdkvFXgs4",
+    "title": "Block blast puzzle game",
+    "slug": "92pdkvFXgs4",
+    "view_url": "https://v0.app/templates/92pdkvFXgs4",
+    "edit_url": "https://v0.app/chat/92pdkvFXgs4",
+    "preview_image_url": "https://v0.app/chat/api/og/t/92pdkvFXgs4",
+    "image_filename": "92pdkvFXgs4.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "95yO8O8KFDT",
+    "title": "AI Translation App",
+    "slug": "95yO8O8KFDT",
+    "view_url": "https://v0.app/templates/95yO8O8KFDT",
+    "edit_url": "https://v0.app/chat/95yO8O8KFDT",
+    "preview_image_url": "https://v0.app/chat/api/og/t/95yO8O8KFDT",
+    "image_filename": "95yO8O8KFDT.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "99MAOQptgL3",
@@ -543,7 +1075,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "9aYhYGn8JY1",
+    "title": "Research paper app",
+    "slug": "9aYhYGn8JY1",
+    "view_url": "https://v0.app/templates/9aYhYGn8JY1",
+    "edit_url": "https://v0.app/chat/9aYhYGn8JY1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/9aYhYGn8JY1",
+    "image_filename": "9aYhYGn8JY1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "9CwgIZ7U6MK",
+    "title": "Cyberpunk Buttons",
+    "slug": "9CwgIZ7U6MK",
+    "view_url": "https://v0.app/templates/9CwgIZ7U6MK",
+    "edit_url": "https://v0.app/chat/9CwgIZ7U6MK",
+    "preview_image_url": "https://v0.app/chat/api/og/t/9CwgIZ7U6MK",
+    "image_filename": "9CwgIZ7U6MK.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "9dPeJBX8qhz",
@@ -557,7 +1117,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "9FIZoMXO1Us",
@@ -571,7 +1131,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "9q2Mfgu6cDi",
@@ -585,7 +1145,77 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "9zvVUBtxy6i",
+    "title": "ElevenLabs v3 Podcast Generator",
+    "slug": "9zvVUBtxy6i",
+    "view_url": "https://v0.app/templates/9zvVUBtxy6i",
+    "edit_url": "https://v0.app/chat/9zvVUBtxy6i",
+    "preview_image_url": "https://v0.app/chat/api/og/t/9zvVUBtxy6i",
+    "image_filename": "9zvVUBtxy6i.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "a3Cz4EF5P5G",
+    "title": "oddity.001",
+    "slug": "a3Cz4EF5P5G",
+    "view_url": "https://v0.app/templates/a3Cz4EF5P5G",
+    "edit_url": "https://v0.app/chat/a3Cz4EF5P5G",
+    "preview_image_url": "https://v0.app/chat/api/og/t/a3Cz4EF5P5G",
+    "image_filename": "a3Cz4EF5P5G.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "a9HJA3gXB4w",
+    "title": "Redis Langcache v0 Template",
+    "slug": "a9HJA3gXB4w",
+    "view_url": "https://v0.app/templates/a9HJA3gXB4w",
+    "edit_url": "https://v0.app/chat/a9HJA3gXB4w",
+    "preview_image_url": "https://v0.app/chat/api/og/t/a9HJA3gXB4w",
+    "image_filename": "a9HJA3gXB4w.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "AdFqYlEFVdC",
+    "title": "Logo particles (v0 + aws)",
+    "slug": "AdFqYlEFVdC",
+    "view_url": "https://v0.app/templates/AdFqYlEFVdC",
+    "edit_url": "https://v0.app/chat/AdFqYlEFVdC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/AdFqYlEFVdC",
+    "image_filename": "AdFqYlEFVdC.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "Aftb1Fdaj7K",
+    "title": "Exact landing page clone",
+    "slug": "Aftb1Fdaj7K",
+    "view_url": "https://v0.app/templates/Aftb1Fdaj7K",
+    "edit_url": "https://v0.app/chat/Aftb1Fdaj7K",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Aftb1Fdaj7K",
+    "image_filename": "Aftb1Fdaj7K.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "ALfQrxyrJ8b",
@@ -599,7 +1229,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "AlzERm9XkiU",
@@ -613,7 +1243,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "annqMtFCROP",
@@ -627,7 +1257,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "anVZ0Yb6tlq",
@@ -641,7 +1271,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "AOPC1SjEm82",
+    "title": "Decart SDK Realtime Template",
+    "slug": "AOPC1SjEm82",
+    "view_url": "https://v0.app/templates/AOPC1SjEm82",
+    "edit_url": "https://v0.app/chat/AOPC1SjEm82",
+    "preview_image_url": "https://v0.app/chat/api/og/t/AOPC1SjEm82",
+    "image_filename": "AOPC1SjEm82.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "AoQvZvyBCHY",
+    "title": "ValentineCard",
+    "slug": "AoQvZvyBCHY",
+    "view_url": "https://v0.app/templates/AoQvZvyBCHY",
+    "edit_url": "https://v0.app/chat/AoQvZvyBCHY",
+    "preview_image_url": "https://v0.app/chat/api/og/t/AoQvZvyBCHY",
+    "image_filename": "AoQvZvyBCHY.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "ARm3GSOLRRU",
@@ -655,7 +1313,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "armH5WT0ZIZ",
@@ -669,7 +1327,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "aRzoeK43OwD",
+    "title": "React Flow Builder Setup",
+    "slug": "aRzoeK43OwD",
+    "view_url": "https://v0.app/templates/aRzoeK43OwD",
+    "edit_url": "https://v0.app/chat/aRzoeK43OwD",
+    "preview_image_url": "https://v0.app/chat/api/og/t/aRzoeK43OwD",
+    "image_filename": "aRzoeK43OwD.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "atL3dDgpfG3",
@@ -683,7 +1355,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "aUc1nGf6ZqL",
+    "title": "melhores ofertas mercado livre",
+    "slug": "aUc1nGf6ZqL",
+    "view_url": "https://v0.app/templates/aUc1nGf6ZqL",
+    "edit_url": "https://v0.app/chat/aUc1nGf6ZqL",
+    "preview_image_url": "https://v0.app/chat/api/og/t/aUc1nGf6ZqL",
+    "image_filename": "aUc1nGf6ZqL.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "Auw4otwlr20",
+    "title": "COMPUTE - The Platform to Build & Ship AI Agents",
+    "slug": "Auw4otwlr20",
+    "view_url": "https://v0.app/templates/Auw4otwlr20",
+    "edit_url": "https://v0.app/chat/Auw4otwlr20",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Auw4otwlr20",
+    "image_filename": "Auw4otwlr20.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "AwNXS9RIlhu",
@@ -697,7 +1397,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "AwZMAAg6b6J",
+    "title": "NexoraSIM eSIM interface",
+    "slug": "AwZMAAg6b6J",
+    "view_url": "https://v0.app/templates/AwZMAAg6b6J",
+    "edit_url": "https://v0.app/chat/AwZMAAg6b6J",
+    "preview_image_url": "https://v0.app/chat/api/og/t/AwZMAAg6b6J",
+    "image_filename": "AwZMAAg6b6J.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "aY6NnTdy9fD",
+    "title": "Team Page Template",
+    "slug": "aY6NnTdy9fD",
+    "view_url": "https://v0.app/templates/aY6NnTdy9fD",
+    "edit_url": "https://v0.app/chat/aY6NnTdy9fD",
+    "preview_image_url": "https://v0.app/chat/api/og/t/aY6NnTdy9fD",
+    "image_filename": "aY6NnTdy9fD.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "AY7BzWP7o3y",
+    "title": "Dotted Surface Attractor v2",
+    "slug": "AY7BzWP7o3y",
+    "view_url": "https://v0.app/templates/AY7BzWP7o3y",
+    "edit_url": "https://v0.app/chat/AY7BzWP7o3y",
+    "preview_image_url": "https://v0.app/chat/api/og/t/AY7BzWP7o3y",
+    "image_filename": "AY7BzWP7o3y.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "AYrWkXGPjUX",
+    "title": "Invoice generator design",
+    "slug": "AYrWkXGPjUX",
+    "view_url": "https://v0.app/templates/AYrWkXGPjUX",
+    "edit_url": "https://v0.app/chat/AYrWkXGPjUX",
+    "preview_image_url": "https://v0.app/chat/api/og/t/AYrWkXGPjUX",
+    "image_filename": "AYrWkXGPjUX.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "b3DN1aOd6mQ",
@@ -711,7 +1467,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "b7GDYVxuoGC",
@@ -725,7 +1481,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "BAzStwqo8Vz",
+    "title": "Nano Banana Cam",
+    "slug": "BAzStwqo8Vz",
+    "view_url": "https://v0.app/templates/BAzStwqo8Vz",
+    "edit_url": "https://v0.app/chat/BAzStwqo8Vz",
+    "preview_image_url": "https://v0.app/chat/api/og/t/BAzStwqo8Vz",
+    "image_filename": "BAzStwqo8Vz.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "BF67eSHttls",
+    "title": "Video Editing Portfolio Website",
+    "slug": "BF67eSHttls",
+    "view_url": "https://v0.app/templates/BF67eSHttls",
+    "edit_url": "https://v0.app/chat/BF67eSHttls",
+    "preview_image_url": "https://v0.app/chat/api/og/t/BF67eSHttls",
+    "image_filename": "BF67eSHttls.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "BhUpVbCd0od",
+    "title": "Churrasco shopping list",
+    "slug": "BhUpVbCd0od",
+    "view_url": "https://v0.app/templates/BhUpVbCd0od",
+    "edit_url": "https://v0.app/chat/BhUpVbCd0od",
+    "preview_image_url": "https://v0.app/chat/api/og/t/BhUpVbCd0od",
+    "image_filename": "BhUpVbCd0od.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "BKGFWPsAoBu",
@@ -739,7 +1537,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "BMrqNoeQW4Y",
+    "title": "K55 T3",
+    "slug": "BMrqNoeQW4Y",
+    "view_url": "https://v0.app/templates/BMrqNoeQW4Y",
+    "edit_url": "https://v0.app/chat/BMrqNoeQW4Y",
+    "preview_image_url": "https://v0.app/chat/api/og/t/BMrqNoeQW4Y",
+    "image_filename": "BMrqNoeQW4Y.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "bqeXfJB9tH1",
+    "title": "Us",
+    "slug": "bqeXfJB9tH1",
+    "view_url": "https://v0.app/templates/bqeXfJB9tH1",
+    "edit_url": "https://v0.app/chat/bqeXfJB9tH1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/bqeXfJB9tH1",
+    "image_filename": "bqeXfJB9tH1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "BQW8hvkvuos",
+    "title": "AI SVG Generator",
+    "slug": "BQW8hvkvuos",
+    "view_url": "https://v0.app/templates/BQW8hvkvuos",
+    "edit_url": "https://v0.app/chat/BQW8hvkvuos",
+    "preview_image_url": "https://v0.app/chat/api/og/t/BQW8hvkvuos",
+    "image_filename": "BQW8hvkvuos.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "bTIhXEOJa8w",
+    "title": "3D Model Generator, Powered by Hyper3D Rodin",
+    "slug": "bTIhXEOJa8w",
+    "view_url": "https://v0.app/templates/bTIhXEOJa8w",
+    "edit_url": "https://v0.app/chat/bTIhXEOJa8w",
+    "preview_image_url": "https://v0.app/chat/api/og/t/bTIhXEOJa8w",
+    "image_filename": "bTIhXEOJa8w.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "BtTaTfBFSeu",
@@ -753,7 +1607,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "components"
   },
   {
     "id": "BzMyUVoHmrw",
@@ -767,7 +1621,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "c0iiBjH3PvL",
@@ -781,7 +1635,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "c4rT3jSW1kZ",
+    "title": "Tinder for shitposting",
+    "slug": "c4rT3jSW1kZ",
+    "view_url": "https://v0.app/templates/c4rT3jSW1kZ",
+    "edit_url": "https://v0.app/chat/c4rT3jSW1kZ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/c4rT3jSW1kZ",
+    "image_filename": "c4rT3jSW1kZ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "c4WMcrkYtZR",
@@ -795,7 +1663,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
     "id": "cAawT1AJaki",
@@ -809,21 +1677,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "cbQ1carSbPX",
-    "title": "Liquid Glass Digital agency website",
-    "slug": "cbQ1carSbPX",
-    "view_url": "https://v0.app/templates/cbQ1carSbPX",
-    "edit_url": "https://v0.app/chat/cbQ1carSbPX",
-    "preview_image_url": "https://v0.app/chat/api/og/t/cbQ1carSbPX",
-    "image_filename": "cbQ1carSbPX.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "cC2wVm36iMj",
@@ -837,35 +1691,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
-    "id": "cgsMNXQVQrc",
-    "title": "Free Webp Converter",
-    "slug": "cgsMNXQVQrc",
-    "view_url": "https://v0.app/templates/cgsMNXQVQrc",
-    "edit_url": "https://v0.app/chat/cgsMNXQVQrc",
-    "preview_image_url": "https://v0.app/chat/api/og/t/cgsMNXQVQrc",
-    "image_filename": "cgsMNXQVQrc.jpg",
+    "id": "CCnXoSAG7wn",
+    "title": "Martian Parallax Experience",
+    "slug": "CCnXoSAG7wn",
+    "view_url": "https://v0.app/templates/CCnXoSAG7wn",
+    "edit_url": "https://v0.app/chat/CCnXoSAG7wn",
+    "preview_image_url": "https://v0.app/chat/api/og/t/CCnXoSAG7wn",
+    "image_filename": "CCnXoSAG7wn.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
-    "id": "CICDGIHHYdN",
-    "title": "Chat Management Dashboard",
-    "slug": "CICDGIHHYdN",
-    "view_url": "https://v0.app/templates/CICDGIHHYdN",
-    "edit_url": "https://v0.app/chat/CICDGIHHYdN",
-    "preview_image_url": "https://v0.app/chat/api/og/t/CICDGIHHYdN",
-    "image_filename": "CICDGIHHYdN.jpg",
+    "id": "CGGkfm1fWy6",
+    "title": "Saurav's ShopMate",
+    "slug": "CGGkfm1fWy6",
+    "view_url": "https://v0.app/templates/CGGkfm1fWy6",
+    "edit_url": "https://v0.app/chat/CGGkfm1fWy6",
+    "preview_image_url": "https://v0.app/chat/api/og/t/CGGkfm1fWy6",
+    "image_filename": "CGGkfm1fWy6.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "CirmLMhUoF0",
@@ -879,7 +1733,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "cJOO8mnVR01",
@@ -893,7 +1747,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "ClZ7dchQMTA",
+    "title": "BILL$",
+    "slug": "ClZ7dchQMTA",
+    "view_url": "https://v0.app/templates/ClZ7dchQMTA",
+    "edit_url": "https://v0.app/chat/ClZ7dchQMTA",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ClZ7dchQMTA",
+    "image_filename": "ClZ7dchQMTA.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "COcCGMomTKL",
+    "title": "System resource widget",
+    "slug": "COcCGMomTKL",
+    "view_url": "https://v0.app/templates/COcCGMomTKL",
+    "edit_url": "https://v0.app/chat/COcCGMomTKL",
+    "preview_image_url": "https://v0.app/chat/api/og/t/COcCGMomTKL",
+    "image_filename": "COcCGMomTKL.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "CXZEQN6g51Q",
@@ -907,7 +1789,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "czDKZ6zFm1H",
@@ -921,7 +1803,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "d45bylq61Z7",
+    "title": "Signup page - Dark Modern",
+    "slug": "d45bylq61Z7",
+    "view_url": "https://v0.app/templates/d45bylq61Z7",
+    "edit_url": "https://v0.app/chat/d45bylq61Z7",
+    "preview_image_url": "https://v0.app/chat/api/og/t/d45bylq61Z7",
+    "image_filename": "d45bylq61Z7.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "d7j5B58dlp4",
+    "title": "Cms Full Form - Admin Dashboard Tailwind Templates",
+    "slug": "d7j5B58dlp4",
+    "view_url": "https://v0.app/templates/d7j5B58dlp4",
+    "edit_url": "https://v0.app/chat/d7j5B58dlp4",
+    "preview_image_url": "https://v0.app/chat/api/og/t/d7j5B58dlp4",
+    "image_filename": "d7j5B58dlp4.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "D8CqM5uabMY",
+    "title": "Gothic Font Editor",
+    "slug": "D8CqM5uabMY",
+    "view_url": "https://v0.app/templates/D8CqM5uabMY",
+    "edit_url": "https://v0.app/chat/D8CqM5uabMY",
+    "preview_image_url": "https://v0.app/chat/api/og/t/D8CqM5uabMY",
+    "image_filename": "D8CqM5uabMY.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "Dav88XZy66u",
@@ -935,7 +1859,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "DcLJZ6h8Y8g",
@@ -949,7 +1873,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "dDPFIVqPGXR",
@@ -963,63 +1887,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "dHlzHmuwqeh",
-    "title": "Glass Pricing Component with Stripe and Subtle Smoke",
-    "slug": "dHlzHmuwqeh",
-    "view_url": "https://v0.app/templates/dHlzHmuwqeh",
-    "edit_url": "https://v0.app/chat/dHlzHmuwqeh",
-    "preview_image_url": "https://v0.app/chat/api/og/t/dHlzHmuwqeh",
-    "image_filename": "dHlzHmuwqeh.jpg",
+    "id": "DHIFaBKHZan",
+    "title": "RoomVision - Nanobanana",
+    "slug": "DHIFaBKHZan",
+    "view_url": "https://v0.app/templates/DHIFaBKHZan",
+    "edit_url": "https://v0.app/chat/DHIFaBKHZan",
+    "preview_image_url": "https://v0.app/chat/api/og/t/DHIFaBKHZan",
+    "image_filename": "DHIFaBKHZan.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "DjH1NHuAxDx",
-    "title": "Dynamic Island Todo app",
-    "slug": "DjH1NHuAxDx",
-    "view_url": "https://v0.app/templates/DjH1NHuAxDx",
-    "edit_url": "https://v0.app/chat/DjH1NHuAxDx",
-    "preview_image_url": "https://v0.app/chat/api/og/t/DjH1NHuAxDx",
-    "image_filename": "DjH1NHuAxDx.jpg",
+    "id": "dLMZfqAHNMT",
+    "title": "Wav to mp3 converter",
+    "slug": "dLMZfqAHNMT",
+    "view_url": "https://v0.app/templates/dLMZfqAHNMT",
+    "edit_url": "https://v0.app/chat/dLMZfqAHNMT",
+    "preview_image_url": "https://v0.app/chat/api/og/t/dLMZfqAHNMT",
+    "image_filename": "dLMZfqAHNMT.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "dmRJapDTzFk",
-    "title": "Avant-Garde Designer Portfolio Showcase",
-    "slug": "dmRJapDTzFk",
-    "view_url": "https://v0.app/templates/dmRJapDTzFk",
-    "edit_url": "https://v0.app/chat/dmRJapDTzFk",
-    "preview_image_url": "https://v0.app/chat/api/og/t/dmRJapDTzFk",
-    "image_filename": "dmRJapDTzFk.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "dNTdgBEhEAn",
-    "title": "Next.js boilerplate",
-    "slug": "dNTdgBEhEAn",
-    "view_url": "https://v0.app/templates/dNTdgBEhEAn",
-    "edit_url": "https://v0.app/chat/dNTdgBEhEAn",
-    "preview_image_url": "https://v0.app/chat/api/og/t/dNTdgBEhEAn",
-    "image_filename": "dNTdgBEhEAn.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "dopSzBaceIo",
@@ -1033,7 +1929,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "dr50tQNxbqo",
+    "title": "Modern AI app Hero WIth CTA",
+    "slug": "dr50tQNxbqo",
+    "view_url": "https://v0.app/templates/dr50tQNxbqo",
+    "edit_url": "https://v0.app/chat/dr50tQNxbqo",
+    "preview_image_url": "https://v0.app/chat/api/og/t/dr50tQNxbqo",
+    "image_filename": "dr50tQNxbqo.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "DuidKNEmCKf",
@@ -1047,21 +1957,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "DYK2wetPByW",
-    "title": "Modern saas landing page",
-    "slug": "DYK2wetPByW",
-    "view_url": "https://v0.app/templates/DYK2wetPByW",
-    "edit_url": "https://v0.app/chat/DYK2wetPByW",
-    "preview_image_url": "https://v0.app/chat/api/og/t/DYK2wetPByW",
-    "image_filename": "DYK2wetPByW.jpg",
+    "id": "e2jmpF9VrDo",
+    "title": "Microsoft Clarity - Session recordings, Heatmap, AI analytics template",
+    "slug": "e2jmpF9VrDo",
+    "view_url": "https://v0.app/templates/e2jmpF9VrDo",
+    "edit_url": "https://v0.app/chat/e2jmpF9VrDo",
+    "preview_image_url": "https://v0.app/chat/api/og/t/e2jmpF9VrDo",
+    "image_filename": "e2jmpF9VrDo.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "E2PMKQo5S11",
@@ -1075,7 +1985,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "E3xFlIXCZi4",
@@ -1089,7 +1999,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "e9ihD3ykdZ8",
+    "title": "Product launch timer",
+    "slug": "e9ihD3ykdZ8",
+    "view_url": "https://v0.app/templates/e9ihD3ykdZ8",
+    "edit_url": "https://v0.app/chat/e9ihD3ykdZ8",
+    "preview_image_url": "https://v0.app/chat/api/og/t/e9ihD3ykdZ8",
+    "image_filename": "e9ihD3ykdZ8.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "E9ud6VN4wGf",
@@ -1103,7 +2027,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "eboqyw0KGxu",
@@ -1117,7 +2041,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "components"
   },
   {
     "id": "ecgqv3bQWCs",
@@ -1131,7 +2055,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
+  },
+  {
+    "id": "EdD4Xpeoo0w",
+    "title": "Text Reveal Animation",
+    "slug": "EdD4Xpeoo0w",
+    "view_url": "https://v0.app/templates/EdD4Xpeoo0w",
+    "edit_url": "https://v0.app/chat/EdD4Xpeoo0w",
+    "preview_image_url": "https://v0.app/chat/api/og/t/EdD4Xpeoo0w",
+    "image_filename": "EdD4Xpeoo0w.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "EDZtzSpZG41",
+    "title": "Online Courses",
+    "slug": "EDZtzSpZG41",
+    "view_url": "https://v0.app/templates/EDZtzSpZG41",
+    "edit_url": "https://v0.app/chat/EDZtzSpZG41",
+    "preview_image_url": "https://v0.app/chat/api/og/t/EDZtzSpZG41",
+    "image_filename": "EDZtzSpZG41.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "EEFKMB06Vix",
+    "title": "SVG Playground - 2D to 3D Converter",
+    "slug": "EEFKMB06Vix",
+    "view_url": "https://v0.app/templates/EEFKMB06Vix",
+    "edit_url": "https://v0.app/chat/EEFKMB06Vix",
+    "preview_image_url": "https://v0.app/chat/api/og/t/EEFKMB06Vix",
+    "image_filename": "EEFKMB06Vix.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "eGfAJ9Uw70W",
+    "title": "Audio Visualizer",
+    "slug": "eGfAJ9Uw70W",
+    "view_url": "https://v0.app/templates/eGfAJ9Uw70W",
+    "edit_url": "https://v0.app/chat/eGfAJ9Uw70W",
+    "preview_image_url": "https://v0.app/chat/api/og/t/eGfAJ9Uw70W",
+    "image_filename": "eGfAJ9Uw70W.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "ELMX6m7UodU",
@@ -1145,7 +2125,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "eOESVAqTzX8",
@@ -1159,7 +2139,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "ER8WF4pvTuh",
@@ -1173,7 +2153,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "eTc5ncilekt",
@@ -1187,7 +2167,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "etegl2n0R9K",
+    "title": "Minimal Weather App",
+    "slug": "etegl2n0R9K",
+    "view_url": "https://v0.app/templates/etegl2n0R9K",
+    "edit_url": "https://v0.app/chat/etegl2n0R9K",
+    "preview_image_url": "https://v0.app/chat/api/og/t/etegl2n0R9K",
+    "image_filename": "etegl2n0R9K.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ethjTN0xP9I",
+    "title": "531 strength program",
+    "slug": "ethjTN0xP9I",
+    "view_url": "https://v0.app/templates/ethjTN0xP9I",
+    "edit_url": "https://v0.app/chat/ethjTN0xP9I",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ethjTN0xP9I",
+    "image_filename": "ethjTN0xP9I.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "EYN85i0FdYV",
@@ -1201,21 +2209,77 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "f2NaxKKioD0",
-    "title": "VetCRM - Veterinary Clinic Dashboard",
-    "slug": "f2NaxKKioD0",
-    "view_url": "https://v0.app/templates/f2NaxKKioD0",
-    "edit_url": "https://v0.app/chat/f2NaxKKioD0",
-    "preview_image_url": "https://v0.app/chat/api/og/t/f2NaxKKioD0",
-    "image_filename": "f2NaxKKioD0.jpg",
+    "id": "EZ5tMZNO4RC",
+    "title": "Job Search Site",
+    "slug": "EZ5tMZNO4RC",
+    "view_url": "https://v0.app/templates/EZ5tMZNO4RC",
+    "edit_url": "https://v0.app/chat/EZ5tMZNO4RC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/EZ5tMZNO4RC",
+    "image_filename": "EZ5tMZNO4RC.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "eZCIAyWGZ2H",
+    "title": "Latex editor",
+    "slug": "eZCIAyWGZ2H",
+    "view_url": "https://v0.app/templates/eZCIAyWGZ2H",
+    "edit_url": "https://v0.app/chat/eZCIAyWGZ2H",
+    "preview_image_url": "https://v0.app/chat/api/og/t/eZCIAyWGZ2H",
+    "image_filename": "eZCIAyWGZ2H.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ezmvVsZJxz8",
+    "title": "Modern Agency Website - Liquid Glass",
+    "slug": "ezmvVsZJxz8",
+    "view_url": "https://v0.app/templates/ezmvVsZJxz8",
+    "edit_url": "https://v0.app/chat/ezmvVsZJxz8",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ezmvVsZJxz8",
+    "image_filename": "ezmvVsZJxz8.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "ezo48z1chOD",
+    "title": "Music player app",
+    "slug": "ezo48z1chOD",
+    "view_url": "https://v0.app/templates/ezo48z1chOD",
+    "edit_url": "https://v0.app/chat/ezo48z1chOD",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ezo48z1chOD",
+    "image_filename": "ezo48z1chOD.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "f1eSiirjwhA",
+    "title": "3d cargo warehouse",
+    "slug": "f1eSiirjwhA",
+    "view_url": "https://v0.app/templates/f1eSiirjwhA",
+    "edit_url": "https://v0.app/chat/f1eSiirjwhA",
+    "preview_image_url": "https://v0.app/chat/api/og/t/f1eSiirjwhA",
+    "image_filename": "f1eSiirjwhA.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "f9HJfxl2Edq",
@@ -1229,7 +2293,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "FAtdI3W623D",
@@ -1243,7 +2307,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "FcTLpL2JvgL",
@@ -1257,7 +2321,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "FDTQNrWefMP",
@@ -1271,7 +2335,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "FFy6Fjowo3O",
+    "title": "Modern AI Chat Interface with Voice Animation & 3D Particle Visualisation",
+    "slug": "FFy6Fjowo3O",
+    "view_url": "https://v0.app/templates/FFy6Fjowo3O",
+    "edit_url": "https://v0.app/chat/FFy6Fjowo3O",
+    "preview_image_url": "https://v0.app/chat/api/og/t/FFy6Fjowo3O",
+    "image_filename": "FFy6Fjowo3O.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "FjVZH4DboBv",
@@ -1285,21 +2363,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "fo7I9k3h5hC",
-    "title": "Document Fillable Template (eDoc form)",
-    "slug": "fo7I9k3h5hC",
-    "view_url": "https://v0.app/templates/fo7I9k3h5hC",
-    "edit_url": "https://v0.app/chat/fo7I9k3h5hC",
-    "preview_image_url": "https://v0.app/chat/api/og/t/fo7I9k3h5hC",
-    "image_filename": "fo7I9k3h5hC.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "FPh26E3ZGGL",
@@ -1313,7 +2377,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "FPle6SOomI6",
+    "title": "Metallic Silver Border Card",
+    "slug": "FPle6SOomI6",
+    "view_url": "https://v0.app/templates/FPle6SOomI6",
+    "edit_url": "https://v0.app/chat/FPle6SOomI6",
+    "preview_image_url": "https://v0.app/chat/api/og/t/FPle6SOomI6",
+    "image_filename": "FPle6SOomI6.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "FqIegFfY4ju",
+    "title": "ChefSmart",
+    "slug": "FqIegFfY4ju",
+    "view_url": "https://v0.app/templates/FqIegFfY4ju",
+    "edit_url": "https://v0.app/chat/FqIegFfY4ju",
+    "preview_image_url": "https://v0.app/chat/api/og/t/FqIegFfY4ju",
+    "image_filename": "FqIegFfY4ju.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "FRTdsTVElQ9",
+    "title": "AI Infograhics Generator",
+    "slug": "FRTdsTVElQ9",
+    "view_url": "https://v0.app/templates/FRTdsTVElQ9",
+    "edit_url": "https://v0.app/chat/FRTdsTVElQ9",
+    "preview_image_url": "https://v0.app/chat/api/og/t/FRTdsTVElQ9",
+    "image_filename": "FRTdsTVElQ9.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "fShkzhrSUh4",
+    "title": "GSAP Reveal Components",
+    "slug": "fShkzhrSUh4",
+    "view_url": "https://v0.app/templates/fShkzhrSUh4",
+    "edit_url": "https://v0.app/chat/fShkzhrSUh4",
+    "preview_image_url": "https://v0.app/chat/api/og/t/fShkzhrSUh4",
+    "image_filename": "fShkzhrSUh4.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "ftVY6IJD6Hg",
@@ -1327,7 +2447,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "fUqrRFEXLnm",
@@ -1341,7 +2461,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "fWGkNDEFPBw",
@@ -1355,21 +2475,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "FzjrLMu1GZ1",
-    "title": "Cuisine Selector Chips",
-    "slug": "FzjrLMu1GZ1",
-    "view_url": "https://v0.app/templates/FzjrLMu1GZ1",
-    "edit_url": "https://v0.app/chat/FzjrLMu1GZ1",
-    "preview_image_url": "https://v0.app/chat/api/og/t/FzjrLMu1GZ1",
-    "image_filename": "FzjrLMu1GZ1.jpg",
+    "id": "FxqhLEDOgnB",
+    "title": "SaaS Hero Section",
+    "slug": "FxqhLEDOgnB",
+    "view_url": "https://v0.app/templates/FxqhLEDOgnB",
+    "edit_url": "https://v0.app/chat/FxqhLEDOgnB",
+    "preview_image_url": "https://v0.app/chat/api/og/t/FxqhLEDOgnB",
+    "image_filename": "FxqhLEDOgnB.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "g1jsp1c0OGv",
@@ -1383,7 +2503,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "g41dpdrYIwY",
@@ -1397,7 +2517,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "G66YB7U9Nik",
+    "title": "Calculator App",
+    "slug": "G66YB7U9Nik",
+    "view_url": "https://v0.app/templates/G66YB7U9Nik",
+    "edit_url": "https://v0.app/chat/G66YB7U9Nik",
+    "preview_image_url": "https://v0.app/chat/api/og/t/G66YB7U9Nik",
+    "image_filename": "G66YB7U9Nik.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "GA0zcf6Lpzs",
+    "title": "Roastinator PRD Evaluator",
+    "slug": "GA0zcf6Lpzs",
+    "view_url": "https://v0.app/templates/GA0zcf6Lpzs",
+    "edit_url": "https://v0.app/chat/GA0zcf6Lpzs",
+    "preview_image_url": "https://v0.app/chat/api/og/t/GA0zcf6Lpzs",
+    "image_filename": "GA0zcf6Lpzs.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "GavUqpEY7Oe",
+    "title": "Pixel Art Editor",
+    "slug": "GavUqpEY7Oe",
+    "view_url": "https://v0.app/templates/GavUqpEY7Oe",
+    "edit_url": "https://v0.app/chat/GavUqpEY7Oe",
+    "preview_image_url": "https://v0.app/chat/api/og/t/GavUqpEY7Oe",
+    "image_filename": "GavUqpEY7Oe.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "GB2Aln8GBDP",
+    "title": "Shadcn registry generator",
+    "slug": "GB2Aln8GBDP",
+    "view_url": "https://v0.app/templates/GB2Aln8GBDP",
+    "edit_url": "https://v0.app/chat/GB2Aln8GBDP",
+    "preview_image_url": "https://v0.app/chat/api/og/t/GB2Aln8GBDP",
+    "image_filename": "GB2Aln8GBDP.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "GbCIenQlUAw",
@@ -1411,7 +2587,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "GdyQpU6LNZj",
+    "title": "Finova – Dark UI template for apps",
+    "slug": "GdyQpU6LNZj",
+    "view_url": "https://v0.app/templates/GdyQpU6LNZj",
+    "edit_url": "https://v0.app/chat/GdyQpU6LNZj",
+    "preview_image_url": "https://v0.app/chat/api/og/t/GdyQpU6LNZj",
+    "image_filename": "GdyQpU6LNZj.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "gEmHlupUYoH",
@@ -1425,7 +2615,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "GfqBWe5IcUo",
@@ -1439,21 +2629,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "GiyfvnlbGIT",
-    "title": "Spotify music streaming app",
-    "slug": "GiyfvnlbGIT",
-    "view_url": "https://v0.app/templates/GiyfvnlbGIT",
-    "edit_url": "https://v0.app/chat/GiyfvnlbGIT",
-    "preview_image_url": "https://v0.app/chat/api/og/t/GiyfvnlbGIT",
-    "image_filename": "GiyfvnlbGIT.jpg",
+    "id": "giqITkce06I",
+    "title": "Glassmorphism website",
+    "slug": "giqITkce06I",
+    "view_url": "https://v0.app/templates/giqITkce06I",
+    "edit_url": "https://v0.app/chat/giqITkce06I",
+    "preview_image_url": "https://v0.app/chat/api/og/t/giqITkce06I",
+    "image_filename": "giqITkce06I.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "GjfM6W3LNhT",
@@ -1467,7 +2657,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "glCISgJLCrZ",
+    "title": "Build a website",
+    "slug": "glCISgJLCrZ",
+    "view_url": "https://v0.app/templates/glCISgJLCrZ",
+    "edit_url": "https://v0.app/chat/glCISgJLCrZ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/glCISgJLCrZ",
+    "image_filename": "glCISgJLCrZ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
   },
   {
     "id": "GN3Z2rw5BZz",
@@ -1481,7 +2685,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "GtT9AaHuaXp",
@@ -1495,21 +2699,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "GucOf0KoBlB",
-    "title": "Kanban Board",
-    "slug": "GucOf0KoBlB",
-    "view_url": "https://v0.app/templates/GucOf0KoBlB",
-    "edit_url": "https://v0.app/chat/GucOf0KoBlB",
-    "preview_image_url": "https://v0.app/chat/api/og/t/GucOf0KoBlB",
-    "image_filename": "GucOf0KoBlB.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "GUQ9MASsMB1",
@@ -1523,7 +2713,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "GwWzatIJKwl",
@@ -1537,7 +2727,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "GxIXq0qUR9O",
@@ -1551,7 +2741,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "GxLqHcLosSF",
+    "title": "Vibe code your MCP Server",
+    "slug": "GxLqHcLosSF",
+    "view_url": "https://v0.app/templates/GxLqHcLosSF",
+    "edit_url": "https://v0.app/chat/GxLqHcLosSF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/GxLqHcLosSF",
+    "image_filename": "GxLqHcLosSF.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "GxpWTmluG13",
+    "title": "Recreate UI from screenshot",
+    "slug": "GxpWTmluG13",
+    "view_url": "https://v0.app/templates/GxpWTmluG13",
+    "edit_url": "https://v0.app/chat/GxpWTmluG13",
+    "preview_image_url": "https://v0.app/chat/api/og/t/GxpWTmluG13",
+    "image_filename": "GxpWTmluG13.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "GYIOZoeAD2G",
+    "title": "Snake V1",
+    "slug": "GYIOZoeAD2G",
+    "view_url": "https://v0.app/templates/GYIOZoeAD2G",
+    "edit_url": "https://v0.app/chat/GYIOZoeAD2G",
+    "preview_image_url": "https://v0.app/chat/api/og/t/GYIOZoeAD2G",
+    "image_filename": "GYIOZoeAD2G.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "GzHBHQAiS2F",
@@ -1565,7 +2797,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "h4nibkqysVJ",
+    "title": "AEGIS-Ω",
+    "slug": "h4nibkqysVJ",
+    "view_url": "https://v0.app/templates/h4nibkqysVJ",
+    "edit_url": "https://v0.app/chat/h4nibkqysVJ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/h4nibkqysVJ",
+    "image_filename": "h4nibkqysVJ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "H6d9DNE50jO",
@@ -1579,7 +2825,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "hFsI8wYbdfC",
+    "title": "Base Pay Prototype",
+    "slug": "hFsI8wYbdfC",
+    "view_url": "https://v0.app/templates/hFsI8wYbdfC",
+    "edit_url": "https://v0.app/chat/hFsI8wYbdfC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/hFsI8wYbdfC",
+    "image_filename": "hFsI8wYbdfC.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "hGkpdDsuXiZ",
+    "title": "Stumble-a-prompt",
+    "slug": "hGkpdDsuXiZ",
+    "view_url": "https://v0.app/templates/hGkpdDsuXiZ",
+    "edit_url": "https://v0.app/chat/hGkpdDsuXiZ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/hGkpdDsuXiZ",
+    "image_filename": "hGkpdDsuXiZ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "hkRpZoLOrJC",
@@ -1593,35 +2867,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "hN0nNvAchzi",
-    "title": "File Manager",
-    "slug": "hN0nNvAchzi",
-    "view_url": "https://v0.app/templates/hN0nNvAchzi",
-    "edit_url": "https://v0.app/chat/hN0nNvAchzi",
-    "preview_image_url": "https://v0.app/chat/api/og/t/hN0nNvAchzi",
-    "image_filename": "hN0nNvAchzi.jpg",
+    "id": "hO33zwNmsQF",
+    "title": "Nano Banana Playground Template",
+    "slug": "hO33zwNmsQF",
+    "view_url": "https://v0.app/templates/hO33zwNmsQF",
+    "edit_url": "https://v0.app/chat/hO33zwNmsQF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/hO33zwNmsQF",
+    "image_filename": "hO33zwNmsQF.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "hNupy7Nukht",
-    "title": "Crypto Multi-Step Onboarding Form",
-    "slug": "hNupy7Nukht",
-    "view_url": "https://v0.app/templates/hNupy7Nukht",
-    "edit_url": "https://v0.app/chat/hNupy7Nukht",
-    "preview_image_url": "https://v0.app/chat/api/og/t/hNupy7Nukht",
-    "image_filename": "hNupy7Nukht.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "hSHpkpYlxno",
@@ -1635,49 +2895,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "hUI7hCyGNye",
-    "title": "Vercel-style Black Friday map",
-    "slug": "hUI7hCyGNye",
-    "view_url": "https://v0.app/templates/hUI7hCyGNye",
-    "edit_url": "https://v0.app/chat/hUI7hCyGNye",
-    "preview_image_url": "https://v0.app/chat/api/og/t/hUI7hCyGNye",
-    "image_filename": "hUI7hCyGNye.jpg",
+    "id": "hSuyv7J9ZkR",
+    "title": "Split flap display simulator",
+    "slug": "hSuyv7J9ZkR",
+    "view_url": "https://v0.app/templates/hSuyv7J9ZkR",
+    "edit_url": "https://v0.app/chat/hSuyv7J9ZkR",
+    "preview_image_url": "https://v0.app/chat/api/og/t/hSuyv7J9ZkR",
+    "image_filename": "hSuyv7J9ZkR.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
-    "id": "hxsmA6xevds",
-    "title": "Kanban Board",
-    "slug": "hxsmA6xevds",
-    "view_url": "https://v0.app/templates/hxsmA6xevds",
-    "edit_url": "https://v0.app/chat/hxsmA6xevds",
-    "preview_image_url": "https://v0.app/chat/api/og/t/hxsmA6xevds",
-    "image_filename": "hxsmA6xevds.jpg",
+    "id": "hZ9DNzgZWXy",
+    "title": "3D Interactive Mac Keyboard",
+    "slug": "hZ9DNzgZWXy",
+    "view_url": "https://v0.app/templates/hZ9DNzgZWXy",
+    "edit_url": "https://v0.app/chat/hZ9DNzgZWXy",
+    "preview_image_url": "https://v0.app/chat/api/og/t/hZ9DNzgZWXy",
+    "image_filename": "hZ9DNzgZWXy.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
-    "id": "I96b70NNT2E",
-    "title": "ASCII Art Portfolio",
-    "slug": "I96b70NNT2E",
-    "view_url": "https://v0.app/templates/I96b70NNT2E",
-    "edit_url": "https://v0.app/chat/I96b70NNT2E",
-    "preview_image_url": "https://v0.app/chat/api/og/t/I96b70NNT2E",
-    "image_filename": "I96b70NNT2E.jpg",
+    "id": "i7sOhvTB3sQ",
+    "title": "Fork of Youtube clone website",
+    "slug": "i7sOhvTB3sQ",
+    "view_url": "https://v0.app/templates/i7sOhvTB3sQ",
+    "edit_url": "https://v0.app/chat/i7sOhvTB3sQ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/i7sOhvTB3sQ",
+    "image_filename": "i7sOhvTB3sQ.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "IakrUQ3dqso",
@@ -1691,7 +2951,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
+  },
+  {
+    "id": "iBPsMqPGRTZ",
+    "title": "Interior Design Landing",
+    "slug": "iBPsMqPGRTZ",
+    "view_url": "https://v0.app/templates/iBPsMqPGRTZ",
+    "edit_url": "https://v0.app/chat/iBPsMqPGRTZ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/iBPsMqPGRTZ",
+    "image_filename": "iBPsMqPGRTZ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "IbxcZTbVYuv",
+    "title": "Vercel style slide deck",
+    "slug": "IbxcZTbVYuv",
+    "view_url": "https://v0.app/templates/IbxcZTbVYuv",
+    "edit_url": "https://v0.app/chat/IbxcZTbVYuv",
+    "preview_image_url": "https://v0.app/chat/api/og/t/IbxcZTbVYuv",
+    "image_filename": "IbxcZTbVYuv.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ic02oOr94dp",
+    "title": "Amazon Bedrock Chat",
+    "slug": "ic02oOr94dp",
+    "view_url": "https://v0.app/templates/ic02oOr94dp",
+    "edit_url": "https://v0.app/chat/ic02oOr94dp",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ic02oOr94dp",
+    "image_filename": "ic02oOr94dp.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "IegtBb6qiEV",
+    "title": "V0 IRL Event Landing + Custom 3D Lanyard",
+    "slug": "IegtBb6qiEV",
+    "view_url": "https://v0.app/templates/IegtBb6qiEV",
+    "edit_url": "https://v0.app/chat/IegtBb6qiEV",
+    "preview_image_url": "https://v0.app/chat/api/og/t/IegtBb6qiEV",
+    "image_filename": "IegtBb6qiEV.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "iEQRI5HN18I",
@@ -1705,21 +3021,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
-    "id": "ip637bdUq3J",
-    "title": "Portifolio",
-    "slug": "ip637bdUq3J",
-    "view_url": "https://v0.app/templates/ip637bdUq3J",
-    "edit_url": "https://v0.app/chat/ip637bdUq3J",
-    "preview_image_url": "https://v0.app/chat/api/og/t/ip637bdUq3J",
-    "image_filename": "ip637bdUq3J.jpg",
+    "id": "iONNOaUulfd",
+    "title": "Macintosh Operating System",
+    "slug": "iONNOaUulfd",
+    "view_url": "https://v0.app/templates/iONNOaUulfd",
+    "edit_url": "https://v0.app/chat/iONNOaUulfd",
+    "preview_image_url": "https://v0.app/chat/api/og/t/iONNOaUulfd",
+    "image_filename": "iONNOaUulfd.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "IQDdAvEEGsS",
@@ -1733,7 +3049,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "iueA46Y9BHz",
+    "title": "FLUX.2 Playground",
+    "slug": "iueA46Y9BHz",
+    "view_url": "https://v0.app/templates/iueA46Y9BHz",
+    "edit_url": "https://v0.app/chat/iueA46Y9BHz",
+    "preview_image_url": "https://v0.app/chat/api/og/t/iueA46Y9BHz",
+    "image_filename": "iueA46Y9BHz.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "ivcuZjJQPoD",
+    "title": "v0 | minisign",
+    "slug": "ivcuZjJQPoD",
+    "view_url": "https://v0.app/templates/ivcuZjJQPoD",
+    "edit_url": "https://v0.app/chat/ivcuZjJQPoD",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ivcuZjJQPoD",
+    "image_filename": "ivcuZjJQPoD.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "IVWc0rHCBAL",
@@ -1747,7 +3091,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "IWBavRjs8xe",
@@ -1761,7 +3105,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "Iwn2WCVDWO9",
+    "title": "oddity.003",
+    "slug": "Iwn2WCVDWO9",
+    "view_url": "https://v0.app/templates/Iwn2WCVDWO9",
+    "edit_url": "https://v0.app/chat/Iwn2WCVDWO9",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Iwn2WCVDWO9",
+    "image_filename": "Iwn2WCVDWO9.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "IYFdVOxSc1S",
@@ -1775,7 +3133,77 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "J0Ga1jtkAON",
+    "title": "Sprint - A Linear Clone",
+    "slug": "J0Ga1jtkAON",
+    "view_url": "https://v0.app/templates/J0Ga1jtkAON",
+    "edit_url": "https://v0.app/chat/J0Ga1jtkAON",
+    "preview_image_url": "https://v0.app/chat/api/og/t/J0Ga1jtkAON",
+    "image_filename": "J0Ga1jtkAON.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "J18h4HuClnF",
+    "title": "Whistleblowing system",
+    "slug": "J18h4HuClnF",
+    "view_url": "https://v0.app/templates/J18h4HuClnF",
+    "edit_url": "https://v0.app/chat/J18h4HuClnF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/J18h4HuClnF",
+    "image_filename": "J18h4HuClnF.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "J3tv9S7TkL7",
+    "title": "Personalized AI writer",
+    "slug": "J3tv9S7TkL7",
+    "view_url": "https://v0.app/templates/J3tv9S7TkL7",
+    "edit_url": "https://v0.app/chat/J3tv9S7TkL7",
+    "preview_image_url": "https://v0.app/chat/api/og/t/J3tv9S7TkL7",
+    "image_filename": "J3tv9S7TkL7.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "jAKW17eb3Os",
+    "title": "3D galaxy page",
+    "slug": "jAKW17eb3Os",
+    "view_url": "https://v0.app/templates/jAKW17eb3Os",
+    "edit_url": "https://v0.app/chat/jAKW17eb3Os",
+    "preview_image_url": "https://v0.app/chat/api/og/t/jAKW17eb3Os",
+    "image_filename": "jAKW17eb3Os.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "JBpWgFyIt3e",
+    "title": "v0 Loading Components",
+    "slug": "JBpWgFyIt3e",
+    "view_url": "https://v0.app/templates/JBpWgFyIt3e",
+    "edit_url": "https://v0.app/chat/JBpWgFyIt3e",
+    "preview_image_url": "https://v0.app/chat/api/og/t/JBpWgFyIt3e",
+    "image_filename": "JBpWgFyIt3e.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "jCeGSebTxo0",
@@ -1789,7 +3217,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "jEQwLRis1BE",
@@ -1803,7 +3231,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "JfGEPnqVAVL",
+    "title": "Crypto Dashboard",
+    "slug": "JfGEPnqVAVL",
+    "view_url": "https://v0.app/templates/JfGEPnqVAVL",
+    "edit_url": "https://v0.app/chat/JfGEPnqVAVL",
+    "preview_image_url": "https://v0.app/chat/api/og/t/JfGEPnqVAVL",
+    "image_filename": "JfGEPnqVAVL.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "JgcWH8Dw9d3",
@@ -1817,7 +3259,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
     "id": "jGJ1uPiCJsA",
@@ -1831,7 +3273,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "jhKVBI997Dk",
+    "title": "Shader generator",
+    "slug": "jhKVBI997Dk",
+    "view_url": "https://v0.app/templates/jhKVBI997Dk",
+    "edit_url": "https://v0.app/chat/jhKVBI997Dk",
+    "preview_image_url": "https://v0.app/chat/api/og/t/jhKVBI997Dk",
+    "image_filename": "jhKVBI997Dk.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "Jihnq0pjA1y",
+    "title": "Personalized Meal Delivery App",
+    "slug": "Jihnq0pjA1y",
+    "view_url": "https://v0.app/templates/Jihnq0pjA1y",
+    "edit_url": "https://v0.app/chat/Jihnq0pjA1y",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Jihnq0pjA1y",
+    "image_filename": "Jihnq0pjA1y.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "jkYC0gr2mgg",
@@ -1845,7 +3315,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "jNBjcLDnjis",
+    "title": "EasyAdvance: Turn Invoices Into Instant Cash",
+    "slug": "jNBjcLDnjis",
+    "view_url": "https://v0.app/templates/jNBjcLDnjis",
+    "edit_url": "https://v0.app/chat/jNBjcLDnjis",
+    "preview_image_url": "https://v0.app/chat/api/og/t/jNBjcLDnjis",
+    "image_filename": "jNBjcLDnjis.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "joSCTpKq5OM",
+    "title": "pixlecam",
+    "slug": "joSCTpKq5OM",
+    "view_url": "https://v0.app/templates/joSCTpKq5OM",
+    "edit_url": "https://v0.app/chat/joSCTpKq5OM",
+    "preview_image_url": "https://v0.app/chat/api/og/t/joSCTpKq5OM",
+    "image_filename": "joSCTpKq5OM.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "JOvGTXgO2t4",
@@ -1859,7 +3357,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "JqfDUlSthgR",
+    "title": "Stock Ticker Dashboard",
+    "slug": "JqfDUlSthgR",
+    "view_url": "https://v0.app/templates/JqfDUlSthgR",
+    "edit_url": "https://v0.app/chat/JqfDUlSthgR",
+    "preview_image_url": "https://v0.app/chat/api/og/t/JqfDUlSthgR",
+    "image_filename": "JqfDUlSthgR.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "jrYuNlqLsd9",
@@ -1873,7 +3385,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "JSfH6c1bw15",
+    "title": "Recreate Figma UI",
+    "slug": "JSfH6c1bw15",
+    "view_url": "https://v0.app/templates/JSfH6c1bw15",
+    "edit_url": "https://v0.app/chat/JSfH6c1bw15",
+    "preview_image_url": "https://v0.app/chat/api/og/t/JSfH6c1bw15",
+    "image_filename": "JSfH6c1bw15.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "jSYDGSkRBFX",
@@ -1887,7 +3413,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "JTMkCmk0GvC",
@@ -1901,7 +3427,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "jUBqSBJsNrz",
@@ -1915,7 +3441,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "JUFK37Esjlj",
+    "title": "3D Gallery Photography Template",
+    "slug": "JUFK37Esjlj",
+    "view_url": "https://v0.app/templates/JUFK37Esjlj",
+    "edit_url": "https://v0.app/chat/JUFK37Esjlj",
+    "preview_image_url": "https://v0.app/chat/api/og/t/JUFK37Esjlj",
+    "image_filename": "JUFK37Esjlj.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "JUmXZlg06Ao",
@@ -1929,7 +3469,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "jV5ixbx4BOl",
+    "title": "AI Gateway Starter",
+    "slug": "jV5ixbx4BOl",
+    "view_url": "https://v0.app/templates/jV5ixbx4BOl",
+    "edit_url": "https://v0.app/chat/jV5ixbx4BOl",
+    "preview_image_url": "https://v0.app/chat/api/og/t/jV5ixbx4BOl",
+    "image_filename": "jV5ixbx4BOl.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "JW7nEQ3S0Sa",
+    "title": "Jam rock climbers design",
+    "slug": "JW7nEQ3S0Sa",
+    "view_url": "https://v0.app/templates/JW7nEQ3S0Sa",
+    "edit_url": "https://v0.app/chat/JW7nEQ3S0Sa",
+    "preview_image_url": "https://v0.app/chat/api/og/t/JW7nEQ3S0Sa",
+    "image_filename": "JW7nEQ3S0Sa.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "jyMQrSJlTx0",
+    "title": "Mumbai Rickshaw Fare",
+    "slug": "jyMQrSJlTx0",
+    "view_url": "https://v0.app/templates/jyMQrSJlTx0",
+    "edit_url": "https://v0.app/chat/jyMQrSJlTx0",
+    "preview_image_url": "https://v0.app/chat/api/og/t/jyMQrSJlTx0",
+    "image_filename": "jyMQrSJlTx0.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "jz21jJIFr0i",
@@ -1943,7 +3525,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "jZpf5doYiNe",
+    "title": "Ghibli Inspired Landing Page",
+    "slug": "jZpf5doYiNe",
+    "view_url": "https://v0.app/templates/jZpf5doYiNe",
+    "edit_url": "https://v0.app/chat/jZpf5doYiNe",
+    "preview_image_url": "https://v0.app/chat/api/og/t/jZpf5doYiNe",
+    "image_filename": "jZpf5doYiNe.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "k0lfs5XMtWv",
+    "title": "Circular Dial Code Input",
+    "slug": "k0lfs5XMtWv",
+    "view_url": "https://v0.app/templates/k0lfs5XMtWv",
+    "edit_url": "https://v0.app/chat/k0lfs5XMtWv",
+    "preview_image_url": "https://v0.app/chat/api/og/t/k0lfs5XMtWv",
+    "image_filename": "k0lfs5XMtWv.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "KFyeD1PKXF4",
@@ -1957,7 +3567,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "kghH9dDHM7P",
@@ -1971,21 +3581,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "Kq2iSvoZCoY",
-    "title": "Mnimal Animated Hero",
-    "slug": "Kq2iSvoZCoY",
-    "view_url": "https://v0.app/templates/Kq2iSvoZCoY",
-    "edit_url": "https://v0.app/chat/Kq2iSvoZCoY",
-    "preview_image_url": "https://v0.app/chat/api/og/t/Kq2iSvoZCoY",
-    "image_filename": "Kq2iSvoZCoY.jpg",
+    "id": "Klr0jEtw0Qn",
+    "title": "Joy new",
+    "slug": "Klr0jEtw0Qn",
+    "view_url": "https://v0.app/templates/Klr0jEtw0Qn",
+    "edit_url": "https://v0.app/chat/Klr0jEtw0Qn",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Klr0jEtw0Qn",
+    "image_filename": "Klr0jEtw0Qn.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ksbI8QJx40F",
+    "title": "Jellyfish",
+    "slug": "ksbI8QJx40F",
+    "view_url": "https://v0.app/templates/ksbI8QJx40F",
+    "edit_url": "https://v0.app/chat/ksbI8QJx40F",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ksbI8QJx40F",
+    "image_filename": "ksbI8QJx40F.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "ksSTzATPzMq",
+    "title": "AI Elements with AI SDK 5",
+    "slug": "ksSTzATPzMq",
+    "view_url": "https://v0.app/templates/ksSTzATPzMq",
+    "edit_url": "https://v0.app/chat/ksSTzATPzMq",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ksSTzATPzMq",
+    "image_filename": "ksSTzATPzMq.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "Kt7yUWUBUBN",
@@ -1999,7 +3637,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "KwAfdWX9Ish",
+    "title": "WorldBank v2",
+    "slug": "KwAfdWX9Ish",
+    "view_url": "https://v0.app/templates/KwAfdWX9Ish",
+    "edit_url": "https://v0.app/chat/KwAfdWX9Ish",
+    "preview_image_url": "https://v0.app/chat/api/og/t/KwAfdWX9Ish",
+    "image_filename": "KwAfdWX9Ish.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "kxrpKzLTbTY",
+    "title": "Sitesmith Saas",
+    "slug": "kxrpKzLTbTY",
+    "view_url": "https://v0.app/templates/kxrpKzLTbTY",
+    "edit_url": "https://v0.app/chat/kxrpKzLTbTY",
+    "preview_image_url": "https://v0.app/chat/api/og/t/kxrpKzLTbTY",
+    "image_filename": "kxrpKzLTbTY.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "kz69KY1ux5H",
+    "title": "AI Image Generation Benchmark",
+    "slug": "kz69KY1ux5H",
+    "view_url": "https://v0.app/templates/kz69KY1ux5H",
+    "edit_url": "https://v0.app/chat/kz69KY1ux5H",
+    "preview_image_url": "https://v0.app/chat/api/og/t/kz69KY1ux5H",
+    "image_filename": "kz69KY1ux5H.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "l4kXaFh0Ckv",
@@ -2013,7 +3693,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "l5Sjfeadbua",
+    "title": "Recursive Matrix",
+    "slug": "l5Sjfeadbua",
+    "view_url": "https://v0.app/templates/l5Sjfeadbua",
+    "edit_url": "https://v0.app/chat/l5Sjfeadbua",
+    "preview_image_url": "https://v0.app/chat/api/og/t/l5Sjfeadbua",
+    "image_filename": "l5Sjfeadbua.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "LAKk0lLpkdb",
+    "title": "Bank App",
+    "slug": "LAKk0lLpkdb",
+    "view_url": "https://v0.app/templates/LAKk0lLpkdb",
+    "edit_url": "https://v0.app/chat/LAKk0lLpkdb",
+    "preview_image_url": "https://v0.app/chat/api/og/t/LAKk0lLpkdb",
+    "image_filename": "LAKk0lLpkdb.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "LASOpyZ3Y42",
@@ -2027,7 +3735,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "lcJ8H4J0vMy",
+    "title": "Agent - Hero Section",
+    "slug": "lcJ8H4J0vMy",
+    "view_url": "https://v0.app/templates/lcJ8H4J0vMy",
+    "edit_url": "https://v0.app/chat/lcJ8H4J0vMy",
+    "preview_image_url": "https://v0.app/chat/api/og/t/lcJ8H4J0vMy",
+    "image_filename": "lcJ8H4J0vMy.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "lezjBDZqoIO",
@@ -2041,7 +3763,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
+  },
+  {
+    "id": "lgh5A223SiR",
+    "title": "Login 02",
+    "slug": "lgh5A223SiR",
+    "view_url": "https://v0.app/templates/lgh5A223SiR",
+    "edit_url": "https://v0.app/chat/lgh5A223SiR",
+    "preview_image_url": "https://v0.app/chat/api/og/t/lgh5A223SiR",
+    "image_filename": "lgh5A223SiR.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "login-and-sign-up"
   },
   {
     "id": "LHv4frpA7Us",
@@ -2055,7 +3791,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "Lj0M2nQOssu",
@@ -2069,7 +3805,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "Lj65px9R6TK",
+    "title": "Animated dialog component",
+    "slug": "Lj65px9R6TK",
+    "view_url": "https://v0.app/templates/Lj65px9R6TK",
+    "edit_url": "https://v0.app/chat/Lj65px9R6TK",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Lj65px9R6TK",
+    "image_filename": "Lj65px9R6TK.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "ljCA0dtSKUQ",
@@ -2083,7 +3833,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "lJNjB6hV8bm",
+    "title": "Discord Bot Hosting",
+    "slug": "lJNjB6hV8bm",
+    "view_url": "https://v0.app/templates/lJNjB6hV8bm",
+    "edit_url": "https://v0.app/chat/lJNjB6hV8bm",
+    "preview_image_url": "https://v0.app/chat/api/og/t/lJNjB6hV8bm",
+    "image_filename": "lJNjB6hV8bm.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "lJXGkoM1koN",
@@ -2097,7 +3861,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "Ln5i4EVw63N",
@@ -2111,21 +3875,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
-    "id": "LoEAbJNIDmf",
-    "title": "Abdi's Portfolio",
-    "slug": "LoEAbJNIDmf",
-    "view_url": "https://v0.app/templates/LoEAbJNIDmf",
-    "edit_url": "https://v0.app/chat/LoEAbJNIDmf",
-    "preview_image_url": "https://v0.app/chat/api/og/t/LoEAbJNIDmf",
-    "image_filename": "LoEAbJNIDmf.jpg",
+    "id": "lNkDS3MVHTk",
+    "title": "Satori Bot",
+    "slug": "lNkDS3MVHTk",
+    "view_url": "https://v0.app/templates/lNkDS3MVHTk",
+    "edit_url": "https://v0.app/chat/lNkDS3MVHTk",
+    "preview_image_url": "https://v0.app/chat/api/og/t/lNkDS3MVHTk",
+    "image_filename": "lNkDS3MVHTk.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "lrUJXdXqQCb",
@@ -2139,21 +3903,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "LtQ7cIPj9o5",
-    "title": "Login 03",
-    "slug": "LtQ7cIPj9o5",
-    "view_url": "https://v0.app/templates/LtQ7cIPj9o5",
-    "edit_url": "https://v0.app/chat/LtQ7cIPj9o5",
-    "preview_image_url": "https://v0.app/chat/api/og/t/LtQ7cIPj9o5",
-    "image_filename": "LtQ7cIPj9o5.jpg",
+    "id": "lUo6XTuTJXl",
+    "title": "TREMOR -- Real-Time Global Earthquake Monitor",
+    "slug": "lUo6XTuTJXl",
+    "view_url": "https://v0.app/templates/lUo6XTuTJXl",
+    "edit_url": "https://v0.app/chat/lUo6XTuTJXl",
+    "preview_image_url": "https://v0.app/chat/api/og/t/lUo6XTuTJXl",
+    "image_filename": "lUo6XTuTJXl.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "lvecd98w3nd",
+    "title": "ASCII sound canvas",
+    "slug": "lvecd98w3nd",
+    "view_url": "https://v0.app/templates/lvecd98w3nd",
+    "edit_url": "https://v0.app/chat/lvecd98w3nd",
+    "preview_image_url": "https://v0.app/chat/api/og/t/lvecd98w3nd",
+    "image_filename": "lvecd98w3nd.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "m23KLm1bn8K",
@@ -2167,7 +3945,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "m6qR7WMa6Q9",
+    "title": "Langar e Panjatan app",
+    "slug": "m6qR7WMa6Q9",
+    "view_url": "https://v0.app/templates/m6qR7WMa6Q9",
+    "edit_url": "https://v0.app/chat/m6qR7WMa6Q9",
+    "preview_image_url": "https://v0.app/chat/api/og/t/m6qR7WMa6Q9",
+    "image_filename": "m6qR7WMa6Q9.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "mA8N4h1POSv",
@@ -2181,7 +3973,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "mE2nwltmoDT",
@@ -2195,7 +3987,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "mEefgKyVifq",
+    "title": "enhanced-travel-website",
+    "slug": "mEefgKyVifq",
+    "view_url": "https://v0.app/templates/mEefgKyVifq",
+    "edit_url": "https://v0.app/chat/mEefgKyVifq",
+    "preview_image_url": "https://v0.app/chat/api/og/t/mEefgKyVifq",
+    "image_filename": "mEefgKyVifq.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "MhdLsJnH7OY",
@@ -2209,7 +4015,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "MHeBveWfasp",
+    "title": "Neon Maze",
+    "slug": "MHeBveWfasp",
+    "view_url": "https://v0.app/templates/MHeBveWfasp",
+    "edit_url": "https://v0.app/chat/MHeBveWfasp",
+    "preview_image_url": "https://v0.app/chat/api/og/t/MHeBveWfasp",
+    "image_filename": "MHeBveWfasp.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "mN6yIGWG50M",
@@ -2223,7 +4043,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "mNsIdIhAeGR",
@@ -2237,7 +4057,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "MPMI9radTRV",
@@ -2251,7 +4071,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "mQB1SyhOpe8",
+    "title": "Webstore design concept",
+    "slug": "mQB1SyhOpe8",
+    "view_url": "https://v0.app/templates/mQB1SyhOpe8",
+    "edit_url": "https://v0.app/chat/mQB1SyhOpe8",
+    "preview_image_url": "https://v0.app/chat/api/og/t/mQB1SyhOpe8",
+    "image_filename": "mQB1SyhOpe8.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "mraFpJTZdoR",
@@ -2265,7 +4099,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "Mu7QWgebRxS",
@@ -2279,7 +4113,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "NFhsR5cAXJp",
+    "title": "Minimalist portfolio",
+    "slug": "NFhsR5cAXJp",
+    "view_url": "https://v0.app/templates/NFhsR5cAXJp",
+    "edit_url": "https://v0.app/chat/NFhsR5cAXJp",
+    "preview_image_url": "https://v0.app/chat/api/og/t/NFhsR5cAXJp",
+    "image_filename": "NFhsR5cAXJp.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
   },
   {
     "id": "NjOUgG6VT7X",
@@ -2293,7 +4141,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
     "id": "NK1wPDB0fOh",
@@ -2307,7 +4155,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "Np8oiTwDYkK",
@@ -2321,7 +4169,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "Nsmrzxh80uo",
+    "title": "Radio Upa App",
+    "slug": "Nsmrzxh80uo",
+    "view_url": "https://v0.app/templates/Nsmrzxh80uo",
+    "edit_url": "https://v0.app/chat/Nsmrzxh80uo",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Nsmrzxh80uo",
+    "image_filename": "Nsmrzxh80uo.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "nt3ZjSIbBQ1",
+    "title": "Generative UI Chatbot",
+    "slug": "nt3ZjSIbBQ1",
+    "view_url": "https://v0.app/templates/nt3ZjSIbBQ1",
+    "edit_url": "https://v0.app/chat/nt3ZjSIbBQ1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/nt3ZjSIbBQ1",
+    "image_filename": "nt3ZjSIbBQ1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "NtKvwyfQQZJ",
@@ -2335,21 +4211,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "Nynl8DJ6xUH",
-    "title": "A boring agency",
-    "slug": "Nynl8DJ6xUH",
-    "view_url": "https://v0.app/templates/Nynl8DJ6xUH",
-    "edit_url": "https://v0.app/chat/Nynl8DJ6xUH",
-    "preview_image_url": "https://v0.app/chat/api/og/t/Nynl8DJ6xUH",
-    "image_filename": "Nynl8DJ6xUH.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "O0nZnK9pEDN",
@@ -2363,7 +4225,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "O7jBnej3ZoZ",
@@ -2377,7 +4239,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "o81c42y8OaI",
@@ -2391,7 +4253,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "o8zZBEBZckm",
+    "title": "Spark - Agency Landing Portfolio",
+    "slug": "o8zZBEBZckm",
+    "view_url": "https://v0.app/templates/o8zZBEBZckm",
+    "edit_url": "https://v0.app/chat/o8zZBEBZckm",
+    "preview_image_url": "https://v0.app/chat/api/og/t/o8zZBEBZckm",
+    "image_filename": "o8zZBEBZckm.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "OaIDrvjAKZO",
@@ -2405,7 +4281,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "Oi5INHKYsqg",
@@ -2419,7 +4295,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "oIMQgf3OiTC",
+    "title": "Animated File Upload",
+    "slug": "oIMQgf3OiTC",
+    "view_url": "https://v0.app/templates/oIMQgf3OiTC",
+    "edit_url": "https://v0.app/chat/oIMQgf3OiTC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/oIMQgf3OiTC",
+    "image_filename": "oIMQgf3OiTC.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "ojUWrN1Dymf",
@@ -2433,7 +4323,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
+  },
+  {
+    "id": "OkGomYyvhbl",
+    "title": "New Project",
+    "slug": "OkGomYyvhbl",
+    "view_url": "https://v0.app/templates/OkGomYyvhbl",
+    "edit_url": "https://v0.app/chat/OkGomYyvhbl",
+    "preview_image_url": "https://v0.app/chat/api/og/t/OkGomYyvhbl",
+    "image_filename": "OkGomYyvhbl.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ONoAgsMmNOt",
+    "title": "AI Landing Page",
+    "slug": "ONoAgsMmNOt",
+    "view_url": "https://v0.app/templates/ONoAgsMmNOt",
+    "edit_url": "https://v0.app/chat/ONoAgsMmNOt",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ONoAgsMmNOt",
+    "image_filename": "ONoAgsMmNOt.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "oNsnDXToIss",
@@ -2447,7 +4365,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "OSlhFl7nxUm",
@@ -2461,7 +4379,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
   },
   {
     "id": "Osn3Xx2aDmE",
@@ -2475,21 +4393,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "OTusv4S0h7Y",
-    "title": "Flappy Bird Game – Built with v0",
-    "slug": "OTusv4S0h7Y",
-    "view_url": "https://v0.app/templates/OTusv4S0h7Y",
-    "edit_url": "https://v0.app/chat/OTusv4S0h7Y",
-    "preview_image_url": "https://v0.app/chat/api/og/t/OTusv4S0h7Y",
-    "image_filename": "OTusv4S0h7Y.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "ov3ApgfOdx5",
@@ -2503,7 +4407,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "OWdF1aPYmXV",
+    "title": "Retro Brutalist Portfolio",
+    "slug": "OWdF1aPYmXV",
+    "view_url": "https://v0.app/templates/OWdF1aPYmXV",
+    "edit_url": "https://v0.app/chat/OWdF1aPYmXV",
+    "preview_image_url": "https://v0.app/chat/api/og/t/OWdF1aPYmXV",
+    "image_filename": "OWdF1aPYmXV.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "oWfCwEBFVQP",
+    "title": "WebGPU Graphene 3D model with particles setting",
+    "slug": "oWfCwEBFVQP",
+    "view_url": "https://v0.app/templates/oWfCwEBFVQP",
+    "edit_url": "https://v0.app/chat/oWfCwEBFVQP",
+    "preview_image_url": "https://v0.app/chat/api/og/t/oWfCwEBFVQP",
+    "image_filename": "oWfCwEBFVQP.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "OxkUxmTykyl",
+    "title": "Fe₂O₃",
+    "slug": "OxkUxmTykyl",
+    "view_url": "https://v0.app/templates/OxkUxmTykyl",
+    "edit_url": "https://v0.app/chat/OxkUxmTykyl",
+    "preview_image_url": "https://v0.app/chat/api/og/t/OxkUxmTykyl",
+    "image_filename": "OxkUxmTykyl.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "oZxBJ6zcOsz",
@@ -2517,7 +4463,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "p3gyw1zYsVe",
@@ -2531,7 +4477,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
     "id": "P6C7shyXgMi",
@@ -2545,21 +4491,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "P7AfLIeCuyn",
-    "title": "Photographer landing page",
-    "slug": "P7AfLIeCuyn",
-    "view_url": "https://v0.app/templates/P7AfLIeCuyn",
-    "edit_url": "https://v0.app/chat/P7AfLIeCuyn",
-    "preview_image_url": "https://v0.app/chat/api/og/t/P7AfLIeCuyn",
-    "image_filename": "P7AfLIeCuyn.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
     "id": "pCMjvDLPVe3",
@@ -2573,7 +4505,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "Pf7lw1nypu5",
@@ -2587,7 +4519,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "PFPtOqR0kgD",
@@ -2601,7 +4533,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "PGnZe6Nijjz",
@@ -2615,7 +4547,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "pHUEegzaKXu",
+    "title": "UXBooster - Modern UX Analytics Dashboard",
+    "slug": "pHUEegzaKXu",
+    "view_url": "https://v0.app/templates/pHUEegzaKXu",
+    "edit_url": "https://v0.app/chat/pHUEegzaKXu",
+    "preview_image_url": "https://v0.app/chat/api/og/t/pHUEegzaKXu",
+    "image_filename": "pHUEegzaKXu.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "PirDCuCCQHM",
+    "title": "OpenAI orb shader design",
+    "slug": "PirDCuCCQHM",
+    "view_url": "https://v0.app/templates/PirDCuCCQHM",
+    "edit_url": "https://v0.app/chat/PirDCuCCQHM",
+    "preview_image_url": "https://v0.app/chat/api/og/t/PirDCuCCQHM",
+    "image_filename": "PirDCuCCQHM.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "pMlLZA30bYc",
+    "title": "Vinyl Gallery | Carousel",
+    "slug": "pMlLZA30bYc",
+    "view_url": "https://v0.app/templates/pMlLZA30bYc",
+    "edit_url": "https://v0.app/chat/pMlLZA30bYc",
+    "preview_image_url": "https://v0.app/chat/api/og/t/pMlLZA30bYc",
+    "image_filename": "pMlLZA30bYc.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "Pn0urcUHyKT",
@@ -2629,7 +4603,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ppoa1Yu4KX9",
+    "title": "Modern Tote Bag Store",
+    "slug": "ppoa1Yu4KX9",
+    "view_url": "https://v0.app/templates/ppoa1Yu4KX9",
+    "edit_url": "https://v0.app/chat/ppoa1Yu4KX9",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ppoa1Yu4KX9",
+    "image_filename": "ppoa1Yu4KX9.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "pqceouVtjYN",
@@ -2643,7 +4631,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "Pr8Pms0CEBm",
@@ -2657,49 +4645,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
-    "id": "pvAP9WfMhJq",
-    "title": "Minimalist Event Sign Up Page",
-    "slug": "pvAP9WfMhJq",
-    "view_url": "https://v0.app/templates/pvAP9WfMhJq",
-    "edit_url": "https://v0.app/chat/pvAP9WfMhJq",
-    "preview_image_url": "https://v0.app/chat/api/og/t/pvAP9WfMhJq",
-    "image_filename": "pvAP9WfMhJq.jpg",
+    "id": "ptJQj5OYUxj",
+    "title": "Video to ascii",
+    "slug": "ptJQj5OYUxj",
+    "view_url": "https://v0.app/templates/ptJQj5OYUxj",
+    "edit_url": "https://v0.app/chat/ptJQj5OYUxj",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ptJQj5OYUxj",
+    "image_filename": "ptJQj5OYUxj.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
-    "id": "q995nHph2oX",
-    "title": "Snippet Manager +",
-    "slug": "q995nHph2oX",
-    "view_url": "https://v0.app/templates/q995nHph2oX",
-    "edit_url": "https://v0.app/chat/q995nHph2oX",
-    "preview_image_url": "https://v0.app/chat/api/og/t/q995nHph2oX",
-    "image_filename": "q995nHph2oX.jpg",
+    "id": "pUQ3DWR09TI",
+    "title": "TextTools – Modern Text Utilities Suite",
+    "slug": "pUQ3DWR09TI",
+    "view_url": "https://v0.app/templates/pUQ3DWR09TI",
+    "edit_url": "https://v0.app/chat/pUQ3DWR09TI",
+    "preview_image_url": "https://v0.app/chat/api/og/t/pUQ3DWR09TI",
+    "image_filename": "pUQ3DWR09TI.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "qBkSkVmHc8R",
-    "title": "Boty - eCommerce template",
-    "slug": "qBkSkVmHc8R",
-    "view_url": "https://v0.app/templates/qBkSkVmHc8R",
-    "edit_url": "https://v0.app/chat/qBkSkVmHc8R",
-    "preview_image_url": "https://v0.app/chat/api/og/t/qBkSkVmHc8R",
-    "image_filename": "qBkSkVmHc8R.jpg",
+    "id": "pYVLlced3as",
+    "title": "Oklch Color Picker",
+    "slug": "pYVLlced3as",
+    "view_url": "https://v0.app/templates/pYVLlced3as",
+    "edit_url": "https://v0.app/chat/pYVLlced3as",
+    "preview_image_url": "https://v0.app/chat/api/og/t/pYVLlced3as",
+    "image_filename": "pYVLlced3as.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "QcwhuXpYQUm",
+    "title": "OpenAI Supply Co. Store Clone with Interactive Filtering",
+    "slug": "QcwhuXpYQUm",
+    "view_url": "https://v0.app/templates/QcwhuXpYQUm",
+    "edit_url": "https://v0.app/chat/QcwhuXpYQUm",
+    "preview_image_url": "https://v0.app/chat/api/og/t/QcwhuXpYQUm",
+    "image_filename": "QcwhuXpYQUm.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "QeFZttwuC80",
@@ -2713,7 +4715,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "QgiMxaR9ag3",
@@ -2727,7 +4729,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "QIT3NsrJUwL",
@@ -2741,7 +4743,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "qK8iWfx4VMX",
@@ -2755,7 +4757,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "QkihcSMmdWP",
@@ -2769,7 +4771,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "QKPGI1AnLXg",
+    "title": "geometric -y-",
+    "slug": "QKPGI1AnLXg",
+    "view_url": "https://v0.app/templates/QKPGI1AnLXg",
+    "edit_url": "https://v0.app/chat/QKPGI1AnLXg",
+    "preview_image_url": "https://v0.app/chat/api/og/t/QKPGI1AnLXg",
+    "image_filename": "QKPGI1AnLXg.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "qo6ste4da9B",
+    "title": "Fitness website",
+    "slug": "qo6ste4da9B",
+    "view_url": "https://v0.app/templates/qo6ste4da9B",
+    "edit_url": "https://v0.app/chat/qo6ste4da9B",
+    "preview_image_url": "https://v0.app/chat/api/og/t/qo6ste4da9B",
+    "image_filename": "qo6ste4da9B.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "QRieAUkBLIh",
@@ -2783,7 +4813,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "qunH1T0mef1",
+    "title": "Chat Interface",
+    "slug": "qunH1T0mef1",
+    "view_url": "https://v0.app/templates/qunH1T0mef1",
+    "edit_url": "https://v0.app/chat/qunH1T0mef1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/qunH1T0mef1",
+    "image_filename": "qunH1T0mef1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "qVGedKwfVSI",
@@ -2797,7 +4841,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "QVIrZkTcTM6",
+    "title": "Proactive Pet Care",
+    "slug": "QVIrZkTcTM6",
+    "view_url": "https://v0.app/templates/QVIrZkTcTM6",
+    "edit_url": "https://v0.app/chat/QVIrZkTcTM6",
+    "preview_image_url": "https://v0.app/chat/api/og/t/QVIrZkTcTM6",
+    "image_filename": "QVIrZkTcTM6.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "QwoT8svq9DJ",
@@ -2811,7 +4869,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "components"
   },
   {
     "id": "QXnqVOwCSco",
@@ -2825,21 +4883,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "qyTogz8e9Wo",
-    "title": "Premium clothing website",
-    "slug": "qyTogz8e9Wo",
-    "view_url": "https://v0.app/templates/qyTogz8e9Wo",
-    "edit_url": "https://v0.app/chat/qyTogz8e9Wo",
-    "preview_image_url": "https://v0.app/chat/api/og/t/qyTogz8e9Wo",
-    "image_filename": "qyTogz8e9Wo.jpg",
+    "id": "qYpR7JYbx09",
+    "title": "Markdn - A markdown editor",
+    "slug": "qYpR7JYbx09",
+    "view_url": "https://v0.app/templates/qYpR7JYbx09",
+    "edit_url": "https://v0.app/chat/qYpR7JYbx09",
+    "preview_image_url": "https://v0.app/chat/api/og/t/qYpR7JYbx09",
+    "image_filename": "qYpR7JYbx09.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "R0SOH22sOvP",
+    "title": "Lisa.js",
+    "slug": "R0SOH22sOvP",
+    "view_url": "https://v0.app/templates/R0SOH22sOvP",
+    "edit_url": "https://v0.app/chat/R0SOH22sOvP",
+    "preview_image_url": "https://v0.app/chat/api/og/t/R0SOH22sOvP",
+    "image_filename": "R0SOH22sOvP.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "r0XJd9OC805",
@@ -2853,7 +4925,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "R1iL1WGkMKP",
+    "title": "Shader SVG",
+    "slug": "R1iL1WGkMKP",
+    "view_url": "https://v0.app/templates/R1iL1WGkMKP",
+    "edit_url": "https://v0.app/chat/R1iL1WGkMKP",
+    "preview_image_url": "https://v0.app/chat/api/og/t/R1iL1WGkMKP",
+    "image_filename": "R1iL1WGkMKP.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "R3n0gnvYFbO",
@@ -2867,7 +4953,91 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "R8071LRMPLG",
+    "title": "AI Chatbot component",
+    "slug": "R8071LRMPLG",
+    "view_url": "https://v0.app/templates/R8071LRMPLG",
+    "edit_url": "https://v0.app/chat/R8071LRMPLG",
+    "preview_image_url": "https://v0.app/chat/api/og/t/R8071LRMPLG",
+    "image_filename": "R8071LRMPLG.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "RCBbQOxx8Sw",
+    "title": "KDP Helper Bot",
+    "slug": "RCBbQOxx8Sw",
+    "view_url": "https://v0.app/templates/RCBbQOxx8Sw",
+    "edit_url": "https://v0.app/chat/RCBbQOxx8Sw",
+    "preview_image_url": "https://v0.app/chat/api/og/t/RCBbQOxx8Sw",
+    "image_filename": "RCBbQOxx8Sw.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "RCmolY8MtBQ",
+    "title": "Tradewise",
+    "slug": "RCmolY8MtBQ",
+    "view_url": "https://v0.app/templates/RCmolY8MtBQ",
+    "edit_url": "https://v0.app/chat/RCmolY8MtBQ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/RCmolY8MtBQ",
+    "image_filename": "RCmolY8MtBQ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "rcoLUer40Zj",
+    "title": "throw shade",
+    "slug": "rcoLUer40Zj",
+    "view_url": "https://v0.app/templates/rcoLUer40Zj",
+    "edit_url": "https://v0.app/chat/rcoLUer40Zj",
+    "preview_image_url": "https://v0.app/chat/api/og/t/rcoLUer40Zj",
+    "image_filename": "rcoLUer40Zj.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "rgEtCjUKVhd",
+    "title": "AI Video Generation Playground",
+    "slug": "rgEtCjUKVhd",
+    "view_url": "https://v0.app/templates/rgEtCjUKVhd",
+    "edit_url": "https://v0.app/chat/rgEtCjUKVhd",
+    "preview_image_url": "https://v0.app/chat/api/og/t/rgEtCjUKVhd",
+    "image_filename": "rgEtCjUKVhd.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "Rhdy2EzbqyE",
+    "title": "Novo projeto",
+    "slug": "Rhdy2EzbqyE",
+    "view_url": "https://v0.app/templates/Rhdy2EzbqyE",
+    "edit_url": "https://v0.app/chat/Rhdy2EzbqyE",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Rhdy2EzbqyE",
+    "image_filename": "Rhdy2EzbqyE.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "RHqnpZaVCZD",
@@ -2881,7 +5051,63 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "rHTER3Yq6df",
+    "title": "The future is now",
+    "slug": "rHTER3Yq6df",
+    "view_url": "https://v0.app/templates/rHTER3Yq6df",
+    "edit_url": "https://v0.app/chat/rHTER3Yq6df",
+    "preview_image_url": "https://v0.app/chat/api/og/t/rHTER3Yq6df",
+    "image_filename": "rHTER3Yq6df.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "RjIZayM2Jjj",
+    "title": "LeLo SaaS landing",
+    "slug": "RjIZayM2Jjj",
+    "view_url": "https://v0.app/templates/RjIZayM2Jjj",
+    "edit_url": "https://v0.app/chat/RjIZayM2Jjj",
+    "preview_image_url": "https://v0.app/chat/api/og/t/RjIZayM2Jjj",
+    "image_filename": "RjIZayM2Jjj.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "RmjDRE2L8pL",
+    "title": "Mobile Parking Payment App",
+    "slug": "RmjDRE2L8pL",
+    "view_url": "https://v0.app/templates/RmjDRE2L8pL",
+    "edit_url": "https://v0.app/chat/RmjDRE2L8pL",
+    "preview_image_url": "https://v0.app/chat/api/og/t/RmjDRE2L8pL",
+    "image_filename": "RmjDRE2L8pL.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "rO6Lkpq4IZh",
+    "title": "v0 orbit animation",
+    "slug": "rO6Lkpq4IZh",
+    "view_url": "https://v0.app/templates/rO6Lkpq4IZh",
+    "edit_url": "https://v0.app/chat/rO6Lkpq4IZh",
+    "preview_image_url": "https://v0.app/chat/api/og/t/rO6Lkpq4IZh",
+    "image_filename": "rO6Lkpq4IZh.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "rt8rujCvJxl",
@@ -2895,21 +5121,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "RumDfOqDMPi",
-    "title": "The Orb",
-    "slug": "RumDfOqDMPi",
-    "view_url": "https://v0.app/templates/RumDfOqDMPi",
-    "edit_url": "https://v0.app/chat/RumDfOqDMPi",
-    "preview_image_url": "https://v0.app/chat/api/og/t/RumDfOqDMPi",
-    "image_filename": "RumDfOqDMPi.jpg",
+    "id": "RTz7dLt3u0c",
+    "title": "AppSport",
+    "slug": "RTz7dLt3u0c",
+    "view_url": "https://v0.app/templates/RTz7dLt3u0c",
+    "edit_url": "https://v0.app/chat/RTz7dLt3u0c",
+    "preview_image_url": "https://v0.app/chat/api/og/t/RTz7dLt3u0c",
+    "image_filename": "RTz7dLt3u0c.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "RutwgOGrI7y",
@@ -2923,7 +5149,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "RuXh6tOAPHg",
@@ -2937,35 +5163,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
-    "id": "rYGWxXJLQXz",
-    "title": "Glow - Modern Skincare E-commerce Landing Page",
-    "slug": "rYGWxXJLQXz",
-    "view_url": "https://v0.app/templates/rYGWxXJLQXz",
-    "edit_url": "https://v0.app/chat/rYGWxXJLQXz",
-    "preview_image_url": "https://v0.app/chat/api/og/t/rYGWxXJLQXz",
-    "image_filename": "rYGWxXJLQXz.jpg",
+    "id": "s3sZ1m6sLtz",
+    "title": "Notion to app AI agent and dashboard",
+    "slug": "s3sZ1m6sLtz",
+    "view_url": "https://v0.app/templates/s3sZ1m6sLtz",
+    "edit_url": "https://v0.app/chat/s3sZ1m6sLtz",
+    "preview_image_url": "https://v0.app/chat/api/og/t/s3sZ1m6sLtz",
+    "image_filename": "s3sZ1m6sLtz.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "s2R42ut7CxT",
-    "title": "Background Paths",
-    "slug": "s2R42ut7CxT",
-    "view_url": "https://v0.app/templates/s2R42ut7CxT",
-    "edit_url": "https://v0.app/chat/s2R42ut7CxT",
-    "preview_image_url": "https://v0.app/chat/api/og/t/s2R42ut7CxT",
-    "image_filename": "s2R42ut7CxT.jpg",
+    "id": "s78K2pIjjJs",
+    "title": "Html template",
+    "slug": "s78K2pIjjJs",
+    "view_url": "https://v0.app/templates/s78K2pIjjJs",
+    "edit_url": "https://v0.app/chat/s78K2pIjjJs",
+    "preview_image_url": "https://v0.app/chat/api/og/t/s78K2pIjjJs",
+    "image_filename": "s78K2pIjjJs.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "s9GBm33G9a7",
@@ -2979,7 +5205,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "s9SjRDV2cSZ",
+    "title": "geometric microscope",
+    "slug": "s9SjRDV2cSZ",
+    "view_url": "https://v0.app/templates/s9SjRDV2cSZ",
+    "edit_url": "https://v0.app/chat/s9SjRDV2cSZ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/s9SjRDV2cSZ",
+    "image_filename": "s9SjRDV2cSZ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "sc2WBapC9uM",
+    "title": "Kamusewa",
+    "slug": "sc2WBapC9uM",
+    "view_url": "https://v0.app/templates/sc2WBapC9uM",
+    "edit_url": "https://v0.app/chat/sc2WBapC9uM",
+    "preview_image_url": "https://v0.app/chat/api/og/t/sc2WBapC9uM",
+    "image_filename": "sc2WBapC9uM.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "ScHFjhCyY8z",
@@ -2993,7 +5247,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "SD8IPhg8bcC",
@@ -3007,7 +5261,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "SGGKgsJdrxG",
@@ -3021,21 +5275,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "ShQM1OceNZX",
-    "title": "cat-slider",
-    "slug": "ShQM1OceNZX",
-    "view_url": "https://v0.app/templates/ShQM1OceNZX",
-    "edit_url": "https://v0.app/chat/ShQM1OceNZX",
-    "preview_image_url": "https://v0.app/chat/api/og/t/ShQM1OceNZX",
-    "image_filename": "ShQM1OceNZX.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "shuOX59VNOv",
@@ -3049,7 +5289,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "sMYo3Ykwztm",
+    "title": "Pattern lock screen",
+    "slug": "sMYo3Ykwztm",
+    "view_url": "https://v0.app/templates/sMYo3Ykwztm",
+    "edit_url": "https://v0.app/chat/sMYo3Ykwztm",
+    "preview_image_url": "https://v0.app/chat/api/og/t/sMYo3Ykwztm",
+    "image_filename": "sMYo3Ykwztm.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "sS51p2eKhDm",
+    "title": "Animated profile website",
+    "slug": "sS51p2eKhDm",
+    "view_url": "https://v0.app/templates/sS51p2eKhDm",
+    "edit_url": "https://v0.app/chat/sS51p2eKhDm",
+    "preview_image_url": "https://v0.app/chat/api/og/t/sS51p2eKhDm",
+    "image_filename": "sS51p2eKhDm.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "SUUmAZmzBCs",
+    "title": "Airfly website clone",
+    "slug": "SUUmAZmzBCs",
+    "view_url": "https://v0.app/templates/SUUmAZmzBCs",
+    "edit_url": "https://v0.app/chat/SUUmAZmzBCs",
+    "preview_image_url": "https://v0.app/chat/api/og/t/SUUmAZmzBCs",
+    "image_filename": "SUUmAZmzBCs.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "sV0OtrkXM6x",
@@ -3063,7 +5345,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "SV63ZeQGpjl",
+    "title": "All-in-one marketing website",
+    "slug": "SV63ZeQGpjl",
+    "view_url": "https://v0.app/templates/SV63ZeQGpjl",
+    "edit_url": "https://v0.app/chat/SV63ZeQGpjl",
+    "preview_image_url": "https://v0.app/chat/api/og/t/SV63ZeQGpjl",
+    "image_filename": "SV63ZeQGpjl.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "swkOF1QGNxG",
+    "title": "curriculum0",
+    "slug": "swkOF1QGNxG",
+    "view_url": "https://v0.app/templates/swkOF1QGNxG",
+    "edit_url": "https://v0.app/chat/swkOF1QGNxG",
+    "preview_image_url": "https://v0.app/chat/api/og/t/swkOF1QGNxG",
+    "image_filename": "swkOF1QGNxG.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
   },
   {
     "id": "t02Cx1KfaCS",
@@ -3077,7 +5387,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "T12E6wtADK1",
+    "title": "Sweatcoin business model",
+    "slug": "T12E6wtADK1",
+    "view_url": "https://v0.app/templates/T12E6wtADK1",
+    "edit_url": "https://v0.app/chat/T12E6wtADK1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/T12E6wtADK1",
+    "image_filename": "T12E6wtADK1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "tA3Lfbz8idm",
@@ -3091,21 +5415,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "tbrj5wJk365",
-    "title": "AI Chat Business Platform",
-    "slug": "tbrj5wJk365",
-    "view_url": "https://v0.app/templates/tbrj5wJk365",
-    "edit_url": "https://v0.app/chat/tbrj5wJk365",
-    "preview_image_url": "https://v0.app/chat/api/og/t/tbrj5wJk365",
-    "image_filename": "tbrj5wJk365.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "TdbdgFKSnpg",
@@ -3119,7 +5429,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "tfa7ztvFYox",
@@ -3133,21 +5443,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "tMSYqKF4onw",
-    "title": "Status Badges",
-    "slug": "tMSYqKF4onw",
-    "view_url": "https://v0.app/templates/tMSYqKF4onw",
-    "edit_url": "https://v0.app/chat/tMSYqKF4onw",
-    "preview_image_url": "https://v0.app/chat/api/og/t/tMSYqKF4onw",
-    "image_filename": "tMSYqKF4onw.jpg",
+    "id": "TfVtT1k0tVU",
+    "title": "Prism AI",
+    "slug": "TfVtT1k0tVU",
+    "view_url": "https://v0.app/templates/TfVtT1k0tVU",
+    "edit_url": "https://v0.app/chat/TfVtT1k0tVU",
+    "preview_image_url": "https://v0.app/chat/api/og/t/TfVtT1k0tVU",
+    "image_filename": "TfVtT1k0tVU.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "TGBM922Ws3H",
+    "title": "Crypto Trading Website",
+    "slug": "TGBM922Ws3H",
+    "view_url": "https://v0.app/templates/TGBM922Ws3H",
+    "edit_url": "https://v0.app/chat/TGBM922Ws3H",
+    "preview_image_url": "https://v0.app/chat/api/og/t/TGBM922Ws3H",
+    "image_filename": "TGBM922Ws3H.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "tnZGzubtsTc",
@@ -3161,21 +5485,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "tohqO7HIUkh",
-    "title": "Waitlist Page",
-    "slug": "tohqO7HIUkh",
-    "view_url": "https://v0.app/templates/tohqO7HIUkh",
-    "edit_url": "https://v0.app/chat/tohqO7HIUkh",
-    "preview_image_url": "https://v0.app/chat/api/og/t/tohqO7HIUkh",
-    "image_filename": "tohqO7HIUkh.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "Tpxvlz16QiJ",
@@ -3189,7 +5499,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "TQ4TMZ9nqkQ",
+    "title": "Mintlify-Style Docs + RAG Chat",
+    "slug": "TQ4TMZ9nqkQ",
+    "view_url": "https://v0.app/templates/TQ4TMZ9nqkQ",
+    "edit_url": "https://v0.app/chat/TQ4TMZ9nqkQ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/TQ4TMZ9nqkQ",
+    "image_filename": "TQ4TMZ9nqkQ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "ttvZNcuHmbh",
@@ -3203,7 +5527,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "TuM37pNlZf3",
@@ -3217,7 +5541,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "Tzs0ZuMKnx0",
@@ -3231,21 +5555,77 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "U2rZaMo4YOI",
-    "title": "Medical Professional's Website",
-    "slug": "U2rZaMo4YOI",
-    "view_url": "https://v0.app/templates/U2rZaMo4YOI",
-    "edit_url": "https://v0.app/chat/U2rZaMo4YOI",
-    "preview_image_url": "https://v0.app/chat/api/og/t/U2rZaMo4YOI",
-    "image_filename": "U2rZaMo4YOI.jpg",
+    "id": "U0ycCKnEzIz",
+    "title": "Arabic HTML template",
+    "slug": "U0ycCKnEzIz",
+    "view_url": "https://v0.app/templates/U0ycCKnEzIz",
+    "edit_url": "https://v0.app/chat/U0ycCKnEzIz",
+    "preview_image_url": "https://v0.app/chat/api/og/t/U0ycCKnEzIz",
+    "image_filename": "U0ycCKnEzIz.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "U4rrvkJyVtF",
+    "title": "ASCII Water Ripple Effect",
+    "slug": "U4rrvkJyVtF",
+    "view_url": "https://v0.app/templates/U4rrvkJyVtF",
+    "edit_url": "https://v0.app/chat/U4rrvkJyVtF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/U4rrvkJyVtF",
+    "image_filename": "U4rrvkJyVtF.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "u57SbQ0HwzK",
+    "title": "Accordion Animation Video Display",
+    "slug": "u57SbQ0HwzK",
+    "view_url": "https://v0.app/templates/u57SbQ0HwzK",
+    "edit_url": "https://v0.app/chat/u57SbQ0HwzK",
+    "preview_image_url": "https://v0.app/chat/api/og/t/u57SbQ0HwzK",
+    "image_filename": "u57SbQ0HwzK.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "UA5phGkaJIu",
+    "title": "Ocean Quest minigame",
+    "slug": "UA5phGkaJIu",
+    "view_url": "https://v0.app/templates/UA5phGkaJIu",
+    "edit_url": "https://v0.app/chat/UA5phGkaJIu",
+    "preview_image_url": "https://v0.app/chat/api/og/t/UA5phGkaJIu",
+    "image_filename": "UA5phGkaJIu.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "UCgAGa5vJac",
+    "title": "Shopify Template",
+    "slug": "UCgAGa5vJac",
+    "view_url": "https://v0.app/templates/UCgAGa5vJac",
+    "edit_url": "https://v0.app/chat/UCgAGa5vJac",
+    "preview_image_url": "https://v0.app/chat/api/og/t/UCgAGa5vJac",
+    "image_filename": "UCgAGa5vJac.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "uDAblBwYgXC",
@@ -3259,21 +5639,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "uKH9CN6hQxc",
-    "title": "Muhammad Murad Portofolio",
-    "slug": "uKH9CN6hQxc",
-    "view_url": "https://v0.app/templates/uKH9CN6hQxc",
-    "edit_url": "https://v0.app/chat/uKH9CN6hQxc",
-    "preview_image_url": "https://v0.app/chat/api/og/t/uKH9CN6hQxc",
-    "image_filename": "uKH9CN6hQxc.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "uKrcvCYA32C",
@@ -3287,7 +5653,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "Umx1e3VQmpL",
@@ -3301,7 +5667,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "ununNFAejBW",
@@ -3315,7 +5681,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "uPRGgdXET9Z",
+    "title": "Liquid glass tabs",
+    "slug": "uPRGgdXET9Z",
+    "view_url": "https://v0.app/templates/uPRGgdXET9Z",
+    "edit_url": "https://v0.app/chat/uPRGgdXET9Z",
+    "preview_image_url": "https://v0.app/chat/api/og/t/uPRGgdXET9Z",
+    "image_filename": "uPRGgdXET9Z.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "Utjgq1t6ISn",
+    "title": "FullStackPortfolio requirements",
+    "slug": "Utjgq1t6ISn",
+    "view_url": "https://v0.app/templates/Utjgq1t6ISn",
+    "edit_url": "https://v0.app/chat/Utjgq1t6ISn",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Utjgq1t6ISn",
+    "image_filename": "Utjgq1t6ISn.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "UtmLtArPhu4",
@@ -3329,7 +5723,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "Uwmr1erx4dK",
@@ -3343,7 +5737,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "UXVoQbUhVpG",
@@ -3357,7 +5751,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "v1tIli3svjV",
@@ -3371,7 +5765,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
+  },
+  {
+    "id": "V3jVewszBPu",
+    "title": "Modern Pet Store E-commerce Template",
+    "slug": "V3jVewszBPu",
+    "view_url": "https://v0.app/templates/V3jVewszBPu",
+    "edit_url": "https://v0.app/chat/V3jVewszBPu",
+    "preview_image_url": "https://v0.app/chat/api/og/t/V3jVewszBPu",
+    "image_filename": "V3jVewszBPu.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "v3QuaBPbGHy",
+    "title": "Process Tracker component",
+    "slug": "v3QuaBPbGHy",
+    "view_url": "https://v0.app/templates/v3QuaBPbGHy",
+    "edit_url": "https://v0.app/chat/v3QuaBPbGHy",
+    "preview_image_url": "https://v0.app/chat/api/og/t/v3QuaBPbGHy",
+    "image_filename": "v3QuaBPbGHy.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
   },
   {
     "id": "v9Hg1dBb5o3",
@@ -3385,7 +5807,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "vDJFH3uGOyd",
@@ -3399,7 +5821,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
   },
   {
     "id": "VEoDcF84vxz",
@@ -3413,7 +5835,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
   },
   {
     "id": "VfaC3JPSzkU",
@@ -3427,7 +5849,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "VGs1Sc5BbGi",
@@ -3441,35 +5863,119 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "Vtf84rHrXO1",
-    "title": "Business consulting Website",
-    "slug": "Vtf84rHrXO1",
-    "view_url": "https://v0.app/templates/Vtf84rHrXO1",
-    "edit_url": "https://v0.app/chat/Vtf84rHrXO1",
-    "preview_image_url": "https://v0.app/chat/api/og/t/Vtf84rHrXO1",
-    "image_filename": "Vtf84rHrXO1.jpg",
+    "id": "VHxYoCQ6iv9",
+    "title": "Hospital app design",
+    "slug": "VHxYoCQ6iv9",
+    "view_url": "https://v0.app/templates/VHxYoCQ6iv9",
+    "edit_url": "https://v0.app/chat/VHxYoCQ6iv9",
+    "preview_image_url": "https://v0.app/chat/api/og/t/VHxYoCQ6iv9",
+    "image_filename": "VHxYoCQ6iv9.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "Vw6P9CF5pV8",
-    "title": "Finance Tracker",
-    "slug": "Vw6P9CF5pV8",
-    "view_url": "https://v0.app/templates/Vw6P9CF5pV8",
-    "edit_url": "https://v0.app/chat/Vw6P9CF5pV8",
-    "preview_image_url": "https://v0.app/chat/api/og/t/Vw6P9CF5pV8",
-    "image_filename": "Vw6P9CF5pV8.jpg",
+    "id": "VKilTGtSDrQ",
+    "title": "Music generating network",
+    "slug": "VKilTGtSDrQ",
+    "view_url": "https://v0.app/templates/VKilTGtSDrQ",
+    "edit_url": "https://v0.app/chat/VKilTGtSDrQ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/VKilTGtSDrQ",
+    "image_filename": "VKilTGtSDrQ.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "vkqDgbJWgYt",
+    "title": "WebGPU Graphene 3D model",
+    "slug": "vkqDgbJWgYt",
+    "view_url": "https://v0.app/templates/vkqDgbJWgYt",
+    "edit_url": "https://v0.app/chat/vkqDgbJWgYt",
+    "preview_image_url": "https://v0.app/chat/api/og/t/vkqDgbJWgYt",
+    "image_filename": "vkqDgbJWgYt.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "vl843nEiw2d",
+    "title": "Mango Habits App",
+    "slug": "vl843nEiw2d",
+    "view_url": "https://v0.app/templates/vl843nEiw2d",
+    "edit_url": "https://v0.app/chat/vl843nEiw2d",
+    "preview_image_url": "https://v0.app/chat/api/og/t/vl843nEiw2d",
+    "image_filename": "vl843nEiw2d.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "VNtl9Ti0Kag",
+    "title": "Cash App Navigation Drawer - Rebuild",
+    "slug": "VNtl9Ti0Kag",
+    "view_url": "https://v0.app/templates/VNtl9Ti0Kag",
+    "edit_url": "https://v0.app/chat/VNtl9Ti0Kag",
+    "preview_image_url": "https://v0.app/chat/api/og/t/VNtl9Ti0Kag",
+    "image_filename": "VNtl9Ti0Kag.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
+  },
+  {
+    "id": "voQije6wyja",
+    "title": "Animated Beam",
+    "slug": "voQije6wyja",
+    "view_url": "https://v0.app/templates/voQije6wyja",
+    "edit_url": "https://v0.app/chat/voQije6wyja",
+    "preview_image_url": "https://v0.app/chat/api/og/t/voQije6wyja",
+    "image_filename": "voQije6wyja.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "VpPZDWKFJuM",
+    "title": "OpenHog: OS-Themed Website Template",
+    "slug": "VpPZDWKFJuM",
+    "view_url": "https://v0.app/templates/VpPZDWKFJuM",
+    "edit_url": "https://v0.app/chat/VpPZDWKFJuM",
+    "preview_image_url": "https://v0.app/chat/api/og/t/VpPZDWKFJuM",
+    "image_filename": "VpPZDWKFJuM.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "Vt3PtqfiHkh",
+    "title": "Modern business landing page",
+    "slug": "Vt3PtqfiHkh",
+    "view_url": "https://v0.app/templates/Vt3PtqfiHkh",
+    "edit_url": "https://v0.app/chat/Vt3PtqfiHkh",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Vt3PtqfiHkh",
+    "image_filename": "Vt3PtqfiHkh.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
   },
   {
     "id": "VW7dQnGbzKF",
@@ -3483,21 +5989,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "vxcruW9ipr4",
-    "title": "Minimal Shop",
-    "slug": "vxcruW9ipr4",
-    "view_url": "https://v0.app/templates/vxcruW9ipr4",
-    "edit_url": "https://v0.app/chat/vxcruW9ipr4",
-    "preview_image_url": "https://v0.app/chat/api/og/t/vxcruW9ipr4",
-    "image_filename": "vxcruW9ipr4.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "vYDG35nW3Kv",
@@ -3511,7 +6003,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
     "id": "VZ9EEGUUq9M",
@@ -3525,7 +6017,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "W0v7PBF5ev4",
@@ -3539,35 +6031,119 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "wiER0akkotm",
-    "title": "LUMERA - eCommerce template",
-    "slug": "wiER0akkotm",
-    "view_url": "https://v0.app/templates/wiER0akkotm",
-    "edit_url": "https://v0.app/chat/wiER0akkotm",
-    "preview_image_url": "https://v0.app/chat/api/og/t/wiER0akkotm",
-    "image_filename": "wiER0akkotm.jpg",
+    "id": "w7TbEypESmD",
+    "title": "AXON AI - Futuristic AI UI Generator Landing Page",
+    "slug": "w7TbEypESmD",
+    "view_url": "https://v0.app/templates/w7TbEypESmD",
+    "edit_url": "https://v0.app/chat/w7TbEypESmD",
+    "preview_image_url": "https://v0.app/chat/api/og/t/w7TbEypESmD",
+    "image_filename": "w7TbEypESmD.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "WKVsk0SSOsX",
-    "title": "Zones | World Clock Dashboard",
-    "slug": "WKVsk0SSOsX",
-    "view_url": "https://v0.app/templates/WKVsk0SSOsX",
-    "edit_url": "https://v0.app/chat/WKVsk0SSOsX",
-    "preview_image_url": "https://v0.app/chat/api/og/t/WKVsk0SSOsX",
-    "image_filename": "WKVsk0SSOsX.jpg",
+    "id": "waJPmfhZSc2",
+    "title": "Sensory Playground Experience",
+    "slug": "waJPmfhZSc2",
+    "view_url": "https://v0.app/templates/waJPmfhZSc2",
+    "edit_url": "https://v0.app/chat/waJPmfhZSc2",
+    "preview_image_url": "https://v0.app/chat/api/og/t/waJPmfhZSc2",
+    "image_filename": "waJPmfhZSc2.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "WDfUCVvbzqf",
+    "title": "Random Number Generator - Frosted Glass UI",
+    "slug": "WDfUCVvbzqf",
+    "view_url": "https://v0.app/templates/WDfUCVvbzqf",
+    "edit_url": "https://v0.app/chat/WDfUCVvbzqf",
+    "preview_image_url": "https://v0.app/chat/api/og/t/WDfUCVvbzqf",
+    "image_filename": "WDfUCVvbzqf.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "components"
+  },
+  {
+    "id": "wFZAteMLKr7",
+    "title": "loyiha",
+    "slug": "wFZAteMLKr7",
+    "view_url": "https://v0.app/templates/wFZAteMLKr7",
+    "edit_url": "https://v0.app/chat/wFZAteMLKr7",
+    "preview_image_url": "https://v0.app/chat/api/og/t/wFZAteMLKr7",
+    "image_filename": "wFZAteMLKr7.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "wJ5xjuRwEEE",
+    "title": "Expense Tracker",
+    "slug": "wJ5xjuRwEEE",
+    "view_url": "https://v0.app/templates/wJ5xjuRwEEE",
+    "edit_url": "https://v0.app/chat/wJ5xjuRwEEE",
+    "preview_image_url": "https://v0.app/chat/api/og/t/wJ5xjuRwEEE",
+    "image_filename": "wJ5xjuRwEEE.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "wJihb9UXmJ1",
+    "title": "Saurav's AmazePlay",
+    "slug": "wJihb9UXmJ1",
+    "view_url": "https://v0.app/templates/wJihb9UXmJ1",
+    "edit_url": "https://v0.app/chat/wJihb9UXmJ1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/wJihb9UXmJ1",
+    "image_filename": "wJihb9UXmJ1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "WKlyoWxO1ZD",
+    "title": "Token Generation Speed Visualizer",
+    "slug": "WKlyoWxO1ZD",
+    "view_url": "https://v0.app/templates/WKlyoWxO1ZD",
+    "edit_url": "https://v0.app/chat/WKlyoWxO1ZD",
+    "preview_image_url": "https://v0.app/chat/api/og/t/WKlyoWxO1ZD",
+    "image_filename": "WKlyoWxO1ZD.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "WlCGNvNd3UZ",
+    "title": "AniChatAi By ARK",
+    "slug": "WlCGNvNd3UZ",
+    "view_url": "https://v0.app/templates/WlCGNvNd3UZ",
+    "edit_url": "https://v0.app/chat/WlCGNvNd3UZ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/WlCGNvNd3UZ",
+    "image_filename": "WlCGNvNd3UZ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "wLNaRFCBQhd",
@@ -3581,7 +6157,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "login-and-sign-up"
+  },
+  {
+    "id": "WMWNkcXpxSt",
+    "title": "Chess game with chess.js",
+    "slug": "WMWNkcXpxSt",
+    "view_url": "https://v0.app/templates/WMWNkcXpxSt",
+    "edit_url": "https://v0.app/chat/WMWNkcXpxSt",
+    "preview_image_url": "https://v0.app/chat/api/og/t/WMWNkcXpxSt",
+    "image_filename": "WMWNkcXpxSt.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "Wn420JqSNas",
+    "title": "Credit Card Tracker",
+    "slug": "Wn420JqSNas",
+    "view_url": "https://v0.app/templates/Wn420JqSNas",
+    "edit_url": "https://v0.app/chat/Wn420JqSNas",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Wn420JqSNas",
+    "image_filename": "Wn420JqSNas.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "wNB9dqGZXGU",
@@ -3595,21 +6199,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "wUwpb4qeCN2",
-    "title": "OtakuVerse Anime Manga",
-    "slug": "wUwpb4qeCN2",
-    "view_url": "https://v0.app/templates/wUwpb4qeCN2",
-    "edit_url": "https://v0.app/chat/wUwpb4qeCN2",
-    "preview_image_url": "https://v0.app/chat/api/og/t/wUwpb4qeCN2",
-    "image_filename": "wUwpb4qeCN2.jpg",
+    "id": "wOEd1PX2b9M",
+    "title": "CareerForge AI",
+    "slug": "wOEd1PX2b9M",
+    "view_url": "https://v0.app/templates/wOEd1PX2b9M",
+    "edit_url": "https://v0.app/chat/wOEd1PX2b9M",
+    "preview_image_url": "https://v0.app/chat/api/og/t/wOEd1PX2b9M",
+    "image_filename": "wOEd1PX2b9M.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "WTyH7d8cWtE",
+    "title": "Movie website clone",
+    "slug": "WTyH7d8cWtE",
+    "view_url": "https://v0.app/templates/WTyH7d8cWtE",
+    "edit_url": "https://v0.app/chat/WTyH7d8cWtE",
+    "preview_image_url": "https://v0.app/chat/api/og/t/WTyH7d8cWtE",
+    "image_filename": "WTyH7d8cWtE.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "wvXzAf0NBYB",
@@ -3623,7 +6241,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
     "id": "WwF64vn8A1b",
@@ -3637,7 +6255,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
     "id": "wWvJxkk3ra7",
@@ -3651,7 +6269,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "wXiS4NDnMdY",
@@ -3665,35 +6283,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "wyO2R1L07lK",
-    "title": "3d Card Demo",
-    "slug": "wyO2R1L07lK",
-    "view_url": "https://v0.app/templates/wyO2R1L07lK",
-    "edit_url": "https://v0.app/chat/wyO2R1L07lK",
-    "preview_image_url": "https://v0.app/chat/api/og/t/wyO2R1L07lK",
-    "image_filename": "wyO2R1L07lK.jpg",
+    "id": "wXoCjXN36zd",
+    "title": "sevasphere",
+    "slug": "wXoCjXN36zd",
+    "view_url": "https://v0.app/templates/wXoCjXN36zd",
+    "edit_url": "https://v0.app/chat/wXoCjXN36zd",
+    "preview_image_url": "https://v0.app/chat/api/og/t/wXoCjXN36zd",
+    "image_filename": "wXoCjXN36zd.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "x2Yn1OlwpsN",
-    "title": "Email Interface",
-    "slug": "x2Yn1OlwpsN",
-    "view_url": "https://v0.app/templates/x2Yn1OlwpsN",
-    "edit_url": "https://v0.app/chat/x2Yn1OlwpsN",
-    "preview_image_url": "https://v0.app/chat/api/og/t/x2Yn1OlwpsN",
-    "image_filename": "x2Yn1OlwpsN.jpg",
+    "id": "WYpwk7z9FNM",
+    "title": "Matrix rain effect",
+    "slug": "WYpwk7z9FNM",
+    "view_url": "https://v0.app/templates/WYpwk7z9FNM",
+    "edit_url": "https://v0.app/chat/WYpwk7z9FNM",
+    "preview_image_url": "https://v0.app/chat/api/og/t/WYpwk7z9FNM",
+    "image_filename": "WYpwk7z9FNM.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "x5UGPjYkxIn",
@@ -3707,7 +6325,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "X6XcPALhbJD",
@@ -3721,21 +6339,91 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
-    "id": "XgaAKLaAiW8",
-    "title": "Pricing Pattern",
-    "slug": "XgaAKLaAiW8",
-    "view_url": "https://v0.app/templates/XgaAKLaAiW8",
-    "edit_url": "https://v0.app/chat/XgaAKLaAiW8",
-    "preview_image_url": "https://v0.app/chat/api/og/t/XgaAKLaAiW8",
-    "image_filename": "XgaAKLaAiW8.jpg",
+    "id": "XAMOoZPMUO5",
+    "title": "Storefront w/Nano Banana + AI SDK + AI Gateway",
+    "slug": "XAMOoZPMUO5",
+    "view_url": "https://v0.app/templates/XAMOoZPMUO5",
+    "edit_url": "https://v0.app/chat/XAMOoZPMUO5",
+    "preview_image_url": "https://v0.app/chat/api/og/t/XAMOoZPMUO5",
+    "image_filename": "XAMOoZPMUO5.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "xAnNep21FiQ",
+    "title": "3D Software Engineer Portfolio",
+    "slug": "xAnNep21FiQ",
+    "view_url": "https://v0.app/templates/xAnNep21FiQ",
+    "edit_url": "https://v0.app/chat/xAnNep21FiQ",
+    "preview_image_url": "https://v0.app/chat/api/og/t/xAnNep21FiQ",
+    "image_filename": "xAnNep21FiQ.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "blog-and-portfolio"
+  },
+  {
+    "id": "xbwwZ9kD745",
+    "title": "Clerk Pixel Art Badge Generator",
+    "slug": "xbwwZ9kD745",
+    "view_url": "https://v0.app/templates/xbwwZ9kD745",
+    "edit_url": "https://v0.app/chat/xbwwZ9kD745",
+    "preview_image_url": "https://v0.app/chat/api/og/t/xbwwZ9kD745",
+    "image_filename": "xbwwZ9kD745.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "XCbAA7turPC",
+    "title": "Custom dinner wheel",
+    "slug": "XCbAA7turPC",
+    "view_url": "https://v0.app/templates/XCbAA7turPC",
+    "edit_url": "https://v0.app/chat/XCbAA7turPC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/XCbAA7turPC",
+    "image_filename": "XCbAA7turPC.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "xf3RmrkKlxc",
+    "title": "Chat UI with Vibration",
+    "slug": "xf3RmrkKlxc",
+    "view_url": "https://v0.app/templates/xf3RmrkKlxc",
+    "edit_url": "https://v0.app/chat/xf3RmrkKlxc",
+    "preview_image_url": "https://v0.app/chat/api/og/t/xf3RmrkKlxc",
+    "image_filename": "xf3RmrkKlxc.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "XFP4VKnRE3t",
+    "title": "OpenAI and AI SDK Chatbot",
+    "slug": "XFP4VKnRE3t",
+    "view_url": "https://v0.app/templates/XFP4VKnRE3t",
+    "edit_url": "https://v0.app/chat/XFP4VKnRE3t",
+    "preview_image_url": "https://v0.app/chat/api/og/t/XFP4VKnRE3t",
+    "image_filename": "XFP4VKnRE3t.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "XhGK3naSZPB",
@@ -3749,21 +6437,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "XjevFEtWkgi",
-    "title": "VOID Studio - Brutalist Portfolio Template",
-    "slug": "XjevFEtWkgi",
-    "view_url": "https://v0.app/templates/XjevFEtWkgi",
-    "edit_url": "https://v0.app/chat/XjevFEtWkgi",
-    "preview_image_url": "https://v0.app/chat/api/og/t/XjevFEtWkgi",
-    "image_filename": "XjevFEtWkgi.jpg",
+    "id": "xKE6K4FVM8F",
+    "title": "Amazon Bedrock Chatbot",
+    "slug": "xKE6K4FVM8F",
+    "view_url": "https://v0.app/templates/xKE6K4FVM8F",
+    "edit_url": "https://v0.app/chat/xKE6K4FVM8F",
+    "preview_image_url": "https://v0.app/chat/api/og/t/xKE6K4FVM8F",
+    "image_filename": "xKE6K4FVM8F.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
+  },
+  {
+    "id": "XLqqdnsZpr8",
+    "title": "Coolest page transition",
+    "slug": "XLqqdnsZpr8",
+    "view_url": "https://v0.app/templates/XLqqdnsZpr8",
+    "edit_url": "https://v0.app/chat/XLqqdnsZpr8",
+    "preview_image_url": "https://v0.app/chat/api/og/t/XLqqdnsZpr8",
+    "image_filename": "XLqqdnsZpr8.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "XMkb7MsoxFF",
+    "title": "Retro Voice Recorder App",
+    "slug": "XMkb7MsoxFF",
+    "view_url": "https://v0.app/templates/XMkb7MsoxFF",
+    "edit_url": "https://v0.app/chat/XMkb7MsoxFF",
+    "preview_image_url": "https://v0.app/chat/api/og/t/XMkb7MsoxFF",
+    "image_filename": "XMkb7MsoxFF.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "XmzC9oi7g4m",
@@ -3777,7 +6493,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "xNlJgC87CLg",
@@ -3791,21 +6507,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "design-systems"
   },
   {
-    "id": "XqrIezRilBR",
-    "title": "Glow menu component",
-    "slug": "XqrIezRilBR",
-    "view_url": "https://v0.app/templates/XqrIezRilBR",
-    "edit_url": "https://v0.app/chat/XqrIezRilBR",
-    "preview_image_url": "https://v0.app/chat/api/og/t/XqrIezRilBR",
-    "image_filename": "XqrIezRilBR.jpg",
+    "id": "XOMN4texeRO",
+    "title": "Stillpoint Studio Interior Design",
+    "slug": "XOMN4texeRO",
+    "view_url": "https://v0.app/templates/XOMN4texeRO",
+    "edit_url": "https://v0.app/chat/XOMN4texeRO",
+    "preview_image_url": "https://v0.app/chat/api/og/t/XOMN4texeRO",
+    "image_filename": "XOMN4texeRO.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "XQxxv76lK5w",
@@ -3819,21 +6535,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "XQZnLeSfhAr",
-    "title": "Streamline Landing Page",
-    "slug": "XQZnLeSfhAr",
-    "view_url": "https://v0.app/templates/XQZnLeSfhAr",
-    "edit_url": "https://v0.app/chat/XQZnLeSfhAr",
-    "preview_image_url": "https://v0.app/chat/api/og/t/XQZnLeSfhAr",
-    "image_filename": "XQZnLeSfhAr.jpg",
+    "id": "xrTPdlNnnG6",
+    "title": "New Project",
+    "slug": "xrTPdlNnnG6",
+    "view_url": "https://v0.app/templates/xrTPdlNnnG6",
+    "edit_url": "https://v0.app/chat/xrTPdlNnnG6",
+    "preview_image_url": "https://v0.app/chat/api/og/t/xrTPdlNnnG6",
+    "image_filename": "xrTPdlNnnG6.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "Xt1w9ecW6XV",
+    "title": "Lamp Animation",
+    "slug": "Xt1w9ecW6XV",
+    "view_url": "https://v0.app/templates/Xt1w9ecW6XV",
+    "edit_url": "https://v0.app/chat/Xt1w9ecW6XV",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Xt1w9ecW6XV",
+    "image_filename": "Xt1w9ecW6XV.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "animations"
   },
   {
     "id": "xU39T0XywpR",
@@ -3847,7 +6577,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "components"
+  },
+  {
+    "id": "xuCjYtmbQri",
+    "title": "ElevenLabs Music Starter",
+    "slug": "xuCjYtmbQri",
+    "view_url": "https://v0.app/templates/xuCjYtmbQri",
+    "edit_url": "https://v0.app/chat/xuCjYtmbQri",
+    "preview_image_url": "https://v0.app/chat/api/og/t/xuCjYtmbQri",
+    "image_filename": "xuCjYtmbQri.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "XvsEW8C1Ygq",
@@ -3861,21 +6605,35 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
-    "id": "xWe4c7kWKPe",
-    "title": "Hero Geometric Background",
-    "slug": "xWe4c7kWKPe",
-    "view_url": "https://v0.app/templates/xWe4c7kWKPe",
-    "edit_url": "https://v0.app/chat/xWe4c7kWKPe",
-    "preview_image_url": "https://v0.app/chat/api/og/t/xWe4c7kWKPe",
-    "image_filename": "xWe4c7kWKPe.jpg",
+    "id": "xYqdqPAJD3j",
+    "title": "Custom Globe Component",
+    "slug": "xYqdqPAJD3j",
+    "view_url": "https://v0.app/templates/xYqdqPAJD3j",
+    "edit_url": "https://v0.app/chat/xYqdqPAJD3j",
+    "preview_image_url": "https://v0.app/chat/api/og/t/xYqdqPAJD3j",
+    "image_filename": "xYqdqPAJD3j.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "Y26WiPyYsan",
+    "title": "Mate e-commerce website",
+    "slug": "Y26WiPyYsan",
+    "view_url": "https://v0.app/templates/Y26WiPyYsan",
+    "edit_url": "https://v0.app/chat/Y26WiPyYsan",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Y26WiPyYsan",
+    "image_filename": "Y26WiPyYsan.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "Y7gJ5K3ewPJ",
@@ -3889,7 +6647,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
   },
   {
     "id": "YaNQpRmUJUK",
@@ -3903,105 +6661,133 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
-    "id": "yBomF3O9Yu3",
-    "title": "Admin Dashboard",
-    "slug": "yBomF3O9Yu3",
-    "view_url": "https://v0.app/templates/yBomF3O9Yu3",
-    "edit_url": "https://v0.app/chat/yBomF3O9Yu3",
-    "preview_image_url": "https://v0.app/chat/api/og/t/yBomF3O9Yu3",
-    "image_filename": "yBomF3O9Yu3.jpg",
+    "id": "YEBQHPfbqc0",
+    "title": "PrintLess Eco Metrics",
+    "slug": "YEBQHPfbqc0",
+    "view_url": "https://v0.app/templates/YEBQHPfbqc0",
+    "edit_url": "https://v0.app/chat/YEBQHPfbqc0",
+    "preview_image_url": "https://v0.app/chat/api/og/t/YEBQHPfbqc0",
+    "image_filename": "YEBQHPfbqc0.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "YKgWkverPTw",
-    "title": "Portfolio",
-    "slug": "YKgWkverPTw",
-    "view_url": "https://v0.app/templates/YKgWkverPTw",
-    "edit_url": "https://v0.app/chat/YKgWkverPTw",
-    "preview_image_url": "https://v0.app/chat/api/og/t/YKgWkverPTw",
-    "image_filename": "YKgWkverPTw.jpg",
+    "id": "YEqbadKZu6A",
+    "title": "AI Product Image Generator",
+    "slug": "YEqbadKZu6A",
+    "view_url": "https://v0.app/templates/YEqbadKZu6A",
+    "edit_url": "https://v0.app/chat/YEqbadKZu6A",
+    "preview_image_url": "https://v0.app/chat/api/og/t/YEqbadKZu6A",
+    "image_filename": "YEqbadKZu6A.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "YM6vloMgY7Y",
-    "title": "Architecture website design",
-    "slug": "YM6vloMgY7Y",
-    "view_url": "https://v0.app/templates/YM6vloMgY7Y",
-    "edit_url": "https://v0.app/chat/YM6vloMgY7Y",
-    "preview_image_url": "https://v0.app/chat/api/og/t/YM6vloMgY7Y",
-    "image_filename": "YM6vloMgY7Y.jpg",
+    "id": "yih2hMiv5q3",
+    "title": "Hero Section with React Bits Floating Lines",
+    "slug": "yih2hMiv5q3",
+    "view_url": "https://v0.app/templates/yih2hMiv5q3",
+    "edit_url": "https://v0.app/chat/yih2hMiv5q3",
+    "preview_image_url": "https://v0.app/chat/api/og/t/yih2hMiv5q3",
+    "image_filename": "yih2hMiv5q3.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
-    "id": "YqU0WZeWjDF",
-    "title": "Minimal Architecture Firm — Editorial Website",
-    "slug": "YqU0WZeWjDF",
-    "view_url": "https://v0.app/templates/YqU0WZeWjDF",
-    "edit_url": "https://v0.app/chat/YqU0WZeWjDF",
-    "preview_image_url": "https://v0.app/chat/api/og/t/YqU0WZeWjDF",
-    "image_filename": "YqU0WZeWjDF.jpg",
+    "id": "yJIhiXPzcGg",
+    "title": "v0 for Images",
+    "slug": "yJIhiXPzcGg",
+    "view_url": "https://v0.app/templates/yJIhiXPzcGg",
+    "edit_url": "https://v0.app/chat/yJIhiXPzcGg",
+    "preview_image_url": "https://v0.app/chat/api/og/t/yJIhiXPzcGg",
+    "image_filename": "yJIhiXPzcGg.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "YUimwAIxXHT",
-    "title": "Steam store redesign",
-    "slug": "YUimwAIxXHT",
-    "view_url": "https://v0.app/templates/YUimwAIxXHT",
-    "edit_url": "https://v0.app/chat/YUimwAIxXHT",
-    "preview_image_url": "https://v0.app/chat/api/og/t/YUimwAIxXHT",
-    "image_filename": "YUimwAIxXHT.jpg",
+    "id": "ynxEcmOKflT",
+    "title": "Ai service landing page",
+    "slug": "ynxEcmOKflT",
+    "view_url": "https://v0.app/templates/ynxEcmOKflT",
+    "edit_url": "https://v0.app/chat/ynxEcmOKflT",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ynxEcmOKflT",
+    "image_filename": "ynxEcmOKflT.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "ai"
   },
   {
-    "id": "YZqpzOQAqeb",
-    "title": "MONO - eCommerce template",
-    "slug": "YZqpzOQAqeb",
-    "view_url": "https://v0.app/templates/YZqpzOQAqeb",
-    "edit_url": "https://v0.app/chat/YZqpzOQAqeb",
-    "preview_image_url": "https://v0.app/chat/api/og/t/YZqpzOQAqeb",
-    "image_filename": "YZqpzOQAqeb.jpg",
+    "id": "yqocJo8Be4R",
+    "title": "Classic Snake",
+    "slug": "yqocJo8Be4R",
+    "view_url": "https://v0.app/templates/yqocJo8Be4R",
+    "edit_url": "https://v0.app/chat/yqocJo8Be4R",
+    "preview_image_url": "https://v0.app/chat/api/og/t/yqocJo8Be4R",
+    "image_filename": "yqocJo8Be4R.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
-    "id": "ZAICjqmFe5w",
-    "title": "Seq",
-    "slug": "ZAICjqmFe5w",
-    "view_url": "https://v0.app/templates/ZAICjqmFe5w",
-    "edit_url": "https://v0.app/chat/ZAICjqmFe5w",
-    "preview_image_url": "https://v0.app/chat/api/og/t/ZAICjqmFe5w",
-    "image_filename": "ZAICjqmFe5w.jpg",
+    "id": "yToC74ndVbM",
+    "title": "Wechat mini game",
+    "slug": "yToC74ndVbM",
+    "view_url": "https://v0.app/templates/yToC74ndVbM",
+    "edit_url": "https://v0.app/chat/yToC74ndVbM",
+    "preview_image_url": "https://v0.app/chat/api/og/t/yToC74ndVbM",
+    "image_filename": "yToC74ndVbM.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "YZqzCqeqEat",
+    "title": "PWA Subscription Tracker",
+    "slug": "YZqzCqeqEat",
+    "view_url": "https://v0.app/templates/YZqzCqeqEat",
+    "edit_url": "https://v0.app/chat/YZqzCqeqEat",
+    "preview_image_url": "https://v0.app/chat/api/og/t/YZqzCqeqEat",
+    "image_filename": "YZqzCqeqEat.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
+  },
+  {
+    "id": "z9US8cITIVf",
+    "title": "Somerton Man Train Routes",
+    "slug": "z9US8cITIVf",
+    "view_url": "https://v0.app/templates/z9US8cITIVf",
+    "edit_url": "https://v0.app/chat/z9US8cITIVf",
+    "preview_image_url": "https://v0.app/chat/api/og/t/z9US8cITIVf",
+    "image_filename": "z9US8cITIVf.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "ZAyrQvYVCUs",
@@ -4015,7 +6801,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "zbic5y4t1Ti",
@@ -4029,7 +6815,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "zCqVN9y0kOi",
@@ -4043,21 +6829,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "blog-and-portfolio"
   },
   {
-    "id": "zctkvwErpHN",
-    "title": "QuickShop: Single Product (EN+AR)",
-    "slug": "zctkvwErpHN",
-    "view_url": "https://v0.app/templates/zctkvwErpHN",
-    "edit_url": "https://v0.app/chat/zctkvwErpHN",
-    "preview_image_url": "https://v0.app/chat/api/og/t/zctkvwErpHN",
-    "image_filename": "zctkvwErpHN.jpg",
+    "id": "ZdgpGo2oqBe",
+    "title": "Full stack library",
+    "slug": "ZdgpGo2oqBe",
+    "view_url": "https://v0.app/templates/ZdgpGo2oqBe",
+    "edit_url": "https://v0.app/chat/ZdgpGo2oqBe",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ZdgpGo2oqBe",
+    "image_filename": "ZdgpGo2oqBe.jpg",
     "views": "",
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   },
   {
     "id": "zdiN8dHwaaT",
@@ -4071,7 +6857,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
+  },
+  {
+    "id": "ZFmw4JKE4E1",
+    "title": "Alpaca Generator",
+    "slug": "ZFmw4JKE4E1",
+    "view_url": "https://v0.app/templates/ZFmw4JKE4E1",
+    "edit_url": "https://v0.app/chat/ZFmw4JKE4E1",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ZFmw4JKE4E1",
+    "image_filename": "ZFmw4JKE4E1.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "ZGbgOdhwh88",
@@ -4085,7 +6885,49 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ZIHJBIvfeuW",
+    "title": "Vessel Studio",
+    "slug": "ZIHJBIvfeuW",
+    "view_url": "https://v0.app/templates/ZIHJBIvfeuW",
+    "edit_url": "https://v0.app/chat/ZIHJBIvfeuW",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ZIHJBIvfeuW",
+    "image_filename": "ZIHJBIvfeuW.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "website-templates"
+  },
+  {
+    "id": "zjD8UoZcXy9",
+    "title": "Creative Agency Portfolio",
+    "slug": "zjD8UoZcXy9",
+    "view_url": "https://v0.app/templates/zjD8UoZcXy9",
+    "edit_url": "https://v0.app/chat/zjD8UoZcXy9",
+    "preview_image_url": "https://v0.app/chat/api/og/t/zjD8UoZcXy9",
+    "image_filename": "zjD8UoZcXy9.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
+  },
+  {
+    "id": "ZLfLRzbMb81",
+    "title": "الذكاء الاصطناعي الخارق",
+    "slug": "ZLfLRzbMb81",
+    "view_url": "https://v0.app/templates/ZLfLRzbMb81",
+    "edit_url": "https://v0.app/chat/ZLfLRzbMb81",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ZLfLRzbMb81",
+    "image_filename": "ZLfLRzbMb81.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "ZM9DOfqpkf8",
@@ -4099,7 +6941,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "layouts"
+  },
+  {
+    "id": "ZmGpaOMlNFh",
+    "title": "Amazon Bedrock Image Generator",
+    "slug": "ZmGpaOMlNFh",
+    "view_url": "https://v0.app/templates/ZmGpaOMlNFh",
+    "edit_url": "https://v0.app/chat/ZmGpaOMlNFh",
+    "preview_image_url": "https://v0.app/chat/api/og/t/ZmGpaOMlNFh",
+    "image_filename": "ZmGpaOMlNFh.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "ai"
   },
   {
     "id": "zoQPxUaTqvE",
@@ -4113,21 +6969,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "ZRLaKEr8Otj",
-    "title": "Hotel Dashboard",
-    "slug": "ZRLaKEr8Otj",
-    "view_url": "https://v0.app/templates/ZRLaKEr8Otj",
-    "edit_url": "https://v0.app/chat/ZRLaKEr8Otj",
-    "preview_image_url": "https://v0.app/chat/api/og/t/ZRLaKEr8Otj",
-    "image_filename": "ZRLaKEr8Otj.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "website-templates"
   },
   {
     "id": "ZRwgOSMcfCF",
@@ -4141,21 +6983,7 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
-  },
-  {
-    "id": "zWgCGYGZIcx",
-    "title": "Fluid Dropdown",
-    "slug": "zWgCGYGZIcx",
-    "view_url": "https://v0.app/templates/zWgCGYGZIcx",
-    "edit_url": "https://v0.app/chat/zWgCGYGZIcx",
-    "preview_image_url": "https://v0.app/chat/api/og/t/zWgCGYGZIcx",
-    "image_filename": "zWgCGYGZIcx.jpg",
-    "views": "",
-    "likes": "",
-    "author": "",
-    "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
   },
   {
     "id": "zz6bnLs4zgs",
@@ -4169,7 +6997,21 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "animations"
+  },
+  {
+    "id": "Zz6mBLdU9bC",
+    "title": "v0.me",
+    "slug": "Zz6mBLdU9bC",
+    "view_url": "https://v0.app/templates/Zz6mBLdU9bC",
+    "edit_url": "https://v0.app/chat/Zz6mBLdU9bC",
+    "preview_image_url": "https://v0.app/chat/api/og/t/Zz6mBLdU9bC",
+    "image_filename": "Zz6mBLdU9bC.jpg",
+    "views": "",
+    "likes": "",
+    "author": "",
+    "author_avatar": "",
+    "category": "apps-and-games"
   },
   {
     "id": "ZZFpa3jFqnO",
@@ -4183,6 +7025,6 @@
     "likes": "",
     "author": "",
     "author_avatar": "",
-    "category": "Templates"
+    "category": "apps-and-games"
   }
 ]

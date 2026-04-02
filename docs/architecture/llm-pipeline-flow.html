@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sajtmaskin — LLM Pipeline Flow</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600;700&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent-blue: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-orange: #d29922;
+    --accent-red: #f85149;
+    --accent-purple: #bc8cff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    padding: 48px 40px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 40px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .diagram-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 32px;
+  }
+
+  .diagram-section h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--accent-blue);
+  }
+
+  .diagram-section .desc {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+
+  .mermaid svg {
+    max-width: 100%;
+  }
+
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 32px;
+  }
+
+  .legend-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .legend-item h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .legend-item p {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .legend-item.blue h3 { color: var(--accent-blue); }
+  .legend-item.green h3 { color: var(--accent-green); }
+  .legend-item.orange h3 { color: var(--accent-orange); }
+  .legend-item.red h3 { color: var(--accent-red); }
+  .legend-item.purple h3 { color: var(--accent-purple); }
+
+  .file-ref {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent-purple);
+    opacity: 0.8;
+  }
+  .node-meta {
+    font-size: 11px;
+  }
+
+  .legend-title {
+    margin-top: 40px;
+    margin-bottom: 20px;
+    font-size: 20px;
+  }
+
+  .updated {
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 32px;
+  }
+
+</style>
+</head>
+<body>
+
+<h1>Sajtmaskin — LLM Pipeline Flow</h1>
+<p class="subtitle">config/ → prompt → brief → orchestrate → generate → fix → preview</p>
+<p class="updated">Senast uppdaterad: 2026-04-02</p>
+
+<div class="diagram-section">
+  <h2>1. Före-build: Prompt → Brief → Orchestration</h2>
+  <p class="desc">Användaren skriver en prompt → valfri förbättring → brief → orkestrering → BuildSpec</p>
+
+  <div class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
+flowchart TD
+    A["Användare skriver prompt<br/><span class='node-meta'>ChatInterface.tsx</span>"] --> B{"Prompt-verktyg?"}
+
+    B -->|"Skriv om (polish)"| C["buildPolishSystemPrompt<br/>/api/ai/chat mode=polish<br/><span class='node-meta'>promptAssist.ts</span>"]
+    B -->|"Förbättra (rewrite)"| D["buildRewriteSystemPrompt<br/>/api/ai/chat mode=rewrite<br/><span class='node-meta'>promptAssist.ts</span>"]
+    B -->|"Direkt"| E["Originalprompt oförändrad"]
+
+    C --> F["Guardrails<br/><span class='node-meta'>usePromptAssist.ts</span>"]
+    D --> F
+    F --> E
+
+    E --> G{"Deep Brief?"}
+    G -->|"Klient-brief (usePromptAssist)"| H["POST /api/ai/brief<br/>generateSiteBriefObject<br/><span class='node-meta'>site-brief-generation.ts</span>"]
+    G -->|"Ingen klient-brief"| I["Server auto-brief?<br/><span class='node-meta'>server-auto-brief-policy.ts</span>"]
+
+    I -->|"Ja"| J["tryGenerateServerAutoBrief<br/>prompt = ORIGINAL message<br/><span class='node-meta'>site-brief-generation.ts</span>"]
+    I -->|"Nej (audit/followup/teknisk)"| K["Ingen brief"]
+
+    H --> L["Brief-objekt"]
+    J --> L
+    K --> M
+
+    L --> M["orchestratePromptMessage<br/><span class='node-meta'>promptOrchestration.ts<br/>DETERMINISTISK — ingen LLM</span>"]
+
+    M -->|"direct"| N["Prompt oförändrad"]
+    M -->|"preserved"| N2["Full handoff (+ ev. orkesteringsnotis)<br/><span class='node-meta'>Sektionssparande över hård cap</span>"]
+    M -->|"summarize"| O["summarizeMessage (nödfallback)<br/><span class='node-meta'>Aggressiv sammandragning</span>"]
+    M -->|"phase_plan_build_polish"| P["buildPhasedMessage<br/><span class='node-meta'>Plan → Build + bevarad brödtext</span>"]
+
+    N --> Q
+    N2 --> Q
+    O --> Q
+    P --> Q
+
+    Q["resolveOrchestrationBase<br/><span class='node-meta'>orchestrate.ts</span>"] --> R["Välj scaffold + route plan +<br/>inferera kontrakt → BuildSpec"]
+    R --> S["finalizeOrchestrationPrompts<br/><span class='node-meta'>system-prompt.ts</span>"]
+    S --> T["Statisk systemprompt<br/>+ dynamisk kontext<br/><span class='node-meta'>config/prompt-static/ +<br/>brief + tema + KB</span>"]
+  </div>
+</div>
+
+<div class="diagram-section">
+  <h2>2. Generation + Post-processing</h2>
+  <p class="desc">Huvudgeneratorn → autofix (deterministisk loop) → syntax + LLM-fix → verifier → polish → preview → bakgrundsverifiering</p>
+
+  <div class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
+flowchart TD
+    T["System prompt +<br/>användarprompt + brief"] --> U["streamText (engine.ts)<br/>HUVUD-LLM<br/><span class='node-meta'>Modell via phaseRouting<br/>generator-fas</span>"]
+
+    U --> V["Ackumulerad kod"]
+    V --> W["runAutoFix<br/><span class='node-meta'>pipeline.ts — loopas<br/>DETERMINISTIC_AUTOFIX_MAX_PASSES<br/>gånger (manifest)</span>"]
+
+    W --> WD["Deterministiska fixers:<br/>use-client · react-import · hook-imports ·<br/>react-types · next-image · local-symbols ·<br/>metadata · cn · lucide-image ·<br/>lucide-link · tailwind-font ·<br/>syntax-validator · jsx-checker ·<br/>dep-completer · security"]
+
+    WD --> X["validateAndFix<br/><span class='node-meta'>validate-and-fix.ts<br/>esbuild syntax check</span>"]
+
+    X -->|"Syntax OK"| Y["Syntaxvaliderad kod"]
+    X -->|"Syntax-fel"| Z["runLlmFixer<br/><span class='node-meta'>llm-fixer.ts — kan skapa nya filer<br/>SYNTAX_FIX_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
+    Z --> Y
+
+    Y --> AV["runVerifierPass (read-only)<br/><span class='node-meta'>verifier-pass.ts · polishCandidates</span>"]
+
+    AV --> AA{"SAJTMASKIN_POLISH_PASS=1?"}
+    AA -->|"Ja"| AB["runPolishPass<br/><span class='node-meta'>polish-pass.ts · manifest budgets<br/>målfiler från verifier</span>"]
+    AA -->|"Nej"| AC["Hoppa polish"]
+
+    AB --> AD["Spara version i DB +<br/>skapa preview-filer"]
+    AC --> AD
+
+    AD --> AE["Deploy till tier-2 runtime<br/><span class='node-meta'>primärt preview_host / Fly VM<br/>→ Tier 2 preview-URL → iframe</span>"]
+
+    AE --> AF["Bakgrundsverifiering<br/><span class='node-meta'>server-verify.ts<br/>Vercel Sandbox quality-gate<br/>(typecheck + next build)</span>"]
+
+    AF -->|"Alla checks OK"| AG["Version promoverad"]
+    AF -->|"Gate null (sandbox nere)"| AN["failVersionVerification<br/><span class='node-meta'>Fastnar aldrig i verifying</span>"]
+    AF -->|"Checks misslyckas"| AH["tryServerRepairLoop"]
+
+    AH --> AI["runAutoFix + syntax +<br/>bestContent-rollback vid regression"]
+    AI --> AJ{"Gate OK efter fix?"}
+    AJ -->|"Ja"| AG
+    AJ -->|"Nej"| AK["runLlmFixer<br/><span class='node-meta'>SERVER_REPAIR_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)<br/>error context + kontextrader +<br/>filnamn från gate-output</span>"]
+    AK --> AL{"Syntax + gate OK?"}
+    AL -->|"Ja"| AG
+    AL -->|"Nej"| AM["Version markerad som failed<br/><span class='node-meta'>failVersionVerification</span>"]
+  </div>
+</div>
+
+<div class="diagram-section">
+  <h2>3. Manuell repair (/repair-route)</h2>
+  <p class="desc">Klienten kan trigga explicit LLM-repair vid kvalitetsfel</p>
+
+  <div class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
+flowchart TD
+    R1["POST /api/engine/chats/[chatId]/repair<br/><span class='node-meta'>repair/route.ts</span>"] --> R2["Hämta senaste version +<br/>syntaxvalidering"]
+
+    R2 --> R3["runAutoFix (deterministisk)<br/><span class='node-meta'>Inkl. lucide-link/image fixers</span>"]
+    R3 --> R4{"Fel kvar?"}
+
+    R4 -->|"Inga fel"| R5["Reparerad (deterministisk)<br/><span class='node-meta'>shouldPromoteAfterRepair</span>"]
+    R4 -->|"Ja"| R6["LLM repair loop<br/><span class='node-meta'>MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)<br/>bestContent-rollback vid regression</span>"]
+
+    R6 --> R7["runLlmFixer → runAutoFix → validate<br/><span class='node-meta'>fixer-prompt med Next.js-varningar<br/>kontextrader + gate-filnamn<br/>nya filer inkluderas</span>"]
+    R7 --> R8{"Syntax OK + inga gate-failures?"}
+
+    R8 -->|"Ja"| R9["Reparerad (LLM)<br/><span class='node-meta'>shouldPromoteAfterRepair</span>"]
+    R8 -->|"Nej, men förbättrad"| R10["improvedSyntax = true"]
+    R8 -->|"Nej"| R11["Reparation misslyckad<br/><span class='node-meta'>failVersionVerification<br/>(även vid krasch)</span>"]
+  </div>
+</div>
+
+<div class="diagram-section">
+  <h2>4. Konfigurationskontroll</h2>
+  <p class="desc">config/ai_models/manifest.json → runtime via load-manifest.ts → defaults.ts</p>
+
+  <div class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
+flowchart LR
+    C1["config/dashboard/app.py<br/><span class='node-meta'>Streamlit GUI</span>"] --> C2["config/ai_models/manifest.json<br/><span class='node-meta'>Central konfiguration</span>"]
+
+    C2 --> C3["load-manifest.ts<br/><span class='node-meta'>Zod-validering + getters</span>"]
+
+    C3 --> C4["defaults.ts<br/><span class='node-meta'>Runtime-konstanter</span>"]
+
+    C2 -.->|"Styr"| D1["buildProfiles<br/><span class='node-meta'>fast/pro/max/codex/anthropic</span>"]
+    C2 -.->|"Styr"| D2["phaseRouting<br/><span class='node-meta'>planner/generator/fixer/verifier</span>"]
+    C2 -.->|"Styr"| D3["repairPolicies<br/><span class='node-meta'>autofixPasses / syntaxFix / serverRepair</span>"]
+    C2 -.->|"Styr"| D4["tokenBudgets<br/><span class='node-meta'>engine / autofix / assist max tokens</span>"]
+    C2 -.->|"Styr"| D5["promptOrchestration<br/><span class='node-meta'>Hard caps / soft targets / phase thresholds</span>"]
+    C2 -.->|"Styr"| D6["promptAssist<br/><span class='node-meta'>polish / rewrite / brief modeller</span>"]
+    C2 -.->|"Styr"| D7["preGenerationContracts<br/><span class='node-meta'>DB / auth / payment provider-regler</span>"]
+    C2 -.->|"Styr"| D8["postGenerationPasses<br/><span class='node-meta'>verifier + polish budgets</span>"]
+
+    C5["config/prompt-static/<br/><span class='node-meta'>14 Markdown-fragment</span>"] --> C6["config/codegen-static-prompt.json<br/><span class='node-meta'>Ordning för promptfragment</span>"]
+  </div>
+</div>
+
+<h2 class="legend-title">Legender — nyckelfiler</h2>
+
+<div class="legend">
+  <div class="legend-item blue">
+    <h3>Prompt-förbättring</h3>
+    <p>
+      <span class="file-ref">promptAssist.ts</span> — system prompts för polish/rewrite<br>
+      <span class="file-ref">usePromptAssist.ts</span> — klientlogik + guardrails<br>
+      <span class="file-ref">/api/ai/chat</span> — shallow polish/rewrite endpoint<br>
+      <span class="file-ref">/api/ai/brief</span> — deep brief endpoint
+    </p>
+  </div>
+  <div class="legend-item green">
+    <h3>Orkestrering</h3>
+    <p>
+      <span class="file-ref">promptOrchestration.ts</span> — deterministisk budget/kompressionsvakt<br>
+      <span class="file-ref">orchestrate.ts</span> — scaffold + route plan + kontrakt → BuildSpec<br>
+      <span class="file-ref">system-prompt.ts</span> — bygger statisk + dynamisk systemprompt
+    </p>
+  </div>
+  <div class="legend-item orange">
+    <h3>Generation</h3>
+    <p>
+      <span class="file-ref">engine.ts</span> — huvud-LLM via streamText<br>
+      <span class="file-ref">phase-routing.ts</span> — modellval per fas (manifest-styrd)<br>
+      <span class="file-ref">build-spec.ts</span> — styrdata för generering
+    </p>
+  </div>
+  <div class="legend-item red">
+    <h3>Reparation</h3>
+    <p>
+      <span class="file-ref">pipeline.ts</span> — deterministisk autofix (loop med 15 fixers)<br>
+      <span class="file-ref">lucide-link-fixer.ts</span> — lucide Link → next/link<br>
+      <span class="file-ref">lucide-image-fixer.ts</span> — lucide Image → next/image<br>
+      <span class="file-ref">validate-and-fix.ts</span> — esbuild syntax + LLM fixer<br>
+      <span class="file-ref">llm-fixer.ts</span> — LLM-driven kodreparation (inkl. nya filer)<br>
+      <span class="file-ref">fixer-prompt.ts</span> — systemprompt med Next.js-importvarningar<br>
+      <span class="file-ref">server-verify.ts</span> — bakgrundsverifiering + repair loop<br>
+      <span class="file-ref">repair/route.ts</span> — manuell repair-endpoint
+    </p>
+  </div>
+  <div class="legend-item purple">
+    <h3>Konfiguration</h3>
+    <p>
+      <span class="file-ref">manifest.json</span> — central LLM-konfiguration<br>
+      <span class="file-ref">load-manifest.ts</span> — Zod-validering + runtime getters<br>
+      <span class="file-ref">defaults.ts</span> — runtime-konstanter (manifest + env)<br>
+      <span class="file-ref">app.py</span> — Streamlit dashboard/GUI
+    </p>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis',
+      nodeSpacing: 40,
+      rankSpacing: 50,
+    },
+  });
+</script>
+</body>
+</html>

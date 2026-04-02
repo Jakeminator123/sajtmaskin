@@ -27,6 +27,9 @@ function buildEmbeddingText(entry: TemplateLibraryEntry): string {
     `Description: ${entry.description}`,
     `Verdict: ${entry.verdict}`,
     `Quality score: ${entry.qualityScore}`,
+    `Use-case tags: ${entry.classification.useCaseTags.join(", ")}`,
+    `Site-form tags: ${entry.classification.siteFormTags.join(", ")}`,
+    `Technical pattern tags: ${entry.classification.technicalPatternTags.join(", ")}`,
     `Scaffold families: ${entry.recommendedScaffoldFamilies.join(", ")}`,
     `Strengths: ${entry.strengths.join(", ")}`,
     `Signals: ${Object.entries(entry.signals)

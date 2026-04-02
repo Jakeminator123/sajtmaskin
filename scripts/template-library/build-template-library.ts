@@ -8,6 +8,7 @@ import {
 } from "../../src/lib/gen/template-library/runtime-guidance";
 import type {
   TemplateLibraryCatalogFile,
+  TemplateLibraryClassification,
   TemplateLibraryEntry,
   TemplateLibraryRepoInfo,
   TemplateLibrarySelectedFile,
@@ -15,6 +16,9 @@ import type {
   TemplateLibraryVerdict,
 } from "../../src/lib/gen/template-library/types";
 import {
+  CANONICAL_USE_CASE_SLUGS,
+  parseTemplateCategoryFromUrl,
+  prettifyCategoryName,
   RAW_DISCOVERY_CURRENT_ROOT,
   RAW_DISCOVERY_ROOT,
   normalizeLegacySummary,
@@ -94,10 +98,33 @@ function sanitizeEntryForCatalogOutput(entry: TemplateLibraryEntry): TemplateLib
 const NOISE_LINE_RE =
   /\b(Vercel Agent|Vercel documentation|Deploy at the speed of AI|Ship features, not infrastructure|SDKs by Vercel)\b/i;
 const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldFamilies());
+const TITLE_BLOCKLIST_PATTERNS = [
+  "Express on Bun",
+  "Hono on Bun",
+  "Slack Bolt",
+  "Slack Agent",
+  "Static Tweets",
+  "On-Demand ISR",
+  "Preview Mode",
+  "EnvShare",
+  "Paint by Text",
+  "Inpainter",
+  "qrGPT",
+  "AI Headshot Generator",
+  "AI Emoji Generator",
+  "Alt Text Generator",
+  "Replicache Starter",
+  "Statsig Experimentation",
+  "Optimizely Feature",
+  "TanStack Start",
+  "Rollbar",
+  "Customer Reviews AI Summary",
+];
 
 const INVALID_REPO_PATTERNS: Array<{ reason: TemplateLibraryVerdict; pattern: RegExp }> = [
   { reason: "bad_repo_link", pattern: /github\.com\/settings\//i },
   { reason: "bad_repo_link", pattern: /github\.com\/orgs\//i },
+  { reason: "bad_repo_link", pattern: /github\.com\/sponsors\//i },
   { reason: "bad_repo_link", pattern: /user-attachments\//i },
   { reason: "bad_repo_link", pattern: /\/blob\//i },
   { reason: "bad_repo_link", pattern: /\/tree\/[^/]+\/\.\//i },
@@ -173,6 +200,27 @@ const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
 
 function ensureDir(target: string): void {
   fs.mkdirSync(target, { recursive: true });
+}
+
+function isTitleBlocklisted(title: string): boolean {
+  const lower = title.toLowerCase();
+  return TITLE_BLOCKLIST_PATTERNS.some((pattern) => lower.includes(pattern.toLowerCase()));
+}
+
+function uniqueSorted(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(values.map((value) => value?.trim()).filter(Boolean) as string[]),
+  ).sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeUseCaseTag(value: string): string | null {
+  const slug = slugify(value);
+  if (!slug) return null;
+  if (slug === "marketing-sites") return "marketing";
+  if (slug === "multi-tenant-apps") return "multi-tenant";
+  if (slug === "realtime-apps") return "realtime";
+  if (slug === "vercel-firewall") return "security";
+  return slug;
 }
 
 function assessRepoUrl(rawUrl: string | null | undefined): {
@@ -411,6 +459,9 @@ function buildFileExcerpt(filePath: string, repoRoot: string): TemplateLibrarySe
 
 function detectSignals(entry: RawTemplateRecord, selectedFiles: TemplateLibrarySelectedFile[]): TemplateLibrarySignals {
   const stackTags = (entry.stack_tags ?? []).filter((tag) => !/related templates?/i.test(tag));
+  const useCaseBadges = entry.use_case_badges ?? [];
+  const databaseBadges = entry.database_badges ?? [];
+  const authBadges = entry.auth_badges ?? [];
   const usefulLines = (entry.important_lines ?? [])
     .filter((line) => !NOISE_LINE_RE.test(line))
     .filter((line) => !/^(deploy|features|gettings started|getting started|vercel)$/i.test(line.trim()));
@@ -421,6 +472,10 @@ function detectSignals(entry: RawTemplateRecord, selectedFiles: TemplateLibraryS
     entry.category_name,
     entry.framework_reason,
     ...stackTags,
+    ...useCaseBadges,
+    ...databaseBadges,
+    ...authBadges,
+    entry.artifact_tier ?? "",
     ...usefulLines,
     selectedPaths,
   ]
@@ -445,6 +500,128 @@ function detectSignals(entry: RawTemplateRecord, selectedFiles: TemplateLibraryS
   };
 }
 
+function deriveClassification(
+  categorySlug: string,
+  entry: RawTemplateRecord,
+  signals: TemplateLibrarySignals,
+  repoInfo: TemplateLibraryRepoInfo,
+  recommendedScaffoldFamilies: ScaffoldFamily[],
+  selectedFiles: TemplateLibrarySelectedFile[],
+): TemplateLibraryClassification {
+  const businessText = [
+    entry.title,
+    entry.description,
+    categorySlug.replace(/-/g, " "),
+  ]
+    .join("\n")
+    .toLowerCase();
+
+  const useCaseTags = uniqueSorted([
+    normalizeUseCaseTag(categorySlug),
+    /\bsaas|subscription|billing\b/.test(businessText) ? "saas" : null,
+    /\becommerce|commerce|store|storefront|checkout|product\b/.test(businessText) ? "ecommerce" : null,
+    /\bblog|editorial|newsletter|article\b/.test(businessText) ? "blog" : null,
+    /\bportfolio|gallery|creative\b/.test(businessText) ? "portfolio" : null,
+    /\bsecurity|firewall|encryption|bot protection\b/.test(businessText) ? "security" : null,
+    /\bweb3|wallet|nft|blockchain|onchain\b/.test(businessText) ? "web3" : null,
+  ]);
+
+  const selectedPathsText = selectedFiles.map((file) => file.path).join("\n").toLowerCase();
+  const siteFormText = [businessText, selectedPathsText].join("\n").toLowerCase();
+
+  const siteFormTags = uniqueSorted([
+    categorySlug === "marketing-sites" || /\blanding page|waitlist|marketing website|hero\b/.test(siteFormText)
+      ? "landing-page"
+      : null,
+    categorySlug === "admin-dashboard" ||
+    /\bdashboard|analytics|admin dashboard|issue tracker\b/.test(siteFormText) ||
+    /\/dashboard\//.test(selectedPathsText)
+      ? "dashboard"
+      : null,
+    categorySlug === "saas" ||
+    categorySlug === "backend" ||
+    categorySlug === "multi-tenant-apps" ||
+    categorySlug === "realtime-apps" ||
+    /\bworkspace|settings|team nav|issue tracker|editor|platform\b/.test(siteFormText) ||
+    /\/(settings|workspace|team|billing|account)\//.test(selectedPathsText)
+      ? "app-shell"
+      : null,
+    categorySlug === "cms" || /\bcms|content management\b/.test(siteFormText)
+      ? "content-site"
+      : null,
+    categorySlug === "blog" || /\bblog|editorial|newsletter|article\b/.test(siteFormText)
+      ? "editorial-site"
+      : null,
+    categorySlug === "portfolio" || /\bportfolio|gallery|case study|creative\b/.test(siteFormText)
+      ? "portfolio"
+      : null,
+    categorySlug === "ecommerce" || /\becommerce|commerce|shop|storefront|checkout|product detail\b/.test(siteFormText)
+      ? "storefront"
+      : null,
+    categorySlug === "authentication" ||
+    /\bauthentication|login|signup|sign up|oauth|recovery\b/.test(siteFormText) ||
+    /\/(login|signup|forgot-password|register)\//.test(selectedPathsText)
+      ? "auth-flow"
+      : null,
+    categorySlug === "documentation" || /\bdocs|documentation|knowledgebase|nextra\b/.test(siteFormText)
+      ? "documentation-site"
+      : null,
+  ]);
+
+  const technicalText = [
+    entry.title,
+    entry.description,
+    ...(entry.stack_tags ?? []),
+    ...(entry.database_badges ?? []),
+    ...(entry.auth_badges ?? []),
+    ...(entry.css_tags ?? []),
+    entry.framework_reason,
+  ]
+    .join("\n")
+    .toLowerCase();
+
+  const technicalPatternTags = uniqueSorted([
+    repoInfo.hasAppDir || repoInfo.hasSrcAppDir ? "app-router" : null,
+    repoInfo.isMonorepo || entry.is_monorepo_example || entry.artifact_tier === "monorepo-examples"
+      ? "monorepo"
+      : null,
+    /\b(ai|agent|chatbot|llm|openai|ai sdk)\b/.test(technicalText) ? "ai" : null,
+    (entry.auth_badges?.length ?? 0) > 0 || /\b(auth|oauth|clerk|auth0|nextauth|kinde|descope)\b/.test(technicalText)
+      ? "auth"
+      : null,
+    signals.pricing || /\b(stripe|billing|subscription|paddle)\b/.test(technicalText) ? "billing" : null,
+    categorySlug === "cms" || /\b(cms|contentful|sanity|wordpress|payload|drupal|notion cms|builder\.io)\b/.test(technicalText)
+      ? "cms"
+      : null,
+    (entry.database_badges?.length ?? 0) > 0 || /\b(postgres|redis|mysql|prisma|turso|blob|database)\b/.test(technicalText)
+      ? "database"
+      : null,
+    categorySlug === "multi-tenant-apps" || /\b(multi-tenant|subdomain|workspace|per user)\b/.test(technicalText)
+      ? "multi-tenant"
+      : null,
+    categorySlug === "realtime-apps" || /\b(ably|liveblocks|anycable|realtime|websocket)\b/.test(technicalText)
+      ? "realtime"
+      : null,
+    categorySlug.startsWith("edge-") || categorySlug === "vercel-firewall" ? "edge" : null,
+    categorySlug === "cron" ? "cron" : null,
+    categorySlug === "backend" || /\b(express|hono|fastify|flask|django|nestjs|serverless)\b/.test(technicalText)
+      ? "backend-service"
+      : null,
+    categorySlug === "security" || /\b(security|firewall|encryption|bot protection|arcjet|evervault)\b/.test(technicalText)
+      ? "security"
+      : null,
+    categorySlug === "web3" || /\b(wallet|nft|coinbase|web3|blockchain|onchain)\b/.test(technicalText)
+      ? "web3"
+      : null,
+  ]);
+
+  return {
+    useCaseTags: useCaseTags.length > 0 ? useCaseTags : [normalizeUseCaseTag(categorySlug) ?? "starter"],
+    siteFormTags: siteFormTags.length > 0 ? siteFormTags : ["content-site"],
+    technicalPatternTags,
+  };
+}
+
 function deriveStrengths(signals: TemplateLibrarySignals, repoInfo: TemplateLibraryRepoInfo): string[] {
   const strengths: string[] = [];
   if (repoInfo.hasNext) strengths.push("verified Next.js codebase");
@@ -466,9 +643,13 @@ function deriveWeaknesses(
   usefulLines: string[],
   noiseLines: string[],
   subpathMissing?: boolean,
+  frameworkMatch = true,
+  titleBlocklisted = false,
 ): string[] {
   const weaknesses: string[] = [];
   if (rawRepoVerdict === "bad_repo_link") weaknesses.push("repo URL is not trustworthy");
+  if (!frameworkMatch) weaknesses.push("template page did not pass strict Next.js/React lane");
+  if (titleBlocklisted) weaknesses.push("title is blocklisted as a low-value generation reference");
   if (repoInfo.isMonorepo && !repoInfo.subpath) weaknesses.push("large monorepo without a clear example path");
   if (subpathMissing) weaknesses.push("monorepo subpath not found locally — file excerpts unavailable");
   if (!repoInfo.hasNext && !repoInfo.hasReact) weaknesses.push("framework could not be verified from package.json");
@@ -553,8 +734,12 @@ function decideVerdict(
   rawRepoVerdict: TemplateLibraryVerdict | null,
   repoInfo: TemplateLibraryRepoInfo,
   qualityScore: number,
+  frameworkMatch: boolean,
+  titleBlocklisted: boolean,
 ): TemplateLibraryVerdict {
   if (rawRepoVerdict === "bad_repo_link") return "bad_repo_link";
+  if (!frameworkMatch) return "non_next_template";
+  if (titleBlocklisted) return "research_only";
   if (!repoInfo.clonePath) return "research_only";
   if (!repoInfo.hasNext) return "non_next_template";
   if (repoInfo.isMonorepo && !repoInfo.subpath && qualityScore < 70) return "huge_monorepo";
@@ -563,6 +748,15 @@ function decideVerdict(
 }
 
 function resolveLegacyRepoDir(sourceRoot: string, template: RawTemplateRecord): string {
+  if (template.artifact_tier) {
+    const tieredFolder = path.join(
+      sourceRoot,
+      template.artifact_tier,
+      template.category_slug,
+      slugify(template.title),
+    );
+    return path.join(tieredFolder, "repo");
+  }
   const folder = path.join(sourceRoot, template.category_slug, slugify(template.title));
   return path.join(folder, "repo");
 }
@@ -616,7 +810,17 @@ function buildEntry(
   template: RawTemplateRecord,
   sourceRoot: string,
 ): TemplateLibraryEntry {
-  const slug = slugify(`${template.category_slug}-${template.title}`);
+  const parsedCategorySlug = parseTemplateCategoryFromUrl(template.template_url);
+  const canonicalCategorySlug =
+    parsedCategorySlug && CANONICAL_USE_CASE_SLUGS.has(parsedCategorySlug)
+      ? parsedCategorySlug
+      : template.category_slug;
+  const canonicalCategoryName =
+    template.category_slug === canonicalCategorySlug
+      ? template.category_name
+      : prettifyCategoryName(canonicalCategorySlug);
+  const slug = slugify(`${canonicalCategorySlug}-${template.title}`);
+  const titleBlocklisted = isTitleBlocklisted(template.title);
   const repoUrl = assessRepoUrl(template.repo_url);
   const { cloneRoot, inspectionRoot, subpathMissing } = resolveRepoInspectionPaths(sourceRoot, template);
 
@@ -654,8 +858,24 @@ function buildEntry(
   };
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
-  const recommendedScaffoldFamilies = recommendScaffoldFamilies(template.category_slug, signals);
-  const weaknesses = deriveWeaknesses(repoUrl.verdict, repoInfo, usefulLines, noiseLines, Boolean(isMonorepoFallback) || isMonorepoWithoutSubpath);
+  const recommendedScaffoldFamilies = recommendScaffoldFamilies(canonicalCategorySlug, signals);
+  const classification = deriveClassification(
+    canonicalCategorySlug,
+    template,
+    signals,
+    repoInfo,
+    recommendedScaffoldFamilies,
+    selectedFiles,
+  );
+  const weaknesses = deriveWeaknesses(
+    repoUrl.verdict,
+    repoInfo,
+    usefulLines,
+    noiseLines,
+    Boolean(isMonorepoFallback) || isMonorepoWithoutSubpath,
+    template.framework_match,
+    titleBlocklisted,
+  );
   const qualityScore = scoreEntry(
     repoUrl.verdict,
     repoInfo,
@@ -664,14 +884,20 @@ function buildEntry(
     weaknesses,
     recommendedScaffoldFamilies,
   );
-  const verdict = decideVerdict(repoUrl.verdict, repoInfo, qualityScore);
+  const verdict = decideVerdict(
+    repoUrl.verdict,
+    repoInfo,
+    qualityScore,
+    template.framework_match,
+    titleBlocklisted,
+  );
 
   const entryBase: TemplateLibraryEntry = {
     id: slug,
     slug,
     title: template.title,
-    categorySlug: template.category_slug,
-    categoryName: template.category_name,
+    categorySlug: canonicalCategorySlug,
+    categoryName: canonicalCategoryName,
     templateUrl: template.template_url,
     demoUrl: template.demo_url ?? null,
     description: template.description,
@@ -687,7 +913,8 @@ function buildEntry(
     weaknesses,
     recommendedScaffoldFamilies,
     signals,
-    summary: `${template.title} is a ${template.category_name} reference with ${strengths.slice(0, 3).join(", ") || "limited verified signals"}. Verdict: ${verdict}.`,
+    classification,
+    summary: `${template.title} is a ${canonicalCategoryName} reference with ${strengths.slice(0, 3).join(", ") || "limited verified signals"}. Site form: ${classification.siteFormTags.join(", ")}. Verdict: ${verdict}.`,
     selectedFiles,
   };
 
@@ -695,6 +922,71 @@ function buildEntry(
     ...entryBase,
     runtimeGuidance: deriveTemplateRuntimeGuidance(entryBase),
   };
+}
+
+function tieBreakRepoDuplicatePreference(entry: TemplateLibraryEntry): number {
+  let score = 0;
+  if (!/\b\d+\b/.test(entry.title)) score += 2;
+  if (!/\bwith\b/i.test(entry.title)) score += 1;
+  if (!/^a\s/i.test(entry.title.trim())) score += 1;
+  score -= entry.title.length / 500;
+  return score;
+}
+
+function dedupeEntries(entries: TemplateLibraryEntry[]): TemplateLibraryEntry[] {
+  const deduped = new Map<string, TemplateLibraryEntry>();
+  for (const entry of entries) {
+    if (!deduped.has(entry.id)) {
+      deduped.set(entry.id, entry);
+      continue;
+    }
+
+    const previous = deduped.get(entry.id)!;
+    const preferCurrent =
+      entry.qualityScore > previous.qualityScore ||
+      (entry.qualityScore === previous.qualityScore &&
+        entry.selectedFiles.length > previous.selectedFiles.length) ||
+      (entry.qualityScore === previous.qualityScore &&
+        entry.selectedFiles.length === previous.selectedFiles.length &&
+        entry.strengths.length > previous.strengths.length);
+
+    if (preferCurrent) {
+      deduped.set(entry.id, entry);
+    }
+  }
+
+  const repoDeduped = new Map<string, TemplateLibraryEntry>();
+  for (const entry of deduped.values()) {
+    const repoIdentity =
+      entry.repo.normalizedUrl
+        ? `${entry.categorySlug}::${entry.repo.normalizedUrl}::${entry.repo.subpath ?? ""}`
+        : entry.id;
+    if (!repoDeduped.has(repoIdentity)) {
+      repoDeduped.set(repoIdentity, entry);
+      continue;
+    }
+
+    const previous = repoDeduped.get(repoIdentity)!;
+    const preferCurrent =
+      entry.qualityScore > previous.qualityScore ||
+      (entry.qualityScore === previous.qualityScore &&
+        entry.selectedFiles.length > previous.selectedFiles.length) ||
+      (entry.qualityScore === previous.qualityScore &&
+        entry.selectedFiles.length === previous.selectedFiles.length &&
+        entry.strengths.length > previous.strengths.length) ||
+      (entry.qualityScore === previous.qualityScore &&
+        entry.selectedFiles.length === previous.selectedFiles.length &&
+        entry.strengths.length === previous.strengths.length &&
+        tieBreakRepoDuplicatePreference(entry) > tieBreakRepoDuplicatePreference(previous));
+
+    if (preferCurrent) {
+      repoDeduped.set(repoIdentity, entry);
+    }
+  }
+
+  return Array.from(repoDeduped.values()).sort(
+    (a, b) => b.qualityScore - a.qualityScore || a.title.localeCompare(b.title),
+  );
 }
 
 function writeTemplateLibraryDocs(catalog: TemplateLibraryCatalogFile, outputRoot: string): void {
@@ -919,12 +1211,13 @@ function main(): void {
   const normalizedSummary = normalizeLegacySummary(readJson<unknown>(summaryPath));
   const sourceDir = fs.statSync(summaryPath).isFile() ? path.dirname(summaryPath) : sourceRoot;
   const rawEntries = Object.values(normalizedSummary).flat();
-  const entries = rawEntries
+  const allEntries = rawEntries
     .map((entry) => buildEntry(entry, sourceDir))
     .sort((a, b) => b.qualityScore - a.qualityScore || a.title.localeCompare(b.title));
+  const entries = dedupeEntries(allEntries);
 
   const curatedEntries = entries.filter(
-    (entry) => entry.qualityScore >= 45 && !["bad_repo_link", "non_next_template"].includes(entry.verdict),
+    (entry) => entry.verdict === "valid" && entry.qualityScore >= 45,
   );
   validateTemplateLibraryEntries(curatedEntries);
   const scaffoldResearch = buildScaffoldResearch(curatedEntries);

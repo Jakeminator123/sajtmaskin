@@ -78,6 +78,9 @@ function keywordScore(query: string, entry: TemplateLibraryEntry): number {
     entry.description,
     entry.summary,
     entry.stackTags.join(" "),
+    entry.classification.useCaseTags.join(" "),
+    entry.classification.siteFormTags.join(" "),
+    entry.classification.technicalPatternTags.join(" "),
     entry.strengths.join(" "),
     entry.recommendedScaffoldFamilies.join(" "),
   ].join(" "));
@@ -241,12 +244,21 @@ export async function searchTemplateLibraryWithDiagnostics(
     };
   }
 
+  // text-embedding-3-small has an 8192-token limit. For template matching we
+  // only need the topic/intent, not verbose follow-up instructions, so cap at
+  // ~6k chars (~1500 tokens) which is more than enough for semantic similarity.
+  const EMBEDDING_QUERY_CHAR_LIMIT = 6_000;
+  const embeddingInput =
+    query.length > EMBEDDING_QUERY_CHAR_LIMIT
+      ? query.slice(0, EMBEDDING_QUERY_CHAR_LIMIT)
+      : query;
+
   let queryEmbedding: number[];
   try {
     const openai = new OpenAI({ apiKey });
     const response = await openai.embeddings.create({
       model: "text-embedding-3-small",
-      input: query,
+      input: embeddingInput,
       dimensions: 1536,
     });
     queryEmbedding = response.data[0].embedding;

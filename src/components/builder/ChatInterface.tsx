@@ -201,7 +201,9 @@ interface ChatInterfaceProps {
   paletteSelections?: PaletteSelection[];
   designTheme?: DesignTheme;
   onDesignThemeChange?: (theme: DesignTheme) => void;
+  onPromptAssistModeReset?: () => void;
   onEnhancePrompt?: (message: string) => Promise<string>;
+  onRewritePrompt?: (message: string) => Promise<string>;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;
   isBusy?: boolean;
@@ -274,7 +276,9 @@ export function ChatInterface({
   paletteSelections,
   designTheme = "blue",
   onDesignThemeChange,
+  onPromptAssistModeReset,
   onEnhancePrompt,
+  onRewritePrompt,
   isFigmaInputOpen: controlledFigmaInputOpen,
   onFigmaInputOpenChange,
   isBusy,
@@ -295,7 +299,9 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [activePromptRefineMode, setActivePromptRefineMode] = useState<
+    "polish" | "rewrite" | null
+  >(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -331,9 +337,11 @@ export function ChatInterface({
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
+  const isEnhancing = activePromptRefineMode !== null;
 
   const handleInputChange = (value: string) => {
     setInput(value);
+    onPromptAssistModeReset?.();
   };
 
   const prefilledPromptRef = useRef<string | null>(null);
@@ -549,25 +557,44 @@ export function ChatInterface({
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
 
-  const handleEnhancePrompt = async () => {
-    if (!onEnhancePrompt) return;
+  const runPromptRefine = async (
+    mode: "polish" | "rewrite",
+    handler: ((message: string) => Promise<string>) | undefined,
+  ) => {
+    if (!handler) return;
     const current = input.trim();
     if (!current) return;
 
-    setIsEnhancing(true);
+    setActivePromptRefineMode(mode);
     try {
-      const enhanced = await onEnhancePrompt(current);
+      const enhanced = await handler(current);
       const trimmedEnhanced = enhanced.trim();
       if (trimmedEnhanced) {
         setInput(trimmedEnhanced);
-        debugLog("AI", "Prompt manually enhanced", { length: trimmedEnhanced.length });
+        debugLog("AI", "Prompt manually refined", {
+          mode,
+          length: trimmedEnhanced.length,
+        });
       }
     } catch (error) {
-      console.error("Prompt enhance failed:", error);
-      toast.error("Kunde inte förbättra prompten just nu.");
+      console.error("Prompt refine failed:", error);
+      toast.error(
+        mode === "rewrite"
+          ? "Kunde inte förbättra prompten just nu."
+          : "Kunde inte skriva om prompten just nu.",
+      );
     } finally {
-      setIsEnhancing(false);
+      setActivePromptRefineMode(null);
+      onPromptAssistModeReset?.();
     }
+  };
+
+  const handleEnhancePrompt = async () => {
+    await runPromptRefine("polish", onEnhancePrompt);
+  };
+
+  const handleRewritePrompt = async () => {
+    await runPromptRefine("rewrite", onRewritePrompt);
   };
 
   const handlePlanRequest = async () => {

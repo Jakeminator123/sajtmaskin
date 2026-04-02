@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getActiveSandboxSessionAsync = vi.hoisted(() => vi.fn());
 const touchSandboxSessionAsync = vi.hoisted(() => vi.fn());
-const isSandboxConfigured = vi.hoisted(() => vi.fn(() => true));
+const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => true));
 
 vi.mock("@/lib/rateLimit", () => ({
   withRateLimit: (_req: Request, _bucket: string, handler: () => Promise<Response>) => handler(),
@@ -24,13 +24,9 @@ vi.mock("@/lib/gen/sandbox/session-store", async () => {
   };
 });
 
-vi.mock("@/lib/mcp/runtime-url", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/mcp/runtime-url")>("@/lib/mcp/runtime-url");
-  return {
-    ...actual,
-    isSandboxConfigured,
-  };
-});
+vi.mock("@/lib/gen/sandbox/tier2-config", () => ({
+  isTier2PreviewConfigured,
+}));
 
 vi.mock("@/lib/gen/sandbox/lifecycle-telemetry", () => ({
   logSandboxLifecycleTelemetry: vi.fn(),
@@ -41,7 +37,7 @@ import { POST } from "./route";
 describe("POST sandbox-heartbeat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    isSandboxConfigured.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
     getEngineChatByIdForRequest.mockResolvedValue({ id: "c1" });
   });
 

@@ -1,0 +1,5 @@
+downloads/
+auth.json
+*.zip
+.env
+out/

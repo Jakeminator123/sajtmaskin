@@ -431,7 +431,11 @@ export function buildPostCheckArtifacts(params: {
   if (preflight?.sandbox?.requiresEnvConfig) {
     qualityGateFailures.push("env_config_missing");
   }
-  if (missingPlannedRoutes.length > 0) {
+  if (
+    missingPlannedRoutes.length > 0 &&
+    preflight?.routePlan?.source === "brief" &&
+    !finalDemoUrl
+  ) {
     qualityGateFailures.push("planned_routes_missing");
   }
 

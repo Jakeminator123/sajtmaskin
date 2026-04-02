@@ -33,6 +33,34 @@ const EVENT_HANDLERS_RE =
   /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
+const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
+
+const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
+
+/** Tier 2 preview-host serves at /{projectId}/* — Next must emit /{projectId}/_next/... not /_next/... */
+function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+} {
+  if (!NEXT_CONFIG_FILE_RE.test(filePath.replace(/\\/g, "/"))) {
+    return { code, fixed: false };
+  }
+  if (code.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) {
+    return { code, fixed: false };
+  }
+  if (/\bbasePath\s*:/.test(code)) {
+    return { code, fixed: false };
+  }
+  const re = /(const\s+nextConfig\s*(?::\s*NextConfig\s*)?=\s*\{)/;
+  if (!re.test(code)) {
+    return { code, fixed: false };
+  }
+  const nextCode = code.replace(
+    re,
+    `$1\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() }\n    : {}),`,
+  );
+  return { code: nextCode, fixed: nextCode !== code };
+}
 
 function insertImportAfterDirectives(code: string, importLine: string): string {
   const directiveRe = /^("use client"|'use client'|"use server"|'use server');?\s*$/gm;
@@ -152,11 +180,16 @@ function fixLucideLinkImport(code: string, filePath: string): {
     .map((name) => name.trim())
     .filter(Boolean);
 
-  if (!names.includes("Link")) {
+  const hasLinkImport = names.some(
+    (name) => name === "Link" || /^Link\s+as\s+/i.test(name),
+  );
+  if (!hasLinkImport) {
     return { code, fixed: false, fixes: [] };
   }
 
-  const remaining = names.filter((name) => name !== "Link");
+  const remaining = names.filter(
+    (name) => name !== "Link" && !/^Link\s+as\s+/i.test(name),
+  );
   const nextLucideImport = remaining.length > 0
     ? `import { ${remaining.join(", ")} } from "lucide-react";`
     : "";
@@ -193,6 +226,19 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     }
 
     let content = file.content;
+
+    if (NEXT_CONFIG_FILE_RE.test(file.path.replace(/\\/g, "/"))) {
+      const tier2BasePathResult = ensureTier2PreviewBasePathInNextConfig(content, file.path);
+      if (tier2BasePathResult.fixed) {
+        content = tier2BasePathResult.code;
+        fixes.push({
+          fixer: "tier2-preview-basepath-next-config",
+          description: "Injected conditional basePath from SAJTMASKIN_PREVIEW_BASE_PATH for preview-host URLs",
+          file: file.path,
+        });
+      }
+      return content === file.content ? file : { ...file, content };
+    }
 
     const defaultImportResult = fixLocalDefaultImportMismatches(content, file.path, files, moduleExportIndex);
     if (defaultImportResult.fixed) {
@@ -282,6 +328,24 @@ export function repairGeneratedFiles(files: CodeFile[]): {
         description: 'Added missing `import Image from "next/image"`',
         file: file.path,
       });
+    }
+
+    if (HTML_SCROLL_SMOOTH_RE.test(content)) {
+      const before = content;
+      content = content.replace(
+        HTML_SCROLL_SMOOTH_RE,
+        (_, pre: string, post: string) => {
+          const cleaned = `${pre}${post}`.replace(/\s{2,}/g, " ").replace(/"\s+"/, '"');
+          return cleaned.replace(/<html\b/, '<html data-scroll-behavior="smooth"');
+        },
+      );
+      if (content !== before) {
+        fixes.push({
+          fixer: "scroll-smooth-html-fixer",
+          description: 'Replaced scroll-smooth className with data-scroll-behavior="smooth" on <html> for Next.js 16 compatibility',
+          file: file.path,
+        });
+      }
     }
 
     const symbolResult = fixMissingLocalSymbolImports(content, file.path, exportIndex);

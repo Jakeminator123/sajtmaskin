@@ -20,6 +20,7 @@ import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { isGatewayAssistModel, normalizeAssistModel } from "./promptAssist";
+import { SPEC_MODEL } from "@/lib/gen/defaults";
 
 // Spec schema for structured output
 const websiteSpecSchema = z.object({
@@ -76,7 +77,7 @@ const DEFAULT_SPEC: WebsiteSpec = {
   mustHave: ["Responsive design", "Dark mode support", "Accessible"],
   avoid: ["Lorem ipsum", "Broken links"],
 };
-const DEFAULT_SPEC_MODEL = "openai/gpt-5.4";
+const DEFAULT_SPEC_MODEL = SPEC_MODEL;
 
 const SPEC_SYSTEM_PROMPT = `You are a senior product manager and UX designer. Your job is to transform a user's website request into a structured specification.
 

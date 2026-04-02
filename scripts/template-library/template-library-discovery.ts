@@ -12,7 +12,14 @@ export type RawTemplateRecord = {
   framework_match: boolean;
   framework_reason: string;
   stack_tags?: string[];
+  css_tags?: string[];
+  use_case_badges?: string[];
+  database_badges?: string[];
+  auth_badges?: string[];
   important_lines?: string[];
+  is_monorepo_example?: boolean;
+  is_tutorial_template?: boolean;
+  artifact_tier?: string;
 };
 
 export type RawSummary = Record<string, RawTemplateRecord[]>;
@@ -88,6 +95,7 @@ export const LEGACY_SOURCE_ROOT_CANDIDATES = Array.from(
       ...(externalScrapeRootFromEnv
         ? [resolveWorkspaceRelativePath(externalScrapeRootFromEnv)]
         : []),
+      path.resolve(WORKSPACE_ROOT, "..", "sajtmaskin-template-cache"),
       path.resolve(WORKSPACE_ROOT, "..", "vercel-scrape-fresh"),
       path.resolve(WORKSPACE_ROOT, "..", "vercel-scrape"),
       path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
@@ -216,7 +224,14 @@ export function normalizeRawTemplateRecord(input: RawTemplateRecord): RawTemplat
     framework_match: Boolean(input.framework_match),
     framework_reason: input.framework_reason.trim(),
     stack_tags: uniqueStrings(input.stack_tags ?? []),
+    css_tags: uniqueStrings(input.css_tags ?? []),
+    use_case_badges: uniqueStrings(input.use_case_badges ?? []),
+    database_badges: uniqueStrings(input.database_badges ?? []),
+    auth_badges: uniqueStrings(input.auth_badges ?? []),
     important_lines: normalizeImportantLines(input.important_lines ?? []),
+    is_monorepo_example: Boolean(input.is_monorepo_example),
+    is_tutorial_template: Boolean(input.is_tutorial_template),
+    artifact_tier: input.artifact_tier?.trim() || undefined,
   };
 }
 
@@ -243,7 +258,14 @@ export function normalizeLegacySummary(input: unknown): RawSummary {
           framework_match: Boolean(entry.framework_match),
           framework_reason: String(entry.framework_reason ?? ""),
           stack_tags: Array.isArray(entry.stack_tags) ? entry.stack_tags.map(String) : [],
+          css_tags: Array.isArray(entry.css_tags) ? entry.css_tags.map(String) : [],
+          use_case_badges: Array.isArray(entry.use_case_badges) ? entry.use_case_badges.map(String) : [],
+          database_badges: Array.isArray(entry.database_badges) ? entry.database_badges.map(String) : [],
+          auth_badges: Array.isArray(entry.auth_badges) ? entry.auth_badges.map(String) : [],
           important_lines: Array.isArray(entry.important_lines) ? entry.important_lines.map(String) : [],
+          is_monorepo_example: Boolean(entry.is_monorepo_example),
+          is_tutorial_template: Boolean(entry.is_tutorial_template),
+          artifact_tier: typeof entry.artifact_tier === "string" ? entry.artifact_tier : undefined,
         }),
       )
       .filter((entry) => entry.template_url && entry.title);
@@ -303,6 +325,7 @@ export function normalizePlaywrightCatalog(input: PlaywrightCatalogFile): {
       ...(template.importantLines ?? []),
       ...stackTags,
     ]);
+    const useCaseBadges = uniqueStrings(template.categories ?? []);
 
     for (const categorySlug of effectiveCategories) {
       const entry: CanonicalDiscoveryCatalogEntry = {
@@ -316,7 +339,14 @@ export function normalizePlaywrightCatalog(input: PlaywrightCatalogFile): {
         framework_match: frameworkMatch,
         framework_reason: frameworkReason,
         stack_tags: stackTags,
+        css_tags: [],
+        use_case_badges: useCaseBadges,
+        database_badges: [],
+        auth_badges: [],
         important_lines: importantLines,
+        is_monorepo_example: false,
+        is_tutorial_template: false,
+        artifact_tier: undefined,
         discovery_source: "playwright-catalog",
         image_url: template.imageUrl?.trim() || null,
       };
@@ -437,7 +467,13 @@ export function normalizeRepoUrl(rawUrl: string | null | undefined): {
     }
 
     const parts = parsed.pathname.split("/").filter(Boolean);
-    if (parts.length < 2 || parts[0] === "orgs" || parts[0] === "settings" || parts[0] === "user-attachments") {
+    if (
+      parts.length < 2 ||
+      parts[0] === "orgs" ||
+      parts[0] === "settings" ||
+      parts[0] === "user-attachments" ||
+      parts[0] === "sponsors"
+    ) {
       return { url, normalizedUrl: null, subpath: null, isGitHub: true };
     }
 

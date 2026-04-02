@@ -64,6 +64,7 @@ vi.mock("@/lib/credits/server", () => ({
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
   devLogFinalizeSite: vi.fn(),
+  devLogStartGeneration: vi.fn(),
 }));
 
 vi.mock("@/lib/utils/debug", () => ({

@@ -7,7 +7,7 @@ alwaysApply: false
 
 - **PowerShell på Windows**: bash-heredocs som `<<'EOF'` fungerar inte nativt.
 - **Git commit i PowerShell**: använd `@' ... '@ | git commit -F -` eller flera `-m`; använd inte bash-syntax.
-- **Vercel Sandbox**: föredra `sandbox.writeFiles([{ path, content: Buffer.from(str, "utf-8") }])` för större filträd.
+- **Vercel Sandbox** (sekundär/verifiering, inte primär preview): föredra `sandbox.writeFiles([{ path, content: Buffer.from(str, "utf-8") }])` för större filträd.
 - **Playwright lokalt**: chromium kan behöva installeras separat med `npx playwright install chromium`.
 - **Stream proxy**: kalla inte `reader.releaseLock()` medan `read()` väntar; avbryt via `reader.cancel()` i `ReadableStream.cancel()`.
 - **PowerShell pipe → Vercel env**: `echo 'value' | npx vercel env add ...` lägger till `\n` i värdet. Använd istället temp-fil: `[IO.File]::WriteAllText("$PWD\t.txt", 'value'); cmd /c "type t.txt | npx vercel env add NAME target"` och ta bort filen efteråt.

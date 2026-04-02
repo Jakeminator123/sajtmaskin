@@ -281,6 +281,7 @@ function inferContextPolicy(params: {
   }
   if (
     promptStrategyMeta?.strategy === "phase_plan_build_polish" ||
+    promptStrategyMeta?.strategy === "preserved" ||
     buildIntent === "app" ||
     routePlan.routes.length > 4 ||
     preGenerationContracts.contracts.integrations.length > 0 ||

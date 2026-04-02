@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { orchestratePromptMessage } from "./promptOrchestration";
+import { MAX_CHAT_MESSAGE_CHARS } from "./promptLimits";
+import { buildSectionAwareHandoff, orchestratePromptMessage } from "./promptOrchestration";
 
 describe("promptOrchestration", () => {
   it("classifies first prompts from freeform entry as freeform", () => {
@@ -77,5 +78,32 @@ describe("promptOrchestration", () => {
     });
 
     expect(result.strategyMeta.promptType).toBe("followup_technical");
+  });
+
+  it("keeps full prompt body when over soft target but under hard cap (preserved strategy)", () => {
+    const soft = 75_000;
+    const body = `${"paragraph one with enough content.\n\n".repeat(2600)}UNIQUE_TAIL_MARKER_XYZ`;
+    expect(body.length).toBeGreaterThan(soft);
+    const result = orchestratePromptMessage({
+      message: body,
+      buildMethod: "freeform",
+      buildIntent: "website",
+      isFirstPrompt: true,
+      hardCap: MAX_CHAT_MESSAGE_CHARS,
+    });
+    expect(result.strategyMeta.strategy).toBe("preserved");
+    expect(result.finalMessage).toContain("UNIQUE_TAIL_MARKER_XYZ");
+    expect(result.finalMessage).toContain("Full text preserved");
+  });
+
+  it("uses section-aware handoff when content exceeds hard cap", () => {
+    const cap = 8000;
+    const chunk = "LINE_A\nLINE_B\nLINE_C\n\n";
+    const body = chunk.repeat(400);
+    expect(body.length).toBeGreaterThan(cap);
+    const handoff = buildSectionAwareHandoff(body, cap);
+    expect(handoff.length).toBeLessThanOrEqual(cap);
+    expect(handoff).toContain("[System: Middle truncated");
+    expect(handoff).toContain("LINE_A");
   });
 });

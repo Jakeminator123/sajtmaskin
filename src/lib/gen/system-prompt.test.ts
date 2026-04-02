@@ -62,9 +62,10 @@ describe("buildDynamicContext", () => {
     selectTemplateReferenceFiles.mockReset();
     getTemplateLibraryEntryById.mockReset();
 
-    searchKnowledgeBaseAsync.mockResolvedValue([
-      { title: "KB", content: "Knowledge base match" },
-    ]);
+    searchKnowledgeBaseAsync.mockResolvedValue({
+      matches: [{ title: "KB", content: "Knowledge base match" }],
+      mode: "keyword",
+    });
     enrichWithRegistry.mockResolvedValue("Registry enrichment");
     searchTemplateLibraryWithDiagnostics.mockResolvedValue({
       results: [

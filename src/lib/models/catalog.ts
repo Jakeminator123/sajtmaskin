@@ -45,14 +45,6 @@ export const OWN_MODEL_IDS = [
 
 export type OwnModelId = (typeof OWN_MODEL_IDS)[number];
 
-/**
- * Default model for code generation.
- * Kept in sync with DEFAULT_MODEL_ID ("max") -> "gpt-5.4".
- * Uses a getter to avoid hoisting issues with canonicalModelIdToOwnModelId.
- */
-export function getDefaultOwnModelId(): OwnModelId {
-  return canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
-}
 /** Must match `buildProfiles.defaults.max` in config/ai_models/manifest.json */
 export const DEFAULT_OWN_MODEL_ID = getDefaultMaxTierOwnEngineModel() as OwnModelId;
 
@@ -79,14 +71,6 @@ export const ACCEPTED_MODEL_IDS = [
   ...LEGACY_MODEL_IDS,
 ] as const;
 
-export type AcceptedModelId = (typeof ACCEPTED_MODEL_IDS)[number];
-
-const ACCEPTED_SET = new Set<string>(ACCEPTED_MODEL_IDS);
-
-export function isAcceptedModelId(value: string): value is AcceptedModelId {
-  return ACCEPTED_SET.has(value);
-}
-
 const CANONICAL_SET = new Set<string>(CANONICAL_MODEL_IDS);
 
 export function isCanonicalModelId(value: string): value is CanonicalModelId {
@@ -101,6 +85,20 @@ export function canonicalizeModelId(
   const trimmed = value.trim();
   if (isCanonicalModelId(trimmed)) return trimmed;
   if (trimmed in LEGACY_ALIAS) return LEGACY_ALIAS[trimmed];
+  return null;
+}
+
+/** Best-effort reverse lookup from resolved own-engine model id back to canonical tier. */
+export function ownModelIdToCanonicalModelId(
+  value: string | null | undefined,
+): CanonicalModelId | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  for (const candidate of CANONICAL_MODEL_IDS) {
+    if (canonicalModelIdToOwnModelId(candidate) === trimmed) {
+      return candidate;
+    }
+  }
   return null;
 }
 
@@ -128,10 +126,6 @@ export type BuildProfileId = (typeof BUILD_PROFILE_IDS)[CanonicalModelId];
 
 export function getBuildProfileId(modelId: CanonicalModelId): BuildProfileId {
   return BUILD_PROFILE_IDS[modelId];
-}
-
-export function getBuildProfileLabel(modelId: CanonicalModelId): string {
-  return MODEL_LABELS[modelId];
 }
 
 export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";

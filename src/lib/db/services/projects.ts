@@ -82,12 +82,6 @@ export async function createPromptHandoff(params: {
   return rows[0];
 }
 
-export async function getPromptHandoffById(id: string): Promise<PromptHandoff | null> {
-  assertDbConfigured();
-  const rows = await db.select().from(promptHandoffs).where(eq(promptHandoffs.id, id)).limit(1);
-  return rows[0] ?? null;
-}
-
 export async function getPromptHandoffByIdForOwner(
   id: string,
   scope: ProjectOwnerScope,
@@ -100,17 +94,6 @@ export async function getPromptHandoffByIdForOwner(
     .from(promptHandoffs)
     .where(and(eq(promptHandoffs.id, id), ownerCondition))
     .limit(1);
-  return rows[0] ?? null;
-}
-
-export async function consumePromptHandoff(id: string): Promise<PromptHandoff | null> {
-  assertDbConfigured();
-  const now = new Date();
-  const rows = await db
-    .update(promptHandoffs)
-    .set({ consumed_at: now })
-    .where(and(eq(promptHandoffs.id, id), isNull(promptHandoffs.consumed_at)))
-    .returning();
   return rows[0] ?? null;
 }
 

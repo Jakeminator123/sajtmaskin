@@ -52,6 +52,11 @@ scripts/output_test_scaffold/
 
 # Local generated reports (recreate from scripts when needed)
 data/scaffold-candidates-curated.json
+src/lib/gen/data/docs-embeddings.json
+src/lib/gen/scaffolds/scaffold-embeddings.json
+src/lib/gen/scaffolds/scaffold-research.generated.json
+src/lib/gen/template-library/template-library-embeddings.json
+src/lib/gen/template-library/template-library.generated.json
 
 # run-eval / codegen harness markdown output (scripts/run-eval.ts)
 eval-output/
@@ -60,6 +65,11 @@ EGEN_MOTOR_V2/
 
 # Vercel template scrape (local research; hamta_sidor_branch_emil.py)
 scraped-vercel-scorefolds/
+# Standard scrape-mål utanför repot: ../sajtmaskin-template-cache (syskonmapp — behöver inte ignoreras här).
+# Om cache eller gamla scrape-roter av misstag läggs i reporoten:
+sajtmaskin-template-cache/
+vercel-scrape/
+vercel-scrape-fresh/
 
 # Playwright Vercel catalog tooling — lokal granskning; tillfälligt utanför git (finns i roten om du återställt den)
 vercel_templates_levels/
@@ -119,6 +129,7 @@ chat_till_vanster.txt
 
 # Temp/dev files
 .preprompt_history.json
+.cursor/openclaw-bridge-message.txt
 övrigt
 skrapning
 /[{]*.png
@@ -177,20 +188,26 @@ automation/reports/browser-run-iteration-*.json
 automation/reports/final-summary.md
 automation/reports/final-summary.json
 playwright-report/
+
+
 test-results/
 _scaffold_discovery/
+
+
+# --- Research (tungt); undantag: små indexfiler i raw-discovery & repo-cache ---
 research/external-templates/raw-discovery/**
 !research/external-templates/raw-discovery/README.md
 !research/external-templates/raw-discovery/SCHEMA.md
 !research/external-templates/raw-discovery/schema.summary.json
 research/external-templates/repo-cache/**
 !research/external-templates/repo-cache/README.md
-vercel_usecase_next_react_templates/
+research/external-templates/reference-library/
+
+
 _sidor/
 research/_sidor/
 _input_for_cursor/
 STOR_MIGRATION
-.cursor/migration-archive/
 
 internt_jakob/
 .env*.local

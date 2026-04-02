@@ -18,6 +18,9 @@ const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -92,18 +95,22 @@ const TSCONFIG = `{
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": { "@/*": ["./*"] }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
   "exclude": ["node_modules"]
 }`;
 
 const NEXT_CONFIG = `import type { NextConfig } from "next";
 
+/** Tier 2 preview-host (Fly): public URL is /{projectId}/* — without this, CSS/JS request /_next/* and 404. */
+const previewBasePath = process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "";
+
 const nextConfig: NextConfig = {
+  ...(previewBasePath ? { basePath: previewBasePath } : {}),
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
@@ -113,9 +120,62 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "api.dicebear.com" },
     ],
   },
+  async rewrites() {
+    return [{ source: "/placeholder.svg", destination: "/api/placeholder" }];
+  },
 };
 
 export default nextConfig;
+`;
+
+const PLACEHOLDER_API_ROUTE = `import { NextRequest } from "next/server";
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export async function GET(request: NextRequest) {
+  const params = request.nextUrl.searchParams;
+  const width = Math.min(
+    Math.max(parseInt(params.get("width") || params.get("w") || "600", 10) || 600, 1),
+    2000,
+  );
+  const height = Math.min(
+    Math.max(parseInt(params.get("height") || params.get("h") || "400", 10) || 400, 1),
+    2000,
+  );
+  const text = params.get("text") || \`\${width} × \${height}\`;
+  const fontSize = Math.max(12, Math.min(24, width / 20));
+  const subFontSize = Math.max(10, Math.min(14, width / 30));
+
+  const svg = \`<svg xmlns="http://www.w3.org/2000/svg" width="\${width}" height="\${height}" viewBox="0 0 \${width} \${height}">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e293b"/>
+      <stop offset="100%" style="stop-color:#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#g)"/>
+  <rect x="1" y="1" width="\${width - 2}" height="\${height - 2}" fill="none" stroke="#334155" stroke-width="1" rx="4"/>
+  <text x="50%" y="48%" text-anchor="middle" dominant-baseline="middle" fill="#64748b" font-family="system-ui,sans-serif" font-size="\${fontSize}">
+    \${escapeXml(text)}
+  </text>
+  <text x="50%" y="58%" text-anchor="middle" dominant-baseline="middle" fill="#475569" font-family="system-ui,sans-serif" font-size="\${subFontSize}">
+    Placeholder
+  </text>
+</svg>\`;
+
+  return new Response(svg, {
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  });
+}
 `;
 
 const POSTCSS_CONFIG = `const config = {
@@ -244,10 +304,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 `;
 
+/** Present from first unpack so \`tsc\` / editors agree with Next before first \`next dev\`. */
+const NEXT_ENV_D_TS = `/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+
+// This file is maintained by Next.js — do not edit manually.
+`;
+
 const SCAFFOLD_FILES: Record<string, string> = {
   "package.json": PACKAGE_JSON,
+  "next-env.d.ts": NEXT_ENV_D_TS,
   "tsconfig.json": TSCONFIG,
   "next.config.ts": NEXT_CONFIG,
+  "app/api/placeholder/route.ts": PLACEHOLDER_API_ROUTE,
   "postcss.config.mjs": POSTCSS_CONFIG,
   "app/globals.css": GLOBALS_CSS,
   "app/layout.tsx": LAYOUT_TSX,

@@ -8,7 +8,7 @@
 
 Löpande ska **primärt** dessa ligga här:
 
-- [`PROJECT-STATE-AND-DIRECTION.md`](./active/PROJECT-STATE-AND-DIRECTION.md) — kanonisk operativ backlog (K-rader, Plan 17, beslut).
+- [`PROJECT-STATE-AND-DIRECTION.md`](./active/PROJECT-STATE-AND-DIRECTION.md) — kort kanonisk aktiv status med öppna spår, beslut och pekare vidare.
 
 Nya tillfälliga planer skapas under **`docs/plans/active/`** och flyttas till **`avklarat/`** när spåret är avslutat. **Använd git-trackade filer här** i stället för Cursor-interna planfiler utanför repot — en sanning för teamet och CI.
 

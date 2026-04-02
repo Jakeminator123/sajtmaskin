@@ -17,6 +17,7 @@ GENERATED_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "templ
 EMBEDDINGS_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
 SCAFFOLD_EMBEDDINGS = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-embeddings.json"
 DOSSIER_ROOT = REPO_ROOT / "research" / "external-templates" / "reference-library" / "dossiers"
+SCRAPE_CACHE_ROOT = REPO_ROOT.parent / "sajtmaskin-template-cache"
 
 BLUE = "\033[94m"
 GREEN = "\033[92m"
@@ -60,6 +61,8 @@ def count_dossiers() -> int:
 def show_status():
     print(f"\n{BOLD}=== Status ==={RESET}")
     has_discovery = (RAW_DISCOVERY_CURRENT / "summary.json").exists()
+    has_scrape_cache = (SCRAPE_CACHE_ROOT / "summary.json").exists()
+    print(f"  External scrape cache (../sajtmaskin-template-cache): {'finns' if has_scrape_cache else 'SAKNAS'}")
     print(f"  Raw discovery (current/summary.json): {'finns' if has_discovery else 'SAKNAS'}")
     print(f"  Dossiers:                             {count_dossiers()} st")
     print(f"  template-library.generated.json:      {count_json_entries(GENERATED_JSON)} kuraterade")
@@ -74,11 +77,11 @@ def menu():
 ║          Scaffold Pipeline — Sajtmaskin               ║
 ╚══════════════════════════════════════════════════════╝{RESET}
 
-  {GREEN}1{RESET}  Skrapa nya templates från vercel.com/templates
-     (Playwright — hittar ~150-200 templates, tar 5-10 min)
+  {GREEN}1{RESET}  Skrapa nya templates till syskonmappen
+     (Python intake — bred research, sibling cache utanför repot)
 
-  {GREEN}2{RESET}  Importera legacy-dataset från Desktop/_sidor
-     (Snabb, använder befintlig summary.json)
+  {GREEN}2{RESET}  Importera från syskonmappen till raw-discovery/current
+     (Snabb, använder ../sajtmaskin-template-cache/summary.json)
 
   {GREEN}3{RESET}  Ladda ner repos (hydrate cache)
      (Shallow clones av alla repos, tar 5-15 min)
@@ -92,11 +95,11 @@ def menu():
   {GREEN}6{RESET}  Generera scaffold embeddings
      (OpenAI API-anrop för de 10 runtime scaffolds)
 
-  {GREEN}7{RESET}  Kör ALLT: import + hydrate + build + embeddings
-     (Hela kedjan från befintlig discovery)
+  {GREEN}7{RESET}  Kör ALLT från befintlig syskonmapp
+     (Import + hydrate + build + embeddings via full_template_refresh.py)
 
-  {GREEN}8{RESET}  Kör ALLT från scratch: skrapa + hydrate + build + embeddings
-     (Ny Playwright-skrapning + hela kedjan)
+  {GREEN}8{RESET}  Kör ALLT från scratch
+     (Ny bred scrape + hela kedjan via full_template_refresh.py)
 
   {GREEN}9{RESET}  Visa status
 
@@ -110,19 +113,24 @@ def confirm(msg: str) -> bool:
 
 
 def step_discover():
-    print(f"\n{BOLD}Steg: Skrapa templates från vercel.com{RESET}")
-    print("Detta kör Playwright och besöker vercel.com/templates.")
-    print("Kräver: npx playwright install chromium (om inte redan gjort)")
+    print(f"\n{BOLD}Steg: Skrapa templates till syskonmappen{RESET}")
+    print(f"Output: {SCRAPE_CACHE_ROOT}")
+    print("Detta kör den breda Python-intaken och sparar research utanför repot.")
     if not confirm("Fortsätt?"):
         return
-    run("npm run references:discover")
+    run(
+        "py scripts/template-library/hamta_sidor_branch_emil.py "
+        f'--output "{SCRAPE_CACHE_ROOT}" --legacy-wide-use-cases --per-category 999 --delay 0.4'
+    )
 
 
 def step_import_legacy():
-    print(f"\n{BOLD}Steg: Importera legacy-dataset{RESET}")
-    print("Importerar till raw-discovery/current/ från prioriterad extern källa.")
-    print("Ordning: SAJTMASKIN_VERCEL_SCRAPE_DIR -> ../vercel-scrape-fresh -> ../vercel-scrape -> _sidor/")
-    run("npm run template-library:import-legacy")
+    print(f"\n{BOLD}Steg: Importera syskonmappen till raw-discovery/current{RESET}")
+    print(f"Källa: {SCRAPE_CACHE_ROOT}")
+    run(
+        "npx tsx scripts/template-library/import-template-discovery.ts "
+        f'--from="{SCRAPE_CACHE_ROOT}" --label=external-scrape-dataset'
+    )
 
 
 def step_hydrate():
@@ -156,33 +164,33 @@ def step_scaffold_embeddings():
 
 
 def step_full_from_existing():
-    print(f"\n{BOLD}Kör hela kedjan från befintlig discovery{RESET}")
-    if not (RAW_DISCOVERY_CURRENT / "summary.json").exists():
-        print("Ingen discovery-data hittad. Importerar legacy först...")
-        step_import_legacy()
-
-    step_hydrate()
-    step_build()
-    step_template_embeddings()
-    step_scaffold_embeddings()
+    print(f"\n{BOLD}Kör hela kedjan från befintlig syskonmapp{RESET}")
+    if not (SCRAPE_CACHE_ROOT / "summary.json").exists():
+        print(f"{RED}Ingen scrape-cache hittad i {SCRAPE_CACHE_ROOT}.{RESET}")
+        print(f"Kör steg 1 först.{RESET}")
+        return
+    run(
+        "py scripts/template-library/full_template_refresh.py "
+        f'--skip-scrape --scrape-output "{SCRAPE_CACHE_ROOT}"'
+    )
     print(f"\n{GREEN}{BOLD}Klart! Hela kedjan kördes.{RESET}")
     show_status()
 
 
 def step_full_from_scratch():
     print(f"\n{BOLD}Kör ALLT från scratch{RESET}")
-    print("1. Skrapa vercel.com/templates med Playwright")
-    print("2. Ladda ner repos")
-    print("3. Bygg dossiers + generated JSON")
-    print("4. Generera embeddings")
+    print("1. Bred scrape till syskonmappen")
+    print("2. Import till raw-discovery/current")
+    print("3. Hydrate repo-cache")
+    print("4. Bygg dossiers + generated JSON")
+    print("5. Generera embeddings")
     if not confirm("Detta tar 15-25 minuter. Fortsätt?"):
         return
 
-    step_discover()
-    step_hydrate()
-    step_build()
-    step_template_embeddings()
-    step_scaffold_embeddings()
+    run(
+        "py scripts/template-library/full_template_refresh.py "
+        f'--scrape-output "{SCRAPE_CACHE_ROOT}"'
+    )
     print(f"\n{GREEN}{BOLD}Klart! Hela pipelinen kördes från scratch.{RESET}")
     show_status()
 

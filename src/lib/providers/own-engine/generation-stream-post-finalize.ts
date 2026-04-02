@@ -12,7 +12,7 @@ import {
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
+import { isTier2PreviewConfigured } from "@/lib/gen/sandbox/tier2-config";
 import { triggerServerVerification } from "@/lib/gen/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
@@ -135,7 +135,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   devLogFinalizeSite();
   await commitCredits();
 
-  if (isSandboxConfigured() && sandboxWillRun) {
+  if (isTier2PreviewConfigured() && sandboxWillRun) {
     safeEnqueue(enc.encode(formatSSEEvent("progress", { step: "sandbox", phase: "starting" })));
 
     try {
@@ -161,6 +161,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
           outcome: sr.startOutcome,
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
+          tier2Provider: sr.tier2Meta?.tier2Provider,
+          failoverFrom: sr.tier2Meta?.failoverFrom,
         });
         logSandboxLifecycleTelemetry({
           kind: "sandbox_preview_ready",

@@ -56,21 +56,21 @@ public/images/
 *.webm
 
 # --- Research (tungt); undantag: små indexfiler i raw-discovery & repo-cache ---
-#research/external-templates/raw-discovery/**
-#!research/external-templates/raw-discovery/README.md
-#!research/external-templates/raw-discovery/SCHEMA.md
-#!research/external-templates/raw-discovery/schema.summary.json
-#research/external-templates/repo-cache/**
-#!research/external-templates/repo-cache/README.md
-#research/external-templates/reference-library/
+research/external-templates/raw-discovery/**
+!research/external-templates/raw-discovery/README.md
+!research/external-templates/raw-discovery/SCHEMA.md
+!research/external-templates/raw-discovery/schema.summary.json
+research/external-templates/repo-cache/**
+!research/external-templates/repo-cache/README.md
+research/external-templates/reference-library/
 
-## --- Genererade artefakter (stora JSON) ---
-#data/scaffold-candidates-curated.json
-#src/lib/gen/data/docs-embeddings.json
-#src/lib/gen/scaffolds/scaffold-embeddings.json
-#src/lib/gen/scaffolds/scaffold-research.generated.json
-#src/lib/gen/template-library/template-library-embeddings.json
-#src/lib/gen/template-library/template-library.generated.json
+# --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
+data/scaffold-candidates-curated.json
+src/lib/gen/data/docs-embeddings.json
+src/lib/gen/scaffolds/scaffold-embeddings.json
+src/lib/gen/scaffolds/scaffold-research.generated.json
+src/lib/gen/template-library/template-library-embeddings.json
+src/lib/gen/template-library/template-library.generated.json
 
 # --- Cursor session / automation / migration ---
 .cursor/plans/
@@ -85,6 +85,9 @@ public/images/
 
 # --- Loggar & skrot i roten ---
 logs/*
+!logs/generationslogg/
+!logs/generationslogg/_latest.txt
+!logs/generationslogg/**/summary.md
 manual_log/
 input_files_for_cursor/
 .preprompt_history.json
@@ -97,6 +100,7 @@ internt_jakob/
 old/
 skrapning/
 ovrigt/
+övrigt/
 
 eval-output/
 EGEN_MOTOR_V2/
@@ -108,4 +112,7 @@ services/mpc/docs/**
 services/mpc/logs/
 next-env.d.ts
 archive\scripts-labs-testning_scarf
-files_envars
+#files_envars
+#övrigt
+templates_v0/downloads
+

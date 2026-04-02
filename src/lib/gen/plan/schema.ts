@@ -100,16 +100,6 @@ export type PlanArtifact = {
   updatedAt: number;
 };
 
-export function hasUnresolvedBlockers(plan: PlanArtifact): boolean {
-  return plan.blockers.some((b) => !b.resolved);
-}
-
-export function advancePhase(plan: PlanArtifact): PlanPhase {
-  const order: PlanPhase[] = ["plan", "build", "polish", "verify", "done"];
-  const idx = order.indexOf(plan.currentPhase);
-  return idx < order.length - 1 ? order[idx + 1] : "done";
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

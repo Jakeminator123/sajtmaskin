@@ -1,5 +1,9 @@
 import type { CanonicalModelId, OwnModelId } from "./catalog";
 import { canonicalModelIdToOwnModelId } from "./catalog";
+import {
+  getPhaseRoutingFromManifest,
+  type GenerationPhaseFromManifest,
+} from "@/lib/ai-models/load-manifest";
 
 /**
  * For OpenAI-family build profiles (pro / max / codex), **fixer** uses the same
@@ -11,7 +15,7 @@ import { canonicalModelIdToOwnModelId } from "./catalog";
  * until those phases are wired to substantive codegen. Fast tier is unchanged.
  * Anthropic profile keeps one model across phases.
  */
-const OPENAI_AUXILIARY_PHASE_MODEL: OwnModelId = "gpt-4.1-mini";
+const SELECTED_BUILD_MODEL_REF = "selected_build_model";
 
 export type GenerationPhase =
   | "planner"
@@ -26,33 +30,47 @@ export type PhaseModelOverride = {
   reason: string;
 };
 
+function resolvePhaseModelRef(
+  selectedTier: CanonicalModelId,
+  phase: GenerationPhaseFromManifest,
+): string {
+  const phaseRouting = getPhaseRoutingFromManifest();
+  return phaseRouting[selectedTier][phase];
+}
+
 export function resolvePhaseModel(
   selectedTier: CanonicalModelId,
   phase: GenerationPhase,
 ): PhaseModelOverride {
   const baseModel = canonicalModelIdToOwnModelId(selectedTier);
+  const phaseRef = resolvePhaseModelRef(selectedTier, phase);
+  const selectedBuildModel = phaseRef === SELECTED_BUILD_MODEL_REF;
+  const modelId = (selectedBuildModel ? baseModel : phaseRef) as OwnModelId;
 
-  if (selectedTier === "fast") {
-    return { phase, modelId: baseModel, reason: "fast-tier-no-downgrade" };
+  if (selectedBuildModel && selectedTier === "fast") {
+    return { phase, modelId, reason: "fast-tier-no-downgrade" };
   }
 
-  if (selectedTier === "anthropic") {
-    return { phase, modelId: baseModel, reason: "anthropic-tier-unified" };
+  if (selectedBuildModel && selectedTier === "anthropic") {
+    return { phase, modelId, reason: "anthropic-tier-unified" };
   }
 
-  if (phase === "planner" || phase === "generator" || phase === "fixer") {
+  if (selectedBuildModel) {
     return {
       phase,
-      modelId: baseModel,
+      modelId,
       reason: phase === "fixer" ? "fixer-tier-primary" : "full-tier",
     };
   }
 
-  return {
-    phase,
-    modelId: OPENAI_AUXILIARY_PHASE_MODEL,
-    reason: "aux-openai-efficient",
-  };
+  if (
+    (phase === "verifier" || phase === "deploy-assistant") &&
+    modelId === "gpt-4.1-mini"
+  ) {
+    return { phase, modelId, reason: "aux-openai-efficient" };
+  }
+
+  return { phase, modelId, reason: "manifest-phase-override" };
 }
 
 export function getPhaseRoutingSummary(

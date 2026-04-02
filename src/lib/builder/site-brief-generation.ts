@@ -15,7 +15,12 @@ import {
 } from "@/lib/builder/promptAssist";
 import { createDirectModel, getTemperatureConfig } from "@/lib/builder/gateway-policy";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
-import { ASSIST_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
+import {
+  ASSIST_MAX_OUTPUT_TOKENS,
+  AUTO_BRIEF_MODEL_ANTHROPIC,
+  AUTO_BRIEF_MODEL_OPENAI,
+  BRIEF_MODEL,
+} from "@/lib/gen/defaults";
 
 const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
 
@@ -26,13 +31,12 @@ export const briefRequestSchema = z.object({
     .min(1, "prompt is required")
     .max(MAX_AI_BRIEF_PROMPT_CHARS, `prompt too long (max ${MAX_AI_BRIEF_PROMPT_CHARS} chars)`),
   provider: z.enum(["gateway", "anthropic"]).optional(),
-  model: z.string().min(1).optional().default("openai/gpt-5.2"),
+  model: z.string().min(1).optional().default(BRIEF_MODEL),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
+  source: z.string().trim().max(80).optional(),
 });
-
-export type BriefRequestInput = z.infer<typeof briefRequestSchema>;
 
 function resolveMaxTokens(requested: number | undefined): number {
   const base = typeof requested === "number" ? requested : ASSIST_MAX_OUTPUT_TOKENS;
@@ -45,6 +49,11 @@ function resolveMaxTokens(requested: number | undefined): number {
     });
   }
   return capped;
+}
+
+function normalizeBriefLogSource(source: string | undefined): string {
+  const normalized = source?.trim();
+  return normalized ? normalized : "unspecified";
 }
 
 const sectionTypeSchema = z.enum([
@@ -383,6 +392,7 @@ export async function generateSiteBriefObject(
     temperature?: number;
     maxTokens?: number;
     abortSignal?: AbortSignal;
+    source?: string;
   },
 ): Promise<SiteBriefGenerationResult> {
   const {
@@ -392,14 +402,20 @@ export async function generateSiteBriefObject(
     temperature,
     maxTokens: requestedMaxTokens,
     abortSignal,
+    source,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
   const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
   const maxTokens = resolveMaxTokens(requestedMaxTokens);
   const userPrompt = buildBriefUserPrompt(prompt, imageGenerations);
+  const briefSource = normalizeBriefLogSource(source);
 
-  debugLog("AI", "Site brief generation", {
+  debugLog("AI", "Brief model call started (same request, direct provider)", {
+    source: briefSource,
     provider: logProvider,
+    transport: "direct_provider_api",
+    sdk: "ai",
+    requestStage: "model_call",
     model: normalizedModel,
     promptLength: prompt.length,
     temperature: typeof temperature === "number" ? temperature : null,
@@ -408,6 +424,7 @@ export async function generateSiteBriefObject(
   });
   devLogAppend("latest", {
     type: "assist.brief.request",
+    source: briefSource,
     provider: logProvider,
     model: normalizedModel,
     prompt,
@@ -552,10 +569,6 @@ export async function generateSiteBriefObject(
   };
 }
 
-const DEFAULT_AUTO_BRIEF_MODEL = "openai/gpt-5.2";
-
-const DEFAULT_AUTO_ANTHROPIC_BRIEF_MODEL = "anthropic/claude-sonnet-4.6";
-
 function resolveRunnableBriefModel(preferred: string): string | null {
   const hasOpenAI = Boolean(process.env.OPENAI_API_KEY?.trim());
   const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
@@ -563,14 +576,14 @@ function resolveRunnableBriefModel(preferred: string): string | null {
 
   let m = preferred;
   if (!isPromptAssistModelAllowed(m)) {
-    m = DEFAULT_AUTO_BRIEF_MODEL;
+    m = AUTO_BRIEF_MODEL_OPENAI;
   }
   const provider = resolvePromptAssistProvider(m);
   if (provider === "gateway" && !hasOpenAI && hasAnthropic) {
-    return DEFAULT_AUTO_ANTHROPIC_BRIEF_MODEL;
+    return AUTO_BRIEF_MODEL_ANTHROPIC;
   }
   if (provider === "anthropic" && !hasAnthropic && hasOpenAI) {
-    return DEFAULT_AUTO_BRIEF_MODEL;
+    return AUTO_BRIEF_MODEL_OPENAI;
   }
   if (provider === "gateway" && !hasOpenAI) return null;
   if (provider === "anthropic" && !hasAnthropic) return null;
@@ -586,7 +599,9 @@ export async function tryGenerateServerAutoBrief(params: {
   imageGenerations: boolean;
   signal?: AbortSignal;
 }): Promise<{ brief: Record<string, unknown>; modelUsed: string } | null> {
-  const normalized = normalizeAssistModel(params.assistModelHint?.trim() || DEFAULT_AUTO_BRIEF_MODEL);
+  const normalized = normalizeAssistModel(
+    params.assistModelHint?.trim() || AUTO_BRIEF_MODEL_OPENAI,
+  );
   const runnable = resolveRunnableBriefModel(normalized);
   if (!runnable) return null;
 
@@ -596,6 +611,7 @@ export async function tryGenerateServerAutoBrief(params: {
       normalizedModel: runnable,
       imageGenerations: params.imageGenerations,
       abortSignal: params.signal,
+      source: "server_auto_brief",
     });
     return { brief, modelUsed: normalizedModel };
   } catch (e) {

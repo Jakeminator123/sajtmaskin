@@ -218,7 +218,8 @@ export function useCreateChat(
         const promptStrategy =
           meta?.promptStrategy === "direct" ||
           meta?.promptStrategy === "summarize" ||
-          meta?.promptStrategy === "phase_plan_build_polish"
+          meta?.promptStrategy === "phase_plan_build_polish" ||
+          meta?.promptStrategy === "preserved"
             ? meta.promptStrategy
             : null;
         const promptType =

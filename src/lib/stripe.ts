@@ -43,8 +43,6 @@ const DIAMOND_PACKAGES = [
   },
 ] as const;
 
-export type DiamondPackageId = (typeof DIAMOND_PACKAGES)[number]["id"];
-
 // Get package by ID
 export function getPackageById(id: string) {
   return DIAMOND_PACKAGES.find((p) => p.id === id);

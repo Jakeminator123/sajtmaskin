@@ -298,6 +298,7 @@ export function useBuilderPageController() {
     setSandboxPending,
     onSandboxSessionMeta,
     clearSandboxBuildError,
+    clearSandboxSessionState,
     resetSandboxForNewChat,
   } = sandboxPreview;
 
@@ -341,6 +342,7 @@ export function useBuilderPageController() {
       systemPrompt: state.customInstructions,
       promptAssistModel: state.promptAssistModel,
       promptAssistDeep: state.promptAssistDeep,
+      promptAssistMode: state.promptAssistMode,
       buildIntent: state.resolvedBuildIntent,
       buildMethod: state.buildMethod,
       scaffoldMode: state.scaffoldMode,
@@ -408,6 +410,7 @@ export function useBuilderPageController() {
     setCustomInstructions: state.setCustomInstructions,
     setPromptAssistModel: state.setPromptAssistModel,
     setPromptAssistDeep: state.setPromptAssistDeep,
+      setPromptAssistMode: state.setPromptAssistMode,
     setDesignTheme: state.setDesignTheme,
     setPaletteState: state.setPaletteState,
     maybeEnhanceInitialPrompt,
@@ -597,6 +600,52 @@ export function useBuilderPageController() {
       setAppProjectId(projectParam);
     }
   }, [projectParam, setAppProjectId]);
+
+  // Route entries without an explicit chatId must not inherit stale chat state
+  // from the previous builder session. This is especially important when we
+  // arrive via prompt handoff (`promptId`) or a fresh project URL.
+  useEffect(() => {
+    if (chatIdParam) return;
+
+    const routeRepresentsFreshBuilderEntry = Boolean(projectParam) || hasEntryParams;
+    if (!routeRepresentsFreshBuilderEntry) return;
+
+    const shouldResetChatState = Boolean(chatId);
+    const shouldResetResolvedPrompt = promptId !== null || promptParam !== null;
+    if (!shouldResetChatState && !shouldResetResolvedPrompt) return;
+
+    pendingBriefRef.current = null;
+    pendingSpecRef.current = null;
+
+    if (shouldResetChatState) {
+      setChatId(null);
+      setMessages([]);
+      setCurrentPreviewUrl(null);
+      setSelectedVersionId(null);
+      setV0ProjectId(null);
+    }
+
+    if (shouldResetResolvedPrompt) {
+      promptFetchDoneRef.current = null;
+      setResolvedPrompt(promptParam?.trim() || null);
+    }
+  }, [
+    chatIdParam,
+    projectParam,
+    hasEntryParams,
+    chatId,
+    promptId,
+    promptParam,
+    pendingBriefRef,
+    pendingSpecRef,
+    promptFetchDoneRef,
+    setChatId,
+    setMessages,
+    setCurrentPreviewUrl,
+    setSelectedVersionId,
+    setV0ProjectId,
+    setResolvedPrompt,
+  ]);
 
   // Load latest chat for project when project is in URL but chatId is not
   useEffect(() => {
@@ -1512,6 +1561,7 @@ export function useBuilderPageController() {
     previewLifecycle,
     handlePreviewSessionSuspect,
     clearSandboxBuildError,
+    clearSandboxSessionState,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
     bumpPreviewRefreshToken,
@@ -1593,7 +1643,9 @@ export function useBuilderPageController() {
 
     // Prompt actions
     handlePromptAssistModelChange: promptActions.handlePromptAssistModelChange,
+    handlePromptAssistModeReset: promptActions.clearPromptAssistMode,
     handlePromptEnhance: promptActions.handlePromptEnhance,
+    handlePromptRewrite: promptActions.handlePromptRewrite,
     requestCreateChat: promptActions.requestCreateChat,
     handleStartFromRegistry: promptActions.handleStartFromRegistry,
     handleStartFromTemplate: promptActions.handleStartFromTemplate,

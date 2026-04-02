@@ -6,8 +6,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { getScaffoldFamilies } from "@/lib/gen/scaffolds";
-import catalogJson from "./template-library.generated.json";
-import embeddingsJson from "./template-library-embeddings.json";
 import {
   getTemplateLibraryCatalog,
   getTemplateLibraryEntries,
@@ -19,9 +17,20 @@ import {
   selectTemplateReferenceFiles,
 } from "./search";
 
+let catalogJson: { entries?: { id: string }[]; curatedTemplates?: number } = { entries: [], curatedTemplates: 0 };
+let embeddingsJson: { embeddings: { id: string }[] } = { embeddings: [] };
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  catalogJson = require("./template-library.generated.json");
+} catch { /* generated file may be absent after cleanup */ }
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  embeddingsJson = require("./template-library-embeddings.json");
+} catch { /* generated file may be absent after cleanup */ }
+
 const entries = getTemplateLibraryEntries();
 const catalogIds = new Set(entries.map((e) => e.id));
-const embeddingIds = new Set(embeddingsJson.embeddings.map((e) => e.id));
+const embeddingIds = new Set((embeddingsJson.embeddings ?? []).map((e) => e.id));
 const knownScaffoldFamilies = new Set(getScaffoldFamilies());
 
 describe("template-library external templates (committed catalog)", () => {
@@ -48,6 +57,9 @@ describe("template-library external templates (committed catalog)", () => {
       expect(e.categoryName?.trim().length).toBeGreaterThan(0);
       expect(e.summary?.trim().length).toBeGreaterThan(0);
       expect(e.recommendedScaffoldFamilies?.length).toBeGreaterThan(0);
+      expect(e.classification?.useCaseTags?.length ?? 0).toBeGreaterThan(0);
+      expect(e.classification?.siteFormTags?.length ?? 0).toBeGreaterThan(0);
+      expect(Array.isArray(e.classification?.technicalPatternTags)).toBe(true);
       expect(e.qualityScore).toBeGreaterThanOrEqual(45);
       expect(e.runtimeGuidance?.styleRules?.length ?? 0).toBeGreaterThan(0);
       expect(e.runtimeGuidance?.sectionInventory?.length ?? 0).toBeGreaterThan(0);

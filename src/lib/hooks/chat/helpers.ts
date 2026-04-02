@@ -845,9 +845,13 @@ function formatPromptStrategyReason(reason: string): string {
     high_complexity: "Hög komplexitet — fasadläge",
     over_budget_summarized: "Över mjuk gräns — prompt sammandragen",
     over_budget_summarized_design_safe: "Över mjuk gräns — sammandragning (designsäker)",
+    over_soft_target_full_handoff:
+      "Över mjuk gräns — hela prompten skickas (bevarande handoff, ingen aggressiv sammandragning)",
+    over_soft_target_full_handoff_design_heavy:
+      "Över mjuk gräns — hela prompten skickas (designtung kontext bevarad)",
   };
   if (reason.endsWith("_hard_cap")) {
-    return "Hård teckengräns — extra sammandragning";
+    return "Hård teckengräns — sektionssparande komprimering eller nödsammandragning";
   }
   return map[reason] ?? reason;
 }
@@ -858,7 +862,9 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
       ? "fasad (Plan -> Build -> Polish)"
       : meta.strategy === "summarize"
         ? "sammanfattad"
-        : "redo";
+        : meta.strategy === "preserved"
+          ? "bevarad (full handoff)"
+          : "redo";
   // budgetTarget = soft ceiling (ORCHESTRATION_SOFT_TARGET_*); NOT a goal length for the user prompt.
   const lengthLine =
     meta.originalLength !== meta.optimizedLength

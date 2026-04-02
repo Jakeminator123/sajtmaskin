@@ -59,6 +59,14 @@ function emptySignals(): TemplateLibraryEntry["signals"] {
   };
 }
 
+function emptyClassification(): TemplateLibraryEntry["classification"] {
+  return {
+    useCaseTags: ["legacy-candidate"],
+    siteFormTags: ["content-site"],
+    technicalPatternTags: [],
+  };
+}
+
 function inferLegacyFamilies(candidate: LegacyCandidate): TemplateLibraryEntry["recommendedScaffoldFamilies"] {
   const text = `${candidate.slug ?? ""} ${candidate.name ?? ""} ${candidate.description ?? ""}`.toLowerCase();
   if (/\b(auth|login|signup|password)\b/.test(text)) return ["auth-pages"];
@@ -112,6 +120,7 @@ function normalizeLegacyCandidates(rawCandidates: LegacyCandidate[]): TemplateLi
       weaknesses: qualityScore < 60 ? ["Legacy candidate without curated dossier"] : [],
       recommendedScaffoldFamilies,
       signals: emptySignals(),
+      classification: emptyClassification(),
       summary: description || `${title} imported from legacy scaffold candidate list.`,
       selectedFiles: [],
     };

@@ -42,7 +42,7 @@
     },
     {
       "vendor": "Vercel",
-      "title": "AI SDK streamText (library, not a hosted API)",
+      "title": "AI SDK streamText (open-source library, not a hosted API)",
       "url": "https://sdk.vercel.ai/docs/reference/ai-sdk-core/stream-text",
       "appliesTo": "sdk_or_tooling"
     },
@@ -97,15 +97,377 @@
         "anthropic-direct/claude-haiku-4-5-20251001",
         "anthropic-direct/claude-sonnet-4-6",
         "anthropic-direct/claude-opus-4-6"
-      ],
-      "v0Models": []
+      ]
     },
-    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*. Prompt assist does not use the v0 Model API; v0Models in allowed is kept empty for schema parity."
+    "notes": "Provider id \"gateway\" in api/ai/chat means OpenAI-class assist models; the route calls createDirectModel() which uses OPENAI_API_KEY for openai/* and ANTHROPIC_API_KEY for anthropic/*."
+  },
+  "briefing": {
+    "defaults": {
+      "requestModel": "openai/gpt-5.2",
+      "serverAutoOpenAI": "openai/gpt-5.2",
+      "serverAutoAnthropic": "anthropic/claude-sonnet-4.6",
+      "specModel": "openai/gpt-5.4"
+    },
+    "envKeys": {
+      "requestModel": "SAJTMASKIN_BRIEF_MODEL",
+      "serverAutoOpenAI": "SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI",
+      "serverAutoAnthropic": "SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC",
+      "specModel": "SAJTMASKIN_SPEC_MODEL"
+    },
+    "notes": "Structured pre-build helpers. requestModel is the default for /api/ai/brief. serverAuto* control create-chat fallback when the client did not already send a brief. specModel is for the older spec-first helper."
+  },
+  "phaseRouting": {
+    "defaultByTier": {
+      "fast": {
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "selected_build_model",
+        "verifier": "selected_build_model",
+        "deploy-assistant": "selected_build_model"
+      },
+      "pro": {
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "selected_build_model",
+        "verifier": "gpt-4.1-mini",
+        "deploy-assistant": "gpt-4.1-mini"
+      },
+      "max": {
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "selected_build_model",
+        "verifier": "gpt-4.1-mini",
+        "deploy-assistant": "gpt-4.1-mini"
+      },
+      "codex": {
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "selected_build_model",
+        "verifier": "gpt-4.1-mini",
+        "deploy-assistant": "gpt-4.1-mini"
+      },
+      "anthropic": {
+        "planner": "selected_build_model",
+        "generator": "selected_build_model",
+        "fixer": "selected_build_model",
+        "verifier": "selected_build_model",
+        "deploy-assistant": "selected_build_model"
+      }
+    },
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override."
+  },
+  "repairPolicies": {
+    "deterministicAutofixPasses": 2,
+    "syntaxFixPasses": 3,
+    "manualRepairRouteLlmPasses": 2,
+    "serverRepairPasses": 2
+  },
+  "promptOrchestration": {
+    "hardCaps": {
+      "maxChatMessageChars": {
+        "envKey": "V0_MAX_PROMPT_LENGTH",
+        "default": 800000,
+        "min": 5000,
+        "max": 2000000
+      },
+      "warnChatMessageChars": {
+        "envKey": "V0_WARN_PROMPT_LENGTH",
+        "default": 500000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "maxChatSystemChars": {
+        "envKey": "SAJTMASKIN_MAX_SYSTEM_LENGTH",
+        "default": 600000,
+        "min": 2000,
+        "max": 2000000
+      },
+      "warnChatSystemChars": {
+        "envKey": "SAJTMASKIN_WARN_SYSTEM_LENGTH",
+        "default": 350000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "maxPromptHandoffChars": {
+        "envKey": "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
+        "default": 800000,
+        "min": 5000,
+        "max": 2000000
+      },
+      "maxAiBriefPromptChars": {
+        "envKey": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
+        "default": 800000,
+        "min": 2000,
+        "max": 2000000
+      },
+      "maxAiChatMessageChars": {
+        "envKey": "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
+        "default": 600000,
+        "min": 2000,
+        "max": 2000000
+      },
+      "maxAiSpecPromptChars": {
+        "envKey": "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
+        "default": 800000,
+        "min": 2000,
+        "max": 2000000
+      }
+    },
+    "softTargets": {
+      "freeformChars": {
+        "envKey": "SAJTMASKIN_SOFT_TARGET_FREEFORM_CHARS",
+        "default": 75000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "wizardChars": {
+        "envKey": "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
+        "default": 85000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "auditChars": {
+        "envKey": "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
+        "default": 110000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "templateChars": {
+        "envKey": "SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS",
+        "default": 50000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "followupChars": {
+        "envKey": "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
+        "default": 70000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "technicalChars": {
+        "envKey": "SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS",
+        "default": 95000,
+        "min": 1000,
+        "max": 2000000
+      },
+      "appChars": {
+        "envKey": "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
+        "default": 90000,
+        "min": 1000,
+        "max": 2000000
+      }
+    },
+    "phaseThresholds": {
+      "defaultChars": {
+        "envKey": "SAJTMASKIN_PHASE_FORCE_CHARS",
+        "default": 180000,
+        "min": 2000,
+        "max": 2000000
+      },
+      "auditChars": {
+        "envKey": "SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS",
+        "default": 140000,
+        "min": 2000,
+        "max": 2000000
+      }
+    }
+  },
+  "postGenerationPasses": {
+    "polishMaxOutputTokens": {
+      "envKey": "SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS",
+      "default": 16000,
+      "min": 4000,
+      "max": 64000
+    },
+    "polishTimeoutMs": {
+      "envKey": "SAJTMASKIN_POLISH_TIMEOUT_MS",
+      "default": 45000,
+      "min": 8000,
+      "max": 180000
+    },
+    "polishMaxFilesWhenUnscoped": {
+      "envKey": "SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED",
+      "default": 14,
+      "min": 4,
+      "max": 40
+    },
+    "verifierMaxOutputTokens": {
+      "envKey": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
+      "default": 8192,
+      "min": 1024,
+      "max": 32000
+    },
+    "verifierTimeoutMs": {
+      "envKey": "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
+      "default": 60000,
+      "min": 10000,
+      "max": 180000
+    },
+    "verifierSnippetCharsPerFile": {
+      "envKey": "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
+      "default": 14000,
+      "min": 3000,
+      "max": 60000
+    }
+  },
+  "preGenerationContracts": {
+    "defaults": {
+      "fallbackDatabaseProvider": "SQLite",
+      "fallbackAuthProvider": "NextAuth / Auth.js",
+      "fallbackPaymentProvider": "Stripe"
+    },
+    "providerRules": [
+      {
+        "kind": "database",
+        "provider": "Supabase",
+        "name": "Supabase",
+        "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+        "matchPatterns": ["\\bsupabase\\b"],
+        "reason": "Prompten nämner Supabase eller ett tydligt Supabase-flöde."
+      },
+      {
+        "kind": "database",
+        "provider": "Prisma",
+        "name": "Prisma",
+        "envVars": ["DATABASE_URL"],
+        "matchPatterns": ["\\bprisma\\b"],
+        "reason": "Prompten nämner Prisma uttryckligen."
+      },
+      {
+        "kind": "database",
+        "provider": "Drizzle",
+        "name": "Drizzle",
+        "envVars": ["DATABASE_URL"],
+        "matchPatterns": ["\\bdrizzle\\b"],
+        "reason": "Prompten nämner Drizzle uttryckligen."
+      },
+      {
+        "kind": "database",
+        "provider": "SQLite",
+        "name": "SQLite",
+        "envVars": ["DATABASE_URL"],
+        "matchPatterns": ["\\bsqlite\\b", "\\bbetter-sqlite3\\b"],
+        "reason": "Prompten nämner SQLite uttryckligen."
+      },
+      {
+        "kind": "database",
+        "provider": "Postgres / DATABASE_URL",
+        "name": "Postgres",
+        "envVars": ["DATABASE_URL"],
+        "matchPatterns": ["\\bpostgres\\b", "\\bpostgresql\\b", "\\bdatabase_url\\b"],
+        "reason": "Prompten nämner Postgres eller DATABASE_URL uttryckligen."
+      },
+      {
+        "kind": "auth",
+        "provider": "Clerk",
+        "name": "Clerk",
+        "envVars": ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
+        "matchPatterns": ["\\bclerk\\b"],
+        "reason": "Prompten nämner Clerk uttryckligen."
+      },
+      {
+        "kind": "auth",
+        "provider": "NextAuth / Auth.js",
+        "name": "NextAuth / Auth.js",
+        "envVars": ["AUTH_SECRET", "NEXTAUTH_URL"],
+        "matchPatterns": ["\\bnextauth\\b", "\\bauth\\.js\\b", "\\bnext-auth\\b"],
+        "reason": "Prompten nämner NextAuth / Auth.js uttryckligen."
+      },
+      {
+        "kind": "auth",
+        "provider": "Auth0",
+        "name": "Auth0",
+        "envVars": ["AUTH0_SECRET", "AUTH0_BASE_URL", "AUTH0_ISSUER_BASE_URL", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"],
+        "matchPatterns": ["\\bauth0\\b"],
+        "reason": "Prompten nämner Auth0 uttryckligen."
+      },
+      {
+        "kind": "payment",
+        "provider": "Stripe",
+        "name": "Stripe",
+        "envVars": ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
+        "matchPatterns": ["\\bstripe\\b", "\\bcheckout\\b", "\\bsubscription\\b", "\\bbilling\\b"],
+        "reason": "Prompten pekar på checkout, subscription eller Stripe."
+      },
+      {
+        "kind": "integration",
+        "provider": "Resend",
+        "name": "Resend",
+        "envVars": ["RESEND_API_KEY"],
+        "matchPatterns": ["\\bresend\\b"],
+        "reason": "Prompten nämner Resend uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "provider": "OpenAI",
+        "name": "OpenAI",
+        "envVars": ["OPENAI_API_KEY"],
+        "matchPatterns": ["\\bopenai\\b", "\\bgpt-?\\d", "\\bai assistant\\b", "\\bchatbot\\b"],
+        "reason": "Prompten verkar kräva AI-funktionalitet eller nämner OpenAI."
+      },
+      {
+        "kind": "integration",
+        "provider": "Vercel Blob",
+        "name": "Vercel Blob",
+        "envVars": ["BLOB_READ_WRITE_TOKEN"],
+        "matchPatterns": ["\\bvercel blob\\b", "\\bblob storage\\b"],
+        "reason": "Prompten nämner blob storage eller Vercel Blob uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "provider": "Upstash",
+        "name": "Upstash",
+        "envVars": ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+        "matchPatterns": ["\\bupstash\\b", "\\bredis\\b"],
+        "reason": "Prompten nämner Redis eller Upstash uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "provider": "Google Analytics 4",
+        "name": "Google Analytics 4",
+        "envVars": ["NEXT_PUBLIC_GA_ID"],
+        "matchPatterns": ["\\bgoogle analytics\\b", "\\bga4\\b", "\\bgtag\\b"],
+        "reason": "Prompten nämner Google Analytics / GA4 uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "provider": "Google Tag Manager",
+        "name": "Google Tag Manager",
+        "envVars": ["NEXT_PUBLIC_GTM_ID"],
+        "matchPatterns": ["\\bgoogle tag manager\\b", "\\bgtm\\b", "\\btag manager\\b"],
+        "reason": "Prompten nämner tag manager / GTM uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "provider": "Plausible",
+        "name": "Plausible",
+        "envVars": ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
+        "matchPatterns": ["\\bplausible\\b"],
+        "reason": "Prompten nämner Plausible uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "provider": "PostHog",
+        "name": "PostHog",
+        "envVars": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
+        "matchPatterns": ["\\bposthog\\b"],
+        "reason": "Prompten nämner PostHog uttryckligen."
+      },
+      {
+        "kind": "integration",
+        "provider": "Vercel Analytics",
+        "name": "Vercel Analytics",
+        "envVars": [],
+        "matchPatterns": ["\\bvercel analytics\\b"],
+        "status": "optional",
+        "reason": "Prompten nämner Vercel Analytics som möjlig tracking-baseline."
+      }
+    ]
   },
   "tokenBudgets": {
     "engineMaxOutputTokens": {
       "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
-      "default": 32768,
+      "default": 82768,
       "min": 4096,
       "max": 262144
     },
@@ -117,7 +479,7 @@
     },
     "assistMaxOutputTokens": {
       "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
-      "default": 32768,
+      "default": 82768,
       "min": 4096,
       "max": 128000
     }
@@ -185,7 +547,7 @@
       },
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
-        "default": 32768,
+        "default": 82768,
         "min": 4096,
         "max": 262144
       },
@@ -219,6 +581,34 @@
       }
     },
     {
+      "id": "manual_repair_route_llm",
+      "title": "Manual repair route",
+      "description": "Targeted LLM repair after a failed quality gate from the explicit /repair route.",
+      "invocation": "streamText_ai_sdk",
+      "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
+      "codeEntry": [
+        "src/app/api/engine/chats/[chatId]/repair/route.ts",
+        "src/lib/gen/autofix/llm-fixer.ts",
+        "src/lib/models/phase-routing.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "notes": "Uses the fixer phase from phaseRouting when the originating chat tier can be inferred; otherwise falls back to the configured pro profile."
+    },
+    {
+      "id": "server_verify_repair_llm",
+      "title": "Background server verify repair",
+      "description": "Targeted LLM repair inside fire-and-forget server verification after sandbox quality-gate failures.",
+      "invocation": "streamText_ai_sdk",
+      "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
+      "codeEntry": [
+        "src/lib/gen/server-verify.ts",
+        "src/lib/gen/autofix/llm-fixer.ts",
+        "src/lib/models/phase-routing.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "notes": "Uses the fixer phase from phaseRouting when the originating chat tier can be inferred; otherwise falls back to the configured pro profile."
+    },
+    {
       "id": "prompt_assist_chat",
       "title": "Prompt assist (Förbättra) chat stream",
       "description": "Multi-provider streamText: openai/* and anthropic/* via createDirectModel (direct OpenAI/Anthropic API).",
@@ -226,12 +616,73 @@
       "provider": "openai_anthropic_direct",
       "codeEntry": ["src/app/api/ai/chat/route.ts", "src/lib/builder/gateway-policy.ts", "src/lib/builder/promptAssist.ts"],
       "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "defaultModel": "openai/gpt-5.4",
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
-        "default": 32768,
+        "default": 82768,
         "min": 4096,
         "max": 128000
       }
+    },
+    {
+      "id": "brief_structured",
+      "title": "Structured Deep Brief",
+      "description": "generateObject-based structured brief used by /api/ai/brief and server auto-brief before generation.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_anthropic_direct",
+      "codeEntry": [
+        "src/app/api/ai/brief/route.ts",
+        "src/lib/builder/site-brief-generation.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "defaultModel": "openai/gpt-5.2",
+      "tokenBudget": {
+        "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
+        "default": 82768,
+        "min": 4096,
+        "max": 128000
+      }
+    },
+    {
+      "id": "plan_mode_planner",
+      "title": "Plan mode planner",
+      "description": "Planning stream that returns a structured plan artifact instead of code when plan mode is active.",
+      "invocation": "streamText_ai_sdk",
+      "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
+      "codeEntry": [
+        "src/lib/own-engine/session/own-engine-plan-mode.ts",
+        "src/lib/models/phase-routing.ts",
+        "src/lib/gen/plan/prompt.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "notes": "Uses the planner phase from phaseRouting. selected_build_model follows the active build profile model."
+    },
+    {
+      "id": "post_generation_verifier",
+      "title": "Post-generation verifier pass",
+      "description": "Read-only structured review after syntax validation that identifies blocking/quality findings and polish candidate files.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
+      "codeEntry": [
+        "src/lib/gen/verifier-pass.ts",
+        "src/lib/gen/stream/finalize-version.ts",
+        "src/lib/models/phase-routing.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "notes": "Uses the verifier phase from phaseRouting for the active build tier. This pass is read-only and feeds polish scope plus telemetry."
+    },
+    {
+      "id": "post_generation_polish",
+      "title": "Post-generation polish pass",
+      "description": "Optional second-pass file polish after codegen focused on copy, placeholders, CTA clarity, and light hierarchy cleanup.",
+      "invocation": "ai_generateText",
+      "provider": "openai_direct_or_anthropic_direct_via_current_build_model",
+      "codeEntry": [
+        "src/lib/gen/polish-pass.ts",
+        "src/lib/gen/stream/finalize-version.ts"
+      ],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "notes": "This is post-codegen file polish, not the lightweight prompt-polish used by the builder's `Skriv om` button. The pass is behind SAJTMASKIN_POLISH_PASS and follows the current build model."
     },
     {
       "id": "runtime_embeddings_query",
@@ -283,7 +734,12 @@
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/audit/route.ts"],
       "authEnv": ["OPENAI_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
-      "notes": "Responses path uses a fixed model string in code (gpt-5.2); see route for FEATURES flags."
+      "defaultModel": "openai/gpt-5.2",
+      "fallbackModels": [
+        "anthropic/claude-opus-4.6",
+        "anthropic/claude-sonnet-4.6"
+      ],
+      "notes": "Responses path uses defaultModel. Fallback path uses fallbackModels in order when Responses API is not active."
     },
     {
       "id": "analyze_presentation",
@@ -292,7 +748,9 @@
       "invocation": "openai_mixed",
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
-      "authEnv": ["OPENAI_API_KEY"]
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "openai/gpt-5-mini",
+      "fallbackModels": ["gpt-4o-mini"]
     },
     {
       "id": "transcribe",
@@ -310,7 +768,8 @@
       "invocation": "openai_chat_or_responses",
       "provider": "vercel_ai_gateway_or_openai_direct",
       "codeEntry": ["src/app/api/inspector-ai-match/route.ts"],
-      "authEnv": ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN", "OPENAI_API_KEY"]
+      "authEnv": ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN", "OPENAI_API_KEY"],
+      "defaultModel": "gpt-4o-mini"
     }
   ]
 }

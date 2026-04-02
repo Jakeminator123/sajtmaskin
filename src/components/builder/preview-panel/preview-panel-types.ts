@@ -80,6 +80,16 @@ export interface PreviewPanelProps {
   simplified?: boolean;
 }
 
+/** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */
+export type ComposerAiFallbackPayload = {
+  blockId: string;
+  placement: string;
+  placementLabel: string;
+  anchorSection?: PlacementSelectEventDetail["anchorSection"];
+  /** Innehåll i startsidans fil (för `analyzeSections` i prompten), om det fanns i versionen. */
+  homePageContent: string | null;
+};
+
 export type PreviewViewMode = "preview" | "code" | "registry";
 export type InspectEngine = "playwright" | "ai" | "map";
 

@@ -2,7 +2,12 @@
 /**
  * Sync v0 templates and category mapping.
  *
- * This script fetches template/category pages from v0.app and regenerates:
+ * Preferred discovery source is the local manifest created by templates_v0:
+ * - templates_v0/out/collected-template-ids.json
+ * - templates_v0/out/downloaded.jsonl (optional enrichment)
+ *
+ * If no local manifest exists, the script falls back to discovering templates
+ * from v0.app category pages directly and regenerates:
  * - src/lib/templates/templates.json
  * - src/lib/templates/template-categories.json
  *
@@ -10,9 +15,11 @@
  *   node scripts/template-library/sync-v0-templates.mjs
  *   node scripts/template-library/sync-v0-templates.mjs --dry-run
  *   node scripts/template-library/sync-v0-templates.mjs --force
+ *   node scripts/template-library/sync-v0-templates.mjs --source=local-manifest
+ *   node scripts/template-library/sync-v0-templates.mjs --source=remote-html
  */
 
-import { readFile, writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 import { load as loadHtml } from "cheerio";
@@ -79,12 +86,31 @@ const PATHS = {
   categoryMap: resolve(process.cwd(), "src/lib/templates/template-categories.json"),
 };
 
-const args = new Set(process.argv.slice(2));
+const LOCAL_MANIFEST_PATHS = {
+  collected: resolve(process.cwd(), "templates_v0/out/collected-template-ids.json"),
+  downloaded: resolve(process.cwd(), "templates_v0/out/downloaded.jsonl"),
+};
+
+const SOURCE_MODE_OPTIONS = new Set(["auto", "local-manifest", "remote-html"]);
+
+const argv = process.argv.slice(2);
+const args = new Set(argv.filter((arg) => !arg.startsWith("--source=")));
+const sourceArg = argv.find((arg) => arg.startsWith("--source="));
+const sourceMode = sourceArg ? sourceArg.slice("--source=".length).trim() : "auto";
 const isDryRun = args.has("--dry-run");
 const forceWrite = args.has("--force");
 
 function unique(values) {
   return [...new Set(values)];
+}
+
+async function fileExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function sanitizePathToSlug(href) {
@@ -191,73 +217,119 @@ async function readJson(path, fallback) {
   }
 }
 
-async function fetchTemplateMeta(templateId) {
-  const url = `${TEMPLATES_URL}/${templateId}`;
-  try {
-    const html = await fetchHtml(url);
-    const $ = loadHtml(html);
-    const title = normalizeTitle(
-      $("meta[property='og:title']").attr("content") || $("title").first().text(),
-      templateId,
-    );
-    const previewImageUrl = String($("meta[property='og:image']").attr("content") || "").trim();
-    return { templateId, title, previewImageUrl };
-  } catch (error) {
-    console.warn(`[templates:sync] metadata fetch failed for ${templateId}:`, error);
-    return { templateId, title: templateId, previewImageUrl: "" };
-  }
+async function readJsonl(path) {
+  const raw = await readFile(path, "utf8");
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      try {
+        return JSON.parse(line);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid JSONL at ${path}:${index + 1}: ${message}`);
+      }
+    });
 }
 
-function pickPrimaryCategory(sourceSlugs) {
-  const mapped = unique(
-    sourceSlugs
-      .map((slug) => SOURCE_TO_APP_CATEGORY[slug])
-      .filter((categoryId) => Boolean(categoryId) && APP_CATEGORY_IDS.includes(categoryId)),
+function normalizeStringList(values) {
+  if (!Array.isArray(values)) return [];
+  return unique(
+    values
+      .map((value) => String(value || "").trim())
+      .filter(Boolean),
   );
-  for (const candidate of APP_CATEGORY_PRIORITY) {
-    if (mapped.includes(candidate)) return candidate;
-  }
-  return "website-templates";
 }
 
-function buildTemplateRecord(meta) {
+function addSourceSlugs(templateToSourceCategories, templateId, rawSourceSlugs) {
+  const sourceSlugs = normalizeStringList(rawSourceSlugs);
+  if (sourceSlugs.length === 0) return;
+  if (!templateToSourceCategories.has(templateId)) {
+    templateToSourceCategories.set(templateId, new Set());
+  }
+  const bucket = templateToSourceCategories.get(templateId);
+  for (const sourceSlug of sourceSlugs) {
+    bucket.add(sourceSlug);
+  }
+}
+
+function buildSourceCategorySizes(templateToSourceCategories) {
+  const counts = {};
+  for (const sourceSlugs of templateToSourceCategories.values()) {
+    for (const sourceSlug of sourceSlugs) {
+      counts[sourceSlug] = (counts[sourceSlug] || 0) + 1;
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
+async function loadLocalManifestSource() {
+  if (!(await fileExists(LOCAL_MANIFEST_PATHS.collected))) {
+    return null;
+  }
+
+  const collected = await readJson(LOCAL_MANIFEST_PATHS.collected, null);
+  if (!collected || !Array.isArray(collected.ids)) {
+    throw new Error(
+      `Local manifest is invalid: expected an "ids" array in ${LOCAL_MANIFEST_PATHS.collected}`,
+    );
+  }
+
+  const templateToSourceCategories = new Map();
+  const discoveredIds = new Set(normalizeStringList(collected.ids));
+
+  const templateSourceSlugs =
+    collected && typeof collected === "object" && collected.templateSourceSlugs
+      ? collected.templateSourceSlugs
+      : {};
+
+  if (templateSourceSlugs && typeof templateSourceSlugs === "object") {
+    for (const [rawTemplateId, rawSourceSlugs] of Object.entries(templateSourceSlugs)) {
+      const templateId = String(rawTemplateId || "").trim();
+      if (!templateId) continue;
+      discoveredIds.add(templateId);
+      addSourceSlugs(templateToSourceCategories, templateId, rawSourceSlugs);
+    }
+  }
+
+  let downloadedCount = 0;
+  if (await fileExists(LOCAL_MANIFEST_PATHS.downloaded)) {
+    const downloadedRows = await readJsonl(LOCAL_MANIFEST_PATHS.downloaded);
+    for (const row of downloadedRows) {
+      const templateId =
+        row && typeof row === "object" && typeof row.templateId === "string"
+          ? row.templateId.trim()
+          : "";
+      if (!templateId) continue;
+      downloadedCount += 1;
+      discoveredIds.add(templateId);
+      addSourceSlugs(templateToSourceCategories, templateId, row.sourceSlugs);
+    }
+  }
+
+  const discoveredTemplateIds = [...discoveredIds].sort((a, b) => a.localeCompare(b));
+  for (const templateId of discoveredTemplateIds) {
+    if (!templateToSourceCategories.has(templateId)) {
+      templateToSourceCategories.set(templateId, new Set());
+    }
+  }
+
   return {
-    id: meta.templateId,
-    title: meta.title || meta.templateId,
-    slug: meta.templateId,
-    view_url: `${TEMPLATES_URL}/${meta.templateId}`,
-    edit_url: `${BASE_URL}/chat/${meta.templateId}`,
-    preview_image_url: meta.previewImageUrl || "",
-    image_filename: `${meta.templateId}.jpg`,
-    views: "",
-    likes: "",
-    author: "",
-    author_avatar: "",
-    category: "Templates",
+    mode: "local-manifest",
+    label: "templates_v0/out manifest",
+    source: LOCAL_MANIFEST_PATHS.collected,
+    discoveredTemplateIds,
+    templateToSourceCategories,
+    sourceCategorySizes: buildSourceCategorySizes(templateToSourceCategories),
+    manifestTemplateCount: normalizeStringList(collected.ids).length,
+    downloadedCount,
   };
 }
 
-function buildCategoryMapping(templateIds, templateToSourceCategories) {
-  const mapping = Object.fromEntries(APP_CATEGORY_IDS.map((categoryId) => [categoryId, []]));
-
-  for (const templateId of templateIds) {
-    const sourceSlugs = [...(templateToSourceCategories.get(templateId) || new Set())];
-    const categoryId = pickPrimaryCategory(sourceSlugs);
-    mapping[categoryId].push(templateId);
-  }
-
-  for (const categoryId of APP_CATEGORY_IDS) {
-    mapping[categoryId].sort((a, b) => a.localeCompare(b));
-  }
-
-  return mapping;
-}
-
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-async function main() {
+async function discoverTemplatesFromRemoteHtml() {
   console.log("[templates:sync] Fetching category index...");
   const categoriesHtml = await fetchHtml(CATEGORIES_URL);
   const discoveredSourceSlugs = unique([
@@ -285,10 +357,7 @@ async function main() {
       sourceCategorySizes[sourceSlug] = templateIds.length;
 
       for (const templateId of templateIds) {
-        if (!templateToSourceCategories.has(templateId)) {
-          templateToSourceCategories.set(templateId, new Set());
-        }
-        templateToSourceCategories.get(templateId).add(sourceSlug);
+        addSourceSlugs(templateToSourceCategories, templateId, [sourceSlug]);
       }
     } catch (error) {
       console.warn(`[templates:sync] Failed category fetch for ${sourceSlug}:`, error);
@@ -305,7 +374,124 @@ async function main() {
     }
   }
 
-  const discoveredTemplateIds = [...templateToSourceCategories.keys()].sort((a, b) => a.localeCompare(b));
+  return {
+    mode: "remote-html",
+    label: "v0.app category discovery",
+    source: CATEGORIES_URL,
+    discoveredTemplateIds: [...templateToSourceCategories.keys()].sort((a, b) =>
+      a.localeCompare(b),
+    ),
+    templateToSourceCategories,
+    sourceCategorySizes,
+  };
+}
+
+function buildTemplatePreviewImageUrl(templateId) {
+  return `${BASE_URL}/chat/api/og/t/${templateId}`;
+}
+
+async function fetchTemplateMeta(templateId) {
+  const url = `${TEMPLATES_URL}/${templateId}`;
+  try {
+    const html = await fetchHtml(url);
+    const $ = loadHtml(html);
+    const title = normalizeTitle(
+      $("meta[property='og:title']").attr("content") || $("title").first().text(),
+      templateId,
+    );
+    const previewImageUrl =
+      String($("meta[property='og:image']").attr("content") || "").trim() ||
+      buildTemplatePreviewImageUrl(templateId);
+    return { templateId, title, previewImageUrl };
+  } catch (error) {
+    console.warn(`[templates:sync] metadata fetch failed for ${templateId}:`, error);
+    return {
+      templateId,
+      title: templateId,
+      previewImageUrl: buildTemplatePreviewImageUrl(templateId),
+    };
+  }
+}
+
+function pickPrimaryCategory(sourceSlugs) {
+  const mapped = unique(
+    sourceSlugs
+      .map((slug) => SOURCE_TO_APP_CATEGORY[slug])
+      .filter((categoryId) => Boolean(categoryId) && APP_CATEGORY_IDS.includes(categoryId)),
+  );
+  for (const candidate of APP_CATEGORY_PRIORITY) {
+    if (mapped.includes(candidate)) return candidate;
+  }
+  return "website-templates";
+}
+
+function buildTemplateRecord(meta, sourceSlugs) {
+  const categoryId = pickPrimaryCategory(sourceSlugs);
+  return {
+    id: meta.templateId,
+    title: meta.title || meta.templateId,
+    slug: meta.templateId,
+    view_url: `${TEMPLATES_URL}/${meta.templateId}`,
+    edit_url: `${BASE_URL}/chat/${meta.templateId}`,
+    preview_image_url: meta.previewImageUrl || buildTemplatePreviewImageUrl(meta.templateId),
+    image_filename: `${meta.templateId}.jpg`,
+    views: "",
+    likes: "",
+    author: "",
+    author_avatar: "",
+    category: categoryId,
+  };
+}
+
+function buildCategoryMapping(templateIds, templateToSourceCategories) {
+  const mapping = Object.fromEntries(APP_CATEGORY_IDS.map((categoryId) => [categoryId, []]));
+
+  for (const templateId of templateIds) {
+    const sourceSlugs = [...(templateToSourceCategories.get(templateId) || new Set())];
+    const categoryId = pickPrimaryCategory(sourceSlugs);
+    mapping[categoryId].push(templateId);
+  }
+
+  for (const categoryId of APP_CATEGORY_IDS) {
+    mapping[categoryId].sort((a, b) => a.localeCompare(b));
+  }
+
+  return mapping;
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function main() {
+  if (!SOURCE_MODE_OPTIONS.has(sourceMode)) {
+    throw new Error(
+      `Unsupported --source value "${sourceMode}". Use one of: ${[...SOURCE_MODE_OPTIONS].join(", ")}`,
+    );
+  }
+
+  let discovery;
+  if (sourceMode === "local-manifest") {
+    discovery = await loadLocalManifestSource();
+    if (!discovery) {
+      throw new Error(
+        `Requested --source=local-manifest but no manifest was found at ${LOCAL_MANIFEST_PATHS.collected}`,
+      );
+    }
+  } else if (sourceMode === "remote-html") {
+    discovery = await discoverTemplatesFromRemoteHtml();
+  } else {
+    discovery = (await loadLocalManifestSource()) ?? (await discoverTemplatesFromRemoteHtml());
+  }
+
+  console.log(`[templates:sync] Discovery source: ${discovery.label}`);
+  console.log(`  Source ref: ${discovery.source}`);
+  if (discovery.mode === "local-manifest") {
+    console.log(`  Manifest templates: ${discovery.manifestTemplateCount}`);
+    console.log(`  Downloaded ZIP rows: ${discovery.downloadedCount}`);
+  }
+
+  const { discoveredTemplateIds, templateToSourceCategories, sourceCategorySizes } = discovery;
   if (discoveredTemplateIds.length === 0) {
     throw new Error("No templates discovered from source pages.");
   }
@@ -327,14 +513,17 @@ async function main() {
     fetchTemplateMeta(templateId),
   );
 
-  const templates = metas.map(buildTemplateRecord);
+  const templates = metas.map((meta) =>
+    buildTemplateRecord(meta, [...(templateToSourceCategories.get(meta.templateId) || new Set())]),
+  );
   const categoryMapping = buildCategoryMapping(discoveredTemplateIds, templateToSourceCategories);
 
   const categoryFile = {
-    _comment: "Auto-generated template categorization from v0 source categories",
+    _comment: "Auto-generated template categorization from local v0 manifests or v0 source categories",
     _version: "2.0.0",
     _lastUpdated: todayIsoDate(),
-    _source: CATEGORIES_URL,
+    _source: discovery.source,
+    _discoveryMode: discovery.mode,
     ...categoryMapping,
   };
 

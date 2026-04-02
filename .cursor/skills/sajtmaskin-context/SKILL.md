@@ -23,7 +23,8 @@ Use this skill to stay aligned with Sajtmaskin's domain language and canonical d
 
 ## Preview / generation guardrails
 
-- Sandbox / Fidelity 2 is the primary live-preview path for own-engine.
+- VM / `preview_host` via Fly.io is the primary live-preview path for own-engine right now.
+- Treat `sandbox` mostly as legacy naming, shared tier-2 contract, or fallback path unless the code clearly refers to actual Vercel Sandbox behavior.
 - Legacy shim preview is fallback or diagnostic only unless explicitly required.
 - Runtime truth lives in code; docs explain structure and intent.
 

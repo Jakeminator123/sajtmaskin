@@ -1,3 +1,7 @@
+/**
+ * Katalog för **AI-relaterade UI-byggstenar** (prompt-hints mot egna komponenter under `src/components/ai-elements/`).
+ * Generella landningssektioner (hero, FAQ, pricing m.m.) för Visual Composer ligger i `page-blocks-catalog.ts`.
+ */
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import {
   getPlacementInstruction,

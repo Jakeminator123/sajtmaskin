@@ -17,6 +17,7 @@ import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
+/** Manual/utility sandbox endpoint. Not the primary end-user preview path in builder. */
 const createSandboxSchema = z.object({
   source: z.discriminatedUnion("type", [
     z.object({

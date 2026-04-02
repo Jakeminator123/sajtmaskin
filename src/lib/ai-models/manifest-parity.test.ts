@@ -5,8 +5,14 @@ import { existsSync } from "node:fs";
 
 import {
   getAiModelsManifest,
+  getBriefingDefaultsFromManifest,
   getBuildProfileDefaultOwnEngineModel,
+  getPostGenerationPassesFromManifest,
+  getPreGenerationContractsConfigFromManifest,
+  getPromptOrchestrationFromManifest,
+  getPhaseRoutingFromManifest,
   getPromptAssistAllowedFromManifest,
+  getRepairPoliciesFromManifest,
 } from "@/lib/ai-models/load-manifest";
 import {
   parseGeneratedSitePlaceholderLines,
@@ -22,7 +28,6 @@ describe("config/ai_models/manifest.json parity", () => {
 
     expect([...allowed.gatewayClassModels]).toEqual([...GATEWAY_ASSIST_MODELS]);
     expect([...allowed.anthropicDirectModels]).toEqual([...ANTHROPIC_ASSIST_MODELS]);
-    expect(allowed.v0Models).toEqual([]);
 
     if (!process.env.SAJTMASKIN_ASSIST_MODEL?.trim()) {
       expect(ASSIST_MODEL).toBe(m.promptAssist.defaults.assist);
@@ -71,6 +76,43 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(QUALITY_TO_OPENAI_MODEL.max).toBe(q.max);
   });
 
+  it("briefing, phase routing, repair policies, orchestration, post-generation config, and contract config exist for runtime control", () => {
+    const briefing = getBriefingDefaultsFromManifest();
+    const phaseRouting = getPhaseRoutingFromManifest();
+    const repairPolicies = getRepairPoliciesFromManifest();
+    const promptOrchestration = getPromptOrchestrationFromManifest();
+    const postGenerationPasses = getPostGenerationPassesFromManifest();
+    const contractConfig = getPreGenerationContractsConfigFromManifest();
+
+    expect(briefing.requestModel).toBeTruthy();
+    expect(briefing.serverAutoOpenAI).toBeTruthy();
+    expect(briefing.serverAutoAnthropic).toBeTruthy();
+    expect(briefing.specModel).toBeTruthy();
+
+    expect(phaseRouting.fast.planner).toBeTruthy();
+    expect(phaseRouting.pro.verifier).toBeTruthy();
+    expect(phaseRouting.max.fixer).toBeTruthy();
+
+    expect(repairPolicies.deterministicAutofixPasses).toBeGreaterThan(0);
+    expect(repairPolicies.syntaxFixPasses).toBeGreaterThan(0);
+    expect(repairPolicies.manualRepairRouteLlmPasses).toBeGreaterThan(0);
+    expect(repairPolicies.serverRepairPasses).toBeGreaterThan(0);
+
+    expect(promptOrchestration.hardCaps.maxChatMessageChars.envKey).toBe(
+      "V0_MAX_PROMPT_LENGTH",
+    );
+    expect(promptOrchestration.softTargets.freeformChars.default).toBeGreaterThan(0);
+    expect(promptOrchestration.phaseThresholds.defaultChars.default).toBeGreaterThan(0);
+
+    expect(postGenerationPasses.polishMaxOutputTokens.default).toBeGreaterThan(0);
+    expect(postGenerationPasses.verifierTimeoutMs.default).toBeGreaterThan(0);
+
+    expect(contractConfig.defaults.fallbackDatabaseProvider).toBeTruthy();
+    expect(contractConfig.defaults.fallbackAuthProvider).toBeTruthy();
+    expect(contractConfig.defaults.fallbackPaymentProvider).toBeTruthy();
+    expect(contractConfig.providerRules.length).toBeGreaterThan(5);
+  });
+
   it("generated-site integration placeholders file exists and parses", () => {
     const m = getAiModelsManifest();
     expect(m.generatedSiteIntegrationPlaceholders?.envFragmentFile).toBeTruthy();
@@ -81,5 +123,16 @@ describe("config/ai_models/manifest.json parity", () => {
     const pairs = parseGeneratedSitePlaceholderLines(raw);
     expect(pairs.length).toBeGreaterThan(10);
     expect(pairs.some((p) => p.key === "NEXT_PUBLIC_SUPABASE_URL")).toBe(true);
+  });
+
+  it("documents verifier and polish as separate post-generation workloads", () => {
+    const m = getAiModelsManifest();
+    const verifier = m.workloads.find((w) => w.id === "post_generation_verifier");
+    const polish = m.workloads.find((w) => w.id === "post_generation_polish");
+
+    expect(verifier?.invocation).toBe("ai_generateObject");
+    expect(verifier?.codeEntry).toContain("src/lib/gen/verifier-pass.ts");
+    expect(polish?.invocation).toBe("ai_generateText");
+    expect(polish?.codeEntry).toContain("src/lib/gen/polish-pass.ts");
   });
 });

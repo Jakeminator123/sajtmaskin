@@ -743,20 +743,23 @@ export async function buildDynamicContext(
 
   // ── Relevant Documentation (KB search + registry enrichment) ────────────
   if (originalPrompt && !useLightFollowUpContext) {
-    const kbMatches = await searchKnowledgeBaseAsync({
+    const kbSearch = await searchKnowledgeBaseAsync({
       query: originalPrompt,
       maxResults: 7,
       maxChars: 4000,
       allowSemantic: embeddingEnrichment,
     });
-    if (kbMatches.length > 0) {
+    if (kbSearch.matches.length > 0) {
       parts.push("## Relevant Documentation", "");
-      for (const match of kbMatches) {
+      if (kbSearch.mode === "keyword_weak_semantic") {
+        parts.push("- _Retrieval note: semantic search was unavailable or returned no strong hits; keyword fallback only._", "");
+      }
+      for (const match of kbSearch.matches) {
         parts.push(`### ${match.title}`, "", match.content, "");
       }
 
       try {
-        const registryExtra = await enrichWithRegistry(kbMatches);
+        const registryExtra = await enrichWithRegistry(kbSearch.matches);
         if (registryExtra) {
           parts.push(registryExtra, "");
         }
@@ -867,7 +870,21 @@ export async function buildDynamicContext(
 
   // ── Original request reference ──────────────────────────────────────────
   if (originalPrompt) {
-    parts.push("## Original Request (for reference)", "", originalPrompt.trim(), "");
+    const MAX_INLINE_ORIGINAL_PROMPT_CHARS = 400;
+    const trimmed = originalPrompt.trim();
+    if (trimmed.length <= MAX_INLINE_ORIGINAL_PROMPT_CHARS || !isFollowUp) {
+      parts.push("## Original Request (for reference)", "", trimmed, "");
+    } else {
+      const summary = trimmed.slice(0, MAX_INLINE_ORIGINAL_PROMPT_CHARS).trimEnd();
+      parts.push(
+        "## Original Request (summary)",
+        "",
+        `${summary} …`,
+        "",
+        `_(Full original request: ${trimmed.length} chars, truncated for prompt budget.)_`,
+        "",
+      );
+    }
   }
 
   return {

@@ -9,11 +9,15 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { getVersionFiles, parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
 import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 import { httpStatusForSandboxPreviewFailure } from "@/lib/gen/sandbox/preview-errors";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
-import { isSandboxConfigured, SANDBOX_SETUP_HINT } from "@/lib/mcp/runtime-url";
+import {
+  isTier2PreviewConfigured,
+  TIER2_PREVIEW_SETUP_HINT,
+} from "@/lib/gen/sandbox/tier2-config";
 
 const postBodySchema = z.object({
   versionId: z.string().min(1).optional(),
@@ -25,13 +29,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     try {
       const { chatId } = await ctx.params;
 
-      if (!isSandboxConfigured()) {
+      if (!isTier2PreviewConfigured()) {
         return NextResponse.json(
           {
             ok: false,
             code: "sandbox_disabled",
-            message: "Sandbox is not configured on this deployment.",
-            hint: SANDBOX_SETUP_HINT,
+            message: "Tier-2 preview is not configured on this deployment.",
+            hint: TIER2_PREVIEW_SETUP_HINT,
             retryable: true,
           },
           { status: 503 },
@@ -108,7 +112,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       if (
         !parsed.data.forceRestart &&
         typeof versionRow.sandbox_url === "string" &&
-        versionRow.sandbox_url.trim()
+        versionRow.sandbox_url.trim() &&
+        isSandboxPreviewUrl(versionRow.sandbox_url)
       ) {
         return NextResponse.json({
           ok: true,
@@ -198,6 +203,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         chatId,
         versionId: versionRow.id,
         outcome: sr.startOutcome,
+        tier2Provider: sr.tier2Meta?.tier2Provider,
+        failoverFrom: sr.tier2Meta?.failoverFrom,
       });
 
       return NextResponse.json({

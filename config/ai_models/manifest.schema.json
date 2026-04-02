@@ -3,7 +3,7 @@
   "$id": "https://sajtmaskin.local/config/ai_models/manifest.schema.json",
   "title": "Sajtmaskin AI models manifest",
   "type": "object",
-  "required": ["schemaVersion", "buildProfiles", "promptAssist", "tokenBudgets", "routeTimeouts", "workloads"],
+  "required": ["schemaVersion", "buildProfiles", "promptAssist", "briefing", "phaseRouting", "repairPolicies", "promptOrchestration", "postGenerationPasses", "preGenerationContracts", "tokenBudgets", "routeTimeouts", "workloads"],
   "additionalProperties": true,
   "properties": {
     "schemaVersion": { "type": "integer", "minimum": 1 },
@@ -50,6 +50,187 @@
       "additionalProperties": { "type": "string" }
     },
     "promptAssist": { "type": "object" },
+    "briefing": {
+      "type": "object",
+      "required": ["defaults", "envKeys"],
+      "properties": {
+        "defaults": {
+          "type": "object",
+          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic", "specModel"],
+          "properties": {
+            "requestModel": { "type": "string" },
+            "serverAutoOpenAI": { "type": "string" },
+            "serverAutoAnthropic": { "type": "string" },
+            "specModel": { "type": "string" }
+          }
+        },
+        "envKeys": {
+          "type": "object",
+          "required": ["requestModel", "serverAutoOpenAI", "serverAutoAnthropic", "specModel"],
+          "properties": {
+            "requestModel": { "type": "string" },
+            "serverAutoOpenAI": { "type": "string" },
+            "serverAutoAnthropic": { "type": "string" },
+            "specModel": { "type": "string" }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "phaseRouting": {
+      "type": "object",
+      "required": ["defaultByTier"],
+      "properties": {
+        "defaultByTier": {
+          "type": "object",
+          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "properties": {
+            "fast": { "$ref": "#/$defs/phaseRoutingTier" },
+            "pro": { "$ref": "#/$defs/phaseRoutingTier" },
+            "max": { "$ref": "#/$defs/phaseRoutingTier" },
+            "codex": { "$ref": "#/$defs/phaseRoutingTier" },
+            "anthropic": { "$ref": "#/$defs/phaseRoutingTier" }
+          }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "repairPolicies": {
+      "type": "object",
+      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "manualRepairRouteLlmPasses", "serverRepairPasses"],
+      "properties": {
+        "deterministicAutofixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "syntaxFixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "manualRepairRouteLlmPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "serverRepairPasses": { "type": "integer", "minimum": 1, "maximum": 10 }
+      }
+    },
+    "promptOrchestration": {
+      "type": "object",
+      "required": ["hardCaps", "softTargets", "phaseThresholds"],
+      "properties": {
+        "hardCaps": {
+          "type": "object",
+          "required": [
+            "maxChatMessageChars",
+            "warnChatMessageChars",
+            "maxChatSystemChars",
+            "warnChatSystemChars",
+            "maxPromptHandoffChars",
+            "maxAiBriefPromptChars",
+            "maxAiChatMessageChars",
+            "maxAiSpecPromptChars"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "maxChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "warnChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "maxChatSystemChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "warnChatSystemChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "maxPromptHandoffChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "maxAiBriefPromptChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "maxAiChatMessageChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "maxAiSpecPromptChars": { "$ref": "#/$defs/numericEnvSetting" }
+          }
+        },
+        "softTargets": {
+          "type": "object",
+          "required": [
+            "freeformChars",
+            "wizardChars",
+            "auditChars",
+            "templateChars",
+            "followupChars",
+            "technicalChars",
+            "appChars"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "freeformChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "wizardChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "auditChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "templateChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "followupChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "technicalChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "appChars": { "$ref": "#/$defs/numericEnvSetting" }
+          }
+        },
+        "phaseThresholds": {
+          "type": "object",
+          "required": ["defaultChars", "auditChars"],
+          "additionalProperties": false,
+          "properties": {
+            "defaultChars": { "$ref": "#/$defs/numericEnvSetting" },
+            "auditChars": { "$ref": "#/$defs/numericEnvSetting" }
+          }
+        }
+      }
+    },
+    "postGenerationPasses": {
+      "type": "object",
+      "required": [
+        "polishMaxOutputTokens",
+        "polishTimeoutMs",
+        "polishMaxFilesWhenUnscoped",
+        "verifierMaxOutputTokens",
+        "verifierTimeoutMs",
+        "verifierSnippetCharsPerFile"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "polishMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" },
+        "polishTimeoutMs": { "$ref": "#/$defs/numericEnvSetting" },
+        "polishMaxFilesWhenUnscoped": { "$ref": "#/$defs/numericEnvSetting" },
+        "verifierMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" },
+        "verifierTimeoutMs": { "$ref": "#/$defs/numericEnvSetting" },
+        "verifierSnippetCharsPerFile": { "$ref": "#/$defs/numericEnvSetting" }
+      }
+    },
+    "preGenerationContracts": {
+      "type": "object",
+      "required": ["defaults", "providerRules"],
+      "properties": {
+        "defaults": {
+          "type": "object",
+          "required": [
+            "fallbackDatabaseProvider",
+            "fallbackAuthProvider",
+            "fallbackPaymentProvider"
+          ],
+          "properties": {
+            "fallbackDatabaseProvider": { "type": "string" },
+            "fallbackAuthProvider": { "type": "string" },
+            "fallbackPaymentProvider": { "type": "string" }
+          }
+        },
+        "providerRules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "provider",
+              "name",
+              "envVars",
+              "matchPatterns",
+              "reason"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["database", "auth", "payment", "integration"]
+              },
+              "provider": { "type": "string" },
+              "name": { "type": "string" },
+              "envVars": { "type": "array", "items": { "type": "string" } },
+              "matchPatterns": { "type": "array", "items": { "type": "string" } },
+              "status": { "type": "string", "enum": ["chosen", "optional"] },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "tokenBudgets": { "type": "object" },
     "routeTimeouts": { "type": "object" },
     "embeddingModels": { "type": "object" },
@@ -81,6 +262,7 @@
           "codeEntry": { "type": "array", "items": { "type": "string" } },
           "authEnv": { "type": "array", "items": { "type": "string" } },
           "defaultModel": { "type": "string" },
+          "fallbackModels": { "type": "array", "items": { "type": "string" } },
           "envOverrides": { "type": "object", "additionalProperties": { "type": "string" } },
           "tokenBudget": {
             "type": "object",
@@ -111,6 +293,29 @@
             }
           }
         }
+      }
+    }
+  },
+  "$defs": {
+    "numericEnvSetting": {
+      "type": "object",
+      "required": ["envKey", "default", "min", "max"],
+      "properties": {
+        "envKey": { "type": "string" },
+        "default": { "type": "number" },
+        "min": { "type": "number" },
+        "max": { "type": "number" }
+      }
+    },
+    "phaseRoutingTier": {
+      "type": "object",
+      "required": ["planner", "generator", "fixer", "verifier", "deploy-assistant"],
+      "properties": {
+        "planner": { "type": "string" },
+        "generator": { "type": "string" },
+        "fixer": { "type": "string" },
+        "verifier": { "type": "string" },
+        "deploy-assistant": { "type": "string" }
       }
     }
   }

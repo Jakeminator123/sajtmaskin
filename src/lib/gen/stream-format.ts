@@ -76,6 +76,12 @@ function resolveToolInputDelta(part: {
   return part.inputTextDelta ?? part.textDelta ?? part.text ?? "";
 }
 
+function resolveDirectProviderFromMeta(meta?: StreamMeta): "openai" | "anthropic" | null {
+  const modelId = typeof meta?.modelId === "string" ? meta.modelId.trim().toLowerCase() : "";
+  if (!modelId) return null;
+  return modelId.startsWith("claude-") ? "anthropic" : "openai";
+}
+
 /**
  * Converts an AI SDK `streamText()` result into an SSE-formatted ReadableStream.
  *
@@ -183,14 +189,27 @@ export function createCodeGenSSEStream(
           outputTokens: number | undefined;
         },
       ) => {
-        debugLog("engine", "AI SDK stream event summary", {
+        const usageAvailable =
+          typeof usage?.inputTokens === "number" || typeof usage?.outputTokens === "number";
+        debugLog("engine", "Own-engine stream summary (AI SDK wrapper, direct provider)", {
+          provider: resolveDirectProviderFromMeta(meta),
+          transport: "direct_provider_api",
+          sdk: "ai",
+          model: typeof meta?.modelId === "string" ? meta.modelId : null,
           phase,
           chatId: meta?.chatId ?? null,
           versionId: meta?.versionId ?? null,
           eventCounts: Object.fromEntries(eventCounts),
           toolCalls: Object.fromEntries(toolCallCounts),
-          promptTokens: usage?.inputTokens ?? null,
-          completionTokens: usage?.outputTokens ?? null,
+          tokenUsage: {
+            available: usageAvailable,
+            inputTokens: usage?.inputTokens ?? null,
+            outputTokens: usage?.outputTokens ?? null,
+            unavailableReason:
+              usageAvailable || phase !== "error"
+                ? null
+                : "stream_aborted_or_provider_error_before_usage_report",
+          },
         });
       };
 

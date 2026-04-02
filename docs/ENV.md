@@ -8,11 +8,11 @@
 |--------|------|
 | [`src/lib/env.ts`](../src/lib/env.ts) | Alla namn som appen faktiskt läser (Zod `serverSchema`). |
 | [`config/env-policy.json`](../config/env-policy.json) | Klassificering per nyckel (`shared_runtime`, `optional_runtime`, `vercel_managed`, …), rekommenderade Vercel-miljöer, `knownEmptyOk`, m.m. |
-| [`scripts/env/manage_env.py`](../scripts/env/manage_env.py) | Kanonisk env-CLI för audit / status / sync mot lokala filer och Vercel. Root-wrappern [`manage_env.py`](../manage_env.py) finns kvar för bakåtkompatibilitet. |
+| [`scripts/env/manage_env.py`](../scripts/env/manage_env.py) | Kanonisk env-CLI för audit / status / sync mot lokala filer och Vercel. |
 
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
-- Preview / sandbox / credentials: [`architecture/preview-deploy.md`](./architecture/preview-deploy.md), [`architecture/vercel-sandbox-credentials.md`](./architecture/vercel-sandbox-credentials.md)
+- Preview / sandbox / credentials: [`architecture/preview-deploy.md`](./architecture/preview-deploy.md)
 - Modeller / assist / builder-generering: [`architecture/builder-generation.md`](./architecture/builder-generation.md), `src/lib/models/catalog.ts`
 - Historisk nyckeljämförelse (utan hemligheter): [`development/env-comparison-notes.md`](./development/env-comparison-notes.md)
 
@@ -41,8 +41,8 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob; lokalt kan vissa flöden falla tillbaka till filsystem (`DATA_DIR`). |
 | Betalning | `STRIPE_*` | Om credits/betalning används. |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
-| Sandbox (live preview i VM) | `VERCEL_OIDC_TOKEN` eller `VERCEL_TOKEN` + team/project | Detaljer: `vercel-sandbox-credentials.md` + `preview-deploy.md`. |
-| Fil-/konsol-logg (lokal) | `SAJTMASKIN_LOG=true` → `logs/sajtmaskin.log` via `src/lib/logging/file-logger.ts`; `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod) | Varken `SAJTMASKIN_LOG` eller dev-loggnycklarna finns i Zod-schemat; de är runtime-only i `env-policy.json`. |
+| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + `SAJTMASKIN_TIER2_RUNTIME` (+ `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`) eller `VERCEL_OIDC_TOKEN` / `VERCEL_TOKEN` + team/project | Med preview-host konfigurerad och unset runtime blir default strikt `preview_host`; Vercel-fallback ar explicit opt-in via `preview_host_then_vercel`. Detaljer: `preview-deploy.md`. |
+| Fil-/konsol-logg (lokal) | `SAJTMASKIN_LOG=true` → `logs/sajtmaskin.log` via `src/lib/logging/file-logger.ts`; `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod) | Varken `SAJTMASKIN_LOG` eller dev-loggnycklarna finns i Zod-schemat; de är runtime-only i `env-policy.json`. `logs/generationslogg/` behaller bara de 3 senaste korningarna och sammanfattningarna kan valfritt unignoras i `.cursorignore`. |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
 
 ---
@@ -56,6 +56,38 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | **Vercel-managed** | Nycklar som plattformen eller Next sätter (t.ex. `NODE_ENV`, `VERCEL_URL`) — **pusha inte** egna värden från laptop om policyn säger motsatsen; se `classification: vercel_managed` i `env-policy.json`. |
 
 `.vercel/.env.*.local` från `vercel env pull` är **snapshot**, inte kanon.
+
+---
+
+## Tier 2 preview-host vs app-env
+
+Nar `preview-host` anvands pa Fly finns **två** olika env-ytor:
+
+- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_TIER2_RUNTIME`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, valfritt `SAJTMASKIN_PREVIEW_HOST_API_KEY`.
+- **Preview-host-tjansten (Fly secrets / env):** `PREVIEW_HOST_API_KEY`, valfritt `PREVIEW_HOST_DATA_DIR`.
+
+Praktisk rekommendation:
+
+- Satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev`
+- Satt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
+- Lat `SAJTMASKIN_TIER2_RUNTIME` vara unset for strikt preview-host-default, eller satt den till `preview_host` explicit
+- Satt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` endast om du vill ha Vercel-fallback
+- Satt `PREVIEW_HOST_DATA_DIR=/data` **forst** nar du faktiskt monterat en Fly volume pa `/data`
+
+Om `SAJTMASKIN_TIER2_RUNTIME` ar unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns, behandlar appen nu `preview_host` som standard (ingen automatisk fallback till Vercel Sandbox).
+
+---
+
+## Nedladdat genererat Next-projekt (ZIP / export)
+
+Vanliga “generiska” problem som **inte** beror på Fly eller Sajtmaskin-appens databas:
+
+| Symtom | Förklaring |
+|--------|------------|
+| `'next' is not recognized` | Kör **`npm install`** i projektmappen **före** `npm run dev`. Scripts hittar `next` under `node_modules/.bin` först efter install. |
+| `npm audit fix` i slutet av install | **Valfritt** — det är npm som tipsar om kända sårbarheter i trädet, inte ett krav för att sajten ska starta. |
+| Next skriver om `tsconfig.json` första gången | Scaffold i Sajtmaskin är nu **alignat** med Next 16 (`jsx: react-jsx`, `.next/dev/types` i `include`) så varningen ska sällan visas; om den ändå dyker upp efter uppgradering av Next är det normalt och ofarligt. |
+| Vit / tom sida i Tier 2 | Kan bero på tom `app/page.tsx`, långsam första kompilering, eller RSC som ger lite synlig HTML i första svaret — preflight + preview-host readiness försöker flagga / vänta; se `preview-host/README.md`. |
 
 ---
 
@@ -85,7 +117,7 @@ Om du vill att lokal utveckling ska vara mer isolerad från production:
 1. Lägg till i [`src/lib/env.ts`](../src/lib/env.ts) (`serverSchema`).
 2. Uppdatera [`config/env-policy.json`](../config/env-policy.json) (regel + ev. `extraKnownKeys` / targets).
 3. Sätt värde i `.env.local` och i Vercel.
-4. Kör `python scripts/env/manage_env.py audit` (eller `--strict` enligt er vana). Root-wrappern `python manage_env.py audit` fungerar fortfarande om någon gammal rutin använder den.
+4. Kör `python scripts/env/manage_env.py audit` (eller `--strict` enligt er vana).
 
 ---
 

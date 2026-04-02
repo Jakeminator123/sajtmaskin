@@ -1,5 +1,9 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import type { SandboxHeartbeatApiJson, SandboxStatusApiJson } from "@/lib/gen/preview/preview-contract";
+import type {
+  SandboxDestroyApiJson,
+  SandboxHeartbeatApiJson,
+  SandboxStatusApiJson,
+} from "@/lib/gen/preview/preview-contract";
 
 /** Browser `fetch` mot sandbox-status; returnerar null vid nätverksfel eller icke-ok svar. */
 export async function fetchSandboxStatus(params: {
@@ -40,6 +44,31 @@ export async function postSandboxHeartbeat(params: {
     });
     try {
       return (await res.json()) as SandboxHeartbeatApiJson;
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Browser `fetch` mot sandbox-destroy; returnerar parsad kropp eller null. */
+export async function postSandboxDestroy(params: {
+  chatId: string;
+  versionId: string;
+  sandboxId?: string | null;
+}): Promise<SandboxDestroyApiJson | null> {
+  try {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/sandbox-destroy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        versionId: params.versionId,
+        ...(params.sandboxId?.trim() ? { sandboxId: params.sandboxId.trim() } : {}),
+      }),
+    });
+    try {
+      return (await res.json()) as SandboxDestroyApiJson;
     } catch {
       return null;
     }

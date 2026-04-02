@@ -17,7 +17,9 @@ type InputFormat = "auto" | "legacy-summary" | "playwright-catalog";
 
 function inferSourceLabel(from: string): string {
   const normalized = from.replace(/\\/g, "/").toLowerCase();
-  if (normalized.includes("/vercel-scrape")) return "external-scrape-dataset";
+  if (normalized.includes("/sajtmaskin-template-cache") || normalized.includes("/vercel-scrape")) {
+    return "external-scrape-dataset";
+  }
   return "legacy-external-dataset";
 }
 

@@ -49,23 +49,6 @@ export interface MiniWizardData {
   colorAccent: string | null;
 }
 
-/** Request body for creating a kostnadsfri page (admin API) */
-export interface CreateKostnadsfriRequest {
-  companyName: string;
-  industry?: string;
-  website?: string;
-  contactEmail?: string;
-  contactName?: string;
-  password: string;
-  expiresInDays?: number;
-  openclaw?: KostnadsfriOpenClawConfig;
-}
-
-/** Request body for verifying password */
-export interface VerifyPasswordRequest {
-  password: string;
-}
-
 // ============================================================================
 // SLUG GENERATION
 // ============================================================================

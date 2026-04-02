@@ -9,17 +9,20 @@ import {
   markVersionRepairing,
   promoteVersion,
   failVersionVerification,
+  getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
+import { shouldPromoteAfterRepair } from "@/lib/gen/sandbox-quality-gate";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
+import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const MAX_LLM_PASSES = 2;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -73,14 +76,19 @@ function extractErrorLines(
   for (const f of failures) {
     const trimmed = f.output.trim();
     if (!trimmed) continue;
-    for (const line of trimmed.split("\n")) {
-      const stripped = line.trim();
+    const outputLines = trimmed.split("\n");
+    for (let i = 0; i < outputLines.length; i++) {
+      const stripped = outputLines[i].trim();
       if (!stripped) continue;
       if (/error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
+        const prevLine = i > 0 ? outputLines[i - 1]?.trim() : "";
+        if (prevLine && !lines.includes(`[${f.check}] ${prevLine}`)) {
+          lines.push(`[${f.check}] ${prevLine}`);
+        }
         lines.push(`[${f.check}] ${stripped}`);
       }
     }
-    if (lines.length > 40) break;
+    if (lines.length > 60) break;
   }
   return lines;
 }
@@ -89,6 +97,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
 ) {
+  let internalVersionId: string | null = null;
   try {
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
@@ -114,7 +123,7 @@ export async function POST(
       );
     }
 
-    const internalVersionId = scopedVersion.version.id;
+    internalVersionId = scopedVersion.version.id;
     const codeFiles = await getVersionFiles(internalVersionId);
     if (!codeFiles || codeFiles.length === 0) {
       return NextResponse.json(
@@ -141,27 +150,38 @@ export async function POST(
     );
     let syntaxResult = await validateGeneratedCode(content);
     const gateFailures = repairContext.qualityGate ?? [];
+    const hadQualityGateFailures = gateFailures.length > 0;
     const initialSyntaxErrorCount = syntaxResult.errors.length;
 
-    // Syntax-valid alone is not enough to claim success when this route was
-    // triggered by a failed typecheck/build/lint quality gate.
-    if (syntaxResult.valid && gateFailures.length === 0) {
-      const repairedFiles = codeProjectToFiles(content);
-      const filesJson = JSON.stringify(repairedFiles);
-      let newVersionId: string | null = null;
-      if (dbConfigured) {
-        const version = await createDraftVersion(chatId, null, filesJson);
-        newVersionId = version.id;
-        await promoteVersion(
-          newVersionId,
-          "Server repair succeeded (deterministic).",
-        ).catch((err) => {
-          console.warn("[repair] Failed to promote repaired version:", err);
-        });
+    async function promoteIfPostRepairGatePasses(
+      projectContent: string,
+      promoteReason: string,
+    ): Promise<{ ok: boolean; newVersionId: string | null }> {
+      const exportable = buildExportableProject(codeProjectToFiles(projectContent));
+      const decision = await shouldPromoteAfterRepair(exportable, hadQualityGateFailures);
+      if (!decision.promote) {
+        return { ok: false, newVersionId: null };
       }
-      logRepair(chatId, internalVersionId, "deterministic", true, 0);
+      if (!dbConfigured) {
+        return { ok: false, newVersionId: null };
+      }
+      const filesJson = JSON.stringify(codeProjectToFiles(projectContent));
+      const version = await createDraftVersion(chatId, null, filesJson);
+      await promoteVersion(version.id, promoteReason).catch((err) => {
+        console.warn("[repair] Failed to promote repaired version:", err);
+      });
+      return { ok: true, newVersionId: version.id };
+    }
+
+    // Re-run sandbox quality gate when possible; syntax alone is not enough if gate context exists.
+    if (syntaxResult.valid && gateFailures.length === 0) {
+      const { ok, newVersionId } = await promoteIfPostRepairGatePasses(
+        content,
+        "Server repair succeeded (deterministic); quality gate re-passed.",
+      );
+      logRepair(chatId, internalVersionId, "deterministic", ok, 0);
       return NextResponse.json({
-        repaired: true,
+        repaired: ok,
         deterministic: true,
         newVersionId,
         remainingErrors: 0,
@@ -188,11 +208,25 @@ export async function POST(
     }
 
     const gateErrorLines = extractErrorLines(gateFailures);
+    const filesFromGateOutput = new Set<string>();
+    for (const line of gateErrorLines) {
+      const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
+      if (fileMatch?.[1]) filesFromGateOutput.add(fileMatch[1]);
+    }
     let bestContent = content;
     let bestErrorCount = syntaxResult.errors.length;
     let llmPasses = 0;
+    const originatingChat = await getChat(chatId).catch(() => null);
+    const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
+    const fixerModel = originatingTier
+      ? resolvePhaseModel(originatingTier, "fixer").modelId
+      : undefined;
 
-    for (let pass = 0; pass < MAX_LLM_PASSES; pass++) {
+    for (let pass = 0; pass < MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES; pass++) {
+      if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
+        content = bestContent;
+        syntaxResult = await validateGeneratedCode(content);
+      }
       const errorSummary = [
         ...syntaxResult.errors.map(
           (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
@@ -201,12 +235,14 @@ export async function POST(
       ].slice(0, 50);
 
       const brokenFiles = [
-        ...new Set(
-          syntaxResult.errors.map((e) => e.file).filter(Boolean),
-        ),
+        ...new Set([
+          ...syntaxResult.errors.map((e) => e.file).filter(Boolean),
+          ...filesFromGateOutput,
+        ]),
       ];
 
       const fixerResult = await runLlmFixer(content, errorSummary, {
+        model: fixerModel,
         requiredFiles: brokenFiles,
       });
       llmPasses++;
@@ -225,21 +261,26 @@ export async function POST(
       if (syntaxResult.valid) break;
     }
 
-    const repairedFiles = codeProjectToFiles(bestContent);
-    const filesJson = JSON.stringify(repairedFiles);
-    const repaired = gateFailures.length === 0 && bestErrorCount === 0;
+    const syntaxClean = bestErrorCount === 0;
     let newVersionId: string | null = null;
     const improvedSyntax = bestErrorCount < initialSyntaxErrorCount;
+    let repaired = false;
 
-    if (dbConfigured && repaired) {
-      const version = await createDraftVersion(chatId, null, filesJson);
-      newVersionId = version.id;
-      await promoteVersion(
-        newVersionId,
-        "Server repair succeeded (LLM).",
-      ).catch((err) => {
-        console.warn("[repair] Failed to promote repaired version:", err);
-      });
+    if (dbConfigured && syntaxClean) {
+      const promote = await promoteIfPostRepairGatePasses(
+        bestContent,
+        "Server repair succeeded (LLM); quality gate re-passed.",
+      );
+      repaired = promote.ok;
+      newVersionId = promote.newVersionId;
+      if (!repaired) {
+        await failVersionVerification(
+          internalVersionId,
+          "Server repair: syntax clean but quality gate still failing.",
+        ).catch((err) => {
+          console.warn("[repair] Failed to mark version failed after repair:", err);
+        });
+      }
     } else if (dbConfigured) {
       await failVersionVerification(
         internalVersionId,
@@ -267,6 +308,12 @@ export async function POST(
     });
   } catch (err) {
     console.error("[repair] Error:", err);
+    if (dbConfigured && internalVersionId) {
+      await failVersionVerification(
+        internalVersionId,
+        `Repair crashed: ${err instanceof Error ? err.message : "unknown"}`,
+      ).catch(() => null);
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Repair failed" },
       { status: 500 },

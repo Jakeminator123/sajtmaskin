@@ -7,6 +7,9 @@ export interface ScaffoldCandidateRecord {
   title: string;
   categorySlug: string;
   categoryName: string;
+  useCaseTags: string[];
+  siteFormTags: string[];
+  technicalPatternTags: string[];
   verdict: TemplateLibraryEntry["verdict"];
   qualityScore: number;
   relevance_score: number;
@@ -78,6 +81,9 @@ function buildCandidateRecord(entry: TemplateLibraryEntry): ScaffoldCandidateRec
     title: entry.title,
     categorySlug: entry.categorySlug,
     categoryName: entry.categoryName,
+    useCaseTags: entry.classification.useCaseTags,
+    siteFormTags: entry.classification.siteFormTags,
+    technicalPatternTags: entry.classification.technicalPatternTags,
     verdict: entry.verdict,
     qualityScore: entry.qualityScore,
     relevance_score: relevanceScore,

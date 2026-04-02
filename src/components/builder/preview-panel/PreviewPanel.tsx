@@ -4,12 +4,26 @@ import dynamic from "next/dynamic";
 import {
   Loader2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type DragEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import type { FileNode } from "@/lib/builder/types";
 import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
+import {
+  buildComposerDropDetail,
+  PAGE_BLOCK_DND_TYPE,
+  PreviewPanelComposerOverlay,
+  PreviewPanelComposerPalette,
+} from "./PreviewPanelComposer";
 import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import { PreviewPanelCode } from "./PreviewPanelCode";
 import { PreviewPanelCodeSectionEditors } from "./PreviewPanelCodeSectionEditors";
@@ -25,7 +39,12 @@ import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspe
 import { usePreviewPanelOwnEnginePreviewTelemetry } from "./hooks/usePreviewPanelOwnEnginePreviewTelemetry";
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
-import type { InspectEngine, PreviewPanelProps, PreviewViewMode } from "./preview-panel-types";
+import type {
+  ComposerAiFallbackPayload,
+  InspectEngine,
+  PreviewPanelProps,
+  PreviewViewMode,
+} from "./preview-panel-types";
 import {
   buildExternalRoutePreviewUrl,
   buildOwnEngineRoutePreviewUrl,
@@ -40,6 +59,12 @@ import {
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
+import {
+  resolveHomePageFilePath,
+  tryInsertPageBlockIntoHomePage,
+} from "@/lib/builder/page-block-patch";
+import { patchEngineChatFile } from "@/lib/builder/engine-files-patch";
 
 const PreviewPanelInspectorDev = dynamic(
   () =>
@@ -48,6 +73,12 @@ const PreviewPanelInspectorDev = dynamic(
     })),
   { ssr: false },
 );
+
+type ComposerPatchHistoryEntry = {
+  fileName: string;
+  before: string;
+  after: string;
+};
 
 export function PreviewPanel({
   chatId,
@@ -79,6 +110,12 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
+  const [composerMode, setComposerMode] = useState(false);
+  const [isComposerDragging, setIsComposerDragging] = useState(false);
+  const [composerUndoStack, setComposerUndoStack] = useState<ComposerPatchHistoryEntry[]>([]);
+  const [composerRedoStack, setComposerRedoStack] = useState<ComposerPatchHistoryEntry[]>([]);
+  const [composerHistoryBusy, setComposerHistoryBusy] = useState(false);
+  const [lastComposerActionLabel, setLastComposerActionLabel] = useState<string | null>(null);
   const {
     files,
     setFiles,
@@ -199,6 +236,27 @@ export function PreviewPanel({
     }
   }, [chatId, versionId, files.length]);
 
+  useEffect(() => {
+    if (placementMode) setComposerMode(false);
+  }, [placementMode]);
+
+  useEffect(() => {
+    if (isCodeView) setComposerMode(false);
+  }, [isCodeView]);
+
+  useEffect(() => {
+    setComposerUndoStack([]);
+    setComposerRedoStack([]);
+    setComposerHistoryBusy(false);
+    setLastComposerActionLabel(null);
+  }, [chatId, versionId]);
+
+  useEffect(() => {
+    if (!composerMode) {
+      setIsComposerDragging(false);
+    }
+  }, [composerMode]);
+
   const {
     inspectMode,
     setInspectMode,
@@ -219,6 +277,7 @@ export function PreviewPanel({
     previewUrl,
     versionId,
     placementMode: Boolean(placementMode),
+    composerMode,
     iframeLoading,
     externalLoading,
     iframeRef,
@@ -281,6 +340,217 @@ export function PreviewPanel({
       setSelectedRegistryLine(null);
     });
   }, [canShowCode, startViewSwitchTransition]);
+
+  const handleToggleComposer = useCallback(() => {
+    if (!previewUrl || placementMode) return;
+    setInspectMode(false);
+    setComposerMode((v) => !v);
+  }, [previewUrl, placementMode, setInspectMode]);
+
+  const handleComposerDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const runComposerAiFallback = useCallback(
+    async (
+      payload: ComposerAiFallbackPayload,
+      mode: "ai-fallback" | "visual-reorder" = "ai-fallback",
+    ) => {
+      setLastComposerActionLabel(
+        mode === "visual-reorder"
+          ? `Visuell omordning (${payload.placementLabel}) → AI-fallback`
+          : `AI-fallback (${payload.placementLabel})`,
+      );
+      if (!onComposerAiFallback) return;
+      try {
+        await onComposerAiFallback(payload);
+      } catch {
+        toast.error("Kunde inte skicka AI-fallback till own-engine.");
+      }
+    },
+    [onComposerAiFallback],
+  );
+
+  const handleComposerUndo = useCallback(async () => {
+    if (!chatId || !versionId || composerHistoryBusy) return;
+    const last = composerUndoStack[composerUndoStack.length - 1];
+    if (!last) return;
+
+    setComposerHistoryBusy(true);
+    try {
+      const saved = await patchEngineChatFile({
+        chatId,
+        versionId,
+        fileName: last.fileName,
+        content: last.before,
+      });
+      if (!saved.ok) {
+        toast.error(saved.error);
+        return;
+      }
+      setComposerUndoStack((prev) => prev.slice(0, -1));
+      setComposerRedoStack((prev) => [last, ...prev].slice(0, 20));
+      setLastComposerActionLabel("Ångra direkt patch");
+      toast.success("Senaste composer-patch ångrad.");
+      onFilesSaved?.();
+    } finally {
+      setComposerHistoryBusy(false);
+    }
+  }, [chatId, versionId, composerHistoryBusy, composerUndoStack, onFilesSaved]);
+
+  const handleComposerRedo = useCallback(async () => {
+    if (!chatId || !versionId || composerHistoryBusy) return;
+    const next = composerRedoStack[0];
+    if (!next) return;
+
+    setComposerHistoryBusy(true);
+    try {
+      const saved = await patchEngineChatFile({
+        chatId,
+        versionId,
+        fileName: next.fileName,
+        content: next.after,
+      });
+      if (!saved.ok) {
+        toast.error(saved.error);
+        return;
+      }
+      setComposerRedoStack((prev) => prev.slice(1));
+      setComposerUndoStack((prev) => [...prev.slice(-19), next]);
+      setLastComposerActionLabel("Gör om direkt patch");
+      toast.success("Composer-patch återställd igen.");
+      onFilesSaved?.();
+    } finally {
+      setComposerHistoryBusy(false);
+    }
+  }, [chatId, versionId, composerHistoryBusy, composerRedoStack, onFilesSaved]);
+
+  const handleComposerDrop = useCallback(
+    async (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsComposerDragging(false);
+      const blockId = e.dataTransfer.getData(PAGE_BLOCK_DND_TYPE);
+      if (
+        !blockId ||
+        !chatId ||
+        !versionId ||
+        iframeLoading ||
+        externalLoading ||
+        composerHistoryBusy
+      ) {
+        return;
+      }
+
+      const block = getPageBlockById(blockId);
+      if (!block) {
+        toast.error("Okänt sajblock.");
+        return;
+      }
+
+      const detail = buildComposerDropDetail(e, sectionZones);
+      const fallbackBase = {
+        blockId,
+        placement: detail.placement,
+        placementLabel: detail.placementLabel,
+        anchorSection: detail.anchorSection,
+      };
+
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!response.ok || !data?.files || !Array.isArray(data.files)) {
+          toast.error("Kunde inte läsa versionens filer.");
+          await runComposerAiFallback({
+            ...fallbackBase,
+            homePageContent: null,
+          });
+          return;
+        }
+
+        const flatFiles = data.files.map((f) => ({
+          name: f.name,
+          content: f.content ?? "",
+        }));
+        const path = resolveHomePageFilePath(flatFiles);
+        const homePageContent = path
+          ? (flatFiles.find((f) => f.name === path)?.content ?? "")
+          : "";
+
+        if (!path) {
+          toast.message("Ingen startsida hittades", {
+            description: "Förväntade app/page.tsx — skickar till AI istället.",
+          });
+          await runComposerAiFallback({
+            ...fallbackBase,
+            homePageContent: null,
+          });
+          return;
+        }
+
+        const patchResult = tryInsertPageBlockIntoHomePage(
+          homePageContent,
+          block.jsxSnippet,
+          detail.placement,
+        );
+
+        if (!patchResult.ok) {
+          toast.message("Composer → AI", {
+            description: patchResult.reason,
+          });
+          const fallbackMode =
+            detail.placement === "top" || detail.placement === "bottom"
+              ? "ai-fallback"
+              : "visual-reorder";
+          await runComposerAiFallback({
+            ...fallbackBase,
+            homePageContent,
+          }, fallbackMode);
+          return;
+        }
+
+        const saved = await patchEngineChatFile({
+          chatId,
+          versionId,
+          fileName: path,
+          content: patchResult.content,
+        });
+
+        if (!saved.ok) {
+          toast.error(saved.error);
+          await runComposerAiFallback({
+            ...fallbackBase,
+            homePageContent,
+          });
+          return;
+        }
+
+        setComposerUndoStack((prev) => [
+          ...prev.slice(-19),
+          { fileName: path, before: homePageContent, after: patchResult.content },
+        ]);
+        setComposerRedoStack([]);
+        setLastComposerActionLabel(`Direkt patch (${detail.placementLabel})`);
+        toast.success(`Sektion infogad direkt (${path})`);
+        onFilesSaved?.();
+      } catch {
+        toast.error("Något gick fel vid infogning.");
+        await runComposerAiFallback({
+          ...fallbackBase,
+          homePageContent: null,
+        });
+      }
+    },
+    [
+      chatId,
+      versionId,
+      sectionZones,
+      iframeLoading,
+      externalLoading,
+      composerHistoryBusy,
+      runComposerAiFallback,
+      onFilesSaved,
+    ],
+  );
 
   const handleToggleElementRegistry = useCallback(() => {
     if (!canShowCode) return;
@@ -531,6 +801,8 @@ export function PreviewPanel({
         showImagesUnsupportedWarning),
   );
   const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(previewUrl);
+  const showComposerOverlay =
+    composerMode && Boolean(previewUrl) && !placementMode && !isCodeView;
   const showInspectOverlay = inspectorEnabled && inspectMode && !showPlacementOverlay;
   const shouldRenderInspectorDev = inspectorEnabled && (showPlacementOverlay || showInspectOverlay);
   const handleShowLastCodeMatch = useCallback(() => {
@@ -573,6 +845,13 @@ export function PreviewPanel({
         inspectorEnabled={inspectorEnabled}
         handleToggleInspect={handleToggleInspect}
         placementMode={placementMode}
+        composerMode={composerMode}
+        handleToggleComposer={handleToggleComposer}
+        composerCanUndo={composerUndoStack.length > 0}
+        composerCanRedo={composerRedoStack.length > 0}
+        composerHistoryBusy={composerHistoryBusy}
+        onComposerUndo={() => void handleComposerUndo()}
+        onComposerRedo={() => void handleComposerRedo()}
         inspectMode={inspectMode}
         handleToggleElementRegistry={handleToggleElementRegistry}
         canShowCode={canShowCode}
@@ -668,53 +947,80 @@ export function PreviewPanel({
           />
         </PreviewPanelCode>
       ) : (
-        <PreviewSurface
-          isLoading={isLoading}
-          iframeError={iframeError}
-          iframeErrorMessage={iframeErrorMessage}
-          iframeDiagnosticCode={iframeDiagnosticCode}
-          iframeRunbookLines={iframeRunbookLines}
-          handleOpenInNewTab={handleOpenInNewTab}
-          onFixPreview={onFixPreview}
-          previewSrc={previewSrc}
-          iframeRef={iframeRef}
-          handleIframeLoad={handleIframeLoad}
-          handleIframeError={handleIframeError}
-        >
-          {shouldRenderInspectorDev ? (
-            <PreviewPanelInspectorDev
-              showPlacementOverlay={showPlacementOverlay}
-              showInspectOverlay={showInspectOverlay}
-              iframeLoading={iframeLoading}
-              externalLoading={externalLoading}
-              handlePlacementClick={handlePlacementClick}
-              handlePlacementMouseMove={handlePlacementMouseMove}
-              onPlacementMouseLeave={() => setHoveredPlacement(null)}
-              hoveredPlacement={hoveredPlacement}
-              pendingPlacementItem={pendingPlacementItem}
-              elementMapLoading={elementMapLoading}
-              sectionZonesCount={sectionZones.length}
-              isCapturePending={isCapturePending}
-              handleCaptureClick={handleCaptureClick}
-              handleInspectMouseMove={
-                inspectEngine === "map" && elementMap.length > 0 ? handleInspectMouseMove : undefined
-              }
-              onInspectMouseLeave={inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined}
-              inspectEngine={inspectEngine}
-              hoveredMapElement={hoveredMapElement}
-              inspectPulse={inspectPulse}
-              setInspectEngine={setInspectEngine}
-              inspectorUnavailable={inspectorUnavailable}
-              elementMapCount={elementMap.length}
-              totalAiCostUsd={totalAiCostUsd}
-              lastAiCostDisplay={lastAiCostDisplay}
-              inspectStatus={inspectStatus}
-              lastCodeMatch={lastCodeMatch}
-              onShowLastCodeMatch={handleShowLastCodeMatch}
-              handleToggleInspect={handleToggleInspect}
+        <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
+          {composerMode ? (
+            <PreviewPanelComposerPalette
+              disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
+              onDragStart={() => setIsComposerDragging(true)}
+              onDragEnd={() => setIsComposerDragging(false)}
             />
           ) : null}
-        </PreviewSurface>
+          <div className="relative min-h-0 min-w-0 flex-1">
+            <PreviewSurface
+              isLoading={isLoading}
+              iframeError={iframeError}
+              iframeErrorMessage={iframeErrorMessage}
+              iframeDiagnosticCode={iframeDiagnosticCode}
+              iframeRunbookLines={iframeRunbookLines}
+              handleOpenInNewTab={handleOpenInNewTab}
+              onFixPreview={onFixPreview}
+              previewSrc={previewSrc}
+              iframeRef={iframeRef}
+              handleIframeLoad={handleIframeLoad}
+              handleIframeError={handleIframeError}
+            >
+              {showComposerOverlay ? (
+                <PreviewPanelComposerOverlay
+                  show
+                  iframeLoading={iframeLoading}
+                  externalLoading={externalLoading}
+                  isDraggingBlock={isComposerDragging}
+                  hoveredPlacement={hoveredPlacement}
+                  onDragOver={handleComposerDragOver}
+                  onDragLeave={() => setHoveredPlacement(null)}
+                  onDrop={(ev) => void handleComposerDrop(ev)}
+                  onMouseMove={handlePlacementMouseMove}
+                  lastActionLabel={lastComposerActionLabel}
+                />
+              ) : null}
+              {shouldRenderInspectorDev ? (
+                <PreviewPanelInspectorDev
+                  showPlacementOverlay={showPlacementOverlay}
+                  showInspectOverlay={showInspectOverlay}
+                  iframeLoading={iframeLoading}
+                  externalLoading={externalLoading}
+                  handlePlacementClick={handlePlacementClick}
+                  handlePlacementMouseMove={handlePlacementMouseMove}
+                  onPlacementMouseLeave={() => setHoveredPlacement(null)}
+                  hoveredPlacement={hoveredPlacement}
+                  pendingPlacementItem={pendingPlacementItem}
+                  elementMapLoading={elementMapLoading}
+                  sectionZonesCount={sectionZones.length}
+                  isCapturePending={isCapturePending}
+                  handleCaptureClick={handleCaptureClick}
+                  handleInspectMouseMove={
+                    inspectEngine === "map" && elementMap.length > 0 ? handleInspectMouseMove : undefined
+                  }
+                  onInspectMouseLeave={
+                    inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined
+                  }
+                  inspectEngine={inspectEngine}
+                  hoveredMapElement={hoveredMapElement}
+                  inspectPulse={inspectPulse}
+                  setInspectEngine={setInspectEngine}
+                  inspectorUnavailable={inspectorUnavailable}
+                  elementMapCount={elementMap.length}
+                  totalAiCostUsd={totalAiCostUsd}
+                  lastAiCostDisplay={lastAiCostDisplay}
+                  inspectStatus={inspectStatus}
+                  lastCodeMatch={lastCodeMatch}
+                  onShowLastCodeMatch={handleShowLastCodeMatch}
+                  handleToggleInspect={handleToggleInspect}
+                />
+              ) : null}
+            </PreviewSurface>
+          </div>
+        </div>
       )}
     </div>
   );

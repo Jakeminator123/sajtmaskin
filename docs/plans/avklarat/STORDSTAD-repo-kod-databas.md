@@ -42,7 +42,7 @@
 
 - **`src/lib/gen/scaffolds/*`, template-/reference-library, committade genererade JSON** som generationen faktiskt konsumerar — **inga** massraderingar i städpasset utan separat genomgång och tester.
 - **`runtime-library-audit`-trösklar** — ändra bara som **medvetet** steg när filer faktiskt tas bort/läggs till i den kuraterade ytan; inte som surrogat för “mer LLM-material”.
-- **Preview/sandbox/deploy-pipelines** — små ändringar undviks i samma svep som stor städ (se PROJECT-STATE §8).
+- **Preview/sandbox/deploy-pipelines** — små ändringar undviks i samma svep som stor städ (se aktiv status i `PROJECT-STATE-AND-DIRECTION.md` och `preview-deploy.md`).
 - **Postgres-innehåll** — endast enligt [Fas D](#fas-d--databas-försiktig-synk--städ--ägs-explicit-här) med backup och miljöbesked.
 - **`.cursorignore`-block** för secrets/build — inte öppna permanent “för att städa”; se befintlig § `.cursorignore` i denna fil.
 
@@ -254,7 +254,7 @@ Se också [§ Två spår](#två-spår-viktigt--blanda-inte-ihop) (produktspår A
 
 1. **Uppdatera pass-loggen** ovan med **Före** / **Efter** (datum, ev. nya bockar → uppdatera %-raden om N ändrats).
 2. **Kör** `npm run typecheck` och `npm run test:ci`; notera i loggrad om något är rött. Efter push: lita på **GitHub Actions** som slutlig signal, inte bara på loggtext.
-3. **Konfliktzon-check:** om du rört builder/stream/deploy/gen — nämn det i logg eller PR; undvik att blanda massstäd där utan separat PR (se `PROJECT-STATE` §8).
+3. **Konfliktzon-check:** om du rört builder/stream/deploy/gen — nämn det i logg eller PR; undvik att blanda massstäd där utan separat PR (se aktiv status i `PROJECT-STATE-AND-DIRECTION.md`).
 4. **`src/lib/gen/scaffolds/*`:** ingen massradering eller “städ” där i samma pass som repo-städ; vid minsta ändring: motivera + tester.
 5. **Arkiv:** när en *del* av planen är historisk (t.ex. avslutad delspår), flytta till `docs/plans/avklarat/` och uppdatera [`../README.md`](../README.md) — duplicera inte samma sanning i två aktiva filer.
 6. **Commit-bredd:** en logisk zon per commit när möjligt; separera `db/services`, preview och builder/API enligt [§ Commit-bredd och zoner](#commit-bredd-och-zoner-extern-review) — särskilt efter stora svep som `d554dea63c2fc3b36eb09d8e4361097d26caeff8`.
@@ -377,6 +377,6 @@ Leverera: kort sammanfattning av vad som ändrats, eventuellt git diff --name-on
 ## Relaterat
 
 - `[documentation-lifecycle.md](../../architecture/documentation-lifecycle.md)`  
-- [`PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) §5 (massstädning), §8 (konfliktrisk)  
+- [`PROJECT-STATE-AND-DIRECTION.md`](../active/PROJECT-STATE-AND-DIRECTION.md) — aktiv status och öppna spår  
 - `[docs/ENV.md](../../ENV.md)`
 

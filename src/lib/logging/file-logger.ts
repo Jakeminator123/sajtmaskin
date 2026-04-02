@@ -22,6 +22,7 @@ const LOG_PATH = path.join(process.cwd(), "logs", "sajtmaskin.log");
 
 // Max log file size (5MB) - will be cleared when exceeded
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
+const MAX_ROTATED_FILES = 3;
 
 export interface LogRecord {
   source: string;
@@ -86,14 +87,31 @@ function ensureLogDir(): void {
 /**
  * Check log file size and clear if too large
  */
+function pruneOldRotatedLogs(): void {
+  try {
+    const logDir = path.dirname(LOG_PATH);
+    const oldFiles = fs
+      .readdirSync(logDir)
+      .filter((f) => f.startsWith("sajtmaskin-") && f.endsWith(".log.old"))
+      .sort();
+    if (oldFiles.length <= MAX_ROTATED_FILES) return;
+    const toRemove = oldFiles.slice(0, oldFiles.length - MAX_ROTATED_FILES);
+    for (const name of toRemove) {
+      fs.unlinkSync(path.join(logDir, name));
+    }
+  } catch {
+    // Best-effort cleanup.
+  }
+}
+
 function checkAndRotateLog(): void {
   try {
     if (fs.existsSync(LOG_PATH)) {
       const stats = fs.statSync(LOG_PATH);
       if (stats.size > MAX_LOG_SIZE) {
-        // Archive old log by appending timestamp
         const archivePath = LOG_PATH.replace(".log", `-${Date.now()}.log.old`);
         fs.renameSync(LOG_PATH, archivePath);
+        pruneOldRotatedLogs();
         console.info(`[FileLogger] Rotated log to ${archivePath}`);
       }
     }

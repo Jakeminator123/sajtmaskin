@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-31T16:06:53.261Z",
+  "generatedAt": "2026-04-01T02:54:13.236Z",
   "source": "scripts/template-library/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
@@ -13,30 +13,6 @@
           "Better default docs and env hints"
         ],
         "referenceTemplates": [
-          {
-            "id": "saas-next-js-saas-starter",
-            "title": "Next.js SaaS Starter",
-            "categorySlug": "saas",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "starter-next-js-contentlayer-blog-starter",
-            "title": "Next.js Contentlayer Blog Starter",
-            "categorySlug": "starter",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
           {
             "id": "starter-next-js-app-router-playground",
             "title": "Next.js App Router Playground",
@@ -62,15 +38,38 @@
             ]
           },
           {
-            "id": "blog-next-js-contentlayer-blog-starter",
-            "title": "Next.js Contentlayer Blog Starter",
+            "id": "blog-launchpad-next-js-strapi-starter",
+            "title": "LaunchPad: Next.js × Strapi Starter",
             "categorySlug": "blog",
             "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "editorial content hierarchy",
-              "portfolio or gallery presentation"
+              "CMS integration hints"
+            ]
+          },
+          {
+            "id": "blog-next-js-wisp-corporate-blog-starter",
+            "title": "Next.js × Wisp Corporate Blog Starter",
+            "categorySlug": "blog",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "CMS integration hints"
+            ]
+          },
+          {
+            "id": "starter-sanity-next-js-clean-app",
+            "title": "Sanity + Next.js Clean App",
+            "categorySlug": "starter",
+            "qualityScore": 90,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "CMS integration hints"
             ]
           }
         ]
@@ -88,21 +87,49 @@
         ],
         "referenceTemplates": [
           {
-            "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
-            "title": "Router.so - Headless Forms and Lead Routing",
-            "categorySlug": "marketing-sites",
-            "qualityScore": 94,
+            "id": "ai-chatgpt-app-with-next-js",
+            "title": "ChatGPT app with Next.js",
+            "categorySlug": "ai",
+            "qualityScore": 86,
             "strengths": [
               "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
+              "App Router structure"
             ]
           },
           {
-            "id": "marketing-sites-basehub-marketing-website",
-            "title": "BaseHub Marketing Website",
-            "categorySlug": "marketing-sites",
+            "id": "cron-cron-og-cards",
+            "title": "Cron OG Cards",
+            "categorySlug": "cron",
+            "qualityScore": 86,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure"
+            ]
+          },
+          {
+            "id": "cron-vercel-dbos-integration",
+            "title": "Vercel + DBOS Integration",
+            "categorySlug": "cron",
+            "qualityScore": 86,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure"
+            ]
+          },
+          {
+            "id": "ai-vercel-ai-gateway-demo",
+            "title": "Vercel AI Gateway Demo",
+            "categorySlug": "ai",
+            "qualityScore": 86,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure"
+            ]
+          },
+          {
+            "id": "ai-vercel-x-deepinfra-chatbot",
+            "title": "Vercel x DeepInfra Chatbot",
+            "categorySlug": "ai",
             "qualityScore": 86,
             "strengths": [
               "verified Next.js codebase",
@@ -124,8 +151,8 @@
         ],
         "referenceTemplates": [
           {
-            "id": "saas-next-js-saas-starter",
-            "title": "Next.js SaaS Starter",
+            "id": "saas-router-so-headless-forms-and-lead-routing",
+            "title": "Router.so - Headless Forms and Lead Routing",
             "categorySlug": "saas",
             "qualityScore": 96,
             "strengths": [
@@ -136,10 +163,10 @@
             ]
           },
           {
-            "id": "saas-stripe-subscription-starter",
-            "title": "Stripe Subscription Starter",
+            "id": "saas-finwise-saas-landing-page",
+            "title": "Finwise: SaaS Landing Page",
             "categorySlug": "saas",
-            "qualityScore": 96,
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
@@ -148,20 +175,32 @@
             ]
           },
           {
-            "id": "saas-platforms-starter-kit",
-            "title": "Platforms Starter Kit",
-            "categorySlug": "saas",
-            "qualityScore": 90,
+            "id": "web3-coinbase-commerce",
+            "title": "Coinbase Commerce",
+            "categorySlug": "web3",
+            "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
-              "multi-tenant or workspace patterns"
+              "pricing or billing structure",
+              "storefront or checkout patterns"
             ]
           },
           {
-            "id": "multi-tenant-apps-platforms-starter-kit",
-            "title": "Platforms Starter Kit",
-            "categorySlug": "multi-tenant-apps",
+            "id": "saas-visactor-next-js-template",
+            "title": "VisActor Next.js Template",
+            "categorySlug": "saas",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "edge-middleware-hostname-rewrites-using-edge-middleware",
+            "title": "Hostname Rewrites using Edge Middleware",
+            "categorySlug": "edge-middleware",
             "qualityScore": 90,
             "strengths": [
               "verified Next.js codebase",
@@ -184,39 +223,39 @@
         ],
         "referenceTemplates": [
           {
-            "id": "portfolio-magic-portfolio-for-next-js",
-            "title": "Magic Portfolio for Next.js",
+            "id": "portfolio-next-js-portfolio-with-pageview-counter",
+            "title": "Next.js Portfolio with Pageview Counter",
             "categorySlug": "portfolio",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
-            "id": "starter-next-js-contentlayer-blog-starter",
-            "title": "Next.js Contentlayer Blog Starter",
-            "categorySlug": "starter",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
-            "id": "blog-next-js-contentlayer-blog-starter",
-            "title": "Next.js Contentlayer Blog Starter",
-            "categorySlug": "blog",
             "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "editorial content hierarchy",
               "portfolio or gallery presentation"
+            ]
+          },
+          {
+            "id": "portfolio-nim-minimalist-personal-site",
+            "title": "Nim: Minimalist Personal Site",
+            "categorySlug": "portfolio",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
+            ]
+          },
+          {
+            "id": "authentication-partner-gallery",
+            "title": "Partner Gallery",
+            "categorySlug": "authentication",
+            "qualityScore": 82,
+            "strengths": [
+              "verified Next.js codebase",
+              "auth flow reference",
+              "dashboard shell patterns",
+              "pricing or billing structure"
             ]
           }
         ]
@@ -234,15 +273,63 @@
         ],
         "referenceTemplates": [
           {
-            "id": "cms-prismic-blog",
-            "title": "Prismic Blog",
-            "categorySlug": "cms",
-            "qualityScore": 86,
+            "id": "blog-notion-powered-next-js-blog",
+            "title": "Notion-Powered Next.js Blog",
+            "categorySlug": "blog",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "editorial content hierarchy"
+            ]
+          },
+          {
+            "id": "blog-blog-with-agility-cms-and-next-js",
+            "title": "Blog with Agility CMS and Next.js",
+            "categorySlug": "blog",
+            "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "editorial content hierarchy",
               "CMS integration hints"
+            ]
+          },
+          {
+            "id": "blog-clean-next-js-sanity-app",
+            "title": "Clean Next.js + Sanity App",
+            "categorySlug": "blog",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "CMS integration hints"
+            ]
+          },
+          {
+            "id": "portfolio-next-js-portfolio-with-pageview-counter",
+            "title": "Next.js Portfolio with Pageview Counter",
+            "categorySlug": "portfolio",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
+            ]
+          },
+          {
+            "id": "portfolio-nim-minimalist-personal-site",
+            "title": "Nim: Minimalist Personal Site",
+            "categorySlug": "portfolio",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "portfolio or gallery presentation"
             ]
           }
         ]
@@ -260,34 +347,10 @@
         ],
         "referenceTemplates": [
           {
-            "id": "authentication-chatbot",
-            "title": "Chatbot",
-            "categorySlug": "authentication",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "ai-chatbot",
-            "title": "Chatbot",
-            "categorySlug": "ai",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
             "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
             "title": "Modernize Next.js Admin Dashboard Template",
             "categorySlug": "admin-dashboard",
-            "qualityScore": 94,
+            "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
@@ -296,27 +359,51 @@
             ]
           },
           {
-            "id": "ai-morphic-ai-powered-answer-engine",
-            "title": "Morphic: AI-powered answer engine",
-            "categorySlug": "ai",
-            "qualityScore": 94,
+            "id": "cms-next-js-waitlist-with-notion-cms",
+            "title": "Next.js Waitlist with Notion CMS",
+            "categorySlug": "cms",
+            "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
+              "dashboard shell patterns",
+              "multi-tenant or workspace patterns"
             ]
           },
           {
-            "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
+            "id": "blog-notion-powered-next-js-blog",
+            "title": "Notion-Powered Next.js Blog",
+            "categorySlug": "blog",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "editorial content hierarchy"
+            ]
+          },
+          {
+            "id": "saas-router-so-headless-forms-and-lead-routing",
             "title": "Router.so - Headless Forms and Lead Routing",
-            "categorySlug": "marketing-sites",
-            "qualityScore": 94,
+            "categorySlug": "saas",
+            "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "auth flow reference",
               "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+            "title": "Your Next Store — Commerce with Next.js and Stripe",
+            "categorySlug": "ecommerce",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "pricing or billing structure"
             ]
           }
         ]
@@ -334,10 +421,22 @@
         ],
         "referenceTemplates": [
           {
-            "id": "authentication-chatbot",
-            "title": "Chatbot",
-            "categorySlug": "authentication",
-            "qualityScore": 94,
+            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
+            "title": "Modernize Next.js Admin Dashboard Template",
+            "categorySlug": "admin-dashboard",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "saas-router-so-headless-forms-and-lead-routing",
+            "title": "Router.so - Headless Forms and Lead Routing",
+            "categorySlug": "saas",
+            "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
@@ -358,33 +457,21 @@
             ]
           },
           {
-            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
-            "title": "Modernize Next.js Admin Dashboard Template",
-            "categorySlug": "admin-dashboard",
+            "id": "saas-finwise-saas-landing-page",
+            "title": "Finwise: SaaS Landing Page",
+            "categorySlug": "saas",
             "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "auth flow reference",
-              "dashboard shell patterns"
+              "pricing or billing structure"
             ]
           },
           {
             "id": "ai-morphic-ai-powered-answer-engine",
             "title": "Morphic: AI-powered answer engine",
             "categorySlug": "ai",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "marketing-sites-router-so-headless-forms-and-lead-routing",
-            "title": "Router.so - Headless Forms and Lead Routing",
-            "categorySlug": "marketing-sites",
             "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
@@ -408,62 +495,39 @@
         ],
         "referenceTemplates": [
           {
-            "id": "ecommerce-stripe-subscription-starter",
-            "title": "Stripe Subscription Starter",
+            "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+            "title": "Your Next Store — Commerce with Next.js and Stripe",
             "categorySlug": "ecommerce",
             "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
-              "auth flow reference",
+              "dashboard shell patterns",
               "pricing or billing structure"
             ]
           },
           {
-            "id": "authentication-stripe-subscription-starter",
-            "title": "Stripe Subscription Starter",
-            "categorySlug": "authentication",
-            "qualityScore": 96,
+            "id": "ecommerce-whop-saas-template",
+            "title": "Whop SaaS Template",
+            "categorySlug": "ecommerce",
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "auth flow reference",
-              "pricing or billing structure"
+              "storefront or checkout patterns"
             ]
           },
           {
-            "id": "starter-next-js-app-router-playground",
-            "title": "Next.js App Router Playground",
-            "categorySlug": "starter",
-            "qualityScore": 94,
+            "id": "web3-coinbase-commerce",
+            "title": "Coinbase Commerce",
+            "categorySlug": "web3",
+            "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "pricing or billing structure",
               "storefront or checkout patterns"
-            ]
-          },
-          {
-            "id": "ecommerce-next-js-commerce",
-            "title": "Next.js Commerce",
-            "categorySlug": "ecommerce",
-            "qualityScore": 88,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "storefront or checkout patterns"
-            ]
-          },
-          {
-            "id": "ecommerce-builder-io-shopify-commerce",
-            "title": "Builder.io Shopify Commerce",
-            "categorySlug": "ecommerce",
-            "qualityScore": 80,
-            "strengths": [
-              "verified Next.js codebase",
-              "dashboard shell patterns",
-              "storefront or checkout patterns",
-              "CMS integration hints"
             ]
           }
         ]
@@ -481,10 +545,57 @@
         ],
         "referenceTemplates": [
           {
-            "id": "cms-prismic-blog",
-            "title": "Prismic Blog",
+            "id": "cms-next-js-waitlist-with-notion-cms",
+            "title": "Next.js Waitlist with Notion CMS",
             "categorySlug": "cms",
-            "qualityScore": 86,
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "multi-tenant or workspace patterns"
+            ]
+          },
+          {
+            "id": "saas-finwise-saas-landing-page",
+            "title": "Finwise: SaaS Landing Page",
+            "categorySlug": "saas",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "pricing or billing structure"
+            ]
+          },
+          {
+            "id": "security-arcjet-next-js-example-app",
+            "title": "Arcjet Next.js Example App",
+            "categorySlug": "security",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference"
+            ]
+          },
+          {
+            "id": "blog-blog-with-agility-cms-and-next-js",
+            "title": "Blog with Agility CMS and Next.js",
+            "categorySlug": "blog",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "CMS integration hints"
+            ]
+          },
+          {
+            "id": "blog-clean-next-js-sanity-app",
+            "title": "Clean Next.js + Sanity App",
+            "categorySlug": "blog",
+            "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
@@ -507,15 +618,51 @@
         ],
         "referenceTemplates": [
           {
-            "id": "authentication-chatbot",
-            "title": "Chatbot",
-            "categorySlug": "authentication",
-            "qualityScore": 94,
+            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
+            "title": "Modernize Next.js Admin Dashboard Template",
+            "categorySlug": "admin-dashboard",
+            "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "auth flow reference",
               "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "cms-next-js-waitlist-with-notion-cms",
+            "title": "Next.js Waitlist with Notion CMS",
+            "categorySlug": "cms",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "multi-tenant or workspace patterns"
+            ]
+          },
+          {
+            "id": "blog-notion-powered-next-js-blog",
+            "title": "Notion-Powered Next.js Blog",
+            "categorySlug": "blog",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "editorial content hierarchy"
+            ]
+          },
+          {
+            "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+            "title": "Your Next Store — Commerce with Next.js and Stripe",
+            "categorySlug": "ecommerce",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "pricing or billing structure"
             ]
           },
           {
@@ -527,41 +674,6 @@
               "verified Next.js codebase",
               "App Router structure",
               "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "admin-dashboard-modernize-next-js-admin-dashboard-template",
-            "title": "Modernize Next.js Admin Dashboard Template",
-            "categorySlug": "admin-dashboard",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "ai-morphic-ai-powered-answer-engine",
-            "title": "Morphic: AI-powered answer engine",
-            "categorySlug": "ai",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
-            "id": "admin-dashboard-visactor-next-js-template",
-            "title": "VisActor Next.js Template",
-            "categorySlug": "admin-dashboard",
-            "qualityScore": 90,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
               "dashboard shell patterns"
             ]
           }

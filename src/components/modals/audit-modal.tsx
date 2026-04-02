@@ -110,11 +110,14 @@ export function AuditModal({
     setSaveError(null);
 
     try {
+      const canonicalAuditUrl =
+        (typeof auditedUrl === "string" && auditedUrl.trim()) ||
+        (result.domain ? `https://${result.domain}` : "");
       const response = await fetch("/api/audits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: result.domain ? `https://${result.domain}` : "",
+          url: canonicalAuditUrl,
           domain: result.domain || "unknown",
           auditResult: result,
         }),
@@ -132,7 +135,7 @@ export function AuditModal({
     } finally {
       setIsSaving(false);
     }
-  }, [result, isSaving, isSaved]);
+  }, [auditedUrl, result, isSaving, isSaved]);
 
   // Build a super prompt from the audit to kick off generation
   const buildSuperPrompt = useCallback(() => {

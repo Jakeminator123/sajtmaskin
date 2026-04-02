@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
+import { INSPECTOR_AI_MATCH_DEFAULT_MODEL } from "@/lib/gen/defaults";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = "gpt-4o-mini";
+const MODEL = INSPECTOR_AI_MATCH_DEFAULT_MODEL;
 const MAX_CODE_CHARS = 12_000;
 const MAX_FILES = 6;
 

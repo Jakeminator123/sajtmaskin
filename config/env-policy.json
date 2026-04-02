@@ -25,6 +25,10 @@
     "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
+    "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+    "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
+    "SAJTMASKIN_TIER2_RUNTIME",
+    "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "LOOPIA_API_USER",
     "LOOPIA_API_PASSWORD",
     "INSPECTOR_CAPTURE_WORKER_TOKEN",
@@ -51,6 +55,7 @@
     "SAJTMASKIN_LOG",
     "SAJTMASKIN_DEV_LOG",
     "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
+    "GENERATIONSLOGG",
     "AI_BRIEF_MAX_TOKENS",
     "AI_CHAT_MAX_TOKENS",
     "V0_MAX_PROMPT_LENGTH",
@@ -90,6 +95,7 @@
     "GOOGLE_CLIENT_ID_DEV",
     "GOOGLE_CLIENT_SECRET",
     "GOOGLE_CLIENT_SECRET_DEV",
+    "GENERATIONSLOGG",
     "INBOUND_WEBHOOK_SHARED_SECRET",
     "INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS",
     "INSPECTOR_CAPTURE_WORKER_URL",
@@ -123,6 +129,7 @@
     "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
     "NEXT_PUBLIC_REGISTRY_BASE_URL",
     "NEXT_PUBLIC_REGISTRY_STYLE",
+    "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "NEXT_PUBLIC_SANITY_DATASET",
     "NEXT_PUBLIC_SANITY_PROJECT_ID",
     "NEXT_PUBLIC_STORYBLOK_ACCESS_TOKEN",
@@ -137,7 +144,11 @@
     "RESEND_API_KEY",
     "SANITY_API_TOKEN",
     "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
+    "SAJTMASKIN_ASSIST_MODEL",
+    "SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC",
+    "SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI",
     "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
+    "SAJTMASKIN_BRIEF_MODEL",
     "SAJTMASKIN_BUILD_SPEC_ENABLED",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
@@ -153,6 +164,10 @@
     "SAJTMASKIN_PHASE_FORCE_CHARS",
     "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
     "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
+    "SAJTMASKIN_POLISH_PASS",
+    "SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS",
+    "SAJTMASKIN_POLISH_TIMEOUT_MS",
+    "SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
     "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
     "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
@@ -160,9 +175,17 @@
     "SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS",
     "SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS",
     "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
+    "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+    "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
     "SAJTMASKIN_SANDBOX_PREVIEW_MODE",
     "SAJTMASKIN_SANDBOX_READINESS_MAX_MS",
+    "SAJTMASKIN_SPEC_MODEL",
+    "SAJTMASKIN_TIER2_RUNTIME",
     "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
+    "SAJTMASKIN_VERIFIER_PASS",
+    "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
+    "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
+    "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
     "SAJTMASKIN_WARN_SYSTEM_LENGTH",
     "STORAGE_BACKEND",
     "STORYBLOK_ACCESS_TOKEN",
@@ -275,7 +298,7 @@
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). See docs/architecture/preview-deploy.md and docs/ENV.md."
+      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). Tier-2 user preview defaults to preview_host when configured; these credentials are mainly for explicit Vercel tier-2 mode/fallback and quality-gate/server-verify paths."
     },
     {
       "key": "VERCEL_TOKEN_FULL",
@@ -287,13 +310,13 @@
       "key": "VERCEL_TEAM_ID",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Team / org scope (often team_…). Required together with VERCEL_TOKEN + VERCEL_PROJECT_ID for @vercel/sandbox from local dev. Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
+      "notes": "Team / org scope (often team_…). Required together with VERCEL_TOKEN + VERCEL_PROJECT_ID for @vercel/sandbox from local dev (explicit tier-2 fallback/mode + quality-gate/server-verify). Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
     },
     {
       "key": "VERCEL_PROJECT_ID",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Project id (prj_…). Required with VERCEL_TOKEN + VERCEL_TEAM_ID for sandbox from local dev. From Project Settings → General, or .vercel/project.json after vercel link."
+      "notes": "Project id (prj_…). Required with VERCEL_TOKEN + VERCEL_TEAM_ID for @vercel/sandbox from local dev (explicit tier-2 fallback/mode + quality-gate/server-verify). From Project Settings → General, or .vercel/project.json after vercel link."
     },
     {
       "key": "VERCEL_WEBHOOK_SECRET",
@@ -305,7 +328,7 @@
       "key": "VERCEL_OIDC_TOKEN",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development"],
-      "notes": "Alternative to VERCEL_TOKEN+TEAM+PROJECT for @vercel/sandbox: pulled locally via vercel env pull (Vercel CLI). On Vercel-hosted runtimes the platform may inject OIDC; treat pulled .env values as local-only snapshots."
+      "notes": "Alternative to VERCEL_TOKEN+TEAM+PROJECT for @vercel/sandbox: pulled locally via vercel env pull (Vercel CLI). On Vercel-hosted runtimes the platform may inject OIDC; treat pulled .env values as local-only snapshots. Primärt relevant för explicit Vercel tier-2 mode/fallback och quality-gate/server-verify."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",
@@ -372,6 +395,12 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Development-only logging tuning."
+    },
+    {
+      "key": "GENERATIONSLOGG",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Opt-in local generation timeline writer under logs/generationslogg/."
     },
     {
       "key": "TEST_USER_EMAIL",
@@ -624,6 +653,54 @@
       "classification": "environment_specific",
       "recommendedVercelTargets": ["production"],
       "notes": "Production-only prompt budget tuning."
+    },
+    {
+      "key": "SAJTMASKIN_POLISH_PASS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Feature flag for post-generation polish pass."
+    },
+    {
+      "key": "SAJTMASKIN_VERIFIER_PASS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Feature flag for post-generation verifier pass."
+    },
+    {
+      "key": "SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Production-only post-generation polish tuning."
+    },
+    {
+      "key": "SAJTMASKIN_POLISH_TIMEOUT_MS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Production-only post-generation polish tuning."
+    },
+    {
+      "key": "SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Production-only post-generation polish tuning."
+    },
+    {
+      "key": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Production-only verifier tuning."
+    },
+    {
+      "key": "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Production-only verifier tuning."
+    },
+    {
+      "key": "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Production-only verifier tuning."
     }
   ]
 }

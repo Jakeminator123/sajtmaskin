@@ -23,7 +23,7 @@
  *   but produces more thorough results for complex projects.
  */
 
-import { GATEWAY_ASSIST_MODELS } from "./promptAssist";
+import { ANTHROPIC_ASSIST_MODELS, GATEWAY_ASSIST_MODELS } from "./promptAssist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
@@ -92,20 +92,38 @@ export interface PromptAssistModelOption {
 
 export const PROMPT_ASSIST_OFF_VALUE = "off";
 
+const PROMPT_ASSIST_LABELS: Record<string, string> = {
+  "openai/gpt-5.4": "OpenAI GPT-5.4",
+  "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
+  "openai/gpt-5.2": "OpenAI GPT-5.2",
+  "anthropic/claude-sonnet-4.6": "Anthropic Claude Sonnet 4.6",
+  "anthropic/claude-opus-4.6": "Anthropic Claude Opus 4.6",
+  "anthropic-direct/claude-haiku-4-5-20251001": "Anthropic Claude Haiku 4.5 (direct)",
+  "anthropic-direct/claude-sonnet-4-6": "Anthropic Claude Sonnet 4.6 (direct)",
+  "anthropic-direct/claude-opus-4-6": "Anthropic Claude Opus 4.6 (direct)",
+};
+
+function humanizePromptAssistModel(model: string): string {
+  const known = PROMPT_ASSIST_LABELS[model];
+  if (known) return known;
+  return model
+    .replace(/^openai\//, "OpenAI ")
+    .replace(/^anthropic-direct\//, "Anthropic direct ")
+    .replace(/^anthropic\//, "Anthropic ")
+    .replace(/-/g, " ");
+}
+
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
-  { value: "openai/gpt-5.4", label: "OpenAI GPT-5.4" },
-  { value: "openai/gpt-5.3-codex", label: "OpenAI GPT-5.3 Codex" },
-  { value: "openai/gpt-5.2", label: "OpenAI GPT-5.2" },
-  { value: "anthropic/claude-sonnet-4.6", label: "Anthropic Claude Sonnet 4.6" },
-  { value: "anthropic/claude-opus-4.6", label: "Anthropic Claude Opus 4.6" },
+  ...GATEWAY_ASSIST_MODELS.map((value) => ({
+    value,
+    label: humanizePromptAssistModel(value),
+  })),
 ];
 
 const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
   ...GATEWAY_ASSIST_MODELS,
-  "anthropic-direct/claude-haiku-4-5-20251001",
-  "anthropic-direct/claude-sonnet-4-6",
-  "anthropic-direct/claude-opus-4-6",
+  ...ANTHROPIC_ASSIST_MODELS,
 ]);
 
 export function getPromptAssistModelOptions(): PromptAssistModelOption[] {

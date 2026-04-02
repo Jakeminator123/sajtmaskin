@@ -5,6 +5,9 @@
  * fire-and-forget background task. Updates version verification state
  * on the DB; the UI reads server state via version polls.
  *
+ * Note: this module may use Vercel Sandbox as a verification VM, but it does
+ * not control the primary tier-2 preview provider for end users.
+ *
  * Deduplicated: the same versionId will not run twice concurrently.
  */
 import { dbConfigured } from "@/lib/db/client";
@@ -14,6 +17,7 @@ import {
   promoteVersion,
   failVersionVerification,
   createDraftVersion,
+  getChat,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
@@ -21,90 +25,23 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 import {
-  isSandboxConfigured,
-  resolveSandboxAccessCredentials,
-  resolveSandboxTemplateGitUrl,
-  isSafeRelativePath,
-  getSandboxCommandTextOutput,
-} from "@/lib/mcp/runtime-url";
+  runSandboxQualityGateOnExportable,
+  sandboxQualityGateAllPassed,
+  shouldPromoteAfterRepair,
+} from "@/lib/gen/sandbox-quality-gate";
+import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 
 const inflight = new Set<string>();
-const MAX_REPAIR_PASSES = 2;
-
-type CheckResult = { check: string; passed: boolean; exitCode: number; output: string };
 
 export function isServerVerifyEligible(versionId: string): boolean {
   if (!dbConfigured) return false;
   if (!isSandboxConfigured()) return false;
   if (inflight.has(versionId)) return false;
   return true;
-}
-
-/**
- * Run quality gate checks (typecheck + build) in a Vercel Sandbox VM.
- * Returns null when sandbox is not configured.
- */
-async function runQualityGateChecks(
-  files: CodeFile[],
-): Promise<{ results: CheckResult[]; durationMs: number } | null> {
-  if (!isSandboxConfigured()) return null;
-  const { Sandbox } = await import("@vercel/sandbox");
-  const access = resolveSandboxAccessCredentials();
-  const startMs = Date.now();
-
-  const sandbox = await Sandbox.create({
-    ...(access ?? {}),
-    source: { type: "git", url: resolveSandboxTemplateGitUrl() },
-    resources: { vcpus: 2 },
-    timeout: 90_000,
-    ports: [3000],
-    runtime: "node24",
-  });
-
-  try {
-    const safeFiles = files
-      .filter((f) => f.content != null && isSafeRelativePath(f.path))
-      .map((f) => ({ path: f.path, content: Buffer.from(f.content, "utf-8") }));
-    if (safeFiles.length > 0) {
-      await sandbox.writeFiles(safeFiles);
-    }
-
-    const installResult = await sandbox.runCommand({
-      cmd: "bash",
-      args: ["-c", "npm install --prefer-offline > /tmp/sv-install.log 2>&1; ec=$?; cat /tmp/sv-install.log; exit $ec"],
-    });
-    const installOutput = await getSandboxCommandTextOutput(installResult);
-    if ((installResult.exitCode ?? 1) !== 0) {
-      return {
-        results: [{ check: "install", passed: false, exitCode: installResult.exitCode ?? 1, output: installOutput.slice(0, 16_000) }],
-        durationMs: Date.now() - startMs,
-      };
-    }
-
-    const checks = ["typecheck", "build"] as const;
-    const commands: Record<string, string> = {
-      typecheck: "npx tsc --noEmit",
-      build: "npx next build",
-    };
-    const results: CheckResult[] = [];
-    for (const check of checks) {
-      const logFile = `/tmp/sv-${check}.log`;
-      const script = `${commands[check]} > "${logFile}" 2>&1; ec=$?; cat "${logFile}" 2>/dev/null; exit $ec`;
-      const r = await sandbox.runCommand({ cmd: "bash", args: ["-c", script] });
-      const output = await getSandboxCommandTextOutput(r);
-      results.push({
-        check,
-        passed: (r.exitCode ?? 1) === 0,
-        exitCode: r.exitCode ?? 1,
-        output: output.slice(0, 14_000),
-      });
-      if ((r.exitCode ?? 1) !== 0) break;
-    }
-    return { results, durationMs: Date.now() - startMs };
-  } finally {
-    try { await sandbox[Symbol.asyncDispose]?.(); } catch { /* best-effort cleanup */ }
-  }
 }
 
 function filesToCodeProjectContent(files: CodeFile[]): string {
@@ -132,10 +69,13 @@ export async function triggerServerVerification(params: {
     await markVersionVerifying(versionId).catch(() => null);
 
     const exportable = buildExportableProject(codeFiles);
-    const gateResult = await runQualityGateChecks(exportable);
-    if (!gateResult) return;
+    const gateResult = await runSandboxQualityGateOnExportable(exportable, ["typecheck", "build"]);
+    if (!gateResult) {
+      await failVersionVerification(versionId, "Sandbox unavailable during verification.").catch(() => null);
+      return;
+    }
 
-    const passed = gateResult.results.every((r) => r.passed);
+    const passed = sandboxQualityGateAllPassed(gateResult.results);
 
     await createEngineVersionErrorLogs([{
       chatId,
@@ -146,7 +86,7 @@ export async function triggerServerVerification(params: {
       meta: {
         passed,
         checks: gateResult.results.map((r) => ({ check: r.check, passed: r.passed, exitCode: r.exitCode })),
-        durationMs: gateResult.durationMs,
+        durationMs: gateResult.sandboxDurationMs,
         serverOwned: true,
       },
     }]).catch(() => {});
@@ -184,6 +124,7 @@ async function tryServerRepairLoop(params: {
   failedOutputs: Array<{ check: string; exitCode: number; output: string }>;
 }): Promise<void> {
   const { chatId, versionId, codeFiles, failedOutputs } = params;
+  const hadQualityGateFailures = failedOutputs.length > 0;
 
   await markVersionRepairing(versionId).catch(() => null);
 
@@ -196,37 +137,99 @@ async function tryServerRepairLoop(params: {
   const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
   let syntaxResult = await validateGeneratedCode(content);
 
-  if (syntaxResult.valid && failedOutputs.length === 0) {
-    const repairedFiles = parseCodeProject(content).files;
-    const filesJson = JSON.stringify(repairedFiles);
+  async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
+    const decision = await shouldPromoteAfterRepair(
+      buildExportableProject(parseCodeProject(projectContent).files),
+      hadQualityGateFailures,
+    );
+    await createEngineVersionErrorLogs([
+      {
+        chatId,
+        versionId,
+        level: decision.promote ? "info" : "warning",
+        category: "preflight:quality-gate",
+        message: decision.promote
+          ? `Post-repair quality gate passed (${method}).`
+          : "Post-repair quality gate did not pass; not promoting.",
+        meta: {
+          repass: true,
+          method,
+          promoted: decision.promote,
+          checks: decision.results?.map((r) => ({ check: r.check, passed: r.passed })),
+          sandboxDurationMs: decision.sandboxDurationMs,
+          serverOwned: true,
+        },
+      },
+    ]).catch(() => {});
+    if (!decision.promote) return false;
+    const filesJson = JSON.stringify(parseCodeProject(projectContent).files);
     const version = await createDraftVersion(chatId, null, filesJson);
-    await promoteVersion(version.id, "Server repair succeeded (deterministic).").catch(() => null);
-    logRepairOutcome(chatId, versionId, "deterministic", true, 0);
-    return;
+    const msg =
+      method === "deterministic"
+        ? "Server repair succeeded (deterministic); quality gate re-passed."
+        : "Server repair succeeded (LLM); quality gate re-passed.";
+    await promoteVersion(version.id, msg).catch(() => null);
+    return true;
+  }
+
+  if (syntaxResult.valid) {
+    if (await tryPromoteAfterGate(content, "deterministic")) {
+      logRepairOutcome(chatId, versionId, "deterministic", true, 0);
+      return;
+    }
   }
 
   const errorLines: string[] = [];
   for (const f of failedOutputs) {
-    for (const line of f.output.split("\n")) {
-      const stripped = line.trim();
-      if (stripped && /error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
+    const outputLines = f.output.split("\n");
+    for (let i = 0; i < outputLines.length; i++) {
+      const stripped = outputLines[i].trim();
+      if (!stripped) continue;
+      if (/error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
+        const prevLine = i > 0 ? outputLines[i - 1]?.trim() : "";
+        if (prevLine && !errorLines.includes(`[${f.check}] ${prevLine}`)) {
+          errorLines.push(`[${f.check}] ${prevLine}`);
+        }
         errorLines.push(`[${f.check}] ${stripped}`);
       }
-      if (errorLines.length > 40) break;
+      if (errorLines.length > 60) break;
     }
+  }
+
+  const filesFromGateOutput = new Set<string>();
+  for (const line of errorLines) {
+    const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
+    if (fileMatch?.[1]) filesFromGateOutput.add(fileMatch[1]);
   }
 
   let bestContent = content;
   let bestErrorCount = syntaxResult.errors.length;
+  const originatingChat = await getChat(chatId).catch(() => null);
+  const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
+  const fixerModel = originatingTier
+    ? resolvePhaseModel(originatingTier, "fixer").modelId
+    : undefined;
 
-  for (let pass = 0; pass < MAX_REPAIR_PASSES; pass++) {
+  let llmPasses = 0;
+  for (let pass = 0; pass < SERVER_REPAIR_MAX_PASSES; pass++) {
+    if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
+      content = bestContent;
+      syntaxResult = await validateGeneratedCode(content);
+    }
     const errorSummary = [
       ...syntaxResult.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`),
       ...errorLines,
     ].slice(0, 50);
-    const brokenFiles = [...new Set(syntaxResult.errors.map((e) => e.file).filter(Boolean))];
+    const brokenFiles = [...new Set([
+      ...syntaxResult.errors.map((e) => e.file).filter(Boolean),
+      ...filesFromGateOutput,
+    ])];
 
-    const fixerResult = await runLlmFixer(content, errorSummary, { requiredFiles: brokenFiles });
+    const fixerResult = await runLlmFixer(content, errorSummary, {
+      model: fixerModel,
+      requiredFiles: brokenFiles,
+    });
+    llmPasses++;
     if (!fixerResult.success && !fixerResult.partial) continue;
 
     const reFixed = await runAutoFix(fixerResult.fixedContent);
@@ -240,20 +243,25 @@ async function tryServerRepairLoop(params: {
     if (syntaxResult.valid) break;
   }
 
-  const repaired = bestErrorCount === 0;
-  if (repaired) {
-    const repairedFiles = parseCodeProject(bestContent).files;
-    const filesJson = JSON.stringify(repairedFiles);
-    const version = await createDraftVersion(chatId, null, filesJson);
-    await promoteVersion(version.id, "Server repair succeeded (LLM).").catch(() => null);
-  } else {
+  const syntaxClean = bestErrorCount === 0;
+  if (syntaxClean) {
+    if (await tryPromoteAfterGate(bestContent, "llm")) {
+      logRepairOutcome(chatId, versionId, "llm", true, llmPasses, 0);
+      return;
+    }
     await failVersionVerification(
       versionId,
-      `Server repair incomplete (${bestErrorCount} errors remain).`,
+      "Server repair: syntax clean but quality gate still failing.",
     ).catch(() => null);
+    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0);
+    return;
   }
 
-  logRepairOutcome(chatId, versionId, "llm", repaired, MAX_REPAIR_PASSES, bestErrorCount);
+  await failVersionVerification(
+    versionId,
+    `Server repair incomplete (${bestErrorCount} errors remain).`,
+  ).catch(() => null);
+  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount);
 }
 
 function logRepairOutcome(
