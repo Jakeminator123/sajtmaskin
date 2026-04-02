@@ -298,6 +298,7 @@ export function useBuilderPageController() {
     setSandboxPending,
     onSandboxSessionMeta,
     clearSandboxBuildError,
+    clearSandboxSessionState,
     resetSandboxForNewChat,
   } = sandboxPreview;
 
@@ -1534,6 +1535,7 @@ export function useBuilderPageController() {
     previewLifecycle,
     handlePreviewSessionSuspect,
     clearSandboxBuildError,
+    clearSandboxSessionState,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
     bumpPreviewRefreshToken,

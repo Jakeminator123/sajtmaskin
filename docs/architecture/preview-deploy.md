@@ -100,6 +100,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 - **`GET /api/v0/chats/[chatId]/sandbox-status?versionId=`** (valfritt `&sandboxId=`): serverns bild av sessionen — `running` \| `stopped` \| `missing` \| `version_mismatch` samt `sandboxId`, `sandboxUrl`, `sessionExpiresAt`, `reason`. `stopped` när den lagrade tier-2-providern inte kan återupptas (`tryResumeTier2Runtime` misslyckas; Vercel VM eller preview-host-status).
 - **`POST /api/v0/chats/[chatId]/sandbox-heartbeat`**: JSON `{ versionId, sandboxId, viewerId }`. Uppdaterar `lastUsedAt` endast om Redis/minnet fortfarande binder samma chat+version+sandboxId.
+- **`POST /api/v0/chats/[chatId]/sandbox-destroy`**: builderns "Rensa preview" använder nu den här vägen för att aktivt stänga preview-host/Fly-sessionen, rensa session-store och nolla `engine_versions.sandbox_url` för versionen. För Vercel-spåret finns ännu ingen lika stark remote-destroy; där blir det främst session-rensning.
 - **Klient:** `PreviewPanel` pingar heartbeat ca var 25s (synlig flik) när livscykel är `live`; `sandboxId` hålls i builder-state från lyckad `sandbox-preview` och SSE `sandbox-ready`.
 - **Recover:** Misstanke från iframe (t.ex. transportfel, ready-timeout) → status-GET; om inte `running` → tvingad `sandbox-preview` med `forceRestart`, debounce och maxförsök (se `useBuilderPageController`).
 - **Livscykel-UI:** `PreviewLifecycleState` i `src/lib/builder/preview-lifecycle.ts` — `idle` \| `bootstrapping` \| `live` \| `recovering` \| `failed`.

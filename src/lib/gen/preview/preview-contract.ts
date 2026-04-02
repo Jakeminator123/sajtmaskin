@@ -37,3 +37,13 @@ export type SandboxHeartbeatApiJson = {
   ok: boolean;
   reason?: string;
 };
+
+/** `POST /api/v0/chats/[chatId]/sandbox-destroy` */
+export type SandboxDestroyApiJson = {
+  ok: boolean;
+  destroyed?: boolean;
+  clearedSandboxUrl?: boolean;
+  tier2Provider?: "preview_host" | "vercel_sandbox" | null;
+  reason?: string;
+  message?: string;
+};

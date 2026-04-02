@@ -112,6 +112,23 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
     setSandboxPending(false);
   }, []);
 
+  const clearSandboxSessionState = useCallback((versionId?: string | null) => {
+    const key =
+      chatId && versionId?.trim()
+        ? `${chatId}:${versionId.trim()}`
+        : null;
+    if (key) {
+      sandboxBootstrapDoneKeysRef.current.delete(key);
+      sandboxBootstrapTransientAttemptsRef.current.delete(key);
+      setForcedSandboxRestartKey((current) => (current === key ? null : current));
+    }
+    setActiveSandboxMeta(null);
+    setSandboxBuildError(null);
+    setSandboxProdBuild(null);
+    setSandboxPending(false);
+    setSandboxPreviewRecovering(false);
+  }, [chatId]);
+
   const sandboxBootstrapGenRef = useRef(0);
   const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
   const [sandboxBootstrapRetryNonce, setSandboxBootstrapRetryNonce] = useState(0);
@@ -370,6 +387,7 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
     setSandboxPending,
     onSandboxSessionMeta,
     clearSandboxBuildError,
+    clearSandboxSessionState,
     resetSandboxForNewChat,
     sandboxBootstrapDoneKeysRef,
     forcedSandboxRestartKey,

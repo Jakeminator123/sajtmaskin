@@ -50,6 +50,17 @@ export type PreviewHostStartErr = {
   retryable: boolean;
 };
 
+export type PreviewHostDestroyOk = {
+  ok: true;
+  destroyed: boolean;
+};
+
+export type PreviewHostDestroyErr = {
+  ok: false;
+  message: string;
+  retryable: boolean;
+};
+
 /**
  * Creates a session on preview-host (Fly). Maps host `startOutcome` `fresh` → `recreated`.
  */
@@ -107,6 +118,71 @@ export async function startPreviewHostSession(params: {
     return { ok: true, sandboxUrl, sandboxId, startOutcome };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Preview host request failed";
+    return { ok: false, message, retryable: true };
+  }
+}
+
+/**
+ * Destroys a preview-host session by sandboxId or sessionId.
+ * Host 404 is treated as already gone, so callers can still clear local state safely.
+ */
+export async function destroyPreviewHostSession(params: {
+  sandboxId?: string | null;
+  sessionId?: string | null;
+}): Promise<PreviewHostDestroyOk | PreviewHostDestroyErr> {
+  const base = getPreviewHostBaseUrl();
+  if (!base) {
+    return {
+      ok: false,
+      message: "SAJTMASKIN_PREVIEW_HOST_BASE_URL is not set.",
+      retryable: false,
+    };
+  }
+
+  const sandboxId = params.sandboxId?.trim() || null;
+  const sessionId = params.sessionId?.trim() || null;
+  if (!sandboxId && !sessionId) {
+    return {
+      ok: false,
+      message: "preview-host destroy requires sandboxId or sessionId.",
+      retryable: false,
+    };
+  }
+
+  try {
+    const res = await fetch(`${base}/preview/session/destroy`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...previewHostAuthHeaders(),
+      },
+      body: JSON.stringify({
+        ...(sandboxId ? { sandboxId } : {}),
+        ...(sessionId ? { sessionId } : {}),
+      }),
+      signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (res.status === 404) {
+      return { ok: true, destroyed: false };
+    }
+    if (!res.ok) {
+      const msg =
+        typeof body.message === "string" && body.message.trim()
+          ? body.message.trim()
+          : `Preview host HTTP ${res.status}`;
+      return {
+        ok: false,
+        message: msg,
+        retryable: res.status >= 500 || res.status === 429,
+      };
+    }
+    return {
+      ok: true,
+      destroyed: body.destroyed === true,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Preview host destroy failed";
     return { ok: false, message, retryable: true };
   }
 }

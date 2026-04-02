@@ -35,6 +35,7 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
+import { postSandboxDestroy } from "@/lib/builder/preview-session/api";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
   buildPromptSourceMessage,
@@ -635,11 +636,36 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   );
 
   const handleClearPreview = useCallback(() => {
-    vm.setClearedPreviewVersionId(vm.activeVersionId ?? null);
-    vm.setCurrentPreviewUrl(null);
-    void persistPreviewOverride(null, null);
+    void (async () => {
+      const activeVersionId = vm.activeVersionId ?? null;
+      const activeSandboxId = vm.activeSandboxId?.trim() || null;
+
+      if (vm.chatId && activeVersionId && activeSandboxId) {
+        const destroy = await postSandboxDestroy({
+          chatId: vm.chatId,
+          versionId: activeVersionId,
+          sandboxId: activeSandboxId,
+        });
+        if (!destroy || destroy.ok !== true) {
+          toast.error(
+            destroy?.message?.trim() || "Kunde inte stänga live-preview och frigöra VM-sessionen.",
+          );
+          return;
+        }
+      }
+
+      vm.clearSandboxSessionState(activeVersionId);
+      vm.setClearedPreviewVersionId(activeVersionId);
+      vm.setCurrentPreviewUrl(null);
+      void persistPreviewOverride(null, null);
+      void vm.mutateVersions();
+    })();
   }, [
     vm.activeVersionId,
+    vm.activeSandboxId,
+    vm.chatId,
+    vm.clearSandboxSessionState,
+    vm.mutateVersions,
     vm.setClearedPreviewVersionId,
     vm.setCurrentPreviewUrl,
     persistPreviewOverride,
