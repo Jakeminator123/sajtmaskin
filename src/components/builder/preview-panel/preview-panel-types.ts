@@ -78,6 +78,7 @@ export interface PreviewPanelProps {
   } | null;
   onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
   simplified?: boolean;
+  onComposerAiFallback?: (payload: ComposerAiFallbackPayload) => void | Promise<void>;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

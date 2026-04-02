@@ -37,6 +37,8 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { postSandboxDestroy } from "@/lib/builder/preview-session/api";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
+import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
+import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import {
   buildNeedsAnalysisPrompt,
   buildNextNeedsAnalysisMessage,

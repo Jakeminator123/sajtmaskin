@@ -107,6 +107,7 @@ export function PreviewPanel({
   pendingPlacementItem = null,
   onPlacementComplete,
   simplified = false,
+  onComposerAiFallback,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";

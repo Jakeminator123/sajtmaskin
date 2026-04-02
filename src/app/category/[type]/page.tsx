@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { PromptWizardModalV2, type WizardData } from "@/components/modals";
+import { PromptWizardModalV2, type WizardData } from "@/components/modals/prompt-wizard-modal-v2";
 import { MinimalFooter } from "@/components/layout/minimal-footer";
 import {
   ArrowLeft,
@@ -35,7 +35,7 @@ import {
 } from "@/lib/templates/template-data";
 import { createProject } from "@/lib/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { PreviewModal } from "@/components/templates";
+import { PreviewModal } from "@/components/templates/preview-modal";
 import { toast } from "sonner";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
