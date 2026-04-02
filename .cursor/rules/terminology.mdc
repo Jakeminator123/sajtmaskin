@@ -32,9 +32,17 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 - **`template-library`**: internt runtime referensbibliotek i `src/lib/gen/template-library` som används för prompt guidance och retrieval. Inte samma sak som builderns Mallar-tab.
 - **Vercel-mall / external-template research**: research-material i `research/external-templates/`. Inte samma sak som builderns Mallar-tab eller runtime `template-library`.
 - **Preview**: det användaren ser i buildern.
-- **VM / `preview_host`**: den aktuella primära tier-2-live-previewen via Fly.io. Detta är den relevanta körbara previewvägen just nu.
-- **Sandbox**: äldre/paraplyterm som fortfarande lever kvar i symboler, fältnamn och routes som `sandbox_url` och `/sandbox-preview`. Läs den ofta som legacy naming eller delat tier-2-kontrakt, inte som att Vercel Sandbox är huvudvägen.
+- **VM / `preview_host`**: den aktuella primära tier-2-live-previewen via Fly.io. **Detta är riktningen framåt.** All ny preview-logik ska använda `preview_host` / VM-terminologi.
+- **Sandbox (LEGACY — undvik i ny kod)**: äldre paraplyterm som lever kvar i DB-kolumner (`sandbox_url`), API-routes (`/sandbox-preview`, `/sandbox-status`, `/sandbox-heartbeat`, `/sandbox-destroy`), Redis-nycklar, TypeScript-typer och SSE-fält (`sandboxPending`, `sandboxUrl`, `sandboxId`). Dessa är **strukturella** och kan inte döpas om utan migration — men ny kod, kommentarer, loggar och docs ska använda **preview** / **VM** / **tier-2** istället. Skriv aldrig "sandbox" i ny kod utom när du refererar till dessa legacy-namn.
+- **Vercel Sandbox (korrekt användning)**: `@vercel/sandbox` används fortfarande för **quality gate** (typecheck/build-verifiering i isolerad VM). Det är en separat produkt från Vercel, inte samma sak som tier-2 preview. `sandbox-quality-gate.ts` och `server-verify.ts` använder det korrekt.
 - **demoUrl**: legacy-namn för URL eller preview-mål; tolka efter kontext.
+
+## AI Gateway (LEGACY — rör dig bort)
+
+- **Vercel AI Gateway** (`https://ai-gateway.vercel.sh/v1`) är **inte längre primär väg** för LLM-anrop. Huvudkedjan (own-engine, autofix, fixer, verifier, polish, brief) använder **direkt OpenAI/Anthropic API** via `createDirectModel()`.
+- **`AI_GATEWAY_API_KEY`**: finns kvar i `env.ts` och `.env.local` men ska fasas ut. Tre routes använder fortfarande gateway-URL:en direkt: `inspector-ai-match`, `projects/[id]/analyze`, och `text/analyze` (fallback). Övriga routes som anropar `pickAiGatewayKeyFromEnv()` gör det som **gate/auth-check** men kallar sedan `createDirectModel()` (direkt API) — inkonsekvent naming.
+- **Ny kod ska aldrig använda AI Gateway.** Använd `createDirectModel()` med `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
+- **`VERCEL_OIDC_TOKEN`** är delad: används av Vercel Sandbox (quality gate) och ev. kvarvarande gateway-auth. Ta inte bort den utan att verifiera sandbox-flödet.
 
 ## Fidelity
 
