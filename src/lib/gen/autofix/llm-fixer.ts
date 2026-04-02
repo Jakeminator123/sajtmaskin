@@ -117,5 +117,13 @@ function mergeFixedFiles(originalContent: string, fixedFiles: CodeFile[]): strin
     }
   }
 
+  const originalPaths = new Set(originalProject.files.map((f) => f.path));
+  for (const fixed of fixedFiles) {
+    if (!originalPaths.has(fixed.path)) {
+      const lang = fixed.language || "tsx";
+      result += `\n\n\`\`\`${lang} file="${fixed.path}"\n${fixed.content}\n\`\`\``;
+    }
+  }
+
   return result;
 }

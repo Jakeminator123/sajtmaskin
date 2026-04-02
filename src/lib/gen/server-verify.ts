@@ -70,7 +70,10 @@ export async function triggerServerVerification(params: {
 
     const exportable = buildExportableProject(codeFiles);
     const gateResult = await runSandboxQualityGateOnExportable(exportable, ["typecheck", "build"]);
-    if (!gateResult) return;
+    if (!gateResult) {
+      await failVersionVerification(versionId, "Sandbox unavailable during verification.").catch(() => null);
+      return;
+    }
 
     const passed = sandboxQualityGateAllPassed(gateResult.results);
 
@@ -209,6 +212,10 @@ async function tryServerRepairLoop(params: {
 
   let llmPasses = 0;
   for (let pass = 0; pass < SERVER_REPAIR_MAX_PASSES; pass++) {
+    if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
+      content = bestContent;
+      syntaxResult = await validateGeneratedCode(content);
+    }
     const errorSummary = [
       ...syntaxResult.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`),
       ...errorLines,

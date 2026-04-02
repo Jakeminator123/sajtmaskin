@@ -58,14 +58,19 @@ export interface AutoFixContext {
  * `file="..."` attributes). Each file is processed independently.
  *
  * Fixer order:
- *  1. use-client-fixer  — prepend "use client" when client APIs detected
- *  2. import-validator   — fix shadcn import paths
- *  3. react-import-fixer — add missing `import React`
- *  4. metadata/cn/lucide-image import fixers
- *  5. syntax-validator   — esbuild transform check (async)
- *  6. jsx-checker        — tag matching warnings
- *  7. dep-completer      — collect third-party dependencies
- *  8. security checks    — sanitize suspicious payloads
+ *  1.  use-client-fixer   — prepend "use client" when client APIs detected
+ *  2.  import-validator   — fix shadcn import paths
+ *  3.  react-import-fixer — add missing `import React` + hooks + types
+ *  3b. next-image / local-symbol import fixers
+ *  4a. metadata-import-fixer — Metadata type import
+ *  4b. metadata-route / cn-conflict / cn-import fixers
+ *  4d. lucide-image-fixer — lucide Image → next/image
+ *  4e. lucide-link-fixer  — lucide Link → next/link
+ *  4f. tailwind-font-arbitrary-fixer
+ *  5.  syntax-validator   — esbuild transform check (async)
+ *  6.  jsx-checker        — tag matching + missing imports/exports
+ *  7.  dep-completer      — collect third-party dependencies
+ *  8.  security checks    — sanitize suspicious payloads
  *
  * Note: font import repair is owned by `repairGeneratedFiles()` so deterministic
  * font fixes run in one canonical place.

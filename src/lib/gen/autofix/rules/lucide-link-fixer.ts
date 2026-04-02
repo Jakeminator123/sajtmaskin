@@ -33,8 +33,8 @@ export function fixLucideLinkMisuse(
   const alreadyHasLinkIcon = otherImports.some((n) => n === "LinkIcon" || n.startsWith("Link as"));
   const lucideAlias = alreadyHasLinkIcon ? "LucideLink" : "LinkIcon";
 
-  const iconOnlyUsage = /<Link\b(?![^>]*\bhref\b)[^>]*\/>/g;
-  const hasIconOnlyUsage = iconOnlyUsage.test(code);
+  const selfClosingIconRe = /<Link\b(?![^>]*\bhref\b)[^>]*\/>/g;
+  const hasIconOnlyUsage = selfClosingIconRe.test(code);
 
   if (hasIconOnlyUsage) {
     const newImports = [...otherImports, `Link as ${lucideAlias}`];
@@ -42,7 +42,8 @@ export function fixLucideLinkMisuse(
       importMatch[0],
       `import { ${newImports.join(", ")} } from "lucide-react"`,
     );
-    result = result.replace(/<Link\b(?![^>]*\bhref\b)([^>]*)\/?>/g, `<${lucideAlias}$1/>`);
+    result = result.replace(/<Link\b(?![^>]*\bhref\b)([^>]*?)\/>/g, `<${lucideAlias}$1/>`);
+    result = result.replace(/<Link\b(?![^>]*\bhref\b)([^>]*?)>([^]*?)<\/Link>/g, `<${lucideAlias}$1>$2</${lucideAlias}>`);
   } else if (otherImports.length > 0) {
     result = result.replace(
       importMatch[0],

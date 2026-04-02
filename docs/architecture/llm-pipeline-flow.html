@@ -125,12 +125,20 @@
     font-size: 20px;
   }
 
+  .updated {
+    color: var(--muted);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 32px;
+  }
+
 </style>
 </head>
 <body>
 
 <h1>Sajtmaskin — LLM Pipeline Flow</h1>
 <p class="subtitle">config/ → prompt → brief → orchestrate → generate → fix → preview</p>
+<p class="updated">Senast uppdaterad: 2026-04-02</p>
 
 <div class="diagram-section">
   <h2>1. Före-build: Prompt → Brief → Orchestration</h2>
@@ -139,7 +147,7 @@
   <div class="mermaid">
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
 flowchart TD
-    A["🖊️ Användare skriver prompt<br/><span class='node-meta'>ChatInterface.tsx</span>"] --> B{"Prompt-verktyg?"}
+    A["Användare skriver prompt<br/><span class='node-meta'>ChatInterface.tsx</span>"] --> B{"Prompt-verktyg?"}
 
     B -->|"Skriv om (polish)"| C["buildPolishSystemPrompt<br/>/api/ai/chat mode=polish<br/><span class='node-meta'>promptAssist.ts</span>"]
     B -->|"Förbättra (rewrite)"| D["buildRewriteSystemPrompt<br/>/api/ai/chat mode=rewrite<br/><span class='node-meta'>promptAssist.ts</span>"]
@@ -180,7 +188,7 @@ flowchart TD
 
 <div class="diagram-section">
   <h2>2. Generation + Post-processing</h2>
-  <p class="desc">Huvudgeneratorn → autofix → valfri polish → preview → bakgrundsverifiering</p>
+  <p class="desc">Huvudgeneratorn → autofix (deterministisk loop) → syntax + LLM-fix → verifier → polish → preview → bakgrundsverifiering</p>
 
   <div class="mermaid">
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
@@ -190,10 +198,12 @@ flowchart TD
     U --> V["Ackumulerad kod"]
     V --> W["runAutoFix<br/><span class='node-meta'>pipeline.ts — loopas<br/>DETERMINISTIC_AUTOFIX_MAX_PASSES<br/>gånger (manifest)</span>"]
 
-    W --> X["validateAndFix<br/><span class='node-meta'>validate-and-fix.ts<br/>esbuild syntax check</span>"]
+    W --> WD["Deterministiska fixers:<br/>use-client · react-import · hook-imports ·<br/>react-types · next-image · local-symbols ·<br/>metadata · cn · lucide-image ·<br/>lucide-link · tailwind-font ·<br/>syntax-validator · jsx-checker ·<br/>dep-completer · security"]
+
+    WD --> X["validateAndFix<br/><span class='node-meta'>validate-and-fix.ts<br/>esbuild syntax check</span>"]
 
     X -->|"Syntax OK"| Y["Syntaxvaliderad kod"]
-    X -->|"Syntax-fel"| Z["runLlmFixer<br/><span class='node-meta'>llm-fixer.ts<br/>SYNTAX_FIX_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
+    X -->|"Syntax-fel"| Z["runLlmFixer<br/><span class='node-meta'>llm-fixer.ts — kan skapa nya filer<br/>SYNTAX_FIX_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
     Z --> Y
 
     Y --> AV["runVerifierPass (read-only)<br/><span class='node-meta'>verifier-pass.ts · polishCandidates</span>"]
@@ -209,13 +219,14 @@ flowchart TD
 
     AE --> AF["Bakgrundsverifiering<br/><span class='node-meta'>server-verify.ts<br/>Vercel Sandbox quality-gate<br/>(typecheck + next build)</span>"]
 
-    AF -->|"✅ Alla checks OK"| AG["Version promoverad"]
-    AF -->|"❌ Checks misslyckas"| AH["tryServerRepairLoop"]
+    AF -->|"Alla checks OK"| AG["Version promoverad"]
+    AF -->|"Gate null (sandbox nere)"| AN["failVersionVerification<br/><span class='node-meta'>Fastnar aldrig i verifying</span>"]
+    AF -->|"Checks misslyckas"| AH["tryServerRepairLoop"]
 
-    AH --> AI["runAutoFix + syntax +<br/>Vercel gate repass"]
+    AH --> AI["runAutoFix + syntax +<br/>bestContent-rollback vid regression"]
     AI --> AJ{"Gate OK efter fix?"}
     AJ -->|"Ja"| AG
-    AJ -->|"Nej"| AK["runLlmFixer<br/><span class='node-meta'>SERVER_REPAIR_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
+    AJ -->|"Nej"| AK["runLlmFixer<br/><span class='node-meta'>SERVER_REPAIR_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)<br/>error context + kontextrader +<br/>filnamn från gate-output</span>"]
     AK --> AL{"Syntax + gate OK?"}
     AL -->|"Ja"| AG
     AL -->|"Nej"| AM["Version markerad som failed<br/><span class='node-meta'>failVersionVerification</span>"]
@@ -231,18 +242,18 @@ flowchart TD
 flowchart TD
     R1["POST /api/engine/chats/[chatId]/repair<br/><span class='node-meta'>repair/route.ts</span>"] --> R2["Hämta senaste version +<br/>syntaxvalidering"]
 
-    R2 --> R3["runAutoFix (deterministisk)"]
+    R2 --> R3["runAutoFix (deterministisk)<br/><span class='node-meta'>Inkl. lucide-link/image fixers</span>"]
     R3 --> R4{"Fel kvar?"}
 
-    R4 -->|"Inga fel"| R5["✅ Reparerad (deterministisk)"]
-    R4 -->|"Ja"| R6["LLM repair loop<br/><span class='node-meta'>MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
+    R4 -->|"Inga fel"| R5["Reparerad (deterministisk)<br/><span class='node-meta'>shouldPromoteAfterRepair</span>"]
+    R4 -->|"Ja"| R6["LLM repair loop<br/><span class='node-meta'>MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)<br/>bestContent-rollback vid regression</span>"]
 
-    R6 --> R7["runLlmFixer → runAutoFix → validate"]
+    R6 --> R7["runLlmFixer → runAutoFix → validate<br/><span class='node-meta'>fixer-prompt med Next.js-varningar<br/>kontextrader + gate-filnamn<br/>nya filer inkluderas</span>"]
     R7 --> R8{"Syntax OK + inga gate-failures?"}
 
-    R8 -->|"Ja"| R9["✅ Reparerad (LLM)"]
-    R8 -->|"Nej, men förbättrad"| R10["⚠️ improvedSyntax = true"]
-    R8 -->|"Nej"| R11["❌ Reparation misslyckad"]
+    R8 -->|"Ja"| R9["Reparerad (LLM)<br/><span class='node-meta'>shouldPromoteAfterRepair</span>"]
+    R8 -->|"Nej, men förbättrad"| R10["improvedSyntax = true"]
+    R8 -->|"Nej"| R11["Reparation misslyckad<br/><span class='node-meta'>failVersionVerification<br/>(även vid krasch)</span>"]
   </div>
 </div>
 
@@ -266,8 +277,9 @@ flowchart LR
     C2 -.->|"Styr"| D5["promptOrchestration<br/><span class='node-meta'>Hard caps / soft targets / phase thresholds</span>"]
     C2 -.->|"Styr"| D6["promptAssist<br/><span class='node-meta'>polish / rewrite / brief modeller</span>"]
     C2 -.->|"Styr"| D7["preGenerationContracts<br/><span class='node-meta'>DB / auth / payment provider-regler</span>"]
+    C2 -.->|"Styr"| D8["postGenerationPasses<br/><span class='node-meta'>verifier + polish budgets</span>"]
 
-    C5["config/prompt-static/<br/><span class='node-meta'>Statiska promptfragment</span>"] --> C6["config/codegen-static-prompt.json<br/><span class='node-meta'>Ordning för promptfragment</span>"]
+    C5["config/prompt-static/<br/><span class='node-meta'>14 Markdown-fragment</span>"] --> C6["config/codegen-static-prompt.json<br/><span class='node-meta'>Ordning för promptfragment</span>"]
   </div>
 </div>
 
@@ -302,9 +314,12 @@ flowchart LR
   <div class="legend-item red">
     <h3>Reparation</h3>
     <p>
-      <span class="file-ref">pipeline.ts</span> — deterministisk autofix (loop)<br>
+      <span class="file-ref">pipeline.ts</span> — deterministisk autofix (loop med 15 fixers)<br>
+      <span class="file-ref">lucide-link-fixer.ts</span> — lucide Link → next/link<br>
+      <span class="file-ref">lucide-image-fixer.ts</span> — lucide Image → next/image<br>
       <span class="file-ref">validate-and-fix.ts</span> — esbuild syntax + LLM fixer<br>
-      <span class="file-ref">llm-fixer.ts</span> — LLM-driven kodreparation<br>
+      <span class="file-ref">llm-fixer.ts</span> — LLM-driven kodreparation (inkl. nya filer)<br>
+      <span class="file-ref">fixer-prompt.ts</span> — systemprompt med Next.js-importvarningar<br>
       <span class="file-ref">server-verify.ts</span> — bakgrundsverifiering + repair loop<br>
       <span class="file-ref">repair/route.ts</span> — manuell repair-endpoint
     </p>

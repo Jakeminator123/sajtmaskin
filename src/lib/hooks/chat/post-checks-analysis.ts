@@ -238,7 +238,7 @@ function findLucideLinkMisuse(files: FileEntry[]): string[] {
   const affected = new Set<string>();
   const lucideLinkImport =
     /import\s*\{[^}]*\bLink\b[^}]*\}\s*from\s*["']lucide-react["'];?/;
-  const hrefUsage = /<Link\b[^>]*\bhref=/;
+  const hrefUsage = /<Link\b[^>]*\bhref\s*=/;
 
   for (const file of files) {
     if (!file?.content) continue;

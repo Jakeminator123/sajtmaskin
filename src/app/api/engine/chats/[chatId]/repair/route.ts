@@ -97,6 +97,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
 ) {
+  let internalVersionId: string | null = null;
   try {
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
@@ -122,7 +123,7 @@ export async function POST(
       );
     }
 
-    const internalVersionId = scopedVersion.version.id;
+    internalVersionId = scopedVersion.version.id;
     const codeFiles = await getVersionFiles(internalVersionId);
     if (!codeFiles || codeFiles.length === 0) {
       return NextResponse.json(
@@ -222,6 +223,10 @@ export async function POST(
       : undefined;
 
     for (let pass = 0; pass < MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES; pass++) {
+      if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
+        content = bestContent;
+        syntaxResult = await validateGeneratedCode(content);
+      }
       const errorSummary = [
         ...syntaxResult.errors.map(
           (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
@@ -303,6 +308,12 @@ export async function POST(
     });
   } catch (err) {
     console.error("[repair] Error:", err);
+    if (dbConfigured && internalVersionId) {
+      await failVersionVerification(
+        internalVersionId,
+        `Repair crashed: ${err instanceof Error ? err.message : "unknown"}`,
+      ).catch(() => null);
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Repair failed" },
       { status: 500 },

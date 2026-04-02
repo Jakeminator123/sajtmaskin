@@ -57,8 +57,8 @@ Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/st
 
 ## Generationsloop och felminne
 
-- Efter stream: `finalizeAndSaveVersion`, autofix-pipeline (loopas `DETERMINISTIC_AUTOFIX_MAX_PASSES` gånger, manifest-styrt), syntaxvalidering (`validateAndFix`, eskalerar till LLM-fixer vid behov), ev. polish-pass, kvalitetsgrind — se `generation-loop-and-error-memory.md` i arkivet.
-- **Repair-modellval:** alla fixer-vägar (`validate-and-fix`, `server-verify`, `repair/route`) använder `resolvePhaseModel(tier, "fixer")` så att fixern matchar generatorns tier. Reparationspass-begränsningar styrs via `repairPolicies` i `manifest.json`.
+- Efter stream: `finalizeAndSaveVersion`, autofix-pipeline (loopas `DETERMINISTIC_AUTOFIX_MAX_PASSES` gånger, manifest-styrt med 15 deterministiska fixers inkl. lucide-link/image-fixers), syntaxvalidering (`validateAndFix`, eskalerar till LLM-fixer vid behov), ev. verifier + polish-pass, kvalitetsgrind — se `generation-loop-and-error-memory.md` i arkivet och `llm-pipeline-flow.html` för visuellt flöde.
+- **Repair-modellval:** alla fixer-vägar (`validate-and-fix`, `server-verify`, `repair/route`) använder `resolvePhaseModel(tier, "fixer")` så att fixern matchar generatorns tier. Reparationspass-begränsningar styrs via `repairPolicies` i `manifest.json`. LLM-fixern inkluderar kontextrader från quality-gate-output och kan skapa nya filer (inte bara ändra befintliga). Repair-loopen använder bestContent-rollback vid regression mellan pass.
 - **Finalize-path policy:** finalize kör nu ett tydligare **fast path / deep path**-kontrakt. För lätta follow-ups (`verificationPolicy: fast`) kan deep-path-delar som bildmaterialisering och polish hoppas över, medan parse/merge/preflight/persist fortfarande sker innan `done`.
 - **Agentlogg** / replay av fel: `runtime-lane-refactor-and-log-viewer.md` i arkivet.
 

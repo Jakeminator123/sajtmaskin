@@ -23,7 +23,7 @@ function extractImports(code: string): ImportStatement[] {
 
     const names = match[1]
       .split(",")
-      .map((n) => n.trim())
+      .map((n) => n.trim().split(/\s+as\s+/)[0].trim())
       .filter(Boolean);
     results.push({ names, source: match[2], line, lineNumber: i });
   }
