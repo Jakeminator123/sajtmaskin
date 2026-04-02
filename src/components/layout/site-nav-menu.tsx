@@ -10,23 +10,98 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { ChevronRight, Menu } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
-const navLinks = [
-  { href: "/", label: "Skapa" },
-  { href: "/templates", label: "Mallar" },
-  { href: "/buy-credits", label: "Priser" },
-  { href: "/faq", label: "FAQ" },
-  { href: "/om", label: "Om oss" },
-  { href: "#funktioner", label: "Funktioner" },
-  { href: "#teknik", label: "Teknik" },
+type NavLink = { href: string; label: string };
+
+type NavGroup = {
+  title: string;
+  links: NavLink[];
+};
+
+const navGroups: NavGroup[] = [
+  {
+    title: "Bygg",
+    links: [
+      { href: "/", label: "Skapa" },
+      { href: "/templates", label: "Mallar" },
+    ],
+  },
+  {
+    title: "Utforska",
+    links: [
+      { href: "#funktioner", label: "Funktioner" },
+      { href: "#teknik", label: "Teknik" },
+    ],
+  },
+  {
+    title: "Hjälp & info",
+    links: [
+      { href: "/buy-credits", label: "Priser" },
+      { href: "/faq", label: "FAQ" },
+      { href: "/om", label: "Om oss" },
+    ],
+  },
+  {
+    title: "Juridik",
+    links: [
+      { href: "/privacy", label: "Integritet" },
+      { href: "/terms", label: "Villkor" },
+    ],
+  },
 ];
 
-const legalLinks = [
-  { href: "/privacy", label: "Integritet" },
-  { href: "/terms", label: "Villkor" },
-];
+function NavSection({
+  group,
+  pathname,
+  onNavigate,
+}: {
+  group: NavGroup;
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 transition-colors hover:text-foreground"
+      >
+        {group.title}
+        <ChevronRight
+          className={cn(
+            "h-3.5 w-3.5 transition-transform duration-200",
+            expanded && "rotate-90",
+          )}
+        />
+      </button>
+
+      {expanded && (
+        <div className="flex flex-col gap-0.5 pb-1">
+          {group.links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={onNavigate}
+              className={cn(
+                "rounded-md px-3 py-2 pl-6 text-sm transition-colors",
+                pathname === link.href
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function SiteNavMenu() {
   const pathname = usePathname();
@@ -51,30 +126,13 @@ export function SiteNavMenu() {
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className={`rounded-md px-3 py-2.5 text-sm transition-colors ${
-                pathname === link.href
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <div className="my-2 border-t border-border" />
-          {legalLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              className="rounded-md px-3 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {link.label}
-            </Link>
+          {navGroups.map((group) => (
+            <NavSection
+              key={group.title}
+              group={group}
+              pathname={pathname}
+              onNavigate={() => setOpen(false)}
+            />
           ))}
         </nav>
       </SheetContent>

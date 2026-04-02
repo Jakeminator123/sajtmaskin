@@ -26,32 +26,36 @@ import {
 
 export const categories = [
   {
-    id: "analyserad",
-    label: "Analyserad",
-    icon: MessageCircleQuestion,
-    description: "AI ställer frågor",
-    placeholder: "Berätta lite om ditt företag så ställer vår AI följdfrågor...",
-  },
-  {
-    id: "template",
-    label: "Template",
-    icon: Palette,
-    description: "Bläddra v0-templates och välj startpunkt",
-    placeholder: "Välj en template nedan eller beskriv din vision...",
-  },
-  {
-    id: "audit",
-    label: "Audit",
-    icon: FileSearch,
-    description: "Analysera befintlig sida",
-    placeholder: "Klistra in din webbadress här, t.ex. https://mittforetag.se",
-  },
-  {
     id: "fritext",
     label: "Fritext",
     icon: MessageSquare,
     description: "Beskriv din vision",
+    outcome: "Beskriv fritt vad du vill bygga",
     placeholder: "Skriv fritt — berätta vad du vill skapa...",
+  },
+  {
+    id: "analyserad",
+    label: "Guidad",
+    icon: MessageCircleQuestion,
+    description: "AI ställer frågor",
+    outcome: "Vi guidar dig steg för steg",
+    placeholder: "Berätta lite om ditt företag så ställer vår AI följdfrågor...",
+  },
+  {
+    id: "template",
+    label: "Välj mall",
+    icon: Palette,
+    description: "Börja från en färdig mall",
+    outcome: "Välj en startpunkt och anpassa",
+    placeholder: "Välj en template nedan eller beskriv din vision...",
+  },
+  {
+    id: "audit",
+    label: "Analysera",
+    icon: FileSearch,
+    description: "Analysera befintlig sida",
+    outcome: "Förbättra din nuvarande sajt",
+    placeholder: "Klistra in din webbadress här, t.ex. https://mittforetag.se",
   },
 ]
 

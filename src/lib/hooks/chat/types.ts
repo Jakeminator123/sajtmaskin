@@ -30,6 +30,8 @@ export type MessageOptions = {
   scaffoldIdOverride?: string | null;
   /** Override the follow-up base version instead of using current builder selection. */
   engineBaseVersionIdOverride?: string | null;
+  /** Additional metadata merged into the request body's `meta` object. */
+  meta?: Record<string, unknown>;
 };
 
 export type CreateChatLock = {

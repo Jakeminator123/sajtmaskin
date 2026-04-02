@@ -80,16 +80,43 @@ function langBadge(lang: string): { color: string; label: string } {
 interface GenerationSummaryProps {
   content: string;
   isStreaming?: boolean;
+  simplified?: boolean;
 }
 
 export const GenerationSummary = memo(function GenerationSummary({
   content,
   isStreaming = false,
+  simplified = false,
 }: GenerationSummaryProps) {
   const [showRaw, setShowRaw] = useState(false);
   const parsed = useMemo(() => parseGenerationContent(content), [content]);
-  const streamingNotice =
-    "Buildern genererar nu komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs. Snabb statisk förhandsvisning (shim) kan visas före sandbox med riktig Next.js är klar.";
+
+  const streamingNoticeSimple =
+    "Nu bygger jag din hemsida! Det här tar en liten stund — du kan se hur det går i förhandsgranskningen till höger.";
+  const streamingNoticePro =
+    "Bygger komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs.";
+
+  const streamingNotice = simplified ? streamingNoticeSimple : streamingNoticePro;
+
+  if (simplified) {
+    return (
+      <div className="space-y-2 min-w-0">
+        <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-foreground overflow-hidden wrap-break-word">
+          {isStreaming ? streamingNotice : (parsed.proseText || "Din hemsida är klar!")}
+        </div>
+        <div className="flex items-center gap-2 px-1">
+          {isStreaming ? (
+            <Loader2 className="size-3.5 animate-spin text-primary" />
+          ) : (
+            <FileCode2 className="size-3.5 text-primary" />
+          )}
+          <span className="text-xs text-muted-foreground">
+            {isStreaming ? "Skapar din sajt…" : "Sajten är skapad"}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (!parsed.hasCodeBlocks) {
     return (

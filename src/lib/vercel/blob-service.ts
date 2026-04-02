@@ -19,7 +19,7 @@ export interface BlobUploadOptions {
   category?: "media" | "ai-images" | "project-files";
 }
 
-const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+const MAX_SERVER_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 function getExtension(filename: string): string {
   const lastDot = filename.lastIndexOf(".");

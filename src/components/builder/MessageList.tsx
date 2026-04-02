@@ -45,8 +45,34 @@ import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
+import { ScrapeProgressBar } from "@/components/builder/ScrapeProgressBar";
 import { Bot, ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const PROACTIVE_QUESTION = "Vad för typ av sajt vill du bygga? Berätta lite om ditt företag eller din idé så skapar vi något tillsammans.";
+
+function useTypewriter(text: string, speed = 30, delay = 1000) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    setDisplayed("");
+    setDone(false);
+    let i = 0;
+    const startTimer = setTimeout(() => {
+      const interval = setInterval(() => {
+        i++;
+        setDisplayed(text.slice(0, i));
+        if (i >= text.length) {
+          clearInterval(interval);
+          setDone(true);
+        }
+      }, speed);
+      return () => clearInterval(interval);
+    }, delay);
+    return () => clearTimeout(startTimer);
+  }, [text, speed, delay]);
+  return { displayed, done };
+}
 
 interface MessageListProps {
   chatId: string | null;
@@ -56,6 +82,9 @@ interface MessageListProps {
   onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
   onApproveBuildPlan?: (plan: Record<string, unknown>) => Promise<void> | void;
   quickReplyDisabled?: boolean;
+  onSuggestionSend?: (text: string) => void;
+  hideAgentLog?: boolean;
+  hideTooling?: boolean;
 }
 
 function hasGenerationContent(text: string, isStreaming: boolean): boolean {
@@ -73,14 +102,33 @@ const MessageListComponent = ({
   messages: externalMessages = [],
   showStructuredParts = false,
   onQuickReply,
+  onSuggestionSend,
   onApproveBuildPlan,
   quickReplyDisabled = false,
+  hideAgentLog = false,
+  hideTooling = false,
 }: MessageListProps) => {
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
   const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
+  const [showNudge, setShowNudge] = useState(false);
   const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
   const lastAutoOpenedEnvRequirementRef = useRef<string | null>(null);
+  const isEmpty = (!chatId && externalMessages.length === 0) || externalMessages.length === 0;
+  const { displayed: typedQuestion, done: typingDone } = useTypewriter(
+    isEmpty ? PROACTIVE_QUESTION : "",
+    25,
+    1000,
+  );
+
+  useEffect(() => {
+    setShowNudge(false);
+    if (externalMessages.length === 0) return;
+    const last = externalMessages[externalMessages.length - 1];
+    if (last.role !== "assistant" || last.isStreaming) return;
+    const timer = setTimeout(() => setShowNudge(true), 5000);
+    return () => clearTimeout(timer);
+  }, [externalMessages]);
 
   const sendQuickReply = async (
     messageId: string,
@@ -127,7 +175,7 @@ const MessageListComponent = ({
 
   useEffect(() => {
     const pendingKey = pendingReply?.key ?? null;
-    if (!pendingKey) {
+    if (!pendingKey || hideTooling) {
       setIsReplyDialogOpen(false);
       lastAutoOpenedReplyKeyRef.current = null;
       return;
@@ -135,7 +183,7 @@ const MessageListComponent = ({
     if (lastAutoOpenedReplyKeyRef.current === pendingKey) return;
     lastAutoOpenedReplyKeyRef.current = pendingKey;
     setIsReplyDialogOpen(true);
-  }, [pendingReply?.key]);
+  }, [pendingReply?.key, hideTooling]);
 
   useEffect(() => {
     const requirement = latestEnvRequirement;
@@ -158,11 +206,23 @@ const MessageListComponent = ({
     }
   };
 
-  if ((!chatId && messages.length === 0) || messages.length === 0) {
+  if (isEmpty) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground">
-        <MessageSquare className="mr-2 h-5 w-5" />
-        <p className="text-sm" suppressHydrationWarning>Beskriv vad du vill bygga</p>
+      <div className="flex h-full flex-col gap-4 px-4 pt-6">
+        {/* Proactive AI question — typewriter effect */}
+        {typedQuestion && (
+          <div className="flex gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
+              <Bot className="h-4 w-4" />
+            </span>
+            <div className="rounded-2xl rounded-tl-md border border-border/30 bg-muted/60 px-4 py-3 shadow-sm">
+              <p className="text-sm text-foreground leading-relaxed">
+                {typedQuestion}
+                {!typingDone && <span className="ml-0.5 inline-block w-[2px] h-4 bg-foreground/60 animate-pulse align-text-bottom" />}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -217,9 +277,9 @@ const MessageListComponent = ({
 
           return (
             <Message key={message.id} from={message.role}>
-              <MessageContent>
+              <MessageContent role={message.role}>
                 {message.role === "assistant" && message.isHelpMessage && (
-                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-primary/70">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-primary/60 uppercase">
                     <Bot className="h-3 w-3" />
                     Sajtagenten
                   </div>
@@ -231,7 +291,7 @@ const MessageListComponent = ({
                   </Reasoning>
                 )}
 
-                {showStructuredParts &&
+                {!hideTooling && showStructuredParts &&
                   message.role === "assistant" && (
                     <StructuredToolParts
                       messageId={message.id}
@@ -246,11 +306,12 @@ const MessageListComponent = ({
                     />
                   )}
 
-                {!showStructuredParts &&
+                {!hideTooling && !hideAgentLog &&
+                  !showStructuredParts &&
                   message.role === "assistant" &&
                   agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
 
-                {!showStructuredParts &&
+                {!hideTooling && !showStructuredParts &&
                   message.role === "assistant" &&
                   compactToolParts.length > 0 && (
                     <CompactToolParts
@@ -317,12 +378,42 @@ const MessageListComponent = ({
                     </Plan>
                   ))}
 
-                {message.role === "assistant" ? (
+                {(() => {
+                  const origMsg = externalMessages[messageIndex];
+                  const scrapeUiPart = origMsg?.uiParts?.find(
+                    (p) => p.kind === "scrape-progress",
+                  );
+                  if (scrapeUiPart) {
+                    const rawState = String(scrapeUiPart.state ?? "loading");
+                    const scrapeStatus: "loading" | "done" | "error" =
+                      rawState === "done" ? "done" : rawState === "error" ? "error" : "loading";
+                    const output = scrapeUiPart.output as Record<string, unknown> | undefined;
+                    return (
+                      <>
+                        <ScrapeProgressBar
+                          status={scrapeStatus}
+                          url={output?.url as string | undefined}
+                          title={output?.title as string | undefined}
+                        />
+                        {textContent && (
+                          <MessageResponse>
+                            <Streamdown plugins={{ code: streamdownCode }}>
+                              {textContent}
+                            </Streamdown>
+                          </MessageResponse>
+                        )}
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {!externalMessages[messageIndex]?.uiParts?.some((p) => p.kind === "scrape-progress") && (message.role === "assistant" ? (
                   textContent ? (
                     (textContent.includes('file="') ||
                       textContent.includes("```") ||
                       (Boolean(message.isStreaming) && textContent.length > 400)) ? (
-                      <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
+                      <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} simplified={hideTooling} />
                     ) : (
                       <MessageResponse>
                         <Streamdown
@@ -339,7 +430,7 @@ const MessageListComponent = ({
                   ) : null
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
-                )}
+                ))}
 
                 {showStructuredParts && message.role === "assistant" && sources.length > 0 && (
                   <Sources>
@@ -376,7 +467,22 @@ const MessageListComponent = ({
         <ConversationScrollButton />
       </Conversation>
 
-      {pendingReply && (
+      {showNudge && onSuggestionSend && (
+        <div className="flex justify-center px-4 pb-2 animate-fade-up">
+          <button
+            type="button"
+            onClick={() => {
+              onSuggestionSend("Vad vill du ändra?");
+              setShowNudge(false);
+            }}
+            className="rounded-full border border-border/40 bg-card/60 px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+          >
+            Vad vill du ändra?
+          </button>
+        </div>
+      )}
+
+      {pendingReply && !hideTooling && (
         <>
           <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
             <DialogContent className="sm:max-w-md">
@@ -453,7 +559,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);
 
   if (!shouldCollapse) {
-    return <p className="text-sm whitespace-pre-wrap text-foreground">{content}</p>;
+    return <p className="text-sm whitespace-pre-wrap">{content}</p>;
   }
 
   // Extract summary line (first line before ---)
@@ -465,10 +571,10 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   if (isExpanded) {
     return (
       <div className="space-y-2">
-        <p className="text-sm whitespace-pre-wrap text-foreground">{content}</p>
+        <p className="text-sm whitespace-pre-wrap">{content}</p>
         <button
           onClick={() => setIsExpanded(false)}
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+          className="flex items-center gap-1 text-xs opacity-70 hover:opacity-100"
         >
           <ChevronUp className="h-3 w-3" />
           Dölj detaljer
@@ -479,7 +585,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm whitespace-pre-wrap text-foreground">{summary}</p>
+      <p className="text-sm whitespace-pre-wrap">{summary}</p>
       <button
         onClick={() => setIsExpanded(true)}
         className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"

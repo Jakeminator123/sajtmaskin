@@ -375,7 +375,10 @@ export function useCreateChat(
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
         }
-        if (pendingBriefRef?.current) {
+        if (options.meta) {
+          Object.assign(promptMeta, options.meta);
+        }
+        if (pendingBriefRef?.current && !promptMeta.brief) {
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }

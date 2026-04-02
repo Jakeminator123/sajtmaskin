@@ -1097,12 +1097,15 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
     const toolParts = message.parts.filter(
       (part): part is ToolPart => part.type === "tool",
     );
+    const INLINE_KINDS = new Set(["needs-analysis", "scrape-progress"]);
     for (let toolIndex = toolParts.length - 1; toolIndex >= 0; toolIndex -= 1) {
       const toolPart = toolParts[toolIndex];
       const tool = toolPart.tool as Partial<ToolUIPart> & {
         type?: string;
         approval?: unknown;
+        kind?: string;
       };
+      if (INLINE_KINDS.has(tool.kind ?? "")) continue;
       const toolState = (
         typeof tool.state === "string" ? tool.state : "input-available"
       ) as ToolUIPart["state"];
@@ -1121,8 +1124,10 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
         planMode: isPlanAwaitingInput(tool),
       };
     }
+    const INLINE_TOOL_KINDS = new Set(["needs-analysis", "scrape-progress"]);
     const hasAwaitingInput = toolParts.some((part) => {
-      const tool = part.tool as { type?: string; state?: string };
+      const tool = part.tool as { type?: string; state?: string; kind?: string };
+      if (INLINE_TOOL_KINDS.has(tool.kind ?? "")) return false;
       return tool.type === "tool:awaiting-input" || tool.state === "approval-requested";
     });
     const hasPlanAwaitingInput = toolParts.some((part) =>
@@ -1140,9 +1145,11 @@ export function getLatestPendingReply(messages: AIElementsMessage[]): PendingRep
         const tool = toolParts[ti]!.tool as Partial<ToolUIPart> & {
           type?: string;
           output?: unknown;
+          kind?: string;
         };
-        const t = tool as { type?: string };
+        const t = tool as { type?: string; kind?: string };
         if (t.type !== "tool:awaiting-input") continue;
+        if (INLINE_TOOL_KINDS.has(t.kind ?? "")) continue;
         const fromOutput = extractQuestionPrompt(tool.output);
         if (fromOutput?.question?.trim()) {
           return {

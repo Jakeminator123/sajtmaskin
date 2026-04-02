@@ -86,6 +86,18 @@ type Args = {
   applyAppProjectId: (nextProjectId: string | null, options?: { chatId?: string | null }) => void;
 };
 
+function shouldForceDeepBriefForFirstPrompt(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  const hasStructuredSignal = /[:\n]/.test(trimmed);
+
+  // Short landing-style openers are better handled by the fast prompt addendum path.
+  // Deep brief remains valuable once the prompt is more detailed or structured.
+  return trimmed.length >= 140 || wordCount >= 20 || hasStructuredSignal;
+}
+
 export function useBuilderPromptActions({
   chatId,
   scaffoldMode,
@@ -220,9 +232,10 @@ export function useBuilderPromptActions({
       try {
         pendingBriefRef.current = null;
         pendingSpecRef.current = null;
+        const forceDeepBrief = shouldForceDeepBriefForFirstPrompt(trimmed);
         const addendum = await generateDynamicInstructions(trimmed, {
-          forceShallow: false,
-          forceDeepBrief: true,
+          forceShallow: !forceDeepBrief,
+          forceDeepBrief,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
             if (specMode) {
@@ -271,9 +284,12 @@ export function useBuilderPromptActions({
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
       setEntryIntentActive(false);
+      if (options?.skipDynamicInstructions) {
+        captureInstructionSnapshot();
+        await createNewChat(message, options);
+        return true;
+      }
       const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
-      // Dynamic path sets pendingInstructionsRef synchronously to `combined`; captureInstructionSnapshot
-      // would overwrite it with stale `customInstructions` from the previous render (setState is async).
       if (dynamicInstructions == null) {
         captureInstructionSnapshot();
       }

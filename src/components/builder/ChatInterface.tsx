@@ -34,7 +34,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { FileText, HelpCircle, ImageIcon, Loader2, Paperclip, Plus, Wand2, X } from "lucide-react";
+import { ChevronUp, FileText, HelpCircle, ImageIcon, Loader2, Paperclip, Plus, Wand2, X } from "lucide-react";
+import { ActionHubPopup } from "@/components/builder/ActionHubPopup";
+import type { ActionHubItemAction } from "@/lib/builder/action-hub-items";
 import { HELP_SUGGESTIONS } from "@/lib/builder/help-suggestions";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -60,6 +62,7 @@ import {
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
+import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/utils/debug";
 import { toast } from "sonner";
 
@@ -207,6 +210,15 @@ interface ChatInterfaceProps {
   currentCode?: string;
   existingUiComponents?: string[];
   continuePlanMode?: boolean;
+  showAdvancedControls?: boolean;
+  quickChips?: string[];
+  onQuickChipSend?: (text: string) => void;
+  answerSuggestions?: string[];
+  answerSuggestionsField?: string | null;
+  showActionHub?: boolean;
+  onActionHubAction?: (action: ActionHubItemAction) => void;
+  changeQueueCount?: number;
+  onFlushChangeQueue?: () => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -271,6 +283,15 @@ export function ChatInterface({
   currentCode,
   existingUiComponents,
   continuePlanMode = false,
+  showAdvancedControls = true,
+  quickChips,
+  onQuickChipSend,
+  answerSuggestions,
+  answerSuggestionsField: _answerSuggestionsField,
+  showActionHub: showActionHubProp = false,
+  onActionHubAction,
+  changeQueueCount = 0,
+  onFlushChangeQueue,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -286,6 +307,8 @@ export function ChatInterface({
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
   const [figmaPreviewLoading, setFigmaPreviewLoading] = useState(false);
   const [inspectPoints, setInspectPoints] = useState<InspectPointToken[]>([]);
+  const [actionHubOpen, setActionHubOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const isFigmaInputOpen = controlledFigmaInputOpen ?? internalFigmaInputOpen;
   const setFigmaInputOpen = useCallback(
     (next: boolean | ((prev: boolean) => boolean)) => {
@@ -301,6 +324,7 @@ export function ChatInterface({
 
   const [pickerTab, setPickerTab] = useState<UnifiedPickerTab | null>(null);
   const [showHelpSuggestions, setShowHelpSuggestions] = useState(false);
+  const [showAnswerSuggestions, setShowAnswerSuggestions] = useState(false);
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
@@ -881,8 +905,68 @@ export function ChatInterface({
     });
   };
 
+  const handleChatDragOver = useCallback((e: React.DragEvent) => {
+    if (!mediaEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, [mediaEnabled]);
+
+  const handleChatDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleChatDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    if (!mediaEnabled) return;
+    const droppedFiles = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/") || f.type.startsWith("video/"),
+    );
+    if (!droppedFiles.length) return;
+
+    for (const rawFile of droppedFiles) {
+      const tempId = `drop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      setFiles((prev) => [
+        ...prev,
+        { id: tempId, url: "", filename: rawFile.name, mimeType: rawFile.type, size: rawFile.size, status: "uploading" as const },
+      ]);
+      const formData = new FormData();
+      formData.append("file", rawFile);
+      fetch("/api/media/upload", { method: "POST", body: formData })
+        .then((res) => res.json())
+        .then((data: { url?: string }) => {
+          if (data.url) {
+            setFiles((prev) =>
+              prev.map((f) => f.id === tempId ? { ...f, url: data.url!, status: "success" as const, isPublicUrl: true, purpose: "user-placement" } : f),
+            );
+          } else {
+            setFiles((prev) => prev.map((f) => f.id === tempId ? { ...f, status: "error" as const } : f));
+          }
+        })
+        .catch(() => {
+          setFiles((prev) => prev.map((f) => f.id === tempId ? { ...f, status: "error" as const } : f));
+        });
+    }
+  }, [mediaEnabled]);
+
+  const hasActionHub = showActionHubProp && !showAdvancedControls && Boolean(chatId);
+
   return (
-    <div className="border-border bg-background border-t p-4">
+    <div
+      className="border-border bg-background relative border-t p-4"
+      onDragOver={handleChatDragOver}
+      onDragLeave={handleChatDragLeave}
+      onDrop={handleChatDrop}
+    >
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 backdrop-blur-[2px]">
+          <p className="text-sm text-primary/70">Släpp bilden här</p>
+        </div>
+      )}
       <PromptInput
         value={input}
         onChange={handleInputChange}
@@ -891,69 +975,73 @@ export function ChatInterface({
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                disabled={inputDisabled}
-                title="Verktyg"
-              >
-                <Plus className="size-4" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-44 p-1">
-              {onEnhancePrompt && (
+          {showAdvancedControls && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                  disabled={inputDisabled}
+                  title="Verktyg"
+                >
+                  <Plus className="size-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-44 p-1">
+                {onEnhancePrompt && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                    onClick={handleEnhancePrompt}
+                    disabled={inputDisabled || isEnhancing || !input.trim()}
+                  >
+                    {isEnhancing ? <Loader2 className="size-3.5 animate-spin" /> : <Wand2 className="size-3.5" />}
+                    Skriv om
+                  </button>
+                )}
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                  onClick={handleEnhancePrompt}
-                  disabled={inputDisabled || isEnhancing || !input.trim()}
+                  onClick={handlePlanRequest}
+                  disabled={inputDisabled || !input.trim()}
                 >
-                  {isEnhancing ? <Loader2 className="size-3.5 animate-spin" /> : <Wand2 className="size-3.5" />}
-                  Skriv om
+                  <FileText className="size-3.5" />
+                  Plan
                 </button>
-              )}
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                onClick={handlePlanRequest}
-                disabled={inputDisabled || !input.trim()}
-              >
-                <FileText className="size-3.5" />
-                Plan
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                onClick={() => setPickerTab("ui")}
-                disabled={inputDisabled}
-              >
-                <Plus className="size-3.5" />
-                Element
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
-                onClick={() => setPickerTab("mall")}
-                disabled={inputDisabled}
-              >
-                <ImageIcon className="size-3.5" />
-                Mall
-              </button>
-            </PopoverContent>
-          </Popover>
-          <button
-            type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-            disabled={inputDisabled}
-            title="Förslag & hjälp"
-            onClick={() => setShowHelpSuggestions((prev) => !prev)}
-          >
-            <HelpCircle className="size-4" />
-          </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  onClick={() => setPickerTab("ui")}
+                  disabled={inputDisabled}
+                >
+                  <Plus className="size-3.5" />
+                  Element
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  onClick={() => setPickerTab("mall")}
+                  disabled={inputDisabled}
+                >
+                  <ImageIcon className="size-3.5" />
+                  Mall
+                </button>
+              </PopoverContent>
+            </Popover>
+          )}
+          {showAdvancedControls && (
+            <button
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+              disabled={inputDisabled}
+              title="Forslag och hjalp"
+              onClick={() => setShowHelpSuggestions((prev) => !prev)}
+            >
+              <HelpCircle className="size-4" />
+            </button>
+          )}
         </PromptInputHeader>
-        {showHelpSuggestions && (
+        {showAdvancedControls && showHelpSuggestions && (
           <div className="max-h-52 overflow-y-auto border-t border-border px-3 py-2 space-y-3">
             {HELP_SUGGESTIONS.map((group) => (
               <div key={group.group}>
@@ -966,8 +1054,12 @@ export function ChatInterface({
                       key={item}
                       type="button"
                       onClick={() => {
-                        setInput(item);
                         setShowHelpSuggestions(false);
+                        if (onQuickChipSend) {
+                          onQuickChipSend(item);
+                        } else {
+                          setInput(item);
+                        }
                       }}
                       className="rounded-md border border-border px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-muted/60"
                     >
@@ -979,7 +1071,7 @@ export function ChatInterface({
             ))}
           </div>
         )}
-        {(isFigmaInputOpen || figmaUrl.trim()) && (
+        {showAdvancedControls && (isFigmaInputOpen || figmaUrl.trim()) && (
           <div className="space-y-2 px-3 pb-2">
             <div className="flex items-center gap-2">
               <Input
@@ -1115,15 +1207,43 @@ export function ChatInterface({
           </div>
         )}
         <PromptInputBody>
+          {quickChips && quickChips.length > 0 && !chatId && !input && (
+            <div className="flex flex-wrap gap-1.5 px-3 pt-2">
+              {quickChips.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => onQuickChipSend?.(chip)}
+                  className="rounded-xl border border-border/40 bg-muted/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
           <PromptInputTextarea
             data-openclaw-text-target="builder.chat.primary"
             data-openclaw-text-label="Builderns huvudprompt"
             placeholder={
-              chatId
-                ? "Skriv en uppdatering... (Enter för att skicka)"
-                : "Beskriv vad du vill bygga... (Enter för att skicka)"
+              showAdvancedControls
+                ? chatId
+                  ? "Skriv en uppdatering... (Enter för att skicka)"
+                  : "Beskriv vad du vill bygga... (Enter för att skicka)"
+                : hasSuccessFiles && chatId
+                  ? "Beskriv var bilden ska placeras..."
+                  : changeQueueCount > 0
+                    ? "Lägg till fler ändringar eller skriv 'kör'..."
+                    : chatId
+                      ? "Skriv här..."
+                      : "Skriv eller prata. Jag guidar dig."
             }
-            aria-label={chatId ? "Skriv en uppdatering" : "Beskriv vad du vill bygga"}
+            aria-label={
+              showAdvancedControls
+                ? chatId
+                  ? "Skriv en uppdatering"
+                  : "Beskriv vad du vill bygga"
+                : "Skriv ditt svar"
+            }
             autoComplete="off"
             disabled={inputDisabled}
             className="min-h-[80px] border-0 shadow-none focus-visible:ring-0"
@@ -1160,24 +1280,28 @@ export function ChatInterface({
                         compact
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsMediaDrawerOpen(true)}
-                      disabled={inputDisabled}
-                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                    >
-                      <ImageIcon className="size-3.5" />
-                      Media
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsTextUploaderOpen(true)}
-                      disabled={inputDisabled}
-                      className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                    >
-                      <FileText className="size-3.5" />
-                      Text/PDF
-                    </button>
+                    {showAdvancedControls && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsMediaDrawerOpen(true)}
+                          disabled={inputDisabled}
+                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        >
+                          <ImageIcon className="size-3.5" />
+                          Media
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsTextUploaderOpen(true)}
+                          disabled={inputDisabled}
+                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        >
+                          <FileText className="size-3.5" />
+                          Text/PDF
+                        </button>
+                      </>
+                    )}
                   </PopoverContent>
                 </Popover>
               )}
@@ -1188,13 +1312,92 @@ export function ChatInterface({
                   setInput((prev) => (prev ? `${prev} ${text}` : text))
                 }
               />
+              {answerSuggestions && answerSuggestions.length > 0 && !hasActionHub && (
+                <Popover open={showAnswerSuggestions} onOpenChange={setShowAnswerSuggestions}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/20 bg-primary/5 text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                      disabled={inputDisabled}
+                      title="Svarsförslag"
+                      aria-label="Visa svarsförslag"
+                    >
+                      <HelpCircle className="size-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    side="top"
+                    className="w-64 p-2"
+                    sideOffset={12}
+                  >
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Svarsförslag
+                    </p>
+                    <div className="flex flex-col gap-1">
+                      {answerSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => {
+                            setShowAnswerSuggestions(false);
+                            if (onQuickChipSend) {
+                              onQuickChipSend(suggestion);
+                            } else {
+                              setInput(suggestion);
+                            }
+                          }}
+                          className="rounded-lg border border-border/40 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-muted/60"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+              {hasActionHub && (
+                <button
+                  type="button"
+                  onClick={() => setActionHubOpen(true)}
+                  disabled={inputDisabled}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/20 bg-primary/5 text-primary transition-all hover:bg-primary/10 disabled:opacity-50"
+                  title="Åtgärder"
+                  aria-label="Visa åtgärder"
+                >
+                  <ChevronUp className="size-3.5" />
+                </button>
+              )}
             </PromptInputTools>
+            {changeQueueCount > 0 && onFlushChangeQueue && (
+              <button
+                type="button"
+                onClick={onFlushChangeQueue}
+                disabled={inputDisabled}
+                className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+              >
+                Kör{changeQueueCount > 1 ? ` (${changeQueueCount})` : ""}
+              </button>
+            )}
             <PromptInputSubmit disabled={submitDisabled}>
               {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
             </PromptInputSubmit>
           </div>
         </PromptInputFooter>
       </PromptInput>
+
+      {hasActionHub && actionHubOpen && (
+        <ActionHubPopup
+          onAction={(action) => {
+            if (action.type === "prompt") {
+              setInput(action.text);
+            } else if (onActionHubAction) {
+              onActionHubAction(action);
+            }
+          }}
+          onClose={() => setActionHubOpen(false)}
+        />
+      )}
 
       {mediaEnabled && (
         <MediaDrawer
@@ -1213,7 +1416,7 @@ export function ChatInterface({
         />
       )}
 
-      {pickerTab && (
+      {showAdvancedControls && pickerTab && (
         <UnifiedElementPicker
           open={Boolean(pickerTab)}
           initialTab={pickerTab}

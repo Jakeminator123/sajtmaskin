@@ -36,10 +36,10 @@ import { toast } from "sonner";
 
 import { useBuilderCallbacks } from "./useBuilderCallbacks";
 import { useBuilderDeployActions } from "./useBuilderDeployActions";
+import { buildSeedNeedsAnalysisMessages } from "@/lib/builder/needs-analysis";
 import {
   useBuilderDerivedState,
   type ChatData,
-  type VersionSummary,
 } from "./useBuilderDerivedState";
 import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
@@ -467,6 +467,7 @@ export function useBuilderPageController() {
 
   // ── Auto-generate ref for kostnadsfri flow ───────────────────────────
   const autoGenerateTriggeredRef = useRef(false);
+  const entryAnalysisSeededRef = useRef(false);
   const [promptFetchRetryNonce, setPromptFetchRetryNonce] = useState(0);
 
   // =====================================================================
@@ -1402,10 +1403,35 @@ export function useBuilderPageController() {
     setPreviewRefreshToken(Date.now());
   }, [promptAssistContextKeyRef, promptFetchDoneRef, setPreviewRefreshToken]);
 
-  // Auto-start generation for kostnadsfri flow
+  // Hero/freeform entry should start with a needs analysis in chat before generation.
+  useEffect(() => {
+    if (!entryIntentActive) return;
+    if (buildMethod !== "freeform") return;
+    if (!resolvedPrompt?.trim()) return;
+    if (chatId) return;
+    if (state.messages.length > 0) return;
+    if (entryAnalysisSeededRef.current) return;
+
+    entryAnalysisSeededRef.current = true;
+    setMessages(buildSeedNeedsAnalysisMessages(resolvedPrompt.trim()));
+    setResolvedPrompt(null);
+    setEntryIntentActive(false);
+  }, [
+    entryIntentActive,
+    buildMethod,
+    resolvedPrompt,
+    chatId,
+    state.messages.length,
+    setMessages,
+    setResolvedPrompt,
+    setEntryIntentActive,
+  ]);
+
+  // Auto-start generation for entry flows that already handed off a prompt
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (buildMethod !== "kostnadsfri") return;
+    if (!entryIntentActive) return;
+    if (buildMethod === "freeform") return;
     if (!resolvedPrompt) return;
     if (chatId) return;
     if (autoGenerateTriggeredRef.current) return;
@@ -1417,7 +1443,7 @@ export function useBuilderPageController() {
       void promptActions.requestCreateChat(resolvedPrompt!);
     }, 500);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, buildMethod, resolvedPrompt, chatId, setSelectedModelTier, promptActions]);
+  }, [isAuthenticated, entryIntentActive, buildMethod, resolvedPrompt, chatId, setSelectedModelTier, promptActions]);
 
   // =====================================================================
   // Return view model
@@ -1493,6 +1519,8 @@ export function useBuilderPageController() {
     currentPageCode: state.currentPageCode,
     existingUiComponents: state.existingUiComponents,
     appProjectId: state.appProjectId,
+    selectedTemplateIds: state.selectedTemplateIds,
+    showTemplatePicker: state.showTemplatePicker,
 
     // Setters the shell needs for onChange handlers
     setSelectedModelTier: state.setSelectedModelTier,
@@ -1523,6 +1551,8 @@ export function useBuilderPageController() {
     setClearedPreviewVersionId: state.setClearedPreviewVersionId,
     setChatId: state.setChatId,
     setMessages: state.setMessages,
+    setSelectedTemplateIds: state.setSelectedTemplateIds,
+    setShowTemplatePicker: state.setShowTemplatePicker,
 
     // Derived
     isAnyStreaming: derived.isAnyStreaming,

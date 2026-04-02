@@ -91,6 +91,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
       const validationResult = createChatSchema.safeParse(body);
       if (!validationResult.success) {
+        console.warn("[CreateChat] Validation failed:", JSON.stringify(validationResult.error.issues, null, 2));
         return attachSessionCookie(
           NextResponse.json(
             { error: "Validation failed", details: validationResult.error.issues },

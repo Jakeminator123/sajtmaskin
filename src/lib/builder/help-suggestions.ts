@@ -1,6 +1,7 @@
-export const HELP_SUGGESTIONS: { group: string; items: string[] }[] = [
+export const HELP_SUGGESTIONS: { group: string; items: string[]; intents?: string[] }[] = [
   {
     group: "Komma igång",
+    intents: ["fritext", "analyserad"],
     items: [
       "Skapa en restaurangsida",
       "Bygg en konsultsajt",
@@ -14,6 +15,7 @@ export const HELP_SUGGESTIONS: { group: string; items: string[] }[] = [
   },
   {
     group: "Design & Layout",
+    intents: ["fritext", "template"],
     items: [
       "Byt färgtema",
       "Lägg till en hero-sektion",
@@ -53,6 +55,7 @@ export const HELP_SUGGESTIONS: { group: string; items: string[] }[] = [
   },
   {
     group: "Förbättra",
+    intents: ["audit"],
     items: [
       "Snabba upp laddningstiden",
       "Förbättra SEO",

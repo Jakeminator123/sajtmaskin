@@ -18,8 +18,8 @@ export type SandboxSessionEntry = {
   lastUsedAt: number;
 };
 
-const DEFAULT_IDLE_MS = 30 * 60 * 1000;
-const DEFAULT_HARD_CAP_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_IDLE_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_HARD_CAP_MS = 8 * 60 * 60 * 1000;
 
 const REDIS_SESSION_PREFIX = `${REDIS_KEY_PREFIX}sandbox-preview:session:`;
 const REDIS_TTL_SECONDS = Math.ceil(DEFAULT_HARD_CAP_MS / 1000);

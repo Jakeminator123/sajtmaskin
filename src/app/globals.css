@@ -14,7 +14,7 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 18 90% 55%;
+    --primary: 220 60% 22%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
@@ -26,16 +26,16 @@
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 18 90% 55%;
-    --radius: 0.5rem;
+    --ring: 220 60% 22%;
+    --radius: 0.75rem;
     --brand-navy: 222 47% 11%;
-    --brand-orange: 18 90% 55%;
-    --brand-amber: 38 92% 50%;
-    --brand-warm: 12 84% 58%;
+    --brand-orange: 220 60% 22%;
+    --brand-amber: 220 50% 30%;
+    --brand-warm: 220 55% 26%;
 
     /* Backward-compat aliases */
-    --brand-blue: 18 90% 55%;
-    --brand-teal: 20 60% 45%;
+    --brand-blue: 220 60% 22%;
+    --brand-teal: 220 45% 28%;
   }
 }
 
@@ -59,7 +59,7 @@
     background-color: hsl(var(--background)) !important;
   }
 
-  /* Rounded corners via --radius: 0.5rem variable above.
+  /* Rounded corners via --radius: 0.75rem variable above.
      Shadcn/ui components use var(--radius) automatically. */
 
   /* Optimize shader background rendering */
@@ -342,23 +342,23 @@
 :root {
   --sidebar: hsl(0 0% 98%);
   --sidebar-foreground: hsl(222 47% 11%);
-  --sidebar-primary: hsl(18 90% 55%);
+  --sidebar-primary: hsl(220 60% 22%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
   --sidebar-accent: hsl(220 14% 96%);
   --sidebar-accent-foreground: hsl(222 47% 11%);
   --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(18 90% 55%);
+  --sidebar-ring: hsl(220 60% 22%);
 }
 
 .dark {
   --sidebar: hsl(222 47% 11%);
   --sidebar-foreground: hsl(0 0% 96%);
-  --sidebar-primary: hsl(18 90% 55%);
+  --sidebar-primary: hsl(220 60% 22%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
   --sidebar-accent: hsl(222 40% 16%);
   --sidebar-accent-foreground: hsl(0 0% 96%);
   --sidebar-border: hsl(222 30% 20%);
-  --sidebar-ring: hsl(18 90% 55%);
+  --sidebar-ring: hsl(220 60% 22%);
 }
 
 @theme inline {
@@ -370,4 +370,37 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@keyframes subtle-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 3s ease-in-out infinite;
+}
+
+@keyframes chat-shadow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 4px 24px -4px rgba(0, 0, 0, 0.08),
+      0 1px 4px -1px rgba(0, 0, 0, 0.04);
+  }
+  50% {
+    box-shadow:
+      0 8px 40px -4px rgba(0, 0, 0, 0.14),
+      0 2px 8px -2px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.animate-chat-shadow-pulse {
+  animation: chat-shadow-pulse 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-subtle-pulse,
+  .animate-chat-shadow-pulse {
+    animation: none;
+  }
 }

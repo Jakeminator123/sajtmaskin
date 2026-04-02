@@ -357,27 +357,7 @@ function RootLandingContent() {
   };
 
   const renderHeroPrefix = () => {
-    if (!isInitialized || !isAuthenticated || !firstName) return null;
-    return (
-      <div className="animate-fade-up mb-4" style={{ animationDelay: "0.05s" }}>
-        <div className="inline-flex items-center gap-3 rounded-full border border-primary/15 bg-primary/5 px-5 py-2 backdrop-blur-xl">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
-            {firstName[0]?.toUpperCase()}
-          </div>
-          <span className="text-sm text-muted-foreground">
-            Välkommen,{" "}
-            <span className="font-medium text-foreground">{firstName}</span>
-          </span>
-          <div className="h-3.5 w-px bg-border/30" />
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-primary">
-              {user?.diamonds ?? 0}
-            </span>
-            <span className="text-xs text-muted-foreground">credits</span>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   };
 
   return (

@@ -22,12 +22,15 @@ type ActionRule = {
   guestLimit?: number;
 };
 
+const GUEST_GEN_LIMIT = process.env.NODE_ENV === "development" ? 50 : 1;
+const GUEST_REFINE_LIMIT = process.env.NODE_ENV === "development" ? 50 : 1;
+
 const ACTION_RULES: Record<CreditAction, ActionRule> = {
-  "prompt.create": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
-  "prompt.refine": { allowGuest: true, guestUsageType: "refine", guestLimit: 1 },
-  "prompt.template": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
-  "prompt.registry": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
-  "prompt.vercelTemplate": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
+  "prompt.create": { allowGuest: true, guestUsageType: "generate", guestLimit: GUEST_GEN_LIMIT },
+  "prompt.refine": { allowGuest: true, guestUsageType: "refine", guestLimit: GUEST_REFINE_LIMIT },
+  "prompt.template": { allowGuest: true, guestUsageType: "generate", guestLimit: GUEST_GEN_LIMIT },
+  "prompt.registry": { allowGuest: true, guestUsageType: "generate", guestLimit: GUEST_GEN_LIMIT },
+  "prompt.vercelTemplate": { allowGuest: true, guestUsageType: "generate", guestLimit: GUEST_GEN_LIMIT },
   "wizard.enrich": { allowGuest: false },
   "deploy.preview": { allowGuest: false },
   "deploy.production": { allowGuest: false },

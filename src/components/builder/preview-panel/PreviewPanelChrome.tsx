@@ -54,6 +54,7 @@ interface PreviewPanelChromeProps {
   showImagesDisabledWarning: boolean;
   showImagesUnsupportedWarning: boolean;
   showExternalWarning: boolean;
+  simplified?: boolean;
 }
 
 export function PreviewPanelChrome({
@@ -93,7 +94,12 @@ export function PreviewPanelChrome({
   showImagesDisabledWarning,
   showImagesUnsupportedWarning,
   showExternalWarning,
+  simplified = false,
 }: PreviewPanelChromeProps) {
+  if (simplified) {
+    return null;
+  }
+
   return (
     <>
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">

@@ -3,6 +3,12 @@
 import { useCallback, useRef, useState } from "react";
 import type { ChatMessage } from "@/lib/builder/types";
 
+declare global {
+  interface Window {
+    __SITEMASKIN_CONTEXT?: Record<string, unknown>;
+  }
+}
+
 function makeHelpId() {
   return `help-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -37,6 +43,50 @@ async function* parseSSE(reader: ReadableStreamDefaultReader<Uint8Array>) {
   }
 }
 
+function collectSiteContext(): Record<string, unknown> | null {
+  if (typeof window === "undefined") return null;
+  return window.__SITEMASKIN_CONTEXT ?? null;
+}
+
+async function streamOpenClawToMessages(
+  res: Response,
+  assistantId: string,
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+) {
+  if (!res.ok || !res.body) {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === assistantId
+          ? { ...m, content: `Kunde inte nå Sajtagenten (${res.status}). Försök igen.`, isStreaming: false }
+          : m,
+      ),
+    );
+    return "";
+  }
+
+  const reader = res.body.getReader();
+  let accumulated = "";
+
+  for await (const chunk of parseSSE(reader)) {
+    accumulated += chunk;
+    const snapshot = accumulated;
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === assistantId ? { ...m, content: snapshot } : m,
+      ),
+    );
+  }
+
+  setMessages((prev) =>
+    prev.map((m) =>
+      m.id === assistantId
+        ? { ...m, content: accumulated || "(Inget svar från Sajtagenten)", isStreaming: false }
+        : m,
+    ),
+  );
+  return accumulated;
+}
+
 export function useBuilderHelpChat() {
   const [isHelpStreaming, setIsHelpStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -69,79 +119,96 @@ export function useBuilderHelpChat() {
       setIsHelpStreaming(true);
       abortRef.current = new AbortController();
 
-      const apiMessages = [{ role: "user" as const, content: trimmed }];
+      try {
+        const res = await fetch("/api/openclaw/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: [{ role: "user", content: trimmed }], context: null }),
+          signal: abortRef.current.signal,
+        });
+        await streamOpenClawToMessages(res, assistantId, setMessages);
+      } catch (e) {
+        if (!(e instanceof DOMException && e.name === "AbortError")) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: "Något gick fel med Sajtagenten. Försök igen.", isStreaming: false }
+                : m,
+            ),
+          );
+        } else {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, isStreaming: false } : m)),
+          );
+        }
+      } finally {
+        setIsHelpStreaming(false);
+        abortRef.current = null;
+      }
+    },
+    [isHelpStreaming],
+  );
+
+  const sendCoachMessage = useCallback(
+    async (
+      text: string,
+      setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+      options?: { silent?: boolean },
+    ) => {
+      const trimmed = text.trim();
+      if (!trimmed || isHelpStreaming) return;
+
+      if (!options?.silent) {
+        const userMsg: ChatMessage = {
+          id: makeHelpId(),
+          role: "user",
+          content: trimmed,
+          isHelpMessage: true,
+        };
+        setMessages((prev) => [...prev, userMsg]);
+      }
+
+      const assistantId = makeHelpId();
+      const assistantMsg: ChatMessage = {
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+        isHelpMessage: true,
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      setIsHelpStreaming(true);
+      abortRef.current = new AbortController();
+
+      const context = collectSiteContext();
 
       try {
         const res = await fetch("/api/openclaw/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: apiMessages, context: null }),
+          body: JSON.stringify({
+            messages: [{ role: "user", content: trimmed }],
+            context,
+          }),
           signal: abortRef.current.signal,
         });
-
-        if (!res.ok || !res.body) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? {
-                    ...m,
-                    content: `Kunde inte nå Sajtagenten (${res.status}). Försök igen.`,
-                    isStreaming: false,
-                  }
-                : m,
-            ),
-          );
-          return;
-        }
-
-        const reader = res.body.getReader();
-        let accumulated = "";
-
-        for await (const chunk of parseSSE(reader)) {
-          accumulated += chunk;
-          const snapshot = accumulated;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: snapshot } : m,
-            ),
-          );
-        }
-
-        if (!accumulated) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: "(Inget svar från Sajtagenten)", isStreaming: false }
-                : m,
-            ),
-          );
-        } else {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, isStreaming: false } : m,
-            ),
-          );
-        }
+        const result = await streamOpenClawToMessages(res, assistantId, setMessages);
+        return result;
       } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") {
+        if (!(e instanceof DOMException && e.name === "AbortError")) {
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === assistantId ? { ...m, isStreaming: false } : m,
+              m.id === assistantId
+                ? { ...m, content: "Något gick fel med Sajtagenten. Försök igen.", isStreaming: false }
+                : m,
             ),
           );
         } else {
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? {
-                    ...m,
-                    content: "Något gick fel med Sajtagenten. Försök igen.",
-                    isStreaming: false,
-                  }
-                : m,
-            ),
+            prev.map((m) => (m.id === assistantId ? { ...m, isStreaming: false } : m)),
           );
         }
+        return undefined;
       } finally {
         setIsHelpStreaming(false);
         abortRef.current = null;
@@ -154,5 +221,5 @@ export function useBuilderHelpChat() {
     abortRef.current?.abort();
   }, []);
 
-  return { isHelpStreaming, sendHelpMessage, cancelHelp };
+  return { isHelpStreaming, sendHelpMessage, sendCoachMessage, cancelHelp };
 }

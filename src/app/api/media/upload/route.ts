@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
   canUserUploadFile,
   getMediaLibraryByUser,
@@ -39,9 +40,9 @@ import { errorLog, warnLog } from "@/lib/utils/debug";
 // CONSTANTS
 // ============================================================================
 
-const MAX_IMAGES = 10; // Includes logos
+const MAX_IMAGES = 12;
 const MAX_VIDEOS = 3;
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview reliability)
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 const ALLOWED_MIME_TYPES = [
   // Images
@@ -60,6 +61,8 @@ const ALLOWED_MIME_TYPES = [
   "video/x-msvideo",
   // Documents
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
   // Text
   "text/plain",
   "text/markdown",
@@ -75,10 +78,10 @@ const ALLOWED_MIME_TYPES = [
 export async function POST(request: NextRequest) {
   return withRateLimit(request, "media:upload", async () => {
     try {
-    // Require authentication
     const user = await getCurrentUser(request);
-    if (!user) {
-      warnLog("Media", "Upload blocked: unauthenticated");
+    const sessionId = getSessionIdFromRequest(request);
+    if (!user && !sessionId) {
+      warnLog("Media", "Upload blocked: no user or session");
       return NextResponse.json(
         {
           success: false,
@@ -87,6 +90,7 @@ export async function POST(request: NextRequest) {
         { status: 401 },
       );
     }
+    const ownerId = user?.id ?? sessionId!;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -118,14 +122,14 @@ export async function POST(request: NextRequest) {
           success: false,
           error: `Filen är för stor (${(file.size / 1024 / 1024).toFixed(
             2,
-          )}MB). Max storlek: 4MB (krävs för stabil Blob-preview).`,
+          )}MB). Max storlek: ${MAX_FILE_SIZE / (1024 * 1024)}MB.`,
         },
         { status: 400 },
       );
     }
 
     // SERVER-SIDE LIMIT CHECK - Can't be bypassed by client
-    const limitCheck = await canUserUploadFile(user.id, file.type, MAX_IMAGES, MAX_VIDEOS);
+    const limitCheck = await canUserUploadFile(ownerId, file.type, MAX_IMAGES, MAX_VIDEOS);
     if (!limitCheck.allowed) {
       return NextResponse.json({ success: false, error: limitCheck.reason }, { status: 400 });
     }
@@ -150,7 +154,7 @@ export async function POST(request: NextRequest) {
     // Upload via centralized blob-service (handles Blob + local fallback)
     // Files are now isolated under userId: {userId}/media/{filename}
     const uploadResult = await uploadBlob({
-      userId: user.id,
+      userId: ownerId,
       filename,
       buffer,
       contentType: file.type,
@@ -170,7 +174,7 @@ export async function POST(request: NextRequest) {
 
     // Save metadata to database
     const mediaItem = await saveMediaLibraryItem(
-      user.id,
+      ownerId,
       filename,
       file.name,
       uploadResult.path,
@@ -212,14 +216,15 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Require authentication
     const user = await getCurrentUser(request);
-    if (!user) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!user && !sessionId) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad" },
         { status: 401 },
       );
     }
+    const ownerId = user?.id ?? sessionId!;
 
     const { searchParams } = new URL(request.url);
     const fileType = searchParams.get("fileType") as
@@ -231,12 +236,8 @@ export async function GET(request: NextRequest) {
       | "other"
       | null;
 
-    // SECURITY: Only return the current user's files
-    // projectId filter removed - users should only see their own files
-    const items = await getMediaLibraryByUser(user.id, fileType || undefined);
-
-    // Also return counts for limit display in UI
-    const counts = await getMediaLibraryCounts(user.id);
+    const items = await getMediaLibraryByUser(ownerId, fileType || undefined);
+    const counts = await getMediaLibraryCounts(ownerId);
 
     return NextResponse.json({
       success: true,

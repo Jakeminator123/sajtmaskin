@@ -48,7 +48,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-  const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
+  const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(true);
   const [buildIntent, setBuildIntent] = useState<BuildIntent>(() =>
     normalizeBuildIntent(buildIntentParam),
   );
@@ -138,6 +138,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
 
   const [scaffoldMode, setScaffoldMode] = useState<ScaffoldMode>(DEFAULT_SCAFFOLD_MODE);
   const [scaffoldId, setScaffoldId] = useState<string | null>(DEFAULT_SCAFFOLD_ID);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   useEffect(() => {
     setCustomInstructions((prev) => {
@@ -305,6 +307,10 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setScaffoldMode,
     scaffoldId,
     setScaffoldId,
+    selectedTemplateIds,
+    setSelectedTemplateIds,
+    showTemplatePicker,
+    setShowTemplatePicker,
     isThinkingSupported,
     effectiveThinking,
     resolvedBuildIntent,

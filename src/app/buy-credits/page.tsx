@@ -56,7 +56,7 @@ const PROJECT_TYPES = [
   { id: "other", label: "Annat", icon: Building2 },
 ];
 
-const MAILTO_RECIPIENTS = "jakob.olof.eberg@gmail.com,erik@sajtstudio.se";
+const MAILTO_RECIPIENTS = "ch.genberg@gmail.com,erik@sajtstudio.se";
 
 function buildMailtoLink(data: {
   name: string; company: string; email: string; phone: string;

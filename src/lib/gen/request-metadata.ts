@@ -126,7 +126,7 @@ export function normalizeRequestAttachments(input: unknown): RequestAttachment[]
 
 function getVisualReferenceAttachments(
   attachments: RequestAttachment[],
-  max = 4,
+  max = 8,
 ): RequestAttachment[] {
   return attachments
     .filter((attachment) => isImageAttachment(attachment))
@@ -176,6 +176,14 @@ export function summarizeDesignReferences(
         kind: "figma",
         label: filename,
         note: "Use it to mirror hierarchy, spacing rhythm, and component composition before polishing visuals.",
+      };
+    }
+
+    if (attachment.purpose === "design-reference") {
+      return {
+        kind: "image",
+        label: filename,
+        note: "This is a screenshot or image the user uploaded as design INSPIRATION. Analyze it carefully: extract the color palette, layout structure, typography feel, spacing patterns, and overall visual mood. Replicate the style and atmosphere — not the exact content — in the generated site.",
       };
     }
 

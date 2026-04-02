@@ -77,6 +77,7 @@ export interface PreviewPanelProps {
     description?: string | null;
   } | null;
   onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
+  simplified?: boolean;
 }
 
 export type PreviewViewMode = "preview" | "code" | "registry";

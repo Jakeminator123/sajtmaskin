@@ -264,7 +264,7 @@ export function PromptInputSubmit({ children, className, "aria-label": ariaLabel
       aria-label={ariaLabel}
       className={cn(
         "shrink-0 rounded-xl p-2",
-        "bg-primary text-primary-foreground",
+        "bg-primary text-white",
         "hover:bg-primary/90 active:bg-primary",
         "disabled:hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50",
         "transition-colors",

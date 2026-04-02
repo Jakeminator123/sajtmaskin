@@ -68,19 +68,32 @@ export function MessageAvatar({ children, className, ...props }: MessageAvatarPr
 
 export interface MessageContentProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
+  role?: MessageRole;
 }
 
-export function MessageContent({ children, className, ...props }: MessageContentProps) {
+export function MessageContent({ children, className, role, style, ...props }: MessageContentProps) {
+  const isUser = role === "user";
+  const isAssistant = role === "assistant";
   return (
     <div
       className={cn(
-        "flex max-w-[85%] min-w-0 flex-col gap-2",
-        "group-data-[role=user]:items-end",
+        "max-w-[85%] min-w-0 flex-col gap-1.5 rounded-2xl px-4 py-3 text-sm leading-relaxed",
+        isUser && "ml-auto shadow-sm",
+        isAssistant && "bg-muted text-foreground border border-border/40 shadow-sm",
         className,
       )}
+      style={
+        isUser
+          ? {
+              backgroundColor: "hsl(220 60% 22%)",
+              color: "#ffffff",
+              ...style,
+            }
+          : style
+      }
       {...props}
     >
-      {children}
+      {isUser ? <div style={{ color: "#ffffff" }}>{children}</div> : children}
     </div>
   );
 }
@@ -97,10 +110,7 @@ export function MessageResponse({ children, className, ...props }: MessageRespon
   return (
     <div
       className={cn(
-        "rounded-2xl px-4 py-3 text-sm leading-relaxed overflow-hidden wrap-break-word",
-        "group-data-[role=user]:bg-primary group-data-[role=user]:text-primary-foreground",
-        "group-data-[role=assistant]:bg-muted group-data-[role=assistant]:text-foreground",
-        "group-data-[role=system]:bg-card group-data-[role=system]:text-xs group-data-[role=system]:text-muted-foreground",
+        "text-sm leading-relaxed overflow-hidden wrap-break-word",
         className,
       )}
       {...props}

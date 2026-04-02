@@ -68,6 +68,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
           currentAuditUrl={currentAuditUrl}
           handleAuditUrlChange={handleAuditUrlChange}
           submitPrimaryInput={submitPrimaryInput}
+          startBuild={startBuild}
         />
 
         {/* ━━━ TABBED CONTENT ━━━ */}
@@ -235,7 +236,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                         </div>
                         <Button
                           className="bg-primary text-primary-foreground hover:bg-primary/90"
-                          onClick={() => { window.location.href = "mailto:jakob.olof.eberg@gmail.com,erik@sajtstudio.se" }}
+                          onClick={() => { window.location.href = "mailto:ch.genberg@gmail.com,erik@sajtstudio.se" }}
                         >
                           Prata med teamet
                           <ArrowRight className="w-4 h-4 ml-2" />

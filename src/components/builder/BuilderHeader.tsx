@@ -34,12 +34,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   Bot,
-  ChevronDown,
   Download,
   FolderGit2,
-  HelpCircle,
   Image as ImageIcon,
-  Layers,
   Loader2,
   Link2,
   LogOut,
@@ -51,6 +48,7 @@ import {
   Rocket,
   Save,
   Settings2,
+  Sparkles,
   Wand2,
   Wrench,
   TerminalSquare,
@@ -59,9 +57,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useCallback, useEffect, useId, useState } from "react";
+import type { BuilderMode } from "@/components/builder/ModeSelector";
+import Image from "next/image";
+import { useCallback, useId, useState } from "react";
 
 export function BuilderHeader(props: {
+  builderMode?: BuilderMode;
+  onModeChange?: (mode: BuilderMode) => void;
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
   onApplyAnthropicComparePreset: () => void;
@@ -148,7 +150,6 @@ export function BuilderHeader(props: {
     onEnableThinkingChange,
     isThinkingSupported,
     isImageGenerationsSupported,
-    isMediaEnabled,
     chatPrivacy,
     onChatPrivacyChange,
     enableBlobMedia,
@@ -182,6 +183,9 @@ export function BuilderHeader(props: {
     deployDisabledReason,
   } = props;
 
+  const builderMode = props.builderMode ?? "pro";
+  const onModeChange = props.onModeChange;
+  const isStarter = builderMode === "starter";
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
   const modelButtonLabel = currentModel?.label || "AI";
@@ -196,7 +200,6 @@ export function BuilderHeader(props: {
     Boolean(promptAssistModel) &&
     !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
@@ -213,9 +216,6 @@ export function BuilderHeader(props: {
   const assistProviderLabel = isAssistOff
     ? "Av"
     : `${assistProviderName}: ${assistModelLabel}`;
-  const assistStatusSummary = isAssistOff
-    ? "Förbättra: av"
-    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (djup brief)" : ""}`;
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -224,9 +224,6 @@ export function BuilderHeader(props: {
     window.requestAnimationFrame(action);
   }, []);
   const { isAuthenticated, logout } = useAuth();
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
   const handleLogout = useCallback(() => {
     logout();
     runDeferredAction(onGoHome);
@@ -238,18 +235,19 @@ export function BuilderHeader(props: {
         <button
           type="button"
           onClick={onGoHome}
-          className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
+          className="flex items-center transition-opacity hover:opacity-80"
           aria-label="Gå till startsidan"
           title="Till startsidan"
         >
-          Sajtmaskin
+          <Image
+            src="/images/sajtmaskin-logo.png"
+            alt="Sajtmaskin"
+            width={148}
+            height={56}
+            className="h-7 w-auto object-contain"
+            priority
+          />
         </button>
-        {hasMounted && isAuthenticated && (
-          <Button variant="ghost" size="sm" onClick={handleLogout} title="Logga ut">
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logga ut</span>
-          </Button>
-        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -276,6 +274,7 @@ export function BuilderHeader(props: {
                 <span tabIndex={0}>
                   <Button
                     size="sm"
+                    className={canDeploy && !isBusy && !isDeploying ? "animate-subtle-pulse" : ""}
                     onClick={() =>
                       runDeferredAction(() => {
                         void onDeployProduction();
@@ -301,16 +300,36 @@ export function BuilderHeader(props: {
           </TooltipProvider>
         )}
 
-        {/* ── Overflow menu: everything else ── */}
+        {isStarter && onModeChange && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onModeChange("pro")}
+                  aria-label="Byt till Pro"
+                >
+                  <Settings2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Pro</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Visa Pro-verktyg</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {!isStarter && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={isBusy} aria-label="Meny">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            {/* ── Modell ── */}
-            <DropdownMenuLabel>Modell: {modelButtonLabel}</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-64 max-h-[80vh] overflow-y-auto">
+            {/* ── Generera ── */}
+            <DropdownMenuLabel>Generera</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Modell: {modelButtonLabel}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={selectedModelTier}
               onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
@@ -322,11 +341,7 @@ export function BuilderHeader(props: {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-
-            <DropdownMenuSeparator />
-
-            {/* ── Förbättra ── */}
-            <DropdownMenuLabel>Förbättra: {assistProviderLabel}</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground mt-1">Brief: {assistProviderLabel}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={promptAssistModel}
               onValueChange={(v) => onPromptAssistModelChange(v)}
@@ -368,11 +383,36 @@ export function BuilderHeader(props: {
               <Bot className="mr-2 h-4 w-4" />
               Anthropic-jämförelse
             </DropdownMenuItem>
+            <DropdownMenuCheckboxItem
+              checked={enableThinking}
+              onCheckedChange={onEnableThinkingChange}
+              disabled={isBusy || !isThinkingSupported}
+            >
+              <Wand2 className="mr-2 h-4 w-4" />
+              Resonemang
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={enableImageGenerations}
+              onCheckedChange={onEnableImageGenerationsChange}
+              disabled={!isImageGenerationsSupported || isBusy}
+            >
+              <ImageIcon className="mr-2 h-4 w-4" />
+              AI-bilder
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={enableAutofix}
+              onCheckedChange={onEnableAutofixChange}
+              disabled={isBusy}
+            >
+              <Wrench className="mr-2 h-4 w-4" />
+              Autofix
+            </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
 
-            {/* ── Mall ── */}
-            <DropdownMenuLabel>Mall: {scaffoldButtonLabel}</DropdownMenuLabel>
+            {/* ── Struktur ── */}
+            <DropdownMenuLabel>Struktur</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Mall: {scaffoldButtonLabel}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
               onValueChange={(v) => {
@@ -399,27 +439,23 @@ export function BuilderHeader(props: {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); setIsInstructionsOpen(true); }}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Instruktioner{hasCustomInstructions ? " (aktiv)" : ""}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); onToggleFigmaInput(); }}>
+              <Link2 className="mr-2 h-4 w-4" />
+              {isFigmaInputOpen ? "Dölj Figma-länk" : "Figma-länk"}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onOpenImport); }}>
+              <FolderGit2 className="mr-2 h-4 w-4" />
+              Importera
+            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
 
-            {/* ── Inställningar ── */}
-            <DropdownMenuLabel>Inställningar</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={enableThinking}
-              onCheckedChange={onEnableThinkingChange}
-              disabled={isBusy || !isThinkingSupported}
-            >
-              <Wand2 className="mr-2 h-4 w-4" />
-              Resonemang
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={enableImageGenerations}
-              onCheckedChange={onEnableImageGenerationsChange}
-              disabled={!isImageGenerationsSupported || isBusy}
-            >
-              <ImageIcon className="mr-2 h-4 w-4" />
-              AI-bilder
-            </DropdownMenuCheckboxItem>
+            {/* ── Publicera ── */}
+            <DropdownMenuLabel>Publicera</DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={enableBlobMedia}
               onCheckedChange={onEnableBlobMediaChange}
@@ -429,14 +465,6 @@ export function BuilderHeader(props: {
               Blob-bilder
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
-              checked={enableAutofix}
-              onCheckedChange={onEnableAutofixChange}
-              disabled={isBusy}
-            >
-              <Wrench className="mr-2 h-4 w-4" />
-              Autofix
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
               checked={chatPrivacy === "unlisted"}
               onCheckedChange={(checked) => onChatPrivacyChange(checked ? "unlisted" : "private")}
               disabled={isBusy}
@@ -444,49 +472,9 @@ export function BuilderHeader(props: {
               <Globe className="mr-2 h-4 w-4" />
               Publik preview
             </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={showStructuredChat}
-              onCheckedChange={onShowStructuredChatChange}
-              disabled={isBusy}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Felsökningsvy
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={tipsEnabled}
-              onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
-              disabled={isBusy}
-            >
-              <Lightbulb className="mr-2 h-4 w-4" />
-              Tips efter AI-svar
-            </DropdownMenuCheckboxItem>
-
-            <DropdownMenuSeparator />
-
-            {/* ── Actions ── */}
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); onToggleFigmaInput(); }}>
-              <Link2 className="mr-2 h-4 w-4" />
-              {isFigmaInputOpen ? "Dölj Figma-länk" : "Figma-länk"}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); setIsInstructionsOpen(true); }}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Instruktioner{hasCustomInstructions ? " (aktiv)" : ""}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onNewChat); }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Ny chat
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canSaveProject || isBusy || isSavingProject} onSelect={(e) => { e.preventDefault(); runDeferredAction(() => { void onSaveProject(); }); }}>
-              <Save className="mr-2 h-4 w-4" />
-              Spara
-            </DropdownMenuItem>
             <DropdownMenuItem disabled={!canManageDomain || isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onDomainSearch); }}>
               <Globe className="mr-2 h-4 w-4" />
               Domän
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onOpenImport); }}>
-              <FolderGit2 className="mr-2 h-4 w-4" />
-              Importera
             </DropdownMenuItem>
             <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onOpenSandbox); }}>
               <TerminalSquare className="mr-2 h-4 w-4" />
@@ -507,8 +495,49 @@ export function BuilderHeader(props: {
               <Download className="mr-2 h-4 w-4" />
               Ladda ner ZIP
             </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            {/* ── Övrigt ── */}
+            <DropdownMenuCheckboxItem
+              checked={showStructuredChat}
+              onCheckedChange={onShowStructuredChatChange}
+              disabled={isBusy}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Felsökningsvy
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={tipsEnabled}
+              onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
+              disabled={isBusy}
+            >
+              <Lightbulb className="mr-2 h-4 w-4" />
+              Tips efter AI-svar
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onNewChat); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Ny chat
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!canSaveProject || isBusy || isSavingProject} onSelect={(e) => { e.preventDefault(); runDeferredAction(() => { void onSaveProject(); }); }}>
+              <Save className="mr-2 h-4 w-4" />
+              Spara
+            </DropdownMenuItem>
+            {onModeChange && (
+              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onModeChange("starter"); }}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Byt till Amatör
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
+        )}
+
+        {isAuthenticated && (
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout} title="Logga ut" aria-label="Logga ut">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>

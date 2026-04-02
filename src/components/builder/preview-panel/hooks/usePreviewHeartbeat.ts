@@ -39,7 +39,6 @@ export function usePreviewHeartbeat(params: {
     if (!allowHeartbeat) return;
 
     const tick = async () => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       const data = await postSandboxHeartbeat({
         chatId,
         versionId,
@@ -55,7 +54,7 @@ export function usePreviewHeartbeat(params: {
       }
     };
 
-    const id = window.setInterval(tick, 25_000);
+    const id = window.setInterval(tick, 20_000);
     void tick();
     return () => window.clearInterval(id);
   }, [chatId, versionId, activeSandboxId, previewUrl, previewLifecycle, onSessionSuspect]);

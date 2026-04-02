@@ -4,6 +4,8 @@ import { AlertCircle, Loader2, MessageCircleQuestion, Wand2 } from "lucide-react
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useEffect, useRef } from "react";
+import { GenerationProgress } from "./GenerationProgress";
 
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
@@ -15,6 +17,7 @@ interface PreviewPanelEmptyStateProps {
   sandboxPending: boolean;
   sandboxBuildError?: { stage: string; message: string } | null;
   onFixPreview?: (() => void) | null;
+  simplified?: boolean;
 }
 
 export function PreviewPanelEmptyState({
@@ -27,8 +30,54 @@ export function PreviewPanelEmptyState({
   sandboxPending,
   sandboxBuildError,
   onFixPreview,
+  simplified = false,
 }: PreviewPanelEmptyStateProps) {
   const isInitialEmpty = !chatId && !versionId && !externalLoading;
+
+  if ((externalLoading || sandboxPending) && !sandboxBuildError && !awaitingInput) {
+    return <GenerationProgress />;
+  }
+
+  const autoRecoverFiredRef = useRef(false);
+  useEffect(() => {
+    if (!simplified || isInitialEmpty || !onFixPreview || externalLoading || sandboxPending) return;
+    if (autoRecoverFiredRef.current) return;
+    autoRecoverFiredRef.current = true;
+    onFixPreview();
+  }, [simplified, isInitialEmpty, onFixPreview, externalLoading, sandboxPending]);
+
+  useEffect(() => {
+    if (externalLoading || sandboxPending) {
+      autoRecoverFiredRef.current = false;
+    }
+  }, [externalLoading, sandboxPending]);
+
+  if (simplified) {
+    if (awaitingInput) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-400">
+          <Loader2 className="mb-4 h-10 w-10 animate-spin text-gray-500" />
+          <p className="text-sm">Svara i chatten så fortsätter jag.</p>
+        </div>
+      );
+    }
+    if (!isInitialEmpty && onFixPreview) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-400">
+          <Loader2 className="mb-4 h-10 w-10 animate-spin text-gray-500" />
+          <p className="text-sm">Startar om förhandsgranskningen...</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
+        <Wand2 className="mb-4 h-10 w-10" />
+        <p className="mb-2 text-base font-medium">Din hemsida visas här</p>
+        <p className="text-sm text-gray-400">Svara på frågorna i chatten så skapar jag din sajt.</p>
+      </div>
+    );
+  }
+
   const normalizedAwaitingQuestion =
     typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
       ? awaitingInputQuestion.trim()
@@ -39,40 +88,32 @@ export function PreviewPanelEmptyState({
     .slice(0, 6);
   const title = sandboxBuildError
     ? "Sandbox-preview misslyckades"
-    : sandboxPending
-      ? "Startar live-preview"
-      : awaitingInput
-        ? "AI väntar på ditt svar"
-        : isInitialEmpty
-          ? "Välkommen"
-          : "Ingen förhandsvisning ännu";
+    : awaitingInput
+      ? "AI väntar på ditt svar"
+      : isInitialEmpty
+        ? "Välkommen"
+        : "Ingen förhandsvisning ännu";
   const subtitle = sandboxBuildError
     ? `Steg: ${sandboxBuildError.stage}. ${sandboxBuildError.message}`
-    : sandboxPending
-      ? "Next.js byggs i sandbox och previewn visas så snart dev-servern svarar."
-      : awaitingInput
-        ? "AI behöver ditt svar innan nästa preview kan genereras."
-        : externalLoading
-          ? "AI tänker... preview kommer strax."
-          : isInitialEmpty
-            ? "Skriv en prompt till vänster så genererar vi första preview."
-            : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
+    : awaitingInput
+      ? "AI behöver ditt svar innan nästa preview kan genereras."
+      : isInitialEmpty
+        ? "Skriv en prompt till vänster så genererar vi första preview."
+        : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
   const showFixAction = Boolean(
     onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !sandboxPending,
   );
   const EmptyIcon = sandboxBuildError
     ? AlertCircle
-    : sandboxPending
-      ? Loader2
-      : awaitingInput
-        ? MessageCircleQuestion
-        : isInitialEmpty
-          ? Wand2
-          : AlertCircle;
+    : awaitingInput
+      ? MessageCircleQuestion
+      : isInitialEmpty
+        ? Wand2
+        : AlertCircle;
 
   return (
     <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
-      <EmptyIcon className={cn("mb-4 h-12 w-12", sandboxPending && "animate-spin")} />
+      <EmptyIcon className={cn("mb-4 h-12 w-12")} />
       <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
         {title}
       </p>

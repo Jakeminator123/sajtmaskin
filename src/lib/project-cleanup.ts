@@ -41,7 +41,7 @@ const CLEANUP_CONFIG = {
   HARD_DELETE_AFTER_SOFT_DELETE_DAYS: 30,
 
   // Max projects per anonymous session (prevent abuse)
-  MAX_ANONYMOUS_PROJECTS_PER_SESSION: 3,
+  MAX_ANONYMOUS_PROJECTS_PER_SESSION: 20,
 
   // Max projects per authenticated user (free tier)
   // NOTE: User requested max 8 for "personal templates/started projects"

@@ -75,6 +75,7 @@ export function PreviewPanel({
   placementMode = false,
   pendingPlacementItem = null,
   onPlacementComplete,
+  simplified = false,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
@@ -556,6 +557,7 @@ export function PreviewPanel({
         sandboxPending={sandboxPending}
         sandboxBuildError={sandboxBuildError}
         onFixPreview={onFixPreview}
+        simplified={simplified}
       />
     );
   }
@@ -599,6 +601,7 @@ export function PreviewPanel({
         showImagesDisabledWarning={showImagesDisabledWarning}
         showImagesUnsupportedWarning={showImagesUnsupportedWarning}
         showExternalWarning={showExternalWarning}
+        simplified={simplified}
       />
 
       {isCodeView ? (

@@ -36,9 +36,36 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
+  buildNeedsAnalysisPrompt,
+  buildNextNeedsAnalysisMessage,
+  buildScrapeCompleteMessage,
+  buildScrapeFailedMessage,
+  buildScrapingMessage,
+  chipToSiteType,
+  deriveNeedsAnalysisState,
+  detectSiteTypeFromText,
+  extractUrlFromMessages,
+  getCurrentQuestionField,
+  isNeedsAnalysisActive,
+  QUESTION_SUGGESTIONS,
+  searchTemplatesForPicker,
+  type ScrapeResult,
+  type SelectedTemplateInfo,
+  type SiteTypeKey,
+  type TemplatePickerItem,
+  type UploadedMediaInfo,
+} from "@/lib/builder/needs-analysis";
+import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
+import { TemplatePickerPopup } from "@/components/builder/TemplatePickerPopup";
+import { SiteTypePickerPopup } from "@/components/builder/SiteTypePickerPopup";
+import { MustHavePickerPopup } from "@/components/builder/MustHavePickerPopup";
+import { ImageUploadPopup } from "@/components/builder/ImageUploadPopup";
+import {
   buildPromptSourceMessage,
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
+import { buildPostGenerationAdvisorMessage } from "@/lib/builder/post-generation-advisor";
+import type { ActionHubItemAction } from "@/lib/builder/action-hub-items";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import { saveProjectData } from "@/lib/project-client";
 import {
@@ -46,14 +73,24 @@ import {
   getPromptAssistModelLabel,
 } from "@/lib/builder/defaults";
 import type { ChatMessage } from "@/lib/builder/types";
+import type { CreateChatOptions } from "./types";
+import type { V0UserFileAttachment } from "@/components/media/file-upload-zone";
 import {
   readAutofixLocalStorageOnly,
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
 import { useBuilderHelpChat } from "@/lib/hooks/chat/useBuilderHelpChat";
+import {
+  ModeSelector,
+  readStoredMode,
+  writeStoredMode,
+  type BuilderMode,
+} from "@/components/builder/ModeSelector";
+import { FloatingChatBox } from "@/components/builder/FloatingChatBox";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
@@ -155,8 +192,227 @@ async function classifyIntent(message: string): Promise<"build" | "help"> {
   }
 }
 
+function buildSelectedTemplateInfos(ids: string[]): SelectedTemplateInfo[] {
+  return ids
+    .map((id) => getTemplateCatalogItemById(id))
+    .filter(Boolean)
+    .map((t) => ({ title: t!.title, category: t!.category, viewUrl: t!.viewUrl }));
+}
+
+const NEEDS_ANALYSIS_MESSAGES_KEY = "sajtmaskin:needs-analysis-messages";
+
+function saveNeedsAnalysisMessages(messages: ChatMessage[]) {
+  try {
+    const userAndHelp = messages.filter(
+      (m) => m.role === "user" || m.isHelpMessage,
+    );
+    if (userAndHelp.length === 0) return;
+    sessionStorage.setItem(
+      NEEDS_ANALYSIS_MESSAGES_KEY,
+      JSON.stringify(userAndHelp.map((m) => ({ id: m.id, role: m.role, content: m.content, isHelpMessage: m.isHelpMessage }))),
+    );
+  } catch {}
+}
+
+function loadAndClearNeedsAnalysisMessages(): ChatMessage[] {
+  try {
+    const raw = sessionStorage.getItem(NEEDS_ANALYSIS_MESSAGES_KEY);
+    sessionStorage.removeItem(NEEDS_ANALYSIS_MESSAGES_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as ChatMessage[];
+  } catch {
+    return [];
+  }
+}
+
 export function BuilderShellContent(vm: BuilderViewModel) {
-  const { isHelpStreaming, sendHelpMessage, cancelHelp } = useBuilderHelpChat();
+  const modeParam = useSearchParams().get("mode");
+  const [builderMode, setBuilderMode] = useState<BuilderMode | null>(() => {
+    if (modeParam === "starter" || modeParam === "pro") return modeParam;
+    if (vm.buildMethod === "freeform" && !vm.chatId) return null;
+    return null;
+  });
+  const modeHydratedRef = useRef(false);
+  useEffect(() => {
+    if (modeHydratedRef.current) return;
+    modeHydratedRef.current = true;
+    if (modeParam === "starter" || modeParam === "pro") return;
+    if (vm.buildMethod === "freeform" && !vm.chatId) return;
+    const stored = readStoredMode();
+    if (stored) setBuilderMode(stored);
+  }, [modeParam, vm.buildMethod, vm.chatId]);
+  const starterDefaultAppliedRef = useRef(false);
+  const advisorVersionIdsRef = useRef<Set<string>>(new Set());
+  const initialVersionIdRef = useRef<string | null | undefined>(undefined);
+  const needsAnalysisLoadedRef = useRef(false);
+  const handleModeSelect = useCallback((mode: BuilderMode) => {
+    writeStoredMode(mode);
+    setBuilderMode(mode);
+  }, []);
+  const isStarter = builderMode === "starter";
+
+  const wrappedRequestCreateChat = useCallback(
+    async (message: string, options?: CreateChatOptions) => {
+      saveNeedsAnalysisMessages(vm.messages);
+      return vm.requestCreateChat(message, options);
+    },
+    [vm.messages, vm.requestCreateChat],
+  );
+
+  const uploadedMediaRef = useRef<UploadedMediaInfo[] | null>(null);
+
+  const triggerStarterGeneration = useCallback(
+    (msgs: ChatMessage[], options?: Record<string, unknown>) => {
+      pendingGenerationRef.current = { messages: msgs, options };
+      setShowImageUpload(true);
+    },
+    [],
+  );
+
+  const executeStarterGeneration = useCallback(
+    (attachments?: V0UserFileAttachment[]) => {
+      const pending = pendingGenerationRef.current;
+      if (!pending) return;
+      pendingGenerationRef.current = null;
+      const tmplInfos = buildSelectedTemplateInfos(vm.selectedTemplateIds);
+      const mediaInfos = uploadedMediaRef.current;
+      const prompt = buildNeedsAnalysisPrompt(
+        pending.messages,
+        scrapeDataRef.current,
+        tmplInfos.length > 0 ? tmplInfos : null,
+        mediaInfos && mediaInfos.length > 0 ? mediaInfos : null,
+      );
+      const brief = companyBriefRef.current;
+      void wrappedRequestCreateChat(prompt, {
+        ...pending.options,
+        skipDynamicInstructions: true,
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
+        ...(brief ? { meta: { brief } } : {}),
+      });
+    },
+    [vm.selectedTemplateIds, wrappedRequestCreateChat],
+  );
+
+  const handleImageUploadConfirm = useCallback(
+    (attachments: V0UserFileAttachment[]) => {
+      setShowImageUpload(false);
+      uploadedMediaRef.current = attachments.map((a) => ({
+        filename: a.filename,
+        mimeType: a.mimeType ?? "image/jpeg",
+        url: a.url,
+        purpose: a.purpose,
+      }));
+      executeStarterGeneration(attachments);
+    },
+    [executeStarterGeneration],
+  );
+
+  const handleImageUploadSkip = useCallback(() => {
+    setShowImageUpload(false);
+    uploadedMediaRef.current = null;
+    executeStarterGeneration();
+  }, [executeStarterGeneration]);
+
+  const savedNeedsMessagesRef = useRef<ChatMessage[] | null>(null);
+  const [changeQueue, setChangeQueue] = useState<string[]>([]);
+
+  const starterMessages = useMemo((): ChatMessage[] => {
+    if (!isStarter) return vm.messages;
+
+    const isCodeOutput = (m: ChatMessage) =>
+      m.role === "assistant" &&
+      !m.isHelpMessage &&
+      m.content.length > 200 &&
+      (m.content.includes('file="') || m.content.includes("```"));
+
+    const TECHNICAL_PATTERNS = /följdfråga|preview kan genereras|planBlockers|Planen innehåller frågor|Sammanfattning av behovsanalys|AUTO-FIX REQUEST|TARGETED REPAIR|Issues detected:|typecheck failed|build failed|lint failed|quality-gate|Persisted errors|server-repair|Sandbox-preview saknas|sandbox.*laddar inte|preflight|node:internal|eslint\.config|Cannot find (name|package)|error TS\d{4}|exit code|ModuleLoader|stack trace/i;
+
+    const isTechnicalNoise = (m: ChatMessage) => {
+      if (m.role !== "assistant" || m.isHelpMessage) return false;
+      if (TECHNICAL_PATTERNS.test(m.content)) return true;
+      if (m.content.length > 300 && /\n.*\n.*\n/s.test(m.content) && /error|fail|warn|fix/i.test(m.content)) return true;
+      return false;
+    };
+
+    const isGenerating = vm.isAnyStreaming || vm.isCreatingChat;
+
+    if (vm.chatId) {
+      if (!needsAnalysisLoadedRef.current) {
+        needsAnalysisLoadedRef.current = true;
+        const saved = loadAndClearNeedsAnalysisMessages();
+        if (saved.length > 0) savedNeedsMessagesRef.current = saved;
+      }
+
+      const history = savedNeedsMessagesRef.current;
+
+      const liveMessages = vm.messages.filter((m) => {
+        if (isCodeOutput(m)) return false;
+        if (isTechnicalNoise(m)) return false;
+        if (m.role === "user" && /^(##\s*Starter intake|Sammanfattning av behovsanalys)/i.test(m.content.trim())) return false;
+        if (m.role === "user" || m.isHelpMessage) return true;
+        if (m.role === "assistant" && m.content.trim().length > 0 && m.content.trim().length <= 200) return true;
+        return false;
+      });
+
+      const base = history && history.length > 0
+        ? [...history, ...liveMessages.filter((m) => !history.some((h) => h.id === m.id))]
+        : liveMessages;
+
+      const hasExistingVersion = Boolean(vm.activeVersionId);
+      const hasAdvisor = base.some((m) => m.id.startsWith("advisor-"));
+
+      if (isGenerating) {
+        const genMsg: ChatMessage = {
+          id: "starter-generating",
+          role: "assistant",
+          content: hasExistingVersion
+            ? "Gör ändringarna nu — det kan ta en liten stund."
+            : "Så kul! Nu genererar jag en första version av din hemsida. Ha tålamod — det kan ta upp till 25 minuter.",
+          isHelpMessage: true,
+        };
+        return [...base, genMsg];
+      }
+
+      if (!hasAdvisor) {
+        const doneMsg: ChatMessage = {
+          id: "starter-done",
+          role: "assistant",
+          content: "Din hemsida är klar! Scrolla ned i förhandsgranskningen, eller berätta vad du vill ändra.",
+          isHelpMessage: true,
+        };
+        return [...base, doneMsg];
+      }
+
+      return base;
+    }
+
+    return vm.messages.map((m) =>
+      isCodeOutput(m) ? { ...m, content: "Din hemsida är klar!" } : m,
+    );
+  }, [isStarter, vm.chatId, vm.messages, vm.isAnyStreaming, vm.isCreatingChat]);
+
+  const currentField = useMemo(() => {
+    if (!isStarter) return null;
+    const state = deriveNeedsAnalysisState(vm.messages);
+    if (state.ready) return null;
+    return getCurrentQuestionField(vm.messages);
+  }, [isStarter, vm.messages]);
+
+  const currentAnswerSuggestions = useMemo(() => {
+    if (currentField) return QUESTION_SUGGESTIONS[currentField] ?? undefined;
+    if (!isStarter || !vm.chatId) return undefined;
+    const advisorMsg = vm.messages.find((m) => m.id.startsWith("advisor-") && m.uiParts?.length);
+    if (!advisorMsg) return undefined;
+    const part = advisorMsg.uiParts?.find(
+      (p) => p.kind === "advisor-follow-up" && (p.output as Record<string, unknown>)?.suggestedPrompts,
+    );
+    if (!part) return undefined;
+    const prompts = (part.output as Record<string, string[]>).suggestedPrompts;
+    const labels = (part.output as Record<string, string[]>).options;
+    return labels.map((label, i) => prompts[i] ?? label);
+  }, [currentField, isStarter, vm.chatId, vm.messages]);
+
+  const { isHelpStreaming, sendHelpMessage, sendCoachMessage } = useBuilderHelpChat();
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt || isHelpStreaming;
   const isPreviewLoading =
     vm.isCreatingChat ||
@@ -206,6 +462,195 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [placementConfirmOpen, setPlacementConfirmOpen] = useState(false);
   const [isPlacementSubmitting, setIsPlacementSubmitting] = useState(false);
   const placementResolverRef = useRef<((decision: VisualPlacementDecision) => void) | null>(null);
+  const scrapeDataRef = useRef<ScrapeResult | null>(null);
+  const companyBriefRef = useRef<Record<string, unknown> | null>(null);
+  const [templatePickerItems, setTemplatePickerItems] = useState<TemplatePickerItem[]>([]);
+  const [isTemplatePickerLoading, setIsTemplatePickerLoading] = useState(false);
+  const [showSiteTypePicker, setShowSiteTypePicker] = useState(false);
+  const siteTypePickerShownRef = useRef(false);
+  const [showMustHavePicker, setShowMustHavePicker] = useState(false);
+  const mustHavePickerShownRef = useRef(false);
+  const pendingSiteTypeRef = useRef<SiteTypeKey | null>(null);
+  const templatePickerMessagesRef = useRef<ChatMessage[] | null>(null);
+  const templatePickerTriggeredRef = useRef(false);
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const pendingGenerationRef = useRef<{
+    messages: ChatMessage[];
+    options?: Record<string, unknown>;
+  } | null>(null);
+
+  // Show siteType picker popup when entering starter mode and siteType is not yet answered
+  useEffect(() => {
+    if (!isStarter) return;
+    if (vm.chatId) return;
+    if (siteTypePickerShownRef.current) return;
+    if (vm.messages.length < 1) return;
+
+    const state = deriveNeedsAnalysisState(vm.messages);
+    if (state.answeredFields.includes("siteType")) {
+      siteTypePickerShownRef.current = true;
+      return;
+    }
+
+    siteTypePickerShownRef.current = true;
+
+    // Remove the siteType chat question -- the popup replaces it
+    const lastMsg = vm.messages[vm.messages.length - 1];
+    const isSiteTypeQuestion =
+      lastMsg?.uiParts?.some(
+        (p) => p.type === "tool:awaiting-input" && (p as Record<string, unknown>).analysisField === "siteType",
+      );
+    if (isSiteTypeQuestion) {
+      vm.setMessages(vm.messages.slice(0, -1));
+    }
+
+    setShowSiteTypePicker(true);
+  }, [isStarter, vm.chatId, vm.messages, vm.setMessages]);
+
+  const handleSiteTypeSelect = useCallback(
+    (selectedIds: string[], labels: string[]) => {
+      setShowSiteTypePicker(false);
+      const answerText = labels.join(", ");
+
+      const userMsg: ChatMessage = {
+        id: `needs-analysis-user-${Date.now()}`,
+        role: "user",
+        content: answerText,
+      };
+      const nextMessages = [...vm.messages, userMsg];
+
+      const detectedType = chipToSiteType(answerText) || detectSiteTypeFromText(answerText) || (selectedIds[0] as SiteTypeKey) || "other";
+
+      // Trigger template picker
+      templatePickerTriggeredRef.current = true;
+      pendingSiteTypeRef.current = detectedType;
+      templatePickerMessagesRef.current = nextMessages;
+      vm.setMessages(nextMessages);
+      setIsTemplatePickerLoading(true);
+      vm.setShowTemplatePicker(true);
+
+      const userPrompt = nextMessages
+        .filter((m) => m.role === "user")
+        .map((m) => m.content)
+        .join(" ");
+      searchTemplatesForPicker(userPrompt, detectedType).then((items) => {
+        setTemplatePickerItems(items);
+        setIsTemplatePickerLoading(false);
+      });
+    },
+    [vm.messages, vm.setMessages, vm.setShowTemplatePicker],
+  );
+
+  const handleSiteTypeClose = useCallback(() => {
+    setShowSiteTypePicker(false);
+    const nextQ = buildNextNeedsAnalysisMessage(vm.messages);
+    if (nextQ) {
+      vm.setMessages([...vm.messages, nextQ]);
+    }
+  }, [vm.messages, vm.setMessages]);
+
+  // Show mustHave picker popup when that question comes up in starter mode
+  useEffect(() => {
+    if (!isStarter) return;
+    if (vm.chatId) return;
+    if (mustHavePickerShownRef.current) return;
+    if (showSiteTypePicker || vm.showTemplatePicker) return;
+    if (vm.messages.length < 2) return;
+
+    const field = getCurrentQuestionField(vm.messages);
+    if (field !== "mustHave") return;
+
+    const state = deriveNeedsAnalysisState(vm.messages);
+    if (state.answeredFields.includes("mustHave")) {
+      mustHavePickerShownRef.current = true;
+      return;
+    }
+
+    mustHavePickerShownRef.current = true;
+
+    const lastMsg = vm.messages[vm.messages.length - 1];
+    const isMustHaveQuestion =
+      lastMsg?.uiParts?.some(
+        (p) => p.type === "tool:awaiting-input" && (p as Record<string, unknown>).analysisField === "mustHave",
+      );
+    if (isMustHaveQuestion) {
+      vm.setMessages(vm.messages.slice(0, -1));
+    }
+
+    setShowMustHavePicker(true);
+  }, [isStarter, vm.chatId, vm.messages, vm.setMessages, showSiteTypePicker, vm.showTemplatePicker]);
+
+  const handleMustHaveSelect = useCallback(
+    (labels: string[]) => {
+      setShowMustHavePicker(false);
+      const answerText = labels.join(", ");
+
+      const userMsg: ChatMessage = {
+        id: `needs-analysis-user-${Date.now()}`,
+        role: "user",
+        content: answerText,
+      };
+      const nextMessages = [...vm.messages, userMsg];
+      const nextState = deriveNeedsAnalysisState(nextMessages);
+
+      if (!nextState.ready) {
+        const nextQ = buildNextNeedsAnalysisMessage(nextMessages);
+        vm.setMessages(nextQ ? [...nextMessages, nextQ] : nextMessages);
+      } else {
+        vm.setMessages(nextMessages);
+        triggerStarterGeneration(nextMessages);
+      }
+    },
+    [vm.messages, vm.setMessages, vm.selectedTemplateIds, vm.requestCreateChat, triggerStarterGeneration],
+  );
+
+  const handleMustHaveClose = useCallback(() => {
+    setShowMustHavePicker(false);
+    const nextQ = buildNextNeedsAnalysisMessage(vm.messages);
+    if (nextQ) {
+      vm.setMessages([...vm.messages, nextQ]);
+    }
+  }, [vm.messages, vm.setMessages]);
+
+  useEffect(() => {
+    if (!isStarter) return;
+    if (vm.chatId) return;
+    if (vm.showTemplatePicker) return;
+    if (templatePickerTriggeredRef.current) return;
+    if (vm.messages.length < 2) return;
+
+    const state = deriveNeedsAnalysisState(vm.messages);
+    if (!state.answeredFields.includes("siteType")) return;
+
+    templatePickerTriggeredRef.current = true;
+
+    const userTexts = vm.messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join(" ");
+    const detectedType = chipToSiteType(userTexts) || detectSiteTypeFromText(userTexts) || "other";
+
+    pendingSiteTypeRef.current = detectedType;
+
+    const lastMsg = vm.messages[vm.messages.length - 1];
+    const isTrailingUnanswered =
+      lastMsg?.role === "assistant" &&
+      lastMsg.uiParts?.some(
+        (p) => p.type === "tool:awaiting-input" && p.kind === "needs-analysis",
+      );
+    templatePickerMessagesRef.current = isTrailingUnanswered
+      ? vm.messages.slice(0, -1)
+      : vm.messages;
+
+    setIsTemplatePickerLoading(true);
+    vm.setShowTemplatePicker(true);
+
+    searchTemplatesForPicker(userTexts, detectedType).then((items) => {
+      setTemplatePickerItems(items);
+      setIsTemplatePickerLoading(false);
+    });
+  }, [isStarter, vm.chatId, vm.messages, vm.showTemplatePicker, vm.setShowTemplatePicker]);
+
   const handleApproveBuildPlan = useCallback(
     async (plan: Record<string, unknown>) => {
       const built = buildPromptSourceMessage({ kind: "approved-plan", rawPlan: plan });
@@ -665,10 +1110,151 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setEnableAutofix(readAutofixLocalStorageOnly());
   }, []);
 
+  useEffect(() => {
+    if (starterDefaultAppliedRef.current) return;
+    if (modeParam === "starter" || modeParam === "pro") {
+      starterDefaultAppliedRef.current = true;
+      return;
+    }
+    if (vm.buildMethod === "freeform" && !vm.chatId) return;
+    starterDefaultAppliedRef.current = true;
+    if (!builderMode) {
+      setBuilderMode(readStoredMode() ?? "starter");
+    }
+  }, [builderMode, modeParam, vm.buildMethod, vm.chatId]);
+
   const handleEnableAutofixChange = useCallback((next: boolean) => {
     writeAutofixLocalStorage(next);
     setEnableAutofix(next);
   }, []);
+
+  useEffect(() => {
+    if (initialVersionIdRef.current === undefined) {
+      initialVersionIdRef.current = vm.activeVersionId ?? null;
+      if (vm.activeVersionId) {
+        advisorVersionIdsRef.current.add(vm.activeVersionId);
+      }
+      return;
+    }
+    if (!vm.chatId || !vm.activeVersionId || vm.isAnyStreaming) return;
+    if (advisorVersionIdsRef.current.has(vm.activeVersionId)) return;
+
+    const activeVersionId = vm.activeVersionId;
+    advisorVersionIdsRef.current.add(vm.activeVersionId);
+    vm.setMessages((prev) => {
+      const advisorId = `advisor-${activeVersionId}`;
+      if (prev.some((message) => message.id === advisorId)) return prev;
+      return [...prev, buildPostGenerationAdvisorMessage(prev, activeVersionId)];
+    });
+  }, [vm.activeVersionId, vm.chatId, vm.isAnyStreaming, vm.setMessages]);
+
+  const coachReviewSentRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!isStarter || !vm.chatId || !vm.activeVersionId || vm.isAnyStreaming || isHelpStreaming) return;
+    if (coachReviewSentRef.current.has(vm.activeVersionId)) return;
+    const hasAdvisor = vm.messages.some((m) => m.id === `advisor-${vm.activeVersionId}`);
+    if (!hasAdvisor) return;
+
+    coachReviewSentRef.current.add(vm.activeVersionId);
+    void sendCoachMessage(
+      "Granska sajten jag precis byggt. Ge 2–3 konkreta förslag på förbättringar baserat på koden och designen. Svara kort och koncist på svenska.",
+      vm.setMessages,
+      { silent: true },
+    );
+  }, [isStarter, vm.chatId, vm.activeVersionId, vm.isAnyStreaming, isHelpStreaming, vm.messages, vm.setMessages, sendCoachMessage]);
+
+  const handleTemplateSelect = useCallback(
+    (templateIds: string[]) => {
+      vm.setSelectedTemplateIds(templateIds);
+      vm.setShowTemplatePicker(false);
+      setTemplatePickerItems([]);
+      setIsTemplatePickerLoading(false);
+
+      const savedMessages = templatePickerMessagesRef.current;
+      templatePickerMessagesRef.current = null;
+
+      if (!savedMessages) return;
+
+      const selectedTemplates = templateIds
+        .map((id) => getTemplateCatalogItemById(id))
+        .filter(Boolean);
+
+      const confirmMsg: ChatMessage = {
+        id: `template-pick-${Date.now()}`,
+        role: "assistant",
+        content:
+          selectedTemplates.length > 0
+            ? `Snyggt öga! Nu vet jag vilken stil du gillar. Vi fortsätter.`
+            : "Inga problem — vi bygger helt från grunden. Vi kör vidare!",
+        isHelpMessage: true,
+      };
+
+      const afterPick = [...savedMessages, confirmMsg];
+      const nextState = deriveNeedsAnalysisState(afterPick);
+      if (!nextState.ready) {
+        const nextQ = buildNextNeedsAnalysisMessage(afterPick);
+        vm.setMessages(nextQ ? [...afterPick, nextQ] : afterPick);
+      } else {
+        vm.setMessages(afterPick);
+        triggerStarterGeneration(afterPick);
+      }
+    },
+    [vm, triggerStarterGeneration],
+  );
+
+  const handleTemplatePickerClose = useCallback(() => {
+    handleTemplateSelect([]);
+  }, [handleTemplateSelect]);
+
+  const flushChangeQueue = useCallback(
+    async (extraMessage?: string) => {
+      const items = extraMessage ? [...changeQueue, extraMessage] : [...changeQueue];
+      if (items.length === 0) return;
+      setChangeQueue([]);
+      const combined = items.length === 1
+        ? items[0]!
+        : `Gör följande ändringar på sajten:\n${items.map((item, i) => `${i + 1}. ${item}`).join("\n")}`;
+      await vm.sendMessage(combined);
+    },
+    [changeQueue, vm.sendMessage],
+  );
+
+  const handleActionHubAction = useCallback(
+    (action: ActionHubItemAction) => {
+      if (action.type === "callback") {
+        switch (action.id) {
+          case "deploy":
+            vm.handleOpenDeployDialog();
+            break;
+          case "domain":
+            if (vm.lastDeployVercelProjectId) {
+              vm.setDomainManagerOpen(true);
+            } else {
+              vm.setDomainSearchOpen(true);
+            }
+            break;
+          case "export":
+            vm.setIsSandboxModalOpen(true);
+            break;
+          case "switch-pro":
+            handleModeSelect("pro");
+            break;
+        }
+      } else if (action.type === "panel") {
+        switch (action.id) {
+          case "env-vars":
+            handleModeSelect("pro");
+            break;
+          case "custom-instructions":
+            handleModeSelect("pro");
+            break;
+        }
+      }
+    },
+    [vm, handleModeSelect],
+  );
+
+  const EXECUTE_PATTERNS = /^(kör|gör ändring|kör alla|genomför|starta?|skicka|gör det|go|execute|run|do it)\b/i;
 
   const smartSendMessage = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
@@ -677,26 +1263,194 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         await sendHelpMessage(message, vm.setMessages);
         return;
       }
+
+      const hasVersion = Boolean(vm.activeVersionId);
+      if (isStarter && hasVersion && vm.chatId) {
+        const trimmed = message.trim();
+
+        if (EXECUTE_PATTERNS.test(trimmed)) {
+          await flushChangeQueue(
+            trimmed.length > 20 ? trimmed : undefined,
+          );
+          return;
+        }
+
+        setChangeQueue((prev) => [...prev, trimmed]);
+        await sendCoachMessage(trimmed, vm.setMessages);
+        return;
+      }
+
       await vm.sendMessage(message, options);
     },
-    [sendHelpMessage, vm.sendMessage, vm.setMessages],
+    [sendCoachMessage, sendHelpMessage, vm.sendMessage, vm.setMessages, isStarter, vm.activeVersionId, vm.chatId, flushChangeQueue],
   );
 
   const smartCreateChat = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
+      if (isNeedsAnalysisActive(vm.messages, vm.chatId)) {
+        const userMessage: ChatMessage = {
+          id: `needs-analysis-user-${Date.now()}`,
+          role: "user",
+          content: message.trim(),
+        };
+        const nextMessages = [...vm.messages, userMessage];
+
+        const urlMatch = extractUrlFromMessages([userMessage]);
+        if (urlMatch) {
+          const scrapingMsg = buildScrapingMessage();
+          const scrapingPart = scrapingMsg.uiParts![0]!;
+          (scrapingPart.output as Record<string, unknown>).url = urlMatch;
+          vm.setMessages([...nextMessages, scrapingMsg]);
+
+          try {
+            const res = await fetch("/api/builder/company-intel", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: urlMatch, synthesize: true }),
+            });
+            const json = await res.json();
+            if (json.success && json.data) {
+              const intel = json.data.intel;
+              if (json.data.brief) {
+                companyBriefRef.current = json.data.brief as Record<string, unknown>;
+              }
+              const scrapeCompat: ScrapeResult = {
+                title: intel?.scrapedContent?.title ?? "",
+                description: intel?.scrapedContent?.description ?? "",
+                headings: intel?.scrapedContent?.headings ?? [],
+                wordCount: intel?.scrapedContent?.wordCount ?? 0,
+                hasImages: (intel?.scrapedContent?.images ?? 0) > 0,
+                textSummary: intel?.scrapedContent?.text?.slice(0, 500) ?? "",
+              };
+              scrapeDataRef.current = scrapeCompat;
+              const doneMsg = buildScrapeCompleteMessage(scrapeCompat);
+              doneMsg.uiParts = [
+                {
+                  type: "tool:awaiting-input" as const,
+                  toolName: "Webbanalys",
+                  toolCallId: `scrape:done`,
+                  state: "done" as const,
+                  kind: "scrape-progress",
+                  output: {
+                    kind: "scrape-progress",
+                    awaitingInput: false,
+                    url: urlMatch,
+                    title: scrapeCompat.title,
+                  },
+                },
+              ];
+              const afterScrape = [...nextMessages, doneMsg];
+              const nextState = deriveNeedsAnalysisState(afterScrape);
+              if (!nextState.ready) {
+                const nextQ = buildNextNeedsAnalysisMessage(afterScrape);
+                vm.setMessages(nextQ ? [...afterScrape, nextQ] : afterScrape);
+              } else {
+                vm.setMessages(afterScrape);
+                triggerStarterGeneration(afterScrape, options);
+                return true;
+              }
+            } else {
+              const failMsg = buildScrapeFailedMessage();
+              const afterFail = [...nextMessages, failMsg];
+              const nextState = deriveNeedsAnalysisState(afterFail);
+              if (!nextState.ready) {
+                const nextQ = buildNextNeedsAnalysisMessage(afterFail);
+                vm.setMessages(nextQ ? [...afterFail, nextQ] : afterFail);
+              } else {
+                vm.setMessages(afterFail);
+                triggerStarterGeneration(afterFail, options);
+                return true;
+              }
+            }
+          } catch {
+            const failMsg = buildScrapeFailedMessage();
+            const afterFail = [...nextMessages, failMsg];
+            const nextState = deriveNeedsAnalysisState(afterFail);
+            if (!nextState.ready) {
+              const nextQ = buildNextNeedsAnalysisMessage(afterFail);
+              vm.setMessages(nextQ ? [...afterFail, nextQ] : afterFail);
+            } else {
+              vm.setMessages(afterFail);
+              triggerStarterGeneration(afterFail, options);
+              return true;
+            }
+          }
+          return true;
+        }
+
+        const prevState = deriveNeedsAnalysisState(vm.messages);
+        const nextState = deriveNeedsAnalysisState(nextMessages);
+
+        const siteTypeJustAnswered =
+          isStarter &&
+          !prevState.answeredFields.includes("siteType") &&
+          nextState.answeredFields.includes("siteType");
+
+        if (siteTypeJustAnswered) {
+          templatePickerTriggeredRef.current = true;
+          const detectedType = chipToSiteType(message);
+          pendingSiteTypeRef.current = detectedType;
+          templatePickerMessagesRef.current = nextMessages;
+          vm.setMessages(nextMessages);
+          setIsTemplatePickerLoading(true);
+          vm.setShowTemplatePicker(true);
+
+          const userPrompt =
+            nextMessages
+              .filter((m) => m.role === "user")
+              .map((m) => m.content)
+              .join(" ") || "";
+          searchTemplatesForPicker(userPrompt, detectedType).then((items) => {
+            setTemplatePickerItems(items);
+            setIsTemplatePickerLoading(false);
+          });
+          return true;
+        }
+
+        if (!nextState.ready) {
+          const nextQuestion = buildNextNeedsAnalysisMessage(nextMessages);
+          vm.setMessages(nextQuestion ? [...nextMessages, nextQuestion] : nextMessages);
+          return true;
+        }
+
+        vm.setMessages(nextMessages);
+        triggerStarterGeneration(nextMessages, options);
+        return true;
+      }
       const intent = await classifyIntent(message);
       if (intent === "help") {
         await sendHelpMessage(message, vm.setMessages);
         return false;
       }
-      return vm.requestCreateChat(message, options);
+      return wrappedRequestCreateChat(message, options);
     },
-    [sendHelpMessage, vm.requestCreateChat, vm.setMessages],
+    [sendHelpMessage, isStarter, vm.chatId, vm.messages, wrappedRequestCreateChat, vm.selectedTemplateIds, vm.setMessages, vm.setShowTemplatePicker, triggerStarterGeneration],
   );
+
+  const handleQuickReply = useCallback(
+    async (text: string, options?: Record<string, unknown>) => {
+      if (!vm.chatId) {
+        await smartCreateChat(text, options);
+        return;
+      }
+      await smartSendMessage(text, options);
+    },
+    [smartCreateChat, smartSendMessage, vm.chatId],
+  );
+
+  if (!builderMode) {
+    return (
+      <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
+        <ModeSelector onSelect={handleModeSelect} />
+      </BuilderLayout>
+    );
+  }
 
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
+        builderMode={builderMode}
+        onModeChange={handleModeSelect}
         selectedModelTier={vm.selectedModelTier}
         onSelectedModelTierChange={vm.setSelectedModelTier}
         onApplyAnthropicComparePreset={handleApplyAnthropicComparePreset}
@@ -753,7 +1507,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onGoHome={vm.handleGoHome}
         onNewChat={vm.resetToNewChat}
         onSaveProject={vm.handleSaveProject}
-        onCancelGeneration={vm.cancelActiveGeneration}
         isDeploying={vm.isDeploying}
         isCreatingChat={vm.isCreatingChat || vm.isTemplateLoading}
         isAnyStreaming={vm.isAnyStreaming}
@@ -765,13 +1518,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentUrl={vm.deploymentUrl}
         deployDisabledReason={deployDisabledReason}
       />
-      <ModelTraceOverlay
-        selectedModelTier={vm.selectedModelTier}
-        promptAssistModel={vm.promptAssistModel}
-        promptAssistDeep={vm.promptAssistDeep}
-        enableThinking={vm.enableThinking}
-        canUseDeepBrief={!vm.chatId}
-      />
+      {!isStarter && (
+        <ModelTraceOverlay
+          selectedModelTier={vm.selectedModelTier}
+          promptAssistModel={vm.promptAssistModel}
+          promptAssistDeep={vm.promptAssistDeep}
+          enableThinking={vm.enableThinking}
+          canUseDeepBrief={!vm.chatId}
+        />
+      )}
 
       {/* Mobile tab bar (visible < lg) */}
       <div className="border-border bg-background flex border-b lg:hidden" role="tablist" aria-label="Byggarvyer">
@@ -810,128 +1565,224 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div
-          id="builder-chat-panel"
-          role="tabpanel"
-          className={cn(
-            "border-border bg-background min-h-0 w-full flex-col border-r lg:flex lg:w-96",
-            mobileTab === "chat" ? "flex" : "hidden",
-          )}
-        >
-          <LaunchReadinessCard
-            readiness={vm.deployReadiness}
-            isLoading={vm.isDeployReadinessLoading}
-          />
-          <ProjectEnvVarsPanel
-            v0ProjectId={vm.v0ProjectId}
-            appProjectId={vm.appProjectId}
-            chatId={vm.chatId}
-            activeVersionId={vm.activeVersionId}
-          />
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            <MessageList
+      <div className={cn("flex min-h-0 flex-1 overflow-hidden", isStarter && "relative")}>
+        {/* ---------- Chat panel ---------- */}
+        {isStarter ? (
+          <FloatingChatBox mobileVisible={mobileTab === "chat"}>
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <MessageList
+                chatId={vm.chatId}
+                versionId={vm.activeVersionId}
+                messages={starterMessages}
+                showStructuredParts={vm.showStructuredChat}
+                onQuickReply={handleQuickReply}
+                onApproveBuildPlan={handleApproveBuildPlan}
+                quickReplyDisabled={isBusy}
+                onSuggestionSend={(text) => smartCreateChat(text)}
+                hideAgentLog
+                hideTooling
+              />
+              <ThinkingOverlay isVisible={vm.isAnyStreaming} />
+            </div>
+            <ChatInterface
               chatId={vm.chatId}
-              versionId={vm.activeVersionId}
-              messages={vm.messages}
-              showStructuredParts={vm.showStructuredChat}
-              onQuickReply={(text, options) => vm.sendMessage(text, options)}
-              onApproveBuildPlan={handleApproveBuildPlan}
-              quickReplyDisabled={isBusy}
+              initialPrompt={null}
+              onCreateChat={smartCreateChat}
+              onSendMessage={smartSendMessage}
+              onStartFromRegistry={vm.handleStartFromRegistry}
+              onRequestPlacement={handleRequestPlacement}
+              onStartFromTemplate={vm.handleStartFromTemplate}
+              onPaletteSelection={vm.handlePaletteSelection}
+              paletteSelections={vm.paletteState.selections}
+              designTheme={vm.designTheme}
+              onDesignThemeChange={vm.setDesignTheme}
+              onEnhancePrompt={vm.handlePromptEnhance}
+              isFigmaInputOpen={isFigmaInputOpen}
+              onFigmaInputOpenChange={setIsFigmaInputOpen}
+              isBusy={isBusy}
+              isPreparingPrompt={vm.isPreparingPrompt}
+              mediaEnabled={vm.mediaEnabled}
+              currentCode={vm.currentPageCode}
+              existingUiComponents={vm.existingUiComponents}
+              continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              showAdvancedControls={false}
+              answerSuggestions={currentAnswerSuggestions}
+              answerSuggestionsField={currentField}
+              showActionHub={Boolean(vm.chatId && vm.activeVersionId && !currentField)}
+              onActionHubAction={handleActionHubAction}
+              changeQueueCount={changeQueue.length}
+              onFlushChangeQueue={changeQueue.length > 0 ? () => void flushChangeQueue() : undefined}
             />
-            <TipCard
-              open={tipPanelOpen && vm.tipsEnabled}
-              isLoading={isTipLoading}
-              tip={tipText}
-              error={tipError}
-              cost={tipCost}
-              onRefresh={handleRefreshTip}
-              onClose={() => setTipPanelOpen(false)}
-            />
-            <ThinkingOverlay isVisible={vm.isAnyStreaming} />
-          </div>
-          <ChatInterface
-            chatId={vm.chatId}
-            initialPrompt={vm.initialPrompt}
-            onCreateChat={smartCreateChat}
-            onSendMessage={smartSendMessage}
-            onStartFromRegistry={vm.handleStartFromRegistry}
-            onRequestPlacement={handleRequestPlacement}
-            onStartFromTemplate={vm.handleStartFromTemplate}
-            onPaletteSelection={vm.handlePaletteSelection}
-            paletteSelections={vm.paletteState.selections}
-            designTheme={vm.designTheme}
-            onDesignThemeChange={vm.setDesignTheme}
-            onEnhancePrompt={vm.handlePromptEnhance}
-            isFigmaInputOpen={isFigmaInputOpen}
-            onFigmaInputOpenChange={setIsFigmaInputOpen}
-            isBusy={isBusy}
-            isPreparingPrompt={vm.isPreparingPrompt}
-            mediaEnabled={vm.mediaEnabled}
-            currentCode={vm.currentPageCode}
-            existingUiComponents={vm.existingUiComponents}
-            continuePlanMode={Boolean(latestPendingReply?.planMode)}
-          />
-          <DeployNameDialog
-            open={vm.deployNameDialogOpen}
-            deployName={vm.deployNameInput}
-            deployNameError={vm.deployNameError}
-            isDeploying={vm.isDeploying}
-            isSaving={false}
-            onDeployNameChange={(value) => {
-              vm.setDeployNameInput(value);
-              if (vm.deployNameError) vm.setDeployNameError(null);
-            }}
-            onCancel={() => vm.setDeployNameDialogOpen(false)}
-            onConfirm={vm.handleConfirmDeploy}
-          />
-
-          <AlertDialog
-            open={vm.templateSwitchDialog !== null}
-            onOpenChange={(open) => {
-              if (!open) vm.cancelTemplateSwitchDialog();
-            }}
+            <button
+              type="button"
+              onClick={() => handleModeSelect("pro")}
+              className="w-full border-t border-border/30 py-2 text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+            >
+              Byt till Pro
+            </button>
+          </FloatingChatBox>
+        ) : (
+          <div
+            id="builder-chat-panel"
+            role="tabpanel"
+            className={cn(
+              "border-border bg-background min-h-0 w-full flex-col border-r lg:flex lg:w-96",
+              mobileTab === "chat" ? "flex" : "hidden",
+            )}
           >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {vm.templateSwitchDialog?.kind === "new-chat"
-                    ? "Starta ny chat från template?"
-                    : "Avbryta pågående generering?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {vm.templateSwitchDialog?.kind === "new-chat"
-                    ? "Du har redan en aktiv chat. En ny chat startas från vald template och nuvarande konversation finns kvar i historiken."
-                    : "Generering pågår just nu. Vill du avbryta och starta från mallen istället?"}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel type="button">Avbryt</AlertDialogCancel>
-                <AlertDialogAction type="button" onClick={() => vm.confirmTemplateSwitchDialog()}>
-                  Fortsätt
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            <LaunchReadinessCard
+              readiness={vm.deployReadiness}
+              isLoading={vm.isDeployReadinessLoading}
+            />
+            <ProjectEnvVarsPanel
+              v0ProjectId={vm.v0ProjectId}
+              appProjectId={vm.appProjectId}
+              chatId={vm.chatId}
+              activeVersionId={vm.activeVersionId}
+            />
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <MessageList
+                chatId={vm.chatId}
+                versionId={vm.activeVersionId}
+                messages={vm.messages}
+                showStructuredParts={vm.showStructuredChat}
+                onQuickReply={handleQuickReply}
+                onApproveBuildPlan={handleApproveBuildPlan}
+                quickReplyDisabled={isBusy}
+                onSuggestionSend={(text) => smartCreateChat(text)}
+              />
+              <TipCard
+                open={tipPanelOpen && vm.tipsEnabled}
+                isLoading={isTipLoading}
+                tip={tipText}
+                error={tipError}
+                cost={tipCost}
+                onRefresh={handleRefreshTip}
+                onClose={() => setTipPanelOpen(false)}
+              />
+              <ThinkingOverlay isVisible={vm.isAnyStreaming} />
+            </div>
+            <ChatInterface
+              chatId={vm.chatId}
+              initialPrompt={vm.initialPrompt}
+              onCreateChat={smartCreateChat}
+              onSendMessage={smartSendMessage}
+              onStartFromRegistry={vm.handleStartFromRegistry}
+              onRequestPlacement={handleRequestPlacement}
+              onStartFromTemplate={vm.handleStartFromTemplate}
+              onPaletteSelection={vm.handlePaletteSelection}
+              paletteSelections={vm.paletteState.selections}
+              designTheme={vm.designTheme}
+              onDesignThemeChange={vm.setDesignTheme}
+              onEnhancePrompt={vm.handlePromptEnhance}
+              isFigmaInputOpen={isFigmaInputOpen}
+              onFigmaInputOpenChange={setIsFigmaInputOpen}
+              isBusy={isBusy}
+              isPreparingPrompt={vm.isPreparingPrompt}
+              mediaEnabled={vm.mediaEnabled}
+              currentCode={vm.currentPageCode}
+              existingUiComponents={vm.existingUiComponents}
+              continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              showAdvancedControls={true}
+            />
+          </div>
+        )}
 
-          <DomainSearchDialog
-            open={vm.domainSearchOpen}
-            query={vm.domainQuery}
-            results={vm.domainResults}
-            isSearching={vm.isDomainSearching}
-            onQueryChange={vm.setDomainQuery}
-            onSearch={vm.handleDomainSearch}
-            onClose={() => vm.setDomainSearchOpen(false)}
+        {/* ---------- Site type picker popup (starter mode) ---------- */}
+        {showSiteTypePicker && isStarter && (
+          <SiteTypePickerPopup
+            onSelect={handleSiteTypeSelect}
+            onClose={handleSiteTypeClose}
           />
+        )}
 
-          <DomainManager
-            open={vm.domainManagerOpen}
-            onClose={() => vm.setDomainManagerOpen(false)}
-            projectId={vm.lastDeployVercelProjectId}
-            deploymentId={vm.activeDeploymentId}
+        {/* ---------- Must-have picker popup (starter mode) ---------- */}
+        {showMustHavePicker && isStarter && (
+          <MustHavePickerPopup
+            onSelect={handleMustHaveSelect}
+            onClose={handleMustHaveClose}
           />
-        </div>
+        )}
 
+        {/* ---------- Template picker popup (starter mode) ---------- */}
+        {vm.showTemplatePicker && isStarter && (
+          <TemplatePickerPopup
+            templates={templatePickerItems}
+            isLoading={isTemplatePickerLoading}
+            onSelect={handleTemplateSelect}
+            onClose={handleTemplatePickerClose}
+          />
+        )}
+
+        {/* ---------- Image upload popup (starter mode, before generation) ---------- */}
+        {showImageUpload && isStarter && (
+          <ImageUploadPopup
+            onConfirm={handleImageUploadConfirm}
+            onSkip={handleImageUploadSkip}
+          />
+        )}
+
+        {/* ---------- Dialogs (portal-based, shared by both modes) ---------- */}
+        <DeployNameDialog
+          open={vm.deployNameDialogOpen}
+          deployName={vm.deployNameInput}
+          deployNameError={vm.deployNameError}
+          isDeploying={vm.isDeploying}
+          isSaving={false}
+          onDeployNameChange={(value) => {
+            vm.setDeployNameInput(value);
+            if (vm.deployNameError) vm.setDeployNameError(null);
+          }}
+          onCancel={() => vm.setDeployNameDialogOpen(false)}
+          onConfirm={vm.handleConfirmDeploy}
+        />
+
+        <AlertDialog
+          open={vm.templateSwitchDialog !== null}
+          onOpenChange={(open) => {
+            if (!open) vm.cancelTemplateSwitchDialog();
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {vm.templateSwitchDialog?.kind === "new-chat"
+                  ? "Starta ny chat från template?"
+                  : "Avbryta pågående generering?"}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {vm.templateSwitchDialog?.kind === "new-chat"
+                  ? "Du har redan en aktiv chat. En ny chat startas från vald template och nuvarande konversation finns kvar i historiken."
+                  : "Generering pågår just nu. Vill du avbryta och starta från mallen istället?"}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel type="button">Avbryt</AlertDialogCancel>
+              <AlertDialogAction type="button" onClick={() => vm.confirmTemplateSwitchDialog()}>
+                Fortsätt
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <DomainSearchDialog
+          open={vm.domainSearchOpen}
+          query={vm.domainQuery}
+          results={vm.domainResults}
+          isSearching={vm.isDomainSearching}
+          onQueryChange={vm.setDomainQuery}
+          onSearch={vm.handleDomainSearch}
+          onClose={() => vm.setDomainSearchOpen(false)}
+        />
+
+        <DomainManager
+          open={vm.domainManagerOpen}
+          onClose={() => vm.setDomainManagerOpen(false)}
+          projectId={vm.lastDeployVercelProjectId}
+          deploymentId={vm.activeDeploymentId}
+        />
+
+        {/* ---------- Preview panel ---------- */}
         <div
           id="builder-preview-panel"
           role="tabpanel"
@@ -960,9 +1811,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}
-              awaitingInput={vm.isAwaitingInput}
-              awaitingInputQuestion={latestPendingReply?.question ?? null}
-              awaitingInputOptions={latestPendingReply?.options ?? []}
+              awaitingInput={isStarter ? false : vm.isAwaitingInput}
+              awaitingInputQuestion={isStarter ? null : (latestPendingReply?.question ?? null)}
+              awaitingInputOptions={isStarter ? [] : (latestPendingReply?.options ?? [])}
               onClear={handleClearPreview}
               onFixPreview={vm.handleFixPreview}
               onFilesSaved={vm.handleFilesSaved}
@@ -970,24 +1821,27 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               placementMode={Boolean(pendingPlacementRequest)}
               pendingPlacementItem={pendingPlacementItem}
               onPlacementComplete={handlePlacementComplete}
+              simplified={isStarter}
             />
           </div>
-          <div
-            className={cn(
-              "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
-              vm.isVersionPanelCollapsed ? "w-10" : "w-80",
-            )}
-          >
-            <VersionHistory
-              chatId={vm.chatId}
-              selectedVersionId={vm.activeVersionId}
-              onVersionSelect={handleVersionSelect}
-              isCollapsed={vm.isVersionPanelCollapsed}
-              onToggleCollapse={vm.handleToggleVersionPanel}
-              versions={vm.effectiveVersionsList}
-              mutateVersions={vm.mutateVersions}
-            />
-          </div>
+          {!isStarter && (
+            <div
+              className={cn(
+                "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
+                vm.isVersionPanelCollapsed ? "w-10" : "w-80",
+              )}
+            >
+              <VersionHistory
+                chatId={vm.chatId}
+                selectedVersionId={vm.activeVersionId}
+                onVersionSelect={handleVersionSelect}
+                isCollapsed={vm.isVersionPanelCollapsed}
+                onToggleCollapse={vm.handleToggleVersionPanel}
+                versions={vm.effectiveVersionsList}
+                mutateVersions={vm.mutateVersions}
+              />
+            </div>
+          )}
         </div>
       </div>
 
