@@ -76,14 +76,19 @@ function extractErrorLines(
   for (const f of failures) {
     const trimmed = f.output.trim();
     if (!trimmed) continue;
-    for (const line of trimmed.split("\n")) {
-      const stripped = line.trim();
+    const outputLines = trimmed.split("\n");
+    for (let i = 0; i < outputLines.length; i++) {
+      const stripped = outputLines[i].trim();
       if (!stripped) continue;
       if (/error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
+        const prevLine = i > 0 ? outputLines[i - 1]?.trim() : "";
+        if (prevLine && !lines.includes(`[${f.check}] ${prevLine}`)) {
+          lines.push(`[${f.check}] ${prevLine}`);
+        }
         lines.push(`[${f.check}] ${stripped}`);
       }
     }
-    if (lines.length > 40) break;
+    if (lines.length > 60) break;
   }
   return lines;
 }
@@ -202,6 +207,11 @@ export async function POST(
     }
 
     const gateErrorLines = extractErrorLines(gateFailures);
+    const filesFromGateOutput = new Set<string>();
+    for (const line of gateErrorLines) {
+      const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
+      if (fileMatch?.[1]) filesFromGateOutput.add(fileMatch[1]);
+    }
     let bestContent = content;
     let bestErrorCount = syntaxResult.errors.length;
     let llmPasses = 0;
@@ -220,9 +230,10 @@ export async function POST(
       ].slice(0, 50);
 
       const brokenFiles = [
-        ...new Set(
-          syntaxResult.errors.map((e) => e.file).filter(Boolean),
-        ),
+        ...new Set([
+          ...syntaxResult.errors.map((e) => e.file).filter(Boolean),
+          ...filesFromGateOutput,
+        ]),
       ];
 
       const fixerResult = await runLlmFixer(content, errorSummary, {

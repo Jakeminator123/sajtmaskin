@@ -10,6 +10,7 @@ import {
   fixNextImageImport,
 } from "./common-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
+import { fixLucideLinkMisuse } from "./rules/lucide-link-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import {
   fixCnImportConflict,
@@ -302,7 +303,24 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 4e. tailwind-font-arbitrary-fixer — replace font-[family-name:var(--x)] with inline style
+      // 4e. lucide-link-fixer — fix Link imported from lucide-react when used as next/link
+      try {
+        const linkResult = fixLucideLinkMisuse(currentCode, file.path);
+        if (linkResult.fixed) {
+          currentCode = linkResult.code;
+          allFixes.push({
+            fixer: "lucide-link-fixer",
+            description: "Replaced lucide-react Link with next/link",
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] lucide-link-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4f. tailwind-font-arbitrary-fixer — replace font-[family-name:var(--x)] with inline style
       try {
         const fontResult = fixTailwindFontArbitrary(currentCode);
         if (fontResult.fixed) {

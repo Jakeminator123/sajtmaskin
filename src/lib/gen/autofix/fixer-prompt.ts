@@ -11,7 +11,11 @@ Your job:
    - TypeScript type errors → fix types or add type assertions
    - Missing default export → add export default to the main component
    - Syntax errors → fix the specific syntax issue
-5. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
+5. CRITICAL import mistakes to watch for (these cause build failures):
+   - Link from "lucide-react" used as <Link href="..."> → must be: import Link from "next/link" (rename icon to LinkIcon)
+   - Image from "lucide-react" used as <Image src="..." /> → must be: import Image from "next/image" (rename icon to ImageIcon)
+   - Never import routing/navigation components (Link, Image, useRouter) from icon libraries
+6. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
 
 Output: Only fenced code blocks with file="path". No explanations.`;
 

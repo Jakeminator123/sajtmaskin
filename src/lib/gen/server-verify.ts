@@ -178,13 +178,25 @@ async function tryServerRepairLoop(params: {
 
   const errorLines: string[] = [];
   for (const f of failedOutputs) {
-    for (const line of f.output.split("\n")) {
-      const stripped = line.trim();
-      if (stripped && /error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
+    const outputLines = f.output.split("\n");
+    for (let i = 0; i < outputLines.length; i++) {
+      const stripped = outputLines[i].trim();
+      if (!stripped) continue;
+      if (/error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
+        const prevLine = i > 0 ? outputLines[i - 1]?.trim() : "";
+        if (prevLine && !errorLines.includes(`[${f.check}] ${prevLine}`)) {
+          errorLines.push(`[${f.check}] ${prevLine}`);
+        }
         errorLines.push(`[${f.check}] ${stripped}`);
       }
-      if (errorLines.length > 40) break;
+      if (errorLines.length > 60) break;
     }
+  }
+
+  const filesFromGateOutput = new Set<string>();
+  for (const line of errorLines) {
+    const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
+    if (fileMatch?.[1]) filesFromGateOutput.add(fileMatch[1]);
   }
 
   let bestContent = content;
@@ -201,7 +213,10 @@ async function tryServerRepairLoop(params: {
       ...syntaxResult.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`),
       ...errorLines,
     ].slice(0, 50);
-    const brokenFiles = [...new Set(syntaxResult.errors.map((e) => e.file).filter(Boolean))];
+    const brokenFiles = [...new Set([
+      ...syntaxResult.errors.map((e) => e.file).filter(Boolean),
+      ...filesFromGateOutput,
+    ])];
 
     const fixerResult = await runLlmFixer(content, errorSummary, {
       model: fixerModel,
