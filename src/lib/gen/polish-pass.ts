@@ -68,17 +68,7 @@ export async function runPolishPass(
       return { polishedContent: content, filesChanged: 0, applied: false };
     }
 
-    const originalFiles = new Map<string, string>();
-    try {
-      const parsed = JSON.parse(parseFilesFromContent(content));
-      if (Array.isArray(parsed)) {
-        for (const f of parsed) {
-          if (f.path && f.content) originalFiles.set(f.path, f.content);
-        }
-      }
-    } catch { /* ignore */ }
-
-    const merged = mergePolishIntoOriginal(content, polishedText, originalFiles);
+    const merged = mergePolishIntoOriginal(content, polishedText);
 
     return {
       polishedContent: merged,
@@ -95,7 +85,6 @@ export async function runPolishPass(
 function mergePolishIntoOriginal(
   original: string,
   polished: string,
-  originalFiles: Map<string, string>,
 ): string {
   let merged = original;
 
@@ -108,10 +97,16 @@ function mergePolishIntoOriginal(
 
     for (const pf of polishedParsed) {
       if (!pf.path || !pf.content) continue;
-      const origContent = originalFiles.get(pf.path);
-      if (!origContent) continue;
-      if (origContent !== pf.content) {
-        merged = merged.replace(origContent, pf.content);
+
+      const escapedPath = pf.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const fenceRe = new RegExp(
+        "(```\\w+\\s+file=\"" + escapedPath + "\"[^\\n]*\\n)" +
+          "([\\s\\S]*?)" +
+          "(\\n```)",
+      );
+      const match = merged.match(fenceRe);
+      if (match) {
+        merged = merged.replace(fenceRe, `$1${pf.content}$3`);
       }
     }
   } catch {

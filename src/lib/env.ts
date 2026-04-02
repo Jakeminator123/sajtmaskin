@@ -149,6 +149,11 @@ export const serverSchema = z.object({
   SAJTMASKIN_MODEL_ANTHROPIC: z.string().optional(),
   SAJTMASKIN_ASSIST_MODEL: z.string().optional(),
   SAJTMASKIN_POLISH_MODEL: z.string().optional(),
+  SAJTMASKIN_POLISH_PASS: z.string().optional(),
+  SAJTMASKIN_BRIEF_MODEL: z.string().optional(),
+  SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI: z.string().optional(),
+  SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC: z.string().optional(),
+  SAJTMASKIN_SPEC_MODEL: z.string().optional(),
 
   // v0 Design System
   DESIGN_SYSTEM_ID: z.string().optional(),

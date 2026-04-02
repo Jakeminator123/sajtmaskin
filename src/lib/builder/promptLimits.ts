@@ -1,3 +1,5 @@
+import { getPromptOrchestrationFromManifest } from "@/lib/ai-models/load-manifest";
+
 function readIntEnv(name: string, fallback: number, min: number, max: number): number {
   const raw = Number(process.env[name]);
   if (!Number.isFinite(raw)) return fallback;
@@ -7,115 +9,129 @@ function readIntEnv(name: string, fallback: number, min: number, max: number): n
   return rounded;
 }
 
+const promptOrchestration = getPromptOrchestrationFromManifest();
+const caps = promptOrchestration.hardCaps;
+const soft = promptOrchestration.softTargets;
+const thresholds = promptOrchestration.phaseThresholds;
+
 /**
  * Hard caps for prompt-related payloads.
- * Tuned for GPT 5.4's 1M+ token context window.
- * 10x headroom over earlier defaults — modern models handle very long prompts
- * without quality degradation, so we avoid aggressive summarisation.
+ * Defaults come from `config/ai_models/manifest.json` → `promptOrchestration.hardCaps`
+ * with env overrides layered on top.
  */
-export const MAX_CHAT_MESSAGE_CHARS = readIntEnv("V0_MAX_PROMPT_LENGTH", 800_000, 5_000, 2_000_000);
-export const WARN_CHAT_MESSAGE_CHARS = readIntEnv("V0_WARN_PROMPT_LENGTH", 500_000, 1_000, 2_000_000);
+export const MAX_CHAT_MESSAGE_CHARS = readIntEnv(
+  caps.maxChatMessageChars.envKey,
+  caps.maxChatMessageChars.default,
+  caps.maxChatMessageChars.min,
+  caps.maxChatMessageChars.max,
+);
+export const WARN_CHAT_MESSAGE_CHARS = readIntEnv(
+  caps.warnChatMessageChars.envKey,
+  caps.warnChatMessageChars.default,
+  caps.warnChatMessageChars.min,
+  caps.warnChatMessageChars.max,
+);
 export const MAX_CHAT_SYSTEM_CHARS = readIntEnv(
-  "SAJTMASKIN_MAX_SYSTEM_LENGTH",
-  600_000,
-  2_000,
-  2_000_000,
+  caps.maxChatSystemChars.envKey,
+  caps.maxChatSystemChars.default,
+  caps.maxChatSystemChars.min,
+  caps.maxChatSystemChars.max,
 );
 export const WARN_CHAT_SYSTEM_CHARS = readIntEnv(
-  "SAJTMASKIN_WARN_SYSTEM_LENGTH",
-  350_000,
-  1_000,
-  2_000_000,
+  caps.warnChatSystemChars.envKey,
+  caps.warnChatSystemChars.default,
+  caps.warnChatSystemChars.min,
+  caps.warnChatSystemChars.max,
 );
 
 export const MAX_PROMPT_HANDOFF_CHARS = readIntEnv(
-  "SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS",
-  MAX_CHAT_MESSAGE_CHARS,
-  5_000,
-  2_000_000,
+  caps.maxPromptHandoffChars.envKey,
+  caps.maxPromptHandoffChars.default,
+  caps.maxPromptHandoffChars.min,
+  caps.maxPromptHandoffChars.max,
 );
 
 export const MAX_AI_BRIEF_PROMPT_CHARS = readIntEnv(
-  "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
-  800_000,
-  2_000,
-  2_000_000,
+  caps.maxAiBriefPromptChars.envKey,
+  caps.maxAiBriefPromptChars.default,
+  caps.maxAiBriefPromptChars.min,
+  caps.maxAiBriefPromptChars.max,
 );
 export const MAX_AI_CHAT_MESSAGE_CHARS = readIntEnv(
-  "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
-  600_000,
-  2_000,
-  2_000_000,
+  caps.maxAiChatMessageChars.envKey,
+  caps.maxAiChatMessageChars.default,
+  caps.maxAiChatMessageChars.min,
+  caps.maxAiChatMessageChars.max,
 );
 export const MAX_AI_SPEC_PROMPT_CHARS = readIntEnv(
-  "SAJTMASKIN_MAX_AI_SPEC_PROMPT_CHARS",
-  800_000,
-  2_000,
-  2_000_000,
+  caps.maxAiSpecPromptChars.envKey,
+  caps.maxAiSpecPromptChars.default,
+  caps.maxAiSpecPromptChars.min,
+  caps.maxAiSpecPromptChars.max,
 );
 
 /**
  * Soft orchestration targets by prompt type.
- * Tuned for GPT 5.4 — 10x headroom reduces unnecessary summarisation.
+ * Defaults come from `config/ai_models/manifest.json` → `promptOrchestration.softTargets`.
  * These are guidance budgets, not hard validation limits.
  */
 export const ORCHESTRATION_SOFT_TARGET_FREEFORM_CHARS = readIntEnv(
-  "SAJTMASKIN_SOFT_TARGET_FREEFORM_CHARS",
-  75_000,
-  1_000,
+  soft.freeformChars.envKey,
+  soft.freeformChars.default,
+  soft.freeformChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 export const ORCHESTRATION_SOFT_TARGET_WIZARD_CHARS = readIntEnv(
-  "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
-  85_000,
-  1_000,
+  soft.wizardChars.envKey,
+  soft.wizardChars.default,
+  soft.wizardChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 export const ORCHESTRATION_SOFT_TARGET_AUDIT_CHARS = readIntEnv(
-  "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
-  110_000,
-  1_000,
+  soft.auditChars.envKey,
+  soft.auditChars.default,
+  soft.auditChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 export const ORCHESTRATION_SOFT_TARGET_TEMPLATE_CHARS = readIntEnv(
-  "SAJTMASKIN_SOFT_TARGET_TEMPLATE_CHARS",
-  50_000,
-  1_000,
+  soft.templateChars.envKey,
+  soft.templateChars.default,
+  soft.templateChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 export const ORCHESTRATION_SOFT_TARGET_FOLLOWUP_CHARS = readIntEnv(
-  "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
-  70_000,
-  1_000,
+  soft.followupChars.envKey,
+  soft.followupChars.default,
+  soft.followupChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 export const ORCHESTRATION_SOFT_TARGET_TECHNICAL_CHARS = readIntEnv(
-  "SAJTMASKIN_SOFT_TARGET_TECHNICAL_CHARS",
-  95_000,
-  1_000,
+  soft.technicalChars.envKey,
+  soft.technicalChars.default,
+  soft.technicalChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 export const ORCHESTRATION_SOFT_TARGET_APP_CHARS = readIntEnv(
-  "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
-  90_000,
-  1_000,
+  soft.appChars.envKey,
+  soft.appChars.default,
+  soft.appChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 
 /**
  * Thresholds that push the orchestrator into phase mode.
- * Raised for GPT 5.4 — phasing only needed for genuinely massive prompts.
+ * Defaults come from `config/ai_models/manifest.json` → `promptOrchestration.phaseThresholds`.
  */
 export const ORCHESTRATION_PHASE_FORCE_CHARS = readIntEnv(
-  "SAJTMASKIN_PHASE_FORCE_CHARS",
-  180_000,
-  2_000,
+  thresholds.defaultChars.envKey,
+  thresholds.defaultChars.default,
+  thresholds.defaultChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 export const ORCHESTRATION_PHASE_FORCE_AUDIT_CHARS = readIntEnv(
-  "SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS",
-  140_000,
-  2_000,
+  thresholds.auditChars.envKey,
+  thresholds.auditChars.default,
+  thresholds.auditChars.min,
   MAX_CHAT_MESSAGE_CHARS,
 );
 

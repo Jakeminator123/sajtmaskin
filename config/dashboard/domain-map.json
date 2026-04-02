@@ -51,7 +51,7 @@
       ]
     },
     "ai_models": {
-      "summary": "Modellregister, tokenbudgetar, placeholders för genererade sajter m.m.",
+      "summary": "Modellregister och LLM-kedja: buildprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter.",
       "canonicalPaths": [
         "config/ai_models/manifest.json",
         "config/ai_models/*.md",
@@ -66,7 +66,15 @@
       "codeReaders": [
         "src/lib/ai-models/load-manifest.ts",
         "src/lib/ai-models/load-generated-site-placeholders.ts",
-        "src/lib/gen/defaults.ts"
+        "src/lib/gen/defaults.ts",
+        "src/lib/builder/promptLimits.ts",
+        "src/lib/models/phase-routing.ts",
+        "src/lib/builder/site-brief-generation.ts",
+        "src/lib/gen/contract/pre-generation-contracts.ts",
+        "src/lib/gen/server-verify.ts",
+        "src/app/api/engine/chats/[chatId]/repair/route.ts",
+        "src/app/api/audit/route.ts",
+        "src/app/api/projects/[id]/analyze/route.ts"
       ]
     },
     "env-policy": {

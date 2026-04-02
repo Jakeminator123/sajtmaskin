@@ -203,7 +203,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         })
       ) {
         const generated = await tryGenerateServerAutoBrief({
-          prompt: optimizedMessage,
+          prompt: message,
           assistModelHint,
           imageGenerations: resolvedImageGenerations,
           signal: req.signal,

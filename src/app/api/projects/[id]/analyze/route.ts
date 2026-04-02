@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services/projects";
 import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
+import { PROJECT_ANALYZE_DEFAULT_MODEL } from "@/lib/gen/defaults";
 
 /**
  * Project Analysis API
@@ -14,7 +15,7 @@ import OpenAI from "openai";
  * - SEO opportunities
  * - Prioritized improvement list
  *
- * Uses OpenAI Responses API with gpt-4o-mini for cost-efficiency.
+ * Uses OpenAI Responses API with the configured project-analysis default model.
  * This is a FREE analysis (no diamond cost) to help users understand their project.
  */
 
@@ -175,7 +176,7 @@ Ge en strukturerad analys enligt formatet.`;
 
     // 7. Call OpenAI Responses API
     const response = await getOpenAIClient().responses.create({
-      model: toGatewayModelId("gpt-4o-mini"),
+      model: toGatewayModelId(PROJECT_ANALYZE_DEFAULT_MODEL),
       instructions: ANALYSIS_SYSTEM_PROMPT,
       input: analysisPrompt,
       store: false, // Don't store analysis for privacy

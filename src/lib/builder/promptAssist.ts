@@ -1,27 +1,21 @@
 import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
+import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
 
 // "gateway" is the UI label for OpenAI-class assist models; `/api/ai/chat` calls OpenAI via OPENAI_API_KEY (createDirectModel), not Vercel AI Gateway.
 // "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
 // Prompt assist does not use the v0 Model API.
 export type PromptAssistProvider = "gateway" | "anthropic";
 
-export const GATEWAY_ASSIST_MODELS = [
-  "openai/gpt-5.4",
-  "openai/gpt-5.3-codex",
-  "openai/gpt-5.2",
-  "anthropic/claude-opus-4.6",
-  "anthropic/claude-sonnet-4.6",
-] as const;
+const promptAssistAllowed = getPromptAssistAllowedFromManifest();
 
-export const ANTHROPIC_ASSIST_MODELS = [
-  "anthropic-direct/claude-haiku-4-5-20251001",
-  "anthropic-direct/claude-sonnet-4-6",
-  "anthropic-direct/claude-opus-4-6",
-] as const;
+export const GATEWAY_ASSIST_MODELS = Object.freeze([
+  ...promptAssistAllowed.gatewayClassModels,
+]);
 
-export type GatewayAssistModel = (typeof GATEWAY_ASSIST_MODELS)[number];
-export type AnthropicAssistModel = (typeof ANTHROPIC_ASSIST_MODELS)[number];
+export const ANTHROPIC_ASSIST_MODELS = Object.freeze([
+  ...promptAssistAllowed.anthropicDirectModels,
+]);
 
 export function normalizeAssistModel(rawModel: string): string {
   const raw = String(rawModel || "").trim();
@@ -31,12 +25,12 @@ export function normalizeAssistModel(rawModel: string): string {
   return `openai/${raw}`;
 }
 
-export function isGatewayAssistModel(model: string): model is GatewayAssistModel {
-  return GATEWAY_ASSIST_MODELS.includes(model as GatewayAssistModel);
+export function isGatewayAssistModel(model: string): boolean {
+  return GATEWAY_ASSIST_MODELS.includes(model);
 }
 
-export function isAnthropicAssistModel(model: string): model is AnthropicAssistModel {
-  return ANTHROPIC_ASSIST_MODELS.includes(model as AnthropicAssistModel);
+export function isAnthropicAssistModel(model: string): boolean {
+  return ANTHROPIC_ASSIST_MODELS.includes(model);
 }
 
 export function isPromptAssistOff(model: string): boolean {

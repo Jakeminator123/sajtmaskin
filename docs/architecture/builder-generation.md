@@ -1,6 +1,6 @@
 # Builder — generering, modeller, prompt och SSE
 
-**Senast uppdaterad:** 2026-03-31
+**Senast uppdaterad:** 2026-04-02
 
 ## Modellbanor (UI ↔ API)
 
@@ -26,8 +26,10 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 ## Nuvarande kodflöde
 
 1. **Prompt in** via Builder eller `scripts/cli/builder-generate.py`.
-2. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via samma Deep Brief-modell som `/api/ai/brief` (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`).
-3. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
+2. **Före-build prompt-verktyg (valfritt):** "Skriv om" (polish) eller "Förbättra" (rewrite) via `/api/ai/chat` + guardrails i `usePromptAssist.ts`. Redigerar text i realtid utan att skicka iväg.
+3. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via Deep Brief (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`). **Briefen genereras alltid från originalprompt** — inte den orkestrerade/summarerade versionen. Auto-brief blockeras för follow-ups, audit och tekniska prompts.
+4. **Spec-first chain (valfritt, `specMode=true`):** Om briefen finns konverteras den till en `WebsiteSpec` via `briefToSpec()` i `promptAssistContext.ts`, annars via `promptToSpec()`. Specfilen bifogas som strukturerad kontext till systemprompten.
+5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
 4. **Scaffoldval i `auto`:** `matchScaffold()` är primär keyword-path; `matchScaffoldWithEmbeddings()` använder scaffold-embeddings bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
 5. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, KB och template-library guidance. Template-library-diagnostik (`embedding`, `hybrid_keyword_blend`, `keyword_fallback`, `empty_catalog`) följer sedan med i `streamMeta.templateLibrarySearch`.
 6. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, parse/merge/preflight och sparar versionen innan sandbox följer upp.
@@ -55,7 +57,8 @@ Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/st
 
 ## Generationsloop och felminne
 
-- Efter stream: `finalizeAndSaveVersion`, autofix-pipeline, ev. kvalitetsgrind — se `generation-loop-and-error-memory.md` i arkivet.
+- Efter stream: `finalizeAndSaveVersion`, autofix-pipeline (loopas `DETERMINISTIC_AUTOFIX_MAX_PASSES` gånger, manifest-styrt), syntaxvalidering (`validateAndFix`, eskalerar till LLM-fixer vid behov), ev. polish-pass, kvalitetsgrind — se `generation-loop-and-error-memory.md` i arkivet.
+- **Repair-modellval:** alla fixer-vägar (`validate-and-fix`, `server-verify`, `repair/route`) använder `resolvePhaseModel(tier, "fixer")` så att fixern matchar generatorns tier. Reparationspass-begränsningar styrs via `repairPolicies` i `manifest.json`.
 - **Finalize-path policy:** finalize kör nu ett tydligare **fast path / deep path**-kontrakt. För lätta follow-ups (`verificationPolicy: fast`) kan deep-path-delar som bildmaterialisering och polish hoppas över, medan parse/merge/preflight/persist fortfarande sker innan `done`.
 - **Agentlogg** / replay av fel: `runtime-lane-refactor-and-log-viewer.md` i arkivet.
 

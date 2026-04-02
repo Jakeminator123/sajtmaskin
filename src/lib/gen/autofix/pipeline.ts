@@ -21,6 +21,7 @@ import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
 import { runSecurityChecks } from "../security/run-security-checks";
+import { DETERMINISTIC_AUTOFIX_MAX_PASSES } from "../defaults";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,9 +69,13 @@ export interface AutoFixContext {
  * Note: font import repair is owned by `repairGeneratedFiles()` so deterministic
  * font fixes run in one canonical place.
  *
+ * The full `runAutoFix()` wrapper may execute multiple deterministic passes
+ * (see `repairPolicies.deterministicAutofixPasses` in `config/ai_models/manifest.json`)
+ * before the caller escalates to an LLM fixer.
+ *
  * Fail-safe: if any fixer throws, it is skipped and a warning is logged.
  */
-export async function runAutoFix(
+async function runAutoFixSinglePass(
   content: string,
   _context?: AutoFixContext,
 ): Promise<AutoFixResult> {
@@ -389,6 +394,46 @@ export async function runAutoFix(
     fixedContent,
     fixes: allFixes,
     warnings: allWarnings,
+    dependencies: allDependencies,
+  };
+}
+
+export async function runAutoFix(
+  content: string,
+  context?: AutoFixContext,
+): Promise<AutoFixResult> {
+  let currentContent = content;
+  const allFixes: AutoFixEntry[] = [];
+  const warningSet = new Set<string>();
+  let allDependencies: Record<string, string> = {};
+
+  for (let pass = 1; pass <= DETERMINISTIC_AUTOFIX_MAX_PASSES; pass++) {
+    const before = currentContent;
+    const result = await runAutoFixSinglePass(currentContent, context);
+    currentContent = result.fixedContent;
+    allDependencies = { ...allDependencies, ...result.dependencies };
+
+    for (const fix of result.fixes) {
+      allFixes.push(
+        pass === 1
+          ? fix
+          : { ...fix, description: `[pass ${pass}] ${fix.description}` },
+      );
+    }
+    for (const warning of result.warnings) {
+      warningSet.add(warning);
+    }
+
+    const changed = before !== currentContent;
+    if (!changed || result.fixes.length === 0) {
+      break;
+    }
+  }
+
+  return {
+    fixedContent: currentContent,
+    fixes: allFixes,
+    warnings: [...warningSet],
     dependencies: allDependencies,
   };
 }

@@ -66,6 +66,7 @@ type Args = {
   setCustomInstructions: Dispatch<SetStateAction<string>>;
   setPromptAssistModel: Dispatch<SetStateAction<string>>;
   setPromptAssistDeep: Dispatch<SetStateAction<boolean>>;
+  setPromptAssistMode: Dispatch<SetStateAction<"polish" | "rewrite" | null>>;
   setDesignTheme: Dispatch<SetStateAction<DesignTheme>>;
   setPaletteState: Dispatch<SetStateAction<PaletteState>>;
   maybeEnhanceInitialPrompt: (
@@ -120,6 +121,7 @@ export function useBuilderPromptActions({
   setCustomInstructions,
   setPromptAssistModel,
   setPromptAssistDeep,
+  setPromptAssistMode,
   setDesignTheme: _setDesignTheme,
   setPaletteState,
   maybeEnhanceInitialPrompt,
@@ -190,8 +192,13 @@ export function useBuilderPromptActions({
     }
   }, [setPromptAssistModel, setPromptAssistDeep]);
 
+  const clearPromptAssistMode = useCallback(() => {
+    setPromptAssistMode(null);
+  }, [setPromptAssistMode]);
+
   const handlePromptEnhance = useCallback(
     async (message: string) => {
+      setPromptAssistMode("polish");
       const polishModelOverride =
         resolvePromptAssistProvider(promptAssistModel) === "anthropic"
           ? promptAssistModel
@@ -203,7 +210,19 @@ export function useBuilderPromptActions({
       });
       return formatPrompt(enhanced);
     },
-    [maybeEnhanceInitialPrompt, promptAssistModel],
+    [maybeEnhanceInitialPrompt, promptAssistModel, setPromptAssistMode],
+  );
+
+  const handlePromptRewrite = useCallback(
+    async (message: string) => {
+      setPromptAssistMode("rewrite");
+      const enhanced = await maybeEnhanceInitialPrompt(message, {
+        forceShallow: true,
+        mode: "rewrite",
+      });
+      return formatPrompt(enhanced);
+    },
+    [maybeEnhanceInitialPrompt, setPromptAssistMode],
   );
 
   const captureInstructionSnapshot = useCallback(() => {
@@ -351,7 +370,9 @@ export function useBuilderPromptActions({
     confirmTemplateSwitchDialog,
     cancelTemplateSwitchDialog,
     handlePromptAssistModelChange,
+    clearPromptAssistMode,
     handlePromptEnhance,
+    handlePromptRewrite,
     captureInstructionSnapshot,
     requestCreateChat,
     handleStartFromRegistry,

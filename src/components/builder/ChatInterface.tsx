@@ -29,7 +29,7 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Plus, Wand2, X } from "lucide-react";
+import { FileText, ImageIcon, Loader2, Plus, Sparkles, Wand2, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
@@ -192,7 +192,9 @@ interface ChatInterfaceProps {
   paletteSelections?: PaletteSelection[];
   designTheme?: DesignTheme;
   onDesignThemeChange?: (theme: DesignTheme) => void;
+  onPromptAssistModeReset?: () => void;
   onEnhancePrompt?: (message: string) => Promise<string>;
+  onRewritePrompt?: (message: string) => Promise<string>;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;
   isBusy?: boolean;
@@ -256,7 +258,9 @@ export function ChatInterface({
   paletteSelections,
   designTheme = "blue",
   onDesignThemeChange,
+  onPromptAssistModeReset,
   onEnhancePrompt,
+  onRewritePrompt,
   isFigmaInputOpen: controlledFigmaInputOpen,
   onFigmaInputOpenChange,
   isBusy,
@@ -268,7 +272,9 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [activePromptRefineMode, setActivePromptRefineMode] = useState<
+    "polish" | "rewrite" | null
+  >(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -301,9 +307,11 @@ export function ChatInterface({
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
+  const isEnhancing = activePromptRefineMode !== null;
 
   const handleInputChange = (value: string) => {
     setInput(value);
+    onPromptAssistModeReset?.();
   };
 
   const prefilledPromptRef = useRef<string | null>(null);
@@ -519,25 +527,44 @@ export function ChatInterface({
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
 
-  const handleEnhancePrompt = async () => {
-    if (!onEnhancePrompt) return;
+  const runPromptRefine = async (
+    mode: "polish" | "rewrite",
+    handler: ((message: string) => Promise<string>) | undefined,
+  ) => {
+    if (!handler) return;
     const current = input.trim();
     if (!current) return;
 
-    setIsEnhancing(true);
+    setActivePromptRefineMode(mode);
     try {
-      const enhanced = await onEnhancePrompt(current);
+      const enhanced = await handler(current);
       const trimmedEnhanced = enhanced.trim();
       if (trimmedEnhanced) {
         setInput(trimmedEnhanced);
-        debugLog("AI", "Prompt manually enhanced", { length: trimmedEnhanced.length });
+        debugLog("AI", "Prompt manually refined", {
+          mode,
+          length: trimmedEnhanced.length,
+        });
       }
     } catch (error) {
-      console.error("Prompt enhance failed:", error);
-      toast.error("Kunde inte förbättra prompten just nu.");
+      console.error("Prompt refine failed:", error);
+      toast.error(
+        mode === "rewrite"
+          ? "Kunde inte förbättra prompten just nu."
+          : "Kunde inte skriva om prompten just nu.",
+      );
     } finally {
-      setIsEnhancing(false);
+      setActivePromptRefineMode(null);
+      onPromptAssistModeReset?.();
     }
+  };
+
+  const handleEnhancePrompt = async () => {
+    await runPromptRefine("polish", onEnhancePrompt);
+  };
+
+  const handleRewritePrompt = async () => {
+    await runPromptRefine("rewrite", onRewritePrompt);
   };
 
   const handlePlanRequest = async () => {
@@ -889,15 +916,31 @@ export function ChatInterface({
             Förfina innan du skickar
           </p>
           <div className="flex flex-wrap gap-1.5">
+            {onRewritePrompt && (
+              <button
+                type="button"
+                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+                onClick={handleRewritePrompt}
+                disabled={inputDisabled || isEnhancing || !input.trim()}
+                title="Gör prompten starkare och mer konkret innan build"
+              >
+                {activePromptRefineMode === "rewrite" ? (
+                  <Loader2 className="size-3 animate-spin" />
+                ) : (
+                  <Sparkles className="size-3" />
+                )}
+                Förbättra
+              </button>
+            )}
             {onEnhancePrompt && (
               <button
                 type="button"
                 className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
                 onClick={handleEnhancePrompt}
                 disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Gör prompten tydligare utan att ändra innebörd"
+                title="Lätt språklig omskrivning / polish utan deep brief"
               >
-                {isEnhancing ? (
+                {activePromptRefineMode === "polish" ? (
                   <Loader2 className="size-3 animate-spin" />
                 ) : (
                   <Wand2 className="size-3" />

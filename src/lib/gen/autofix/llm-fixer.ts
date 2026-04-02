@@ -4,6 +4,7 @@ import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
 import { getOpenAIModel } from "../models";
 import { parseCodeProject, type CodeFile } from "../parser";
 import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
+import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
 
 export interface FixerResult {
   fixedContent: string;
@@ -14,7 +15,7 @@ export interface FixerResult {
   durationMs: number;
 }
 
-const DEFAULT_FIXER_MODEL = process.env.SAJTMASKIN_MODEL_PRO?.trim() || "gpt-5.3-codex";
+const DEFAULT_FIXER_MODEL = canonicalModelIdToOwnModelId("pro");
 export async function runLlmFixer(
   content: string,
   errors: string[],

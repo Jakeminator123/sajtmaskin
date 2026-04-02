@@ -5,8 +5,13 @@ import { existsSync } from "node:fs";
 
 import {
   getAiModelsManifest,
+  getBriefingDefaultsFromManifest,
   getBuildProfileDefaultOwnEngineModel,
+  getPreGenerationContractsConfigFromManifest,
+  getPromptOrchestrationFromManifest,
+  getPhaseRoutingFromManifest,
   getPromptAssistAllowedFromManifest,
+  getRepairPoliciesFromManifest,
 } from "@/lib/ai-models/load-manifest";
 import {
   parseGeneratedSitePlaceholderLines,
@@ -68,6 +73,39 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(QUALITY_TO_OPENAI_MODEL.pro).toBe(q.pro);
     expect(QUALITY_TO_OPENAI_MODEL.premium).toBe(q.premium);
     expect(QUALITY_TO_OPENAI_MODEL.max).toBe(q.max);
+  });
+
+  it("briefing, phase routing, repair policies, orchestration, and contract config exist for runtime control", () => {
+    const briefing = getBriefingDefaultsFromManifest();
+    const phaseRouting = getPhaseRoutingFromManifest();
+    const repairPolicies = getRepairPoliciesFromManifest();
+    const promptOrchestration = getPromptOrchestrationFromManifest();
+    const contractConfig = getPreGenerationContractsConfigFromManifest();
+
+    expect(briefing.requestModel).toBeTruthy();
+    expect(briefing.serverAutoOpenAI).toBeTruthy();
+    expect(briefing.serverAutoAnthropic).toBeTruthy();
+    expect(briefing.specModel).toBeTruthy();
+
+    expect(phaseRouting.fast.planner).toBeTruthy();
+    expect(phaseRouting.pro.verifier).toBeTruthy();
+    expect(phaseRouting.max.fixer).toBeTruthy();
+
+    expect(repairPolicies.deterministicAutofixPasses).toBeGreaterThan(0);
+    expect(repairPolicies.syntaxFixPasses).toBeGreaterThan(0);
+    expect(repairPolicies.manualRepairRouteLlmPasses).toBeGreaterThan(0);
+    expect(repairPolicies.serverRepairPasses).toBeGreaterThan(0);
+
+    expect(promptOrchestration.hardCaps.maxChatMessageChars.envKey).toBe(
+      "V0_MAX_PROMPT_LENGTH",
+    );
+    expect(promptOrchestration.softTargets.freeformChars.default).toBeGreaterThan(0);
+    expect(promptOrchestration.phaseThresholds.defaultChars.default).toBeGreaterThan(0);
+
+    expect(contractConfig.defaults.fallbackDatabaseProvider).toBeTruthy();
+    expect(contractConfig.defaults.fallbackAuthProvider).toBeTruthy();
+    expect(contractConfig.defaults.fallbackPaymentProvider).toBeTruthy();
+    expect(contractConfig.providerRules.length).toBeGreaterThan(5);
   });
 
   it("generated-site integration placeholders file exists and parses", () => {

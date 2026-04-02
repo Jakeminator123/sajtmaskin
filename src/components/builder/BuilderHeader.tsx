@@ -317,7 +317,7 @@ export function BuilderHeader(props: {
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="flex items-center gap-2">
-              <span>Förbättra</span>
+              <span>Promptverktyg</span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -328,10 +328,11 @@ export function BuilderHeader(props: {
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
                       Styr den tyngre förbättringen: djup brief, mallhjälp, designbrief och dynamiska
-                      instruktioner före första bygget. Snabbknappen «Skriv om prompt» använder oftast en
-                      lättare modell bara för texten i inmatningsrutan, men följer Anthropic-spåret när
-                      Claude är vald för jämförelse. För ren Anthropic-jämförelse: välj Anthropic som
-                      byggprofil och Claude under Förbättra, eller använd snabbknappen nedan.
+                      instruktioner före första bygget. Knappen «Förbättra» gör en starkare omskrivning
+                      före build, medan «Skriv om» är den lätta polish-/copy-varianten för texten i
+                      inmatningsrutan. Snabbknapparna följer Anthropic-spåret när Claude är vald för
+                      jämförelse. För ren Anthropic-jämförelse: välj Anthropic som byggprofil och Claude
+                      under Förbättra, eller använd snabbknapparna nedan.
                     </p>
                   </TooltipContent>
                 </Tooltip>

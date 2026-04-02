@@ -3,9 +3,10 @@
  *
  * Central registry for **models, workloads, and preview placeholders** lives under
  * `config/ai_models/` (`manifest.json` + `40-generated-site-integration-placeholders.env.txt`).
- * This file stays the source for `PROVIDER_RULES` until a future refactor imports
- * structured provider metadata from the manifest.
+ * Contract provider metadata now comes from `config/ai_models/manifest.json`
+ * so dashboard + runtime can stay in sync.
  */
+import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "../capability-inference";
 import type {
@@ -44,145 +45,30 @@ type ProviderRule = {
   reason: string;
 };
 
-const PROVIDER_RULES: ProviderRule[] = [
-  {
-    kind: "database",
-    provider: "Supabase",
-    name: "Supabase",
-    envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
-    patterns: [/\bsupabase\b/i],
-    reason: "Prompten nämner Supabase eller ett tydligt Supabase-flöde.",
-  },
-  {
-    kind: "database",
-    provider: "Prisma",
-    name: "Prisma",
-    envVars: ["DATABASE_URL"],
-    patterns: [/\bprisma\b/i],
-    reason: "Prompten nämner Prisma uttryckligen.",
-  },
-  {
-    kind: "database",
-    provider: "Drizzle",
-    name: "Drizzle",
-    envVars: ["DATABASE_URL"],
-    patterns: [/\bdrizzle\b/i],
-    reason: "Prompten nämner Drizzle uttryckligen.",
-  },
-  {
-    kind: "database",
-    provider: "SQLite",
-    name: "SQLite",
-    envVars: ["DATABASE_URL"],
-    patterns: [/\bsqlite\b|\bbetter-sqlite3\b/i],
-    reason: "Prompten nämner SQLite uttryckligen.",
-  },
-  {
-    kind: "auth",
-    provider: "Clerk",
-    name: "Clerk",
-    envVars: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
-    patterns: [/\bclerk\b/i],
-    reason: "Prompten nämner Clerk uttryckligen.",
-  },
-  {
-    kind: "auth",
-    provider: "NextAuth / Auth.js",
-    name: "NextAuth / Auth.js",
-    envVars: ["AUTH_SECRET", "NEXTAUTH_URL"],
-    patterns: [/\bnextauth\b|\bauth\.js\b|\bnext-auth\b/i],
-    reason: "Prompten nämner NextAuth / Auth.js uttryckligen.",
-  },
-  {
-    kind: "auth",
-    provider: "Auth0",
-    name: "Auth0",
-    envVars: ["AUTH0_SECRET", "AUTH0_BASE_URL", "AUTH0_ISSUER_BASE_URL", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"],
-    patterns: [/\bauth0\b/i],
-    reason: "Prompten nämner Auth0 uttryckligen.",
-  },
-  {
-    kind: "payment",
-    provider: "Stripe",
-    name: "Stripe",
-    envVars: ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
-    patterns: [/\bstripe\b|\bcheckout\b|\bsubscription\b|\bbilling\b/i],
-    reason: "Prompten pekar på checkout, subscription eller Stripe.",
-  },
-  {
-    kind: "integration",
-    provider: "Resend",
-    name: "Resend",
-    envVars: ["RESEND_API_KEY"],
-    patterns: [/\bresend\b/i],
-    reason: "Prompten nämner Resend uttryckligen.",
-  },
-  {
-    kind: "integration",
-    provider: "OpenAI",
-    name: "OpenAI",
-    envVars: ["OPENAI_API_KEY"],
-    patterns: [/\bopenai\b|\bgpt-?\d|\bai assistant\b|\bchatbot\b/i],
-    reason: "Prompten verkar kräva AI-funktionalitet eller nämner OpenAI.",
-  },
-  {
-    kind: "integration",
-    provider: "Vercel Blob",
-    name: "Vercel Blob",
-    envVars: ["BLOB_READ_WRITE_TOKEN"],
-    patterns: [/\bvercel blob\b|\bblob storage\b/i],
-    reason: "Prompten nämner blob storage eller Vercel Blob uttryckligen.",
-  },
-  {
-    kind: "integration",
-    provider: "Upstash",
-    name: "Upstash",
-    envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
-    patterns: [/\bupstash\b|\bredis\b/i],
-    reason: "Prompten nämner Redis eller Upstash uttryckligen.",
-  },
-  {
-    kind: "integration",
-    provider: "Google Analytics 4",
-    name: "Google Analytics 4",
-    envVars: ["NEXT_PUBLIC_GA_ID"],
-    patterns: [/\bgoogle analytics\b|\bga4\b|\bgtag\b/i],
-    reason: "Prompten nämner Google Analytics / GA4 uttryckligen.",
-  },
-  {
-    kind: "integration",
-    provider: "Google Tag Manager",
-    name: "Google Tag Manager",
-    envVars: ["NEXT_PUBLIC_GTM_ID"],
-    patterns: [/\bgoogle tag manager\b|\bgtm\b|\btag manager\b/i],
-    reason: "Prompten nämner tag manager / GTM uttryckligen.",
-  },
-  {
-    kind: "integration",
-    provider: "Plausible",
-    name: "Plausible",
-    envVars: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
-    patterns: [/\bplausible\b/i],
-    reason: "Prompten nämner Plausible uttryckligen.",
-  },
-  {
-    kind: "integration",
-    provider: "PostHog",
-    name: "PostHog",
-    envVars: ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
-    patterns: [/\bposthog\b/i],
-    reason: "Prompten nämner PostHog uttryckligen.",
-  },
-  {
-    kind: "integration",
-    provider: "Vercel Analytics",
-    name: "Vercel Analytics",
-    envVars: [],
-    patterns: [/\bvercel analytics\b/i],
-    status: "optional",
-    reason: "Prompten nämner Vercel Analytics som möjlig tracking-baseline.",
-  },
-];
+const preGenerationContractsConfig = getPreGenerationContractsConfigFromManifest();
+
+const PROVIDER_RULES: ProviderRule[] = preGenerationContractsConfig.providerRules.map(
+  (rule) => ({
+    kind: rule.kind,
+    provider: rule.provider,
+    name: rule.name,
+    envVars: rule.envVars,
+    patterns: rule.matchPatterns.map((pattern) => new RegExp(pattern, "i")),
+    status: rule.status,
+    reason: rule.reason,
+  }),
+);
+
+const CONTRACT_DEFAULTS = preGenerationContractsConfig.defaults;
+
+function findProviderRule(
+  provider: string,
+  kind?: ProviderRule["kind"],
+): ProviderRule | undefined {
+  return PROVIDER_RULES.find(
+    (rule) => rule.provider === provider && (!kind || rule.kind === kind),
+  );
+}
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -268,18 +154,23 @@ function applyDefaultSqliteWhenPersistenceNeedsProvider(
   if (!mentionsDataPersistence(corpus, capabilities) || contracts.databaseProvider) {
     return;
   }
-  contracts.databaseProvider = "SQLite";
+  const sqliteRule = findProviderRule(
+    CONTRACT_DEFAULTS.fallbackDatabaseProvider,
+    "database",
+  );
+  if (!sqliteRule) return;
+  contracts.databaseProvider = sqliteRule.provider;
   pushIntegration(integrations, {
-    provider: "SQLite",
-    name: "SQLite",
+    provider: sqliteRule.provider,
+    name: sqliteRule.name,
     reason:
       "Automatiskt standardval: lokal SQLite i projektet när persistence behövs men ingen databas nämns — undviker blockerande fråga.",
     status: "chosen",
-    envVars: ["DATABASE_URL"],
+    envVars: sqliteRule.envVars,
   });
   pushEnvVars(
     envVars,
-    ["DATABASE_URL"],
+    sqliteRule.envVars,
     "SQLite: använd t.ex. `file:./dev.db` (Prisma/Drizzle); ingen extern DB krävs för första preview.",
     false,
   );
@@ -299,7 +190,10 @@ function applyDefaultCredentialsAuthWhenNeeded(
   if (!capabilities.needsAuth || contracts.authProvider) {
     return;
   }
-  const nextAuthRule = PROVIDER_RULES.find((r) => r.kind === "auth" && r.provider === "NextAuth / Auth.js");
+  const nextAuthRule = findProviderRule(
+    CONTRACT_DEFAULTS.fallbackAuthProvider,
+    "auth",
+  );
   if (!nextAuthRule) return;
   contracts.authProvider = nextAuthRule.provider;
   pushIntegration(integrations, {
@@ -329,7 +223,10 @@ function applyDefaultStripePlaceholderWhenPaymentNeeded(
   if (!needsPayment || contracts.paymentProvider) {
     return;
   }
-  const stripeRule = PROVIDER_RULES.find((r) => r.kind === "payment" && r.provider === "Stripe");
+  const stripeRule = findProviderRule(
+    CONTRACT_DEFAULTS.fallbackPaymentProvider,
+    "payment",
+  );
   if (!stripeRule) return;
   contracts.paymentProvider = stripeRule.provider;
   pushIntegration(integrations, {
@@ -390,45 +287,17 @@ function applyAuthAnswer(
     removeUnresolved(unresolvedDecisions, "auth");
     return;
   }
-  const clerkRule = PROVIDER_RULES.find((rule) => rule.provider === "Clerk");
-  const nextAuthRule = PROVIDER_RULES.find((rule) => rule.provider === "NextAuth / Auth.js");
-  const auth0Rule = PROVIDER_RULES.find((rule) => rule.provider === "Auth0");
-  if (clerkRule && answerMentions(normalized, [/\bclerk\b/i])) {
-    contracts.authProvider = clerkRule.provider;
+  for (const rule of PROVIDER_RULES.filter((entry) => entry.kind === "auth")) {
+    if (!answerMentions(normalized, rule.patterns)) continue;
+    contracts.authProvider = rule.provider;
     pushIntegration(contracts.integrations, {
-      provider: clerkRule.provider,
-      name: clerkRule.name,
+      provider: rule.provider,
+      name: rule.name,
       reason: "Bekräftat av användarens svar på auth-frågan.",
       status: "chosen",
-      envVars: clerkRule.envVars,
+      envVars: rule.envVars,
     });
-    pushEnvVars(contracts.envVars, clerkRule.envVars, "Bekräftat auth-val.", true);
-    removeUnresolved(unresolvedDecisions, "auth");
-    return;
-  }
-  if (nextAuthRule && answerMentions(normalized, [/\bnextauth\b|\bauth\.js\b|\bnext-auth\b/i])) {
-    contracts.authProvider = nextAuthRule.provider;
-    pushIntegration(contracts.integrations, {
-      provider: nextAuthRule.provider,
-      name: nextAuthRule.name,
-      reason: "Bekräftat av användarens svar på auth-frågan.",
-      status: "chosen",
-      envVars: nextAuthRule.envVars,
-    });
-    pushEnvVars(contracts.envVars, nextAuthRule.envVars, "Bekräftat auth-val.", true);
-    removeUnresolved(unresolvedDecisions, "auth");
-    return;
-  }
-  if (auth0Rule && answerMentions(normalized, [/\bauth0\b/i])) {
-    contracts.authProvider = auth0Rule.provider;
-    pushIntegration(contracts.integrations, {
-      provider: auth0Rule.provider,
-      name: auth0Rule.name,
-      reason: "Bekräftat av användarens svar på auth-frågan.",
-      status: "chosen",
-      envVars: auth0Rule.envVars,
-    });
-    pushEnvVars(contracts.envVars, auth0Rule.envVars, "Bekräftat auth-val.", true);
+    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat auth-val.", true);
     removeUnresolved(unresolvedDecisions, "auth");
     return;
   }
@@ -454,17 +323,17 @@ function applyPaymentAnswer(
     removeUnresolved(unresolvedDecisions, "payment");
     return;
   }
-  const stripeRule = PROVIDER_RULES.find((rule) => rule.provider === "Stripe");
-  if (stripeRule && answerMentions(normalized, [/\bstripe\b/i])) {
-    contracts.paymentProvider = stripeRule.provider;
+  for (const rule of PROVIDER_RULES.filter((entry) => entry.kind === "payment")) {
+    if (!answerMentions(normalized, rule.patterns)) continue;
+    contracts.paymentProvider = rule.provider;
     pushIntegration(contracts.integrations, {
-      provider: stripeRule.provider,
-      name: stripeRule.name,
+      provider: rule.provider,
+      name: rule.name,
       reason: "Bekräftat av användarens svar på payment-frågan.",
       status: "chosen",
-      envVars: stripeRule.envVars,
+      envVars: rule.envVars,
     });
-    pushEnvVars(contracts.envVars, stripeRule.envVars, "Bekräftat payment-val.", true);
+    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat payment-val.", true);
     removeUnresolved(unresolvedDecisions, "payment");
     return;
   }
@@ -491,29 +360,18 @@ function applyDatabaseAnswer(
     removeUnresolved(unresolvedDecisions, "database");
     return;
   }
-  if (/\bsupabase\b/i.test(normalized)) {
-    contracts.databaseProvider = "Supabase";
+  for (const rule of PROVIDER_RULES.filter((entry) => entry.kind === "database")) {
+    if (!answerMentions(normalized, rule.patterns)) continue;
+    contracts.databaseProvider = rule.provider;
     contracts.dataMode = "persisted";
     pushIntegration(contracts.integrations, {
-      provider: "Supabase",
-      name: "Supabase",
+      provider: rule.provider,
+      name: rule.name,
       reason: "Bekräftat av användarens svar på databas-frågan.",
       status: "chosen",
-      envVars: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
+      envVars: rule.envVars,
     });
-    pushEnvVars(
-      contracts.envVars,
-      ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
-      "Bekräftat databasval.",
-      true,
-    );
-    removeUnresolved(unresolvedDecisions, "database");
-    return;
-  }
-  if (/\b(postgres|database_url|postgresql)\b/i.test(normalized)) {
-    contracts.databaseProvider = "Postgres / DATABASE_URL";
-    contracts.dataMode = "persisted";
-    pushEnvVars(contracts.envVars, ["DATABASE_URL"], "Bekräftat databasval.", true);
+    pushEnvVars(contracts.envVars, rule.envVars, "Bekräftat databasval.", true);
     removeUnresolved(unresolvedDecisions, "database");
     return;
   }

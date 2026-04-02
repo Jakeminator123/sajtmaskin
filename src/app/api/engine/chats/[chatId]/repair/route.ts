@@ -9,17 +9,19 @@ import {
   markVersionRepairing,
   promoteVersion,
   failVersionVerification,
+  getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
+import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const MAX_LLM_PASSES = 2;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -191,8 +193,13 @@ export async function POST(
     let bestContent = content;
     let bestErrorCount = syntaxResult.errors.length;
     let llmPasses = 0;
+    const originatingChat = await getChat(chatId).catch(() => null);
+    const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
+    const fixerModel = originatingTier
+      ? resolvePhaseModel(originatingTier, "fixer").modelId
+      : undefined;
 
-    for (let pass = 0; pass < MAX_LLM_PASSES; pass++) {
+    for (let pass = 0; pass < MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES; pass++) {
       const errorSummary = [
         ...syntaxResult.errors.map(
           (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
@@ -207,6 +214,7 @@ export async function POST(
       ];
 
       const fixerResult = await runLlmFixer(content, errorSummary, {
+        model: fixerModel,
         requiredFiles: brokenFiles,
       });
       llmPasses++;

@@ -58,6 +58,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
   const [promptAssistModel, setPromptAssistModel] = useState(() => getDefaultPromptAssistModel());
   const [promptAssistDeep, setPromptAssistDeep] = useState(DEFAULT_PROMPT_ASSIST.deep);
+  const [promptAssistMode, setPromptAssistMode] = useState<"polish" | "rewrite" | null>(null);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
@@ -191,6 +192,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setPromptAssistModel,
     promptAssistDeep,
     setPromptAssistDeep,
+    promptAssistMode,
+    setPromptAssistMode,
     isSandboxModalOpen,
     setIsSandboxModalOpen,
     isDeploying,

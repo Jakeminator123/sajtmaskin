@@ -16,9 +16,17 @@ import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
+import {
+  ANALYZE_PRESENTATION_DEFAULT_MODEL,
+  ANALYZE_PRESENTATION_FALLBACK_MODELS,
+} from "@/lib/gen/defaults";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
+
+function toOpenAiDirectModelId(model: string): string {
+  return model.replace(/^openai\//, "");
+}
 
 const requestSchema = z.object({
   transcript: z.string().min(1, "Transcript required"),
@@ -277,7 +285,7 @@ async function analyzeTextOnly(userText: string): Promise<string> {
   if (hasGatewayAuth) {
     try {
       const result = await generateText({
-        model: createDirectModel("openai/gpt-5-mini"),
+        model: createDirectModel(ANALYZE_PRESENTATION_DEFAULT_MODEL),
         messages: [
           { role: "system", content: TEXT_ONLY_PROMPT },
           { role: "user", content: userText },
@@ -298,7 +306,9 @@ async function analyzeTextOnly(userText: string): Promise<string> {
   const openai = new OpenAI({ apiKey });
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: toOpenAiDirectModelId(
+      ANALYZE_PRESENTATION_FALLBACK_MODELS[0] || ANALYZE_PRESENTATION_DEFAULT_MODEL,
+    ),
     messages: [
       { role: "system", content: TEXT_ONLY_PROMPT },
       { role: "user", content: userText },

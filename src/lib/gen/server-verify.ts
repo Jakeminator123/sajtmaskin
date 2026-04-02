@@ -17,6 +17,7 @@ import {
   promoteVersion,
   failVersionVerification,
   createDraftVersion,
+  getChat,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
@@ -31,9 +32,11 @@ import {
   isSafeRelativePath,
   getSandboxCommandTextOutput,
 } from "@/lib/mcp/runtime-url";
+import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
+import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 
 const inflight = new Set<string>();
-const MAX_REPAIR_PASSES = 2;
 
 type CheckResult = { check: string; passed: boolean; exitCode: number; output: string };
 
@@ -221,15 +224,25 @@ async function tryServerRepairLoop(params: {
 
   let bestContent = content;
   let bestErrorCount = syntaxResult.errors.length;
+  const originatingChat = await getChat(chatId).catch(() => null);
+  const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
+  const fixerModel = originatingTier
+    ? resolvePhaseModel(originatingTier, "fixer").modelId
+    : undefined;
 
-  for (let pass = 0; pass < MAX_REPAIR_PASSES; pass++) {
+  let llmPasses = 0;
+  for (let pass = 0; pass < SERVER_REPAIR_MAX_PASSES; pass++) {
     const errorSummary = [
       ...syntaxResult.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`),
       ...errorLines,
     ].slice(0, 50);
     const brokenFiles = [...new Set(syntaxResult.errors.map((e) => e.file).filter(Boolean))];
 
-    const fixerResult = await runLlmFixer(content, errorSummary, { requiredFiles: brokenFiles });
+    const fixerResult = await runLlmFixer(content, errorSummary, {
+      model: fixerModel,
+      requiredFiles: brokenFiles,
+    });
+    llmPasses++;
     if (!fixerResult.success && !fixerResult.partial) continue;
 
     const reFixed = await runAutoFix(fixerResult.fixedContent);
@@ -256,7 +269,14 @@ async function tryServerRepairLoop(params: {
     ).catch(() => null);
   }
 
-  logRepairOutcome(chatId, versionId, "llm", repaired, MAX_REPAIR_PASSES, bestErrorCount);
+  logRepairOutcome(
+    chatId,
+    versionId,
+    "llm",
+    repaired,
+    llmPasses,
+    bestErrorCount,
+  );
 }
 
 function logRepairOutcome(

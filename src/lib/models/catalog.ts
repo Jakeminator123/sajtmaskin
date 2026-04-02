@@ -88,6 +88,20 @@ export function canonicalizeModelId(
   return null;
 }
 
+/** Best-effort reverse lookup from resolved own-engine model id back to canonical tier. */
+export function ownModelIdToCanonicalModelId(
+  value: string | null | undefined,
+): CanonicalModelId | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  for (const candidate of CANONICAL_MODEL_IDS) {
+    if (canonicalModelIdToOwnModelId(candidate) === trimmed) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
 /** User-facing labels for the builder profiles. */
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
   fast: "Snabb",

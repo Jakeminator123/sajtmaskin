@@ -68,6 +68,22 @@ Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 - **`src/lib/gen/`**: delad genereringskärna och verktyg som own-engine bygger på.
 - **`src/lib/mcp/`**: adapterlager för att använda befintliga flöden programmässigt; inte en separat motor.
 
+## LLM-lager i buildern
+
+- **Prompt assist / Förbättra**: hjälpassistent **före build**. Förbättrar eller skriver om användarens prompt men bygger inte sajten.
+- **Prompt polish / `Skriv om`**: den lätta copy-editor-varianten. Den ska främst rätta språk, tydlighet och form, inte skapa en full brief eller ersätta codegen.
+- **Post-generation polish pass**: separat LLM-pass **efter** codegen som arbetar på genererade filer, inte på användarens prompt. Blanda inte ihop detta med prompt-polish.
+- **Deep brief / site brief**: strukturerad brief före första builden (`sidor`, `sektioner`, `tone`, `SEO`, `imagery`, m.m.). Genereras via `/api/ai/brief` (klient) eller `tryGenerateServerAutoBrief` (server-fallback). Briefen genereras alltid från **originalprompt**, inte summarerad text. Server auto-brief blockeras för follow-ups.
+- **Spec-first chain / `WebsiteSpec`**: valfri kedja (`specMode=true` default) som konverterar brief → strukturerad spec (`promptAssistContext.ts`). Specen bifogas systemprompten som `sajtmaskin.spec.json`-referens. Separat från deep brief — spec *bygger på* briefen.
+- **`orchestratePromptMessage()`**: deterministisk promptvakt/budgetering — **inte** en LLM. Den väljer `direct`, `summarize` eller `phase_plan_build_polish`.
+- **`resolveOrchestrationBase()` / `BuildSpec`**: den faktiska orkestreringen före codegen. Här väljs scaffold, route plan, kontrakt, context-policy, preview-policy och verification-policy.
+- **Plan mode**: separat planner-LLM som returnerar plan-/JSON-artifact, **inte kod**.
+- **own-engine generator**: huvud-LLM:n som faktiskt genererar kod.
+- **`thinking`**: resonemangs-/reasoning-flagga på generatorbanan, inte en separat modellbana.
+- **Repair / fixer**: eftergenereringskedjor för fel. Deterministisk autofix loopas (`DETERMINISTIC_AUTOFIX_MAX_PASSES`, manifest-styrt), sedan eskalering till LLM-fixer. Fixer-modellen matchar generatorns tier via `resolvePhaseModel(tier, "fixer")`. Alla reparationsparametrar styrs via `repairPolicies` i `manifest.json`.
+- **Prompt wizard**: 5-stegs wizard med AI-drivna adaptiva följdfrågor via `/api/wizard/enrich`. Producerar en rik prompt som sedan kan gå genom deep brief → orchestrering → generation. Inte "12 frågor" — antalet varierar dynamiskt.
+- **Audit / analyze-routes**: separata analysbanor utanför own-engine-build. Blanda inte ihop dem med builderns codegen-flöde.
+
 ## Integrationer och källor
 
 - Provider- och integrationsnamn ska följa repoets faktiska källor, främst `sajtmaskin.integration-manifest.json` om den finns, pre-generation contracts, `config/env-policy.json`, `src/lib/env.ts` och `docs/ENV.md`.

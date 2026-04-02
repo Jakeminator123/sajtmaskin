@@ -848,7 +848,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             paletteSelections={vm.paletteState.selections}
             designTheme={vm.designTheme}
             onDesignThemeChange={vm.setDesignTheme}
+            onPromptAssistModeReset={vm.handlePromptAssistModeReset}
             onEnhancePrompt={vm.handlePromptEnhance}
+            onRewritePrompt={vm.handlePromptRewrite}
             isFigmaInputOpen={isFigmaInputOpen}
             onFigmaInputOpenChange={setIsFigmaInputOpen}
             isBusy={isBusy}

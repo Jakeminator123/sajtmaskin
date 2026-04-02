@@ -50,6 +50,20 @@ describe("shouldRunServerAutoBrief", () => {
     ).toBe(false);
   });
 
+  it("skips follow-up prompts", () => {
+    for (const promptType of ["followup_general", "followup_technical"] as const) {
+      expect(
+        shouldRunServerAutoBrief({
+          hasClientBrief: false,
+          promptSourceTechnical: false,
+          promptSourcePreservePayload: false,
+          promptType,
+          orchestrationReason: "within_budget",
+        }),
+      ).toBe(false);
+    }
+  });
+
   it("skips technical / registry preserve paths", () => {
     for (const orchestrationReason of [
       "technical_content_preserved",
