@@ -103,7 +103,9 @@ export async function triggerServerVerification(params: {
         jobStartedAt: gateResult.jobStartedAt,
         jobFinishedAt: gateResult.jobFinishedAt,
       }),
-    }]).catch(() => {});
+    }]).catch((err) => {
+      console.warn("[server-verify] Failed to persist quality gate summary log:", err);
+    });
 
     if (passed) {
       await promoteVersion(versionId, "Automatic server verification passed.").catch(() => null);
@@ -160,6 +162,12 @@ async function tryServerRepairLoop(params: {
     jobStartedAt,
     jobFinishedAt,
   } = params;
+  const verifyContext = {
+    verifyLaneDurationMs,
+    firstFailureCheck,
+    jobStartedAt,
+    jobFinishedAt,
+  };
   const hadQualityGateFailures = failedOutputs.length > 0;
 
   await markVersionRepairing(versionId).catch(() => null);
@@ -201,7 +209,9 @@ async function tryServerRepairLoop(params: {
           promoted: decision.promote,
         }),
       },
-    ]).catch(() => {});
+    ]).catch((err) => {
+      console.warn("[server-verify] Failed to persist post-repair quality gate log:", err);
+    });
     if (!decision.promote) return false;
     const filesJson = JSON.stringify(repairedFiles);
     const version = await createDraftVersion(chatId, null, filesJson);
@@ -215,12 +225,7 @@ async function tryServerRepairLoop(params: {
 
   if (syntaxResult.valid) {
     if (await tryPromoteAfterGate(content, "deterministic")) {
-      logRepairOutcome(chatId, versionId, "deterministic", true, 0, undefined, undefined, {
-        verifyLaneDurationMs,
-        firstFailureCheck,
-        jobStartedAt,
-        jobFinishedAt,
-      });
+      logRepairOutcome(chatId, versionId, "deterministic", true, 0, undefined, undefined, verifyContext);
       return;
     }
   }
@@ -317,19 +322,14 @@ async function tryServerRepairLoop(params: {
   const syntaxClean = bestErrorCount === 0;
   if (syntaxClean) {
     if (await tryPromoteAfterGate(bestContent, "llm")) {
-      logRepairOutcome(chatId, versionId, "llm", true, llmPasses, 0);
+      logRepairOutcome(chatId, versionId, "llm", true, llmPasses, 0, undefined, verifyContext);
       return;
     }
     await failVersionVerification(
       versionId,
       "Server repair: syntax clean but quality gate still failing.",
     ).catch(() => null);
-    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason, {
-      verifyLaneDurationMs,
-      firstFailureCheck,
-      jobStartedAt,
-      jobFinishedAt,
-    });
+    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason, verifyContext);
     return;
   }
 
@@ -337,12 +337,7 @@ async function tryServerRepairLoop(params: {
     versionId,
     `Server repair incomplete (${bestErrorCount} errors remain).`,
   ).catch(() => null);
-  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason, {
-    verifyLaneDurationMs,
-    firstFailureCheck,
-    jobStartedAt,
-    jobFinishedAt,
-  });
+  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason, verifyContext);
 }
 
 function logRepairOutcome(
@@ -379,5 +374,7 @@ function logRepairOutcome(
       jobStartedAt: verifyContext?.jobStartedAt ?? null,
       jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
     }),
-  }]).catch(() => {});
+  }]).catch((err) => {
+    console.warn("[server-verify] Failed to persist server-repair outcome log:", err);
+  });
 }

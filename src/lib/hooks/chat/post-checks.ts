@@ -293,6 +293,12 @@ type QualityGateCheckResult = {
   durationMs?: number | null;
 };
 
+type QualityGateVisualQaResult = {
+  overallScore: number;
+  passed: boolean;
+  checks: Array<{ check: string; passed: boolean; score: number; detail: string }>;
+};
+
 function formatDurationMs(durationMs: number | null | undefined): string | null {
   if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < 0) {
     return null;
@@ -357,11 +363,7 @@ async function runPreviewQualityGate(params: {
       jobStartedAt?: string | null;
       jobFinishedAt?: string | null;
       error?: string;
-      visualQA?: {
-        overallScore: number;
-        passed: boolean;
-        checks: Array<{ check: string; passed: boolean; score: number; detail: string }>;
-      };
+      visualQA?: QualityGateVisualQaResult;
     } | null;
 
     if (!res.ok || !data) {
@@ -401,6 +403,23 @@ async function runPreviewQualityGate(params: {
       steps.push(`First failure: ${data.firstFailureCheck.trim()}`);
     }
 
+    const visualQa =
+      data.visualQA &&
+      typeof data.visualQA.overallScore === "number" &&
+      Array.isArray(data.visualQA.checks)
+        ? data.visualQA
+        : undefined;
+
+    if (visualQa) {
+      const vqaSteps = visualQa.checks.map(
+        (c) => `visual:${c.check}: ${c.passed ? "PASS" : "FAIL"} (${c.score}/100) — ${c.detail}`,
+      );
+      steps.push(
+        `Visual QA: ${visualQa.overallScore}/100 ${visualQa.passed ? "PASS" : "BELOW THRESHOLD"}`,
+      );
+      steps.push(...vqaSteps);
+    }
+
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:quality-gate",
       toolName: "Quality gate",
@@ -417,16 +436,9 @@ async function runPreviewQualityGate(params: {
           typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
         jobFinishedAt:
           typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
+        visualQA: visualQa,
       },
     } as UiMessagePart);
-
-    if (data.visualQA) {
-      const vqaSteps = data.visualQA.checks.map(
-        (c) => `visual:${c.check}: ${c.passed ? "PASS" : "FAIL"} (${c.score}/100) — ${c.detail}`,
-      );
-      steps.push(`Visual QA: ${data.visualQA.overallScore}/100 ${data.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}`);
-      steps.push(...vqaSteps);
-    }
 
     if (!data.passed && failedChecks.length > 0) {
       const missingEnvKeys = extractMissingEnvKeysFromQualityGate(data.checks ?? []);
@@ -469,30 +481,27 @@ async function runPreviewQualityGate(params: {
       };
 
       const serverRepaired = await tryServerRepair(chatId, versionId, repair);
-      if (serverRepaired) {
-        appendToolPartToMessage(setMessages, assistantMessageId, {
-          type: "tool:quality-gate",
-          toolName: "Server repair",
-          toolCallId: `server-repair:${versionId}`,
-          state: "output-available",
-          output: {
-            repaired: serverRepaired.repaired,
-            method: serverRepaired.deterministic ? "deterministic" : "llm",
-            newVersionId: serverRepaired.newVersionId,
-            remainingErrors: serverRepaired.remainingErrors ?? null,
-            improvedSyntax: serverRepaired.improvedSyntax ?? null,
-            earlyStopReason: serverRepaired.earlyStopReason ?? null,
-          },
-        } as UiMessagePart);
-        if (!serverRepaired.repaired) {
-          onAutoFix?.({
-            chatId,
-            versionId,
-            reasons: failedChecks.map((check) => `${check} failed`),
-            repair,
-          });
-        }
-      } else {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Server repair",
+        toolCallId: `server-repair:${versionId}`,
+        state: "output-available",
+        output: {
+          repaired: serverRepaired.repaired,
+          method: serverRepaired.status === "completed"
+            ? serverRepaired.deterministic
+              ? "deterministic"
+              : "llm"
+            : null,
+          newVersionId: serverRepaired.newVersionId,
+          remainingErrors: serverRepaired.remainingErrors ?? null,
+          improvedSyntax: serverRepaired.improvedSyntax ?? null,
+          earlyStopReason: serverRepaired.earlyStopReason ?? null,
+          status: serverRepaired.status ?? "completed",
+          reason: serverRepaired.reason ?? null,
+        },
+      } as UiMessagePart);
+      if (!serverRepaired.repaired) {
         onAutoFix?.({
           chatId,
           versionId,
@@ -500,9 +509,9 @@ async function runPreviewQualityGate(params: {
           repair,
         });
       }
-    } else if (data.passed && data.visualQA && !data.visualQA.passed && onAutoFix) {
+    } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
       const repair: RepairContext = {
-        visualQA: data.visualQA.checks
+        visualQA: visualQa.checks
           .filter((c) => !c.passed)
           .map((c) => ({ check: c.check, score: c.score, detail: c.detail }))
           .slice(0, 4),
@@ -510,7 +519,7 @@ async function runPreviewQualityGate(params: {
       onAutoFix({
         chatId,
         versionId,
-        reasons: [`Visual QA score ${data.visualQA.overallScore}/100 below threshold`],
+        reasons: [`Visual QA score ${visualQa.overallScore}/100 below threshold`],
         repair,
       });
     }
@@ -541,14 +550,23 @@ type ServerRepairResult = {
   remainingErrors?: number;
   improvedSyntax?: boolean;
   earlyStopReason?: "fixer_noop" | "no_improvement" | null;
+  status?: "completed" | "skipped" | "request_failed";
+  reason?: string | null;
 };
 
 async function tryServerRepair(
   chatId: string,
   versionId: string,
   repair: RepairContext,
-): Promise<ServerRepairResult | null> {
-  if (isServerRepairDisabled()) return null;
+): Promise<ServerRepairResult> {
+  if (isServerRepairDisabled()) {
+    return {
+      repaired: false,
+      deterministic: false,
+      status: "skipped",
+      reason: "Server repair är avstängt i klienten.",
+    };
+  }
   try {
     const res = await fetch(
       `${engineChatBaseUrl(chatId)}/repair`,
@@ -558,10 +576,34 @@ async function tryServerRepair(
         body: JSON.stringify({ versionId, repairContext: repair }),
       },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return {
+        repaired: false,
+        deterministic: false,
+        status: "request_failed",
+        reason: `Repair request failed (HTTP ${res.status})`,
+      };
+    }
     const data = (await res.json().catch(() => null)) as ServerRepairResult | null;
-    return data;
+    if (!data) {
+      return {
+        repaired: false,
+        deterministic: false,
+        status: "request_failed",
+        reason: "Repair request returned invalid payload.",
+      };
+    }
+    return {
+      ...data,
+      status: data.status ?? "completed",
+      reason: data.reason ?? null,
+    };
   } catch {
-    return null;
+    return {
+      repaired: false,
+      deterministic: false,
+      status: "request_failed",
+      reason: "Repair request failed (network error)",
+    };
   }
 }

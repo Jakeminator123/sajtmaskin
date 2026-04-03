@@ -23,6 +23,7 @@ import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
 import {
   buildServerRepairOutcomeMeta,
+  buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
 } from "@/lib/gen/server-verify-log-meta";
 
@@ -170,6 +171,7 @@ export async function POST(
 
     async function promoteIfPostRepairGatePasses(
       projectContent: string,
+      method: "deterministic" | "llm",
       promoteReason: string,
     ): Promise<{ ok: boolean; newVersionId: string | null }> {
       const repairedFiles = codeProjectToFiles(projectContent);
@@ -180,6 +182,32 @@ export async function POST(
         exportable,
         hadQualityGateFailures,
       });
+      if (dbConfigured) {
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId: currentVersionId,
+            level: decision.promote ? ("info" as const) : ("warning" as const),
+            category: "preflight:quality-gate",
+            message: decision.promote
+              ? `Post-repair quality gate passed (${method}).`
+              : "Post-repair quality gate did not pass; not promoting.",
+            meta: buildServerVerifyQualityGateMeta({
+              results: decision.results,
+              verifyLaneDurationMs: decision.verifyLaneDurationMs,
+              firstFailureCheck: decision.firstFailureCheck,
+              jobStartedAt: decision.jobStartedAt,
+              jobFinishedAt: decision.jobFinishedAt,
+              repass: true,
+              method,
+              promoted: decision.promote,
+              serverOwned: false,
+            }),
+          },
+        ]).catch((err) => {
+          console.warn("[repair] Failed to log post-repair quality gate:", err);
+        });
+      }
       if (!decision.promote) {
         return { ok: false, newVersionId: null };
       }
@@ -198,9 +226,19 @@ export async function POST(
     if (syntaxResult.valid && gateFailures.length === 0) {
       const { ok, newVersionId } = await promoteIfPostRepairGatePasses(
         content,
+        "deterministic",
         "Server repair succeeded (deterministic); quality gate re-passed.",
       );
-      logRepair(chatId, internalVersionId, "deterministic", ok, 0);
+      logRepair(
+        chatId,
+        internalVersionId,
+        "deterministic",
+        ok,
+        0,
+        undefined,
+        undefined,
+        repairContext.qualityGateMeta,
+      );
       return NextResponse.json({
         repaired: ok,
         deterministic: true,
@@ -219,6 +257,23 @@ export async function POST(
           "Repair attempted but no actionable error context available.",
         ).catch((err) => {
           console.warn("[repair] Failed to mark version failed (no context):", err);
+        });
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId: internalVersionId,
+            level: "warning" as const,
+            category: "server-repair",
+            message: "Repair attempted without actionable error context.",
+            meta: {
+              repaired: false,
+              remainingErrors: syntaxResult.errors.length,
+              qualityGateFailureCount: gateFailures.length,
+              serverOwned: false,
+            },
+          },
+        ]).catch((err) => {
+          console.warn("[repair] Failed to log no-context repair outcome:", err);
         });
       }
       return NextResponse.json({
@@ -323,6 +378,7 @@ export async function POST(
     if (dbConfigured && syntaxClean) {
       const promote = await promoteIfPostRepairGatePasses(
         bestContent,
+        "llm",
         "Server repair succeeded (LLM); quality gate re-passed.",
       );
       repaired = promote.ok;

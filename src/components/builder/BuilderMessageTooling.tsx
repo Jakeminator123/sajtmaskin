@@ -172,6 +172,22 @@ type QualityGateSummary = {
   firstFailureCheck: string | null;
   jobStartedAt: string | null;
   jobFinishedAt: string | null;
+  visualQA: {
+    overallScore: number;
+    passed: boolean;
+    checks: Array<{ check: string; passed: boolean; score: number; detail: string }>;
+  } | null;
+};
+
+type ServerRepairSummary = {
+  repaired: boolean;
+  status: string | null;
+  reason: string | null;
+  method: string | null;
+  newVersionId: string | null;
+  remainingErrors: number | null;
+  improvedSyntax: boolean | null;
+  earlyStopReason: string | null;
 };
 
 export function AgentLogCard({ items }: { items: AgentLogItem[] }) {
@@ -267,6 +283,8 @@ export function StructuredToolParts({
           toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
+        const serverRepairSummary =
+          toolType === "tool-quality-gate" ? getServerRepairSummary(tool.output) : null;
         const toolHasData = hasToolData(tool as ToolUIPart);
 
         return (
@@ -681,8 +699,43 @@ export function StructuredToolParts({
                           First failure: {qualityGateSummary.firstFailureCheck}
                         </div>
                       )}
+                      {qualityGateSummary.visualQA && (
+                        <div className="text-muted-foreground/80 text-[10px]">
+                          Visual QA: {qualityGateSummary.visualQA.overallScore}/100{" "}
+                          {qualityGateSummary.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}
+                        </div>
+                      )}
                     </div>
                   )}
+                </div>
+              )}
+              {serverRepairSummary && (
+                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                    Server repair
+                  </div>
+                  <div className="space-y-1 text-muted-foreground">
+                    <div className={serverRepairSummary.repaired ? "text-emerald-300" : "text-amber-300"}>
+                      {serverRepairSummary.repaired
+                        ? "Reparation lyckades"
+                        : "Reparationsförsök slutfört utan full fix"}
+                    </div>
+                    {serverRepairSummary.status ? <div>Status: {serverRepairSummary.status}</div> : null}
+                    {serverRepairSummary.method ? <div>Metod: {serverRepairSummary.method}</div> : null}
+                    {serverRepairSummary.reason ? <div>Orsak: {serverRepairSummary.reason}</div> : null}
+                    {serverRepairSummary.remainingErrors !== null ? (
+                      <div>Kvarvarande fel: {serverRepairSummary.remainingErrors}</div>
+                    ) : null}
+                    {serverRepairSummary.improvedSyntax !== null ? (
+                      <div>Syntax förbättrades: {serverRepairSummary.improvedSyntax ? "ja" : "nej"}</div>
+                    ) : null}
+                    {serverRepairSummary.earlyStopReason ? (
+                      <div>Stopporsak: {serverRepairSummary.earlyStopReason}</div>
+                    ) : null}
+                    {serverRepairSummary.newVersionId ? (
+                      <div>Ny version: {serverRepairSummary.newVersionId}</div>
+                    ) : null}
+                  </div>
                 </div>
               )}
               {!hasInput && !hasOutput && !hasErrorText && (
@@ -764,6 +817,8 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
+        const serverRepairSummary =
+          toolType === "tool-quality-gate" ? getServerRepairSummary(tool.output) : null;
         const qualityGateErrorText =
           toolType === "tool-quality-gate" &&
           typeof tool.errorText === "string" &&
@@ -1000,6 +1055,13 @@ export function CompactToolParts({
                   </div>
                 ) : qualityGateSummary ? (
                   <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    {(() => {
+                      const firstFailedOutput = qualityGateSummary.checks
+                        .find((check) => !check.passed && check.output.trim())
+                        ?.output.split("\n")[0]
+                        ?.slice(0, 120);
+                      return (
+                        <>
                     <p className={qualityGateSummary.passed ? "text-emerald-300" : "text-rose-300"}>
                       Verify: {qualityGateSummary.passed ? "PASS" : "FAIL"}
                     </p>
@@ -1012,6 +1074,9 @@ export function CompactToolParts({
                           })
                           .join(" • ")}
                       </p>
+                    ) : null}
+                    {firstFailedOutput ? (
+                      <p className="text-muted-foreground mt-1">Detalj: {firstFailedOutput}</p>
                     ) : null}
                     {(qualityGateSummary.verifyLaneDurationMs !== null ||
                       qualityGateSummary.firstFailureCheck) && (
@@ -1042,6 +1107,55 @@ export function CompactToolParts({
                           .join(" • ")}
                       </p>
                     )}
+                    {qualityGateSummary.visualQA ? (
+                      <p className="text-muted-foreground mt-1">
+                        Visual QA: {qualityGateSummary.visualQA.overallScore}/100{" "}
+                        {qualityGateSummary.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}
+                      </p>
+                    ) : null}
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : null}
+                {serverRepairSummary ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className={serverRepairSummary.repaired ? "text-emerald-300" : "text-amber-300"}>
+                      Repair: {serverRepairSummary.repaired ? "lyckades" : "ej fullständig"}
+                    </p>
+                    {serverRepairSummary.status ? (
+                      <p className="text-muted-foreground mt-1">Status: {serverRepairSummary.status}</p>
+                    ) : null}
+                    {serverRepairSummary.method ? (
+                      <p className="text-muted-foreground mt-1">Metod: {serverRepairSummary.method}</p>
+                    ) : null}
+                    {serverRepairSummary.reason ? (
+                      <p className="text-muted-foreground mt-1">Orsak: {serverRepairSummary.reason}</p>
+                    ) : null}
+                    {(serverRepairSummary.remainingErrors !== null ||
+                      serverRepairSummary.improvedSyntax !== null ||
+                      serverRepairSummary.earlyStopReason) ? (
+                      <p className="text-muted-foreground mt-1">
+                        {[
+                          serverRepairSummary.remainingErrors !== null
+                            ? `Kvarvarande fel: ${serverRepairSummary.remainingErrors}`
+                            : null,
+                          serverRepairSummary.improvedSyntax !== null
+                            ? `Syntax förbättrades: ${serverRepairSummary.improvedSyntax ? "ja" : "nej"}`
+                            : null,
+                          serverRepairSummary.earlyStopReason
+                            ? `Stopporsak: ${serverRepairSummary.earlyStopReason}`
+                            : null,
+                        ]
+                          .filter((value): value is string => Boolean(value))
+                          .join(" • ")}
+                      </p>
+                    ) : null}
+                    {serverRepairSummary.newVersionId ? (
+                      <p className="text-muted-foreground mt-1">
+                        Ny version: {serverRepairSummary.newVersionId}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </>
@@ -1137,6 +1251,28 @@ function extractToolSteps(tool: Partial<ToolUIPart> & { input?: unknown }) {
           .map((item) => extractStepFromValue(item))
           .filter((item): item is string => Boolean(item));
       }
+    }
+
+    if (typeof obj.repaired === "boolean") {
+      const lines: string[] = [
+        obj.repaired ? "Server repair lyckades." : "Server repair blev inte fullständig.",
+      ];
+      if (typeof obj.method === "string" && obj.method.trim()) {
+        lines.push(`Metod: ${obj.method.trim()}`);
+      }
+      if (typeof obj.remainingErrors === "number" && Number.isFinite(obj.remainingErrors)) {
+        lines.push(`Kvarvarande fel: ${obj.remainingErrors}`);
+      }
+      if (typeof obj.improvedSyntax === "boolean") {
+        lines.push(`Syntax förbättrades: ${obj.improvedSyntax ? "ja" : "nej"}`);
+      }
+      if (typeof obj.earlyStopReason === "string" && obj.earlyStopReason.trim()) {
+        lines.push(`Stopporsak: ${obj.earlyStopReason.trim()}`);
+      }
+      if (typeof obj.newVersionId === "string" && obj.newVersionId.trim()) {
+        lines.push(`Ny version: ${obj.newVersionId.trim()}`);
+      }
+      return lines;
     }
   }
 
@@ -1995,6 +2131,7 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
       firstFailureCheck: null,
       jobStartedAt: null,
       jobFinishedAt: null,
+      visualQA: null,
     };
   }
   const checks = Array.isArray(obj.checks)
@@ -2018,6 +2155,51 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
     jobFinishedAt:
       typeof obj.jobFinishedAt === "string" && obj.jobFinishedAt.trim()
         ? obj.jobFinishedAt.trim()
+        : null,
+    visualQA:
+      obj.visualQA &&
+      typeof obj.visualQA === "object" &&
+      typeof (obj.visualQA as Record<string, unknown>).overallScore === "number" &&
+      typeof (obj.visualQA as Record<string, unknown>).passed === "boolean" &&
+      Array.isArray((obj.visualQA as Record<string, unknown>).checks)
+        ? {
+            overallScore: (obj.visualQA as Record<string, unknown>).overallScore as number,
+            passed: (obj.visualQA as Record<string, unknown>).passed as boolean,
+            checks: ((obj.visualQA as Record<string, unknown>).checks as Array<Record<string, unknown>>)
+              .filter((check) => check && typeof check.check === "string")
+              .map((check) => ({
+                check: String(check.check),
+                passed: check.passed === true,
+                score:
+                  typeof check.score === "number" && Number.isFinite(check.score) ? check.score : 0,
+                detail: typeof check.detail === "string" ? check.detail : "",
+              })),
+          }
+        : null,
+  };
+}
+
+function getServerRepairSummary(output: unknown): ServerRepairSummary | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  if (typeof obj.repaired !== "boolean") return null;
+  return {
+    repaired: obj.repaired,
+    status: typeof obj.status === "string" && obj.status.trim() ? obj.status.trim() : null,
+    reason: typeof obj.reason === "string" && obj.reason.trim() ? obj.reason.trim() : null,
+    method: typeof obj.method === "string" && obj.method.trim() ? obj.method.trim() : null,
+    newVersionId:
+      typeof obj.newVersionId === "string" && obj.newVersionId.trim()
+        ? obj.newVersionId.trim()
+        : null,
+    remainingErrors:
+      typeof obj.remainingErrors === "number" && Number.isFinite(obj.remainingErrors)
+        ? obj.remainingErrors
+        : null,
+    improvedSyntax: typeof obj.improvedSyntax === "boolean" ? obj.improvedSyntax : null,
+    earlyStopReason:
+      typeof obj.earlyStopReason === "string" && obj.earlyStopReason.trim()
+        ? obj.earlyStopReason.trim()
         : null,
   };
 }

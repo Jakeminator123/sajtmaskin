@@ -71,6 +71,7 @@ function buildQualityGateSummaryLog(params: {
       firstFailureCheck,
       jobStartedAt,
       jobFinishedAt,
+      serverOwned: false,
     },
   };
 }
@@ -184,6 +185,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   outputLength: r.output.length,
                   exitCode: r.exitCode,
                   durationMs: r.durationMs ?? null,
+                  serverOwned: false,
                 },
               };
             }),
