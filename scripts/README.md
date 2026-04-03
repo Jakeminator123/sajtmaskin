@@ -145,7 +145,7 @@ Kanonisk plats: `scripts/env/`.
 
 Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hemsidemallsarbete.
 
-**OBS:** `_template_refs/` används inte vid runtime. Skriptet behövs endast om du utvecklar nya scaffolds från externa referenser. Se `_template_refs/README.md` för mer information.
+**OBS:** `_template_refs/` används inte vid runtime. Skriptet behövs endast om du utvecklar nya scaffolds från externa referenser. Om mappen inte finns i din checkout är det normalt; skapa/fyll den först när du faktiskt arbetar med externa scaffold-referenser.
 
 ### Användning
 
