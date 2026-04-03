@@ -26,13 +26,12 @@ import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import {
-  exportableToQualityGateFiles,
   isQualityGateConfigured,
+  maybeAnalyzeVisualQAForPassedExportable,
   runQualityGateOnExportable,
   qualityGateAllPassed,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/preview-quality-gate";
-import { analyzeVisualQuality, isVisualQAEnabled } from "@/lib/gen/visual-qa";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
@@ -91,6 +90,13 @@ export async function triggerServerVerification(params: {
     }
 
     const passed = qualityGateAllPassed(gateResult.results);
+    const visualQA = maybeAnalyzeVisualQAForPassedExportable({
+      exportable,
+      results: gateResult.results,
+      onError: (vqaErr) => {
+        console.warn("[server-verify] Visual QA error (non-fatal):", vqaErr);
+      },
+    });
 
     await createEngineVersionErrorLogs([{
       chatId,
@@ -105,6 +111,7 @@ export async function triggerServerVerification(params: {
         firstFailureCheck: gateResult.firstFailureCheck,
         jobStartedAt: gateResult.jobStartedAt,
         jobFinishedAt: gateResult.jobFinishedAt,
+        visualQA: visualQA ? compactVisualQAForQualityGateLog(visualQA) : undefined,
       }),
     }]).catch((err) => {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
@@ -193,23 +200,16 @@ async function tryServerRepairLoop(params: {
       exportable: exportableForGate,
       hadQualityGateFailures,
     });
-    let visualQAMeta: ReturnType<typeof compactVisualQAForQualityGateLog> | undefined;
-    if (
-      decision.promote &&
-      decision.results &&
-      qualityGateAllPassed(decision.results) &&
-      isVisualQAEnabled()
-    ) {
-      try {
-        const qFiles = exportableToQualityGateFiles(exportableForGate);
-        const v = analyzeVisualQuality(
-          qFiles.map((f) => ({ path: f.name, content: f.content })),
-        );
-        visualQAMeta = compactVisualQAForQualityGateLog(v);
-      } catch (vqaErr) {
+    const visualQA = maybeAnalyzeVisualQAForPassedExportable({
+      exportable: exportableForGate,
+      results: decision.results,
+      onError: (vqaErr) => {
         console.warn("[server-verify] Post-repair visual QA error (non-fatal):", vqaErr);
-      }
-    }
+      },
+    });
+    const visualQAMeta = visualQA
+      ? compactVisualQAForQualityGateLog(visualQA)
+      : undefined;
     await createEngineVersionErrorLogs([
       {
         chatId,

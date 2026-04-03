@@ -10,13 +10,15 @@ import {
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
-import { analyzeVisualQuality, isVisualQAEnabled, type VisualQAResult } from "@/lib/gen/visual-qa";
+import type { VisualQAResult } from "@/lib/gen/visual-qa";
 import {
+  describeQualityGateVerification,
   QUALITY_GATE_COMMANDS,
   QUALITY_GATE_SETUP_HINT,
   QualityGateNotConfiguredError,
   exportableToQualityGateFiles,
   isQualityGateConfigured,
+  maybeAnalyzeVisualQAForPassedExportable,
   runQualityGateChecks,
   qualityGateAllPassed,
   type QualityGateCheckResult,
@@ -35,6 +37,7 @@ const requestSchema = z.object({
   versionId: z.string().min(1),
   checks: z
     .array(z.enum(["typecheck", "build", "lint"]))
+    .min(1, "At least one quality gate check is required.")
     .optional()
     .default(["typecheck", "build"]),
 });
@@ -65,7 +68,7 @@ function buildQualityGateSummaryLog(params: {
     jobFinishedAt,
     visualQA,
   } = params;
-  const passed = checkResults.every((result) => result.passed);
+  const passed = qualityGateAllPassed(checkResults);
   const visualQAMeta =
     visualQA &&
     typeof visualQA.overallScore === "number" &&
@@ -91,11 +94,7 @@ function buildQualityGateSummaryLog(params: {
 }
 
 function buildVerificationSummary(checkResults: QualityGateCheckResult[]): string {
-  const failedChecks = checkResults.filter((result) => !result.passed).map((result) => result.check);
-  if (failedChecks.length === 0) {
-    return "Automatic verification passed.";
-  }
-  return `Automatic verification failed: ${failedChecks.join(", ")}.`;
+  return describeQualityGateVerification(checkResults);
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -147,16 +146,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           checks,
           });
 
-        let visualQA: VisualQAResult | undefined;
-        if (isVisualQAEnabled() && qualityGateAllPassed(results)) {
-          try {
-            visualQA = analyzeVisualQuality(
-              qualityGateFiles.map((file) => ({ path: file.name, content: file.content })),
-            );
-          } catch (vqaErr) {
+        const visualQA: VisualQAResult | undefined = maybeAnalyzeVisualQAForPassedExportable({
+          exportable: completeProjectFiles,
+          results,
+          onError: (vqaErr) => {
             console.warn("[quality-gate] Visual QA error (non-fatal):", vqaErr);
-          }
-        }
+          },
+        });
 
         const gateResult: GateResult = {
           passed: qualityGateAllPassed(results),

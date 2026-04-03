@@ -41,7 +41,10 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | Blob / uppladdning | `BLOB_READ_WRITE_TOKEN` | Vercel Blob; lokalt kan vissa flöden falla tillbaka till filsystem (`DATA_DIR`). |
 | Betalning | `STRIPE_*` | Om credits/betalning används. |
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
+| OpenClaw / Sajtagenten | `OPENCLAW_GATEWAY_URL`, `OPENCLAW_GATEWAY_TOKEN`, `IMPLEMENT_UNDERSCORE_CLAW` | Alla tre krävs för att den flytande widgeten och Sajtagenten-ytorna ska aktiveras. Utan en enda av dem visas ingen widget. Se checklista nedan. |
+| D-ID avatar (mAIa Klo) | `NEXT_PUBLIC_AVATAR_AGENT_ID`, `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | Aktiverar videokamera-togglen i OpenClaw-widgeten och `/avatar`-pilotytan. Utan dem fungerar widgeten som ren textchatt. Origins måste vara allowlistade i D-ID Studio. |
 | Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + `SAJTMASKIN_TIER2_RUNTIME` (+ `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`) eller `VERCEL_OIDC_TOKEN` / `VERCEL_TOKEN` + team/project | Med preview-host konfigurerad och unset runtime blir default strikt `preview_host`; Vercel-fallback ar explicit opt-in via `preview_host_then_vercel`. Detaljer: `preview-deploy.md`. |
+| Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Läses direkt från `process.env` i `src/lib/gen/visual-qa.ts`, inte via `serverSchema` i `env.ts`. |
 | Fil-/konsol-logg (lokal) | `SAJTMASKIN_LOG=true` → `logs/sajtmaskin.log` via `src/lib/logging/file-logger.ts`; `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod) | Varken `SAJTMASKIN_LOG` eller dev-loggnycklarna finns i Zod-schemat; de är runtime-only i `env-policy.json`. `logs/generationslogg/` behaller bara de 3 senaste korningarna och sammanfattningarna kan valfritt unignoras i `.cursorignore`. |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
 
@@ -76,6 +79,30 @@ Praktisk rekommendation:
 - Sätt `PREVIEW_HOST_DATA_DIR=/data` **först** när du faktiskt monterat en Fly volume på `/data`
 
 Om `SAJTMASKIN_TIER2_RUNTIME` är unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns, behandlar appen nu `preview_host` som standard (ingen automatisk fallback till Vercel Sandbox).
+
+---
+
+## OpenClaw, avatar och nyckelchecklista
+
+`OpenClaw` / `Sajtagenten` och builderns own-engine är olika saker:
+
+- `OPENCLAW_GATEWAY_*` + `IMPLEMENT_UNDERSCORE_CLAW` styr assistentytan (`/api/openclaw/*`, tips, widget, avatar-bridge).
+- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` m.fl. styr egna `LLM`-steg i builderns generationsflöde.
+- `NEXT_PUBLIC_AVATAR_*` aktiverar `D-ID`-videoavataren i widgeten och på `/avatar`-pilotytan.
+
+### Checklista: vilka nycklar behövs lokalt
+
+| Nyckel | Krävs för | Utan den |
+|--------|-----------|----------|
+| `OPENCLAW_GATEWAY_URL` | Gateway-URL till Sajtagenten (Render-deploy) | Widgeten visas inte |
+| `OPENCLAW_GATEWAY_TOKEN` | Bearer-token mot gatewayen | Widgeten visas inte |
+| `IMPLEMENT_UNDERSCORE_CLAW` | Feature-flagga (`"true"`) | Widgeten visas inte |
+| `NEXT_PUBLIC_AVATAR_AGENT_ID` | D-ID agent-id (t.ex. `v2_agt_h5geNb9N`) | Videokamera-toggle dold, ren textchatt |
+| `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | D-ID client key (base64) | Videokamera-toggle dold, ren textchatt |
+
+Alla tre `OPENCLAW_*`-nycklar måste vara satta **samtidigt** -- saknas en enda av dem blockas hela ytan (`OPENCLAW.surfaceEnabled` i `src/lib/config.ts`).
+
+`NEXT_PUBLIC_AVATAR_*` är valfria. Utan dem fungerar widgeten som vanlig textchatt; med dem får användaren en videokamera-toggle i panelheadern. Origins (t.ex. `http://localhost:3000`, `https://sajtmaskin.vercel.app`) måste vara allowlistade i D-ID Studio under agentens inställningar.
 
 ---
 

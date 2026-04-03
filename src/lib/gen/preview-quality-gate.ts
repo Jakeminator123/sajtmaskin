@@ -3,6 +3,11 @@
  * preview-host's isolated verify lane.
  */
 import type { CodeFile } from "@/lib/gen/parser";
+import {
+  analyzeVisualQuality,
+  isVisualQAEnabled,
+  type VisualQAResult,
+} from "@/lib/gen/visual-qa";
 import { runPreviewHostQualityGate } from "@/lib/gen/sandbox/preview-host-client";
 import { getPreviewHostBaseUrl } from "@/lib/gen/sandbox/tier2-config";
 
@@ -98,6 +103,44 @@ export async function runQualityGateChecks(params: {
 
 export function qualityGateAllPassed(results: QualityGateCheckResult[]): boolean {
   return results.length > 0 && results.every((result) => result.passed);
+}
+
+export function describeQualityGateVerification(
+  results: QualityGateCheckResult[],
+): string {
+  if (qualityGateAllPassed(results)) {
+    return "Automatic verification passed.";
+  }
+
+  if (results.length === 0) {
+    return "Automatic verification could not run because no checks executed.";
+  }
+
+  const failedChecks = results
+    .filter((result) => !result.passed)
+    .map((result) => result.check);
+
+  return `Automatic verification failed: ${failedChecks.join(", ")}.`;
+}
+
+export function maybeAnalyzeVisualQAForPassedExportable(params: {
+  exportable: CodeFile[];
+  results: QualityGateCheckResult[] | null | undefined;
+  onError?: (error: unknown) => void;
+}): VisualQAResult | undefined {
+  if (!params.results || !isVisualQAEnabled() || !qualityGateAllPassed(params.results)) {
+    return undefined;
+  }
+
+  try {
+    const files = exportableToQualityGateFiles(params.exportable);
+    return analyzeVisualQuality(
+      files.map((file) => ({ path: file.name, content: file.content })),
+    );
+  } catch (error) {
+    params.onError?.(error);
+    return undefined;
+  }
 }
 
 export async function runQualityGateOnExportable(params: {

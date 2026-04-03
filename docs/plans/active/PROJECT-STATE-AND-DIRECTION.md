@@ -4,7 +4,7 @@ Kort aktiv status. Behåll bara det som fortfarande styr arbete nu.
 
 **Senast:** 2026-04-03  
 **Historik:** gamla handoffs, procenttabeller och stangda korplaner ligger i `git log` och `docs/plans/avklarat/`.  
-**Verifiering efter kod:** `npm run typecheck` och `npm run test:focused` för snabb own-engine/verify/eval-kontroll; `npm run test:ci` för bredare Vitest-pass när ändringen motiverar det.
+**Verifiering efter kod:** `npm run typecheck` och `npm run test:focused` för snabb own-engine/verify/eval-kontroll; `npm run test:ci` för bredare Vitest-pass när ändringen motiverar det. `test:focused` inkluderar bland annat `src/lib/gen/preview-quality-gate.test.ts` för verify-lane-/Visual QA-hjälpare.
 
 ---
 
@@ -26,6 +26,7 @@ Kort aktiv status. Behåll bara det som fortfarande styr arbete nu.
 - **Own-engine** är enda aktiva codegen-vägen. `v0-sdk` och `V0_API_KEY` är borta ur runtime.
 - **Tier-2 live-preview** är primärt `preview_host` / VM (Fly.io). `sandbox` lever kvar som **legacy-namn** i DB-kolumner, API-routes, Redis-nycklar och TypeScript-typer — ny kod ska använda preview/VM/tier-2-terminologi.
 - **Quality gate / server-verify** körs nu via **preview-hosts isolerade verify-lane**, inte via Vercel Sandbox och inte i samma workspace som live-previewn.
+- **Valfri statisk Visual QA** (`SAJTMASKIN_VISUAL_QA`): efter lyckad verify-lane kan appen köra heuristik och logga kompakt `visualQA` i `preflight:quality-gate`-meta; delad logik i `maybeAnalyzeVisualQAForPassedExportable()` i `preview-quality-gate.ts`. Se `docs/ENV.md` och `docs/schemas/preview-session-contract.md`.
 - **AI Gateway** (`ai-gateway.vercel.sh`) är borttagen ur runtime. Huvudkedjan och sido-routes använder direkt OpenAI/Anthropic API.
 - **Tre lager får inte blandas ihop:** preflight, runtime preview och build-verifiering.
 - **Kärnkedjan** own-engine -> finalize -> tier-2 preview -> iframe är levererad. Detaljer och kodpekare finns i `preview-deploy.md`.

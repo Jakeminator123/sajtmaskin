@@ -71,6 +71,7 @@
       "workspaceIsolation": "isolated temporary verify workspace",
       "producesPreviewUrl": false,
       "checks": ["typecheck", "build", "lint"],
+      "appSideTelemetryNote": "Sajtmaskin may attach optional compact visualQA inside persisted preflight:quality-gate log meta when SAJTMASKIN_VISUAL_QA is enabled and all verify checks passed; this is app-side only and not part of PreviewHostVerifyResponse.",
       "auth": {
         "requiredOutsideLocalDev": true,
         "appEnvKey": "SAJTMASKIN_PREVIEW_HOST_API_KEY",
