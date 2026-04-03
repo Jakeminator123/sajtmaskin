@@ -35,9 +35,8 @@ package-lock.json
 #di-d.txt
 
 # --- Data & prompt-dumpar ---
-data/prompt-dumps/*
+#data/prompt-dumps/*
 !data/prompt-dumps/README.md
-scraped-vercel-scorefolds
 
 archive/scripts-labs-testning_scarf/output/
 archive/scripts-labs-testning_scarf/output_test_scaffold/
@@ -55,22 +54,18 @@ public/images/
 *.mp4
 *.webm
 
-# --- Research (tungt); undantag: små indexfiler i raw-discovery & repo-cache ---
-research/external-templates/raw-discovery/**
-!research/external-templates/raw-discovery/README.md
-!research/external-templates/raw-discovery/SCHEMA.md
-!research/external-templates/raw-discovery/schema.summary.json
-research/external-templates/repo-cache/**
-!research/external-templates/repo-cache/README.md
-research/external-templates/reference-library/
+data/external-template-pipeline/scrape-cache/**
+data/external-template-pipeline/raw-discovery/**
+data/external-template-pipeline/repo-cache/**
+data/external-template-pipeline/reference-library/**
+data/external-template-pipeline/reports/**
 
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
-data/scaffold-candidates-curated.json
-src/lib/gen/data/docs-embeddings.json
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-src/lib/gen/template-library/template-library-embeddings.json
-src/lib/gen/template-library/template-library.generated.json
+#src/lib/gen/data/docs-embeddings.json
+#src/lib/gen/scaffolds/scaffold-embeddings.json
+#src/lib/gen/scaffolds/scaffold-research.generated.json
+#src/lib/gen/template-library/template-library-embeddings.json
+#src/lib/gen/template-library/template-library.generated.json
 
 # --- Cursor session / automation / migration ---
 .cursor/plans/
@@ -100,19 +95,20 @@ internt_jakob/
 old/
 skrapning/
 ovrigt/
-övrigt/
+#övrigt/
 
 eval-output/
 EGEN_MOTOR_V2/
-_template_refs/
+#_template_refs/
 vercel_templates_levels/
 _sidor/
 research/_sidor/
 services/mpc/docs/**
 services/mpc/logs/
 next-env.d.ts
-archive\scripts-labs-testning_scarf
+#archive\scripts-labs-testning_scarf
 #files_envars
-#övrigt
+
 templates_v0/downloads
+output/
 
