@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getTier2RuntimeMode } from "./tier2-config";
+import { getPreviewHostBaseUrl, getTier2RuntimeMode } from "./tier2-config";
 
 const ORIGINAL_RUNTIME = process.env.SAJTMASKIN_TIER2_RUNTIME;
 const ORIGINAL_BASE_URL = process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
@@ -41,5 +41,17 @@ describe("getTier2RuntimeMode", () => {
     delete process.env.SAJTMASKIN_TIER2_RUNTIME;
     delete process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
     expect(getTier2RuntimeMode()).toBe("vercel_sandbox");
+  });
+});
+
+describe("getPreviewHostBaseUrl", () => {
+  it("normalizes an accidentally pasted /preview suffix", () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://vm-fly-jakem.fly.dev/preview";
+    expect(getPreviewHostBaseUrl()).toBe("https://vm-fly-jakem.fly.dev");
+  });
+
+  it("keeps non-preview path prefixes intact", () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://example.com/custom-prefix/";
+    expect(getPreviewHostBaseUrl()).toBe("https://example.com/custom-prefix");
   });
 });

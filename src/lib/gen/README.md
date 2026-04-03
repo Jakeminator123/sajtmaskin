@@ -70,6 +70,8 @@ actual scaffold/template lookup behavior, read `scaffolds/README.md` and
 Large generated files under `src/lib/gen/` are part of the runtime surface, even
 when they are excluded from normal Cursor indexing.
 
+Paths in the table below are relative to `src/lib/gen/` unless noted otherwise.
+
 | Path | Role | Normal handling |
 |------|------|----------------|
 | `data/docs-embeddings.json` | Embeddings derived from documentation snippets used by generation support. | Generated, committed, rarely hand-edited, usually safe to keep in `.cursorignore`. |

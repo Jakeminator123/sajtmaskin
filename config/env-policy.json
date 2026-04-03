@@ -288,7 +288,7 @@
       "key": "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Feature flag for deep-path finalize steps such as image materialization and polish on non-light flows."
+      "notes": "Feature flag for fast/deep finalize routing. Setting it to false disables the light fast-path shortcut and keeps deep-path finalize steps enabled."
     },
     {
       "key": "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",

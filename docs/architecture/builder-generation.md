@@ -69,7 +69,7 @@ Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/st
 
 ## Meritmind / särskilda flöden
 
-Om du letar efter domänspecifika byggflöden, se `meritmind-build-flows.md` i arkivet.
+Det finns inte längre någon separat kanonisk `meritmind-build-flows.md` i trädet. Vid äldre domänspecifika specialfall: läs relevant fil i `docs/plans/avklarat/` eller använd git-historik i stället för att leta efter en fristående flow-fil.
 
 ## Preview-shim vs sandbox — problemtyper (arbetslista)
 

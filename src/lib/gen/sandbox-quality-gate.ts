@@ -28,7 +28,7 @@ export class QualityGateNotConfiguredError extends Error {
 }
 
 export const QUALITY_GATE_SETUP_HINT =
-  "Sätt SAJTMASKIN_PREVIEW_HOST_BASE_URL så att appen kan nå preview-hostens verify-lane. Använd SAJTMASKIN_PREVIEW_HOST_API_KEY om preview-host kräver auth.";
+  "Sätt SAJTMASKIN_PREVIEW_HOST_BASE_URL till preview-hostens root-URL så att appen kan nå verify-lanen (inte /preview). Använd SAJTMASKIN_PREVIEW_HOST_API_KEY om preview-host kräver auth.";
 
 export const QUALITY_GATE_COMMANDS: Record<QualityGateCheck, string> = {
   typecheck: "npx tsc --noEmit",

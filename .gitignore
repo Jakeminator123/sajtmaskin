@@ -77,7 +77,7 @@ data/external-template-pipeline/repo-cache/**
 data/external-template-pipeline/reference-library/**
 data/external-template-pipeline/reports/**
 
-# run-eval / codegen harness markdown output (scripts/run-eval.ts)
+# run-eval / codegen harness markdown output (scripts/eval/run-eval.ts)
 eval-output/
 # Legacy output dir (rename → eval-output/); safe to delete locally
 EGEN_MOTOR_V2/

@@ -86,7 +86,11 @@ export interface FinalizeResult {
 
 interface FinalizePathPolicy {
   runDeepPath: boolean;
-  reason: "default" | "deep_path_disabled" | "repair_pass" | "light_followup_fast_policy";
+  reason:
+    | "default"
+    | "fast_path_disabled_by_flag"
+    | "repair_pass"
+    | "light_followup_fast_policy";
 }
 
 type FinalizeSyntaxResult = Awaited<ReturnType<typeof validateAndFix>>;
@@ -122,7 +126,9 @@ function resolveFinalizePathPolicy(params: {
 }): FinalizePathPolicy {
   const { buildSpec, repairPassIndex } = params;
   if (!FEATURES.useFinalizeDeepPath) {
-    return { runDeepPath: true, reason: "deep_path_disabled" };
+    // Historical env naming: false here disables the light fast-path shortcut
+    // and keeps finalize on the deep path for every run.
+    return { runDeepPath: true, reason: "fast_path_disabled_by_flag" };
   }
   if (repairPassIndex > 0) {
     return { runDeepPath: true, reason: "repair_pass" };

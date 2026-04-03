@@ -6,7 +6,7 @@
 
 - **Egen motor (own engine)** — standardväg för kodgenerering i buildern (`src/lib/gen/`, OpenAI).
 - **v0** — fortfarande i API:t för mallar/registry/zip/deploy-hjälp; **inte** huvudstream för codegen (se [repository-and-platform.md](./repository-and-platform.md) § v0).
-- **Preview** — snabb shim (`/api/preview-render`) och/eller sandbox — detaljer i [preview-deploy.md](./preview-deploy.md).
+- **Preview** — tier-2 preview via `preview_host` / VM bakom `/sandbox-*`-kontraktet; tier-1 shim (`/api/preview-render`) är legacy/compat. Detaljer i [preview-deploy.md](./preview-deploy.md).
 
 ## Pipeline (förenklad)
 
@@ -16,14 +16,14 @@ Användarprompt
   → Orkestrering: scaffold, route-plan, kontrakt, systemprompt
   → Generering (build profile: fast / pro / max / codex m.fl.)
   → Post: autofix, esbuild, URL/expansion, filparsning, scaffold-merge
-  → Version sparad i Postgres (`engine_versions.files_json`) → preview (shim/sandbox) → deploy (Vercel API)
+  → Version sparad i Postgres (`engine_versions.files_json`) → tier-2 preview (primärt `preview_host` / VM; shim endast legacy compat) → deploy (Vercel API)
 ```
 
 Mer detaljerad runtime-mermaid och modul-lista: [builder-generation.md](./builder-generation.md).
 
 ## Own-engine preview vs «riktig» runtime
 
-Standardpreview är **inte** full `next build` i iframen — den bygger en **snabb HTML-shim** från sparade filer. För närmare riktig Next-runtime: **sandbox** eller **deploy**. Se [preview-deploy.md](./preview-deploy.md).
+Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bakom samma `/sandbox-*`-kontrakt. Tier-1 shim (`/api/preview-render`) kan finnas kvar för bakåtkompatibilitet eller diagnostik, men är **inte** standardvägen i produktflödet. För build-nära verifiering används preview-hosts separata verify-lane; för riktig deployment gäller deploy-spåret. Se [preview-deploy.md](./preview-deploy.md).
 
 ## Modellmappning (kort)
 

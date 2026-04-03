@@ -50,18 +50,25 @@ config.txt
 
 # --- Media ---
 public/video/
-
-#src/lib/templates/template-embeddings.json
-
 public/images/
 *.mp4
 *.webm
 
+# --- Canonical external-template pipeline (tung lokal data) ---
 data/external-template-pipeline/scrape-cache/**
 data/external-template-pipeline/raw-discovery/**
 data/external-template-pipeline/repo-cache/**
 data/external-template-pipeline/reference-library/**
 data/external-template-pipeline/reports/**
+
+# --- Genererade artefakter (stora JSON / embeddings) ---
+# Avkommentera dessa om Cursor-indexet blir för tungt eller för brusigt.
+src/lib/gen/data/docs-embeddings.json
+src/lib/gen/scaffolds/scaffold-embeddings.json
+src/lib/gen/template-library/template-library-embeddings.json
+#src/lib/gen/template-library/template-library.generated.json
+#src/lib/templates/template-embeddings.json
+#src/lib/gen/scaffolds/scaffold-research.generated.json
 
 # --- Cursor session / automation / migration ---
 .cursor/plans/
@@ -107,4 +114,3 @@ next-env.d.ts
 
 templates_v0/downloads
 output/
-

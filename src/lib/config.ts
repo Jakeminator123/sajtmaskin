@@ -345,6 +345,8 @@ export const FEATURES = {
   useLightweightScaffoldSerialization:
     env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
   useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
+  // Historical name: setting this to false disables the light fast-path
+  // optimization and forces finalize to stay on the deep path.
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
   strictGeneratedArtifacts:
     env.NODE_ENV !== "test" &&

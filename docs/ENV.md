@@ -68,7 +68,7 @@ Nar `preview-host` anvands pa Fly finns **två** olika env-ytor:
 
 Praktisk rekommendation:
 
-- Satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev`
+- Satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev` (root-URL, inte `/preview`)
 - Satt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
 - Lat `SAJTMASKIN_TIER2_RUNTIME` vara unset for strikt preview-host-default, eller satt den till `preview_host` explicit
 - Satt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` endast om du vill ha Vercel-fallback

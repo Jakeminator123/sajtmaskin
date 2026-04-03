@@ -6,7 +6,21 @@ export const TIER2_PREVIEW_SETUP_HINT = `${SANDBOX_SETUP_HINT} Alternativt: s\u0
 export function getPreviewHostBaseUrl(): string | null {
   const u = process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL?.trim();
   if (!u) return null;
-  return u.replace(/\/$/, "");
+  const normalized = u.replace(/\/$/, "");
+  try {
+    const parsed = new URL(normalized);
+    // Common misconfiguration: users paste the verify/session prefix instead of
+    // the preview-host root URL, which would otherwise produce /preview/preview/*.
+    if (parsed.pathname === "/preview") {
+      parsed.pathname = "";
+      parsed.search = "";
+      parsed.hash = "";
+      return parsed.toString().replace(/\/$/, "");
+    }
+  } catch {
+    // Keep the raw trimmed value; callers already handle invalid URLs defensively.
+  }
+  return normalized;
 }
 
 export type Tier2RuntimeMode = "vercel_sandbox" | "preview_host" | "preview_host_then_vercel";
