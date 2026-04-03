@@ -61,21 +61,21 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 ## Tier 2 preview-host vs app-env
 
-Nar `preview-host` anvands pa Fly finns **två** olika env-ytor:
+När `preview-host` används på Fly finns **två** olika env-ytor:
 
-- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_TIER2_RUNTIME`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` nar preview-host kor icke-lokalt.
-- **Preview-host-tjansten (Fly secrets / env):** `PREVIEW_HOST_API_KEY` och valfritt `PREVIEW_HOST_DATA_DIR`.
+- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_TIER2_RUNTIME`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` när preview-host kör icke-lokalt.
+- **Preview-host-tjänsten (Fly secrets / env):** `PREVIEW_HOST_API_KEY` och valfritt `PREVIEW_HOST_DATA_DIR`.
 
 Praktisk rekommendation:
 
-- Satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev` (root-URL, inte `/preview`)
-- Satt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` pa preview-hosten
-- Satt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
-- Lat `SAJTMASKIN_TIER2_RUNTIME` vara unset for strikt preview-host-default, eller satt den till `preview_host` explicit
-- Satt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` endast om du vill ha Vercel-fallback
-- Satt `PREVIEW_HOST_DATA_DIR=/data` **forst** nar du faktiskt monterat en Fly volume pa `/data`
+- Sätt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev` (root-URL, inte `/preview`)
+- Sätt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` på preview-hosten
+- Sätt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
+- Låt `SAJTMASKIN_TIER2_RUNTIME` vara unset för strikt preview-host-default, eller sätt den till `preview_host` explicit
+- Sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` endast om du vill ha Vercel-fallback
+- Sätt `PREVIEW_HOST_DATA_DIR=/data` **först** när du faktiskt monterat en Fly volume på `/data`
 
-Om `SAJTMASKIN_TIER2_RUNTIME` ar unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns, behandlar appen nu `preview_host` som standard (ingen automatisk fallback till Vercel Sandbox).
+Om `SAJTMASKIN_TIER2_RUNTIME` är unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns, behandlar appen nu `preview_host` som standard (ingen automatisk fallback till Vercel Sandbox).
 
 ---
 

@@ -9,7 +9,7 @@
       "src/lib/gen/sandbox/preview-host-client.ts"
     ],
     "runtime": [
-      "src/lib/gen/sandbox-quality-gate.ts",
+      "src/lib/gen/preview-quality-gate.ts",
       "src/lib/gen/server-verify.ts",
       "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
       "src/app/api/engine/chats/[chatId]/repair/route.ts",

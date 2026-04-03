@@ -20,7 +20,7 @@ import {
   runQualityGateChecks,
   qualityGateAllPassed,
   type QualityGateCheckResult,
-} from "@/lib/gen/sandbox-quality-gate";
+} from "@/lib/gen/preview-quality-gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -38,15 +38,15 @@ const requestSchema = z.object({
 type GateResult = {
   passed: boolean;
   checks: QualityGateCheckResult[];
-  sandboxDurationMs: number;
+  verifyLaneDurationMs: number;
   visualQA?: VisualQAResult;
 };
 
 function buildQualityGateSummaryLog(params: {
   checkResults: QualityGateCheckResult[];
-  sandboxDurationMs: number;
+  verifyLaneDurationMs: number;
 }) {
-  const { checkResults, sandboxDurationMs } = params;
+  const { checkResults, verifyLaneDurationMs } = params;
   return {
     level: checkResults.every((result) => result.passed) ? ("info" as const) : ("error" as const),
     category: "preflight:quality-gate",
@@ -60,7 +60,7 @@ function buildQualityGateSummaryLog(params: {
         passed: result.passed,
         exitCode: result.exitCode,
       })),
-      sandboxDurationMs,
+      verifyLaneDurationMs,
     },
   };
 }
@@ -114,7 +114,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       });
 
       try {
-        const { results, sandboxDurationMs } = await runQualityGateChecks({
+        const { results, verifyLaneDurationMs } = await runQualityGateChecks({
           chatId,
           versionId: internalVersionId,
           files: qualityGateFiles,
@@ -135,7 +135,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         const gateResult: GateResult = {
           passed: qualityGateAllPassed(results),
           checks: results,
-          sandboxDurationMs,
+          verifyLaneDurationMs,
           visualQA,
         };
 
@@ -145,7 +145,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             versionId: internalVersionId,
             ...buildQualityGateSummaryLog({
               checkResults: results,
-              sandboxDurationMs,
+              verifyLaneDurationMs,
             }),
           },
           ...results

@@ -1,7 +1,7 @@
 /**
  * Server-side verify+repair loop.
  *
- * Triggered after finalize+sandbox in the generation stream as a
+ * Triggered after finalize+preview verify handoff in the generation stream as a
  * fire-and-forget background task. Updates version verification state
  * on the DB; the UI reads server state via version polls.
  *
@@ -30,10 +30,11 @@ import {
   runQualityGateOnExportable,
   qualityGateAllPassed,
   shouldPromoteAfterRepair,
-} from "@/lib/gen/sandbox-quality-gate";
+} from "@/lib/gen/preview-quality-gate";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
+import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
 
 const inflight = new Set<string>();
 
@@ -91,7 +92,7 @@ export async function triggerServerVerification(params: {
       meta: {
         passed,
         checks: gateResult.results.map((r) => ({ check: r.check, passed: r.passed, exitCode: r.exitCode })),
-        durationMs: gateResult.sandboxDurationMs,
+        durationMs: gateResult.verifyLaneDurationMs,
         serverOwned: true,
       },
     }]).catch(() => {});
@@ -163,7 +164,7 @@ async function tryServerRepairLoop(params: {
           method,
           promoted: decision.promote,
           checks: decision.results?.map((r) => ({ check: r.check, passed: r.passed })),
-          sandboxDurationMs: decision.sandboxDurationMs,
+          verifyLaneDurationMs: decision.verifyLaneDurationMs,
           serverOwned: true,
         },
       },
@@ -218,11 +219,13 @@ async function tryServerRepairLoop(params: {
     : undefined;
 
   let llmPasses = 0;
+  let earlyStopReason: "fixer_noop" | "no_improvement" | null = null;
   for (let pass = 0; pass < SERVER_REPAIR_MAX_PASSES; pass++) {
     if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
       content = bestContent;
       syntaxResult = await validateGeneratedCode(content);
     }
+    const errorsBefore = syntaxResult.errors.length;
     const errorSummary = [
       ...syntaxResult.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`),
       ...errorLines,
@@ -237,15 +240,32 @@ async function tryServerRepairLoop(params: {
       requiredFiles: brokenFiles,
     });
     llmPasses++;
-    if (!fixerResult.success && !fixerResult.partial) continue;
+    if (!fixerResult.success && !fixerResult.partial) {
+      const stopReason = resolveServerRepairEarlyStopReason({
+        fixerProducedOutput: false,
+        errorsBefore,
+        errorsAfter: errorsBefore,
+      });
+      earlyStopReason = stopReason === "continue" ? null : stopReason;
+      break;
+    }
 
     const reFixed = await runAutoFix(fixerResult.fixedContent);
     content = reFixed.fixedContent;
     syntaxResult = await validateGeneratedCode(content);
+    const stopReason = resolveServerRepairEarlyStopReason({
+      fixerProducedOutput: true,
+      errorsBefore,
+      errorsAfter: syntaxResult.errors.length,
+    });
 
     if (syntaxResult.errors.length < bestErrorCount) {
       bestErrorCount = syntaxResult.errors.length;
       bestContent = content;
+    }
+    if (stopReason !== "continue") {
+      earlyStopReason = stopReason;
+      break;
     }
     if (syntaxResult.valid) break;
   }
@@ -260,7 +280,7 @@ async function tryServerRepairLoop(params: {
       versionId,
       "Server repair: syntax clean but quality gate still failing.",
     ).catch(() => null);
-    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0);
+    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason);
     return;
   }
 
@@ -268,7 +288,7 @@ async function tryServerRepairLoop(params: {
     versionId,
     `Server repair incomplete (${bestErrorCount} errors remain).`,
   ).catch(() => null);
-  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount);
+  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason);
 }
 
 function logRepairOutcome(
@@ -278,6 +298,7 @@ function logRepairOutcome(
   repaired: boolean,
   llmPasses: number,
   remainingErrors?: number,
+  earlyStopReason?: "fixer_noop" | "no_improvement" | null,
 ) {
   createEngineVersionErrorLogs([{
     chatId,
@@ -286,7 +307,7 @@ function logRepairOutcome(
     category: "server-repair",
     message: repaired
       ? `Server repair succeeded (${method}).`
-      : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain).`,
-    meta: { method, llmPasses, repaired, remainingErrors, serverOwned: true },
+      : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
+    meta: { method, llmPasses, repaired, remainingErrors, earlyStopReason, serverOwned: true },
   }]).catch(() => {});
 }

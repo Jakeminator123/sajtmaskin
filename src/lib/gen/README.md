@@ -35,7 +35,7 @@ own-engine stream
     └─ finalizeAndSaveVersion()  (stream/finalize-version.ts)
            ├─ autofix + URL expansion
            ├─ optional deep path (image materialize / polish)
-           ├─ syntax validate/fix
+           ├─ syntax validate/fix (early-stop on fixer noop / no improvement)
            ├─ parse + merge + preflight
            ├─ save assistant + version
            └─ sandbox / verification follow-up
@@ -55,7 +55,7 @@ actual scaffold/template lookup behavior, read `scaffolds/README.md` and
 | `template-library/` | Curated external-template guidance used by prompt ranking and reference injection. |
 | `stream/finalize-version.ts` | Shared post-stream pipeline: autofix, deep-path steps, parse/merge/preflight, persistence, telemetry, and scaffold-retry suggestions. |
 | `generation-input-package.ts` | `GenerationInputPackage` type, `computeLineageHash()`, and dump serialization. |
-| `server-verify.ts` | Server-side verify+repair loop triggered after finalize. |
+| `server-verify.ts` | Server-side verify+repair loop triggered after finalize, with early stop on fixer noop / no improvement. |
 | `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
 | `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |
 | `url-compress.ts` | Compresses long URLs to aliases before LLM (saves tokens), expands after. |

@@ -240,7 +240,7 @@ export async function runPostGenerationChecks(params: {
     );
 
     if (artifacts.autoFixReasons.length === 0) {
-      void runSandboxQualityGate({
+      void runPreviewQualityGate({
         chatId,
         versionId,
         assistantMessageId,
@@ -292,7 +292,7 @@ type QualityGateCheckResult = {
   output: string;
 };
 
-async function runSandboxQualityGate(params: {
+async function runPreviewQualityGate(params: {
   chatId: string;
   versionId: string;
   assistantMessageId: string;
@@ -334,7 +334,7 @@ async function runSandboxQualityGate(params: {
     const data = (await res.json().catch(() => null)) as {
       passed?: boolean;
       checks?: QualityGateCheckResult[];
-      sandboxDurationMs?: number;
+      verifyLaneDurationMs?: number;
       error?: string;
       visualQA?: {
         overallScore: number;
@@ -361,8 +361,8 @@ async function runSandboxQualityGate(params: {
       steps.push(`${check.check}: ${icon} (exit ${check.exitCode})`);
       if (!check.passed) failedChecks.push(check.check);
     }
-    if (data.sandboxDurationMs) {
-      steps.push(`Duration: ${Math.round(data.sandboxDurationMs / 1000)}s`);
+    if (data.verifyLaneDurationMs) {
+      steps.push(`Duration: ${Math.round(data.verifyLaneDurationMs / 1000)}s`);
     }
 
     appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -374,7 +374,7 @@ async function runSandboxQualityGate(params: {
         passed: data.passed,
         steps,
         checks: data.checks,
-        sandboxDurationMs: data.sandboxDurationMs,
+        verifyLaneDurationMs: data.verifyLaneDurationMs,
       },
     } as UiMessagePart);
 

@@ -9,7 +9,7 @@ Primary code sources:
 
 - `src/lib/gen/preview/preview-contract.ts`
 - `src/lib/gen/sandbox/preview-host-client.ts`
-- `src/lib/gen/sandbox-quality-gate.ts`
+- `src/lib/gen/preview-quality-gate.ts`
 - `preview-host/src/server.js`
 - `preview-host/src/validate.js`
 - `preview-host/src/runtime.js`

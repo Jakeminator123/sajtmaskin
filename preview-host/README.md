@@ -58,7 +58,7 @@ I praktiken betyder det:
 | Volume | `preview_host_data`, 10 GB, `/data` |
 | Region | `arn` (Stockholm) |
 | Secret | `PREVIEW_HOST_DATA_DIR=/data` |
-| Kostnad | ca 60-70 USD/man om maskinen star pa 24/7 |
+| Kostnad | ca 60-70 USD/man om maskinen står på 24/7 |
 
 ### Env i Sajtmaskins `.env.local` (repo-roten)
 
@@ -69,24 +69,24 @@ SAJTMASKIN_TIER2_RUNTIME=preview_host
 NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev
 ```
 
-Lagg **inte** `PREVIEW_HOST_DATA_DIR`, `PREVIEW_HOST_API_KEY` eller `DATA_DIR` i repo-rotens `.env.local`. De hor till Fly-tjansten.
+Lägg **inte** `PREVIEW_HOST_DATA_DIR`, `PREVIEW_HOST_API_KEY` eller `DATA_DIR` i repo-rotens `.env.local`. De hör till Fly-tjänsten.
 
-## Nasta steg nu
+## Nästa steg nu
 
-Nu ar vi forbi forsta deployen. Det viktigaste nasta steget ar inte fler features direkt, utan att gora prototypen **mer korrekt** for hur den faktiskt fungerar idag.
+Nu är vi förbi första deployen. Det viktigaste nästa steget är inte fler features direkt, utan att göra prototypen **mer korrekt** för hur den faktiskt fungerar idag.
 
-### Varfor detta behov finns
+### Varför detta behov finns
 
 Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DIR` (default `./data` i containern).
 
-- satt samma katalog pa en **Fly volume** om du skalar till flera machines
-- for icke-lokal drift: satt `PREVIEW_HOST_API_KEY` pa servern och samma varde som `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appen (`Authorization: Bearer ...` eller `X-Preview-Host-Key`)
+- sätt samma katalog på en **Fly volume** om du skalar till flera machines
+- för icke-lokal drift: sätt `PREVIEW_HOST_API_KEY` på servern och samma värde som `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appen (`Authorization: Bearer ...` eller `X-Preview-Host-Key`)
 
-### Nasta steg (handoff)
+### Nästa steg (handoff)
 
-1. **Persistera sessions over restart**: sessioner maste sparas/aterhamtas fran volymen nar `preview-host` startar om, sa att builderns iframe inte tappar sin preview efter deploy.
-2. **CSP-header**: lagg till `*.fly.dev` i `frame-src` i huvudappens CSP-konfiguration (`next.config` eller `middleware.ts`).
-3. **Snabbare forsta boot**: forinstallera baseline-deps i Dockerfile eller cacha `node_modules` pa volymen mer aggressivt.
+1. **Persistera sessions över restart**: sessioner måste sparas/återhämtas från volymen när `preview-host` startar om, så att builderns iframe inte tappar sin preview efter deploy.
+2. **CSP-header**: lägg till `*.fly.dev` i `frame-src` i huvudappens CSP-konfiguration (`next.config` eller `middleware.ts`).
+3. **Snabbare första boot**: förinstallera baseline-deps i Dockerfile eller cacha `node_modules` på volymen mer aggressivt.
 4. **Autofix-loop**: throttla antal parallella preview-host-boots per chatt sa att autofix inte skapar 4 samtida install+dev-starter.
 5. **Observerbarhet**: lagg till tydligare loggning av Next.js stdout/stderr i runtime-loggar (just nu damps HMR-brus).
 

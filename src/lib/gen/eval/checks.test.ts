@@ -3,7 +3,9 @@ import type { CodeFile } from "../parser";
 import {
   checkNoBracketPlaceholders,
   checkProjectSanity,
+  checkSeoPublishReadiness,
   checkTier2Readiness,
+  checkVisualQuality,
 } from "./checks";
 
 describe("checkProjectSanity", () => {
@@ -152,5 +154,81 @@ describe("checkTier2Readiness", () => {
     expect(result.passed).toBe(false);
     expect(result.message).toContain("Missing `next`");
     expect(result.message).toContain("dependency_install_failure");
+  });
+});
+
+describe("checkSeoPublishReadiness", () => {
+  it("fails when SEO preflight reports blocking metadata errors", () => {
+    const result = checkSeoPublishReadiness([
+      {
+        file: "app/layout.tsx",
+        severity: "error",
+        code: "missing-metadata",
+        message: "Layouten saknar export av metadata för title/description.",
+        category: "non_blocking_quality_warning",
+      },
+    ]);
+
+    expect(result.passed).toBe(false);
+    expect(result.score).toBe(0);
+    expect(result.message).toContain("metadata");
+  });
+
+  it("stays passing with only SEO warnings but lowers score", () => {
+    const result = checkSeoPublishReadiness([
+      {
+        file: "seo",
+        severity: "warning",
+        code: "missing-sitemap",
+        message: "Projektet saknar app/sitemap.ts.",
+        category: "non_blocking_quality_warning",
+      },
+    ]);
+
+    expect(result.passed).toBe(true);
+    expect(result.score).toBeLessThan(1);
+  });
+});
+
+describe("checkVisualQuality", () => {
+  it("passes for a reasonably complete marketing page", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/layout.tsx",
+        content:
+          "export const metadata = { title: 'Acme', description: 'Acme Consulting' }; export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+        language: "tsx",
+      },
+      {
+        path: "app/globals.css",
+        content:
+          "@theme inline { --color-primary: oklch(0.62 0.18 250); --color-secondary: oklch(0.71 0.12 180); --color-accent: oklch(0.8 0.15 40); }",
+        language: "css",
+      },
+      {
+        path: "app/page.tsx",
+        content:
+          "export default function Page(){ return <main><section className='py-24 bg-muted'><h1 className='text-5xl'>Acme</h1><p>Long descriptive subtext that explains the offer in a serious way for business buyers and gives context for the service.</p><button>Boka möte</button><img src='/placeholder.svg?width=800&height=600&text=consulting+team' /></section><section className='bg-card'><p>Section two</p></section><section className='bg-secondary'><p>Section three</p></section></main>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = checkVisualQuality(files);
+    expect(result.passed).toBe(true);
+    expect(result.score).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("fails for thin pages with weak visual structure", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/page.tsx",
+        content: "export default function Page(){ return <main><h1>Hi</h1></main>; }",
+        language: "tsx",
+      },
+    ];
+
+    const result = checkVisualQuality(files);
+    expect(result.passed).toBe(false);
+    expect(result.message).toContain("hero-quality");
   });
 });

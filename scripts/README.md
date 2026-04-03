@@ -395,9 +395,14 @@ Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** kataloge
 
 Nuvarande eval-checkar inkluderar också:
 
-- `project-sanity` for cross-file/dependency-risker som saknade package pins eller kanda installproblem
-- `no-bracket-placeholders` for kvarlamnade innehallsplaceholders som `[Company Name]`
-- `tier2-readiness` for om samma preflight-kontrakt som runtime använder fortfarande skulle tillata tier-2 preview
+- `project-sanity` för cross-file/dependency-risker som saknade package pins eller kända installproblem
+- `no-bracket-placeholders` för kvarlämnade innehållsplaceholders som `[Company Name]`
+- `seo-publish-readiness` för metadata/title/description/robots/sitemap/H1 som behövs för riktig företagsleverans
+- `visual-quality` för heuristisk layout-/hierarki-/färg-/sektion-/bildsignal på den färdiga projektytan
+- `tier2-readiness` för om samma preflight-kontrakt som runtime använder fortfarande skulle tillåta tier-2 preview
+- baseline-gaten tittar nu också på `PASS -> FAIL` och `FAIL -> PASS`, inte bara score-delta
+- baseline-jämförelsen rapporterar också nya eller borttagna blockerande checks per prompt
+- eval-resultat far nu blockerande checks, sa `PASS` kraver att kritiska readiness-/sanity-checkar ocksa ar gröna, inte bara att medelscoren är okej
 
 ## references:discover
 

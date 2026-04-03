@@ -175,6 +175,25 @@ function resolvePolishPassPolicy(params: {
   return { run: false, reason: "no_polish_signal" };
 }
 
+function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number {
+  if (!buildSpec) return 3;
+  if (
+    buildSpec.previewPolicy === "fidelity3" ||
+    buildSpec.qualityTarget === "release-candidate"
+  ) {
+    return 6;
+  }
+  if (
+    buildSpec.qualityTarget !== "standard" ||
+    buildSpec.buildIntent === "app" ||
+    buildSpec.contextPolicy === "heavy" ||
+    buildSpec.changeScope === "integration"
+  ) {
+    return 4;
+  }
+  return 2;
+}
+
 function resolveVerifierPassPolicy(params: {
   buildSpec?: BuildSpec | null;
   finalizePath: FinalizePathPolicy;
@@ -277,6 +296,7 @@ function ensureNonEmptyGenerationContent(params: {
 async function runFinalizeDeepPath(params: {
   chatId: string;
   model: string;
+  buildSpec?: BuildSpec | null;
   repairPassIndex: number;
   onProgress?: FinalizeProgressCallback;
   contentForVersion: string;
@@ -285,6 +305,7 @@ async function runFinalizeDeepPath(params: {
   const {
     chatId,
     model,
+    buildSpec,
     repairPassIndex,
     onProgress,
     finalizePath,
@@ -294,24 +315,29 @@ async function runFinalizeDeepPath(params: {
 
   if (finalizePath.runDeepPath) {
     const stepStartedAt = Date.now();
+    const maxReplacements = resolveImageMaterializationLimit(buildSpec);
     onProgress?.("materialize_images", { phase: "start" });
     try {
-      const imgResult = await materializeImages(contentForVersion);
+      const imgResult = await materializeImages(contentForVersion, { maxReplacements });
       if (imgResult.replacedCount > 0) {
         contentForVersion = imgResult.content;
         devLogAppend("in-progress", {
           type: "image-materialization",
           chatId,
           replacedCount: imgResult.replacedCount,
+          skippedCount: imgResult.skippedCount,
           queries: imgResult.queries.slice(0, 10),
         });
       }
       onProgress?.("materialize_images", {
         phase: "done",
         replacedCount: imgResult.replacedCount,
+        skippedCount: imgResult.skippedCount,
       });
       stepTelemetry.materialize_images = createFinalizeStepTelemetry(stepStartedAt, "done", {
+        maxReplacements,
         replacedCount: imgResult.replacedCount,
+        skippedCount: imgResult.skippedCount,
       });
     } catch (imgErr) {
       console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
@@ -388,6 +414,7 @@ async function runFinalizeFastPath(params: {
     fixerImproved: syntaxResult.fixerImproved,
     errorsBefore: syntaxResult.errorsBefore,
     errorsAfter: syntaxResult.errorsAfter,
+    earlyStopReason: syntaxResult.earlyStopReason,
     result: syntaxResult.status,
   });
 
@@ -695,6 +722,7 @@ export async function finalizeAndSaveVersion(
   const deepPathResult = await runFinalizeDeepPath({
     chatId,
     model,
+    buildSpec,
     repairPassIndex,
     onProgress,
     contentForVersion,

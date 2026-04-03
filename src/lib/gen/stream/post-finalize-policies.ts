@@ -42,11 +42,43 @@ export function shouldTriggerPostFinalizeServerVerify(params: {
   buildSpec: BuildSpec;
   finalized: FinalizeResult;
 }): boolean {
+  return resolvePostFinalizeServerVerifyDecision(params).run;
+}
+
+export function resolvePostFinalizeServerVerifyDecision(params: {
+  buildSpec: BuildSpec;
+  finalized: FinalizeResult;
+}): { run: boolean; reason: string } {
   const { buildSpec, finalized } = params;
-  if (buildSpec.verificationPolicy === "fast") return false;
-  return (
-    isServerVerifyEligible(finalized.version.id) &&
-    !finalized.preflight.previewBlocked &&
-    !finalized.preflight.verificationBlocked
-  );
+  if (buildSpec.verificationPolicy === "fast") {
+    return { run: false, reason: "fast_policy" };
+  }
+  if (!isServerVerifyEligible(finalized.version.id)) {
+    return { run: false, reason: "not_eligible" };
+  }
+  if (finalized.preflight.previewBlocked) {
+    return { run: false, reason: "preview_blocked" };
+  }
+  if (finalized.preflight.verificationBlocked) {
+    return { run: false, reason: "verification_blocked" };
+  }
+
+  const sandbox = getPostFinalizeSandboxContract(finalized);
+  const hasNonBlockingWarnings = sandbox.issueCounts.non_blocking_quality_warning > 0;
+  const isHighSignalFlow =
+    buildSpec.verificationPolicy === "strict" ||
+    buildSpec.previewPolicy === "fidelity3" ||
+    buildSpec.qualityTarget !== "standard" ||
+    buildSpec.buildIntent === "app" ||
+    buildSpec.contextPolicy === "heavy" ||
+    buildSpec.changeScope === "integration" ||
+    buildSpec.changeScope === "page-addition" ||
+    (buildSpec.generationMode === "followUp" && buildSpec.changeScope === "redesign") ||
+    hasNonBlockingWarnings;
+
+  if (!isHighSignalFlow) {
+    return { run: false, reason: "low_risk_standard_flow" };
+  }
+
+  return { run: true, reason: "policy_match" };
 }

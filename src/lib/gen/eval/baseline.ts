@@ -7,6 +7,7 @@ export type EvalBaseline = {
     promptId: string;
     totalScore: number;
     passed: boolean;
+    blockingChecks: string[];
     fileCount: number;
     generationTimeMs: number;
   }>;
@@ -15,6 +16,8 @@ export type EvalBaseline = {
     passed: number;
     avgScore: number;
     avgTimeMs: number;
+    blockingFailures: number;
+    blockingCheckCounts: Record<string, number>;
   };
 };
 
@@ -28,6 +31,7 @@ export async function saveBaseline(report: EvalReport): Promise<void> {
       promptId: r.promptId,
       totalScore: r.totalScore,
       passed: r.passed,
+      blockingChecks: r.blockingChecks,
       fileCount: r.fileCount,
       generationTimeMs: r.generationTimeMs,
     })),
@@ -65,6 +69,24 @@ export function compareWithBaseline(
     currentScore: number;
     delta: number;
   }>;
+  passRegressions: Array<{
+    promptId: string;
+    baselinePassed: boolean;
+    currentPassed: boolean;
+  }>;
+  passImprovements: Array<{
+    promptId: string;
+    baselinePassed: boolean;
+    currentPassed: boolean;
+  }>;
+  blockingCheckRegressions: Array<{
+    promptId: string;
+    added: string[];
+  }>;
+  blockingCheckImprovements: Array<{
+    promptId: string;
+    removed: string[];
+  }>;
   overallDelta: number;
   gateResult: "pass" | "fail" | "warning";
 } {
@@ -82,6 +104,24 @@ export function compareWithBaseline(
     baselineScore: number;
     currentScore: number;
     delta: number;
+  }> = [];
+  const passRegressions: Array<{
+    promptId: string;
+    baselinePassed: boolean;
+    currentPassed: boolean;
+  }> = [];
+  const passImprovements: Array<{
+    promptId: string;
+    baselinePassed: boolean;
+    currentPassed: boolean;
+  }> = [];
+  const blockingCheckRegressions: Array<{
+    promptId: string;
+    added: string[];
+  }> = [];
+  const blockingCheckImprovements: Array<{
+    promptId: string;
+    removed: string[];
   }> = [];
 
   for (const [promptId, baselineResult] of baselineByPrompt) {
@@ -104,6 +144,32 @@ export function compareWithBaseline(
         delta,
       });
     }
+
+    if (baselineResult.passed && !current.passed) {
+      passRegressions.push({
+        promptId,
+        baselinePassed: baselineResult.passed,
+        currentPassed: current.passed,
+      });
+    } else if (!baselineResult.passed && current.passed) {
+      passImprovements.push({
+        promptId,
+        baselinePassed: baselineResult.passed,
+        currentPassed: current.passed,
+      });
+    }
+
+    const baselineBlocking = new Set(baselineResult.blockingChecks ?? []);
+    const currentBlocking = new Set(current.blockingChecks ?? []);
+    const added = [...currentBlocking].filter((check) => !baselineBlocking.has(check));
+    const removed = [...baselineBlocking].filter((check) => !currentBlocking.has(check));
+
+    if (added.length > 0) {
+      blockingCheckRegressions.push({ promptId, added });
+    }
+    if (removed.length > 0) {
+      blockingCheckImprovements.push({ promptId, removed });
+    }
   }
 
   const overallDelta = baseline.summary.avgScore > 0
@@ -114,17 +180,23 @@ export function compareWithBaseline(
   const avgScoreDrop5 = overallDelta <= -0.05;
   const promptsRegress20 = regressions.filter((r) => r.delta <= -0.2).length > 2;
   const anyPromptRegress15 = regressions.some((r) => r.delta <= -0.15);
+  const anyPassRegression = passRegressions.length > 0;
+  const anyBlockingRegression = blockingCheckRegressions.length > 0;
 
   let gateResult: "pass" | "fail" | "warning" = "pass";
-  if (avgScoreDrop10 || promptsRegress20) {
+  if (anyPassRegression || avgScoreDrop10 || promptsRegress20) {
     gateResult = "fail";
-  } else if (avgScoreDrop5 || anyPromptRegress15) {
+  } else if (anyBlockingRegression || avgScoreDrop5 || anyPromptRegress15) {
     gateResult = "warning";
   }
 
   return {
     regressions,
     improvements,
+    passRegressions,
+    passImprovements,
+    blockingCheckRegressions,
+    blockingCheckImprovements,
     overallDelta,
     gateResult,
   };

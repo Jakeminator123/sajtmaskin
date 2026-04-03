@@ -12,7 +12,7 @@ import {
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
-import { shouldPromoteAfterRepair } from "@/lib/gen/sandbox-quality-gate";
+import { shouldPromoteAfterRepair } from "@/lib/gen/preview-quality-gate";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -20,6 +20,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
+import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -222,6 +223,7 @@ export async function POST(
     let bestContent = content;
     let bestErrorCount = syntaxResult.errors.length;
     let llmPasses = 0;
+    let earlyStopReason: "fixer_noop" | "no_improvement" | null = null;
     const originatingChat = await getChat(chatId).catch(() => null);
     const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
     const fixerModel = originatingTier
@@ -233,6 +235,7 @@ export async function POST(
         content = bestContent;
         syntaxResult = await validateGeneratedCode(content);
       }
+      const errorsBefore = syntaxResult.errors.length;
       const errorSummary = [
         ...syntaxResult.errors.map(
           (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
@@ -253,17 +256,34 @@ export async function POST(
       });
       llmPasses++;
 
-      if (!fixerResult.success && !fixerResult.partial) continue;
+      if (!fixerResult.success && !fixerResult.partial) {
+        const stopReason = resolveServerRepairEarlyStopReason({
+          fixerProducedOutput: false,
+          errorsBefore,
+          errorsAfter: errorsBefore,
+        });
+        earlyStopReason = stopReason === "continue" ? null : stopReason;
+        break;
+      }
 
       const reFixed = await runAutoFix(fixerResult.fixedContent);
       content = reFixed.fixedContent;
       syntaxResult = await validateGeneratedCode(content);
+      const stopReason = resolveServerRepairEarlyStopReason({
+        fixerProducedOutput: true,
+        errorsBefore,
+        errorsAfter: syntaxResult.errors.length,
+      });
 
       if (syntaxResult.errors.length < bestErrorCount) {
         bestErrorCount = syntaxResult.errors.length;
         bestContent = content;
       }
 
+      if (stopReason !== "continue") {
+        earlyStopReason = stopReason;
+        break;
+      }
       if (syntaxResult.valid) break;
     }
 
@@ -303,6 +323,7 @@ export async function POST(
       repaired,
       llmPasses,
       bestErrorCount,
+      earlyStopReason,
     );
 
     return NextResponse.json({
@@ -311,6 +332,7 @@ export async function POST(
       newVersionId,
       remainingErrors: bestErrorCount,
       improvedSyntax,
+      earlyStopReason,
     });
   } catch (err) {
     console.error("[repair] Error:", err);
@@ -334,6 +356,7 @@ function logRepair(
   repaired: boolean,
   llmPasses: number,
   remainingErrors?: number,
+  earlyStopReason?: "fixer_noop" | "no_improvement" | null,
 ) {
   if (!dbConfigured) return;
   createEngineVersionErrorLogs([
@@ -344,8 +367,8 @@ function logRepair(
       category: "server-repair",
       message: repaired
         ? `Server repair succeeded (${method}).`
-        : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain).`,
-      meta: { method, llmPasses, repaired, remainingErrors },
+        : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
+      meta: { method, llmPasses, repaired, remainingErrors, earlyStopReason },
     },
   ]).catch((err) => {
     console.warn("[repair] Failed to log repair:", err);

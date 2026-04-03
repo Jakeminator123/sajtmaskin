@@ -183,7 +183,7 @@ Tier 2 är **inte** ett enda alltid-igång subsystem. Vercel Sandbox startas på
 - **Opt-in fallback:** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` för preview-host först + Vercel-fallback.
 - **Hård cutover (explicit):** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host`.
 - **Vercel fallback / sekundär provider:** `VERCEL_TOKEN`, `VERCEL_OIDC_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID` enligt behov.
-- **Verifiering/validering:** quality-gate, server-verify och repair re-check använder preview-hosts separata verify-lane. Den kör i isolerad workspace och återanvänder inte live-previewns dev-workspace.
+- **Verifiering/validering:** quality-gate, server-verify och repair re-check använder preview-hosts separata verify-lane. Den kör i isolerad workspace och återanvänder inte live-previewns dev-workspace. Background server-verify är nu mer policy-/signalstyrd och kan hoppas över för låg-risk standardflöden där `BuildSpec` + preflight inte motiverar extra verify-kostnad.
 
 Se även [`docs/ENV.md`](../ENV.md) och `src/lib/env.ts`.
 

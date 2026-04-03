@@ -267,6 +267,12 @@
       "notes": "Optional flag for OpenAI-backed audit web search."
     },
     {
+      "key": "FIGMA_ACCESS_TOKEN",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Optional token for Figma-backed imports and design-related flows."
+    },
+    {
       "key": "SAJTMASKIN_BUILD_SPEC_ENABLED",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
@@ -343,6 +349,24 @@
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Bearer token the app uses for preview-host HTTP calls. Must match PREVIEW_HOST_API_KEY on the host when preview-host runs outside local development."
+    },
+    {
+      "key": "SAJTMASKIN_SANDBOX_PREVIEW_MODE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Tier-2 preview mode selection for the Vercel sandbox path (`dev_only`, `dev_then_build`, `build_only`)."
+    },
+    {
+      "key": "SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Optional git URL override for the sandbox/VM baseline template; pin deliberately in production-like environments."
+    },
+    {
+      "key": "SAJTMASKIN_SANDBOX_READINESS_MAX_MS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Timeout for sandbox/VM readiness probing after `npm run dev`."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",

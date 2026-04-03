@@ -7,8 +7,8 @@ import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
   getPostFinalizeSandboxContract,
+  resolvePostFinalizeServerVerifyDecision,
   shouldTriggerPostFinalizeSandbox,
-  shouldTriggerPostFinalizeServerVerify,
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
@@ -241,7 +241,23 @@ export async function runOwnEngineStreamPostFinalize(params: {
     }
   }
 
-  if (shouldTriggerPostFinalizeServerVerify({ buildSpec, finalized })) {
+  const serverVerifyDecision = resolvePostFinalizeServerVerifyDecision({
+    buildSpec,
+    finalized,
+  });
+  devLogAppend("in-progress", {
+    type: "server-verify.policy",
+    chatId,
+    versionId: finalized.version.id,
+    run: serverVerifyDecision.run,
+    reason: serverVerifyDecision.reason,
+    verificationPolicy: buildSpec.verificationPolicy,
+    qualityTarget: buildSpec.qualityTarget,
+    buildIntent: buildSpec.buildIntent,
+    changeScope: buildSpec.changeScope,
+  });
+
+  if (serverVerifyDecision.run) {
     triggerServerVerification({
       chatId,
       versionId: finalized.version.id,

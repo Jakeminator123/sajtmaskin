@@ -6,6 +6,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 
 type ValidateFixStatus = "passed" | "partial" | "failed" | "pipeline-error";
+type ValidateFixEarlyStopReason = "fixer_noop" | "no_improvement" | null;
 
 export interface ValidateFixResult {
   content: string;
@@ -17,6 +18,7 @@ export interface ValidateFixResult {
   passes: number;
   status: ValidateFixStatus;
   pipelineError: string | null;
+  earlyStopReason: ValidateFixEarlyStopReason;
 }
 
 export type ValidateFixProgressCallback = (event: {
@@ -55,6 +57,7 @@ export async function validateAndFix(
     let fixerUsed = false;
     let fixerImproved = false;
     let passCount = 0;
+    let earlyStopReason: ValidateFixEarlyStopReason = null;
 
     for (let pass = 1; pass <= SYNTAX_FIX_MAX_PASSES; pass++) {
       passCount = pass;
@@ -88,6 +91,7 @@ export async function validateAndFix(
           passes: passCount,
           status: "passed",
           pipelineError: null,
+          earlyStopReason,
         };
       }
 
@@ -195,10 +199,24 @@ export async function validateAndFix(
               passes: passCount,
               status: "passed",
               pipelineError: null,
+              earlyStopReason,
             };
           }
 
           console.info(`[engine] Pass ${pass}: errors reduced ${validation.errors.length} -> ${reValidation.errors.length}`);
+          if (reValidation.errors.length >= validation.errors.length) {
+            earlyStopReason = "no_improvement";
+            onProgress?.({ pass, phase: "gave-up", errorCount: reValidation.errors.length });
+            devLogAppend("in-progress", {
+              type: "syntax-validation.early-stop",
+              chatId: opts.chatId,
+              pass,
+              reason: earlyStopReason,
+              errorsBefore: validation.errors.length,
+              errorsAfter: reValidation.errors.length,
+            });
+            break;
+          }
         } else {
           devLogAppend("in-progress", {
             type: "syntax-validation.fixer.noop",
@@ -206,6 +224,16 @@ export async function validateAndFix(
             pass,
             errorCount: validation.errors.length,
           });
+          earlyStopReason = "fixer_noop";
+          onProgress?.({ pass, phase: "gave-up", errorCount: validation.errors.length });
+          devLogAppend("in-progress", {
+            type: "syntax-validation.early-stop",
+            chatId: opts.chatId,
+            pass,
+            reason: earlyStopReason,
+            errorCount: validation.errors.length,
+          });
+          break;
         }
       } catch (fixerError) {
         console.warn(`[engine] Pass ${pass}: LLM fixer failed`, fixerError);
@@ -232,6 +260,7 @@ export async function validateAndFix(
           ? "failed"
           : "partial",
       pipelineError: null,
+      earlyStopReason,
     };
   } catch (err) {
     const pipelineErrorMessage =
@@ -252,6 +281,7 @@ export async function validateAndFix(
       passes: 0,
       status: "pipeline-error",
       pipelineError: pipelineErrorMessage,
+      earlyStopReason: null,
     };
   }
 }

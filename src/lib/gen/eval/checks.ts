@@ -1,6 +1,8 @@
 import type { CodeFile } from "../parser";
 import { validateGeneratedCode } from "../retry/validate-syntax";
 import { runProjectSanityChecks } from "../validation/project-sanity";
+import type { SeoPreflightIssue } from "../validation/seo-preflight";
+import { analyzeVisualQuality } from "../visual-qa";
 
 export interface CheckResult {
   name: string;
@@ -118,6 +120,68 @@ export function checkTier2Readiness(preflight: Tier2ReadinessInput): CheckResult
     passed: false,
     message: `${primaryMessage}${categories}`,
     score: 0,
+  };
+}
+
+export function checkSeoPublishReadiness(issues: SeoPreflightIssue[]): CheckResult {
+  const errors = issues.filter((issue) => issue.severity === "error");
+  const warnings = issues.filter((issue) => issue.severity === "warning");
+
+  if (errors.length > 0) {
+    return {
+      name: "seo-publish-readiness",
+      passed: false,
+      message: errors
+        .slice(0, 3)
+        .map((issue) => `${issue.file}: ${issue.message}`)
+        .join("; "),
+      score: 0,
+    };
+  }
+
+  if (warnings.length > 0) {
+    return {
+      name: "seo-publish-readiness",
+      passed: true,
+      message: warnings
+        .slice(0, 3)
+        .map((issue) => `${issue.file}: ${issue.message}`)
+        .join("; "),
+      score: Math.max(0.6, 1 - warnings.length * 0.1),
+    };
+  }
+
+  return {
+    name: "seo-publish-readiness",
+    passed: true,
+    message: "SEO/publish baseline looks healthy",
+    score: 1,
+  };
+}
+
+export function checkVisualQuality(files: CodeFile[]): CheckResult {
+  const visual = analyzeVisualQuality(
+    files.map((file) => ({ path: file.path, content: file.content })),
+  );
+  const failedChecks = visual.checks.filter((check) => !check.passed);
+
+  if (failedChecks.length === 0) {
+    return {
+      name: "visual-quality",
+      passed: true,
+      message: "Visual baseline looks strong",
+      score: visual.overallScore / 100,
+    };
+  }
+
+  return {
+    name: "visual-quality",
+    passed: visual.passed,
+    message: failedChecks
+      .slice(0, 3)
+      .map((check) => `${check.check}: ${check.detail}`)
+      .join("; "),
+    score: visual.overallScore / 100,
   };
 }
 

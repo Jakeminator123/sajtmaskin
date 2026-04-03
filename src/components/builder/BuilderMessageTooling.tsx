@@ -167,7 +167,7 @@ type QualityGateSummary = {
   skipped: boolean;
   reason?: string;
   checks: QualityGateCheckInfo[];
-  sandboxDurationMs: number | null;
+  verifyLaneDurationMs: number | null;
 };
 
 export function AgentLogCard({ items }: { items: AgentLogItem[] }) {
@@ -641,9 +641,9 @@ export function StructuredToolParts({
                           )}
                         </div>
                       ))}
-                      {qualityGateSummary.sandboxDurationMs !== null && (
+                      {qualityGateSummary.verifyLaneDurationMs !== null && (
                         <div className="text-muted-foreground/50 text-[10px]">
-                          {Math.round(qualityGateSummary.sandboxDurationMs / 1000)}s
+                          {Math.round(qualityGateSummary.verifyLaneDurationMs / 1000)}s
                         </div>
                       )}
                     </div>
@@ -1873,7 +1873,7 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
       skipped: true,
       reason: typeof obj.reason === "string" ? obj.reason : undefined,
       checks: [],
-      sandboxDurationMs: null,
+      verifyLaneDurationMs: null,
     };
   }
   const checks = Array.isArray(obj.checks)
@@ -1884,7 +1884,7 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
     passed: Boolean(obj.passed),
     skipped: false,
     checks,
-    sandboxDurationMs:
-      typeof obj.sandboxDurationMs === "number" ? obj.sandboxDurationMs : null,
+    verifyLaneDurationMs:
+      typeof obj.verifyLaneDurationMs === "number" ? obj.verifyLaneDurationMs : null,
   };
 }

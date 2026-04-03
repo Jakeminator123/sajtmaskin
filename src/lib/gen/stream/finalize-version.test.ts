@@ -182,6 +182,7 @@ describe("finalizeAndSaveVersion", () => {
     materializeImages.mockResolvedValue({
       content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
       replacedCount: 0,
+      skippedCount: 0,
       resolvedUrls: new Set<string>(),
       queries: [],
     });
@@ -670,7 +671,10 @@ describe("finalizeAndSaveVersion", () => {
             postStreamSteps: expect.objectContaining({
               autofix: expect.objectContaining({ status: "done" }),
               url_expand: expect.objectContaining({ status: "done" }),
-              materialize_images: expect.objectContaining({ status: "done" }),
+              materialize_images: expect.objectContaining({
+                status: "done",
+                maxReplacements: 4,
+              }),
               validate_syntax: expect.objectContaining({ status: "done" }),
               verifier: expect.objectContaining({
                 status: "done",
@@ -681,6 +685,9 @@ describe("finalizeAndSaveVersion", () => {
           }),
         }),
       );
+      expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
+        maxReplacements: 4,
+      });
       expect(runVerifierPass).toHaveBeenCalled();
       expect(result.telemetryRecordId).not.toBeNull();
     });
@@ -718,6 +725,9 @@ describe("finalizeAndSaveVersion", () => {
 
       expect(runVerifierPass).not.toHaveBeenCalled();
       expect(runPolishPass).not.toHaveBeenCalled();
+      expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
+        maxReplacements: 2,
+      });
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           meta: expect.objectContaining({

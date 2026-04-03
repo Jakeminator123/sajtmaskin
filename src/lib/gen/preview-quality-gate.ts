@@ -58,7 +58,7 @@ export async function runQualityGateChecks(params: {
   versionId: string;
   files: QualityGateFileLike[];
   checks: QualityGateCheck[];
-}): Promise<{ results: QualityGateCheckResult[]; sandboxDurationMs: number }> {
+}): Promise<{ results: QualityGateCheckResult[]; verifyLaneDurationMs: number }> {
   if (!isQualityGateConfigured()) {
     throw new QualityGateNotConfiguredError();
   }
@@ -82,7 +82,7 @@ export async function runQualityGateChecks(params: {
 
   return {
     results: verify.results,
-    sandboxDurationMs: verify.durationMs,
+    verifyLaneDurationMs: verify.durationMs,
   };
 }
 
@@ -95,7 +95,7 @@ export async function runQualityGateOnExportable(params: {
   versionId: string;
   exportable: CodeFile[];
   checks?: QualityGateCheck[];
-}): Promise<{ results: QualityGateCheckResult[]; sandboxDurationMs: number } | null> {
+}): Promise<{ results: QualityGateCheckResult[]; verifyLaneDurationMs: number } | null> {
   if (!isQualityGateConfigured()) return null;
   const files = exportableToQualityGateFiles(params.exportable);
   return runQualityGateChecks({
@@ -107,8 +107,8 @@ export async function runQualityGateOnExportable(params: {
 }
 
 export type PostRepairGateDecision =
-  | { promote: true; results: QualityGateCheckResult[]; sandboxDurationMs: number }
-  | { promote: false; results: QualityGateCheckResult[] | null; sandboxDurationMs: number };
+  | { promote: true; results: QualityGateCheckResult[]; verifyLaneDurationMs: number }
+  | { promote: false; results: QualityGateCheckResult[] | null; verifyLaneDurationMs: number };
 
 export async function shouldPromoteAfterRepair(params: {
   chatId: string;
@@ -124,12 +124,12 @@ export async function shouldPromoteAfterRepair(params: {
   });
   if (!gate) {
     if (params.hadQualityGateFailures) {
-      return { promote: false, results: null, sandboxDurationMs: 0 };
+      return { promote: false, results: null, verifyLaneDurationMs: 0 };
     }
-    return { promote: true, results: [], sandboxDurationMs: 0 };
+    return { promote: true, results: [], verifyLaneDurationMs: 0 };
   }
   if (!qualityGateAllPassed(gate.results)) {
-    return { promote: false, results: gate.results, sandboxDurationMs: gate.sandboxDurationMs };
+    return { promote: false, results: gate.results, verifyLaneDurationMs: gate.verifyLaneDurationMs };
   }
-  return { promote: true, results: gate.results, sandboxDurationMs: gate.sandboxDurationMs };
+  return { promote: true, results: gate.results, verifyLaneDurationMs: gate.verifyLaneDurationMs };
 }

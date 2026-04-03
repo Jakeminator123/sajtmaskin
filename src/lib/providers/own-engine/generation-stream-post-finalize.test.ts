@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { shouldTriggerPostFinalizeServerVerify } from "@/lib/gen/stream/post-finalize-policies";
+import {
+  resolvePostFinalizeServerVerifyDecision,
+  shouldTriggerPostFinalizeServerVerify,
+} from "@/lib/gen/stream/post-finalize-policies";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
@@ -12,6 +15,7 @@ const shouldRunOwnEngineSandbox = vi.hoisted(() => vi.fn(() => false));
 const logSandboxLifecycleTelemetry = vi.hoisted(() => vi.fn());
 const startSandboxPreview = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => false));
+const devLogAppend = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getChat,
@@ -19,7 +23,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
-  devLogAppend: vi.fn(),
+  devLogAppend,
   devLogFinalizeSite: vi.fn(),
 }));
 
@@ -238,6 +242,7 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
   beforeEach(() => {
     isServerVerifyEligible.mockReset();
     isServerVerifyEligible.mockReturnValue(true);
+    devLogAppend.mockReset();
   });
 
   it("skips background verify for fast follow-up policy", () => {
@@ -292,5 +297,110 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
         finalized: finalized as never,
       }),
     ).toBe(true);
+  });
+
+  it("skips low-risk standard website flows when nothing indicates extra verify value", () => {
+    expect(
+      shouldTriggerPostFinalizeServerVerify({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 20_000,
+            refsChars: 8_000,
+            systemContextChars: 28_000,
+          },
+        },
+        finalized: finalized as never,
+      }),
+    ).toBe(false);
+  });
+
+  it("reports why background verify is skipped for low-risk standard flows", () => {
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 20_000,
+            refsChars: 8_000,
+            systemContextChars: 28_000,
+          },
+        },
+        finalized: finalized as never,
+      }),
+    ).toEqual({
+      run: false,
+      reason: "low_risk_standard_flow",
+    });
+  });
+});
+
+describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
+  beforeEach(() => {
+    devLogAppend.mockReset();
+    isServerVerifyEligible.mockReset();
+    isServerVerifyEligible.mockReturnValue(true);
+  });
+
+  it("logs when background verify is skipped for a low-risk standard flow", async () => {
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 20_000,
+          refsChars: 8_000,
+          systemContextChars: 28_000,
+        },
+      },
+    });
+
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "server-verify.policy",
+        run: false,
+        reason: "low_risk_standard_flow",
+      }),
+    );
   });
 });
