@@ -160,6 +160,7 @@ type QualityGateCheckInfo = {
   passed: boolean;
   exitCode: number;
   output: string;
+  durationMs?: number | null;
 };
 
 type QualityGateSummary = {
@@ -625,30 +626,43 @@ export function StructuredToolParts({
                       <div className={qualityGateSummary.passed ? "text-emerald-400" : "text-rose-400"}>
                         {qualityGateSummary.passed ? "PASS" : "FAIL"}
                       </div>
-                      {qualityGateSummary.checks.map((check) => (
-                        <div
-                          key={check.check}
-                          className="text-muted-foreground flex items-center gap-1.5"
-                        >
-                          <span className={check.passed ? "text-emerald-400" : "text-rose-400"}>
-                            {check.passed ? "\u2713" : "\u2717"}
-                          </span>
-                          <span>{check.check}</span>
-                          {!check.passed && check.output && (
-                            <span
-                              className="ml-1 max-w-[280px] truncate text-[10px] text-rose-400/70"
-                              title={check.output}
-                            >
-                              {check.output.split("\n")[0]?.slice(0, 80)}
+                      {qualityGateSummary.checks.map((check) => {
+                        const checkDuration = formatDurationMsShort(check.durationMs);
+                        return (
+                          <div
+                            key={check.check}
+                            className="text-muted-foreground flex items-center gap-1.5"
+                          >
+                            <span className={check.passed ? "text-emerald-400" : "text-rose-400"}>
+                              {check.passed ? "\u2713" : "\u2717"}
                             </span>
-                          )}
-                        </div>
-                      ))}
-                      {qualityGateSummary.verifyLaneDurationMs !== null && (
-                        <div className="text-muted-foreground/50 text-[10px]">
-                          {Math.round(qualityGateSummary.verifyLaneDurationMs / 1000)}s
-                        </div>
-                      )}
+                            <span>{check.check}</span>
+                            {checkDuration && (
+                              <span className="text-muted-foreground/50 text-[10px]">
+                                {checkDuration}
+                              </span>
+                            )}
+                            {!check.passed && check.output && (
+                              <span
+                                className="ml-1 max-w-[280px] truncate text-[10px] text-rose-400/70"
+                                title={check.output}
+                              >
+                                {check.output.split("\n")[0]?.slice(0, 80)}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {(() => {
+                        const totalDuration = formatDurationMsShort(
+                          qualityGateSummary.verifyLaneDurationMs,
+                        );
+                        return totalDuration ? (
+                          <div className="text-muted-foreground/50 text-[10px]">
+                            Total: {totalDuration}
+                          </div>
+                        ) : null;
+                      })()}
                       {qualityGateSummary.firstFailureCheck && (
                         <div className="text-amber-300/80 text-[10px]">
                           First failure: {qualityGateSummary.firstFailureCheck}
@@ -1636,6 +1650,15 @@ function getToolStateLabel(state: ToolUIPart["state"]) {
     default:
       return "Åtgärd";
   }
+}
+
+function formatDurationMsShort(durationMs: number | null | undefined): string | null {
+  if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < 0) {
+    return null;
+  }
+  if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
+  const seconds = durationMs / 1000;
+  return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1).replace(/\.0$/, "")}s`;
 }
 
 function openIntegrationsPanel() {

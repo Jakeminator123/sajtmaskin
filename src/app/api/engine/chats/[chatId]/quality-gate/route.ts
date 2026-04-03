@@ -63,6 +63,7 @@ function buildQualityGateSummaryLog(params: {
         check: result.check,
         passed: result.passed,
         exitCode: result.exitCode,
+        durationMs: result.durationMs ?? null,
       })),
       verifyLaneDurationMs,
       firstFailureCheck,

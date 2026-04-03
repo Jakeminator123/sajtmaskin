@@ -142,6 +142,7 @@ describe("StructuredToolParts", () => {
                     passed: false,
                     exitCode: 1,
                     output: "npm install failed",
+                    durationMs: 1850,
                   },
                 ],
                 verifyLaneDurationMs: 3200,
@@ -159,6 +160,8 @@ describe("StructuredToolParts", () => {
     );
 
     expect(screen.getByText("First failure: install")).toBeTruthy();
+    expect(screen.getByText("1.9s")).toBeTruthy();
+    expect(screen.getByText("Total: 3.2s")).toBeTruthy();
   });
 
   it("shows business workflow quick actions from post-check output", () => {

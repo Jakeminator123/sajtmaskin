@@ -290,8 +290,17 @@ type QualityGateCheckResult = {
   passed: boolean;
   exitCode: number;
   output: string;
-  durationMs?: number;
+  durationMs?: number | null;
 };
+
+function formatDurationMs(durationMs: number | null | undefined): string | null {
+  if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < 0) {
+    return null;
+  }
+  if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
+  const seconds = durationMs / 1000;
+  return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1).replace(/\.0$/, "")}s`;
+}
 
 async function runPreviewQualityGate(params: {
   chatId: string;
@@ -362,11 +371,15 @@ async function runPreviewQualityGate(params: {
     const failedChecks: string[] = [];
     for (const check of data.checks ?? []) {
       const icon = check.passed ? "PASS" : "FAIL";
-      steps.push(`${check.check}: ${icon} (exit ${check.exitCode})`);
+      const durationLabel = formatDurationMs(check.durationMs);
+      steps.push(
+        `${check.check}: ${icon} (exit ${check.exitCode}${durationLabel ? `, ${durationLabel}` : ""})`,
+      );
       if (!check.passed) failedChecks.push(check.check);
     }
-    if (data.verifyLaneDurationMs) {
-      steps.push(`Duration: ${Math.round(data.verifyLaneDurationMs / 1000)}s`);
+    const totalDurationLabel = formatDurationMs(data.verifyLaneDurationMs);
+    if (totalDurationLabel) {
+      steps.push(`Duration: ${totalDurationLabel}`);
     }
     if (typeof data.firstFailureCheck === "string" && data.firstFailureCheck.trim()) {
       steps.push(`First failure: ${data.firstFailureCheck.trim()}`);
