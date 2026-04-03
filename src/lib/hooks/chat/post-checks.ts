@@ -457,7 +457,15 @@ async function runPreviewQualityGate(params: {
             check: c.check as "typecheck" | "build" | "lint",
             exitCode: c.exitCode,
             output: c.output.slice(0, 4000),
+            durationMs: c.durationMs ?? null,
           })),
+        qualityGateMeta: {
+          verifyLaneDurationMs: data.verifyLaneDurationMs ?? null,
+          firstFailureCheck:
+            typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
+          jobStartedAt: typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
+          jobFinishedAt: typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
+        },
       };
 
       const serverRepaired = await tryServerRepair(chatId, versionId, repair);
@@ -468,11 +476,22 @@ async function runPreviewQualityGate(params: {
           toolCallId: `server-repair:${versionId}`,
           state: "output-available",
           output: {
-            repaired: true,
+            repaired: serverRepaired.repaired,
             method: serverRepaired.deterministic ? "deterministic" : "llm",
             newVersionId: serverRepaired.newVersionId,
+            remainingErrors: serverRepaired.remainingErrors ?? null,
+            improvedSyntax: serverRepaired.improvedSyntax ?? null,
+            earlyStopReason: serverRepaired.earlyStopReason ?? null,
           },
         } as UiMessagePart);
+        if (!serverRepaired.repaired) {
+          onAutoFix?.({
+            chatId,
+            versionId,
+            reasons: failedChecks.map((check) => `${check} failed`),
+            repair,
+          });
+        }
       } else {
         onAutoFix?.({
           chatId,
@@ -520,6 +539,8 @@ type ServerRepairResult = {
   deterministic: boolean;
   newVersionId?: string | null;
   remainingErrors?: number;
+  improvedSyntax?: boolean;
+  earlyStopReason?: "fixer_noop" | "no_improvement" | null;
 };
 
 async function tryServerRepair(
@@ -539,7 +560,6 @@ async function tryServerRepair(
     );
     if (!res.ok) return null;
     const data = (await res.json().catch(() => null)) as ServerRepairResult | null;
-    if (!data?.repaired) return null;
     return data;
   } catch {
     return null;

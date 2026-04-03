@@ -1144,13 +1144,37 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     );
   }
 
+  if (repair?.qualityGateMeta) {
+    const {
+      verifyLaneDurationMs,
+      firstFailureCheck,
+      jobStartedAt,
+      jobFinishedAt,
+    } = repair.qualityGateMeta;
+    const qualityGateMetaLines = [
+      firstFailureCheck ? `- First failure: ${firstFailureCheck}` : null,
+      typeof verifyLaneDurationMs === "number" && Number.isFinite(verifyLaneDurationMs)
+        ? `- Total verify duration: ${verifyLaneDurationMs}ms`
+        : null,
+      jobStartedAt ? `- Verify started: ${jobStartedAt}` : null,
+      jobFinishedAt ? `- Verify finished: ${jobFinishedAt}` : null,
+    ].filter((line): line is string => Boolean(line));
+    if (qualityGateMetaLines.length > 0) {
+      lines.push("", "Verify-lane context:", ...qualityGateMetaLines);
+    }
+  }
+
   if (repair?.qualityGate?.length) {
     for (const failure of repair.qualityGate) {
       const trimmed = failure.output.trim();
       if (trimmed) {
+        const durationSuffix =
+          typeof failure.durationMs === "number" && Number.isFinite(failure.durationMs)
+            ? `, ${failure.durationMs}ms`
+            : "";
         lines.push(
           "",
-          `## ${failure.check} output (exit ${failure.exitCode})`,
+          `## ${failure.check} output (exit ${failure.exitCode}${durationSuffix})`,
           trimmed.slice(0, 4000),
         );
       }

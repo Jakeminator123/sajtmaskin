@@ -463,8 +463,13 @@ describe("runPostGenerationChecks", () => {
                 passed: false,
                 exitCode: 1,
                 output: "Build failed: missing export",
+                durationMs: 1800,
               },
             ],
+            verifyLaneDurationMs: 3200,
+            firstFailureCheck: "build",
+            jobStartedAt: "2026-04-03T12:00:00.000Z",
+            jobFinishedAt: "2026-04-03T12:00:03.200Z",
           });
         }
         throw new Error(`Unexpected fetch: ${url}`);
@@ -494,8 +499,15 @@ describe("runPostGenerationChecks", () => {
               check: "build",
               exitCode: 1,
               output: "Build failed: missing export",
+              durationMs: 1800,
             },
           ],
+          qualityGateMeta: {
+            verifyLaneDurationMs: 3200,
+            firstFailureCheck: "build",
+            jobStartedAt: "2026-04-03T12:00:00.000Z",
+            jobFinishedAt: "2026-04-03T12:00:03.200Z",
+          },
         },
       }),
     );
@@ -574,6 +586,94 @@ describe("runPostGenerationChecks", () => {
         "Finished: 12:00:03Z",
         "First failure: build",
       ]),
+    );
+  });
+
+  it("surfaces failed server-repair attempt before falling back to autofix", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            checks: [
+              {
+                check: "build",
+                passed: false,
+                exitCode: 1,
+                output: "Build failed: missing export",
+                durationMs: 1800,
+              },
+            ],
+            verifyLaneDurationMs: 3200,
+            firstFailureCheck: "build",
+            jobStartedAt: "2026-04-03T12:00:00.000Z",
+            jobFinishedAt: "2026-04-03T12:00:03.200Z",
+          });
+        }
+        if (url.endsWith("/repair")) {
+          return jsonResponse({
+            repaired: false,
+            deterministic: false,
+            remainingErrors: 3,
+            improvedSyntax: true,
+            earlyStopReason: "no_improvement",
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const serverRepair = getToolPart("Server repair", store);
+    expect(serverRepair?.state).toBe("output-available");
+    expect(serverRepair?.output).toEqual({
+      repaired: false,
+      method: "llm",
+      newVersionId: undefined,
+      remainingErrors: 3,
+      improvedSyntax: true,
+      earlyStopReason: "no_improvement",
+    });
+
+    expect(onAutoFix).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasons: ["build failed"],
+      }),
     );
   });
 

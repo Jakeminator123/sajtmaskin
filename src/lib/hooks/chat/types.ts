@@ -44,6 +44,14 @@ export type QualityGateFailure = {
   /** Truncated check output (max ~4000 chars). */
   output: string;
   errorCount?: number;
+  durationMs?: number | null;
+};
+
+export type RepairQualityGateMeta = {
+  verifyLaneDurationMs?: number | null;
+  firstFailureCheck?: string | null;
+  jobStartedAt?: string | null;
+  jobFinishedAt?: string | null;
 };
 
 export type RepairScaffoldRetry = {
@@ -59,6 +67,7 @@ export type RepairScaffoldRetry = {
 
 export type RepairContext = {
   qualityGate?: QualityGateFailure[];
+  qualityGateMeta?: RepairQualityGateMeta;
   visualQA?: { check: string; score: number; detail: string }[];
   previousVersionErrors?: string[];
   currentVersionErrors?: string[];

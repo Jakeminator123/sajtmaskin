@@ -35,6 +35,12 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
+import {
+  buildServerVerifyQualityGateMeta,
+  buildServerVerifyRepairContextLines,
+  buildServerRepairOutcomeMeta,
+  type ServerVerifyFailedOutput,
+} from "@/lib/gen/server-verify-log-meta";
 
 const inflight = new Set<string>();
 
@@ -89,12 +95,14 @@ export async function triggerServerVerification(params: {
       level: passed ? "info" : "error",
       category: "preflight:quality-gate",
       message: passed ? "Server verify passed." : "Server verify failed.",
-      meta: {
+      meta: buildServerVerifyQualityGateMeta({
         passed,
-        checks: gateResult.results.map((r) => ({ check: r.check, passed: r.passed, exitCode: r.exitCode })),
-        durationMs: gateResult.verifyLaneDurationMs,
-        serverOwned: true,
-      },
+        results: gateResult.results,
+        verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
+        firstFailureCheck: gateResult.firstFailureCheck,
+        jobStartedAt: gateResult.jobStartedAt,
+        jobFinishedAt: gateResult.jobFinishedAt,
+      }),
     }]).catch(() => {});
 
     if (passed) {
@@ -104,13 +112,22 @@ export async function triggerServerVerification(params: {
 
     const failedOutputs = gateResult.results
       .filter((r) => !r.passed)
-      .map((r) => ({ check: r.check, exitCode: r.exitCode, output: r.output }));
+      .map((r) => ({
+        check: r.check,
+        exitCode: r.exitCode,
+        output: r.output,
+        durationMs: r.durationMs ?? null,
+      }));
 
     await tryServerRepairLoop({
       chatId,
       versionId,
       codeFiles,
       failedOutputs,
+      verifyLaneDurationMs: gateResult.verifyLaneDurationMs,
+      firstFailureCheck: gateResult.firstFailureCheck,
+      jobStartedAt: gateResult.jobStartedAt,
+      jobFinishedAt: gateResult.jobFinishedAt,
     });
   } catch (err) {
     console.error("[server-verify] Error:", err);
@@ -127,9 +144,22 @@ async function tryServerRepairLoop(params: {
   chatId: string;
   versionId: string;
   codeFiles: CodeFile[];
-  failedOutputs: Array<{ check: string; exitCode: number; output: string }>;
+  failedOutputs: ServerVerifyFailedOutput[];
+  verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
 }): Promise<void> {
-  const { chatId, versionId, codeFiles, failedOutputs } = params;
+  const {
+    chatId,
+    versionId,
+    codeFiles,
+    failedOutputs,
+    verifyLaneDurationMs,
+    firstFailureCheck,
+    jobStartedAt,
+    jobFinishedAt,
+  } = params;
   const hadQualityGateFailures = failedOutputs.length > 0;
 
   await markVersionRepairing(versionId).catch(() => null);
@@ -160,14 +190,16 @@ async function tryServerRepairLoop(params: {
         message: decision.promote
           ? `Post-repair quality gate passed (${method}).`
           : "Post-repair quality gate did not pass; not promoting.",
-        meta: {
+        meta: buildServerVerifyQualityGateMeta({
+          results: decision.results,
+          verifyLaneDurationMs: decision.verifyLaneDurationMs,
+          firstFailureCheck: decision.firstFailureCheck,
+          jobStartedAt: decision.jobStartedAt,
+          jobFinishedAt: decision.jobFinishedAt,
           repass: true,
           method,
           promoted: decision.promote,
-          checks: decision.results?.map((r) => ({ check: r.check, passed: r.passed })),
-          verifyLaneDurationMs: decision.verifyLaneDurationMs,
-          serverOwned: true,
-        },
+        }),
       },
     ]).catch(() => {});
     if (!decision.promote) return false;
@@ -183,12 +215,23 @@ async function tryServerRepairLoop(params: {
 
   if (syntaxResult.valid) {
     if (await tryPromoteAfterGate(content, "deterministic")) {
-      logRepairOutcome(chatId, versionId, "deterministic", true, 0);
+      logRepairOutcome(chatId, versionId, "deterministic", true, 0, undefined, undefined, {
+        verifyLaneDurationMs,
+        firstFailureCheck,
+        jobStartedAt,
+        jobFinishedAt,
+      });
       return;
     }
   }
 
-  const errorLines: string[] = [];
+  const errorLines = buildServerVerifyRepairContextLines({
+    failedOutputs,
+    verifyLaneDurationMs,
+    firstFailureCheck,
+    jobStartedAt,
+    jobFinishedAt,
+  });
   for (const f of failedOutputs) {
     const outputLines = f.output.split("\n");
     for (let i = 0; i < outputLines.length; i++) {
@@ -281,7 +324,12 @@ async function tryServerRepairLoop(params: {
       versionId,
       "Server repair: syntax clean but quality gate still failing.",
     ).catch(() => null);
-    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason);
+    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason, {
+      verifyLaneDurationMs,
+      firstFailureCheck,
+      jobStartedAt,
+      jobFinishedAt,
+    });
     return;
   }
 
@@ -289,7 +337,12 @@ async function tryServerRepairLoop(params: {
     versionId,
     `Server repair incomplete (${bestErrorCount} errors remain).`,
   ).catch(() => null);
-  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason);
+  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason, {
+    verifyLaneDurationMs,
+    firstFailureCheck,
+    jobStartedAt,
+    jobFinishedAt,
+  });
 }
 
 function logRepairOutcome(
@@ -300,6 +353,12 @@ function logRepairOutcome(
   llmPasses: number,
   remainingErrors?: number,
   earlyStopReason?: "fixer_noop" | "no_improvement" | null,
+  verifyContext?: {
+    verifyLaneDurationMs: number;
+    firstFailureCheck: string | null;
+    jobStartedAt: string | null;
+    jobFinishedAt: string | null;
+  },
 ) {
   createEngineVersionErrorLogs([{
     chatId,
@@ -309,6 +368,16 @@ function logRepairOutcome(
     message: repaired
       ? `Server repair succeeded (${method}).`
       : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
-    meta: { method, llmPasses, repaired, remainingErrors, earlyStopReason, serverOwned: true },
+    meta: buildServerRepairOutcomeMeta({
+      method,
+      llmPasses,
+      repaired,
+      remainingErrors,
+      earlyStopReason,
+      verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
+      firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
+      jobStartedAt: verifyContext?.jobStartedAt ?? null,
+      jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
+    }),
   }]).catch(() => {});
 }

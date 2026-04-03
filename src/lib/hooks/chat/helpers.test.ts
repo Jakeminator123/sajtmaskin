@@ -86,4 +86,35 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toContain("Current scaffold: Landing page");
     expect(prompt).toContain("Suggested repair scaffold: Content site");
   });
+
+  it("renders verify-lane timing metadata from repair context", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["build failed"],
+      repair: {
+        qualityGateMeta: {
+          verifyLaneDurationMs: 3200,
+          firstFailureCheck: "build",
+          jobStartedAt: "2026-04-03T12:00:00.000Z",
+          jobFinishedAt: "2026-04-03T12:00:03.200Z",
+        },
+        qualityGate: [
+          {
+            check: "build",
+            exitCode: 1,
+            output: "Build failed: missing export",
+            durationMs: 1800,
+          },
+        ],
+      },
+    });
+
+    expect(prompt).toContain("Verify-lane context:");
+    expect(prompt).toContain("- First failure: build");
+    expect(prompt).toContain("- Total verify duration: 3200ms");
+    expect(prompt).toContain("- Verify started: 2026-04-03T12:00:00.000Z");
+    expect(prompt).toContain("- Verify finished: 2026-04-03T12:00:03.200Z");
+    expect(prompt).toContain("## build output (exit 1, 1800ms)");
+  });
 });

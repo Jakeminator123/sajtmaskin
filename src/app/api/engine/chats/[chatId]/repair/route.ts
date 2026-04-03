@@ -21,6 +21,10 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
+import {
+  buildServerRepairOutcomeMeta,
+  buildServerVerifyRepairContextLines,
+} from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -30,10 +34,19 @@ const qualityGateFailureSchema = z.object({
   exitCode: z.number(),
   output: z.string(),
   errorCount: z.number().optional(),
+  durationMs: z.number().nullable().optional(),
 });
 
 const repairContextSchema = z.object({
   qualityGate: z.array(qualityGateFailureSchema).optional(),
+  qualityGateMeta: z
+    .object({
+      verifyLaneDurationMs: z.number().nullable().optional(),
+      firstFailureCheck: z.string().nullable().optional(),
+      jobStartedAt: z.string().nullable().optional(),
+      jobFinishedAt: z.string().nullable().optional(),
+    })
+    .optional(),
   visualQA: z
     .array(z.object({ check: z.string(), score: z.number(), detail: z.string() }))
     .optional(),
@@ -215,7 +228,21 @@ export async function POST(
       });
     }
 
-    const gateErrorLines = extractErrorLines(gateFailures);
+    const gateErrorLines = [
+      ...buildServerVerifyRepairContextLines({
+        failedOutputs: gateFailures.map((failure) => ({
+          check: failure.check,
+          exitCode: failure.exitCode,
+          output: failure.output,
+          durationMs: failure.durationMs ?? null,
+        })),
+        verifyLaneDurationMs: repairContext.qualityGateMeta?.verifyLaneDurationMs ?? 0,
+        firstFailureCheck: repairContext.qualityGateMeta?.firstFailureCheck ?? null,
+        jobStartedAt: repairContext.qualityGateMeta?.jobStartedAt ?? null,
+        jobFinishedAt: repairContext.qualityGateMeta?.jobFinishedAt ?? null,
+      }),
+      ...extractErrorLines(gateFailures),
+    ];
     const filesFromGateOutput = new Set<string>();
     for (const line of gateErrorLines) {
       const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
@@ -325,6 +352,7 @@ export async function POST(
       llmPasses,
       bestErrorCount,
       earlyStopReason,
+      repairContext.qualityGateMeta,
     );
 
     return NextResponse.json({
@@ -358,6 +386,12 @@ function logRepair(
   llmPasses: number,
   remainingErrors?: number,
   earlyStopReason?: "fixer_noop" | "no_improvement" | null,
+  qualityGateMeta?: {
+    verifyLaneDurationMs?: number | null;
+    firstFailureCheck?: string | null;
+    jobStartedAt?: string | null;
+    jobFinishedAt?: string | null;
+  },
 ) {
   if (!dbConfigured) return;
   createEngineVersionErrorLogs([
@@ -369,7 +403,18 @@ function logRepair(
       message: repaired
         ? `Server repair succeeded (${method}).`
         : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
-      meta: { method, llmPasses, repaired, remainingErrors, earlyStopReason },
+      meta: buildServerRepairOutcomeMeta({
+        method,
+        llmPasses,
+        repaired,
+        remainingErrors,
+        earlyStopReason,
+        verifyLaneDurationMs: qualityGateMeta?.verifyLaneDurationMs ?? 0,
+        firstFailureCheck: qualityGateMeta?.firstFailureCheck ?? null,
+        jobStartedAt: qualityGateMeta?.jobStartedAt ?? null,
+        jobFinishedAt: qualityGateMeta?.jobFinishedAt ?? null,
+        serverOwned: false,
+      }),
     },
   ]).catch((err) => {
     console.warn("[repair] Failed to log repair:", err);

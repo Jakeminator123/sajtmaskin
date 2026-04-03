@@ -206,6 +206,57 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
   });
 
+  it("shows compact skipped quality gate reason", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_quality_gate_skipped"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-available",
+              output: {
+                skipped: true,
+                reason: "Quality gate not configured",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Verify: hoppades över")).toBeTruthy();
+    expect(screen.getByText("Quality gate not configured")).toBeTruthy();
+  });
+
+  it("shows compact quality gate error text", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_quality_gate_error"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-error",
+              errorText: "Quality gate request failed (network error)",
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Verify: fel")).toBeTruthy();
+    expect(screen.getByText("Quality gate request failed (network error)")).toBeTruthy();
+  });
+
   it("shows business workflow quick actions from post-check output", () => {
     render(
       <StructuredToolParts

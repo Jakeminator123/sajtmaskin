@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
+import {
+  buildServerVerifyQualityGateMeta,
+  buildServerVerifyRepairContextLines,
+  buildServerRepairOutcomeMeta,
+} from "./server-verify-log-meta";
 
 describe("resolveServerRepairEarlyStopReason", () => {
   it("stops when the fixer produced no output", () => {
@@ -30,5 +35,172 @@ describe("resolveServerRepairEarlyStopReason", () => {
         errorsAfter: 1,
       }),
     ).toBe("continue");
+  });
+});
+
+describe("buildServerVerifyQualityGateMeta", () => {
+  it("includes verify-lane timing and per-check duration metadata", () => {
+    expect(
+      buildServerVerifyQualityGateMeta({
+        passed: false,
+        results: [
+          {
+            check: "build",
+            passed: false,
+            exitCode: 1,
+            output: "Build failed",
+            durationMs: 1800,
+          },
+        ],
+        verifyLaneDurationMs: 3200,
+        firstFailureCheck: "build",
+        jobStartedAt: "2026-04-03T12:00:00.000Z",
+        jobFinishedAt: "2026-04-03T12:00:03.200Z",
+      }),
+    ).toEqual({
+      passed: false,
+      checks: [
+        {
+          check: "build",
+          passed: false,
+          exitCode: 1,
+          durationMs: 1800,
+        },
+      ],
+      durationMs: 3200,
+      verifyLaneDurationMs: 3200,
+      firstFailureCheck: "build",
+      jobStartedAt: "2026-04-03T12:00:00.000Z",
+      jobFinishedAt: "2026-04-03T12:00:03.200Z",
+      serverOwned: true,
+    });
+  });
+
+  it("includes repass metadata without inventing a passed flag", () => {
+    expect(
+      buildServerVerifyQualityGateMeta({
+        results: null,
+        verifyLaneDurationMs: 0,
+        firstFailureCheck: null,
+        jobStartedAt: null,
+        jobFinishedAt: null,
+        repass: true,
+        method: "deterministic",
+        promoted: false,
+      }),
+    ).toEqual({
+      checks: null,
+      durationMs: 0,
+      verifyLaneDurationMs: 0,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+      serverOwned: true,
+      repass: true,
+      method: "deterministic",
+      promoted: false,
+    });
+  });
+});
+
+describe("buildServerVerifyRepairContextLines", () => {
+  it("includes verify summary lines before individual failed checks", () => {
+    expect(
+      buildServerVerifyRepairContextLines({
+        failedOutputs: [
+          {
+            check: "build",
+            exitCode: 1,
+            output: "Build failed",
+            durationMs: 1800,
+          },
+        ],
+        verifyLaneDurationMs: 3200,
+        firstFailureCheck: "build",
+        jobStartedAt: "2026-04-03T12:00:00.000Z",
+        jobFinishedAt: "2026-04-03T12:00:03.200Z",
+      }),
+    ).toEqual([
+      "[verify] first failure: build",
+      "[verify] total duration: 3200ms",
+      "[verify] started: 2026-04-03T12:00:00.000Z",
+      "[verify] finished: 2026-04-03T12:00:03.200Z",
+      "[build] verify failed (exit 1, 1800ms)",
+    ]);
+  });
+
+  it("omits optional fields while still describing failed checks", () => {
+    expect(
+      buildServerVerifyRepairContextLines({
+        failedOutputs: [
+          {
+            check: "typecheck",
+            exitCode: 2,
+            output: "TypeScript failed",
+            durationMs: null,
+          },
+        ],
+        verifyLaneDurationMs: 0,
+        firstFailureCheck: null,
+        jobStartedAt: null,
+        jobFinishedAt: null,
+      }),
+    ).toEqual(["[typecheck] verify failed (exit 2)"]);
+  });
+});
+
+describe("buildServerRepairOutcomeMeta", () => {
+  it("keeps verify-lane timing metadata on server-repair outcome logs", () => {
+    expect(
+      buildServerRepairOutcomeMeta({
+        method: "llm",
+        llmPasses: 2,
+        repaired: false,
+        remainingErrors: 3,
+        earlyStopReason: "no_improvement",
+        verifyLaneDurationMs: 3200,
+        firstFailureCheck: "build",
+        jobStartedAt: "2026-04-03T12:00:00.000Z",
+        jobFinishedAt: "2026-04-03T12:00:03.200Z",
+      }),
+    ).toEqual({
+      method: "llm",
+      llmPasses: 2,
+      repaired: false,
+      remainingErrors: 3,
+      earlyStopReason: "no_improvement",
+      durationMs: 3200,
+      verifyLaneDurationMs: 3200,
+      firstFailureCheck: "build",
+      jobStartedAt: "2026-04-03T12:00:00.000Z",
+      jobFinishedAt: "2026-04-03T12:00:03.200Z",
+      serverOwned: true,
+    });
+  });
+
+  it("falls back to nullish verify metadata when no context exists", () => {
+    expect(
+      buildServerRepairOutcomeMeta({
+        method: "deterministic",
+        llmPasses: 0,
+        repaired: true,
+        verifyLaneDurationMs: 0,
+        firstFailureCheck: null,
+        jobStartedAt: null,
+        jobFinishedAt: null,
+      }),
+    ).toEqual({
+      method: "deterministic",
+      llmPasses: 0,
+      repaired: true,
+      remainingErrors: undefined,
+      earlyStopReason: undefined,
+      durationMs: 0,
+      verifyLaneDurationMs: 0,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+      serverOwned: true,
+    });
   });
 });

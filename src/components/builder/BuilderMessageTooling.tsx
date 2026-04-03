@@ -764,6 +764,12 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
         const qualityGateSummary =
           toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
+        const qualityGateErrorText =
+          toolType === "tool-quality-gate" &&
+          typeof tool.errorText === "string" &&
+          tool.errorText.trim().length > 0
+            ? tool.errorText.trim()
+            : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -980,7 +986,19 @@ export function CompactToolParts({
                     ) : null}
                   </div>
                 ) : null}
-                {qualityGateSummary && !qualityGateSummary.skipped ? (
+                {qualityGateSummary?.skipped ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className="text-amber-300">Verify: hoppades över</p>
+                    {qualityGateSummary.reason ? (
+                      <p className="text-muted-foreground mt-1">{qualityGateSummary.reason}</p>
+                    ) : null}
+                  </div>
+                ) : qualityGateErrorText ? (
+                  <div className="mt-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-2 text-xs">
+                    <p className="text-rose-300">Verify: fel</p>
+                    <p className="text-muted-foreground mt-1">{qualityGateErrorText}</p>
+                  </div>
+                ) : qualityGateSummary ? (
                   <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
                     <p className={qualityGateSummary.passed ? "text-emerald-300" : "text-rose-300"}>
                       Verify: {qualityGateSummary.passed ? "PASS" : "FAIL"}
