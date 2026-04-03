@@ -13,6 +13,7 @@ export type QualityGateCheckResult = {
   passed: boolean;
   exitCode: number;
   output: string;
+  durationMs?: number | null;
 };
 
 type QualityGateFileLike = {
@@ -58,7 +59,13 @@ export async function runQualityGateChecks(params: {
   versionId: string;
   files: QualityGateFileLike[];
   checks: QualityGateCheck[];
-}): Promise<{ results: QualityGateCheckResult[]; verifyLaneDurationMs: number }> {
+}): Promise<{
+  results: QualityGateCheckResult[];
+  verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
+}> {
   if (!isQualityGateConfigured()) {
     throw new QualityGateNotConfiguredError();
   }
@@ -83,6 +90,9 @@ export async function runQualityGateChecks(params: {
   return {
     results: verify.results,
     verifyLaneDurationMs: verify.durationMs,
+    firstFailureCheck: verify.firstFailureCheck,
+    jobStartedAt: verify.jobStartedAt,
+    jobFinishedAt: verify.jobFinishedAt,
   };
 }
 
@@ -95,7 +105,13 @@ export async function runQualityGateOnExportable(params: {
   versionId: string;
   exportable: CodeFile[];
   checks?: QualityGateCheck[];
-}): Promise<{ results: QualityGateCheckResult[]; verifyLaneDurationMs: number } | null> {
+}): Promise<{
+  results: QualityGateCheckResult[];
+  verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
+} | null> {
   if (!isQualityGateConfigured()) return null;
   const files = exportableToQualityGateFiles(params.exportable);
   return runQualityGateChecks({
@@ -107,8 +123,22 @@ export async function runQualityGateOnExportable(params: {
 }
 
 export type PostRepairGateDecision =
-  | { promote: true; results: QualityGateCheckResult[]; verifyLaneDurationMs: number }
-  | { promote: false; results: QualityGateCheckResult[] | null; verifyLaneDurationMs: number };
+  | {
+      promote: true;
+      results: QualityGateCheckResult[];
+      verifyLaneDurationMs: number;
+      firstFailureCheck: string | null;
+      jobStartedAt: string | null;
+      jobFinishedAt: string | null;
+    }
+  | {
+      promote: false;
+      results: QualityGateCheckResult[] | null;
+      verifyLaneDurationMs: number;
+      firstFailureCheck: string | null;
+      jobStartedAt: string | null;
+      jobFinishedAt: string | null;
+    };
 
 export async function shouldPromoteAfterRepair(params: {
   chatId: string;
@@ -124,12 +154,40 @@ export async function shouldPromoteAfterRepair(params: {
   });
   if (!gate) {
     if (params.hadQualityGateFailures) {
-      return { promote: false, results: null, verifyLaneDurationMs: 0 };
+      return {
+        promote: false,
+        results: null,
+        verifyLaneDurationMs: 0,
+        firstFailureCheck: null,
+        jobStartedAt: null,
+        jobFinishedAt: null,
+      };
     }
-    return { promote: true, results: [], verifyLaneDurationMs: 0 };
+    return {
+      promote: true,
+      results: [],
+      verifyLaneDurationMs: 0,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
+    };
   }
   if (!qualityGateAllPassed(gate.results)) {
-    return { promote: false, results: gate.results, verifyLaneDurationMs: gate.verifyLaneDurationMs };
+    return {
+      promote: false,
+      results: gate.results,
+      verifyLaneDurationMs: gate.verifyLaneDurationMs,
+      firstFailureCheck: gate.firstFailureCheck,
+      jobStartedAt: gate.jobStartedAt,
+      jobFinishedAt: gate.jobFinishedAt,
+    };
   }
-  return { promote: true, results: gate.results, verifyLaneDurationMs: gate.verifyLaneDurationMs };
+  return {
+    promote: true,
+    results: gate.results,
+    verifyLaneDurationMs: gate.verifyLaneDurationMs,
+    firstFailureCheck: gate.firstFailureCheck,
+    jobStartedAt: gate.jobStartedAt,
+    jobFinishedAt: gate.jobFinishedAt,
+  };
 }

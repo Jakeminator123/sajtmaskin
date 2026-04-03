@@ -144,10 +144,11 @@ async function tryServerRepairLoop(params: {
   let syntaxResult = await validateGeneratedCode(content);
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
+    const repairedFiles = parseCodeProject(projectContent).files;
     const decision = await shouldPromoteAfterRepair({
       chatId,
       versionId,
-      exportable: buildExportableProject(parseCodeProject(projectContent).files),
+      exportable: buildExportableProject(repairedFiles),
       hadQualityGateFailures,
     });
     await createEngineVersionErrorLogs([
@@ -170,7 +171,7 @@ async function tryServerRepairLoop(params: {
       },
     ]).catch(() => {});
     if (!decision.promote) return false;
-    const filesJson = JSON.stringify(parseCodeProject(projectContent).files);
+    const filesJson = JSON.stringify(repairedFiles);
     const version = await createDraftVersion(chatId, null, filesJson);
     const msg =
       method === "deterministic"

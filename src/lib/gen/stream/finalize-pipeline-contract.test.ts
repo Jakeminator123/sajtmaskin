@@ -7,14 +7,18 @@ import {
 } from "./finalize-pipeline-contract";
 
 describe("finalize-pipeline-contract", () => {
-  it("lists phases in finalize order (syntax before verifier before polish)", () => {
+  it("lists phases in finalize order (syntax before image materialization before verifier before polish)", () => {
     const ids = OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id);
+    const imageAt = ids.indexOf("materialize_images");
     const polishAt = ids.indexOf("polish");
     const validateAt = ids.indexOf("validate_syntax");
     const verifierAt = ids.indexOf("verifier");
+    expect(imageAt).toBeGreaterThan(-1);
     expect(polishAt).toBeGreaterThan(-1);
     expect(validateAt).toBeGreaterThan(-1);
     expect(verifierAt).toBeGreaterThan(-1);
+    expect(validateAt).toBeLessThan(imageAt);
+    expect(imageAt).toBeLessThan(verifierAt);
     expect(validateAt).toBeLessThan(verifierAt);
     expect(verifierAt).toBeLessThan(polishAt);
   });
@@ -23,8 +27,8 @@ describe("finalize-pipeline-contract", () => {
     const allowed: OwnEnginePostStreamPhaseId[] = [
       "autofix",
       "url_expand",
-      "materialize_images",
       "validate_syntax",
+      "materialize_images",
       "verifier",
       "polish",
       "parse_merge_preflight",

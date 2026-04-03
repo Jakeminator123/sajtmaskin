@@ -76,4 +76,52 @@ describe("materializeImages", () => {
     );
     expect(searchCalls).toHaveLength(1);
   });
+
+  it("processes each selected placeholder exactly once under concurrent resolution", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/search/photos")) {
+        const query = new URL(url).searchParams.get("query") ?? "unknown";
+        const delayMs =
+          query === "first image" ? 30 : query === "second image" ? 5 : 15;
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return new Response(
+          JSON.stringify({
+            results: [
+              {
+                urls: {
+                  raw: `https://images.unsplash.com/${encodeURIComponent(query)}`,
+                },
+                links: {
+                  download_location: `https://api.unsplash.com/photos/${encodeURIComponent(query)}/download`,
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("{}", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const content = [
+      '<img src="/placeholder.svg?width=800&height=600&text=first+image" />',
+      '<img src="/placeholder.svg?width=800&height=600&text=second+image" />',
+      '<img src="/placeholder.svg?width=800&height=600&text=third+image" />',
+    ].join("\n");
+
+    const result = await materializeImages(content, { maxReplacements: 3 });
+
+    expect(result.replacedCount).toBe(3);
+    expect(result.skippedCount).toBe(0);
+    expect(result.content).toContain("https://images.unsplash.com/first%20image");
+    expect(result.content).toContain("https://images.unsplash.com/second%20image");
+    expect(result.content).toContain("https://images.unsplash.com/third%20image");
+
+    const searchCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/search/photos"),
+    );
+    expect(searchCalls).toHaveLength(3);
+  });
 });

@@ -182,6 +182,9 @@
         "chatId": { "type": "string", "required": true },
         "versionId": { "type": "string", "required": true },
         "durationMs": { "type": "number", "required": true },
+        "jobStartedAt": { "type": ["string", "null"], "required": false },
+        "jobFinishedAt": { "type": ["string", "null"], "required": false },
+        "firstFailureCheck": { "type": ["string", "null"], "required": false },
         "results": {
           "type": "array",
           "required": true,
@@ -192,7 +195,8 @@
               "check": { "type": "string", "required": true },
               "passed": { "type": "boolean", "required": true },
               "exitCode": { "type": "number", "required": true },
-              "output": { "type": "string", "required": true }
+              "output": { "type": "string", "required": true },
+              "durationMs": { "type": "number", "required": false }
             }
           }
         }

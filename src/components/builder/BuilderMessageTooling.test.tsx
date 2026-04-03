@@ -124,6 +124,43 @@ describe("StructuredToolParts", () => {
     expect(screen.queryByText(/autofix är köad/i)).toBeNull();
   });
 
+  it("shows verify-lane metadata such as first failure check", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_quality_gate"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-available",
+              output: {
+                passed: false,
+                checks: [
+                  {
+                    check: "install",
+                    passed: false,
+                    exitCode: 1,
+                    output: "npm install failed",
+                  },
+                ],
+                verifyLaneDurationMs: 3200,
+                firstFailureCheck: "install",
+                jobStartedAt: "2026-04-03T12:00:00.000Z",
+                jobFinishedAt: "2026-04-03T12:00:03.200Z",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("First failure: install")).toBeTruthy();
+  });
+
   it("shows business workflow quick actions from post-check output", () => {
     render(
       <StructuredToolParts

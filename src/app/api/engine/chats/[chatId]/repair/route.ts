@@ -159,7 +159,8 @@ export async function POST(
       projectContent: string,
       promoteReason: string,
     ): Promise<{ ok: boolean; newVersionId: string | null }> {
-      const exportable = buildExportableProject(codeProjectToFiles(projectContent));
+      const repairedFiles = codeProjectToFiles(projectContent);
+      const exportable = buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
         chatId,
         versionId: currentVersionId,
@@ -172,7 +173,7 @@ export async function POST(
       if (!dbConfigured) {
         return { ok: false, newVersionId: null };
       }
-      const filesJson = JSON.stringify(codeProjectToFiles(projectContent));
+      const filesJson = JSON.stringify(repairedFiles);
       const version = await createDraftVersion(chatId, null, filesJson);
       await promoteVersion(version.id, promoteReason).catch((err) => {
         console.warn("[repair] Failed to promote repaired version:", err);

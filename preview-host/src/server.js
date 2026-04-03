@@ -451,6 +451,9 @@ async function routeRequest(req, res) {
         chatId: validated.chatId,
         versionId: validated.versionId,
         durationMs: result.durationMs,
+        jobStartedAt: result.jobStartedAt ?? null,
+        jobFinishedAt: result.jobFinishedAt ?? null,
+        firstFailureCheck: result.firstFailureCheck ?? null,
         results: result.results,
       });
     } catch (error) {

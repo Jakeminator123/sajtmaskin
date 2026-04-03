@@ -19,14 +19,14 @@ export const OWN_ENGINE_POST_STREAM_PIPELINE = [
     labelSv: "URL-expansion",
   },
   {
-    id: "materialize_images",
-    label: "Placeholder image materialization",
-    labelSv: "Bildmaterialisering",
-  },
-  {
     id: "validate_syntax",
     label: "Syntax validation + targeted fix rounds",
     labelSv: "Syntaxvalidering",
+  },
+  {
+    id: "materialize_images",
+    label: "Placeholder image materialization",
+    labelSv: "Bildmaterialisering",
   },
   {
     id: "verifier",

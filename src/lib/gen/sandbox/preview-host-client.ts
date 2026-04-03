@@ -85,11 +85,15 @@ export type PreviewHostVerifyCheckResult = {
   passed: boolean;
   exitCode: number;
   output: string;
+  durationMs: number | null;
 };
 
 export type PreviewHostVerifyOk = {
   ok: true;
   durationMs: number;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
+  firstFailureCheck: string | null;
   results: PreviewHostVerifyCheckResult[];
 };
 
@@ -285,14 +289,30 @@ export async function runPreviewHostQualityGate(params: {
             const output = typeof row.output === "string" ? row.output : "";
             const exitCode = typeof row.exitCode === "number" ? row.exitCode : 1;
             const passed = row.passed === true;
+            const durationMs =
+              typeof row.durationMs === "number" && Number.isFinite(row.durationMs)
+                ? row.durationMs
+                : null;
             if (!check) return null;
-            return { check, passed, exitCode, output };
+            return { check, passed, exitCode, output, durationMs };
           })
           .filter((entry): entry is PreviewHostVerifyCheckResult => Boolean(entry))
       : [];
     return {
       ok: true,
       durationMs: typeof body.durationMs === "number" ? body.durationMs : 0,
+      jobStartedAt:
+        typeof body.jobStartedAt === "string" && body.jobStartedAt.trim()
+          ? body.jobStartedAt.trim()
+          : null,
+      jobFinishedAt:
+        typeof body.jobFinishedAt === "string" && body.jobFinishedAt.trim()
+          ? body.jobFinishedAt.trim()
+          : null,
+      firstFailureCheck:
+        typeof body.firstFailureCheck === "string" && body.firstFailureCheck.trim()
+          ? body.firstFailureCheck.trim()
+          : null,
       results,
     };
   } catch (e) {

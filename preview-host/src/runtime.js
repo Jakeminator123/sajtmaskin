@@ -480,63 +480,108 @@ async function runVerifyJob(params) {
   const { verifyId, chatId, versionId, filesJson, checks } = params;
   const workspaceDir = workspaceDirForVerifyJob(chatId, verifyId);
   const startedAt = Date.now();
+  const jobStartedAtIso = new Date(startedAt).toISOString();
+  let firstFailureCheck = null;
+
+  function pushResult(entry) {
+    const normalized = {
+      durationMs: 0,
+      ...entry,
+    };
+    if (firstFailureCheck === null && normalized.passed === false) {
+      firstFailureCheck = normalized.check;
+    }
+    return normalized;
+  }
+
   try {
     writeFilesIntoWorkspace(workspaceDir, filesJson);
     const results = [];
 
+    const installStartedAt = Date.now();
     const installResult = await runShellCommand("npm install --prefer-offline", {
       cwd: workspaceDir,
       stdio: ["ignore", "pipe", "pipe"],
       env: sanitizedEnv(),
     });
+    const installDurationMs = Date.now() - installStartedAt;
     const installOutput = clipVerifyOutput("install", installResult.output);
-    results.push({
-      check: "install",
-      passed: installResult.exitCode === 0,
-      exitCode: installResult.exitCode,
-      output:
-        installResult.exitCode === 0
-          ? "npm install --prefer-offline passed."
-          : installOutput ||
-            `(No install output captured; exit ${installResult.exitCode}).`,
-    });
+    results.push(
+      pushResult({
+        check: "install",
+        passed: installResult.exitCode === 0,
+        exitCode: installResult.exitCode,
+        durationMs: installDurationMs,
+        output:
+          installResult.exitCode === 0
+            ? "npm install --prefer-offline passed."
+            : installOutput ||
+              `(No install output captured; exit ${installResult.exitCode}).`,
+      }),
+    );
     if (installResult.exitCode !== 0) {
-      return { verifyId, versionId, durationMs: Date.now() - startedAt, results };
+      const finishedAtIso = new Date().toISOString();
+      return {
+        verifyId,
+        versionId,
+        durationMs: Date.now() - startedAt,
+        jobStartedAt: jobStartedAtIso,
+        jobFinishedAt: finishedAtIso,
+        firstFailureCheck,
+        results,
+      };
     }
 
     const ownsLintSetup = projectOwnsLintSetup(filesJson);
     for (const check of checks) {
       if (check === "lint" && !ownsLintSetup) {
-        results.push({
-          check,
-          passed: true,
-          exitCode: 0,
-          output:
-            "Skipped lint: exported project does not include its own ESLint config or dependency set.",
-        });
+        results.push(
+          pushResult({
+            check,
+            passed: true,
+            exitCode: 0,
+            durationMs: 0,
+            output:
+              "Skipped lint: exported project does not include its own ESLint config or dependency set.",
+          }),
+        );
         continue;
       }
       const command = VERIFY_COMMANDS[check];
       if (!command) continue;
+      const checkStartedAt = Date.now();
       const result = await runShellCommand(command, {
         cwd: workspaceDir,
         stdio: ["ignore", "pipe", "pipe"],
         env: sanitizedEnv(),
       });
+      const durationMs = Date.now() - checkStartedAt;
       const output = clipVerifyOutput(check, result.output);
       const passed = result.exitCode === 0;
-      results.push({
-        check,
-        passed,
-        exitCode: result.exitCode,
-        output:
-          passed || output
-            ? output
-            : `(No ${check} output captured; exit ${result.exitCode}).`,
-      });
+      results.push(
+        pushResult({
+          check,
+          passed,
+          exitCode: result.exitCode,
+          durationMs,
+          output:
+            passed || output
+              ? output
+              : `(No ${check} output captured; exit ${result.exitCode}).`,
+        }),
+      );
     }
 
-    return { verifyId, versionId, durationMs: Date.now() - startedAt, results };
+    const finishedAtIso = new Date().toISOString();
+    return {
+      verifyId,
+      versionId,
+      durationMs: Date.now() - startedAt,
+      jobStartedAt: jobStartedAtIso,
+      jobFinishedAt: finishedAtIso,
+      firstFailureCheck,
+      results,
+    };
   } finally {
     await removeDirWithRetries(workspaceDir).catch(() => {});
   }

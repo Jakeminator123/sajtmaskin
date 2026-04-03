@@ -290,6 +290,7 @@ type QualityGateCheckResult = {
   passed: boolean;
   exitCode: number;
   output: string;
+  durationMs?: number;
 };
 
 async function runPreviewQualityGate(params: {
@@ -335,6 +336,9 @@ async function runPreviewQualityGate(params: {
       passed?: boolean;
       checks?: QualityGateCheckResult[];
       verifyLaneDurationMs?: number;
+      firstFailureCheck?: string | null;
+      jobStartedAt?: string | null;
+      jobFinishedAt?: string | null;
       error?: string;
       visualQA?: {
         overallScore: number;
@@ -364,6 +368,9 @@ async function runPreviewQualityGate(params: {
     if (data.verifyLaneDurationMs) {
       steps.push(`Duration: ${Math.round(data.verifyLaneDurationMs / 1000)}s`);
     }
+    if (typeof data.firstFailureCheck === "string" && data.firstFailureCheck.trim()) {
+      steps.push(`First failure: ${data.firstFailureCheck.trim()}`);
+    }
 
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:quality-gate",
@@ -375,6 +382,12 @@ async function runPreviewQualityGate(params: {
         steps,
         checks: data.checks,
         verifyLaneDurationMs: data.verifyLaneDurationMs,
+        firstFailureCheck:
+          typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
+        jobStartedAt:
+          typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
+        jobFinishedAt:
+          typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
       },
     } as UiMessagePart);
 

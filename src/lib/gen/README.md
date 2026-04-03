@@ -34,8 +34,9 @@ own-engine stream
     │
     └─ finalizeAndSaveVersion()  (stream/finalize-version.ts)
            ├─ autofix + URL expansion
-           ├─ optional deep path (image materialize / polish)
            ├─ syntax validate/fix (early-stop on fixer noop / no improvement)
+           ├─ optional deep path (image materialize)
+           ├─ optional verifier / polish
            ├─ parse + merge + preflight
            ├─ save assistant + version
            └─ sandbox / verification follow-up

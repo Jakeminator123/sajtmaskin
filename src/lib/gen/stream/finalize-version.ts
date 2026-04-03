@@ -293,67 +293,6 @@ function ensureNonEmptyGenerationContent(params: {
   throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
 }
 
-async function runFinalizeDeepPath(params: {
-  chatId: string;
-  model: string;
-  buildSpec?: BuildSpec | null;
-  repairPassIndex: number;
-  onProgress?: FinalizeProgressCallback;
-  contentForVersion: string;
-  finalizePath: FinalizePathPolicy;
-}): Promise<FinalizeDeepPathResult> {
-  const {
-    chatId,
-    model,
-    buildSpec,
-    repairPassIndex,
-    onProgress,
-    finalizePath,
-  } = params;
-  let contentForVersion = params.contentForVersion;
-  const stepTelemetry: FinalizeStepTelemetryMap = {};
-
-  if (finalizePath.runDeepPath) {
-    const stepStartedAt = Date.now();
-    const maxReplacements = resolveImageMaterializationLimit(buildSpec);
-    onProgress?.("materialize_images", { phase: "start" });
-    try {
-      const imgResult = await materializeImages(contentForVersion, { maxReplacements });
-      if (imgResult.replacedCount > 0) {
-        contentForVersion = imgResult.content;
-        devLogAppend("in-progress", {
-          type: "image-materialization",
-          chatId,
-          replacedCount: imgResult.replacedCount,
-          skippedCount: imgResult.skippedCount,
-          queries: imgResult.queries.slice(0, 10),
-        });
-      }
-      onProgress?.("materialize_images", {
-        phase: "done",
-        replacedCount: imgResult.replacedCount,
-        skippedCount: imgResult.skippedCount,
-      });
-      stepTelemetry.materialize_images = createFinalizeStepTelemetry(stepStartedAt, "done", {
-        maxReplacements,
-        replacedCount: imgResult.replacedCount,
-        skippedCount: imgResult.skippedCount,
-      });
-    } catch (imgErr) {
-      console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
-      onProgress?.("materialize_images", { phase: "error" });
-      stepTelemetry.materialize_images = createFinalizeStepTelemetry(stepStartedAt, "error");
-    }
-  } else {
-    onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
-    stepTelemetry.materialize_images = createFinalizeStepTelemetry(Date.now(), "skipped", {
-      reason: finalizePath.reason,
-    });
-  }
-
-  return { contentForVersion, stepTelemetry };
-}
-
 async function runFinalizeFastPath(params: {
   chatId: string;
   model: string;
@@ -437,6 +376,44 @@ async function runFinalizeFastPath(params: {
     previousFiles,
     stage: "after_validation",
   });
+
+  if (finalizePath.runDeepPath) {
+    const imageStartedAt = Date.now();
+    const maxReplacements = resolveImageMaterializationLimit(buildSpec);
+    onProgress?.("materialize_images", { phase: "start" });
+    try {
+      const imgResult = await materializeImages(contentForVersion, { maxReplacements });
+      if (imgResult.replacedCount > 0) {
+        contentForVersion = imgResult.content;
+        devLogAppend("in-progress", {
+          type: "image-materialization",
+          chatId,
+          replacedCount: imgResult.replacedCount,
+          skippedCount: imgResult.skippedCount,
+          queries: imgResult.queries.slice(0, 10),
+        });
+      }
+      onProgress?.("materialize_images", {
+        phase: "done",
+        replacedCount: imgResult.replacedCount,
+        skippedCount: imgResult.skippedCount,
+      });
+      stepTelemetry.materialize_images = createFinalizeStepTelemetry(imageStartedAt, "done", {
+        maxReplacements,
+        replacedCount: imgResult.replacedCount,
+        skippedCount: imgResult.skippedCount,
+      });
+    } catch (imgErr) {
+      console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+      onProgress?.("materialize_images", { phase: "error" });
+      stepTelemetry.materialize_images = createFinalizeStepTelemetry(imageStartedAt, "error");
+    }
+  } else {
+    onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
+    stepTelemetry.materialize_images = createFinalizeStepTelemetry(Date.now(), "skipped", {
+      reason: finalizePath.reason,
+    });
+  }
 
   let verifierPolishCandidates: string[] = [];
   const verifierTier = resolvedTier ?? "pro";
@@ -617,8 +594,8 @@ async function runFinalizeFastPath(params: {
 }
 
 /**
- * Shared post-generation pipeline: autofix -> URL expansion -> image materialize ->
- * optional polish LLM -> syntax validate/fix -> file parsing -> scaffold merge ->
+ * Shared post-generation pipeline: autofix -> URL expansion -> syntax validate/fix ->
+ * image materialize -> optional verifier/polish -> file parsing -> scaffold merge ->
  * preflight -> assistant message -> version save.
  *
  * Assistant row + draft version are persisted in one DB transaction (no orphan assistant
@@ -718,18 +695,6 @@ export async function finalizeAndSaveVersion(
   contentForVersion = expandUrls(contentForVersion, urlMap);
   onProgress?.("url_expand", { phase: "done" });
   finalizeStepTelemetry.url_expand = createFinalizeStepTelemetry(urlExpandStartedAt, "done");
-
-  const deepPathResult = await runFinalizeDeepPath({
-    chatId,
-    model,
-    buildSpec,
-    repairPassIndex,
-    onProgress,
-    contentForVersion,
-    finalizePath,
-  });
-  contentForVersion = deepPathResult.contentForVersion;
-  Object.assign(finalizeStepTelemetry, deepPathResult.stepTelemetry);
 
   const {
     contentForVersion: fastPathContent,

@@ -39,14 +39,18 @@ type GateResult = {
   passed: boolean;
   checks: QualityGateCheckResult[];
   verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
   visualQA?: VisualQAResult;
 };
 
 function buildQualityGateSummaryLog(params: {
   checkResults: QualityGateCheckResult[];
   verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
 }) {
-  const { checkResults, verifyLaneDurationMs } = params;
+  const { checkResults, verifyLaneDurationMs, firstFailureCheck } = params;
   return {
     level: checkResults.every((result) => result.passed) ? ("info" as const) : ("error" as const),
     category: "preflight:quality-gate",
@@ -61,6 +65,7 @@ function buildQualityGateSummaryLog(params: {
         exitCode: result.exitCode,
       })),
       verifyLaneDurationMs,
+      firstFailureCheck,
     },
   };
 }
@@ -114,12 +119,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       });
 
       try {
-        const { results, verifyLaneDurationMs } = await runQualityGateChecks({
+        const { results, verifyLaneDurationMs, firstFailureCheck, jobStartedAt, jobFinishedAt } =
+          await runQualityGateChecks({
           chatId,
           versionId: internalVersionId,
           files: qualityGateFiles,
           checks,
-        });
+          });
 
         let visualQA: VisualQAResult | undefined;
         if (isVisualQAEnabled() && qualityGateAllPassed(results)) {
@@ -136,6 +142,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           passed: qualityGateAllPassed(results),
           checks: results,
           verifyLaneDurationMs,
+          firstFailureCheck,
+          jobStartedAt,
+          jobFinishedAt,
           visualQA,
         };
 
@@ -146,6 +155,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             ...buildQualityGateSummaryLog({
               checkResults: results,
               verifyLaneDurationMs,
+              firstFailureCheck,
             }),
           },
           ...results

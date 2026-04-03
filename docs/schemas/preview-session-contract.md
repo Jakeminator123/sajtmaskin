@@ -143,6 +143,9 @@ Response contains:
 - `chatId`
 - `versionId`
 - `durationMs`
+- `jobStartedAt`
+- `jobFinishedAt`
+- `firstFailureCheck`
 - `results[]`
 
 ## Contract boundary rules

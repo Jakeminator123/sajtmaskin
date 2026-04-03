@@ -168,6 +168,9 @@ type QualityGateSummary = {
   reason?: string;
   checks: QualityGateCheckInfo[];
   verifyLaneDurationMs: number | null;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
 };
 
 export function AgentLogCard({ items }: { items: AgentLogItem[] }) {
@@ -644,6 +647,11 @@ export function StructuredToolParts({
                       {qualityGateSummary.verifyLaneDurationMs !== null && (
                         <div className="text-muted-foreground/50 text-[10px]">
                           {Math.round(qualityGateSummary.verifyLaneDurationMs / 1000)}s
+                        </div>
+                      )}
+                      {qualityGateSummary.firstFailureCheck && (
+                        <div className="text-amber-300/80 text-[10px]">
+                          First failure: {qualityGateSummary.firstFailureCheck}
                         </div>
                       )}
                     </div>
@@ -1874,6 +1882,9 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
       reason: typeof obj.reason === "string" ? obj.reason : undefined,
       checks: [],
       verifyLaneDurationMs: null,
+      firstFailureCheck: null,
+      jobStartedAt: null,
+      jobFinishedAt: null,
     };
   }
   const checks = Array.isArray(obj.checks)
@@ -1886,5 +1897,17 @@ function getQualityGateSummary(output: unknown): QualityGateSummary | null {
     checks,
     verifyLaneDurationMs:
       typeof obj.verifyLaneDurationMs === "number" ? obj.verifyLaneDurationMs : null,
+    firstFailureCheck:
+      typeof obj.firstFailureCheck === "string" && obj.firstFailureCheck.trim()
+        ? obj.firstFailureCheck.trim()
+        : null,
+    jobStartedAt:
+      typeof obj.jobStartedAt === "string" && obj.jobStartedAt.trim()
+        ? obj.jobStartedAt.trim()
+        : null,
+    jobFinishedAt:
+      typeof obj.jobFinishedAt === "string" && obj.jobFinishedAt.trim()
+        ? obj.jobFinishedAt.trim()
+        : null,
   };
 }
