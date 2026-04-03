@@ -1,4 +1,5 @@
 import type { QualityGateCheckResult } from "@/lib/gen/preview-quality-gate";
+import type { VisualQAResult } from "@/lib/gen/visual-qa";
 
 export type ServerVerifyFailedOutput = {
   check: string;
@@ -14,6 +15,21 @@ export type QualityGateVisualQaLogMeta = {
   screenshotCaptured: boolean;
   checks: Array<{ check: string; passed: boolean; score: number }>;
 };
+
+export function compactVisualQAForQualityGateLog(
+  result: VisualQAResult,
+): QualityGateVisualQaLogMeta {
+  return {
+    overallScore: result.overallScore,
+    passed: result.passed,
+    screenshotCaptured: result.screenshotCaptured,
+    checks: result.checks.map((c) => ({
+      check: c.check,
+      passed: c.passed,
+      score: c.score,
+    })),
+  };
+}
 
 type BuildServerVerifyQualityGateMetaParams = {
   results?: QualityGateCheckResult[] | null;

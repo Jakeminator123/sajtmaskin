@@ -12,7 +12,12 @@ import {
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
-import { shouldPromoteAfterRepair } from "@/lib/gen/preview-quality-gate";
+import {
+  exportableToQualityGateFiles,
+  qualityGateAllPassed,
+  shouldPromoteAfterRepair,
+} from "@/lib/gen/preview-quality-gate";
+import { analyzeVisualQuality, isVisualQAEnabled } from "@/lib/gen/visual-qa";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -25,6 +30,7 @@ import {
   buildServerRepairOutcomeMeta,
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
+  compactVisualQAForQualityGateLog,
 } from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
@@ -182,6 +188,23 @@ export async function POST(
         exportable,
         hadQualityGateFailures,
       });
+      let visualQAMeta: ReturnType<typeof compactVisualQAForQualityGateLog> | undefined;
+      if (
+        decision.promote &&
+        decision.results &&
+        qualityGateAllPassed(decision.results) &&
+        isVisualQAEnabled()
+      ) {
+        try {
+          const qFiles = exportableToQualityGateFiles(exportable);
+          const v = analyzeVisualQuality(
+            qFiles.map((f) => ({ path: f.name, content: f.content })),
+          );
+          visualQAMeta = compactVisualQAForQualityGateLog(v);
+        } catch (vqaErr) {
+          console.warn("[repair] Post-repair visual QA error (non-fatal):", vqaErr);
+        }
+      }
       if (dbConfigured) {
         await createEngineVersionErrorLogs([
           {
@@ -202,6 +225,7 @@ export async function POST(
               method,
               promoted: decision.promote,
               serverOwned: false,
+              visualQA: visualQAMeta,
             }),
           },
         ]).catch((err) => {

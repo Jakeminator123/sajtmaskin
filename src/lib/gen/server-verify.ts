@@ -26,11 +26,13 @@ import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import {
+  exportableToQualityGateFiles,
   isQualityGateConfigured,
   runQualityGateOnExportable,
   qualityGateAllPassed,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/preview-quality-gate";
+import { analyzeVisualQuality, isVisualQAEnabled } from "@/lib/gen/visual-qa";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
@@ -39,6 +41,7 @@ import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
   buildServerRepairOutcomeMeta,
+  compactVisualQAForQualityGateLog,
   type ServerVerifyFailedOutput,
 } from "@/lib/gen/server-verify-log-meta";
 
@@ -183,12 +186,30 @@ async function tryServerRepairLoop(params: {
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
     const repairedFiles = parseCodeProject(projectContent).files;
+    const exportableForGate = buildExportableProject(repairedFiles);
     const decision = await shouldPromoteAfterRepair({
       chatId,
       versionId,
-      exportable: buildExportableProject(repairedFiles),
+      exportable: exportableForGate,
       hadQualityGateFailures,
     });
+    let visualQAMeta: ReturnType<typeof compactVisualQAForQualityGateLog> | undefined;
+    if (
+      decision.promote &&
+      decision.results &&
+      qualityGateAllPassed(decision.results) &&
+      isVisualQAEnabled()
+    ) {
+      try {
+        const qFiles = exportableToQualityGateFiles(exportableForGate);
+        const v = analyzeVisualQuality(
+          qFiles.map((f) => ({ path: f.name, content: f.content })),
+        );
+        visualQAMeta = compactVisualQAForQualityGateLog(v);
+      } catch (vqaErr) {
+        console.warn("[server-verify] Post-repair visual QA error (non-fatal):", vqaErr);
+      }
+    }
     await createEngineVersionErrorLogs([
       {
         chatId,
@@ -207,6 +228,7 @@ async function tryServerRepairLoop(params: {
           repass: true,
           method,
           promoted: decision.promote,
+          visualQA: visualQAMeta,
         }),
       },
     ]).catch((err) => {

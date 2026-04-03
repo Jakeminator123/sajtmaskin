@@ -21,7 +21,10 @@ import {
   qualityGateAllPassed,
   type QualityGateCheckResult,
 } from "@/lib/gen/preview-quality-gate";
-import { buildServerVerifyQualityGateMeta } from "@/lib/gen/server-verify-log-meta";
+import {
+  buildServerVerifyQualityGateMeta,
+  compactVisualQAForQualityGateLog,
+} from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -67,16 +70,7 @@ function buildQualityGateSummaryLog(params: {
     visualQA &&
     typeof visualQA.overallScore === "number" &&
     Array.isArray(visualQA.checks)
-      ? {
-          overallScore: visualQA.overallScore,
-          passed: visualQA.passed,
-          screenshotCaptured: visualQA.screenshotCaptured,
-          checks: visualQA.checks.map((c) => ({
-            check: c.check,
-            passed: c.passed,
-            score: c.score,
-          })),
-        }
+      ? compactVisualQAForQualityGateLog(visualQA)
       : undefined;
 
   return {

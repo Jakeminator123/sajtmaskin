@@ -4,6 +4,7 @@ import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
   buildServerRepairOutcomeMeta,
+  compactVisualQAForQualityGateLog,
 } from "./server-verify-log-meta";
 
 describe("resolveServerRepairEarlyStopReason", () => {
@@ -155,6 +156,30 @@ describe("buildServerVerifyQualityGateMeta", () => {
           { check: "metadata", passed: false, score: 40 },
         ],
       },
+    });
+  });
+});
+
+describe("compactVisualQAForQualityGateLog", () => {
+  it("strips detail strings and keeps scores", () => {
+    expect(
+      compactVisualQAForQualityGateLog({
+        overallScore: 65,
+        passed: true,
+        screenshotCaptured: false,
+        checks: [
+          { check: "a", passed: true, score: 90, detail: "long detail text" },
+          { check: "b", passed: false, score: 40, detail: "more detail" },
+        ],
+      }),
+    ).toEqual({
+      overallScore: 65,
+      passed: true,
+      screenshotCaptured: false,
+      checks: [
+        { check: "a", passed: true, score: 90 },
+        { check: "b", passed: false, score: 40 },
+      ],
     });
   });
 });
