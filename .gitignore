@@ -64,22 +64,27 @@ scripts/output_test_scaffold/
 output/generations/
 
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
-data/scaffold-candidates-curated.json
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
 
+# --- Canonical external-template pipeline (local mutable data) ---
+data/external-template-pipeline/scrape-cache/**
+data/external-template-pipeline/raw-discovery/**
+data/external-template-pipeline/repo-cache/**
+data/external-template-pipeline/reference-library/**
+data/external-template-pipeline/reports/**
+
 # run-eval / codegen harness markdown output (scripts/run-eval.ts)
 eval-output/
 # Legacy output dir (rename → eval-output/); safe to delete locally
 EGEN_MOTOR_V2/
 
-# Vercel template scrape (local research; hamta_sidor_branch_emil.py)
+# Legacy Vercel template scrape roots (replaced by data/external-template-pipeline/)
 scraped-vercel-scorefolds/
-# Standard scrape-mål utanför repot: ../sajtmaskin-template-cache (syskonmapp — behöver inte ignoreras här).
-# Om cache eller gamla scrape-roter av misstag läggs i reporoten:
+# Äldre syskon-/rotmål ska inte användas som canonical paths längre.
 sajtmaskin-template-cache/
 vercel-scrape/
 vercel-scrape-fresh/
@@ -196,13 +201,9 @@ test-results/
 _scaffold_discovery/
 
 
-# --- Research (tungt); undantag: små indexfiler i raw-discovery & repo-cache ---
+# --- Legacy research intake roots (retired; keep out of git if they still exist locally) ---
 research/external-templates/raw-discovery/**
-!research/external-templates/raw-discovery/README.md
-!research/external-templates/raw-discovery/SCHEMA.md
-!research/external-templates/raw-discovery/schema.summary.json
 research/external-templates/repo-cache/**
-!research/external-templates/repo-cache/README.md
 research/external-templates/reference-library/
 
 

@@ -90,8 +90,8 @@ Not runtime dependencies:
 
 - Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre; repoets egna flöden förstås via `docs/`, `.cursor/rules/` och kodbasen.
 - browser-driven doc helpers in `tools/doc-browser/` (see `tools/README.md`)
-- raw discovery under `research/external-templates/raw-discovery/current/`
-- local shallow clone cache under `research/external-templates/repo-cache/`
+- raw discovery under `data/external-template-pipeline/raw-discovery/current/`
+- local shallow clone cache under `data/external-template-pipeline/repo-cache/`
 - raw local `_sidor` datasets
 
 ## Key navigation
@@ -112,7 +112,7 @@ Not runtime dependencies:
 | Agent workflows (deep brief, runtime vs MCP, fler agenter) | [`docs/contributing/agent-workflows.md`](contributing/agent-workflows.md) |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | [`repository-and-platform.md`](architecture/repository-and-platform.md) |
-| Vercel Templates discovery + Playwright + scaffolds | [`research/external-templates/README.md`](../research/external-templates/README.md), [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md) |
+| Vercel Templates discovery + Playwright + scaffolds | [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md), [`docs/schemas/external-template-pipeline-contract.md`](schemas/external-template-pipeline-contract.md) |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
 | Env setup | `docs/ENV.md` |

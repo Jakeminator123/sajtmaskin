@@ -114,7 +114,6 @@ export const serverSchema = z.object({
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),
-  AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   /** Vercel Sandbox: `dev_only`, `dev_then_build` (default), `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
   /** `dev_only` (default i kod om unset), `dev_then_build`, eller `build_only` — se `resolveSandboxPreviewModeFromEnv`. */
@@ -123,6 +122,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL: z.string().optional(),
   /** Max ms to wait for dev server HTTP after `npm run` dev in sandbox (digits only). Default 90000. */
   SAJTMASKIN_SANDBOX_READINESS_MAX_MS: z.string().optional(),
+  /** Fail fast when required generated template/scaffold artifacts are missing or empty outside test. */
+  SAJTMASKIN_STRICT_GENERATED_ARTIFACTS: z.string().optional(),
   /** Fly (or other) preview-host service base URL — tier-2 runtime option. */
   SAJTMASKIN_PREVIEW_HOST_BASE_URL: z.string().optional(),
   /** Optional Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host). */

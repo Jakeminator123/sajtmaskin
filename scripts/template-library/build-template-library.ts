@@ -18,13 +18,14 @@ import type {
 import {
   CANONICAL_USE_CASE_SLUGS,
   parseTemplateCategoryFromUrl,
+  PIPELINE_REPORTS_ROOT,
   prettifyCategoryName,
   RAW_DISCOVERY_CURRENT_ROOT,
-  RAW_DISCOVERY_ROOT,
+  REPO_CACHE_ROOT,
+  REFERENCE_LIBRARY_ROOT,
   normalizeLegacySummary,
   normalizeRepoUrl,
   readJson,
-  resolveExistingLegacySummaryPath,
   resolveRepoCacheDir,
   resolveSummaryPath,
   slugify,
@@ -34,12 +35,7 @@ import {
 import { writeScaffoldCandidateReport } from "../scaffolds/scaffold-candidate-report";
 
 const WORKSPACE_ROOT = process.cwd();
-const TEMPLATE_LIBRARY_ROOT = path.resolve(
-  WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "reference-library",
-);
+const TEMPLATE_LIBRARY_ROOT = REFERENCE_LIBRARY_ROOT;
 const GENERATED_CATALOG_PATH = path.resolve(
   WORKSPACE_ROOT,
   "src/lib/gen/template-library/template-library.generated.json",
@@ -49,19 +45,10 @@ const GENERATED_SCAFFOLD_RESEARCH_PATH = path.resolve(
   "src/lib/gen/scaffolds/scaffold-research.generated.json",
 );
 const SCAFFOLD_CANDIDATE_REPORT_PATH = path.resolve(
-  WORKSPACE_ROOT,
-  "data/scaffold-candidates-curated.json",
+  PIPELINE_REPORTS_ROOT,
+  "scaffold-candidates-curated.json",
 );
-const LEGACY_SUMMARY_PATH = resolveExistingLegacySummaryPath();
-const SOURCE_ROOT_CANDIDATES = [
-  path.resolve(WORKSPACE_ROOT, "scraped-vercel-scorefolds"),
-  RAW_DISCOVERY_CURRENT_ROOT,
-  RAW_DISCOVERY_ROOT,
-  path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
-  path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-  ...(LEGACY_SUMMARY_PATH ? [path.dirname(LEGACY_SUMMARY_PATH)] : []),
-];
-const DEFAULT_PORTABLE_SOURCE_ROOT = "research/external-templates/raw-discovery/current";
+const DEFAULT_PORTABLE_SOURCE_ROOT = "data/external-template-pipeline/raw-discovery/current";
 
 function toPortableWorkspacePath(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -747,39 +734,6 @@ function decideVerdict(
   return "research_only";
 }
 
-function resolveLegacyRepoDir(sourceRoot: string, template: RawTemplateRecord): string {
-  if (template.artifact_tier) {
-    const tieredFolder = path.join(
-      sourceRoot,
-      template.artifact_tier,
-      template.category_slug,
-      slugify(template.title),
-    );
-    return path.join(tieredFolder, "repo");
-  }
-  const folder = path.join(sourceRoot, template.category_slug, slugify(template.title));
-  return path.join(folder, "repo");
-}
-
-function resolveLinkedLegacyDatasetRoot(sourceRoot: string): string | null {
-  const metadataPath = path.join(sourceRoot, "source-metadata.json");
-  if (!fs.existsSync(metadataPath)) return null;
-
-  try {
-    const metadata = readJson<{ sourcePath?: string | null }>(metadataPath);
-    const sourcePath = metadata.sourcePath?.trim();
-    if (!sourcePath) return null;
-
-    const candidateRootRaw = sourcePath.endsWith(".json") ? path.dirname(sourcePath) : sourcePath;
-    const candidateRoot = path.isAbsolute(candidateRootRaw)
-      ? candidateRootRaw
-      : path.resolve(WORKSPACE_ROOT, candidateRootRaw);
-    return fs.existsSync(path.join(candidateRoot, "summary.json")) ? candidateRoot : null;
-  } catch {
-    return null;
-  }
-}
-
 function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRecord): {
   cloneRoot: string;
   inspectionRoot: string;
@@ -787,13 +741,7 @@ function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRec
 } {
   const repoUrl = assessRepoUrl(template.repo_url);
   const cachedRepoDir = resolveRepoCacheDir(repoUrl.normalizedUrl);
-  const legacyRepoDir = resolveLegacyRepoDir(sourceRoot, template);
-  const linkedLegacyRoot = resolveLinkedLegacyDatasetRoot(sourceRoot);
-  const linkedLegacyRepoDir = linkedLegacyRoot ? resolveLegacyRepoDir(linkedLegacyRoot, template) : null;
-  const cloneRoot =
-    (cachedRepoDir && fs.existsSync(cachedRepoDir) && cachedRepoDir) ||
-    (linkedLegacyRepoDir && fs.existsSync(linkedLegacyRepoDir) && linkedLegacyRepoDir) ||
-    (fs.existsSync(legacyRepoDir) ? legacyRepoDir : legacyRepoDir);
+  const cloneRoot = cachedRepoDir ?? path.join(sourceRoot, "__missing_repo_cache__");
 
   if (repoUrl.subpath) {
     const subpathDir = path.join(cloneRoot, repoUrl.subpath);
@@ -804,6 +752,36 @@ function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRec
   }
 
   return { cloneRoot, inspectionRoot: cloneRoot, subpathMissing: false };
+}
+
+function loadRepoCacheFailures(): Set<string> {
+  const indexPath = path.join(REPO_CACHE_ROOT, "index.json");
+  if (!fs.existsSync(indexPath)) return new Set();
+  try {
+    const indexJson = readJson<{ failedRepos?: string[] }>(indexPath);
+    return new Set((indexJson.failedRepos ?? []).map((value) => value.trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+function collectMissingRepoCacheUrls(
+  entries: RawTemplateRecord[],
+  failedRepoUrls: Set<string>,
+): string[] {
+  const missing = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.framework_match) continue;
+    if (entry.is_monorepo_example || entry.artifact_tier === "monorepo-examples") continue;
+    const repoUrl = assessRepoUrl(entry.repo_url);
+    if (!repoUrl.normalizedUrl) continue;
+    if (failedRepoUrls.has(repoUrl.normalizedUrl)) continue;
+    const cacheDir = resolveRepoCacheDir(repoUrl.normalizedUrl);
+    if (!cacheDir || !fs.existsSync(cacheDir)) {
+      missing.add(repoUrl.normalizedUrl);
+    }
+  }
+  return Array.from(missing).sort((a, b) => a.localeCompare(b));
 }
 
 function buildEntry(
@@ -1184,20 +1162,10 @@ function validateScaffoldResearchAgainstCatalog(
   }
 }
 
-function resolveDefaultSourceRoot(): string {
-  for (const candidate of SOURCE_ROOT_CANDIDATES) {
-    if (fs.existsSync(resolveSummaryPath(candidate))) {
-      return candidate;
-    }
-  }
-
-  return SOURCE_ROOT_CANDIDATES[0];
-}
-
 function parseArgs(): { sourceRoot: string } {
   const explicit = process.argv.find((arg) => arg.startsWith("--source="));
   return {
-    sourceRoot: explicit ? explicit.slice("--source=".length) : resolveDefaultSourceRoot(),
+    sourceRoot: explicit ? explicit.slice("--source=".length) : RAW_DISCOVERY_CURRENT_ROOT,
   };
 }
 
@@ -1211,6 +1179,21 @@ function main(): void {
   const normalizedSummary = normalizeLegacySummary(readJson<unknown>(summaryPath));
   const sourceDir = fs.statSync(summaryPath).isFile() ? path.dirname(summaryPath) : sourceRoot;
   const rawEntries = Object.values(normalizedSummary).flat();
+  const failedRepoUrls = loadRepoCacheFailures();
+  if (failedRepoUrls.size > 0) {
+    console.warn(
+      `[template-library] hydrate reported ${failedRepoUrls.size} failed repo clone(s); affected entries may be demoted to research_only`,
+    );
+  }
+  const missingRepoCacheUrls = collectMissingRepoCacheUrls(rawEntries, failedRepoUrls);
+  if (missingRepoCacheUrls.length > 0) {
+    const preview = missingRepoCacheUrls.slice(0, 10).join("\n- ");
+    throw new Error(
+      `[template-library] Missing repo-cache entries for ${missingRepoCacheUrls.length} repos.\n` +
+      `Run scripts/template-library/hydrate-template-library-cache.ts against the same --source before build.\n` +
+      `Examples:\n- ${preview}`,
+    );
+  }
   const allEntries = rawEntries
     .map((entry) => buildEntry(entry, sourceDir))
     .sort((a, b) => b.qualityScore - a.qualityScore || a.title.localeCompare(b.title));

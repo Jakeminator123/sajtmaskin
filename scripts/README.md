@@ -13,7 +13,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
 | [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt` (npm `predev` / `dev` / `build`) |
 | [`embeddings/`](embeddings/) | Mall-, template-library-, scaffold- och docs-embeddings |
-| [`template-library/`](template-library/) | Extern mallkedja: discovery-import, build, hydrate, v0-sync, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
+| [`template-library/`](template-library/) | Extern mallkedja: scrape-cache, discovery-import, build, hydrate, v0-sync, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
 | [`scaffolds/`](scaffolds/) | Kandidatrapport, kurering, promote, `sync-scaffold-refs.mjs` |
 | [`eval/`](eval/) | `run-eval.ts` (eval-output) |
 | [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
@@ -35,11 +35,11 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 - **Delade TS-moduler (ingen egen CLI):** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
 - **Vercel use-case-skrapning (Python):**
   - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — tierad utdata, rapporter, bred research-intake som kan markera `framework_match: false` i stället för att kasta bort poster direkt.
-  - **Nuvarande standardflöde:** bred intake med `--legacy-wide-use-cases --per-category 999` till syskonmappen `../sajtmaskin-template-cache`, därefter import + build + embeddings. Smalare läge finns kvar med `--core-use-cases` via `full_template_refresh.py`.
+  - **Nuvarande standardflöde:** bred intake med `--legacy-wide-use-cases --per-category 999` till `data/external-template-pipeline/scrape-cache/current`, därefter import + hydrate + build + embeddings via den kanoniska refresh-kedjan.
   - **Kärnlistan** i skriptet = **`USE_CASES_CORE` (12 Vercel-sluggar)** + valfritt **`USE_CASES_EXTENDED` (2)** med `--extended-scrape`; den breda researchlistan = **`USE_CASES_LEGACY_WIDE` (25)**. Detta är **osammanhängande** med t.ex. **`EVAL_PROMPTS` (15 eval-promptar)** i `src/lib/gen/eval/prompts.ts` — olika domäner, räkna dem inte ihop.
   - **Icke-kanon:** lokal **`vercel_templates_levels/`** (gitignored); använd **inte** som källa för “hur många kategorier” produkten har. Spårat alternativ: **`e2e/vercel-templates/`**.
   - Se [`repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
-  - Standard-output ligger **utanför repot** (`../sajtmaskin-template-cache` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
+  - Kanonisk mutable data ligger i **`data/external-template-pipeline/`**. Om du behöver återanvända en annan scrape-cache ska du ange den **explicit** med `--scrape-output` / `--from`, inte förlita dig på path-fallbackar.
 - **~~vercel_template_cli.py~~** (borttagen) — använd `hamta_sidor_branch_emil.py` eller Playwright-discover i stället.
 
 ## Lokala v0-mallar (`templates_v0/`)
@@ -178,42 +178,33 @@ Auditerar rå extern template-research och bygger ett kuraterat
 
 ```bash
 npm run template-library:build
-npx tsx scripts/template-library/build-template-library.ts --source="research/external-templates/raw-discovery/current"
+npx tsx scripts/template-library/build-template-library.ts --source="data/external-template-pipeline/raw-discovery/current"
 ```
 
-För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `npm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [builder-generation.md](../docs/architecture/builder-generation.md) och template-library-avsnitt i [research/external-templates/README.md](../research/external-templates/README.md); äldre pipeline-narrativ i git-historik).
-
-Skriptet letar annars automatiskt efter råinput i denna ordning:
-
-1. `research/external-templates/raw-discovery/current`
-2. `research/external-templates/raw-discovery`
-3. `_sidor/vercel_usecase_next_react_templates`
-4. `research/_sidor/vercel_usecase_next_react_templates`
-5. den äldre desktop-sökvägen
+Det här skriptet ska nu läsa **en explicit eller kanonisk raw-discovery-root**. Äldre lokala `_sidor`-, `scraped-vercel-scorefolds`- och syskonfallbackar ska inte användas som normal drift.
 
 ### Viktig arbetsordning
 
 Kör i denna ordning när du vill bygga om forskningsytan reproducerbart:
 
 ```bash
-npm run template-library:import-legacy
-npm run template-library:hydrate-cache
-npm run template-library:build
-npm run template-library:embeddings
+py scripts/template-library/full_template_refresh.py
 ```
+
+Diskreta steg finns kvar för riktad felsökning, men `full_template_refresh.py` är den kanoniska orkestratorn.
 
 ### Vad skriptet gör
 
 1. Läser det kanoniska `summary.json`-kontraktet från raw discovery
-2. Inspekterar shallow-clonade repos från `research/external-templates/repo-cache/`
+2. Inspekterar shallow-clonade repos från `data/external-template-pipeline/repo-cache/`
 3. Faller bara tillbaka till äldre `_sidor`-repo paths om den valda source-roten
    fortfarande pekar på en legacy-datasetmapp
 4. Separerar extern use-case, site form och technical pattern i katalogens klassificering
 5. Deduplicerar repo-överlapp och demoterar blocklistade / icke-Next referenser till research-only
-6. Skapar `research/external-templates/reference-library/` med katalog + dossiers
+6. Skapar `data/external-template-pipeline/reference-library/` med katalog + dossiers
 7. Genererar kuraterade research-artefakter för runtime-sökning i `src/lib/gen/template-library/`
 8. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
-9. Skriver en prioriterad scaffold-kandidatsrapport till `data/scaffold-candidates-curated.json`
+9. Skriver en prioriterad scaffold-kandidatsrapport till `data/external-template-pipeline/reports/scaffold-candidates-curated.json`
 
 ### Produktionsgräns
 
@@ -224,21 +215,18 @@ eller råa lokala datasetmappar.
 ## import-template-discovery.ts
 
 Normaliserar discovery-data till den kanoniska research-lagret under
-`research/external-templates/raw-discovery/current/`.
+`data/external-template-pipeline/raw-discovery/current/`.
 
 ### Användning
 
 ```bash
-npm run template-library:import-legacy
-npx tsx scripts/template-library/import-template-discovery.ts --from="../vercel-scrape-fresh"
-npx tsx scripts/template-library/import-template-discovery.ts --from="<path-to>/vercel_usecase_next_react_templates/summary.json"
-npx tsx scripts/template-library/import-template-discovery.ts --from="research/external-templates/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
+npm run template-library:import
+npx tsx scripts/template-library/import-template-discovery.ts --from="data/external-template-pipeline/scrape-cache/current"
+npx tsx scripts/template-library/import-template-discovery.ts --from="data/external-template-pipeline/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
 ```
 
 Om den valda mappen innehåller både `summary-cleaned.json` och `summary.json` används den
-städade filen först. Standardkommandot `template-library:import-legacy` prioriterar
-`SAJTMASKIN_VERCEL_SCRAPE_DIR`, sedan syskonmappar som `../vercel-scrape-fresh` / `../vercel-scrape`,
-och faller därefter tillbaka till äldre `_sidor`-dataset.
+städade filen först. Normal drift ska peka explicit på den kanoniska scrape-cachen i `data/external-template-pipeline/`.
 
 ## hydrate-template-library-cache.ts
 
@@ -255,14 +243,14 @@ npx tsx scripts/template-library/hydrate-template-library-cache.ts --max=20
 
 - shallow clone only
 - ingen `install` eller `build`
-- output hamnar i `research/external-templates/repo-cache/` som är gitignorerad
+- output hamnar i `data/external-template-pipeline/repo-cache/` som är gitignorerad
 - `repo-cache` betyder lokal repo-spegel, inte runtime-cache
 - `monorepo-examples` och poster med `framework_match: false` klonas inte i hydrate-steget
 ### Begrepp
 
-- `research/external-templates/raw-discovery/`
+- `data/external-template-pipeline/raw-discovery/`
   Rå och brusig discovery-output. Bra för triage, inte canonical.
-- `research/external-templates/reference-library/`
+- `data/external-template-pipeline/reference-library/`
   Kuraterad extern referensyta med per-template dossiers.
 - `src/lib/gen/template-library/`
   Genererade research-artefakter som används av kod vid sökning och promptstöd.
@@ -310,7 +298,7 @@ npx tsx scripts/scaffolds/curate-scaffold-candidates.ts --input="src/lib/gen/tem
 Behandla `npm run scaffolds:curate` och TypeScript-skriptet ovan som det
 kanoniska gränssnittet för curation.
 
-Rapporten i `data/scaffold-candidates-curated.json` är en reproducerbar
+Rapporten i `data/external-template-pipeline/reports/scaffold-candidates-curated.json` är en reproducerbar
 arbetsartefakt för scaffold-triage, inte en runtime-källa. Behandla den som en
 kandidat för lokal-only output och regenerera den vid behov.
 
@@ -367,6 +355,7 @@ Interaktivt "allt-i-ett"-skript for external-template-pipelinen:
 Kör interaktivt:
 
 ```bash
+npm run template-pipeline:refresh
 py scripts/template-library/full_template_refresh.py
 ```
 
@@ -376,7 +365,7 @@ Nuvarande default för scrape-steget är **bred research-intake**:
 
 - `--legacy-wide-use-cases`
 - `--per-category=999`
-- output i syskonmappen `../sajtmaskin-template-cache`
+- output i `data/external-template-pipeline/scrape-cache/current`
 
 Vill du explicit köra det smalare historiska kärnläget använder du `--core-use-cases`.
 
@@ -408,7 +397,7 @@ Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** kataloge
 
 Historiskt hette discovery-flödet `scaffolds:discover`, men det producerar inte
 interna runtime-scaffolds. Nu kör det Playwright-baserad extern
-template-discovery som normaliseras till `research/external-templates/raw-discovery/current/`.
+template-discovery som normaliseras till `data/external-template-pipeline/raw-discovery/current/`.
 
 Använd i första hand:
 
@@ -425,7 +414,7 @@ npm run scaffolds:discover
 npm run scaffolds:discover:full
 ```
 
-**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md) och [`research/external-templates/README.md`](../research/external-templates/README.md); äldre narrativfiler i git-historik.
+**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md); äldre narrativfiler i git-historik.
 
 ## ~~extract-static-core.mjs~~ (borttagen, 2026-03-27)
 
@@ -433,9 +422,9 @@ Tidigare: extraherade `STATIC_CORE`-template från `system-prompt.ts` till `conf
 
 ## scaffold-pipeline.py (avancerat, ej i package.json)
 
-Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.
-Visar aktuell status (antal dossiers, embeddings, kuraterade entries) och lat
-dig valja enskilda steg eller kora hela kedjan.
+Interaktivt Python-menyskript som visar status och exponerar de kanoniska
+stegen i template-library-kedjan ovanpå samma pipeline-rot som
+`full_template_refresh.py`.
 
 **Placering:** [`scripts/manual/scaffold-pipeline.py`](manual/scaffold-pipeline.py) (översikt: [`scripts/manual/README.md`](manual/README.md)). Gamla sökvägen `scripts/scaffold-pipeline.py` finns inte längre.
 
@@ -449,14 +438,14 @@ python scripts/manual/scaffold-pipeline.py
 
 | Val | Vad det gör |
 |-----|-------------|
-| 1 | Skrapa nya templates från vercel.com/templates (Playwright) |
-| 2 | Importera legacy-dataset från Desktop/_sidor |
-| 3 | Ladda ner repos (shallow clones till repo-cache) |
-| 4 | Bygg template-library + dossiers |
+| 1 | Skrapa nya templates till `data/external-template-pipeline/scrape-cache/current` |
+| 2 | Importera scrape-cache till `raw-discovery/current` |
+| 3 | Ladda ner repos (shallow clones till `repo-cache`) |
+| 4 | Bygg template-library + dossiers från explicit `raw-discovery/current` |
 | 5 | Generera template-library embeddings (OpenAI API) |
 | 6 | Generera scaffold embeddings (OpenAI API) |
-| 7 | Kör allt från befintlig discovery (2+3+4+5+6) |
-| 8 | Kör allt från scratch (1+3+4+5+6) |
+| 7 | Kör hela kedjan från befintlig scrape-cache via `full_template_refresh.py --skip-scrape` |
+| 8 | Kör hela kedjan från scratch via `full_template_refresh.py` |
 | 9 | Visa status |
 | 0 | Avsluta |
 

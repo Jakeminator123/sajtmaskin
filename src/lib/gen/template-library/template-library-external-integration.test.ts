@@ -2,7 +2,7 @@
  * Integration checks for curated external templates (Vercel scrape → template-library).
  * Committed artifacts: template-library.generated.json + template-library-embeddings.json.
  *
- * If entries.length === 0, run hydrate + build + embeddings (see research/external-templates/README.md and scripts/README.md).
+ * If entries.length === 0, run hydrate + build + embeddings (see scripts/README.md).
  */
 import { describe, expect, it } from "vitest";
 import { getScaffoldFamilies } from "@/lib/gen/scaffolds";

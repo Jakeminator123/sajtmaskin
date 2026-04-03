@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import {
   REPO_CACHE_ROOT,
   RAW_DISCOVERY_CURRENT_ROOT,
+  WORKSPACE_ROOT,
   ensureDir,
   flattenRawSummary,
   normalizeLegacySummary,
@@ -72,6 +73,13 @@ function runGit(args: string[], cwd?: string): void {
   }
 }
 
+function toPortableWorkspacePath(value: string): string {
+  const relative = path.relative(WORKSPACE_ROOT, value);
+  return relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+    ? relative.replace(/\\/g, "/")
+    : value;
+}
+
 function cloneMissingRepos(repos: RepoTarget[]): { cloned: number; skipped: number; failed: string[] } {
   let cloned = 0;
   let skipped = 0;
@@ -85,9 +93,8 @@ function cloneMissingRepos(repos: RepoTarget[]): { cloned: number; skipped: numb
     }
 
     if (fs.existsSync(repo.cloneDir)) {
-      console.warn(`[template-library:cache] Skipping ${repo.normalizedUrl} because ${repo.cloneDir} exists without .git`);
-      skipped += 1;
-      continue;
+      console.warn(`[template-library:cache] Removing corrupt cache directory before reclone: ${repo.cloneDir}`);
+      fs.rmSync(repo.cloneDir, { recursive: true, force: true });
     }
 
     ensureDir(path.dirname(repo.cloneDir));
@@ -120,16 +127,17 @@ function main(): void {
 
   ensureDir(REPO_CACHE_ROOT);
   const { cloned, skipped, failed } = cloneMissingRepos(selection);
+  const portableSummaryPath = toPortableWorkspacePath(summaryPath);
 
   writeJson(path.join(REPO_CACHE_ROOT, "index.json"), {
     generatedAt: new Date().toISOString(),
-    sourceSummaryPath: summaryPath,
+    sourceSummaryPath: portableSummaryPath,
     totalRepos: repoTargets.length,
     selectedRepos: selection.length,
     failedRepos: failed,
     repos: selection.map((repo) => ({
       normalizedUrl: repo.normalizedUrl,
-      cloneDir: repo.cloneDir,
+      cloneDir: toPortableWorkspacePath(repo.cloneDir),
       sourceTemplates: Array.from(new Set(repo.sourceTemplates)).sort(),
     })),
   });

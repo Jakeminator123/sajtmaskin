@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-01T02:54:13.236Z",
+  "generatedAt": "2026-04-03T00:16:14.700Z",
   "source": "scripts/template-library/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
@@ -97,6 +97,16 @@
             ]
           },
           {
+            "id": "web3-coinbase-onchain",
+            "title": "Coinbase Onchain",
+            "categorySlug": "web3",
+            "qualityScore": 86,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure"
+            ]
+          },
+          {
             "id": "cron-cron-og-cards",
             "title": "Cron OG Cards",
             "categorySlug": "cron",
@@ -119,16 +129,6 @@
           {
             "id": "ai-vercel-ai-gateway-demo",
             "title": "Vercel AI Gateway Demo",
-            "categorySlug": "ai",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "ai-vercel-x-deepinfra-chatbot",
-            "title": "Vercel x DeepInfra Chatbot",
             "categorySlug": "ai",
             "qualityScore": 86,
             "strengths": [
@@ -198,14 +198,15 @@
             ]
           },
           {
-            "id": "edge-middleware-hostname-rewrites-using-edge-middleware",
-            "title": "Hostname Rewrites using Edge Middleware",
-            "categorySlug": "edge-middleware",
-            "qualityScore": 90,
+            "id": "saas-xata-typo-tolerant-full-text-search",
+            "title": "Xata: Typo-Tolerant Full-Text Search",
+            "categorySlug": "saas",
+            "qualityScore": 92,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
-              "multi-tenant or workspace patterns"
+              "pricing or billing structure",
+              "storefront or checkout patterns"
             ]
           }
         ]
@@ -285,6 +286,18 @@
             ]
           },
           {
+            "id": "blog-a-next-js-14-blog-with-server-components",
+            "title": "A Next.js 14 Blog with Server Components",
+            "categorySlug": "blog",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "editorial content hierarchy",
+              "CMS integration hints"
+            ]
+          },
+          {
             "id": "blog-blog-with-agility-cms-and-next-js",
             "title": "Blog with Agility CMS and Next.js",
             "categorySlug": "blog",
@@ -311,18 +324,6 @@
           {
             "id": "portfolio-next-js-portfolio-with-pageview-counter",
             "title": "Next.js Portfolio with Pageview Counter",
-            "categorySlug": "portfolio",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
-            "id": "portfolio-nim-minimalist-personal-site",
-            "title": "Nim: Minimalist Personal Site",
             "categorySlug": "portfolio",
             "qualityScore": 92,
             "strengths": [
@@ -395,15 +396,15 @@
             ]
           },
           {
-            "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
-            "title": "Your Next Store — Commerce with Next.js and Stripe",
-            "categorySlug": "ecommerce",
+            "id": "documentation-taxonomy",
+            "title": "Taxonomy",
+            "categorySlug": "documentation",
             "qualityScore": 96,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
-              "dashboard shell patterns",
-              "pricing or billing structure"
+              "auth flow reference",
+              "dashboard shell patterns"
             ]
           }
         ]
@@ -445,6 +446,18 @@
             ]
           },
           {
+            "id": "documentation-taxonomy",
+            "title": "Taxonomy",
+            "categorySlug": "documentation",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
             "id": "ai-chatbot",
             "title": "Chatbot",
             "categorySlug": "ai",
@@ -466,18 +479,6 @@
               "App Router structure",
               "auth flow reference",
               "pricing or billing structure"
-            ]
-          },
-          {
-            "id": "ai-morphic-ai-powered-answer-engine",
-            "title": "Morphic: AI-powered answer engine",
-            "categorySlug": "ai",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
             ]
           }
         ]
@@ -529,6 +530,18 @@
               "pricing or billing structure",
               "storefront or checkout patterns"
             ]
+          },
+          {
+            "id": "saas-xata-typo-tolerant-full-text-search",
+            "title": "Xata: Typo-Tolerant Full-Text Search",
+            "categorySlug": "saas",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "pricing or billing structure",
+              "storefront or checkout patterns"
+            ]
           }
         ]
       }
@@ -557,6 +570,18 @@
             ]
           },
           {
+            "id": "documentation-taxonomy",
+            "title": "Taxonomy",
+            "categorySlug": "documentation",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "dashboard shell patterns"
+            ]
+          },
+          {
             "id": "saas-finwise-saas-landing-page",
             "title": "Finwise: SaaS Landing Page",
             "categorySlug": "saas",
@@ -569,19 +594,8 @@
             ]
           },
           {
-            "id": "security-arcjet-next-js-example-app",
-            "title": "Arcjet Next.js Example App",
-            "categorySlug": "security",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference"
-            ]
-          },
-          {
-            "id": "blog-blog-with-agility-cms-and-next-js",
-            "title": "Blog with Agility CMS and Next.js",
+            "id": "blog-a-next-js-14-blog-with-server-components",
+            "title": "A Next.js 14 Blog with Server Components",
             "categorySlug": "blog",
             "qualityScore": 92,
             "strengths": [
@@ -592,8 +606,8 @@
             ]
           },
           {
-            "id": "blog-clean-next-js-sanity-app",
-            "title": "Clean Next.js + Sanity App",
+            "id": "blog-blog-with-agility-cms-and-next-js",
+            "title": "Blog with Agility CMS and Next.js",
             "categorySlug": "blog",
             "qualityScore": 92,
             "strengths": [

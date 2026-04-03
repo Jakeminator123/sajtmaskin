@@ -27,7 +27,7 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 
 - **NPM**-skript: se rot `package.json` och [`scripts/README.md`](../../scripts/README.md).
 - **Hjälpverktyg utanför runtime** (doc-browser, m.m.): [`tools/README.md`](../../tools/README.md).
-- **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/manual/vercel_template_cli.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
+- **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/template-library/full_template_refresh.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
 
@@ -45,7 +45,7 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 
 ## Vercel Templates / Playwright / scorefolds
 
-- Discovery pipeline, Playwright-spec, koppling till scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`research/external-templates/README.md`](../../research/external-templates/README.md), [`scripts/README.md`](../../scripts/README.md).
+- Discovery pipeline, Playwright-spec, koppling till scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
 
 ## Inspector / Playwright worker
 

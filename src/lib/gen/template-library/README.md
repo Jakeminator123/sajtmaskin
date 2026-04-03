@@ -12,7 +12,6 @@ Large JSON is cursorignored. Context: [`../README.md`](../README.md), [`../../..
 | `search.ts` | small | Hybrid search (`embedding`, `hybrid_keyword_blend`, `keyword_fallback`, `empty_catalog`) with diagnostics. |
 | `types.ts` | small | TypeScript types for entries, runtime guidance, search results, and selected files. |
 | `embeddings-core.ts` | small | Embedding generation utilities. |
-| `index.ts` | small | Barrel export. |
 
 ## Runtime flow
 
@@ -31,5 +30,5 @@ Large JSON is cursorignored. Context: [`../README.md`](../README.md), [`../../..
 
 ## Regeneration
 
-- Run `scripts/template-library/build-template-library.ts` to rebuild the curated catalog and scaffold research from imported discovery + repo cache.
+- Run `scripts/template-library/build-template-library.ts` to rebuild the curated catalog and scaffold research from imported discovery under `data/external-template-pipeline/` + repo cache.
 - Run `scripts/embeddings/generate-template-library-embeddings.ts` (or `npm run template-library:embeddings`) after the catalog has `entries[]` again.

@@ -77,7 +77,7 @@ when they are excluded from normal Cursor indexing.
 | `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated, committed, direct-read only when debugging scaffold search/matching. |
 | `template-library/template-library.generated.json` | Curated template-library artifact used for runtime search and prompt support. | Generated, committed, large enough to keep out of default indexing. |
 | `template-library/template-library-embeddings.json` | Embeddings for the curated template-library artifact. | Generated, committed, usually only needed for targeted debugging or rebuild validation. |
-| `../../data/scaffold-candidates-curated.json` | Ranked scaffold candidate report from the external template pipeline. | Generated, not a runtime dependency, useful for curation and agent orientation only. |
+| `../../data/external-template-pipeline/reports/scaffold-candidates-curated.json` | Ranked scaffold candidate report from the external template pipeline. | Generated, not a runtime dependency, useful for curation and agent orientation only. |
 
 Guidelines:
 

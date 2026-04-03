@@ -5,12 +5,12 @@ Full external-template refresh pipeline for Sajtmaskin.
 Purpose:
 1. Scrape fresh template research via `scripts/template-library/hamta_sidor_branch_emil.py`
 2. Remove previously generated template/scaffold research artifacts
-3. Import the fresh scrape into canonical `raw-discovery/current/`
+3. Import the fresh scrape into canonical `data/external-template-pipeline/raw-discovery/current/`
 4. Rebuild repo cache, dossiers, curated template library, and embeddings
 5. Optionally run a DB health check and/or TypeScript typecheck
 
-Default source of truth for the scrape step is an external folder:
-  ../sajtmaskin-template-cache
+Default source of truth for the scrape step is the in-repo pipeline cache:
+  data/external-template-pipeline/scrape-cache/current
 
 Default scrape behavior is broad research intake:
   --legacy-wide-use-cases
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -36,16 +37,18 @@ SCRIPTS_ROOT = REPO_ROOT / "scripts"
 TEMPLATE_LIB_SCRIPTS = SCRIPTS_ROOT / "template-library"
 SCRAPER_SCRIPT = TEMPLATE_LIB_SCRIPTS / "hamta_sidor_branch_emil.py"
 
-RAW_DISCOVERY_CURRENT = REPO_ROOT / "research" / "external-templates" / "raw-discovery" / "current"
-REFERENCE_LIBRARY_ROOT = REPO_ROOT / "research" / "external-templates" / "reference-library"
+PIPELINE_ROOT = REPO_ROOT / "data" / "external-template-pipeline"
+SCRAPE_CACHE_CURRENT = PIPELINE_ROOT / "scrape-cache" / "current"
+RAW_DISCOVERY_CURRENT = PIPELINE_ROOT / "raw-discovery" / "current"
+REFERENCE_LIBRARY_ROOT = PIPELINE_ROOT / "reference-library"
 REFERENCE_LIBRARY_DOSSIERS = REFERENCE_LIBRARY_ROOT / "dossiers"
-REPO_CACHE_ROOT = REPO_ROOT / "research" / "external-templates" / "repo-cache"
+REPO_CACHE_ROOT = PIPELINE_ROOT / "repo-cache"
 
 GENERATED_TEMPLATE_LIBRARY = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
 GENERATED_TEMPLATE_EMBEDDINGS = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
 GENERATED_SCAFFOLD_RESEARCH = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-research.generated.json"
 GENERATED_SCAFFOLD_EMBEDDINGS = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-embeddings.json"
-GENERATED_SCAFFOLD_CANDIDATES = REPO_ROOT / "data" / "scaffold-candidates-curated.json"
+GENERATED_SCAFFOLD_CANDIDATES = PIPELINE_ROOT / "reports" / "scaffold-candidates-curated.json"
 
 REFERENCE_LIBRARY_GENERATED_FILES = [
     REFERENCE_LIBRARY_ROOT / "catalog.json",
@@ -100,7 +103,7 @@ def prompt_float(label: str, default: float) -> float:
 
 
 def parse_args() -> argparse.Namespace:
-    default_scrape_root = (REPO_ROOT.parent / "sajtmaskin-template-cache").resolve()
+    default_scrape_root = SCRAPE_CACHE_CURRENT.resolve()
     parser = argparse.ArgumentParser(
         description="Scrape, reset, and rebuild the full external-template pipeline.",
     )
@@ -112,7 +115,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scrape-output",
         default=str(default_scrape_root),
-        help="External scrape output directory (default: ../sajtmaskin-template-cache).",
+        help="Scrape output directory (default: data/external-template-pipeline/scrape-cache/current).",
     )
     parser.add_argument(
         "--skip-scrape",
@@ -127,7 +130,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--keep-repo-cache",
         action="store_true",
-        help="Keep research/external-templates/repo-cache instead of rebuilding it from scratch.",
+        help="Keep data/external-template-pipeline/repo-cache instead of rebuilding it from scratch.",
     )
     parser.add_argument(
         "--skip-template-embeddings",
@@ -163,7 +166,19 @@ def parse_args() -> argparse.Namespace:
         help="Max templates per category for the scrape step (default: broad research intake).",
     )
     parser.add_argument("--delay", type=float, default=0.4, help="Pause between scraper HTTP requests.")
-    parser.add_argument("--skip-download", action="store_true", help="Pass --skip-download to the scraper.")
+    parser.add_argument(
+        "--skip-download",
+        dest="skip_download",
+        action="store_true",
+        default=True,
+        help="Skip git clone during scrape (default: enabled; hydrate repo-cache separately).",
+    )
+    parser.add_argument(
+        "--download-during-scrape",
+        dest="skip_download",
+        action="store_false",
+        help="Allow scrape step to clone repos into scrape-cache. Normally avoid this and rely on repo-cache hydration.",
+    )
     parser.add_argument("--extended-scrape", action="store_true", help="Pass --extended-scrape to the scraper.")
     parser.add_argument(
         "--legacy-wide-use-cases",
@@ -286,8 +301,11 @@ def remove_path(target: Path, *, dry_run: bool = False) -> None:
     print(f"- remove {target}")
     if dry_run:
         return
+    def _on_remove_error(func, path_str, _exc_info):
+        os.chmod(path_str, 0o666)
+        func(path_str)
     if target.is_dir():
-        shutil.rmtree(target, ignore_errors=False)
+        shutil.rmtree(target, ignore_errors=False, onexc=_on_remove_error)
     else:
         target.unlink()
 
@@ -339,6 +357,7 @@ def scrub_generated_artifacts(*, keep_repo_cache: bool, dry_run: bool) -> None:
 
     ensure_directory(RAW_DISCOVERY_CURRENT.parent, dry_run=dry_run)
     ensure_directory(REFERENCE_LIBRARY_ROOT, dry_run=dry_run)
+    ensure_directory(SCRAPE_CACHE_CURRENT.parent, dry_run=dry_run)
 
 
 def scrape_external_templates(args: argparse.Namespace, scrape_output: Path) -> None:
@@ -450,6 +469,7 @@ def summarize_outputs(*, dry_run: bool) -> None:
     print(
         json.dumps(
             {
+                "scrapeCacheCurrent": str(SCRAPE_CACHE_CURRENT / "summary.json"),
                 "rawDiscoveryCurrent": str(RAW_DISCOVERY_CURRENT / "summary.json"),
                 "templateLibrary": {
                     "generatedAt": template_catalog.get("generatedAt"),

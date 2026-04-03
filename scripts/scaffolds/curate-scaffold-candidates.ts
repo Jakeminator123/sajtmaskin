@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { TemplateLibraryCatalogFile, TemplateLibraryEntry } from "../../src/lib/gen/template-library/types";
+import { PIPELINE_REPORTS_ROOT } from "../template-library/template-library-discovery";
 import { writeScaffoldCandidateReport } from "./scaffold-candidate-report";
 import { slugify } from "../template-library/template-library-discovery";
 
@@ -15,7 +16,7 @@ const DEFAULT_INPUT_PATH = path.resolve(
   process.cwd(),
   "src/lib/gen/template-library/template-library.generated.json",
 );
-const DEFAULT_OUTPUT_PATH = path.resolve(process.cwd(), "data/scaffold-candidates-curated.json");
+const DEFAULT_OUTPUT_PATH = path.resolve(PIPELINE_REPORTS_ROOT, "scaffold-candidates-curated.json");
 
 function parseArgs(): { inputPath: string; outputPath: string } {
   const args = process.argv.slice(2);

@@ -3,16 +3,14 @@ import path from "node:path";
 import { getScaffoldById } from "../../src/lib/gen/scaffolds/registry";
 import type { ScaffoldFile, ScaffoldManifest } from "../../src/lib/gen/scaffolds/types";
 import type { TemplateLibraryEntry } from "../../src/lib/gen/template-library/types";
-import { readJson, slugify } from "../template-library/template-library-discovery";
+import {
+  REFERENCE_LIBRARY_ROOT,
+  readJson,
+  slugify,
+} from "../template-library/template-library-discovery";
 
 const WORKSPACE_ROOT = process.cwd();
-const DOSSIER_ROOT = path.resolve(
-  WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "reference-library",
-  "dossiers",
-);
+const DOSSIER_ROOT = path.join(REFERENCE_LIBRARY_ROOT, "dossiers");
 const TYPES_PATH = path.resolve(WORKSPACE_ROOT, "src", "lib", "gen", "scaffolds", "types.ts");
 const REGISTRY_PATH = path.resolve(WORKSPACE_ROOT, "src", "lib", "gen", "scaffolds", "registry.ts");
 

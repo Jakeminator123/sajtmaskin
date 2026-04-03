@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { SECRETS } from "@/lib/config";
+import { FEATURES, SECRETS } from "@/lib/config";
 import { debugLog } from "@/lib/utils/debug";
 import { getTemplateLibraryEntries } from "./catalog";
 import type {
@@ -207,6 +207,11 @@ export async function searchTemplateLibraryWithDiagnostics(
   // Stale template-library-embeddings.json must not load, call OpenAI, or rank
   // phantom IDs when curated entries[] is empty (common after catalog resets).
   if (catalogSize === 0) {
+    if (FEATURES.strictGeneratedArtifacts) {
+      throw new Error(
+        "[template-library] Generated catalog is empty. Rebuild template-library.generated.json before generation.",
+      );
+    }
     return {
       results: [],
       diagnostics: {

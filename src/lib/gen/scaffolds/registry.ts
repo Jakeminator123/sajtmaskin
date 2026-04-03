@@ -3,8 +3,8 @@
  * scaffold selection. Only scaffolds listed in ALL_SCAFFOLDS are used
  * by matchScaffoldWithEmbeddings() during code generation.
  *
- * External Vercel template research (e.g. _template_refs/, optional
- * vercel_template_cli.py catalogue scrape) is reference material for new internal scaffolds.
+ * External Vercel template research (e.g. data/external-template-pipeline/,
+ * _template_refs/) is reference material for new internal scaffolds.
  * They are NOT used at runtime and have no connection to this registry.
  */
 import type { ScaffoldManifest, ScaffoldFamily } from "./types";

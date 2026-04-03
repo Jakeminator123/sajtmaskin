@@ -346,6 +346,9 @@ export const FEATURES = {
     env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
   useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
+  strictGeneratedArtifacts:
+    env.NODE_ENV !== "test" &&
+    env.SAJTMASKIN_STRICT_GENERATED_ARTIFACTS !== "false",
 
   useGoogleAuth: Boolean(SECRETS.googleClientId && SECRETS.googleClientSecret),
 
