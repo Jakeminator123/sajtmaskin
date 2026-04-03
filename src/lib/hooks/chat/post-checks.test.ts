@@ -501,6 +501,82 @@ describe("runPostGenerationChecks", () => {
     );
   });
 
+  it("includes verify-lane timing metadata in quality gate steps", async () => {
+    const onAutoFix = vi.fn();
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetchCalls.push({ url });
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [
+              {
+                id: "ver_1",
+                versionId: "ver_1",
+                demoUrl: "https://preview.example/ver_1",
+                createdAt: "2026-03-14T10:00:00.000Z",
+              },
+            ],
+          });
+        }
+        if (url.includes("/files?versionId=ver_1")) {
+          return jsonResponse({ files });
+        }
+        if (url.includes("/validate-images")) {
+          return jsonResponse({});
+        }
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({
+            passed: false,
+            checks: [
+              {
+                check: "build",
+                passed: false,
+                exitCode: 1,
+                output: "Build failed: missing export",
+                durationMs: 1800,
+              },
+            ],
+            verifyLaneDurationMs: 3200,
+            firstFailureCheck: "build",
+            jobStartedAt: "2026-04-03T12:00:00.000Z",
+            jobFinishedAt: "2026-04-03T12:00:03.200Z",
+          });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    await runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: "https://preview.example/ver_1",
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+      onAutoFix,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const qualityGate = getToolPart("Quality gate", store);
+    const output = (qualityGate?.output as Record<string, unknown>) ?? {};
+    const steps = Array.isArray(output.steps) ? output.steps.map((step) => String(step)) : [];
+
+    expect(steps).toEqual(
+      expect.arrayContaining([
+        "build: FAIL (exit 1, 1.8s)",
+        "Duration: 3.2s",
+        "Started: 12:00:00Z",
+        "Finished: 12:00:03Z",
+        "First failure: build",
+      ]),
+    );
+  });
+
   it("surfaces actionable business workflow prompts in post-check output", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();

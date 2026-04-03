@@ -302,6 +302,14 @@ function formatDurationMs(durationMs: number | null | undefined): string | null 
   return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1).replace(/\.0$/, "")}s`;
 }
 
+function formatUtcClock(timestamp: string | null | undefined): string | null {
+  if (typeof timestamp !== "string" || !timestamp.trim()) return null;
+  const value = timestamp.trim();
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return `${parsed.toISOString().slice(11, 19)}Z`;
+}
+
 async function runPreviewQualityGate(params: {
   chatId: string;
   versionId: string;
@@ -380,6 +388,14 @@ async function runPreviewQualityGate(params: {
     const totalDurationLabel = formatDurationMs(data.verifyLaneDurationMs);
     if (totalDurationLabel) {
       steps.push(`Duration: ${totalDurationLabel}`);
+    }
+    const startedAtLabel = formatUtcClock(data.jobStartedAt);
+    if (startedAtLabel) {
+      steps.push(`Started: ${startedAtLabel}`);
+    }
+    const finishedAtLabel = formatUtcClock(data.jobFinishedAt);
+    if (finishedAtLabel) {
+      steps.push(`Finished: ${finishedAtLabel}`);
     }
     if (typeof data.firstFailureCheck === "string" && data.firstFailureCheck.trim()) {
       steps.push(`First failure: ${data.firstFailureCheck.trim()}`);

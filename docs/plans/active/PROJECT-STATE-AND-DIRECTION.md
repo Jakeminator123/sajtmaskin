@@ -2,9 +2,9 @@
 
 Kort aktiv status. Behåll bara det som fortfarande styr arbete nu.
 
-**Senast:** 2026-04-02  
+**Senast:** 2026-04-03  
 **Historik:** gamla handoffs, procenttabeller och stangda korplaner ligger i `git log` och `docs/plans/avklarat/`.  
-**Verifiering efter kod:** `npm run typecheck` och `npx vitest run`.
+**Verifiering efter kod:** `npm run typecheck` och `npm run test:focused` för snabb own-engine/verify/eval-kontroll; `npm run test:ci` för bredare Vitest-pass när ändringen motiverar det.
 
 ---
 

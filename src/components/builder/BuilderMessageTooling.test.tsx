@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { StructuredToolParts } from "./BuilderMessageTooling";
+import { CompactToolParts, StructuredToolParts } from "./BuilderMessageTooling";
 
 describe("StructuredToolParts", () => {
   it("keeps clarification prompts as free-text questions when no approval intent exists", () => {
@@ -162,6 +162,48 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("First failure: install")).toBeTruthy();
     expect(screen.getByText("1.9s")).toBeTruthy();
     expect(screen.getByText("Total: 3.2s")).toBeTruthy();
+    expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
+  });
+
+  it("shows compact verify-lane summary without structured tool cards", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_quality_gate_compact"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-available",
+              output: {
+                passed: false,
+                checks: [
+                  {
+                    check: "build",
+                    passed: false,
+                    exitCode: 1,
+                    output: "Build failed: missing export",
+                    durationMs: 1800,
+                  },
+                ],
+                verifyLaneDurationMs: 3200,
+                firstFailureCheck: "build",
+                jobStartedAt: "2026-04-03T12:00:00.000Z",
+                jobFinishedAt: "2026-04-03T12:00:03.200Z",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Verify: FAIL")).toBeTruthy();
+    expect(screen.getByText("build (1.8s)")).toBeTruthy();
+    expect(screen.getByText("Total: 3.2s • First failure: build")).toBeTruthy();
+    expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
   });
 
   it("shows business workflow quick actions from post-check output", () => {

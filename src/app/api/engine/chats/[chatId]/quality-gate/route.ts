@@ -49,8 +49,10 @@ function buildQualityGateSummaryLog(params: {
   checkResults: QualityGateCheckResult[];
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
 }) {
-  const { checkResults, verifyLaneDurationMs, firstFailureCheck } = params;
+  const { checkResults, verifyLaneDurationMs, firstFailureCheck, jobStartedAt, jobFinishedAt } = params;
   return {
     level: checkResults.every((result) => result.passed) ? ("info" as const) : ("error" as const),
     category: "preflight:quality-gate",
@@ -67,6 +69,8 @@ function buildQualityGateSummaryLog(params: {
       })),
       verifyLaneDurationMs,
       firstFailureCheck,
+      jobStartedAt,
+      jobFinishedAt,
     },
   };
 }
@@ -157,6 +161,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               checkResults: results,
               verifyLaneDurationMs,
               firstFailureCheck,
+              jobStartedAt,
+              jobFinishedAt,
             }),
           },
           ...results
@@ -177,6 +183,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   output: r.output.slice(0, 12_000),
                   outputLength: r.output.length,
                   exitCode: r.exitCode,
+                  durationMs: r.durationMs ?? null,
                 },
               };
             }),

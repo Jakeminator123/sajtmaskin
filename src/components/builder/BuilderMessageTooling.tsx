@@ -663,6 +663,19 @@ export function StructuredToolParts({
                           </div>
                         ) : null;
                       })()}
+                      {(() => {
+                        const startedAt = formatUtcClock(qualityGateSummary.jobStartedAt);
+                        const finishedAt = formatUtcClock(qualityGateSummary.jobFinishedAt);
+                        const labels = [
+                          startedAt ? `Start: ${startedAt}` : null,
+                          finishedAt ? `Slut: ${finishedAt}` : null,
+                        ].filter((value): value is string => Boolean(value));
+                        return labels.length > 0 ? (
+                          <div className="text-muted-foreground/50 text-[10px]">
+                            {labels.join(" • ")}
+                          </div>
+                        ) : null;
+                      })()}
                       {qualityGateSummary.firstFailureCheck && (
                         <div className="text-amber-300/80 text-[10px]">
                           First failure: {qualityGateSummary.firstFailureCheck}
@@ -749,6 +762,8 @@ export function CompactToolParts({
           toolType === "tool-post-check" ? getBusinessWorkflowSummary(tool.output) : null;
         const businessWorkflowActionPrompt =
           toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
+        const qualityGateSummary =
+          toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
         const replyPrompt = getActionPrompt(tool, toolState);
         const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
         const canQuickReply =
@@ -963,6 +978,52 @@ export function CompactToolParts({
                         Förslag: {businessWorkflowActionPrompt.labels.slice(0, 2).join(" • ")}
                       </p>
                     ) : null}
+                  </div>
+                ) : null}
+                {qualityGateSummary && !qualityGateSummary.skipped ? (
+                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                    <p className={qualityGateSummary.passed ? "text-emerald-300" : "text-rose-300"}>
+                      Verify: {qualityGateSummary.passed ? "PASS" : "FAIL"}
+                    </p>
+                    {qualityGateSummary.checks.length > 0 ? (
+                      <p className="text-muted-foreground mt-1">
+                        {qualityGateSummary.checks
+                          .map((check) => {
+                            const duration = formatDurationMsShort(check.durationMs);
+                            return `${check.check}${duration ? ` (${duration})` : ""}`;
+                          })
+                          .join(" • ")}
+                      </p>
+                    ) : null}
+                    {(qualityGateSummary.verifyLaneDurationMs !== null ||
+                      qualityGateSummary.firstFailureCheck) && (
+                      <p className="text-muted-foreground mt-1">
+                        {[
+                          qualityGateSummary.verifyLaneDurationMs !== null
+                            ? `Total: ${formatDurationMsShort(qualityGateSummary.verifyLaneDurationMs)}`
+                            : null,
+                          qualityGateSummary.firstFailureCheck
+                            ? `First failure: ${qualityGateSummary.firstFailureCheck}`
+                            : null,
+                        ]
+                          .filter((value): value is string => Boolean(value))
+                          .join(" • ")}
+                      </p>
+                    )}
+                    {(qualityGateSummary.jobStartedAt || qualityGateSummary.jobFinishedAt) && (
+                      <p className="text-muted-foreground mt-1">
+                        {[
+                          qualityGateSummary.jobStartedAt
+                            ? `Start: ${formatUtcClock(qualityGateSummary.jobStartedAt)}`
+                            : null,
+                          qualityGateSummary.jobFinishedAt
+                            ? `Slut: ${formatUtcClock(qualityGateSummary.jobFinishedAt)}`
+                            : null,
+                        ]
+                          .filter((value): value is string => Boolean(value))
+                          .join(" • ")}
+                      </p>
+                    )}
                   </div>
                 ) : null}
               </>
@@ -1659,6 +1720,14 @@ function formatDurationMsShort(durationMs: number | null | undefined): string | 
   if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
   const seconds = durationMs / 1000;
   return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1).replace(/\.0$/, "")}s`;
+}
+
+function formatUtcClock(timestamp: string | null | undefined): string | null {
+  if (typeof timestamp !== "string" || !timestamp.trim()) return null;
+  const value = timestamp.trim();
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return `${parsed.toISOString().slice(11, 19)}Z`;
 }
 
 function openIntegrationsPanel() {
