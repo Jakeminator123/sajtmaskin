@@ -101,6 +101,62 @@ describe("buildServerVerifyQualityGateMeta", () => {
       promoted: false,
     });
   });
+
+  it("includes compact visual QA when provided", () => {
+    expect(
+      buildServerVerifyQualityGateMeta({
+        passed: true,
+        results: [
+          {
+            check: "typecheck",
+            passed: true,
+            exitCode: 0,
+            output: "",
+            durationMs: 400,
+          },
+        ],
+        verifyLaneDurationMs: 900,
+        firstFailureCheck: null,
+        jobStartedAt: "2026-04-03T12:00:00.000Z",
+        jobFinishedAt: "2026-04-03T12:00:00.900Z",
+        serverOwned: false,
+        visualQA: {
+          overallScore: 72,
+          passed: true,
+          screenshotCaptured: false,
+          checks: [
+            { check: "hero", passed: true, score: 80 },
+            { check: "metadata", passed: false, score: 40 },
+          ],
+        },
+      }),
+    ).toEqual({
+      passed: true,
+      checks: [
+        {
+          check: "typecheck",
+          passed: true,
+          exitCode: 0,
+          durationMs: 400,
+        },
+      ],
+      durationMs: 900,
+      verifyLaneDurationMs: 900,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-03T12:00:00.000Z",
+      jobFinishedAt: "2026-04-03T12:00:00.900Z",
+      serverOwned: false,
+      visualQA: {
+        overallScore: 72,
+        passed: true,
+        screenshotCaptured: false,
+        checks: [
+          { check: "hero", passed: true, score: 80 },
+          { check: "metadata", passed: false, score: 40 },
+        ],
+      },
+    });
+  });
 });
 
 describe("buildServerVerifyRepairContextLines", () => {

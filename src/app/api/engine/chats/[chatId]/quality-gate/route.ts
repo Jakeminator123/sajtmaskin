@@ -21,6 +21,7 @@ import {
   qualityGateAllPassed,
   type QualityGateCheckResult,
 } from "@/lib/gen/preview-quality-gate";
+import { buildServerVerifyQualityGateMeta } from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -51,28 +52,47 @@ function buildQualityGateSummaryLog(params: {
   firstFailureCheck: string | null;
   jobStartedAt: string | null;
   jobFinishedAt: string | null;
+  visualQA?: VisualQAResult;
 }) {
-  const { checkResults, verifyLaneDurationMs, firstFailureCheck, jobStartedAt, jobFinishedAt } = params;
+  const {
+    checkResults,
+    verifyLaneDurationMs,
+    firstFailureCheck,
+    jobStartedAt,
+    jobFinishedAt,
+    visualQA,
+  } = params;
+  const passed = checkResults.every((result) => result.passed);
+  const visualQAMeta =
+    visualQA &&
+    typeof visualQA.overallScore === "number" &&
+    Array.isArray(visualQA.checks)
+      ? {
+          overallScore: visualQA.overallScore,
+          passed: visualQA.passed,
+          screenshotCaptured: visualQA.screenshotCaptured,
+          checks: visualQA.checks.map((c) => ({
+            check: c.check,
+            passed: c.passed,
+            score: c.score,
+          })),
+        }
+      : undefined;
+
   return {
-    level: checkResults.every((result) => result.passed) ? ("info" as const) : ("error" as const),
-    category: "preflight:quality-gate",
-    message: checkResults.every((result) => result.passed)
-      ? "Automatic quality gate passed."
-      : "Automatic quality gate failed.",
-    meta: {
-      passed: checkResults.every((result) => result.passed),
-      checks: checkResults.map((result) => ({
-        check: result.check,
-        passed: result.passed,
-        exitCode: result.exitCode,
-        durationMs: result.durationMs ?? null,
-      })),
+    level: passed ? ("info" as const) : ("error" as const),
+    category: "preflight:quality-gate" as const,
+    message: passed ? "Automatic quality gate passed." : "Automatic quality gate failed.",
+    meta: buildServerVerifyQualityGateMeta({
+      passed,
+      results: checkResults,
       verifyLaneDurationMs,
       firstFailureCheck,
       jobStartedAt,
       jobFinishedAt,
       serverOwned: false,
-    },
+      visualQA: visualQAMeta,
+    }),
   };
 }
 
@@ -164,6 +184,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               firstFailureCheck,
               jobStartedAt,
               jobFinishedAt,
+              visualQA,
             }),
           },
           ...results

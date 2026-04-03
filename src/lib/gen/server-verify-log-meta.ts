@@ -7,6 +7,14 @@ export type ServerVerifyFailedOutput = {
   durationMs?: number | null;
 };
 
+/** Compact visual QA for persisted logs (no long detail strings). */
+export type QualityGateVisualQaLogMeta = {
+  overallScore: number;
+  passed: boolean;
+  screenshotCaptured: boolean;
+  checks: Array<{ check: string; passed: boolean; score: number }>;
+};
+
 type BuildServerVerifyQualityGateMetaParams = {
   results?: QualityGateCheckResult[] | null;
   passed?: boolean;
@@ -18,6 +26,7 @@ type BuildServerVerifyQualityGateMetaParams = {
   repass?: boolean;
   method?: "deterministic" | "llm";
   promoted?: boolean;
+  visualQA?: QualityGateVisualQaLogMeta | null;
 };
 
 export function buildServerVerifyQualityGateMeta(
@@ -34,6 +43,7 @@ export function buildServerVerifyQualityGateMeta(
     repass,
     method,
     promoted,
+    visualQA,
   } = params;
 
   return {
@@ -54,6 +64,7 @@ export function buildServerVerifyQualityGateMeta(
     ...(typeof repass === "boolean" ? { repass } : {}),
     ...(method ? { method } : {}),
     ...(typeof promoted === "boolean" ? { promoted } : {}),
+    ...(visualQA ? { visualQA } : {}),
   };
 }
 
