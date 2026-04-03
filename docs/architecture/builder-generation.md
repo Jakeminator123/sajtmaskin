@@ -15,6 +15,14 @@ Tre **lanes** + flaggor (detalj + mermaid i arkiv: `builder-model-routing-and-tr
 
 Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `src/lib/models/catalog.ts`, `selection.ts`, samt **`src/lib/api/engine/chats/`** (kanonisk stream-handlers) med tunna **`/api/v0/chats/...`-compat**-routes.
 
+## OpenClaw / Sajtagenten ligger bredvid
+
+`OpenClaw` / `Sajtagenten` är **inte** en lane i builderns generationskedja. Den ytan lever separat via `src/components/openclaw/`, `/api/openclaw/*` och den isolerade `D-ID`-pilotytan `/avatar` + `/api/did/chat`.
+
+- Använd **builderns `LLM`-flöde / `LLM`-pipeline** när du menar prompt assist, brief, spec-first, own-engine generation, verifiering, polish och repair.
+- Använd **OpenClaw / Sajtagenten** när du menar den hjälpassistent som kan läsa builderkontext, ge tips, föreslå textfältsinnehåll och göra djupare review på begäran.
+- Om Sajtagenten får mer kod- eller builderinsyn för review betyder det **inte** att own-engine-routen har bytt motor.
+
 ## Promptlager och träd
 
 - **Statisk kärna** + dynamisk kontext (scaffold, brief, tema, KB) byggs i `system-prompt.ts` m.m.

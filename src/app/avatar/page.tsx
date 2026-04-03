@@ -7,8 +7,8 @@ import { DidOpenClawBridge } from "@/components/avatar/did-openclaw-bridge";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Avatar test",
-  description: "Isolerad D-ID-testsida på /avatar.",
+  title: "Avatar pilot",
+  description: "Isolerad D-ID-pilotyta på /avatar.",
   robots: { index: false, follow: false },
 };
 
@@ -54,9 +54,9 @@ export default async function AvatarPage({ searchParams }: AvatarPageProps) {
                 Prata med avatar-agenten
               </h1>
               <p className="text-muted-foreground mt-4 max-w-2xl text-sm leading-relaxed md:text-base">
-                Den här sidan är medvetet isolerad till <code>/avatar</code> så att du kan verifiera
-                avatarflödet utan att röra buildern. Här kan du växla mellan ren D-ID-fallback och
-                OpenClaw som hjärna via en separat bridge.
+                Den här sidan är medvetet isolerad till <code>/avatar</code> som en pilotyta för
+                att verifiera avatarflödet utan att röra builderns vanliga widget. Här kan du växla
+                mellan ren D-ID-fallback och OpenClaw som hjärna via en separat bridge.
               </p>
 
               <div className="mt-6 flex flex-wrap gap-2">
@@ -156,8 +156,9 @@ export default async function AvatarPage({ searchParams }: AvatarPageProps) {
                 </p>
                 <p className="text-muted-foreground mt-3 text-sm leading-relaxed">
                   I bridge-läget pratar klienten med <code>/api/did/chat</code> som i sin tur
-                  pratar med OpenClaw. Om något fallerar kan du alltid växla tillbaka till
-                  iframe-läget utan att påverka resten av appen.
+                  pratar med OpenClaw. D-ID hålls avsiktligt isolerad här tills vi eventuellt tar
+                  ett separat beslut om bredare inbäddning. Om något fallerar kan du alltid växla
+                  tillbaka till iframe-läget utan att påverka resten av appen.
                 </p>
               </div>
             </aside>

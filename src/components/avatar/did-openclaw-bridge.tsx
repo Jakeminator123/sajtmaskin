@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 
 type BridgeMessage = {
   id: string;
@@ -293,6 +294,7 @@ export function DidOpenClawBridge({
             sessionId: sessionIdRef.current,
             message,
             recentMessages,
+            context: collectOpenClawClientContext(),
           }),
         });
 
@@ -396,7 +398,7 @@ export function DidOpenClawBridge({
             OpenClaw bridge
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            D-ID avatar som presentatör, OpenClaw som hjärna.
+            D-ID-avatar som presentatör och Sajtagenten som hjärna i en isolerad pilotyta.
           </p>
         </div>
         <div

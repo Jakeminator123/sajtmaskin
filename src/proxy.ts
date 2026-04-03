@@ -106,9 +106,11 @@ function buildCspPolicy(pathname: string, nonce: string): string {
   const mediaSrc = [`'self'`, "blob:"];
   const workerSrc = [`'self'`, "blob:"];
 
+  // D-ID SDK (bundled npm) needs connect-src for WebRTC signaling on any page
+  connectSrc.push("https://*.d-id.com", "https://d-id.com");
+
   if (allowDidEmbed) {
     scriptSrc.push(...DID_EMBED_HOSTS);
-    imgSrc.push(...DID_EMBED_HOSTS);
     frameSrc.push(...DID_EMBED_HOSTS);
     connectSrc.push(...DID_EMBED_HOSTS);
     mediaSrc.push("data:", ...DID_EMBED_HOSTS);

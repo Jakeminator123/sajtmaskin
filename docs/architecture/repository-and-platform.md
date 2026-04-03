@@ -54,5 +54,6 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 ## Övrigt
 
 - **Config dashboard (Streamlit)** vs `docs/`: `config/dashboard/` (se `config/dashboard/domain-map.json`).
-- **D-ID / avatar**: `src/app/api/avatar` (rutter enligt produkt).
+- **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.
+- **D-ID / avatar**: isolerad pilotyta under `src/app/avatar/`, med bridge-rutter i `src/app/api/did/` och komponenter i `src/components/avatar/`. `D-ID` är medvetet avskilt från den vanliga widgeten tills ett separat beslut tas om bredare inbäddning.
 - **Orchestrator i Cursor**: borttaget; äldre planhistorik i git under `docs/plans/avklarat/` (se [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).

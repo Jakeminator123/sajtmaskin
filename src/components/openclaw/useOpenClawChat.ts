@@ -2,27 +2,10 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
-import { collectOpenClawTextFieldContext } from "@/lib/openclaw/text-field-actions";
-
-declare global {
-  interface Window {
-    __SITEMASKIN_CONTEXT?: Record<string, unknown>;
-  }
-}
+import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function collectContext(): Record<string, unknown> | null {
-  if (typeof window === "undefined") return null;
-  const baseContext = window.__SITEMASKIN_CONTEXT ?? null;
-  const textFields = collectOpenClawTextFieldContext();
-  if (!baseContext && textFields.length === 0) return null;
-  return {
-    ...(baseContext ?? {}),
-    ...(textFields.length > 0 ? { textFields } : {}),
-  };
 }
 
 /**
@@ -114,7 +97,7 @@ export function useOpenClawChat() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             messages: apiMessages,
-            context: collectContext(),
+            context: collectOpenClawClientContext(),
           }),
           signal: abortRef.current.signal,
         });

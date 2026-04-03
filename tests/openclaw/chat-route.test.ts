@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getOpenClawSurfaceStatus = vi.hoisted(() => vi.fn());
-const decideOpenClawCodeContextMode = vi.hoisted(() => vi.fn());
-const resolveFileContext = vi.hoisted(() => vi.fn());
+const decideOpenClawRoutingIntent = vi.hoisted(() => vi.fn());
+const buildOpenClawContextSystemMessage = vi.hoisted(() => vi.fn());
 const OPENCLAW = vi.hoisted(() => ({
   gatewayUrl: "https://gateway.example",
   gatewayToken: "test-token",
@@ -25,11 +25,12 @@ vi.mock("@/lib/openclaw/status", () => ({
 }));
 
 vi.mock("@/lib/openclaw/chat-context-policy", () => ({
-  decideOpenClawCodeContextMode,
+  decideOpenClawRoutingIntent,
+  OPENCLAW_ROUTING_STRATEGY: "internal_review_escalation",
 }));
 
-vi.mock("@/lib/openclaw/resolve-file-context", () => ({
-  resolveFileContext,
+vi.mock("@/lib/openclaw/server-context", () => ({
+  buildOpenClawContextSystemMessage,
 }));
 
 import { POST } from "@/app/api/openclaw/chat/route";
@@ -50,16 +51,19 @@ describe("OpenClaw chat route", () => {
 
     fetchMock.mockReset();
     getOpenClawSurfaceStatus.mockReset();
-    decideOpenClawCodeContextMode.mockReset();
-    resolveFileContext.mockReset();
+    decideOpenClawRoutingIntent.mockReset();
+    buildOpenClawContextSystemMessage.mockReset();
 
     getOpenClawSurfaceStatus.mockReturnValue({
       surfaceEnabled: true,
       surfaceStatus: "enabled",
       blockers: [],
     });
-    decideOpenClawCodeContextMode.mockReturnValue("snippet");
-    resolveFileContext.mockResolvedValue(null);
+    decideOpenClawRoutingIntent.mockReturnValue("general");
+    buildOpenClawContextSystemMessage.mockResolvedValue({
+      codeContextMode: "light",
+      content: "[BUILDER-KONTEXT]\nSida: builder\n[/BUILDER-KONTEXT]",
+    });
   });
 
   afterEach(() => {
@@ -114,5 +118,7 @@ describe("OpenClaw chat route", () => {
     expect(payload.model).toBe("openclaw:sajtagenten");
     expect(payload.stream).toBe(true);
     expect(payload.messages[0].content).toContain("Du är Sajtagenten");
+    expect(payload.messages[1].content).toContain("Internt läge: assistans");
+    expect(payload.messages[2].content).toContain("[BUILDER-KONTEXT]");
   });
 });

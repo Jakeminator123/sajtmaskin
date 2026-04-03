@@ -185,7 +185,7 @@ export function OpenClawChat() {
   return (
     <div className="pointer-events-none fixed inset-x-3 bottom-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end">
       {showRouteTeaser ? (
-        <div className="pointer-events-auto w-full max-w-88 self-end overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/90 text-slate-50 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl">
+        <div className="pointer-events-auto hidden w-full max-w-88 self-end overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/90 text-slate-50 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl sm:block">
           <div className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.26),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.22),transparent_38%)] px-4 py-4">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
@@ -238,15 +238,16 @@ export function OpenClawChat() {
             : "max-h-0 scale-95 opacity-0",
         )}
       >
-        <OpenClawChatPanel onClose={close} content={content.panel} />
+        <OpenClawChatPanel onClose={close} content={content.panel} isOpen={isOpen} />
       </div>
 
-      {/* FAB toggle */}
+      {/* FAB toggle — icon-only on mobile, label on sm+ */}
       <button
         type="button"
         onClick={handleOpen}
         className={cn(
-          "group pointer-events-auto relative flex items-center gap-3 self-end overflow-hidden rounded-full border px-4 py-3 shadow-lg transition-all duration-200",
+          "group pointer-events-auto relative flex items-center self-end overflow-hidden rounded-full border shadow-lg transition-all duration-200",
+          "gap-0 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3",
           isOpen
             ? "border-border bg-muted text-muted-foreground hover:bg-muted/90"
             : "border-cyan-400/30 bg-slate-950 text-slate-50 shadow-cyan-950/40 hover:-translate-y-0.5",
@@ -257,7 +258,7 @@ export function OpenClawChat() {
           <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.18),transparent_38%)]" />
         )}
         <MessageCircle className="h-5 w-5" />
-        <span className="relative flex flex-col items-start leading-none">
+        <span className="relative hidden flex-col items-start leading-none sm:flex">
           <span className="text-sm font-semibold">{isOpen ? "Stäng" : content.fabTitle}</span>
           <span
             className={cn("text-[11px]", isOpen ? "text-muted-foreground" : "text-cyan-200/90")}
@@ -266,7 +267,7 @@ export function OpenClawChat() {
           </span>
         </span>
         {isOpen ? null : (
-          <span className="relative ml-1 h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,0.85)]" />
+          <span className="relative ml-1 hidden h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_16px_rgba(103,232,249,0.85)] sm:block" />
         )}
       </button>
     </div>

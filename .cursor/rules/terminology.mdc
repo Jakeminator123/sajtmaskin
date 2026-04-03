@@ -89,6 +89,14 @@ Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 - **`src/lib/gen/`**: delad genereringskärna och verktyg som own-engine bygger på.
 - **`src/lib/mcp/`**: adapterlager för att använda befintliga flöden programmässigt; inte en separat motor.
 
+## OpenClaw / Sajtagenten vs builderns LLM-flöde
+
+- **OpenClaw / Sajtagenten**: separat assistent-/agentyta för råd, tips, textfältsförslag, avatar-bridge och löpande hjälp. Vanliga ytor: `src/components/openclaw/*`, `/api/openclaw/*`, den isolerade `D-ID`-pilotytan `/avatar` och `/api/did/chat`.
+- **Builderns `LLM`-flöde / `LLM`-pipeline**: samlingsnamn för de övriga AI-stegen runt själva byggandet, t.ex. prompt assist, deep brief, spec-first, own-engine generation, verifiering, polish och repair.
+- **Blanda inte ihop dem**: OpenClaw bygger normalt **inte** sajten. own-engine och övriga builder-steg är **inte** samma sak som Sajtagenten, även om de kan referera till samma builderkontext.
+- **Djup granskning på begäran**: Sajtagenten kan få mer builder-/kodinsyn för review, felsökning eller förbättringsförslag, men den publika ytan förblir samma assistent. Säg inte att en separat publik agent används om repot inte faktiskt exponerar den.
+- När du skriver docs eller förklaringar: säg **OpenClaw / Sajtagenten** för assistentytan, och säg **builderns `LLM`-flöde** eller den specifika fasen när du menar generationskedjan.
+
 ## LLM-lager i buildern
 
 - **Prompt assist / Förbättra**: hjälpassistent **före build**. Förbättrar eller skriver om användarens prompt men bygger inte sajten.

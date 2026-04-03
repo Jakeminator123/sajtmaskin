@@ -23,4 +23,5 @@ Infrastructure and deployment files are grouped under `infra/` where possible.
 - Seeded OpenClaw config:
   - `infra/openclaw/config/agents/sajtagenten/agent/IDENTITY.md`
   - `infra/openclaw/config/workspace/`
+- Runtime note: container entrypoint seeds one publik `sajtagenten`-yta och låter modellen använda en primär/fallback-kedja via `OPENCLAW_MODEL_PRIMARY` och `OPENCLAW_MODEL_FALLBACK`.
 
