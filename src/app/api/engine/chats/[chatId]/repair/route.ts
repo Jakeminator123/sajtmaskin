@@ -22,7 +22,7 @@ import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -152,13 +152,19 @@ export async function POST(
     const gateFailures = repairContext.qualityGate ?? [];
     const hadQualityGateFailures = gateFailures.length > 0;
     const initialSyntaxErrorCount = syntaxResult.errors.length;
+    const currentVersionId = internalVersionId;
 
     async function promoteIfPostRepairGatePasses(
       projectContent: string,
       promoteReason: string,
     ): Promise<{ ok: boolean; newVersionId: string | null }> {
       const exportable = buildExportableProject(codeProjectToFiles(projectContent));
-      const decision = await shouldPromoteAfterRepair(exportable, hadQualityGateFailures);
+      const decision = await shouldPromoteAfterRepair({
+        chatId,
+        versionId: currentVersionId,
+        exportable,
+        hadQualityGateFailures,
+      });
       if (!decision.promote) {
         return { ok: false, newVersionId: null };
       }
@@ -173,7 +179,7 @@ export async function POST(
       return { ok: true, newVersionId: version.id };
     }
 
-    // Re-run sandbox quality gate when possible; syntax alone is not enough if gate context exists.
+    // Re-run quality gate when possible; syntax alone is not enough if gate context exists.
     if (syntaxResult.valid && gateFailures.length === 0) {
       const { ok, newVersionId } = await promoteIfPostRepairGatePasses(
         content,

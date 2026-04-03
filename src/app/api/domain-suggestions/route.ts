@@ -13,7 +13,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { withRateLimit } from "@/lib/rateLimit";
-import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 // Allow 30 seconds for domain checks
 export const maxDuration = 30;
@@ -24,17 +23,17 @@ interface DomainSuggestion {
   tld: string;
 }
 
-function hasGatewayAuth(): boolean {
-  return Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
+function hasOpenAIApiKey(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
 
-// Generate domain suggestions using AI Gateway
+// Generate domain suggestions using direct OpenAI API
 async function generateDomainNames(
   companyName: string,
   industry?: string,
   keywords?: string[],
 ): Promise<string[]> {
-  if (!hasGatewayAuth()) {
+  if (!hasOpenAIApiKey()) {
     // Fallback: generate simple suggestions without AI
     const base = companyName
       .toLowerCase()

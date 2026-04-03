@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import OpenAI from "openai";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { INSPECTOR_AI_MATCH_DEFAULT_MODEL } from "@/lib/gen/defaults";
@@ -14,26 +13,23 @@ const MAX_FILES = 6;
 const INPUT_COST_PER_M = 0.15;
 const OUTPUT_COST_PER_M = 0.6;
 
-function getGatewayApiKey(): string | null {
-  return pickAiGatewayKeyFromEnv();
-}
-
 function getDirectApiKey(): string | null {
   const key = process.env.OPENAI_API_KEY;
   return key?.trim() || null;
 }
 
-function createClient(): OpenAI | null {
-  const gatewayKey = getGatewayApiKey();
-  if (gatewayKey) {
-    return new OpenAI({
-      apiKey: gatewayKey,
-      baseURL: "https://ai-gateway.vercel.sh/v1",
-    });
-  }
+type ClientConfig = {
+  client: OpenAI;
+  modelId: string;
+};
+
+function createClientConfig(): ClientConfig | null {
   const directKey = getDirectApiKey();
   if (directKey) {
-    return new OpenAI({ apiKey: directKey });
+    return {
+      client: new OpenAI({ apiKey: directKey }),
+      modelId: MODEL,
+    };
   }
   return null;
 }
@@ -71,10 +67,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const client = createClient();
-  if (!client) {
+  const clientConfig = createClientConfig();
+  if (!clientConfig) {
     return NextResponse.json(
-      { success: false, error: "Ingen AI-nyckel konfigurerad (AI_GATEWAY_API_KEY eller OPENAI_API_KEY)." },
+      {
+        success: false,
+        error: "Ingen AI-nyckel konfigurerad (OPENAI_API_KEY krävs).",
+      },
       { status: 501 },
     );
   }
@@ -123,9 +122,8 @@ Källkod:
 ${codeBlock}`;
 
   try {
-    const modelId = getGatewayApiKey() ? `openai/${MODEL}` : MODEL;
-    const completion = await client.chat.completions.create({
-      model: modelId,
+    const completion = await clientConfig.client.chat.completions.create({
+      model: clientConfig.modelId,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

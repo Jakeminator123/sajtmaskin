@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "title": "Sajtmaskin AI model registry",
   "description": "Single source for default model IDs, token budgets, and env override keys. Environment variables always win over these defaults when set.",
-  "documentationDirectApiNote": "Länkar märkta appliesTo=direct_provider_api beskriver anrop direkt mot OpenAI (api.openai.com) respektive Anthropic (Claude API) — samma semantik som OpenAI SDK / Anthropic SDK mot standardbas-URL. De beskriver inte Vercel AI Gateway (egen bas-URL och gateway-specifik auth); för det, se appliesTo=vercel_ai_gateway.",
+  "documentationDirectApiNote": "Länkar märkta appliesTo=direct_provider_api beskriver anrop direkt mot OpenAI (api.openai.com) respektive Anthropic (Claude API) — samma semantik som OpenAI SDK / Anthropic SDK mot standardbas-URL.",
   "docLinks": [
     {
       "vendor": "OpenAI",
@@ -45,12 +45,6 @@
       "title": "AI SDK streamText (open-source library, not a hosted API)",
       "url": "https://sdk.vercel.ai/docs/reference/ai-sdk-core/stream-text",
       "appliesTo": "sdk_or_tooling"
-    },
-    {
-      "vendor": "Vercel",
-      "title": "AI Gateway (OpenAI-compatible proxy — not direct OpenAI)",
-      "url": "https://vercel.com/docs/ai-gateway",
-      "appliesTo": "vercel_ai_gateway"
     }
   ],
   "buildProfiles": {
@@ -699,23 +693,23 @@
       "authEnv": ["OPENAI_API_KEY"]
     },
     {
-      "id": "project_analyze_ai_gateway",
+      "id": "project_analyze",
       "title": "Project file analysis",
-      "description": "OpenAI SDK responses.create against Vercel AI Gateway base URL; model id prefixed openai/ when needed.",
+      "description": "OpenAI SDK responses.create against the direct OpenAI API.",
       "invocation": "openai_responses_create",
-      "provider": "vercel_ai_gateway",
+      "provider": "openai_direct",
       "codeEntry": ["src/app/api/projects/[id]/analyze/route.ts"],
-      "authEnv": ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
+      "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "gpt-4o-mini"
     },
     {
       "id": "text_analyze",
       "title": "Text analysis",
-      "description": "responses.create — direct OpenAI when configured, else AI Gateway.",
+      "description": "responses.create against the direct OpenAI API.",
       "invocation": "openai_responses_create",
-      "provider": "openai_direct_or_vercel_ai_gateway",
+      "provider": "openai_direct",
       "codeEntry": ["src/app/api/text/analyze/route.ts"],
-      "authEnv": ["OPENAI_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"]
+      "authEnv": ["OPENAI_API_KEY"]
     },
     {
       "id": "wizard_enrich_competitors",
@@ -733,7 +727,7 @@
       "invocation": "openai_responses_create_or_ai_sdk_generateText",
       "provider": "openai_direct",
       "codeEntry": ["src/app/api/audit/route.ts"],
-      "authEnv": ["OPENAI_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
+      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
       "defaultModel": "openai/gpt-5.2",
       "fallbackModels": [
         "anthropic/claude-opus-4.6",
@@ -764,11 +758,11 @@
     {
       "id": "inspector_ai_match",
       "title": "Inspector AI match",
-      "description": "OpenAI SDK with AI Gateway base URL or direct API key.",
+      "description": "OpenAI SDK chat-completions against the direct OpenAI API.",
       "invocation": "openai_chat_or_responses",
-      "provider": "vercel_ai_gateway_or_openai_direct",
+      "provider": "openai_direct",
       "codeEntry": ["src/app/api/inspector-ai-match/route.ts"],
-      "authEnv": ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN", "OPENAI_API_KEY"],
+      "authEnv": ["OPENAI_API_KEY"],
       "defaultModel": "gpt-4o-mini"
     }
   ]

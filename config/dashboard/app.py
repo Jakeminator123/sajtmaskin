@@ -194,6 +194,16 @@ def render_where_panel(page: str, dm: dict[str, Any]) -> None:
                 st.markdown(f"- `{line}`")
         else:
             st.caption("Ingen doc-sökväg listad.")
+        human_schemas = meta.get("humanSchemaPaths") or []
+        if human_schemas:
+            st.markdown("**Human schemas** (mänskligt läsbara kontrakt)")
+            for line in human_schemas:
+                st.markdown(f"- `{line}`")
+        strict_schemas = meta.get("strictSchemaPaths") or []
+        if strict_schemas:
+            st.markdown("**Strict schemas** (maskinorienterade kontrakt)")
+            for line in strict_schemas:
+                st.markdown(f"- `{line}`")
         readers = meta.get("codeReaders") or []
         if readers:
             st.markdown("**Kod som läser / använder detta**")
@@ -1129,9 +1139,9 @@ elif page == "ai_models":
                 "Styrs av `/api/audit`. Här kan du sätta primary model och fallback-kedja.",
             ),
             (
-                "project_analyze_ai_gateway",
+                "project_analyze",
                 "Projektanalys",
-                "Gratis kodöversikt för projekt. Gateway-rutt.",
+                "Gratis kodöversikt för projekt via direkt OpenAI-anrop.",
             ),
             (
                 "inspector_ai_match",

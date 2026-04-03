@@ -21,6 +21,12 @@
         "docs/architecture/repository-and-platform.md",
         "config/dashboard/domain-map.json"
       ],
+      "humanSchemaPaths": [
+        "docs/schemas/preview-session-contract.md"
+      ],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/preview-session-contract.schema.json"
+      ],
       "codeReaders": []
     },
     "Codegen static": {
@@ -62,6 +68,9 @@
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
         "docs/architecture/builder-generation.md"
+      ],
+      "humanSchemaPaths": [
+        "docs/schemas/model-build-profiles.md"
       ],
       "codeReaders": [
         "src/lib/ai-models/load-manifest.ts",
@@ -111,8 +120,11 @@
       "docsPaths": [
         "docs/schemas/integrations-and-data.md"
       ],
+      "humanSchemaPaths": [
+        "docs/schemas/integrations-and-data.md"
+      ],
       "codeReaders": [
-        "src/lib/gen/pre-generation-contracts.ts",
+        "src/lib/gen/contract/pre-generation-contracts.ts",
         "src/lib/ai-models/load-generated-site-placeholders.ts"
       ]
     },

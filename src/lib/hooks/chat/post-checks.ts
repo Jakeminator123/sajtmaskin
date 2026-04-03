@@ -326,7 +326,7 @@ async function runSandboxQualityGate(params: {
         toolName: "Quality gate",
         toolCallId,
         state: "output-available",
-        output: { skipped: true, reason: "Sandbox not configured" },
+        output: { skipped: true, reason: "Quality gate not configured" },
       } as UiMessagePart);
       return;
     }

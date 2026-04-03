@@ -41,7 +41,7 @@ export interface SandboxPreviewResult {
   fidelityTier: 2 | 3;
   prodBuildVerified: boolean;
   prodBuildLogSnippet?: string;
-  /** VM reused from session vs new provisioning. */
+  /** VM reused from session vs new provisioning. HTTP route-level `reused_url` is handled before this layer. */
   startOutcome: "resumed" | "recreated";
   /** Telemetry / UI hints for tier-2 provider (Vercel Sandbox vs preview-host). */
   tier2Meta?: SandboxPreviewTier2Meta;
@@ -256,7 +256,7 @@ async function runStartSandboxPreview(
   if (shouldTryPreviewHost && cid && vid) {
     const filesJson = Object.fromEntries(runtimeFiles.map((f) => [f.name, f.content]));
     const started = await startPreviewHostSession({
-      projectId: cid,
+      chatId: cid,
       versionId: vid,
       filesJson,
     });

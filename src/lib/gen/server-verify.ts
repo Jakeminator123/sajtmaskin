@@ -5,8 +5,8 @@
  * fire-and-forget background task. Updates version verification state
  * on the DB; the UI reads server state via version polls.
  *
- * Note: this module may use Vercel Sandbox as a verification VM, but it does
- * not control the primary tier-2 preview provider for end users.
+ * Note: this module uses preview-host's isolated verify lane. It does not
+ * control the primary tier-2 preview provider for end users.
  *
  * Deduplicated: the same versionId will not run twice concurrently.
  */
@@ -25,10 +25,10 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { isSandboxConfigured } from "@/lib/mcp/runtime-url";
 import {
-  runSandboxQualityGateOnExportable,
-  sandboxQualityGateAllPassed,
+  isQualityGateConfigured,
+  runQualityGateOnExportable,
+  qualityGateAllPassed,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/sandbox-quality-gate";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
@@ -39,7 +39,7 @@ const inflight = new Set<string>();
 
 export function isServerVerifyEligible(versionId: string): boolean {
   if (!dbConfigured) return false;
-  if (!isSandboxConfigured()) return false;
+  if (!isQualityGateConfigured()) return false;
   if (inflight.has(versionId)) return false;
   return true;
 }
@@ -69,13 +69,18 @@ export async function triggerServerVerification(params: {
     await markVersionVerifying(versionId).catch(() => null);
 
     const exportable = buildExportableProject(codeFiles);
-    const gateResult = await runSandboxQualityGateOnExportable(exportable, ["typecheck", "build"]);
+    const gateResult = await runQualityGateOnExportable({
+      chatId,
+      versionId,
+      exportable,
+      checks: ["typecheck", "build"],
+    });
     if (!gateResult) {
-      await failVersionVerification(versionId, "Sandbox unavailable during verification.").catch(() => null);
+      await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);
       return;
     }
 
-    const passed = sandboxQualityGateAllPassed(gateResult.results);
+    const passed = qualityGateAllPassed(gateResult.results);
 
     await createEngineVersionErrorLogs([{
       chatId,
@@ -138,10 +143,12 @@ async function tryServerRepairLoop(params: {
   let syntaxResult = await validateGeneratedCode(content);
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
-    const decision = await shouldPromoteAfterRepair(
-      buildExportableProject(parseCodeProject(projectContent).files),
+    const decision = await shouldPromoteAfterRepair({
+      chatId,
+      versionId,
+      exportable: buildExportableProject(parseCodeProject(projectContent).files),
       hadQualityGateFailures,
-    );
+    });
     await createEngineVersionErrorLogs([
       {
         chatId,

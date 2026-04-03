@@ -7,7 +7,7 @@ const docLinkSchema = z.object({
   url: z.string().url(),
   /** What this doc describes: direct OpenAI/Anthropic APIs vs gateway proxy vs SDK. */
   appliesTo: z
-    .enum(["direct_provider_api", "vercel_ai_gateway", "sdk_or_tooling"])
+    .enum(["direct_provider_api", "sdk_or_tooling"])
     .optional(),
 });
 
@@ -206,7 +206,7 @@ const aiModelsManifestSchema = z.object({
   schemaVersion: z.number().int().positive(),
   title: z.string().optional(),
   description: z.string().optional(),
-  /** Short note: primary vendor docs here target direct API calls, not AI Gateway. */
+  /** Short note: primary vendor docs here target direct provider API calls. */
   documentationDirectApiNote: z.string().optional(),
   docLinks: z.array(docLinkSchema).optional(),
   buildProfiles: buildProfilesSchema,

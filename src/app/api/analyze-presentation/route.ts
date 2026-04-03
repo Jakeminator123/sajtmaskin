@@ -7,7 +7,7 @@
  * confidence, posture, and eye contact.
  *
  * When frames are provided, uses GPT-4o (vision) via OpenAI directly
- * for visual body language analysis. Falls back to text-only via gateway.
+ * for visual body language analysis. Text-only path also prefers direct provider calls.
  */
 
 import { NextResponse } from "next/server";
@@ -15,7 +15,6 @@ import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
-import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import {
   ANALYZE_PRESENTATION_DEFAULT_MODEL,
   ANALYZE_PRESENTATION_FALLBACK_MODELS,
@@ -206,7 +205,7 @@ export async function POST(req: Request) {
       // Use OpenAI directly with vision (GPT-4o supports images)
       analysisText = await analyzeWithVision(userTextContent, frames ?? []);
     } else {
-      // Text-only via gateway
+      // Text-only path (direct provider)
       analysisText = await analyzeTextOnly(userTextContent);
     }
 
@@ -277,30 +276,25 @@ async function analyzeWithVision(userText: string, frames: string[]): Promise<st
   return completion.choices[0]?.message?.content?.trim() || "";
 }
 
-/** Text-only analysis via AI Gateway */
+/** Text-only analysis (direct provider first, OpenAI fallback). */
 async function analyzeTextOnly(userText: string): Promise<string> {
-  const hasGatewayAuth =
-    Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
-
-  if (hasGatewayAuth) {
-    try {
-      const result = await generateText({
-        model: createDirectModel(ANALYZE_PRESENTATION_DEFAULT_MODEL),
-        messages: [
-          { role: "system", content: TEXT_ONLY_PROMPT },
-          { role: "user", content: userText },
-        ],
-        maxOutputTokens: 500,
-      });
-      return result.text?.trim() || "";
-    } catch {
-      // Fall through to OpenAI direct
-    }
+  try {
+    const result = await generateText({
+      model: createDirectModel(ANALYZE_PRESENTATION_DEFAULT_MODEL),
+      messages: [
+        { role: "system", content: TEXT_ONLY_PROMPT },
+        { role: "user", content: userText },
+      ],
+      maxOutputTokens: 500,
+    });
+    return result.text?.trim() || "";
+  } catch {
+    // Fall through to OpenAI direct
   }
 
   // Fallback: OpenAI direct
   const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) throw new Error("No AI provider available");
+  if (!apiKey) throw new Error("OPENAI_API_KEY saknas för presentation-analys");
 
   const { default: OpenAI } = await import("openai");
   const openai = new OpenAI({ apiKey });

@@ -50,6 +50,9 @@ config.txt
 
 # --- Media ---
 public/video/
+
+#src/lib/templates/template-embeddings.json
+
 public/images/
 *.mp4
 *.webm
@@ -59,13 +62,6 @@ data/external-template-pipeline/raw-discovery/**
 data/external-template-pipeline/repo-cache/**
 data/external-template-pipeline/reference-library/**
 data/external-template-pipeline/reports/**
-
-# --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
-#src/lib/gen/data/docs-embeddings.json
-#src/lib/gen/scaffolds/scaffold-embeddings.json
-#src/lib/gen/scaffolds/scaffold-research.generated.json
-#src/lib/gen/template-library/template-library-embeddings.json
-#src/lib/gen/template-library/template-library.generated.json
 
 # --- Cursor session / automation / migration ---
 .cursor/plans/

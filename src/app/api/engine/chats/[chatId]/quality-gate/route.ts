@@ -12,22 +12,20 @@ import {
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
 import { analyzeVisualQuality, isVisualQAEnabled, type VisualQAResult } from "@/lib/gen/visual-qa";
 import {
-  SANDBOX_QUALITY_GATE_COMMANDS,
-  SandboxNotConfiguredError,
-  exportableToSandboxFiles,
-  runSandboxQualityGateChecks,
-  sandboxQualityGateAllPassed,
-  type SandboxQualityGateCheckResult,
+  QUALITY_GATE_COMMANDS,
+  QUALITY_GATE_SETUP_HINT,
+  QualityGateNotConfiguredError,
+  exportableToQualityGateFiles,
+  isQualityGateConfigured,
+  runQualityGateChecks,
+  qualityGateAllPassed,
+  type QualityGateCheckResult,
 } from "@/lib/gen/sandbox-quality-gate";
-import {
-  SANDBOX_SETUP_HINT,
-  isSandboxConfigured as isSandboxAuthConfigured,
-} from "@/lib/mcp/runtime-url";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
-/** Uses Vercel Sandbox for verification only (typecheck/build/lint), not as primary user preview runtime. */
+/** Uses preview-host verify lane for verification only (typecheck/build/lint), not the live preview workspace. */
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
@@ -39,13 +37,13 @@ const requestSchema = z.object({
 
 type GateResult = {
   passed: boolean;
-  checks: SandboxQualityGateCheckResult[];
+  checks: QualityGateCheckResult[];
   sandboxDurationMs: number;
   visualQA?: VisualQAResult;
 };
 
 function buildQualityGateSummaryLog(params: {
-  checkResults: SandboxQualityGateCheckResult[];
+  checkResults: QualityGateCheckResult[];
   sandboxDurationMs: number;
 }) {
   const { checkResults, sandboxDurationMs } = params;
@@ -67,7 +65,7 @@ function buildQualityGateSummaryLog(params: {
   };
 }
 
-function buildVerificationSummary(checkResults: SandboxQualityGateCheckResult[]): string {
+function buildVerificationSummary(checkResults: QualityGateCheckResult[]): string {
   const failedChecks = checkResults.filter((result) => !result.passed).map((result) => result.check);
   if (failedChecks.length === 0) {
     return "Automatic verification passed.";
@@ -97,32 +95,37 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     const internalVersionId = scopedVersion.version.id;
     const codeFiles = await getVersionFiles(internalVersionId);
     if (codeFiles && codeFiles.length > 0) {
-      if (!isSandboxAuthConfigured()) {
+      if (!isQualityGateConfigured()) {
         return NextResponse.json(
           {
-            error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)",
-            code: "sandbox_disabled",
-            hint: SANDBOX_SETUP_HINT,
+            error: "Quality gate not configured (missing preview-host verify lane).",
+            code: "quality_gate_disabled",
+            hint: QUALITY_GATE_SETUP_HINT,
           },
           { status: 501 },
         );
       }
 
       const completeProjectFiles = buildExportableProject(codeFiles);
-      const sandboxFiles = exportableToSandboxFiles(completeProjectFiles);
+      const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
 
       await markVersionVerifying(internalVersionId).catch((err) => {
         console.warn("[quality-gate] Failed to mark version verifying:", err);
       });
 
       try {
-        const { results, sandboxDurationMs } = await runSandboxQualityGateChecks(sandboxFiles, checks);
+        const { results, sandboxDurationMs } = await runQualityGateChecks({
+          chatId,
+          versionId: internalVersionId,
+          files: qualityGateFiles,
+          checks,
+        });
 
         let visualQA: VisualQAResult | undefined;
-        if (isVisualQAEnabled() && sandboxQualityGateAllPassed(results)) {
+        if (isVisualQAEnabled() && qualityGateAllPassed(results)) {
           try {
             visualQA = analyzeVisualQuality(
-              sandboxFiles.map((f) => ({ path: f.name, content: f.content })),
+              qualityGateFiles.map((file) => ({ path: file.name, content: file.content })),
             );
           } catch (vqaErr) {
             console.warn("[quality-gate] Visual QA error (non-fatal):", vqaErr);
@@ -130,7 +133,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
 
         const gateResult: GateResult = {
-          passed: sandboxQualityGateAllPassed(results),
+          passed: qualityGateAllPassed(results),
           checks: results,
           sandboxDurationMs,
           visualQA,
@@ -159,7 +162,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   command:
                     r.check === "install"
                       ? "npm install --prefer-offline"
-                      : SANDBOX_QUALITY_GATE_COMMANDS[r.check] ?? null,
+                      : QUALITY_GATE_COMMANDS[r.check as keyof typeof QUALITY_GATE_COMMANDS] ?? null,
                   output: r.output.slice(0, 12_000),
                   outputLength: r.output.length,
                   exitCode: r.exitCode,
@@ -192,12 +195,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         ).catch((updateErr) => {
           console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
         });
-        if (err instanceof SandboxNotConfiguredError) {
+        if (err instanceof QualityGateNotConfiguredError) {
           return NextResponse.json(
             {
               error: err.message,
-              code: "sandbox_disabled",
-              hint: SANDBOX_SETUP_HINT,
+              code: "quality_gate_disabled",
+              hint: QUALITY_GATE_SETUP_HINT,
             },
             { status: 501 },
           );

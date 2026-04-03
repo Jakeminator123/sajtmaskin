@@ -27,7 +27,7 @@ Tolkning: antingen borttagna i Vercel, tomma, eller aldrig satta i production. E
 
 - `SAJTMASKIN_LOG` används i `src/lib/logging/file-logger.ts` men finns **inte** i `src/lib/env.ts` (Zod). Den läses direkt från `process.env` — funkar, men är utanför "single source of truth".
 - Stripe: `STRIPE_PRICE_*_CREDITS` är fortfarande `price_*_placeholder` i OLD — felaktigt för riktig betalning tills riktiga Price IDs sätts i Vercel.
-- Plan 17: byggmotor använder direkt `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`; `AI_GATEWAY_API_KEY` kan fortfarande behövas för vissa routes portvakt lokalt (se ARBETSANTECKNINGAR.txt).
+- Plan 17: byggmotor och sido-routes använder direkt `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`; AI Gateway används inte längre i runtime.
 
 ## Skillnad OLD.local vs OLD.production (snabbt)
 
@@ -38,7 +38,7 @@ Tolkning: antingen borttagna i Vercel, tomma, eller aldrig satta i production. E
 
 - Gå igenom Vercel Dashboard production mot `.env.vercel.production.pulled` (redigera aldrig pull-filen som sanning — `vercel env pull` igen vid behov).
 - Besluta vilka saknade nycklar som ska bort från Vercel vs läggas till.
-- Säkerställ att [`src/lib/env.ts`](../../src/lib/env.ts) / [`config/env-policy.json`](../../config/env-policy.json) speglar beslut (AI Gateway vs direktnycklar); [`../ENV.md`](../ENV.md) bara om ni vill lyfta något i *must-have*-tabellen.
+- Säkerställ att [`src/lib/env.ts`](../../src/lib/env.ts) / [`config/env-policy.json`](../../config/env-policy.json) speglar nuvarande direktnycklar och preview-host-flöden; [`../ENV.md`](../ENV.md) bara om ni vill lyfta något i *must-have*-tabellen.
 - Sätt riktiga Stripe Price IDs om ni ska ta betalt.
 
 ## Kommando för att förnya production-pull

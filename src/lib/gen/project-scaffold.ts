@@ -106,7 +106,7 @@ const TSCONFIG = `{
 
 const NEXT_CONFIG = `import type { NextConfig } from "next";
 
-/** Tier 2 preview-host (Fly): public URL is /{projectId}/* — without this, CSS/JS request /_next/* and 404. */
+/** Tier 2 preview-host (Fly): public URL is /{chatId}/* — the path key is the own-engine chat id, not the app project id. */
 const previewBasePath = process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "";
 
 const nextConfig: NextConfig = {

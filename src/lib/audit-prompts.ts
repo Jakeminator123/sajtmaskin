@@ -229,7 +229,7 @@ VIKTIGT FÖR TEMPLATE_DATA:
 - Alla strängar i JSON ska vara på svenska`;
 
 /**
- * Build the audit prompt for AI Gateway
+ * Build the audit prompt for structured website analysis
  * @param websiteContent - Scraped website content
  * @param url - Original URL
  * @returns Formatted prompt messages

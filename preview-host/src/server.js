@@ -6,19 +6,22 @@ const { randomUUID } = require("node:crypto");
 const { readStoreSync, withStoreLock } = require("./store.js");
 const {
   buildPreviewUrl,
-  destroyProjectWorkspace,
-  findSessionByProjectId,
-  getRuntimeStateForProject,
-  hibernateProject,
+  destroyChatWorkspace,
+  findSessionByChatId,
+  getRuntimeStateForChat,
+  getSessionChatId,
+  hibernateChatRuntime,
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   queueRuntimeBoot,
+  runVerifyJob,
   stopRuntimeForSession,
 } = require("./runtime.js");
 const {
   validateStartPayload,
   validateUpdatePayload,
   validateSessionRefPayload,
+  validateVerifyPayload,
 } = require("./validate.js");
 const { sendRootPlaceholderSvg } = require("./placeholder-svg.js");
 
@@ -75,7 +78,7 @@ function sessionResponse(session) {
   return {
     sessionId: session.sessionId,
     sandboxId: session.sandboxId,
-    projectId: session.projectId,
+    chatId: getSessionChatId(session),
     versionId: session.versionId,
     previewUrl: session.previewUrl,
     status: session.status,
@@ -195,11 +198,12 @@ async function routeRequest(req, res) {
         "POST /preview/session/update",
         "POST /preview/session/hibernate",
         "POST /preview/session/destroy",
+        "POST /preview/verify",
         "GET /preview/session/:id",
         "GET /preview/sandbox/:sandboxId/status",
         "GET /preview/logs/:sandboxId",
         "GET /placeholder.svg",
-        "GET /:projectId/*",
+        "GET /:chatId/*",
       ],
     });
   }
@@ -243,9 +247,10 @@ async function routeRequest(req, res) {
         message: "No active preview session for this sandbox id.",
       });
     }
-    const runtimeState = getRuntimeStateForProject(statusResult.session.projectId);
+    const chatId = getSessionChatId(statusResult.session);
+    const runtimeState = getRuntimeStateForChat(chatId);
     if (!runtimeState.running && statusResult.session.status !== "error" && statusResult.session.status !== "hibernated") {
-      queueRuntimeBoot(statusResult.session.projectId);
+      queueRuntimeBoot(chatId);
     }
     if (runtimeState.running) {
       await withStoreLock((data) => {
@@ -272,7 +277,7 @@ async function routeRequest(req, res) {
     const raw = await readJsonBody(req);
     const validated = validateStartPayload(raw);
     const created = await withStoreLock((data) => {
-      const existing = findSessionByProjectId(data, validated.projectId);
+      const existing = findSessionByChatId(data, validated.chatId);
       const createdAt = existing?.createdAt ?? nowIso();
       const updatedAt = nowIso();
       const sessionExpiresAt = sessionExpiresAtIso();
@@ -281,9 +286,9 @@ async function routeRequest(req, res) {
       const session = {
         sessionId,
         sandboxId,
-        projectId: validated.projectId,
+        chatId: validated.chatId,
         versionId: validated.versionId,
-        previewUrl: buildPreviewUrl(PREVIEW_BASE_URL, validated.projectId),
+        previewUrl: buildPreviewUrl(PREVIEW_BASE_URL, validated.chatId),
         status: "starting",
         lastAction: "start",
         changeClass: validated.changeClass,
@@ -303,12 +308,12 @@ async function routeRequest(req, res) {
         data,
         sandboxId,
         existing
-          ? `Session reused for project ${validated.projectId}; booting updated runtime.`
-          : `Session created for project ${validated.projectId}.`,
+          ? `Session reused for chat ${validated.chatId}; booting updated runtime.`
+          : `Session created for chat ${validated.chatId}.`,
       );
       return session;
     });
-    queueRuntimeBoot(validated.projectId, { restart: true });
+    queueRuntimeBoot(validated.chatId, { restart: true });
     return json(res, 201, sessionResponse(findSessionById(readStoreSync(), created.sessionId) ?? created));
   }
 
@@ -351,7 +356,7 @@ async function routeRequest(req, res) {
         message: "No preview session matched the provided id.",
       });
     }
-    queueRuntimeBoot(updated.projectId, { restart: true });
+    queueRuntimeBoot(getSessionChatId(updated), { restart: true });
     return json(res, 200, sessionResponse(findSessionById(readStoreSync(), updated.sessionId) ?? updated));
   }
 
@@ -381,7 +386,7 @@ async function routeRequest(req, res) {
         message: "No preview session matched the provided id.",
       });
     }
-    await hibernateProject(out.projectId);
+    await hibernateChatRuntime(getSessionChatId(out));
     return json(res, 200, sessionResponse(out));
   }
 
@@ -399,14 +404,15 @@ async function routeRequest(req, res) {
       if (!session) {
         return null;
       }
-      const { sessionId, sandboxId, projectId } = session;
+      const chatId = getSessionChatId(session);
+      const { sessionId, sandboxId } = session;
       session.status = "destroyed";
       session.lastAction = "destroy";
       session.updatedAt = nowIso();
       appendLog(data, sandboxId, "Session destroyed.");
       delete data.sessions[sessionId];
       delete data.sandboxToSession[sandboxId];
-      return { sessionId, sandboxId, projectId };
+      return { sessionId, sandboxId, chatId };
     });
     if (!destroyed) {
       return json(res, 404, {
@@ -416,7 +422,7 @@ async function routeRequest(req, res) {
     }
     await stopRuntimeForSession(destroyed);
     try {
-      await destroyProjectWorkspace(destroyed.projectId);
+      await destroyChatWorkspace(destroyed.chatId);
     } catch {
       // Best-effort cleanup only; the session is already destroyed.
     }
@@ -425,6 +431,35 @@ async function routeRequest(req, res) {
       sessionId: destroyed.sessionId,
       sandboxId: destroyed.sandboxId,
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/preview/verify") {
+    const raw = await readJsonBody(req);
+    const validated = validateVerifyPayload(raw);
+    const verifyId = `verify_${randomUUID()}`;
+    try {
+      const result = await runVerifyJob({
+        verifyId,
+        chatId: validated.chatId,
+        versionId: validated.versionId,
+        filesJson: validated.filesJson,
+        checks: validated.checks,
+      });
+      return json(res, 200, {
+        ok: true,
+        verifyId,
+        chatId: validated.chatId,
+        versionId: validated.versionId,
+        durationMs: result.durationMs,
+        results: result.results,
+      });
+    } catch (error) {
+      return json(res, 500, {
+        error: "verify_failed",
+        message: error instanceof Error ? error.message : "Preview-host verify failed.",
+        verifyId,
+      });
+    }
   }
 
   if (req.method === "GET" && url.pathname.startsWith("/preview/session/")) {

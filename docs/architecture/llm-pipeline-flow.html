@@ -217,10 +217,10 @@ flowchart TD
 
     AD --> AE["Deploy till tier-2 runtime<br/><span class='node-meta'>primärt preview_host / Fly VM<br/>→ Tier 2 preview-URL → iframe</span>"]
 
-    AE --> AF["Bakgrundsverifiering<br/><span class='node-meta'>server-verify.ts<br/>Vercel Sandbox quality-gate<br/>(typecheck + next build)</span>"]
+    AE --> AF["Bakgrundsverifiering<br/><span class='node-meta'>server-verify.ts<br/>preview-host verify-lane<br/>(typecheck + next build)</span>"]
 
     AF -->|"Alla checks OK"| AG["Version promoverad"]
-    AF -->|"Gate null (sandbox nere)"| AN["failVersionVerification<br/><span class='node-meta'>Fastnar aldrig i verifying</span>"]
+    AF -->|"Gate null (verify-lane nere)"| AN["failVersionVerification<br/><span class='node-meta'>Fastnar aldrig i verifying</span>"]
     AF -->|"Checks misslyckas"| AH["tryServerRepairLoop"]
 
     AH --> AI["runAutoFix + syntax +<br/>bestContent-rollback vid regression"]

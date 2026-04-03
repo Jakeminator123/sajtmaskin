@@ -2,7 +2,8 @@ import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
 import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
 
-// "gateway" is the UI label for OpenAI-class assist models; `/api/ai/chat` calls OpenAI via OPENAI_API_KEY (createDirectModel), not Vercel AI Gateway.
+// "gateway" is the legacy UI/internal label for OpenAI-class assist models; `/api/ai/chat`
+// still calls OpenAI directly via OPENAI_API_KEY (`createDirectModel`).
 // "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
 // Prompt assist does not use the v0 Model API.
 export type PromptAssistProvider = "gateway" | "anthropic";

@@ -53,6 +53,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
 
     if (queryValue === "1") {
       window.localStorage.setItem(STORAGE_KEY, "1");
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time sync from URL/localStorage
       setIsVisible(true);
     } else if (queryValue === "0") {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -94,6 +95,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
     if (!isVisible) return;
 
     const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch lifecycle bookkeeping for the overlay
     setIsLoading(true);
     setError(null);
 
@@ -263,21 +265,6 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                       )}
                     >
                       Anthropic key: {snapshot.auth.anthropic ? "set" : "missing"}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-1",
-                        statusChipClass(snapshot.auth.aiGatewayApiKey || snapshot.auth.vercelOidcToken || snapshot.auth.onVercel),
-                      )}
-                    >
-                      Gateway auth:{" "}
-                      {snapshot.auth.aiGatewayApiKey
-                        ? "api-key"
-                        : snapshot.auth.vercelOidcToken
-                          ? "oidc"
-                          : snapshot.auth.onVercel
-                            ? "vercel"
-                            : "missing"}
                     </span>
                   </div>
                 </section>

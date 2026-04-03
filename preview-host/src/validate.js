@@ -3,6 +3,7 @@
 const path = require("node:path");
 
 const CHANGE_CLASSES = new Set(["fresh", "light", "medium", "heavy"]);
+const VERIFY_CHECKS = new Set(["typecheck", "build", "lint"]);
 const MAX_FILES = 500;
 const MAX_PATH_LEN = 512;
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -13,6 +14,20 @@ function requireTrimString(value, fieldName) {
     throw new Error(`Missing or invalid field: ${fieldName}`);
   }
   return value.trim();
+}
+
+/**
+ * `chatId` is the canonical preview-host route/session key.
+ * Accept legacy `projectId` during rollout so older callers remain compatible.
+ */
+function requireChatId(payload) {
+  if (typeof payload.chatId === "string" && payload.chatId.trim()) {
+    return payload.chatId.trim();
+  }
+  if (typeof payload.projectId === "string" && payload.projectId.trim()) {
+    return payload.projectId.trim();
+  }
+  throw new Error("Missing or invalid field: chatId");
 }
 
 /**
@@ -86,7 +101,7 @@ function validateStartPayload(payload) {
     throw new Error("Body must be a JSON object");
   }
   const p = /** @type {Record<string, unknown>} */ (payload);
-  const projectId = requireTrimString(p.projectId, "projectId");
+  const chatId = requireChatId(p);
   const versionId = requireTrimString(p.versionId, "versionId");
   let changeClass = "fresh";
   if (p.changeClass !== undefined && p.changeClass !== null) {
@@ -98,7 +113,7 @@ function validateStartPayload(payload) {
   }
   const filesJson = validateFilesJson(p.filesJson, "filesJson");
   if (!filesJson || Object.keys(filesJson).length === 0) {
-    throw new Error("Invalid filesJson: start requires a non-empty project file set");
+    throw new Error("Invalid filesJson: start requires a non-empty preview file set");
   }
   const preferredBaseImage =
     typeof p.preferredBaseImage === "string" && p.preferredBaseImage.trim()
@@ -119,7 +134,7 @@ function validateStartPayload(payload) {
     resumeStrategy = rs;
   }
   return {
-    projectId,
+    chatId,
     versionId,
     changeClass,
     filesJson,
@@ -177,8 +192,53 @@ function validateSessionRefPayload(payload) {
   };
 }
 
+/**
+ * @param {unknown} payload
+ */
+function validateVerifyPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Body must be a JSON object");
+  }
+  const p = /** @type {Record<string, unknown>} */ (payload);
+  const chatId = requireChatId(p);
+  const versionId = requireTrimString(p.versionId, "versionId");
+  const filesJson = validateFilesJson(p.filesJson, "filesJson");
+  if (!filesJson || Object.keys(filesJson).length === 0) {
+    throw new Error("Invalid filesJson: verify requires a non-empty file set");
+  }
+
+  let checks = ["typecheck", "build"];
+  if (p.checks !== undefined) {
+    if (!Array.isArray(p.checks)) {
+      throw new Error("Invalid checks: expected array");
+    }
+    const normalized = [];
+    for (const value of p.checks) {
+      const check = String(value || "").trim();
+      if (!VERIFY_CHECKS.has(check)) {
+        throw new Error(`Invalid check: ${check}`);
+      }
+      if (!normalized.includes(check)) {
+        normalized.push(check);
+      }
+    }
+    if (normalized.length === 0) {
+      throw new Error("Invalid checks: at least one check is required");
+    }
+    checks = normalized;
+  }
+
+  return {
+    chatId,
+    versionId,
+    filesJson,
+    checks,
+  };
+}
+
 module.exports = {
   validateStartPayload,
   validateUpdatePayload,
   validateSessionRefPayload,
+  validateVerifyPayload,
 };

@@ -25,13 +25,14 @@ Kort aktiv status. Behåll bara det som fortfarande styr arbete nu.
 
 - **Own-engine** är enda aktiva codegen-vägen. `v0-sdk` och `V0_API_KEY` är borta ur runtime.
 - **Tier-2 live-preview** är primärt `preview_host` / VM (Fly.io). `sandbox` lever kvar som **legacy-namn** i DB-kolumner, API-routes, Redis-nycklar och TypeScript-typer — ny kod ska använda preview/VM/tier-2-terminologi.
-- **Vercel Sandbox** (`@vercel/sandbox`) används **enbart** för quality gate (typecheck/build-verifiering), inte som preview-provider.
-- **AI Gateway** (`ai-gateway.vercel.sh`) fasas ut. Huvudkedjan använder direkt OpenAI/Anthropic API. Tre routes har fortfarande gateway-beroende (`inspector-ai-match`, `projects/[id]/analyze`, `text/analyze` fallback). `AI_GATEWAY_API_KEY` ska tas bort när dessa migrats.
+- **Quality gate / server-verify** körs nu via **preview-hosts isolerade verify-lane**, inte via Vercel Sandbox och inte i samma workspace som live-previewn.
+- **AI Gateway** (`ai-gateway.vercel.sh`) är borttagen ur runtime. Huvudkedjan och sido-routes använder direkt OpenAI/Anthropic API.
 - **Tre lager får inte blandas ihop:** preflight, runtime preview och build-verifiering.
 - **Kärnkedjan** own-engine -> finalize -> tier-2 preview -> iframe är levererad. Detaljer och kodpekare finns i `preview-deploy.md`.
 - **Kanonisk sparad artifact** är `engine_versions.files_json`. `project_data` är snapshot/UI-bro, inte source of truth för sparad kod.
 - **Publika preview-svar** ska använda `previewUrl`, inte `demoUrl`.
 - **Export** går genom `buildExportableProject()`.
+- **Schemas**: `docs/schemas/*.md` är fortsatt mänskligt läsbara kontrakt. Ny maskinorienterad kontraktsyta läggs under `docs/schemas/strict/` och kan användas av dashboard/parity-tests, men ersätter inte kodens source of truth.
 
 ---
 
@@ -42,7 +43,7 @@ Kort aktiv status. Behåll bara det som fortfarande styr arbete nu.
 | K-019 kontinuitet | Lås merge-policy för `orchestration_snapshot` och bestäm om snapshot/debug-UI eller sync create-path faktiskt ska göras | 0.5 dag om det bara blir policy + städning; 1-2 dagar om UI eller sync-flöde ska med |
 | Preview-kvalitet | Ersätt placeholder/degraded preview för de integrationer som fortfarande inte blir bra nog | 1-3 dagar plus manuell verifiering |
 | GitHub-export | Bara om den fortfarande behövs; läs kontraktet först så att Postgres + `files_json` fortsatt är kanon | cirka 1-2 dagar efter beslut |
-| AI Gateway-avveckling | Migrera `inspector-ai-match`, `projects/[id]/analyze` och `text/analyze` fallback till direkt OpenAI API; ta bort `AI_GATEWAY_API_KEY` från env-schema och `pickAiGatewayKeyFromEnv()`-gates i audit/analyze-routes | Några timmar per route; `VERCEL_OIDC_TOKEN` behövs kvar för Vercel Sandbox |
+| Verify-lane kvalitet | Finslipa preview-hosts verify-lane: timeoutar, cache/observability och tydligare felklassning för install/typecheck/build/lint | cirka 0.5-1 dag efter att riktig driftdata finns |
 | Sandbox-naming-städ | Gradvis byt cosmetic sandbox-namn (kommentarer, lokala variabler, loggar, hookknamn) mot preview/VM/tier-2; DB-kolumner och API-routes kräver migration och görs separat | Löpande vid andra ändringar |
 | VM-start / telemetri | Justera kallstart, resume och readiness-heuristik utifrån riktig preview-latensdata | cirka 0.5-1 dag när tillräcklig telemetri finns |
 

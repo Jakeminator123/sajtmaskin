@@ -69,11 +69,10 @@ const ENV_KEYS: EnvKeyDefinition[] = [
     notes: "Max route duration for prompt-assist and brief routes",
   },
   { key: "ANTHROPIC_API_KEY", required: false, notes: "Prompt‑assist (Anthropic)" },
-  { key: "AI_GATEWAY_API_KEY", required: false, notes: "AI Gateway" },
   {
     key: "VERCEL_TOKEN",
     required: false,
-    notes: "Vercel API + @vercel/sandbox (see docs/architecture/preview-deploy.md, docs/ENV.md)",
+    notes: "Vercel API + optional Vercel tier-2 fallback (see docs/architecture/preview-deploy.md, docs/ENV.md)",
   },
   {
     key: "VERCEL_TEAM_ID",

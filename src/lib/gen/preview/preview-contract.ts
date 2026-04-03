@@ -2,7 +2,7 @@
  * Contract for sandbox API response shapes.
  */
 
-/** Response body from `POST /api/engine/chats/[chatId]/sandbox-preview`. */
+/** Response body from canonical `POST /api/engine/chats/[chatId]/sandbox-preview` (v0 route is compat). */
 export type SandboxPreviewPostApiJson = {
   ok?: boolean;
   code?: string;
@@ -17,7 +17,7 @@ export type SandboxPreviewPostApiJson = {
   fidelityTier?: number;
   prodBuildVerified?: boolean;
   prodBuildLogSnippet?: string;
-  startOutcome?: "resumed" | "recreated";
+  startOutcome?: "resumed" | "recreated" | "reused_url";
 };
 
 /** `GET /api/v0/chats/[chatId]/sandbox-status?versionId=&sandboxId=` */

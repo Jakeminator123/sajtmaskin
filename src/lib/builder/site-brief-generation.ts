@@ -373,7 +373,7 @@ export function validateBriefModelForHttp(
       body: {
         error: "Missing OpenAI API key",
         setup:
-          "Set OPENAI_API_KEY. Deep brief calls OpenAI directly (createDirectModel), not Vercel AI Gateway.",
+          "Set OPENAI_API_KEY. Deep brief calls OpenAI directly via createDirectModel().",
       },
     };
   }

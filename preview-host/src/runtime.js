@@ -17,9 +17,24 @@ const READINESS_INTERVAL_MS = 1200;
 const READINESS_EMPTY_BODY_MIN_CHARS = 50;
 const READINESS_MAX_EMPTY_BODY_RETRIES = 5;
 const WORKSPACES_DIR = path.join(getDataDir(), "workspaces");
+const VERIFY_WORKSPACES_DIR = path.join(getDataDir(), "verify-workspaces");
+
+const VERIFY_COMMANDS = {
+  typecheck: "npx tsc --noEmit",
+  build: "npx next build",
+  lint: "npx eslint . --max-warnings=0",
+};
+
+const VERIFY_OUTPUT_CAP_BY_STAGE = {
+  install: 16_000,
+  typecheck: 12_000,
+  build: 14_000,
+  lint: 12_000,
+  default: 12_000,
+};
 
 const runtimeChildren = new Map();
-const inflightBootByProject = new Map();
+const inflightBootByChat = new Map();
 
 const proxy = httpProxy.createProxyServer({
   xfwd: true,
@@ -31,12 +46,27 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function safeProjectKey(projectId) {
-  return encodeURIComponent(projectId);
+function getSessionChatId(session) {
+  if (!session || typeof session !== "object") return "";
+  if (typeof session.chatId === "string" && session.chatId.trim()) {
+    return session.chatId.trim();
+  }
+  if (typeof session.projectId === "string" && session.projectId.trim()) {
+    return session.projectId.trim();
+  }
+  return "";
 }
 
-function workspaceDirForProject(projectId) {
-  return path.join(WORKSPACES_DIR, safeProjectKey(projectId));
+function safeChatKey(chatId) {
+  return encodeURIComponent(chatId);
+}
+
+function workspaceDirForChat(chatId) {
+  return path.join(WORKSPACES_DIR, safeChatKey(chatId));
+}
+
+function workspaceDirForVerifyJob(chatId, verifyId) {
+  return path.join(VERIFY_WORKSPACES_DIR, safeChatKey(chatId), verifyId);
 }
 
 function manifestPathForWorkspace(workspaceDir) {
@@ -45,6 +75,23 @@ function manifestPathForWorkspace(workspaceDir) {
 
 function dependencyStatePathForWorkspace(workspaceDir) {
   return path.join(workspaceDir, ".preview-host-deps.json");
+}
+
+function clipVerifyOutput(stage, rawOutput) {
+  const normalized = String(rawOutput || "").trim();
+  if (!normalized) return "";
+  const cap = VERIFY_OUTPUT_CAP_BY_STAGE[stage] ?? VERIFY_OUTPUT_CAP_BY_STAGE.default;
+  if (normalized.length <= cap) return normalized;
+  const head = Math.floor(cap * 0.35);
+  const tail = Math.max(0, cap - head - 64);
+  const omitted = Math.max(0, normalized.length - head - tail);
+  return [
+    normalized.slice(0, head).trimEnd(),
+    `...[${stage} output truncated: ${omitted} chars omitted]...`,
+    normalized.slice(-tail).trimStart(),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 async function appendRuntimeLog(sandboxId, message) {
@@ -64,9 +111,9 @@ async function updateSessionById(sessionId, mutate) {
   });
 }
 
-function findSessionByProjectId(data, projectId) {
+function findSessionByChatId(data, chatId) {
   for (const session of Object.values(data.sessions)) {
-    if (session && session.projectId === projectId) {
+    if (session && getSessionChatId(session) === chatId) {
       return session;
     }
   }
@@ -80,10 +127,10 @@ function listSessions(data) {
 function routeInfoFromPathname(pathname) {
   const parts = pathname.split("/").filter(Boolean);
   if (parts.length === 0) return null;
-  const projectId = decodeURIComponent(parts[0]);
+  const chatId = decodeURIComponent(parts[0]);
   const restPath = `/${parts.slice(1).join("/")}`;
   return {
-    projectId,
+    chatId,
     restPath: restPath === "/" ? "/" : restPath,
   };
 }
@@ -107,7 +154,7 @@ function portLooksFree(port) {
   });
 }
 
-async function resolvePortForProject(projectId, preferredPort) {
+async function resolvePortForChat(chatId, preferredPort) {
   const sessions = listSessions(readStoreSync());
   const usedPorts = new Set(
     sessions
@@ -119,7 +166,7 @@ async function resolvePortForProject(projectId, preferredPort) {
       return preferredPort;
     }
   }
-  const offset = hashString(projectId) % PORT_COUNT;
+  const offset = hashString(chatId) % PORT_COUNT;
   for (let i = 0; i < PORT_COUNT; i += 1) {
     const port = PORT_BASE + ((offset + i) % PORT_COUNT);
     if (usedPorts.has(port)) continue;
@@ -195,7 +242,30 @@ function spawnNpm(args, options) {
   return spawn("npm", args, options);
 }
 
-/** Older exports without codegen repair: inject basePath hook so Fly /{projectId} previews get CSS/JS. */
+function runShellCommand(command, options) {
+  return new Promise((resolve, reject) => {
+    const child =
+      process.platform === "win32"
+        ? spawn("cmd.exe", ["/d", "/s", "/c", command], options)
+        : spawn("sh", ["-lc", command], options);
+    let output = "";
+    child.stdout.on("data", (chunk) => {
+      output += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      output += String(chunk);
+    });
+    child.once("error", reject);
+    child.once("close", (code) => {
+      resolve({
+        exitCode: typeof code === "number" ? code : 1,
+        output,
+      });
+    });
+  });
+}
+
+/** Older exports without codegen repair: inject basePath hook so Fly /{chatId} previews get CSS/JS. */
 function patchNextConfigForPreviewBasePath(workspaceDir) {
   const cfgPath = path.join(workspaceDir, "next.config.ts");
   if (!fs.existsSync(cfgPath)) return;
@@ -210,8 +280,7 @@ function patchNextConfigForPreviewBasePath(workspaceDir) {
   fs.writeFileSync(cfgPath, s, "utf8");
 }
 
-function writeWorkspaceFiles(projectId, filesJson) {
-  const workspaceDir = workspaceDirForProject(projectId);
+function writeFilesIntoWorkspace(workspaceDir, filesJson) {
   ensureDir(workspaceDir);
   const priorManifest = readJsonIfExists(manifestPathForWorkspace(workspaceDir));
   const previousFiles = Array.isArray(priorManifest?.files) ? priorManifest.files : [];
@@ -233,6 +302,10 @@ function writeWorkspaceFiles(projectId, filesJson) {
     "utf8",
   );
   return workspaceDir;
+}
+
+function writeWorkspaceFiles(chatId, filesJson) {
+  return writeFilesIntoWorkspace(workspaceDirForChat(chatId), filesJson);
 }
 
 function responseHeadersLookLikeHtmlDocument(res) {
@@ -318,6 +391,46 @@ function dependencyFingerprint(filesJson) {
   return hash.digest("hex");
 }
 
+function projectOwnsLintSetup(filesJson) {
+  const names = new Set(
+    Object.keys(filesJson || {}).map((name) => name.replace(/\\/g, "/").toLowerCase()),
+  );
+  if (
+    names.has("eslint.config.mjs") ||
+    names.has("eslint.config.js") ||
+    names.has("eslint.config.cjs") ||
+    names.has(".eslintrc") ||
+    names.has(".eslintrc.js") ||
+    names.has(".eslintrc.cjs") ||
+    names.has(".eslintrc.json")
+  ) {
+    return true;
+  }
+
+  const packageJson = typeof filesJson?.["package.json"] === "string" ? filesJson["package.json"] : null;
+  if (!packageJson) return false;
+
+  try {
+    const parsed = JSON.parse(packageJson);
+    const deps = {
+      ...(parsed.dependencies || {}),
+      ...(parsed.devDependencies || {}),
+    };
+    const depNames = Object.keys(deps);
+    if (
+      depNames.some(
+        (name) =>
+          name === "eslint" || name.startsWith("eslint-") || name.startsWith("@eslint/"),
+      )
+    ) {
+      return true;
+    }
+    return typeof parsed.scripts?.lint === "string" && parsed.scripts.lint.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
   const fingerprint = dependencyFingerprint(filesJson);
   const nodeModulesDir = path.join(workspaceDir, "node_modules");
@@ -363,6 +476,72 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
   });
 }
 
+async function runVerifyJob(params) {
+  const { verifyId, chatId, versionId, filesJson, checks } = params;
+  const workspaceDir = workspaceDirForVerifyJob(chatId, verifyId);
+  const startedAt = Date.now();
+  try {
+    writeFilesIntoWorkspace(workspaceDir, filesJson);
+    const results = [];
+
+    const installResult = await runShellCommand("npm install --prefer-offline", {
+      cwd: workspaceDir,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: sanitizedEnv(),
+    });
+    const installOutput = clipVerifyOutput("install", installResult.output);
+    results.push({
+      check: "install",
+      passed: installResult.exitCode === 0,
+      exitCode: installResult.exitCode,
+      output:
+        installResult.exitCode === 0
+          ? "npm install --prefer-offline passed."
+          : installOutput ||
+            `(No install output captured; exit ${installResult.exitCode}).`,
+    });
+    if (installResult.exitCode !== 0) {
+      return { verifyId, versionId, durationMs: Date.now() - startedAt, results };
+    }
+
+    const ownsLintSetup = projectOwnsLintSetup(filesJson);
+    for (const check of checks) {
+      if (check === "lint" && !ownsLintSetup) {
+        results.push({
+          check,
+          passed: true,
+          exitCode: 0,
+          output:
+            "Skipped lint: exported project does not include its own ESLint config or dependency set.",
+        });
+        continue;
+      }
+      const command = VERIFY_COMMANDS[check];
+      if (!command) continue;
+      const result = await runShellCommand(command, {
+        cwd: workspaceDir,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: sanitizedEnv(),
+      });
+      const output = clipVerifyOutput(check, result.output);
+      const passed = result.exitCode === 0;
+      results.push({
+        check,
+        passed,
+        exitCode: result.exitCode,
+        output:
+          passed || output
+            ? output
+            : `(No ${check} output captured; exit ${result.exitCode}).`,
+      });
+    }
+
+    return { verifyId, versionId, durationMs: Date.now() - startedAt, results };
+  } finally {
+    await removeDirWithRetries(workspaceDir).catch(() => {});
+  }
+}
+
 function stopChildProcessTree(child) {
   return new Promise((resolve) => {
     if (!child || child.exitCode !== null) {
@@ -399,7 +578,8 @@ async function stopRuntimeForSession(session) {
 }
 
 async function spawnDevServer(session, workspaceDir, runtimePort) {
-  const basePath = `/${session.projectId}`;
+  const chatId = getSessionChatId(session);
+  const basePath = `/${chatId}`;
   const child = spawnNpm(
     ["run", "dev", "--", "--hostname", LOOPBACK, "--port", String(runtimePort)],
     {
@@ -443,7 +623,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
 
   await appendRuntimeLog(
     session.sandboxId,
-    `Starting dev runtime on port ${runtimePort} for project ${session.projectId}.`,
+    `Starting dev runtime on port ${runtimePort} for chat ${chatId}.`,
   );
 }
 
@@ -467,9 +647,10 @@ async function bootRuntimeForSession(session, options = {}) {
   });
 
   try {
-    const workspaceDir = writeWorkspaceFiles(session.projectId, session.filesJson);
+    const chatId = getSessionChatId(session);
+    const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
     patchNextConfigForPreviewBasePath(workspaceDir);
-    const runtimePort = await resolvePortForProject(session.projectId, Number(session.runtimePort));
+    const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
     await runInstallCommand(workspaceDir, session.sandboxId, session.filesJson);
     await spawnDevServer(session, workspaceDir, runtimePort);
 
@@ -479,7 +660,7 @@ async function bootRuntimeForSession(session, options = {}) {
       stored.updatedAt = nowIso();
     });
 
-    waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(session.projectId)}/`)
+    waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`)
       .then(() =>
         appendRuntimeLog(
           session.sandboxId,
@@ -511,40 +692,40 @@ async function bootRuntimeForSession(session, options = {}) {
   }
 }
 
-async function ensureRuntimeForProject(projectId, options = {}) {
-  const existing = inflightBootByProject.get(projectId);
+async function ensureRuntimeForChat(chatId, options = {}) {
+  const existing = inflightBootByChat.get(chatId);
   if (existing) {
     return existing;
   }
   const run = (async () => {
     const data = readStoreSync();
-    const session = findSessionByProjectId(data, projectId);
+    const session = findSessionByChatId(data, chatId);
     if (!session) return null;
     const result = await bootRuntimeForSession(session, options);
     return { session, runtimePort: result.runtimePort };
   })();
-  inflightBootByProject.set(projectId, run);
+  inflightBootByChat.set(chatId, run);
   try {
     return await run;
   } finally {
-    inflightBootByProject.delete(projectId);
+    inflightBootByChat.delete(chatId);
   }
 }
 
-function queueRuntimeBoot(projectId, options = {}) {
-  void ensureRuntimeForProject(projectId, options).catch(() => {
+function queueRuntimeBoot(chatId, options = {}) {
+  void ensureRuntimeForChat(chatId, options).catch(() => {
     // Failure is already written into session/log state by bootRuntimeForSession.
   });
 }
 
-function getRuntimeStateForProject(projectId) {
-  const session = findSessionByProjectId(readStoreSync(), projectId);
+function getRuntimeStateForChat(chatId) {
+  const session = findSessionByChatId(readStoreSync(), chatId);
   if (!session) {
     return { session: null, running: false, booting: false, runtimePort: null };
   }
   const tracked = runtimeChildren.get(session.sessionId);
   const running = Boolean(tracked && tracked.child.exitCode === null);
-  const booting = inflightBootByProject.has(projectId) || session.status === "starting";
+  const booting = inflightBootByChat.has(chatId) || session.status === "starting";
   return {
     session,
     running,
@@ -554,11 +735,11 @@ function getRuntimeStateForProject(projectId) {
 }
 
 /**
- * Next dev is started with SAJTMASKIN_PREVIEW_BASE_PATH=/{projectId}, so it expects
- * paths like /{projectId}/ and /{projectId}/_next/... — not stripped to / only.
+ * Next dev is started with SAJTMASKIN_PREVIEW_BASE_PATH=/{chatId}, so it expects
+ * paths like /{chatId}/ and /{chatId}/_next/... — not stripped to / only.
  */
-function rewriteRequestUrl(req, projectId, restPath, search) {
-  const prefix = `/${encodeURIComponent(projectId)}`;
+function rewriteRequestUrl(req, chatId, restPath, search) {
+  const prefix = `/${encodeURIComponent(chatId)}`;
   const tail = !restPath || restPath === "/" ? "" : restPath;
   req.url = `${prefix}${tail}${search || ""}`;
 }
@@ -584,7 +765,7 @@ function sendRuntimeStartingPage(res, session) {
     <main>
       <h1>Startar preview</h1>
       <p class="muted">Preview-host bygger projektet och startar Next.js i bakgrunden. Sidan laddar om automatiskt om några sekunder.</p>
-      <p class="muted">Projekt: <code>${session.projectId}</code></p>
+      <p class="muted">Chat: <code>${getSessionChatId(session)}</code></p>
       <p class="muted">Status: <code>${session.status}</code></p>
     </main>
   </body>
@@ -601,14 +782,14 @@ function isConnRefusedError(err) {
 async function proxyPreviewRequest(req, res, pathname, search = "") {
   const info = routeInfoFromPathname(pathname);
   if (!info) return false;
-  const state = getRuntimeStateForProject(info.projectId);
+  const state = getRuntimeStateForChat(info.chatId);
   if (!state.session) return false;
   if (state.running && state.runtimePort) {
-    rewriteRequestUrl(req, info.projectId, info.restPath, search);
+    rewriteRequestUrl(req, info.chatId, info.restPath, search);
     proxy.web(req, res, { target: `http://${LOOPBACK}:${state.runtimePort}` });
     return true;
   }
-  queueRuntimeBoot(info.projectId);
+  queueRuntimeBoot(info.chatId);
   sendRuntimeStartingPage(res, state.session);
   return true;
 }
@@ -616,23 +797,23 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
 async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   const info = routeInfoFromPathname(pathname);
   if (!info) return false;
-  const runtime = await ensureRuntimeForProject(info.projectId);
+  const runtime = await ensureRuntimeForChat(info.chatId);
   if (!runtime) return false;
-  rewriteRequestUrl(req, info.projectId, info.restPath, search);
+  rewriteRequestUrl(req, info.chatId, info.restPath, search);
   proxy.ws(req, socket, head, { target: `ws://${LOOPBACK}:${runtime.runtimePort}` });
   return true;
 }
 
-async function hibernateProject(projectId) {
+async function hibernateChatRuntime(chatId) {
   const data = readStoreSync();
-  const session = findSessionByProjectId(data, projectId);
+  const session = findSessionByChatId(data, chatId);
   if (!session) return null;
   await stopRuntimeForSession(session);
   return session;
 }
 
-async function destroyProjectWorkspace(projectId) {
-  await removeDirWithRetries(workspaceDirForProject(projectId));
+async function destroyChatWorkspace(chatId) {
+  await removeDirWithRetries(workspaceDirForChat(chatId));
 }
 
 proxy.on("error", (err, req, res) => {
@@ -643,7 +824,7 @@ proxy.on("error", (err, req, res) => {
     const pathname = String(rawUrl).split("?")[0] || "/";
     const info = routeInfoFromPathname(pathname);
     if (info) {
-      const session = findSessionByProjectId(readStoreSync(), info.projectId);
+      const session = findSessionByChatId(readStoreSync(), info.chatId);
       if (session) {
         void (async () => {
           try {
@@ -651,7 +832,7 @@ proxy.on("error", (err, req, res) => {
           } catch {
             // ignore; boot will attempt recovery
           } finally {
-            queueRuntimeBoot(info.projectId, { restart: true });
+            queueRuntimeBoot(info.chatId, { restart: true });
           }
         })();
         sendRuntimeStartingPage(res, session);
@@ -680,16 +861,18 @@ proxy.on("error", (err, req, res) => {
 });
 
 module.exports = {
-  buildPreviewUrl(baseUrl, projectId) {
-    return `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(projectId)}`;
+  buildPreviewUrl(baseUrl, chatId) {
+    return `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(chatId)}`;
   },
-  ensureRuntimeForProject,
-  getRuntimeStateForProject,
+  ensureRuntimeForChat,
+  getRuntimeStateForChat,
+  getSessionChatId,
   queueRuntimeBoot,
   proxyPreviewRequest,
   proxyPreviewUpgrade,
-  findSessionByProjectId,
-  hibernateProject,
-  destroyProjectWorkspace,
+  findSessionByChatId,
+  hibernateChatRuntime,
+  destroyChatWorkspace,
+  runVerifyJob,
   stopRuntimeForSession,
 };

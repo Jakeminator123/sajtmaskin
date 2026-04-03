@@ -12,10 +12,10 @@ Alla **standardvärden** som går att styra centralt ligger i [`manifest.json`](
 | **Verifier** | Read-only review efter syntax, styr polish-scope | `generateObject` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Post-generation polish** | Filpolish efter verifier | `generateText` | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
 | **Embeddings** | Semantisk sök i index | `openai.embeddings.create` | `OPENAI_API_KEY` |
-| **Vissa admin/wizard/inspektor** | Analys, JSON | OpenAI **Responses** API | `OPENAI_API_KEY` eller **Vercel AI Gateway** |
-| **Projektanalys** | Gratis kodöversikt | Responses via Gateway base URL | `AI_GATEWAY_API_KEY` / `VERCEL_OIDC_TOKEN` |
+| **Vissa admin/wizard/inspektor** | Analys, JSON | OpenAI **Responses** API | `OPENAI_API_KEY` |
+| **Projektanalys** | Gratis kodöversikt | OpenAI Responses API | `OPENAI_API_KEY` |
 
-> **Plattformsberoende:** AI SDK (`ai` npm-paketet) är open-source (MIT) och provideragnostiskt — det är inte Vercel-låst. Däremot är **Vercel AI Gateway** (sista två raderna) en faktisk Vercel-tjänst som kvarstår i tre routes. Se avsnittet *Direkt API vs AI Gateway* nedan.
+> **Plattformsberoende:** AI SDK (`ai` npm-paketet) är open-source (MIT) och provideragnostiskt — det är inte Vercel-låst.
 
 Detaljer per fil och exakt `invocation`-fält finns under `workloads[]` i `manifest.json`.
 
@@ -31,12 +31,11 @@ Detta är **parallellt med** `config/codegen-static-prompt.json` + `prompt-stati
 
 **Tier-2 preview / VM:** Både `startSandboxPreview` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) mergar nycklarna från denna fil in i `.env.local` via `buildSandboxEnvLocalContents` i [`src/lib/gen/sandbox-env-local.ts`](../../src/lib/gen/sandbox-env-local.ts). Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever kvar i delar av kontraktet och i vissa fallback-/verifieringsspår. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
 
-## Direkt API vs AI Gateway (viktigt)
+## Direkt provider-API vs SDK (viktigt)
 
 Fältet **`manifest.documentationDirectApiNote`** och varje post i **`manifest.docLinks[].appliesTo`** skiljer:
 
-- **`direct_provider_api`** — officiell OpenAI- eller Anthropic-dokumentation för anrop mot leverantörens **egna** API:er (t.ex. `OPENAI_API_KEY` mot OpenAI, `ANTHROPIC_API_KEY` mot Claude API). Det är **inte** samma sak som att gå via **Vercel AI Gateway** (`https://ai-gateway.vercel.sh/v1`), som är en separat OpenAI-kompatibel proxy med egen dokumentation.
-- **`vercel_ai_gateway`** — gäller gateway-proxyn. **Kvarvarande Vercel-plattformsberoende** — används i `projects/[id]/analyze`, `inspector-ai-match` och `text/analyze`.
+- **`direct_provider_api`** — officiell OpenAI- eller Anthropic-dokumentation för anrop mot leverantörens **egna** API:er (t.ex. `OPENAI_API_KEY` mot OpenAI, `ANTHROPIC_API_KEY` mot Claude API).
 - **`sdk_or_tooling`** — AI SDK m.m. (open-source MIT-bibliotek ovanpå provider-API:er; publiceras av Vercel men är provideragnostiskt).
 
 Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
@@ -48,7 +47,6 @@ Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
 - [Anthropic — Models overview (Claude API ID:n)](https://platform.claude.com/docs/en/about-claude/models/overview) (`direct_provider_api`)
 - [Anthropic — Messages API](https://docs.anthropic.com/en/api/messages) (`direct_provider_api`)
 - [AI SDK — streamText](https://sdk.vercel.ai/docs/reference/ai-sdk-core/stream-text) (`sdk_or_tooling`, open-source MIT)
-- [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) (`vercel_ai_gateway`, plattformsbundet)
 
 ## Mer läsning
 

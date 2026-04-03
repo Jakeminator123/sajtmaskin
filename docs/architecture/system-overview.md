@@ -12,7 +12,7 @@
 
 ```
 Användarprompt
-  → Prompt assist (polish / deep brief, valfritt via AI Gateway)
+  → Prompt assist (polish / deep brief, direkt mot OpenAI/Anthropic)
   → Orkestrering: scaffold, route-plan, kontrakt, systemprompt
   → Generering (build profile: fast / pro / max / codex m.fl.)
   → Post: autofix, esbuild, URL/expansion, filparsning, scaffold-merge
@@ -42,7 +42,7 @@ Canonical tabell och manifest: [`docs/schemas/model-build-profiles.md`](../schem
 |--------|------------------|
 | Kodgenerering | `OPENAI_API_KEY` |
 | Prompt assist (direkt) | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` |
-| Audit / analys / vissa sido-routes | `AI_GATEWAY_API_KEY` eller giltig `VERCEL_OIDC_TOKEN` |
+| Audit / analys / vissa sido-routes | `OPENAI_API_KEY` (och ibland `ANTHROPIC_API_KEY` for fallbackkedjor) |
 
 ## Scaffold-system
 

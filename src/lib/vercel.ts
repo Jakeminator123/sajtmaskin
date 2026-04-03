@@ -1,5 +1,5 @@
 /**
- * Vercel token helpers for REST API calls, Sandbox credentials, and AI Gateway (OIDC).
+ * Vercel token helpers for REST API calls and Vercel-authenticated preview flows.
  */
 
 const OIDC_MIN_REMAINING_SEC = 60;
@@ -26,11 +26,6 @@ function vercelOidcTokenLooksUsable(raw: string): boolean {
   return exp > now + OIDC_MIN_REMAINING_SEC;
 }
 
-/** True when running on Vercel-hosted runtime (platform may inject OIDC / gateway). */
-export function isVercelHostedRuntime(): boolean {
-  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV?.trim());
-}
-
 /**
  * `VERCEL_OIDC_TOKEN` is only treated as present for auth checks when the JWT is
  * non-expired. Stale values in `.env.local` must not satisfy "configured" gates.
@@ -39,18 +34,6 @@ export function isUsableVercelOidcToken(): boolean {
   const raw = process.env.VERCEL_OIDC_TOKEN?.trim();
   if (!raw) return false;
   return vercelOidcTokenLooksUsable(raw);
-}
-
-/**
- * AI Gateway accepts `AI_GATEWAY_API_KEY` or a short-lived OIDC JWT. Never return an
- * expired OIDC string as a key.
- */
-export function pickAiGatewayKeyFromEnv(): string | null {
-  const apiKey = process.env.AI_GATEWAY_API_KEY?.trim();
-  if (apiKey) return apiKey;
-  const oidc = process.env.VERCEL_OIDC_TOKEN?.trim();
-  if (oidc && vercelOidcTokenLooksUsable(oidc)) return oidc;
-  return null;
 }
 
 function normalizeVercelToken(value: string | undefined): string {

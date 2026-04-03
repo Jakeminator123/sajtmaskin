@@ -1,6 +1,6 @@
 /**
  * AI model routing policy for prompt-assist routes.
- * Uses direct provider calls (OpenAI/Anthropic) instead of Vercel AI Gateway.
+ * Uses direct provider calls (OpenAI/Anthropic).
  */
 
 import { createOpenAI } from "@ai-sdk/openai";
@@ -21,7 +21,7 @@ function parseModelString(model: string): { provider: string; modelId: string } 
 
 /**
  * Create a LanguageModel from a "provider/model" string using direct API keys.
- * Replaces gateway() calls — no Vercel AI Gateway dependency.
+ * Replaces older gateway()-style routing with direct provider calls.
  */
 export function createDirectModel(model: string): LanguageModel {
   const { provider, modelId } = parseModelString(model);

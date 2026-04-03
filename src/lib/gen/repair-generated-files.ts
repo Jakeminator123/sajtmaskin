@@ -37,7 +37,7 @@ const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smo
 
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 
-/** Tier 2 preview-host serves at /{projectId}/* — Next must emit /{projectId}/_next/... not /_next/... */
+/** Tier 2 preview-host serves at /{chatId}/* — the path key is the own-engine chat id, not the app project id. */
 function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: string): {
   code: string;
   fixed: boolean;
