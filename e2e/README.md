@@ -23,7 +23,7 @@
 
 **Spec (tracked):** [`vercel-templates/scrape-catalog.spec.ts`](vercel-templates/scrape-catalog.spec.ts)
 
-**Npm:** `references:discover`, `references:discover:second-pass`, `references:discover:full` — aliases `scaffolds:discover`, `scaffolds:discover:full`.
+**Npm:** `references:discover`, `references:discover:second-pass`, `references:discover:full`.
 
 Output: `data/external-template-pipeline/raw-discovery/current/` (see spec header). This is the **external-template research** lane, not v0 gallery templates (`templates:*`).
 

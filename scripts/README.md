@@ -393,11 +393,10 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
 
-## references:discover / scaffolds:discover
+## references:discover
 
-Historiskt hette discovery-flödet `scaffolds:discover`, men det producerar inte
-interna runtime-scaffolds. Nu kör det Playwright-baserad extern
-template-discovery som normaliseras till `data/external-template-pipeline/raw-discovery/current/`.
+Playwright-baserad extern template-discovery som normaliseras till
+`data/external-template-pipeline/raw-discovery/current/`.
 
 Använd i första hand:
 
@@ -405,13 +404,6 @@ Använd i första hand:
 npm run references:discover
 npm run references:discover:second-pass
 npm run references:discover:full
-```
-
-Kompatibilitetsalias finns kvar:
-
-```bash
-npm run scaffolds:discover
-npm run scaffolds:discover:full
 ```
 
 **OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md); äldre narrativfiler i git-historik.
