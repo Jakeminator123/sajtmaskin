@@ -393,6 +393,12 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
 
+Nuvarande eval-checkar inkluderar också:
+
+- `project-sanity` for cross-file/dependency-risker som saknade package pins eller kanda installproblem
+- `no-bracket-placeholders` for kvarlamnade innehallsplaceholders som `[Company Name]`
+- `tier2-readiness` for om samma preflight-kontrakt som runtime använder fortfarande skulle tillata tier-2 preview
+
 ## references:discover
 
 Playwright-baserad extern template-discovery som normaliseras till

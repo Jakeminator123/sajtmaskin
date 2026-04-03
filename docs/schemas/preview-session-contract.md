@@ -116,6 +116,12 @@ Stable contract types:
 - `GET /preview/sandbox/:sandboxId/status`
 - `GET /preview/logs/:sandboxId`
 
+When preview-host runs outside local development, all `/preview/*` routes require
+auth via the shared preview-host key:
+
+- app side: `SAJTMASKIN_PREVIEW_HOST_API_KEY`
+- host side: `PREVIEW_HOST_API_KEY`
+
 ### Verify route
 
 - `POST /preview/verify`

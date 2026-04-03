@@ -41,6 +41,9 @@ const CATEGORY_LABELS: Record<ScoreCategory, string> = {
 const CATEGORY_TARGET = 0.7;
 
 const CHECK_TO_CATEGORY: Record<string, ScoreCategory> = {
+  "project-sanity": "autofix",
+  "tier2-readiness": "autofix",
+  "no-bracket-placeholders": "code-quality",
   "file-count": "code-quality",
   "required-files": "code-quality",
   exports: "code-quality",

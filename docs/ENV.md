@@ -63,12 +63,13 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 Nar `preview-host` anvands pa Fly finns **två** olika env-ytor:
 
-- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_TIER2_RUNTIME`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, valfritt `SAJTMASKIN_PREVIEW_HOST_API_KEY`.
-- **Preview-host-tjansten (Fly secrets / env):** `PREVIEW_HOST_API_KEY`, valfritt `PREVIEW_HOST_DATA_DIR`.
+- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_TIER2_RUNTIME`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` nar preview-host kor icke-lokalt.
+- **Preview-host-tjansten (Fly secrets / env):** `PREVIEW_HOST_API_KEY` och valfritt `PREVIEW_HOST_DATA_DIR`.
 
 Praktisk rekommendation:
 
 - Satt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev` (root-URL, inte `/preview`)
+- Satt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` pa preview-hosten
 - Satt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
 - Lat `SAJTMASKIN_TIER2_RUNTIME` vara unset for strikt preview-host-default, eller satt den till `preview_host` explicit
 - Satt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` endast om du vill ha Vercel-fallback

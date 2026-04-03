@@ -64,6 +64,7 @@ I praktiken betyder det:
 
 ```env
 SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://vm-fly-jakem.fly.dev
+SAJTMASKIN_PREVIEW_HOST_API_KEY=...
 SAJTMASKIN_TIER2_RUNTIME=preview_host
 NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev
 ```
@@ -79,7 +80,7 @@ Nu ar vi forbi forsta deployen. Det viktigaste nasta steget ar inte fler feature
 Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DIR` (default `./data` i containern).
 
 - satt samma katalog pa en **Fly volume** om du skalar till flera machines
-- valfritt: `PREVIEW_HOST_API_KEY` pa servern + `Authorization: Bearer ...` (eller `X-Preview-Host-Key`) pa klienten
+- for icke-lokal drift: satt `PREVIEW_HOST_API_KEY` pa servern och samma varde som `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appen (`Authorization: Bearer ...` eller `X-Preview-Host-Key`)
 
 ### Nasta steg (handoff)
 
@@ -171,7 +172,7 @@ Fly-appen finns redan. Det praktiska driftflodet nu ar:
 
 1. Ga in i `preview-host/`
 2. valfritt: skapa en volume for `/data`
-3. valfritt: satt `PREVIEW_HOST_API_KEY`
+3. satt `PREVIEW_HOST_API_KEY`
 4. kor `flyctl deploy`
 5. testa `/health`, `start`, `status` och `hibernate` pa den deployade URL:en
 
@@ -205,7 +206,7 @@ Fran `preview-host/`:
 
 1. `flyctl auth whoami`
 2. valfritt: `fly volumes create preview_host_data --size 1 -r arn -a vm-fly-jakem`
-3. valfritt: `fly secrets set PREVIEW_HOST_API_KEY=... -a vm-fly-jakem`
+3. `fly secrets set PREVIEW_HOST_API_KEY=... -a vm-fly-jakem`
 4. `flyctl deploy`
 5. oppna `https://vm-fly-jakem.fly.dev/health`
 
@@ -294,7 +295,7 @@ Foreslaget minsta kontrakt:
 - `GET /preview/logs/:sandboxId`
 - `POST /preview/verify`
 
-Alla `/preview/*`-endpoints kan skyddas med `PREVIEW_HOST_API_KEY` (Bearer eller `X-Preview-Host-Key`).
+Alla `/preview/*`-endpoints kraver `PREVIEW_HOST_API_KEY` i icke-lokal miljo (Bearer eller `X-Preview-Host-Key`).
 
 Payload in fran Sajtmaskin bor minst innehalla:
 

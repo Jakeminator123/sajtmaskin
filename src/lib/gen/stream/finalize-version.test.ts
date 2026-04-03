@@ -10,6 +10,7 @@ const materializeImages = vi.hoisted(() => vi.fn());
 const runPolishPass = vi.hoisted(() => vi.fn());
 const isPolishPassEnabled = vi.hoisted(() => vi.fn());
 const runVerifierPass = vi.hoisted(() => vi.fn());
+const isVerifierPassEnabled = vi.hoisted(() => vi.fn());
 const resolvePostGenerationPolishConfig = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
@@ -62,6 +63,7 @@ vi.mock("@/lib/gen/polish-pass", () => ({
 }));
 
 vi.mock("@/lib/gen/verifier-pass", () => ({
+  isVerifierPassEnabled,
   runVerifierPass,
 }));
 
@@ -189,6 +191,7 @@ describe("finalizeAndSaveVersion", () => {
       filesChanged: 0,
     });
     isPolishPassEnabled.mockReturnValue(true);
+    isVerifierPassEnabled.mockReturnValue(true);
     runVerifierPass.mockResolvedValue({
       blocking: [],
       quality: [],
@@ -664,10 +667,139 @@ describe("finalizeAndSaveVersion", () => {
             }),
             finalizePath: "fast+deep",
             finalizePathReason: "default",
+            postStreamSteps: expect.objectContaining({
+              autofix: expect.objectContaining({ status: "done" }),
+              url_expand: expect.objectContaining({ status: "done" }),
+              materialize_images: expect.objectContaining({ status: "done" }),
+              validate_syntax: expect.objectContaining({ status: "done" }),
+              verifier: expect.objectContaining({
+                status: "done",
+                trigger: "high_quality_target",
+              }),
+              parse_merge_preflight: expect.objectContaining({ status: "done" }),
+            }),
           }),
         }),
       );
+      expect(runVerifierPass).toHaveBeenCalled();
       expect(result.telemetryRecordId).not.toBeNull();
+    });
+
+    it("skips polish when standard init has no verifier candidates or placeholder signal", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 12_000,
+            refsChars: 4_000,
+            systemContextChars: 18_000,
+          },
+        },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(runVerifierPass).not.toHaveBeenCalled();
+      expect(runPolishPass).not.toHaveBeenCalled();
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            postStreamSteps: expect.objectContaining({
+              verifier: expect.objectContaining({
+                status: "skipped",
+                reason: "no_verifier_signal",
+              }),
+              polish: expect.objectContaining({
+                status: "skipped",
+                reason: "no_polish_signal",
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("still runs polish when placeholder signals remain in the generated content", async () => {
+      runAutoFix.mockResolvedValue({
+        fixedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>[Company Name]</div>; }\n```',
+        fixes: [],
+        warnings: [],
+        dependencies: [],
+      });
+      validateAndFix.mockResolvedValue({
+        content:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>[Company Name]</div>; }\n```',
+        fixerUsed: false,
+        fixerImproved: false,
+        errorsBefore: [],
+        errorsAfter: [],
+      });
+      await finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>[Company Name]</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: {
+            scaffoldChars: 12_000,
+            refsChars: 4_000,
+            systemContextChars: 18_000,
+          },
+        },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(runVerifierPass).not.toHaveBeenCalled();
+      expect(runPolishPass).toHaveBeenCalled();
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            postStreamSteps: expect.objectContaining({
+              verifier: expect.objectContaining({
+                status: "skipped",
+                reason: "no_verifier_signal",
+              }),
+              polish: expect.objectContaining({
+                status: "done",
+                trigger: "placeholder_signal",
+              }),
+            }),
+          }),
+        }),
+      );
     });
 
     it("follow-up with fast verification skips materializeImages and records fast-only light_followup telemetry", async () => {
@@ -708,6 +840,20 @@ describe("finalizeAndSaveVersion", () => {
           meta: expect.objectContaining({
             finalizePath: "fast-only",
             finalizePathReason: "light_followup_fast_policy",
+            postStreamSteps: expect.objectContaining({
+              materialize_images: expect.objectContaining({
+                status: "skipped",
+                reason: "light_followup_fast_policy",
+              }),
+              verifier: expect.objectContaining({
+                status: "skipped",
+                reason: "light_followup_fast_policy",
+              }),
+              polish: expect.objectContaining({
+                status: "skipped",
+                reason: "light_followup_fast_policy",
+              }),
+            }),
           }),
         }),
       );

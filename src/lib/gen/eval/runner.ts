@@ -5,8 +5,12 @@ import { buildSystemPrompt } from "../system-prompt";
 import { parseCodeProject } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
+import { runFinalizePreflight } from "../stream/finalize-preflight";
 import { EVAL_PROMPTS, type EvalPrompt } from "./prompts";
 import {
+  checkProjectSanity,
+  checkNoBracketPlaceholders,
+  checkTier2Readiness,
   checkFileCount,
   checkRequiredFiles,
   checkExports,
@@ -103,8 +107,16 @@ async function evaluatePrompt(
 
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
+  const preflight = await runFinalizePreflight({
+    chatId: `eval_${evalPrompt.id}`,
+    model,
+    filesJson: JSON.stringify(project.files),
+  });
 
   const checks: CheckResult[] = [
+    checkProjectSanity(project.files),
+    checkNoBracketPlaceholders(project.files),
+    checkTier2Readiness(preflight),
     checkFileCount(project.files, evalPrompt.expected.minFiles, evalPrompt.expected.maxFiles),
     checkRequiredFiles(project.files, evalPrompt.expected.requiredFiles),
     checkExports(project.files),

@@ -333,6 +333,18 @@
       "notes": "Alternative to VERCEL_TOKEN+TEAM+PROJECT for @vercel/sandbox: pulled locally via vercel env pull (Vercel CLI). On Vercel-hosted runtimes the platform may inject OIDC; treat pulled .env values as local-only snapshots. Primärt relevant för explicit Vercel tier-2 mode/fallback."
     },
     {
+      "key": "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Root URL for the preview-host / VM service. Use the host root URL (not /preview), and let values differ by environment if different hosts are used."
+    },
+    {
+      "key": "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Bearer token the app uses for preview-host HTTP calls. Must match PREVIEW_HOST_API_KEY on the host when preview-host runs outside local development."
+    },
+    {
       "key": "NEXT_PUBLIC_APP_URL",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["preview", "production"],

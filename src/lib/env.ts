@@ -126,7 +126,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_STRICT_GENERATED_ARTIFACTS: z.string().optional(),
   /** Fly (or other) preview-host service base URL — tier-2 runtime option. */
   SAJTMASKIN_PREVIEW_HOST_BASE_URL: z.string().optional(),
-  /** Optional Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host). */
+  /** Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host); required when preview-host runs outside local dev. */
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
   /**
    * Tier-2 runtime: `vercel_sandbox`, `preview_host`, `preview_host_then_vercel`.

@@ -197,6 +197,49 @@ describe("buildExportableProject", () => {
 });
 
 describe("runProjectSanityChecks peer heuristics", () => {
+  it("flags imported third-party packages that are not pinned in package.json", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "19.2.4", next: "16.2.1" },
+        }),
+        language: "json",
+      },
+      {
+        path: "app/page.tsx",
+        content: `import confetti from "canvas-confetti"; export default function Page() { return null; }`,
+        language: "tsx",
+      },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.some((i) => i.message.includes("canvas-confetti"))).toBe(true);
+    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(true);
+  });
+
+  it("does not flag manually pinned third-party packages", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: {
+            react: "19.2.4",
+            next: "16.2.1",
+            "canvas-confetti": "^1.9.3",
+          },
+        }),
+        language: "json",
+      },
+      {
+        path: "app/page.tsx",
+        content: `import confetti from "canvas-confetti"; export default function Page() { return null; }`,
+        language: "tsx",
+      },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.some((i) => i.message.includes("canvas-confetti"))).toBe(false);
+  });
+
   it("flags @react-three/fiber <9 with react 19", () => {
     const files: CodeFile[] = [
       {

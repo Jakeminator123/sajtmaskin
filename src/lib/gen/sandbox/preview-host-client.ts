@@ -6,6 +6,24 @@ function previewHostAuthHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${key}` };
 }
 
+export function describePreviewHostHttpFailure(params: {
+  endpoint: "/preview/session/start" | "/preview/session/destroy" | "/preview/verify";
+  status: number;
+  body: Record<string, unknown>;
+}): string {
+  const { endpoint, status, body } = params;
+  const rawMessage =
+    typeof body.message === "string" && body.message.trim()
+      ? body.message.trim()
+      : `Preview host HTTP ${status}`;
+
+  if (status === 404 && endpoint === "/preview/verify") {
+    return `${endpoint} returned 404. The deployed preview-host appears older than this repo and is missing the verify-lane route, or SAJTMASKIN_PREVIEW_HOST_BASE_URL points at the wrong base path. Redeploy preview-host and verify that the base URL is the host root URL.`;
+  }
+
+  return rawMessage;
+}
+
 const START_TIMEOUT_MS = 300_000;
 const STATUS_TIMEOUT_MS = 15_000;
 const VERIFY_TIMEOUT_MS = 300_000;
@@ -119,10 +137,11 @@ export async function startPreviewHostSession(params: {
     });
     const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (!res.ok) {
-      const msg =
-        typeof responseBody.message === "string" && responseBody.message.trim()
-          ? responseBody.message.trim()
-          : `Preview host HTTP ${res.status}`;
+      const msg = describePreviewHostHttpFailure({
+        endpoint: "/preview/session/start",
+        status: res.status,
+        body: responseBody,
+      });
       return {
         ok: false,
         message: msg,
@@ -193,10 +212,11 @@ export async function destroyPreviewHostSession(params: {
       return { ok: true, destroyed: false };
     }
     if (!res.ok) {
-      const msg =
-        typeof body.message === "string" && body.message.trim()
-          ? body.message.trim()
-          : `Preview host HTTP ${res.status}`;
+      const msg = describePreviewHostHttpFailure({
+        endpoint: "/preview/session/destroy",
+        status: res.status,
+        body,
+      });
       return {
         ok: false,
         message: msg,
@@ -245,10 +265,11 @@ export async function runPreviewHostQualityGate(params: {
     });
     const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     if (!res.ok) {
-      const msg =
-        typeof body.message === "string" && body.message.trim()
-          ? body.message.trim()
-          : `Preview host HTTP ${res.status}`;
+      const msg = describePreviewHostHttpFailure({
+        endpoint: "/preview/verify",
+        status: res.status,
+        body,
+      });
       return {
         ok: false,
         message: msg,

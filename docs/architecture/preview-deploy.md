@@ -178,7 +178,7 @@ Tier 2 är **inte** ett enda alltid-igång subsystem. Vercel Sandbox startas på
 
 ## Tier-2 provider config
 
-- **Preview-host som primär väg:** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, valfritt `SAJTMASKIN_PREVIEW_HOST_API_KEY`, och `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` för klientens host-detektion.
+- **Preview-host som primär väg:** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY` (samma secret som `PREVIEW_HOST_API_KEY` på hosten när den kör icke-lokalt), och `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` för klientens host-detektion.
 - **Standard med preview-host:** om `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns och `SAJTMASKIN_TIER2_RUNTIME` är unset används strikt `preview_host`.
 - **Opt-in fallback:** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` för preview-host först + Vercel-fallback.
 - **Hård cutover (explicit):** sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host`.

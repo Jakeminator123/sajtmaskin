@@ -58,14 +58,24 @@
       "stateful": true,
       "key": "chatId",
       "workspaceIsolation": "live preview workspace per chat/session",
-      "producesPreviewUrl": true
+      "producesPreviewUrl": true,
+      "auth": {
+        "requiredOutsideLocalDev": true,
+        "appEnvKey": "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+        "hostEnvKey": "PREVIEW_HOST_API_KEY"
+      }
     },
     "verify": {
       "stateful": false,
       "key": "chatId+versionId+verifyId",
       "workspaceIsolation": "isolated temporary verify workspace",
       "producesPreviewUrl": false,
-      "checks": ["typecheck", "build", "lint"]
+      "checks": ["typecheck", "build", "lint"],
+      "auth": {
+        "requiredOutsideLocalDev": true,
+        "appEnvKey": "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+        "hostEnvKey": "PREVIEW_HOST_API_KEY"
+      }
     }
   },
   "contracts": {
