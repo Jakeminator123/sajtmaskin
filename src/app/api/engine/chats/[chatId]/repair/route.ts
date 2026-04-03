@@ -5,9 +5,8 @@ import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
-  createDraftVersion,
+  createAndPromoteDraftVersion,
   markVersionRepairing,
-  promoteVersion,
   failVersionVerification,
   getChat,
 } from "@/lib/db/chat-repository-pg";
@@ -196,16 +195,38 @@ export async function POST(
       const visualQAMeta = visualQA
         ? compactVisualQAForQualityGateLog(visualQA)
         : undefined;
+      let promoted = false;
+      let newVersionId: string | null = null;
+      if (decision.promote && dbConfigured) {
+        const filesJson = JSON.stringify(repairedFiles);
+        const promotedVersion = await createAndPromoteDraftVersion(
+          chatId,
+          null,
+          filesJson,
+          promoteReason,
+        ).catch((err) => {
+          console.warn("[repair] Failed to promote repaired version:", err);
+          return null;
+        });
+        if (!promotedVersion) {
+          console.warn("[repair] Repaired draft version was created but promotion did not complete.");
+        } else {
+          promoted = true;
+          newVersionId = promotedVersion.id;
+        }
+      }
       if (dbConfigured) {
         await createEngineVersionErrorLogs([
           {
             chatId,
             versionId: currentVersionId,
-            level: decision.promote ? ("info" as const) : ("warning" as const),
+            level: promoted ? ("info" as const) : ("warning" as const),
             category: "preflight:quality-gate",
-            message: decision.promote
+            message: promoted
               ? `Post-repair quality gate passed (${method}).`
-              : "Post-repair quality gate did not pass; not promoting.",
+              : decision.promote
+                ? `Post-repair quality gate passed but promotion failed (${method}).`
+                : "Post-repair quality gate did not pass; not promoting.",
             meta: buildServerVerifyQualityGateMeta({
               results: decision.results,
               verifyLaneDurationMs: decision.verifyLaneDurationMs,
@@ -214,7 +235,7 @@ export async function POST(
               jobFinishedAt: decision.jobFinishedAt,
               repass: true,
               method,
-              promoted: decision.promote,
+              promoted,
               serverOwned: false,
               visualQA: visualQAMeta,
             }),
@@ -223,18 +244,7 @@ export async function POST(
           console.warn("[repair] Failed to log post-repair quality gate:", err);
         });
       }
-      if (!decision.promote) {
-        return { ok: false, newVersionId: null };
-      }
-      if (!dbConfigured) {
-        return { ok: false, newVersionId: null };
-      }
-      const filesJson = JSON.stringify(repairedFiles);
-      const version = await createDraftVersion(chatId, null, filesJson);
-      await promoteVersion(version.id, promoteReason).catch((err) => {
-        console.warn("[repair] Failed to promote repaired version:", err);
-      });
-      return { ok: true, newVersionId: version.id };
+      return { ok: promoted, newVersionId };
     }
 
     // Re-run quality gate when possible; syntax alone is not enough if gate context exists.

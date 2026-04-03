@@ -240,6 +240,17 @@ export async function createDraftVersion(
   return insertDraftVersionRow(db, { chatId, messageId, filesJson, sandboxUrl });
 }
 
+export async function createAndPromoteDraftVersion(
+  chatId: string,
+  messageId: string | null,
+  filesJson: string,
+  verificationSummary: string | null = "Automatic verification passed.",
+  sandboxUrl?: string,
+): Promise<Version | null> {
+  const version = await createDraftVersion(chatId, messageId, filesJson, sandboxUrl);
+  return promoteVersion(version.id, verificationSummary);
+}
+
 export async function getLatestVersion(chatId: string): Promise<Version | null> {
   const rows = await db
     .select()

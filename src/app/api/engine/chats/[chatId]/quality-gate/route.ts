@@ -10,6 +10,7 @@ import {
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
+import { QUALITY_GATE_CHECK_VALUES } from "@/lib/gen/quality-gate-checks";
 import type { VisualQAResult } from "@/lib/gen/visual-qa";
 import {
   describeQualityGateVerification,
@@ -36,7 +37,7 @@ export const maxDuration = 300;
 const requestSchema = z.object({
   versionId: z.string().min(1),
   checks: z
-    .array(z.enum(["typecheck", "build", "lint"]))
+    .array(z.enum(QUALITY_GATE_CHECK_VALUES))
     .min(1, "At least one quality gate check is required.")
     .optional()
     .default(["typecheck", "build"]),
@@ -188,10 +189,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 message: `${r.check} failed (exit ${r.exitCode})`,
                 meta: {
                   stage: r.check,
-                  command:
-                    r.check === "install"
-                      ? "npm install --prefer-offline"
-                      : QUALITY_GATE_COMMANDS[r.check as keyof typeof QUALITY_GATE_COMMANDS] ?? null,
+                  command: QUALITY_GATE_COMMANDS[r.check as keyof typeof QUALITY_GATE_COMMANDS] ?? null,
                   output: r.output.slice(0, 12_000),
                   outputLength: r.output.length,
                   exitCode: r.exitCode,

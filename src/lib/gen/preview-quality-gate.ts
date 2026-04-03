@@ -8,10 +8,12 @@ import {
   isVisualQAEnabled,
   type VisualQAResult,
 } from "@/lib/gen/visual-qa";
+import {
+  PROMOTION_QUALITY_GATE_CHECKS,
+  type QualityGateCheck,
+} from "@/lib/gen/quality-gate-checks";
 import { runPreviewHostQualityGate } from "@/lib/gen/sandbox/preview-host-client";
 import { getPreviewHostBaseUrl } from "@/lib/gen/sandbox/tier2-config";
-
-export type QualityGateCheck = "typecheck" | "build" | "lint";
 
 export type QualityGateCheckResult = {
   check: string;
@@ -161,7 +163,7 @@ export async function runQualityGateOnExportable(params: {
     chatId: params.chatId,
     versionId: params.versionId,
     files,
-    checks: params.checks ?? ["typecheck", "build"],
+    checks: params.checks ?? PROMOTION_QUALITY_GATE_CHECKS,
   });
 }
 
@@ -193,7 +195,7 @@ export async function shouldPromoteAfterRepair(params: {
     chatId: params.chatId,
     versionId: params.versionId,
     exportable: params.exportable,
-    checks: ["typecheck", "build"],
+    checks: PROMOTION_QUALITY_GATE_CHECKS,
   });
   if (!gate) {
     if (params.hadQualityGateFailures) {

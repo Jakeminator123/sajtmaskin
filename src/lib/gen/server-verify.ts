@@ -16,7 +16,7 @@ import {
   markVersionRepairing,
   promoteVersion,
   failVersionVerification,
-  createDraftVersion,
+  createAndPromoteDraftVersion,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
@@ -25,11 +25,12 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { PROMOTION_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
-  runQualityGateOnExportable,
   qualityGateAllPassed,
+  runQualityGateOnExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/preview-quality-gate";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
@@ -82,7 +83,7 @@ export async function triggerServerVerification(params: {
       chatId,
       versionId,
       exportable,
-      checks: ["typecheck", "build"],
+      checks: PROMOTION_QUALITY_GATE_CHECKS,
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);
@@ -210,15 +211,39 @@ async function tryServerRepairLoop(params: {
     const visualQAMeta = visualQA
       ? compactVisualQAForQualityGateLog(visualQA)
       : undefined;
+    let promoted = false;
+    if (decision.promote) {
+      const filesJson = JSON.stringify(repairedFiles);
+      const msg =
+        method === "deterministic"
+          ? "Server repair succeeded (deterministic); quality gate re-passed."
+          : "Server repair succeeded (LLM); quality gate re-passed.";
+      const promotedVersion = await createAndPromoteDraftVersion(
+        chatId,
+        null,
+        filesJson,
+        msg,
+      ).catch((err) => {
+        console.warn("[server-verify] Failed to promote repaired version:", err);
+        return null;
+      });
+      if (!promotedVersion) {
+        console.warn("[server-verify] Repaired draft version was created but promotion did not complete.");
+      } else {
+        promoted = true;
+      }
+    }
     await createEngineVersionErrorLogs([
       {
         chatId,
         versionId,
-        level: decision.promote ? "info" : "warning",
+        level: promoted ? "info" : "warning",
         category: "preflight:quality-gate",
-        message: decision.promote
+        message: promoted
           ? `Post-repair quality gate passed (${method}).`
-          : "Post-repair quality gate did not pass; not promoting.",
+          : decision.promote
+            ? `Post-repair quality gate passed but promotion failed (${method}).`
+            : "Post-repair quality gate did not pass; not promoting.",
         meta: buildServerVerifyQualityGateMeta({
           results: decision.results,
           verifyLaneDurationMs: decision.verifyLaneDurationMs,
@@ -227,22 +252,14 @@ async function tryServerRepairLoop(params: {
           jobFinishedAt: decision.jobFinishedAt,
           repass: true,
           method,
-          promoted: decision.promote,
+          promoted,
           visualQA: visualQAMeta,
         }),
       },
     ]).catch((err) => {
       console.warn("[server-verify] Failed to persist post-repair quality gate log:", err);
     });
-    if (!decision.promote) return false;
-    const filesJson = JSON.stringify(repairedFiles);
-    const version = await createDraftVersion(chatId, null, filesJson);
-    const msg =
-      method === "deterministic"
-        ? "Server repair succeeded (deterministic); quality gate re-passed."
-        : "Server repair succeeded (LLM); quality gate re-passed.";
-    await promoteVersion(version.id, msg).catch(() => null);
-    return true;
+    return promoted;
   }
 
   if (syntaxResult.valid) {
