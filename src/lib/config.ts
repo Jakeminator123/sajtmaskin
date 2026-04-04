@@ -122,7 +122,7 @@ function getDataDir(): string {
     );
   }
 
-  const localDataDir = path.join(process.cwd(), "data");
+  const localDataDir = path.resolve("data");
 
   if (!IS_PRODUCTION && !hasWarnedAboutDataDir) {
     hasWarnedAboutDataDir = true;

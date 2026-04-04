@@ -381,14 +381,37 @@ export function mergePackageJsonWithBaseline(
   };
 }
 
+const UNSAFE_TSCONFIG_COMPILER_KEYS = new Set([
+  "noLib",
+  "noResolve",
+  "types",
+  "typeRoots",
+  "rootDir",
+  "rootDirs",
+  "outDir",
+  "outFile",
+  "declaration",
+  "declarationDir",
+  "composite",
+]);
+
+function stripUnsafeCompilerOptions(
+  opts: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(opts).filter(([k]) => !UNSAFE_TSCONFIG_COMPILER_KEYS.has(k)),
+  );
+}
+
 export function mergeTsconfigWithBaseline(
   model: Record<string, unknown>,
 ): Record<string, unknown> {
   const baseline = BASELINE_TSCONFIG;
   const baselineCompilerOptions =
     (baseline.compilerOptions as Record<string, unknown> | undefined) ?? {};
-  const modelCompilerOptions =
-    (model.compilerOptions as Record<string, unknown> | undefined) ?? {};
+  const modelCompilerOptions = stripUnsafeCompilerOptions(
+    (model.compilerOptions as Record<string, unknown> | undefined) ?? {},
+  );
 
   const mergedLib = Array.from(
     new Set([

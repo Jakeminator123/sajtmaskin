@@ -4,6 +4,14 @@ import path from "path";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["esbuild", "pg"],
   outputFileTracingRoot: path.join(__dirname, "./"),
+  outputFileTracingExcludes: {
+    "*": [
+      "./data/external-template-pipeline/**",
+      "./templates_v0/**",
+      "./archive/**",
+      "./output/**",
+    ],
+  },
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
