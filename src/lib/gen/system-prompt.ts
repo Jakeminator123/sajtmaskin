@@ -415,6 +415,12 @@ export async function buildDynamicContext(
     buildSpec?.contextPolicy === "light" &&
     (buildSpec.changeScope === "copy" || buildSpec.changeScope === "local-layout") &&
     !looksDesignHeavyMessage(originalPromptTrimmed);
+  const useLightFirstGenContext =
+    !isFollowUp &&
+    buildSpec?.contextPolicy !== "heavy" &&
+    originalPromptTrimmed.length < 1500 &&
+    !resolvedScaffold?.research;
+  const skipHeavyRetrieval = useLightFollowUpContext || useLightFirstGenContext;
   const referenceBudget = buildSpec?.tokenBudgets.refsChars ?? 8_000;
 
   const parts: string[] = [];
@@ -742,7 +748,7 @@ export async function buildDynamicContext(
   }
 
   // ── Relevant Documentation (KB search + registry enrichment) ────────────
-  if (originalPrompt && !useLightFollowUpContext) {
+  if (originalPrompt && !skipHeavyRetrieval) {
     const kbSearch = await searchKnowledgeBaseAsync({
       query: originalPrompt,
       maxResults: 7,
@@ -769,7 +775,7 @@ export async function buildDynamicContext(
     }
   }
 
-  if (originalPrompt && !useLightFollowUpContext) {
+  if (originalPrompt && !skipHeavyRetrieval) {
     const templateReferenceSearch = await rankTemplateReferences(
       originalPrompt,
       resolvedScaffold,
@@ -887,8 +893,20 @@ export async function buildDynamicContext(
     }
   }
 
+  let context = parts.join("\n").trim();
+
+  const budgetChars = buildSpec?.tokenBudgets.systemContextChars ?? 28_000;
+  if (context.length > budgetChars) {
+    context = context.slice(0, budgetChars);
+    const lastNewline = context.lastIndexOf("\n");
+    if (lastNewline > budgetChars * 0.9) {
+      context = context.slice(0, lastNewline);
+    }
+    context += "\n\n_(Dynamic context truncated to budget.)_";
+  }
+
   return {
-    context: parts.join("\n").trim(),
+    context,
     templateLibrarySearchDiagnostics,
   };
 }

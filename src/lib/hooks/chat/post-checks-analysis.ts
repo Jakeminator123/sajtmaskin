@@ -60,7 +60,7 @@ export type SeoReview = {
 };
 
 type AnalyticsIssue = {
-  severity: "warning" | "error";
+  severity: "info" | "warning" | "error";
   code:
     | "missing-analytics-tracker"
     | "missing-conversion-events";
@@ -485,7 +485,7 @@ export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
 
   if (signals.conversionSurfaceCount > 0 && !signals.trackerDetected) {
     issues.push({
-      severity: "warning",
+      severity: "info",
       code: "missing-analytics-tracker",
       message: "Sidan verkar ha CTA-/formulärflöden men ingen analytics-tracker hittades.",
       file: null,
@@ -494,7 +494,7 @@ export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
 
   if (signals.conversionSurfaceCount > 0 && signals.trackerDetected && signals.conversionEventCount === 0) {
     issues.push({
-      severity: "warning",
+      severity: "info",
       code: "missing-conversion-events",
       message: "Tracker finns, men inga tydliga konverteringsevents hittades för CTA-/formulärflöden.",
       file: null,
@@ -682,30 +682,8 @@ export function buildPostCheckBaseline(params: {
     const suffix = seoReview.issues.length > 4 ? " …" : "";
     warnings.push(`SEO: ${preview}${suffix}`);
   }
-  if (!analyticsReview.passed) {
-    const preview = analyticsReview.issues
-      .slice(0, 3)
-      .map((issue) => issue.message)
-      .join(" | ");
-    const suffix = analyticsReview.issues.length > 3 ? " …" : "";
-    warnings.push(`Analytics: ${preview}${suffix}`);
-  }
-  if (editorialReview.packs.length > 0) {
-    const preview = editorialReview.packs
-      .slice(0, 5)
-      .map((pack) => pack.label)
-      .join(", ");
-    const suffix = editorialReview.packs.length > 5 ? " …" : "";
-    warnings.push(`Editorial inventory: ${preview}${suffix}`);
-  }
-  if (businessWorkflowReview.packs.length > 0) {
-    const preview = businessWorkflowReview.packs
-      .slice(0, 5)
-      .map((pack) => pack.label)
-      .join(", ");
-    const suffix = businessWorkflowReview.packs.length > 5 ? " …" : "";
-    warnings.push(`Business packs: ${preview}${suffix}`);
-  }
+  // Analytics, editorial, and business packs are logged as separate info-level
+  // entries via post-checks-results — not included in the warning baseline.
 
   const versionEntry = versions.find(
     (entry) => entry.versionId === versionId || entry.id === versionId,

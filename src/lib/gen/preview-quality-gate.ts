@@ -1,6 +1,7 @@
 /**
- * Shared quality gate (install -> typecheck / build / lint) executed through
- * preview-host's isolated verify lane.
+ * Shared quality gate executed through preview-host's isolated verify lane.
+ * Default tier-2 gate: install + typecheck only. Build/lint available for
+ * tier-3 / interactive / deploy paths via explicit `checks` override.
  */
 import type { CodeFile } from "@/lib/gen/parser";
 import {
@@ -9,7 +10,7 @@ import {
   type VisualQAResult,
 } from "@/lib/gen/visual-qa";
 import {
-  PROMOTION_QUALITY_GATE_CHECKS,
+  TIER2_QUALITY_GATE_CHECKS,
   type QualityGateCheck,
 } from "@/lib/gen/quality-gate-checks";
 import { runPreviewHostQualityGate } from "@/lib/gen/sandbox/preview-host-client";
@@ -163,7 +164,7 @@ export async function runQualityGateOnExportable(params: {
     chatId: params.chatId,
     versionId: params.versionId,
     files,
-    checks: params.checks ?? PROMOTION_QUALITY_GATE_CHECKS,
+    checks: params.checks ?? TIER2_QUALITY_GATE_CHECKS,
   });
 }
 
@@ -195,7 +196,7 @@ export async function shouldPromoteAfterRepair(params: {
     chatId: params.chatId,
     versionId: params.versionId,
     exportable: params.exportable,
-    checks: PROMOTION_QUALITY_GATE_CHECKS,
+    checks: TIER2_QUALITY_GATE_CHECKS,
   });
   if (!gate) {
     if (params.hadQualityGateFailures) {

@@ -6,6 +6,7 @@ const { randomUUID } = require("node:crypto");
 const { readStoreSync, withStoreLock } = require("./store.js");
 const {
   buildPreviewUrl,
+  cleanupVerifyWorkspaces,
   destroyChatWorkspace,
   findSessionByChatId,
   getRuntimeStateForChat,
@@ -489,6 +490,19 @@ async function routeRequest(req, res) {
       sandboxId: sandboxId ?? "",
       lines: logs,
     });
+  }
+
+  if (req.method === "POST" && url.pathname === "/admin/cleanup") {
+    if (!checkApiKey(req, res)) return;
+    try {
+      const result = await cleanupVerifyWorkspaces();
+      return json(res, 200, { cleaned: true, ...result });
+    } catch (error) {
+      return json(res, 500, {
+        error: "cleanup_failed",
+        message: error instanceof Error ? error.message : "Cleanup failed.",
+      });
+    }
   }
 
   return notFound(res);

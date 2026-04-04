@@ -11,3 +11,8 @@ export const PROMOTION_QUALITY_GATE_CHECKS = [
   "typecheck",
   "build",
 ] satisfies readonly QualityGateCheck[];
+
+// Tier-2 (dev-preview) gates: typecheck only — build belongs to tier-3/deploy.
+export const TIER2_QUALITY_GATE_CHECKS = [
+  "typecheck",
+] satisfies readonly QualityGateCheck[];

@@ -631,9 +631,9 @@ export function buildPostCheckArtifacts(params: {
   }
   if (!analyticsReview.passed) {
     logItems.push({
-      level: "warning",
+      level: "info",
       category: "analytics",
-      message: `Analytics review hittade ${analyticsReview.issues.length} varning(ar).`,
+      message: `Analytics review hittade ${analyticsReview.issues.length} observationer.`,
       meta: {
         issues: analyticsReview.issues,
         signals: analyticsReview.signals,

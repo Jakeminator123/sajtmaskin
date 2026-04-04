@@ -25,7 +25,7 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { PROMOTION_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
+import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -83,7 +83,7 @@ export async function triggerServerVerification(params: {
       chatId,
       versionId,
       exportable,
-      checks: PROMOTION_QUALITY_GATE_CHECKS,
+      checks: TIER2_QUALITY_GATE_CHECKS,
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);

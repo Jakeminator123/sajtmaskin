@@ -60,8 +60,8 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 ## Fidelity
 
 - **1**: enklare eller statisk preview (kan också vara legacy).
-- **2**: (VI JOBBAR I 90% AV FALLEN MOT DETTA) körbar live-preview via `preview_host` / VM, med vissa legacy `sandbox`-namn kvar i kod och DB. Detta är den previewnivå projektet i allmänhet strävar efter att ge användaren.
-- **3**: byggbar och deploybar produktionstro version.
+- **2**: (VI JOBBAR I 90% AV FALLEN MOT DETTA) körbar live-preview via `preview_host` / VM, med vissa legacy `sandbox`-namn kvar i kod och DB. Server-verify kör bara `typecheck` för tier-2 (`TIER2_QUALITY_GATE_CHECKS`). `next build` körs **inte** automatiskt — det hör till tier-3.
+- **3**: byggbar och deploybar produktionstro version. Inkluderar `next build` i quality gate.
 
 `docs/architecture/preview-deploy.md` är kanonisk källa för den faktiska preview-kedjan.
 

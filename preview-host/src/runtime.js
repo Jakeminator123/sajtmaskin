@@ -266,6 +266,14 @@ function runShellCommand(command, options) {
 }
 
 function resolveInstallCommand(filesJson) {
+  const hasPnpmLock = typeof filesJson?.["pnpm-lock.yaml"] === "string";
+  if (hasPnpmLock) {
+    return {
+      command: "pnpm install --frozen-lockfile --no-optional",
+      successLabel: "pnpm install passed.",
+      logLabel: "pnpm install --frozen-lockfile",
+    };
+  }
   const hasPackageLock = typeof filesJson?.["package-lock.json"] === "string";
   if (hasPackageLock) {
     return {
@@ -920,6 +928,22 @@ proxy.on("error", (err, req, res) => {
   }
 });
 
+async function cleanupVerifyWorkspaces() {
+  if (!fs.existsSync(VERIFY_WORKSPACES_DIR)) return { freedEntries: 0 };
+  const entries = fs.readdirSync(VERIFY_WORKSPACES_DIR);
+  let freed = 0;
+  for (const entry of entries) {
+    const full = path.join(VERIFY_WORKSPACES_DIR, entry);
+    try {
+      await removeDirWithRetries(full);
+      freed++;
+    } catch {
+      // best-effort
+    }
+  }
+  return { freedEntries: freed };
+}
+
 module.exports = {
   buildPreviewUrl(baseUrl, chatId) {
     return `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(chatId)}`;
@@ -935,4 +959,5 @@ module.exports = {
   destroyChatWorkspace,
   runVerifyJob,
   stopRuntimeForSession,
+  cleanupVerifyWorkspaces,
 };
