@@ -137,7 +137,7 @@ export async function handleSseStream(
   const getProgressToolName = (step: string) => {
     if (isOwnEnginePostStreamPhaseId(step)) return ownEnginePostStreamStepLabelSv(step);
     if (step === "generation") return "Generering";
-    if (step === "sandbox") return "Sandbox";
+    if (step === "sandbox") return "Live-preview";
     if (step === "build-error") return "Byggfel";
     return step;
   };
@@ -284,7 +284,7 @@ export async function handleSseStream(
     }
     if (step === "sandbox") {
       if (phase === "starting") {
-        return ["Startar tier-2-preview (VM / legacy sandbox-kontrakt)…"];
+        return ["Startar tier-2-preview (VM / legacy preview-kontrakt)…"];
       }
       if (phase === "build-verified") {
         return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
@@ -727,7 +727,7 @@ export async function handleSseStream(
             });
             appendProgressPart("build-error", "error", { stage, message });
             toast.error(
-              `Sandbox-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän sandbox lyckas.`,
+              `Live-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän VM-previewn lyckas.`,
             );
             break;
           }

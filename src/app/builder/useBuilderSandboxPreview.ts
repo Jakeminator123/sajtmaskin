@@ -84,6 +84,11 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
     versionId: string;
   } | null>(null);
   const [sandboxPreviewRecovering, setSandboxPreviewRecovering] = useState(false);
+  const sandboxBootstrapGenRef = useRef(0);
+  const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
+  const [sandboxBootstrapRetryNonce, setSandboxBootstrapRetryNonce] = useState(0);
+  const sandboxBootstrapTransientAttemptsRef = useRef<Map<string, number>>(new Map());
+  const [forcedSandboxRestartKey, setForcedSandboxRestartKey] = useState<string | null>(null);
 
   const onSandboxSessionMeta = useCallback(
     (meta: { sandboxId: string; versionId: string | null } | null) => {
@@ -129,12 +134,6 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
     setSandboxPreviewRecovering(false);
   }, [chatId]);
 
-  const sandboxBootstrapGenRef = useRef(0);
-  const sandboxBootstrapDoneKeysRef = useRef<Set<string>>(new Set());
-  const [sandboxBootstrapRetryNonce, setSandboxBootstrapRetryNonce] = useState(0);
-  const sandboxBootstrapTransientAttemptsRef = useRef<Map<string, number>>(new Map());
-  const [forcedSandboxRestartKey, setForcedSandboxRestartKey] = useState<string | null>(null);
-
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = readProjectEnvVarsUpdatedDetail(event);
@@ -165,10 +164,15 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
   useEffect(() => {
     sandboxBootstrapDoneKeysRef.current.clear();
     sandboxBootstrapTransientAttemptsRef.current.clear();
-    setSandboxBootstrapRetryNonce(0);
-    setForcedSandboxRestartKey(null);
-    setActiveSandboxMeta(null);
-    setSandboxPreviewRecovering(false);
+    const resetTimer = window.setTimeout(() => {
+      setSandboxBootstrapRetryNonce(0);
+      setForcedSandboxRestartKey(null);
+      setActiveSandboxMeta(null);
+      setSandboxPreviewRecovering(false);
+    }, 0);
+    return () => {
+      window.clearTimeout(resetTimer);
+    };
   }, [chatId]);
 
   useEffect(() => {

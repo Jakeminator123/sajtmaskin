@@ -204,8 +204,8 @@ export async function runFinalizePreflight({
     }
 
     const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
-    let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
-    let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+    const mergedProjectContent = serializeFilesToCodeProject(finalFiles);
+    const mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
       devLogAppend("in-progress", {
         type: "merged-syntax.invalid",

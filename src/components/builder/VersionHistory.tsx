@@ -558,7 +558,7 @@ export function VersionHistory({
               qualityTier === "production"
                 ? "Produktionsklar"
                 : qualityTier === "sandbox"
-                  ? "Sandbox-klar"
+                  ? "Live-preview klar"
                   : qualityTier === "preview"
                     ? "Preview-klar"
                     : null;

@@ -699,7 +699,7 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "Sandbox svarade inte som förväntat — vi kontrollerar sessionen mot servern och startar om vid behov.",
+            "VM-previewn svarade inte som förväntat — vi kontrollerar sessionen mot servern och startar om vid behov.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
@@ -708,7 +708,7 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "Sandbox startar eller laddar om (Next dev i VM). Vänta tills URL:en är klar — då laddas live-preview om automatiskt.",
+            "VM-previewn startar eller laddar om (Next dev i VM). Vänta tills URL:en är klar — då laddas live-preview om automatiskt.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
@@ -717,7 +717,7 @@ export function PreviewPanel({
         return {
           label: "Kompatibilitetsvy",
           detail:
-            "Sandbox är primär previewväg. Den här kompatibilitetsvyn (äldre shim) är fallback tills live-preview finns.",
+            "VM-preview är primär previewväg. Den här kompatibilitetsvyn (äldre shim) är fallback tills live-preview finns.",
           className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
           badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
         };
@@ -725,7 +725,7 @@ export function PreviewPanel({
       return {
         label: "Kompatibilitetsvy",
         detail:
-          "Du tittar på shim-/kompatibilitetsvyn. Live-preview med Next.js i sandbox är den primära körbara ytan — byt när sandbox-URL finns.",
+          "Du tittar på shim-/kompatibilitetsvyn. Live-preview med Next.js i VM är den primära körbara ytan — byt när tier-2-URL finns.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
@@ -735,7 +735,7 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "Återansluter till sandbox — sessionen verifieras mot servern och preview startas om vid behov.",
+            "Återansluter till live-preview — sessionen verifieras mot servern och preview startas om vid behov.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };

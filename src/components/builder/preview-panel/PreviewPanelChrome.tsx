@@ -140,7 +140,7 @@ export function PreviewPanelChrome({
             <Badge
               variant="outline"
               className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Next.js körs i tier-2-preview (VM / legacy sandbox-kontrakt) — motsvarar lokal utveckling."
+              title="Next.js körs i tier-2-preview (VM / legacy preview-kontrakt) — motsvarar lokal utveckling."
             >
               Next.js
             </Badge>

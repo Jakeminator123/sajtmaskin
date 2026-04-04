@@ -38,7 +38,7 @@ export function PreviewPanelEmptyState({
     .filter(Boolean)
     .slice(0, 6);
   const title = sandboxBuildError
-    ? "Sandbox-preview misslyckades"
+    ? "Live-preview misslyckades"
     : sandboxPending
       ? "Startar live-preview"
       : awaitingInput
@@ -49,7 +49,7 @@ export function PreviewPanelEmptyState({
   const subtitle = sandboxBuildError
     ? `Steg: ${sandboxBuildError.stage}. ${sandboxBuildError.message}`
     : sandboxPending
-      ? "Next.js byggs i sandbox och previewn visas så snart dev-servern svarar."
+      ? "Next.js startas i VM-previewn och visas så snart dev-servern svarar."
       : awaitingInput
         ? "AI behöver ditt svar innan nästa preview kan genereras."
         : externalLoading

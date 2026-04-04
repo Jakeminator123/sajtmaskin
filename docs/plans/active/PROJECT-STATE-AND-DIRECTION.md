@@ -26,6 +26,7 @@ Kort aktiv status. Behåll bara det som fortfarande styr arbete nu.
 - **Own-engine** är enda aktiva codegen-vägen. `v0-sdk` och `V0_API_KEY` är borta ur runtime.
 - **Tier-2 live-preview** är primärt `preview_host` / VM (Fly.io). `sandbox` lever kvar som **legacy-namn** i DB-kolumner, API-routes, Redis-nycklar och TypeScript-typer — ny kod ska använda preview/VM/tier-2-terminologi.
 - **Quality gate / server-verify** körs nu via **preview-hosts isolerade verify-lane**, inte via Vercel Sandbox och inte i samma workspace som live-previewn.
+- **Verify-lane policy:** interaktiv quality-gate kan köra `typecheck` + `build` + `lint`, medan serverägda promotion-/repair-gates fortsatt håller sig till hårda blockerare (`typecheck` + `build`). Install i verify-lanen är lockfile-aware (`npm ci` med `package-lock.json`, annars `npm install`).
 - **Valfri statisk Visual QA** (`SAJTMASKIN_VISUAL_QA`): efter lyckad verify-lane kan appen köra heuristik och logga kompakt `visualQA` i `preflight:quality-gate`-meta; delad logik i `maybeAnalyzeVisualQAForPassedExportable()` i `preview-quality-gate.ts`. Se `docs/ENV.md` och `docs/schemas/preview-session-contract.md`.
 - **AI Gateway** (`ai-gateway.vercel.sh`) är borttagen ur runtime. Huvudkedjan och sido-routes använder direkt OpenAI/Anthropic API.
 - **Tre lager får inte blandas ihop:** preflight, runtime preview och build-verifiering.

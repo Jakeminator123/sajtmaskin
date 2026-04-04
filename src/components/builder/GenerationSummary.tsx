@@ -89,7 +89,7 @@ export const GenerationSummary = memo(function GenerationSummary({
   const [showRaw, setShowRaw] = useState(false);
   const parsed = useMemo(() => parseGenerationContent(content), [content]);
   const streamingNotice =
-    "Buildern genererar nu komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs. Snabb statisk förhandsvisning (shim) kan visas före sandbox med riktig Next.js är klar.";
+    "Buildern genererar nu komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs. Snabb statisk förhandsvisning (shim) kan visas före live-preview i VM med riktig Next.js är klar.";
 
   if (!parsed.hasCodeBlocks) {
     return (

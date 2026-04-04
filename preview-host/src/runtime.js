@@ -265,6 +265,22 @@ function runShellCommand(command, options) {
   });
 }
 
+function resolveInstallCommand(filesJson) {
+  const hasPackageLock = typeof filesJson?.["package-lock.json"] === "string";
+  if (hasPackageLock) {
+    return {
+      command: "npm ci --no-audit",
+      successLabel: "npm ci passed.",
+      logLabel: "npm ci --no-audit",
+    };
+  }
+  return {
+    command: "npm install --no-audit",
+    successLabel: "npm install passed.",
+    logLabel: "npm install --no-audit",
+  };
+}
+
 /** Older exports without codegen repair: inject basePath hook so Fly /{chatId} previews get CSS/JS. */
 function patchNextConfigForPreviewBasePath(workspaceDir) {
   const cfgPath = path.join(workspaceDir, "next.config.ts");
@@ -433,6 +449,7 @@ function projectOwnsLintSetup(filesJson) {
 
 async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
   const fingerprint = dependencyFingerprint(filesJson);
+  const install = resolveInstallCommand(filesJson);
   const nodeModulesDir = path.join(workspaceDir, "node_modules");
   const priorDeps = readJsonIfExists(dependencyStatePathForWorkspace(workspaceDir));
   if (
@@ -444,35 +461,32 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
     await appendRuntimeLog(sandboxId, "Skipping npm install; dependency fingerprint unchanged.");
     return;
   }
-  await appendRuntimeLog(sandboxId, "Installing workspace dependencies with npm install --prefer-offline.");
+  await appendRuntimeLog(sandboxId, `Installing workspace dependencies with ${install.logLabel}.`);
   await new Promise((resolve, reject) => {
-    const child = spawnNpm(["install", "--prefer-offline"], {
+    const child = runShellCommand(install.command, {
       cwd: workspaceDir,
       stdio: ["ignore", "pipe", "pipe"],
       env: sanitizedEnv(),
     });
-    let snippet = "";
-    child.stdout.on("data", (chunk) => {
-      snippet = trimSnippet(`${snippet}\n${String(chunk)}`);
-    });
-    child.stderr.on("data", (chunk) => {
-      snippet = trimSnippet(`${snippet}\n${String(chunk)}`);
-    });
-    child.once("error", reject);
-    child.once("close", async (code) => {
-      if (code === 0) {
-        fs.writeFileSync(
-          dependencyStatePathForWorkspace(workspaceDir),
-          JSON.stringify({ fingerprint }, null, 2),
-          "utf8",
+    child
+      .then(async (result) => {
+        if (result.exitCode === 0) {
+          fs.writeFileSync(
+            dependencyStatePathForWorkspace(workspaceDir),
+            JSON.stringify({ fingerprint }, null, 2),
+            "utf8",
+          );
+          await appendRuntimeLog(sandboxId, `${install.logLabel} completed.`);
+          resolve();
+          return;
+        }
+        await appendRuntimeLog(
+          sandboxId,
+          `${install.logLabel} failed.\n${trimSnippet(result.output || "")}`,
         );
-        await appendRuntimeLog(sandboxId, "npm install completed.");
-        resolve();
-        return;
-      }
-      await appendRuntimeLog(sandboxId, `npm install failed.\n${trimSnippet(snippet)}`);
-      reject(new Error(`npm install failed with exit code ${code ?? "unknown"}`));
-    });
+        reject(new Error(`${install.logLabel} failed with exit code ${result.exitCode ?? "unknown"}`));
+      })
+      .catch(reject);
   });
 }
 
@@ -497,9 +511,10 @@ async function runVerifyJob(params) {
   try {
     writeFilesIntoWorkspace(workspaceDir, filesJson);
     const results = [];
+    const install = resolveInstallCommand(filesJson);
 
     const installStartedAt = Date.now();
-    const installResult = await runShellCommand("npm install --prefer-offline", {
+    const installResult = await runShellCommand(install.command, {
       cwd: workspaceDir,
       stdio: ["ignore", "pipe", "pipe"],
       env: sanitizedEnv(),
@@ -514,7 +529,7 @@ async function runVerifyJob(params) {
         durationMs: installDurationMs,
         output:
           installResult.exitCode === 0
-            ? "npm install --prefer-offline passed."
+            ? install.successLabel
             : installOutput ||
               `(No install output captured; exit ${installResult.exitCode}).`,
       }),
