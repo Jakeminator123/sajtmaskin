@@ -108,6 +108,59 @@ Om dynamisk kontext överstiger budgeten trunkeras den automatiskt med en `debug
 
 ---
 
+## Modeller och build-profiler
+
+Sajtmaskin har fem **build-profiler** som mappas till faktiska OpenAI/Anthropic-modeller. Profilen valjs i byggarens header ("Modell: ..."). Default ar `pro`.
+
+### Build-profiler → OpenAI-modeller (config/ai_models/manifest.json)
+
+| Profil (UI) | Intern ID | OpenAI-modell | Input/1M | Output/1M | reasoning_effort | Typisk tid |
+|-------------|-----------|---------------|----------|-----------|-----------------|-----------|
+| Snabb | `fast` | `gpt-4.1` | $2.00 | $8.00 | medium | ~30-45s |
+| **Pro** (default) | `pro` | `gpt-5.3-codex` | ~$1.25 | ~$10.00 | medium | ~60-90s |
+| Tanker | `max` | `gpt-5.4` | $2.50 | $15.00 | medium/high | ~2-5 min |
+| Codex | `codex` | `gpt-5.1-codex-max` | - | - | medium/high | varierar |
+| Anthropic | `anthropic` | `claude-sonnet-4.6` | - | - | (ej applicable) | ~60-120s |
+
+### Adaptiv reasoning_effort (BuildSpec-styrd)
+
+`reasoning_effort` sätts **automatiskt** baserat på `BuildSpec.qualityTarget`:
+
+| qualityTarget | reasoning_effort | När det triggas |
+|---------------|-----------------|-----------------|
+| `standard` | `medium` | Enkel landing page, en-sidig sajt |
+| `premium` | `high` | Multi-page, app med integrationer/routes |
+| `release-candidate` | `high` | Explicit produktionsklar build |
+
+### Viktigt: vi använder INTE gpt-5.4 pro
+
+`gpt-5.4 pro` ($30 input / $180 output per 1M tokens) ar en separat, 12x dyrare modell som aldrig anropas i denna kodbas. Var `gpt-5.4` ar standard-varianten ($2.50/$15). Förväxla inte `pro`-profilen i Sajtmaskin (intern beteckning, kör gpt-5.3-codex) med OpenAI:s `gpt-5.4 pro`.
+
+### Env-override for modeller
+
+Varje profil kan overridas via env utan kodändring:
+
+| Env | Default | Overridar |
+|-----|---------|-----------|
+| `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | `fast`-profilen |
+| `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | `pro`-profilen |
+| `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | `max`/Tanker-profilen |
+| `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | `codex`-profilen |
+| `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | `anthropic`-profilen |
+| `SAJTMASKIN_ASSIST_MODEL` | `openai/gpt-5.4` | Forbattra/Deep brief |
+| `SAJTMASKIN_POLISH_MODEL` | `openai/gpt-5.3-codex` | Skriv om (prompt polish) |
+
+### Prompt-assist-modeller (separat fran build)
+
+| Steg | Modell | Vad det gor |
+|------|--------|-------------|
+| Forbattra / Deep brief | `openai/gpt-5.4` | Genererar brief fore build (~20s) |
+| Skriv om (polish) | `openai/gpt-5.3-codex` | Latt omskrivning av prompt |
+
+Dessa ar **inte** samma som build-modellen. Deep brief kors alltid med gpt-5.4 oavsett vilken build-profil du valt.
+
+---
+
 ## OpenClaw, avatar och nyckelchecklista
 
 `OpenClaw` / `Sajtagenten` och builderns own-engine är olika saker:
