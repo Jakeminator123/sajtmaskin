@@ -314,12 +314,24 @@ export async function runFinalizePreflight({
       issues: preflightIssues,
       finalizedPreviewFileCount: finalizedFilesForPreview.length,
     });
-  } catch (sanityErr) {
-    console.warn("[sanity] Project sanity check error:", sanityErr);
+  } catch (preflightErr) {
+    const message =
+      preflightErr instanceof Error
+        ? `Finalize preflight crashed: ${preflightErr.message}`
+        : "Finalize preflight crashed unexpectedly.";
+    console.warn("[preflight] Finalize preflight error:", preflightErr);
+    previewBlockingReason = previewBlockingReason ?? message;
+    preflightIssues.push(
+      createIssue("preflight", "error", message, "code_structure_failure"),
+    );
+    sandbox = buildSandboxStartContract({
+      issues: preflightIssues,
+      finalizedPreviewFileCount: finalizedFilesForPreview.length,
+    });
     devLogAppend("in-progress", {
-      type: "project-sanity.error",
+      type: "preflight.error",
       chatId,
-      message: sanityErr instanceof Error ? sanityErr.message : "Unknown sanity error",
+      message,
     });
   }
 

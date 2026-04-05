@@ -17,23 +17,14 @@ import type { SandboxPreviewPostApiJson } from "@/lib/gen/preview/preview-contra
 import type { SandboxProdBuildPayload } from "@/lib/hooks/chat/types";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { ChatData, VersionSummary } from "./useBuilderDerivedState";
+import { versionSummaryHasSandbox } from "./builder-page-preview-helpers";
 
 function isLegacyMappedChatRecord(chat: unknown): boolean {
   const c = chat as { v0ChatId?: string } | null | undefined;
   return Boolean(c?.v0ChatId);
 }
 
-function versionSummaryHasSandbox(
-  v: VersionSummary | undefined,
-  options?: { allowFailed?: boolean },
-): boolean {
-  if (!v) return false;
-  if (!options?.allowFailed && !canExposeEnginePreview(v)) return false;
-  const u = v.sandboxUrl;
-  return typeof u === "string" && u.trim().length > 0;
-}
-
-export type UseBuilderSandboxPreviewParams = {
+export type UseBuilderVmPreviewParams = {
   isAuthenticated: boolean;
   chatId: string | null;
   appProjectId: string | null;
@@ -52,9 +43,10 @@ export type UseBuilderSandboxPreviewParams = {
 };
 
 /**
- * Vercel sandbox bootstrap (POST sandbox-preview), fel/prod-build state, env-restart, session-meta.
+ * Tier-2 VM-preview bootstrap (legacy `/sandbox-preview` contract), fel/prod-build state,
+ * env-restart och session-meta.
  */
-export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams) {
+export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   const {
     isAuthenticated,
     chatId,

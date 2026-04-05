@@ -49,6 +49,44 @@ describe("/api/engine/chats POST (sync JSON)", () => {
     const json = await res.json();
     expect(json.id).toBe("chat_eng");
   });
+
+  it("uses sandbox-ready as preview fallback in sync create JSON", async () => {
+    const sse = [
+      "event: meta",
+      'data: {"enginePath":"own-engine"}',
+      "",
+      "event: done",
+      'data: {"chatId":"chat_eng","versionId":"ver_eng","messageId":"msg_eng","sandboxPending":true,"preflight":{"previewBlocked":false,"verificationBlocked":false}}',
+      "",
+      "event: sandbox-ready",
+      'data: {"sandboxUrl":"https://vm.example/chat_eng/ver_eng","sandboxId":"sbx_1"}',
+      "",
+    ].join("\n");
+
+    handleCreateChatStreamPost.mockResolvedValue(
+      new Response(sse, {
+        headers: { "content-type": "text/event-stream" },
+      }),
+    );
+
+    const res = await POST(
+      new Request("https://example.com/api/engine/chats", {
+        method: "POST",
+        body: JSON.stringify({ message: "hi" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const json = await res.json();
+    expect(json.previewUrl).toBe("https://vm.example/chat_eng/ver_eng");
+    expect(json.latestVersion).toMatchObject({
+      id: "ver_eng",
+      versionId: "ver_eng",
+      previewUrl: "https://vm.example/chat_eng/ver_eng",
+      sandboxUrl: "https://vm.example/chat_eng/ver_eng",
+      sandboxPending: true,
+      verificationState: "pending",
+    });
+  });
 });
 
 describe("/api/engine/chats GET", () => {

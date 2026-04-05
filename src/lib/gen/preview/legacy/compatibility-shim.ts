@@ -82,11 +82,7 @@ function previewUrlsEquivalent(
 }
 
 export function resolveAlternatePreviewUrls(params: {
-  chatId?: string | null;
-  versionId?: string | null;
-  demoUrl?: string | null;
   sandboxUrl?: string | null;
-  projectId?: string | null;
 }): AlternatePreviewUrls {
   const sandboxUrl = normalizePreviewUrl(params.sandboxUrl);
   return {

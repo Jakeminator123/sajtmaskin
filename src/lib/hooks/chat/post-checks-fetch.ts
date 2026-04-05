@@ -24,7 +24,10 @@ export async function fetchChatVersions(
         `Failed to fetch versions (HTTP ${response.status})`,
     );
   }
-  return Array.isArray(data?.versions) ? data.versions : [];
+  if (!Array.isArray(data?.versions)) {
+    throw new Error("Invalid versions response shape");
+  }
+  return data.versions;
 }
 
 export async function fetchChatFiles(
@@ -45,7 +48,10 @@ export async function fetchChatFiles(
   if (!response.ok) {
     throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
   }
-  return Array.isArray(data?.files) ? data.files : [];
+  if (!Array.isArray(data?.files)) {
+    throw new Error("Invalid files response shape");
+  }
+  return data.files;
 }
 
 export async function triggerImageMaterialization(params: {

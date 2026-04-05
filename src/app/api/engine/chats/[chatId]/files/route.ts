@@ -22,7 +22,7 @@ import {
 import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/contract/setup-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
-function v0ErrorResponse(err: unknown, fallbackMessage: string) {
+function engineErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeProviderError(err);
   return NextResponse.json(
     { error: info.message || fallbackMessage, code: info.code },
@@ -218,7 +218,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     return NextResponse.json({ error: "No files found for version" }, { status: 404 });
   } catch (err) {
     console.error("Error fetching files:", err);
-    return v0ErrorResponse(err, "Failed to fetch files");
+    return engineErrorResponse(err, "Failed to fetch files");
   }
 }
 
@@ -276,7 +276,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     });
   } catch (err) {
     console.error("Error updating files:", err);
-    return v0ErrorResponse(err, "Failed to update files");
+    return engineErrorResponse(err, "Failed to update files");
   }
 }
 
@@ -344,7 +344,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
     });
   } catch (err) {
     console.error("Error updating file:", err);
-    return v0ErrorResponse(err, "Failed to update file");
+    return engineErrorResponse(err, "Failed to update file");
   }
 }
 
@@ -381,6 +381,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
     });
   } catch (err) {
     console.error("Error deleting file:", err);
-    return v0ErrorResponse(err, "Failed to delete file");
+    return engineErrorResponse(err, "Failed to delete file");
   }
 }

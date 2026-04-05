@@ -188,7 +188,14 @@ export async function runOwnEngineStreamPostFinalize(params: {
           ),
         );
         if (sr.sandboxUrl.trim()) {
-          chatRepo.updateVersionSandboxUrl(finalized.version.id, sr.sandboxUrl).catch(() => {});
+          chatRepo.updateVersionSandboxUrl(finalized.version.id, sr.sandboxUrl).catch((error) => {
+            warnLog("engine", "Failed to persist sandboxUrl after sandbox-ready", {
+              chatId,
+              versionId: finalized.version.id,
+              sandboxUrl: sr.sandboxUrl,
+              message: error instanceof Error ? error.message : "Unknown error",
+            });
+          });
         }
       } else {
         logSandboxLifecycleTelemetry({

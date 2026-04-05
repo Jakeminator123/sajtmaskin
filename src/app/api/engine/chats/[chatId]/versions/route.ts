@@ -28,7 +28,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          ...previewUrlField(null),
+          ...previewUrlField(v.sandbox_url),
           legacyShimPreviewUrl: canExposeEnginePreview(v)
             ? buildPreviewUrl(engineChatId, v.id)
             : null,

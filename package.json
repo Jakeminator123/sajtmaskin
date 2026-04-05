@@ -39,6 +39,7 @@
     "template-library:import": "npx tsx scripts/template-library/import-template-discovery.ts",
     "template-library:hydrate-cache": "npx tsx scripts/template-library/hydrate-template-library-cache.ts",
     "template-library:build": "npx tsx scripts/template-library/build-template-library.ts",
+    "template-library:validate-runtime": "npx tsx scripts/template-library/validate-runtime-artifacts.ts",
     "template-library:verify-summary": "npx tsx scripts/template-library/verify-discovered-summary.ts",
     "template-library:embeddings": "npx tsx scripts/embeddings/generate-template-library-embeddings.ts",
     "template-pipeline:refresh": "python scripts/template-library/full_template_refresh.py",

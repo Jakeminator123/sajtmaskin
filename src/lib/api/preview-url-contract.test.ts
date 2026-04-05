@@ -17,10 +17,17 @@ describe("preview-url-contract", () => {
     expect(readPreviewUrl({ demoUrl: "https://ignored.test" } as { previewUrl?: string })).toBeNull();
   });
 
-  it("resolveInboundPreviewUrl prefers previewUrl then demoUrl", () => {
+  it("resolveInboundPreviewUrl prefers previewUrl then sandboxUrl then demoUrl", () => {
     expect(
-      resolveInboundPreviewUrl({ previewUrl: " https://p.test ", demoUrl: "https://d.test" }),
+      resolveInboundPreviewUrl({
+        previewUrl: " https://p.test ",
+        sandboxUrl: "https://sandbox.test",
+        demoUrl: "https://d.test",
+      }),
     ).toBe("https://p.test");
+    expect(resolveInboundPreviewUrl({ sandboxUrl: "https://sandbox.test" })).toBe(
+      "https://sandbox.test",
+    );
     expect(resolveInboundPreviewUrl({ demoUrl: "https://legacy.test" })).toBe("https://legacy.test");
   });
 });

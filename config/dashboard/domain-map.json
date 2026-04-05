@@ -91,6 +91,71 @@
         "src/app/api/projects/[id]/analyze/route.ts"
       ]
     },
+    "Runtime scaffolds": {
+      "summary": "Kanoniska runtime-scaffolds som own-engine faktiskt använder före generation. Skilj detta från builderns Mallar-tab och från external-template-pipelinen.",
+      "canonicalPaths": [
+        "src/lib/gen/scaffolds/",
+        "src/lib/gen/scaffolds/registry.ts",
+        "src/lib/gen/scaffolds/scaffold-research.generated.json",
+        "src/lib/gen/scaffolds/scaffold-embeddings.json"
+      ],
+      "docsPaths": [
+        "docs/schemas/scaffold-contract.md",
+        "docs/architecture/builder-generation.md"
+      ],
+      "codeReaders": [
+        "src/lib/gen/scaffolds/registry.ts",
+        "src/lib/gen/scaffolds/matcher.ts",
+        "src/lib/gen/scaffolds/serialize.ts",
+        "src/lib/gen/orchestrate.ts"
+      ]
+    },
+    "Template pipeline": {
+      "summary": "External-template research och de genererade runtime-artifacts som byggs från den. Research-data under data/ är inte runtime i sig.",
+      "canonicalPaths": [
+        "data/external-template-pipeline/",
+        "data/external-template-pipeline/raw-discovery/current/catalog.json",
+        "scripts/template-library/build-template-library.ts",
+        "scripts/template-library/hydrate-template-library-cache.ts",
+        "scripts/template-library/import-template-discovery.ts",
+        "src/lib/gen/template-library/template-library.generated.json",
+        "src/lib/gen/template-library/template-library-embeddings.json"
+      ],
+      "docsPaths": [
+        "docs/schemas/external-template-pipeline-contract.md",
+        "docs/README.md"
+      ],
+      "codeReaders": [
+        "src/lib/gen/template-library/search.ts",
+        "src/lib/gen/template-library/runtime-guidance.ts",
+        "src/lib/gen/system-prompt.ts"
+      ]
+    },
+    "Preview och versioner": {
+      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion och de viktigaste logg-/telemetriytorna för buildern.",
+      "canonicalPaths": [
+        "src/lib/db/engine-version-lifecycle.ts",
+        "src/lib/gen/server-verify.ts",
+        "src/lib/providers/own-engine/generation-stream-post-finalize.ts",
+        "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
+        "src/app/api/engine/chats/[chatId]/repair/route.ts"
+      ],
+      "docsPaths": [
+        "docs/architecture/preview-deploy.md",
+        "docs/plans/active/PROJECT-STATE-AND-DIRECTION.md"
+      ],
+      "humanSchemaPaths": [
+        "docs/schemas/preview-session-contract.md"
+      ],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/preview-session-contract.schema.json"
+      ],
+      "codeReaders": [
+        "src/app/builder/useBuilderPageController.ts",
+        "src/components/builder/VersionHistory.tsx",
+        "src/lib/hooks/chat/stream-handlers.ts"
+      ]
+    },
     "env-policy": {
       "summary": "Policy för kända env-nycklar och regler (Sajtmaskin-appen). För mänsklig dokumentation av värden se docs/ENV.md.",
       "canonicalPaths": [

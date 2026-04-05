@@ -121,8 +121,12 @@ export function useSendMessage(
       const handleNonStreamingSend = async (data: Record<string, unknown>) => {
         const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
         const previewResolved =
-          resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
-          resolveInboundPreviewUrl(latestVersion);
+          resolveInboundPreviewUrl(data as { previewUrl?: unknown; sandboxUrl?: unknown; demoUrl?: unknown }) ||
+          resolveInboundPreviewUrl(
+            latestVersion as
+              | { previewUrl?: unknown; sandboxUrl?: unknown; demoUrl?: unknown }
+              | undefined,
+          );
         const preflight = readPreviewPreflight(data);
         if (previewResolved) {
           const n = normalizePreviewUrl(previewResolved);

@@ -45,7 +45,7 @@ import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
-import { useBuilderSandboxPreview } from "./useBuilderSandboxPreview";
+import { useBuilderVmPreview } from "./useBuilderVmPreview";
 import { usePreviewSession } from "./usePreviewSession";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
@@ -154,9 +154,6 @@ export function useBuilderPageController() {
     const v = derived.effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
     if (!v) return { shimUrl: null, sandboxUrl: null };
     return resolveAlternatePreviewUrls({
-      chatId: state.chatId,
-      versionId: String(vid),
-      demoUrl: v.demoUrl,
       sandboxUrl: v.sandboxUrl,
     });
   }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
@@ -269,7 +266,7 @@ export function useBuilderPageController() {
   const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
 
   // ── Sandbox preview (Vercel VM) + session recover ───────────────────
-  const sandboxPreview = useBuilderSandboxPreview({
+  const vmPreview = useBuilderVmPreview({
     isAuthenticated,
     chatId: state.chatId,
     appProjectId: state.appProjectId,
@@ -300,7 +297,7 @@ export function useBuilderPageController() {
     clearSandboxBuildError,
     clearSandboxSessionState,
     resetSandboxForNewChat,
-  } = sandboxPreview;
+  } = vmPreview;
 
   const { handlePreviewSessionSuspect, resetRecoverAttempts } = usePreviewSession({
     chatId: state.chatId,
@@ -309,10 +306,10 @@ export function useBuilderPageController() {
     activeSandboxMeta,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     bumpPreviewRefreshToken,
-    setSandboxPreviewRecovering: sandboxPreview.setSandboxPreviewRecovering,
-    sandboxBootstrapDoneKeysRef: sandboxPreview.sandboxBootstrapDoneKeysRef,
-    setForcedSandboxRestartKey: sandboxPreview.setForcedSandboxRestartKey,
-    setSandboxBootstrapRetryNonce: sandboxPreview.setSandboxBootstrapRetryNonce,
+    setSandboxPreviewRecovering: vmPreview.setSandboxPreviewRecovering,
+    sandboxBootstrapDoneKeysRef: vmPreview.sandboxBootstrapDoneKeysRef,
+    setForcedSandboxRestartKey: vmPreview.setForcedSandboxRestartKey,
+    setSandboxBootstrapRetryNonce: vmPreview.setSandboxBootstrapRetryNonce,
   });
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
 

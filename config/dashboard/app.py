@@ -254,6 +254,9 @@ NAV_PAGES = (
     "Codegen static",
     "prompt-static",
     "ai_models",
+    "Runtime scaffolds",
+    "Template pipeline",
+    "Preview och versioner",
     "env-policy",
     "shadcn-audit",
     "user_degraded_env",
@@ -1255,6 +1258,121 @@ elif page == "ai_models":
                 st.rerun()
             except json.JSONDecodeError as e:
                 st.error(f"Ogiltig JSON: {e}")
+
+
+# -- runtime scaffolds -----------------------------------------------------------
+
+elif page == "Runtime scaffolds":
+    st.header("Runtime scaffolds")
+    render_where_panel("Runtime scaffolds", domain_map)
+    scaffold_dir = repo / "src" / "lib" / "gen" / "scaffolds"
+    manifests = sorted(scaffold_dir.glob("*/manifest.ts"))
+    research_path = scaffold_dir / "scaffold-research.generated.json"
+    embeddings_path = scaffold_dir / "scaffold-embeddings.json"
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Scaffold-familjer", len(manifests))
+    c2.metric("Research JSON", "finns" if research_path.is_file() else "saknas")
+    c3.metric("Embeddings JSON", "finns" if embeddings_path.is_file() else "saknas")
+
+    if research_path.is_file():
+        try:
+            research = read_json(research_path)
+            scaffolds = (research.get("scaffolds") or {}) if isinstance(research, dict) else {}
+            landing_refs = (
+                ((scaffolds.get("landing-page") or {}).get("research") or {}).get("referenceTemplates")
+                if isinstance(scaffolds, dict)
+                else []
+            ) or []
+            st.caption(
+                f"`scaffold-research.generated.json` innehåller {len(scaffolds)} scaffold-poster. "
+                f"`landing-page` har {len(landing_refs)} referenstemplates."
+            )
+        except Exception as e:
+            st.warning(f"Kunde inte läsa scaffold-research.generated.json: {e}")
+
+    rows = [
+        {
+            "Scaffold": manifest.parent.name,
+            "Manifest": str(manifest.relative_to(repo)).replace("\\", "/"),
+            "Senast ändrad": manifest.stat().st_mtime,
+        }
+        for manifest in manifests
+    ]
+    if rows:
+        st.dataframe(rows, width="stretch", hide_index=True)
+
+    st.info(
+        "Detta är den kanoniska runtime-ytan som own-engine matchar mot. "
+        "Builderns Mallar-tab och external-template-pipelinen är separata lager."
+    )
+
+
+# -- template pipeline -----------------------------------------------------------
+
+elif page == "Template pipeline":
+    st.header("Template pipeline och runtime-artifacts")
+    render_where_panel("Template pipeline", domain_map)
+    raw_dir = repo / "data" / "external-template-pipeline" / "raw-discovery" / "current"
+    repo_cache_dir = repo / "data" / "external-template-pipeline" / "repo-cache"
+    runtime_catalog = repo / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
+    runtime_embeddings = repo / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Raw discovery", "finns" if raw_dir.is_dir() else "saknas")
+    c2.metric("Repo-cache", "finns" if repo_cache_dir.is_dir() else "saknas")
+    c3.metric("Runtime catalog", "finns" if runtime_catalog.is_file() else "saknas")
+    c4.metric("Runtime embeddings", "finns" if runtime_embeddings.is_file() else "saknas")
+
+    if runtime_catalog.is_file():
+        try:
+            catalog = read_json(runtime_catalog)
+            entries = catalog.get("entries") if isinstance(catalog, dict) else None
+            count = len(entries) if isinstance(entries, list) else 0
+            st.caption(f"`template-library.generated.json` innehåller {count} entries.")
+        except Exception as e:
+            st.warning(f"Kunde inte läsa template-library.generated.json: {e}")
+
+    if raw_dir.is_dir():
+        catalog_path = raw_dir / "catalog.json"
+        summary_path = raw_dir / "summary.json"
+        st.markdown("**Rådata (research, inte runtime)**")
+        st.markdown(f"- `{catalog_path.relative_to(repo).as_posix()}`")
+        st.markdown(f"- `{summary_path.relative_to(repo).as_posix()}`")
+
+    st.info(
+        "Research-pipelinen under `data/external-template-pipeline/` är bygginput. "
+        "Appen använder de genererade artefakterna under `src/lib/gen/template-library/` och "
+        "`src/lib/gen/scaffolds/scaffold-research.generated.json`."
+    )
+
+
+# -- preview and versions --------------------------------------------------------
+
+elif page == "Preview och versioner":
+    st.header("Preview och versioner")
+    render_where_panel("Preview och versioner", domain_map)
+    log_dir = repo / "logs" / "generationslogg"
+    latest_runs = (
+        sorted([p for p in log_dir.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)[:5]
+        if log_dir.is_dir()
+        else []
+    )
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Generationslogg", "finns" if log_dir.is_dir() else "saknas")
+    c2.metric("Senaste körningar", len(latest_runs))
+    c3.metric("Tier-2 docs", "preview-deploy.md")
+
+    if latest_runs:
+        st.markdown("**Senaste generationskörningar**")
+        for run in latest_runs:
+            st.markdown(f"- `{run.relative_to(repo).as_posix()}`")
+
+    st.info(
+        "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
+        "`sandbox-ready`/VM-preview och hur buildern växlar mellan versioner. "
+        "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
+    )
 
 
 # -- env-policy -----------------------------------------------------------------

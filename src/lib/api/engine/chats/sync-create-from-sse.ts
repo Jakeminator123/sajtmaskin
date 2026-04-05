@@ -5,6 +5,19 @@ export type SseEvent = {
   data: unknown;
 };
 
+export type SyncLatestVersionPayload = {
+  id: string | null;
+  versionId: string | null;
+  messageId: string | null;
+  previewUrl: string | null;
+  sandboxUrl: string | null;
+  sandboxPending: boolean;
+  releaseState: string | null;
+  verificationState: string | null;
+  verificationSummary: string | null;
+  promotedAt: string | null;
+};
+
 export function parseSseEvents(payload: string): SseEvent[] {
   return payload
     .split("\n\n")
@@ -39,6 +52,51 @@ function findLastEvent(events: SseEvent[], name: string): SseEvent | undefined {
     if (events[index]?.event === name) return events[index];
   }
   return undefined;
+}
+
+export function readSandboxReadyUrl(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const raw = typeof (data as { sandboxUrl?: unknown }).sandboxUrl === "string"
+    ? (data as { sandboxUrl: string }).sandboxUrl.trim()
+    : "";
+  return raw || null;
+}
+
+export function buildSyncLatestVersion(params: {
+  versionId: string | null;
+  messageId: string | null;
+  previewResolved: string | null;
+  sandboxUrl: string | null;
+  sandboxPending: boolean;
+  releaseState?: string | null;
+  verificationState?: string | null;
+  verificationSummary?: string | null;
+  promotedAt?: string | null;
+}): SyncLatestVersionPayload | null {
+  const {
+    versionId,
+    messageId,
+    previewResolved,
+    sandboxUrl,
+    sandboxPending,
+    releaseState = null,
+    verificationState = null,
+    verificationSummary = null,
+    promotedAt = null,
+  } = params;
+  if (!versionId && !previewResolved && !messageId && !sandboxUrl) return null;
+  return {
+    id: versionId,
+    versionId,
+    messageId,
+    ...previewUrlField(previewResolved),
+    sandboxUrl,
+    sandboxPending,
+    releaseState,
+    verificationState,
+    verificationSummary,
+    promotedAt,
+  };
 }
 
 /**
@@ -92,13 +150,12 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
     sandboxReadyEvent?.data && typeof sandboxReadyEvent.data === "object"
       ? (sandboxReadyEvent.data as Record<string, unknown>)
       : null;
-  const sandboxUrl =
-    sandboxData && typeof sandboxData.sandboxUrl === "string" ? sandboxData.sandboxUrl.trim() : "";
+  const sandboxUrl = readSandboxReadyUrl(sandboxData);
 
   const previewResolved =
     readPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
-    resolveInboundPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
-    (sandboxUrl ? sandboxUrl : null);
+    resolveInboundPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown; sandboxUrl?: unknown }) ??
+    sandboxUrl;
 
   const verificationState = done.verificationBlocked === true ? "failed" : "pending";
   const verificationSummary =
@@ -135,18 +192,17 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
     planMode: done.planMode,
     reason: typeof done.reason === "string" ? done.reason : null,
     toolCalls: Array.isArray(done.toolCalls) ? done.toolCalls : [],
-    latestVersion: {
-      id: versionId,
+    latestVersion: buildSyncLatestVersion({
       versionId,
       messageId,
-      ...previewUrlField(previewResolved),
-      sandboxUrl: sandboxUrl || null,
+      previewResolved,
+      sandboxUrl,
       sandboxPending,
       releaseState: null,
       verificationState,
       verificationSummary,
       promotedAt: null,
-    },
+    }),
     usage: {
       promptTokens,
       completionTokens,

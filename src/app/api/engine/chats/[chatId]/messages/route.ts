@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { previewUrlField, readPreviewUrl, resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import {
+  buildSyncLatestVersion,
+  readSandboxReadyUrl,
+} from "@/lib/api/engine/chats/sync-create-from-sse";
 import { handleMessageStreamRequest } from "../stream/route";
 
 type SseEvent = {
@@ -14,6 +18,11 @@ type DonePayload = {
   versionId?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
+  sandboxPending?: boolean;
+  preflight?: unknown;
+  previewBlocked?: boolean;
+  verificationBlocked?: boolean;
+  previewBlockingReason?: string | null;
   awaitingInput?: boolean;
   reason?: string | null;
   toolCalls?: unknown;
@@ -150,9 +159,20 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
     doneEvent.data && typeof doneEvent.data === "object"
       ? (doneEvent.data as DonePayload)
       : {};
+  const sandboxReadyEvent = findLastEvent(events, "sandbox-ready");
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
-  const previewResolved = readPreviewUrl(done) ?? resolveInboundPreviewUrl(done);
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
+  const sandboxUrl = readSandboxReadyUrl(sandboxReadyEvent?.data);
+  const sandboxPending = done.sandboxPending === true;
+  const previewResolved =
+    readPreviewUrl(done) ??
+    resolveInboundPreviewUrl(done as DonePayload & { sandboxUrl?: string | null }) ??
+    sandboxUrl;
+  const verificationState = done.verificationBlocked === true ? "failed" : "pending";
+  const verificationSummary =
+    typeof done.previewBlockingReason === "string" && done.previewBlockingReason.trim()
+      ? done.previewBlockingReason.trim()
+      : null;
   const assistantText = content || null;
   const awaitingInputPrompt =
     done.awaitingInput === true ? extractAwaitingInputPrompt(events, done) : null;
@@ -165,21 +185,29 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       messageId,
       versionId,
       ...previewUrlField(previewResolved),
+      sandboxPending,
+      preflight: done.preflight ?? null,
+      previewBlocked: done.previewBlocked ?? null,
+      verificationBlocked: done.verificationBlocked ?? null,
+      previewBlockingReason:
+        typeof done.previewBlockingReason === "string" ? done.previewBlockingReason : null,
       text: assistantText,
       message: assistantText,
       awaitingInput: done.awaitingInput === true,
       awaitingInputPrompt,
       reason: typeof done.reason === "string" ? done.reason : null,
       toolCalls: Array.isArray(done.toolCalls) ? done.toolCalls : [],
-      latestVersion:
-        versionId || previewResolved || messageId
-          ? {
-              id: versionId,
-              versionId,
-              ...previewUrlField(previewResolved),
-              messageId,
-            }
-          : null,
+      latestVersion: buildSyncLatestVersion({
+        versionId,
+        messageId,
+        previewResolved,
+        sandboxUrl,
+        sandboxPending,
+        releaseState: null,
+        verificationState,
+        verificationSummary,
+        promotedAt: null,
+      }),
     },
   };
 }
