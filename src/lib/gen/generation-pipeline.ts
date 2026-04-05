@@ -1,5 +1,5 @@
 import type { ToolSet } from "ai";
-import { generateCode as generateWithEngine, type GenerateOptions } from "./engine";
+import { generateCode as generateWithEngine, type GenerateOptions, type ReasoningEffort } from "./engine";
 
 export interface PipelineOptions {
   prompt: string;
@@ -7,6 +7,7 @@ export interface PipelineOptions {
   model?: string;
   chatHistory?: GenerateOptions["chatHistory"];
   thinking?: boolean;
+  reasoningEffort?: ReasoningEffort;
   maxTokens?: number;
   abortSignal?: AbortSignal;
   tools?: ToolSet;
@@ -27,6 +28,7 @@ export function createGenerationPipeline(
     model: options.model,
     chatHistory: options.chatHistory,
     thinking: options.thinking,
+    reasoningEffort: options.reasoningEffort,
     maxTokens: options.maxTokens,
     abortSignal: options.abortSignal,
     tools: options.tools,

@@ -8,12 +8,15 @@ import {
 } from "./request-metadata";
 import { createCodeGenSSEStream, type StreamMeta } from "./stream-format";
 
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
+
 export interface GenerateOptions {
   prompt: string;
   systemPrompt: string;
   model?: string;
   chatHistory?: ModelMessage[];
   thinking?: boolean;
+  reasoningEffort?: ReasoningEffort;
   maxTokens?: number;
   abortSignal?: AbortSignal;
   tools?: ToolSet;
@@ -47,6 +50,7 @@ export function generateCode(
     model: modelId,
     chatHistory,
     thinking = true,
+    reasoningEffort = "medium",
     maxTokens,
     abortSignal,
     tools,
@@ -66,7 +70,7 @@ export function generateCode(
 
   const providerOptions =
     thinking && !anthropic
-      ? { openai: { reasoningEffort: "high" as const } }
+      ? { openai: { reasoningEffort } }
       : undefined;
 
   const result = streamText({
