@@ -678,7 +678,16 @@ function recommendScaffoldFamilies(
 
   if (categorySlug === "marketing-sites") add("landing-page", 6);
   if (categorySlug === "starter") add("base-nextjs", 6);
-  if (!signals.dashboard && !signals.auth && !signals.ecommerce && !signals.blog && !signals.portfolio) {
+
+  const TECH_DEMO_CATEGORIES = new Set([
+    "ai", "cron", "edge-functions", "edge-middleware", "edge-config",
+    "web3", "vercel-firewall", "cdn", "backend", "security",
+    "microfrontends", "virtual-event", "monorepos", "realtime-apps",
+  ]);
+  if (
+    !TECH_DEMO_CATEGORIES.has(categorySlug) &&
+    !signals.dashboard && !signals.auth && !signals.ecommerce && !signals.blog && !signals.portfolio
+  ) {
     add("landing-page", 2);
   }
 
@@ -691,7 +700,7 @@ function recommendScaffoldFamilies(
     .slice(0, 3)
     .map(([family]) => family);
 
-  return ranked.length > 0 ? ranked : ["landing-page"];
+  return ranked.length > 0 ? ranked : ["base-nextjs"];
 }
 
 function scoreEntry(
@@ -1095,8 +1104,15 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 
   for (const family of families) {
     const groupedReferences = grouped.get(family) ?? [];
+    const RESEARCH_EXCLUDE_CATEGORIES = new Set([
+      "ai", "cron", "edge-functions", "edge-middleware", "edge-config",
+      "web3", "vercel-firewall", "cdn", "backend", "security",
+      "microfrontends", "virtual-event", "monorepos", "realtime-apps",
+    ]);
     const filteredReferences = groupedReferences.filter(
-      (entry) => !isStarterOrBoilerplateReference(entry),
+      (entry) =>
+        !isStarterOrBoilerplateReference(entry) &&
+        !RESEARCH_EXCLUDE_CATEGORIES.has(entry.categorySlug),
     );
     const references =
       family === "base-nextjs"

@@ -85,58 +85,7 @@
           "Stronger hero and CTA rhythm",
           "More realistic section hierarchy"
         ],
-        "referenceTemplates": [
-          {
-            "id": "ai-chatgpt-app-with-next-js",
-            "title": "ChatGPT app with Next.js",
-            "categorySlug": "ai",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "web3-coinbase-onchain",
-            "title": "Coinbase Onchain",
-            "categorySlug": "web3",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "cron-cron-og-cards",
-            "title": "Cron OG Cards",
-            "categorySlug": "cron",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "cron-vercel-dbos-integration",
-            "title": "Vercel + DBOS Integration",
-            "categorySlug": "cron",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          },
-          {
-            "id": "ai-vercel-ai-gateway-demo",
-            "title": "Vercel AI Gateway Demo",
-            "categorySlug": "ai",
-            "qualityScore": 86,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure"
-            ]
-          }
-        ]
+        "referenceTemplates": []
       }
     },
     "saas-landing": {
