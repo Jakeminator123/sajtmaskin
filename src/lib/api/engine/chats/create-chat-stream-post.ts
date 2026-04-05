@@ -234,18 +234,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 serverAutoBriefGenerated: Boolean(serverAutoBrief),
                 ...(serverAutoBriefModel ? { serverAutoBriefModel } : {}),
               };
+        const metaObj = meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null;
         const promptOriginal =
-          typeof (meta as { promptOriginal?: unknown })?.promptOriginal === "string"
-            ? String((meta as { promptOriginal?: string }).promptOriginal)
-            : typeof message === "string"
-              ? message
-              : null;
+          typeof metaObj?.promptOriginal === "string"
+            ? String(metaObj.promptOriginal)
+            : message ?? null;
         const promptFormatted =
-          typeof (meta as { promptFormatted?: unknown })?.promptFormatted === "string"
-            ? String((meta as { promptFormatted?: string }).promptFormatted)
-            : typeof optimizedMessage === "string"
-              ? optimizedMessage
-              : null;
+          typeof metaObj?.promptFormatted === "string"
+            ? String(metaObj.promptFormatted)
+            : optimizedMessage ?? null;
         await createPromptLog({
           event: "create_chat",
           userId: creditUser?.id || null,
@@ -256,18 +253,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptOriginal,
           promptFormatted,
           systemPrompt: trimmedSystemPrompt || null,
-          promptAssistModel:
-            typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
-              ? String((meta as { promptAssistModel?: string }).promptAssistModel)
-              : null,
-          promptAssistDeep:
-            typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
-              ? Boolean((meta as { promptAssistDeep?: boolean }).promptAssistDeep)
-              : null,
-          promptAssistMode:
-            typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
-              ? String((meta as { promptAssistMode?: string }).promptAssistMode)
-              : null,
+          promptAssistModel: parsedMeta.promptAssistModel,
+          promptAssistDeep: parsedMeta.promptAssistDeep,
+          promptAssistMode: parsedMeta.promptAssistMode,
           buildIntent: metaBuildIntent,
           buildMethod: metaBuildMethod,
           modelTier: resolvedModelTier,
@@ -323,21 +311,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       });
 
       debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
-        promptAssistModel:
-          typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
-            ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
-            : null,
-        promptAssistDeep:
-          typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
-            ? Boolean((meta as { promptAssistDeep: boolean }).promptAssistDeep)
-            : null,
-        promptAssistMode: (() => {
-          const raw =
-            typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
-              ? String((meta as { promptAssistMode: string }).promptAssistMode).trim()
-              : null;
-          return raw === "polish" || raw === "rewrite" ? raw : null;
-        })(),
+        promptAssistModel: parsedMeta.promptAssistModel,
+        promptAssistDeep: parsedMeta.promptAssistDeep,
+        promptAssistMode: parsedMeta.promptAssistMode,
         promptStrategy: strategyMeta.strategy,
         promptType: strategyMeta.promptType,
       });
@@ -358,28 +334,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
-        const planScaffoldMode =
-          typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
-            ? (String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off")
-            : "auto";
-
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
           buildIntent: engineIntent,
-          scaffoldMode: planScaffoldMode,
-          scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
-            ? String((meta as Record<string, string>).scaffoldId)
-            : null,
+          scaffoldMode: parsedMeta.scaffoldMode,
+          scaffoldId: parsedMeta.scaffoldId,
           brief: effectiveBrief,
-          themeColors: (() => {
-            const raw = (meta as Record<string, unknown>)?.themeColors;
-            if (!raw || typeof raw !== "object") return null;
-            const tc = raw as Record<string, unknown>;
-            if (typeof tc.primary === "string" && typeof tc.secondary === "string" && typeof tc.accent === "string") {
-              return { primary: tc.primary, secondary: tc.secondary, accent: tc.accent };
-            }
-            return null;
-          })(),
+          themeColors: parsedMeta.themeColors,
           promptStrategyMeta: strategyMeta,
         });
 
@@ -439,7 +400,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptStrategyMeta: strategyMeta,
           buildSpec: planOrchestration.buildSpec,
           resolvedScaffold: planOrchestration.resolvedScaffold,
-          scaffoldMode: planScaffoldMode,
+          scaffoldMode: parsedMeta.scaffoldMode,
           onResolved: (planData, hasBlockers, accumulatedContent) => {
             const blockerCount = Array.isArray(planData?.blockers)
               ? (planData.blockers as unknown[]).length

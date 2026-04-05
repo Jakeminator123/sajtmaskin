@@ -24,6 +24,7 @@ import type {
   StreamQualitySignal,
   VersionErrorLogPayload,
 } from "./types";
+import type { QualityTier } from "@/lib/db/engine-version-lifecycle";
 
 export interface ImageValidationResult {
   valid?: boolean;
@@ -41,7 +42,7 @@ export interface ImageValidationResult {
   demoUrl?: string;
 }
 
-export type QualityTier = "none" | "preview" | "tier2" | "production";
+export type { QualityTier };
 
 export interface PostCheckArtifacts {
   finalDemoUrl: string | null;

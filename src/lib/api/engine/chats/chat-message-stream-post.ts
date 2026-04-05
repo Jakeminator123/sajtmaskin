@@ -46,7 +46,6 @@ import { createCommitCreditsOnce } from "./credits-handler";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context/file-context-builder";
-import type { CodeFile } from "@/lib/gen/parser";
 import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
 import {
   buildOwnEngineGenerationStreamMeta,
@@ -111,7 +110,6 @@ export async function handleMessageStreamRequest(
         thinking,
         imageGenerations,
         system,
-        designSystemId: _clientDesignSystemId,
         meta,
       } =
         validationResult.data;
