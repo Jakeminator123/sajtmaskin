@@ -1,6 +1,8 @@
 "use client";
 
 import { AlertCircle, Loader2, MessageCircleQuestion, Wand2 } from "lucide-react";
+import type { EngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
+import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +16,10 @@ interface PreviewPanelEmptyStateProps {
   awaitingInputOptions: string[];
   sandboxPending: boolean;
   sandboxBuildError?: { stage: string; message: string } | null;
+  previewLifecycle?: PreviewLifecycleState;
+  activeVersionStatus?: EngineVersionDisplayStatus | null;
+  activeVersionSummary?: string | null;
+  activeVersionIsLatest?: boolean;
   onFixPreview?: (() => void) | null;
 }
 
@@ -26,6 +32,10 @@ export function PreviewPanelEmptyState({
   awaitingInputOptions,
   sandboxPending,
   sandboxBuildError,
+  previewLifecycle,
+  activeVersionStatus,
+  activeVersionSummary,
+  activeVersionIsLatest = true,
   onFixPreview,
 }: PreviewPanelEmptyStateProps) {
   const isInitialEmpty = !chatId && !versionId && !externalLoading;
@@ -39,15 +49,33 @@ export function PreviewPanelEmptyState({
     .slice(0, 6);
   const title = sandboxBuildError
     ? "Live-preview misslyckades"
+    : activeVersionStatus === "retrying" && !activeVersionIsLatest
+      ? "Byter till reparerad version"
+      : previewLifecycle === "recovering"
+        ? "Återansluter till live-preview"
+        : activeVersionStatus === "verifying"
+          ? "Verifierar version"
+          : activeVersionStatus === "repairing"
+            ? "Reparerar version"
     : sandboxPending
-      ? "Startar live-preview"
+      ? "Startar VM-preview"
       : awaitingInput
         ? "AI väntar på ditt svar"
         : isInitialEmpty
           ? "Välkommen"
+          : externalLoading
+            ? "Genererar kod"
           : "Ingen förhandsvisning ännu";
   const subtitle = sandboxBuildError
     ? `Steg: ${sandboxBuildError.stage}. ${sandboxBuildError.message}`
+    : activeVersionStatus === "retrying" && !activeVersionIsLatest
+      ? activeVersionSummary || "En nyare reparerad version tar över som den aktuella previewn."
+      : previewLifecycle === "recovering"
+        ? "Vi verifierar sessionen mot servern och återansluter VM-previewn om det behövs."
+        : activeVersionStatus === "verifying"
+          ? activeVersionSummary || "Versionen är sparad och verifieras innan den markeras som stabil."
+          : activeVersionStatus === "repairing"
+            ? activeVersionSummary || "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
     : sandboxPending
       ? "Next.js startas i VM-previewn och visas så snart dev-servern svarar."
       : awaitingInput

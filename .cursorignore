@@ -56,7 +56,7 @@ public/images/
 
 # --- Canonical external-template pipeline (tung lokal data) ---
 data/external-template-pipeline/scrape-cache/**
-data/external-template-pipeline/raw-discovery/**
+#data/external-template-pipeline/raw-discovery/**
 data/external-template-pipeline/repo-cache/**
 data/external-template-pipeline/reference-library/**
 data/external-template-pipeline/reports/**
@@ -66,7 +66,7 @@ data/external-template-pipeline/reports/**
 src/lib/gen/data/docs-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/template-library/template-library-embeddings.json
-#src/lib/gen/template-library/template-library.generated.json
+src/lib/gen/template-library/template-library.generated.json
 #src/lib/templates/template-embeddings.json
 #src/lib/gen/scaffolds/scaffold-research.generated.json
 

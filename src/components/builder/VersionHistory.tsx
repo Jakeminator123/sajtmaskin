@@ -577,7 +577,7 @@ export function VersionHistory({
                   ? version.verificationSummary.trim()
                   : null;
               if (lifecycleStatus === "retrying") {
-                return "Ersatt av ett senare omtag efter verifieringsfel.";
+                return summary || "Ersatt av ett senare omtag efter verifieringsfel.";
               }
               return summary;
             })();

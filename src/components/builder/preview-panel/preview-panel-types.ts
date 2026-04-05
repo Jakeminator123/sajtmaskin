@@ -1,5 +1,6 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import type { EngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
 import type { AlternatePreviewUrls } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 
@@ -69,6 +70,9 @@ export interface PreviewPanelProps {
   /** Server-known sandbox VM id for heartbeat / status (own-engine). */
   activeSandboxId?: string | null;
   previewLifecycle?: PreviewLifecycleState;
+  activeVersionStatus?: EngineVersionDisplayStatus | null;
+  activeVersionSummary?: string | null;
+  activeVersionIsLatest?: boolean;
   /** Ask controller to verify server session and recover sandbox if needed. */
   onPreviewSessionSuspect?: () => void;
   placementMode?: boolean;

@@ -8,6 +8,7 @@ import {
   createAndPromoteDraftVersion,
   markVersionRepairing,
   failVersionVerification,
+  markVersionSupersededByRepair,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
@@ -213,6 +214,9 @@ export async function POST(
         } else {
           promoted = true;
           newVersionId = promotedVersion.id;
+          await markVersionSupersededByRepair(currentVersionId, promotedVersion.id).catch((err) => {
+            console.warn("[repair] Failed to mark repaired-from version superseded:", err);
+          });
         }
       }
       if (dbConfigured) {

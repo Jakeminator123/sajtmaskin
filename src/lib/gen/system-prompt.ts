@@ -748,14 +748,22 @@ export async function buildDynamicContext(
     }
   }
 
-  // ── Relevant Documentation (KB search + registry enrichment) ────────────
+  // ── Relevant Documentation + Template Retrieval (parallel) ──────────────
   if (originalPrompt && !skipHeavyRetrieval) {
-    const kbSearch = await searchKnowledgeBaseAsync({
-      query: originalPrompt,
-      maxResults: 7,
-      maxChars: 4000,
-      allowSemantic: embeddingEnrichment,
-    });
+    const [kbSearch, templateReferenceSearch] = await Promise.all([
+      searchKnowledgeBaseAsync({
+        query: originalPrompt,
+        maxResults: 7,
+        maxChars: 4000,
+        allowSemantic: embeddingEnrichment,
+      }),
+      rankTemplateReferences(
+        originalPrompt,
+        resolvedScaffold,
+        embeddingEnrichment,
+        buildSpec?.contextPolicy === "heavy" ? 6 : 4,
+      ),
+    ]);
     if (kbSearch.matches.length > 0) {
       parts.push("## Relevant Documentation", "");
       if (kbSearch.mode === "keyword_weak_semantic") {
@@ -774,15 +782,6 @@ export async function buildDynamicContext(
         // Registry unavailable -- continue without enrichment
       }
     }
-  }
-
-  if (originalPrompt && !skipHeavyRetrieval) {
-    const templateReferenceSearch = await rankTemplateReferences(
-      originalPrompt,
-      resolvedScaffold,
-      embeddingEnrichment,
-      buildSpec?.contextPolicy === "heavy" ? 6 : 4,
-    );
     templateLibrarySearchDiagnostics = templateReferenceSearch.diagnostics;
     const usefulTemplateMatches = templateReferenceSearch.matches.slice(
       0,

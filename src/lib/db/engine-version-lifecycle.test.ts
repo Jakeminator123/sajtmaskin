@@ -47,6 +47,12 @@ describe("resolveEngineVersionDisplayStatus", () => {
     ).toBe("repairing");
   });
 
+  it("shows retrying when repairing but newer version exists", () => {
+    const repairing = { verificationState: "repairing", versionNumber: 1 };
+    const newer = { verificationState: "passed", releaseState: "promoted", versionNumber: 2 };
+    expect(resolveEngineVersionDisplayStatus(repairing, [repairing, newer])).toBe("retrying");
+  });
+
   it("shows retrying when failed but newer version exists", () => {
     const failed = { verificationState: "failed", versionNumber: 1 };
     const newer = { verificationState: "verifying", versionNumber: 2 };

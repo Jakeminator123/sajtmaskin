@@ -183,8 +183,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptSourcePreservePayload: metaPromptSourcePreservePayload,
           promptType: strategyMeta.promptType,
           orchestrationReason: strategyMeta.reason,
+          prompt: message,
+          buildIntent: metaBuildIntent,
         })
       ) {
+        const autoBriefStartedAt = Date.now();
         const generated = await tryGenerateServerAutoBrief({
           prompt: message,
           assistModelHint,
@@ -195,8 +198,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           serverAutoBrief = generated.brief;
           serverAutoBriefModel = generated.modelUsed;
           debugLog("orchestration", "Server auto brief applied", {
+            durationMs: Date.now() - autoBriefStartedAt,
             modelUsed: serverAutoBriefModel,
             pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
+          });
+        } else {
+          debugLog("orchestration", "Server auto brief skipped or returned empty", {
+            durationMs: Date.now() - autoBriefStartedAt,
           });
         }
       }
@@ -334,6 +342,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        const planOrchestrationStartedAt = Date.now();
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
           buildIntent: engineIntent,
@@ -342,6 +351,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
           promptStrategyMeta: strategyMeta,
+        });
+        debugLog("orchestration", "Plan mode orchestration prepared", {
+          durationMs: Date.now() - planOrchestrationStartedAt,
+          qualityTarget: planOrchestration.buildSpec.qualityTarget,
+          contextPolicy: planOrchestration.buildSpec.contextPolicy,
+          scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
         });
 
         const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts(planOrchestration);
@@ -475,7 +490,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           customInstructions: trimmedSystemPrompt || undefined,
           promptStrategyMeta: strategyMeta,
         };
+        const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        debugLog("orchestration", "Orchestration base resolved", {
+          durationMs: Date.now() - orchestrationStartedAt,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          routeCount: orchestrationBase.routePlan.routes.length,
+        });
         const {
           resolvedScaffold,
           routePlan,
@@ -569,8 +592,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             headers: createSSEHeaders(),
           }));
         }
+        const finalizePromptStartedAt = Date.now();
         const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
           await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        debugLog("orchestration", "System prompt finalized", {
+          durationMs: Date.now() - finalizePromptStartedAt,
+          routeCount: orchestrationBase.routePlan.routes.length,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+        });
         const lineageHash = computeLineageHash({
           userPrompt: optimizedMessage,
           brief: metaBrief,

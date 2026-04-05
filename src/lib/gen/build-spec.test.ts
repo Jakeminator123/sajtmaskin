@@ -28,6 +28,17 @@ const marketingRoutePlan: RoutePlan = {
   ],
 };
 
+const multiPageWebsiteRoutePlan: RoutePlan = {
+  source: "prompt",
+  siteType: "content-heavy",
+  reason: "test",
+  routes: [
+    { path: "/", name: "Home", intent: "Primary landing page", required: true },
+    { path: "/om-oss", name: "Om oss", intent: "About page", required: false },
+    { path: "/produkter", name: "Produkter", intent: "Catalog page", required: false },
+  ],
+};
+
 const saasScaffold: ScaffoldManifest = {
   id: "saas-landing",
   family: "saas-landing",
@@ -183,6 +194,22 @@ describe("deriveBuildSpec", () => {
     expect(spec.changeScope).toBe("integration");
     expect(spec.qualityTarget).toBe("premium");
     expect(spec.contextPolicy).toBe("heavy");
+  });
+
+  it("keeps common multi-page websites at standard quality when they lack app/integration signals", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: multiPageWebsiteRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.changeScope).toBe("page-addition");
+    expect(spec.qualityTarget).toBe("standard");
+    expect(spec.contextPolicy).toBe("normal");
   });
 
   it("maps tokenBudgets to contextPolicy levels (light, normal, heavy)", () => {

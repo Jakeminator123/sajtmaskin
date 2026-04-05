@@ -69,7 +69,7 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
   versions: T[] = [],
 ): EngineVersionDisplayStatus {
   const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
-  if (lifecycleStatus !== "failed" || !version) {
+  if (!version) {
     return lifecycleStatus;
   }
 
@@ -80,7 +80,15 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
     return getVersionSortKey(candidate) > currentSortKey;
   });
 
-  return hasNewerVersion ? "retrying" : "failed";
+  if (!hasNewerVersion) {
+    return lifecycleStatus;
+  }
+
+  if (lifecycleStatus === "failed" || lifecycleStatus === "repairing") {
+    return "retrying";
+  }
+
+  return lifecycleStatus;
 }
 
 export function canExposeEnginePreview(

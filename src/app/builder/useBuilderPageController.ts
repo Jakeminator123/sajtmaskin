@@ -1314,15 +1314,18 @@ export function useBuilderPageController() {
           : null
         : null;
 
-    const nextDemoUrl =
+    const selectedVersionPreview =
       persistedPreviewOverride ||
       pickVersionPreviewUrl(activeVersionMatch, { allowFailed: userSelectedActiveVersion }) ||
+      null;
+    const fallbackPreviewUrl =
       chatLevelPreview ||
       pickVersionPreviewUrl(firstUsableVersion) ||
       (canUseServerDemoUrl && typeof serverProjectDemoUrl === "string" && serverProjectDemoUrl.trim()
         ? serverProjectDemoUrl.trim()
         : null) ||
       null;
+    const nextDemoUrl = userSelectedActiveVersion ? selectedVersionPreview : selectedVersionPreview || fallbackPreviewUrl;
 
     const currentIsLivePreview = currentPreviewUrl != null && !isShimOrMissingPreviewUrl(currentPreviewUrl);
     const nextIsShimPreview = nextDemoUrl != null && isShimOrMissingPreviewUrl(nextDemoUrl);
@@ -1331,6 +1334,12 @@ export function useBuilderPageController() {
       nextIsShimPreview &&
       versionSummaryHasSandbox(activeVersionMatch, { allowFailed: userSelectedActiveVersion })
     ) {
+      return;
+    }
+
+    if (!nextDemoUrl && didChangeVersion && currentPreviewUrl) {
+      setCurrentPreviewUrl(null);
+      setPreviewRefreshToken(Date.now());
       return;
     }
 
@@ -1578,6 +1587,7 @@ export function useBuilderPageController() {
     isAnyStreaming: derived.isAnyStreaming,
     isAwaitingInput: derived.isAwaitingInput,
     activeVersionId: derived.activeVersionId,
+    latestVersionId: derived.latestVersionId,
     mediaEnabled: derived.mediaEnabled,
     initialPrompt: derived.initialPrompt,
     auditPromptLoaded: state.auditPromptLoaded,

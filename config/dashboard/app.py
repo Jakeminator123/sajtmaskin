@@ -492,6 +492,11 @@ elif page == "ai_models":
             "Begrepp: `planner` = tänk/plan före kod, `generator` = bygger sajten, `fixer` = försöker laga syntax/kvalitetsfel, "
             "`verifier` = efterkontroll i bakgrunden."
         )
+        st.info(
+            "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: "
+            "`qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`. "
+            "En enkel website bör normalt stanna på `standard` + `medium` reasoning, medan app/ecommerce/integrationer kan eskalera till `premium` + `high`."
+        )
 
         st.markdown("### Byggprofiler (själva kodgeneratorn)")
         profile_labels = {
@@ -659,6 +664,9 @@ elif page == "ai_models":
             help="Äldre hjälparmodell för spec-first-flöde. Ingår inte i normal create-chat-kedja men hålls synkad här.",
             key="brief_spec_model",
         )
+        st.caption(
+            "Server-auto-brief körs nu mer selektivt: redan strukturerade website-prompts (t.ex. tydliga sektioner, CTA, färgriktning) hoppar oftare över detta steg för att spara tid."
+        )
 
         st.markdown("### Tillåtna assist-modeller")
         gateway_text = st.text_area(
@@ -705,6 +713,10 @@ elif page == "ai_models":
         )
         st.caption(
             "Det här styr den deterministiska orkestratorn före build. Det är inte en egen LLM, utan regler för när prompten ska skickas direkt, kondenseras eller delas upp."
+        )
+        st.info(
+            "Website-latens påverkas också av hur mycket kontext som byggs före modellanropet. "
+            "KB-sök och template-library-retrieval körs nu parallellt, men stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."
         )
 
         st.markdown("### Hard caps")

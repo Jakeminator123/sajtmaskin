@@ -393,6 +393,7 @@ export async function handleMessageStreamRequest(
             metaBuildIntent === "app"
               ? (metaBuildIntent as BuildIntent)
               : "website";
+          const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
             buildIntent: planEngineIntent,
@@ -408,6 +409,13 @@ export async function handleMessageStreamRequest(
             generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
+          });
+          debugLog("orchestration", "Follow-up plan orchestration prepared", {
+            chatId,
+            durationMs: Date.now() - planOrchestrationStartedAt,
+            qualityTarget: planOrchestration.buildSpec.qualityTarget,
+            contextPolicy: planOrchestration.buildSpec.contextPolicy,
+            scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
           });
           const planResolvedScaffold = planOrchestration.resolvedScaffold;
           if (
@@ -520,7 +528,16 @@ export async function handleMessageStreamRequest(
           generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
           ignorePersistedScaffoldForMatch,
         };
+        const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        debugLog("orchestration", "Follow-up orchestration base resolved", {
+          chatId,
+          durationMs: Date.now() - orchestrationStartedAt,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          routeCount: orchestrationBase.routePlan.routes.length,
+        });
         const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
@@ -646,8 +663,16 @@ export async function handleMessageStreamRequest(
             headers: createSSEHeaders(),
           }));
         }
+        const finalizePromptStartedAt = Date.now();
         const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
           await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        debugLog("orchestration", "Follow-up system prompt finalized", {
+          chatId,
+          durationMs: Date.now() - finalizePromptStartedAt,
+          routeCount: orchestrationBase.routePlan.routes.length,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+        });
         const lineageHash = computeLineageHash({
           userPrompt: optimizedMessage,
           brief: metaBrief,

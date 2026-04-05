@@ -1014,6 +1014,33 @@ export async function handleSseStream(
       chatId: latestMaterialize.chatId,
       versionId: latestMaterialize.versionId,
       enabled: enableImageMaterialization,
+    }).then((result) => {
+      if (!result) return;
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:image-materialization",
+        toolName: "Bildmaterialisering",
+        toolCallId: `image-materialization:${latestMaterialize.versionId}`,
+        state: result.error ? "output-error" : "output-available",
+        output: {
+          attempted: result.attempted,
+          strategy: result.strategy,
+          replaced: result.replaced,
+          uploaded: result.uploaded,
+          skipped: result.skipped,
+          warningCount: result.warningCount,
+          reason: result.reason ?? null,
+          error: result.error ?? null,
+          steps: result.error
+            ? ["Bildmaterialisering misslyckades efter att versionen sparats."]
+            : !result.attempted
+              ? [result.reason === "blob_not_configured"
+                ? "Blob-materialisering hoppades över eftersom Blob inte är konfigurerat."
+                : "Bildmaterialisering hoppades över i den här körningen."]
+              : result.replaced > 0
+                ? [`Speglade ${result.replaced} bildreferenser till Blob efter att versionen sparats.`]
+                : ["Ingen ytterligare bildmaterialisering behövdes efter att versionen sparats."],
+        },
+      } as Parameters<typeof appendToolPartToMessage>[2]);
     });
   }
 

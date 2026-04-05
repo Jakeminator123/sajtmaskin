@@ -128,8 +128,8 @@ Sajtmaskin har fem **build-profiler** som mappas till faktiska OpenAI/Anthropic-
 
 | qualityTarget | reasoning_effort | När det triggas |
 |---------------|-----------------|-----------------|
-| `standard` | `medium` | Enkel landing page, en-sidig sajt |
-| `premium` | `high` | Multi-page, app med integrationer/routes |
+| `standard` | `medium` | Enkel landing page, en-sidig sajt och vanliga websites utan app-/integrationssignaler |
+| `premium` | `high` | App, ecommerce, auth, dashboard, tydliga integrationer eller mer avancerade website-fall |
 | `release-candidate` | `high` | Explicit produktionsklar build |
 
 ### Viktigt: vi använder INTE gpt-5.4 pro
@@ -157,7 +157,7 @@ Varje profil kan overridas via env utan kodändring:
 | Forbattra / Deep brief | `openai/gpt-5.4` | Genererar brief fore build (~20s) |
 | Skriv om (polish) | `openai/gpt-5.3-codex` | Latt omskrivning av prompt |
 
-Dessa ar **inte** samma som build-modellen. Deep brief kors alltid med gpt-5.4 oavsett vilken build-profil du valt.
+Dessa ar **inte** samma som build-modellen. Deep brief körs fortfarande med `openai/gpt-5.4`, men `server-auto-brief-policy.ts` hoppar nu oftare över det steget för redan strukturerade website-prompts.
 
 ---
 

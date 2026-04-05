@@ -1,6 +1,6 @@
 # Preview, sandbox och deploy
 
-**Senast uppdaterad:** 2026-04-05
+**Senast uppdaterad:** 2026-04-05 (preview/version-lifecycle uppdaterad)
 
 **Terminologinot:** den relevanta tier-2-previewen just nu är primärt **VM / `preview_host` via Fly.io**. Ordet **`sandbox`** lever kvar i routes, fältnamn och symboler som `sandbox_url` och `/sandbox-preview`, och betyder där ofta legacy naming eller delat tier-2-kontrakt snarare än att Vercel Sandbox är huvudvägen. **Quality gate / server-verify** körs nu också via preview-host, men i en **separat verify-lane** och inte i samma workspace som live-previewn.
 
@@ -60,6 +60,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | HTTP API | Meningsfulla statuskoder + `retryable` för `/sandbox-preview` | `sandbox-preview-errors.ts`, route |
 | Bootstrap-retry | Klienten respekterar `retryable`, **500** med `retryable: true`, `Retry-After` | `sandbox-bootstrap-retry.ts`, `useBuilderPageController.ts` |
 | Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Recover är nu provider-agnostisk via `tryResumeTier2Runtime`. Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `tier2-resume.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `usePreviewSession.ts`, `useBuilderSandboxPreview.ts` |
+| Repair-versioner | När server-verify eller manuell repair skapar en ny promotad version markeras den tidigare repair-källan som ersatt/superseded i stället för att lämnas kvar i `repairing`. UI visar detta som `Omtag`. | `server-verify.ts`, `repair/route.ts`, `chat-repository-pg.ts`, `engine-version-lifecycle.ts`, `VersionHistory.tsx` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `sandbox-preview.ts` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` kan lyfta sandbox från `dev_only` till `dev_then_build` utan att ändra global env-default | `build-spec.ts`, `runtime-url.ts`, `sandbox-preview.ts`, `generation-stream-post-finalize.ts` |
 | Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; sandbox-lifecycle loggar policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `sandbox-lifecycle-telemetry.ts` |
@@ -119,13 +120,13 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 - **Recover:** Misstanke från iframe (t.ex. transportfel, ready-timeout) → status-GET; om inte `running` → tvingad `sandbox-preview` med `forceRestart`, debounce och maxförsök (se `useBuilderPageController`).
 - **Livscykel-UI:** `PreviewLifecycleState` i `src/lib/builder/preview-lifecycle.ts` — `idle` \| `bootstrapping` \| `live` \| `recovering` \| `failed`.
 - **Telemetri:** loggprefix **`[telemetry:sandbox-lifecycle]`** — heartbeat, `sandbox_status`, recover-faser, `sandbox_start_outcome`, samt policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start. Tier-2-event kan nu bära `tier2Provider`, `failoverFrom` och `willFailover`.
-- **Repair / versionsbyte:** Om SSE `done` sätter **`onlySelectVersionIfWasLatest`: true** uppdateras vald version i byggaren **endast** om användaren redan var på föregående server-«latest» (annars behålls manuellt vald äldre version). Normal egen generering skickar inte flaggan — standard är att följa streamens `versionId`.
+- **Repair / versionsbyte:** Om SSE `done` sätter **`onlySelectVersionIfWasLatest`: true** uppdateras vald version i byggaren **endast** om användaren redan var på föregående server-«latest» (annars behålls manuellt vald äldre version). Normal egen generering skickar inte flaggan — standard är att följa streamens `versionId`. När användaren **manuellt väljer en äldre version** utan egen live-preview ska buildern nu hellre visa tom-/bootstrapping-state för just den versionen än att tyst falla tillbaka till senaste versionens preview.
 
 **Bootstrap (klient):** `src/lib/builder/sandbox-bootstrap-retry.ts` — samma semantik som ovan; vid `503`/`504` kan servern skicka `Retry-After` (sekunder) som klienten använder som delay före retry (fallback ~6 s).
 
 **Repair en gång:** Filer från `files_json` efter finalize är redan repairade i preflight. `startSandboxPreview` anropas med `skipRepair: true` från own-engine-strömmen (när underlaget kommer från `filesJson`) och från sandbox-preview-API:et, så tier-2 inte kör ett andra repair-varv i onödan.
 
-**Finalize fast/deep path:** `finalize-version.ts` bär nu ett explicit fast/deep-path-kontrakt. Defaultflödet är fortfarande samma produktkedja, men lätta follow-ups (`BuildSpec` med `verificationPolicy: fast`) kan hoppa över deep-path-steg som bildmaterialisering och polish innan versionen sparas. Parse/merge/preflight/persist ligger kvar i fast path.
+**Finalize fast/deep path:** `finalize-version.ts` bär nu ett explicit fast/deep-path-kontrakt. Defaultflödet är fortfarande samma produktkedja, men lätta follow-ups (`BuildSpec` med `verificationPolicy: fast`) kan hoppa över deep-path-steg som bildmaterialisering och polish innan versionen sparas. Parse/merge/preflight/persist ligger kvar i fast path. Efter `done` kan klienten fortfarande köra en separat Blob-bildmaterialisering på sparade filer och visar nu explicit status för om det steget kördes, hoppades över eller misslyckades.
 
 **Sandbox `.env.local`:** Både **`startSandboxPreview`** (builder UI) och **`generateOwnEngineSiteFromPrompt`** (MCP/own-engine) anropar `buildSandboxEnvLocalContents` (`src/lib/gen/sandbox-env-local.ts`) som bygger merged `.env.local` i VM — globala placeholders från `config/ai_models/40-generated-site-integration-placeholders.env.txt`, projekt-preview-token, lagrade projekt-env, sist genererad `.env.local` om modellen skrev en (senare vinner). Se `config/user_degraded_env.txt` och avsnittet *Genererade användarsajter* i [`docs/ENV.md`](../ENV.md).
 

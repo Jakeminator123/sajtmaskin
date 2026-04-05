@@ -222,15 +222,18 @@ function inferQualityTarget(params: {
   const { prompt, buildIntent, resolvedScaffold, routePlan, preGenerationContracts } = params;
   if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "release-candidate";
 
-  const premiumSignals =
-    buildIntent === "app" ||
-    routePlan.routes.length > 1 ||
-    preGenerationContracts.contracts.integrations.length > 0 ||
-    preGenerationContracts.contracts.dataMode === "persisted" ||
+  const advancedScaffoldFamily =
     resolvedScaffold?.family === "dashboard" ||
     resolvedScaffold?.family === "ecommerce" ||
     resolvedScaffold?.family === "app-shell" ||
     resolvedScaffold?.family === "saas-landing";
+  const routeCount = routePlan.routes.length;
+  const premiumSignals =
+    buildIntent === "app" ||
+    routeCount > 4 ||
+    preGenerationContracts.contracts.integrations.length > 0 ||
+    preGenerationContracts.contracts.dataMode === "persisted" ||
+    advancedScaffoldFamily;
 
   return premiumSignals ? "premium" : "standard";
 }

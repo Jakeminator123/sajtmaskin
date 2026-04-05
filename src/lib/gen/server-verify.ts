@@ -16,6 +16,7 @@ import {
   markVersionRepairing,
   promoteVersion,
   failVersionVerification,
+  markVersionSupersededByRepair,
   createAndPromoteDraftVersion,
   getChat,
 } from "@/lib/db/chat-repository-pg";
@@ -231,6 +232,7 @@ async function tryServerRepairLoop(params: {
         console.warn("[server-verify] Repaired draft version was created but promotion did not complete.");
       } else {
         promoted = true;
+        await markVersionSupersededByRepair(versionId, promotedVersion.id).catch(() => null);
       }
     }
     await createEngineVersionErrorLogs([

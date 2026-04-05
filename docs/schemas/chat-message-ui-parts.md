@@ -12,11 +12,13 @@ The current stable use case is the Phase 8 planning review card.
 
 ## Storage surfaces
 
-| Surface | Field | Purpose |
-|------|------|---------|
-| `engine_messages` | `ui_parts` | Canonical own-engine chat persistence for structured assistant message parts |
-| `project_data` | `messages` | Convenience snapshot for saved projects, not the primary planner source of truth |
-| local storage | `sajtmaskin:messages:{chatId}` | Client cache used for fast restore between sessions |
+
+| Surface           | Field                          | Purpose                                                                          |
+| ----------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| `engine_messages` | `ui_parts`                     | Canonical own-engine chat persistence for structured assistant message parts     |
+| `project_data`    | `messages`                     | Convenience snapshot for saved projects, not the primary planner source of truth |
+| local storage     | `sajtmaskin:messages:{chatId}` | Client cache used for fast restore between sessions                              |
+
 
 Code sources of truth:
 
@@ -73,12 +75,12 @@ type StoredPlanUiPart = {
 Notes:
 
 - `raw` contains the enriched planner payload that is persisted alongside the
-  normalized review shape. It may be the normalized `PlanArtifact`, but it can
-  also be the richer pre-normalized `planData` object when that is available.
+normalized review shape. It may be the normalized `PlanArtifact`, but it can
+also be the richer pre-normalized `planData` object when that is available.
 - `steps`, `blockers`, and `assumptions` are included so the planner card can
-  restore without recomputing the entire display shape from text.
+restore without recomputing the entire display shape from text.
 - This contract is stable enough for own-engine plan review, but not yet a
-  general promise that every streamed tool part will be stored forever.
+general promise that every streamed tool part will be stored forever.
 
 ## Restore rule
 
@@ -95,3 +97,4 @@ This schema note does not imply:
 - full v0 fallback parity for plan mode
 - persistence of every transient streamed tool part
 - a separate client-owned planner orchestrator
+

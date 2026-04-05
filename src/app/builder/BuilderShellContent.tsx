@@ -45,6 +45,7 @@ import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import { analyzeSections } from "@/lib/builder/sectionAnalyzer";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import { saveProjectData } from "@/lib/project-client";
+import { resolveEngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
 import {
   MODEL_TIER_OPTIONS,
   getPromptAssistModelLabel,
@@ -146,6 +147,36 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.sandboxPending ||
     vm.previewLifecycle === "recovering" ||
     (!vm.currentPreviewUrl && vm.isAnyStreaming);
+  const activeVersionSummary = useMemo(() => {
+    return vm.activeVersionId
+      ? vm.effectiveVersionsList.find(
+          (version) => version.versionId === vm.activeVersionId || version.id === vm.activeVersionId,
+        ) ?? null
+      : null;
+  }, [vm.activeVersionId, vm.effectiveVersionsList]);
+  const activeVersionStatus = useMemo(() => {
+    if (!activeVersionSummary) return null;
+    return resolveEngineVersionDisplayStatus(
+      {
+        versionId: activeVersionSummary.versionId,
+        id: activeVersionSummary.id,
+        createdAt: activeVersionSummary.createdAt,
+        versionNumber: activeVersionSummary.versionNumber,
+        releaseState: activeVersionSummary.releaseState,
+        verificationState: activeVersionSummary.verificationState,
+      },
+      vm.effectiveVersionsList.map((entry) => ({
+        versionId: entry.versionId,
+        id: entry.id,
+        createdAt: entry.createdAt,
+        versionNumber: entry.versionNumber,
+        releaseState: entry.releaseState,
+        verificationState: entry.verificationState,
+      })),
+    );
+  }, [activeVersionSummary, vm.effectiveVersionsList]);
+  const activeVersionIsLatest =
+    !vm.activeVersionId || !vm.latestVersionId || vm.activeVersionId === vm.latestVersionId;
   const sendMessage = vm.sendMessage;
 
   const handleComposerAiFallback = useCallback(
@@ -965,6 +996,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               sandboxPending={vm.sandboxPending}
               activeSandboxId={vm.activeSandboxId}
               previewLifecycle={vm.previewLifecycle}
+              activeVersionStatus={activeVersionStatus}
+              activeVersionSummary={activeVersionSummary?.verificationSummary ?? null}
+              activeVersionIsLatest={activeVersionIsLatest}
               onPreviewSessionSuspect={vm.handlePreviewSessionSuspect}
               onNavigatePreviewUrl={(url) => {
                 vm.setCurrentPreviewUrl(url);

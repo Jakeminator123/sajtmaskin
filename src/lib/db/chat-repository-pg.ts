@@ -429,6 +429,16 @@ export async function failVersionVerification(
   return getStoredVersion(versionId);
 }
 
+export async function markVersionSupersededByRepair(
+  versionId: string,
+  repairedVersionId: string | null = null,
+): Promise<Version | null> {
+  const summary = repairedVersionId
+    ? `Superseded by repaired version ${repairedVersionId}.`
+    : "Superseded by repaired version.";
+  return failVersionVerification(versionId, summary);
+}
+
 export async function logGeneration(
   chatId: string,
   model: string,

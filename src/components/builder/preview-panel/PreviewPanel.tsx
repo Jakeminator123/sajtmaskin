@@ -102,6 +102,9 @@ export function PreviewPanel({
   sandboxPending = false,
   activeSandboxId = null,
   previewLifecycle,
+  activeVersionStatus = null,
+  activeVersionSummary = null,
+  activeVersionIsLatest = true,
   onPreviewSessionSuspect,
   placementMode = false,
   pendingPlacementItem = null,
@@ -828,6 +831,10 @@ export function PreviewPanel({
         awaitingInputOptions={awaitingInputOptions}
         sandboxPending={sandboxPending}
         sandboxBuildError={sandboxBuildError}
+        previewLifecycle={previewLifecycle}
+        activeVersionStatus={activeVersionStatus}
+        activeVersionSummary={activeVersionSummary}
+        activeVersionIsLatest={activeVersionIsLatest}
         onFixPreview={onFixPreview}
       />
     );
