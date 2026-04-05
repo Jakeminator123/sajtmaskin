@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-03T00:16:14.703Z",
+  "generatedAt": "2026-04-05T12:28:50.260Z",
   "sourceRoot": "data/external-template-pipeline/raw-discovery/current",
   "totalTemplates": 191,
   "curatedTemplates": 97,
@@ -8612,7 +8612,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -8750,7 +8750,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -8888,7 +8888,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -9019,7 +9019,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -9150,7 +9150,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -9534,7 +9534,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -10552,7 +10552,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -10679,7 +10679,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -10806,7 +10806,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -10943,7 +10943,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -11592,7 +11592,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -12227,7 +12227,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,
@@ -12825,7 +12825,7 @@
       ],
       "weaknesses": [],
       "recommendedScaffoldFamilies": [
-        "landing-page"
+        "base-nextjs"
       ],
       "signals": {
         "auth": false,

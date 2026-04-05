@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-03T00:16:14.700Z",
+  "generatedAt": "2026-04-05T12:28:50.258Z",
   "source": "scripts/template-library/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
@@ -124,18 +124,6 @@
             ]
           },
           {
-            "id": "web3-coinbase-commerce",
-            "title": "Coinbase Commerce",
-            "categorySlug": "web3",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "pricing or billing structure",
-              "storefront or checkout patterns"
-            ]
-          },
-          {
             "id": "saas-visactor-next-js-template",
             "title": "VisActor Next.js Template",
             "categorySlug": "saas",
@@ -156,6 +144,16 @@
               "App Router structure",
               "pricing or billing structure",
               "storefront or checkout patterns"
+            ]
+          },
+          {
+            "id": "saas-hacker-news-slack-bot",
+            "title": "Hacker News Slack Bot",
+            "categorySlug": "saas",
+            "qualityScore": 74,
+            "strengths": [
+              "verified Next.js codebase",
+              "multi-tenant or workspace patterns"
             ]
           }
         ]
@@ -407,18 +405,6 @@
             ]
           },
           {
-            "id": "ai-chatbot",
-            "title": "Chatbot",
-            "categorySlug": "ai",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "auth flow reference",
-              "dashboard shell patterns"
-            ]
-          },
-          {
             "id": "saas-finwise-saas-landing-page",
             "title": "Finwise: SaaS Landing Page",
             "categorySlug": "saas",
@@ -428,6 +414,18 @@
               "App Router structure",
               "auth flow reference",
               "pricing or billing structure"
+            ]
+          },
+          {
+            "id": "ecommerce-whop-saas-template",
+            "title": "Whop SaaS Template",
+            "categorySlug": "ecommerce",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "auth flow reference",
+              "storefront or checkout patterns"
             ]
           }
         ]
@@ -465,18 +463,6 @@
               "verified Next.js codebase",
               "App Router structure",
               "auth flow reference",
-              "storefront or checkout patterns"
-            ]
-          },
-          {
-            "id": "web3-coinbase-commerce",
-            "title": "Coinbase Commerce",
-            "categorySlug": "web3",
-            "qualityScore": 92,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "pricing or billing structure",
               "storefront or checkout patterns"
             ]
           },
@@ -629,15 +615,15 @@
             ]
           },
           {
-            "id": "ai-chatbot",
-            "title": "Chatbot",
-            "categorySlug": "ai",
+            "id": "ecommerce-whop-saas-template",
+            "title": "Whop SaaS Template",
+            "categorySlug": "ecommerce",
             "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
               "auth flow reference",
-              "dashboard shell patterns"
+              "storefront or checkout patterns"
             ]
           }
         ]
