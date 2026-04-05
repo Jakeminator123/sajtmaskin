@@ -19,6 +19,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
@@ -897,12 +898,14 @@ export async function buildDynamicContext(
 
   const budgetChars = buildSpec?.tokenBudgets.systemContextChars ?? 28_000;
   if (context.length > budgetChars) {
+    const originalLength = context.length;
     context = context.slice(0, budgetChars);
     const lastNewline = context.lastIndexOf("\n");
     if (lastNewline > budgetChars * 0.9) {
       context = context.slice(0, lastNewline);
     }
     context += "\n\n_(Dynamic context truncated to budget.)_";
+    debugLog("engine", `Dynamic context truncated: ${originalLength} chars → ${context.length} chars (budget ${budgetChars})`);
   }
 
   return {

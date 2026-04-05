@@ -557,7 +557,7 @@ export function VersionHistory({
             const qualityTierLabel =
               qualityTier === "production"
                 ? "Produktionsklar"
-                : qualityTier === "sandbox"
+                : qualityTier === "tier2"
                   ? "Live-preview klar"
                   : qualityTier === "preview"
                     ? "Preview-klar"
@@ -565,7 +565,7 @@ export function VersionHistory({
             const qualityTierBadgeClass =
               qualityTier === "production"
                 ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
-                : qualityTier === "sandbox"
+                : qualityTier === "tier2"
                   ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
                   : qualityTier === "preview"
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"

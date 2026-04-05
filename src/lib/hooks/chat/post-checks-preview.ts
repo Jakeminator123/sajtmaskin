@@ -21,7 +21,7 @@ export type PreviewUnavailableDetails = {
   previewCode:
     | "preflight_preview_blocked"
     | "preview_missing_url"
-    | "preview_waiting_for_sandbox";
+    | "preview_waiting_for_vm";
   previewStage: "preflight" | "iframe";
   previewSource: "finalize-preflight" | "post-check";
   previewBlocked: boolean;
@@ -235,7 +235,7 @@ function buildPreviewUnavailableDetails(
   if (isPreviewPendingOnSandbox(preflight)) {
     return {
       message: "Live-preview startar i VM och blir tillgänglig när miljön är redo.",
-      previewCode: "preview_waiting_for_sandbox",
+      previewCode: "preview_waiting_for_vm",
       previewStage: "preflight",
       previewSource: "finalize-preflight",
       previewBlocked: false,
@@ -297,8 +297,8 @@ export function buildPreviewUnavailableStep(
 
 export function getPreviewUnavailableQualityGateFailure(
   preflight?: PreviewPreflightState | null,
-): "preflight_preview_blocked" | "missing_preview_url" | "preview_waiting_for_sandbox" {
-  if (isPreviewPendingOnSandbox(preflight)) return "preview_waiting_for_sandbox";
+): "preflight_preview_blocked" | "missing_preview_url" | "preview_waiting_for_vm" {
+  if (isPreviewPendingOnSandbox(preflight)) return "preview_waiting_for_vm";
   return preflight?.previewBlocked ? "preflight_preview_blocked" : "missing_preview_url";
 }
 
@@ -306,7 +306,7 @@ export function getPreviewUnavailableAutoFixReason(
   preflight?: PreviewPreflightState | null,
 ): string {
   if (isPreviewPendingOnSandbox(preflight)) {
-    return "live-preview väntar på sandbox";
+    return "live-preview väntar på VM";
   }
   return getPreviewBlockingReason(preflight)
     ? "preview blockerad i preflight"

@@ -82,6 +82,32 @@ Om `SAJTMASKIN_TIER2_RUNTIME` är unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` f
 
 ---
 
+## Generation: kontext och scaffold-policy
+
+Dessa variabler styr hur mycket kontext LLM:en ser under kodgenerering. Alla defaultar till `true` (on) via `!== "false"`-konventionen -- att **inte** sätta dem ger standardbeteendet.
+
+| Variabel | Default | Effekt |
+|----------|---------|--------|
+| `SAJTMASKIN_BUILD_SPEC_ENABLED` | `true` | Aktiverar `BuildSpec` som bestämmer `contextPolicy` (light/normal/heavy) och styr scaffold-, refs- och systemkontext-budgetar. Att stänga av (`"false"`) tar bort deterministisk policystyrning. |
+| `SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION` | `true` | Använder den smarta scaffold-serialiseringen (file tree + kritiska filer) i stället for full dump. Om `"false"`: fallback till legacy full-file-dump med 140k-cap. Rekommendation: **alltid on**. |
+| `SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT` | `true` | Aktiverar light-context-fast-path for follow-ups (copy/layout-ändringar): skippar KB-retrieval, template-snippets och tung scaffold-serialisering. Om `"false"`: follow-ups far samma tunga kontext som initiala genereringar. |
+
+### Budgetar per contextPolicy (for referens)
+
+Sätts automatiskt via `BuildSpec.contextPolicy` i `src/lib/gen/build-spec.ts` baserat på prompt, routes, integrationer m.m. -- inga env-variabler att justera här.
+
+| Policy | `scaffoldChars` | `refsChars` | `systemContextChars` |
+|--------|----------------|-------------|---------------------|
+| `light` | 12 000 | 4 000 | 18 000 |
+| `normal` | 20 000 | 8 000 | 28 000 |
+| `heavy` | 25 000 | 12 000 | 36 000 |
+
+Statisk core (`config/prompt-static/*.md`) laddas separat och ligger utanfor det dynamiska budgettaket. Total systemprompt = statisk core (~6-10k tokens) + dynamisk kontext (cappat ovan).
+
+Om dynamisk kontext överstiger budgeten trunkeras den automatiskt med en `debugLog("engine", ...)` som loggar faktisk vs budgetstorlek.
+
+---
+
 ## OpenClaw, avatar och nyckelchecklista
 
 `OpenClaw` / `Sajtagenten` och builderns own-engine är olika saker:

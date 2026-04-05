@@ -6,7 +6,7 @@ import { fetchSandboxStatus } from "@/lib/builder/preview-session/api";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
-export type UseSandboxPreviewSessionParams = {
+export type UsePreviewSessionParams = {
   chatId: string | null;
   activeVersionId: string | null;
   currentPreviewUrl: string | null;
@@ -20,9 +20,9 @@ export type UseSandboxPreviewSessionParams = {
 };
 
 /**
- * Server-driven sandbox session checks: status fetch, URL resync, recover bootstrap.
+ * Server-driven preview session checks: status fetch, URL resync, recover bootstrap.
  */
-export function useSandboxPreviewSession(params: UseSandboxPreviewSessionParams) {
+export function usePreviewSession(params: UsePreviewSessionParams) {
   const {
     chatId,
     activeVersionId,

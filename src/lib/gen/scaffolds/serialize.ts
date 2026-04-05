@@ -33,7 +33,7 @@ const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
   "Never leave literal brackets, curly-brace tokens, or obvious scaffold boilerplate in the final output.",
 ].join(" ");
 
-const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 25_000;
+const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 20_000;
 const CRITICAL_PATH_PATTERNS = [
   /^app\/layout\.tsx$/,
   /^src\/app\/layout\.tsx$/,

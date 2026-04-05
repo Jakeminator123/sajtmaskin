@@ -43,15 +43,11 @@ import {
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
-  extractAppProjectIdFromMeta,
-  extractBriefFromMeta,
-  extractDesignThemePresetFromMeta,
-  extractPaletteStateFromMeta,
-  extractScaffoldSettingsFromMeta,
-  extractThemeColorsFromMeta,
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
+import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -111,36 +107,21 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         meta,
       } = validationResult.data;
       const requestAttachments = normalizeRequestAttachments(attachments);
-      const metaRequestedModelTier =
-        typeof (meta as { modelTier?: unknown })?.modelTier === "string"
-          ? String((meta as { modelTier?: string }).modelTier)
-          : null;
+      const parsedMeta = parseChatRequestMeta(meta);
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
-        requestedModelTier: metaRequestedModelTier,
+        requestedModelTier: parsedMeta.modelTier,
         fallbackTier: DEFAULT_MODEL_ID,
       });
       const resolvedModelId = modelSelection.modelId;
       const resolvedModelTier = modelSelection.modelTier;
-      const metaBuildMethod =
-        typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
-          ? (meta as { buildMethod?: string }).buildMethod
-          : null;
-      const metaBuildIntent =
-        typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
-          ? (meta as { buildIntent?: string }).buildIntent
-          : null;
-      const metaPromptSourceKind =
-        typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
-          ? (meta as { promptSourceKind?: string }).promptSourceKind
-          : null;
-      const metaPromptSourceTechnical =
-        (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
-      const metaPromptSourcePreservePayload =
-        (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
-      const metaPlanMode =
-        (meta as { planMode?: unknown })?.planMode === true;
-      const metaAppProjectId = extractAppProjectIdFromMeta(meta);
+      const metaBuildMethod = parsedMeta.buildMethod;
+      const metaBuildIntent = parsedMeta.buildIntent;
+      const metaPromptSourceKind = parsedMeta.promptSourceKind;
+      const metaPromptSourceTechnical = parsedMeta.promptSourceTechnical;
+      const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
+      const metaPlanMode = parsedMeta.planMode;
+      const metaAppProjectId = parsedMeta.appProjectId;
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
@@ -191,11 +172,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         { signal: req.signal },
       );
 
-      const clientBriefFromMeta = extractBriefFromMeta(meta);
-      const assistModelHint =
-        typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
-          ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
-          : null;
+      const clientBriefFromMeta = parsedMeta.brief;
+      const assistModelHint = parsedMeta.promptAssistModel;
       let serverAutoBrief: Record<string, unknown> | null = null;
       let serverAutoBriefModel: string | null = null;
       if (
@@ -225,16 +203,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
 
       const creditUser = creditCheck.user;
-      let didChargeCredits = false;
-      const commitCreditsOnce = async () => {
-        if (didChargeCredits) return;
-        didChargeCredits = true;
-        try {
-          await creditCheck.commit();
-        } catch (error) {
-          console.error("[credits] Failed to charge prompt:", error);
-        }
-      };
+      const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
 
       try {
         const metaPayload =
@@ -523,12 +492,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
-        const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
-          extractScaffoldSettingsFromMeta(meta);
-        const metaThemeColors = extractThemeColorsFromMeta(meta);
+        const metaScaffoldMode = parsedMeta.scaffoldMode;
+        const metaScaffoldId = parsedMeta.scaffoldId;
+        const metaThemeColors = parsedMeta.themeColors;
         const metaBrief = effectiveBrief;
-        const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
-        const metaPalette = extractPaletteStateFromMeta(meta);
+        const metaDesignThemePreset = parsedMeta.designThemePreset;
+        const metaPalette = parsedMeta.palette;
         const designReferences = summarizeDesignReferences(requestAttachments);
 
         const orchestrationInput = {

@@ -46,7 +46,7 @@ import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
 import { useBuilderSandboxPreview } from "./useBuilderSandboxPreview";
-import { useSandboxPreviewSession } from "./useSandboxPreviewSession";
+import { usePreviewSession } from "./usePreviewSession";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
   isCompatibilityShimPreviewUrl,
@@ -302,7 +302,7 @@ export function useBuilderPageController() {
     resetSandboxForNewChat,
   } = sandboxPreview;
 
-  const { handlePreviewSessionSuspect, resetRecoverAttempts } = useSandboxPreviewSession({
+  const { handlePreviewSessionSuspect, resetRecoverAttempts } = usePreviewSession({
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
     currentPreviewUrl: state.currentPreviewUrl,

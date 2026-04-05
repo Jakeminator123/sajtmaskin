@@ -25,7 +25,7 @@ export type EngineVersionLifecycleStatus = "draft" | "verifying" | "repairing" |
 
 export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
-export type QualityTier = "none" | "preview" | "sandbox" | "production";
+export type QualityTier = "none" | "preview" | "tier2" | "production";
 
 export function resolveQualityTier(
   version: EngineVersionLifecycleLike | null | undefined,
@@ -35,8 +35,8 @@ export function resolveQualityTier(
   const lifecycle = resolveEngineVersionLifecycleStatus(version);
   if (lifecycle === "failed") return "none";
 
-  if (opts?.sandboxPassed) return "sandbox";
-  if (lifecycle === "promoted") return "sandbox";
+  if (opts?.sandboxPassed) return "tier2";
+  if (lifecycle === "promoted") return "tier2";
   if (opts && "hasSandboxUrl" in opts && opts.hasSandboxUrl !== undefined) {
     return opts.hasSandboxUrl ? "preview" : "none";
   }

@@ -41,7 +41,7 @@ export interface ImageValidationResult {
   demoUrl?: string;
 }
 
-export type QualityTier = "none" | "preview" | "sandbox" | "production";
+export type QualityTier = "none" | "preview" | "tier2" | "production";
 
 export interface PostCheckArtifacts {
   finalDemoUrl: string | null;
@@ -384,13 +384,13 @@ export function buildPostCheckArtifacts(params: {
     steps.push(buildPreviewUnavailableStep(preflight));
   }
   if (preflight?.sandbox?.hasCriticalInstallRisk) {
-    steps.push("Sandbox readiness: package/dependency-risk blocker upptäckt före live-preview.");
+    steps.push("Preview readiness: package/dependency-risk blocker upptäckt före live-preview.");
   }
   if (preflight?.sandbox?.requiresEnvConfig) {
-    steps.push("Sandbox readiness: live-preview väntar på projektets miljövariabler eller secrets.");
+    steps.push("Preview readiness: live-preview väntar på projektets miljövariabler eller secrets.");
   }
   if (preflight?.sandbox?.hasCriticalCodeFailure) {
-    steps.push("Sandbox readiness: kodstrukturen blockerar live-preview tills preflightfel är lösta.");
+    steps.push("Preview readiness: kodstrukturen blockerar live-preview tills preflightfel är lösta.");
   }
   if (preflight?.scaffoldRetry) {
     steps.push(
@@ -493,7 +493,7 @@ export function buildPostCheckArtifacts(params: {
     (!finalDemoUrl && !previewPendingOnSandbox) || criticalReasons.length > 0
       ? "none"
       : qualityGatePassed && warningReasons.length === 0
-        ? "sandbox"
+        ? "tier2"
         : "preview";
 
   steps.push(

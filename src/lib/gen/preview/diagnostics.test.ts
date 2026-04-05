@@ -31,8 +31,8 @@ describe("preview diagnostics helpers", () => {
     expect(describePreviewDiagnosticCode("preflight_preview_blocked")).toBe(
       "Preview blockerades redan i preflight.",
     );
-    expect(describePreviewDiagnosticCode("preview_waiting_for_sandbox")).toBe(
-      "Live-preview byggs fortfarande i sandbox.",
+    expect(describePreviewDiagnosticCode("preview_waiting_for_vm")).toBe(
+      "Live-preview byggs fortfarande i VM.",
     );
     expect(describePreviewDiagnosticCode("preview_missing_url")).toBe(
       "Preview-lank saknas for versionen.",
@@ -93,7 +93,7 @@ describe("preview diagnostics helpers", () => {
 
     expect(shouldAutoFixPreviewDiagnostic("preview_transport_error")).toBe(false);
     expect(shouldAutoFixPreviewDiagnostic("preview_ready_timeout")).toBe(false);
-    expect(shouldAutoFixPreviewDiagnostic("preview_waiting_for_sandbox")).toBe(false);
+    expect(shouldAutoFixPreviewDiagnostic("preview_waiting_for_vm")).toBe(false);
     expect(shouldAutoFixPreviewDiagnostic("preview_document_unavailable")).toBe(false);
     expect(shouldAutoFixPreviewDiagnostic("render_route_chat_not_found")).toBe(false);
   });

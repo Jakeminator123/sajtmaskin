@@ -52,6 +52,31 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
     });
   }
 
+  const totalFileChars = scaffold.files.reduce((sum, f) => sum + f.content.length, 0);
+  if (totalFileChars > 15_000) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "warning",
+      message: `Total scaffold file content is ${totalFileChars} chars (recommended max 15 000). Large scaffolds waste prompt budget.`,
+    });
+  }
+
+  if (!scaffold.qualityChecklist || scaffold.qualityChecklist.length < 3) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "warning",
+      message: `qualityChecklist should have at least 3 entries (has ${scaffold.qualityChecklist?.length ?? 0})`,
+    });
+  }
+
+  if (scaffold.promptHints.length < 2) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "warning",
+      message: `promptHints should have at least 2 entries (has ${scaffold.promptHints.length})`,
+    });
+  }
+
   if (scaffold.research?.referenceTemplates) {
     for (const reference of scaffold.research.referenceTemplates) {
       if (reference.qualityScore < 0 || reference.qualityScore > 100) {

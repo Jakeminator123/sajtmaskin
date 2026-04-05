@@ -1,6 +1,6 @@
 # Preview, sandbox och deploy
 
-**Senast uppdaterad:** 2026-04-01
+**Senast uppdaterad:** 2026-04-05
 
 **Terminologinot:** den relevanta tier-2-previewen just nu är primärt **VM / `preview_host` via Fly.io**. Ordet **`sandbox`** lever kvar i routes, fältnamn och symboler som `sandbox_url` och `/sandbox-preview`, och betyder där ofta legacy naming eller delat tier-2-kontrakt snarare än att Vercel Sandbox är huvudvägen. **Quality gate / server-verify** körs nu också via preview-host, men i en **separat verify-lane** och inte i samma workspace som live-previewn.
 
@@ -59,7 +59,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Sandbox-only | Publika `done`-/GET-svar har `previewUrl: null` medan `sandboxPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
 | HTTP API | Meningsfulla statuskoder + `retryable` för `/sandbox-preview` | `sandbox-preview-errors.ts`, route |
 | Bootstrap-retry | Klienten respekterar `retryable`, **500** med `retryable: true`, `Retry-After` | `sandbox-bootstrap-retry.ts`, `useBuilderPageController.ts` |
-| Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Recover är nu provider-agnostisk via `tryResumeTier2Runtime`. Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `tier2-resume.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `useSandboxPreviewSession.ts`, `useBuilderSandboxPreview.ts` |
+| Session / lease | `POST sandbox-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET sandbox-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Recover är nu provider-agnostisk via `tryResumeTier2Runtime`. Klient-API: `preview-session/api.ts`. | `sandbox-heartbeat/route.ts`, `sandbox-status/route.ts`, `tier2-resume.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `usePreviewSession.ts`, `useBuilderSandboxPreview.ts` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `sandbox-preview.ts` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` kan lyfta sandbox från `dev_only` till `dev_then_build` utan att ändra global env-default | `build-spec.ts`, `runtime-url.ts`, `sandbox-preview.ts`, `generation-stream-post-finalize.ts` |
 | Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; sandbox-lifecycle loggar policy-aware `sandbox_preview_ready` / `sandbox_preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `sandbox-lifecycle-telemetry.ts` |
@@ -80,7 +80,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 | Tier | Vad | Ungefär |
 |------|-----|--------|
-| 2 — **Runtime preview** | `preview_host` eller Vercel Sandbox bakom samma `/sandbox-*`-kontrakt | Enda live-preview i produkt-UI |
+| 2 — **Runtime preview** | `preview_host` (VM) eller Vercel Sandbox bakom samma `/sandbox-*`-kontrakt. Kör `npm run dev`, **inte** `npm run build`. | Enda live-preview i produkt-UI |
 | 3 — **Build-check** | lockfile-aware install (npm/pnpm) + `tsc` / `next build` / ev. `eslint` i preview-hosts verify-lane | Validering närmare produktion utan att röra live-previewn |
 
 > **Tier-2 verify-gate:** Server-verify och promotion-gate kör default bara `install` + `typecheck` (`TIER2_QUALITY_GATE_CHECKS`). `next build` hör till tier-3/deploy-kontexten och körs inte automatiskt vid tier-2 dev-preview. Interaktiv quality gate från UI kan fortfarande inkludera build och lint via `INTERACTIVE_QUALITY_GATE_CHECKS`.
