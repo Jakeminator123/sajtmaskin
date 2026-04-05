@@ -1,5 +1,17 @@
-import { describe, expect, it } from "vitest";
-import { describePreviewHostHttpFailure } from "./preview-host-client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  describePreviewHostHttpFailure,
+  isPreviewHostDiskFullMessage,
+  runPreviewHostQualityGate,
+  startPreviewHostSession,
+} from "./preview-host-client";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  delete process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
+  delete process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY;
+});
 
 describe("describePreviewHostHttpFailure", () => {
   it("explains stale preview-host deployments for verify-route 404s", () => {
@@ -20,5 +32,103 @@ describe("describePreviewHostHttpFailure", () => {
         body: { message: "Preview host crashed." },
       }),
     ).toBe("Preview host crashed.");
+  });
+});
+
+describe("isPreviewHostDiskFullMessage", () => {
+  it("detects ENOSPC-style failures", () => {
+    expect(isPreviewHostDiskFullMessage("ENOSPC: no space left on device, write")).toBe(true);
+    expect(isPreviewHostDiskFullMessage("no space left on device")).toBe(true);
+    expect(isPreviewHostDiskFullMessage("Preview host crashed.")).toBe(false);
+  });
+});
+
+describe("preview-host cleanup retry", () => {
+  it("retries preview session start after cleanup on disk full", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ message: "ENOSPC: no space left on device, write" }),
+          { status: 503, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ cleaned: true }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            previewUrl: "https://preview-host.example.com/chat-1",
+            sandboxId: "sbx_123",
+            startOutcome: "recreated",
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await startPreviewHostSession({
+      chatId: "chat-1",
+      versionId: "version-1",
+      filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.sandboxId).toBe("sbx_123");
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://preview-host.example.com/admin/cleanup");
+  });
+
+  it("retries verify lane once after cleanup on disk full", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ message: "ENOSPC: no space left on device, mkdir '/data/verify-workspaces/...'" }),
+          { status: 500, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ cleaned: true }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            durationMs: 42,
+            jobStartedAt: "2026-04-05T09:00:00.000Z",
+            jobFinishedAt: "2026-04-05T09:00:42.000Z",
+            firstFailureCheck: null,
+            results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 42 }],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runPreviewHostQualityGate({
+      chatId: "chat-1",
+      versionId: "version-1",
+      filesJson: { "app/page.tsx": "export default function Page(){return null;}" },
+      checks: ["typecheck"],
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0]?.check).toBe("typecheck");
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://preview-host.example.com/admin/cleanup");
   });
 });

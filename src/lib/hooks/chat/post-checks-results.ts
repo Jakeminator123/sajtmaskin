@@ -449,7 +449,7 @@ export function buildPostCheckArtifacts(params: {
     criticalReasons.push("dependency/install-risk");
   }
   if (preflight?.sandbox?.hasCriticalCodeFailure) {
-    criticalReasons.push("kodstruktur blockerar sandbox");
+    criticalReasons.push("kodstruktur blockerar live-preview");
   }
   if (sanityErrors.length > 0) criticalReasons.push("kodsanity error");
   const shouldEscalateScaffoldRetry =

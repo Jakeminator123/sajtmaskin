@@ -90,7 +90,7 @@ Important fields:
 - `sandboxId`
 - `sandboxPreviewMode`
 - `fidelityTier`
-- `prodBuildVerified`
+- `prodBuildVerified` (optional — only present when a real `npm run build` ran; omitted for pure dev-preview tier-2)
 - `startOutcome`
 
 `startOutcome` currently allows:

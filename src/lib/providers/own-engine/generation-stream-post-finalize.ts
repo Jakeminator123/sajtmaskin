@@ -6,7 +6,6 @@ import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-teleme
 import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
-  getPostFinalizeSandboxContract,
   resolvePostFinalizeServerVerifyDecision,
   shouldTriggerPostFinalizeSandbox,
 } from "@/lib/gen/stream/post-finalize-policies";
@@ -99,7 +98,6 @@ export async function runOwnEngineStreamPostFinalize(params: {
     }
   }
 
-  const sandboxContract = getPostFinalizeSandboxContract(finalized);
   const previewBlocked = finalized.preflight.previewBlocked;
   const sandboxWillRun = shouldTriggerPostFinalizeSandbox({
     finalized,
@@ -184,7 +182,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
               sandboxId: sr.sandboxId,
               sandboxPreviewMode: sr.sandboxPreviewMode,
               fidelityTier: sr.fidelityTier,
-              prodBuildVerified: sr.prodBuildVerified,
+              ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
               ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
             }),
           ),

@@ -527,7 +527,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera hero-sektionen med ny rubrik, ingress och CTA utan att ändra resten av designen.",
     });
   }
-  if (/\bservices?\b|tjanster|tjänster|offerings|what we do/i.test(combined)) {
+  if (/\b(services?|offerings|what we do)\b/i.test(combined) && /id=["']?(services|tjanster|erbjudande)\b|<h[2-3][^>]*>\s*(Tjänster|Services|Erbjudande)/i.test(combined)) {
     pushPack({
       id: "services",
       label: "Services",
@@ -543,7 +543,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera testimonials-sektionen med nya kundnamn, citat och roller utan att ändra layouten.",
     });
   }
-  if (/\bteam\b|medarbetare|our people|staff/i.test(combined)) {
+  if (/\b(team|medarbetare|our people|staff)\b/i.test(combined) && /id=["']?team\b|<h[2-3][^>]*>\s*(Team|Medarbetare|Our People)/i.test(combined)) {
     pushPack({
       id: "team",
       label: "Team",
@@ -551,7 +551,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera team-sektionen med nya personer, roller och korta bio-texter utan att ändra resten av sidan.",
     });
   }
-  if (/\bfaq\b|accordion|questions|fragor|frågor/i.test(combined)) {
+  if (/\bfaq\b/i.test(combined) || (/\b(accordion|frågor|fragor|questions)\b/i.test(combined) && /id=["']?faq\b|<h[2-3][^>]*>\s*(FAQ|Vanliga frågor|Questions)/i.test(combined))) {
     pushPack({
       id: "faq",
       label: "FAQ",
@@ -567,7 +567,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera kontaktsektionen med nya kontaktuppgifter, öppettider och CTA utan att ändra resten av designen.",
     });
   }
-  if (/\bblog\b|article|post|inlagg|inlägg|newsletter/i.test(combined) || /\/blog\b/i.test(routeNames)) {
+  if (/\bblog\b|inlagg|inlägg|newsletter/i.test(combined) || /\/blog\b/i.test(routeNames)) {
     pushPack({
       id: "blog",
       label: "Blog / content",

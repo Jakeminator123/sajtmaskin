@@ -6,6 +6,11 @@ function previewHostAuthHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${key}` };
 }
 
+export function isPreviewHostDiskFullMessage(message: string | null | undefined): boolean {
+  const normalized = typeof message === "string" ? message.trim() : "";
+  return /ENOSPC|no space left on device/i.test(normalized);
+}
+
 export function describePreviewHostHttpFailure(params: {
   endpoint: "/preview/session/start" | "/preview/session/destroy" | "/preview/verify";
   status: number;
@@ -27,6 +32,38 @@ export function describePreviewHostHttpFailure(params: {
 const START_TIMEOUT_MS = 300_000;
 const STATUS_TIMEOUT_MS = 15_000;
 const VERIFY_TIMEOUT_MS = 300_000;
+const CLEANUP_TIMEOUT_MS = 30_000;
+
+async function triggerPreviewHostCleanup(): Promise<boolean> {
+  const base = getPreviewHostBaseUrl();
+  if (!base) return false;
+  try {
+    const res = await fetch(`${base}/admin/cleanup`, {
+      method: "POST",
+      headers: {
+        ...previewHostAuthHeaders(),
+      },
+      signal: AbortSignal.timeout(CLEANUP_TIMEOUT_MS),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function retryPreviewHostRequestAfterCleanup<T extends { ok: boolean; message?: string }>(
+  execute: () => Promise<T>,
+): Promise<T> {
+  const first = await execute();
+  if (first.ok || !isPreviewHostDiskFullMessage(first.message)) {
+    return first;
+  }
+  const cleaned = await triggerPreviewHostCleanup();
+  if (!cleaned) {
+    return first;
+  }
+  return execute();
+}
 
 export async function fetchPreviewHostStatus(
   sandboxId: string,
@@ -122,53 +159,55 @@ export async function startPreviewHostSession(params: {
       retryable: false,
     };
   }
-  try {
-    const requestBody = {
-      chatId: params.chatId,
-      projectId: params.chatId,
-      versionId: params.versionId,
-      filesJson: params.filesJson,
-      changeClass: "fresh",
-    };
-    const res = await fetch(`${base}/preview/session/start`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...previewHostAuthHeaders(),
-      },
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(START_TIMEOUT_MS),
-    });
-    const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok) {
-      const msg = describePreviewHostHttpFailure({
-        endpoint: "/preview/session/start",
-        status: res.status,
-        body: responseBody,
+  return retryPreviewHostRequestAfterCleanup(async () => {
+    try {
+      const requestBody = {
+        chatId: params.chatId,
+        projectId: params.chatId,
+        versionId: params.versionId,
+        filesJson: params.filesJson,
+        changeClass: "fresh",
+      };
+      const res = await fetch(`${base}/preview/session/start`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...previewHostAuthHeaders(),
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(START_TIMEOUT_MS),
       });
-      return {
-        ok: false,
-        message: msg,
-        retryable: res.status >= 500 || res.status === 429,
-      };
+      const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        const msg = describePreviewHostHttpFailure({
+          endpoint: "/preview/session/start",
+          status: res.status,
+          body: responseBody,
+        });
+        return {
+          ok: false,
+          message: msg,
+          retryable: res.status >= 500 || res.status === 429,
+        };
+      }
+      const sandboxUrl = typeof responseBody.previewUrl === "string" ? responseBody.previewUrl.trim() : "";
+      const sandboxId = typeof responseBody.sandboxId === "string" ? responseBody.sandboxId.trim() : "";
+      if (!sandboxUrl || !sandboxId) {
+        return {
+          ok: false,
+          message: "Preview host returned an invalid session payload.",
+          retryable: true,
+        };
+      }
+      const raw =
+        typeof responseBody.startOutcome === "string" ? responseBody.startOutcome.trim() : "fresh";
+      const startOutcome: "resumed" | "recreated" = raw === "resumed" ? "resumed" : "recreated";
+      return { ok: true, sandboxUrl, sandboxId, startOutcome };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Preview host request failed";
+      return { ok: false, message, retryable: true };
     }
-    const sandboxUrl = typeof responseBody.previewUrl === "string" ? responseBody.previewUrl.trim() : "";
-    const sandboxId = typeof responseBody.sandboxId === "string" ? responseBody.sandboxId.trim() : "";
-    if (!sandboxUrl || !sandboxId) {
-      return {
-        ok: false,
-        message: "Preview host returned an invalid session payload.",
-        retryable: true,
-      };
-    }
-    const raw =
-      typeof responseBody.startOutcome === "string" ? responseBody.startOutcome.trim() : "fresh";
-    const startOutcome: "resumed" | "recreated" = raw === "resumed" ? "resumed" : "recreated";
-    return { ok: true, sandboxUrl, sandboxId, startOutcome };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Preview host request failed";
-    return { ok: false, message, retryable: true };
-  }
+  });
 }
 
 /**
@@ -251,72 +290,74 @@ export async function runPreviewHostQualityGate(params: {
       retryable: false,
     };
   }
-  try {
-    const res = await fetch(`${base}/preview/verify`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...previewHostAuthHeaders(),
-      },
-      body: JSON.stringify({
-        chatId: params.chatId,
-        projectId: params.chatId,
-        versionId: params.versionId,
-        filesJson: params.filesJson,
-        checks: params.checks,
-      }),
-      signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
-    });
-    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-    if (!res.ok) {
-      const msg = describePreviewHostHttpFailure({
-        endpoint: "/preview/verify",
-        status: res.status,
-        body,
+  return retryPreviewHostRequestAfterCleanup(async () => {
+    try {
+      const res = await fetch(`${base}/preview/verify`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...previewHostAuthHeaders(),
+        },
+        body: JSON.stringify({
+          chatId: params.chatId,
+          projectId: params.chatId,
+          versionId: params.versionId,
+          filesJson: params.filesJson,
+          checks: params.checks,
+        }),
+        signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
       });
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        const msg = describePreviewHostHttpFailure({
+          endpoint: "/preview/verify",
+          status: res.status,
+          body,
+        });
+        return {
+          ok: false,
+          message: msg,
+          retryable: res.status >= 500 || res.status === 429,
+        };
+      }
+      const results = Array.isArray(body.results)
+        ? body.results
+            .map((entry) => {
+              if (!entry || typeof entry !== "object") return null;
+              const row = entry as Record<string, unknown>;
+              const check = typeof row.check === "string" ? row.check : "";
+              const output = typeof row.output === "string" ? row.output : "";
+              const exitCode = typeof row.exitCode === "number" ? row.exitCode : 1;
+              const passed = row.passed === true;
+              const durationMs =
+                typeof row.durationMs === "number" && Number.isFinite(row.durationMs)
+                  ? row.durationMs
+                  : null;
+              if (!check) return null;
+              return { check, passed, exitCode, output, durationMs };
+            })
+            .filter((entry): entry is PreviewHostVerifyCheckResult => Boolean(entry))
+        : [];
       return {
-        ok: false,
-        message: msg,
-        retryable: res.status >= 500 || res.status === 429,
+        ok: true,
+        durationMs: typeof body.durationMs === "number" ? body.durationMs : 0,
+        jobStartedAt:
+          typeof body.jobStartedAt === "string" && body.jobStartedAt.trim()
+            ? body.jobStartedAt.trim()
+            : null,
+        jobFinishedAt:
+          typeof body.jobFinishedAt === "string" && body.jobFinishedAt.trim()
+            ? body.jobFinishedAt.trim()
+            : null,
+        firstFailureCheck:
+          typeof body.firstFailureCheck === "string" && body.firstFailureCheck.trim()
+            ? body.firstFailureCheck.trim()
+            : null,
+        results,
       };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Preview host verify failed";
+      return { ok: false, message, retryable: true };
     }
-    const results = Array.isArray(body.results)
-      ? body.results
-          .map((entry) => {
-            if (!entry || typeof entry !== "object") return null;
-            const row = entry as Record<string, unknown>;
-            const check = typeof row.check === "string" ? row.check : "";
-            const output = typeof row.output === "string" ? row.output : "";
-            const exitCode = typeof row.exitCode === "number" ? row.exitCode : 1;
-            const passed = row.passed === true;
-            const durationMs =
-              typeof row.durationMs === "number" && Number.isFinite(row.durationMs)
-                ? row.durationMs
-                : null;
-            if (!check) return null;
-            return { check, passed, exitCode, output, durationMs };
-          })
-          .filter((entry): entry is PreviewHostVerifyCheckResult => Boolean(entry))
-      : [];
-    return {
-      ok: true,
-      durationMs: typeof body.durationMs === "number" ? body.durationMs : 0,
-      jobStartedAt:
-        typeof body.jobStartedAt === "string" && body.jobStartedAt.trim()
-          ? body.jobStartedAt.trim()
-          : null,
-      jobFinishedAt:
-        typeof body.jobFinishedAt === "string" && body.jobFinishedAt.trim()
-          ? body.jobFinishedAt.trim()
-          : null,
-      firstFailureCheck:
-        typeof body.firstFailureCheck === "string" && body.firstFailureCheck.trim()
-          ? body.firstFailureCheck.trim()
-          : null,
-      results,
-    };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Preview host verify failed";
-    return { ok: false, message, retryable: true };
-  }
+  });
 }

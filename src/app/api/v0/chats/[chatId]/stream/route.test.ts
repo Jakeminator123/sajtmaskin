@@ -95,6 +95,8 @@ vi.mock("@/lib/validations/chatSchemas", () => ({
 vi.mock("@/lib/builder/promptLimits", () => ({
   WARN_CHAT_MESSAGE_CHARS: 20_000,
   WARN_CHAT_SYSTEM_CHARS: 20_000,
+  MAX_AI_BRIEF_PROMPT_CHARS: 20_000,
+  MAX_PROMPT_HANDOFF_CHARS: 20_000,
 }));
 
 vi.mock("@/lib/builder/promptOrchestration", () => ({

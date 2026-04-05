@@ -5,7 +5,7 @@ export const landingPageManifest: ScaffoldManifest = {
   family: "landing-page",
   label: "Landing Page",
   description:
-    "Marketing-focused starter for company sites, service businesses, and polished one-page launches.",
+    "Polished one-page or multi-section layout for local businesses, service companies, and product launches.",
   buildIntents: ["website", "template"],
   tags: [
     "landing",
@@ -18,9 +18,9 @@ export const landingPageManifest: ScaffoldManifest = {
     "one-page",
   ],
   promptHints: [
-    "Use this scaffold for polished company sites, campaign pages, and service-led websites.",
-    "Keep the overall rhythm: strong hero, trust signals, offer sections, testimonial, and CTA.",
-    "Modify copy, sections, and imagery to fit the user's business instead of rewriting the whole structure.",
+    "Use this scaffold for local businesses, company sites, campaign pages, and service-led websites.",
+    "Keep the overall rhythm: strong hero, content sections that match the actual business, and a clear CTA.",
+    "Replace all scaffold copy, section types, and imagery to genuinely reflect the user's business — a bakery should feel warm, a law firm authoritative, a startup energetic.",
   ],
   qualityChecklist: [
     "Hero headline is specific to user's business — not generic marketing filler.",
@@ -89,8 +89,8 @@ import { SiteFooter } from "@/components/site-footer";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Landing Page Starter",
-  description: "A polished landing page starter with strong sections and conversion-focused structure.",
+  title: "[Företagsnamn]",
+  description: "[Meta-beskrivning anpassad till verksamheten]",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -116,26 +116,20 @@ import { ArrowRight, BadgeCheck, Clock3, Handshake, Sparkles } from "lucide-reac
 
 const offers = [
   {
-    title: "Strategi och positionering",
-    description: "Hjälper dig att formulera ett tydligt erbjudande, rätt budskap och en sida som faktiskt leder vidare till affär.",
+    title: "[Erbjudande 1]",
+    description: "[Beskriv det viktigaste erbjudandet eller styrkan — anpassa till verksamheten.]",
     icon: Sparkles,
   },
   {
-    title: "Design som känns färdig",
-    description: "Sektioner, rytm, färg och typografi är redan på plats så att resultatet känns genomarbetat direkt.",
+    title: "[Erbjudande 2]",
+    description: "[Beskriv en annan styrka, tjänst eller unik fördel som besökaren bryr sig om.]",
     icon: BadgeCheck,
   },
   {
-    title: "Snabb leverans",
-    description: "Bra för kampanjer, lanseringar och företagssajter där du vill få ut något starkt utan att börja från noll.",
+    title: "[Erbjudande 3]",
+    description: "[Beskriv en tredje aspekt — öppettider, läge, kvalitet, erfarenhet eller liknande.]",
     icon: Clock3,
   },
-];
-
-const process = [
-  "Förtydliga mål, målgrupp och primär CTA.",
-  "Anpassa hero, erbjudande, social proof och innehållssektioner.",
-  "Förfina tonalitet, färger, bilder och nästa steg för besökaren.",
 ];
 
 export default function HomePage() {
@@ -144,53 +138,51 @@ export default function HomePage() {
       <section className="px-6 py-20 sm:px-8 sm:py-24 lg:py-32">
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
           <div className="space-y-8">
-            <Badge className="rounded-full px-3 py-1 text-sm">Conversion-ready starter</Badge>
+            <Badge className="rounded-full px-3 py-1 text-sm">[Kort slagord]</Badge>
             <div className="space-y-5">
               <h1 className="max-w-3xl text-5xl font-semibold tracking-tight sm:text-6xl">
-                Bygg en säljorienterad hemsida utan att börja från ett tomt blad.
+                [Huvudrubrik som speglar verksamheten]
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                Den här startmallen är formad för företagssajter, kampanjsidor och tjänsteerbjudanden med
-                tydlig hero, förtroendesignaler och stark call to action.
+                [Kort ingress som beskriver vad företaget erbjuder och varför besökaren ska stanna.]
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button size="lg" className="rounded-full px-7">
-                Starta projekt <ArrowRight className="ml-2 h-4 w-4" />
+                [Primär CTA] <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <Button size="lg" variant="outline" className="rounded-full px-7">
-                Se upplägget
+                [Sekundär CTA]
               </Button>
             </div>
             <div className="grid gap-4 text-sm text-muted-foreground sm:grid-cols-3">
               <div className="rounded-2xl border bg-card/70 p-4">
-                <p className="text-2xl font-semibold text-foreground">3 min</p>
-                <p>att anpassa grundstrukturen</p>
+                <p className="text-2xl font-semibold text-foreground">[Nyckeltal 1]</p>
+                <p>[Kort förklaring]</p>
               </div>
               <div className="rounded-2xl border bg-card/70 p-4">
-                <p className="text-2xl font-semibold text-foreground">5+ sektioner</p>
-                <p>redo för erbjudande och social proof</p>
+                <p className="text-2xl font-semibold text-foreground">[Nyckeltal 2]</p>
+                <p>[Kort förklaring]</p>
               </div>
               <div className="rounded-2xl border bg-card/70 p-4">
-                <p className="text-2xl font-semibold text-foreground">1 tydlig CTA</p>
-                <p>som går att specialisera direkt</p>
+                <p className="text-2xl font-semibold text-foreground">[Nyckeltal 3]</p>
+                <p>[Kort förklaring]</p>
               </div>
             </div>
           </div>
 
           <Card className="overflow-hidden border-primary/15 bg-card/90 shadow-xl shadow-primary/10">
             <CardHeader className="space-y-5 p-7">
-              <Badge variant="secondary" className="w-fit rounded-full">Preview structure</Badge>
+              <Badge variant="secondary" className="w-fit rounded-full">[Etikett]</Badge>
               <div className="space-y-3">
-                <CardTitle className="text-2xl">Vad den här mallen redan löser</CardTitle>
+                <CardTitle className="text-2xl">[Sidopanelens rubrik]</CardTitle>
                 <p className="text-sm leading-7 text-muted-foreground">
-                  Hero, trust-rad, erbjudandesektion, arbetsprocess, testimonial och CTA-footer är redan
-                  upplagda för att modellen ska börja från en bättre grund.
+                  [Kort sammanfattning av vad verksamheten erbjuder eller varför kunden ska välja just dem.]
                 </p>
               </div>
             </CardHeader>
             <CardContent className="space-y-5 p-7 pt-0">
-              {["Tydlig första rubrik", "Sektioner med rytm och luft", "Färdig struktur för vidare iteration"].map((item) => (
+              {["[Fördel 1]", "[Fördel 2]", "[Fördel 3]"].map((item) => (
                 <div key={item} className="flex items-start gap-3 rounded-2xl bg-secondary/70 p-4">
                   <Handshake className="mt-0.5 h-5 w-5 text-primary" />
                   <p className="text-sm leading-6">{item}</p>
@@ -203,23 +195,23 @@ export default function HomePage() {
 
       <section className="px-6 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 rounded-4xl border bg-card/70 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Trusted starter shape</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">[Förtroendesignal]</p>
           <div className="flex flex-wrap gap-4 text-sm text-foreground/80">
-            <span>Studio sites</span>
-            <span>Service businesses</span>
-            <span>Campaign launches</span>
-            <span>Consulting pages</span>
+            <span>[Kategori 1]</span>
+            <span>[Kategori 2]</span>
+            <span>[Kategori 3]</span>
+            <span>[Kategori 4]</span>
           </div>
         </div>
       </section>
 
-      <section id="tjanster" className="px-6 py-20 sm:px-8">
+      <section id="erbjudande" className="px-6 py-20 sm:px-8">
         <div className="mx-auto max-w-6xl space-y-10">
           <div className="max-w-2xl space-y-3">
-            <Badge variant="secondary" className="rounded-full">Core sections</Badge>
-            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Sektioner som ger ett bättre första utkast</h2>
+            <Badge variant="secondary" className="rounded-full">[Sektionsetikett]</Badge>
+            <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">[Rubrik för erbjudandesektion]</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              Använd den här strukturen för att fokusera på innehåll och erbjudande i stället för att lägga tid på sidans grundform.
+              [Beskriv kort vad verksamheten erbjuder eller vad som gör den unik.]
             </p>
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
@@ -240,25 +232,24 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="process" className="bg-card/50 px-6 py-20 sm:px-8">
+      <section id="om" className="bg-card/50 px-6 py-20 sm:px-8">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="space-y-3">
-            <Badge variant="secondary" className="rounded-full">Process</Badge>
-            <h2 className="text-3xl font-semibold tracking-tight">En tydlig väg från prompt till färdig sida</h2>
+            <Badge variant="secondary" className="rounded-full">[Sektionsetikett]</Badge>
+            <h2 className="text-3xl font-semibold tracking-tight">[Rubrik om verksamheten eller processen]</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              Mallen funkar bäst när användaren snabbt kan byta namn, budskap, sektioner och visuella signaler utan att förlora strukturen.
+              [Beskriv hur företaget arbetar, varför kunden kan lita på dem, eller ge bakgrund.]
             </p>
           </div>
           <div className="space-y-5">
-            {process.map((step, index) => (
+            {["[Punkt 1 — t.ex. kvalitet, erfarenhet eller unikhet]", "[Punkt 2 — t.ex. process eller leverans]", "[Punkt 3 — t.ex. garanti eller kundlöfte]"].map((step, index) => (
               <div key={step} className="rounded-[1.6rem] border bg-background/80 p-6">
                 <div className="mb-3 flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
                     {index + 1}
                   </div>
-                  <p className="font-medium">Steg {index + 1}</p>
+                  <p className="font-medium">{step}</p>
                 </div>
-                <p className="text-sm leading-7 text-muted-foreground">{step}</p>
               </div>
             ))}
           </div>
@@ -269,24 +260,24 @@ export default function HomePage() {
         <div className="mx-auto max-w-5xl rounded-4xl border bg-linear-to-br from-primary/10 via-background to-accent/40 p-8 sm:p-10">
           <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
             <div className="space-y-4">
-              <Badge className="rounded-full px-3 py-1">Customer quote</Badge>
+              <Badge className="rounded-full px-3 py-1">[Social proof]</Badge>
               <p className="text-2xl font-semibold leading-10 tracking-tight sm:text-3xl">
-                “Vi gick från ett tunt första utkast till en sida som faktiskt kändes som ett riktigt lanseringsmaterial.”
+                “[Kundcitat eller kort rekommendation som speglar verksamheten.]”
               </p>
               <Separator className="max-w-32" />
               <div>
                 <p className="font-medium">[Kundens namn]</p>
-                <p className="text-sm text-muted-foreground">[Roll], [Företag]</p>
+                <p className="text-sm text-muted-foreground">[Roll eller relation]</p>
               </div>
             </div>
             <div className="rounded-[1.6rem] bg-background/85 p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">Next step</p>
-              <h3 className="mt-2 text-2xl font-semibold">Gör den till din egen</h3>
+              <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">[Kontakt]</p>
+              <h3 className="mt-2 text-2xl font-semibold">[CTA-rubrik]</h3>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                Byt ut copy, lägg till sektioner och anpassa tonaliteten efter användarens bransch, målgrupp och erbjudande.
+                [Kort text som uppmanar besökaren att ta nästa steg.]
               </p>
               <Button className="mt-6 w-full rounded-full" size="lg">
-                Anpassa mallen <ArrowRight className="ml-2 h-4 w-4" />
+                [CTA-knapptext] <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -306,8 +297,8 @@ import { Menu } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
-  { label: "Tjänster", href: "#tjanster" },
-  { label: "Process", href: "#process" },
+  { label: "[Sektion 1]", href: "#erbjudande" },
+  { label: "[Sektion 2]", href: "#om" },
   { label: "Kontakt", href: "#kontakt" },
 ];
 
@@ -327,7 +318,7 @@ export function SiteHeader() {
               {item.label}
             </a>
           ))}
-          <Button size="sm" className="rounded-full">Boka intro</Button>
+          <Button size="sm" className="rounded-full">[CTA]</Button>
         </nav>
 
         <button
@@ -348,7 +339,7 @@ export function SiteHeader() {
                 {item.label}
               </a>
             ))}
-            <Button className="mt-2 rounded-full">Boka intro</Button>
+            <Button className="mt-2 rounded-full">[CTA]</Button>
           </div>
         </div>
       )}
@@ -362,8 +353,8 @@ export function SiteHeader() {
       content: `import { ArrowUpRight } from "lucide-react";
 
 const columns = {
-  Tjänster: ["Webbplats", "Lansering", "SEO", "Budskap"],
-  Resurser: ["Case", "Priser", "Guides", "Kontakt"],
+  "[Kolumn 1]": ["[Länk 1]", "[Länk 2]", "[Länk 3]", "[Länk 4]"],
+  "[Kolumn 2]": ["[Länk 1]", "[Länk 2]", "[Länk 3]", "[Länk 4]"],
 };
 
 export function SiteFooter() {
@@ -373,7 +364,7 @@ export function SiteFooter() {
         <div className="space-y-4">
           <p className="text-lg font-semibold tracking-tight">[Företagsnamn]</p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            Starter för moderna företagssidor där struktur, tydlighet och nästa steg redan finns på plats.
+            [Kort företagsbeskrivning i footern.]
           </p>
           <a href="mailto:hello@example.com" className="inline-flex items-center gap-2 text-sm font-medium">
             hello@example.com <ArrowUpRight className="h-4 w-4" />

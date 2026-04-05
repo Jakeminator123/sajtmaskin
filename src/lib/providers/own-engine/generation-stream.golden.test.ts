@@ -26,6 +26,7 @@ vi.mock("@/lib/gen/stream/finalize-version", () => ({
 
 vi.mock("@/lib/mcp/runtime-url", () => ({
   isSandboxConfigured: () => false,
+  SANDBOX_SETUP_HINT: "Configure Vercel Sandbox credentials for tier-2 preview.",
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({

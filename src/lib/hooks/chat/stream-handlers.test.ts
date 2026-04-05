@@ -350,6 +350,54 @@ describe("handleSseStream", () => {
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
   });
 
+  it("clears prod-build banner when sandbox-ready omits prodBuildVerified (preview_host tier-2)", async () => {
+    const setSandboxProdBuild = vi.fn();
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+        onEvent(
+          "sandbox-ready",
+          {
+            sandboxUrl: "https://preview.example",
+            sandboxId: "sb_1",
+            fidelityTier: 2,
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(
+      new Response(null),
+      { ...ctx, setSandboxProdBuild },
+      new AbortController().signal,
+    );
+
+    expect(setSandboxProdBuild).toHaveBeenCalledWith(null);
+    expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://preview.example");
+  });
+
   it("does not set iframe URL from done when previewUrl is compatibility shim only", async () => {
     consumeSseResponse.mockImplementation(
       async (

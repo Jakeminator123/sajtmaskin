@@ -121,7 +121,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           sandboxId: null,
           sandboxPreviewMode: null,
           fidelityTier: 2,
-          prodBuildVerified: false,
           startOutcome: "reused_url",
         });
       }
@@ -213,7 +212,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         sandboxId: sr.sandboxId,
         sandboxPreviewMode: sr.sandboxPreviewMode,
         fidelityTier: sr.fidelityTier,
-        prodBuildVerified: sr.prodBuildVerified,
+        ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
         startOutcome: sr.startOutcome,
         ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
       });

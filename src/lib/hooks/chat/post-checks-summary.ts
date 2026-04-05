@@ -6,7 +6,7 @@ import type { FileDiff } from "./post-checks-diff";
 const QUALITY_TIER_LABELS: Record<QualityTier, string> = {
   none: "",
   preview: "Preview-klar",
-  sandbox: "Sandbox-klar",
+  sandbox: "Live-preview klar",
   production: "Produktionsklar",
 };
 

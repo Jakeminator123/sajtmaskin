@@ -111,9 +111,24 @@ async function updateSessionById(sessionId, mutate) {
   });
 }
 
+function isSessionUsable(session, nowMs = Date.now()) {
+  if (!session || typeof session !== "object") return false;
+  if (session.status === "destroyed") return false;
+  const exp = Date.parse(session.sessionExpiresAt ?? "");
+  if (Number.isFinite(exp) && nowMs > exp) {
+    return false;
+  }
+  return true;
+}
+
 function findSessionByChatId(data, chatId) {
+  const nowMs = Date.now();
   for (const session of Object.values(data.sessions)) {
-    if (session && getSessionChatId(session) === chatId) {
+    if (
+      session &&
+      getSessionChatId(session) === chatId &&
+      isSessionUsable(session, nowMs)
+    ) {
       return session;
     }
   }
@@ -121,7 +136,8 @@ function findSessionByChatId(data, chatId) {
 }
 
 function listSessions(data) {
-  return Object.values(data.sessions).filter(Boolean);
+  const nowMs = Date.now();
+  return Object.values(data.sessions).filter((session) => isSessionUsable(session, nowMs));
 }
 
 function routeInfoFromPathname(pathname) {
@@ -203,6 +219,13 @@ function readJsonIfExists(filePath) {
   } catch {
     return null;
   }
+}
+
+function isNoSpaceError(error) {
+  if (!error) return false;
+  if (error.code === "ENOSPC") return true;
+  const msg = error instanceof Error ? error.message : String(error);
+  return /ENOSPC|no space left on device/i.test(msg);
 }
 
 const ENV_ALLOWLIST = new Set([
@@ -516,33 +539,86 @@ async function runVerifyJob(params) {
     return normalized;
   }
 
-  try {
-    writeFilesIntoWorkspace(workspaceDir, filesJson);
-    const results = [];
-    const install = resolveInstallCommand(filesJson);
+  const runJob = async () => {
+    try {
+      writeFilesIntoWorkspace(workspaceDir, filesJson);
+      const results = [];
+      const install = resolveInstallCommand(filesJson);
 
-    const installStartedAt = Date.now();
-    const installResult = await runShellCommand(install.command, {
-      cwd: workspaceDir,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: sanitizedEnv(),
-    });
-    const installDurationMs = Date.now() - installStartedAt;
-    const installOutput = clipVerifyOutput("install", installResult.output);
-    results.push(
-      pushResult({
-        check: "install",
-        passed: installResult.exitCode === 0,
-        exitCode: installResult.exitCode,
-        durationMs: installDurationMs,
-        output:
-          installResult.exitCode === 0
-            ? install.successLabel
-            : installOutput ||
-              `(No install output captured; exit ${installResult.exitCode}).`,
-      }),
-    );
-    if (installResult.exitCode !== 0) {
+      const installStartedAt = Date.now();
+      const installResult = await runShellCommand(install.command, {
+        cwd: workspaceDir,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: sanitizedEnv(),
+      });
+      const installDurationMs = Date.now() - installStartedAt;
+      const installOutput = clipVerifyOutput("install", installResult.output);
+      results.push(
+        pushResult({
+          check: "install",
+          passed: installResult.exitCode === 0,
+          exitCode: installResult.exitCode,
+          durationMs: installDurationMs,
+          output:
+            installResult.exitCode === 0
+              ? install.successLabel
+              : installOutput ||
+                `(No install output captured; exit ${installResult.exitCode}).`,
+        }),
+      );
+      if (installResult.exitCode !== 0) {
+        const finishedAtIso = new Date().toISOString();
+        return {
+          verifyId,
+          versionId,
+          durationMs: Date.now() - startedAt,
+          jobStartedAt: jobStartedAtIso,
+          jobFinishedAt: finishedAtIso,
+          firstFailureCheck,
+          results,
+        };
+      }
+
+      const ownsLintSetup = projectOwnsLintSetup(filesJson);
+      for (const check of checks) {
+        if (check === "lint" && !ownsLintSetup) {
+          results.push(
+            pushResult({
+              check,
+              passed: true,
+              exitCode: 0,
+              durationMs: 0,
+              output:
+                "Skipped lint: exported project does not include its own ESLint config or dependency set.",
+            }),
+          );
+          continue;
+        }
+        const command = VERIFY_COMMANDS[check];
+        if (!command) continue;
+        const checkStartedAt = Date.now();
+        const result = await runShellCommand(command, {
+          cwd: workspaceDir,
+          stdio: ["ignore", "pipe", "pipe"],
+          env: sanitizedEnv(),
+        });
+        const durationMs = Date.now() - checkStartedAt;
+        const output = clipVerifyOutput(check, result.output);
+        const passed = result.exitCode === 0;
+        results.push(
+          pushResult({
+            check,
+            passed,
+            exitCode: result.exitCode,
+            durationMs,
+            output:
+              passed || output
+                ? output
+                : `(No ${check} output captured; exit ${result.exitCode}).`,
+          }),
+        );
+      }
+
       const finishedAtIso = new Date().toISOString();
       return {
         verifyId,
@@ -553,61 +629,12 @@ async function runVerifyJob(params) {
         firstFailureCheck,
         results,
       };
+    } finally {
+      await removeDirWithRetries(workspaceDir).catch(() => {});
     }
+  };
 
-    const ownsLintSetup = projectOwnsLintSetup(filesJson);
-    for (const check of checks) {
-      if (check === "lint" && !ownsLintSetup) {
-        results.push(
-          pushResult({
-            check,
-            passed: true,
-            exitCode: 0,
-            durationMs: 0,
-            output:
-              "Skipped lint: exported project does not include its own ESLint config or dependency set.",
-          }),
-        );
-        continue;
-      }
-      const command = VERIFY_COMMANDS[check];
-      if (!command) continue;
-      const checkStartedAt = Date.now();
-      const result = await runShellCommand(command, {
-        cwd: workspaceDir,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: sanitizedEnv(),
-      });
-      const durationMs = Date.now() - checkStartedAt;
-      const output = clipVerifyOutput(check, result.output);
-      const passed = result.exitCode === 0;
-      results.push(
-        pushResult({
-          check,
-          passed,
-          exitCode: result.exitCode,
-          durationMs,
-          output:
-            passed || output
-              ? output
-              : `(No ${check} output captured; exit ${result.exitCode}).`,
-        }),
-      );
-    }
-
-    const finishedAtIso = new Date().toISOString();
-    return {
-      verifyId,
-      versionId,
-      durationMs: Date.now() - startedAt,
-      jobStartedAt: jobStartedAtIso,
-      jobFinishedAt: finishedAtIso,
-      firstFailureCheck,
-      results,
-    };
-  } finally {
-    await removeDirWithRetries(workspaceDir).catch(() => {});
-  }
+  return withNoSpaceCleanupRetry(runJob);
 }
 
 function stopChildProcessTree(child) {
@@ -716,33 +743,48 @@ async function bootRuntimeForSession(session, options = {}) {
 
   try {
     const chatId = getSessionChatId(session);
-    const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
-    patchNextConfigForPreviewBasePath(workspaceDir);
-    const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
-    await runInstallCommand(workspaceDir, session.sandboxId, session.filesJson);
-    await spawnDevServer(session, workspaceDir, runtimePort);
+    const runBoot = async () => {
+      const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
+      patchNextConfigForPreviewBasePath(workspaceDir);
+      const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
+      await runInstallCommand(workspaceDir, session.sandboxId, session.filesJson);
+      await spawnDevServer(session, workspaceDir, runtimePort);
 
-    await updateSessionById(session.sessionId, (stored) => {
-      stored.status = "warm_project";
-      stored.runtimePort = runtimePort;
-      stored.updatedAt = nowIso();
+      await updateSessionById(session.sessionId, (stored) => {
+        stored.status = "warm_project";
+        stored.runtimePort = runtimePort;
+        stored.updatedAt = nowIso();
+      });
+
+      waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`)
+        .then(() =>
+          appendRuntimeLog(
+            session.sandboxId,
+            `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
+          ),
+        )
+        .catch((err) =>
+          appendRuntimeLog(
+            session.sandboxId,
+            `Readiness probe timed out but runtime is still running: ${err instanceof Error ? err.message : "unknown"}`,
+          ),
+        );
+
+      return { runtimePort };
+    };
+
+    return await withNoSpaceCleanupRetry(runBoot, {
+      onRetry: async () => {
+        await appendRuntimeLog(
+          session.sandboxId,
+          "Preview-host disk full; cleaning stale workspaces and retrying runtime boot once.",
+        );
+        const tracked = runtimeChildren.get(session.sessionId);
+        if (tracked) {
+          await stopRuntimeForSession(session);
+        }
+      },
     });
-
-    waitForReady(`http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`)
-      .then(() =>
-        appendRuntimeLog(
-          session.sandboxId,
-          `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-        ),
-      )
-      .catch((err) =>
-        appendRuntimeLog(
-          session.sandboxId,
-          `Readiness probe timed out but runtime is still running: ${err instanceof Error ? err.message : "unknown"}`,
-        ),
-      );
-
-    return { runtimePort };
   } catch (error) {
     await updateSessionById(session.sessionId, (stored) => {
       stored.status = "error";
@@ -928,12 +970,13 @@ proxy.on("error", (err, req, res) => {
   }
 });
 
-async function cleanupVerifyWorkspaces() {
-  if (!fs.existsSync(VERIFY_WORKSPACES_DIR)) return { freedEntries: 0 };
-  const entries = fs.readdirSync(VERIFY_WORKSPACES_DIR);
+async function cleanupDirectoryEntries(dirPath, keepEntries = null) {
+  if (!fs.existsSync(dirPath)) return { freedEntries: 0 };
+  const entries = fs.readdirSync(dirPath);
   let freed = 0;
   for (const entry of entries) {
-    const full = path.join(VERIFY_WORKSPACES_DIR, entry);
+    if (keepEntries?.has(entry)) continue;
+    const full = path.join(dirPath, entry);
     try {
       await removeDirWithRetries(full);
       freed++;
@@ -942,6 +985,86 @@ async function cleanupVerifyWorkspaces() {
     }
   }
   return { freedEntries: freed };
+}
+
+async function cleanupPreviewHostStorage() {
+  const nowMs = Date.now();
+  const activeWorkspaceEntries = new Set();
+  const activeSandboxIds = new Set();
+  let removedSessions = 0;
+  let removedLogs = 0;
+  let removedMappings = 0;
+
+  await withStoreLock((data) => {
+    for (const [sessionId, session] of Object.entries(data.sessions)) {
+      if (isSessionUsable(session, nowMs)) {
+        const chatId = getSessionChatId(session);
+        if (chatId) {
+          activeWorkspaceEntries.add(safeChatKey(chatId));
+        }
+        if (typeof session.sandboxId === "string" && session.sandboxId.trim()) {
+          activeSandboxIds.add(session.sandboxId.trim());
+        }
+        continue;
+      }
+
+      removedSessions++;
+      delete data.sessions[sessionId];
+
+      const sandboxId =
+        typeof session?.sandboxId === "string" && session.sandboxId.trim()
+          ? session.sandboxId.trim()
+          : "";
+      if (sandboxId && data.sandboxToSession[sandboxId] === sessionId) {
+        delete data.sandboxToSession[sandboxId];
+        removedMappings++;
+      }
+    }
+
+    for (const [sandboxId, sessionId] of Object.entries(data.sandboxToSession)) {
+      if (!data.sessions[sessionId]) {
+        delete data.sandboxToSession[sandboxId];
+        removedMappings++;
+      }
+    }
+
+    for (const sandboxId of Object.keys(data.logs)) {
+      if (!activeSandboxIds.has(sandboxId)) {
+        delete data.logs[sandboxId];
+        removedLogs++;
+      }
+    }
+  });
+
+  const verifyResult = await cleanupDirectoryEntries(VERIFY_WORKSPACES_DIR);
+  const workspaceResult = await cleanupDirectoryEntries(
+    WORKSPACES_DIR,
+    activeWorkspaceEntries,
+  );
+
+  return {
+    freedVerifyEntries: verifyResult.freedEntries,
+    freedWorkspaceEntries: workspaceResult.freedEntries,
+    removedSessions,
+    removedLogs,
+    removedMappings,
+    preservedWorkspaceEntries: activeWorkspaceEntries.size,
+  };
+}
+
+async function withNoSpaceCleanupRetry(run, options = {}) {
+  try {
+    return await run();
+  } catch (error) {
+    if (!isNoSpaceError(error)) {
+      throw error;
+    }
+    if (typeof options.onRetry === "function") {
+      await options.onRetry(error);
+    }
+    await cleanupPreviewHostStorage();
+    return run();
+  }
 }
 
 module.exports = {
@@ -959,5 +1082,5 @@ module.exports = {
   destroyChatWorkspace,
   runVerifyJob,
   stopRuntimeForSession,
-  cleanupVerifyWorkspaces,
+  cleanupPreviewHostStorage,
 };

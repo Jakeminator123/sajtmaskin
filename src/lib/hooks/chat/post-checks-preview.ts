@@ -234,7 +234,7 @@ function buildPreviewUnavailableDetails(
 ): PreviewUnavailableDetails {
   if (isPreviewPendingOnSandbox(preflight)) {
     return {
-      message: "Live-preview byggs i sandbox och blir tillgänglig när miljön har startat.",
+      message: "Live-preview startar i VM och blir tillgänglig när miljön är redo.",
       previewCode: "preview_waiting_for_sandbox",
       previewStage: "preflight",
       previewSource: "finalize-preflight",

@@ -39,7 +39,8 @@ export interface SandboxPreviewResult {
   sandboxPreviewMode: SandboxPreviewMode;
   /** Tier 3 when a production build step ran in sandbox. */
   fidelityTier: 2 | 3;
-  prodBuildVerified: boolean;
+  /** Only set when a real `npm run build` step ran (tier-3 / `dev_then_build`). */
+  prodBuildVerified?: boolean;
   prodBuildLogSnippet?: string;
   /** VM reused from session vs new provisioning. HTTP route-level `reused_url` is handled before this layer. */
   startOutcome: "resumed" | "recreated";
@@ -170,7 +171,6 @@ async function runStartSandboxPreview(
             sandboxId: resumed.sandboxId,
             sandboxPreviewMode: resolvedMode,
             fidelityTier: 2,
-            prodBuildVerified: false,
             startOutcome: "resumed",
             ...(sess.tier2Provider === "preview_host"
               ? { tier2Meta: { tier2Provider: "preview_host" as const } }
@@ -275,7 +275,6 @@ async function runStartSandboxPreview(
           sandboxId: started.sandboxId,
           sandboxPreviewMode: resolvedMode,
           fidelityTier: 2,
-          prodBuildVerified: false,
           startOutcome: started.startOutcome,
           tier2Meta: { tier2Provider: "preview_host" },
         },

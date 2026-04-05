@@ -226,7 +226,30 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
       void (async () => {
         if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
 
-        const scheduleTransientRetry = (delayMs: number) => {
+        const finishBootstrapFailure = (failure?: {
+          stage?: string | null;
+          message?: string | null;
+        }) => {
+          sandboxBootstrapDoneKeysRef.current.add(key);
+          sandboxBootstrapTransientAttemptsRef.current.delete(key);
+          if (isForcedRestart) {
+            setForcedSandboxRestartKey((current) => (current === key ? null : current));
+          }
+          setSandboxBuildError({
+            stage: failure?.stage?.trim() || "sandbox-create",
+            message:
+              failure?.message?.trim() ||
+              "Live-preview kunde inte starta i VM-previewn.",
+          });
+          setSandboxProdBuild(null);
+          setSandboxPending(false);
+          if (isForcedRestart) setSandboxPreviewRecovering(false);
+        };
+
+        const scheduleTransientRetry = (
+          delayMs: number,
+          finalFailure?: { stage?: string | null; message?: string | null },
+        ) => {
           const prev = sandboxBootstrapTransientAttemptsRef.current.get(key) ?? 0;
           const next = prev + 1;
           sandboxBootstrapTransientAttemptsRef.current.set(key, next);
@@ -235,7 +258,12 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
               setSandboxBootstrapRetryNonce((n) => n + 1);
             }, delayMs);
           } else {
-            sandboxBootstrapDoneKeysRef.current.add(key);
+            finishBootstrapFailure(
+              finalFailure ?? {
+                stage: "sandbox-create",
+                message: "Live-preview kunde inte starta efter flera försök.",
+              },
+            );
           }
         };
 
@@ -293,7 +321,29 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
               retryable: data?.retryable,
             });
           if (shouldRetryBootstrap) {
-            scheduleTransientRetry(parseRetryAfterMs(res.headers, SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS));
+            scheduleTransientRetry(
+              parseRetryAfterMs(res.headers, SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS),
+              {
+                stage: data?.stage ?? "sandbox-create",
+                message: data?.message ?? "Live-preview kunde inte starta i VM-previewn.",
+              },
+            );
+            return;
+          }
+
+          if (!data?.ok) {
+            finishBootstrapFailure({
+              stage: data?.stage ?? "sandbox-create",
+              message: data?.message ?? "Live-preview kunde inte starta i VM-previewn.",
+            });
+            return;
+          }
+
+          if (typeof data.sandboxUrl !== "string" || !data.sandboxUrl.trim()) {
+            finishBootstrapFailure({
+              stage: data?.stage ?? "sandbox-create",
+              message: "Previewn startade men returnerade ingen preview-URL.",
+            });
             return;
           }
 
@@ -302,12 +352,6 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
           if (isForcedRestart) {
             setForcedSandboxRestartKey((current) => (current === key ? null : current));
           }
-          if (!data?.ok || typeof data.sandboxUrl !== "string" || !data.sandboxUrl.trim()) {
-            setSandboxPending(false);
-            if (isForcedRestart) setSandboxPreviewRecovering(false);
-            return;
-          }
-
           setSandboxBuildError(null);
           setSandboxPending(false);
           setSandboxPreviewRecovering(false);
@@ -345,10 +389,13 @@ export function useBuilderSandboxPreview(params: UseBuilderSandboxPreviewParams)
         } catch (err) {
           if (cancelled || sandboxBootstrapGenRef.current !== gen) return;
           if (err instanceof Error && err.name === "AbortError") return;
-          if (isForcedRestart) {
-            setForcedSandboxRestartKey((current) => (current === key ? null : current));
-          }
-          scheduleTransientRetry(SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS);
+          scheduleTransientRetry(SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS, {
+            stage: "sandbox-create",
+            message:
+              err instanceof Error && err.message.trim()
+                ? err.message.trim()
+                : "Live-preview kunde inte starta i VM-previewn.",
+          });
         }
       })();
     }, 0);

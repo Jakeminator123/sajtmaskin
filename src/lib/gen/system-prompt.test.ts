@@ -156,7 +156,13 @@ describe("buildDynamicContext", () => {
       intent: "website",
       originalPrompt: "Build a SaaS website with product storytelling.",
       generationMode: "init",
-      buildSpec: { ...lightFollowUpSpec, generationMode: "init", changeScope: "redesign", contextPolicy: "normal", verificationPolicy: "standard" },
+      buildSpec: {
+        ...lightFollowUpSpec,
+        generationMode: "init",
+        changeScope: "redesign",
+        contextPolicy: "heavy",
+        verificationPolicy: "standard",
+      },
       scaffoldContext: "Scaffold context",
     });
 
@@ -240,7 +246,7 @@ describe("buildDynamicContext", () => {
         ...lightFollowUpSpec,
         generationMode: "init",
         changeScope: "redesign",
-        contextPolicy: "normal",
+        contextPolicy: "heavy",
         verificationPolicy: "standard",
       },
       scaffoldContext: "Scaffold context",
@@ -341,7 +347,7 @@ describe("buildDynamicContext", () => {
         ...lightFollowUpSpec,
         generationMode: "init",
         changeScope: "redesign",
-        contextPolicy: "normal",
+        contextPolicy: "heavy",
         verificationPolicy: "standard",
       },
       scaffoldContext: "Scaffold context",

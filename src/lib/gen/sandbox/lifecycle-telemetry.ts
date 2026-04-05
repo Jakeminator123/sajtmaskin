@@ -44,7 +44,7 @@ export type SandboxLifecycleTelemetryEvent =
       sandboxId?: string | null;
       sandboxPreviewMode: string;
       fidelityTier: 2 | 3;
-      prodBuildVerified: boolean;
+      prodBuildVerified?: boolean;
       startOutcome: "resumed" | "recreated";
       previewPolicy?: string | null;
       verificationPolicy?: string | null;

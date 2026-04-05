@@ -6,7 +6,7 @@ const { randomUUID } = require("node:crypto");
 const { readStoreSync, withStoreLock } = require("./store.js");
 const {
   buildPreviewUrl,
-  cleanupVerifyWorkspaces,
+  cleanupPreviewHostStorage,
   destroyChatWorkspace,
   findSessionByChatId,
   getRuntimeStateForChat,
@@ -277,6 +277,7 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/preview/session/start") {
     const raw = await readJsonBody(req);
     const validated = validateStartPayload(raw);
+    await cleanupPreviewHostStorage().catch(() => null);
     const created = await withStoreLock((data) => {
       const existing = findSessionByChatId(data, validated.chatId);
       const createdAt = existing?.createdAt ?? nowIso();
@@ -495,7 +496,7 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/admin/cleanup") {
     if (!checkApiKey(req, res)) return;
     try {
-      const result = await cleanupVerifyWorkspaces();
+      const result = await cleanupPreviewHostStorage();
       return json(res, 200, { cleaned: true, ...result });
     } catch (error) {
       return json(res, 500, {
