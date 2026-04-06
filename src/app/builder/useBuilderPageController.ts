@@ -113,17 +113,22 @@ export function useBuilderPageController() {
   }, [setPreviewRefreshToken]);
 
   const resetRecoverAfterBootstrapRef = useRef<(() => void) | null>(null);
+  const shouldHoldChatHooksForFreshEntry = Boolean(
+    chatId && !chatIdParam && !templateId && hasEntryParams && entryIntentActive,
+  );
+  const readyForChatHooks = Boolean(chatId) && !shouldHoldChatHooksForFreshEntry;
+  const chatHooksChatId = readyForChatHooks ? chatId : null;
 
   // ── External data hooks ──────────────────────────────────────────────
   const { chat, mutate: mutateChat, isError: isChatError, isLoading: isChatLoading } =
-    useChat(state.chatId);
+    useChat(chatHooksChatId);
 
   const isAnyStreamingEarly = useMemo(
     () => state.messages.some((m) => Boolean(m.isStreaming)),
     [state.messages],
   );
 
-  const { versions, mutate: mutateVersions } = useVersions(state.chatId, {
+  const { versions, mutate: mutateVersions } = useVersions(chatHooksChatId, {
     isGenerating: isAnyStreamingEarly,
     pauseWhileGenerating: true,
   });
@@ -159,7 +164,7 @@ export function useBuilderPageController() {
   }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
 
   const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
-    state.chatId,
+    chatHooksChatId,
     derived.activeVersionId,
     {
       isGenerating: isAnyStreamingEarly,
@@ -474,6 +479,7 @@ export function useBuilderPageController() {
 
   // Prompt fetch
   useEffect(() => {
+    if (templateId) return;
     if (!promptId) return;
     if (promptFetchDoneRef.current === promptId) return;
     if (promptFetchInFlightRef.current === promptId) return;
@@ -558,7 +564,7 @@ export function useBuilderPageController() {
         promptFetchInFlightRef.current = null;
       }
     };
-  }, [promptId, promptFetchDoneRef, promptFetchInFlightRef, promptFetchRetryNonce, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
+  }, [templateId, promptId, promptFetchDoneRef, promptFetchInFlightRef, promptFetchRetryNonce, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
 
   // Auth fetch
   useEffect(() => {
@@ -645,6 +651,7 @@ export function useBuilderPageController() {
   // Load latest chat for project when project is in URL but chatId is not
   useEffect(() => {
     if (!projectParam || chatIdParam || chatId) return;
+    if (hasEntryParams || templateId) return;
     let isActive = true;
     const controller = new AbortController();
 
@@ -692,7 +699,7 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [projectParam, chatIdParam, chatId, setChatId, router, searchParams]);
+  }, [projectParam, chatIdParam, chatId, hasEntryParams, templateId, setChatId, router, searchParams]);
 
   // Legacy localStorage cleanup
   useEffect(() => {
@@ -1459,6 +1466,7 @@ export function useBuilderPageController() {
   // Auto-start generation for kostnadsfri flow
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (templateId) return;
     if (buildMethod !== "kostnadsfri") return;
     if (!resolvedPrompt) return;
     if (chatId) return;
@@ -1471,7 +1479,7 @@ export function useBuilderPageController() {
       void promptActions.requestCreateChat(resolvedPrompt!);
     }, 500);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, buildMethod, resolvedPrompt, chatId, setSelectedModelTier, promptActions]);
+  }, [isAuthenticated, templateId, buildMethod, resolvedPrompt, chatId, setSelectedModelTier, promptActions]);
 
   // =====================================================================
   // Return view model

@@ -93,7 +93,7 @@ export function useBuilderPromptActions({
   customInstructions,
   applyInstructionsOnce,
   promptAssistModel,
-  promptAssistDeep: _promptAssistDeep,
+  promptAssistDeep,
   specMode,
   themeColors,
   paletteState,
@@ -241,7 +241,7 @@ export function useBuilderPromptActions({
         pendingSpecRef.current = null;
         const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: false,
-          forceDeepBrief: true,
+          forceDeepBrief: promptAssistDeep,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
             if (specMode) {
@@ -276,6 +276,7 @@ export function useBuilderPromptActions({
       customInstructions,
       generateDynamicInstructions,
       paletteState,
+      promptAssistDeep,
       specMode,
       themeColors,
       pendingSpecRef,

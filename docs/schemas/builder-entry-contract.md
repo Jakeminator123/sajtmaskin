@@ -113,12 +113,33 @@ type BlankBuilderBootstrap = {
 | Phase | Prompt-driven expectation | v0-driven template expectation |
 |---|---|---|
 | Before opening `/builder` | create `appProjectId`, save prompt handoff | create or resolve `appProjectId`, carry `templateId` |
-| First builder render | `appProjectId` exists, `chatId` absent | `appProjectId` exists or is adopted, `chatId` may still be pending |
+| First builder render | `appProjectId` exists, `chatId` absent, **no chat-restore fetch** | `appProjectId` exists or is adopted, `chatId` may still be pending |
 | After init/create response | `chatId` exists | `chatId` may already exist, `versionId` may also exist |
 | After first completed generation | `versionId` and preview available | preview may have been available earlier |
 
-## Server Deep Brief (create-chat)
+### Fresh-entry guards
 
+When the builder opens with `hasEntryParams` (`promptId`, `promptParam`,
+`templateId`, or `source=audit`), the following are blocked until the entry
+is consumed:
+
+- **Project-chat restore** (`GET /api/projects/[id]/chat`) is skipped entirely
+  for fresh entries and template entries to prevent a race where a stale
+  `chatId` briefly propagates to SWR hooks.
+- **Chat data hooks** (`useChat`, `useVersions`, `useChatReadiness`) receive
+  `null` instead of `chatId` while `entryIntentActive` is true on fresh
+  prompt-driven entries (`readyForChatHooks` gate in
+  `useBuilderPageController`). Template entries are **not** held because
+  `useBuilderEffects` is the sole legitimate setter of `chatId` for that path.
+- **Auto-generate** (`kostnadsfri` flow) and **prompt-fetch** effects are
+  skipped when `templateId` is present.
+
+## Deep Brief (UI default and server)
+
+- **UI default is off** (`DEFAULT_PROMPT_ASSIST.deep = false`). The user may
+  enable deep brief explicitly in the builder settings panel.
+- `applyDynamicInstructionsForNewChat` passes `forceDeepBrief: promptAssistDeep`
+  (the user's toggle value) instead of always forcing deep brief.
 - On `POST /api/engine/chats/stream`, when the client does **not** send `meta.brief`, the server may run the same structured Deep Brief model as `/api/ai/brief` (unless disabled via `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1` or skipped for audit/technical-preserve paths).
 - UI-driven fetch to `/api/ai/brief` remains useful for previewing/editing the brief before send; if the client attaches `meta.brief`, the server does not regenerate it.
 - Response `meta` may include `serverAutoBriefGenerated` / `serverAutoBriefModel` for telemetry.
