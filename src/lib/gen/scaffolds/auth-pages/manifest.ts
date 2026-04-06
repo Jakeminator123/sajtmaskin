@@ -26,6 +26,14 @@ export const authPagesManifest: ScaffoldManifest = {
     "Forms should look ready for real validation and integration, not like static placeholder cards.",
     "Branding, helper text, and CTA labels should match the actual product without losing auth clarity.",
   ],
+  research: {
+    upgradeTargets: [
+      "Add password strength and inline validation messaging for signup.",
+      "Add optional social login buttons that can be toggled per provider.",
+      "Add clear auth state transitions (success, error, pending) with toast feedback.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",

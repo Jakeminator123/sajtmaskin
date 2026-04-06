@@ -1,6 +1,6 @@
 # Builder — generering, modeller, prompt och SSE
 
-**Senast uppdaterad:** 2026-04-05
+**Senast uppdaterad:** 2026-04-06
 
 ## Modellbanor (UI ↔ API)
 
@@ -28,6 +28,7 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 - **Statisk kärna** + dynamisk kontext (scaffold, brief, tema, KB) byggs i `system-prompt.ts` m.m.
 - **Fan-in före modellen:** `prepareGenerationContext()` / `resolveOrchestrationBase()` bygger nu ett litet **`BuildSpec`** (`src/lib/gen/build-spec.ts`) som bär styrsignaler som `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`. Det används för att hålla scaffold-/referensbudget, follow-up-policy och previewpolicy deterministiska.
 - **Narrow follow-up policy:** när `BuildSpec` landar i `followUp + light + fast` hålls dynamisk kontext märkbart smalare: scaffold serialiseras lättare och bred KB/template-retrieval hoppas över för lokala copy/layout-ändringar.
+- **Scaffold research i prompten:** `buildDynamicContext()` injicerar nu `qualityChecklist`, `upgradeTargets` och ett budgeterat urval av `referenceTemplates` som **Reference inspirations**. Urvalet begränsas av `BuildSpec.tokenBudgets.refsChars`.
 - **Template-library i prompten:** runtime-guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) är nu uttryckligen primär signal före kodsnippets. Prompten kan också signalera när template-libraryn är tom eller när retrieval faller tillbaka till keyword/hybrid-läge, och snippets trycks ned för mer scoped edits. KB-sök och template-library-rankning körs nu parallellt när båda behövs.
 - **Prompt tree** (alla lager och parametrar): se arkiv `prompt-tree.md` och kod: `config/prompt-static/`, `codegen-static-prompt.json`.
 
@@ -39,7 +40,7 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 4. **Spec-first chain (valfritt, `specMode=true`):** Om briefen finns konverteras den till en `WebsiteSpec` via `briefToSpec()` i `promptAssistContext.ts`, annars via `promptToSpec()`. Specfilen bifogas som strukturerad kontext till systemprompten.
 5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
 6. **Scaffoldval i `auto`:** `matchScaffold()` är primär keyword-path; `matchScaffoldWithEmbeddings()` använder scaffold-embeddings bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
-7. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, route plan, pre-generation contracts, brief-/temasignaler och övrig request-specifik kontext. Dynamisk kontext trunkeras till `BuildSpec.tokenBudgets.systemContextChars`, och systemet loggar nu faktisk truncation och orkestreringstider per fas.
+7. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, scaffold research-prioriteringar (inkl. budgeterade reference inspirations), route plan, pre-generation contracts, brief-/temasignaler och övrig request-specifik kontext. Dynamisk kontext trunkeras till `BuildSpec.tokenBudgets.systemContextChars`, och systemet loggar nu faktisk truncation och orkestreringstider per fas.
 8. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, verifier, parse/merge/preflight och sparar versionen innan tier-2-preview följer upp. `reasoning_effort` sätts nu adaptivt: vanliga `website`-fall landar oftare på `medium`, medan `app` / integrationer / mer avancerade builds kan ligga kvar på `high`.
 9. **Saved version** hämtas sedan via chat/version/files-routes; tier-2-start kan komma efter `done` (primärt `preview_host`, med legacy `sandbox`-namn kvar i delar av kontraktet). Om server repair skapar en ny promotad version markeras den tidigare repair-källan nu som **superseded** i stället för att lämnas kvar i `repairing`.
 

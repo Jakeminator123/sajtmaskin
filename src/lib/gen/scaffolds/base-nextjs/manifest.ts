@@ -17,6 +17,14 @@ export const baseNextjsManifest: ScaffoldManifest = {
     "Preserve App Router basics: layout, page, and globals.css should stay intact.",
     "Do not remove @theme inline tokens, path aliases, or the dark baseline without a clear replacement.",
   ],
+  research: {
+    upgradeTargets: [
+      "Add a tiny reusable section system (hero + feature cards) while keeping starter simplicity.",
+      "Introduce metadata and OG defaults tied to brand/site context from the prompt.",
+      "Add one optional secondary route as a pattern for safe multi-page expansion.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",

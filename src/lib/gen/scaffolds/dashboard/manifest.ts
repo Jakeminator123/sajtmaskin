@@ -19,15 +19,23 @@ export const dashboardManifest: ScaffoldManifest = {
     "statistik",
   ],
   promptHints: [
-    "Use this scaffold for dashboards, analytics panels, admin views, and data-heavy applications.",
-    "Keep the sidebar navigation, stats cards, and main content area. Replace metrics, tables, and charts with user-specific data.",
-    "Add or remove sidebar items and main sections as needed. Preserve the layout pattern.",
+    "Use this scaffold for analytics-heavy dashboards, KPI monitoring, admin overviews, and data operations.",
+    "Keep the sidebar navigation, stats cards, trend sections, and chart surfaces. Replace all metrics with domain-specific data.",
+    "Treat this as an analytics cockpit rather than a CRUD workspace. Add deeper charts and reporting detail where needed.",
   ],
   qualityChecklist: [
     "The layout should remain app-like, dense, and operational rather than turning into a marketing page.",
     "Sidebar, top summary cards, and main data surfaces should match the user's actual domain and workflows.",
     "Tables, charts, and filters should look purposeful and realistic even when the data is static.",
   ],
+  research: {
+    upgradeTargets: [
+      "Add a date range selector that drives KPI cards and chart datasets.",
+      "Include segmented analytics views (traffic, conversion, retention) with tabs.",
+      "Add export actions (CSV/PDF) and report scheduling placeholders.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",
@@ -203,6 +211,180 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+`,
+    },
+    {
+      path: "app/analytics/page.tsx",
+      content: `import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+const channels = [
+  { name: "Organisk sök", sessions: "12 480", conversion: "3.8%", revenue: "182 000 kr" },
+  { name: "Betalda annonser", sessions: "8 210", conversion: "4.4%", revenue: "156 400 kr" },
+  { name: "Direkttrafik", sessions: "5 640", conversion: "5.1%", revenue: "134 200 kr" },
+  { name: "Partners", sessions: "2 980", conversion: "4.2%", revenue: "72 800 kr" },
+];
+
+export default function AnalyticsPage() {
+  return (
+    <div className="space-y-8 p-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Analys</h1>
+        <p className="text-muted-foreground">Djupare insikter för trafik, konvertering och intäkter.</p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 bg-card border-border">
+          <CardHeader>
+            <CardTitle>Konverteringstrend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-56 items-end gap-2">
+              {[42, 55, 61, 58, 64, 69, 72, 68, 76, 82, 79, 85].map((h, index) => (
+                <div key={index} className="flex-1 rounded-t bg-primary/70" style={{ height: \`\${h}%\` }} />
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">Konverteringssignal vecka för vecka</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Snapshot</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">Mål mot utfall denna period</p>
+            <div className="rounded-lg border border-border/60 p-3">
+              <p className="text-xs text-muted-foreground">Målkonvertering</p>
+              <p className="text-xl font-semibold">4.5%</p>
+            </div>
+            <div className="rounded-lg border border-border/60 p-3">
+              <p className="text-xs text-muted-foreground">Utfall</p>
+              <p className="text-xl font-semibold">4.2%</p>
+            </div>
+            <Badge variant="outline" className="border-amber-500/30 text-amber-400">-0.3% mot mål</Badge>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle>Kanalöversikt</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="pb-3 pr-4 font-medium">Kanal</th>
+                  <th className="pb-3 pr-4 font-medium">Sessioner</th>
+                  <th className="pb-3 pr-4 font-medium">Konvertering</th>
+                  <th className="pb-3 font-medium">Intäkt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {channels.map((row) => (
+                  <tr key={row.name} className="border-b border-border/50 last:border-0">
+                    <td className="py-3 pr-4">{row.name}</td>
+                    <td className="py-3 pr-4 tabular-nums">{row.sessions}</td>
+                    <td className="py-3 pr-4">{row.conversion}</td>
+                    <td className="py-3 tabular-nums">{row.revenue}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+`,
+    },
+    {
+      path: "app/users/page.tsx",
+      content: `import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const users = [
+  { name: "Anna Svensson", plan: "Pro", status: "Aktiv", lastSeen: "2 min sedan" },
+  { name: "Erik Johansson", plan: "Basic", status: "Aktiv", lastSeen: "18 min sedan" },
+  { name: "Maria Karlsson", plan: "Enterprise", status: "Avvaktande", lastSeen: "1 timme sedan" },
+  { name: "Lars Nilsson", plan: "Pro", status: "Aktiv", lastSeen: "3 timmar sedan" },
+];
+
+export default function UsersPage() {
+  return (
+    <div className="space-y-8 p-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Användare</h1>
+        <p className="text-muted-foreground">Överblick av användarstatus och abonnemang.</p>
+      </div>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle>Kontolista</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {users.map((user) => (
+              <div key={user.name} className="flex flex-col gap-3 rounded-lg border border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">Senast aktiv: {user.lastSeen}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{user.plan}</Badge>
+                  <Badge
+                    variant="outline"
+                    className={user.status === "Aktiv" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}
+                  >
+                    {user.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+`,
+    },
+    {
+      path: "app/settings/page.tsx",
+      content: `import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function SettingsPage() {
+  return (
+    <div className="space-y-8 p-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Inställningar</h1>
+        <p className="text-muted-foreground">Basinställningar för dashboard, rapporter och notifieringar.</p>
+      </div>
+
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle>Organisation</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="company-name">Företagsnamn</Label>
+            <Input id="company-name" placeholder="[Företagsnamn]" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="timezone">Tidszon</Label>
+            <Input id="timezone" placeholder="Europe/Stockholm" />
+          </div>
+          <Button>Spara ändringar</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -9,16 +9,11 @@ export const contentSiteManifest: ScaffoldManifest = {
   buildIntents: ["website", "template"],
   tags: [
     "landing",
-    "portfolio",
-    "blog",
+    "brand-site",
     "marketing",
     "content",
     "company",
     "agency",
-    "saas",
-    "software",
-    "platform",
-    "pricing",
     "service",
   ],
   promptHints: [
@@ -34,6 +29,14 @@ export const contentSiteManifest: ScaffoldManifest = {
     "Navigation, hero, supporting sections, and footer should remain coherent after customization.",
     "Only add pricing, dashboard, or app-shell patterns when the prompt clearly asks for them.",
   ],
+  research: {
+    upgradeTargets: [
+      "Add section variants (case studies, team, process) that can be toggled by domain.",
+      "Add stronger CTA ladders (primary + secondary actions) across long pages.",
+      "Add trust-signal modules (logos, results, testimonials) tied to business context.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",

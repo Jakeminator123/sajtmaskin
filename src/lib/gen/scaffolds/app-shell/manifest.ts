@@ -5,20 +5,28 @@ export const appShellManifest: ScaffoldManifest = {
   family: "app-shell",
   label: "App Shell",
   description:
-    "Dashboard/app shell with sidebar navigation, stats cards, and data area. Great for admin panels, analytics dashboards, and SaaS apps.",
+    "Operational app shell with sidebar navigation, workspace summaries, queue tables, and execution-focused content areas.",
   buildIntents: ["app"],
-  tags: ["dashboard", "admin", "analytics", "saas", "app", "panel", "crm"],
+  tags: ["app-shell", "workspace", "operations", "crm", "saas", "backoffice", "admin"],
   promptHints: [
-    "This scaffold has a sidebar, stats cards, and content area.",
-    "Modify the navigation items, stats, and main content to match the user's needs.",
-    "Add charts, tables, or other data displays in the main area.",
-    "Keep the sidebar/topbar navigation pattern.",
+    "Use this scaffold for operational apps, internal tools, and workflow-oriented SaaS backoffices.",
+    "Keep the sidebar + main workspace pattern, but prioritize queues, tasks, and action states over analytics storytelling.",
+    "Use actionable tables, statuses, and task cards that map to real product workflows.",
+    "Preserve the shell structure while adapting entities, labels, and actions to the user's domain.",
   ],
   qualityChecklist: [
     "Navigation shell, app density, and workspace feel should stay more prominent than marketing content.",
     "Primary panels, tables, and summaries should map to the user's real product/workflow.",
     "Account, billing, settings, or workspace affordances should feel layerable without breaking the shell.",
   ],
+  research: {
+    upgradeTargets: [
+      "Add role-based navigation sections and per-role entry dashboards.",
+      "Include bulk actions and row-level quick actions in queue tables.",
+      "Add command palette and keyboard shortcuts for power-user workflows.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",
@@ -99,48 +107,49 @@ import { DollarSign, ShoppingCart, Users, TrendingUp } from "lucide-react";
 
 const stats = [
   {
-    title: "Intäkter",
-    value: "248 500 kr",
-    change: "+12.5%",
-    trend: "up" as const,
-    icon: DollarSign,
-  },
-  {
-    title: "Beställningar",
-    value: "1 284",
-    change: "+8.2%",
+    title: "Öppna ärenden",
+    value: "184",
+    change: "+9.2%",
     trend: "up" as const,
     icon: ShoppingCart,
   },
   {
-    title: "Aktiva användare",
-    value: "3 421",
-    change: "+23.1%",
+    title: "SLA inom mål",
+    value: "96.4%",
+    change: "+1.8%",
+    trend: "up" as const,
+    icon: TrendingUp,
+  },
+  {
+    title: "Aktiva handläggare",
+    value: "42",
+    change: "+4.5%",
     trend: "up" as const,
     icon: Users,
   },
   {
-    title: "Konvertering",
-    value: "3.8%",
-    change: "-0.4%",
-    trend: "down" as const,
-    icon: TrendingUp,
+    title: "Eskalerade ärenden",
+    value: "12",
+    change: "-2.1%",
+    trend: "up" as const,
+    icon: DollarSign,
   },
 ];
 
-const recentOrders = [
-  { id: "ORD-001", customer: "Anna Svensson", amount: "2 450 kr", status: "Levererad" },
-  { id: "ORD-002", customer: "Erik Johansson", amount: "1 890 kr", status: "Skickad" },
-  { id: "ORD-003", customer: "Maria Karlsson", amount: "3 200 kr", status: "Bearbetas" },
-  { id: "ORD-004", customer: "Lars Nilsson", amount: "980 kr", status: "Levererad" },
-  { id: "ORD-005", customer: "Sofia Olsson", amount: "4 100 kr", status: "Skickad" },
+const workflowQueue = [
+  { id: "CASE-001", owner: "Anna Svensson", priority: "Hög", status: "Pågår" },
+  { id: "CASE-002", owner: "Erik Johansson", priority: "Medel", status: "Väntar svar" },
+  { id: "CASE-003", owner: "Maria Karlsson", priority: "Hög", status: "Blockerad" },
+  { id: "CASE-004", owner: "Lars Nilsson", priority: "Låg", status: "Pågår" },
+  { id: "CASE-005", owner: "Sofia Olsson", priority: "Medel", status: "Klar" },
 ];
 
 function statusColor(status: string) {
   switch (status) {
-    case "Levererad": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
-    case "Skickad": return "bg-blue-500/15 text-blue-400 border-blue-500/20";
-    case "Bearbetas": return "bg-amber-500/15 text-amber-400 border-amber-500/20";
+    case "Klar": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
+    case "Pågår": return "bg-blue-500/15 text-blue-400 border-blue-500/20";
+    case "Väntar svar": return "bg-amber-500/15 text-amber-400 border-amber-500/20";
+    case "Blockerad": return "bg-red-500/15 text-red-400 border-red-500/20";
     default: return "bg-muted text-muted-foreground";
   }
 }
@@ -149,8 +158,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 p-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Översikt för mars 2026</p>
+        <h1 className="text-2xl font-bold tracking-tight">Workspace</h1>
+        <p className="text-muted-foreground">Operativ översikt för teamets dagliga arbete</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -163,28 +172,28 @@ export default function DashboardPage() {
         {/* Data table */}
         <Card className="lg:col-span-3 bg-card border-border">
           <CardHeader>
-            <CardTitle>Senaste beställningar</CardTitle>
+            <CardTitle>Aktiv kö</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="pb-3 pr-4 font-medium">Order</th>
-                    <th className="pb-3 pr-4 font-medium">Kund</th>
-                    <th className="pb-3 pr-4 font-medium">Belopp</th>
+                    <th className="pb-3 pr-4 font-medium">Ärende</th>
+                    <th className="pb-3 pr-4 font-medium">Ansvarig</th>
+                    <th className="pb-3 pr-4 font-medium">Prioritet</th>
                     <th className="pb-3 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentOrders.map((order) => (
-                    <tr key={order.id} className="border-b border-border/50 last:border-0">
-                      <td className="py-3 pr-4 font-mono text-xs">{order.id}</td>
-                      <td className="py-3 pr-4">{order.customer}</td>
-                      <td className="py-3 pr-4 tabular-nums">{order.amount}</td>
+                  {workflowQueue.map((item) => (
+                    <tr key={item.id} className="border-b border-border/50 last:border-0">
+                      <td className="py-3 pr-4 font-mono text-xs">{item.id}</td>
+                      <td className="py-3 pr-4">{item.owner}</td>
+                      <td className="py-3 pr-4">{item.priority}</td>
                       <td className="py-3">
-                        <Badge variant="outline" className={statusColor(order.status)}>
-                          {order.status}
+                        <Badge variant="outline" className={statusColor(item.status)}>
+                          {item.status}
                         </Badge>
                       </td>
                     </tr>
@@ -198,7 +207,7 @@ export default function DashboardPage() {
         {/* Chart placeholder */}
         <Card className="lg:col-span-2 bg-card border-border">
           <CardHeader>
-            <CardTitle>Intäkter per vecka</CardTitle>
+            <CardTitle>Genomströmning per vecka</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex h-48 items-end gap-2">
@@ -218,6 +227,152 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="bg-card border-border lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Nästa steg</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              "Fördela blockerade ärenden till specialistteam",
+              "Följ upp köer med väntetid över 24h",
+              "Verifiera SLA för de fem högst prioriterade flödena",
+            ].map((task) => (
+              <div key={task} className="rounded-lg border border-border/60 px-4 py-3 text-sm">
+                {task}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Teamstatus</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="text-muted-foreground">På plats: 12</p>
+            <p className="text-muted-foreground">I möte: 3</p>
+            <p className="text-muted-foreground">Tillgängliga: 9</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+`,
+    },
+    {
+      path: "app/pipeline/page.tsx",
+      content: `import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+const stages = [
+  { name: "Intake", count: 24, status: "ok" },
+  { name: "Kvalificering", count: 18, status: "ok" },
+  { name: "Genomförande", count: 41, status: "warning" },
+  { name: "QA", count: 12, status: "ok" },
+  { name: "Klart", count: 33, status: "ok" },
+];
+
+export default function PipelinePage() {
+  return (
+    <div className="space-y-8 p-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Pipeline</h1>
+        <p className="text-muted-foreground">Visualisera hur arbetet flyter mellan varje steg.</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {stages.map((stage) => (
+          <Card key={stage.name} className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="text-base">{stage.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-3xl font-semibold tabular-nums">{stage.count}</p>
+              <Badge
+                variant="outline"
+                className={stage.status === "warning" ? "border-amber-500/30 text-amber-400" : "border-emerald-500/30 text-emerald-400"}
+              >
+                {stage.status === "warning" ? "Behöver uppföljning" : "Stabil"}
+              </Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+`,
+    },
+    {
+      path: "app/tasks/page.tsx",
+      content: `import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const tasks = [
+  { title: "Verifiera ny onboarding-flow", owner: "Anna", due: "Idag", priority: "Hög" },
+  { title: "Uppdatera webhook-monitorering", owner: "Erik", due: "Imorgon", priority: "Medel" },
+  { title: "Stäng äldre backlog-ärenden", owner: "Maria", due: "Fredag", priority: "Låg" },
+];
+
+export default function TasksPage() {
+  return (
+    <div className="space-y-8 p-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
+        <p className="text-muted-foreground">Prioriterade aktiviteter för teamet denna vecka.</p>
+      </div>
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle>Aktiva uppgifter</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {tasks.map((task) => (
+            <div key={task.title} className="rounded-lg border border-border/60 px-4 py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="font-medium">{task.title}</p>
+                <Badge variant="outline">{task.priority}</Badge>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Ansvarig: {task.owner} • Deadline: {task.due}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+`,
+    },
+    {
+      path: "app/settings/page.tsx",
+      content: `import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function SettingsPage() {
+  return (
+    <div className="space-y-8 p-8">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Inställningar</h1>
+        <p className="text-muted-foreground">Konfigurera workspace, notifieringar och teampreferenser.</p>
+      </div>
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle>Workspace</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="workspace-name">Workspace-namn</Label>
+            <Input id="workspace-name" placeholder="[Workspace]" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="notification-channel">Notifieringskanal</Label>
+            <Input id="notification-channel" placeholder="Slack / Teams / Email" />
+          </div>
+          <Button>Spara</Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -228,21 +383,22 @@ export default function DashboardPage() {
       content: `"use client";
 
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   LayoutDashboard,
-  BarChart3,
+  Workflow,
+  ListTodo,
   Settings,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Analys", href: "/analytics", icon: BarChart3 },
-  { label: "Användare", href: "/users", icon: Users },
+  { label: "Workspace", href: "/", icon: LayoutDashboard },
+  { label: "Pipeline", href: "/pipeline", icon: Workflow },
+  { label: "Tasks", href: "/tasks", icon: ListTodo },
   { label: "Inställningar", href: "/settings", icon: Settings },
 ];
 
@@ -272,10 +428,10 @@ export function AppSidebar() {
               )}
               asChild
             >
-              <a href={item.href}>
+              <Link href={item.href}>
                 <item.icon className="h-4 w-4" />
                 {item.label}
-              </a>
+              </Link>
             </Button>
           );
         })}

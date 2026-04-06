@@ -138,7 +138,7 @@
 
 <h1>Sajtmaskin — LLM Pipeline Flow</h1>
 <p class="subtitle">config/ → prompt → brief → orchestrate → generate → fix → preview</p>
-<p class="updated">Senast uppdaterad: 2026-04-02</p>
+<p class="updated">Senast uppdaterad: 2026-04-06</p>
 
 <div class="diagram-section">
   <h2>1. Före-build: Prompt → Brief → Orchestration</h2>
@@ -182,7 +182,7 @@ flowchart TD
 
     Q["resolveOrchestrationBase<br/><span class='node-meta'>orchestrate.ts</span>"] --> R["Välj scaffold + route plan +<br/>inferera kontrakt → BuildSpec"]
     R --> S["finalizeOrchestrationPrompts<br/><span class='node-meta'>system-prompt.ts</span>"]
-    S --> T["Statisk systemprompt<br/>+ dynamisk kontext<br/><span class='node-meta'>config/prompt-static/ +<br/>brief + tema + kontrakt</span>"]
+    S --> T["Statisk systemprompt<br/>+ dynamisk kontext<br/><span class='node-meta'>config/prompt-static/ +<br/>brief + tema + kontrakt +<br/>scaffold research refs</span>"]
   </div>
 </div>
 

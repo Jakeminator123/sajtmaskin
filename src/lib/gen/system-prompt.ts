@@ -258,7 +258,24 @@ export async function buildDynamicContext(
   if (resolvedScaffold) {
     const checklist = resolvedScaffold.qualityChecklist?.slice(0, 6) ?? [];
     const upgradeTargets = resolvedScaffold.research?.upgradeTargets.slice(0, 5) ?? [];
-    if (checklist.length > 0 || upgradeTargets.length > 0) {
+    const referenceTemplates = resolvedScaffold.research?.referenceTemplates ?? [];
+    const refsBudgetChars = Math.max(1_500, buildSpec?.tokenBudgets.refsChars ?? 8_000);
+    const referenceLines: string[] = [];
+    let refsUsedChars = 0;
+    for (const template of referenceTemplates.slice(0, 5)) {
+      const strengths = template.strengths.slice(0, 3).join("; ");
+      const summary = strengths
+        ? `${template.title} (${template.categorySlug}, score ${template.qualityScore}): ${strengths}`
+        : `${template.title} (${template.categorySlug}, score ${template.qualityScore})`;
+      const line = `  - ${summary}`;
+      if (refsUsedChars + line.length > refsBudgetChars && referenceLines.length > 0) {
+        break;
+      }
+      referenceLines.push(line);
+      refsUsedChars += line.length;
+    }
+
+    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0) {
       parts.push(
         "## Scaffold Research Priorities",
         "",
@@ -271,6 +288,10 @@ export async function buildDynamicContext(
       if (upgradeTargets.length > 0) {
         parts.push("", "- Upgrade targets from curated research:");
         parts.push(...upgradeTargets.map((item) => `  - ${item}`));
+      }
+      if (referenceLines.length > 0) {
+        parts.push("", "- Reference inspirations from curated templates:");
+        parts.push(...referenceLines);
       }
       parts.push("");
     }

@@ -93,11 +93,17 @@ Scaffolds may be enriched with curated reference data through:
 This metadata may improve search, matching, and upgrade decisions, but it does
 not create a second runtime scaffold registry.
 
+When present, `research.referenceTemplates` is now also consumed by prompt
+assembly (`system-prompt.ts`) as budgeted "Reference inspirations" alongside
+`qualityChecklist` and `upgradeTargets`.
+
 ## Serialization rule
 
 When a scaffold is selected:
 
 - the scaffold is serialized into generation context
+- scaffold research priorities may include a curated reference-template summary
+  (bounded by `BuildSpec.tokenBudgets.refsChars`)
 - the model may replace, extend, or refine scaffold files
 - the finalized version may merge scaffold base files with generated output
 

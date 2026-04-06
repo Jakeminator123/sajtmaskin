@@ -27,6 +27,14 @@ export const blogManifest: ScaffoldManifest = {
     "Metadata like author, dates, tags, and excerpts should feel editorial and topic-specific.",
     "Typography and spacing should prioritize readability and content hierarchy over decorative UI.",
   ],
+  research: {
+    upgradeTargets: [
+      "Add topic/category filtering with dedicated archive pages and tag navigation.",
+      "Add related posts, reading time, and share actions on article pages.",
+      "Add newsletter CTA blocks tuned to the publication's actual niche.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",
