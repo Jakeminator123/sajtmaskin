@@ -180,6 +180,11 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
     "Allow auth, billing, and dashboard subflows to be layered in later.",
     "Primary layout should feel like a real product workspace, not a simple landing page with a sidebar.",
   ],
+  "photo-shop": [
+    "Keep the editorial product grid with large hero card and alternating 1-column cards.",
+    "Preserve the monochrome oklch design system and tight typography (line-height 1.2, negative letter-spacing).",
+    "Cart should be a drawer, not a page. Product detail should include a multi-image gallery.",
+  ],
 };
 
 const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
@@ -193,6 +198,7 @@ const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
   ecommerce: ["Stronger product and checkout patterns", "Clearer storefront information architecture"],
   "content-site": ["Broader reusable section coverage", "More believable content-first defaults"],
   "app-shell": ["Deeper app navigation patterns", "More settings, account, and workspace affordances"],
+  "photo-shop": ["Richer product gallery patterns", "Stronger editorial visual rhythm"],
 };
 
 function ensureDir(target: string): void {

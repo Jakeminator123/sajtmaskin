@@ -18,6 +18,7 @@ import { blogManifest } from "./blog/manifest";
 import { dashboardManifest } from "./dashboard/manifest";
 import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
+import { photoShopManifest } from "./photo-shop/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
@@ -29,6 +30,7 @@ const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   dashboardManifest,
   authPagesManifest,
   ecommerceManifest,
+  photoShopManifest,
   contentSiteManifest,
   appShellManifest,
 ];

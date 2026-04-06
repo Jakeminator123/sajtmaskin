@@ -8,7 +8,8 @@ export type ScaffoldFamily =
   | "blog"
   | "dashboard"
   | "auth-pages"
-  | "ecommerce";
+  | "ecommerce"
+  | "photo-shop";
 export type ScaffoldMode = "off" | "auto" | "manual";
 
 export interface ScaffoldFile {
