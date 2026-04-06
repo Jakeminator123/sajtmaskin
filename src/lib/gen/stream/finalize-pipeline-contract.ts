@@ -30,13 +30,8 @@ export const OWN_ENGINE_POST_STREAM_PIPELINE = [
   },
   {
     id: "verifier",
-    label: "Read-only verifier LLM (findings for polish / telemetry)",
+    label: "Read-only verifier LLM (blocking/quality findings, telemetry)",
     labelSv: "Verifiering",
-  },
-  {
-    id: "polish",
-    label: "Optional polish LLM (copy / placeholders)",
-    labelSv: "Polish",
   },
   {
     id: "parse_merge_preflight",
@@ -52,7 +47,6 @@ export const OWN_ENGINE_FINALIZE_FAST_PATH_PHASES: OwnEnginePostStreamPhaseId[] 
   "url_expand",
   "validate_syntax",
   "verifier",
-  "polish",
   "parse_merge_preflight",
 ];
 

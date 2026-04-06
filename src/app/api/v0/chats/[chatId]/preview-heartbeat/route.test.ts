@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
-const getActiveSandboxSessionAsync = vi.hoisted(() => vi.fn());
-const touchSandboxSessionAsync = vi.hoisted(() => vi.fn());
+const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
+const touchPreviewSessionAsync = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => true));
 
 vi.mock("@/lib/rateLimit", () => ({
@@ -13,14 +13,14 @@ vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
 }));
 
-vi.mock("@/lib/gen/sandbox/session-store", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/gen/sandbox/session-store")>(
-    "@/lib/gen/sandbox/session-store",
+vi.mock("@/lib/gen/preview/session-store", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/gen/preview/session-store")>(
+    "@/lib/gen/preview/session-store",
   );
   return {
     ...actual,
-    getActiveSandboxSessionAsync,
-    touchSandboxSessionAsync,
+    getActivePreviewSessionAsync,
+    touchPreviewSessionAsync,
   };
 });
 
@@ -42,7 +42,7 @@ describe("POST preview-heartbeat", () => {
   });
 
   it("rejects when session missing", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue(null);
+    getActivePreviewSessionAsync.mockResolvedValue(null);
     const res = await POST(
       new Request("http://localhost/api", {
         method: "POST",
@@ -55,11 +55,11 @@ describe("POST preview-heartbeat", () => {
     const body = (await res.json()) as { ok: boolean; reason?: string };
     expect(body.ok).toBe(false);
     expect(body.reason).toBe("no_session");
-    expect(touchSandboxSessionAsync).not.toHaveBeenCalled();
+    expect(touchPreviewSessionAsync).not.toHaveBeenCalled();
   });
 
   it("touches session when ids match", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue({
+    getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://x.example",
       versionId: "v1",
@@ -76,7 +76,7 @@ describe("POST preview-heartbeat", () => {
     );
     const body = (await res.json()) as { ok: boolean };
     expect(body.ok).toBe(true);
-    expect(touchSandboxSessionAsync).toHaveBeenCalledWith(
+    expect(touchPreviewSessionAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: "c1",
         sandboxId: "sb1",
@@ -86,7 +86,7 @@ describe("POST preview-heartbeat", () => {
   });
 
   it("rejects on previewSessionId mismatch", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue({
+    getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://x.example",
       versionId: "v1",

@@ -26,8 +26,8 @@ Builder/API prompt
            └─ finalizeOrchestrationPrompts()
                 └─ buildDynamicContext()  (system-prompt.ts)
                      ├─ scaffold context
-                     ├─ template-library guidance
-                     ├─ knowledge-base enrichment
+                     ├─ route plan + pre-generation contracts
+                     ├─ brief / visual identity / design references
                      └─ final engine system prompt
 
 own-engine stream
@@ -36,10 +36,10 @@ own-engine stream
            ├─ autofix + URL expansion
            ├─ syntax validate/fix (early-stop on fixer noop / no improvement)
            ├─ optional deep path (image materialize)
-           ├─ optional verifier / polish
+           ├─ optional verifier
            ├─ parse + merge + preflight
            ├─ save assistant + version
-           └─ sandbox / verification follow-up
+           └─ preview / verification follow-up
 ```
 
 This module is the canonical generation path (own-engine). If you need the
@@ -51,9 +51,9 @@ actual scaffold/template lookup behavior, read `scaffolds/README.md` and
 | File | Role |
 |------|------|
 | `orchestrate.ts` | Canonical fan-in for scaffold selection, route planning, contract inference, BuildSpec derivation, and prompt assembly inputs. |
-| `system-prompt.ts` | Builds dynamic prompt context (scaffold, KB, template-library guidance) and composes the final engine system prompt. |
+| `system-prompt.ts` | Builds dynamic prompt context (scaffold, route plan, contracts, brief, theme/design signals) and composes the final engine system prompt. |
 | `scaffolds/` | Runtime scaffold manifests, matcher/search/serialize logic, and generated scaffold research/embeddings. |
-| `template-library/` | Curated external-template guidance used by prompt ranking and reference injection. |
+| `template-library/` | Curated external-template artifacts plus validation/tooling helpers; current own-engine prompt does not inject template-library retrieval. |
 | `stream/finalize-version.ts` | Shared post-stream pipeline: autofix, deep-path steps, parse/merge/preflight, persistence, telemetry, and scaffold-retry suggestions. |
 | `generation-input-package.ts` | `GenerationInputPackage` type, `computeLineageHash()`, and dump serialization. |
 | `server-verify.ts` | Server-side verify+repair loop triggered after finalize, with early stop on fixer noop / no improvement. |
@@ -68,23 +68,22 @@ actual scaffold/template lookup behavior, read `scaffolds/README.md` and
 
 ## Generated Artifacts And Indexing
 
-Large generated files under `src/lib/gen/` are part of the runtime surface, even
-when they are excluded from normal Cursor indexing.
+Large generated files under `src/lib/gen/` can shape runtime or local validation/tooling,
+even when they are excluded from normal Cursor indexing.
 
 Paths in the table below are relative to `src/lib/gen/` unless noted otherwise.
 
 | Path | Role | Normal handling |
 |------|------|----------------|
-| `data/docs-embeddings.json` | Embeddings derived from documentation snippets used by generation support. | Generated, committed, rarely hand-edited, usually safe to keep in `.cursorignore`. |
-| `scaffolds/scaffold-research.generated.json` | Generated scaffold research metadata committed for runtime/build-time use. | Generated, committed, do not hand-edit unless you are deliberately repairing a bad artifact. |
-| `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated, committed, direct-read only when debugging scaffold search/matching. |
-| `template-library/template-library.generated.json` | Curated template-library artifact used for runtime search and prompt support. | Generated, committed, large enough to keep out of default indexing. |
-| `template-library/template-library-embeddings.json` | Embeddings for the curated template-library artifact. | Generated, committed, usually only needed for targeted debugging or rebuild validation. |
+| `scaffolds/scaffold-research.generated.json` | Generated scaffold research metadata overlaid into runtime scaffold manifests. | Generated locally, gitignored, do not hand-edit unless you are deliberately repairing a bad artifact. |
+| `scaffolds/scaffold-embeddings.json` | Embeddings for the internal runtime scaffolds. | Generated locally, gitignored, only used by semantic scaffold fallback/debugging. |
+| `template-library/template-library.generated.json` | Curated template-library artifact used by scaffold validation and template-pipeline tooling. | Generated locally, gitignored, not injected into the current own-engine prompt path. |
+| `template-library/template-library-embeddings.json` | Embeddings for the curated template-library artifact. | Generated locally, gitignored, only needed for local template-library checks/tooling. |
 | `../../data/external-template-pipeline/reports/scaffold-candidates-curated.json` | Ranked scaffold candidate report from the external template pipeline. | Generated, not a runtime dependency, useful for curation and agent orientation only. |
 
 Guidelines:
 
-- Treat these files as runtime-critical artifacts, not disposable local output.
+- Treat scaffold artifacts as runtime/build-time helpers and template-library artifacts as pipeline/validation helpers, not disposable scratch output.
 - Do not hand-edit them as a normal workflow. Prefer regenerating them from the
   scripts documented in `scripts/README.md`.
 - Keeping them in `.cursorignore` is about search/indexing cost, not about
@@ -114,7 +113,7 @@ python scripts/cli/builder-generate.py
 That script calls the same own-engine HTTP/SSE routes as Builder and writes the
 captured result under `output/generations/<timestamp>-<slug>/` with:
 
-- `metadata.json` (`streamMeta`, `templateLibrarySearch`, route plan, preflight)
+- `metadata.json` (`streamMeta`, route plan, preflight)
 - `brief.json` when deep brief was used
 - `files/` with the saved version payload
 

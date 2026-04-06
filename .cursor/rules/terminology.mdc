@@ -33,8 +33,8 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 - **Vercel-mall / external-template research**: research-material i `data/external-template-pipeline/`. Inte samma sak som builderns Mallar-tab eller runtime `template-library`.
 - **Preview**: det användaren ser i buildern.
 - **VM / `preview_host`**: den aktuella primära tier-2-live-previewen via Fly.io. **Detta är riktningen framåt.** All ny preview-logik ska använda `preview_host` / VM-terminologi.
-- **Sandbox (LEGACY — undvik i ny kod)**: äldre paraplyterm som lever kvar i DB-kolumner (`sandbox_url`), API-routes (`/sandbox-preview`, `/sandbox-status`, `/sandbox-heartbeat`, `/sandbox-destroy`), Redis-nycklar, TypeScript-typer och SSE-fält (`sandboxPending`, `sandboxUrl`, `sandboxId`). Dessa är **strukturella** och kan inte döpas om utan migration — men ny kod, kommentarer, loggar och docs ska använda **preview** / **VM** / **tier-2** istället. Skriv aldrig "sandbox" i ny kod utom när du refererar till dessa legacy-namn.
-- **Vercel Sandbox (korrekt användning)**: `@vercel/sandbox` kan fortfarande förekomma i explicit Vercel-fallback för tier-2 preview, men **inte** som quality gate. Quality gate / server-verify kör nu via preview-hosts separata verify-lane.
+- **Sandbox (LEGACY — undvik i ny kod)**: äldre paraplyterm som lever kvar i DB-kolumner (`sandbox_url`), vissa Redis-nycklar, TypeScript-typer och SSE-fält (`sandboxPending`, `sandboxUrl`, `sandboxId`). Publika preview-routes är nu `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy`, `preview-hibernate`, men nya interna kommentarer/loggar ska ändå använda **preview** / **VM** / **tier-2** i stället för "sandbox" när det inte handlar om legacy-kontraktet. Se **explicit allowlist** i `docs/schemas/preview-session-contract.md` (*Remaining `sandbox` wording*).
+- **Vercel Sandbox**: inte längre aktiv tier-2-väg i runtime. Om du ser `@vercel/sandbox` eller Vercel-sandbox-termer i repoet, behandla dem som legacy-/arkivspår eller separat Vercel-plattformskontext, inte som den nuvarande preview-arkitekturen.
 - **demoUrl**: legacy-namn för URL eller preview-mål; tolka efter kontext.
 
 ## Projekt, chat och preview-ID
@@ -44,8 +44,8 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 | **`appProjectId` / `projects.id`** | Sajtmaskins riktiga projekt-id per användarprojekt | builder-state, ägarskap, project env vars, `engine_chats.project_id` | `chatId`, `VERCEL_PROJECT_ID` |
 | **`chatId` / `engine_chats.id`** | own-engine-chattens id; den faktiska preview-lanen för iterationer | `/api/engine/chats/[chatId]`, versionsval, tier-2 session-store, preview-host path | `appProjectId` |
 | **`versionId` / `engine_versions.id`** | specifik sparad version inom en chatt | preview-resume, bootstrap, heartbeat, versions-API | `chatId`, `sandboxId` |
-| **`sandboxId`** | id för aktiv tier-2-runtime/session | `sandbox-status`, `sandbox-heartbeat`, destroy/resume | `chatId`, `appProjectId` |
-| **`VERCEL_PROJECT_ID`** | Vercel-projekt-id för Vercel Sandbox / API-auth | env, `runtime-url.ts` | Sajtmaskins `appProjectId` |
+| **`sandboxId`** | id för aktiv tier-2-runtime/session | preview-status/heartbeat/destroy + intern legacy storage | `chatId`, `appProjectId` |
+| **`VERCEL_PROJECT_ID`** | Vercel-projekt-id för Vercel-plattformsanrop | env, admin/deploy/domain-integrationer | Sajtmaskins `appProjectId` |
 
 - **Preview-host-pathen är `/{chatId}`**, inte `/{appProjectId}`.
 - Om du ser preview-host-payload eller äldre kommentar med **`projectId`** för denna path/key: läs det som **legacy alias för `chatId`**, inte som det riktiga app-projekt-id:t.
@@ -101,11 +101,10 @@ Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 
 - **Prompt assist / Förbättra**: hjälpassistent **före build**. Förbättrar eller skriver om användarens prompt men bygger inte sajten.
 - **Prompt polish / `Skriv om`**: den lätta copy-editor-varianten. Den ska främst rätta språk, tydlighet och form, inte skapa en full brief eller ersätta codegen.
-- **Post-generation polish pass**: separat LLM-pass **efter** codegen som arbetar på genererade filer, inte på användarens prompt. Blanda inte ihop detta med prompt-polish.
 - **Deep brief / site brief**: strukturerad brief före första builden (`sidor`, `sektioner`, `tone`, `SEO`, `imagery`, m.m.). Genereras via `/api/ai/brief` (klient) eller `tryGenerateServerAutoBrief` (server-fallback). Briefen genereras alltid från **originalprompt**, inte summarerad text. Server auto-brief blockeras för follow-ups.
 - **Spec-first chain / `WebsiteSpec`**: valfri kedja (`specMode=true` default) som konverterar brief → strukturerad spec (`promptAssistContext.ts`). Specen bifogas systemprompten som `sajtmaskin.spec.json`-referens. Separat från deep brief — spec *bygger på* briefen.
 - **`orchestratePromptMessage()`**: deterministisk promptvakt/budgetering — **inte** en LLM. Den väljer `direct`, `preserved` (full handoff över mjuk gräns), `phase_plan_build_polish`, eller sällan `summarize` som nödfallback vid hård cap.
-- **Verifier-pass (post-generation)**: read-only LLM-granskning **efter** syntax i finalize; returnerar bl.a. `polishCandidates` (målfiler). Styrs av `phaseRouting.verifier` och `postGenerationPasses` i manifest.
+- **Verifier-pass (post-generation)**: read-only LLM-granskning **efter** syntax i finalize; returnerar `blocking`/`quality`-fynd för telemetry och kvalitetsgrind. Styrs av `phaseRouting.verifier` och `postGenerationPasses` i manifest.
 - **`resolveOrchestrationBase()` / `BuildSpec`**: den faktiska orkestreringen före codegen. Här väljs scaffold, route plan, kontrakt, context-policy, preview-policy och verification-policy.
 - **Plan mode**: separat planner-LLM som returnerar plan-/JSON-artifact, **inte kod**.
 - **own-engine generator**: huvud-LLM:n som faktiskt genererar kod.
@@ -121,11 +120,11 @@ Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 
 ## Aliaser
 
-Varicell / Vericell → **Vercel**. Veenol / Venol → **v0**.
+Varicell / Vericell → **Vercel**
 
 ## Överlappande ord och när den här filen uppdateras
 
-Samma vardagsord (**preview**, **mall**, **template**, **v0**, …) förekommer ofta i **flera olika betydelser** i repo och produkt. Den här ordlistan kan inte fånga allt; den ska bara täcka det som **faktiskt** brukar bli fel.
+Samma vardagsord (**preview**, **mall**, **template**) förekommer ofta i **flera olika betydelser** i repo och produkt. Den här ordlistan kan inte fånga allt; den ska bara täcka det som **faktiskt** brukar bli fel.
 
 - **Uppdatera sällan men ibland:** lägg till eller skärp en rad här när samma begreppsförvirring **återkommer** (t.ex. två agenter eller två issues blandar ihop samma par). Undvik att växa listan för varje engångsfråga eller för varje nytt internnamn i kod.
 - **Varför:** andra agenter ska veta att överlapp finns och var de ska leta — inte att varje ny synonym måste in här direkt.

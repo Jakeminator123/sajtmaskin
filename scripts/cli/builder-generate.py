@@ -99,7 +99,7 @@ class SseCollector:
             vid = data.get("versionId")
             if isinstance(vid, str) and vid.strip():
                 self.version_id = vid.strip()
-        elif event == "sandbox-ready":
+        elif event in ("preview-ready", "sandbox-ready"):
             self.sandbox_ready = data
         elif event == "progress":
             self.progress_tail.append(data)

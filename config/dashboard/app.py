@@ -237,13 +237,6 @@ def describe_workload_model_resolution(
             "Generatorn följer vald byggprofil; varje profil har eget standardmodellval.",
         )
 
-    if workload_id == "post_generation_polish":
-        return (
-            summarize_tier_models(build_profile_defaults(manifest)),
-            "selected_build_model",
-            "Polish-passet följer den build-model som redan valts för generationen.",
-        )
-
     if workload_id == "autofix_llm":
         fixer_models = summarize_tier_models(
             resolve_phase_models_for_dashboard(manifest, "fixer")
@@ -619,7 +612,6 @@ elif page == "ai_models":
         planner = find_workload(manifest, "plan_mode_planner") or {}
         brief = find_workload(manifest, "brief_structured") or {}
         verifier = find_workload(manifest, "post_generation_verifier") or {}
-        polish = find_workload(manifest, "post_generation_polish") or {}
         manual_repair = find_workload(manifest, "manual_repair_route_llm") or {}
         server_repair = find_workload(manifest, "server_verify_repair_llm") or {}
 
@@ -628,7 +620,7 @@ elif page == "ai_models":
             f"1. **Första fritextprompten** kan först gå via **brief** ({human_model_label(brief.get('defaultModel', ''))}) om klienten eller servern behöver struktur.\n"
             f"2. Därefter går den in i **själva byggmodellen** ({human_model_label(build_profiles.get('max', ''))} när profilen är `max`).\n"
             f"3. Om du väljer **planläge** används planner-fasen ({planner.get('notes') or 'styrs av phase routing'}).\n"
-            f"4. Efter syntax körs **verifier** ({verifier.get('notes') or 'styrs av phase routing'}) och därefter ev. **polish** ({polish.get('title', 'post-generation polish')}).\n"
+            f"4. Efter syntax körs **verifier** ({verifier.get('notes') or 'styrs av phase routing'}).\n"
             f"5. Om kvaliteten fortfarande faller kan **fixer/repair** försöka laga fel — både i explicit repair-route och i background verify."
         )
         st.caption(
@@ -1163,40 +1155,16 @@ elif page == "ai_models":
             key="rt_stream",
         )
 
-        st.markdown("### Post-generation (verifier + polish)")
+        st.markdown("### Post-generation (verifier)")
         st.caption(
-            "Styr `runVerifierPass` och `runPolishPass` efter syntax i finalize. "
-            "Verifiern följer `phaseRouting.verifier`, och polish använder verifierns "
-            "`polishCandidates` när de finns."
+            "Styr `runVerifierPass` efter syntax i finalize. "
+            "Verifiern följer `phaseRouting.verifier` och budgets i `postGenerationPasses`."
         )
         pgp = manifest.setdefault("postGenerationPasses", {})
-        p_polish_tok = pgp.setdefault("polishMaxOutputTokens", {})
-        p_polish_ms = pgp.setdefault("polishTimeoutMs", {})
-        p_polish_files = pgp.setdefault("polishMaxFilesWhenUnscoped", {})
         p_ver_tok = pgp.setdefault("verifierMaxOutputTokens", {})
         p_ver_ms = pgp.setdefault("verifierTimeoutMs", {})
         p_ver_snip = pgp.setdefault("verifierSnippetCharsPerFile", {})
 
-        polish_out = st.number_input(
-            "Polish: max output tokens",
-            value=int(p_polish_tok.get("default", 16000)),
-            step=512,
-            key="pgp_polish_out",
-        )
-        polish_ms = st.number_input(
-            "Polish: timeout (ms)",
-            value=int(p_polish_ms.get("default", 45000)),
-            step=1000,
-            key="pgp_polish_ms",
-        )
-        polish_files = st.number_input(
-            "Polish: max filer utan verifier-scope",
-            value=int(p_polish_files.get("default", 14)),
-            min_value=4,
-            max_value=40,
-            step=1,
-            key="pgp_polish_files",
-        )
         ver_out = st.number_input(
             "Verifier: max output tokens",
             value=int(p_ver_tok.get("default", 8192)),
@@ -1263,9 +1231,6 @@ elif page == "ai_models":
                 assist_timeout
             )
             rt.setdefault("streamSafetyTimeoutMs", {})["default"] = int(stream_timeout)
-            p_polish_tok["default"] = int(polish_out)
-            p_polish_ms["default"] = int(polish_ms)
-            p_polish_files["default"] = int(polish_files)
             p_ver_tok["default"] = int(ver_out)
             p_ver_ms["default"] = int(ver_ms)
             p_ver_snip["default"] = int(ver_snip)
@@ -1514,8 +1479,10 @@ elif page == "Template pipeline":
 
     st.info(
         "Research-pipelinen under `data/external-template-pipeline/` är bygginput. "
-        "Appen använder de genererade artefakterna under `src/lib/gen/template-library/` och "
-        "`src/lib/gen/scaffolds/scaffold-research.generated.json`."
+        "Current own-engine-prompten injicerar inte längre template-library-retrieval. "
+        "De genererade artefakterna under `src/lib/gen/template-library/` används främst av "
+        "validering, research-/byggskript och lokala kvalitetskontroller, medan "
+        "`src/lib/gen/scaffolds/scaffold-research.generated.json` fortsatt överlagras i runtime-scaffolds."
     )
 
 
@@ -1542,7 +1509,7 @@ elif page == "Preview och versioner":
 
     st.info(
         "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
-        "`sandbox-ready`/VM-preview och hur buildern växlar mellan versioner. "
+        "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
         "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
     )
 

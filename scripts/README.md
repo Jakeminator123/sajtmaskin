@@ -12,7 +12,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 |------|----------|
 | [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
 | [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt` (npm `predev` / `dev` / `build`) |
-| [`embeddings/`](embeddings/) | Mall-, template-library-, scaffold- och docs-embeddings |
+| [`embeddings/`](embeddings/) | Mall-, template-library- och scaffold-embeddings |
 | [`template-library/`](template-library/) | Extern mallkedja: scrape-cache, discovery-import, build, hydrate, v0-sync, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
 | [`scaffolds/`](scaffolds/) | Kandidatrapport, kurering, promote, `sync-scaffold-refs.mjs` |
 | [`eval/`](eval/) | `run-eval.ts` (eval-output) |
@@ -207,6 +207,8 @@ Diskreta steg finns kvar för riktad felsökning, men `full_template_refresh.py`
 8. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
 9. Skriver en prioriterad scaffold-kandidatsrapport till `data/external-template-pipeline/reports/scaffold-candidates-curated.json`
 
+**Viktigt:** dossiers i `reference-library/` används inte direkt av runtime-own-engine. De fungerar som mellanlager för research/kurering. Den data som faktiskt når LLM-prompten efter build-steget är de commitade generated artefakterna i `src/lib/gen/template-library/` och `src/lib/gen/scaffolds/`.
+
 ### Produktionsgräns
 
 Det här skriptet är build-time/research-time. Vercel-produktion ska läsa de
@@ -254,7 +256,7 @@ npx tsx scripts/template-library/hydrate-template-library-cache.ts --max=20
 - `data/external-template-pipeline/reference-library/`
   Kuraterad extern referensyta med per-template dossiers.
 - `src/lib/gen/template-library/`
-  Genererade research-artefakter som används av kod vid sökning och promptstöd.
+  Genererade research-artefakter som används av validering, curation och lokala sök-/kontrollverktyg.
 - `src/lib/gen/scaffolds/`
   Den riktiga runtime-scaffold-registryt.
 
@@ -265,8 +267,8 @@ framtida scaffold-logik kan söka semantiskt i externa referensmallar.
 
 Detta skriver den stora generated-filen
 `src/lib/gen/template-library/template-library-embeddings.json`. Filen kan vara
-committad och runtime-viktig samtidigt som den hålls utanför normal
-Cursor-indexering för att minska brus och kontextkostnad.
+lokal och viktig för curation-/kontrollflöden samtidigt som den hålls utanför
+normal Cursor-indexering för att minska brus och kontextkostnad.
 
 ### Användning
 

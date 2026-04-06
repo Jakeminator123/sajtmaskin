@@ -6,7 +6,7 @@
 
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
-| **Arkitektur** | Kanonisk systembeskrivning, preview/sandbox, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
+| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
 | **Aktiva planer** | Aktiv status, öppna spår, beslut | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/README.md`](plans/README.md) |
 | **Arkiv** | Avklarade planer, handoffs-pekare; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) (`docs/notes/` om du skapar den lokalt) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · storstäd (historik + Fas D-checklista): [`plans/avklarat/STORDSTAD-repo-kod-databas.md`](plans/avklarat/STORDSTAD-repo-kod-databas.md) · post-epic: [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md) · [`archive/README.md`](archive/README.md) · [`handoffs/README.md`](handoffs/README.md) |
 
@@ -24,7 +24,7 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kort aktiv status** med öppna spår, beslut och pekare vidare. Avslutad post-epic-städ (historik): [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kort aktiv status** med öppna spår, beslut och pekare vidare. Avslutad post-epic-städ (historik): [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md). **Preview/VM:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
@@ -81,7 +81,6 @@ local research helpers.
 Good production inputs:
 
 - files committed under `docs/`
-- generated JSON committed in `src/lib/gen/template-library/`
 - generated scaffold research metadata in
   `src/lib/gen/scaffolds/scaffold-research.generated.json`
 - runtime manifests and code under `src/`
@@ -93,6 +92,7 @@ Not runtime dependencies:
 - raw discovery under `data/external-template-pipeline/raw-discovery/current/`
 - local shallow clone cache under `data/external-template-pipeline/repo-cache/`
 - raw local `_sidor` datasets
+- local template-library generation helpers and embeddings artifacts when they are only used for curation/validation
 
 ## Key navigation
 

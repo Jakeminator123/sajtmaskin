@@ -210,8 +210,7 @@ function buildRepoCapabilityChecks(repoTexts: Record<RepoFileKey, string>): Chec
 
 function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckResult[] {
   return [
-    buildRepoCheck(repoTexts, "embeddings-ready", "Embeddings hooks are available for docs and scaffold matching", [
-      { file: "packageJson", needle: '"docs:embeddings"', label: "docs embeddings script" },
+    buildRepoCheck(repoTexts, "embeddings-ready", "Embeddings hooks are available for gallery and scaffold matching", [
       { file: "packageJson", needle: '"templates:embeddings"', label: "template embeddings script" },
       { file: "orchestrate", needle: "matchScaffoldWithEmbeddings(prompt, buildIntent)", label: "embedding-backed scaffold match" },
     ]),

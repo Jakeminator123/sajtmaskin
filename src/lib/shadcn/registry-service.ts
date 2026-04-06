@@ -213,7 +213,7 @@ export function buildPreviewImageUrl(
  */
 export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex> {
   const force = false;
-  const cacheKey = `index:${style || "default"}`;
+  const cacheKey = `index:${style || "default"}:official`;
   const cached = getCached<RegistryIndex>(cacheKey);
   if (cached) return cached;
 
@@ -242,7 +242,8 @@ export async function fetchRegistryIndexWithOptions(
   options: { force?: boolean; source?: string } = {},
 ): Promise<RegistryIndex> {
   const force = Boolean(options.force);
-  const cacheKey = `index:${style || "default"}`;
+  const sourceKey = options.source?.trim() || "official";
+  const cacheKey = `index:${style || "default"}:${sourceKey}`;
   const cached = getCached<RegistryIndex>(cacheKey);
   if (cached && !force) return cached;
 
@@ -281,7 +282,7 @@ export async function fetchRegistrySummary(style?: string): Promise<RegistrySumm
  * Fetch a specific registry item (component/block)
  */
 export async function fetchRegistryItem(name: string, style?: string): Promise<ShadcnRegistryItem> {
-  const cacheKey = `item:${name}:${style || "default"}`;
+  const cacheKey = `item:${name}:${style || "default"}:official`;
   const cached = getCached<ShadcnRegistryItem>(cacheKey);
   if (cached) return cached;
 
@@ -308,7 +309,8 @@ export async function fetchRegistryItemWithOptions(
   options: { force?: boolean; source?: string } = {},
 ): Promise<ShadcnRegistryItem> {
   const force = Boolean(options.force);
-  const cacheKey = `item:${name}:${style || "default"}`;
+  const sourceKey = options.source?.trim() || "official";
+  const cacheKey = `item:${name}:${style || "default"}:${sourceKey}`;
   const cached = getCached<ShadcnRegistryItem>(cacheKey);
   if (cached && !force) return cached;
 

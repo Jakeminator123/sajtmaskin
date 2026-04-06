@@ -28,7 +28,6 @@
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
     "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
-    "SAJTMASKIN_TIER2_RUNTIME",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "LOOPIA_API_USER",
     "LOOPIA_API_PASSWORD",
@@ -63,8 +62,7 @@
     "V0_WARN_PROMPT_LENGTH",
     "ENABLE_PEXELS",
     "LEGACY_EMAIL_AUTO_VERIFY_BEFORE",
-    "EMAIL_FROM",
-    "SAJTMASKIN_SANDBOX_PREVIEW_MODE"
+    "EMAIL_FROM"
   ],
   "extraKnownKeys": [
     "ADMIN_EMAILS",
@@ -166,10 +164,6 @@
     "SAJTMASKIN_PHASE_FORCE_CHARS",
     "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
     "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
-    "SAJTMASKIN_POLISH_PASS",
-    "SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS",
-    "SAJTMASKIN_POLISH_TIMEOUT_MS",
-    "SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
     "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
     "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
@@ -179,10 +173,7 @@
     "SAJTMASKIN_SOFT_TARGET_WIZARD_CHARS",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
     "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
-    "SAJTMASKIN_SANDBOX_PREVIEW_MODE",
-    "SAJTMASKIN_SANDBOX_READINESS_MAX_MS",
     "SAJTMASKIN_SPEC_MODEL",
-    "SAJTMASKIN_TIER2_RUNTIME",
     "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
     "SAJTMASKIN_VERIFIER_PASS",
     "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
@@ -306,7 +297,7 @@
       "key": "VERCEL_TOKEN",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API and, with TEAM+PROJECT, passed explicitly into @vercel/sandbox Sandbox.create (SDK does not auto-read this var). Tier-2 user preview defaults to preview_host when configured; these credentials are mainly for explicit Vercel tier-2 mode/fallback."
+      "notes": "Create at https://vercel.com/account/tokens. Used for Vercel REST API across deploy/admin/domain flows in this repo."
     },
     {
       "key": "VERCEL_TOKEN_FULL",
@@ -318,13 +309,13 @@
       "key": "VERCEL_TEAM_ID",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Team / org scope (often team_…). Required together with VERCEL_TOKEN + VERCEL_PROJECT_ID for @vercel/sandbox from local dev (explicit Vercel tier-2 fallback/mode). Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
+      "notes": "Team / org scope (often team_…). Used together with VERCEL_TOKEN + VERCEL_PROJECT_ID for Vercel REST API calls that need explicit team/project scoping. Find via linked project: run vercel link in the repo and read .vercel/project.json → orgId, or Team Settings → Team ID in the dashboard."
     },
     {
       "key": "VERCEL_PROJECT_ID",
       "classification": "shared_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Project id (prj_…). Required with VERCEL_TOKEN + VERCEL_TEAM_ID for @vercel/sandbox from local dev (explicit Vercel tier-2 fallback/mode). From Project Settings → General, or .vercel/project.json after vercel link."
+      "notes": "Project id (prj_…). Used with VERCEL_TOKEN + VERCEL_TEAM_ID for Vercel REST API calls against the linked project. From Project Settings → General, or .vercel/project.json after vercel link."
     },
     {
       "key": "VERCEL_WEBHOOK_SECRET",
@@ -336,7 +327,7 @@
       "key": "VERCEL_OIDC_TOKEN",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development"],
-      "notes": "Alternative to VERCEL_TOKEN+TEAM+PROJECT for @vercel/sandbox: pulled locally via vercel env pull (Vercel CLI). On Vercel-hosted runtimes the platform may inject OIDC; treat pulled .env values as local-only snapshots. Primärt relevant för explicit Vercel tier-2 mode/fallback."
+      "notes": "Pulled locally via `vercel env pull` or injected by Vercel on hosted runtimes. Treat pulled `.env` values as local snapshots; useful for Vercel-authenticated platform flows, not as a tier-2 preview selector."
     },
     {
       "key": "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
@@ -349,24 +340,6 @@
       "classification": "environment_specific",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Bearer token the app uses for preview-host HTTP calls. Must match PREVIEW_HOST_API_KEY on the host when preview-host runs outside local development."
-    },
-    {
-      "key": "SAJTMASKIN_SANDBOX_PREVIEW_MODE",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Tier-2 preview mode selection for the Vercel sandbox path (`dev_only`, `dev_then_build`, `build_only`)."
-    },
-    {
-      "key": "SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional git URL override for the sandbox/VM baseline template; pin deliberately in production-like environments."
-    },
-    {
-      "key": "SAJTMASKIN_SANDBOX_READINESS_MAX_MS",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Timeout for sandbox/VM readiness probing after `npm run dev`."
     },
     {
       "key": "NEXT_PUBLIC_APP_URL",
@@ -693,34 +666,10 @@
       "notes": "Production-only prompt budget tuning."
     },
     {
-      "key": "SAJTMASKIN_POLISH_PASS",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Feature flag for post-generation polish pass."
-    },
-    {
       "key": "SAJTMASKIN_VERIFIER_PASS",
       "classification": "environment_specific",
       "recommendedVercelTargets": ["production"],
       "notes": "Feature flag for post-generation verifier pass."
-    },
-    {
-      "key": "SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Production-only post-generation polish tuning."
-    },
-    {
-      "key": "SAJTMASKIN_POLISH_TIMEOUT_MS",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Production-only post-generation polish tuning."
-    },
-    {
-      "key": "SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED",
-      "classification": "environment_specific",
-      "recommendedVercelTargets": ["production"],
-      "notes": "Production-only post-generation polish tuning."
     },
     {
       "key": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",

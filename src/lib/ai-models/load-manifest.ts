@@ -145,9 +145,6 @@ const promptOrchestrationSchema = z.object({
 });
 
 const postGenerationPassesSchema = z.object({
-  polishMaxOutputTokens: tokenBudgetSchema,
-  polishTimeoutMs: intTimeoutSchema,
-  polishMaxFilesWhenUnscoped: numericEnvSettingSchema,
   verifierMaxOutputTokens: tokenBudgetSchema,
   verifierTimeoutMs: intTimeoutSchema,
   verifierSnippetCharsPerFile: numericEnvSettingSchema,

@@ -664,8 +664,7 @@ export async function handleMessageStreamRequest(
           }));
         }
         const finalizePromptStartedAt = Date.now();
-        const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
-          await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
         debugLog("orchestration", "Follow-up system prompt finalized", {
           chatId,
           durationMs: Date.now() - finalizePromptStartedAt,
@@ -723,7 +722,6 @@ export async function handleMessageStreamRequest(
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
-            templateLibrarySearchDiagnostics,
           }),
           engineModel,
           optimizedMessage,

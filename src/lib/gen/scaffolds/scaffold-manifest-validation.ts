@@ -90,7 +90,7 @@ export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldMa
         issues.push({
           scaffoldId: scaffold.id,
           severity: "error",
-          message: `Reference template ${reference.id} does not exist in the committed template library catalog`,
+          message: `Reference template ${reference.id} does not exist in the generated template library catalog`,
         });
       }
     }

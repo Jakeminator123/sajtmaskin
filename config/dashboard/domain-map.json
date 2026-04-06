@@ -111,7 +111,7 @@
       ]
     },
     "Template pipeline": {
-      "summary": "External-template research och de genererade runtime-artifacts som byggs från den. Research-data under data/ är inte runtime i sig.",
+      "summary": "External-template research och de genererade artifacts som byggs från den. Research-data under data/ är inte runtime i sig, och current own-engine-prompten injicerar inte längre template-library-retrieval.",
       "canonicalPaths": [
         "data/external-template-pipeline/",
         "data/external-template-pipeline/raw-discovery/current/catalog.json",
@@ -127,8 +127,7 @@
       ],
       "codeReaders": [
         "src/lib/gen/template-library/search.ts",
-        "src/lib/gen/template-library/runtime-guidance.ts",
-        "src/lib/gen/system-prompt.ts"
+        "src/lib/gen/template-library/runtime-guidance.ts"
       ]
     },
     "Preview och versioner": {
@@ -137,6 +136,11 @@
         "src/lib/db/engine-version-lifecycle.ts",
         "src/lib/gen/server-verify.ts",
         "src/lib/providers/own-engine/generation-stream-post-finalize.ts",
+        "src/app/api/engine/chats/[chatId]/preview-session/route.ts",
+        "src/app/api/engine/chats/[chatId]/preview-status/route.ts",
+        "src/app/api/engine/chats/[chatId]/preview-heartbeat/route.ts",
+        "src/app/api/engine/chats/[chatId]/preview-hibernate/route.ts",
+        "src/app/api/engine/chats/[chatId]/preview-destroy/route.ts",
         "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
         "src/app/api/engine/chats/[chatId]/repair/route.ts"
       ],

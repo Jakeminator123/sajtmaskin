@@ -1,7 +1,7 @@
 import type { SuspenseRule, StreamContext } from "../transform";
 
 /**
- * Strips imports that cause preview errors in the v0 sandbox:
+ * Strips imports that cause preview errors in the older compat preview runtime:
  *
  *  - `import ... from "next/og"` → commented out entirely
  *  - `import { ImageResponse } from "next/server"` → commented out

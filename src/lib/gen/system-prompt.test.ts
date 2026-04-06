@@ -1,36 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { BuildSpec } from "./build-spec";
-
-const searchKnowledgeBaseAsync = vi.hoisted(() => vi.fn());
-const enrichWithRegistry = vi.hoisted(() => vi.fn());
-const searchTemplateLibraryWithDiagnostics = vi.hoisted(() => vi.fn());
-const searchTemplateLibraryKeywordsOnly = vi.hoisted(() => vi.fn());
-const selectTemplateReferenceFiles = vi.hoisted(() => vi.fn());
-const getTemplateLibraryEntryById = vi.hoisted(() => vi.fn());
-const getStaticCoreFromWorkspace = vi.hoisted(() => vi.fn(() => "STATIC_CORE"));
-
-vi.mock("./context/knowledge-base", () => ({
-  searchKnowledgeBaseAsync,
-}));
-
-vi.mock("./context/registry-enricher", () => ({
-  enrichWithRegistry,
-}));
-
-vi.mock("./template-library/search", () => ({
-  searchTemplateLibraryWithDiagnostics,
-  searchTemplateLibraryKeywordsOnly,
-  selectTemplateReferenceFiles,
-}));
-
-vi.mock("./template-library/catalog", () => ({
-  getTemplateLibraryEntryById,
-}));
-
-vi.mock("./static-core-loader", () => ({
-  getStaticCoreFromWorkspace,
-}));
-
 import { buildDynamicContext } from "./system-prompt";
 
 const lightFollowUpSpec: BuildSpec = {
@@ -54,104 +23,7 @@ const lightFollowUpSpec: BuildSpec = {
 };
 
 describe("buildDynamicContext", () => {
-  beforeEach(() => {
-    searchKnowledgeBaseAsync.mockReset();
-    enrichWithRegistry.mockReset();
-    searchTemplateLibraryWithDiagnostics.mockReset();
-    searchTemplateLibraryKeywordsOnly.mockReset();
-    selectTemplateReferenceFiles.mockReset();
-    getTemplateLibraryEntryById.mockReset();
-
-    searchKnowledgeBaseAsync.mockResolvedValue({
-      matches: [{ title: "KB", content: "Knowledge base match" }],
-      mode: "keyword",
-    });
-    enrichWithRegistry.mockResolvedValue("Registry enrichment");
-    searchTemplateLibraryWithDiagnostics.mockResolvedValue({
-      results: [
-        {
-          entry: {
-            id: "ref-1",
-            slug: "ref-1",
-            title: "Reference One",
-            categorySlug: "saas",
-            categoryName: "SaaS",
-            templateUrl: "https://example.com/template",
-            demoUrl: null,
-            description: "desc",
-            frameworkReason: "reason",
-            frameworkMatch: 1,
-            verdict: "valid",
-            qualityScore: 88,
-            repo: {
-              url: null,
-              normalizedUrl: null,
-              subpath: null,
-              clonePath: null,
-              packageManager: "unknown",
-              hasNext: true,
-              hasReact: true,
-              isMonorepo: false,
-              hasAppDir: true,
-              hasSrcAppDir: false,
-            },
-            stackTags: [],
-            usefulLines: [],
-            noiseLines: [],
-            strengths: ["layout"],
-            weaknesses: [],
-            recommendedScaffoldFamilies: ["landing-page"],
-            signals: {
-              auth: false,
-              dashboard: false,
-              pricing: false,
-              blog: false,
-              portfolio: false,
-              ecommerce: false,
-              docs: false,
-              ai: false,
-              multiTenant: false,
-              cms: false,
-            },
-            summary: "summary",
-            selectedFiles: [
-              { path: "app/page.tsx", reason: "reference", excerpt: "REFERENCE_SNIPPET" },
-            ],
-          },
-          score: 0.91,
-        },
-      ],
-      diagnostics: {
-        mode: "embedding",
-        catalogSize: 12,
-        usedEmbeddings: true,
-        topScore: 0.91,
-      },
-    });
-    searchTemplateLibraryKeywordsOnly.mockReturnValue([]);
-    selectTemplateReferenceFiles.mockReturnValue([
-      { path: "app/page.tsx", reason: "reference", excerpt: "REFERENCE_SNIPPET" },
-    ]);
-    getTemplateLibraryEntryById.mockReturnValue(null);
-  });
-
-  it("skips KB and template references for narrow follow-up context", async () => {
-    const { context } = await buildDynamicContext({
-      intent: "website",
-      originalPrompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
-      generationMode: "followUp",
-      buildSpec: lightFollowUpSpec,
-      scaffoldContext: "Scaffold context",
-    });
-
-    expect(context).not.toContain("## Relevant Documentation");
-    expect(context).not.toContain("## Relevant Template References");
-    expect(context).not.toContain("## Reference Code Snippets");
-    expect(searchKnowledgeBaseAsync).not.toHaveBeenCalled();
-    expect(searchTemplateLibraryWithDiagnostics).not.toHaveBeenCalled();
-  });
-
-  it("keeps richer reference retrieval outside light follow-up mode", async () => {
+  it("does not inject KB or template-library sections", async () => {
     const { context } = await buildDynamicContext({
       intent: "website",
       originalPrompt: "Build a SaaS website with product storytelling.",
@@ -166,196 +38,10 @@ describe("buildDynamicContext", () => {
       scaffoldContext: "Scaffold context",
     });
 
-    expect(context).toContain("## Relevant Documentation");
-    expect(context).toContain("## Relevant Template References");
-    expect(context).toContain("## Reference Code Snippets");
-    expect(context).toContain("## Generation Profile");
-    expect(context).toContain("Style direction:");
-    expect(searchKnowledgeBaseAsync).toHaveBeenCalled();
-    expect(searchTemplateLibraryWithDiagnostics).toHaveBeenCalled();
-  });
-
-  it("treats starter references as structure-only and skips snippet injection", async () => {
-    searchTemplateLibraryWithDiagnostics.mockResolvedValueOnce({
-      results: [
-        {
-          entry: {
-            id: "starter-ref",
-            slug: "starter-ref",
-            title: "Next.js Boilerplate Starter",
-            categorySlug: "starter",
-            categoryName: "Starter",
-            templateUrl: "https://example.com/starter",
-            demoUrl: null,
-            description: "Starter baseline",
-            frameworkReason: "reason",
-            frameworkMatch: 1,
-            verdict: "valid",
-            qualityScore: 86,
-            repo: {
-              url: null,
-              normalizedUrl: null,
-              subpath: null,
-              clonePath: null,
-              packageManager: "unknown",
-              hasNext: true,
-              hasReact: true,
-              isMonorepo: false,
-              hasAppDir: true,
-              hasSrcAppDir: false,
-            },
-            stackTags: [],
-            usefulLines: [],
-            noiseLines: [],
-            strengths: ["starter shell"],
-            weaknesses: [],
-            recommendedScaffoldFamilies: ["base-nextjs"],
-            signals: {
-              auth: false,
-              dashboard: false,
-              pricing: false,
-              blog: false,
-              portfolio: false,
-              ecommerce: false,
-              docs: false,
-              ai: false,
-              multiTenant: false,
-              cms: false,
-            },
-            summary: "starter summary",
-            selectedFiles: [
-              { path: "app/page.tsx", reason: "reference", excerpt: "STARTER_SNIPPET" },
-            ],
-          },
-          score: 0.95,
-        },
-      ],
-      diagnostics: {
-        mode: "embedding",
-        catalogSize: 12,
-        usedEmbeddings: true,
-        topScore: 0.95,
-      },
-    });
-
-    const { context } = await buildDynamicContext({
-      intent: "website",
-      originalPrompt: "Build a polished agency website.",
-      generationMode: "init",
-      buildSpec: {
-        ...lightFollowUpSpec,
-        generationMode: "init",
-        changeScope: "redesign",
-        contextPolicy: "heavy",
-        verificationPolicy: "standard",
-      },
-      scaffoldContext: "Scaffold context",
-    });
-
-    expect(context).toContain("## Relevant Template References");
-    expect(context).toContain("Reference mode: structure-only (starter/boilerplate).");
+    expect(context).not.toContain("## Relevant Documentation");
+    expect(context).not.toContain("## Relevant Template References");
     expect(context).not.toContain("## Reference Code Snippets");
-  });
-
-  it("keeps structured reference guidance but skips snippets for scoped follow-up edits", async () => {
-    const { context } = await buildDynamicContext({
-      intent: "website",
-      originalPrompt: "Tighten spacing and make the hero calmer without changing the site structure.",
-      generationMode: "followUp",
-      buildSpec: {
-        ...lightFollowUpSpec,
-        generationMode: "followUp",
-        changeScope: "local-layout",
-        contextPolicy: "normal",
-        verificationPolicy: "standard",
-      },
-      scaffoldContext: "Scaffold context",
-    });
-
-    expect(context).toContain("## Relevant Template References");
-    expect(context).not.toContain("## Reference Code Snippets");
-  });
-
-  it("surfaces template retrieval fallback status when semantic search falls back", async () => {
-    searchTemplateLibraryWithDiagnostics.mockResolvedValueOnce({
-      results: [
-        {
-          entry: {
-            id: "ref-1",
-            slug: "ref-1",
-            title: "Reference One",
-            categorySlug: "saas",
-            categoryName: "SaaS",
-            templateUrl: "https://example.com/template",
-            demoUrl: null,
-            description: "desc",
-            frameworkReason: "reason",
-            frameworkMatch: 1,
-            verdict: "valid",
-            qualityScore: 88,
-            repo: {
-              url: null,
-              normalizedUrl: null,
-              subpath: null,
-              clonePath: null,
-              packageManager: "unknown",
-              hasNext: true,
-              hasReact: true,
-              isMonorepo: false,
-              hasAppDir: true,
-              hasSrcAppDir: false,
-            },
-            stackTags: [],
-            usefulLines: [],
-            noiseLines: [],
-            strengths: ["layout"],
-            weaknesses: [],
-            recommendedScaffoldFamilies: ["landing-page"],
-            signals: {
-              auth: false,
-              dashboard: false,
-              pricing: false,
-              blog: false,
-              portfolio: false,
-              ecommerce: false,
-              docs: false,
-              ai: false,
-              multiTenant: false,
-              cms: false,
-            },
-            summary: "summary",
-            selectedFiles: [
-              { path: "app/page.tsx", reason: "reference", excerpt: "REFERENCE_SNIPPET" },
-            ],
-          },
-          score: 0.35,
-        },
-      ],
-      diagnostics: {
-        mode: "keyword_fallback",
-        catalogSize: 12,
-        usedEmbeddings: true,
-        reason: "no_embedding_hits",
-      },
-    });
-
-    const { context } = await buildDynamicContext({
-      intent: "website",
-      originalPrompt: "Build a modern marketing site with strong conversion flow.",
-      generationMode: "init",
-      buildSpec: {
-        ...lightFollowUpSpec,
-        generationMode: "init",
-        changeScope: "redesign",
-        contextPolicy: "heavy",
-        verificationPolicy: "standard",
-      },
-      scaffoldContext: "Scaffold context",
-    });
-
-    expect(context).toContain(
-      "Retrieval status: Semantic template search found no strong hits, so references came from keyword fallback only.",
-    );
+    expect(context).not.toContain("## Preview vs CodeProject parity");
   });
 
   describe("Generation Profile", () => {
@@ -372,8 +58,6 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("- **Style direction:** brand-led");
       expect(context).toContain("- **Quality tier:** standard");
       expect(context).toContain("- **Reference families:** marketing-sites");
-      expect(context).not.toContain("## Relevant Documentation");
-      expect(context).not.toContain("## Relevant Template References");
     });
 
     it("omits Generation Profile when buildSpec is absent", async () => {
@@ -498,7 +182,7 @@ describe("buildDynamicContext", () => {
       expect(profileIdx).toBeLessThan(routePlanIdx);
     });
 
-    it("follow-up light context omits doc and template sections but keeps mode and profile", async () => {
+    it("follow-up keeps mode and profile without retrieval sections", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
         originalPrompt: "Tweak hero copy only; keep layout.",
@@ -509,24 +193,22 @@ describe("buildDynamicContext", () => {
 
       expect(context).not.toContain("## Relevant Documentation");
       expect(context).not.toContain("## Relevant Template References");
-      expect(context).not.toContain("## Reference Code Snippets");
       expect(context).toContain("## Generation Mode: Follow-Up");
       expect(context).toContain("## Generation Profile");
     });
 
-    it("design-heavy follow-up with light buildSpec still runs KB + template retrieval", async () => {
-      const { context, templateLibrarySearchDiagnostics } = await buildDynamicContext({
+    it("truncates very long original request in follow-up mode", async () => {
+      const long = "x".repeat(500);
+      const { context } = await buildDynamicContext({
         intent: "website",
-        originalPrompt: "Complete redesign: new hero, animations, and color system for the landing page.",
+        originalPrompt: long,
         generationMode: "followUp",
         buildSpec: lightFollowUpSpec,
+        scaffoldContext: "Scaffold",
       });
 
-      expect(searchKnowledgeBaseAsync).toHaveBeenCalled();
-      expect(searchTemplateLibraryWithDiagnostics).toHaveBeenCalled();
-      expect(context).toContain("## Relevant Documentation");
-      expect(context).toContain("## Relevant Template References");
-      expect(templateLibrarySearchDiagnostics?.mode).toBe("embedding");
+      expect(context).toContain("## Original Request (summary)");
+      expect(context).toContain("500 chars, truncated");
     });
   });
 });

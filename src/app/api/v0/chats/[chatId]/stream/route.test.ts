@@ -236,6 +236,13 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { POST } from "./route";
 
+const unitTestRoutePlan = {
+  source: "prompt" as const,
+  siteType: "one-page" as const,
+  reason: "unit-test",
+  routes: [] as Array<{ path: string; name: string; intent: string; required: boolean }>,
+};
+
 async function readSseEvents(response: Response) {
   const body = await response.text();
   const blocks = body.trim().split("\n\n").filter(Boolean);
@@ -321,7 +328,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         family: "marketing",
         label: "Marketing",
       },
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -359,7 +366,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         label: "Marketing",
       },
       scaffoldContext: undefined,
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -405,7 +412,6 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
-      templateLibrarySearchDiagnostics: null,
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },

@@ -43,7 +43,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
 | OpenClaw / Sajtagenten | `OPENCLAW_GATEWAY_URL`, `OPENCLAW_GATEWAY_TOKEN`, `IMPLEMENT_UNDERSCORE_CLAW` | Alla tre krävs för att den flytande widgeten och Sajtagenten-ytorna ska aktiveras. Utan en enda av dem visas ingen widget. Se checklista nedan. |
 | D-ID avatar (mAIa Klo) | `NEXT_PUBLIC_AVATAR_AGENT_ID`, `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | Aktiverar videokamera-togglen i OpenClaw-widgeten och `/avatar`-pilotytan. Utan dem fungerar widgeten som ren textchatt. Origins måste vara allowlistade i D-ID Studio. |
-| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + `SAJTMASKIN_TIER2_RUNTIME` (+ `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`) eller `VERCEL_OIDC_TOKEN` / `VERCEL_TOKEN` + team/project | Med preview-host konfigurerad och unset runtime blir default strikt `preview_host`; Vercel-fallback ar explicit opt-in via `preview_host_then_vercel`. Detaljer: `preview-deploy.md`. |
+| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | Preview-sessioner kör nu via preview-host / Fly. Detaljer: `preview-deploy.md`. |
 | Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Läses direkt från `process.env` i `src/lib/gen/visual-qa.ts`, inte via `serverSchema` i `env.ts`. |
 | Fil-/konsol-logg (lokal) | `SAJTMASKIN_LOG=true` → `logs/sajtmaskin.log` via `src/lib/logging/file-logger.ts`; `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod) | Varken `SAJTMASKIN_LOG` eller dev-loggnycklarna finns i Zod-schemat; de är runtime-only i `env-policy.json`. `logs/generationslogg/` behaller bara de 3 senaste korningarna och sammanfattningarna kan valfritt unignoras i `.cursorignore`. |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
@@ -66,7 +66,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 När `preview-host` används på Fly finns **två** olika env-ytor:
 
-- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_TIER2_RUNTIME`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` när preview-host kör icke-lokalt.
+- **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` när preview-host kör icke-lokalt.
 - **Preview-host-tjänsten (Fly secrets / env):** `PREVIEW_HOST_API_KEY` och valfritt `PREVIEW_HOST_DATA_DIR`.
 
 Praktisk rekommendation:
@@ -74,11 +74,9 @@ Praktisk rekommendation:
 - Sätt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev` (root-URL, inte `/preview`)
 - Sätt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` på preview-hosten
 - Sätt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
-- Låt `SAJTMASKIN_TIER2_RUNTIME` vara unset för strikt preview-host-default, eller sätt den till `preview_host` explicit
-- Sätt `SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel` endast om du vill ha Vercel-fallback
 - Sätt `PREVIEW_HOST_DATA_DIR=/data` **först** när du faktiskt monterat en Fly volume på `/data`
 
-Om `SAJTMASKIN_TIER2_RUNTIME` är unset men `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns, behandlar appen nu `preview_host` som standard (ingen automatisk fallback till Vercel Sandbox).
+När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.
 
 ---
 
@@ -228,9 +226,9 @@ Om du vill att lokal utveckling ska vara mer isolerad från production:
 
 ---
 
-## Genererade användarsajter (sandbox)
+## Genererade användarsajter (preview / VM runtime)
 
-Sajtmaskin **≠** den genererade Next-appen i sandlådan. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/sandbox-env-local.ts`) med underlag från `config/ai_models/` — se **preview-deploy.md**, avsnitt om sandbox `.env.local`.
+Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/sandbox/env-local.ts`) med underlag från `config/ai_models/` — se **preview-deploy.md**, avsnitt om tier-2 preview `.env.local`.
 
 ---
 

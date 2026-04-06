@@ -1,10 +1,10 @@
 /**
- * Read-only LLM review after syntax validation; drives targeted polish scope.
+ * Read-only LLM review after syntax validation (telemetry / quality signal).
  * Model comes from phaseRouting.verifier for the active tier (manifest).
  */
 import { z } from "zod";
 import { generateObject } from "ai";
-import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject } from "@/lib/gen/parser";
 import { getOpenAIModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/post-generation-config";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
@@ -24,8 +24,6 @@ const VerifierFindingsSchema = z.object({
       detail: z.string(),
     }),
   ),
-  /** Exact project paths suitable for copy/placeholder polish */
-  polishCandidates: z.array(z.string()),
 });
 
 export type VerifierFindings = z.infer<typeof VerifierFindingsSchema>;
@@ -33,7 +31,6 @@ export type VerifierFindings = z.infer<typeof VerifierFindingsSchema>;
 export const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
   blocking: [],
   quality: [],
-  polishCandidates: [],
 };
 
 export function isVerifierPassEnabled(): boolean {
@@ -79,8 +76,7 @@ export async function runVerifierPass(
   const system = `You are a read-only QA reviewer for a generated Next.js site (CodeProject).
 Return structured findings only. Do not output code fixes.
 - blocking: issues that likely break build, types, imports, or critical runtime (wrong paths, missing exports, obvious TS errors). Put file paths inside detail when relevant.
-- quality: important but non-blocking (a11y gaps, weak SEO, fragile patterns).
-- polishCandidates: file paths only (exact paths as in FILE headers) that need copy/placeholder/CTA polish. Prefer page.tsx, layout.tsx, landing sections. Max 20 paths; use [] if none.`;
+- quality: important but non-blocking (a11y gaps, weak SEO, fragile patterns).`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs);
@@ -101,37 +97,4 @@ Return structured findings only. Do not output code fixes.
   } finally {
     clearTimeout(timeoutId);
   }
-}
-
-export function scorePathForPolishHeuristic(path: string): number {
-  let s = 0;
-  if (/page\.tsx$/i.test(path)) s += 5;
-  if (/layout\.tsx$/i.test(path)) s += 3;
-  if (path.includes("/app/")) s += 2;
-  if (/\.tsx$/i.test(path)) s += 1;
-  if (/components/i.test(path)) s += 1;
-  return s;
-}
-
-export function pickUnscopedPolishPaths(files: CodeFile[], maxFiles: number): string[] {
-  const scored = files
-    .filter((f) => f.path && f.content != null)
-    .map((f) => ({ path: f.path, score: scorePathForPolishHeuristic(f.path) }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, Math.max(1, maxFiles)).map((x) => x.path);
-}
-
-/** Build a CodeProject markdown string containing only the given paths (falls back to full if no match). */
-export function extractCodeProjectSubsetForPaths(fullContent: string, paths: string[]): string {
-  if (paths.length === 0) return fullContent;
-  const set = new Set(paths);
-  const { files } = parseCodeProject(fullContent);
-  const selected = files.filter((f) => set.has(f.path));
-  if (selected.length === 0) return fullContent;
-  return selected
-    .map((f) => {
-      const lang = f.language || "tsx";
-      return `\`\`\`${lang} file="${f.path}"\n${f.content}\n\`\`\``;
-    })
-    .join("\n\n");
 }

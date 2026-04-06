@@ -267,24 +267,6 @@
     }
   },
   "postGenerationPasses": {
-    "polishMaxOutputTokens": {
-      "envKey": "SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS",
-      "default": 16000,
-      "min": 4000,
-      "max": 64000
-    },
-    "polishTimeoutMs": {
-      "envKey": "SAJTMASKIN_POLISH_TIMEOUT_MS",
-      "default": 45000,
-      "min": 8000,
-      "max": 180000
-    },
-    "polishMaxFilesWhenUnscoped": {
-      "envKey": "SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED",
-      "default": 14,
-      "min": 4,
-      "max": 40
-    },
     "verifierMaxOutputTokens": {
       "envKey": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
       "default": 8192,
@@ -596,13 +578,6 @@
     }
   },
   "embeddingModels": {
-    "docsSnippets": {
-      "model": "text-embedding-3-small",
-      "dimensions": 1536,
-      "codeEntry": [
-        "src/lib/gen/data/docs-embeddings-core.ts"
-      ]
-    },
     "scaffoldIndex": {
       "model": "text-embedding-3-small",
       "codeEntry": [
@@ -626,7 +601,7 @@
     "envFragmentFile": "40-generated-site-integration-placeholders.env.txt",
     "policyDocRelativeToConfig": "user_degraded_env.txt",
     "preGenerationContractsEntry": "src/lib/gen/pre-generation-contracts.ts",
-    "notes": "Targets generated user Next.js apps, not Sajtmaskin app env. When startSandboxPreview runs, sandbox-env-local.ts merges envFragmentFile into .env.local with project preview tokens, stored project env, then generated .env.local (later wins). Tier-1 shim and MCP generate-site sandbox (createSandboxRuntimeFromFiles) skip this merge. Never use placeholder values in production. Loader: readGeneratedSitePlaceholdersEnvText in load-generated-site-placeholders.ts."
+    "notes": "Targets generated user Next.js apps, not Sajtmaskin app env. When `startSandboxPreview` runs, `envFragmentFile` is merged into `.env.local` with project preview tokens, stored project env, then generated `.env.local` (later wins). Tier-1 shim and some helper/export paths may skip this merge. Never use placeholder values in production. Loader: `readGeneratedSitePlaceholdersEnvText()` in `load-generated-site-placeholders.ts`."
   },
   "workloads": [
     {
@@ -712,7 +687,7 @@
     {
       "id": "server_verify_repair_llm",
       "title": "Background server verify repair",
-      "description": "Targeted LLM repair inside fire-and-forget server verification after sandbox quality-gate failures.",
+      "description": "Targeted LLM repair inside fire-and-forget server verification after tier-2 quality-gate failures.",
       "invocation": "streamText_ai_sdk",
       "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
       "codeEntry": [
@@ -791,7 +766,7 @@
     {
       "id": "post_generation_verifier",
       "title": "Post-generation verifier pass",
-      "description": "Read-only structured review after syntax validation that identifies blocking/quality findings and polish candidate files.",
+      "description": "Read-only structured review after syntax validation that identifies blocking and quality findings.",
       "invocation": "ai_generateObject",
       "provider": "openai_direct_or_anthropic_direct_via_phase_routing",
       "codeEntry": [
@@ -803,35 +778,17 @@
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY"
       ],
-      "notes": "Uses the verifier phase from phaseRouting for the active build tier. This pass is read-only and feeds polish scope plus telemetry."
-    },
-    {
-      "id": "post_generation_polish",
-      "title": "Post-generation polish pass",
-      "description": "Optional second-pass file polish after codegen focused on copy, placeholders, CTA clarity, and light hierarchy cleanup.",
-      "invocation": "ai_generateText",
-      "provider": "openai_direct_or_anthropic_direct_via_current_build_model",
-      "codeEntry": [
-        "src/lib/gen/polish-pass.ts",
-        "src/lib/gen/stream/finalize-version.ts"
-      ],
-      "authEnv": [
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY"
-      ],
-      "notes": "This is post-codegen file polish, not the lightweight prompt-polish used by the builder's `Skriv om` button. The pass is behind SAJTMASKIN_POLISH_PASS and follows the current build model."
+      "notes": "Uses the verifier phase from phaseRouting for the active build tier. Read-only; telemetry and optional future UX."
     },
     {
       "id": "runtime_embeddings_query",
-      "title": "Runtime embedding queries (RAG-style search)",
-      "description": "OpenAI SDK embeddings.create for live query vectors vs precomputed JSON indexes.",
+      "title": "Runtime embedding queries",
+      "description": "OpenAI SDK embeddings.create for live query vectors against precomputed scaffold/gallery indexes.",
       "invocation": "openai_embeddings_create",
       "provider": "openai_direct",
       "codeEntry": [
-        "src/lib/gen/context/semantic-search.ts",
         "src/lib/templates/template-search.ts",
-        "src/lib/gen/scaffolds/scaffold-search.ts",
-        "src/lib/gen/template-library/search.ts"
+        "src/lib/gen/scaffolds/scaffold-search.ts"
       ],
       "authEnv": [
         "OPENAI_API_KEY"

@@ -2,7 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { db, dbConfigured } from "@/lib/db/client";
 import { registryCache } from "@/lib/db/schema";
 import type { RegistryIndex } from "@/lib/shadcn/registry-service";
-import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/shadcn/registry-url";
+import {
+  getRegistryBaseUrl,
+  LEGACY_STYLE_DEFAULT,
+  resolveRegistryStyle,
+} from "@/lib/shadcn/registry-url";
 
 export type RegistrySource = "official" | "legacy";
 
@@ -21,7 +25,6 @@ export type RegistryCacheResult = {
 };
 
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-const LEGACY_STYLE_DEFAULT = "new-york";
 
 function normalizeBaseUrl(value: string): string {
   const trimmed = value.trim().replace(/\/+$/, "");

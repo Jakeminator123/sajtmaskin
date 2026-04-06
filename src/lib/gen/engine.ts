@@ -30,7 +30,7 @@ export interface GenerateOptions {
  *
  * After this stream completes, `finalizeAndSaveVersion` runs the ordered
  * post-stream phases in `finalize-pipeline-contract.ts` (autofix → URLs →
- * images → syntax validate/fix → verifier LLM → optional polish → merge/preflight/persist).
+ * images → syntax validate/fix → optional verifier LLM → merge/preflight/persist).
  *
  * Returns a ReadableStream of SSE events:
  *  `meta`     — chat/version metadata
@@ -79,7 +79,7 @@ export function generateCode(
     messages: messages as ModelMessage[],
     maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
     abortSignal,
-    ...(tools ? { tools, maxSteps: maxSteps ?? 2 } : {}),
+    ...(tools ? { tools, maxSteps: maxSteps ?? 4 } : {}),
     ...(providerOptions ? { providerOptions } : {}),
   });
 

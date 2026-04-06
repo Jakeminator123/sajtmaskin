@@ -25,15 +25,15 @@ type SurfaceDescriptor = {
 };
 
 type AlternatePreviewBannerState = {
-  sandboxUrl: string;
+  livePreviewUrl: string;
 };
 
 interface PreviewPanelChromeProps {
   previewUrl: string | null;
   surfaceDescriptor: SurfaceDescriptor;
   isOwnEnginePreview: boolean;
-  isSandboxPreview: boolean;
-  sandboxUrlPresent: boolean;
+  isTier2LivePreview: boolean;
+  livePreviewUrlStored: boolean;
   inspectorEnabled: boolean;
   handleToggleInspect: () => void;
   placementMode: boolean;
@@ -58,14 +58,14 @@ interface PreviewPanelChromeProps {
   handleOpenInNewTab: () => void;
   alternatePreviewBanner: AlternatePreviewBannerState | null;
   onNavigatePreviewUrl?: ((url: string) => void) | null;
-  sandboxBuildError?: { stage: string; message: string } | null;
-  sandboxProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
+  previewBuildError?: { stage: string; message: string } | null;
+  previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
   isCodeView: boolean;
   previewRoutesLoading: boolean;
   previewRoutes: string[];
   activePreviewRoute: string | null;
   handleNavigateRoute: (route: string) => void;
-  showSandboxUnifiedStrip: boolean;
+  showTier2UnifiedStrip: boolean;
   showBlobWarning: boolean;
   showBlobConfigWarning: boolean;
   integrationError: boolean;
@@ -78,8 +78,8 @@ export function PreviewPanelChrome({
   previewUrl,
   surfaceDescriptor,
   isOwnEnginePreview,
-  isSandboxPreview,
-  sandboxUrlPresent,
+  isTier2LivePreview,
+  livePreviewUrlStored,
   inspectorEnabled,
   handleToggleInspect,
   placementMode,
@@ -104,14 +104,14 @@ export function PreviewPanelChrome({
   handleOpenInNewTab,
   alternatePreviewBanner,
   onNavigatePreviewUrl,
-  sandboxBuildError,
-  sandboxProdBuild,
+  previewBuildError,
+  previewProdBuild,
   isCodeView,
   previewRoutesLoading,
   previewRoutes,
   activePreviewRoute,
   handleNavigateRoute,
-  showSandboxUnifiedStrip,
+  showTier2UnifiedStrip,
   showBlobWarning,
   showBlobConfigWarning,
   integrationError,
@@ -127,7 +127,7 @@ export function PreviewPanelChrome({
           <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
             {surfaceDescriptor.label}
           </Badge>
-          {isOwnEnginePreview && !sandboxUrlPresent ? (
+          {isOwnEnginePreview && !livePreviewUrlStored ? (
             <Badge
               variant="outline"
               className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
@@ -136,7 +136,7 @@ export function PreviewPanelChrome({
               Live-preview väntar
             </Badge>
           ) : null}
-          {previewUrl && isSandboxPreview && !isOwnEnginePreview ? (
+          {previewUrl && isTier2LivePreview && !isOwnEnginePreview ? (
             <Badge
               variant="outline"
               className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
@@ -305,34 +305,34 @@ export function PreviewPanelChrome({
             variant="outline"
             size="sm"
             className="h-7 border-zinc-600 text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={() => onNavigatePreviewUrl(alternatePreviewBanner.sandboxUrl)}
+            onClick={() => onNavigatePreviewUrl(alternatePreviewBanner.livePreviewUrl)}
           >
             Byt till live-preview
           </Button>
         </div>
       ) : null}
 
-      {sandboxBuildError ? (
+      {previewBuildError ? (
         <Alert variant="destructive" className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle className="text-sm text-rose-100">
-            {sandboxBuildError.stage === "sandbox_disabled"
+            {previewBuildError.stage === "sandbox_disabled"
               ? "Tier-2-preview inte tillgänglig"
-              : `Tier-2 / build: ${sandboxBuildError.stage}`}
+              : `Tier-2 / build: ${previewBuildError.stage}`}
           </AlertTitle>
           <AlertDescription
             className={cn(
               "max-h-36 overflow-y-auto text-[11px] whitespace-pre-wrap text-rose-200/95",
-              sandboxBuildError.stage === "sandbox_disabled" ? "font-medium" : "font-mono",
+              previewBuildError.stage === "sandbox_disabled" ? "font-medium" : "font-mono",
             )}
           >
-            {sandboxBuildError.message}
+            {previewBuildError.message}
           </AlertDescription>
         </Alert>
       ) : null}
 
-      {sandboxProdBuild && !sandboxBuildError ? (
-        sandboxProdBuild.verified ? (
+      {previewProdBuild && !previewBuildError ? (
+        previewProdBuild.verified ? (
           <Alert className="mx-4 mt-2 border-emerald-900/50 bg-emerald-950/35 text-emerald-50">
             <CircleCheck className="h-4 w-4 text-emerald-400" />
             <AlertTitle className="text-sm text-emerald-100">Production build OK</AlertTitle>
@@ -347,9 +347,9 @@ export function PreviewPanelChrome({
             <AlertTitle className="text-sm text-amber-100">Production build misslyckades</AlertTitle>
             <AlertDescription className="space-y-1 text-[11px] text-amber-200/90">
               <p>Dev-preview kan ändå fungera. Åtgärda build-fel innan deploy — se loggutdrag nedan.</p>
-              {sandboxProdBuild.logSnippet ? (
+              {previewProdBuild.logSnippet ? (
                 <pre className="max-h-36 overflow-y-auto rounded border border-amber-900/40 bg-black/30 p-2 font-mono text-[10px] whitespace-pre-wrap text-amber-100/95">
-                  {sandboxProdBuild.logSnippet}
+                  {previewProdBuild.logSnippet}
                 </pre>
               ) : null}
             </AlertDescription>
@@ -385,7 +385,7 @@ export function PreviewPanelChrome({
         </div>
       ) : null}
 
-      {showSandboxUnifiedStrip ? (
+      {showTier2UnifiedStrip ? (
         <div className="border-b border-amber-900/45 bg-amber-950/30 px-4 py-2 text-xs text-amber-100">
           <p className="font-medium text-amber-50">Live-preview (Next.js)</p>
           <p className="mt-1 text-amber-100/90">
@@ -410,7 +410,7 @@ export function PreviewPanelChrome({
 
       {!isCodeView &&
       !isOwnEnginePreview &&
-      !isSandboxPreview &&
+      !isTier2LivePreview &&
       (showBlobWarning ||
         showExternalWarning ||
         integrationError ||

@@ -182,13 +182,13 @@ flowchart TD
 
     Q["resolveOrchestrationBase<br/><span class='node-meta'>orchestrate.ts</span>"] --> R["Välj scaffold + route plan +<br/>inferera kontrakt → BuildSpec"]
     R --> S["finalizeOrchestrationPrompts<br/><span class='node-meta'>system-prompt.ts</span>"]
-    S --> T["Statisk systemprompt<br/>+ dynamisk kontext<br/><span class='node-meta'>config/prompt-static/ +<br/>brief + tema + KB</span>"]
+    S --> T["Statisk systemprompt<br/>+ dynamisk kontext<br/><span class='node-meta'>config/prompt-static/ +<br/>brief + tema + kontrakt</span>"]
   </div>
 </div>
 
 <div class="diagram-section">
   <h2>2. Generation + Post-processing</h2>
-  <p class="desc">Huvudgeneratorn → autofix (deterministisk loop) → syntax + LLM-fix → verifier → polish → preview → bakgrundsverifiering</p>
+  <p class="desc">Huvudgeneratorn → autofix (deterministisk loop) → syntax + LLM-fix → verifier → preview → bakgrundsverifiering</p>
 
   <div class="mermaid">
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1f6feb', 'primaryTextColor': '#e6edf3', 'primaryBorderColor': '#388bfd', 'lineColor': '#484f58', 'secondaryColor': '#161b22', 'tertiaryColor': '#21262d', 'edgeLabelBackground': '#0d1117', 'fontSize': '13px'}}}%%
@@ -206,14 +206,9 @@ flowchart TD
     X -->|"Syntax-fel"| Z["runLlmFixer<br/><span class='node-meta'>llm-fixer.ts — kan skapa nya filer<br/>SYNTAX_FIX_MAX_PASSES<br/>Modell = resolvePhaseModel(tier, fixer)</span>"]
     Z --> Y
 
-    Y --> AV["runVerifierPass (read-only)<br/><span class='node-meta'>verifier-pass.ts · polishCandidates</span>"]
+    Y --> AV["runVerifierPass (read-only)<br/><span class='node-meta'>verifier-pass.ts · blocking + quality</span>"]
 
-    AV --> AA{"SAJTMASKIN_POLISH_PASS=1?"}
-    AA -->|"Ja"| AB["runPolishPass<br/><span class='node-meta'>polish-pass.ts · manifest budgets<br/>målfiler från verifier</span>"]
-    AA -->|"Nej"| AC["Hoppa polish"]
-
-    AB --> AD["Spara version i DB +<br/>skapa preview-filer"]
-    AC --> AD
+    AV --> AD["Spara version i DB +<br/>skapa preview-filer"]
 
     AD --> AE["Deploy till tier-2 runtime<br/><span class='node-meta'>primärt preview_host / Fly VM<br/>→ Tier 2 preview-URL → iframe</span>"]
 

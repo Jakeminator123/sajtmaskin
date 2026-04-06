@@ -29,7 +29,7 @@ export type QualityTier = "none" | "preview" | "tier2" | "production";
 
 export function resolveQualityTier(
   version: EngineVersionLifecycleLike | null | undefined,
-  opts?: { hasDemoUrl?: boolean; hasSandboxUrl?: boolean; sandboxPassed?: boolean },
+  opts?: { hasDemoUrl?: boolean; hasTier2LivePreviewUrl?: boolean; sandboxPassed?: boolean },
 ): QualityTier {
   if (!version) return "none";
   const lifecycle = resolveEngineVersionLifecycleStatus(version);
@@ -37,8 +37,8 @@ export function resolveQualityTier(
 
   if (opts?.sandboxPassed) return "tier2";
   if (lifecycle === "promoted") return "tier2";
-  if (opts && "hasSandboxUrl" in opts && opts.hasSandboxUrl !== undefined) {
-    return opts.hasSandboxUrl ? "preview" : "none";
+  if (opts && "hasTier2LivePreviewUrl" in opts && opts.hasTier2LivePreviewUrl !== undefined) {
+    return opts.hasTier2LivePreviewUrl ? "preview" : "none";
   }
   if (opts?.hasDemoUrl !== false) return "preview";
   return "none";

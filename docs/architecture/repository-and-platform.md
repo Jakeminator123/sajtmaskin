@@ -46,6 +46,7 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 ## Vercel Templates / Playwright / scorefolds
 
 - Discovery pipeline, Playwright-spec, koppling till scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
+- `data/external-template-pipeline/reference-library/` och dess **dossiers** är build-time researchmaterial. Runtime own-engine läser inte dossiers direkt; `build-template-library.ts` kondenserar dem först till `src/lib/gen/template-library/template-library.generated.json` och `src/lib/gen/scaffolds/scaffold-research.generated.json`, som sedan används av `system-prompt.ts` och scaffold-registret.
 
 ## Inspector / Playwright worker
 

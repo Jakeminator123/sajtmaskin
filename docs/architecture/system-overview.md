@@ -6,7 +6,7 @@
 
 - **Egen motor (own engine)** — standardväg för kodgenerering i buildern (`src/lib/gen/`, OpenAI).
 - **v0** — fortfarande i API:t för mallar/registry/zip/deploy-hjälp; **inte** huvudstream för codegen (se [repository-and-platform.md](./repository-and-platform.md) § v0).
-- **Preview** — tier-2 preview via `preview_host` / VM bakom `/sandbox-*`-kontraktet; tier-1 shim (`/api/preview-render`) är legacy/compat. Detaljer i [preview-deploy.md](./preview-deploy.md).
+- **Preview** — tier-2 preview via `preview_host` / VM bakom `preview-session` / `preview-status` / `preview-heartbeat` / `preview-destroy` / `preview-hibernate`; tier-1 shim (`/api/preview-render`) är legacy/compat. Detaljer i [preview-deploy.md](./preview-deploy.md).
 
 ## Pipeline (förenklad)
 
@@ -23,7 +23,7 @@ Mer detaljerad runtime-mermaid och modul-lista: [builder-generation.md](./builde
 
 ## Own-engine preview vs «riktig» runtime
 
-Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bakom samma `/sandbox-*`-kontrakt. Tier-1 shim (`/api/preview-render`) kan finnas kvar för bakåtkompatibilitet eller diagnostik, men är **inte** standardvägen i produktflödet. För build-nära verifiering används preview-hosts separata verify-lane; för riktig deployment gäller deploy-spåret. Se [preview-deploy.md](./preview-deploy.md).
+Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bakom `preview-*`-kontraktet. Tier-1 shim (`/api/preview-render`) kan finnas kvar för bakåtkompatibilitet eller diagnostik, men är **inte** standardvägen i produktflödet. För build-nära verifiering används preview-hosts separata verify-lane; för riktig deployment gäller deploy-spåret. Se [preview-deploy.md](./preview-deploy.md).
 
 ## Modellmappning (kort)
 

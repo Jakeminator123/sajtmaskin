@@ -56,14 +56,12 @@ public/images/
 
 # --- Canonical external-template pipeline (tung lokal data) ---
 data/external-template-pipeline/scrape-cache/**
-#data/external-template-pipeline/raw-discovery/**
+data/external-template-pipeline/raw-discovery/**
 data/external-template-pipeline/repo-cache/**
 data/external-template-pipeline/reference-library/**
 data/external-template-pipeline/reports/**
 
-# --- Genererade artefakter (stora JSON / embeddings) ---
-# Avkommentera dessa om Cursor-indexet blir för tungt eller för brusigt.
-src/lib/gen/data/docs-embeddings.json
+# --- Genererade artefakter (stora lokala JSON / embeddings) ---
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/template-library/template-library-embeddings.json
 src/lib/gen/template-library/template-library.generated.json
@@ -97,7 +95,6 @@ pot_buggs/
 internt_jakob/
 old/
 skrapning/
-ovrigt/
 #övrigt/
 
 eval-output/

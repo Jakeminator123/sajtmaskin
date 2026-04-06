@@ -593,8 +593,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }));
         }
         const finalizePromptStartedAt = Date.now();
-        const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
-          await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
         debugLog("orchestration", "System prompt finalized", {
           durationMs: Date.now() - finalizePromptStartedAt,
           routeCount: orchestrationBase.routePlan.routes.length,
@@ -670,7 +669,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
-            templateLibrarySearchDiagnostics,
           }),
           engineModel,
           optimizedMessage,

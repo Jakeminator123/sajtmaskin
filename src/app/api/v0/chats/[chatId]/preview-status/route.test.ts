@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
-const getActiveSandboxSessionAsync = vi.hoisted(() => vi.fn());
+const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
 const tryResumeTier2Runtime = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => true));
 
@@ -13,13 +13,13 @@ vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
 }));
 
-vi.mock("@/lib/gen/sandbox/session-store", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/gen/sandbox/session-store")>(
-    "@/lib/gen/sandbox/session-store",
+vi.mock("@/lib/gen/preview/session-store", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/gen/preview/session-store")>(
+    "@/lib/gen/preview/session-store",
   );
   return {
     ...actual,
-    getActiveSandboxSessionAsync,
+    getActivePreviewSessionAsync,
   };
 });
 
@@ -50,7 +50,7 @@ describe("GET preview-status", () => {
   });
 
   it("returns missing when no session", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue(null);
+    getActivePreviewSessionAsync.mockResolvedValue(null);
     const res = await GET(new Request("http://localhost/api?versionId=v1"), {
       params: Promise.resolve({ chatId: "c1" }),
     });
@@ -60,7 +60,7 @@ describe("GET preview-status", () => {
   });
 
   it("returns version_mismatch when session version differs", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue({
+    getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://old.example",
       versionId: "v0",
@@ -77,7 +77,7 @@ describe("GET preview-status", () => {
   });
 
   it("returns running when resume succeeds", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue({
+    getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://stored.example",
       versionId: "v1",
@@ -95,7 +95,7 @@ describe("GET preview-status", () => {
   });
 
   it("returns stopped when resume fails", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue({
+    getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://stored.example",
       versionId: "v1",

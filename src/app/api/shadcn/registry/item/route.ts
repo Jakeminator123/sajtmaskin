@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
-import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/shadcn/registry-url";
+import {
+  getRegistryBaseUrl,
+  LEGACY_STYLE_DEFAULT,
+  resolveRegistryStyle,
+} from "@/lib/shadcn/registry-url";
 
 export const runtime = "nodejs";
 export const revalidate = 300;
-const LEGACY_STYLE_DEFAULT = "new-york";
 
 function resolveRegistryBaseUrl() {
   const envBase = process.env.REGISTRY_BASE_URL?.trim();

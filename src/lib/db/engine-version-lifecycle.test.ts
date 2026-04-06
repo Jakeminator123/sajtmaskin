@@ -61,10 +61,10 @@ describe("resolveEngineVersionDisplayStatus", () => {
 });
 
 describe("resolveQualityTier", () => {
-  it("uses hasSandboxUrl when provided instead of implied demoUrl preview", () => {
+  it("uses hasTier2LivePreviewUrl when provided instead of implied demoUrl preview", () => {
     const v = { verificationState: "verifying" as const };
-    expect(resolveQualityTier(v, { hasSandboxUrl: true })).toBe("preview");
-    expect(resolveQualityTier(v, { hasSandboxUrl: false })).toBe("none");
+    expect(resolveQualityTier(v, { hasTier2LivePreviewUrl: true })).toBe("preview");
+    expect(resolveQualityTier(v, { hasTier2LivePreviewUrl: false })).toBe("none");
   });
 });
 

@@ -12,7 +12,6 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation-stream";
 import type { PreGenerationContractGateReadableParams } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import type { CanonicalModelId } from "@/lib/models/catalog";
-import type { TemplateLibrarySearchDiagnostics } from "@/lib/gen/template-library/search";
 
 type OwnEngineContractGateCommon = {
   sseChatId: string;
@@ -113,8 +112,6 @@ export type OwnEngineGenerationStreamMetaInput = {
   customInstructionsLength: number;
   scaffoldId: string | null;
   scaffoldFamily: string | null;
-  /** Present when template-library retrieval ran for this generation (omitted when skipped). */
-  templateLibrarySearchDiagnostics?: TemplateLibrarySearchDiagnostics | null;
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -160,16 +157,6 @@ export function buildOwnEngineGenerationStreamMeta(
     briefApplied: input.metaBriefApplied,
     customInstructionsLength: input.customInstructionsLength,
   };
-  const diag = input.templateLibrarySearchDiagnostics;
-  if (diag) {
-    (meta as Record<string, unknown>).templateLibrarySearch = {
-      mode: diag.mode,
-      reason: diag.reason ?? null,
-      topScore: diag.topScore ?? null,
-      catalogSize: diag.catalogSize,
-      usedEmbeddings: diag.usedEmbeddings,
-    };
-  }
   if (input.routeVariant === "new-chat") {
     (meta as Record<string, unknown>).chatPrivacy = input.chatPrivacy;
     (meta as Record<string, unknown>).scaffoldLabel = input.scaffoldLabel;

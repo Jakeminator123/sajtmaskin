@@ -104,7 +104,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(promptOrchestration.softTargets.freeformChars.default).toBeGreaterThan(0);
     expect(promptOrchestration.phaseThresholds.defaultChars.default).toBeGreaterThan(0);
 
-    expect(postGenerationPasses.polishMaxOutputTokens.default).toBeGreaterThan(0);
+    expect(postGenerationPasses.verifierMaxOutputTokens.default).toBeGreaterThan(0);
     expect(postGenerationPasses.verifierTimeoutMs.default).toBeGreaterThan(0);
 
     expect(contractConfig.defaults.fallbackDatabaseProvider).toBeTruthy();
@@ -125,14 +125,12 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(pairs.some((p) => p.key === "NEXT_PUBLIC_SUPABASE_URL")).toBe(true);
   });
 
-  it("documents verifier and polish as separate post-generation workloads", () => {
+  it("documents post-generation verifier workload", () => {
     const m = getAiModelsManifest();
     const verifier = m.workloads.find((w) => w.id === "post_generation_verifier");
-    const polish = m.workloads.find((w) => w.id === "post_generation_polish");
 
     expect(verifier?.invocation).toBe("ai_generateObject");
     expect(verifier?.codeEntry).toContain("src/lib/gen/verifier-pass.ts");
-    expect(polish?.invocation).toBe("ai_generateText");
-    expect(polish?.codeEntry).toContain("src/lib/gen/polish-pass.ts");
+    expect(m.workloads.some((w) => w.id === "post_generation_polish")).toBe(false);
   });
 });

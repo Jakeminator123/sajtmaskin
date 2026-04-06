@@ -10,13 +10,12 @@ globs:
   - src/lib/gen/autofix/validate-and-fix.ts
   - src/app/api/engine/chats/*/repair/**
   - src/lib/gen/verifier-pass.ts
-  - src/lib/gen/polish-pass.ts
   - config/ai_models/manifest.json
 ---
 
 # LLM-pipeline docs sync
 
-När du ändrar filer i autofix-pipelinen, repair-kedjan, fixer-prompten, verifier/polish, manifest-konfigurationen eller finalize-flödet:
+När du ändrar filer i autofix-pipelinen, repair-kedjan, fixer-prompten, verifier-pass, manifest-konfigurationen eller finalize-flödet:
 
 ## Alltid uppdatera (i samma commit)
 

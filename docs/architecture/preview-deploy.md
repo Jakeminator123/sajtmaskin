@@ -53,7 +53,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Kanoniska filer | Preview-session bygger från **`filesJson`** efter finalize, inte primärt `contentForVersion` | `generation-stream.ts`, `preview-session/route.ts` |
 | Follow-up underlag | `engine_versions.files_json` via `meta.engineBaseVersionId` (builder) eller annars **preferred** version | `[chatId]/stream/route.ts`, `resolveFollowUpPreviousFiles` i `version-manager.ts`, `useSendMessage.ts` |
 | Autofix / retry-bas | Klientautofix som skickar en reparationsprompt pinnas till **den felande versionen** via `engineBaseVersionId`, så retry inte hoppar till en annan vald version i buildern | `useAutoFix.ts`, `useSendMessage.ts`, `[chatId]/stream/route.ts` |
-| `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `own-engine-sandbox-gate.ts`, `generation-stream.ts` |
+| `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `should-start-preview.ts`, `generation-stream.ts` |
 | Tier-2 provider | `preview_host` (HTTP) är den aktiva tier-2-vägen | `preview-session.ts`, `tier2-config.ts`, `preview-host-client.ts`, `tier2-resume.ts` |
 | Readiness | Preview-host svarar med startad session + publik URL; appen normaliserar host/root URL och litar sedan på status/heartbeat-livscykeln | `preview-session.ts`, `tier2-config.ts`, `preview-status/route.ts` |
 | Preview-only | Publika `done`-/GET-svar har `previewUrl: null` medan `previewPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` eller `sandboxUrl` som legacy fältnamn | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
@@ -63,7 +63,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Repair-versioner | När server-verify eller manuell repair skapar en ny promotad version markeras den tidigare repair-källan som ersatt/superseded i stället för att lämnas kvar i `repairing`. UI visar detta som `Omtag`. | `server-verify.ts`, `repair/route.ts`, `chat-repository-pg.ts`, `engine-version-lifecycle.ts`, `VersionHistory.tsx` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `preview-session.ts` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` följer fortfarande med i telemetri och startparams, men aktiv preview-startväg är preview-host `dev_only` | `build-spec.ts`, `preview-session.ts`, `generation-stream-post-finalize.ts` |
-| Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; preview-lifecycle loggar `preview_ready` / `preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `sandbox/lifecycle-telemetry.ts` |
+| Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; preview-lifecycle loggar `preview_ready` / `preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `preview/lifecycle-telemetry.ts` |
 | Finalize fast/deep path | Lätta follow-ups kan stanna på finalize fast path och hoppa över deep-path-steg som bildmaterialisering, verifier och polish | `finalize-version.ts`, `finalize-pipeline-contract.ts` |
 | VM-resume | Session återanvänds **före** `buildCompleteProject` när session matchar | `preview-session.ts`, `tier2-resume.ts` |
 | Scaffold | Pinnade versioner i standard-`package.json` (minimal `^`-drift) | `project-scaffold.ts` |
@@ -169,7 +169,7 @@ Tier 2 är **inte** ett enda alltid-igång subsystem. `preview_host` är en sepa
 | Orsak | Vad händer | Var |
 |--------|------------|-----|
 | **Ingen tier-2-provider** | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` saknas → API `/preview-session` → **503** `preview_session_disabled` | `tier2-config.ts`, `preview-session/route.ts` |
-| **`previewBlocked`** | Preflight kunde inte bygga tier-1 preview (`buildPreviewHtml` tomt / undantag) → `shouldRunOwnEngineSandbox` false | `finalize-preflight.ts`, `own-engine-sandbox-gate.ts` |
+| **`previewBlocked`** | Preflight kunde inte bygga en användbar preview-startkontrakt för versionen → `shouldStartOwnEnginePreview` blir false | `finalize-preflight.ts`, `should-start-preview.ts` |
 | **Preview-host-fel** | `preview_host` svarar med fel / timeout → `build-error` eller retrybar bootstrapfail | `preview-session.ts`, `preview-host-client.ts`, `tier2-config.ts` |
 | **Misslyckad quality gate** | `verificationState === failed` → `canExposeEnginePreview` är **false** → POST `/preview-session` → **400** `preview_blocked` (bootstrap kan inte efterstarta preview för den versionen) | `engine-version-lifecycle.ts`, `preview-session/route.ts` |
 | **Bootstrap villkor** | Bootstrap körs bara om användaren är inloggad, own-engine-chatt (ej v0-stil), **ingen** aktiv `previewUrl` på versionen än, och `currentPreviewUrl` saknas eller inte är en redan fungerande preview-URL; hoppar över under aktiv streaming | `useBuilderPageController.ts` |

@@ -45,7 +45,7 @@ Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan**
 |-------|------|
 | `src/lib/own-engine/` + `src/lib/providers/own-engine/` | Den kanoniska **produktbanan** för egen motor: sessioner, streams, plan-mode, contract-gate och providerkopplingar. |
 | `src/lib/gen/` | Delad **genereringskärna**: scaffold-matchning, orchestration, system prompts, autofix, finalize, merge, previewförberedelser. |
-| `src/lib/mcp/` | Programmatisk **adapteryta** runt own-engine-resultat: köra generation utan builder-UI, bygga preview/sandbox-runtime, läsa filer/versioner för verktyg och lokala runtime-flöden. |
+| `src/lib/mcp/` | Programmatisk **adapteryta** runt own-engine-resultat: köra generation utan builder-UI, bygga preview/VM-runtime, läsa filer/versioner för verktyg och lokala runtime-flöden. |
 | `src/lib/shadcn/` | Shadcn/ui registry-logik samlad: URL-parser, cache, service, types, utils. Importera härifrån direkt (inga kvarvarande `shadcn-registry-*.ts` root-shims). |
 
 ## Två olika “data” (förväxla inte)

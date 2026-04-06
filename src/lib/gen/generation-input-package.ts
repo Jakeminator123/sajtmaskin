@@ -10,7 +10,6 @@ import { createHash } from "node:crypto";
 
 import type { OrchestrationBase, OrchestrationInput } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
-import type { TemplateLibrarySearchDiagnostics } from "./template-library/search";
 
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User's original prompt text. */
@@ -23,8 +22,6 @@ export interface GenerationInputPackage extends OrchestrationBase {
   engineSystemPrompt: string;
   /** Dynamic-only context for plan mode, prompt dump, and debug. */
   dynamicContext: string;
-  /** Template-library retrieval diagnostics when semantic/keyword search ran (null if skipped, e.g. light follow-up). */
-  templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null;
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
 }
@@ -77,14 +74,5 @@ export function serializePackageForDump(
     capabilityHints: pkg.scaffoldAndCapability,
     engineSystemPromptLength: pkg.engineSystemPrompt.length,
     dynamicContextLength: pkg.dynamicContext.length,
-    templateLibrarySearch: pkg.templateLibrarySearchDiagnostics
-      ? {
-          mode: pkg.templateLibrarySearchDiagnostics.mode,
-          reason: pkg.templateLibrarySearchDiagnostics.reason ?? null,
-          topScore: pkg.templateLibrarySearchDiagnostics.topScore ?? null,
-          catalogSize: pkg.templateLibrarySearchDiagnostics.catalogSize,
-          usedEmbeddings: pkg.templateLibrarySearchDiagnostics.usedEmbeddings,
-        }
-      : null,
   };
 }

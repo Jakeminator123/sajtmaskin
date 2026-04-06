@@ -4,8 +4,8 @@
 
 Flera moduler anropar `openai.embeddings.create` med **`text-embedding-3-small`** (dimensions 1536 där det behövs) mot färdigberäknade JSON-index:
 
-- Dokumentsnippet: [`src/lib/gen/context/semantic-search.ts`](../../src/lib/gen/context/semantic-search.ts) + [`docs-embeddings-core.ts`](../../src/lib/gen/data/docs-embeddings-core.ts)
-- Mallar, scaffold, template library: se `embeddingModels` i [`manifest.json`](manifest.json)
+- Builderns Mallar-katalog: [`src/lib/templates/template-search.ts`](../../src/lib/templates/template-search.ts)
+- Runtime-scaffolds: [`src/lib/gen/scaffolds/scaffold-search.ts`](../../src/lib/gen/scaffolds/scaffold-search.ts)
 
 **OBS:** Själva modellsträngen för index-bygge ligger fortfarande i respektive `*-embeddings-core.ts`. Om du byter embedding-modell måste du **bygga om** motsvarande JSON-index.
 

@@ -205,33 +205,16 @@ export async function handleSseStream(
           typeof payload.blockingCount === "number" && Number.isFinite(payload.blockingCount)
             ? payload.blockingCount
             : null;
-        const pc =
-          typeof payload.polishCandidateCount === "number" && Number.isFinite(payload.polishCandidateCount)
-            ? payload.polishCandidateCount
+        const qc =
+          typeof payload.qualityCount === "number" && Number.isFinite(payload.qualityCount)
+            ? payload.qualityCount
             : null;
         return [
-          `Verifiering klar.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${pc !== null ? ` Polish-kandidater: ${pc}.` : ""}`,
+          `Verifiering klar.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${qc !== null ? ` Kvalitetsanteckningar: ${qc}.` : ""}`,
         ];
       }
-      if (phase === "error") return ["Verifiering misslyckades; polish körs utan målfil-lista."];
+      if (phase === "error") return ["Verifiering misslyckades; fortsätter med nuvarande kod."];
       if (phase === "skipped") return ["Verifiering hoppades över."];
-    }
-    if (step === "polish") {
-      if (phase === "start") {
-        return ["Polish: andra LLM-passet förbättrar texter och tar bort platshållare."];
-      }
-      if (phase === "done") {
-        const applied = payload.applied === true;
-        const filesChanged =
-          typeof payload.filesChanged === "number" && Number.isFinite(payload.filesChanged)
-            ? payload.filesChanged
-            : null;
-        if (!applied) return ["Polish hoppades över eller ändrade inget."];
-        return [
-          `Polish klar.${filesChanged !== null ? ` Uppdaterade filer: ${filesChanged}.` : ""}`,
-        ];
-      }
-      if (phase === "error") return ["Polish misslyckades. Fortsätter utan finputs."];
     }
     if (step === "url_expand") {
       if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];

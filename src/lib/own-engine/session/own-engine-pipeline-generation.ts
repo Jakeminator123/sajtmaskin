@@ -65,7 +65,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     reasoningEffort,
     abortSignal: input.pipeline.abortSignal,
     tools,
-    maxSteps: input.pipeline.maxSteps ?? 2,
+    maxSteps: input.pipeline.maxSteps ?? 4,
     chatHistory: input.pipeline.chatHistory,
     referenceAttachments: input.pipeline.referenceAttachments,
     maxTokens: input.pipeline.maxTokens,

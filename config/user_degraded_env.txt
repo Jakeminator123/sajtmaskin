@@ -3,7 +3,7 @@
 # Purpose
 # -------
 # Explain why and how to inject *non-secret placeholders* into **generated user
-# projects** (not the Sajtmaskin app) so preview / sandbox can start without
+# projects** (not the Sajtmaskin app) so preview / VM runtime can start without
 # real integrations.
 #
 # Canonical KEY=value list (dotenv-style)
@@ -36,9 +36,9 @@
 # fragment file supplies local-shaped URLs for preview only.
 #
 # This policy narrative file is *not* parsed by merge logic; it is human/agent
-# documentation. The KEY=value fragment is merged into sandbox .env.local when
-# preview starts via startSandboxPreview (sandbox-env-local.ts, sandbox-preview.ts).
-# MCP generate-site sandbox and Tier-1 HTML shim do not use this merge path.
+# documentation. The KEY=value fragment is merged into the tier-2 preview
+# runtime's `.env.local` when preview starts via `startSandboxPreview`.
+# Tier-1 HTML shim and some non-builder helper flows do not use this merge path.
 #
 # -----------------------------------------------------------------------------
 # Cross-reference

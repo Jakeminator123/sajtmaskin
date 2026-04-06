@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldStartOwnEnginePreview } from "./own-engine-sandbox-gate";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
+import { shouldStartOwnEnginePreview } from "./should-start-preview";
 
-function sandboxContract(overrides?: Partial<PreviewStartContract>): PreviewStartContract {
+function previewStartContract(overrides?: Partial<PreviewStartContract>): PreviewStartContract {
   return {
     canStartPreview: true,
     primaryPreviewTarget: "preview",
@@ -28,7 +28,7 @@ describe("shouldStartOwnEnginePreview", () => {
     expect(
       shouldStartOwnEnginePreview({
         isPreviewConfigured: true,
-        previewStart: sandboxContract({ canStartPreview: false, hasCriticalCodeFailure: true }),
+        previewStart: previewStartContract({ canStartPreview: false, hasCriticalCodeFailure: true }),
         parsedFileCount: 3,
       }),
     ).toBe(false);
@@ -38,7 +38,7 @@ describe("shouldStartOwnEnginePreview", () => {
     expect(
       shouldStartOwnEnginePreview({
         isPreviewConfigured: true,
-        previewStart: sandboxContract(),
+        previewStart: previewStartContract(),
         parsedFileCount: 0,
       }),
     ).toBe(false);
@@ -48,7 +48,7 @@ describe("shouldStartOwnEnginePreview", () => {
     expect(
       shouldStartOwnEnginePreview({
         isPreviewConfigured: false,
-        previewStart: sandboxContract(),
+        previewStart: previewStartContract(),
         parsedFileCount: 2,
       }),
     ).toBe(false);
@@ -58,7 +58,7 @@ describe("shouldStartOwnEnginePreview", () => {
     expect(
       shouldStartOwnEnginePreview({
         isPreviewConfigured: true,
-        previewStart: sandboxContract(),
+        previewStart: previewStartContract(),
         parsedFileCount: 1,
       }),
     ).toBe(true);

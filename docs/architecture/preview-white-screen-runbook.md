@@ -3,7 +3,7 @@
 **Senast uppdaterad:** 2026-04-02  
 **Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas. `preview_host` / VM är den primära previewvägen; shim är bara en kompatibilitetsvy under migration/fallback.
 
-**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview i `src/lib/gen/sandbox/sandbox-preview.ts` + `preview-host/`.
+**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` (implementation i `src/lib/gen/sandbox/sandbox-preview.ts`) + `preview-host/`.
 
 ---
 
@@ -41,9 +41,9 @@
 
 ### D. Preview-host startar aldrig
 
-- Sök serverloggar efter: `sandbox_preview_failed_shim_fallback`, `sandbox_disabled` eller preview-host-fel/timeout från `sandbox-preview`.
-- Klient: `useBuilderPageController` POST `/sandbox-preview` — vid `sandbox_disabled` finns hint i svar.
-- Om buildern visar “Startar live-preview” länge utan iframe-URL: kontrollera `sandboxPending`, readiness-timeout och npm-install-fel i preview-host före du misstänker att preview “bara är statisk”.
+- Sök serverloggar efter: `preview_failed`, `preview_session_disabled` eller preview-host-fel/timeout från `preview-session`.
+- Klient: `useBuilderPageController` POST `/preview-session` — vid `preview_session_disabled` finns hint i svar.
+- Om buildern visar “Startar live-preview” länge utan iframe-URL: kontrollera `sandboxPending`, preview-status och npm-install-fel i preview-host före du misstänker att preview “bara är statisk”.
 
 ---
 
@@ -52,10 +52,10 @@
 | Signal | Var |
 |--------|-----|
 | Preview-fel som rapporteras till backend | `POST .../versions/{versionId}/error-log` med `category: "preview"` (`PreviewPanel.tsx`) |
-| SSE egen motor | `sandbox-ready`, `build-error`, `progress` step `sandbox` (`generation-stream.ts`) |
+| SSE egen motor | `preview-ready`, `build-error`, `progress` step `verifier` / finalize-steg (`generation-stream.ts`) |
 | Agent-/versionsloggar i UI | Er befintliga loggvy som läser version error-log / agent events |
 
-**Rekommendation:** Vid support, alltid samla **chatId**, **versionId**, **aktuell preview-URL** (shim vs sandbox; äldre spår kan fortfarande heta `demoUrl`), och **screenshot av iframe-console**.
+**Rekommendation:** Vid support, alltid samla **chatId**, **versionId**, **aktuell preview-URL** (shim vs preview-session; äldre spår kan fortfarande heta `demoUrl` eller `sandboxUrl`), och **screenshot av iframe-console**.
 
 ---
 

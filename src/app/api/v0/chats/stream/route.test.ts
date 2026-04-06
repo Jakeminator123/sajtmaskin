@@ -277,6 +277,14 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { POST } from "./route";
 
+/** `resolveOrchestrationBase` must never return `routePlan: null` — create-chat-stream reads `routePlan.routes`. */
+const unitTestRoutePlan = {
+  source: "prompt" as const,
+  siteType: "one-page" as const,
+  reason: "unit-test",
+  routes: [] as Array<{ path: string; name: string; intent: string; required: boolean }>,
+};
+
 function buildPipelineStream(events: Array<{ event: string; data: unknown }>) {
   const encoder = new TextEncoder();
 
@@ -347,7 +355,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         family: "marketing",
         label: "Marketing",
       },
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -400,7 +408,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         label: "Marketing",
       },
       scaffoldContext: undefined,
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -444,7 +452,6 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       scaffoldAndCapability: "",
     });
     finalizeOrchestrationPrompts.mockResolvedValue({
-      templateLibrarySearchDiagnostics: null,
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
     });
