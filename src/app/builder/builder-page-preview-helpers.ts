@@ -1,29 +1,15 @@
-import {
-  canExposeEnginePreview,
-  resolveEngineVersionLifecycleStatus,
-} from "@/lib/db/engine-version-lifecycle";
+import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { hasSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { VersionSummary } from "./useBuilderDerivedState";
 
-/**
- * Prefer sandbox (fidelity 2), but while a just-saved own-engine version is still
- * verifying we allow the legacy shim as an interim preview so the iframe does not stay blank.
- */
+/** Live preview only; no shim fallback. */
 export function pickVersionPreviewUrl(
   v: VersionSummary | undefined,
   options?: { allowFailed?: boolean },
 ): string | null {
   if (!v) return null;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return null;
-  const sandboxUrl = normalizePreviewUrl(v.sandboxUrl);
-  if (sandboxUrl) return sandboxUrl;
-
-  const lifecycleStatus = resolveEngineVersionLifecycleStatus(v);
-  if (lifecycleStatus === "verifying") {
-    return normalizePreviewUrl(v.legacyShimPreviewUrl ?? v.previewUrl ?? v.demoUrl);
-  }
-
-  return null;
+  return normalizePreviewUrl(v.previewUrl);
 }
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
@@ -45,11 +31,11 @@ export function parsePreviewOverride(
   return { url, versionId };
 }
 
-export function versionSummaryHasSandbox(
+export function versionSummaryHasPreview(
   v: VersionSummary | undefined,
   options?: { allowFailed?: boolean },
 ): boolean {
   if (!v) return false;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return false;
-  return hasSandboxPreviewUrl(v.sandboxUrl);
+  return hasSandboxPreviewUrl(v.previewUrl);
 }

@@ -636,7 +636,7 @@ export async function buildDynamicContext(
   parts.push(
     "## Preview vs CodeProject parity",
     "",
-    "- A tier-1 HTML preview in the product may appear before this stream finishes. Treat it as a rough layout approximation only, not the final design system.",
+    "- A temporary compatibility preview may appear in the product before this stream finishes. Treat it as a rough layout approximation only, not the final design system.",
     "- Your emitted files are the **source of truth**: they must reflect the **user message**, any **Project Context / brief** above, **Visual Identity**, and the **scaffold** (structure hints only). Do not replace a specific user topic, language, or palette with an unrelated generic marketing template.",
     "- When a structured brief exists, major copy, sections, palette, and tone should be traceable to that brief or the prompt — **extend and refine**, do not reset to a generic narrative.",
     "",

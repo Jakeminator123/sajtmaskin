@@ -59,7 +59,7 @@ import {
   asRecord,
   parsePreviewOverride,
   pickVersionPreviewUrl,
-  versionSummaryHasSandbox,
+  versionSummaryHasPreview,
 } from "./builder-page-preview-helpers";
 
 export function useBuilderPageController() {
@@ -147,14 +147,14 @@ export function useBuilderPageController() {
   selectedVersionIdRef.current = state.selectedVersionId;
   latestVersionIdRef.current = derived.latestVersionId;
 
-  /** Sandbox URL for the active version (shim slot kept null). */
+  /** Active live-preview URL for the version (shim slot kept null). */
   const activeVersionAlternatePreview = useMemo(() => {
     const vid = derived.activeVersionId;
     if (!vid) return { shimUrl: null as string | null, sandboxUrl: null as string | null };
     const v = derived.effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
     if (!v) return { shimUrl: null, sandboxUrl: null };
     return resolveAlternatePreviewUrls({
-      sandboxUrl: v.sandboxUrl,
+      sandboxUrl: v.previewUrl,
     });
   }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
 
@@ -285,39 +285,39 @@ export function useBuilderPageController() {
   });
 
   const {
-    sandboxBuildError,
-    sandboxProdBuild,
-    sandboxPending,
-    sandboxPreviewRecovering,
-    activeSandboxMeta,
-    setSandboxBuildError,
-    setSandboxProdBuild,
-    setSandboxPending,
-    onSandboxSessionMeta,
-    clearSandboxBuildError,
-    clearSandboxSessionState,
-    resetSandboxForNewChat,
+    previewBuildError,
+    previewProdBuild,
+    previewPending,
+    previewSessionRecovering,
+    activePreviewSessionMeta,
+    setPreviewBuildError,
+    setPreviewProdBuild,
+    setPreviewPending,
+    onPreviewSessionMeta,
+    clearPreviewBuildError,
+    clearPreviewSessionState,
+    resetPreviewForNewChat,
   } = vmPreview;
 
   const { handlePreviewSessionSuspect, resetRecoverAttempts } = usePreviewSession({
     chatId: state.chatId,
     activeVersionId: derived.activeVersionId,
     currentPreviewUrl: state.currentPreviewUrl,
-    activeSandboxMeta,
+    activePreviewSessionMeta,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
     bumpPreviewRefreshToken,
-    setSandboxPreviewRecovering: vmPreview.setSandboxPreviewRecovering,
-    sandboxBootstrapDoneKeysRef: vmPreview.sandboxBootstrapDoneKeysRef,
-    setForcedSandboxRestartKey: vmPreview.setForcedSandboxRestartKey,
-    setSandboxBootstrapRetryNonce: vmPreview.setSandboxBootstrapRetryNonce,
+    setPreviewSessionRecovering: vmPreview.setPreviewSessionRecovering,
+    previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
+    setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
+    setPreviewBootstrapRetryNonce: vmPreview.setPreviewBootstrapRetryNonce,
   });
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
 
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentPreviewUrl(null);
     setPreviewRefreshToken(0);
-    resetSandboxForNewChat();
-  }, [setCurrentPreviewUrl, setPreviewRefreshToken, resetSandboxForNewChat]);
+    resetPreviewForNewChat();
+  }, [setCurrentPreviewUrl, setPreviewRefreshToken, resetPreviewForNewChat]);
 
   // ── Chat messaging ───────────────────────────────────────────────────
   const { isCreatingChat, createNewChat, sendMessage: rawSendMessage, cancelActiveGeneration } =
@@ -349,12 +349,12 @@ export function useBuilderPageController() {
       pendingBriefRef: state.pendingBriefRef,
       mutateVersions,
       setCurrentPreviewUrl: state.setCurrentPreviewUrl,
-      setSandboxBuildError,
-      setSandboxProdBuild,
-      setSandboxPending,
+      setPreviewBuildError,
+      setPreviewProdBuild,
+      setPreviewPending,
       onPreviewRefresh: bumpPreviewRefreshToken,
       onGenerationComplete: deployActions.handleGenerationComplete,
-      onSandboxSessionMeta,
+      onPreviewSessionMeta,
       onLinkedProjectId: (nextId) => state.setV0ProjectId(nextId),
       setMessages: state.setMessages,
       resetBeforeCreateChat,
@@ -1306,8 +1306,8 @@ export function useBuilderPageController() {
     const chatLatest = chatObj?.latestVersion;
     const chatLevelPreview =
       chatLatest && canExposeEnginePreview(chatLatest)
-        ? typeof chatLatest.sandboxUrl === "string" && chatLatest.sandboxUrl.trim()
-          ? chatLatest.sandboxUrl.trim()
+        ? typeof chatLatest.previewUrl === "string" && chatLatest.previewUrl.trim()
+          ? chatLatest.previewUrl.trim()
           : null
         : null;
 
@@ -1329,7 +1329,7 @@ export function useBuilderPageController() {
     if (
       currentIsLivePreview &&
       nextIsShimPreview &&
-      versionSummaryHasSandbox(activeVersionMatch, { allowFailed: userSelectedActiveVersion })
+      versionSummaryHasPreview(activeVersionMatch, { allowFailed: userSelectedActiveVersion })
     ) {
       return;
     }
@@ -1344,21 +1344,21 @@ export function useBuilderPageController() {
       setCurrentPreviewUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
       if (!isShimOrMissingPreviewUrl(nextDemoUrl)) {
-        setSandboxPending(false);
+        setPreviewPending(false);
       }
     }
-  }, [derived.activeVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setSandboxPending]);
+  }, [derived.activeVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
 
   const previewLifecycle: PreviewLifecycleState = useMemo(() => {
-    if (sandboxBuildError?.stage === "sandbox_disabled") return "failed";
-    if (sandboxPreviewRecovering) return "recovering";
-    if (sandboxPending) return "bootstrapping";
-    if (sandboxBuildError) return "failed";
+    if (previewBuildError?.stage === "preview_session_disabled") return "failed";
+    if (previewSessionRecovering) return "recovering";
+    if (previewPending) return "bootstrapping";
+    if (previewBuildError) return "failed";
     const url = normalizePreviewUrl(currentPreviewUrl);
     if (url && isSandboxPreviewUrl(url)) return "live";
     if (url && !isCompatibilityShimPreviewUrl(url)) return "live";
     return "idle";
-  }, [sandboxBuildError, sandboxPreviewRecovering, sandboxPending, currentPreviewUrl]);
+  }, [previewBuildError, previewSessionRecovering, previewPending, currentPreviewUrl]);
 
   // Prompt assist context fetch
   useEffect(() => {
@@ -1534,14 +1534,14 @@ export function useBuilderPageController() {
     v0ProjectId: state.v0ProjectId,
     paletteState: state.paletteState,
     currentPreviewUrl: state.currentPreviewUrl,
-    sandboxBuildError,
-    sandboxProdBuild,
-    sandboxPending,
-    activeSandboxId: activeSandboxMeta?.sandboxId ?? null,
+    previewBuildError,
+    previewProdBuild,
+    previewPending,
+    activePreviewSessionId: activePreviewSessionMeta?.previewSessionId ?? null,
     previewLifecycle,
     handlePreviewSessionSuspect,
-    clearSandboxBuildError,
-    clearSandboxSessionState,
+    clearPreviewBuildError,
+    clearPreviewSessionState,
     serverProjectPreviewOverrideVersionId: state.serverProjectPreviewOverrideVersionId,
     previewRefreshToken: state.previewRefreshToken,
     bumpPreviewRefreshToken,
@@ -1573,7 +1573,7 @@ export function useBuilderPageController() {
     setDomainManagerOpen: state.setDomainManagerOpen,
     setDomainQuery: state.setDomainQuery,
     setCurrentPreviewUrl: state.setCurrentPreviewUrl,
-    setSandboxPending,
+    setPreviewPending,
     setServerProjectPreviewOverrideUrl: state.setServerProjectPreviewOverrideUrl,
     setServerProjectPreviewOverrideVersionId: state.setServerProjectPreviewOverrideVersionId,
     setClearedPreviewVersionId: state.setClearedPreviewVersionId,

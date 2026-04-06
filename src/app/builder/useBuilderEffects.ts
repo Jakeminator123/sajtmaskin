@@ -6,7 +6,7 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { MODEL_TIER_TO_QUALITY } from "./types";
-import { normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 
 type UseBuilderEffectsArgs = {
@@ -87,7 +87,7 @@ export function useBuilderEffects({
         const templatePreview = readPreviewUrl(data as { previewUrl?: unknown });
         if (templatePreview) {
           const n = normalizePreviewUrl(templatePreview);
-          if (n) {
+          if (n && !isCompatibilityShimPreviewUrl(n)) {
             setCurrentPreviewUrl(n);
           }
         }

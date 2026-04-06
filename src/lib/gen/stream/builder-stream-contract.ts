@@ -69,22 +69,22 @@ export type BuilderTextPayload =
       reasoning?: string;
     };
 
-export type BuilderSandboxPreviewMode = "dev_only" | "build_only" | "dev_then_build";
+export type BuilderPreviewMode = "dev_only" | "build_only" | "dev_then_build";
 
-export type BuilderSandboxReadyPayload = {
-  /** Empty when `sandboxPreviewMode` is `build_only` without a dev URL. */
-  sandboxUrl: string;
-  sandboxId: string;
-  sandboxPreviewMode?: BuilderSandboxPreviewMode;
-  /** 2 = dev preview path without prod build step; 3 = build step ran in sandbox. */
-  fidelityTier?: 2 | 3;
-  /** Present when sandbox ran `npm run build` (after dev or `build_only`). */
+export type BuilderPreviewReadyPayload = {
+  /** Empty when `previewMode` is `build_only` without a dev URL. */
+  previewUrl: string;
+  previewSessionId: string;
+  previewMode?: BuilderPreviewMode;
+  /** 2 = dev preview path without prod build step; 3 = build step ran during preview start. */
+  previewTier?: 2 | 3;
+  /** Present when preview start ran `npm run build` (after dev or `build_only`). */
   prodBuildVerified?: boolean;
   prodBuildLogSnippet?: string;
 };
 
 export type BuilderBuildErrorPayload = {
-  stage: "repair" | "sandbox-create" | "install" | "build";
+  stage: "repair" | "preview-start" | "install" | "build";
   message: string;
   raw?: string;
 };
@@ -100,7 +100,7 @@ export interface BuilderStreamEventMap {
   ping: BuilderPingPayload;
   chatId: BuilderChatIdPayload;
   projectId: BuilderProjectIdPayload;
-  "sandbox-ready": BuilderSandboxReadyPayload;
+  "preview-ready": BuilderPreviewReadyPayload;
   "build-error": BuilderBuildErrorPayload;
   done: BuilderDonePayload;
   error: BuilderErrorPayload;
@@ -124,7 +124,7 @@ const BUILDER_STREAM_EVENT_NAMES = new Set<BuilderStreamEventName>([
   "ping",
   "chatId",
   "projectId",
-  "sandbox-ready",
+  "preview-ready",
   "build-error",
   "done",
   "error",

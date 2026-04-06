@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { shouldRunOwnEngineSandbox } from "./own-engine-sandbox-gate";
-import type { SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
+import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 
-function sandboxContract(overrides?: Partial<SandboxStartContract>): SandboxStartContract {
+function sandboxContract(overrides?: Partial<PreviewStartContract>): PreviewStartContract {
   return {
-    canStartSandbox: true,
-    primaryPreviewTarget: "sandbox",
+    canStartPreview: true,
+    primaryPreviewTarget: "preview",
     shimBlocked: false,
     requiresEnvConfig: false,
     hasCriticalInstallRisk: false,
     hasCriticalCodeFailure: false,
-      compatibilityShimAllowed: false,
+    compatibilityPreviewAllowed: false,
     issueCounts: {
       code_structure_failure: 0,
       dependency_install_failure: 0,
@@ -28,7 +28,7 @@ describe("shouldRunOwnEngineSandbox", () => {
     expect(
       shouldRunOwnEngineSandbox({
         isSandboxConfigured: true,
-        sandbox: sandboxContract({ canStartSandbox: false, hasCriticalCodeFailure: true }),
+        sandbox: sandboxContract({ canStartPreview: false, hasCriticalCodeFailure: true }),
         parsedFileCount: 3,
       }),
     ).toBe(false);

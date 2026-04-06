@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { useBuilderCallbacks } from "./useBuilderCallbacks";
 
 describe("useBuilderCallbacks handleVersionSelect", () => {
-  it("prefers sandbox URL for own-engine rows over shim demoUrl argument", () => {
+  it("prefers preview URL for own-engine rows over shim demoUrl argument", () => {
     const setCurrentPreviewUrl = vi.fn();
     const bumpPreviewRefreshToken = vi.fn();
     const { result } = renderHook(() =>
@@ -16,7 +16,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
             versionId: "ver_1",
             id: "ver_1",
             canPin: false,
-            sandboxUrl: "https://proj-abc.sandbox.vercel.run",
+            previewUrl: "https://proj-abc.sandbox.vercel.run",
             demoUrl: null,
             legacyShimPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
           },
@@ -36,7 +36,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
     expect(bumpPreviewRefreshToken).toHaveBeenCalled();
   });
 
-  it("sets null for own-engine when sandbox missing so bootstrap can take over", () => {
+  it("sets null for own-engine when preview URL is missing so bootstrap can take over", () => {
     const setCurrentPreviewUrl = vi.fn();
     const bumpPreviewRefreshToken = vi.fn();
     const { result } = renderHook(() =>
@@ -49,7 +49,7 @@ describe("useBuilderCallbacks handleVersionSelect", () => {
             versionId: "ver_2",
             id: "ver_2",
             canPin: false,
-            sandboxUrl: null,
+            previewUrl: null,
             demoUrl: null,
             legacyShimPreviewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_2",
           },

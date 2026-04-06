@@ -661,8 +661,8 @@ export function BuilderHeader(props: {
                     variant="outline"
                     size="sm"
                     disabled={isBusy}
-                    aria-label="Fler åtgärder: import, sandbox, nedladdning"
-                    title="Importera, sandbox eller ladda ner ZIP"
+                    aria-label="Fler åtgärder: import, runtime och nedladdning"
+                    title="Importera, starta runtime eller ladda ner ZIP"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="hidden sm:inline">Mer</span>

@@ -12,8 +12,8 @@ export interface CheckResult {
 }
 
 export interface Tier2ReadinessInput {
-  sandbox: {
-    canStartSandbox: boolean;
+  previewStart: {
+    canStartPreview: boolean;
     blockingCategories: string[];
   };
   preflightIssues: Array<{
@@ -93,7 +93,7 @@ export function checkNoBracketPlaceholders(files: CodeFile[]): CheckResult {
 export function checkTier2Readiness(preflight: Tier2ReadinessInput): CheckResult {
   const blockingIssues = preflight.preflightIssues.filter((issue) => issue.severity === "error");
 
-  if (preflight.sandbox.canStartSandbox) {
+  if (preflight.previewStart.canStartPreview) {
     const warnings = preflight.preflightIssues.filter((issue) => issue.severity === "warning");
     return {
       name: "tier2-readiness",
@@ -111,8 +111,8 @@ export function checkTier2Readiness(preflight: Tier2ReadinessInput): CheckResult
     preflight.previewBlockingReason ??
     "Tier-2 preview would likely fail preflight checks";
   const categories =
-    preflight.sandbox.blockingCategories.length > 0
-      ? ` [${preflight.sandbox.blockingCategories.join(", ")}]`
+    preflight.previewStart.blockingCategories.length > 0
+      ? ` [${preflight.previewStart.blockingCategories.join(", ")}]`
       : "";
 
   return {

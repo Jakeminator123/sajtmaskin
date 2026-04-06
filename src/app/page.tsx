@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 import { TemplateGallery } from "@/components/templates/template-gallery";
 import { SiteAuditSection } from "@/components/layout/site-audit-section";
 import {
+  isTemplateEntryMode,
   resolveBuildIntentForMethod,
   DEFAULT_BUILD_INTENT,
   type BuildIntent,
@@ -167,7 +168,7 @@ function RootLandingContent() {
 
       setSelectedCategory(id);
 
-      if (id === "template" || id === "kategori" || id === "mall") {
+      if (isTemplateEntryMode(id)) {
         setExpandedSection("category");
       } else if (id === "audit") {
         setExpandedSection("audit");

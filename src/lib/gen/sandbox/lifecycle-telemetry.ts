@@ -38,7 +38,7 @@ export type SandboxLifecycleTelemetryEvent =
       failoverFrom?: "preview_host";
     }
   | {
-      kind: "sandbox_preview_ready";
+      kind: "preview_ready";
       chatId: string;
       versionId?: string | null;
       sandboxId?: string | null;
@@ -51,7 +51,7 @@ export type SandboxLifecycleTelemetryEvent =
       msSinceEngineStart: number;
     }
   | {
-      kind: "sandbox_preview_failed";
+      kind: "preview_failed";
       chatId: string;
       versionId?: string | null;
       stage: string;

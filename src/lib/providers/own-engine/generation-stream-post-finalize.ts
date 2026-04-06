@@ -7,7 +7,7 @@ import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
   resolvePostFinalizeServerVerifyDecision,
-  shouldTriggerPostFinalizeSandbox,
+  shouldTriggerPostFinalizePreview,
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
@@ -66,42 +66,42 @@ export async function runOwnEngineStreamPostFinalize(params: {
     });
   }
 
-  let parsedForSandbox: CodeFile[] = [];
+  let parsedForPreview: CodeFile[] = [];
   let parsedFromFinalizeFilesJson = false;
   if (finalized.filesJson?.trim()) {
     try {
       const fromSaved = parseCodeFilesFromFilesJson(finalized.filesJson);
       if (fromSaved && fromSaved.length > 0) {
-        parsedForSandbox = fromSaved;
+        parsedForPreview = fromSaved;
         parsedFromFinalizeFilesJson = true;
       }
     } catch {
       /* fallback below */
     }
   }
-  if (parsedForSandbox.length === 0 && finalized.contentForVersion?.trim()) {
+  if (parsedForPreview.length === 0 && finalized.contentForVersion?.trim()) {
     try {
-      parsedForSandbox = parseCodeProject(finalized.contentForVersion).files;
+      parsedForPreview = parseCodeProject(finalized.contentForVersion).files;
     } catch {
-      /* no sandbox files */
+      /* no preview files */
     }
   }
   if (
     recoveredAfterStreamAbort &&
-    parsedForSandbox.length === 0 &&
+    parsedForPreview.length === 0 &&
     accumulatedContent.trim()
   ) {
     try {
-      parsedForSandbox = parseCodeProject(accumulatedContent).files;
+      parsedForPreview = parseCodeProject(accumulatedContent).files;
     } catch {
-      /* still no sandbox files */
+      /* still no preview files */
     }
   }
 
   const previewBlocked = finalized.preflight.previewBlocked;
-  const sandboxWillRun = shouldTriggerPostFinalizeSandbox({
+  const previewWillRun = shouldTriggerPostFinalizePreview({
     finalized,
-    parsedFileCount: parsedForSandbox.length,
+    parsedFileCount: parsedForPreview.length,
   });
 
   safeEnqueue(
@@ -111,7 +111,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         versionId: finalized.version.id,
         messageId: finalized.messageId,
         ...previewUrlField(null),
-        sandboxPending: sandboxWillRun,
+        previewPending: previewWillRun,
         shimPreviewUrl: null,
         preflight: finalized.preflight,
         previewBlocked: finalized.preflight.previewBlocked,
@@ -126,15 +126,15 @@ export async function runOwnEngineStreamPostFinalize(params: {
     chatId,
     versionId: finalized.version.id,
     previewUrl: null,
-    sandboxPreviewDeferred: sandboxWillRun,
+    previewDeferred: previewWillRun,
     previewBlocked,
     durationMs: Date.now() - engineStartedAt,
   });
   devLogFinalizeSite();
   await commitCredits();
 
-  if (isTier2PreviewConfigured() && sandboxWillRun) {
-    safeEnqueue(enc.encode(formatSSEEvent("progress", { step: "sandbox", phase: "starting" })));
+  if (isTier2PreviewConfigured() && previewWillRun) {
+    safeEnqueue(enc.encode(formatSSEEvent("progress", { step: "preview", phase: "starting" })));
 
     try {
       const chatRow = await chatRepo.getChat(chatId);
@@ -142,7 +142,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         typeof chatRow?.project_id === "string" && chatRow.project_id.trim()
           ? chatRow.project_id.trim()
           : null;
-      const sandboxResult = await startSandboxPreview(parsedForSandbox, {
+      const sandboxResult = await startSandboxPreview(parsedForPreview, {
         appProjectId,
         chatId,
         previewPolicy: buildSpec.previewPolicy,
@@ -163,7 +163,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
           failoverFrom: sr.tier2Meta?.failoverFrom,
         });
         logSandboxLifecycleTelemetry({
-          kind: "sandbox_preview_ready",
+          kind: "preview_ready",
           chatId,
           versionId: finalized.version.id,
           sandboxId: sr.sandboxId,
@@ -177,29 +177,29 @@ export async function runOwnEngineStreamPostFinalize(params: {
         });
         safeEnqueue(
           enc.encode(
-            formatSSEEvent("sandbox-ready", {
-              sandboxUrl: sr.sandboxUrl,
-              sandboxId: sr.sandboxId,
-              sandboxPreviewMode: sr.sandboxPreviewMode,
-              fidelityTier: sr.fidelityTier,
+            formatSSEEvent("preview-ready", {
+              previewUrl: sr.sandboxUrl,
+              previewSessionId: sr.sandboxId,
+              previewMode: sr.sandboxPreviewMode,
+              previewTier: sr.fidelityTier,
               ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
               ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
             }),
           ),
         );
         if (sr.sandboxUrl.trim()) {
-          chatRepo.updateVersionSandboxUrl(finalized.version.id, sr.sandboxUrl).catch((error) => {
-            warnLog("engine", "Failed to persist sandboxUrl after sandbox-ready", {
+          chatRepo.updateVersionPreviewUrl(finalized.version.id, sr.sandboxUrl).catch((error) => {
+            warnLog("engine", "Failed to persist previewUrl after preview-ready", {
               chatId,
               versionId: finalized.version.id,
-              sandboxUrl: sr.sandboxUrl,
+              previewUrl: sr.sandboxUrl,
               message: error instanceof Error ? error.message : "Unknown error",
             });
           });
         }
       } else {
         logSandboxLifecycleTelemetry({
-          kind: "sandbox_preview_failed",
+          kind: "preview_failed",
           chatId,
           versionId: finalized.version.id,
           stage: sandboxResult.error.stage,
@@ -209,7 +209,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
           verificationPolicy: buildSpec.verificationPolicy,
           msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
         });
-        warnLog("engine", "sandbox_preview_failed", {
+        warnLog("engine", "preview_failed", {
           chatId,
           versionId: finalized.version.id,
           stage: sandboxResult.error.stage,
@@ -218,27 +218,27 @@ export async function runOwnEngineStreamPostFinalize(params: {
         safeEnqueue(enc.encode(formatSSEEvent("build-error", { ...sandboxResult.error })));
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Sandbox failed";
+      const message = err instanceof Error ? err.message : "Preview start failed";
       logSandboxLifecycleTelemetry({
-        kind: "sandbox_preview_failed",
+        kind: "preview_failed",
         chatId,
         versionId: finalized.version.id,
-        stage: "sandbox-create",
+        stage: "preview-start",
         detail: message,
         previewPolicy: buildSpec.previewPolicy,
         verificationPolicy: buildSpec.verificationPolicy,
         msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
       });
-      warnLog("engine", "sandbox_preview_failed", {
+      warnLog("engine", "preview_failed", {
         chatId,
         versionId: finalized.version.id,
-        stage: "sandbox-create",
+        stage: "preview-start",
         message,
       });
       safeEnqueue(
         enc.encode(
           formatSSEEvent("build-error", {
-            stage: "sandbox-create" as const,
+            stage: "preview-start" as const,
             message,
           }),
         ),

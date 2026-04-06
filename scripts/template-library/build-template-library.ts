@@ -133,42 +133,52 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
   "base-nextjs": [
     "Keep a minimal App Router structure with layout, page, and globals.css.",
     "Preserve @theme inline tokens and stable path aliases.",
+    "Do not add heavy product or marketing structure unless the prompt clearly asks for it.",
   ],
   "landing-page": [
     "Hero, trust, CTA, and clear section hierarchy should be present.",
     "Layout should remain editable without introducing app-shell complexity.",
+    "Copy and section order should feel business-specific rather than generic starter filler.",
   ],
   "saas-landing": [
     "Pricing, product narrative, trust signals, and dashboard preview should exist.",
     "Keep marketing structure separate from logged-in app structure.",
+    "Make the product value proposition and hero preview feel tied to the actual product domain.",
   ],
   portfolio: [
     "Strong work showcase and biography sections should remain first-class.",
     "Visual rhythm should prioritize image or project presentation over dashboard UI.",
+    "Project cards, case studies, or gallery areas should feel curated rather than generic service blocks.",
   ],
   blog: [
     "Editorial layout, post hierarchy, and reading flow should remain intact.",
     "Content lists and article pages should not collapse into generic marketing cards.",
+    "Headings, excerpts, and archive structure should support reading and navigation first.",
   ],
   dashboard: [
     "Sidebar, overview cards, table/chart areas, and dense app layout should remain intact.",
     "Prefer realistic analytics structure over marketing-page sections.",
+    "Primary screens should feel operational and data-driven, not like brochure sections.",
   ],
   "auth-pages": [
     "Login, signup, and recovery flows should exist with link relationships between pages.",
     "Auth scaffolds should look ready for real integration, not just a single isolated card.",
+    "The entry flow should keep clear form states, helper text, and obvious next actions.",
   ],
   ecommerce: [
     "Catalog, product detail, cart, and checkout direction should be represented.",
     "Use realistic storefront hierarchy instead of generic content sections.",
+    "Merchandising, cart, and conversion flow should stay clearer than decorative marketing flourishes.",
   ],
   "content-site": [
     "Keep broad reusable content structure that can support services, docs-lite, and editorial sites.",
     "Do not force pricing or app-shell patterns unless the prompt asks for them.",
+    "Navigation and section hierarchy should stay content-first and easy to extend.",
   ],
   "app-shell": [
     "Preserve navigation shell, settings-ready layout, and app-like information density.",
     "Allow auth, billing, and dashboard subflows to be layered in later.",
+    "Primary layout should feel like a real product workspace, not a simple landing page with a sidebar.",
   ],
 };
 

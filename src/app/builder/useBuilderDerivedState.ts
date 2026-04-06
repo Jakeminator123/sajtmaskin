@@ -9,11 +9,11 @@ export type VersionSummary = {
   versionId?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  /** Legacy shim URL for own-engine; primary live preview is `sandboxUrl`. */
+  /** Legacy shim URL for own-engine; primary live preview is `previewUrl`. */
   legacyShimPreviewUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
-  sandboxUrl?: string | null;
+  previewPending?: boolean;
   releaseState?: string | null;
   verificationState?: string | null;
   verificationSummary?: string | null;
@@ -89,7 +89,7 @@ export function useBuilderDerivedState({
       legacyShimPreviewUrl: latest?.legacyShimPreviewUrl ?? null,
       createdAt: latest?.createdAt ?? new Date().toISOString(),
       versionNumber: latest?.versionNumber ?? null,
-      sandboxUrl: latest?.sandboxUrl ?? null,
+      previewPending: latest?.previewPending ?? false,
       releaseState: latest?.releaseState ?? null,
       verificationState: latest?.verificationState ?? null,
       verificationSummary: latest?.verificationSummary ?? null,

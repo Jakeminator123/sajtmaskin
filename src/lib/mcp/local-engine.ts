@@ -2,11 +2,11 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getLatestVersionFiles, getVersionFiles } from "@/lib/gen/version-manager";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import {
-  buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
   type RuntimeMode,
   type SandboxRuntimeOptions,
 } from "./runtime-url";
+import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 
 export interface LocalGeneratedFile {
   name: string;
@@ -124,11 +124,39 @@ export async function createLocalGeneratedRuntime(
 
   if (mode === "preview") {
     const resolvedVersionId = versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null;
-    return buildOwnEnginePreviewRuntime({
+    const { files } = await resolveGeneratedFiles(chatId, versionId);
+    if (files.length === 0) {
+      throw new Error("No files found for the requested chat/version");
+    }
+    const started = await startSandboxPreview(
+      files.map((file) => ({
+        path: file.name,
+        content: file.content,
+        language: file.language,
+      })),
+      {
+        chatId,
+        appProjectId: projectId,
+        versionIdForSession: resolvedVersionId,
+        skipRepair: true,
+      },
+    );
+    if (!started.ok) {
+      throw new Error(
+        `Tier-2 preview failed (${started.error.stage}): ${started.error.message}`,
+      );
+    }
+    if (resolvedVersionId) {
+      await chatRepo.updateVersionPreviewUrl(resolvedVersionId, started.result.sandboxUrl);
+    }
+    return {
+      mode: "preview",
       chatId,
       versionId: resolvedVersionId,
       projectId,
-    });
+      url: started.result.sandboxUrl,
+      sandboxId: started.result.sandboxId,
+    };
   }
 
   const { files, resolvedVersionId } = await resolveGeneratedFiles(chatId, versionId);

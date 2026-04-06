@@ -4,7 +4,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import {
   getPreferredVersion,
   getLatestVersion,
-  updateVersionSandboxUrl,
+  updateVersionPreviewUrl,
   type Version,
 } from "@/lib/db/chat-repository-pg";
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
@@ -25,7 +25,7 @@ const postBodySchema = z.object({
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  return withRateLimit(req, "sandbox:create", async () => {
+  return withRateLimit(req, "preview-session:create", async () => {
     try {
       const { chatId } = await ctx.params;
 
@@ -33,7 +33,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         return NextResponse.json(
           {
             ok: false,
-            code: "sandbox_disabled",
+            code: "preview_session_disabled",
             message: "Tier-2 preview is not configured on this deployment.",
             hint: TIER2_PREVIEW_SETUP_HINT,
             retryable: true,
@@ -111,16 +111,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       if (
         !parsed.data.forceRestart &&
-        typeof versionRow.sandbox_url === "string" &&
-        versionRow.sandbox_url.trim() &&
-        isSandboxPreviewUrl(versionRow.sandbox_url)
+        typeof versionRow.preview_url === "string" &&
+        versionRow.preview_url.trim() &&
+        isSandboxPreviewUrl(versionRow.preview_url)
       ) {
         return NextResponse.json({
           ok: true,
-          sandboxUrl: versionRow.sandbox_url.trim(),
-          sandboxId: null,
-          sandboxPreviewMode: null,
-          fidelityTier: 2,
+          previewUrl: versionRow.preview_url.trim(),
+          previewSessionId: null,
+          previewMode: null,
+          previewTier: 2,
           startOutcome: "reused_url",
         });
       }
@@ -136,7 +136,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           {
             ok: false,
             code: "no_files",
-            message: "No files in version for sandbox.",
+            message: "No files in version for preview session.",
             retryable: false,
           },
           { status: 400 },
@@ -194,7 +194,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const sr = started.result;
       if (sr.sandboxUrl.trim()) {
-        await updateVersionSandboxUrl(versionRow.id, sr.sandboxUrl);
+        await updateVersionPreviewUrl(versionRow.id, sr.sandboxUrl);
       }
 
       logSandboxLifecycleTelemetry({
@@ -208,16 +208,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       return NextResponse.json({
         ok: true,
-        sandboxUrl: sr.sandboxUrl,
-        sandboxId: sr.sandboxId,
-        sandboxPreviewMode: sr.sandboxPreviewMode,
-        fidelityTier: sr.fidelityTier,
+        previewUrl: sr.sandboxUrl,
+        previewSessionId: sr.sandboxId,
+        previewMode: sr.sandboxPreviewMode,
+        previewTier: sr.fidelityTier,
         ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
         startOutcome: sr.startOutcome,
         ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
       });
     } catch (err) {
-      console.error("[sandbox-preview] POST", err);
+      console.error("[preview-session] POST", err);
       return NextResponse.json(
         {
           ok: false,

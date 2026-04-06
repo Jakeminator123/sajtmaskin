@@ -93,7 +93,7 @@ describe("shouldRunServerAutoBrief", () => {
     }
   });
 
-  it("runs for typical freeform init when env flag is off", () => {
+  it("runs for underspecified generic init when env flag is off", () => {
     const prev = process.env.SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF;
     delete process.env.SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF;
     try {
@@ -104,7 +104,7 @@ describe("shouldRunServerAutoBrief", () => {
           promptSourcePreservePayload: false,
           promptType: "freeform",
           orchestrationReason: "within_budget",
-          prompt: "Bygg en hemsida med hero och kontaktsektion.",
+          prompt: "Bygg något modernt för mitt företag.",
           buildIntent: "website",
         }),
       ).toBe(true);
@@ -145,6 +145,20 @@ describe("shouldRunServerAutoBrief", () => {
         orchestrationReason: "within_budget",
         prompt:
           "Skapa en professionell hemsida med hero-sektion, om oss, kontakt, CTA och en varm grön färgpalett för en veterinärklinik i Malmö.",
+        buildIntent: "website",
+      }),
+    ).toBe(false);
+  });
+
+  it("skips auto-brief for short simple website prompts", () => {
+    expect(
+      shouldRunServerAutoBrief({
+        hasClientBrief: false,
+        promptSourceTechnical: false,
+        promptSourcePreservePayload: false,
+        promptType: "freeform",
+        orchestrationReason: "within_budget",
+        prompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
         buildIntent: "website",
       }),
     ).toBe(false);

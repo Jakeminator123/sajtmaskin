@@ -89,14 +89,14 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       verificationBlocked: false,
       previewBlockingReason: null,
       primaryPreviewTarget: "none",
-      sandbox: {
-        canStartSandbox: false,
+      previewStart: {
+        canStartPreview: false,
         primaryPreviewTarget: "none",
         shimBlocked: false,
         requiresEnvConfig: false,
         hasCriticalInstallRisk: false,
         hasCriticalCodeFailure: false,
-        compatibilityShimAllowed: false,
+        compatibilityPreviewAllowed: false,
         issueCounts: {
           code_structure_failure: 0,
           dependency_install_failure: 0,

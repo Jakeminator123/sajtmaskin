@@ -97,10 +97,10 @@ export function PreviewPanel({
   awaitingInput = false,
   awaitingInputQuestion = null,
   awaitingInputOptions = [],
-  sandboxBuildError = null,
-  sandboxProdBuild = null,
-  sandboxPending = false,
-  activeSandboxId = null,
+  previewBuildError = null,
+  previewProdBuild = null,
+  previewPending = false,
+  activePreviewSessionId = null,
   previewLifecycle,
   activeVersionStatus = null,
   activeVersionSummary = null,
@@ -644,7 +644,7 @@ export function PreviewPanel({
     chatId,
     versionId,
     previewUrl,
-    activeSandboxId,
+    activePreviewSessionId,
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
   });
@@ -678,8 +678,8 @@ export function PreviewPanel({
   const isV0Preview = Boolean(
     previewUrl && !isOwnEnginePreview && previewUrl.includes("vusercontent.net"),
   );
-  /** True när versionen har en sandbox-URL sparad — då kan användaren byta till live-preview. */
-  const sandboxUrlPresent = Boolean(alternatePreviewUrls?.sandboxUrl?.trim());
+  /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
+  const previewUrlPresent = Boolean(alternatePreviewUrls?.sandboxUrl?.trim());
   const surfaceDescriptor = useMemo(() => {
     if (viewMode === "registry") {
       return {
@@ -707,7 +707,7 @@ export function PreviewPanel({
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
       }
-      if (sandboxPending) {
+      if (previewPending) {
         return {
           label: "Live-preview",
           detail:
@@ -716,7 +716,7 @@ export function PreviewPanel({
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
       }
-      if (!sandboxUrlPresent) {
+      if (!previewUrlPresent) {
         return {
           label: "Kompatibilitetsvy",
           detail:
@@ -771,8 +771,8 @@ export function PreviewPanel({
     isOwnEnginePreview,
     isSandboxPreview,
     isV0Preview,
-    sandboxPending,
-    sandboxUrlPresent,
+    previewPending,
+    previewUrlPresent,
     previewLifecycle,
   ]);
 
@@ -792,7 +792,7 @@ export function PreviewPanel({
   );
   const showBlobConfigWarning = Boolean(previewUrl && imageGenerationsEnabled && !isBlobConfigured);
   /** Tier 2: one user-facing strip for media/env limits — no env-var name dump (`preview-deploy.md`). */
-  const showSandboxUnifiedStrip = Boolean(
+  const showPreviewUnifiedStrip = Boolean(
     !isCodeView &&
       previewUrl &&
       !isOwnEnginePreview &&
@@ -829,8 +829,8 @@ export function PreviewPanel({
         awaitingInput={awaitingInput}
         awaitingInputQuestion={awaitingInputQuestion}
         awaitingInputOptions={awaitingInputOptions}
-        sandboxPending={sandboxPending}
-        sandboxBuildError={sandboxBuildError}
+        previewPending={previewPending}
+        previewBuildError={previewBuildError}
         previewLifecycle={previewLifecycle}
         activeVersionStatus={activeVersionStatus}
         activeVersionSummary={activeVersionSummary}
@@ -847,7 +847,7 @@ export function PreviewPanel({
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
         isSandboxPreview={isSandboxPreview}
-        sandboxUrlPresent={sandboxUrlPresent}
+        sandboxUrlPresent={previewUrlPresent}
         inspectorEnabled={inspectorEnabled}
         handleToggleInspect={handleToggleInspect}
         placementMode={placementMode}
@@ -872,14 +872,14 @@ export function PreviewPanel({
         handleOpenInNewTab={handleOpenInNewTab}
         alternatePreviewBanner={alternatePreviewBanner}
         onNavigatePreviewUrl={onNavigatePreviewUrl}
-        sandboxBuildError={sandboxBuildError}
-        sandboxProdBuild={sandboxProdBuild}
+        sandboxBuildError={previewBuildError}
+        sandboxProdBuild={previewProdBuild}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}
         activePreviewRoute={activePreviewRoute}
         handleNavigateRoute={handleNavigateRoute}
-        showSandboxUnifiedStrip={showSandboxUnifiedStrip}
+        showSandboxUnifiedStrip={showPreviewUnifiedStrip}
         showBlobWarning={showBlobWarning}
         showBlobConfigWarning={showBlobConfigWarning}
         integrationError={integrationError}

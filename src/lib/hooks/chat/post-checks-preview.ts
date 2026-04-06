@@ -1,9 +1,9 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
-import type { PreflightIssueCategory, SandboxPrimaryPreviewTarget } from "@/lib/gen/stream/preflight-contract";
+import type { PreflightIssueCategory, PreviewPrimaryTarget } from "@/lib/gen/stream/preflight-contract";
 import type { VersionErrorLogPayload } from "./types";
 
-function isSandboxPrimaryPreviewTarget(value: unknown): value is SandboxPrimaryPreviewTarget {
-  return value === "sandbox" || value === "none";
+function isPreviewPrimaryTarget(value: unknown): value is PreviewPrimaryTarget {
+  return value === "preview" || value === "none";
 }
 
 function isPreflightIssueCategory(value: unknown): value is PreflightIssueCategory {
@@ -54,9 +54,9 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
         ? root.previewBlockingReason
         : null;
   const primaryPreviewTarget =
-    isSandboxPrimaryPreviewTarget(nested?.primaryPreviewTarget)
+    isPreviewPrimaryTarget(nested?.primaryPreviewTarget)
       ? nested.primaryPreviewTarget
-      : isSandboxPrimaryPreviewTarget(root?.primaryPreviewTarget)
+      : isPreviewPrimaryTarget(root?.primaryPreviewTarget)
         ? root.primaryPreviewTarget
         : undefined;
   const issueCategories =
@@ -65,48 +65,48 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
       : Array.isArray(root?.issueCategories)
         ? root.issueCategories.filter(isPreflightIssueCategory)
         : undefined;
-  const sandboxRoot =
-    root?.sandbox && typeof root.sandbox === "object"
-      ? (root.sandbox as Record<string, unknown>)
+  const previewStartRoot =
+    root?.previewStart && typeof root.previewStart === "object"
+      ? (root.previewStart as Record<string, unknown>)
       : null;
-  const sandboxNested =
-    nested?.sandbox && typeof nested.sandbox === "object"
-      ? (nested.sandbox as Record<string, unknown>)
+  const previewStartNested =
+    nested?.previewStart && typeof nested.previewStart === "object"
+      ? (nested.previewStart as Record<string, unknown>)
       : null;
-  const sandboxData = sandboxNested ?? sandboxRoot;
-  const sandbox =
-    sandboxData &&
-    typeof sandboxData.canStartSandbox === "boolean" &&
-    isSandboxPrimaryPreviewTarget(sandboxData.primaryPreviewTarget) &&
-    typeof sandboxData.shimBlocked === "boolean" &&
-    typeof sandboxData.requiresEnvConfig === "boolean" &&
-    typeof sandboxData.hasCriticalInstallRisk === "boolean" &&
-    typeof sandboxData.hasCriticalCodeFailure === "boolean" &&
-    typeof sandboxData.compatibilityShimAllowed === "boolean" &&
-    sandboxData.issueCounts &&
-    typeof sandboxData.issueCounts === "object" &&
-    Array.isArray(sandboxData.blockingCategories)
+  const previewStartData = previewStartNested ?? previewStartRoot;
+  const previewStart =
+    previewStartData &&
+    typeof previewStartData.canStartPreview === "boolean" &&
+    isPreviewPrimaryTarget(previewStartData.primaryPreviewTarget) &&
+    typeof previewStartData.shimBlocked === "boolean" &&
+    typeof previewStartData.requiresEnvConfig === "boolean" &&
+    typeof previewStartData.hasCriticalInstallRisk === "boolean" &&
+    typeof previewStartData.hasCriticalCodeFailure === "boolean" &&
+    typeof previewStartData.compatibilityPreviewAllowed === "boolean" &&
+    previewStartData.issueCounts &&
+    typeof previewStartData.issueCounts === "object" &&
+    Array.isArray(previewStartData.blockingCategories)
       ? {
-          canStartSandbox: sandboxData.canStartSandbox,
-          primaryPreviewTarget: sandboxData.primaryPreviewTarget,
-          shimBlocked: sandboxData.shimBlocked,
-          requiresEnvConfig: sandboxData.requiresEnvConfig,
-          hasCriticalInstallRisk: sandboxData.hasCriticalInstallRisk,
-          hasCriticalCodeFailure: sandboxData.hasCriticalCodeFailure,
-          compatibilityShimAllowed: sandboxData.compatibilityShimAllowed,
+          canStartPreview: previewStartData.canStartPreview,
+          primaryPreviewTarget: previewStartData.primaryPreviewTarget,
+          shimBlocked: previewStartData.shimBlocked,
+          requiresEnvConfig: previewStartData.requiresEnvConfig,
+          hasCriticalInstallRisk: previewStartData.hasCriticalInstallRisk,
+          hasCriticalCodeFailure: previewStartData.hasCriticalCodeFailure,
+          compatibilityPreviewAllowed: previewStartData.compatibilityPreviewAllowed,
           issueCounts: {
             code_structure_failure:
-              Number((sandboxData.issueCounts as Record<string, unknown>).code_structure_failure) || 0,
+              Number((previewStartData.issueCounts as Record<string, unknown>).code_structure_failure) || 0,
             dependency_install_failure:
-              Number((sandboxData.issueCounts as Record<string, unknown>).dependency_install_failure) || 0,
+              Number((previewStartData.issueCounts as Record<string, unknown>).dependency_install_failure) || 0,
             env_config_missing:
-              Number((sandboxData.issueCounts as Record<string, unknown>).env_config_missing) || 0,
+              Number((previewStartData.issueCounts as Record<string, unknown>).env_config_missing) || 0,
             shim_preview_failure:
-              Number((sandboxData.issueCounts as Record<string, unknown>).shim_preview_failure) || 0,
+              Number((previewStartData.issueCounts as Record<string, unknown>).shim_preview_failure) || 0,
             non_blocking_quality_warning:
-              Number((sandboxData.issueCounts as Record<string, unknown>).non_blocking_quality_warning) || 0,
+              Number((previewStartData.issueCounts as Record<string, unknown>).non_blocking_quality_warning) || 0,
           },
-          blockingCategories: sandboxData.blockingCategories.filter(
+          blockingCategories: previewStartData.blockingCategories.filter(
             isPreflightIssueCategory,
           ),
         }
@@ -193,7 +193,7 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
     !previewBlockingReason &&
     !primaryPreviewTarget &&
     !issueCategories &&
-    !sandbox &&
+    !previewStart &&
     !scaffoldRetry &&
     !routePlan
   ) {
@@ -206,18 +206,18 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
     previewBlockingReason,
     primaryPreviewTarget,
     issueCategories,
-    sandbox,
+    previewStart,
     scaffoldRetry,
     routePlan,
   };
 }
 
-export function isPreviewPendingOnSandbox(
+export function isPreviewPendingInVm(
   preflight?: PreviewPreflightState | null,
 ): boolean {
   return Boolean(
-    preflight?.sandbox?.canStartSandbox &&
-      preflight.sandbox.primaryPreviewTarget === "sandbox",
+    preflight?.previewStart?.canStartPreview &&
+      preflight.previewStart.primaryPreviewTarget === "preview",
   );
 }
 
@@ -232,7 +232,7 @@ export function getPreviewBlockingReason(
 function buildPreviewUnavailableDetails(
   preflight?: PreviewPreflightState | null,
 ): PreviewUnavailableDetails {
-  if (isPreviewPendingOnSandbox(preflight)) {
+  if (isPreviewPendingInVm(preflight)) {
     return {
       message: "Live-preview startar i VM och blir tillgänglig när miljön är redo.",
       previewCode: "preview_waiting_for_vm",
@@ -298,14 +298,14 @@ export function buildPreviewUnavailableStep(
 export function getPreviewUnavailableQualityGateFailure(
   preflight?: PreviewPreflightState | null,
 ): "preflight_preview_blocked" | "missing_preview_url" | "preview_waiting_for_vm" {
-  if (isPreviewPendingOnSandbox(preflight)) return "preview_waiting_for_vm";
+  if (isPreviewPendingInVm(preflight)) return "preview_waiting_for_vm";
   return preflight?.previewBlocked ? "preflight_preview_blocked" : "missing_preview_url";
 }
 
 export function getPreviewUnavailableAutoFixReason(
   preflight?: PreviewPreflightState | null,
 ): string {
-  if (isPreviewPendingOnSandbox(preflight)) {
+  if (isPreviewPendingInVm(preflight)) {
     return "live-preview väntar på VM";
   }
   return getPreviewBlockingReason(preflight)

@@ -8,33 +8,33 @@ import {
 } from "@/lib/gen/sandbox/session-store";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/sandbox/tier2-config";
-import type { SandboxHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
+import type { PreviewHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
   versionId: z.string().min(1),
-  sandboxId: z.string().min(1),
+  previewSessionId: z.string().min(1),
   viewerId: z.string().min(1),
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  return withRateLimit(req, "sandbox:heartbeat", async () => {
+  return withRateLimit(req, "preview-session:heartbeat", async () => {
     try {
       const { chatId } = await ctx.params;
 
       if (!isTier2PreviewConfigured()) {
-        const body: SandboxHeartbeatApiJson = { ok: false, reason: "sandbox_not_configured" };
+        const body: PreviewHeartbeatApiJson = { ok: false, reason: "preview_session_not_configured" };
         logSandboxLifecycleTelemetry({
           kind: "heartbeat",
           ok: false,
           chatId,
-          reason: "sandbox_not_configured",
+          reason: "preview_session_not_configured",
         });
         return NextResponse.json(body, { status: 503 });
       }
 
       const chat = await getEngineChatByIdForRequest(req, chatId);
       if (!chat) {
-        return NextResponse.json({ ok: false, reason: "not_found" } satisfies SandboxHeartbeatApiJson, {
+        return NextResponse.json({ ok: false, reason: "not_found" } satisfies PreviewHeartbeatApiJson, {
           status: 404,
         });
       }
@@ -42,12 +42,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const raw = await req.json().catch(() => ({}));
       const parsed = bodySchema.safeParse(raw);
       if (!parsed.success) {
-        return NextResponse.json({ ok: false, reason: "invalid_body" } satisfies SandboxHeartbeatApiJson, {
+        return NextResponse.json({ ok: false, reason: "invalid_body" } satisfies PreviewHeartbeatApiJson, {
           status: 400,
         });
       }
 
-      const { versionId, sandboxId, viewerId } = parsed.data;
+      const { versionId, previewSessionId, viewerId } = parsed.data;
       const session = await getActiveSandboxSessionAsync(chatId);
 
       if (!session) {
@@ -58,10 +58,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           reason: "no_session",
           viewerId,
         });
-        return NextResponse.json({ ok: false, reason: "no_session" } satisfies SandboxHeartbeatApiJson);
+        return NextResponse.json({ ok: false, reason: "no_session" } satisfies PreviewHeartbeatApiJson);
       }
 
-      if ((session.versionId ?? "") !== versionId || session.sandboxId !== sandboxId) {
+      if ((session.versionId ?? "") !== versionId || session.sandboxId !== previewSessionId) {
         logSandboxLifecycleTelemetry({
           kind: "heartbeat",
           ok: false,
@@ -69,7 +69,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           reason: "session_mismatch",
           viewerId,
         });
-        return NextResponse.json({ ok: false, reason: "session_mismatch" } satisfies SandboxHeartbeatApiJson);
+        return NextResponse.json({ ok: false, reason: "session_mismatch" } satisfies PreviewHeartbeatApiJson);
       }
 
       await touchSandboxSessionAsync({
@@ -86,14 +86,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         viewerId,
       });
 
-      return NextResponse.json({ ok: true } satisfies SandboxHeartbeatApiJson);
+      return NextResponse.json({ ok: true } satisfies PreviewHeartbeatApiJson);
     } catch (err) {
-      console.error("[sandbox-heartbeat] POST", err);
+      console.error("[preview-heartbeat] POST", err);
       return NextResponse.json(
         {
           ok: false,
           reason: err instanceof Error ? err.message : "unknown",
-        } satisfies SandboxHeartbeatApiJson,
+        } satisfies PreviewHeartbeatApiJson,
         { status: 500 },
       );
     }

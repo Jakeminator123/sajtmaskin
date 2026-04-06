@@ -115,8 +115,8 @@ describe("checkNoBracketPlaceholders", () => {
 describe("checkTier2Readiness", () => {
   it("passes when tier-2 can start even if only warnings remain", () => {
     const result = checkTier2Readiness({
-      sandbox: {
-        canStartSandbox: true,
+      previewStart: {
+        canStartPreview: true,
         blockingCategories: [],
       },
       previewBlockingReason: null,
@@ -136,8 +136,8 @@ describe("checkTier2Readiness", () => {
 
   it("fails when preflight blocks tier-2 startup", () => {
     const result = checkTier2Readiness({
-      sandbox: {
-        canStartSandbox: false,
+      previewStart: {
+        canStartPreview: false,
         blockingCategories: ["dependency_install_failure"],
       },
       previewBlockingReason: null,

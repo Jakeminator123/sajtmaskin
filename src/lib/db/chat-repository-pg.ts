@@ -46,7 +46,7 @@ export interface Version {
   message_id: string | null;
   version_number: number;
   files_json: string;
-  sandbox_url: string | null;
+  preview_url: string | null;
   release_state: EngineVersionReleaseState;
   verification_state: EngineVersionVerificationState;
   verification_summary: string | null;
@@ -160,7 +160,7 @@ async function insertDraftVersionRow(
     chatId: string;
     messageId: string | null;
     filesJson: string;
-    sandboxUrl?: string;
+    previewUrl?: string;
   },
 ): Promise<Version> {
   const id = uuid();
@@ -176,7 +176,7 @@ async function insertDraftVersionRow(
     messageId: params.messageId,
     versionNumber,
     filesJson: params.filesJson,
-    sandboxUrl: params.sandboxUrl ?? null,
+    previewUrl: params.previewUrl ?? null,
     releaseState: "draft",
     verificationState: "pending",
     verificationSummary: null,
@@ -196,10 +196,10 @@ export async function addAssistantMessageAndCreateDraftVersion(
   options: {
     tokenCount?: number;
     uiParts?: Record<string, unknown>[] | null;
-    sandboxUrl?: string;
+    previewUrl?: string;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, sandboxUrl } = options;
+  const { tokenCount, uiParts, previewUrl } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -220,7 +220,7 @@ export async function addAssistantMessageAndCreateDraftVersion(
       chatId,
       messageId,
       filesJson,
-      sandboxUrl,
+      previewUrl,
     });
 
     const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
@@ -235,9 +235,9 @@ export async function createDraftVersion(
   chatId: string,
   messageId: string | null,
   filesJson: string,
-  sandboxUrl?: string,
+  previewUrl?: string,
 ): Promise<Version> {
-  return insertDraftVersionRow(db, { chatId, messageId, filesJson, sandboxUrl });
+  return insertDraftVersionRow(db, { chatId, messageId, filesJson, previewUrl });
 }
 
 export async function createAndPromoteDraftVersion(
@@ -245,9 +245,9 @@ export async function createAndPromoteDraftVersion(
   messageId: string | null,
   filesJson: string,
   verificationSummary: string | null = "Automatic verification passed.",
-  sandboxUrl?: string,
+  previewUrl?: string,
 ): Promise<Version | null> {
-  const version = await createDraftVersion(chatId, messageId, filesJson, sandboxUrl);
+  const version = await createDraftVersion(chatId, messageId, filesJson, previewUrl);
   return promoteVersion(version.id, verificationSummary);
 }
 
@@ -341,13 +341,13 @@ export async function updateVersionFiles(versionId: string, filesJson: string): 
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function updateVersionSandboxUrl(
+export async function updateVersionPreviewUrl(
   versionId: string,
-  sandboxUrl: string | null,
+  previewUrl: string | null,
 ): Promise<boolean> {
   const result = await db
     .update(engineVersions)
-    .set({ sandboxUrl })
+    .set({ previewUrl })
     .where(eq(engineVersions.id, versionId));
   return (result.rowCount ?? 0) > 0;
 }

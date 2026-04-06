@@ -159,8 +159,8 @@ describe("runFinalizePreflight", () => {
       message: "Automatic preflight could not build a renderable own-engine preview entrypoint.",
       category: "shim_preview_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(true);
-    expect(result.sandbox.primaryPreviewTarget).toBe("sandbox");
+    expect(result.previewStart.canStartPreview).toBe(true);
+    expect(result.previewStart.primaryPreviewTarget).toBe("preview");
   });
 
   it("preserves the thrown preview preparation error in the blocking reason", async () => {
@@ -189,7 +189,7 @@ describe("runFinalizePreflight", () => {
       message: "Automatic preflight failed while preparing preview: kaboom",
       category: "shim_preview_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(true);
+    expect(result.previewStart.canStartPreview).toBe(true);
   });
 
   it("keeps preview unblocked when only project sanity reports verification issues", async () => {
@@ -224,8 +224,8 @@ describe("runFinalizePreflight", () => {
       message: "Missing required export",
       category: "code_structure_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(false);
-    expect(result.sandbox.primaryPreviewTarget).toBe("none");
+    expect(result.previewStart.canStartPreview).toBe(false);
+    expect(result.previewStart.primaryPreviewTarget).toBe("none");
   });
 
   it("preserves explicit sanity categories instead of falling back to message heuristics", async () => {
@@ -260,11 +260,11 @@ describe("runFinalizePreflight", () => {
       message: "Install validation failed",
       category: "dependency_install_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(false);
-    expect(result.sandbox.hasCriticalInstallRisk).toBe(true);
+    expect(result.previewStart.canStartPreview).toBe(false);
+    expect(result.previewStart.hasCriticalInstallRisk).toBe(true);
   });
 
-  it("keeps sandbox eligible when SEO preflight only reports non-blocking quality issues", async () => {
+  it("keeps preview eligible when SEO preflight only reports non-blocking quality issues", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     runSeoPreflightChecks.mockReturnValue([
       {
@@ -294,7 +294,7 @@ describe("runFinalizePreflight", () => {
       message: "Metadata saknar title.",
       category: "non_blocking_quality_warning",
     });
-    expect(result.sandbox.canStartSandbox).toBe(true);
-    expect(result.sandbox.primaryPreviewTarget).toBe("sandbox");
+    expect(result.previewStart.canStartPreview).toBe(true);
+    expect(result.previewStart.primaryPreviewTarget).toBe("preview");
   });
 });

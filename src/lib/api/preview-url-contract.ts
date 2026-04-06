@@ -16,18 +16,14 @@ export function readPreviewUrl(data: { previewUrl?: unknown } | null | undefined
 }
 
 /**
- * Inbound webhook / legacy payloads: prefer `previewUrl`, then `sandboxUrl`,
- * then fall back to legacy `demoUrl`.
+ * Inbound webhook / legacy payloads: prefer `previewUrl`, then fall back to
+ * legacy `demoUrl`.
  */
 export function resolveInboundPreviewUrl(
-  data: { previewUrl?: unknown; sandboxUrl?: unknown; demoUrl?: unknown } | null | undefined,
+  data: { previewUrl?: unknown; demoUrl?: unknown } | null | undefined,
 ): string | null {
   const p = readPreviewUrl(data);
   if (p) return p;
-  if (typeof data?.sandboxUrl === "string") {
-    const sandbox = data.sandboxUrl.trim();
-    if (sandbox) return sandbox;
-  }
   if (typeof data?.demoUrl !== "string") return null;
   const t = data.demoUrl.trim();
   return t ? t : null;

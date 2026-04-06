@@ -348,7 +348,7 @@ const setupQueries = [
     message_id TEXT,
     version_number INTEGER NOT NULL,
     files_json TEXT NOT NULL,
-    sandbox_url TEXT,
+    preview_url TEXT,
     release_state TEXT NOT NULL DEFAULT 'draft',
     verification_state TEXT NOT NULL DEFAULT 'pending',
     verification_summary TEXT,
@@ -390,6 +390,24 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_version_id ON engine_version_error_logs(version_id)`,
   `CREATE INDEX IF NOT EXISTS idx_engine_version_error_logs_chat_id ON engine_version_error_logs(chat_id)`,
   `ALTER TABLE engine_messages ADD COLUMN IF NOT EXISTS ui_parts JSONB`,
+  `DO $$
+   BEGIN
+     IF EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'engine_versions'
+         AND column_name = 'sandbox_url'
+     ) AND NOT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'engine_versions'
+         AND column_name = 'preview_url'
+     ) THEN
+       ALTER TABLE engine_versions RENAME COLUMN sandbox_url TO preview_url;
+     END IF;
+   END $$`,
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS release_state TEXT`,
   `UPDATE engine_versions SET release_state = 'promoted' WHERE release_state IS NULL`,
   `ALTER TABLE engine_versions ALTER COLUMN release_state SET DEFAULT 'draft'`,

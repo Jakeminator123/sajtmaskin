@@ -121,7 +121,7 @@ export function SandboxModal({
         source = { type: "files", files: filesMap };
       }
 
-      const response = await fetch("/api/sandbox", {
+      const response = await fetch("/api/runtime", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -140,16 +140,16 @@ export function SandboxModal({
         | null;
       if (!response.ok) {
         if (data?.setup) setSetupHint(String(data.setup));
-        throw new Error(data?.error || `Failed to create sandbox (HTTP ${response.status})`);
+        throw new Error(data?.error || `Failed to create runtime (HTTP ${response.status})`);
       }
       if (!data) {
-        throw new Error("Failed to create sandbox");
+        throw new Error("Failed to create runtime");
       }
       setResult(data);
-      toast.success("Sandbox created!");
+      toast.success("Runtime started!");
     } catch (error) {
-      console.error("Sandbox create error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to create sandbox");
+      console.error("Runtime create error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create runtime");
     } finally {
       setIsCreating(false);
     }
@@ -176,7 +176,7 @@ export function SandboxModal({
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TerminalSquare className="h-5 w-5 text-foreground" />
-            <h2 className="text-xl font-semibold text-foreground">Run in Sandbox</h2>
+            <h2 className="text-xl font-semibold text-foreground">Start Runtime</h2>
           </div>
           <button
             onClick={handleClose}
@@ -215,13 +215,13 @@ export function SandboxModal({
           <div className="mb-6 space-y-4">
             <div>
               <label
-                htmlFor="sandbox-git-url"
+                htmlFor="runtime-git-url"
                 className="mb-1 block text-sm font-medium text-foreground"
               >
                 Repository URL
               </label>
               <input
-                id="sandbox-git-url"
+                id="runtime-git-url"
                 name="gitUrl"
                 type="url"
                 placeholder="https://github.com/username/repo"
@@ -232,13 +232,13 @@ export function SandboxModal({
             </div>
             <div>
               <label
-                htmlFor="sandbox-git-branch"
+                htmlFor="runtime-git-branch"
                 className="mb-1 block text-sm font-medium text-foreground"
               >
                 Branch (optional)
               </label>
               <input
-                id="sandbox-git-branch"
+                id="runtime-git-branch"
                 name="gitBranch"
                 type="text"
                 placeholder="main"
@@ -370,12 +370,12 @@ export function SandboxModal({
           ) : (
             <TerminalSquare className="h-5 w-5" />
           )}
-          {isCreating ? "Creating sandbox..." : "Create sandbox"}
+          {isCreating ? "Starting runtime..." : "Start runtime"}
         </button>
 
         {result && (
           <div className="mt-6 rounded-lg border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
-            <div className="mb-2 font-medium">Sandbox ready!</div>
+            <div className="mb-2 font-medium">Runtime ready!</div>
             <div className="space-y-2">
               {result.primaryUrl && (
                 <button

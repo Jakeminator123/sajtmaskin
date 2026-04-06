@@ -5,27 +5,27 @@ import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
-import { updateVersionSandboxUrl } from "@/lib/db/chat-repository-pg";
+import { updateVersionPreviewUrl } from "@/lib/db/chat-repository-pg";
 import {
   clearSandboxSessionAsync,
   getActiveSandboxSessionAsync,
 } from "@/lib/gen/sandbox/session-store";
 import { destroyPreviewHostSession } from "@/lib/gen/sandbox/preview-host-client";
-import type { SandboxDestroyApiJson } from "@/lib/gen/preview/preview-contract";
+import type { PreviewDestroyApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
   versionId: z.string().min(1),
-  sandboxId: z.string().min(1).optional(),
+  previewSessionId: z.string().min(1).optional(),
 });
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  return withRateLimit(req, "sandbox:destroy", async () => {
+  return withRateLimit(req, "preview-session:destroy", async () => {
     try {
       const { chatId } = await ctx.params;
       const chat = await getEngineChatByIdForRequest(req, chatId);
       if (!chat) {
         return NextResponse.json(
-          { ok: false, reason: "not_found", message: "Chat not found." } satisfies SandboxDestroyApiJson,
+          { ok: false, reason: "not_found", message: "Chat not found." } satisfies PreviewDestroyApiJson,
           { status: 404 },
         );
       }
@@ -34,7 +34,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const parsed = bodySchema.safeParse(raw);
       if (!parsed.success) {
         return NextResponse.json(
-          { ok: false, reason: "invalid_body", message: "Invalid request body." } satisfies SandboxDestroyApiJson,
+          { ok: false, reason: "invalid_body", message: "Invalid request body." } satisfies PreviewDestroyApiJson,
           { status: 400 },
         );
       }
@@ -46,17 +46,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       );
       if (!requestedVersion) {
         return NextResponse.json(
-          { ok: false, reason: "version_not_found", message: "Version not found for chat." } satisfies SandboxDestroyApiJson,
+          { ok: false, reason: "version_not_found", message: "Version not found for chat." } satisfies PreviewDestroyApiJson,
           { status: 404 },
         );
       }
 
       const session = await getActiveSandboxSessionAsync(chatId);
-      const requestedSandboxId = parsed.data.sandboxId?.trim() || null;
+      const requestedPreviewSessionId = parsed.data.previewSessionId?.trim() || null;
       const matchedSession =
         session &&
         session.versionId === requestedVersion.version.id &&
-        (!requestedSandboxId || session.sandboxId === requestedSandboxId)
+        (!requestedPreviewSessionId || session.sandboxId === requestedPreviewSessionId)
           ? session
           : null;
 
@@ -72,7 +72,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               reason: "destroy_failed",
               message: destroyed.message,
               tier2Provider: "preview_host",
-            } satisfies SandboxDestroyApiJson,
+            } satisfies PreviewDestroyApiJson,
             { status: destroyed.retryable ? 502 : 400 },
           );
         }
@@ -83,22 +83,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         await clearSandboxSessionAsync(chatId);
       }
 
-      const updated = await updateVersionSandboxUrl(requestedVersion.version.id, null);
+      const updated = await updateVersionPreviewUrl(requestedVersion.version.id, null);
       if (!updated) {
         return NextResponse.json(
           {
             ok: false,
             reason: "update_failed",
-            message: "Failed to clear stored sandboxUrl for version.",
-          } satisfies SandboxDestroyApiJson,
+            message: "Failed to clear stored previewUrl for version.",
+          } satisfies PreviewDestroyApiJson,
           { status: 500 },
         );
       }
 
-      const response: SandboxDestroyApiJson = {
+      const response: PreviewDestroyApiJson = {
         ok: true,
         destroyed: destroyedOnProvider,
-        clearedSandboxUrl: true,
+        clearedPreviewUrl: true,
         tier2Provider: matchedSession?.tier2Provider ?? null,
         ...(matchedSession ? {} : { reason: "no_matching_session" }),
       };
@@ -109,7 +109,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           ok: false,
           reason: "unknown",
           message: err instanceof Error ? err.message : "Unknown error",
-        } satisfies SandboxDestroyApiJson,
+        } satisfies PreviewDestroyApiJson,
         { status: 500 },
       );
     }

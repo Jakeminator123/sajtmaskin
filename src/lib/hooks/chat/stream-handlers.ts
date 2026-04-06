@@ -2,8 +2,8 @@ import { consumeSseResponse } from "@/lib/builder/sse";
 import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type {
   AutoFixPayload,
-  SandboxBuildErrorPayload,
-  SandboxProdBuildPayload,
+  PreviewBuildErrorPayload,
+  PreviewProdBuildPayload,
   SetMessages,
   StreamQualitySignal,
 } from "./types";
@@ -62,9 +62,9 @@ export type StreamContext = {
   onLinkedProjectId?: (projectId: string) => void;
 
   setCurrentPreviewUrl: (url: string | null) => void;
-  setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
-  setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
-  setSandboxPending?: (pending: boolean) => void;
+  setPreviewBuildError?: (payload: PreviewBuildErrorPayload | null) => void;
+  setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
+  setPreviewPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: {
     chatId: string;
@@ -72,8 +72,8 @@ export type StreamContext = {
     previewUrl?: string;
     onlySelectVersionIfWasLatest?: boolean;
   }) => void;
-  /** Own-engine sandbox session metadata (SSE sandbox-ready). */
-  onSandboxSessionMeta?: (meta: { sandboxId: string; versionId: string | null } | null) => void;
+  /** Own-engine preview session metadata (SSE `preview-ready`). */
+  onPreviewSessionMeta?: (meta: { previewSessionId: string; versionId: string | null } | null) => void;
   mutateVersions: () => void;
   enableImageMaterialization: boolean;
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
@@ -120,11 +120,11 @@ export async function handleSseStream(
     appProjectId,
     pendingCreateKeyRef,
     onLinkedProjectId,
-    onSandboxSessionMeta,
+    onPreviewSessionMeta,
     setCurrentPreviewUrl,
-    setSandboxBuildError,
-    setSandboxProdBuild,
-    setSandboxPending,
+    setPreviewBuildError,
+    setPreviewProdBuild,
+    setPreviewPending,
     onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -137,7 +137,7 @@ export async function handleSseStream(
   const getProgressToolName = (step: string) => {
     if (isOwnEnginePostStreamPhaseId(step)) return ownEnginePostStreamStepLabelSv(step);
     if (step === "generation") return "Generering";
-    if (step === "sandbox") return "Live-preview";
+    if (step === "preview") return "Live-preview";
     if (step === "build-error") return "Byggfel";
     return step;
   };
@@ -282,9 +282,9 @@ export async function handleSseStream(
         return details;
       }
     }
-    if (step === "sandbox") {
+    if (step === "preview") {
       if (phase === "starting") {
-        return ["Startar tier-2-preview (VM / legacy preview-kontrakt)…"];
+        return ["Startar tier-2-preview (VM) ..."];
       }
       if (phase === "build-verified") {
         return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
@@ -652,67 +652,69 @@ export async function handleSseStream(
             }
             break;
           }
-          case "sandbox-ready": {
-            const sandboxData = data as Record<string, unknown>;
-            const sandboxUrl =
-              typeof sandboxData.sandboxUrl === "string"
-                ? sandboxData.sandboxUrl.trim()
+          case "preview-ready": {
+            const previewData = data as Record<string, unknown>;
+            const previewUrl =
+              typeof previewData.previewUrl === "string"
+                ? previewData.previewUrl.trim()
                 : "";
-            const sandboxIdRaw =
-              typeof sandboxData.sandboxId === "string" ? sandboxData.sandboxId.trim() : "";
-            if (sandboxIdRaw) {
-              onSandboxSessionMeta?.({
-                sandboxId: sandboxIdRaw,
+            const previewSessionIdRaw =
+              typeof previewData.previewSessionId === "string"
+                ? previewData.previewSessionId.trim()
+                : "";
+            if (previewSessionIdRaw) {
+              onPreviewSessionMeta?.({
+                previewSessionId: previewSessionIdRaw,
                 versionId: versionIdFromStream,
               });
             }
 
-            setSandboxPending?.(false);
-            setSandboxBuildError?.(null);
+            setPreviewPending?.(false);
+            setPreviewBuildError?.(null);
 
-            if (sandboxUrl && !isCompatibilityShimPreviewUrl(sandboxUrl)) {
-              setCurrentPreviewUrl(sandboxUrl);
+            if (previewUrl && !isCompatibilityShimPreviewUrl(previewUrl)) {
+              setCurrentPreviewUrl(previewUrl);
               onPreviewRefresh?.();
               const pendingPost = postCheckQueue[postCheckQueue.length - 1];
               if (pendingPost) {
-                pendingPost.demoUrl = sandboxUrl;
+                pendingPost.demoUrl = previewUrl;
               }
             }
 
             const tierMeta =
-              typeof sandboxData.fidelityTier === "number"
+              typeof previewData.previewTier === "number"
                 ? {
-                    fidelityTier: sandboxData.fidelityTier,
-                    ...(typeof sandboxData.sandboxPreviewMode === "string"
-                      ? { sandboxPreviewMode: sandboxData.sandboxPreviewMode }
+                    previewTier: previewData.previewTier,
+                    ...(typeof previewData.previewMode === "string"
+                      ? { previewMode: previewData.previewMode }
                       : {}),
                   }
                 : {};
 
             const pb =
-              typeof sandboxData.prodBuildVerified === "boolean"
-                ? sandboxData.prodBuildVerified
+              typeof previewData.prodBuildVerified === "boolean"
+                ? previewData.prodBuildVerified
                 : undefined;
             if (pb !== undefined) {
               const logSnippet =
-                typeof sandboxData.prodBuildLogSnippet === "string"
-                  ? sandboxData.prodBuildLogSnippet
+                typeof previewData.prodBuildLogSnippet === "string"
+                  ? previewData.prodBuildLogSnippet
                   : undefined;
-              setSandboxProdBuild?.({
+              setPreviewProdBuild?.({
                 verified: pb,
                 logSnippet: !pb ? logSnippet : undefined,
               });
               appendProgressPart(
-                "sandbox",
+                "preview",
                 pb ? "build-verified" : "build-failed",
                 { prodBuildVerified: pb, ...tierMeta },
               );
-            } else if (sandboxUrl) {
-              setSandboxProdBuild?.(null);
+            } else if (previewUrl) {
+              setPreviewProdBuild?.(null);
             }
 
-            if (sandboxUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
-              appendProgressPart("sandbox", "ready", tierMeta);
+            if (previewUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
+              appendProgressPart("preview", "ready", tierMeta);
             }
             break;
           }
@@ -720,8 +722,8 @@ export async function handleSseStream(
             const buildErrorData = data as Record<string, unknown>;
             const stage = String(buildErrorData.stage ?? "build");
             const message = String(buildErrorData.message ?? "Build failed");
-            setSandboxPending?.(false);
-            setSandboxBuildError?.({
+            setPreviewPending?.(false);
+            setPreviewBuildError?.({
               stage,
               message,
             });
@@ -750,7 +752,7 @@ export async function handleSseStream(
               setCurrentPreviewUrl(effectiveDoneDemo);
               onPreviewRefresh?.();
             }
-            setSandboxPending?.(Boolean(doneData.sandboxPending));
+            setPreviewPending?.(Boolean(doneData.previewPending));
             const resolvedChatId =
               doneData.chatId || doneData.id || chatIdFromStream || effectiveChatId || null;
             const resolvedVersionId =

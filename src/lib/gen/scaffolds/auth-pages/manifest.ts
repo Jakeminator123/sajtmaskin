@@ -21,6 +21,11 @@ export const authPagesManifest: ScaffoldManifest = {
     "Keep the form layout, validation structure, and link flow between auth pages. Replace branding and copy.",
     "Add OAuth buttons or additional fields as needed. Preserve the centered card layout.",
   ],
+  qualityChecklist: [
+    "Login, signup, and recovery views should stay clearly linked and feel like one coherent auth flow.",
+    "Forms should look ready for real validation and integration, not like static placeholder cards.",
+    "Branding, helper text, and CTA labels should match the actual product without losing auth clarity.",
+  ],
   files: [
     {
       path: "app/globals.css",

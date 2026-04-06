@@ -122,7 +122,11 @@ MODEL_LABELS = {
     "gpt-4o-mini": "GPT-4o mini",
     "gpt-4.1": "GPT-4.1",
     "gpt-4.1-mini": "GPT-4.1 mini",
+    "gpt-5-mini": "GPT-5 mini",
+    "gpt-5-nano": "GPT-5 nano",
     "gpt-5.1-codex-max": "GPT-5.1 Codex Max",
+    "text-embedding-3-small": "OpenAI text-embedding-3-small",
+    "whisper-1": "OpenAI Whisper-1",
     "claude-sonnet-4.6": "Claude Sonnet 4.6",
     "claude-opus-4.6": "Claude Opus 4.6",
     "anthropic/claude-sonnet-4.6": "Anthropic Claude Sonnet 4.6",
@@ -141,6 +145,142 @@ def human_model_label(model: str) -> str:
     if model in MODEL_LABELS:
         return MODEL_LABELS[model]
     return model
+
+
+BUILD_PROFILE_ORDER = ("fast", "pro", "max", "codex", "anthropic")
+PHASE_ROUTED_WORKLOADS = {
+    "manual_repair_route_llm": "fixer",
+    "server_verify_repair_llm": "fixer",
+    "plan_mode_planner": "planner",
+    "post_generation_verifier": "verifier",
+}
+ROUTE_LOCAL_WORKLOAD_MODELS = {
+    "runtime_embeddings_query": (
+        "text-embedding-3-small",
+        "route-local constant",
+        "Embeddings-modell för semantiska query-vektorer.",
+    ),
+    "text_analyze": (
+        "gpt-5-nano",
+        "route-local constant",
+        "Hårdkodad responses-modell i `/api/text/analyze`.",
+    ),
+    "wizard_enrich_competitors": (
+        "openai/gpt-5-mini",
+        "route-local constant",
+        "Hårdkodad wizard-modell i `/api/wizard/enrich`.",
+    ),
+    "transcribe": (
+        "whisper-1",
+        "route-local constant",
+        "Transkriptionsmodell, inte vanlig textmodell.",
+    ),
+}
+
+
+def build_profile_defaults(manifest: dict[str, Any]) -> dict[str, str]:
+    defaults = ((manifest.get("buildProfiles") or {}).get("defaults") or {})
+    return {str(key): str(value or "").strip() for key, value in defaults.items()}
+
+
+def phase_routing_defaults(manifest: dict[str, Any]) -> dict[str, dict[str, str]]:
+    routing = ((manifest.get("phaseRouting") or {}).get("defaultByTier") or {})
+    out: dict[str, dict[str, str]] = {}
+    for tier, cfg in routing.items():
+        if not isinstance(cfg, dict):
+            continue
+        out[str(tier)] = {str(key): str(value or "").strip() for key, value in cfg.items()}
+    return out
+
+
+def summarize_tier_models(models_by_tier: dict[str, str]) -> str:
+    parts: list[str] = []
+    for tier in BUILD_PROFILE_ORDER:
+        model = models_by_tier.get(tier, "").strip()
+        if model:
+            parts.append(f"{tier}: {human_model_label(model)}")
+    return " | ".join(parts) if parts else "—"
+
+
+def resolve_phase_models_for_dashboard(
+    manifest: dict[str, Any], phase: str
+) -> dict[str, str]:
+    build_defaults = build_profile_defaults(manifest)
+    routing = phase_routing_defaults(manifest)
+    resolved: dict[str, str] = {}
+    for tier in BUILD_PROFILE_ORDER:
+        phase_ref = routing.get(tier, {}).get(phase, "selected_build_model").strip()
+        resolved[tier] = (
+            build_defaults.get(tier, "").strip()
+            if phase_ref == "selected_build_model"
+            else phase_ref
+        )
+    return resolved
+
+
+def describe_workload_model_resolution(
+    workload: dict[str, Any], manifest: dict[str, Any]
+) -> tuple[str, str, str]:
+    workload_id = str(workload.get("id", "")).strip()
+    explicit_default = str(workload.get("defaultModel", "")).strip()
+    if explicit_default:
+        return (
+            human_model_label(explicit_default),
+            "manifest.defaultModel",
+            "Workloaden har ett eget explicit standardmodellval i manifestet.",
+        )
+
+    if workload_id == "own_engine_codegen":
+        return (
+            summarize_tier_models(build_profile_defaults(manifest)),
+            "buildProfiles.defaults",
+            "Generatorn följer vald byggprofil; varje profil har eget standardmodellval.",
+        )
+
+    if workload_id == "post_generation_polish":
+        return (
+            summarize_tier_models(build_profile_defaults(manifest)),
+            "selected_build_model",
+            "Polish-passet följer den build-model som redan valts för generationen.",
+        )
+
+    if workload_id == "autofix_llm":
+        fixer_models = summarize_tier_models(
+            resolve_phase_models_for_dashboard(manifest, "fixer")
+        )
+        pro_default = build_profile_defaults(manifest).get("pro", "").strip()
+        suffix = (
+            f" Fallback när tier saknas: {human_model_label(pro_default)}."
+            if pro_default
+            else ""
+        )
+        return (
+            fixer_models,
+            "phaseRouting.fixer + pro fallback",
+            "Autofix följer fixer-fasen när tier är känd." + suffix,
+        )
+
+    phase = PHASE_ROUTED_WORKLOADS.get(workload_id)
+    if phase:
+        return (
+            summarize_tier_models(resolve_phase_models_for_dashboard(manifest, phase)),
+            f"phaseRouting.{phase}",
+            f"Workloaden följer {phase}-fasen för aktuell byggprofil/tier.",
+        )
+
+    if workload_id in ROUTE_LOCAL_WORKLOAD_MODELS:
+        model_id, source, note = ROUTE_LOCAL_WORKLOAD_MODELS[workload_id]
+        return (human_model_label(model_id), source, note)
+
+    notes = str(workload.get("notes", "")).strip()
+    if notes:
+        return ("—", "notes / codeEntry", notes)
+
+    return (
+        "—",
+        "inspect codeEntry",
+        "Ingen explicit defaultModel i manifestet. Se codeEntry för faktisk källkod.",
+    )
 
 
 def sync_route_timeout_literals(
@@ -1208,23 +1348,55 @@ elif page == "ai_models":
 
     elif models_part == "Workloads":
         st.markdown("### Alla katalogiserade LLM-/AI-anrop")
+        st.caption(
+            "`defaultModel` visar bara explicita manifestfält. `effectiveModel` visar i stället vad koden faktiskt utgår från när fältet är tomt, t.ex. buildProfiles, phaseRouting eller en route-lokal konstant."
+        )
         workloads = manifest.get("workloads") or []
         rows = []
         for workload in workloads:
             if not isinstance(workload, dict):
                 continue
+            effective_model, model_source, model_note = describe_workload_model_resolution(
+                workload, manifest
+            )
+            explicit_default = str(workload.get("defaultModel", "")).strip()
+            fallback_models = [
+                human_model_label(str(model).strip())
+                for model in (workload.get("fallbackModels") or [])
+                if str(model).strip()
+            ]
             rows.append(
                 {
                     "id": workload.get("id", ""),
                     "titel": workload.get("title", ""),
                     "provider": workload.get("provider", ""),
                     "invocation": workload.get("invocation", ""),
-                    "defaultModel": workload.get("defaultModel", ""),
-                    "fallbackModels": ", ".join(workload.get("fallbackModels") or []),
+                    "defaultModel": human_model_label(explicit_default),
+                    "effectiveModel": effective_model,
+                    "modelSource": model_source,
+                    "fallbackModels": ", ".join(fallback_models) or "—",
                     "authEnv": ", ".join(workload.get("authEnv") or []),
+                    "förklaring": model_note,
                 }
             )
-        st.dataframe(rows, width="stretch", hide_index=True, height=420)
+        st.dataframe(
+            rows,
+            width="stretch",
+            hide_index=True,
+            height=520,
+            column_config={
+                "id": st.column_config.TextColumn("id", width="medium"),
+                "titel": st.column_config.TextColumn("titel", width="medium"),
+                "provider": st.column_config.TextColumn("provider", width="medium"),
+                "invocation": st.column_config.TextColumn("invocation", width="medium"),
+                "defaultModel": st.column_config.TextColumn("explicit defaultModel", width="medium"),
+                "effectiveModel": st.column_config.TextColumn("effective model", width="large"),
+                "modelSource": st.column_config.TextColumn("källa", width="medium"),
+                "fallbackModels": st.column_config.TextColumn("fallbackModels", width="medium"),
+                "authEnv": st.column_config.TextColumn("authEnv", width="medium"),
+                "förklaring": st.column_config.TextColumn("förklaring", width="large"),
+            },
+        )
         st.caption(
             "Detta är katalog/överblick. De viktigaste redigerbara delarna ovan uppdaterar samma `manifest.json`."
         )

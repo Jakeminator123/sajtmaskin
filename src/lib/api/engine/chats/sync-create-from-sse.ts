@@ -10,8 +10,7 @@ export type SyncLatestVersionPayload = {
   versionId: string | null;
   messageId: string | null;
   previewUrl: string | null;
-  sandboxUrl: string | null;
-  sandboxPending: boolean;
+  previewPending: boolean;
   releaseState: string | null;
   verificationState: string | null;
   verificationSummary: string | null;
@@ -54,10 +53,10 @@ function findLastEvent(events: SseEvent[], name: string): SseEvent | undefined {
   return undefined;
 }
 
-export function readSandboxReadyUrl(data: unknown): string | null {
+export function readPreviewReadyUrl(data: unknown): string | null {
   if (!data || typeof data !== "object") return null;
-  const raw = typeof (data as { sandboxUrl?: unknown }).sandboxUrl === "string"
-    ? (data as { sandboxUrl: string }).sandboxUrl.trim()
+  const raw = typeof (data as { previewUrl?: unknown }).previewUrl === "string"
+    ? (data as { previewUrl: string }).previewUrl.trim()
     : "";
   return raw || null;
 }
@@ -66,8 +65,7 @@ export function buildSyncLatestVersion(params: {
   versionId: string | null;
   messageId: string | null;
   previewResolved: string | null;
-  sandboxUrl: string | null;
-  sandboxPending: boolean;
+  previewPending: boolean;
   releaseState?: string | null;
   verificationState?: string | null;
   verificationSummary?: string | null;
@@ -77,21 +75,19 @@ export function buildSyncLatestVersion(params: {
     versionId,
     messageId,
     previewResolved,
-    sandboxUrl,
-    sandboxPending,
+    previewPending,
     releaseState = null,
     verificationState = null,
     verificationSummary = null,
     promotedAt = null,
   } = params;
-  if (!versionId && !previewResolved && !messageId && !sandboxUrl) return null;
+  if (!versionId && !previewResolved && !messageId) return null;
   return {
     id: versionId,
     versionId,
     messageId,
     ...previewUrlField(previewResolved),
-    sandboxUrl,
-    sandboxPending,
+    previewPending,
     releaseState,
     verificationState,
     verificationSummary,
@@ -110,7 +106,7 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
   const errorEvent = findLastEvent(events, "error");
   const doneEvent = findLastEvent(events, "done");
   const metaEvent = findLastEvent(events, "meta");
-  const sandboxReadyEvent = findLastEvent(events, "sandbox-ready");
+  const previewReadyEvent = findLastEvent(events, "preview-ready");
 
   if (!doneEvent) {
     const errorData =
@@ -144,18 +140,18 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
 
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
-  const sandboxPending = done.sandboxPending === true;
+  const previewPending = done.previewPending === true;
 
-  const sandboxData =
-    sandboxReadyEvent?.data && typeof sandboxReadyEvent.data === "object"
-      ? (sandboxReadyEvent.data as Record<string, unknown>)
+  const previewData =
+    previewReadyEvent?.data && typeof previewReadyEvent.data === "object"
+      ? (previewReadyEvent.data as Record<string, unknown>)
       : null;
-  const sandboxUrl = readSandboxReadyUrl(sandboxData);
+  const previewReadyUrl = readPreviewReadyUrl(previewData);
 
   const previewResolved =
     readPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
-    resolveInboundPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown; sandboxUrl?: unknown }) ??
-    sandboxUrl;
+    resolveInboundPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
+    previewReadyUrl;
 
   const verificationState = done.verificationBlocked === true ? "failed" : "pending";
   const verificationSummary =
@@ -182,7 +178,7 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
     model: typeof meta.modelId === "string" ? meta.modelId : null,
     meta,
     ...previewUrlField(previewResolved),
-    sandboxPending,
+    previewPending,
     preflight: done.preflight,
     previewBlocked: done.previewBlocked,
     verificationBlocked: done.verificationBlocked,
@@ -196,8 +192,7 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
       versionId,
       messageId,
       previewResolved,
-      sandboxUrl,
-      sandboxPending,
+      previewPending,
       releaseState: null,
       verificationState,
       verificationSummary,

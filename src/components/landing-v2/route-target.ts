@@ -1,4 +1,8 @@
-import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
+import {
+  isTemplateEntryMode,
+  type BuildIntent,
+  type BuildMethod,
+} from "@/lib/builder/build-intent";
 
 export type LandingRouteTarget = {
   buildMethod: BuildMethod;
@@ -7,11 +11,10 @@ export type LandingRouteTarget = {
 };
 
 export function resolveLandingRouteTarget(categoryId: string | null): LandingRouteTarget {
+  if (isTemplateEntryMode(categoryId)) {
+    return { buildMethod: "category", buildIntent: "template" };
+  }
   switch (categoryId) {
-    case "template":
-    case "mall":
-    case "kategori":
-      return { buildMethod: "category", buildIntent: "template" };
     case "analyserad":
       return { buildMethod: "wizard", buildIntent: "website" };
     case "audit":

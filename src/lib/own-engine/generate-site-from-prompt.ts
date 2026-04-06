@@ -11,10 +11,11 @@ import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import type { RuntimeMode, RuntimeFile, SandboxRuntimeOptions } from "@/lib/mcp/runtime-url";
 import {
-  buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
 } from "@/lib/mcp/runtime-url";
 import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox/env-local";
+import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
 export type GenerateOwnEngineSiteFromPromptParams = {
   prompt: string;
@@ -289,11 +290,27 @@ export async function generateOwnEngineSiteFromPrompt(
     runtime = sandboxRuntime.runtime;
     ports = sandboxRuntime.ports;
   } else {
-    runtimeUrl = buildOwnEnginePreviewRuntime({
+    const sandboxStarted = await startSandboxPreview(
+      files.map((file) => ({
+        path: file.path,
+        content: file.content,
+        language: inferFileLanguage(file.path),
+      })),
+      {
       chatId: chat.id,
-      versionId: finalized.version.id,
-      projectId,
-    }).url;
+      appProjectId: projectId,
+      versionIdForSession: finalized.version.id,
+      skipRepair: true,
+      },
+    );
+    if (!sandboxStarted.ok) {
+      throw new Error(
+        `Tier-2 preview failed (${sandboxStarted.error.stage}): ${sandboxStarted.error.message}`,
+      );
+    }
+    runtimeUrl = sandboxStarted.result.sandboxUrl;
+    sandboxId = sandboxStarted.result.sandboxId;
+    await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
   }
 
   return {

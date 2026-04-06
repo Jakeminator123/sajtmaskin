@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { postSandboxHeartbeat } from "@/lib/builder/preview-session/api";
+import { postPreviewHeartbeat } from "@/lib/builder/preview-session/api";
 import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 
@@ -9,7 +9,7 @@ export function usePreviewHeartbeat(params: {
   chatId: string | null;
   versionId: string | null;
   previewUrl: string | null;
-  activeSandboxId: string | null | undefined;
+  activePreviewSessionId: string | null | undefined;
   previewLifecycle: PreviewLifecycleState | undefined;
   onSessionSuspect?: () => void;
 }) {
@@ -17,7 +17,7 @@ export function usePreviewHeartbeat(params: {
     chatId,
     versionId,
     previewUrl,
-    activeSandboxId,
+    activePreviewSessionId,
     previewLifecycle,
     onSessionSuspect,
   } = params;
@@ -31,7 +31,7 @@ export function usePreviewHeartbeat(params: {
   }
 
   useEffect(() => {
-    if (!chatId || !versionId || !activeSandboxId?.trim()) return;
+    if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
     if (!previewUrl || !isSandboxPreviewUrl(previewUrl)) return;
     const allowHeartbeat =
       previewLifecycle === "live" ||
@@ -40,10 +40,10 @@ export function usePreviewHeartbeat(params: {
 
     const tick = async () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      const data = await postSandboxHeartbeat({
+      const data = await postPreviewHeartbeat({
         chatId,
         versionId,
-        sandboxId: activeSandboxId.trim(),
+        previewSessionId: activePreviewSessionId.trim(),
         viewerId: viewerIdRef.current ?? "unknown",
       });
       if (
@@ -58,5 +58,5 @@ export function usePreviewHeartbeat(params: {
     const id = window.setInterval(tick, 25_000);
     void tick();
     return () => window.clearInterval(id);
-  }, [chatId, versionId, activeSandboxId, previewUrl, previewLifecycle, onSessionSuspect]);
+  }, [chatId, versionId, activePreviewSessionId, previewUrl, previewLifecycle, onSessionSuspect]);
 }

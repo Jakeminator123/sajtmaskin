@@ -8,9 +8,11 @@ const commitCredits = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 const getLocalV0TemplateSourceById = vi.hoisted(() => vi.fn());
 const loadLocalV0TemplateFiles = vi.hoisted(() => vi.fn());
+const startSandboxPreview = vi.hoisted(() => vi.fn());
 const chatRepoCreateChat = vi.hoisted(() => vi.fn());
 const chatRepoAddMessage = vi.hoisted(() => vi.fn());
 const chatRepoCreateDraftVersion = vi.hoisted(() => vi.fn());
+const chatRepoUpdateVersionSandboxUrl = vi.hoisted(() => vi.fn());
 const chatRepoGetChat = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
@@ -39,10 +41,15 @@ vi.mock("@/lib/templates/local-v0-template-source", () => ({
   loadLocalV0TemplateFiles,
 }));
 
+vi.mock("@/lib/gen/sandbox/sandbox-preview", () => ({
+  startSandboxPreview,
+}));
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat: chatRepoCreateChat,
   addMessage: chatRepoAddMessage,
   createDraftVersion: chatRepoCreateDraftVersion,
+  updateVersionSandboxUrl: chatRepoUpdateVersionSandboxUrl,
   getChat: chatRepoGetChat,
 }));
 
@@ -91,18 +98,31 @@ describe("POST /api/template", () => {
     resolveAppProjectIdForRequest.mockReset();
     getLocalV0TemplateSourceById.mockReset();
     loadLocalV0TemplateFiles.mockReset();
+    startSandboxPreview.mockReset();
     chatRepoCreateChat.mockReset();
     chatRepoAddMessage.mockReset();
     chatRepoCreateDraftVersion.mockReset();
+    chatRepoUpdateVersionSandboxUrl.mockReset();
     chatRepoGetChat.mockReset();
 
     getCurrentUser.mockResolvedValue(null);
     resolveAppProjectIdForRequest.mockResolvedValue(null);
     getLocalV0TemplateSourceById.mockResolvedValue(null);
     loadLocalV0TemplateFiles.mockResolvedValue(null);
+    startSandboxPreview.mockResolvedValue({
+      ok: true,
+      result: {
+        sandboxUrl: "https://vm-fly-jakem.fly.dev/chat_import",
+        sandboxId: "sbx_1",
+        sandboxPreviewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "recreated",
+      },
+    });
     chatRepoCreateChat.mockResolvedValue({ id: "chat_import" });
     chatRepoAddMessage.mockResolvedValue({ id: "msg_import" });
     chatRepoCreateDraftVersion.mockResolvedValue({ id: "ver_import" });
+    chatRepoUpdateVersionSandboxUrl.mockResolvedValue(true);
     chatRepoGetChat.mockResolvedValue({ messages: [] });
     prepareCredits.mockResolvedValue({ ok: true, commit: commitCredits });
     createProject.mockResolvedValue({ id: "proj_new" });
@@ -181,16 +201,34 @@ describe("POST /api/template", () => {
       chatId: "chat_import",
       projectId: "proj_new",
       versionId: "ver_import",
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_import",
     });
     expect(chatRepoCreateDraftVersion).toHaveBeenCalledWith(
       "chat_import",
       "msg_import",
       expect.stringContaining('"path":"pnpm-lock.yaml"'),
     );
+    expect(startSandboxPreview).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "app/page.tsx" }),
+        expect.objectContaining({ path: "pnpm-lock.yaml" }),
+      ]),
+      expect.objectContaining({
+        chatId: "chat_import",
+        appProjectId: "proj_new",
+        versionIdForSession: "ver_import",
+        skipRepair: true,
+      }),
+    );
+    expect(chatRepoUpdateVersionSandboxUrl).toHaveBeenCalledWith(
+      "ver_import",
+      "https://vm-fly-jakem.fly.dev/chat_import",
+    );
     expect(saveProjectData).toHaveBeenCalledWith(
       expect.objectContaining({
         project_id: "proj_new",
         chat_id: "chat_import",
+        demo_url: "https://vm-fly-jakem.fly.dev/chat_import",
         meta: expect.objectContaining({
           source: "template-init:local-v0-import",
           templateId: "tmpl_1",

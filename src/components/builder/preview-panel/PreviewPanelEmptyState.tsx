@@ -14,8 +14,8 @@ interface PreviewPanelEmptyStateProps {
   awaitingInput: boolean;
   awaitingInputQuestion?: string | null;
   awaitingInputOptions: string[];
-  sandboxPending: boolean;
-  sandboxBuildError?: { stage: string; message: string } | null;
+  previewPending: boolean;
+  previewBuildError?: { stage: string; message: string } | null;
   previewLifecycle?: PreviewLifecycleState;
   activeVersionStatus?: EngineVersionDisplayStatus | null;
   activeVersionSummary?: string | null;
@@ -30,8 +30,8 @@ export function PreviewPanelEmptyState({
   awaitingInput,
   awaitingInputQuestion,
   awaitingInputOptions,
-  sandboxPending,
-  sandboxBuildError,
+  previewPending,
+  previewBuildError,
   previewLifecycle,
   activeVersionStatus,
   activeVersionSummary,
@@ -47,7 +47,7 @@ export function PreviewPanelEmptyState({
     .map((option) => option.trim())
     .filter(Boolean)
     .slice(0, 6);
-  const title = sandboxBuildError
+  const title = previewBuildError
     ? "Live-preview misslyckades"
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
       ? "Byter till reparerad version"
@@ -57,7 +57,7 @@ export function PreviewPanelEmptyState({
           ? "Verifierar version"
           : activeVersionStatus === "repairing"
             ? "Reparerar version"
-    : sandboxPending
+    : previewPending
       ? "Startar VM-preview"
       : awaitingInput
         ? "AI väntar på ditt svar"
@@ -66,8 +66,8 @@ export function PreviewPanelEmptyState({
           : externalLoading
             ? "Genererar kod"
           : "Ingen förhandsvisning ännu";
-  const subtitle = sandboxBuildError
-    ? `Steg: ${sandboxBuildError.stage}. ${sandboxBuildError.message}`
+  const subtitle = previewBuildError
+    ? `Steg: ${previewBuildError.stage}. ${previewBuildError.message}`
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
       ? activeVersionSummary || "En nyare reparerad version tar över som den aktuella previewn."
       : previewLifecycle === "recovering"
@@ -76,7 +76,7 @@ export function PreviewPanelEmptyState({
           ? activeVersionSummary || "Versionen är sparad och verifieras innan den markeras som stabil."
           : activeVersionStatus === "repairing"
             ? activeVersionSummary || "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
-    : sandboxPending
+    : previewPending
       ? "Next.js startas i VM-previewn och visas så snart dev-servern svarar."
       : awaitingInput
         ? "AI behöver ditt svar innan nästa preview kan genereras."
@@ -86,11 +86,11 @@ export function PreviewPanelEmptyState({
             ? "Skriv en prompt till vänster så genererar vi första preview."
             : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
   const showFixAction = Boolean(
-    onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !sandboxPending,
+    onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !previewPending,
   );
-  const EmptyIcon = sandboxBuildError
+  const EmptyIcon = previewBuildError
     ? AlertCircle
-    : sandboxPending
+    : previewPending
       ? Loader2
       : awaitingInput
         ? MessageCircleQuestion
@@ -100,7 +100,7 @@ export function PreviewPanelEmptyState({
 
   return (
     <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
-      <EmptyIcon className={cn("mb-4 h-12 w-12", sandboxPending && "animate-spin")} />
+      <EmptyIcon className={cn("mb-4 h-12 w-12", previewPending && "animate-spin")} />
       <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
         {title}
       </p>

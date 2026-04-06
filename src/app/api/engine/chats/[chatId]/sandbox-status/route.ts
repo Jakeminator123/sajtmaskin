@@ -10,33 +10,33 @@ import {
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/sandbox/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/sandbox/tier2-resume";
-import type { SandboxStatusApiJson } from "@/lib/gen/preview/preview-contract";
+import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
 function sessionSoftExpiryAt(entry: SandboxSessionEntry, now: number): number {
   return Math.min(entry.createdAt + SANDBOX_SESSION_HARD_CAP_MS, entry.lastUsedAt + SANDBOX_SESSION_IDLE_MS);
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  return withRateLimit(req, "sandbox:status", async () => {
+  return withRateLimit(req, "preview-session:status", async () => {
     try {
       const { chatId } = await ctx.params;
       const url = new URL(req.url);
       const versionId = url.searchParams.get("versionId")?.trim();
-      const clientSandboxId = url.searchParams.get("sandboxId")?.trim() || null;
+      const clientPreviewSessionId = url.searchParams.get("previewSessionId")?.trim() || null;
 
       if (!versionId) {
         return NextResponse.json({ ok: false, message: "versionId query parameter is required." }, { status: 400 });
       }
 
       if (!isTier2PreviewConfigured()) {
-        const body: SandboxStatusApiJson = {
+        const body: PreviewStatusApiJson = {
           ok: true,
           status: "missing",
-          sandboxId: null,
-          sandboxUrl: null,
+          previewSessionId: null,
+          previewUrl: null,
           versionId: null,
           sessionExpiresAt: null,
-          reason: "sandbox_not_configured",
+          reason: "preview_session_not_configured",
         };
         return NextResponse.json(body);
       }
@@ -50,11 +50,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const session = await getActiveSandboxSessionAsync(chatId);
 
       if (!session) {
-        const body: SandboxStatusApiJson = {
+        const body: PreviewStatusApiJson = {
           ok: true,
           status: "missing",
-          sandboxId: null,
-          sandboxUrl: null,
+          previewSessionId: null,
+          previewUrl: null,
           versionId: null,
           sessionExpiresAt: null,
           reason: "no_session",
@@ -71,11 +71,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
       const sessionVid = session.versionId ?? null;
       if (sessionVid !== versionId) {
-        const body: SandboxStatusApiJson = {
+        const body: PreviewStatusApiJson = {
           ok: true,
           status: "version_mismatch",
-          sandboxId: session.sandboxId,
-          sandboxUrl: session.sandboxUrl,
+          previewSessionId: session.sandboxId,
+          previewUrl: session.sandboxUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session, now),
           reason: "session_bound_to_other_version",
@@ -90,15 +90,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      if (clientSandboxId && session.sandboxId !== clientSandboxId) {
-        const body: SandboxStatusApiJson = {
+      if (clientPreviewSessionId && session.sandboxId !== clientPreviewSessionId) {
+        const body: PreviewStatusApiJson = {
           ok: true,
           status: "stopped",
-          sandboxId: session.sandboxId,
-          sandboxUrl: session.sandboxUrl,
+          previewSessionId: session.sandboxId,
+          previewUrl: session.sandboxUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session, now),
-          reason: "sandbox_id_mismatch",
+          reason: "preview_session_id_mismatch",
         };
         logSandboxLifecycleTelemetry({
           kind: "sandbox_status",
@@ -112,11 +112,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
       const resumed = await tryResumeTier2Runtime(session);
       if (!resumed) {
-        const body: SandboxStatusApiJson = {
+        const body: PreviewStatusApiJson = {
           ok: true,
           status: "stopped",
-          sandboxId: session.sandboxId,
-          sandboxUrl: session.sandboxUrl,
+          previewSessionId: session.sandboxId,
+          previewUrl: session.sandboxUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session, now),
           reason: "provider_not_running_or_unreachable",
@@ -131,11 +131,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      const body: SandboxStatusApiJson = {
+      const body: PreviewStatusApiJson = {
         ok: true,
         status: "running",
-        sandboxId: resumed.sandboxId,
-        sandboxUrl: resumed.primaryUrl,
+        previewSessionId: resumed.sandboxId,
+        previewUrl: resumed.primaryUrl,
         versionId: sessionVid,
         sessionExpiresAt: sessionSoftExpiryAt(session, now),
       };
@@ -148,7 +148,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       });
       return NextResponse.json(body);
     } catch (err) {
-      console.error("[sandbox-status] GET", err);
+      console.error("[preview-status] GET", err);
       return NextResponse.json(
         {
           ok: false,

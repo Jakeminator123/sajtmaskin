@@ -46,7 +46,7 @@ export type PreviewIframeMessage = {
 export interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
-  /** Active preview URL (iframe / sandbox target); not the API JSON field name. */
+  /** Active preview URL (iframe target); not the API JSON field name. */
   previewUrl: string | null;
   /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/preview-deploy.md`. */
   alternatePreviewUrls?: AlternatePreviewUrls;
@@ -62,18 +62,18 @@ export interface PreviewPanelProps {
   awaitingInput?: boolean;
   awaitingInputQuestion?: string | null;
   awaitingInputOptions?: string[];
-  /** Last SSE sandbox/build failure for this session (cleared on sandbox-ready or version change). */
-  sandboxBuildError?: { stage: string; message: string } | null;
-  /** `npm run build` result in Vercel sandbox after dev (own-engine); separate from dev-preview. */
-  sandboxProdBuild?: { verified: boolean; logSnippet?: string } | null;
-  sandboxPending?: boolean;
-  /** Server-known sandbox VM id for heartbeat / status (own-engine). */
-  activeSandboxId?: string | null;
+  /** Last SSE preview/build failure for this session (cleared on `preview-ready` or version change). */
+  previewBuildError?: { stage: string; message: string } | null;
+  /** `npm run build` result in the tier-2 preview runtime after dev; separate from dev-preview. */
+  previewProdBuild?: { verified: boolean; logSnippet?: string } | null;
+  previewPending?: boolean;
+  /** Server-known preview session id for heartbeat / status (own-engine). */
+  activePreviewSessionId?: string | null;
   previewLifecycle?: PreviewLifecycleState;
   activeVersionStatus?: EngineVersionDisplayStatus | null;
   activeVersionSummary?: string | null;
   activeVersionIsLatest?: boolean;
-  /** Ask controller to verify server session and recover sandbox if needed. */
+  /** Ask controller to verify server session and recover preview if needed. */
   onPreviewSessionSuspect?: () => void;
   placementMode?: boolean;
   pendingPlacementItem?: {

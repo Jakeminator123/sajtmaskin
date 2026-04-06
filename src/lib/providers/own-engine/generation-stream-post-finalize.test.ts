@@ -7,7 +7,7 @@ import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finaliz
 
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
-const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
+const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const parseCodeProjectMock = vi.hoisted(() =>
   vi.fn((_src: string) => ({ files: [] as Array<{ path: string; content: string }> })),
 );
@@ -19,7 +19,7 @@ const devLogAppend = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getChat,
-  updateVersionSandboxUrl,
+  updateVersionPreviewUrl,
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -102,7 +102,7 @@ const finalized = {
 describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
   beforeEach(() => {
     getChat.mockReset();
-    updateVersionSandboxUrl.mockReset();
+    updateVersionPreviewUrl.mockReset();
     parseCodeProjectMock.mockReset();
     parseCodeProjectMock.mockImplementation(() => ({ files: [] }));
     shouldRunOwnEngineSandbox.mockReset();
@@ -234,7 +234,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         msSinceEngineStart: expect.any(Number),
       }),
     );
-    expect(updateVersionSandboxUrl).toHaveBeenCalledWith("ver_1", "https://sandbox.example");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://sandbox.example");
   });
 });
 

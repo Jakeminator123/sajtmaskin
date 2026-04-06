@@ -2,6 +2,16 @@ export type BuildIntent = "template" | "website" | "app";
 
 export type BuildMethod = "wizard" | "category" | "audit" | "freeform" | "kostnadsfri";
 
+export type LandingEntryMode =
+  | "template"
+  | "kategori"
+  | "mall"
+  | "analyserad"
+  | "audit"
+  | "fritext";
+
+const TEMPLATE_ENTRY_MODES = new Set<LandingEntryMode>(["template", "kategori", "mall"]);
+
 export const DEFAULT_BUILD_INTENT: BuildIntent = "website";
 
 export function normalizeBuildIntent(raw?: string | null): BuildIntent {
@@ -27,6 +37,11 @@ export function resolveBuildIntentForMethod(
   if (method === "category") return "template";
   if (method === "audit" || method === "kostnadsfri") return "website";
   return selected;
+}
+
+export function isTemplateEntryMode(raw?: string | null): boolean {
+  const value = String(raw || "").toLowerCase() as LandingEntryMode;
+  return TEMPLATE_ENTRY_MODES.has(value);
 }
 
 export function buildIntentNoun(intent: BuildIntent): string {

@@ -35,7 +35,7 @@ import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
-import { postSandboxDestroy } from "@/lib/builder/preview-session/api";
+import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import {
   buildPromptSourceMessage,
@@ -144,7 +144,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
   const isPreviewLoading =
     vm.isCreatingChat ||
-    vm.sandboxPending ||
+    vm.previewPending ||
     vm.previewLifecycle === "recovering" ||
     (!vm.currentPreviewUrl && vm.isAnyStreaming);
   const activeVersionSummary = useMemo(() => {
@@ -606,7 +606,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 ? {
                     url,
                     versionId,
-                    source: "sandbox",
+                    source: "preview",
                   }
                 : null,
           },
@@ -622,7 +622,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     ],
   );
 
-  const persistSandboxUrlForVersion = useCallback(
+  const persistPreviewUrlForVersion = useCallback(
     async (url: string) => {
       if (!vm.chatId || !vm.activeVersionId) return;
       try {
@@ -631,51 +631,51 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             versionId: vm.activeVersionId,
-            sandboxUrl: url,
+            previewUrl: url,
           }),
         });
         if (!response.ok) {
           const data = (await response.json().catch(() => null)) as { error?: string } | null;
           console.warn(
-            "[Builder] Failed to persist sandbox URL:",
+            "[Builder] Failed to persist preview URL:",
             data?.error || `HTTP ${response.status}`,
           );
           return;
         }
         vm.mutateVersions();
       } catch (error) {
-        console.warn("[Builder] Failed to persist sandbox URL:", error);
+        console.warn("[Builder] Failed to persist preview URL:", error);
       }
     },
     [vm.activeVersionId, vm.chatId, vm.mutateVersions],
   );
 
-  const handleUseSandboxInPreview = useCallback(
+  const handleUsePreviewInPanel = useCallback(
     (url: string) => {
       vm.setClearedPreviewVersionId(null);
       vm.setCurrentPreviewUrl(url);
       void persistPreviewOverride(url, vm.activeVersionId);
-      void persistSandboxUrlForVersion(url);
+      void persistPreviewUrlForVersion(url);
     },
     [
       vm.activeVersionId,
       vm.setClearedPreviewVersionId,
       vm.setCurrentPreviewUrl,
       persistPreviewOverride,
-      persistSandboxUrlForVersion,
+      persistPreviewUrlForVersion,
     ],
   );
 
   const handleClearPreview = useCallback(() => {
     void (async () => {
       const activeVersionId = vm.activeVersionId ?? null;
-      const activeSandboxId = vm.activeSandboxId?.trim() || null;
+      const activePreviewSessionId = vm.activePreviewSessionId?.trim() || null;
 
-      if (vm.chatId && activeVersionId && activeSandboxId) {
-        const destroy = await postSandboxDestroy({
+      if (vm.chatId && activeVersionId && activePreviewSessionId) {
+        const destroy = await postPreviewDestroy({
           chatId: vm.chatId,
           versionId: activeVersionId,
-          sandboxId: activeSandboxId,
+          previewSessionId: activePreviewSessionId,
         });
         if (!destroy || destroy.ok !== true) {
           toast.error(
@@ -685,7 +685,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         }
       }
 
-      vm.clearSandboxSessionState(activeVersionId);
+      vm.clearPreviewSessionState(activeVersionId);
       vm.setClearedPreviewVersionId(activeVersionId);
       vm.setCurrentPreviewUrl(null);
       void persistPreviewOverride(null, null);
@@ -693,9 +693,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     })();
   }, [
     vm.activeVersionId,
-    vm.activeSandboxId,
+    vm.activePreviewSessionId,
     vm.chatId,
-    vm.clearSandboxSessionState,
+    vm.clearPreviewSessionState,
     vm.mutateVersions,
     vm.setClearedPreviewVersionId,
     vm.setCurrentPreviewUrl,
@@ -704,7 +704,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
-      vm.clearSandboxBuildError();
+      vm.clearPreviewBuildError();
       vm.setClearedPreviewVersionId(null);
       if (vm.serverProjectPreviewOverrideVersionId === versionId) {
         void persistPreviewOverride(null, null);
@@ -713,7 +713,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     },
     [
       vm.handleVersionSelect,
-      vm.clearSandboxBuildError,
+      vm.clearPreviewBuildError,
       vm.serverProjectPreviewOverrideVersionId,
       vm.setClearedPreviewVersionId,
       persistPreviewOverride,
@@ -991,10 +991,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               versionId={vm.activeVersionId}
               previewUrl={vm.currentPreviewUrl}
               alternatePreviewUrls={vm.activeVersionAlternatePreview}
-              sandboxBuildError={vm.sandboxBuildError}
-              sandboxProdBuild={vm.sandboxProdBuild}
-              sandboxPending={vm.sandboxPending}
-              activeSandboxId={vm.activeSandboxId}
+              previewBuildError={vm.previewBuildError}
+              previewProdBuild={vm.previewProdBuild}
+              previewPending={vm.previewPending}
+              activePreviewSessionId={vm.activePreviewSessionId}
               previewLifecycle={vm.previewLifecycle}
               activeVersionStatus={activeVersionStatus}
               activeVersionSummary={activeVersionSummary?.verificationSummary ?? null}
@@ -1056,7 +1056,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onClose={() => vm.setIsSandboxModalOpen(false)}
         chatId={vm.chatId}
         versionId={vm.activeVersionId}
-        onUseInPreview={handleUseSandboxInPreview}
+        onUseInPreview={handleUsePreviewInPanel}
       />
 
       <InitFromRepoModal

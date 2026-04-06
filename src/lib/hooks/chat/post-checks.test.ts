@@ -329,15 +329,15 @@ describe("runPostGenerationChecks", () => {
         previewBlocked: false,
         verificationBlocked: false,
         previewBlockingReason: "Automatic preflight could not build a renderable own-engine preview entrypoint.",
-        primaryPreviewTarget: "sandbox",
-        sandbox: {
-          canStartSandbox: true,
-          primaryPreviewTarget: "sandbox",
+        primaryPreviewTarget: "preview",
+        previewStart: {
+          canStartPreview: true,
+          primaryPreviewTarget: "preview",
           shimBlocked: true,
           requiresEnvConfig: false,
           hasCriticalInstallRisk: false,
           hasCriticalCodeFailure: false,
-          compatibilityShimAllowed: true,
+          compatibilityPreviewAllowed: true,
           issueCounts: {
             code_structure_failure: 0,
             dependency_install_failure: 0,

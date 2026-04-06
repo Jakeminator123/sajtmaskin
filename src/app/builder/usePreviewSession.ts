@@ -2,7 +2,7 @@
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef } from "react";
-import { fetchSandboxStatus } from "@/lib/builder/preview-session/api";
+import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
 import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
 import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
@@ -10,13 +10,13 @@ export type UsePreviewSessionParams = {
   chatId: string | null;
   activeVersionId: string | null;
   currentPreviewUrl: string | null;
-  activeSandboxMeta: { sandboxId: string; versionId: string } | null;
+  activePreviewSessionMeta: { previewSessionId: string; versionId: string } | null;
   setCurrentPreviewUrl: (url: string) => void;
   bumpPreviewRefreshToken: () => void;
-  setSandboxPreviewRecovering: (v: boolean) => void;
-  sandboxBootstrapDoneKeysRef: MutableRefObject<Set<string>>;
-  setForcedSandboxRestartKey: (key: string | null) => void;
-  setSandboxBootstrapRetryNonce: Dispatch<SetStateAction<number>>;
+  setPreviewSessionRecovering: (v: boolean) => void;
+  previewBootstrapDoneKeysRef: MutableRefObject<Set<string>>;
+  setForcedPreviewRestartKey: (key: string | null) => void;
+  setPreviewBootstrapRetryNonce: Dispatch<SetStateAction<number>>;
 };
 
 /**
@@ -27,13 +27,13 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     chatId,
     activeVersionId,
     currentPreviewUrl,
-    activeSandboxMeta,
+    activePreviewSessionMeta,
     setCurrentPreviewUrl,
     bumpPreviewRefreshToken,
-    setSandboxPreviewRecovering,
-    sandboxBootstrapDoneKeysRef,
-    setForcedSandboxRestartKey,
-    setSandboxBootstrapRetryNonce,
+    setPreviewSessionRecovering,
+    previewBootstrapDoneKeysRef,
+    setForcedPreviewRestartKey,
+    setPreviewBootstrapRetryNonce,
   } = params;
 
   const lastPreviewRecoverAtRef = useRef(0);
@@ -54,15 +54,15 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     if (now - lastPreviewRecoverAtRef.current < 12_000) return;
     lastPreviewRecoverAtRef.current = now;
 
-    const statusPayload = await fetchSandboxStatus({
+    const statusPayload = await fetchPreviewStatus({
       chatId,
       versionId,
-      sandboxId: activeSandboxMeta?.sandboxId ?? null,
+      previewSessionId: activePreviewSessionMeta?.previewSessionId ?? null,
     });
     if (!statusPayload) return;
 
     if (statusPayload.status === "running") {
-      const serverUrl = statusPayload.sandboxUrl?.trim() ?? "";
+      const serverUrl = statusPayload.previewUrl?.trim() ?? "";
       if (serverUrl) {
         const cur = normalizePreviewUrl(currentPreviewUrl);
         const next = normalizePreviewUrl(serverUrl);
@@ -88,7 +88,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
         versionId,
         detail: "max_attempts",
       });
-      setSandboxPreviewRecovering(false);
+      setPreviewSessionRecovering(false);
       return;
     }
     previewRecoverAttemptsRef.current += 1;
@@ -101,22 +101,22 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
       detail: statusPayload.status,
     });
 
-    setSandboxPreviewRecovering(true);
+    setPreviewSessionRecovering(true);
     const key = `${chatId}:${versionId}`;
-    sandboxBootstrapDoneKeysRef.current.delete(key);
-    setForcedSandboxRestartKey(key);
-    setSandboxBootstrapRetryNonce((n) => n + 1);
+    previewBootstrapDoneKeysRef.current.delete(key);
+    setForcedPreviewRestartKey(key);
+    setPreviewBootstrapRetryNonce((n) => n + 1);
   }, [
     chatId,
     activeVersionId,
-    activeSandboxMeta,
+    activePreviewSessionMeta,
     currentPreviewUrl,
     setCurrentPreviewUrl,
     bumpPreviewRefreshToken,
-    setSandboxPreviewRecovering,
-    sandboxBootstrapDoneKeysRef,
-    setForcedSandboxRestartKey,
-    setSandboxBootstrapRetryNonce,
+    setPreviewSessionRecovering,
+    previewBootstrapDoneKeysRef,
+    setForcedPreviewRestartKey,
+    setPreviewBootstrapRetryNonce,
   ]);
 
   const resetRecoverAttempts = useCallback(() => {

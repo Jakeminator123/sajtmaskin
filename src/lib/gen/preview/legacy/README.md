@@ -1,4 +1,4 @@
-# Legacy preview (tier-1 shim)
+# Legacy compatibility preview
 
 Statisk iframe-preview och `/api/preview-render`-URL-hjälpare. **Primär** preview i produkten är **sandbox** (Fidelity 2).
 

@@ -14,8 +14,9 @@ const logGenerationMock = vi.hoisted(() => vi.fn());
 const failVersionVerificationMock = vi.hoisted(() => vi.fn());
 const createGenerationTelemetryRecordMock = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogsMock = vi.hoisted(() => vi.fn());
-const buildOwnEnginePreviewRuntimeMock = vi.hoisted(() => vi.fn());
+const startSandboxPreviewMock = vi.hoisted(() => vi.fn());
 const buildSandboxEnvLocalContentsMock = vi.hoisted(() => vi.fn());
+const updateVersionSandboxUrlMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/generation-pipeline", () => ({
   createGenerationPipeline: createGenerationPipelineMock,
@@ -30,6 +31,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat: createChatMock,
   addMessage: addMessageMock,
   addAssistantMessageAndCreateDraftVersion: addAssistantMessageAndCreateDraftVersionMock,
+  updateVersionSandboxUrl: updateVersionSandboxUrlMock,
   getChatOrchestrationSnapshot: getChatOrchestrationSnapshotMock,
   updateChatOrchestrationSnapshot: updateChatOrchestrationSnapshotMock,
   logGeneration: logGenerationMock,
@@ -55,9 +57,12 @@ vi.mock("@/lib/gen/prompt-dump", () => ({
 }));
 
 vi.mock("@/lib/mcp/runtime-url", () => ({
-  buildOwnEnginePreviewRuntime: buildOwnEnginePreviewRuntimeMock,
   createSandboxRuntimeFromFiles: vi.fn(),
   isSandboxConfigured: () => false,
+}));
+
+vi.mock("@/lib/gen/sandbox/sandbox-preview", () => ({
+  startSandboxPreview: startSandboxPreviewMock,
 }));
 
 vi.mock("@/lib/gen/sandbox/env-local", () => ({
@@ -188,9 +193,17 @@ function setupMocks() {
   createGenerationTelemetryRecordMock.mockResolvedValue({ id: "tel_1" });
   createEngineVersionErrorLogsMock.mockResolvedValue([]);
 
-  buildOwnEnginePreviewRuntimeMock.mockReturnValue({
-    url: `https://preview.test/${CHAT_ID}/${VERSION_ID}`,
+  startSandboxPreviewMock.mockResolvedValue({
+    ok: true,
+    result: {
+      sandboxUrl: `https://preview.test/${CHAT_ID}/${VERSION_ID}`,
+      sandboxId: "sbx_test_1",
+      sandboxPreviewMode: "dev_only",
+      fidelityTier: 2,
+      startOutcome: "recreated",
+    },
   });
+  updateVersionSandboxUrlMock.mockResolvedValue(true);
 
   buildSandboxEnvLocalContentsMock.mockResolvedValue("# sandbox env\n");
 }

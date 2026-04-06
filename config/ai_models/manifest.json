@@ -52,7 +52,7 @@
       "fast": "gpt-4.1",
       "pro": "gpt-5.3-codex",
       "max": "gpt-5.4",
-      "codex": "gpt-5.1-codex-max",
+      "codex": "gpt-5.3-codex-max",
       "anthropic": "claude-sonnet-4.6"
     },
     "envKeys": {
@@ -68,7 +68,7 @@
     "standard": "gpt-5.3-codex",
     "pro": "gpt-5.3-codex",
     "premium": "gpt-5.4",
-    "max": "gpt-5.1-codex-max"
+    "max": "gpt-5.3-codex-max"
   },
   "promptAssist": {
     "defaults": {
@@ -124,28 +124,28 @@
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
         "verifier": "gpt-4.1-mini",
-        "deploy-assistant": "gpt-4.1-mini"
+        "deploy-assistant": "gpt-4.1"
       },
       "max": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
         "verifier": "gpt-4.1-mini",
-        "deploy-assistant": "gpt-4.1-mini"
+        "deploy-assistant": "gpt-4.1"
       },
       "codex": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
         "verifier": "gpt-4.1-mini",
-        "deploy-assistant": "gpt-4.1-mini"
+        "deploy-assistant": "gpt-4.1"
       },
       "anthropic": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
         "verifier": "selected_build_model",
-        "deploy-assistant": "selected_build_model"
+        "deploy-assistant": "gpt-4.1"
       }
     },
     "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override."
@@ -315,136 +315,231 @@
         "kind": "database",
         "provider": "Supabase",
         "name": "Supabase",
-        "envVars": ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
-        "matchPatterns": ["\\bsupabase\\b"],
+        "envVars": [
+          "NEXT_PUBLIC_SUPABASE_URL",
+          "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+        ],
+        "matchPatterns": [
+          "\\bsupabase\\b"
+        ],
         "reason": "Prompten nämner Supabase eller ett tydligt Supabase-flöde."
       },
       {
         "kind": "database",
         "provider": "Prisma",
         "name": "Prisma",
-        "envVars": ["DATABASE_URL"],
-        "matchPatterns": ["\\bprisma\\b"],
+        "envVars": [
+          "DATABASE_URL"
+        ],
+        "matchPatterns": [
+          "\\bprisma\\b"
+        ],
         "reason": "Prompten nämner Prisma uttryckligen."
       },
       {
         "kind": "database",
         "provider": "Drizzle",
         "name": "Drizzle",
-        "envVars": ["DATABASE_URL"],
-        "matchPatterns": ["\\bdrizzle\\b"],
+        "envVars": [
+          "DATABASE_URL"
+        ],
+        "matchPatterns": [
+          "\\bdrizzle\\b"
+        ],
         "reason": "Prompten nämner Drizzle uttryckligen."
       },
       {
         "kind": "database",
         "provider": "SQLite",
         "name": "SQLite",
-        "envVars": ["DATABASE_URL"],
-        "matchPatterns": ["\\bsqlite\\b", "\\bbetter-sqlite3\\b"],
+        "envVars": [
+          "DATABASE_URL"
+        ],
+        "matchPatterns": [
+          "\\bsqlite\\b",
+          "\\bbetter-sqlite3\\b"
+        ],
         "reason": "Prompten nämner SQLite uttryckligen."
       },
       {
         "kind": "database",
         "provider": "Postgres / DATABASE_URL",
         "name": "Postgres",
-        "envVars": ["DATABASE_URL"],
-        "matchPatterns": ["\\bpostgres\\b", "\\bpostgresql\\b", "\\bdatabase_url\\b"],
+        "envVars": [
+          "DATABASE_URL"
+        ],
+        "matchPatterns": [
+          "\\bpostgres\\b",
+          "\\bpostgresql\\b",
+          "\\bdatabase_url\\b"
+        ],
         "reason": "Prompten nämner Postgres eller DATABASE_URL uttryckligen."
       },
       {
         "kind": "auth",
         "provider": "Clerk",
         "name": "Clerk",
-        "envVars": ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
-        "matchPatterns": ["\\bclerk\\b"],
+        "envVars": [
+          "CLERK_SECRET_KEY",
+          "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+        ],
+        "matchPatterns": [
+          "\\bclerk\\b"
+        ],
         "reason": "Prompten nämner Clerk uttryckligen."
       },
       {
         "kind": "auth",
         "provider": "NextAuth / Auth.js",
         "name": "NextAuth / Auth.js",
-        "envVars": ["AUTH_SECRET", "NEXTAUTH_URL"],
-        "matchPatterns": ["\\bnextauth\\b", "\\bauth\\.js\\b", "\\bnext-auth\\b"],
+        "envVars": [
+          "AUTH_SECRET",
+          "NEXTAUTH_URL"
+        ],
+        "matchPatterns": [
+          "\\bnextauth\\b",
+          "\\bauth\\.js\\b",
+          "\\bnext-auth\\b"
+        ],
         "reason": "Prompten nämner NextAuth / Auth.js uttryckligen."
       },
       {
         "kind": "auth",
         "provider": "Auth0",
         "name": "Auth0",
-        "envVars": ["AUTH0_SECRET", "AUTH0_BASE_URL", "AUTH0_ISSUER_BASE_URL", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET"],
-        "matchPatterns": ["\\bauth0\\b"],
+        "envVars": [
+          "AUTH0_SECRET",
+          "AUTH0_BASE_URL",
+          "AUTH0_ISSUER_BASE_URL",
+          "AUTH0_CLIENT_ID",
+          "AUTH0_CLIENT_SECRET"
+        ],
+        "matchPatterns": [
+          "\\bauth0\\b"
+        ],
         "reason": "Prompten nämner Auth0 uttryckligen."
       },
       {
         "kind": "payment",
         "provider": "Stripe",
         "name": "Stripe",
-        "envVars": ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
-        "matchPatterns": ["\\bstripe\\b", "\\bcheckout\\b", "\\bsubscription\\b", "\\bbilling\\b"],
+        "envVars": [
+          "STRIPE_SECRET_KEY",
+          "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
+        ],
+        "matchPatterns": [
+          "\\bstripe\\b",
+          "\\bcheckout\\b",
+          "\\bsubscription\\b",
+          "\\bbilling\\b"
+        ],
         "reason": "Prompten pekar på checkout, subscription eller Stripe."
       },
       {
         "kind": "integration",
         "provider": "Resend",
         "name": "Resend",
-        "envVars": ["RESEND_API_KEY"],
-        "matchPatterns": ["\\bresend\\b"],
+        "envVars": [
+          "RESEND_API_KEY"
+        ],
+        "matchPatterns": [
+          "\\bresend\\b"
+        ],
         "reason": "Prompten nämner Resend uttryckligen."
       },
       {
         "kind": "integration",
         "provider": "OpenAI",
         "name": "OpenAI",
-        "envVars": ["OPENAI_API_KEY"],
-        "matchPatterns": ["\\bopenai\\b", "\\bgpt-?\\d", "\\bai assistant\\b", "\\bchatbot\\b"],
+        "envVars": [
+          "OPENAI_API_KEY"
+        ],
+        "matchPatterns": [
+          "\\bopenai\\b",
+          "\\bgpt-?\\d",
+          "\\bai assistant\\b",
+          "\\bchatbot\\b"
+        ],
         "reason": "Prompten verkar kräva AI-funktionalitet eller nämner OpenAI."
       },
       {
         "kind": "integration",
         "provider": "Vercel Blob",
         "name": "Vercel Blob",
-        "envVars": ["BLOB_READ_WRITE_TOKEN"],
-        "matchPatterns": ["\\bvercel blob\\b", "\\bblob storage\\b"],
+        "envVars": [
+          "BLOB_READ_WRITE_TOKEN"
+        ],
+        "matchPatterns": [
+          "\\bvercel blob\\b",
+          "\\bblob storage\\b"
+        ],
         "reason": "Prompten nämner blob storage eller Vercel Blob uttryckligen."
       },
       {
         "kind": "integration",
         "provider": "Upstash",
         "name": "Upstash",
-        "envVars": ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
-        "matchPatterns": ["\\bupstash\\b", "\\bredis\\b"],
+        "envVars": [
+          "UPSTASH_REDIS_REST_URL",
+          "UPSTASH_REDIS_REST_TOKEN"
+        ],
+        "matchPatterns": [
+          "\\bupstash\\b",
+          "\\bredis\\b"
+        ],
         "reason": "Prompten nämner Redis eller Upstash uttryckligen."
       },
       {
         "kind": "integration",
         "provider": "Google Analytics 4",
         "name": "Google Analytics 4",
-        "envVars": ["NEXT_PUBLIC_GA_ID"],
-        "matchPatterns": ["\\bgoogle analytics\\b", "\\bga4\\b", "\\bgtag\\b"],
+        "envVars": [
+          "NEXT_PUBLIC_GA_ID"
+        ],
+        "matchPatterns": [
+          "\\bgoogle analytics\\b",
+          "\\bga4\\b",
+          "\\bgtag\\b"
+        ],
         "reason": "Prompten nämner Google Analytics / GA4 uttryckligen."
       },
       {
         "kind": "integration",
         "provider": "Google Tag Manager",
         "name": "Google Tag Manager",
-        "envVars": ["NEXT_PUBLIC_GTM_ID"],
-        "matchPatterns": ["\\bgoogle tag manager\\b", "\\bgtm\\b", "\\btag manager\\b"],
+        "envVars": [
+          "NEXT_PUBLIC_GTM_ID"
+        ],
+        "matchPatterns": [
+          "\\bgoogle tag manager\\b",
+          "\\bgtm\\b",
+          "\\btag manager\\b"
+        ],
         "reason": "Prompten nämner tag manager / GTM uttryckligen."
       },
       {
         "kind": "integration",
         "provider": "Plausible",
         "name": "Plausible",
-        "envVars": ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
-        "matchPatterns": ["\\bplausible\\b"],
+        "envVars": [
+          "NEXT_PUBLIC_PLAUSIBLE_DOMAIN"
+        ],
+        "matchPatterns": [
+          "\\bplausible\\b"
+        ],
         "reason": "Prompten nämner Plausible uttryckligen."
       },
       {
         "kind": "integration",
         "provider": "PostHog",
         "name": "PostHog",
-        "envVars": ["NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST"],
-        "matchPatterns": ["\\bposthog\\b"],
+        "envVars": [
+          "NEXT_PUBLIC_POSTHOG_KEY",
+          "NEXT_PUBLIC_POSTHOG_HOST"
+        ],
+        "matchPatterns": [
+          "\\bposthog\\b"
+        ],
         "reason": "Prompten nämner PostHog uttryckligen."
       },
       {
@@ -452,7 +547,9 @@
         "provider": "Vercel Analytics",
         "name": "Vercel Analytics",
         "envVars": [],
-        "matchPatterns": ["\\bvercel analytics\\b"],
+        "matchPatterns": [
+          "\\bvercel analytics\\b"
+        ],
         "status": "optional",
         "reason": "Prompten nämner Vercel Analytics som möjlig tracking-baseline."
       }
@@ -502,19 +599,27 @@
     "docsSnippets": {
       "model": "text-embedding-3-small",
       "dimensions": 1536,
-      "codeEntry": ["src/lib/gen/data/docs-embeddings-core.ts"]
+      "codeEntry": [
+        "src/lib/gen/data/docs-embeddings-core.ts"
+      ]
     },
     "scaffoldIndex": {
       "model": "text-embedding-3-small",
-      "codeEntry": ["src/lib/gen/scaffolds/scaffold-embeddings-core.ts"]
+      "codeEntry": [
+        "src/lib/gen/scaffolds/scaffold-embeddings-core.ts"
+      ]
     },
     "templateIndex": {
       "model": "text-embedding-3-small",
-      "codeEntry": ["src/lib/templates/template-embeddings-core.ts"]
+      "codeEntry": [
+        "src/lib/templates/template-embeddings-core.ts"
+      ]
     },
     "templateLibrary": {
       "model": "text-embedding-3-small",
-      "codeEntry": ["src/lib/gen/template-library/embeddings-core.ts"]
+      "codeEntry": [
+        "src/lib/gen/template-library/embeddings-core.ts"
+      ]
     }
   },
   "generatedSiteIntegrationPlaceholders": {
@@ -530,8 +635,16 @@
       "description": "Streams code from the selected build profile model via Vercel AI SDK streamText + OpenAI or Anthropic provider.",
       "invocation": "streamText_ai_sdk",
       "provider": "openai_direct_or_anthropic_direct",
-      "codeEntry": ["src/lib/gen/engine.ts", "src/lib/gen/models.ts", "src/lib/models/catalog.ts", "src/lib/models/phase-routing.ts"],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "codeEntry": [
+        "src/lib/gen/engine.ts",
+        "src/lib/gen/models.ts",
+        "src/lib/models/catalog.ts",
+        "src/lib/models/phase-routing.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "envOverrides": {
         "fast": "SAJTMASKIN_MODEL_FAST",
         "pro": "SAJTMASKIN_MODEL_PRO",
@@ -565,8 +678,13 @@
       "description": "streamText-based fix passes using the pro-tier style model (see validate-and-fix).",
       "invocation": "streamText_ai_sdk",
       "provider": "openai_direct",
-      "codeEntry": ["src/lib/gen/autofix/llm-fixer.ts", "src/lib/gen/autofix/validate-and-fix.ts"],
-      "authEnv": ["OPENAI_API_KEY"],
+      "codeEntry": [
+        "src/lib/gen/autofix/llm-fixer.ts",
+        "src/lib/gen/autofix/validate-and-fix.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
       "tokenBudget": {
         "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
         "default": 12288,
@@ -585,7 +703,10 @@
         "src/lib/gen/autofix/llm-fixer.ts",
         "src/lib/models/phase-routing.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "notes": "Uses the fixer phase from phaseRouting when the originating chat tier can be inferred; otherwise falls back to the configured pro profile."
     },
     {
@@ -599,7 +720,10 @@
         "src/lib/gen/autofix/llm-fixer.ts",
         "src/lib/models/phase-routing.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "notes": "Uses the fixer phase from phaseRouting when the originating chat tier can be inferred; otherwise falls back to the configured pro profile."
     },
     {
@@ -608,8 +732,15 @@
       "description": "Multi-provider streamText: openai/* and anthropic/* via createDirectModel (direct OpenAI/Anthropic API).",
       "invocation": "streamText_ai_sdk",
       "provider": "openai_anthropic_direct",
-      "codeEntry": ["src/app/api/ai/chat/route.ts", "src/lib/builder/gateway-policy.ts", "src/lib/builder/promptAssist.ts"],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "codeEntry": [
+        "src/app/api/ai/chat/route.ts",
+        "src/lib/builder/gateway-policy.ts",
+        "src/lib/builder/promptAssist.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "defaultModel": "openai/gpt-5.4",
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
@@ -628,7 +759,10 @@
         "src/app/api/ai/brief/route.ts",
         "src/lib/builder/site-brief-generation.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "defaultModel": "openai/gpt-5.2",
       "tokenBudget": {
         "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
@@ -648,7 +782,10 @@
         "src/lib/models/phase-routing.ts",
         "src/lib/gen/plan/prompt.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "notes": "Uses the planner phase from phaseRouting. selected_build_model follows the active build profile model."
     },
     {
@@ -662,7 +799,10 @@
         "src/lib/gen/stream/finalize-version.ts",
         "src/lib/models/phase-routing.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "notes": "Uses the verifier phase from phaseRouting for the active build tier. This pass is read-only and feeds polish scope plus telemetry."
     },
     {
@@ -675,7 +815,10 @@
         "src/lib/gen/polish-pass.ts",
         "src/lib/gen/stream/finalize-version.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "notes": "This is post-codegen file polish, not the lightweight prompt-polish used by the builder's `Skriv om` button. The pass is behind SAJTMASKIN_POLISH_PASS and follows the current build model."
     },
     {
@@ -690,7 +833,9 @@
         "src/lib/gen/scaffolds/scaffold-search.ts",
         "src/lib/gen/template-library/search.ts"
       ],
-      "authEnv": ["OPENAI_API_KEY"]
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ]
     },
     {
       "id": "project_analyze",
@@ -698,8 +843,12 @@
       "description": "OpenAI SDK responses.create against the direct OpenAI API.",
       "invocation": "openai_responses_create",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/projects/[id]/analyze/route.ts"],
-      "authEnv": ["OPENAI_API_KEY"],
+      "codeEntry": [
+        "src/app/api/projects/[id]/analyze/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
       "defaultModel": "gpt-4o-mini"
     },
     {
@@ -708,8 +857,12 @@
       "description": "responses.create against the direct OpenAI API.",
       "invocation": "openai_responses_create",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/text/analyze/route.ts"],
-      "authEnv": ["OPENAI_API_KEY"]
+      "codeEntry": [
+        "src/app/api/text/analyze/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ]
     },
     {
       "id": "wizard_enrich_competitors",
@@ -717,8 +870,13 @@
       "description": "responses.create with server OpenAI key.",
       "invocation": "openai_responses_create",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/wizard/enrich/route.ts", "src/app/api/wizard/competitors/route.ts"],
-      "authEnv": ["OPENAI_API_KEY"]
+      "codeEntry": [
+        "src/app/api/wizard/enrich/route.ts",
+        "src/app/api/wizard/competitors/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ]
     },
     {
       "id": "audit_structured",
@@ -726,8 +884,13 @@
       "description": "Primary path: OpenAI Responses API with optional web_search tool; fallback uses generateText + createDirectModel.",
       "invocation": "openai_responses_create_or_ai_sdk_generateText",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/audit/route.ts"],
-      "authEnv": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+      "codeEntry": [
+        "src/app/api/audit/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
       "defaultModel": "openai/gpt-5.2",
       "fallbackModels": [
         "anthropic/claude-opus-4.6",
@@ -741,10 +904,16 @@
       "description": "Mixed OpenAI calls including createDirectModel for some steps.",
       "invocation": "openai_mixed",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/analyze-presentation/route.ts"],
-      "authEnv": ["OPENAI_API_KEY"],
+      "codeEntry": [
+        "src/app/api/analyze-presentation/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
       "defaultModel": "openai/gpt-5-mini",
-      "fallbackModels": ["gpt-4o-mini"]
+      "fallbackModels": [
+        "gpt-4o-mini"
+      ]
     },
     {
       "id": "transcribe",
@@ -752,8 +921,12 @@
       "description": "OpenAI client for speech-to-text.",
       "invocation": "openai_audio_transcriptions",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/transcribe/route.ts"],
-      "authEnv": ["OPENAI_API_KEY"]
+      "codeEntry": [
+        "src/app/api/transcribe/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ]
     },
     {
       "id": "inspector_ai_match",
@@ -761,8 +934,12 @@
       "description": "OpenAI SDK chat-completions against the direct OpenAI API.",
       "invocation": "openai_chat_or_responses",
       "provider": "openai_direct",
-      "codeEntry": ["src/app/api/inspector-ai-match/route.ts"],
-      "authEnv": ["OPENAI_API_KEY"],
+      "codeEntry": [
+        "src/app/api/inspector-ai-match/route.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
       "defaultModel": "gpt-4o-mini"
     }
   ]

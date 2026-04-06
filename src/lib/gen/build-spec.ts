@@ -380,7 +380,7 @@ function deriveForbiddenPatterns(params: {
   const { buildIntent, generationMode, changeScope, previewPolicy } = params;
   const patterns = new Set<string>([
     "leave_bracket_placeholders",
-    "tier1_static_preview_primary",
+    "compat_preview_primary",
   ]);
 
   if (buildIntent !== "app") {

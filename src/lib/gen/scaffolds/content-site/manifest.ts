@@ -29,6 +29,11 @@ export const contentSiteManifest: ScaffoldManifest = {
     "For SaaS/software sites: include pricing tiers, feature comparison, trust signals, and clear CTAs.",
     "For company/brand sites: include hero, about, team, services, and contact sections.",
   ],
+  qualityChecklist: [
+    "The page should stay content-first and reusable rather than locking into one narrow business type.",
+    "Navigation, hero, supporting sections, and footer should remain coherent after customization.",
+    "Only add pricing, dashboard, or app-shell patterns when the prompt clearly asks for them.",
+  ],
   files: [
     {
       path: "app/globals.css",

@@ -23,7 +23,7 @@ import {
 } from "@/lib/templates/local-v0-template-source";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { buildOwnEnginePreviewRuntime } from "@/lib/mcp/runtime-url";
+import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 
 // Allow 5 minutes for own-engine generation
 export const maxDuration = 300;
@@ -140,17 +140,30 @@ async function initializeLocalTemplateProject(params: {
     assistantMessage.id,
     JSON.stringify(imported.files),
   );
-  const previewRuntime = buildOwnEnginePreviewRuntime({
+  const sandboxStarted = await startSandboxPreview(imported.files, {
     chatId: chat.id,
-    versionId: version.id,
-    projectId,
+    appProjectId: projectId,
+    versionIdForSession: version.id,
+    skipRepair: true,
   });
+  if (!sandboxStarted.ok) {
+    throw new Error(
+      `Tier-2 preview failed (${sandboxStarted.error.stage}): ${sandboxStarted.error.message}`,
+    );
+  }
+
+  const previewUrl = sandboxStarted.result.sandboxUrl?.trim();
+  if (!previewUrl) {
+    throw new Error("Tier-2 preview started without a preview URL.");
+  }
+
+  await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
   const mainCode = findMainTemplateFile(files)?.content || "";
 
   await persistTemplateProjectData({
     projectId,
     chatId: chat.id,
-    demoUrl: previewRuntime.url,
+    demoUrl: previewUrl,
     currentCode: mainCode,
     files,
     templateId: template.id,
@@ -166,7 +179,7 @@ async function initializeLocalTemplateProject(params: {
     chatId: chat.id,
     projectId,
     versionId: version.id,
-    previewUrl: previewRuntime.url,
+    previewUrl,
     files,
     code: mainCode,
     model: String(engineModel),

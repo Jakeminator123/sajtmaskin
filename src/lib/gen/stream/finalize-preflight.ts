@@ -7,10 +7,10 @@ import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
-  buildSandboxStartContract,
+  buildPreviewStartContract,
   resolvePreflightIssueCategory,
   type PreflightIssueCategory,
-  type SandboxStartContract,
+  type PreviewStartContract,
 } from "./preflight-contract";
 
 export type FinalizePreflightIssue = {
@@ -33,7 +33,7 @@ export interface RunFinalizePreflightResult {
   preflightFileCount: number;
   preflightIssues: FinalizePreflightIssue[];
   previewBlockingReason: string | null;
-  sandbox: SandboxStartContract;
+  previewStart: PreviewStartContract;
 }
 
 function inferCodeFenceLanguage(path: string): string {
@@ -182,7 +182,7 @@ export async function runFinalizePreflight({
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
-  let sandbox = buildSandboxStartContract({
+  let previewStart = buildPreviewStartContract({
     issues: [],
     finalizedPreviewFileCount: 0,
   });
@@ -310,7 +310,7 @@ export async function runFinalizePreflight({
         completeProjectFiles: completeProjectFiles.length,
       });
     }
-    sandbox = buildSandboxStartContract({
+    previewStart = buildPreviewStartContract({
       issues: preflightIssues,
       finalizedPreviewFileCount: finalizedFilesForPreview.length,
     });
@@ -324,7 +324,7 @@ export async function runFinalizePreflight({
     preflightIssues.push(
       createIssue("preflight", "error", message, "code_structure_failure"),
     );
-    sandbox = buildSandboxStartContract({
+    previewStart = buildPreviewStartContract({
       issues: preflightIssues,
       finalizedPreviewFileCount: finalizedFilesForPreview.length,
     });
@@ -341,6 +341,6 @@ export async function runFinalizePreflight({
     preflightFileCount,
     preflightIssues,
     previewBlockingReason,
-    sandbox,
+    previewStart,
   };
 }

@@ -14,6 +14,11 @@ export const appShellManifest: ScaffoldManifest = {
     "Add charts, tables, or other data displays in the main area.",
     "Keep the sidebar/topbar navigation pattern.",
   ],
+  qualityChecklist: [
+    "Navigation shell, app density, and workspace feel should stay more prominent than marketing content.",
+    "Primary panels, tables, and summaries should map to the user's real product/workflow.",
+    "Account, billing, settings, or workspace affordances should feel layerable without breaking the shell.",
+  ],
   files: [
     {
       path: "app/globals.css",

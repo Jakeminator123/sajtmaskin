@@ -23,6 +23,11 @@ export const dashboardManifest: ScaffoldManifest = {
     "Keep the sidebar navigation, stats cards, and main content area. Replace metrics, tables, and charts with user-specific data.",
     "Add or remove sidebar items and main sections as needed. Preserve the layout pattern.",
   ],
+  qualityChecklist: [
+    "The layout should remain app-like, dense, and operational rather than turning into a marketing page.",
+    "Sidebar, top summary cards, and main data surfaces should match the user's actual domain and workflows.",
+    "Tables, charts, and filters should look purposeful and realistic even when the data is static.",
+  ],
   files: [
     {
       path: "app/globals.css",

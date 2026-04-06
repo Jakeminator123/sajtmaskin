@@ -1,6 +1,7 @@
 "use client"
 
 import type { LandingController } from "@/components/landing-v2/use-landing-controller"
+import { isTemplateEntryMode } from "@/lib/builder/build-intent"
 
 export type LandingBackgroundProps = Pick<
   LandingController,
@@ -17,7 +18,7 @@ export function landingBackgroundSemanticMode(
 ): "fritext" | "template" | "audit" | "analyserad" {
   const id = selectedCategory ?? activeCategory?.id ?? "fritext"
   if (isAuditMode || id === "audit") return "audit"
-  if (id === "template") return "template"
+  if (isTemplateEntryMode(id)) return "template"
   if (id === "analyserad") return "analyserad"
   return "fritext"
 }

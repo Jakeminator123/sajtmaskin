@@ -1,5 +1,5 @@
 import type { RoutePlan } from "../route-plan";
-import type { PreflightIssueCategory, SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
+import type { PreflightIssueCategory, PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 
 export type PreviewDiagnosticCode =
   | "preflight_preview_blocked"
@@ -38,9 +38,9 @@ export type PreviewPreflightState = {
   previewBlocked: boolean;
   verificationBlocked: boolean;
   previewBlockingReason: string | null;
-  primaryPreviewTarget?: "sandbox" | "none";
+  primaryPreviewTarget?: "preview" | "none";
   issueCategories?: PreflightIssueCategory[] | null;
-  sandbox?: SandboxStartContract | null;
+  previewStart?: PreviewStartContract | null;
   scaffoldRetry?: ScaffoldRetryState | null;
   routePlan?: RoutePlan | null;
 };

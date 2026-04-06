@@ -298,7 +298,7 @@ async function runStartSandboxPreview(
     }
     const allowVercelFallback = mode === "preview_host_then_vercel" && isSandboxConfigured();
     logSandboxLifecycleTelemetry({
-      kind: "sandbox_preview_failed",
+      kind: "preview_failed",
       chatId: cid,
       versionId: vid,
       stage: "sandbox-create",

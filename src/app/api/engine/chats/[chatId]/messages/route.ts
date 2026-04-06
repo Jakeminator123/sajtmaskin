@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { previewUrlField, readPreviewUrl, resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import {
   buildSyncLatestVersion,
-  readSandboxReadyUrl,
+  readPreviewReadyUrl,
 } from "@/lib/api/engine/chats/sync-create-from-sse";
 import { handleMessageStreamRequest } from "../stream/route";
 
@@ -18,7 +18,7 @@ type DonePayload = {
   versionId?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  sandboxPending?: boolean;
+  previewPending?: boolean;
   preflight?: unknown;
   previewBlocked?: boolean;
   verificationBlocked?: boolean;
@@ -159,15 +159,15 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
     doneEvent.data && typeof doneEvent.data === "object"
       ? (doneEvent.data as DonePayload)
       : {};
-  const sandboxReadyEvent = findLastEvent(events, "sandbox-ready");
+  const previewReadyEvent = findLastEvent(events, "preview-ready");
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
-  const sandboxUrl = readSandboxReadyUrl(sandboxReadyEvent?.data);
-  const sandboxPending = done.sandboxPending === true;
+  const previewReadyUrl = readPreviewReadyUrl(previewReadyEvent?.data);
+  const previewPending = done.previewPending === true;
   const previewResolved =
     readPreviewUrl(done) ??
-    resolveInboundPreviewUrl(done as DonePayload & { sandboxUrl?: string | null }) ??
-    sandboxUrl;
+    resolveInboundPreviewUrl(done) ??
+    previewReadyUrl;
   const verificationState = done.verificationBlocked === true ? "failed" : "pending";
   const verificationSummary =
     typeof done.previewBlockingReason === "string" && done.previewBlockingReason.trim()
@@ -185,7 +185,7 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       messageId,
       versionId,
       ...previewUrlField(previewResolved),
-      sandboxPending,
+      previewPending,
       preflight: done.preflight ?? null,
       previewBlocked: done.previewBlocked ?? null,
       verificationBlocked: done.verificationBlocked ?? null,
@@ -201,8 +201,7 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
         versionId,
         messageId,
         previewResolved,
-        sandboxUrl,
-        sandboxPending,
+        previewPending,
         releaseState: null,
         verificationState,
         verificationSummary,

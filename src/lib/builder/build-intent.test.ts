@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isTemplateEntryMode,
   normalizeBuildIntent,
   normalizeBuildMethod,
   resolveBuildIntentForMethod,
@@ -22,5 +23,12 @@ describe("build-intent", () => {
     expect(resolveBuildIntentForMethod("audit", "template")).toBe("website");
     expect(resolveBuildIntentForMethod("kostnadsfri", "app")).toBe("website");
     expect(resolveBuildIntentForMethod("freeform", "app")).toBe("app");
+  });
+
+  it("recognizes the template aliases used by the landing UI", () => {
+    expect(isTemplateEntryMode("template")).toBe(true);
+    expect(isTemplateEntryMode("kategori")).toBe(true);
+    expect(isTemplateEntryMode("mall")).toBe(true);
+    expect(isTemplateEntryMode("fritext")).toBe(false);
   });
 });
