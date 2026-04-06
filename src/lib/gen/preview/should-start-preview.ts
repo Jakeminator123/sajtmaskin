@@ -1,7 +1,7 @@
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 
 /**
- * Own-engine: whether tier-2 live-preview should start after finalize.
+ * Own-engine: whether tier-2 live preview should start after finalize.
  * Compatibility preview is no longer a primary runtime path.
  */
 export function shouldStartOwnEnginePreview(params: {

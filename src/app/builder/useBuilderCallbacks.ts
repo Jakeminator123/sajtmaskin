@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import {
   isCompatibilityShimPreviewUrl,
-  isSandboxPreviewUrl,
+  isTier2LivePreviewUrl,
   normalizePreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 
@@ -35,11 +35,11 @@ function isOwnEngineVersionRow(v: VersionLike | undefined): boolean {
 
 function pickEngineIframeUrl(match: VersionLike, explicitDemo?: string | null): string | null {
   const fromPreview = normalizePreviewUrl(match.previewUrl);
-  if (fromPreview && isSandboxPreviewUrl(fromPreview)) {
+  if (fromPreview && isTier2LivePreviewUrl(fromPreview)) {
     return fromPreview;
   }
   const explicit = normalizePreviewUrl(explicitDemo);
-  if (explicit && !isCompatibilityShimPreviewUrl(explicit) && isSandboxPreviewUrl(explicit)) {
+  if (explicit && !isCompatibilityShimPreviewUrl(explicit) && isTier2LivePreviewUrl(explicit)) {
     return explicit;
   }
   return null;

@@ -14,9 +14,8 @@ const logGenerationMock = vi.hoisted(() => vi.fn());
 const failVersionVerificationMock = vi.hoisted(() => vi.fn());
 const createGenerationTelemetryRecordMock = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogsMock = vi.hoisted(() => vi.fn());
-const startSandboxPreviewMock = vi.hoisted(() => vi.fn());
-const buildSandboxEnvLocalContentsMock = vi.hoisted(() => vi.fn());
-const updateVersionSandboxUrlMock = vi.hoisted(() => vi.fn());
+const startPreviewSessionMock = vi.hoisted(() => vi.fn());
+const updateVersionPreviewUrlMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/generation-pipeline", () => ({
   createGenerationPipeline: createGenerationPipelineMock,
@@ -31,7 +30,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat: createChatMock,
   addMessage: addMessageMock,
   addAssistantMessageAndCreateDraftVersion: addAssistantMessageAndCreateDraftVersionMock,
-  updateVersionSandboxUrl: updateVersionSandboxUrlMock,
+  updateVersionPreviewUrl: updateVersionPreviewUrlMock,
   getChatOrchestrationSnapshot: getChatOrchestrationSnapshotMock,
   updateChatOrchestrationSnapshot: updateChatOrchestrationSnapshotMock,
   logGeneration: logGenerationMock,
@@ -56,17 +55,8 @@ vi.mock("@/lib/gen/prompt-dump", () => ({
   isPromptDumpEnabled: () => false,
 }));
 
-vi.mock("@/lib/mcp/runtime-url", () => ({
-  createSandboxRuntimeFromFiles: vi.fn(),
-  isSandboxConfigured: () => false,
-}));
-
-vi.mock("@/lib/gen/sandbox/sandbox-preview", () => ({
-  startSandboxPreview: startSandboxPreviewMock,
-}));
-
-vi.mock("@/lib/gen/sandbox/env-local", () => ({
-  buildSandboxEnvLocalContents: buildSandboxEnvLocalContentsMock,
+vi.mock("@/lib/gen/preview/preview-session", () => ({
+  startPreviewSession: startPreviewSessionMock,
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -166,7 +156,7 @@ function setupMocks() {
       message_id: MSG_ID,
       version_number: 1,
       files_json: "[]",
-      sandbox_url: null,
+      preview_url: null,
       release_state: "draft",
       verification_state: "pending",
       verification_summary: null,
@@ -193,7 +183,7 @@ function setupMocks() {
   createGenerationTelemetryRecordMock.mockResolvedValue({ id: "tel_1" });
   createEngineVersionErrorLogsMock.mockResolvedValue([]);
 
-  startSandboxPreviewMock.mockResolvedValue({
+    startPreviewSessionMock.mockResolvedValue({
     ok: true,
     result: {
       sandboxUrl: `https://preview.test/${CHAT_ID}/${VERSION_ID}`,
@@ -203,9 +193,7 @@ function setupMocks() {
       startOutcome: "recreated",
     },
   });
-  updateVersionSandboxUrlMock.mockResolvedValue(true);
-
-  buildSandboxEnvLocalContentsMock.mockResolvedValue("# sandbox env\n");
+  updateVersionPreviewUrlMock.mockResolvedValue(true);
 }
 
 describe("generateOwnEngineSiteFromPrompt — full pipeline e2e", () => {

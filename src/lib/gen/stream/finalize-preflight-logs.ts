@@ -91,7 +91,7 @@ export function buildFinalizePreflightLogBundle({
       versionId,
       level: "warning",
       category: "preview",
-      message: "Compatibility shim preview failed, but sandbox can still start for this version.",
+      message: "Compatibility preview failed, but live preview can still start for this version.",
       meta: {
         source: "finalize-preflight",
         previewCode: "compatibility_shim_blocked",

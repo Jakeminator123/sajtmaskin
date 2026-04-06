@@ -49,7 +49,6 @@ type Args = {
   setPreviewRefreshToken: Dispatch<SetStateAction<number>>;
   setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   setIsImportModalOpen: Dispatch<SetStateAction<boolean>>;
-  setIsSandboxModalOpen: Dispatch<SetStateAction<boolean>>;
   setIsSavingProject: Dispatch<SetStateAction<boolean>>;
   setSelectedModelTier: Dispatch<SetStateAction<ModelTier>>;
   setPromptAssistModel: Dispatch<SetStateAction<string>>;
@@ -99,7 +98,6 @@ export function useBuilderProjectActions({
   setPreviewRefreshToken,
   setMessages,
   setIsImportModalOpen,
-  setIsSandboxModalOpen,
   setIsSavingProject,
   setSelectedModelTier,
   setPromptAssistModel,
@@ -257,7 +255,6 @@ export function useBuilderProjectActions({
       setPreviewRefreshToken(0);
       setMessages([]);
       setIsImportModalOpen(false);
-      setIsSandboxModalOpen(false);
       setSelectedModelTier(DEFAULT_MODEL_TIER);
       setPromptAssistModel(DEFAULT_PROMPT_ASSIST.model);
       setPromptAssistDeep(DEFAULT_PROMPT_ASSIST.deep);
@@ -289,7 +286,6 @@ export function useBuilderProjectActions({
     setPreviewRefreshToken,
     setMessages,
     setIsImportModalOpen,
-    setIsSandboxModalOpen,
     setSelectedModelTier,
     setPromptAssistModel,
     setPromptAssistDeep,

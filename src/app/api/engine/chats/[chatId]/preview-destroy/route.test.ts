@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
-const getActiveSandboxSessionAsync = vi.hoisted(() => vi.fn());
-const clearSandboxSessionAsync = vi.hoisted(() => vi.fn());
-const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
+const getActivePreviewSessionAsync = vi.hoisted(() => vi.fn());
+const clearPreviewSessionAsync = vi.hoisted(() => vi.fn());
+const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const destroyPreviewHostSession = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rateLimit", () => ({
@@ -17,38 +17,38 @@ vi.mock("@/lib/tenant", () => ({
 }));
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
-  updateVersionSandboxUrl,
+  updateVersionPreviewUrl,
 }));
 
-vi.mock("@/lib/gen/sandbox/session-store", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/gen/sandbox/session-store")>(
-    "@/lib/gen/sandbox/session-store",
+vi.mock("@/lib/gen/preview/session-store", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/gen/preview/session-store")>(
+    "@/lib/gen/preview/session-store",
   );
   return {
     ...actual,
-    getActiveSandboxSessionAsync,
-    clearSandboxSessionAsync,
+    getActivePreviewSessionAsync,
+    clearPreviewSessionAsync,
   };
 });
 
-vi.mock("@/lib/gen/sandbox/preview-host-client", () => ({
+vi.mock("@/lib/gen/preview/preview-host-client", () => ({
   destroyPreviewHostSession,
 }));
 
 import { POST } from "./route";
 
-describe("POST sandbox-destroy", () => {
+describe("POST preview-destroy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getEngineChatByIdForRequest.mockResolvedValue({ id: "c1" });
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       version: { id: "v1" },
     });
-    updateVersionSandboxUrl.mockResolvedValue(true);
+    updateVersionPreviewUrl.mockResolvedValue(true);
   });
 
-  it("destroys preview_host sessions and clears stored sandbox url", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue({
+  it("destroys preview_host sessions and clears stored preview url", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://preview.example",
       versionId: "v1",
@@ -62,7 +62,7 @@ describe("POST sandbox-destroy", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", sandboxId: "sb1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
@@ -70,23 +70,23 @@ describe("POST sandbox-destroy", () => {
     const body = (await res.json()) as {
       ok: boolean;
       destroyed?: boolean;
-      clearedSandboxUrl?: boolean;
+      clearedPreviewUrl?: boolean;
       tier2Provider?: string | null;
     };
     expect(res.status).toBe(200);
     expect(body).toMatchObject({
       ok: true,
       destroyed: true,
-      clearedSandboxUrl: true,
+      clearedPreviewUrl: true,
       tier2Provider: "preview_host",
     });
     expect(destroyPreviewHostSession).toHaveBeenCalledWith({ sandboxId: "sb1" });
-    expect(clearSandboxSessionAsync).toHaveBeenCalledWith("c1");
-    expect(updateVersionSandboxUrl).toHaveBeenCalledWith("v1", null);
+    expect(clearPreviewSessionAsync).toHaveBeenCalledWith("c1");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("v1", null);
   });
 
-  it("clears version sandbox url even when no matching session exists", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue(null);
+  it("clears version preview url even when no matching session exists", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue(null);
 
     const res = await POST(
       new Request("http://localhost/api", {
@@ -111,12 +111,12 @@ describe("POST sandbox-destroy", () => {
       tier2Provider: null,
     });
     expect(destroyPreviewHostSession).not.toHaveBeenCalled();
-    expect(clearSandboxSessionAsync).not.toHaveBeenCalled();
-    expect(updateVersionSandboxUrl).toHaveBeenCalledWith("v1", null);
+    expect(clearPreviewSessionAsync).not.toHaveBeenCalled();
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("v1", null);
   });
 
   it("returns 502 when preview_host destroy fails", async () => {
-    getActiveSandboxSessionAsync.mockResolvedValue({
+    getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://preview.example",
       versionId: "v1",
@@ -134,7 +134,7 @@ describe("POST sandbox-destroy", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", sandboxId: "sb1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
@@ -143,6 +143,6 @@ describe("POST sandbox-destroy", () => {
     expect(res.status).toBe(502);
     expect(body.ok).toBe(false);
     expect(body.reason).toBe("destroy_failed");
-    expect(updateVersionSandboxUrl).not.toHaveBeenCalled();
+    expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
   });
 });

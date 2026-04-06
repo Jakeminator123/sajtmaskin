@@ -50,7 +50,7 @@ import { usePreviewSession } from "./usePreviewSession";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
   isCompatibilityShimPreviewUrl,
-  isSandboxPreviewUrl,
+  isTier2LivePreviewUrl,
   isShimOrMissingPreviewUrl,
   normalizePreviewUrl,
   resolveAlternatePreviewUrls,
@@ -150,11 +150,11 @@ export function useBuilderPageController() {
   /** Active live-preview URL for the version (shim slot kept null). */
   const activeVersionAlternatePreview = useMemo(() => {
     const vid = derived.activeVersionId;
-    if (!vid) return { shimUrl: null as string | null, sandboxUrl: null as string | null };
+    if (!vid) return { shimUrl: null as string | null, storedLivePreviewUrl: null as string | null };
     const v = derived.effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
-    if (!v) return { shimUrl: null, sandboxUrl: null };
+    if (!v) return { shimUrl: null, storedLivePreviewUrl: null };
     return resolveAlternatePreviewUrls({
-      sandboxUrl: v.previewUrl,
+      storedLivePreviewUrl: v.previewUrl,
     });
   }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
 
@@ -203,7 +203,6 @@ export function useBuilderPageController() {
     setPreviewRefreshToken: state.setPreviewRefreshToken,
     setMessages: state.setMessages,
     setIsImportModalOpen: state.setIsImportModalOpen,
-    setIsSandboxModalOpen: state.setIsSandboxModalOpen,
     setIsSavingProject: state.setIsSavingProject,
     setSelectedModelTier: state.setSelectedModelTier,
     setPromptAssistModel: state.setPromptAssistModel,
@@ -1278,8 +1277,8 @@ export function useBuilderPageController() {
       setClearedPreviewVersionId(null);
     }
 
-    // Do not skip when only `currentPreviewUrl` is set: the active version can gain `sandboxUrl` later
-    // (async sandbox, SWR refresh) while `activeVersionId` stays the same — keep sandbox URL when it arrives.
+    // Do not skip when only `currentPreviewUrl` is set: the active version can gain `previewUrl` later
+    // (async preview session + SWR refresh) while `activeVersionId` stays the same — keep the live preview URL when it arrives.
     if (!didChangeVersion && clearedPreviewVersionId === derived.activeVersionId) return;
 
     const activeVersionMatch = derived.activeVersionId
@@ -1355,7 +1354,7 @@ export function useBuilderPageController() {
     if (previewPending) return "bootstrapping";
     if (previewBuildError) return "failed";
     const url = normalizePreviewUrl(currentPreviewUrl);
-    if (url && isSandboxPreviewUrl(url)) return "live";
+    if (url && isTier2LivePreviewUrl(url)) return "live";
     if (url && !isCompatibilityShimPreviewUrl(url)) return "live";
     return "idle";
   }, [previewBuildError, previewSessionRecovering, previewPending, currentPreviewUrl]);
@@ -1511,7 +1510,6 @@ export function useBuilderPageController() {
     scaffoldMode: state.scaffoldMode,
     scaffoldId: state.scaffoldId,
     isImportModalOpen: state.isImportModalOpen,
-    isSandboxModalOpen: state.isSandboxModalOpen,
     isDeploying: state.isDeploying,
     isSavingProject: state.isSavingProject,
     isTemplateLoading: state.isTemplateLoading,
@@ -1565,7 +1563,6 @@ export function useBuilderPageController() {
     setScaffoldMode: state.setScaffoldMode,
     setScaffoldId: state.setScaffoldId,
     setIsImportModalOpen: state.setIsImportModalOpen,
-    setIsSandboxModalOpen: state.setIsSandboxModalOpen,
     setDeployNameDialogOpen: state.setDeployNameDialogOpen,
     setDeployNameInput: state.setDeployNameInput,
     setDeployNameError: state.setDeployNameError,

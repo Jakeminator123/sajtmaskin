@@ -79,7 +79,7 @@ export async function GET(req: Request) {
     return new Response(
       errorPage(
         "Ingen renderbar komponent",
-        "Tier-1-previewn behöver en default-exportad React-komponent (t.ex. i app/page.tsx). Kontrollera att filerna innehåller giltig JSX och att huvudsidan exporteras. För full Next.js-körning, använd sandbox-preview (tier 2) i byggaren.",
+        "Kompatibilitets-previewn behöver en default-exportad React-komponent (t.ex. i app/page.tsx). Kontrollera att filerna innehåller giltig JSX och att huvudsidan exporteras. För full Next.js-körning, använd live-preview i byggaren.",
         "render_route_no_renderable_component",
       ),
       { status: 422, headers: { "Content-Type": "text/html; charset=utf-8" } },

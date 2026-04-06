@@ -1,0 +1,303 @@
+Refactoring- och reorganisationsrapport för repo Jakeminator123/sajtmaskin
+Executive summary
+Den här kodbasen är redan mer “plattform” än “app”: en Next.js-baserad builder UI, en omfattande egen genereringsmotor (“own-engine”), ett tier‑2 preview‑system (primärt preview-host/VM, sekundärt Vercel Sandbox) samt stora stödytor för templates, eval, env-hantering och drift. Repo-trädet och dokumentationen visar att ni redan tänker i zoner (builder, gen, preview, db, scripts, infra).
+
+---
+
+2026-04-05 — lokal handoff för preview/Fly-spåret
+
+Det här spåret är nu funktionellt tillräckligt färdigt för att andra agenter ska kunna lämna det i fred och fortsätta med andra saker.
+
+Klart i praktiken:
+- tier-2/live-preview går via `preview_host` / Fly
+- buildern använder `preview-session`, `preview-status`, `preview-heartbeat`, `preview-hibernate`, `preview-destroy`
+- manuell Vercel Sandbox-yta i buildern är bortkopplad
+- `typecheck` och riktade preview/Fly-tester passerar
+- `config/dashboard/app.py` kompilerar
+
+Undvik att röra om uppgiften inte uttryckligen gäller preview/Fly:
+- `preview-host/src/*`
+- `src/app/api/engine/chats/[chatId]/preview-*`
+- `src/app/builder/*`
+- `src/components/builder/preview-panel/*`
+- `src/lib/builder/preview-session/*`
+- `src/lib/gen/preview/*`
+- `src/lib/gen/sandbox/*`
+- `src/lib/gen/stream/finalize-*`
+- `src/lib/providers/own-engine/generation-stream-post-finalize*`
+- `src/lib/own-engine/generate-site-from-prompt*`
+- `src/lib/mcp/local-engine.ts`
+- `src/lib/mcp/generate-site.ts`
+
+Vad som fortfarande känns rörigt i repo:t:
+- För många lager lever samtidigt: aktiv runtime, compat/legacy, research-pipeline, generated artifacts och lokala verktyg.
+- Samma domän är splittrad över flera träd: preview finns i API-routes, builder-state, `gen/preview`, `gen/sandbox`, `preview-host`, tests och docs.
+- Sökresultat överskattar ofta kaoset eftersom legitima ord, legacy namn och faktisk aktiv kod blandas ihop.
+
+Min kritik i kortform:
+- Repo:t är inte dåligt strukturerat i grunden.
+- Det som gör det svårt är att det är en plattform med flera “delsystem” i samma lokala kopia.
+- Den största överblicksskulden är inte antalet mappar, utan att flera historiska namn och flera pipeline-lager ser lika viktiga ut när man söker globalt.
+
+
+Den tydligaste produkt-smärtpunkten du pekar ut – “preview generation” som är buggig och långsam – har en väl beskriven rotorsak i repot: ni har två olika preview-lager (tier‑1 shim /api/preview-render och tier‑2 runtime via preview-host/VM eller Vercel Sandbox), plus att preview-host i praktiken är ett separat system med state, caching och driftfrågor (disk, session-persistens, CSP, parallella boots).
+
+
+
+Rekommendationen är inkrementell refaktor + riktad lift‑and‑shift (särskilt för preview-host) snarare än full rewrite. Motivet är klassiskt refactoring‑risk: små, beteendebevarande steg minskar regressionsrisk och låter systemet vara fungerande under tiden.
+ Samtidigt passar “Strangler Fig”‑tänk väl här: isolera och ersätt funktion för funktion, med en tydlig “façade”/kontraktskant runt preview.
+
+Högst prioriterade åtgärder (förkortad lista, rekommenderad ordning):
+
+Stabilitet i preview-host: session-persistens över restart/deploy + race/throttle kring flera versioner/boots + CSP/iframe allowlist (för att minska “vit preview” och “tappar preview efter deploy”).
+
+Tid till första preview: aggressiv caching (npm cache + baseline deps) och mindre “onödiga restarts” genom changeClass/diff-policy så att lätta ändringar kan gå via filsync + HMR istället för omstart.
+
+Mätbarhet: lägg in mätpunkter och profileringsverktyg så ni kan styra mot p50/p95 “time-to-preview-ready” och felbudget (“readiness_timeout”, installfel, ENOSPC).
+
+Modulär arkitektur med tydliga kontrakt: konsolidera “tier‑2 preview”-domänen (naming, typer, API boundaries) och separera preview‑ansvaret från generation.
+
+Nulägesanalys av repositoryt
+Struktur och huvuddelar
+Repo-trädsdokumentet beskriver rotmapparna och deras “roll” mycket tydligt: src/ (Next.js App Router + API routes + UI + domänlogik), config/ (kanonisk konfiguration, promptfragment, env-policy), docs/ (arkitektur och planer), scripts/ (Node/Python verktyg), infra/, services/, preview-host/ (separat tjänst), samt stödmappar för test, data och research.
+
+I samma orientering finns också “mentala zoner” som i praktiken fungerar som en modulindelning:
+
+Builder UI (src/app/builder/*, src/components/builder/*)
+Preview runtime/livscykel (bl.a. src/lib/builder/preview-session/*, src/lib/gen/preview/*, src/lib/gen/sandbox/*)
+Generation engine (src/lib/gen/*, src/lib/providers/own-engine/*)
+DB / versioner (src/lib/db/*, “services/<domän>.ts”)
+HTTP API v0 (src/app/api/v0/*)
+Systemöversikten och builder‑generation‑dokumentet binder ihop detta i en pipeline: prompt → orkestrering (scaffold/kontrakt/buildspec) → generation/stream → finalize (autofix/validering/merge/preflight/persist) → version sparad i Postgres (engine_versions.files_json) → tier‑2 preview → deploy.
+
+
+
+Teknikval och beroenden
+Rotens package.json visar att detta är en modern Node/Next-stack med kravet Node 22.14.0 (Volta + engines) och Next 16.1.4 (App Router), React 19, TypeScript och Tailwind.
+
+
+Det finns tydliga integrations- och plattformspaket i beroenden: @vercel/sandbox, @vercel/blob, @vercel/analytics, Upstash Redis/ratelimit, Drizzle ORM och pg för Postgres, samt Stripe och Resend.
+
+Preview-host är samtidigt ett separat Node‑paket med minimal runtime (endast http-proxy), tydligt designat för att kunna lyftas ur repot senare.
+
+
+TS/ESLint-konfigurationen är genomtänkt: path alias @/* -> src/*, strict TS, flat ESLint config via Next + Prettier, samt extra React hooks‑regler.
+
+
+CI/CD och lokalt arbetsflöde
+CI-workflow kör npm ci, typecheck, lint, vitest, baseline dependency checks och npm run build.
+ Detta ligger i linje med GitHubs rekommenderade Node‑workflows där setup-node kan cache:a dependency data via lockfile-hashar.
+
+Repo har också en schemalagd workflow för att synca templates och (valfritt) embeddings, vilket gör pipelinen mer “produktionslik” (data uppdateras av automation).
+
+Lokalt finns ett stort antal scripts och ett “devtest”-kommando som kör typecheck + scaffold‑validering + tester + lint.
+
+
+Pain points med fokus på preview
+Två preview-lager = två felklasser
+Ni har explicit två preview-lager:
+
+Tier‑1 shim: /api/preview-render, bygger en statisk HTML som laddar React 18 och Tailwind via CDN och kör en transpile/inline-script som försöker rendera page‑komponenten.
+
+Tier‑2 runtime: startar en riktig npm run dev i VM via preview-host eller via Vercel Sandbox, och exponerar sandboxUrl (legacy naming) som enda riktiga live preview‑URL i buildern.
+Runbooken beskriver att “vit preview” ofta kommer ur att shim-iframe inte får igång CDN-resurser eller kraschar innan första paint, medan tier‑2 har andra fel (install, devserver, readiness timeout).
+
+Det här är en central produkt-smärtpunkt eftersom “preview” ser ut som en sak i UI men är två helt olika tekniska vägar med olika driftkrav och olika kompatibilitet med “riktig Next”.
+
+
+Var den faktiska långsamheten sannolikt uppstår
+Det finns tre tydliga “dyrpunkter” i dagens previewflöden:
+
+Dependency install + devserver boot i tier‑2.
+
+preview-host gör npm install/npm ci och startar devserver per chatId‑workspace och har en fingerprint-cache för att kunna skippa install när package.json/lockfiles är oförändrade.
+README anger att första boot för tunga Next‑projekt kan vara 2–5 minuter, och att caching hjälper först efter första körningen.
+Vercel Sandbox är i grunden “ephemeral microVMs on demand”, vilket brukar innebära kallstart/installation om man inte explicit designar caching-lager runt det.
+Race + many versions: autofix/repair kan skapa flera versioner snabbt och varje version kan trigga ett startförsök. README beskriver detta som en källa till parallella boots och hög belastning.
+
+I app-koden deduplicerar startSandboxPreview per chatId+versionId, vilket innebär att flera versions-starts kan ske parallellt för samma chat.
+I preview-host dedupliceras boot mer på chatId-nivå (inflightBootByChat), men flera session-starts kan uppdatera filesJson under pågående boot → risk för “bootar fel version” eller “status/preview mismatch” om sessionens state ändras under ett pågående boot.
+
+Tier‑1 shim bygger script genom att transpila TS/JSX med TypeScripts transpileModule plus import‑rewrites och stubs; samt hämtar React/Tailwind från CDN. Detta är snabbare än full devserver, men mer “skör” (CDN, CSP, runtime skillnader, import‑edgecases).
+
+
+
+Konkreta buggrisker och “drift-smärta” som redan är dokumenterade i repot
+preview-host README listar uttryckligt vad som inte fungerar ännu i drift:
+
+Sessioner tappas vid restart/deploy eftersom runtime‑state (barnprocesser) är in-memory medan sessionmetadata bara delvis finns på volym.
+CSP/iframe-policy saknar *.fly.dev i frame-src, vilket ger console-varningar och är en latent blockerare.
+Första boot är seg för tunga deps (t.ex. three.js), och caching hjälper först senare.
+Autofix-loop kan trigga flera versioner/boots.
+Detta är “guld” för en refactor-plan: smärtan är redan specificerad i text och matchas mot kodpunkter (preview-host server.js/runtime.js, appens sandbox-preview.ts och preview contracts).
+
+
+
+Strategier och vägval
+Utifrån Martin Fowlers definition är refactoring “förändra intern struktur utan att ändra observerbart beteende”, i små steg med systemet fungerande.
+ Det är en bra kompass för att välja strategi.
+
+Jämförelsetabell: full rewrite vs inkrementell refactor vs lift-and-shift
+Alternativ	Fördelar	Nackdelar	Risknivå	Time-to-value	När det passar bäst här
+Full rewrite (ny repo/ny arkitektur på en gång)	Möjlighet att “städa allt” och göra stora teknikval (t.ex. ny preview-arkitektur, ny modulindelning)	Hög risk för lång parallellutveckling, scope creep och produktionsglapp; svår rollback	Hög	Lång (månader)	Endast om målbilden kräver fundamentalt nytt system (t.ex. helt annan produkt)
+Inkrementell refactor (Strangler‑likt)	Lägre risk, kan leverera stabilitet/prestanda tidigt; lättare att mäta förbättringar och backa	Kräver disciplin: kontrakt, tests, feature flags, “gör lite varje vecka”	Låg–medel	Kort–medel (veckor)	Rekommenderat, särskilt eftersom preview och contracts redan har tydliga boundaries
+Lift-and-shift av delar (t.ex. preview-host till eget repo/service, eller workspaces)	Renare ownership och deploy-cykler för ett subsystem; kan isolera incidenter	Risk för drift- och versionsdrift mellan repo(n); kräver API‑kontrakt och release-process	Medel	Medel	Mycket lämpligt för preview-host, eftersom mappen redan är designad “för att kunna lyftas ur senare”
+
+Rekommendation: Inkrementell refactor som bas, med lift-and-shift senare för preview-host när kontrakt och deployprocess är stabil. Detta är i linje med Strangler Fig‑mönstret (gradvis ersätta och flytta ut funktionalitet bakom en stabil “façade”).
+
+Rekommenderad målarkitektur och modulindelning
+Principer för målarkitekturen
+En sak ska ha ett hem: preview‑domänen ska samlas under en tydlig modulgräns (kontrakt + klient + provider-implementationer), så att “sandbox” vs “preview_host” blir implementation bakom samma interface.
+
+Tvingande kontrakt: preview-session-contract bör vara den stabila sanningen för ID, lane-uppdelning och publika fält (previewUrl, sandboxUrl, etc.).
+Gen → Persist → Preview är en pipeline: generation sparar engine_versions.files_json, preview-systemet konsumerar det som artifact, inte “builder state”. Detta är redan dokumenterat som beslut och bör cementeras i kodorganisationen.
+Separera live-preview och verify-lane: verify är isolerat och ska inte dela workspace/process med live-preview. Detta finns redan i preview-host runtime.js och kontraktet.
+
+Föreslagen modulstruktur (inom befintligt repo, utan “big bang”)
+En pragmatisk refactor är att införa ett tydligt “preview subsystem” under src/lib/preview/ (eller src/lib/tier2/) och flytta in:
+
+Kontrakt/typer (nu spridda i src/lib/gen/preview/* + src/lib/gen/sandbox/*)
+Provider interface: Tier2Provider med implementationer preview_host och vercel_sandbox
+Session/state: “store adapter” (Redis/in-memory), plus klientens preview-session/* och “lifecycle” kopplingar
+Preflight/quality gate runt preview (låta preview-quality-gate.ts leva nära subsystemet)
+Samtidigt: låt preview-host/ fortsätta vara en isolerad tjänst, men skärp kontrakt och release‑disciplin så att appen kan stödja både “same-repo” och “external service” utan att läcka detaljer.
+
+Arkitekturdiagram (nu → rekommenderad tydlig “preview boundary”)
+mermaid
+Copy
+flowchart LR
+  UI[Builder UI<br/>src/app/builder + src/components/builder] -->|SSE stream| API[Engine API routes<br/>src/app/api/engine/...]
+  API --> GEN[Own-engine pipeline<br/>src/lib/gen/*]
+  GEN -->|persist| DB[(Postgres<br/>engine_versions.files_json)]
+  GEN -->|start tier-2| PREVIEW_ORCH[Preview Orchestrator<br/>(rekommenderad modulgräns)]
+  PREVIEW_ORCH -->|provider: preview_host| PH[(Preview-host service<br/>preview-host/)]
+  PREVIEW_ORCH -->|provider: vercel sandbox| VS[(Vercel Sandbox)]
+  UI -->|iframe| T2URL[Tier-2 preview URL]
+  PH --> T2URL
+  VS --> T2URL
+  PREVIEW_ORCH -->|verify lane| PHV[Preview-host verify lane]
+  PHV --> API
+Den viktiga poängen är att UI och generation inte ska behöva veta vilken provider som levererar tier‑2: de pratar med “Preview Orchestrator”-gränsen. Detta följer Strangler‑tänk: du kan byta en provider i taget bakom samma façade.
+
+
+Roadmap med milstolpar, tester, checkpoints och rollback
+Roller/kompetenser som krävs
+TypeScript/Node + Next.js App Router & Route Handlers (inkl runtime-val och streaming)
+Drift/ops för preview-host på Fly.io (volymer, maskin, loggar, restartbeteende)
+Vercel Sandbox integration (SDK, auth, runtimeval)
+Postgres + Drizzle migrations/kit (generate/push/migrate)
+Testning: Vitest + Playwright e2e
+CI/CD: GitHub Actions (setup-node/checkout/cache)
+Roadmap-tabell (actionable, rough estimates)
+Tider är grova och bör ses som “1–2 utvecklare heltid”. Om teamet är större kan flera spår gå parallellt.
+
+Milstolpe	Mål	Tid	Aktivitet (konkret)	Leverabler	Tests/checkpoints	Rollback-strategi
+M0 Baseline & mätbarhet	Göra preview-problem mätbara innan ni ändrar beteende	3–5 dagar	Inför standardiserade metrics/log events: time_to_preview_ready, install_ms, boot_ms, readiness_timeout, ENOSPC, “vercel fallback used”; samla i logg/DB	Dashboard/rapport + dokumenterad SLO (p50/p95)	Smoke: befintliga tester + preview-host smoke
+; “CI grönt”	Inga beteendeförändringar ännu
+M1 Stabil preview-host över deploy	Stoppa “tappar preview efter restart” och minska incidentklass	1–2 veckor	Ladda och återskapa sessions från disk store vid serverstart; definiera “recover” för runtime; förbättra status/health	Sessions survive deploy (inom TTL)	Kontraktstest: start → restart → status → proxy; E2E: builder går tillbaka till samma sandboxUrl	Feature-flag/konfig: fall tillbaka till Vercel Sandbox via SAJTMASKIN_TIER2_RUNTIME=preview_host_then_vercel (redan beskrivet)
+M2 Snabbare preview upplevelse	Halvera (eller bättre) p95 “time-to-preview-ready” på vanlig edit	1–2 veckor	Implementera changeClass-policy: light updates skriver filer utan server restart; medium/heavy restart; lägg npm cache på volym; ev. preinstall baseline deps i image	“light change” uppdaterar inom sekunder; första boot kortare	Load test: 10 init + 30 updates; Regression test: smoke.js utökas med “no restart on light”	Snabb rollback: slå av changeClass och tvinga restart
+M3 Gör preview subsystem explicit i appen	Reducera naming-debt och förbättra ägarskap	1–2 veckor	Flytta/omdöp (utan wire‑breaking): samla tier‑2 kod bakom interface, tydlig folder; “sandbox” som legacy alias endast i kontrakt	Ny modulstruktur + uppdaterade imports	Unit tests uppdaterade; API contract test; CI grönt	Git revert + behåll gamla exports som shim
+M4 Tier‑1 shim minimal & cachead	Minska “vit shim” och CPU i /api/preview-render när den ändå används	3–5 dagar	Cachea HTML per (chatId,versionId,route) i minne/Redis; tydligare error metadata; minska CDN-dependens där möjligt	Caching + förbättrad feltext	Perf test: 20 reloads av samma preview; verify content stämmer	Flagga för att stänga caching om buggar
+M5 Lift-and-shift preview-host	Göra preview-host till egen release-enhet (valfritt)	2–4 veckor	Flytta preview-host/ till eget repo eller npm workspace; versionera API; release-notes; deploy pipeline	Eget repo + taggad release; kompatibilitetstest	Contract tests mellan app ↔ host (schema-baserat)	Tillfällig kompat: behåll “old host” + allowlist i klienten
+
+M0–M3 är “must-have” för din uttalade smärtpunkt; M4–M5 är “nice-to-have” beroende på hur ofta shim används i verkligheten och hur snabbt du vill ha separat deploy-cykel.
+
+Rollback i praktiken
+Ni har redan designat en central rollback-mekanism på preview-nivå: tier‑2 provider mode kan styras via env så att preview_host kan vara strikt eller ha explicit fallback till Vercel.
+
+Detta är precis det som brukar rekommenderas i trunk‑baserad utveckling: små merges + feature flags/toggles för att kunna slå av ett nytt beteende snabbt.
+
+Prestanda-, DX- och kvalitetsförbättringar
+Preview-prestanda: konkret plan för profiling, caching, parallelism och “incremental builds”
+Profilering (för att veta vad som är dyrt):
+För Node-tunga paths (t.ex. /api/preview-render, build/repair steg eller preview-host runtime) är Node’s built-in profiler och flame graphs en praktisk start. Node rekommenderar node --prof och efterbearbetning för att hitta CPU hotspots.
+
+Exempelkommandon (app/preview-host lokalt):
+
+bash
+Copy
+# Profilera en Node-process (ex: en route handler i dev eller preview-host)
+NODE_ENV=production node --prof src/server.js
+# eller: kör den faktiska tjänsten och belastningstesta separat
+Caching (där det ger mest):
+
+preview-host har redan en dependency fingerprint baserad på package.json + lockfiles och skippar install när fingerprint matchar.
+Förstärk detta genom att sätta NPM_CONFIG_CACHE till en path på den monterade volymen och/eller genom att cacha ~/.npm via volym. Eftersom Flys root FS är ephemeral och begränsad är volymen rätt plats för sådan state.
+
+För tier‑1 /api/preview-render: lägg en cache per (chatId, versionId, route) med TTL. I dag repareras och byggs HTML varje request och Cache-Control: no-store används.
+Cachen behöver invalidation på versionId (enkelt) och bör inte delas mellan användare om preview har auth/tenant-koppling (oklart; behandla som “ospecificerat”).
+Parallelism och throttle:
+
+Preview-host har redan inflightBootByChat som begränsar samtidig boot per chat.
+Problemet som återstår är “många session start/update requests” under pågående boot (autofix, snabb versionskedja). Lösningen är typiskt:
+server-side queue: “senaste version vinner”, och om ny version anländer under boot → markera pendingRestart och trigga en ny (fördröjd) restart när boot är klar.
+client-side debounce: buildern ska bara försöka starta tier‑2 när versionen är stabil och det inte redan finns en live session för samma version. Detta finns delvis i era bootstrap-villkor och dedupe, men kan förfinas.
+
+Incremental build (största “win”):
+
+preview-host har changeClass-fält i kontraktet och smoke-testet använder "light", men dagens server-flöde “restartar” i praktiken alltid via queueRuntimeBoot(..., { restart: true }) för start/update.
+
+
+
+Det betyder att ni inte fullt ut tar hem Next dev/HMR‑vinsten vid små ändringar. En konkret refactor här är:
+
+Vid changeClass: light: skriv filer i workspace och restarta inte devservern; låt HMR plocka upp filändringarna.
+Vid changeClass: medium: restart devservern men skippa install om fingerprint oförändrad.
+Vid changeClass: heavy: reinstall + restart.
+Detta matchar exakt den policy som README föreslår (light/medium/heavy/rebuild).
+
+Developer Experience: lokalt dev, CI, tester, linting, docs
+Lokalt dev
+Rotens predev gör flera saker (systemprompt-check, token refresh, db init). Det är bra för “safe by default”, men det kan vara tungt under snabb iteration.
+
+Ett DX-förslag som inte kräver stor ombyggnad:
+
+Lägg till en “snabb dev” som hoppar över token-refresh/db-init om dev redan är bootstrappad (t.ex. DEV_FAST=1 npm run dev) och låt scripts/dev/* respektera flaggan.
+Behåll npm run devtest som den konservativa checken (ni har redan detta koncept).
+CI/CD
+CI är redan bra, men två små förbättringar ger ofta mycket:
+
+Dela upp “quality” i separata jobs (typecheck/lint/test/build) om build är långsam, så att ni får snabbare feedback och bättre parallellism (särskilt när testfloran växer).
+Säkerställ att cachingstrategin är korrekt för npm: setup-node v6 har tydlig cachefunktion och rekommenderar att man cache:ar package manager cache, inte node_modules.
+Exempel (snutt, ingen full pipeline):
+
+yaml
+Copy
+- uses: actions/checkout@v6
+- uses: actions/setup-node@v6
+  with:
+    node-version-file: .node-version
+    cache: npm
+- run: npm ci
+- run: npm run typecheck
+- run: npm run test:ci
+actions/checkout@v6 och actions/setup-node@v6 är faktiska releaser idag (inte “framtidsgissningar”), så er workflow är rimlig.
+
+Tester som validerar refactor
+Ni har redan både Vitest och Playwright, plus preview-host smoke test.
+
+
+
+Föreslaget testpaket för preview-refactor (för att säkra “beteende” enligt refactoring-definitionen):
+
+Kontraktstest (API): schema‑baserade tester för preview-session-contract (IDs, previewUrl vs sandboxUrl, verify lane separation).
+preview-host “restart survival”: start → boot ready → restart server → status/proxy ska återhämta session och (om möjligt) återstarta runtime.
+Performance regression: mät “time_to_preview_ready” för 1) fresh boot, 2) light update, 3) heavy update. En enkel baseline kan vara att logga timestamps och köra 20 repetitioner.
+E2E: en minimal Playwright-svit som startar builder, gör en change, och verifierar att iframe visar uppdaterat innehåll inom timeout.
+Riskbedömning och prioritet
+Högsta riskerna (och varför):
+
+Stateful preview-host drift: session-persistens, diskfull (ENOSPC), och basePath/CSP/iframe constraints är klassiska “ops-fällor” i stateful preview runt user-generated kod.
+
+
+Dubbel sanning (shim vs tier‑2): om UI ibland visar shim och ibland tier‑2 kan “det funkar hos mig” bli en ständig felsökningskostnad.
+
+Refactor utan testskydd: att flytta filer och skapa nya moduler i en stor TS/Next‑app kräver kontraktstester och CI‑gates för att inte få subtila regressions.
+Effort (grovt) och prioritet:
+
+Fix session-persistens + recover: hög prioritet, medel effort (1–2 veckor), hög ROI.
+changeClass/HMR‑update utan restart: hög prioritet, medel effort, mycket hög ROI på “snabb edit”.
+
+Modulär omorganisation i appen (tydlig preview boundary): medel-hög prioritet, medel effort, ROI via lägre kognitiv last.
+Tier‑1 preview-render caching: medel prioritet, låg–medel effort, ROI beroende på hur ofta shim faktiskt används.
+Lift-and-shift preview-host till eget repo: medel prioritet, högre effort, ROI i drift/ownership när subsystemet stabiliserats.

@@ -1,33 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { httpStatusForSandboxPreviewFailure } from "./preview-errors";
+import { httpStatusForPreviewSessionFailure } from "./preview-errors";
 
-describe("httpStatusForSandboxPreviewFailure", () => {
+describe("httpStatusForPreviewSessionFailure", () => {
   it("maps repair to 422", () => {
     expect(
-      httpStatusForSandboxPreviewFailure({ stage: "repair", message: "x" }),
+      httpStatusForPreviewSessionFailure({ stage: "repair", message: "x" }),
     ).toBe(422);
   });
-  it("maps install to 503", () => {
+  it("maps preview-start to 503", () => {
     expect(
-      httpStatusForSandboxPreviewFailure({ stage: "install", message: "npm" }),
+      httpStatusForPreviewSessionFailure({ stage: "preview-start", message: "host unavailable" }),
     ).toBe(503);
   });
-  it("maps SANDBOX_NOT_LISTENING to 504", () => {
+  it("keeps preview-start failures on 503", () => {
     expect(
-      httpStatusForSandboxPreviewFailure({
-        stage: "sandbox-create",
-        message: "SANDBOX_NOT_LISTENING: timeout",
+      httpStatusForPreviewSessionFailure({
+        stage: "preview-start",
+        message: "preview-host start failed",
       }),
-    ).toBe(504);
-  });
-
-  it("maps failureCode readiness_timeout to 504 without substring in message", () => {
-    expect(
-      httpStatusForSandboxPreviewFailure({
-        stage: "sandbox-create",
-        message: "wrapped: something else",
-        failureCode: "readiness_timeout",
-      }),
-    ).toBe(504);
+    ).toBe(503);
   });
 });

@@ -2,9 +2,9 @@
 
 Den har mappen ar ett avgransat spar for preview-host-tjansten som nu ar den primara tier-2-previewvagen nar `SAJTMASKIN_PREVIEW_HOST_BASE_URL` ar satt. Tanken ar fortfarande att den ska kunna lyftas ut till ett eget repo senare utan att blanda ihop sig med Sajtmaskins `src/`.
 
-## Detta spar relativt sandbox
+## Detta spar relativt preview-systemet
 
-Detta spar ska ses som den **nuvarande primara preview-host/VM-vagen** for tier-2 live-preview, medan `sandbox` i stora delar av huvudappen lever kvar som legacy-kontrakt och naming debt.
+Detta spar ska ses som den **nuvarande primara preview-host/VM-vagen** for tier-2 live-preview, medan vissa `sandbox`-namn i huvudappen fortfarande ar legacy-kontrakt och naming debt.
 
 Tanken ar inte att ersatta own-engine, buildern eller `files_json`, utan att vara det separata runtime-lager som startar och ager tier-2 preview.
 
@@ -48,7 +48,7 @@ I praktiken betyder det:
 - **`npm audit fix`**: valfritt rad fran npm, inte ett krav for preview.
 - **Readiness** vantar pa HTTP 200 HTML med tillrackligt med synlig text i `<body>`; tom sida efter nagra forsok loggas som varning men accepteras (annars blockerar vi legitima RSC-/compile-faser for lange).
 - **basePath / CSS som saknas i iframen**: publik URL ar `https://...fly.dev/{chatId}/...`. Utan `basePath` pekar HTML pa `/_next/...` mot hostroten (404) → sidan ser ut som "ren HTML". Runtime satter `SAJTMASKIN_PREVIEW_BASE_PATH=/{chatId}` och proxyn skickar **full** path till `next dev`; `next.config.ts` maste respektera env (scaffold + patch pa workspace vid boot).
-- **`/placeholder.svg` mot hostroten (404)**: motorn instruerar `<img src="/placeholder.svg?...">`. Webblasaren fragar da `https://...fly.dev/placeholder.svg`, inte under `/{chatId}/`. Preview-host svarar darfor pa `GET /placeholder.svg` med samma SVG som Sajtmaskin-huvudappens `/api/placeholder`. Baseline-scaffold inkluderar aven `app/api/placeholder` + rewrite for zip/sandbox utan Fly.
+- **`/placeholder.svg` mot hostroten (404)**: motorn instruerar `<img src="/placeholder.svg?...">`. Webblasaren fragar da `https://...fly.dev/placeholder.svg`, inte under `/{chatId}/`. Preview-host svarar darfor pa `GET /placeholder.svg` med samma SVG som Sajtmaskin-huvudappens `/api/placeholder`. Baseline-scaffold inkluderar aven `app/api/placeholder` + rewrite for zip/export utan Fly.
 
 ### Drift pa Fly
 
@@ -65,7 +65,6 @@ I praktiken betyder det:
 ```env
 SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://vm-fly-jakem.fly.dev
 SAJTMASKIN_PREVIEW_HOST_API_KEY=...
-SAJTMASKIN_TIER2_RUNTIME=preview_host
 NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev
 ```
 
@@ -160,7 +159,7 @@ Viktiga test-endpoints i prototypen:
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/sandbox/:sandboxId/status`
+- `GET /preview/session/:sandboxId/status`
 - `GET /preview/logs/:sandboxId`
 - `POST /preview/verify`
 
@@ -291,7 +290,7 @@ Foreslaget minsta kontrakt:
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/sandbox/:sandboxId/status`
+- `GET /preview/session/:sandboxId/status`
 - `GET /preview/logs/:sandboxId`
 - `POST /preview/verify`
 

@@ -13,8 +13,8 @@ import {
   TIER2_QUALITY_GATE_CHECKS,
   type QualityGateCheck,
 } from "@/lib/gen/quality-gate-checks";
-import { runPreviewHostQualityGate } from "@/lib/gen/sandbox/preview-host-client";
-import { getPreviewHostBaseUrl } from "@/lib/gen/sandbox/tier2-config";
+import { runPreviewHostQualityGate } from "@/lib/gen/preview/preview-host-client";
+import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 
 export type QualityGateCheckResult = {
   check: string;

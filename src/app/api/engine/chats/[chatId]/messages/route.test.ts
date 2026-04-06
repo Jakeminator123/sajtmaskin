@@ -29,7 +29,7 @@ describe("POST /api/engine/chats/[chatId]/messages", () => {
     vi.clearAllMocks();
   });
 
-  it("uses sandbox-ready as preview fallback in follow-up sync JSON", async () => {
+  it("uses preview-ready as preview fallback in follow-up sync JSON", async () => {
     handleMessageStreamRequest.mockResolvedValue(
       buildSseResponse([
         { event: "content", data: "Uppdaterad sida" },
@@ -47,10 +47,10 @@ describe("POST /api/engine/chats/[chatId]/messages", () => {
           },
         },
         {
-          event: "sandbox-ready",
+          event: "preview-ready",
           data: {
-            sandboxUrl: "https://vm.example/chat_1/ver_1",
-            sandboxId: "sbx_1",
+            previewUrl: "https://vm.example/chat_1/ver_1",
+            previewSessionId: "sbx_1",
           },
         },
       ]),
@@ -66,14 +66,13 @@ describe("POST /api/engine/chats/[chatId]/messages", () => {
       chatId: "chat_1",
       versionId: "ver_1",
       previewUrl: "https://vm.example/chat_1/ver_1",
-      sandboxPending: true,
+      previewPending: false,
       latestVersion: {
         id: "ver_1",
         versionId: "ver_1",
         messageId: "msg_1",
         previewUrl: "https://vm.example/chat_1/ver_1",
-        sandboxUrl: "https://vm.example/chat_1/ver_1",
-        sandboxPending: true,
+        previewPending: false,
         verificationState: "pending",
       },
       text: "Uppdaterad sida",

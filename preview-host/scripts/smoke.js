@@ -79,7 +79,7 @@ async function main() {
     const sessionId = started.body.sessionId;
     const sandboxId = started.body.sandboxId;
 
-    const st = await getJson(`${baseUrl}/preview/sandbox/${encodeURIComponent(sandboxId)}/status`);
+    const st = await getJson(`${baseUrl}/preview/session/${encodeURIComponent(sandboxId)}/status`);
     assert.equal(st.status, 200);
     assert.equal(st.body.ok, true);
     assert.equal(st.body.sandboxId, sandboxId);

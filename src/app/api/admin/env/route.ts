@@ -72,17 +72,17 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   {
     key: "VERCEL_TOKEN",
     required: false,
-    notes: "Vercel API + optional Vercel tier-2 fallback (see docs/architecture/preview-deploy.md, docs/ENV.md)",
+    notes: "Vercel API for deploy/domain/admin workflows (not tier-2 live preview)",
   },
   {
     key: "VERCEL_TEAM_ID",
     required: false,
-    notes: "With TOKEN+PROJECT_ID for sandbox; .vercel/project.json orgId",
+    notes: "Used together with VERCEL_TOKEN for Vercel platform API access; .vercel/project.json orgId",
   },
   {
     key: "VERCEL_PROJECT_ID",
     required: false,
-    notes: "With TOKEN+TEAM_ID for sandbox; .vercel/project.json projectId",
+    notes: "Used together with VERCEL_TOKEN for Vercel platform API access; .vercel/project.json projectId",
   },
   { key: "STRIPE_SECRET_KEY", required: false, notes: "Stripe payments" },
   { key: "STRIPE_WEBHOOK_SECRET", required: false, notes: "Stripe webhooks" },

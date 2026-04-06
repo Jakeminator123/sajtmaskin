@@ -1,7 +1,8 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
 import { generateOwnEngineSiteFromPrompt } from "@/lib/own-engine/generate-site-from-prompt";
-import type { RuntimeMode, SandboxRuntimeOptions } from "./runtime-url";
+
+type RuntimeMode = "preview";
 
 export type GenerateSiteParams = {
   prompt: string;
@@ -12,7 +13,6 @@ export type GenerateSiteParams = {
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
   runtimeMode?: RuntimeMode;
-  sandbox?: SandboxRuntimeOptions;
 };
 
 export type GenerateSiteResult = {

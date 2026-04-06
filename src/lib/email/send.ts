@@ -129,7 +129,7 @@ function buildVerificationHtml(displayName: string, verifyUrl: string): string {
 function classifyProviderDeliveryMode(message: string): SendEmailResult["deliveryMode"] {
   const normalized = message.toLowerCase();
 
-  // Resend sandbox/testing mode: only account owner/verified recipients are allowed.
+  // Resend testing mode: only account owner/verified recipients are allowed.
   if (
     normalized.includes("testing emails") ||
     normalized.includes("sandbox") ||

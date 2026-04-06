@@ -148,7 +148,7 @@ export function previewRunbookLinesForCode(code: string | null | undefined): str
       return [
         "Shim-preview laddar React och Tailwind från CDN — öppna DevTools för iframe preview-iframe och kontrollera Network (unpkg, cdn.tailwindcss.com) att allt får 200.",
         "Om #root förblir tom: ofta blockerad CDN, eller genererad sida returnerar inget synligt DOM (null/ krasch).",
-        "Om live-preview (sandbox) finns för versionen: byt till den — då körs riktig Next.js i stället för shim.",
+        "Om live-preview finns för versionen: byt till den — då körs riktig Next.js i stället för shim.",
         docHint,
       ];
     case "preview_document_unavailable":
@@ -183,7 +183,7 @@ export function previewRunbookLinesForCode(code: string | null | undefined): str
     default:
       return [
         "Kontrollera Agentloggen och versionsfel-logg (preview) för samma version.",
-        "Skilj på shim (/api/preview-render) och sandbox — sandbox kräver Vercel Sandbox-credentials på servern.",
+        "Skilj på shim (/api/preview-render) och live-preview via preview-host/VM.",
         docHint,
       ];
   }

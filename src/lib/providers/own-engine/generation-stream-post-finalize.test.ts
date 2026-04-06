@@ -11,9 +11,9 @@ const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const parseCodeProjectMock = vi.hoisted(() =>
   vi.fn((_src: string) => ({ files: [] as Array<{ path: string; content: string }> })),
 );
-const shouldRunOwnEngineSandbox = vi.hoisted(() => vi.fn(() => false));
-const logSandboxLifecycleTelemetry = vi.hoisted(() => vi.fn());
-const startSandboxPreview = vi.hoisted(() => vi.fn());
+const shouldStartOwnEnginePreview = vi.hoisted(() => vi.fn(() => false));
+const logPreviewLifecycleTelemetryMock = vi.hoisted(() => vi.fn());
+const startPreviewSessionMock = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => false));
 const devLogAppend = vi.hoisted(() => vi.fn());
 
@@ -27,20 +27,20 @@ vi.mock("@/lib/logging/devLog", () => ({
   devLogFinalizeSite: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/sandbox/own-engine-sandbox-gate", () => ({
-  shouldRunOwnEngineSandbox,
+vi.mock("@/lib/gen/preview/should-start-preview", () => ({
+  shouldStartOwnEnginePreview,
 }));
 
 vi.mock("@/lib/gen/parser", () => ({
   parseCodeProject: (src: string) => parseCodeProjectMock(src),
 }));
 
-vi.mock("@/lib/gen/sandbox/lifecycle-telemetry", () => ({
-  logSandboxLifecycleTelemetry,
+vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
+  logPreviewLifecycleTelemetry: logPreviewLifecycleTelemetryMock,
 }));
 
-vi.mock("@/lib/gen/sandbox/sandbox-preview", () => ({
-  startSandboxPreview,
+vi.mock("@/lib/gen/preview/preview-session", () => ({
+  startPreviewSession: startPreviewSessionMock,
 }));
 
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
@@ -51,7 +51,7 @@ vi.mock("@/lib/gen/version-manager", () => ({
   parseCodeFilesFromFilesJson: vi.fn(() => []),
 }));
 
-vi.mock("@/lib/gen/sandbox/tier2-config", () => ({
+vi.mock("@/lib/gen/preview/tier2-config", () => ({
   isTier2PreviewConfigured,
 }));
 
@@ -72,21 +72,21 @@ const finalized = {
   version: { id: "ver_1" },
   messageId: "msg_1",
   previewUrl: null,
-  sandboxUrl: null,
+  tier2PreviewUrl: null,
   filesJson: "[]",
   contentForVersion: "",
   preflight: {
     previewBlocked: false,
     verificationBlocked: false,
     previewBlockingReason: null,
-    sandbox: {
-      canStartSandbox: true,
-      primaryPreviewTarget: "app",
+    previewStart: {
+      canStartPreview: true,
+      primaryPreviewTarget: "preview",
       shimBlocked: false,
       requiresEnvConfig: false,
       hasCriticalInstallRisk: false,
       hasCriticalCodeFailure: false,
-      compatibilityShimAllowed: false,
+      compatibilityPreviewAllowed: false,
       issueCounts: {
         code_structure_failure: 0,
         dependency_install_failure: 0,
@@ -105,12 +105,13 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     updateVersionPreviewUrl.mockReset();
     parseCodeProjectMock.mockReset();
     parseCodeProjectMock.mockImplementation(() => ({ files: [] }));
-    shouldRunOwnEngineSandbox.mockReset();
-    shouldRunOwnEngineSandbox.mockReturnValue(false);
-    logSandboxLifecycleTelemetry.mockReset();
-    startSandboxPreview.mockReset();
+    shouldStartOwnEnginePreview.mockReset();
+    shouldStartOwnEnginePreview.mockReturnValue(false);
+    logPreviewLifecycleTelemetryMock.mockReset();
+    startPreviewSessionMock.mockReset();
     isTier2PreviewConfigured.mockReset();
     isTier2PreviewConfigured.mockReturnValue(false);
+    updateVersionPreviewUrl.mockResolvedValue(true);
   });
 
   it("parses accumulatedContent when recovery flag is set and saved files are empty", async () => {
@@ -154,19 +155,19 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     expect(parseCodeProjectMock.mock.calls.some((c) => String(c[0]).includes(marker))).toBe(true);
   });
 
-  it("logs structured sandbox readiness telemetry with policy context", async () => {
-    shouldRunOwnEngineSandbox.mockReturnValue(true);
+  it("logs structured tier-2 preview readiness telemetry with policy context", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
     isTier2PreviewConfigured.mockReturnValue(true);
     getChat.mockResolvedValue({ project_id: "proj_1" });
-    startSandboxPreview.mockResolvedValue({
+    startPreviewSessionMock.mockResolvedValue({
       ok: true,
       result: {
-        sandboxUrl: "https://sandbox.example",
+        sandboxUrl: "https://preview.example",
         sandboxId: "sbx_1",
-        sandboxPreviewMode: "dev_then_build",
-        fidelityTier: 3,
-        prodBuildVerified: true,
+        sandboxPreviewMode: "dev_only",
+        fidelityTier: 2,
         startOutcome: "recreated",
+        tier2Meta: { tier2Provider: "preview_host" },
       },
     });
 
@@ -199,7 +200,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       },
     });
 
-    expect(startSandboxPreview).toHaveBeenCalledWith(
+    expect(startPreviewSessionMock).toHaveBeenCalledWith(
       [],
       expect.objectContaining({
         appProjectId: "proj_1",
@@ -209,9 +210,9 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         versionIdForSession: "ver_1",
       }),
     );
-    expect(logSandboxLifecycleTelemetry).toHaveBeenCalledWith(
+    expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: "sandbox_start_outcome",
+        kind: "preview_start_outcome",
         chatId: "chat_1",
         versionId: "ver_1",
         outcome: "recreated",
@@ -219,22 +220,21 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         verificationPolicy: "strict",
       }),
     );
-    expect(logSandboxLifecycleTelemetry).toHaveBeenCalledWith(
+    expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: "sandbox_preview_ready",
+        kind: "preview_ready",
         chatId: "chat_1",
         versionId: "ver_1",
         sandboxId: "sbx_1",
-        sandboxPreviewMode: "dev_then_build",
-        fidelityTier: 3,
-        prodBuildVerified: true,
+        sandboxPreviewMode: "dev_only",
+        fidelityTier: 2,
         previewPolicy: "fidelity3",
         verificationPolicy: "strict",
         startOutcome: "recreated",
         msSinceEngineStart: expect.any(Number),
       }),
     );
-    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://sandbox.example");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
   });
 });
 

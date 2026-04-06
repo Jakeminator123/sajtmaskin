@@ -2,8 +2,9 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
-import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
+import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
+import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
   resolvePostFinalizeServerVerifyDecision,
@@ -11,7 +12,6 @@ import {
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { isTier2PreviewConfigured } from "@/lib/gen/sandbox/tier2-config";
 import { triggerServerVerification } from "@/lib/gen/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
@@ -24,7 +24,7 @@ export type PostFinalizeSse = {
 };
 
 /**
- * After `finalizeAndSaveVersion`: integration hints, `done` SSE, credits, sandbox boot,
+ * After `finalizeAndSaveVersion`: integration hints, `done` SSE, credits, preview boot,
  * background server verification. Keeps `generation-stream.ts` readable.
  */
 export async function runOwnEngineStreamPostFinalize(params: {
@@ -36,7 +36,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   engineStartedAt: number;
   commitCredits: () => Promise<void>;
   buildSpec: BuildSpec;
-  /** Stream ended without a normal `done` event; prefer parsing raw accumulated SSE text for sandbox files. */
+  /** Stream ended without a normal `done` event; prefer parsing raw accumulated SSE text for preview files. */
   recoveredAfterStreamAbort?: boolean;
 }): Promise<void> {
   const {
@@ -142,7 +142,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         typeof chatRow?.project_id === "string" && chatRow.project_id.trim()
           ? chatRow.project_id.trim()
           : null;
-      const sandboxResult = await startSandboxPreview(parsedForPreview, {
+      const previewSessionResult = await startPreviewSession(parsedForPreview, {
         appProjectId,
         chatId,
         previewPolicy: buildSpec.previewPolicy,
@@ -150,19 +150,18 @@ export async function runOwnEngineStreamPostFinalize(params: {
         versionIdForSession: finalized.version.id,
         skipRepair: parsedFromFinalizeFilesJson,
       });
-      if (sandboxResult.ok) {
-        const sr = sandboxResult.result;
-        logSandboxLifecycleTelemetry({
-          kind: "sandbox_start_outcome",
+      if (previewSessionResult.ok) {
+        const sr = previewSessionResult.result;
+        logPreviewLifecycleTelemetry({
+          kind: "preview_start_outcome",
           chatId,
           versionId: finalized.version.id,
           outcome: sr.startOutcome,
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
           tier2Provider: sr.tier2Meta?.tier2Provider,
-          failoverFrom: sr.tier2Meta?.failoverFrom,
         });
-        logSandboxLifecycleTelemetry({
+        logPreviewLifecycleTelemetry({
           kind: "preview_ready",
           chatId,
           versionId: finalized.version.id,
@@ -198,13 +197,13 @@ export async function runOwnEngineStreamPostFinalize(params: {
           });
         }
       } else {
-        logSandboxLifecycleTelemetry({
+        logPreviewLifecycleTelemetry({
           kind: "preview_failed",
           chatId,
           versionId: finalized.version.id,
-          stage: sandboxResult.error.stage,
-          failureCode: sandboxResult.error.failureCode,
-          detail: sandboxResult.error.message,
+          stage: previewSessionResult.error.stage,
+          failureCode: previewSessionResult.error.failureCode,
+          detail: previewSessionResult.error.message,
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
           msSinceEngineStart: Math.max(0, Date.now() - engineStartedAt),
@@ -212,14 +211,14 @@ export async function runOwnEngineStreamPostFinalize(params: {
         warnLog("engine", "preview_failed", {
           chatId,
           versionId: finalized.version.id,
-          stage: sandboxResult.error.stage,
-          message: sandboxResult.error.message,
+          stage: previewSessionResult.error.stage,
+          message: previewSessionResult.error.message,
         });
-        safeEnqueue(enc.encode(formatSSEEvent("build-error", { ...sandboxResult.error })));
+        safeEnqueue(enc.encode(formatSSEEvent("build-error", { ...previewSessionResult.error })));
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Preview start failed";
-      logSandboxLifecycleTelemetry({
+      logPreviewLifecycleTelemetry({
         kind: "preview_failed",
         chatId,
         versionId: finalized.version.id,

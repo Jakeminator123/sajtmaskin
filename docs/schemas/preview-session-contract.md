@@ -8,7 +8,7 @@ identity, preview URLs, and the verify-lane boundary.
 Primary code sources:
 
 - `src/lib/gen/preview/preview-contract.ts`
-- `src/lib/gen/sandbox/preview-host-client.ts`
+- `src/lib/gen/preview/preview-host-client.ts`
 - `src/lib/gen/preview-quality-gate.ts`
 - `preview-host/src/server.js`
 - `preview-host/src/validate.js`
@@ -26,9 +26,9 @@ Machine-oriented companion:
 | `appProjectId` / `projects.id` | builder/app state | canonical | The durable Sajtmaskin project ID |
 | `chatId` / `engine_chats.id` | engine + preview lane | canonical | The durable own-engine chat ID and the current preview-host runtime key |
 | `versionId` / `engine_versions.id` | version state | canonical | The specific saved version within a chat |
-| `sandboxId` | tier-2 runtime/session | legacy canonical | The active tier-2 runtime/session ID |
+| `sandboxId` | tier-2 runtime/session | legacy canonical | Internal/legacy tier-2 runtime/session ID carried behind public preview-session APIs |
 | `previewUrl` | public API/client | canonical | The public preview/live URL field |
-| `sandboxUrl` / `sandbox_url` | version/runtime state | legacy structural | Legacy preview field/column name still used in contracts and storage |
+| `sandboxUrl` / `sandbox_url` | version/runtime state | legacy structural | Legacy preview field/column name still used in storage/internal state |
 | `VERCEL_PROJECT_ID` | Vercel auth/config | canonical in Vercel scope | Vercel project ID, not a Sajtmaskin project identifier |
 
 ## Preview lane vs verify lane
@@ -74,22 +74,22 @@ Samma villkor och filurval delas av `maybeAnalyzeVisualQAForPassedExportable()` 
 
 Canonical route:
 
-- `POST /api/engine/chats/[chatId]/sandbox-preview`
+- `POST /api/engine/chats/[chatId]/preview-session`
 
 Compat route:
 
-- `POST /api/v0/chats/[chatId]/sandbox-preview`
+- `POST /api/v0/chats/[chatId]/preview-session`
 
 Primary response contract lives in:
 
-- `SandboxPreviewPostApiJson` in `src/lib/gen/preview/preview-contract.ts`
+- `PreviewSessionPostApiJson` in `src/lib/gen/preview/preview-contract.ts`
 
 Important fields:
 
-- `sandboxUrl`
-- `sandboxId`
-- `sandboxPreviewMode`
-- `fidelityTier`
+- `previewUrl`
+- `previewSessionId`
+- `previewMode`
+- `previewTier`
 - `prodBuildVerified` (optional — only present when a real `npm run build` ran; omitted for pure dev-preview tier-2)
 - `startOutcome`
 
@@ -103,17 +103,19 @@ Important fields:
 
 Canonical routes:
 
-- `GET /api/engine/chats/[chatId]/sandbox-status`
-- `POST /api/engine/chats/[chatId]/sandbox-heartbeat`
-- `POST /api/engine/chats/[chatId]/sandbox-destroy`
+- `GET /api/engine/chats/[chatId]/preview-status`
+- `POST /api/engine/chats/[chatId]/preview-heartbeat`
+- `POST /api/engine/chats/[chatId]/preview-hibernate`
+- `POST /api/engine/chats/[chatId]/preview-destroy`
 
 Compat routes exist under `/api/v0/chats/[chatId]/...`.
 
 Stable contract types:
 
-- `SandboxStatusApiJson`
-- `SandboxHeartbeatApiJson`
-- `SandboxDestroyApiJson`
+- `PreviewStatusApiJson`
+- `PreviewHeartbeatApiJson`
+- `PreviewHibernateApiJson`
+- `PreviewDestroyApiJson`
 
 ## Preview-host contracts
 
@@ -124,7 +126,7 @@ Stable contract types:
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/sandbox/:sandboxId/status`
+- `GET /preview/session/:sandboxId/status`
 - `GET /preview/logs/:sandboxId`
 
 When preview-host runs outside local development, all `/preview/*` routes require
@@ -167,3 +169,30 @@ Response contains:
 4. `previewUrl` is the public field; `sandboxUrl` remains structural legacy naming.
 5. The verify lane is part of preview-host infrastructure, but it is not the same
    thing as the live preview lane.
+
+## Remaining `sandbox` wording (explicit allowlist)
+
+Do **not** treat raw `grep \\bsandbox\\b` counts as progress metrics. Keep these
+categories unless a dedicated migration removes them:
+
+| Category | Examples | Why it stays |
+|---|---|---|
+| HTML | `<iframe sandbox="...">` | Browser attribute; unrelated to tier-2 naming. |
+| Preview-host / HTTP paths | `/preview/session/:sandboxId/status`, `GET /preview/logs/:sandboxId` | Route segments on the VM host; renaming requires host + client rollout. |
+| Storage / Redis | `sandbox-preview:session:` prefix, `sandbox_url` column | Persisted keys and columns — migration scope. |
+| Wire / SSE / API fields | `sandboxId`, `sandboxUrl`, `sandboxPending`, `sandbox_disabled` stage | Backwards-compatible payloads until versioned. |
+| Heuristics | hostname contains `sandbox`, `.vercel.run` | Detecting legacy preview URLs, not product naming. |
+| Provider copy | Resend/email “sandbox mode” | Third-party terminology. |
+| Tests / mocks | fixtures using legacy field names | Must mirror production shapes. |
+
+Prefer **preview-** / **tier-2** / **VM** in new comments, docs, and local variable names.
+
+## Local handoff note
+
+This contract is the boundary the rest of the repo should converge on.
+If another agent is cleaning unrelated areas, the safest rule is:
+
+- touch `preview-session` / `preview-status` / `preview-heartbeat` / `preview-hibernate` / `preview-destroy`
+  only when the change is explicitly about preview/Fly behavior
+- treat `sandboxUrl`, `sandbox_url`, and `sandboxId` as **legacy structural names**
+  unless the task is a dedicated migration of storage/tests/docs

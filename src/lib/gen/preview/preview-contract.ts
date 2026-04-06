@@ -20,7 +20,7 @@ export type PreviewSessionPostApiJson = {
   startOutcome?: "resumed" | "recreated" | "reused_url";
 };
 
-/** `GET /api/v0/chats/[chatId]/preview-status?versionId=&previewSessionId=` */
+/** `GET /api/engine/chats/[chatId]/preview-status?versionId=&previewSessionId=` (v0 route is compat). */
 export type PreviewStatusApiJson = {
   ok: boolean;
   status: "running" | "stopped" | "missing" | "version_mismatch";
@@ -32,18 +32,26 @@ export type PreviewStatusApiJson = {
   message?: string;
 };
 
-/** `POST /api/v0/chats/[chatId]/preview-heartbeat` */
+/** `POST /api/engine/chats/[chatId]/preview-heartbeat` (v0 route is compat). */
 export type PreviewHeartbeatApiJson = {
   ok: boolean;
   reason?: string;
 };
 
-/** `POST /api/v0/chats/[chatId]/preview-destroy` */
+/** `POST /api/engine/chats/[chatId]/preview-hibernate` (v0 route is compat). */
+export type PreviewHibernateApiJson = {
+  ok: boolean;
+  hibernated?: boolean;
+  reason?: string;
+  message?: string;
+};
+
+/** `POST /api/engine/chats/[chatId]/preview-destroy` (v0 route is compat). */
 export type PreviewDestroyApiJson = {
   ok: boolean;
   destroyed?: boolean;
   clearedPreviewUrl?: boolean;
-  tier2Provider?: "preview_host" | "vercel_sandbox" | null;
+  tier2Provider?: "preview_host" | null;
   reason?: string;
   message?: string;
 };

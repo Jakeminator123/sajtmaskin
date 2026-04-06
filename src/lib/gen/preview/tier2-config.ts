@@ -8,8 +8,6 @@ export function getPreviewHostBaseUrl(): string | null {
   const normalized = u.replace(/\/$/, "");
   try {
     const parsed = new URL(normalized);
-    // Common misconfiguration: users paste the verify/session prefix instead of
-    // the preview-host root URL, which would otherwise produce /preview/preview/*.
     if (parsed.pathname === "/preview") {
       parsed.pathname = "";
       parsed.search = "";
@@ -24,9 +22,7 @@ export function getPreviewHostBaseUrl(): string | null {
 
 export type Tier2RuntimeMode = "preview_host";
 
-/**
- * Tier-2 is always preview_host/Fly in the current architecture.
- */
+/** Tier-2 is always preview_host/Fly in the current architecture. */
 export function getTier2RuntimeMode(): Tier2RuntimeMode {
   return "preview_host";
 }

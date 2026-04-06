@@ -3,7 +3,7 @@ import nodePath from "node:path";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
-import { loadPlaceholderRecord, formatDotenvBody } from "./sandbox/env-local";
+import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-local";
 
 /**
  * Download/export scaffold.
@@ -327,7 +327,7 @@ const SCAFFOLD_FILES: Record<string, string> = {
 };
 
 const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)
-# Same keys as sandbox preview; override with real values when deploying.
+# Same keys as tier-2 preview runtime; override with real values when deploying.
 `;
 
 /**
@@ -347,7 +347,7 @@ const BASELINE_PINNED_DEPS = [
 
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
- * and core tooling survive thin LLM output (zip export / sandbox use the same merge).
+ * and core tooling survive thin LLM output (zip export / preview runtime use the same merge).
  */
 export function mergePackageJsonWithBaseline(
   model: Record<string, unknown>,

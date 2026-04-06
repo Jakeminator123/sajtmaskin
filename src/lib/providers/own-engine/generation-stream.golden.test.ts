@@ -24,11 +24,6 @@ vi.mock("@/lib/gen/stream/finalize-version", () => ({
   finalizeAndSaveVersion: finalizeAndSaveVersionMock,
 }));
 
-vi.mock("@/lib/mcp/runtime-url", () => ({
-  isSandboxConfigured: () => false,
-  SANDBOX_SETUP_HINT: "Configure Vercel Sandbox credentials for tier-2 preview.",
-}));
-
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
   devLogFinalizeSite: vi.fn(),
@@ -81,7 +76,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     messageId: "msg_golden_1",
     telemetryRecordId: null,
     previewUrl: "https://preview.example/golden",
-    sandboxUrl: null,
+    tier2PreviewUrl: null,
     filesJson: "{}",
     contentForVersion: "golden-content",
     preflight: {

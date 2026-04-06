@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
+import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import {
   parseRetryAfterMs,
-  SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS,
-  shouldRetrySandboxBootstrapFetch,
-} from "@/lib/builder/sandbox-bootstrap-retry";
+  PREVIEW_BOOTSTRAP_RETRY_FALLBACK_MS,
+  shouldRetryPreviewBootstrapFetch,
+} from "@/lib/builder/preview-bootstrap-retry";
 import {
   PROJECT_ENV_VARS_UPDATED_EVENT,
   readProjectEnvVarsUpdatedDetail,
@@ -308,13 +308,13 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
           const shouldRetryBootstrap =
             !serverSaysNoRetry &&
             responseLooksFailed &&
-            shouldRetrySandboxBootstrapFetch({
+            shouldRetryPreviewBootstrapFetch({
               httpStatus: res.status,
               retryable: data?.retryable,
             });
           if (shouldRetryBootstrap) {
             scheduleTransientRetry(
-              parseRetryAfterMs(res.headers, SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS),
+              parseRetryAfterMs(res.headers, PREVIEW_BOOTSTRAP_RETRY_FALLBACK_MS),
               {
                 stage: data?.stage ?? "preview-start",
                 message: data?.message ?? "Live-preview kunde inte starta i VM-previewn.",
@@ -373,7 +373,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
             setPreviewProdBuild(null);
           }
           if (isForcedRestart) {
-            logSandboxLifecycleTelemetry({
+            logPreviewLifecycleTelemetry({
               kind: "recover",
               phase: "succeeded",
               chatId,
@@ -385,7 +385,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
         } catch (err) {
           if (cancelled || previewBootstrapGenRef.current !== gen) return;
           if (err instanceof Error && err.name === "AbortError") return;
-          scheduleTransientRetry(SANDBOX_BOOTSTRAP_RETRY_FALLBACK_MS, {
+          scheduleTransientRetry(PREVIEW_BOOTSTRAP_RETRY_FALLBACK_MS, {
             stage: "preview-start",
             message:
               err instanceof Error && err.message.trim()

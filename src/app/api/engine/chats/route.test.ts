@@ -50,16 +50,16 @@ describe("/api/engine/chats POST (sync JSON)", () => {
     expect(json.id).toBe("chat_eng");
   });
 
-  it("uses sandbox-ready as preview fallback in sync create JSON", async () => {
+  it("uses preview-ready as preview fallback in sync create JSON", async () => {
     const sse = [
       "event: meta",
       'data: {"enginePath":"own-engine"}',
       "",
       "event: done",
-      'data: {"chatId":"chat_eng","versionId":"ver_eng","messageId":"msg_eng","sandboxPending":true,"preflight":{"previewBlocked":false,"verificationBlocked":false}}',
+      'data: {"chatId":"chat_eng","versionId":"ver_eng","messageId":"msg_eng","previewPending":true,"preflight":{"previewBlocked":false,"verificationBlocked":false}}',
       "",
-      "event: sandbox-ready",
-      'data: {"sandboxUrl":"https://vm.example/chat_eng/ver_eng","sandboxId":"sbx_1"}',
+      "event: preview-ready",
+      'data: {"previewUrl":"https://vm.example/chat_eng/ver_eng","previewSessionId":"sbx_1"}',
       "",
     ].join("\n");
 
@@ -82,8 +82,7 @@ describe("/api/engine/chats POST (sync JSON)", () => {
       id: "ver_eng",
       versionId: "ver_eng",
       previewUrl: "https://vm.example/chat_eng/ver_eng",
-      sandboxUrl: "https://vm.example/chat_eng/ver_eng",
-      sandboxPending: true,
+      previewPending: true,
       verificationState: "pending",
     });
   });

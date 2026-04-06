@@ -1,5 +1,5 @@
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
-import { hasSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { hasTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { VersionSummary } from "./useBuilderDerivedState";
 
 /** Live preview only; no shim fallback. */
@@ -37,5 +37,5 @@ export function versionSummaryHasPreview(
 ): boolean {
   if (!v) return false;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return false;
-  return hasSandboxPreviewUrl(v.previewUrl);
+  return hasTier2LivePreviewUrl(v.previewUrl);
 }

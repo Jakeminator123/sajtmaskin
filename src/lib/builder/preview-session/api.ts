@@ -1,6 +1,7 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type {
   PreviewDestroyApiJson,
+  PreviewHibernateApiJson,
   PreviewHeartbeatApiJson,
   PreviewStatusApiJson,
 } from "@/lib/gen/preview/preview-contract";
@@ -44,6 +45,35 @@ export async function postPreviewHeartbeat(params: {
     });
     try {
       return (await res.json()) as PreviewHeartbeatApiJson;
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Browser `fetch` mot preview-hibernate; returnerar parsad kropp eller null. */
+export async function postPreviewHibernate(params: {
+  chatId: string;
+  versionId: string;
+  previewSessionId?: string | null;
+  keepalive?: boolean;
+}): Promise<PreviewHibernateApiJson | null> {
+  try {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-hibernate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        versionId: params.versionId,
+        ...(params.previewSessionId?.trim()
+          ? { previewSessionId: params.previewSessionId.trim() }
+          : {}),
+      }),
+      ...(params.keepalive ? { keepalive: true } : {}),
+    });
+    try {
+      return (await res.json()) as PreviewHibernateApiJson;
     } catch {
       return null;
     }

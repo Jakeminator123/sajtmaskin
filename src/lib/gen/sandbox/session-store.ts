@@ -1,15 +1,15 @@
 /**
- * Sandbox preview session registry per `chatId` for VM reuse (`tryResumeSandboxById`).
+ * Preview session registry per `chatId` for preview-host/Fly reuse.
  *
  * - **Sync API** (`getActiveSandboxSession`, …): in-process `Map` only — tests & same-instance hot path.
  * - **Async API** (`getActiveSandboxSessionAsync`, …): when `getRedis()` is configured (`FEATURES.useRedisCache`),
- *   entries are also stored in Redis so another serverless instance can resume the same sandbox (`preview-deploy.md`).
+ *   entries are also stored in Redis so another serverless instance can resume the same session (`preview-deploy.md`).
  */
 
 import { REDIS_KEY_PREFIX } from "@/lib/config";
 import { getRedis } from "@/lib/data/redis";
 
-export type Tier2Provider = "vercel_sandbox" | "preview_host";
+export type Tier2Provider = "preview_host";
 
 export type SandboxSessionEntry = {
   sandboxId: string;
@@ -18,17 +18,15 @@ export type SandboxSessionEntry = {
   versionId: string | null;
   createdAt: number;
   lastUsedAt: number;
-  /**
-   * Which tier-2 backend created this session — drives resume (`tryResumeTier2Runtime`).
-   * Older Redis rows omit this and are treated as {@link Tier2Provider | `vercel_sandbox`}.
-   */
+  /** Which tier-2 backend created this session. */
   tier2Provider?: Tier2Provider;
 };
 
-const DEFAULT_IDLE_MS = 30 * 60 * 1000;
-const DEFAULT_HARD_CAP_MS = 2 * 60 * 60 * 1000;
+const DEFAULT_IDLE_MS = 15 * 60 * 1000;
+const DEFAULT_HARD_CAP_MS = 45 * 60 * 1000;
 
-const REDIS_SESSION_PREFIX = `${REDIS_KEY_PREFIX}sandbox-preview:session:`;
+const REDIS_SESSION_PREFIX = `${REDIS_KEY_PREFIX}preview-session:session:`;
+const LEGACY_REDIS_SESSION_PREFIX = `${REDIS_KEY_PREFIX}sandbox-preview:session:`;
 const REDIS_TTL_SECONDS = Math.ceil(DEFAULT_HARD_CAP_MS / 1000);
 
 const sessions = new Map<string, SandboxSessionEntry>();
@@ -37,8 +35,12 @@ function redisSessionKey(chatId: string): string {
   return `${REDIS_SESSION_PREFIX}${encodeURIComponent(chatId)}`;
 }
 
+function legacyRedisSessionKey(chatId: string): string {
+  return `${LEGACY_REDIS_SESSION_PREFIX}${encodeURIComponent(chatId)}`;
+}
+
 function parseTier2Provider(raw: unknown): Tier2Provider | undefined {
-  if (raw === "preview_host" || raw === "vercel_sandbox") return raw;
+  if (raw === "preview_host") return raw;
   return undefined;
 }
 
@@ -70,11 +72,13 @@ async function readSandboxSessionFromRedis(chatId: string): Promise<SandboxSessi
   const redis = getRedis();
   if (!redis) return null;
   try {
-    const raw = await redis.get(redisSessionKey(chatId));
+    const raw =
+      (await redis.get(redisSessionKey(chatId))) ||
+      (await redis.get(legacyRedisSessionKey(chatId)));
     if (!raw || typeof raw !== "string") return null;
     return parseSandboxSessionJson(raw);
   } catch (err) {
-    console.warn("[sandbox-session] Redis get failed:", err instanceof Error ? err.message : err);
+    console.warn("[preview-session] Redis get failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }
@@ -96,7 +100,7 @@ async function writeSandboxSessionToRedis(chatId: string, entry: SandboxSessionE
       }),
     );
   } catch (err) {
-    console.warn("[sandbox-session] Redis setex failed:", err instanceof Error ? err.message : err);
+    console.warn("[preview-session] Redis setex failed:", err instanceof Error ? err.message : err);
   }
 }
 
@@ -104,9 +108,9 @@ async function deleteSandboxSessionFromRedis(chatId: string): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    await redis.del(redisSessionKey(chatId));
+    await redis.del(redisSessionKey(chatId), legacyRedisSessionKey(chatId));
   } catch (err) {
-    console.warn("[sandbox-session] Redis del failed:", err instanceof Error ? err.message : err);
+    console.warn("[preview-session] Redis del failed:", err instanceof Error ? err.message : err);
   }
 }
 
@@ -129,13 +133,13 @@ function resolveTier2ProviderForTouch(
   params: TouchSandboxSessionParams,
   prev: SandboxSessionEntry | undefined,
 ): Tier2Provider {
-  if (params.tier2Provider === "preview_host" || params.tier2Provider === "vercel_sandbox") {
+  if (params.tier2Provider === "preview_host") {
     return params.tier2Provider;
   }
   if (prev && prev.sandboxId === params.sandboxId && prev.tier2Provider === "preview_host") {
     return "preview_host";
   }
-  return "vercel_sandbox";
+  return "preview_host";
 }
 
 export function touchSandboxSession(params: TouchSandboxSessionParams): void {

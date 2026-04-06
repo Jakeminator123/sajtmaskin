@@ -1,5 +1,5 @@
 /**
- * Merge `.env.local` for Vercel Sandbox preview (`docs/architecture/preview-deploy.md` § Sandbox `.env.local`):
+ * Merge `.env.local` for live preview (`docs/architecture/preview-deploy.md` § Preview `.env.local`):
  * 1) global integration placeholders from `config/ai_models/*-placeholders.env.txt`
  * 2) per-app-project preview tokens (stable fake secrets from project id)
  * 3) decrypted `projectEnvVars` from app project meta (user-configured)
@@ -12,7 +12,7 @@ import {
 } from "@/lib/ai-models/load-generated-site-placeholders";
 import { buildProjectPreviewPlaceholderRecord } from "@/lib/gen/sandbox/project-preview-env";
 
-const FILE_HEADER = `# Sajtmaskin sandbox preview — merged env (global → project preview → user project → generated)
+const FILE_HEADER = `# Sajtmaskin preview env — merged env (global → project preview → user project → generated)
 # Do not use in production; values are for preview only unless you set them in the project.
 `;
 
@@ -62,7 +62,7 @@ export function loadPlaceholderRecord(): Record<string, string> {
     );
   } catch (err) {
     console.warn(
-      "[sandbox-env-local] Integration placeholders not loaded:",
+      "[preview-env-local] Integration placeholders not loaded:",
       err instanceof Error ? err.message : err,
     );
     return {};
@@ -70,7 +70,7 @@ export function loadPlaceholderRecord(): Record<string, string> {
 }
 
 /** Pure merge for tests — later records override earlier keys. */
-export function mergeSandboxEnvRecords(
+export function mergePreviewEnvRecords(
   placeholders: Record<string, string>,
   project: Record<string, string>,
   generated: Record<string, string>,
@@ -79,9 +79,9 @@ export function mergeSandboxEnvRecords(
 }
 
 /**
- * Build full `.env.local` body for sandbox: placeholders + optional project vars + optional generated overlay.
+ * Build full `.env.local` body for preview: placeholders + optional project vars + optional generated overlay.
  */
-export async function buildSandboxEnvLocalContents(params: {
+export async function buildPreviewEnvLocalContents(params: {
   appProjectId?: string | null;
   /** Raw `.env.local` from generated files, if any. */
   generatedEnvLocal?: string | null;
@@ -95,7 +95,7 @@ export async function buildSandboxEnvLocalContents(params: {
       project = await getStoredProjectEnvVarMap(pid);
     } catch (err) {
       console.warn(
-        "[sandbox-env-local] Failed to load project env vars:",
+        "[preview-env-local] Failed to load project env vars:",
         err instanceof Error ? err.message : err,
       );
     }
@@ -104,10 +104,13 @@ export async function buildSandboxEnvLocalContents(params: {
     ? parseDotenvBody(params.generatedEnvLocal)
     : {};
   const projectPreview = buildProjectPreviewPlaceholderRecord(pid);
-  const merged = mergeSandboxEnvRecords(
-    mergeSandboxEnvRecords(placeholders, projectPreview, {}),
+  const merged = mergePreviewEnvRecords(
+    mergePreviewEnvRecords(placeholders, projectPreview, {}),
     project,
     generated,
   );
   return `${FILE_HEADER}\n${formatDotenvBody(merged)}\n`;
 }
+
+export { buildPreviewEnvLocalContents as buildSandboxEnvLocalContents };
+export { mergePreviewEnvRecords as mergeSandboxEnvRecords };

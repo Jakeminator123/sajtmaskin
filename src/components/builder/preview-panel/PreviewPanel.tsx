@@ -28,7 +28,7 @@ import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import { PreviewPanelCode } from "./PreviewPanelCode";
 import { PreviewPanelCodeSectionEditors } from "./PreviewPanelCodeSectionEditors";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
-import { PreviewPanelSandbox } from "./PreviewPanelSandbox";
+import { PreviewPanelFrame } from "./PreviewPanelFrame";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./hooks/usePreviewHeartbeat";
@@ -54,7 +54,7 @@ import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
-  isSandboxPreviewUrl,
+  isTier2LivePreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
 import { cn } from "@/lib/utils";
@@ -635,9 +635,9 @@ export function PreviewPanel({
     () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
     [integrationStatus],
   );
-  const isSandboxPreview = useMemo(() => {
+  const isTier2LivePreview = useMemo(() => {
     if (!previewUrl) return false;
-    return isSandboxPreviewUrl(previewUrl);
+    return isTier2LivePreviewUrl(previewUrl);
   }, [previewUrl]);
 
   usePreviewHeartbeat({
@@ -655,7 +655,7 @@ export function PreviewPanel({
     setIframeError(true);
     setIframeDiagnosticCode("preview_transport_error");
     setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
-    if (isSandboxPreview) {
+    if (isTier2LivePreview) {
       onPreviewSessionSuspect?.();
     }
     if (isOwnEnginePreview) {
@@ -670,7 +670,7 @@ export function PreviewPanel({
   }, [
     clearPreviewReadyTimer,
     isOwnEnginePreview,
-    isSandboxPreview,
+    isTier2LivePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
   ]);
@@ -679,7 +679,7 @@ export function PreviewPanel({
     previewUrl && !isOwnEnginePreview && previewUrl.includes("vusercontent.net"),
   );
   /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
-  const previewUrlPresent = Boolean(alternatePreviewUrls?.sandboxUrl?.trim());
+  const previewUrlPresent = Boolean(alternatePreviewUrls?.storedLivePreviewUrl?.trim());
   const surfaceDescriptor = useMemo(() => {
     if (viewMode === "registry") {
       return {
@@ -733,7 +733,7 @@ export function PreviewPanel({
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
     }
-    if (isSandboxPreview) {
+    if (isTier2LivePreview) {
       if (previewLifecycle === "recovering") {
         return {
           label: "Live-preview",
@@ -769,7 +769,7 @@ export function PreviewPanel({
   }, [
     viewMode,
     isOwnEnginePreview,
-    isSandboxPreview,
+    isTier2LivePreview,
     isV0Preview,
     previewPending,
     previewUrlPresent,
@@ -796,7 +796,7 @@ export function PreviewPanel({
     !isCodeView &&
       previewUrl &&
       !isOwnEnginePreview &&
-      isSandboxPreview &&
+      isTier2LivePreview &&
       (showBlobWarning ||
         showBlobConfigWarning ||
         integrationError ||
@@ -818,7 +818,7 @@ export function PreviewPanel({
       setSelectedPath(lastCodeMatch.item.filePath);
     });
   }, [lastCodeMatch, startViewSwitchTransition]);
-  const PreviewSurface = PreviewPanelSandbox;
+  const PreviewSurface = PreviewPanelFrame;
 
   if (!previewUrl && !isCodeView) {
     return (
@@ -846,8 +846,8 @@ export function PreviewPanel({
         previewUrl={previewUrl}
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
-        isSandboxPreview={isSandboxPreview}
-        sandboxUrlPresent={previewUrlPresent}
+        isTier2LivePreview={isTier2LivePreview}
+        livePreviewUrlStored={previewUrlPresent}
         inspectorEnabled={inspectorEnabled}
         handleToggleInspect={handleToggleInspect}
         placementMode={placementMode}
@@ -872,14 +872,14 @@ export function PreviewPanel({
         handleOpenInNewTab={handleOpenInNewTab}
         alternatePreviewBanner={alternatePreviewBanner}
         onNavigatePreviewUrl={onNavigatePreviewUrl}
-        sandboxBuildError={previewBuildError}
-        sandboxProdBuild={previewProdBuild}
+        previewBuildError={previewBuildError}
+        previewProdBuild={previewProdBuild}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}
         activePreviewRoute={activePreviewRoute}
         handleNavigateRoute={handleNavigateRoute}
-        showSandboxUnifiedStrip={showPreviewUnifiedStrip}
+        showTier2UnifiedStrip={showPreviewUnifiedStrip}
         showBlobWarning={showBlobWarning}
         showBlobConfigWarning={showBlobConfigWarning}
         integrationError={integrationError}

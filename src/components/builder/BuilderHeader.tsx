@@ -54,7 +54,6 @@ import {
   Settings2,
   Wand2,
   Wrench,
-  TerminalSquare,
   X,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -109,7 +108,6 @@ export function BuilderHeader(props: {
   activeVersionId: string | null;
 
   onOpenImport: () => void;
-  onOpenSandbox: () => void;
   onDeployProduction: () => void;
   onDomainSearch: () => void;
   onGoHome: () => void;
@@ -167,7 +165,6 @@ export function BuilderHeader(props: {
     chatId,
     activeVersionId,
     onOpenImport,
-    onOpenSandbox,
     onDeployProduction,
     onDomainSearch,
     onGoHome,
@@ -671,7 +668,7 @@ export function BuilderHeader(props: {
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Importera från GitHub eller ZIP, öppna Vercel Sandbox, ladda ner projekt som ZIP</p>
+                <p>Importera från GitHub eller ZIP, eller ladda ner projektet som ZIP</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -686,16 +683,6 @@ export function BuilderHeader(props: {
             >
               <FolderGit2 className="mr-2 h-4 w-4" />
               Importera (GitHub eller ZIP)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                runDeferredAction(onOpenSandbox);
-              }}
-            >
-              <TerminalSquare className="mr-2 h-4 w-4" />
-              Öppna Vercel Sandbox
             </DropdownMenuItem>
             <DropdownMenuItem
               disabled={!chatId || !activeVersionId || isBusy}

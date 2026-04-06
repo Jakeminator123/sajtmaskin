@@ -24,17 +24,17 @@ vi.mock("@/lib/gen/sandbox/session-store", async () => {
   };
 });
 
-vi.mock("@/lib/gen/sandbox/tier2-config", () => ({
+vi.mock("@/lib/gen/preview/tier2-config", () => ({
   isTier2PreviewConfigured,
 }));
 
-vi.mock("@/lib/gen/sandbox/lifecycle-telemetry", () => ({
-  logSandboxLifecycleTelemetry: vi.fn(),
+vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
+  logPreviewLifecycleTelemetry: vi.fn(),
 }));
 
 import { POST } from "./route";
 
-describe("POST sandbox-heartbeat", () => {
+describe("POST preview-heartbeat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     isTier2PreviewConfigured.mockReturnValue(true);
@@ -47,7 +47,7 @@ describe("POST sandbox-heartbeat", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", sandboxId: "sb1", viewerId: "tab1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1", viewerId: "tab1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
@@ -70,7 +70,7 @@ describe("POST sandbox-heartbeat", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", sandboxId: "sb1", viewerId: "tab1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "sb1", viewerId: "tab1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
@@ -85,7 +85,7 @@ describe("POST sandbox-heartbeat", () => {
     );
   });
 
-  it("rejects on sandboxId mismatch", async () => {
+  it("rejects on previewSessionId mismatch", async () => {
     getActiveSandboxSessionAsync.mockResolvedValue({
       sandboxId: "sb1",
       sandboxUrl: "https://x.example",
@@ -97,7 +97,7 @@ describe("POST sandbox-heartbeat", () => {
       new Request("http://localhost/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId: "v1", sandboxId: "other", viewerId: "tab1" }),
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "other", viewerId: "tab1" }),
       }),
       { params: Promise.resolve({ chatId: "c1" }) },
     );

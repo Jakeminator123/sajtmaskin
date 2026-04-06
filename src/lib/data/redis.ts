@@ -33,8 +33,8 @@
  * Preview Cache:
  *   {prefix}preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
  *
- * Sandbox preview session (optional cross-instance reuse; `docs/architecture/preview-deploy.md`):
- *   {prefix}sandbox-preview:session:{chatId} → SandboxSessionEntry JSON (TTL: hard-cap, ~2 h)
+ * Preview session (optional cross-instance reuse; `docs/architecture/preview-deploy.md`):
+ *   {prefix}preview-session:session:{chatId} → PreviewSessionEntry JSON (TTL: hard-cap, ~45 min)
  */
 
 import Redis from "ioredis";

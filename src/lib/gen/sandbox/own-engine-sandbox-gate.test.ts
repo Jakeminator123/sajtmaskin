@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldRunOwnEngineSandbox } from "./own-engine-sandbox-gate";
+import { shouldStartOwnEnginePreview } from "./own-engine-sandbox-gate";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 
 function sandboxContract(overrides?: Partial<PreviewStartContract>): PreviewStartContract {
@@ -23,12 +23,12 @@ function sandboxContract(overrides?: Partial<PreviewStartContract>): PreviewStar
   };
 }
 
-describe("shouldRunOwnEngineSandbox", () => {
-  it("is false when sandbox contract blocks startup", () => {
+describe("shouldStartOwnEnginePreview", () => {
+  it("is false when preview-start contract blocks startup", () => {
     expect(
-      shouldRunOwnEngineSandbox({
-        isSandboxConfigured: true,
-        sandbox: sandboxContract({ canStartPreview: false, hasCriticalCodeFailure: true }),
+      shouldStartOwnEnginePreview({
+        isPreviewConfigured: true,
+        previewStart: sandboxContract({ canStartPreview: false, hasCriticalCodeFailure: true }),
         parsedFileCount: 3,
       }),
     ).toBe(false);
@@ -36,19 +36,19 @@ describe("shouldRunOwnEngineSandbox", () => {
 
   it("is false when no files", () => {
     expect(
-      shouldRunOwnEngineSandbox({
-        isSandboxConfigured: true,
-        sandbox: sandboxContract(),
+      shouldStartOwnEnginePreview({
+        isPreviewConfigured: true,
+        previewStart: sandboxContract(),
         parsedFileCount: 0,
       }),
     ).toBe(false);
   });
 
-  it("is false when sandbox not configured", () => {
+  it("is false when preview is not configured", () => {
     expect(
-      shouldRunOwnEngineSandbox({
-        isSandboxConfigured: false,
-        sandbox: sandboxContract(),
+      shouldStartOwnEnginePreview({
+        isPreviewConfigured: false,
+        previewStart: sandboxContract(),
         parsedFileCount: 2,
       }),
     ).toBe(false);
@@ -56,9 +56,9 @@ describe("shouldRunOwnEngineSandbox", () => {
 
   it("is true when configured, not blocked, and has files", () => {
     expect(
-      shouldRunOwnEngineSandbox({
-        isSandboxConfigured: true,
-        sandbox: sandboxContract(),
+      shouldStartOwnEnginePreview({
+        isPreviewConfigured: true,
+        previewStart: sandboxContract(),
         parsedFileCount: 1,
       }),
     ).toBe(true);

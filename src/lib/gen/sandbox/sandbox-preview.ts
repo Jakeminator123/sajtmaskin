@@ -3,99 +3,76 @@ import type {
   BuildSpecPreviewPolicy,
   BuildSpecVerificationPolicy,
 } from "../build-spec";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
-import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox/env-local";
-import { startPreviewHostSession } from "@/lib/gen/sandbox/preview-host-client";
+import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
+import { buildPreviewEnvLocalContents } from "@/lib/gen/preview/env-local";
+import { startPreviewHostSession } from "@/lib/gen/preview/preview-host-client";
 import {
-  clearSandboxSessionAsync,
-  getActiveSandboxSessionAsync,
-  touchSandboxSessionAsync,
-} from "@/lib/gen/sandbox/session-store";
-import {
-  getPreviewHostBaseUrl,
-  getTier2RuntimeMode,
-} from "@/lib/gen/sandbox/tier2-config";
-import { tryResumeTier2Runtime } from "@/lib/gen/sandbox/tier2-resume";
+  clearPreviewSessionAsync,
+  getActivePreviewSessionAsync,
+  touchPreviewSessionAsync,
+} from "@/lib/gen/preview/session-store";
+import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
+import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import { buildCompleteProject } from "../project-scaffold";
 import { repairGeneratedFiles } from "../repair-generated-files";
-import {
-  createSandboxRuntimeFromFiles,
-  isSandboxConfigured,
-  resolveSandboxPreviewModeFromPolicies,
-  resolveSandboxPreviewModeFromEnv,
-  SandboxReadinessTimeoutError,
-  type RuntimeFile,
-  type SandboxPreviewMode,
-} from "@/lib/mcp/runtime-url";
 
-export type SandboxPreviewTier2Meta = {
-  tier2Provider: "vercel_sandbox" | "preview_host";
-  failoverFrom?: "preview_host";
+type RuntimeFile = {
+  name: string;
+  content: string;
 };
 
-export interface SandboxPreviewResult {
+type PreviewSessionMode = "dev_only";
+
+export type PreviewSessionTier2Meta = {
+  tier2Provider: "preview_host";
+};
+
+export interface PreviewSessionResult {
   sandboxUrl: string;
   sandboxId: string;
-  sandboxPreviewMode: SandboxPreviewMode;
-  /** Tier 3 when a production build step ran in sandbox. */
-  fidelityTier: 2 | 3;
-  /** Only set when a real `npm run build` step ran (tier-3 / `dev_then_build`). */
+  sandboxPreviewMode: PreviewSessionMode;
+  /** Tier-2 live preview only. */
+  fidelityTier: 2;
   prodBuildVerified?: boolean;
   prodBuildLogSnippet?: string;
-  /** VM reused from session vs new provisioning. HTTP route-level `reused_url` is handled before this layer. */
+  /** Session reused vs fresh boot. HTTP route-level `reused_url` is handled before this layer. */
   startOutcome: "resumed" | "recreated";
-  /** Telemetry / UI hints for tier-2 provider (Vercel Sandbox vs preview-host). */
-  tier2Meta?: SandboxPreviewTier2Meta;
+  /** Telemetry / UI hints for the tier-2 provider. */
+  tier2Meta?: PreviewSessionTier2Meta;
 }
 
-export type SandboxPreviewFailureCode = "readiness_timeout";
+export type PreviewSessionFailureCode = never;
 
-export interface SandboxPreviewError {
-  stage: "repair" | "sandbox-create" | "install" | "build";
+export interface PreviewSessionError {
+  stage: "repair" | "preview-start";
   message: string;
   /** Stable classifier for HTTP mapping — prefer over `message` substring checks. */
-  failureCode?: SandboxPreviewFailureCode;
+  failureCode?: PreviewSessionFailureCode;
   raw?: string;
 }
 
-type StartSandboxPreviewOutcome =
-  | { ok: true; result: SandboxPreviewResult }
-  | { ok: false; error: SandboxPreviewError };
+type StartPreviewSessionOutcome =
+  | { ok: true; result: PreviewSessionResult }
+  | { ok: false; error: PreviewSessionError };
 
-/** Own-engine stream + `/sandbox-preview` bootstrap can call `startSandboxPreview` at the same time for the same chat+version — share one in-flight promise so we do not spawn two VMs. */
-const inflightSandboxByChatVersion = new Map<string, Promise<StartSandboxPreviewOutcome>>();
+/** Own-engine stream + `/preview-session` bootstrap can call `startPreviewSession` at the same time for the same chat+version — share one in-flight promise so we do not spawn two Fly preview sessions. */
+const inflightPreviewSessionByChatVersion = new Map<string, Promise<StartPreviewSessionOutcome>>();
 
-export function resolveTier2InstallCommand(files: RuntimeFile[]): string {
-  const basenames = new Set(
-    files.map((file) => file.name.split("/").pop()?.trim().toLowerCase() ?? ""),
-  );
-  if (basenames.has("pnpm-lock.yaml") || basenames.has("pnpm-lock.yml")) {
-    return "pnpm install --frozen-lockfile --prefer-offline";
-  }
-  if (basenames.has("package-lock.json")) {
-    return "npm ci --prefer-offline";
-  }
-  if (basenames.has("yarn.lock")) {
-    return "yarn install --frozen-lockfile";
-  }
-  return "npm install --prefer-offline";
-}
-
-export type StartSandboxPreviewOptions = {
-  /** When set, decrypted `projectEnvVars` merge into sandbox `.env.local` (after placeholders). */
+export type StartPreviewSessionOptions = {
+  /** When set, decrypted `projectEnvVars` merge into preview `.env.local` (after placeholders). */
   appProjectId?: string | null;
   chatId?: string | null;
-  previewMode?: SandboxPreviewMode;
+  previewMode?: PreviewSessionMode;
   previewPolicy?: BuildSpecPreviewPolicy | null;
   verificationPolicy?: BuildSpecVerificationPolicy | null;
   /**
-   * Ignore any resumable sandbox session and build a fresh VM.
-   * Used when project env vars changed and the old sandbox would keep stale `.env.local`.
+   * Ignore any resumable preview session and build a fresh VM.
+   * Used when project env vars changed and the old preview session would keep stale `.env.local`.
    */
   forceRestart?: boolean;
   /**
-   * When set with `chatId`, reuse an existing Vercel Sandbox for this version if the in-memory
-   * session still points at a running VM (avoids duplicate sandboxes on reopen / bootstrap).
+   * When set with `chatId`, reuse an existing preview-host session for this version if the in-memory
+   * session still points at a running runtime (avoids duplicate boots on reopen / bootstrap).
    */
   versionIdForSession?: string | null;
   /**
@@ -106,18 +83,18 @@ export type StartSandboxPreviewOptions = {
 };
 
 /**
- * Start a full Next.js sandbox from generated files (own-engine + `/sandbox-preview` API).
+ * Start a full Next.js preview session from generated files (own-engine + `/preview-session` API).
  *
  * Ordning: (1) återanvänd befintlig VM om session matchar chat+version — **utan** att bygga projekt på nytt;
  * (2) valfritt `repairGeneratedFiles` om inte `skipRepair`; (3) `buildCompleteProject` + `.env.local`;
- * (4) @vercel/sandbox install → dev (ev. build verify).
+ * (4) preview-host/Fly bootar projektet med `npm install` + `npm run dev`.
  *
  * **Paritet:** `skipRepair: true` när underlaget redan är finalize-preflightat (`filesJson`), t.ex. own-engine-ström och API mot DB.
  */
-export async function startSandboxPreview(
+export async function startPreviewSession(
   generatedFiles: CodeFile[],
-  options?: StartSandboxPreviewOptions,
-): Promise<StartSandboxPreviewOutcome> {
+  options?: StartPreviewSessionOptions,
+): Promise<StartPreviewSessionOutcome> {
   const cid =
     typeof options?.chatId === "string" && options.chatId.trim() ? options.chatId.trim() : null;
   const vid =
@@ -128,34 +105,25 @@ export async function startSandboxPreview(
     ? `${cid}:${vid}:${options?.forceRestart === true ? "force-restart" : "default"}`
     : null;
   if (dedupeKey) {
-    const existing = inflightSandboxByChatVersion.get(dedupeKey);
+    const existing = inflightPreviewSessionByChatVersion.get(dedupeKey);
     if (existing) return existing;
   }
 
-  const run = runStartSandboxPreview(generatedFiles, options);
+  const run = runStartPreviewSession(generatedFiles, options);
   if (dedupeKey) {
-    inflightSandboxByChatVersion.set(dedupeKey, run);
+    inflightPreviewSessionByChatVersion.set(dedupeKey, run);
     void run.finally(() => {
-      inflightSandboxByChatVersion.delete(dedupeKey);
+      inflightPreviewSessionByChatVersion.delete(dedupeKey);
     });
   }
   return run;
 }
 
-async function runStartSandboxPreview(
+async function runStartPreviewSession(
   generatedFiles: CodeFile[],
-  options?: StartSandboxPreviewOptions,
-): Promise<StartSandboxPreviewOutcome> {
-  const resolvedMode = options?.previewMode
-    ?? (
-      options?.previewPolicy || options?.verificationPolicy
-        ? resolveSandboxPreviewModeFromPolicies({
-            previewPolicy: options?.previewPolicy ?? null,
-            verificationPolicy: options?.verificationPolicy ?? null,
-          })
-        : resolveSandboxPreviewModeFromEnv()
-    );
-  const verifyBuild = resolvedMode === "dev_then_build";
+  options?: StartPreviewSessionOptions,
+): Promise<StartPreviewSessionOutcome> {
+  const resolvedMode: PreviewSessionMode = "dev_only";
 
   const cid =
     typeof options?.chatId === "string" && options.chatId.trim() ? options.chatId.trim() : null;
@@ -165,20 +133,20 @@ async function runStartSandboxPreview(
       : null;
 
   if (cid && options?.forceRestart) {
-    await clearSandboxSessionAsync(cid);
+    await clearPreviewSessionAsync(cid);
   }
 
   if (cid && vid && options?.forceRestart !== true) {
-    const sess = await getActiveSandboxSessionAsync(cid);
+    const sess = await getActivePreviewSessionAsync(cid);
     if (sess?.versionId === vid && sess.sandboxId) {
       const resumed = await tryResumeTier2Runtime(sess);
       if (resumed) {
-        await touchSandboxSessionAsync({
+        await touchPreviewSessionAsync({
           chatId: cid,
           sandboxId: resumed.sandboxId,
           sandboxUrl: resumed.primaryUrl,
           versionId: vid,
-          tier2Provider: sess.tier2Provider === "preview_host" ? "preview_host" : "vercel_sandbox",
+          tier2Provider: "preview_host",
         });
         return {
           ok: true,
@@ -188,13 +156,11 @@ async function runStartSandboxPreview(
             sandboxPreviewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: "resumed",
-            ...(sess.tier2Provider === "preview_host"
-              ? { tier2Meta: { tier2Provider: "preview_host" as const } }
-              : {}),
+            tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
       }
-      await clearSandboxSessionAsync(cid);
+      await clearPreviewSessionAsync(cid);
     }
   }
 
@@ -230,158 +196,73 @@ async function runStartSandboxPreview(
     priorEnvLocal = runtimeFiles[envIdx]!.content;
     runtimeFiles.splice(envIdx, 1);
   }
-  const envBody = await buildSandboxEnvLocalContents({
+  const envBody = await buildPreviewEnvLocalContents({
     appProjectId: options?.appProjectId ?? null,
     generatedEnvLocal: priorEnvLocal,
   });
   runtimeFiles.push({ name: envLocalPath, content: envBody });
 
-  const mode = getTier2RuntimeMode();
   const hostUrl = getPreviewHostBaseUrl();
-
-  if (mode === "preview_host") {
-    if (!hostUrl) {
-      return {
-        ok: false,
-        error: {
-          stage: "sandbox-create",
-          message:
-            "SAJTMASKIN_TIER2_RUNTIME=preview_host requires SAJTMASKIN_PREVIEW_HOST_BASE_URL to be set.",
-        },
-      };
-    }
-    if (!cid || !vid) {
-      return {
-        ok: false,
-        error: {
-          stage: "sandbox-create",
-          message: "preview_host tier requires chatId and versionIdForSession.",
-        },
-      };
-    }
-  }
-
-  const shouldTryPreviewHost =
-    (mode === "preview_host" || mode === "preview_host_then_vercel") &&
-    Boolean(hostUrl) &&
-    Boolean(cid) &&
-    Boolean(vid);
-
-  let vercelAfterPreviewHostFail = false;
-
-  if (shouldTryPreviewHost && cid && vid) {
-    const filesJson = Object.fromEntries(runtimeFiles.map((f) => [f.name, f.content]));
-    const started = await startPreviewHostSession({
-      chatId: cid,
-      versionId: vid,
-      filesJson,
-    });
-    if (started.ok) {
-      await touchSandboxSessionAsync({
-        chatId: cid,
-        sandboxId: started.sandboxId,
-        sandboxUrl: started.sandboxUrl,
-        versionId: vid,
-        tier2Provider: "preview_host",
-      });
-      return {
-        ok: true,
-        result: {
-          sandboxUrl: started.sandboxUrl,
-          sandboxId: started.sandboxId,
-          sandboxPreviewMode: resolvedMode,
-          fidelityTier: 2,
-          startOutcome: started.startOutcome,
-          tier2Meta: { tier2Provider: "preview_host" },
-        },
-      };
-    }
-    const allowVercelFallback = mode === "preview_host_then_vercel" && isSandboxConfigured();
-    logSandboxLifecycleTelemetry({
-      kind: "preview_failed",
-      chatId: cid,
-      versionId: vid,
-      stage: "sandbox-create",
-      detail: started.message,
-      msSinceEngineStart: 0,
-      tier2Provider: "preview_host",
-      willFailover: allowVercelFallback,
-    });
-    if (!allowVercelFallback) {
-      return {
-        ok: false,
-        error: {
-          stage: "sandbox-create",
-          message: started.message,
-        },
-      };
-    }
-    vercelAfterPreviewHostFail = true;
-  }
-
-  try {
-    const runtime = await createSandboxRuntimeFromFiles(runtimeFiles, {
-      installCommand: resolveTier2InstallCommand(runtimeFiles),
-      startCommand: "npm run dev",
-      ports: [3000],
-      sandboxPreviewMode: resolvedMode,
-      verifyBuild,
-    });
-
-    const bv = runtime.buildVerification;
-    const fidelityTier: 2 | 3 = bv !== undefined ? 3 : 2;
-    const sandboxUrl = runtime.primaryUrl ?? runtime.urls[3000] ?? "";
-    if (cid && sandboxUrl.trim()) {
-      await touchSandboxSessionAsync({
-        chatId: cid,
-        sandboxId: runtime.sandboxId,
-        sandboxUrl,
-        versionId: vid,
-        tier2Provider: "vercel_sandbox",
-      });
-    }
-
-    return {
-      ok: true,
-      result: {
-        sandboxUrl,
-        sandboxId: runtime.sandboxId,
-        sandboxPreviewMode: resolvedMode,
-        fidelityTier,
-        prodBuildVerified: bv ? bv.ok : false,
-        prodBuildLogSnippet: bv && !bv.ok ? bv.logSnippet : undefined,
-        startOutcome: "recreated",
-        ...(vercelAfterPreviewHostFail
-          ? {
-              tier2Meta: {
-                tier2Provider: "vercel_sandbox" as const,
-                failoverFrom: "preview_host" as const,
-              },
-            }
-          : {}),
-      },
-    };
-  } catch (err) {
-    if (err instanceof SandboxReadinessTimeoutError) {
-      return {
-        ok: false,
-        error: {
-          stage: "sandbox-create",
-          message: err.message,
-          failureCode: "readiness_timeout",
-          raw: err.stack,
-        },
-      };
-    }
-    const message = err instanceof Error ? err.message : "Sandbox creation failed";
-    const isInstallError = message.includes("npm install") || message.includes("ERESOLVE");
+  if (!hostUrl) {
     return {
       ok: false,
       error: {
-        stage: isInstallError ? "install" : "sandbox-create",
-        message,
-        raw: err instanceof Error ? err.stack : undefined,
+        stage: "preview-start",
+        message: "SAJTMASKIN_PREVIEW_HOST_BASE_URL must be set for tier-2 live preview.",
       },
     };
   }
+  if (!cid || !vid) {
+    return {
+      ok: false,
+      error: {
+        stage: "preview-start",
+        message: "preview_host tier requires chatId and versionIdForSession.",
+      },
+    };
+  }
+
+  const filesJson = Object.fromEntries(runtimeFiles.map((f) => [f.name, f.content]));
+  const started = await startPreviewHostSession({
+    chatId: cid,
+    versionId: vid,
+    filesJson,
+  });
+  if (!started.ok) {
+    logPreviewLifecycleTelemetry({
+      kind: "preview_failed",
+      chatId: cid,
+      versionId: vid,
+      stage: "preview-start",
+      detail: started.message,
+      msSinceEngineStart: 0,
+      tier2Provider: "preview_host",
+    });
+    return {
+      ok: false,
+      error: {
+        stage: "preview-start",
+        message: started.message,
+      },
+    };
+  }
+
+  await touchPreviewSessionAsync({
+    chatId: cid,
+    sandboxId: started.sandboxId,
+    sandboxUrl: started.sandboxUrl,
+    versionId: vid,
+    tier2Provider: "preview_host",
+  });
+  return {
+    ok: true,
+    result: {
+      sandboxUrl: started.sandboxUrl,
+      sandboxId: started.sandboxId,
+      sandboxPreviewMode: resolvedMode,
+      fidelityTier: 2,
+      startOutcome: started.startOutcome,
+      tier2Meta: { tier2Provider: "preview_host" },
+    },
+  };
 }

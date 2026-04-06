@@ -13,7 +13,7 @@ function derivePreviewToken(projectId: string, salt: string, len: number): strin
 
 /**
  * Deterministic, non-secret-looking placeholders tied to the Sajtmaskin app project id.
- * Merged into sandbox `.env.local` so generated sites can read stable preview ids/secrets
+ * Merged into preview `.env.local` so generated sites can read stable preview ids/secrets
  * until the user sets real integration keys (user/project env wins on collision).
  */
 export function buildProjectPreviewPlaceholderRecord(

@@ -11,7 +11,6 @@ import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
 import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
-import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/ModelTraceOverlay";
@@ -622,50 +621,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     ],
   );
 
-  const persistPreviewUrlForVersion = useCallback(
-    async (url: string) => {
-      if (!vm.chatId || !vm.activeVersionId) return;
-      try {
-        const response = await fetch(`${engineChatBaseUrl(vm.chatId)}/versions`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            versionId: vm.activeVersionId,
-            previewUrl: url,
-          }),
-        });
-        if (!response.ok) {
-          const data = (await response.json().catch(() => null)) as { error?: string } | null;
-          console.warn(
-            "[Builder] Failed to persist preview URL:",
-            data?.error || `HTTP ${response.status}`,
-          );
-          return;
-        }
-        vm.mutateVersions();
-      } catch (error) {
-        console.warn("[Builder] Failed to persist preview URL:", error);
-      }
-    },
-    [vm.activeVersionId, vm.chatId, vm.mutateVersions],
-  );
-
-  const handleUsePreviewInPanel = useCallback(
-    (url: string) => {
-      vm.setClearedPreviewVersionId(null);
-      vm.setCurrentPreviewUrl(url);
-      void persistPreviewOverride(url, vm.activeVersionId);
-      void persistPreviewUrlForVersion(url);
-    },
-    [
-      vm.activeVersionId,
-      vm.setClearedPreviewVersionId,
-      vm.setCurrentPreviewUrl,
-      persistPreviewOverride,
-      persistPreviewUrlForVersion,
-    ],
-  );
-
   const handleClearPreview = useCallback(() => {
     void (async () => {
       const activeVersionId = vm.activeVersionId ?? null;
@@ -778,12 +733,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         chatId={vm.chatId}
         activeVersionId={vm.activeVersionId}
         onOpenImport={() => {
-          vm.setIsSandboxModalOpen(false);
           vm.setIsImportModalOpen(true);
-        }}
-        onOpenSandbox={() => {
-          vm.setIsImportModalOpen(false);
-          vm.setIsSandboxModalOpen(true);
         }}
         onDeployProduction={vm.handleOpenDeployDialog}
         onDomainSearch={() => {
@@ -1049,14 +999,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onConfirm={handlePlacementConfirm}
         onCancel={handlePlacementCancel}
         isSubmitting={isPlacementSubmitting}
-      />
-
-      <SandboxModal
-        isOpen={vm.isSandboxModalOpen}
-        onClose={() => vm.setIsSandboxModalOpen(false)}
-        chatId={vm.chatId}
-        versionId={vm.activeVersionId}
-        onUseInPreview={handleUsePreviewInPanel}
       />
 
       <InitFromRepoModal

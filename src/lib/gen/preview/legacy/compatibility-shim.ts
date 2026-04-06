@@ -4,7 +4,8 @@
  */
 export type AlternatePreviewUrls = {
   shimUrl: string | null;
-  sandboxUrl: string | null;
+  /** Persisted tier-2 / VM preview URL for this version (not Vercel Sandbox). */
+  storedLivePreviewUrl: string | null;
 };
 
 const OWN_ENGINE_PREVIEW_PATH = "/api/preview-render";
@@ -43,8 +44,8 @@ function hostMatchesTier2Suffixes(host: string, suffixes: string[]): boolean {
   return false;
 }
 
-/** True for tier-2 runtime preview URLs (Vercel Sandbox, preview-host on Fly, etc.) — not the legacy shim. */
-export function isSandboxPreviewUrl(url: string | null | undefined): boolean {
+/** True for tier-2 live preview URLs (preview-host / VM, legacy `*.vercel.run`, etc.) — not the compatibility shim. */
+export function isTier2LivePreviewUrl(url: string | null | undefined): boolean {
   const normalized = normalizePreviewUrl(url);
   if (!normalized || isCompatibilityShimPreviewUrl(normalized)) {
     return false;
@@ -62,8 +63,8 @@ export function isSandboxPreviewUrl(url: string | null | undefined): boolean {
   }
 }
 
-export function hasSandboxPreviewUrl(url: string | null | undefined): boolean {
-  return isSandboxPreviewUrl(url);
+export function hasTier2LivePreviewUrl(url: string | null | undefined): boolean {
+  return isTier2LivePreviewUrl(url);
 }
 
 function previewUrlsEquivalent(
@@ -82,34 +83,34 @@ function previewUrlsEquivalent(
 }
 
 export function resolveAlternatePreviewUrls(params: {
-  sandboxUrl?: string | null;
+  storedLivePreviewUrl?: string | null;
 }): AlternatePreviewUrls {
-  const sandboxUrl = normalizePreviewUrl(params.sandboxUrl);
+  const storedLivePreviewUrl = normalizePreviewUrl(params.storedLivePreviewUrl);
   return {
     shimUrl: null,
-    sandboxUrl,
+    storedLivePreviewUrl,
   };
 }
 
 export function buildAlternatePreviewBannerState(params: {
   currentUrl: string | null | undefined;
   alternatePreviewUrls?: AlternatePreviewUrls | null;
-}): { sandboxUrl: string } | null {
+}): { livePreviewUrl: string } | null {
   const currentUrl = normalizePreviewUrl(params.currentUrl);
-  const sandboxUrl = normalizePreviewUrl(params.alternatePreviewUrls?.sandboxUrl);
+  const livePreviewUrl = normalizePreviewUrl(params.alternatePreviewUrls?.storedLivePreviewUrl);
 
-  const offerSandbox = Boolean(
+  const offerTier2Preview = Boolean(
     currentUrl &&
       isCompatibilityShimPreviewUrl(currentUrl) &&
-      sandboxUrl &&
-      !previewUrlsEquivalent(currentUrl, sandboxUrl),
+      livePreviewUrl &&
+      !previewUrlsEquivalent(currentUrl, livePreviewUrl),
   );
 
-  if (!offerSandbox) {
+  if (!offerTier2Preview) {
     return null;
   }
 
   return {
-    sandboxUrl: sandboxUrl!,
+    livePreviewUrl: livePreviewUrl!,
   };
 }

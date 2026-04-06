@@ -23,21 +23,21 @@ vi.mock("@/lib/gen/sandbox/session-store", async () => {
   };
 });
 
-vi.mock("@/lib/gen/sandbox/tier2-config", () => ({
+vi.mock("@/lib/gen/preview/tier2-config", () => ({
   isTier2PreviewConfigured,
 }));
 
-vi.mock("@/lib/gen/sandbox/tier2-resume", () => ({
+vi.mock("@/lib/gen/preview/tier2-resume", () => ({
   tryResumeTier2Runtime,
 }));
 
-vi.mock("@/lib/gen/sandbox/lifecycle-telemetry", () => ({
-  logSandboxLifecycleTelemetry: vi.fn(),
+vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
+  logPreviewLifecycleTelemetry: vi.fn(),
 }));
 
 import { GET } from "./route";
 
-describe("GET sandbox-status", () => {
+describe("GET preview-status", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     isTier2PreviewConfigured.mockReturnValue(true);
@@ -89,9 +89,9 @@ describe("GET sandbox-status", () => {
       new Request("http://localhost/api?versionId=v1"),
       { params: Promise.resolve({ chatId: "c1" }) },
     );
-    const body = (await res.json()) as { status: string; sandboxUrl: string | null };
+    const body = (await res.json()) as { status: string; previewUrl: string | null };
     expect(body.status).toBe("running");
-    expect(body.sandboxUrl).toBe("https://live.example");
+    expect(body.previewUrl).toBe("https://live.example");
   });
 
   it("returns stopped when resume fails", async () => {

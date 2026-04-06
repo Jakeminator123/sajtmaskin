@@ -23,7 +23,7 @@ import {
 } from "@/lib/templates/local-v0-template-source";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
-import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
+import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 
 // Allow 5 minutes for own-engine generation
 export const maxDuration = 300;
@@ -140,19 +140,19 @@ async function initializeLocalTemplateProject(params: {
     assistantMessage.id,
     JSON.stringify(imported.files),
   );
-  const sandboxStarted = await startSandboxPreview(imported.files, {
+  const previewSessionStarted = await startPreviewSession(imported.files, {
     chatId: chat.id,
     appProjectId: projectId,
     versionIdForSession: version.id,
     skipRepair: true,
   });
-  if (!sandboxStarted.ok) {
+  if (!previewSessionStarted.ok) {
     throw new Error(
-      `Tier-2 preview failed (${sandboxStarted.error.stage}): ${sandboxStarted.error.message}`,
+      `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
     );
   }
 
-  const previewUrl = sandboxStarted.result.sandboxUrl?.trim();
+  const previewUrl = previewSessionStarted.result.sandboxUrl?.trim();
   if (!previewUrl) {
     throw new Error("Tier-2 preview started without a preview URL.");
   }

@@ -73,7 +73,7 @@ export async function fetchPreviewHostStatus(
   if (!base || !id) return null;
   try {
     const res = await fetch(
-      `${base}/preview/sandbox/${encodeURIComponent(id)}/status`,
+      `${base}/preview/session/${encodeURIComponent(id)}/status`,
       {
         method: "GET",
         headers: { ...previewHostAuthHeaders() },
@@ -112,6 +112,17 @@ export type PreviewHostDestroyOk = {
 };
 
 export type PreviewHostDestroyErr = {
+  ok: false;
+  message: string;
+  retryable: boolean;
+};
+
+export type PreviewHostHibernateOk = {
+  ok: true;
+  hibernated: boolean;
+};
+
+export type PreviewHostHibernateErr = {
   ok: false;
   message: string;
   retryable: boolean;
@@ -272,6 +283,65 @@ export async function destroyPreviewHostSession(params: {
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Preview host destroy failed";
+    return { ok: false, message, retryable: true };
+  }
+}
+
+export async function hibernatePreviewHostSession(params: {
+  sandboxId?: string | null;
+  sessionId?: string | null;
+}): Promise<PreviewHostHibernateOk | PreviewHostHibernateErr> {
+  const base = getPreviewHostBaseUrl();
+  if (!base) {
+    return {
+      ok: false,
+      message: "SAJTMASKIN_PREVIEW_HOST_BASE_URL is not set.",
+      retryable: false,
+    };
+  }
+
+  const sandboxId = params.sandboxId?.trim() || null;
+  const sessionId = params.sessionId?.trim() || null;
+  if (!sandboxId && !sessionId) {
+    return {
+      ok: false,
+      message: "preview-host hibernate requires sandboxId or sessionId.",
+      retryable: false,
+    };
+  }
+
+  try {
+    const res = await fetch(`${base}/preview/session/hibernate`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...previewHostAuthHeaders(),
+      },
+      body: JSON.stringify({
+        ...(sandboxId ? { sandboxId } : {}),
+        ...(sessionId ? { sessionId } : {}),
+      }),
+      signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (res.status === 404) {
+      return { ok: true, hibernated: false };
+    }
+    if (!res.ok) {
+      const msg = describePreviewHostHttpFailure({
+        endpoint: "/preview/session/destroy",
+        status: res.status,
+        body,
+      });
+      return {
+        ok: false,
+        message: msg,
+        retryable: res.status >= 500 || res.status === 429,
+      };
+    }
+    return { ok: true, hibernated: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Preview host hibernate failed";
     return { ok: false, message, retryable: true };
   }
 }

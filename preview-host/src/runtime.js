@@ -1078,6 +1078,7 @@ module.exports = {
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   findSessionByChatId,
+  listSessions,
   hibernateChatRuntime,
   destroyChatWorkspace,
   runVerifyJob,

@@ -2,7 +2,6 @@
  * Structured logs for preview lifecycle (heartbeat, status, recover, start outcome).
  * Query logs with prefix `[telemetry:preview-lifecycle]`.
  */
-
 export type PreviewLifecycleTelemetryEvent =
   | {
       kind: "heartbeat";
@@ -63,7 +62,6 @@ export type PreviewLifecycleTelemetryEvent =
       kind: "preview_url_resync";
       chatId: string;
       versionId?: string;
-      /** Normalized URLs differed; iframe src updated from GET preview-status. */
       detail?: string;
     };
 

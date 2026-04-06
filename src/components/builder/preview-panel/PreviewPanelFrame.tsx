@@ -4,7 +4,7 @@ import type { ReactNode, RefObject } from "react";
 import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export interface PreviewPanelSandboxProps {
+export interface PreviewPanelFrameProps {
   isLoading: boolean;
   iframeError: boolean;
   iframeErrorMessage: string | null;
@@ -19,7 +19,7 @@ export interface PreviewPanelSandboxProps {
   children?: ReactNode;
 }
 
-export function PreviewPanelSandbox({
+export function PreviewPanelFrame({
   isLoading,
   iframeError,
   iframeErrorMessage,
@@ -32,7 +32,7 @@ export function PreviewPanelSandbox({
   handleIframeLoad,
   handleIframeError,
   children,
-}: PreviewPanelSandboxProps) {
+}: PreviewPanelFrameProps) {
   return (
     <div className="relative h-full overflow-hidden bg-gray-950">
       {isLoading ? (

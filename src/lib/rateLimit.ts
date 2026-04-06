@@ -60,7 +60,11 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   read: { maxRequests: 150, windowMs: 60 * 1000 },
   default: { maxRequests: 90, windowMs: 60 * 1000 },
   "webhook:v0": { maxRequests: 180, windowMs: 60 * 1000 },
-  "sandbox:create": { maxRequests: 15, windowMs: 60 * 1000 },
+  "preview-session:create": { maxRequests: 15, windowMs: 60 * 1000 },
+  "preview-session:status": { maxRequests: 60, windowMs: 60 * 1000 },
+  "preview-session:heartbeat": { maxRequests: 120, windowMs: 60 * 1000 },
+  "preview-session:hibernate": { maxRequests: 60, windowMs: 60 * 1000 },
+  "preview-session:destroy": { maxRequests: 30, windowMs: 60 * 1000 },
   "csp:report": { maxRequests: 100, windowMs: 60 * 1000 },
   // v0 Platform API - separate limit to track v0 usage specifically
   "v0:generate": { maxRequests: 20, windowMs: 60 * 1000 },

@@ -11,9 +11,9 @@ import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveEngineModelId } from "@/lib/models/selection";
 import type { CodeFile } from "@/lib/gen/parser";
+import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import { startSandboxPreview } from "@/lib/gen/sandbox/sandbox-preview";
 
 export const runtime = "nodejs";
 
@@ -497,18 +497,18 @@ export async function POST(req: Request) {
         assistantMessage.id,
         JSON.stringify(importedFiles),
       );
-      const sandboxStarted = await startSandboxPreview(importedFiles, {
+      const previewSessionStarted = await startPreviewSession(importedFiles, {
         chatId: chat.id,
         appProjectId: project.id,
         versionIdForSession: version.id,
         skipRepair: true,
       });
-      if (!sandboxStarted.ok) {
+      if (!previewSessionStarted.ok) {
         throw new Error(
-          `Tier-2 preview failed (${sandboxStarted.error.stage}): ${sandboxStarted.error.message}`,
+          `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
         );
       }
-      const previewUrl = sandboxStarted.result.sandboxUrl?.trim();
+      const previewUrl = previewSessionStarted.result.sandboxUrl?.trim();
       if (!previewUrl) {
         throw new Error("Tier-2 preview started without a preview URL.");
       }

@@ -14,9 +14,7 @@ import {
   type ScaffoldRetrySuggestion,
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
-import { runPolishPass, isPolishPassEnabled } from "@/lib/gen/polish-pass";
 import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verifier-pass";
-import { resolvePostGenerationPolishConfig } from "@/lib/gen/post-generation-config";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -77,8 +75,8 @@ export interface FinalizeResult {
   messageId: string;
   telemetryRecordId: string | null;
   previewUrl: string | null;
-  /** Sandbox URL when full Next.js preview is started (null until sandbox boots). */
-  sandboxUrl: string | null;
+  /** Tier-2 live preview URL when the VM session boots (null until available). */
+  tier2PreviewUrl: string | null;
   filesJson: string;
   contentForVersion: string;
   preflight: PreviewPreflightSummary;
@@ -134,45 +132,6 @@ function createFinalizeStepTelemetry(
     durationMs: Math.max(0, Date.now() - startedAtMs),
     ...(extra ?? {}),
   };
-}
-
-const BRACKET_PLACEHOLDER_RE = /\[[^\]\n]{2,80}\]/;
-const GENERIC_PLACEHOLDER_COPY_RE =
-  /\b(lorem ipsum|coming soon|your company|your brand|your business|placeholder text)\b/i;
-
-function hasLikelyPolishSignal(content: string): boolean {
-  return BRACKET_PLACEHOLDER_RE.test(content) || GENERIC_PLACEHOLDER_COPY_RE.test(content);
-}
-
-function resolvePolishPassPolicy(params: {
-  buildSpec?: BuildSpec | null;
-  finalizePath: FinalizePathPolicy;
-  repairPassIndex: number;
-  verifierPolishCandidates: string[];
-  contentForVersion: string;
-}): { run: boolean; reason: string } {
-  const { buildSpec, finalizePath, repairPassIndex, verifierPolishCandidates, contentForVersion } =
-    params;
-
-  if (!finalizePath.runDeepPath) {
-    return { run: false, reason: finalizePath.reason };
-  }
-  if (repairPassIndex > 0) {
-    return { run: false, reason: "repair_pass" };
-  }
-  if (!isPolishPassEnabled()) {
-    return { run: false, reason: "disabled" };
-  }
-  if (verifierPolishCandidates.length > 0) {
-    return { run: true, reason: "verifier_candidates" };
-  }
-  if (hasLikelyPolishSignal(contentForVersion)) {
-    return { run: true, reason: "placeholder_signal" };
-  }
-  if (buildSpec?.generationMode === "init" && buildSpec.qualityTarget !== "standard") {
-    return { run: true, reason: "high_quality_init" };
-  }
-  return { run: false, reason: "no_polish_signal" };
 }
 
 function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number {
@@ -415,7 +374,6 @@ async function runFinalizeFastPath(params: {
     });
   }
 
-  let verifierPolishCandidates: string[] = [];
   const verifierTier = resolvedTier ?? "pro";
   const verifierPolicy = resolveVerifierPassPolicy({
     buildSpec,
@@ -427,25 +385,21 @@ async function runFinalizeFastPath(params: {
     onProgress?.("verifier", { phase: "start" });
     try {
       const findings = await runVerifierPass(contentForVersion, { resolvedTier: verifierTier });
-      verifierPolishCandidates = findings.polishCandidates ?? [];
       devLogAppend("in-progress", {
         type: "verifier-pass",
         chatId,
         blocking: findings.blocking.length,
         quality: findings.quality.length,
-        polishCandidates: verifierPolishCandidates.length,
       });
       onProgress?.("verifier", {
         phase: "done",
         blockingCount: findings.blocking.length,
         qualityCount: findings.quality.length,
-        polishCandidateCount: verifierPolishCandidates.length,
       });
       stepTelemetry.verifier = createFinalizeStepTelemetry(verifierStartedAt, "done", {
         trigger: verifierPolicy.reason,
         blockingCount: findings.blocking.length,
         qualityCount: findings.quality.length,
-        polishCandidateCount: verifierPolishCandidates.length,
       });
     } catch (verifierErr) {
       console.warn("[verifier-pass] Non-fatal error, skipping:", verifierErr);
@@ -459,56 +413,6 @@ async function runFinalizeFastPath(params: {
     });
     stepTelemetry.verifier = createFinalizeStepTelemetry(Date.now(), "skipped", {
       reason: verifierPolicy.reason,
-    });
-  }
-
-  const polishPolicy = resolvePolishPassPolicy({
-    buildSpec,
-    finalizePath,
-    repairPassIndex,
-    verifierPolishCandidates,
-    contentForVersion,
-  });
-  if (polishPolicy.run) {
-    const polishStartedAt = Date.now();
-    onProgress?.("polish", { phase: "start" });
-    try {
-      const polishCfg = resolvePostGenerationPolishConfig();
-      const polishResult = await runPolishPass(contentForVersion, {
-        model,
-        polishTargetPaths: verifierPolishCandidates.length > 0 ? verifierPolishCandidates : undefined,
-        maxFilesWhenUnscoped: polishCfg.maxFilesWhenUnscoped,
-        maxOutputTokens: polishCfg.maxOutputTokens,
-        timeoutMs: polishCfg.timeoutMs,
-      });
-      if (polishResult.applied) {
-        contentForVersion = polishResult.polishedContent;
-        devLogAppend("in-progress", {
-          type: "polish-pass",
-          chatId,
-          filesChanged: polishResult.filesChanged,
-          applied: true,
-        });
-      }
-      onProgress?.("polish", {
-        phase: "done",
-        applied: polishResult.applied,
-        filesChanged: polishResult.filesChanged,
-      });
-      stepTelemetry.polish = createFinalizeStepTelemetry(polishStartedAt, "done", {
-        trigger: polishPolicy.reason,
-        applied: polishResult.applied,
-        filesChanged: polishResult.filesChanged,
-      });
-    } catch (polishErr) {
-      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
-      onProgress?.("polish", { phase: "error" });
-      stepTelemetry.polish = createFinalizeStepTelemetry(polishStartedAt, "error");
-    }
-  } else {
-    onProgress?.("polish", { phase: "skipped", reason: polishPolicy.reason });
-    stepTelemetry.polish = createFinalizeStepTelemetry(Date.now(), "skipped", {
-      reason: polishPolicy.reason,
     });
   }
 
@@ -595,7 +499,7 @@ async function runFinalizeFastPath(params: {
 
 /**
  * Shared post-generation pipeline: autofix -> URL expansion -> syntax validate/fix ->
- * image materialize -> optional verifier/polish -> file parsing -> scaffold merge ->
+ * image materialize -> optional verifier -> file parsing -> scaffold merge ->
  * preflight -> assistant message -> version save.
  *
  * Assistant row + draft version are persisted in one DB transaction (no orphan assistant
@@ -689,7 +593,7 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  // 2. URL expansion (before polish so polish sees final URLs)
+  // 2. URL expansion (before verifier / parse)
   const urlExpandStartedAt = Date.now();
   onProgress?.("url_expand", { phase: "start" });
   contentForVersion = expandUrls(contentForVersion, urlMap);
@@ -956,7 +860,7 @@ export async function finalizeAndSaveVersion(
     messageId: assistantMsg.id,
     telemetryRecordId,
     previewUrl: null,
-    sandboxUrl: null,
+    tier2PreviewUrl: null,
     filesJson,
     contentForVersion,
     preflight: {

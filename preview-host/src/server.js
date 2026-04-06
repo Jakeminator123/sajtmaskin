@@ -12,6 +12,7 @@ const {
   getRuntimeStateForChat,
   getSessionChatId,
   hibernateChatRuntime,
+  listSessions,
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   queueRuntimeBoot,
@@ -31,7 +32,7 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 const PREVIEW_BASE_URL =
   process.env.PREVIEW_BASE_URL ?? "https://preview-placeholder.example.com";
 const SESSION_TTL_MS =
-  Number.parseInt(process.env.PREVIEW_SESSION_TTL_MS ?? `${30 * 60 * 1000}`, 10);
+  Number.parseInt(process.env.PREVIEW_SESSION_TTL_MS ?? `${15 * 60 * 1000}`, 10);
 
 function json(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -201,7 +202,7 @@ async function routeRequest(req, res) {
         "POST /preview/session/destroy",
         "POST /preview/verify",
         "GET /preview/session/:id",
-        "GET /preview/sandbox/:sandboxId/status",
+        "GET /preview/session/:sandboxId/status",
         "GET /preview/logs/:sandboxId",
         "GET /placeholder.svg",
         "GET /:chatId/*",
@@ -225,7 +226,7 @@ async function routeRequest(req, res) {
     return undefined;
   }
 
-  if (req.method === "GET" && url.pathname.startsWith("/preview/sandbox/") && url.pathname.endsWith("/status")) {
+  if (req.method === "GET" && url.pathname.startsWith("/preview/session/") && url.pathname.endsWith("/status")) {
     const parts = url.pathname.split("/").filter(Boolean);
     const sandboxId = parts.length >= 3 ? parts[2] : "";
     if (!sandboxId) {
@@ -504,6 +505,48 @@ async function routeRequest(req, res) {
         message: error instanceof Error ? error.message : "Cleanup failed.",
       });
     }
+  }
+
+  if (req.method === "GET" && url.pathname === "/admin/sessions") {
+    if (!checkApiKey(req, res)) return;
+    const sessions = listSessions(readStoreSync()).map((session) => sessionResponse(session));
+    return json(res, 200, {
+      count: sessions.length,
+      sessions,
+    });
+  }
+
+  if (req.method === "POST" && url.pathname === "/admin/destroy-all") {
+    if (!checkApiKey(req, res)) return;
+    const activeSessions = listSessions(readStoreSync());
+    const destroyed = await withStoreLock((data) => {
+      const toDestroy = [];
+      for (const session of activeSessions) {
+        const chatId = getSessionChatId(session);
+        const { sessionId, sandboxId } = session;
+        delete data.sessions[sessionId];
+        delete data.sandboxToSession[sandboxId];
+        delete data.logs[sandboxId];
+        toDestroy.push({ sessionId, sandboxId, chatId });
+      }
+      return toDestroy;
+    });
+    for (const session of destroyed) {
+      try {
+        await stopRuntimeForSession(session);
+      } catch {
+        // best effort
+      }
+      try {
+        await destroyChatWorkspace(session.chatId);
+      } catch {
+        // best effort
+      }
+    }
+    return json(res, 200, {
+      destroyed: destroyed.length,
+      sessions: destroyed,
+    });
   }
 
   return notFound(res);

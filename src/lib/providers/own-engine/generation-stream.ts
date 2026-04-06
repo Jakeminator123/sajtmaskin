@@ -27,14 +27,6 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   buildProfileLabel: string;
   enginePath: string;
   thinking: boolean;
-  /** Structured template-library retrieval diagnostics when search ran. */
-  templateLibrarySearch?: {
-    mode: string;
-    reason: string | null;
-    topScore: number | null;
-    catalogSize: number;
-    usedEmbeddings: boolean;
-  };
 }
 
 export interface GenerationStreamParams {

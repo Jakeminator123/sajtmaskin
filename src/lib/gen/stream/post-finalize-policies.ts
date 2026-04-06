@@ -1,9 +1,9 @@
 import type { BuildSpec } from "@/lib/gen/build-spec";
-import { shouldRunOwnEngineSandbox } from "@/lib/gen/sandbox/own-engine-sandbox-gate";
+import { shouldStartOwnEnginePreview } from "@/lib/gen/preview/should-start-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 import { isServerVerifyEligible } from "@/lib/gen/server-verify";
-import { isTier2PreviewConfigured } from "@/lib/gen/sandbox/tier2-config";
+import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 
 export function getPostFinalizePreviewStartContract(
   finalized: FinalizeResult,
@@ -31,9 +31,9 @@ export function shouldTriggerPostFinalizePreview(params: {
   finalized: FinalizeResult;
   parsedFileCount: number;
 }): boolean {
-  return shouldRunOwnEngineSandbox({
-    isSandboxConfigured: isTier2PreviewConfigured(),
-    sandbox: getPostFinalizePreviewStartContract(params.finalized),
+  return shouldStartOwnEnginePreview({
+    isPreviewConfigured: isTier2PreviewConfigured(),
+    previewStart: getPostFinalizePreviewStartContract(params.finalized),
     parsedFileCount: params.parsedFileCount,
   });
 }

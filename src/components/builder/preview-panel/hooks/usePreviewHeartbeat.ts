@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { postPreviewHeartbeat } from "@/lib/builder/preview-session/api";
-import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import {
+  postPreviewHeartbeat,
+  postPreviewHibernate,
+} from "@/lib/builder/preview-session/api";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 
 export function usePreviewHeartbeat(params: {
@@ -23,6 +26,7 @@ export function usePreviewHeartbeat(params: {
   } = params;
 
   const viewerIdRef = useRef<string | null>(null);
+  const hibernateRequestedRef = useRef(false);
   if (typeof window !== "undefined" && !viewerIdRef.current) {
     viewerIdRef.current =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -32,10 +36,10 @@ export function usePreviewHeartbeat(params: {
 
   useEffect(() => {
     if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
-    if (!previewUrl || !isSandboxPreviewUrl(previewUrl)) return;
+    if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
     const allowHeartbeat =
       previewLifecycle === "live" ||
-      (previewLifecycle === undefined && isSandboxPreviewUrl(previewUrl));
+      (previewLifecycle === undefined && isTier2LivePreviewUrl(previewUrl));
     if (!allowHeartbeat) return;
 
     const tick = async () => {
@@ -59,4 +63,41 @@ export function usePreviewHeartbeat(params: {
     void tick();
     return () => window.clearInterval(id);
   }, [chatId, versionId, activePreviewSessionId, previewUrl, previewLifecycle, onSessionSuspect]);
+
+  useEffect(() => {
+    if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
+    if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
+
+    const requestHibernate = () => {
+      if (hibernateRequestedRef.current) return;
+      hibernateRequestedRef.current = true;
+      void postPreviewHibernate({
+        chatId,
+        versionId,
+        previewSessionId: activePreviewSessionId.trim(),
+        keepalive: true,
+      }).finally(() => {
+        window.setTimeout(() => {
+          hibernateRequestedRef.current = false;
+        }, 1000);
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        requestHibernate();
+      }
+    };
+
+    const handlePageHide = () => {
+      requestHibernate();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [chatId, versionId, activePreviewSessionId, previewUrl]);
 }

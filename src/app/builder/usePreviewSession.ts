@@ -3,8 +3,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef } from "react";
 import { fetchPreviewStatus } from "@/lib/builder/preview-session/api";
-import { logSandboxLifecycleTelemetry } from "@/lib/gen/sandbox/lifecycle-telemetry";
-import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
+import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export type UsePreviewSessionParams = {
   chatId: string | null;
@@ -48,7 +48,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     const versionId = activeVersionId;
     if (!chatId || !versionId) return;
     const demo = normalizePreviewUrl(currentPreviewUrl);
-    if (!demo || !isSandboxPreviewUrl(demo)) return;
+    if (!demo || !isTier2LivePreviewUrl(demo)) return;
 
     const now = Date.now();
     if (now - lastPreviewRecoverAtRef.current < 12_000) return;
@@ -67,8 +67,8 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
         const cur = normalizePreviewUrl(currentPreviewUrl);
         const next = normalizePreviewUrl(serverUrl);
         if (next && next !== cur) {
-          logSandboxLifecycleTelemetry({
-            kind: "sandbox_url_resync",
+          logPreviewLifecycleTelemetry({
+            kind: "preview_url_resync",
             chatId,
             versionId,
             detail: "status_running_mismatch",
@@ -81,7 +81,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     }
 
     if (previewRecoverAttemptsRef.current >= 5) {
-      logSandboxLifecycleTelemetry({
+      logPreviewLifecycleTelemetry({
         kind: "recover",
         phase: "failed",
         chatId,
@@ -93,7 +93,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     }
     previewRecoverAttemptsRef.current += 1;
 
-    logSandboxLifecycleTelemetry({
+    logPreviewLifecycleTelemetry({
       kind: "recover",
       phase: "started",
       chatId,

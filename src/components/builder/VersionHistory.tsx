@@ -5,7 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
-import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   AlertCircle,
   CheckCircle,
@@ -537,9 +537,9 @@ export function VersionHistory({
                   : undefined;
             const isEngineVersionRow =
               version.canPin === false || typeof version.versionNumber === "number";
-            const sandboxNorm = normalizePreviewUrl(version.sandboxUrl);
-            const hasSandboxForTier = Boolean(
-              sandboxNorm && isSandboxPreviewUrl(sandboxNorm),
+            const tier2PreviewNorm = normalizePreviewUrl(version.sandboxUrl);
+            const hasTier2LivePreviewForRow = Boolean(
+              tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm),
             );
             const qualityTier = resolveQualityTier(
               {
@@ -547,11 +547,11 @@ export function VersionHistory({
                 verificationState: version.verificationState,
               },
               isEngineVersionRow
-                ? { hasSandboxUrl: hasSandboxForTier }
+                ? { hasTier2LivePreviewUrl: hasTier2LivePreviewForRow }
                 : { hasDemoUrl: Boolean(version.demoUrl) },
             );
             const listPreviewUrl =
-              (sandboxNorm && isSandboxPreviewUrl(sandboxNorm) ? sandboxNorm : null) ??
+              (tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm) ? tier2PreviewNorm : null) ??
               normalizePreviewUrl(version.legacyShimPreviewUrl) ??
               normalizePreviewUrl(version.demoUrl);
             const qualityTierLabel =
