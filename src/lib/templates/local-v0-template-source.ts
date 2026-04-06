@@ -130,33 +130,6 @@ async function readDownloadedTemplateRows(): Promise<DownloadedTemplateRow[]> {
   return rows;
 }
 
-export async function getAvailableLocalV0TemplateIds(ids: string[]): Promise<Set<string>> {
-  const wanted = new Set(
-    ids.map((id) => id.trim()).filter(Boolean),
-  );
-  if (wanted.size === 0) return new Set();
-
-  const rows = await readDownloadedTemplateRows();
-  const available = new Set<string>();
-
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const row = rows[index];
-    const rowTemplateId = typeof row?.templateId === "string" ? row.templateId.trim() : "";
-    const rowPath = typeof row?.path === "string" ? row.path.trim() : "";
-    if (!rowTemplateId || !rowPath || !wanted.has(rowTemplateId) || available.has(rowTemplateId)) {
-      continue;
-    }
-
-    const archivePath = toAbsoluteArchivePath(rowPath);
-    if (!(await fileExists(archivePath))) continue;
-    available.add(rowTemplateId);
-
-    if (available.size === wanted.size) break;
-  }
-
-  return available;
-}
-
 export async function getLocalV0TemplateSourceById(
   templateId: string,
 ): Promise<LocalV0TemplateSource | null> {
