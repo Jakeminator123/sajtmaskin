@@ -101,12 +101,15 @@ export function createCodeGenSSEStream(
 
   return new ReadableStream({
     async start(controller) {
+      const streamStartedAt = Date.now();
       const eventCounts = new Map<string, number>();
       const toolCallCounts = new Map<string, number>();
       const pendingToolInputs = new Map<
         string,
         { toolName?: string; toolCallId?: string; inputText: string }
       >();
+      let firstReasoningTokenAt: number | null = null;
+      let firstContentTokenAt: number | null = null;
       let emittedGenerationStart = false;
       let emittedReasoningWait = false;
       let emittedOutputWait = false;
@@ -189,6 +192,14 @@ export function createCodeGenSSEStream(
           outputTokens: number | undefined;
         },
       ) => {
+        const streamEndedAt = Date.now();
+        const durationMs = Math.max(0, streamEndedAt - streamStartedAt);
+        const reasoningMs =
+          firstReasoningTokenAt !== null && firstContentTokenAt !== null
+            ? Math.max(0, firstContentTokenAt - firstReasoningTokenAt)
+            : 0;
+        const outputMs =
+          firstContentTokenAt !== null ? Math.max(0, streamEndedAt - firstContentTokenAt) : 0;
         const usageAvailable =
           typeof usage?.inputTokens === "number" || typeof usage?.outputTokens === "number";
         debugLog("engine", "Own-engine stream summary (AI SDK wrapper, direct provider)", {
@@ -211,6 +222,23 @@ export function createCodeGenSSEStream(
                 : "stream_aborted_or_provider_error_before_usage_report",
           },
         });
+        debugLog("engine", "LLM stream phases", {
+          phase,
+          streamStartedAt,
+          firstReasoningTokenAt,
+          firstContentTokenAt,
+          streamEndedAt,
+          durationMs,
+          reasoningMs,
+          outputMs,
+          chatId: meta?.chatId ?? null,
+          versionId: meta?.versionId ?? null,
+        });
+        return {
+          durationMs,
+          reasoningMs,
+          outputMs,
+        };
       };
 
       try {
@@ -232,6 +260,9 @@ export function createCodeGenSSEStream(
 
             case "reasoning-start": {
               ensureGenerationStarted();
+              if (firstReasoningTokenAt === null) {
+                firstReasoningTokenAt = Date.now();
+              }
               if (thinking && !emittedReasoningWait) {
                 emittedReasoningWait = true;
                 enqueue(
@@ -248,6 +279,9 @@ export function createCodeGenSSEStream(
             case "reasoning-delta": {
               ensureGenerationStarted();
               const reasoningText = resolveReasoningText(part);
+              if (reasoningText && firstReasoningTokenAt === null) {
+                firstReasoningTokenAt = Date.now();
+              }
               if (thinking && reasoningText) {
                 enqueue(createBuilderStreamEvent("thinking", { text: reasoningText }));
               }
@@ -261,6 +295,9 @@ export function createCodeGenSSEStream(
 
             case "text-start": {
               ensureGenerationStarted();
+              if (firstContentTokenAt === null) {
+                firstContentTokenAt = Date.now();
+              }
               if (!emittedOutputWait) {
                 emittedOutputWait = true;
                 enqueue(
@@ -280,6 +317,9 @@ export function createCodeGenSSEStream(
               ensureGenerationStarted();
               const contentText = resolveStreamText(part);
               if (contentText) {
+                if (firstContentTokenAt === null) {
+                  firstContentTokenAt = Date.now();
+                }
                 sawContentEvent = true;
                 enqueue(createBuilderStreamEvent("content", { text: contentText }));
               }
@@ -349,7 +389,16 @@ export function createCodeGenSSEStream(
         }
 
         const usage = await result.usage;
-        summarizeStream("done", usage);
+        const streamTiming = summarizeStream("done", usage);
+        enqueue(
+          createBuilderStreamEvent("progress", {
+            step: "generation",
+            phase: "done",
+            durationMs: streamTiming.durationMs,
+            reasoningMs: streamTiming.reasoningMs,
+            outputMs: streamTiming.outputMs,
+          }),
+        );
         enqueue(
           createBuilderStreamEvent("done", {
             promptTokens: usage?.inputTokens ?? 0,

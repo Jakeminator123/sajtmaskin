@@ -478,4 +478,64 @@ describe("handleSseStream", () => {
 
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
   });
+
+  it("renders generation done timing in Agentlogg without duplicate done rows", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("progress", { step: "generation", phase: "start" }, "");
+        onEvent(
+          "progress",
+          {
+            step: "generation",
+            phase: "done",
+            durationMs: 2100,
+            reasoningMs: 1200,
+            outputMs: 900,
+          },
+          "",
+        );
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    const assistant = store.getMessages().find((m) => m.id === "assistant_1");
+    const generationDoneParts = (assistant?.uiParts ?? []).filter((part) => {
+      const maybePart = part as { type?: string; output?: { phase?: string } };
+      return maybePart.type === "tool:engine-generation" && maybePart.output?.phase === "done";
+    });
+    expect(generationDoneParts).toHaveLength(1);
+    const doneSteps = (
+      generationDoneParts[0] as {
+        output?: { steps?: unknown };
+      }
+    ).output?.steps;
+    expect(Array.isArray(doneSteps) ? doneSteps : []).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Generering klar (2.1s)."),
+        expect.stringContaining("reasoning 1.2s, output 0.9s."),
+      ]),
+    );
+  });
 });

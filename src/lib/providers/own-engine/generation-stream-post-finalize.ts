@@ -16,7 +16,7 @@ import { triggerServerVerification } from "@/lib/gen/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import { warnLog } from "@/lib/utils/debug";
+import { debugLog, warnLog } from "@/lib/utils/debug";
 
 export type PostFinalizeSse = {
   enc: TextEncoder;
@@ -142,13 +142,45 @@ export async function runOwnEngineStreamPostFinalize(params: {
         typeof chatRow?.project_id === "string" && chatRow.project_id.trim()
           ? chatRow.project_id.trim()
           : null;
-      const previewSessionResult = await startPreviewSession(parsedForPreview, {
-        appProjectId,
+      const previewSessionStartedAt = Date.now();
+      let previewSessionResult: Awaited<ReturnType<typeof startPreviewSession>>;
+      try {
+        previewSessionResult = await startPreviewSession(parsedForPreview, {
+          appProjectId,
+          chatId,
+          previewPolicy: buildSpec.previewPolicy,
+          verificationPolicy: buildSpec.verificationPolicy,
+          versionIdForSession: finalized.version.id,
+          skipRepair: parsedFromFinalizeFilesJson,
+        });
+      } catch (previewStartError) {
+        debugLog("preview", "Preview session started", {
+          durationMs: Math.max(0, Date.now() - previewSessionStartedAt),
+          chatId,
+          versionId: finalized.version.id,
+          appProjectId,
+          ok: false,
+          stage: "preview-start",
+          message:
+            previewStartError instanceof Error ? previewStartError.message : "Preview start failed",
+        });
+        throw previewStartError;
+      }
+      debugLog("preview", "Preview session started", {
+        durationMs: Math.max(0, Date.now() - previewSessionStartedAt),
         chatId,
-        previewPolicy: buildSpec.previewPolicy,
-        verificationPolicy: buildSpec.verificationPolicy,
-        versionIdForSession: finalized.version.id,
-        skipRepair: parsedFromFinalizeFilesJson,
+        versionId: finalized.version.id,
+        appProjectId,
+        ok: previewSessionResult.ok,
+        ...(previewSessionResult.ok
+          ? {
+              startOutcome: previewSessionResult.result.startOutcome,
+              previewTier: previewSessionResult.result.fidelityTier,
+            }
+          : {
+              stage: previewSessionResult.error.stage,
+              failureCode: previewSessionResult.error.failureCode,
+            }),
       });
       if (previewSessionResult.ok) {
         const sr = previewSessionResult.result;

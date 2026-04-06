@@ -70,6 +70,7 @@ import { createPreGenerationContractGateReadableStream } from "@/lib/providers/o
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
   return withRateLimit(req, "chat:create", async () => {
+    const requestStartedAt = Date.now();
     const requestId = req.headers.get("x-vercel-id") || "unknown";
     const session = ensureSessionIdFromRequest(req);
     const sessionId = session.sessionId;
@@ -397,6 +398,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             ),
           );
         }
+        const plannerChatDbStartedAt = Date.now();
         const plannerChat = await chatRepo.createChat(
           projectIdForChat,
           planModel,
@@ -404,8 +406,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           planOrchestration.resolvedScaffold?.id,
         );
         await chatRepo.addMessage(plannerChat.id, "user", message);
+        debugLog("engine", "Chat DB bootstrap complete", {
+          durationMs: Date.now() - plannerChatDbStartedAt,
+          mode: "plan",
+          chatId: plannerChat.id,
+        });
 
-        return attachSessionCookie(createOwnEnginePlanModeResponse({
+        const planModeResponse = createOwnEnginePlanModeResponse({
           pipelineStream,
           chatId: plannerChat.id,
           modelTier: resolvedModelTier,
@@ -459,7 +466,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }),
           commitCredits: commitCreditsOnce,
           commitCreditsPosition: "before-done",
-        }));
+        });
+        debugLog("engine", "Create chat pre-stream complete", {
+          durationMs: Date.now() - requestStartedAt,
+          mode: "plan",
+          chatId: plannerChat.id,
+        });
+        return attachSessionCookie(planModeResponse);
       }
 
       // ── Own Engine Path ───────────────────────────────────────────────
@@ -534,6 +547,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           );
         }
         if (contractClarification) {
+          const contractGateDbStartedAt = Date.now();
           const engineChat = await chatRepo.createChat(
             projectIdForChat,
             engineModel,
@@ -541,6 +555,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedScaffold?.id,
           );
           await chatRepo.addMessage(engineChat.id, "user", message);
+          debugLog("engine", "Chat DB bootstrap complete", {
+            durationMs: Date.now() - contractGateDbStartedAt,
+            mode: "pre-generation-contract-gate",
+            chatId: engineChat.id,
+          });
           devLogAppend("in-progress", {
             type: "contracts.inferred",
             chatId: engineChat.id,
@@ -588,6 +607,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               capabilities: engineCapabilities,
             }),
           );
+          debugLog("engine", "Create chat pre-stream complete", {
+            durationMs: Date.now() - requestStartedAt,
+            mode: "pre-generation-contract-gate",
+            chatId: engineChat.id,
+          });
           return attachSessionCookie(new Response(contractGateStream, {
             headers: createSSEHeaders(),
           }));
@@ -617,6 +641,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
+        const engineChatDbStartedAt = Date.now();
         const engineChat = await chatRepo.createChat(
           projectIdForChat,
           engineModel,
@@ -624,6 +649,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           resolvedScaffold?.id,
         );
         await chatRepo.addMessage(engineChat.id, "user", message);
+        debugLog("engine", "Chat DB bootstrap complete", {
+          durationMs: Date.now() - engineChatDbStartedAt,
+          mode: "own-engine",
+          chatId: engineChat.id,
+        });
         devLogAppend("in-progress", {
           type: "contracts.inferred",
           chatId: engineChat.id,
@@ -635,7 +665,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
           unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
         });
+        const compressUrlsStartedAt = Date.now();
         const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
+        debugLog("engine", "Prompt URL compression complete", {
+          durationMs: Date.now() - compressUrlsStartedAt,
+          originalPromptLength: optimizedMessage.length,
+          compressedPromptLength: enginePrompt.length,
+          compressedUrlCount: Object.keys(urlMap).length,
+          chatId: engineChat.id,
+        });
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId: engineChat.id,
           pipeline: {
@@ -682,6 +720,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         });
 
         const engineHeaders = new Headers(createSSEHeaders());
+        debugLog("engine", "Create chat pre-stream complete", {
+          durationMs: Date.now() - requestStartedAt,
+          mode: "own-engine",
+          chatId: engineChat.id,
+        });
         return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
       }
     } catch (err) {

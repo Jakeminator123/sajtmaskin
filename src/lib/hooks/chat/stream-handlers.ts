@@ -97,6 +97,7 @@ export async function handleSseStream(
   let progressivePreviewFired = false;
   let didReceiveDone = false;
   let generationProgressStarted = false;
+  let generationDoneProgressReceived = false;
   let pendingStreamErrorMessage: string | null = null;
   const postCheckQueue: Array<{
     chatId: string;
@@ -143,6 +144,18 @@ export async function handleSseStream(
   };
 
   const buildProgressSteps = (step: string, phase: string, payload: Record<string, unknown>) => {
+    const durationMs =
+      typeof payload.durationMs === "number" && Number.isFinite(payload.durationMs)
+        ? payload.durationMs
+        : null;
+    const reasoningMs =
+      typeof payload.reasoningMs === "number" && Number.isFinite(payload.reasoningMs)
+        ? payload.reasoningMs
+        : null;
+    const outputMs =
+      typeof payload.outputMs === "number" && Number.isFinite(payload.outputMs)
+        ? payload.outputMs
+        : null;
     const errorCount =
       typeof payload.errorCount === "number" && Number.isFinite(payload.errorCount)
         ? payload.errorCount
@@ -157,6 +170,8 @@ export async function handleSseStream(
       typeof payload.versionId === "string" && payload.versionId.trim().length > 0
         ? payload.versionId.trim()
         : null;
+    const formatSeconds = (ms: number) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
+    const doneSuffix = durationMs !== null ? ` (${formatSeconds(durationMs)})` : "";
 
     if (step === "generation") {
       if (phase === "start") return ["Startar own-engine-strömmen."];
@@ -181,12 +196,20 @@ export async function handleSseStream(
             : "Modellen kör ett verktyg — väntar på nästa kodoutput.",
         ];
       }
-      if (phase === "done") return ["Generering klar. Startar efterkontroller och slutsteg."];
+      if (phase === "done") {
+        const lines = [`Generering klar${doneSuffix}. Startar efterkontroller och slutsteg.`];
+        if (reasoningMs !== null || outputMs !== null) {
+          lines.push(
+            `Faser: reasoning ${formatSeconds(reasoningMs ?? 0)}, output ${formatSeconds(outputMs ?? 0)}.`,
+          );
+        }
+        return lines;
+      }
     }
     if (step === "autofix") {
       if (phase === "start") return ["Autofix startad."];
       if (phase === "done") {
-        const summary: string[] = ["Autofix klar."];
+        const summary: string[] = [`Autofix klar${doneSuffix}.`];
         if (fixes !== null || warnings !== null) {
           summary.push(
             `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}.`,
@@ -210,7 +233,7 @@ export async function handleSseStream(
             ? payload.qualityCount
             : null;
         return [
-          `Verifiering klar.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${qc !== null ? ` Kvalitetsanteckningar: ${qc}.` : ""}`,
+          `Verifiering klar${doneSuffix}.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${qc !== null ? ` Kvalitetsanteckningar: ${qc}.` : ""}`,
         ];
       }
       if (phase === "error") return ["Verifiering misslyckades; fortsätter med nuvarande kod."];
@@ -218,7 +241,7 @@ export async function handleSseStream(
     }
     if (step === "url_expand") {
       if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];
-      if (phase === "done") return ["URL-expansion klar."];
+      if (phase === "done") return [`URL-expansion klar${doneSuffix}.`];
     }
     if (step === "materialize_images") {
       if (phase === "start") return ["Materialiserar bildplatshållare (t.ex. riktiga bild-URL:er)…"];
@@ -259,7 +282,7 @@ export async function handleSseStream(
     if (step === "parse_merge_preflight") {
       if (phase === "start") return ["Finaliserar filer, gör project checks och sparar versionen."];
       if (phase === "done") {
-        const details: string[] = ["Finalisering klar."];
+        const details: string[] = [`Finalisering klar${doneSuffix}.`];
         if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}.`);
         if (versionId) details.push(`Version: ${versionId}.`);
         return details;
@@ -591,6 +614,9 @@ export async function handleSseStream(
             if (step && phase) {
               if (step === "generation") {
                 generationProgressStarted = true;
+                if (phase === "done") {
+                  generationDoneProgressReceived = true;
+                }
               }
               appendProgressPart(step, phase, progressData);
             }
@@ -719,7 +745,12 @@ export async function handleSseStream(
           case "done": {
             didReceiveDone = true;
             streamStats.didReceiveDone = true;
-            if (generationProgressStarted || accumulatedContent.trim().length > 0 || accumulatedThinking.trim().length > 0) {
+            if (
+              !generationDoneProgressReceived &&
+              (generationProgressStarted ||
+                accumulatedContent.trim().length > 0 ||
+                accumulatedThinking.trim().length > 0)
+            ) {
               appendProgressPart("generation", "done");
             }
             const doneData =

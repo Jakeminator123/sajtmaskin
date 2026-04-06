@@ -163,4 +163,32 @@ describe("createCodeGenSSEStream", () => {
     ).toBe(true);
     expect(events.at(-1)?.event).toBe("done");
   });
+
+  it("emits generation done progress with stream timing metrics", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "reasoning-start" },
+      { type: "reasoning-delta", reasoningDelta: "thinking..." },
+      { type: "text-start" },
+      { type: "text-delta", textDelta: "<main>Hello</main>" },
+      { type: "finish" },
+    ]);
+
+    const generationDoneProgress = events.find(
+      (event) =>
+        event.event === "progress" &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        (event.data as Record<string, unknown>).step === "generation" &&
+        (event.data as Record<string, unknown>).phase === "done",
+    );
+    expect(generationDoneProgress).toBeTruthy();
+    const payload = generationDoneProgress?.data as Record<string, unknown> | undefined;
+    expect(typeof payload?.durationMs).toBe("number");
+    expect(typeof payload?.reasoningMs).toBe("number");
+    expect(typeof payload?.outputMs).toBe("number");
+    expect(Number(payload?.durationMs ?? -1)).toBeGreaterThanOrEqual(0);
+    expect(Number(payload?.reasoningMs ?? -1)).toBeGreaterThanOrEqual(0);
+    expect(Number(payload?.outputMs ?? -1)).toBeGreaterThanOrEqual(0);
+  });
 });

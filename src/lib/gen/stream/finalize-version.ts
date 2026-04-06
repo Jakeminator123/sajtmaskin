@@ -510,6 +510,7 @@ async function runFinalizeFastPath(params: {
 export async function finalizeAndSaveVersion(
   params: FinalizeParams,
 ): Promise<FinalizeResult> {
+  const finalizePipelineStartedAt = Date.now();
   const {
     accumulatedContent,
     chatId,
@@ -539,6 +540,10 @@ export async function finalizeAndSaveVersion(
   let autoFixDependencyCount = 0;
   let telemetryRecordId: string | null = null;
   const finalizeStepTelemetry: FinalizeStepTelemetryMap = {};
+  const resolveStepDurationMs = (step: OwnEnginePostStreamPhaseId): number => {
+    const duration = finalizeStepTelemetry[step]?.durationMs;
+    return typeof duration === "number" && Number.isFinite(duration) ? duration : 0;
+  };
 
   devLogAppend("in-progress", {
     type: "finalize.pipeline",
@@ -845,6 +850,18 @@ export async function finalizeAndSaveVersion(
       });
     }
   }
+
+  debugLog("finalize", "Finalize pipeline complete", {
+    chatId,
+    versionId: version.id,
+    autofix: resolveStepDurationMs("autofix"),
+    urlExpand: resolveStepDurationMs("url_expand"),
+    syntaxValidation: resolveStepDurationMs("validate_syntax"),
+    imageMaterialization: resolveStepDurationMs("materialize_images"),
+    verifier: resolveStepDurationMs("verifier"),
+    parseMergePreflight: resolveStepDurationMs("parse_merge_preflight"),
+    totalMs: Math.max(0, Date.now() - finalizePipelineStartedAt),
+  });
 
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,
