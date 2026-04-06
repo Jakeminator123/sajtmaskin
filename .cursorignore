@@ -12,7 +12,7 @@ coverage
 playwright-report
 test-results
 __pycache__
-*.log
+#*.log
 
 # --- Git / lockfile (versioner i package.json) ---
 .git
