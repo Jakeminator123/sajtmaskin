@@ -23,8 +23,6 @@ import {
   getBuildProfileId,
   type CanonicalModelId,
 } from "@/lib/models/catalog";
-import { isUsableVercelOidcToken } from "@/lib/vercel";
-
 export type ModelProviderFamily = "openai" | "anthropic" | "v0" | "off" | "unknown";
 
 export type ModelTraceRequest = {
@@ -92,17 +90,10 @@ export interface ModelTraceSnapshot {
   auth: {
     openai: boolean;
     anthropic: boolean;
-    aiGatewayApiKey: boolean;
-    vercelOidcToken: boolean;
-    onVercel: boolean;
   };
   routes: ModelTraceRouteInfo[];
   warnings: string[];
   notes: string[];
-}
-
-function isProbablyOnVercel(): boolean {
-  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 }
 
 function resolveBuildProvider(modelId: string): ModelProviderFamily {
@@ -217,9 +208,6 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
   const auth = {
     openai: Boolean(process.env.OPENAI_API_KEY?.trim()),
     anthropic: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
-    aiGatewayApiKey: Boolean(process.env.AI_GATEWAY_API_KEY?.trim()),
-    vercelOidcToken: isUsableVercelOidcToken(),
-    onVercel: isProbablyOnVercel(),
   };
 
   const routes: ModelTraceRouteInfo[] = [

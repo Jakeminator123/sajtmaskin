@@ -38,14 +38,14 @@ function hasUnresolved(
 /**
  * Build a blocking clarification question if unresolved contract decisions exist.
  *
- * `previewFirst` (default `true`): preview/sandbox target — always return `null`
+ * `previewFirst` (default `true`): preview-first target — always return `null`
  * so first generation is never blocked by contract questions.  Blocking questions
  * are only emitted when `previewFirst === false` (explicit production mode).
  */
 export function buildContractClarificationQuestion(params: {
   buildIntent: BuildIntent;
   context: PreGenerationContractContext;
-  /** When true (default), skip all blocking questions — sandbox/preview-first. */
+  /** When true (default), skip all blocking questions — preview-first. */
   previewFirst?: boolean;
 }): ContractClarificationQuestion | null {
   const { buildIntent, context, previewFirst = true } = params;

@@ -47,6 +47,12 @@ describe("resolveEngineVersionDisplayStatus", () => {
     ).toBe("repairing");
   });
 
+  it("shows retrying when repairing but newer version exists", () => {
+    const repairing = { verificationState: "repairing", versionNumber: 1 };
+    const newer = { verificationState: "passed", releaseState: "promoted", versionNumber: 2 };
+    expect(resolveEngineVersionDisplayStatus(repairing, [repairing, newer])).toBe("retrying");
+  });
+
   it("shows retrying when failed but newer version exists", () => {
     const failed = { verificationState: "failed", versionNumber: 1 };
     const newer = { verificationState: "verifying", versionNumber: 2 };
@@ -55,10 +61,10 @@ describe("resolveEngineVersionDisplayStatus", () => {
 });
 
 describe("resolveQualityTier", () => {
-  it("uses hasSandboxUrl when provided instead of implied demoUrl preview", () => {
+  it("uses hasTier2LivePreviewUrl when provided instead of implied demoUrl preview", () => {
     const v = { verificationState: "verifying" as const };
-    expect(resolveQualityTier(v, { hasSandboxUrl: true })).toBe("preview");
-    expect(resolveQualityTier(v, { hasSandboxUrl: false })).toBe("none");
+    expect(resolveQualityTier(v, { hasTier2LivePreviewUrl: true })).toBe("preview");
+    expect(resolveQualityTier(v, { hasTier2LivePreviewUrl: false })).toBe("none");
   });
 });
 

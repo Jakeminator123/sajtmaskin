@@ -123,17 +123,17 @@ import { PricingCard } from "@/components/pricing-card";
 const features = [
   {
     title: "One shared workspace",
-    description: "Give every team a clear view of projects, owners, blockers, and priorities without duct-taping dashboards together.",
+    description: "Keep owners, blockers, and priorities in one product-shaped workspace.",
     icon: Workflow,
   },
   {
     title: "Operational visibility",
-    description: "Keep metrics, activity, and decision-making close to the workflow with snapshots that feel like a real product.",
+    description: "Show metrics and progress close to the workflow instead of in separate reports.",
     icon: BarChart3,
   },
   {
     title: "Security by default",
-    description: "Use trustworthy language around permissions, roles, and team access instead of sounding like a generic landing page.",
+    description: "Talk about permissions, roles, and trust in a way that fits a real SaaS.",
     icon: ShieldCheck,
   },
 ];
@@ -141,11 +141,11 @@ const features = [
 const faqs = [
   {
     question: "What kind of SaaS prompts is this best for?",
-    answer: "Use it for B2B products, workflow tools, analytics platforms, membership products, and software with pricing-led positioning.",
+    answer: "Use it for B2B SaaS, workflow tools, analytics products, and software with pricing-led positioning.",
   },
   {
     question: "Does it support pricing and upgrade sections?",
-    answer: "Yes. The scaffold already includes pricing cards, product positioning, and CTA structure so the model can adapt them to the user prompt.",
+    answer: "Yes. Pricing, product positioning, and CTA structure are already included.",
   },
   {
     question: "Should this become a full dashboard starter?",
@@ -167,8 +167,7 @@ export default function HomePage() {
                 Turn a product idea into a sharper SaaS launch page.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
-                This starter is designed for software products that need a stronger first impression:
-                product narrative, feature positioning, pricing, trust signals, and a dashboard-shaped hero.
+                Built for software products that need product narrative, pricing, trust, and a dashboard-shaped hero.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -181,8 +180,8 @@ export default function HomePage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {[
-                { label: "Implementation time", value: "Fast" },
-                { label: "Core pages ready", value: "Hero + pricing + FAQ" },
+                { label: "Launch speed", value: "Fast" },
+                { label: "Ready sections", value: "Hero + pricing + FAQ" },
                 { label: "Best fit", value: "B2B SaaS" },
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl border bg-card/70 p-4">
@@ -208,7 +207,7 @@ export default function HomePage() {
                 {[
                   { label: "MRR", value: "$84k" },
                   { label: "Activation", value: "68%" },
-                  { label: "Time saved", value: "14h/w" },
+                  { label: "Retention", value: "92%" },
                 ].map((stat) => (
                   <div key={stat.label} className="rounded-2xl border bg-secondary/75 p-4">
                     <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{stat.label}</p>
@@ -217,26 +216,26 @@ export default function HomePage() {
                 ))}
               </div>
               <div className="rounded-3xl border bg-background/85 p-5">
-                <div className="mb-5 flex items-center justify-between">
+                <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">Weekly pipeline</p>
-                    <p className="text-xs text-muted-foreground">Product-style chart placeholder</p>
+                    <p className="text-xs text-muted-foreground">Product snapshot</p>
                   </div>
                   <Badge variant="outline" className="rounded-full">+12.4%</Badge>
                 </div>
-                <div className="flex h-48 items-end gap-2">
-                  {[42, 55, 48, 64, 72, 68, 84, 78, 88, 94].map((height, index) => (
-                    <div key={index} className="flex-1 rounded-t-full bg-linear-to-t from-primary/55 to-primary" style={{ height: \`\${height}%\` }} />
+                <div className="mt-5 space-y-3">
+                  {[
+                    "Role-aware permissions",
+                    "Fast onboarding flows",
+                    "Pricing-led conversion design",
+                    "Clear product hierarchy",
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-3 rounded-2xl bg-secondary/70 px-4 py-3 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      <span>{item}</span>
+                    </div>
                   ))}
                 </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {["Role-aware permissions", "Fast onboarding flows", "Pricing-led conversion design", "Clear product hierarchy"].map((item) => (
-                  <div key={item} className="flex items-center gap-3 rounded-2xl bg-secondary/70 px-4 py-3 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <span>{item}</span>
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>
@@ -249,7 +248,7 @@ export default function HomePage() {
             <Badge variant="secondary" className="rounded-full">Feature framing</Badge>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">A stronger starting point for product marketing</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              Inspired by SaaS launch pages, but distilled down so the model gets strong structure without inheriting backend complexity.
+              SaaS launch structure without dragging in backend or logged-in app complexity.
             </p>
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
@@ -276,7 +275,7 @@ export default function HomePage() {
             <Badge variant="secondary" className="rounded-full">Pricing</Badge>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Built-in pricing section for subscription products</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              Keep the pricing structure and replace the names, limits, and CTA logic to match the user's product.
+              Keep the structure and swap names, limits, and CTA logic to fit the product.
             </p>
           </div>
           <div className="grid gap-5 lg:grid-cols-3">
@@ -309,7 +308,7 @@ export default function HomePage() {
             <Badge variant="secondary" className="rounded-full">FAQ</Badge>
             <h2 className="text-3xl font-semibold tracking-tight">Ready-made FAQ block</h2>
             <p className="text-lg leading-8 text-muted-foreground">
-              A SaaS prompt often needs objections handled early. This section gives the model a clear place for that.
+              Use this to handle objections and product questions early.
             </p>
           </div>
           <Card className="rounded-[1.8rem] border bg-card/80 p-2">
@@ -335,11 +334,7 @@ export default function HomePage() {
     },
     {
       path: "components/marketing-header.tsx",
-      content: `"use client";
-
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
-import { useState } from "react";
+      content: `import { Button } from "@/components/ui/button";
 
 const navItems = [
   { label: "Features", href: "#features" },
@@ -348,13 +343,10 @@ const navItems = [
 ];
 
 export function MarketingHeader() {
-  const [open, setOpen] = useState(false);
-
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" className="font-semibold tracking-tight">
-          {/* REPLACE: product name from user brief — do not leave placeholder in output */}
           {"{{PRODUCT_NAME}}"}
         </a>
 
@@ -364,33 +356,9 @@ export function MarketingHeader() {
               {item.label}
             </a>
           ))}
-          <Button size="sm" variant="outline" className="rounded-full">Book demo</Button>
           <Button size="sm" className="rounded-full">Start free</Button>
         </nav>
-
-        <button
-          type="button"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border md:hidden"
-          onClick={() => setOpen((value) => !value)}
-          aria-label="Open menu"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
       </div>
-
-      {open && (
-        <div className="border-t bg-background px-6 py-4 md:hidden">
-          <div className="flex flex-col gap-3">
-            {navItems.map((item) => (
-              <a key={item.href} href={item.href} className="text-sm text-muted-foreground" onClick={() => setOpen(false)}>
-                {item.label}
-              </a>
-            ))}
-            <Button variant="outline" className="mt-2 rounded-full">Book demo</Button>
-            <Button className="rounded-full">Start free</Button>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
@@ -451,22 +419,20 @@ export function PricingCard({
     {
       path: "components/marketing-footer.tsx",
       content: `const links = {
-  Product: ["Features", "Pricing", "Integrations"],
-  Company: ["About", "Customers", "Contact"],
-  Resources: ["Docs", "Guides", "Changelog"],
+  Product: ["Features", "Pricing", "FAQ"],
+  Company: ["About", "Contact", "Support"],
 };
 
 export function MarketingFooter() {
   return (
     <footer className="px-6 py-12 sm:px-8">
-      <div className="mx-auto grid max-w-6xl gap-10 rounded-4xl border bg-card/75 p-8 lg:grid-cols-[1.15fr_0.8fr_0.8fr_0.8fr]">
+      <div className="mx-auto grid max-w-6xl gap-10 rounded-4xl border bg-card/75 p-8 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
         <div className="space-y-4">
           <p className="text-lg font-semibold tracking-tight">
-            {/* REPLACE: product name from user brief */}
             {"{{PRODUCT_NAME}}"}
           </p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
-            Product-led SaaS starter for sharper launches, clearer pricing, and a stronger marketing baseline.
+            Product-led SaaS starter for clearer positioning, pricing, and launch messaging.
           </p>
         </div>
         {Object.entries(links).map(([title, items]) => (

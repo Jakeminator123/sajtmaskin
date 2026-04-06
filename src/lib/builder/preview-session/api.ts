@@ -1,23 +1,24 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type {
-  SandboxDestroyApiJson,
-  SandboxHeartbeatApiJson,
-  SandboxStatusApiJson,
+  PreviewDestroyApiJson,
+  PreviewHibernateApiJson,
+  PreviewHeartbeatApiJson,
+  PreviewStatusApiJson,
 } from "@/lib/gen/preview/preview-contract";
 
-/** Browser `fetch` mot sandbox-status; returnerar null vid nätverksfel eller icke-ok svar. */
-export async function fetchSandboxStatus(params: {
+/** Browser `fetch` mot preview-status; returnerar null vid natverksfel eller icke-ok svar. */
+export async function fetchPreviewStatus(params: {
   chatId: string;
   versionId: string;
-  sandboxId?: string | null;
-}): Promise<SandboxStatusApiJson | null> {
+  previewSessionId?: string | null;
+}): Promise<PreviewStatusApiJson | null> {
   const q = new URLSearchParams({ versionId: params.versionId });
-  if (params.sandboxId?.trim()) {
-    q.set("sandboxId", params.sandboxId.trim());
+  if (params.previewSessionId?.trim()) {
+    q.set("previewSessionId", params.previewSessionId.trim());
   }
   try {
-    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/sandbox-status?${q.toString()}`);
-    const data = (await res.json()) as SandboxStatusApiJson;
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-status?${q.toString()}`);
+    const data = (await res.json()) as PreviewStatusApiJson;
     if (!res.ok || !data || data.ok !== true) return null;
     return data;
   } catch {
@@ -25,25 +26,25 @@ export async function fetchSandboxStatus(params: {
   }
 }
 
-/** Browser `fetch` mot sandbox-heartbeat; returnerar parsad kropp eller null. */
-export async function postSandboxHeartbeat(params: {
+/** Browser `fetch` mot preview-heartbeat; returnerar parsad kropp eller null. */
+export async function postPreviewHeartbeat(params: {
   chatId: string;
   versionId: string;
-  sandboxId: string;
+  previewSessionId: string;
   viewerId: string;
-}): Promise<SandboxHeartbeatApiJson | null> {
+}): Promise<PreviewHeartbeatApiJson | null> {
   try {
-    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/sandbox-heartbeat`, {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-heartbeat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         versionId: params.versionId,
-        sandboxId: params.sandboxId,
+        previewSessionId: params.previewSessionId,
         viewerId: params.viewerId,
       }),
     });
     try {
-      return (await res.json()) as SandboxHeartbeatApiJson;
+      return (await res.json()) as PreviewHeartbeatApiJson;
     } catch {
       return null;
     }
@@ -52,23 +53,54 @@ export async function postSandboxHeartbeat(params: {
   }
 }
 
-/** Browser `fetch` mot sandbox-destroy; returnerar parsad kropp eller null. */
-export async function postSandboxDestroy(params: {
+/** Browser `fetch` mot preview-hibernate; returnerar parsad kropp eller null. */
+export async function postPreviewHibernate(params: {
   chatId: string;
   versionId: string;
-  sandboxId?: string | null;
-}): Promise<SandboxDestroyApiJson | null> {
+  previewSessionId?: string | null;
+  keepalive?: boolean;
+}): Promise<PreviewHibernateApiJson | null> {
   try {
-    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/sandbox-destroy`, {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-hibernate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         versionId: params.versionId,
-        ...(params.sandboxId?.trim() ? { sandboxId: params.sandboxId.trim() } : {}),
+        ...(params.previewSessionId?.trim()
+          ? { previewSessionId: params.previewSessionId.trim() }
+          : {}),
+      }),
+      ...(params.keepalive ? { keepalive: true } : {}),
+    });
+    try {
+      return (await res.json()) as PreviewHibernateApiJson;
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Browser `fetch` mot preview-destroy; returnerar parsad kropp eller null. */
+export async function postPreviewDestroy(params: {
+  chatId: string;
+  versionId: string;
+  previewSessionId?: string | null;
+}): Promise<PreviewDestroyApiJson | null> {
+  try {
+    const res = await fetch(`${engineChatBaseUrl(params.chatId)}/preview-destroy`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        versionId: params.versionId,
+        ...(params.previewSessionId?.trim()
+          ? { previewSessionId: params.previewSessionId.trim() }
+          : {}),
       }),
     });
     try {
-      return (await res.json()) as SandboxDestroyApiJson;
+      return (await res.json()) as PreviewDestroyApiJson;
     } catch {
       return null;
     }

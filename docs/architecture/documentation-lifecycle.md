@@ -20,7 +20,7 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 | Område | Här hör | Hit hör inte |
 |--------|---------|--------------|
 | `docs/architecture/` | Kanoniska översikter (fyra huvuddokument + denna fil) | Tillfälliga scratch |
-| `docs/schemas/` | Stabila schema-beskrivningar (sanning i kod) | Osäkra utkast |
+| `docs/schemas/` | Stabila schema-beskrivningar för människor + `strict/` för maskinorienterade kontrakt (sanning i kod) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
 | `docs/handoffs/` | [`README.md`](../handoffs/README.md) som pekare; tidigare handoff-`*.md` borttagna (fulltext i git-historik). **Binära diagramfiler** under `handoffs/bilder/` rensades i samma städspår som post-epic-merge (återställ via git om du behöver en gammal PNG). Lägg inte till nya binärer här om inget kanoniskt doc uttryckligen länkar till dem | Kanonisk arkitektur, `PROJECT-STATE-AND-DIRECTION.md`, eller nytt scope under `docs/architecture/` |
 | `docs/notes/` | Scratch / sessionsloggar — rensa periodiskt | Stabil referens |
@@ -35,7 +35,14 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 
 ## Schema
 
-Utforskande schema-anteckningar: håll i `active/` tills de kan flyttas till `schemas/` eller `avklarat/`.
+Utforskande schema-anteckningar: håll i `active/` tills de kan flyttas till
+`schemas/` eller `avklarat/`.
+
+Konservativ lagerregel:
+
+- `docs/schemas/*.md` = mänskligt läsbara, stabila kontraktsdokument
+- `docs/schemas/strict/*` = maskinorienterade kontrakt för dashboard/parity/tests
+- flytta inte brett till en separat `human/`-mapp utan tydligt behov; håll path-churn låg
 
 ## Större strukturändringar
 

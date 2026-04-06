@@ -4,6 +4,14 @@ import path from "path";
 const nextConfig: NextConfig = {
   serverExternalPackages: ["esbuild", "pg"],
   outputFileTracingRoot: path.join(__dirname, "./"),
+  outputFileTracingExcludes: {
+    "*": [
+      "./data/external-template-pipeline/**",
+      "./templates_v0/**",
+      "./archive/**",
+      "./output/**",
+    ],
+  },
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
@@ -50,12 +58,6 @@ const nextConfig: NextConfig = {
         hostname: "**.blob.vercel-storage.com",
         pathname: "/**",
       },
-      // v0.app template images
-      {
-        protocol: "https",
-        hostname: "v0.app",
-        pathname: "/**",
-      },
       // Vercel Next.js image proxy (used in some v0 outputs)
       {
         protocol: "https",
@@ -80,7 +82,7 @@ const nextConfig: NextConfig = {
         hostname: "images.pexels.com",
         pathname: "/**",
       },
-      // v0 preview sandbox assets
+      // v0 user content assets (used in some template previews)
       {
         protocol: "https",
         hostname: "**.vusercontent.net",

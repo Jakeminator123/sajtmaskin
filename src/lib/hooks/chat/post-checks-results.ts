@@ -8,7 +8,7 @@ import {
   getPreviewBlockingReason,
   getPreviewUnavailableAutoFixReason,
   getPreviewUnavailableQualityGateFailure,
-  isPreviewPendingOnSandbox,
+  isPreviewPendingInVm,
 } from "./post-checks-preview";
 import type { FileDiff } from "./post-checks-diff";
 import type {
@@ -24,6 +24,7 @@ import type {
   StreamQualitySignal,
   VersionErrorLogPayload,
 } from "./types";
+import type { QualityTier } from "@/lib/db/engine-version-lifecycle";
 
 export interface ImageValidationResult {
   valid?: boolean;
@@ -41,7 +42,7 @@ export interface ImageValidationResult {
   demoUrl?: string;
 }
 
-export type QualityTier = "none" | "preview" | "sandbox" | "production";
+export type { QualityTier };
 
 export interface PostCheckArtifacts {
   finalDemoUrl: string | null;
@@ -301,7 +302,7 @@ export function buildPostCheckArtifacts(params: {
   } = params;
 
   const previewBlockingReason = getPreviewBlockingReason(preflight);
-  const previewPendingOnSandbox = isPreviewPendingOnSandbox(preflight);
+  const previewPendingInVm = isPreviewPendingInVm(preflight);
   const steps: string[] = [];
 
   if (changes) {
@@ -383,14 +384,14 @@ export function buildPostCheckArtifacts(params: {
   if (!finalDemoUrl) {
     steps.push(buildPreviewUnavailableStep(preflight));
   }
-  if (preflight?.sandbox?.hasCriticalInstallRisk) {
-    steps.push("Sandbox readiness: package/dependency-risk blocker upptäckt före live-preview.");
+  if (preflight?.previewStart?.hasCriticalInstallRisk) {
+    steps.push("Preview readiness: package/dependency-risk blocker upptäckt före live-preview.");
   }
-  if (preflight?.sandbox?.requiresEnvConfig) {
-    steps.push("Sandbox readiness: live-preview väntar på projektets miljövariabler eller secrets.");
+  if (preflight?.previewStart?.requiresEnvConfig) {
+    steps.push("Preview readiness: live-preview väntar på projektets miljövariabler eller secrets.");
   }
-  if (preflight?.sandbox?.hasCriticalCodeFailure) {
-    steps.push("Sandbox readiness: kodstrukturen blockerar live-preview tills preflightfel är lösta.");
+  if (preflight?.previewStart?.hasCriticalCodeFailure) {
+    steps.push("Preview readiness: kodstrukturen blockerar live-preview tills preflightfel är lösta.");
   }
   if (preflight?.scaffoldRetry) {
     steps.push(
@@ -413,7 +414,7 @@ export function buildPostCheckArtifacts(params: {
   if (changedFilesCount === 0) {
     qualityGateFailures.push("no_file_changes");
   }
-  if (!finalDemoUrl && !previewPendingOnSandbox) {
+  if (!finalDemoUrl && !previewPendingInVm) {
     qualityGateFailures.push(getPreviewUnavailableQualityGateFailure(preflight));
   }
   if (streamQuality?.hasCriticalAnomaly) {
@@ -425,10 +426,10 @@ export function buildPostCheckArtifacts(params: {
   if (sanityErrors.length > 0) {
     qualityGateFailures.push("project_sanity_errors");
   }
-  if (preflight?.sandbox?.hasCriticalInstallRisk) {
+  if (preflight?.previewStart?.hasCriticalInstallRisk) {
     qualityGateFailures.push("dependency_install_failure");
   }
-  if (preflight?.sandbox?.requiresEnvConfig) {
+  if (preflight?.previewStart?.requiresEnvConfig) {
     qualityGateFailures.push("env_config_missing");
   }
   if (
@@ -442,14 +443,14 @@ export function buildPostCheckArtifacts(params: {
   const qualityGatePassed = qualityGateFailures.length === 0;
 
   const criticalReasons: string[] = [];
-  if (!finalDemoUrl && !previewPendingOnSandbox && !preflight?.sandbox?.requiresEnvConfig) {
+  if (!finalDemoUrl && !previewPendingInVm && !preflight?.previewStart?.requiresEnvConfig) {
     criticalReasons.push(getPreviewUnavailableAutoFixReason(preflight));
   }
-  if (preflight?.sandbox?.hasCriticalInstallRisk) {
+  if (preflight?.previewStart?.hasCriticalInstallRisk) {
     criticalReasons.push("dependency/install-risk");
   }
-  if (preflight?.sandbox?.hasCriticalCodeFailure) {
-    criticalReasons.push("kodstruktur blockerar sandbox");
+  if (preflight?.previewStart?.hasCriticalCodeFailure) {
+    criticalReasons.push("kodstruktur blockerar live-preview");
   }
   if (sanityErrors.length > 0) criticalReasons.push("kodsanity error");
   const shouldEscalateScaffoldRetry =
@@ -467,7 +468,7 @@ export function buildPostCheckArtifacts(params: {
 
   const warningReasons: string[] = [];
   if (missingRoutes.length > 0) warningReasons.push("saknade routes");
-  if (preflight?.sandbox?.requiresEnvConfig) warningReasons.push("miljövariabler saknas");
+  if (preflight?.previewStart?.requiresEnvConfig) warningReasons.push("miljövariabler saknas");
   if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source !== "brief") {
     warningReasons.push("route-plan mismatch");
   }
@@ -490,10 +491,10 @@ export function buildPostCheckArtifacts(params: {
   const provisionalVersion = !qualityGatePassed || qualityGatePending || autoFixQueued;
 
   const qualityTier: QualityTier =
-    (!finalDemoUrl && !previewPendingOnSandbox) || criticalReasons.length > 0
+    (!finalDemoUrl && !previewPendingInVm) || criticalReasons.length > 0
       ? "none"
       : qualityGatePassed && warningReasons.length === 0
-        ? "sandbox"
+        ? "tier2"
         : "preview";
 
   steps.push(
@@ -571,7 +572,7 @@ export function buildPostCheckArtifacts(params: {
   };
 
   const logItems: VersionErrorLogPayload[] = [];
-  if (!finalDemoUrl && !previewPendingOnSandbox) {
+  if (!finalDemoUrl && !previewPendingInVm) {
     logItems.push(buildPreviewUnavailableLog(versionId, preflight));
   }
   if (missingRoutes.length > 0) {
@@ -631,9 +632,9 @@ export function buildPostCheckArtifacts(params: {
   }
   if (!analyticsReview.passed) {
     logItems.push({
-      level: "warning",
+      level: "info",
       category: "analytics",
-      message: `Analytics review hittade ${analyticsReview.issues.length} varning(ar).`,
+      message: `Analytics review hittade ${analyticsReview.issues.length} observationer.`,
       meta: {
         issues: analyticsReview.issues,
         signals: analyticsReview.signals,

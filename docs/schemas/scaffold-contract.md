@@ -22,7 +22,7 @@ Do not confuse runtime scaffolds with:
 
 - `src/lib/templates/` template-gallery items
 - external Vercel templates
-- curated external references in `research/external-templates/reference-library/`
+- curated external references in `data/external-template-pipeline/reference-library/`
 
 ## Current manifest shape
 
@@ -79,6 +79,9 @@ Current `ScaffoldFamily` values:
 - required `app/layout.tsx`
 - recommended `app/page.tsx`
 - `research.referenceTemplates[*].qualityScore` must stay within `0..100`
+- total `files` content should stay under ~15 000 chars (warning). Larger scaffolds waste prompt budget since serialization truncates anyway.
+- `qualityChecklist` should have at least 3 entries (warning)
+- `promptHints` should have at least 2 entries (warning)
 
 ## Research enrichment
 
@@ -90,11 +93,17 @@ Scaffolds may be enriched with curated reference data through:
 This metadata may improve search, matching, and upgrade decisions, but it does
 not create a second runtime scaffold registry.
 
+When present, `research.referenceTemplates` is now also consumed by prompt
+assembly (`system-prompt.ts`) as budgeted "Reference inspirations" alongside
+`qualityChecklist` and `upgradeTargets`.
+
 ## Serialization rule
 
 When a scaffold is selected:
 
 - the scaffold is serialized into generation context
+- scaffold research priorities may include a curated reference-template summary
+  (bounded primärt av `BuildSpec.tokenBudgets.refsTokens`, med `refsChars` som kompat-fallback)
 - the model may replace, extend, or refine scaffold files
 - the finalized version may merge scaffold base files with generated output
 
@@ -102,11 +111,12 @@ When a scaffold is selected:
 
 External references may inform a scaffold, but runtime scaffolds should remain:
 
-- small
-- intentional
+- small — total file content under ~15k chars; serialization budgets are 12k–25k depending on context policy
+- intentional — every file included should serve a clear purpose for the LLM
 - stack-aligned
 - safe to modify
 - free from unnecessary external infrastructure assumptions
+- equipped with `qualityChecklist` (>= 3 items) and `promptHints` (>= 2 items)
 
 ## Archived docs
 

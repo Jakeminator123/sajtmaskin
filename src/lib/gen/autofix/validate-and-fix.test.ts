@@ -36,6 +36,7 @@ describe("validateAndFix", () => {
     expect(result.status).toBe("pipeline-error");
     expect(result.hadErrors).toBe(true);
     expect(result.pipelineError).toContain("validator crashed");
+    expect(result.earlyStopReason).toBeNull();
     expect(result.passes).toBe(0);
   });
 
@@ -90,5 +91,82 @@ describe("validateAndFix", () => {
     expect(result.status).toBe("passed");
     expect(result.fixerUsed).toBe(true);
     expect(result.pipelineError).toBeNull();
+  });
+
+  it("stops early when the fixer returns no changed output", async () => {
+    validateGeneratedCode.mockResolvedValueOnce({
+      valid: false,
+      errors: [{ file: "app/page.tsx", line: 10, column: 5, message: "Unexpected token" }],
+    });
+
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent: "",
+      fixedFiles: [],
+      missingFiles: [],
+      partial: false,
+      success: false,
+      durationMs: 25,
+    });
+
+    const result = await validateAndFix(
+      "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <div>broken</div>\n```",
+      {
+        chatId: "chat_1",
+        model: "gpt-5.4",
+      },
+    );
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(validateGeneratedCode).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe("failed");
+    expect(result.earlyStopReason).toBe("fixer_noop");
+    expect(result.passes).toBe(1);
+    expect(result.errorsAfter).toBe(1);
+  });
+
+  it("stops early when a fixer pass does not reduce error count", async () => {
+    validateGeneratedCode
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [{ file: "app/page.tsx", line: 10, column: 5, message: "Unexpected token" }],
+      })
+      .mockResolvedValueOnce({
+        valid: false,
+        errors: [{ file: "app/page.tsx", line: 10, column: 5, message: "Unexpected token" }],
+      });
+
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent:
+        "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main>still broken</main>\n```",
+      fixedFiles: ["app/page.tsx"],
+      missingFiles: [],
+      partial: false,
+      success: true,
+      durationMs: 35,
+    });
+
+    runAutoFix.mockResolvedValueOnce({
+      fixedContent:
+        "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main>still broken</main>\n```",
+      fixes: [],
+      warnings: [],
+      dependencies: {},
+    });
+
+    const result = await validateAndFix(
+      "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <div>broken</div>\n```",
+      {
+        chatId: "chat_1",
+        model: "gpt-5.4",
+      },
+    );
+
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(validateGeneratedCode).toHaveBeenCalledTimes(2);
+    expect(result.status).toBe("failed");
+    expect(result.fixerUsed).toBe(true);
+    expect(result.fixerImproved).toBe(false);
+    expect(result.earlyStopReason).toBe("no_improvement");
+    expect(result.errorsAfter).toBe(1);
   });
 });

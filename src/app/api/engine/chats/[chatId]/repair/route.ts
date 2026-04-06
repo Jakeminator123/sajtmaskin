@@ -5,14 +5,17 @@ import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
-  createDraftVersion,
+  createAndPromoteDraftVersion,
   markVersionRepairing,
-  promoteVersion,
   failVersionVerification,
+  markVersionSupersededByRepair,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
-import { shouldPromoteAfterRepair } from "@/lib/gen/sandbox-quality-gate";
+import {
+  maybeAnalyzeVisualQAForPassedExportable,
+  shouldPromoteAfterRepair,
+} from "@/lib/gen/preview-quality-gate";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -20,19 +23,35 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
+import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
+import {
+  buildServerRepairOutcomeMeta,
+  buildServerVerifyQualityGateMeta,
+  buildServerVerifyRepairContextLines,
+  compactVisualQAForQualityGateLog,
+} from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
   exitCode: z.number(),
   output: z.string(),
   errorCount: z.number().optional(),
+  durationMs: z.number().nullable().optional(),
 });
 
 const repairContextSchema = z.object({
   qualityGate: z.array(qualityGateFailureSchema).optional(),
+  qualityGateMeta: z
+    .object({
+      verifyLaneDurationMs: z.number().nullable().optional(),
+      firstFailureCheck: z.string().nullable().optional(),
+      jobStartedAt: z.string().nullable().optional(),
+      jobFinishedAt: z.string().nullable().optional(),
+    })
+    .optional(),
   visualQA: z
     .array(z.object({ check: z.string(), score: z.number(), detail: z.string() }))
     .optional(),
@@ -152,34 +171,103 @@ export async function POST(
     const gateFailures = repairContext.qualityGate ?? [];
     const hadQualityGateFailures = gateFailures.length > 0;
     const initialSyntaxErrorCount = syntaxResult.errors.length;
+    const currentVersionId = internalVersionId;
 
     async function promoteIfPostRepairGatePasses(
       projectContent: string,
+      method: "deterministic" | "llm",
       promoteReason: string,
     ): Promise<{ ok: boolean; newVersionId: string | null }> {
-      const exportable = buildExportableProject(codeProjectToFiles(projectContent));
-      const decision = await shouldPromoteAfterRepair(exportable, hadQualityGateFailures);
-      if (!decision.promote) {
-        return { ok: false, newVersionId: null };
-      }
-      if (!dbConfigured) {
-        return { ok: false, newVersionId: null };
-      }
-      const filesJson = JSON.stringify(codeProjectToFiles(projectContent));
-      const version = await createDraftVersion(chatId, null, filesJson);
-      await promoteVersion(version.id, promoteReason).catch((err) => {
-        console.warn("[repair] Failed to promote repaired version:", err);
+      const repairedFiles = codeProjectToFiles(projectContent);
+      const exportable = buildExportableProject(repairedFiles);
+      const decision = await shouldPromoteAfterRepair({
+        chatId,
+        versionId: currentVersionId,
+        exportable,
+        hadQualityGateFailures,
       });
-      return { ok: true, newVersionId: version.id };
+      const visualQA = maybeAnalyzeVisualQAForPassedExportable({
+        exportable,
+        results: decision.results,
+        onError: (vqaErr) => {
+          console.warn("[repair] Post-repair visual QA error (non-fatal):", vqaErr);
+        },
+      });
+      const visualQAMeta = visualQA
+        ? compactVisualQAForQualityGateLog(visualQA)
+        : undefined;
+      let promoted = false;
+      let newVersionId: string | null = null;
+      if (decision.promote && dbConfigured) {
+        const filesJson = JSON.stringify(repairedFiles);
+        const promotedVersion = await createAndPromoteDraftVersion(
+          chatId,
+          null,
+          filesJson,
+          promoteReason,
+        ).catch((err) => {
+          console.warn("[repair] Failed to promote repaired version:", err);
+          return null;
+        });
+        if (!promotedVersion) {
+          console.warn("[repair] Repaired draft version was created but promotion did not complete.");
+        } else {
+          promoted = true;
+          newVersionId = promotedVersion.id;
+          await markVersionSupersededByRepair(currentVersionId, promotedVersion.id).catch((err) => {
+            console.warn("[repair] Failed to mark repaired-from version superseded:", err);
+          });
+        }
+      }
+      if (dbConfigured) {
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId: currentVersionId,
+            level: promoted ? ("info" as const) : ("warning" as const),
+            category: "preflight:quality-gate",
+            message: promoted
+              ? `Post-repair quality gate passed (${method}).`
+              : decision.promote
+                ? `Post-repair quality gate passed but promotion failed (${method}).`
+                : "Post-repair quality gate did not pass; not promoting.",
+            meta: buildServerVerifyQualityGateMeta({
+              results: decision.results,
+              verifyLaneDurationMs: decision.verifyLaneDurationMs,
+              firstFailureCheck: decision.firstFailureCheck,
+              jobStartedAt: decision.jobStartedAt,
+              jobFinishedAt: decision.jobFinishedAt,
+              repass: true,
+              method,
+              promoted,
+              serverOwned: false,
+              visualQA: visualQAMeta,
+            }),
+          },
+        ]).catch((err) => {
+          console.warn("[repair] Failed to log post-repair quality gate:", err);
+        });
+      }
+      return { ok: promoted, newVersionId };
     }
 
-    // Re-run sandbox quality gate when possible; syntax alone is not enough if gate context exists.
+    // Re-run quality gate when possible; syntax alone is not enough if gate context exists.
     if (syntaxResult.valid && gateFailures.length === 0) {
       const { ok, newVersionId } = await promoteIfPostRepairGatePasses(
         content,
+        "deterministic",
         "Server repair succeeded (deterministic); quality gate re-passed.",
       );
-      logRepair(chatId, internalVersionId, "deterministic", ok, 0);
+      logRepair(
+        chatId,
+        internalVersionId,
+        "deterministic",
+        ok,
+        0,
+        undefined,
+        undefined,
+        repairContext.qualityGateMeta,
+      );
       return NextResponse.json({
         repaired: ok,
         deterministic: true,
@@ -199,6 +287,23 @@ export async function POST(
         ).catch((err) => {
           console.warn("[repair] Failed to mark version failed (no context):", err);
         });
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId: internalVersionId,
+            level: "warning" as const,
+            category: "server-repair",
+            message: "Repair attempted without actionable error context.",
+            meta: {
+              repaired: false,
+              remainingErrors: syntaxResult.errors.length,
+              qualityGateFailureCount: gateFailures.length,
+              serverOwned: false,
+            },
+          },
+        ]).catch((err) => {
+          console.warn("[repair] Failed to log no-context repair outcome:", err);
+        });
       }
       return NextResponse.json({
         repaired: false,
@@ -207,7 +312,21 @@ export async function POST(
       });
     }
 
-    const gateErrorLines = extractErrorLines(gateFailures);
+    const gateErrorLines = [
+      ...buildServerVerifyRepairContextLines({
+        failedOutputs: gateFailures.map((failure) => ({
+          check: failure.check,
+          exitCode: failure.exitCode,
+          output: failure.output,
+          durationMs: failure.durationMs ?? null,
+        })),
+        verifyLaneDurationMs: repairContext.qualityGateMeta?.verifyLaneDurationMs ?? 0,
+        firstFailureCheck: repairContext.qualityGateMeta?.firstFailureCheck ?? null,
+        jobStartedAt: repairContext.qualityGateMeta?.jobStartedAt ?? null,
+        jobFinishedAt: repairContext.qualityGateMeta?.jobFinishedAt ?? null,
+      }),
+      ...extractErrorLines(gateFailures),
+    ];
     const filesFromGateOutput = new Set<string>();
     for (const line of gateErrorLines) {
       const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
@@ -216,6 +335,7 @@ export async function POST(
     let bestContent = content;
     let bestErrorCount = syntaxResult.errors.length;
     let llmPasses = 0;
+    let earlyStopReason: "fixer_noop" | "no_improvement" | null = null;
     const originatingChat = await getChat(chatId).catch(() => null);
     const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
     const fixerModel = originatingTier
@@ -227,6 +347,7 @@ export async function POST(
         content = bestContent;
         syntaxResult = await validateGeneratedCode(content);
       }
+      const errorsBefore = syntaxResult.errors.length;
       const errorSummary = [
         ...syntaxResult.errors.map(
           (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
@@ -247,17 +368,34 @@ export async function POST(
       });
       llmPasses++;
 
-      if (!fixerResult.success && !fixerResult.partial) continue;
+      if (!fixerResult.success && !fixerResult.partial) {
+        const stopReason = resolveServerRepairEarlyStopReason({
+          fixerProducedOutput: false,
+          errorsBefore,
+          errorsAfter: errorsBefore,
+        });
+        earlyStopReason = stopReason === "continue" ? null : stopReason;
+        break;
+      }
 
       const reFixed = await runAutoFix(fixerResult.fixedContent);
       content = reFixed.fixedContent;
       syntaxResult = await validateGeneratedCode(content);
+      const stopReason = resolveServerRepairEarlyStopReason({
+        fixerProducedOutput: true,
+        errorsBefore,
+        errorsAfter: syntaxResult.errors.length,
+      });
 
       if (syntaxResult.errors.length < bestErrorCount) {
         bestErrorCount = syntaxResult.errors.length;
         bestContent = content;
       }
 
+      if (stopReason !== "continue") {
+        earlyStopReason = stopReason;
+        break;
+      }
       if (syntaxResult.valid) break;
     }
 
@@ -269,6 +407,7 @@ export async function POST(
     if (dbConfigured && syntaxClean) {
       const promote = await promoteIfPostRepairGatePasses(
         bestContent,
+        "llm",
         "Server repair succeeded (LLM); quality gate re-passed.",
       );
       repaired = promote.ok;
@@ -297,6 +436,8 @@ export async function POST(
       repaired,
       llmPasses,
       bestErrorCount,
+      earlyStopReason,
+      repairContext.qualityGateMeta,
     );
 
     return NextResponse.json({
@@ -305,6 +446,7 @@ export async function POST(
       newVersionId,
       remainingErrors: bestErrorCount,
       improvedSyntax,
+      earlyStopReason,
     });
   } catch (err) {
     console.error("[repair] Error:", err);
@@ -328,6 +470,13 @@ function logRepair(
   repaired: boolean,
   llmPasses: number,
   remainingErrors?: number,
+  earlyStopReason?: "fixer_noop" | "no_improvement" | null,
+  qualityGateMeta?: {
+    verifyLaneDurationMs?: number | null;
+    firstFailureCheck?: string | null;
+    jobStartedAt?: string | null;
+    jobFinishedAt?: string | null;
+  },
 ) {
   if (!dbConfigured) return;
   createEngineVersionErrorLogs([
@@ -338,8 +487,19 @@ function logRepair(
       category: "server-repair",
       message: repaired
         ? `Server repair succeeded (${method}).`
-        : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain).`,
-      meta: { method, llmPasses, repaired, remainingErrors },
+        : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
+      meta: buildServerRepairOutcomeMeta({
+        method,
+        llmPasses,
+        repaired,
+        remainingErrors,
+        earlyStopReason,
+        verifyLaneDurationMs: qualityGateMeta?.verifyLaneDurationMs ?? 0,
+        firstFailureCheck: qualityGateMeta?.firstFailureCheck ?? null,
+        jobStartedAt: qualityGateMeta?.jobStartedAt ?? null,
+        jobFinishedAt: qualityGateMeta?.jobFinishedAt ?? null,
+        serverOwned: false,
+      }),
     },
   ]).catch((err) => {
     console.warn("[repair] Failed to log repair:", err);

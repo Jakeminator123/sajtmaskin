@@ -70,6 +70,7 @@ export interface AutoFixContext {
  *  5.  syntax-validator   — esbuild transform check (async)
  *  6.  jsx-checker        — tag matching + missing imports/exports
  *  7.  dep-completer      — collect third-party dependencies
+ *  7b. dep-merge          — merge collected deps into package.json
  *  8.  security checks    — sanitize suspicious payloads
  *
  * Note: font import repair is owned by `repairGeneratedFiles()` so deterministic
@@ -77,7 +78,8 @@ export interface AutoFixContext {
  *
  * The full `runAutoFix()` wrapper may execute multiple deterministic passes
  * (see `repairPolicies.deterministicAutofixPasses` in `config/ai_models/manifest.json`)
- * before the caller escalates to an LLM fixer.
+ * before the caller escalates to an LLM fixer (`runLlmFixer`).
+ * The escalation phase is now also bounded by a time budget in `validateAndFix()`.
  *
  * Fail-safe: if any fixer throws, it is skipped and a warning is logged.
  */
@@ -393,6 +395,38 @@ async function runAutoFixSinglePass(
     }
 
     fixedFiles.push({ ...file, content: currentCode });
+  }
+
+  // 7b. merge collected dependencies into package.json
+  if (Object.keys(allDependencies).length > 0) {
+    const pkgIdx = fixedFiles.findIndex((f) => f.path === "package.json");
+    if (pkgIdx >= 0) {
+      try {
+        const pkg = JSON.parse(fixedFiles[pkgIdx].content);
+        const deps = (pkg.dependencies ?? {}) as Record<string, string>;
+        let merged = 0;
+        for (const [name, version] of Object.entries(allDependencies)) {
+          if (!deps[name]) {
+            deps[name] = version;
+            merged++;
+          }
+        }
+        if (merged > 0) {
+          pkg.dependencies = deps;
+          fixedFiles[pkgIdx] = {
+            ...fixedFiles[pkgIdx],
+            content: JSON.stringify(pkg, null, 2),
+          };
+          allFixes.push({
+            fixer: "dep-completer",
+            description: `Pinned ${merged} missing ${merged === 1 ? "dependency" : "dependencies"} in package.json`,
+            file: "package.json",
+          });
+        }
+      } catch {
+        allWarnings.push("[package.json] dep-merge skipped: invalid JSON");
+      }
+    }
   }
 
   let fixedContent = rebuildContent(content, project.files, fixedFiles);

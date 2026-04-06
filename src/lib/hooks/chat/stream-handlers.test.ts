@@ -76,7 +76,7 @@ function createMessageStore() {
 function createContext(setMessages: SetMessages) {
   const setChatId = vi.fn();
   const setCurrentPreviewUrl = vi.fn();
-  const setSandboxPending = vi.fn();
+  const setPreviewPending = vi.fn();
   const onPreviewRefresh = vi.fn();
   const onGenerationComplete = vi.fn();
   const mutateVersions = vi.fn();
@@ -91,7 +91,7 @@ function createContext(setMessages: SetMessages) {
     touchStreamSafetyTimer,
     setChatId,
     setCurrentPreviewUrl,
-    setSandboxPending,
+    setPreviewPending,
     onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -106,7 +106,7 @@ function createContext(setMessages: SetMessages) {
     spies: {
       setChatId,
       setCurrentPreviewUrl,
-      setSandboxPending,
+      setPreviewPending,
       onPreviewRefresh,
       onGenerationComplete,
       mutateVersions,
@@ -248,8 +248,8 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
-  it("sets sandbox prod-build state on sandbox-ready with prodBuildVerified", async () => {
-    const setSandboxProdBuild = vi.fn();
+  it("sets preview prod-build state on preview-ready with prodBuildVerified", async () => {
+    const setPreviewProdBuild = vi.fn();
     consumeSseResponse.mockImplementation(
       async (
         _response: Response,
@@ -272,10 +272,10 @@ describe("handleSseStream", () => {
           "",
         );
         onEvent(
-          "sandbox-ready",
+          "preview-ready",
           {
-            sandboxUrl: "https://sandbox.example",
-            sandboxId: "sb_1",
+            previewUrl: "https://sandbox.example",
+            previewSessionId: "sb_1",
             prodBuildVerified: false,
             prodBuildLogSnippet: "Error: failed",
           },
@@ -286,19 +286,19 @@ describe("handleSseStream", () => {
 
     const store = createMessageStore();
     const { ctx, spies } = createContext(store.setMessages);
-    const ctxWithProd = { ...ctx, setSandboxProdBuild };
+    const ctxWithProd = { ...ctx, setPreviewProdBuild };
 
     await handleSseStream(new Response(null), ctxWithProd, new AbortController().signal);
 
-    expect(setSandboxProdBuild).toHaveBeenCalledWith({
+    expect(setPreviewProdBuild).toHaveBeenCalledWith({
       verified: false,
       logSnippet: "Error: failed",
     });
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://sandbox.example");
   });
 
-  it("does not set preview iframe on empty sandbox-ready (build_only) but records prod build", async () => {
-    const setSandboxProdBuild = vi.fn();
+  it("does not set preview iframe on empty preview-ready (build_only) but records prod build", async () => {
+    const setPreviewProdBuild = vi.fn();
     consumeSseResponse.mockImplementation(
       async (
         _response: Response,
@@ -321,12 +321,12 @@ describe("handleSseStream", () => {
           "",
         );
         onEvent(
-          "sandbox-ready",
+          "preview-ready",
           {
-            sandboxUrl: "",
-            sandboxId: "sb_1",
-            sandboxPreviewMode: "build_only",
-            fidelityTier: 3,
+            previewUrl: "",
+            previewSessionId: "sb_1",
+            previewMode: "build_only",
+            previewTier: 3,
             prodBuildVerified: true,
           },
           "",
@@ -339,15 +339,63 @@ describe("handleSseStream", () => {
 
     await handleSseStream(
       new Response(null),
-      { ...ctx, setSandboxProdBuild },
+      { ...ctx, setPreviewProdBuild },
       new AbortController().signal,
     );
 
-    expect(setSandboxProdBuild).toHaveBeenCalledWith({
+    expect(setPreviewProdBuild).toHaveBeenCalledWith({
       verified: true,
       logSnippet: undefined,
     });
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  it("clears prod-build banner when preview-ready omits prodBuildVerified (preview_host tier-2)", async () => {
+    const setPreviewProdBuild = vi.fn();
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+        onEvent(
+          "preview-ready",
+          {
+            previewUrl: "https://preview.example",
+            previewSessionId: "sb_1",
+            previewTier: 2,
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(
+      new Response(null),
+      { ...ctx, setPreviewProdBuild },
+      new AbortController().signal,
+    );
+
+    expect(setPreviewProdBuild).toHaveBeenCalledWith(null);
+    expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://preview.example");
   });
 
   it("does not set iframe URL from done when previewUrl is compatibility shim only", async () => {
@@ -386,6 +434,48 @@ describe("handleSseStream", () => {
         chatId: "chat_1",
         versionId: "ver_1",
         previewUrl: undefined,
+      }),
+    );
+  });
+
+  it("uses previewUrlHint from done when preview-ready is not received", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            previewUrlHint: "https://vm-fly-jakem.fly.dev/chat_1",
+            previewPending: true,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://vm-fly-jakem.fly.dev/chat_1");
+    expect(spies.onGenerationComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
       }),
     );
   });
@@ -429,5 +519,65 @@ describe("handleSseStream", () => {
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+  });
+
+  it("renders generation done timing in Agentlogg without duplicate done rows", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("progress", { step: "generation", phase: "start" }, "");
+        onEvent(
+          "progress",
+          {
+            step: "generation",
+            phase: "done",
+            durationMs: 2100,
+            reasoningMs: 1200,
+            outputMs: 900,
+          },
+          "",
+        );
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    const assistant = store.getMessages().find((m) => m.id === "assistant_1");
+    const generationDoneParts = (assistant?.uiParts ?? []).filter((part) => {
+      const maybePart = part as { type?: string; output?: { phase?: string } };
+      return maybePart.type === "tool:engine-generation" && maybePart.output?.phase === "done";
+    });
+    expect(generationDoneParts).toHaveLength(1);
+    const doneSteps = (
+      generationDoneParts[0] as {
+        output?: { steps?: unknown };
+      }
+    ).output?.steps;
+    expect(Array.isArray(doneSteps) ? doneSteps : []).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Generering klar (2.1s)."),
+        expect.stringContaining("reasoning 1.2s, output 0.9s."),
+      ]),
+    );
   });
 });

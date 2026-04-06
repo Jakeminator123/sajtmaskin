@@ -41,7 +41,7 @@ individual scaffold folders into generation flows directly.
 2. `orchestrate.ts` resolves scaffold mode (`auto` / `manual` / `off`).
 3. In `auto`, `matchScaffold()` is the primary path. `matchScaffoldWithEmbeddings()` only falls back to `searchScaffolds()` when the keyword result is missing or lands on a generic default such as `landing-page` or `base-nextjs`.
 4. `serializeScaffoldForPrompt()` turns the resolved scaffold into prompt text.
-5. `system-prompt.ts` combines scaffold context with route plan, contracts, KB, and template-library guidance.
+5. `system-prompt.ts` combines scaffold context with route plan, contracts, brief/context signals, and visual direction.
 6. `finalize-version.ts` can later call `scaffold-aware-retry.ts` if preflight suggests that the original scaffold was a poor fit.
 
 ## Regeneration Notes

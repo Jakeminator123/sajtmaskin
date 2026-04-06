@@ -6,7 +6,7 @@
 
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
-| **Arkitektur** | Kanonisk systembeskrivning, preview/sandbox, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
+| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
 | **Aktiva planer** | Aktiv status, öppna spår, beslut | [`plans/active/PROJECT-STATE-AND-DIRECTION.md`](plans/active/PROJECT-STATE-AND-DIRECTION.md) · [`plans/README.md`](plans/README.md) |
 | **Arkiv** | Avklarade planer, handoffs-pekare; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) (`docs/notes/` om du skapar den lokalt) | [`plans/avklarat/README.md`](plans/avklarat/README.md) · storstäd (historik + Fas D-checklista): [`plans/avklarat/STORDSTAD-repo-kod-databas.md`](plans/avklarat/STORDSTAD-repo-kod-databas.md) · post-epic: [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md) · [`archive/README.md`](archive/README.md) · [`handoffs/README.md`](handoffs/README.md) |
 
@@ -24,7 +24,7 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kort aktiv status** med öppna spår, beslut och pekare vidare. Avslutad post-epic-städ (historik): [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md). **Preview/sandbox:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` — **kort aktiv status** med öppna spår, beslut och pekare vidare. Avslutad post-epic-städ (historik): [`plans/avklarat/POST-EPIC-CLEANUP.md`](plans/avklarat/POST-EPIC-CLEANUP.md). **Preview/VM:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
@@ -66,8 +66,8 @@ Important code sources of truth include:
 | `ENV.md`                 | Yes             | Kort översikt (must-have, lokalt vs Vercel); full lista = `src/lib/env.ts` + `config/env-policy.json`.                             |
 | `.env.local`             | No (gitignored) | Local development values.                                                                                                          |
 | `.env.production`        | No (gitignored) | Reference copy of production-like values.                                                                                          |
-| `scripts/env/manage_env.py` | Yes          | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. Root wrapper forwards. |
-| `scripts/env/model_trace_overlay.py` | Yes | Focused helper that syncs GUI-facing model env vars in `.env.local` and opens the builder model-trace overlay. Root wrapper forwards. |
+| `scripts/env/manage_env.py` | Yes          | Canonical env CLI: interactive control panel + status/add/set/push/pull/audit (`--strict`) + `reconcile` for Vercel drift cleanup. |
+| `scripts/env/model_trace_overlay.py` | Yes | Focused helper that syncs GUI-facing model env vars in `.env.local` and opens the builder model-trace overlay. |
 | ~~`check_env.py`~~ | Removed | Was a thin wrapper — use `python scripts/env/manage_env.py audit` directly.                                                     |
 
 When adding a new env var: add it to `src/lib/env.ts` (schema), then to
@@ -81,7 +81,6 @@ local research helpers.
 Good production inputs:
 
 - files committed under `docs/`
-- generated JSON committed in `src/lib/gen/template-library/`
 - generated scaffold research metadata in
   `src/lib/gen/scaffolds/scaffold-research.generated.json`
 - runtime manifests and code under `src/`
@@ -90,9 +89,10 @@ Not runtime dependencies:
 
 - Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre; repoets egna flöden förstås via `docs/`, `.cursor/rules/` och kodbasen.
 - browser-driven doc helpers in `tools/doc-browser/` (see `tools/README.md`)
-- raw discovery under `research/external-templates/raw-discovery/current/`
-- local shallow clone cache under `research/external-templates/repo-cache/`
+- raw discovery under `data/external-template-pipeline/raw-discovery/current/`
+- local shallow clone cache under `data/external-template-pipeline/repo-cache/`
 - raw local `_sidor` datasets
+- local template-library generation helpers and embeddings artifacts when they are only used for curation/validation
 
 ## Key navigation
 
@@ -112,7 +112,7 @@ Not runtime dependencies:
 | Agent workflows (deep brief, runtime vs MCP, fler agenter) | [`docs/contributing/agent-workflows.md`](contributing/agent-workflows.md) |
 | Terminology (product + code names) | `.cursor/rules/terminology.mdc` |
 | Terminology (folders + research flow) | [`repository-and-platform.md`](architecture/repository-and-platform.md) |
-| Vercel Templates discovery + Playwright + scaffolds | [`research/external-templates/README.md`](../research/external-templates/README.md), [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md) |
+| Vercel Templates discovery + Playwright + scaffolds | [`scripts/README.md`](../scripts/README.md), [`e2e/README.md`](../e2e/README.md), [`docs/schemas/external-template-pipeline-contract.md`](schemas/external-template-pipeline-contract.md) |
 | Builder entry contract | `docs/schemas/builder-entry-contract.md` |
 | Marketing sidor (landning footer) | `/om`, `/blogg`, `/faq` (App Router under `src/app/`) |
 | Env setup | `docs/ENV.md` |

@@ -106,7 +106,7 @@ const buildSpec: BuildSpec = {
   verificationPolicy: "standard",
   contextPolicy: "heavy",
   referenceCategories: ["saas", "marketing-sites", "backend"],
-  forbiddenPatterns: ["leave_bracket_placeholders", "tier1_static_preview_primary"],
+  forbiddenPatterns: ["leave_bracket_placeholders", "compat_preview_primary"],
   tokenBudgets: {
     scaffoldChars: 25_000,
     refsChars: 12_000,

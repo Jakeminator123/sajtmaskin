@@ -8,6 +8,7 @@ import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { PipelineOptions } from "@/lib/gen/generation-pipeline";
 import { createGenerationPipeline } from "@/lib/gen/generation-pipeline";
+import type { ReasoningEffort } from "@/lib/gen/engine";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 import {
@@ -50,14 +51,21 @@ export function createOwnEnginePipelineAndGenerationStream(
   input: OwnEnginePipelineAndGenerationInput,
 ): ReadableStream<Uint8Array> {
   const tools = getAgentTools();
+  const effortByQuality: Record<string, ReasoningEffort> = {
+    standard: "medium",
+    premium: "high",
+    "release-candidate": "high",
+  };
+  const reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "medium";
   const pipelineStream = createGenerationPipeline({
     prompt: input.pipeline.prompt,
     systemPrompt: input.pipeline.systemPrompt,
     model: input.pipeline.model,
     thinking: input.pipeline.thinking,
+    reasoningEffort,
     abortSignal: input.pipeline.abortSignal,
     tools,
-    maxSteps: input.pipeline.maxSteps ?? 2,
+    maxSteps: input.pipeline.maxSteps ?? 4,
     chatHistory: input.pipeline.chatHistory,
     referenceAttachments: input.pipeline.referenceAttachments,
     maxTokens: input.pipeline.maxTokens,

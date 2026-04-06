@@ -10,69 +10,92 @@ import {
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
-import { analyzeVisualQuality, isVisualQAEnabled, type VisualQAResult } from "@/lib/gen/visual-qa";
+import { QUALITY_GATE_CHECK_VALUES } from "@/lib/gen/quality-gate-checks";
+import type { VisualQAResult } from "@/lib/gen/visual-qa";
 import {
-  SANDBOX_QUALITY_GATE_COMMANDS,
-  SandboxNotConfiguredError,
-  exportableToSandboxFiles,
-  runSandboxQualityGateChecks,
-  sandboxQualityGateAllPassed,
-  type SandboxQualityGateCheckResult,
-} from "@/lib/gen/sandbox-quality-gate";
+  describeQualityGateVerification,
+  QUALITY_GATE_COMMANDS,
+  QUALITY_GATE_SETUP_HINT,
+  QualityGateNotConfiguredError,
+  exportableToQualityGateFiles,
+  isQualityGateConfigured,
+  maybeAnalyzeVisualQAForPassedExportable,
+  runQualityGateChecks,
+  qualityGateAllPassed,
+  type QualityGateCheckResult,
+} from "@/lib/gen/preview-quality-gate";
 import {
-  SANDBOX_SETUP_HINT,
-  isSandboxConfigured as isSandboxAuthConfigured,
-} from "@/lib/mcp/runtime-url";
+  buildServerVerifyQualityGateMeta,
+  compactVisualQAForQualityGateLog,
+} from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
-/** Uses Vercel Sandbox for verification only (typecheck/build/lint), not as primary user preview runtime. */
+/** Uses preview-host verify lane for verification only (typecheck/build/lint), not the live preview workspace. */
 
 const requestSchema = z.object({
   versionId: z.string().min(1),
   checks: z
-    .array(z.enum(["typecheck", "build", "lint"]))
+    .array(z.enum(QUALITY_GATE_CHECK_VALUES))
+    .min(1, "At least one quality gate check is required.")
     .optional()
-    .default(["typecheck", "build"]),
+    .default(["typecheck"]),
 });
 
 type GateResult = {
   passed: boolean;
-  checks: SandboxQualityGateCheckResult[];
-  sandboxDurationMs: number;
+  checks: QualityGateCheckResult[];
+  verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
   visualQA?: VisualQAResult;
 };
 
 function buildQualityGateSummaryLog(params: {
-  checkResults: SandboxQualityGateCheckResult[];
-  sandboxDurationMs: number;
+  checkResults: QualityGateCheckResult[];
+  verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
+  visualQA?: VisualQAResult;
 }) {
-  const { checkResults, sandboxDurationMs } = params;
+  const {
+    checkResults,
+    verifyLaneDurationMs,
+    firstFailureCheck,
+    jobStartedAt,
+    jobFinishedAt,
+    visualQA,
+  } = params;
+  const passed = qualityGateAllPassed(checkResults);
+  const visualQAMeta =
+    visualQA &&
+    typeof visualQA.overallScore === "number" &&
+    Array.isArray(visualQA.checks)
+      ? compactVisualQAForQualityGateLog(visualQA)
+      : undefined;
+
   return {
-    level: checkResults.every((result) => result.passed) ? ("info" as const) : ("error" as const),
-    category: "preflight:quality-gate",
-    message: checkResults.every((result) => result.passed)
-      ? "Automatic quality gate passed."
-      : "Automatic quality gate failed.",
-    meta: {
-      passed: checkResults.every((result) => result.passed),
-      checks: checkResults.map((result) => ({
-        check: result.check,
-        passed: result.passed,
-        exitCode: result.exitCode,
-      })),
-      sandboxDurationMs,
-    },
+    level: passed ? ("info" as const) : ("error" as const),
+    category: "preflight:quality-gate" as const,
+    message: passed ? "Automatic quality gate passed." : "Automatic quality gate failed.",
+    meta: buildServerVerifyQualityGateMeta({
+      passed,
+      results: checkResults,
+      verifyLaneDurationMs,
+      firstFailureCheck,
+      jobStartedAt,
+      jobFinishedAt,
+      serverOwned: false,
+      visualQA: visualQAMeta,
+    }),
   };
 }
 
-function buildVerificationSummary(checkResults: SandboxQualityGateCheckResult[]): string {
-  const failedChecks = checkResults.filter((result) => !result.passed).map((result) => result.check);
-  if (failedChecks.length === 0) {
-    return "Automatic verification passed.";
-  }
-  return `Automatic verification failed: ${failedChecks.join(", ")}.`;
+function buildVerificationSummary(checkResults: QualityGateCheckResult[]): string {
+  return describeQualityGateVerification(checkResults);
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -97,42 +120,48 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     const internalVersionId = scopedVersion.version.id;
     const codeFiles = await getVersionFiles(internalVersionId);
     if (codeFiles && codeFiles.length > 0) {
-      if (!isSandboxAuthConfigured()) {
+      if (!isQualityGateConfigured()) {
         return NextResponse.json(
           {
-            error: "Sandbox not configured (missing VERCEL_OIDC_TOKEN or VERCEL_TOKEN+TEAM_ID+PROJECT_ID)",
-            code: "sandbox_disabled",
-            hint: SANDBOX_SETUP_HINT,
+            error: "Quality gate not configured (missing preview-host verify lane).",
+            code: "quality_gate_disabled",
+            hint: QUALITY_GATE_SETUP_HINT,
           },
           { status: 501 },
         );
       }
 
       const completeProjectFiles = buildExportableProject(codeFiles);
-      const sandboxFiles = exportableToSandboxFiles(completeProjectFiles);
+      const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
 
       await markVersionVerifying(internalVersionId).catch((err) => {
         console.warn("[quality-gate] Failed to mark version verifying:", err);
       });
 
       try {
-        const { results, sandboxDurationMs } = await runSandboxQualityGateChecks(sandboxFiles, checks);
+        const { results, verifyLaneDurationMs, firstFailureCheck, jobStartedAt, jobFinishedAt } =
+          await runQualityGateChecks({
+          chatId,
+          versionId: internalVersionId,
+          files: qualityGateFiles,
+          checks,
+          });
 
-        let visualQA: VisualQAResult | undefined;
-        if (isVisualQAEnabled() && sandboxQualityGateAllPassed(results)) {
-          try {
-            visualQA = analyzeVisualQuality(
-              sandboxFiles.map((f) => ({ path: f.name, content: f.content })),
-            );
-          } catch (vqaErr) {
+        const visualQA: VisualQAResult | undefined = maybeAnalyzeVisualQAForPassedExportable({
+          exportable: completeProjectFiles,
+          results,
+          onError: (vqaErr) => {
             console.warn("[quality-gate] Visual QA error (non-fatal):", vqaErr);
-          }
-        }
+          },
+        });
 
         const gateResult: GateResult = {
-          passed: sandboxQualityGateAllPassed(results),
+          passed: qualityGateAllPassed(results),
           checks: results,
-          sandboxDurationMs,
+          verifyLaneDurationMs,
+          firstFailureCheck,
+          jobStartedAt,
+          jobFinishedAt,
           visualQA,
         };
 
@@ -142,7 +171,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             versionId: internalVersionId,
             ...buildQualityGateSummaryLog({
               checkResults: results,
-              sandboxDurationMs,
+              verifyLaneDurationMs,
+              firstFailureCheck,
+              jobStartedAt,
+              jobFinishedAt,
+              visualQA,
             }),
           },
           ...results
@@ -156,13 +189,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 message: `${r.check} failed (exit ${r.exitCode})`,
                 meta: {
                   stage: r.check,
-                  command:
-                    r.check === "install"
-                      ? "npm install --prefer-offline"
-                      : SANDBOX_QUALITY_GATE_COMMANDS[r.check] ?? null,
+                  command: QUALITY_GATE_COMMANDS[r.check as keyof typeof QUALITY_GATE_COMMANDS] ?? null,
                   output: r.output.slice(0, 12_000),
                   outputLength: r.output.length,
                   exitCode: r.exitCode,
+                  durationMs: r.durationMs ?? null,
+                  serverOwned: false,
                 },
               };
             }),
@@ -192,12 +224,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         ).catch((updateErr) => {
           console.warn("[quality-gate] Failed to mark version failed after error:", updateErr);
         });
-        if (err instanceof SandboxNotConfiguredError) {
+        if (err instanceof QualityGateNotConfiguredError) {
           return NextResponse.json(
             {
               error: err.message,
-              code: "sandbox_disabled",
-              hint: SANDBOX_SETUP_HINT,
+              code: "quality_gate_disabled",
+              hint: QUALITY_GATE_SETUP_HINT,
             },
             { status: 501 },
           );

@@ -48,6 +48,64 @@ function resolveReasoningText(part: {
   return part.reasoningDelta ?? part.reasoning ?? part.textDelta ?? part.text;
 }
 
+const LEAKED_THINKING_OPEN_TAG = "<thinking>";
+const LEAKED_THINKING_CLOSE_TAG = "</thinking>";
+
+function isPotentialLeadingThinkingPrefix(value: string): boolean {
+  const afterLeadingWhitespace = value.replace(/^\s+/, "");
+  if (!afterLeadingWhitespace) return true;
+  return LEAKED_THINKING_OPEN_TAG.startsWith(afterLeadingWhitespace.toLowerCase());
+}
+
+function createLeadingThinkingLeakFilter(enabled: boolean): (chunk?: string) => string {
+  if (!enabled) {
+    return (chunk?: string) => chunk ?? "";
+  }
+
+  let prefixBuffer = "";
+  let suppressedBuffer = "";
+  let suppressing = false;
+  let filterDone = false;
+
+  const consumeWhileSuppressing = (chunk: string): string => {
+    suppressedBuffer += chunk;
+    const closeIndex = suppressedBuffer.toLowerCase().indexOf(LEAKED_THINKING_CLOSE_TAG);
+    if (closeIndex === -1) return "";
+    const trailing = suppressedBuffer.slice(closeIndex + LEAKED_THINKING_CLOSE_TAG.length);
+    suppressedBuffer = "";
+    suppressing = false;
+    filterDone = true;
+    return trailing;
+  };
+
+  return (chunk?: string): string => {
+    if (!chunk) return "";
+    if (filterDone) return chunk;
+
+    if (suppressing) {
+      return consumeWhileSuppressing(chunk);
+    }
+
+    prefixBuffer += chunk;
+    const openingMatch = /^\s*<thinking>/i.exec(prefixBuffer);
+    if (openingMatch) {
+      suppressing = true;
+      const afterOpeningTag = prefixBuffer.slice(openingMatch[0].length);
+      prefixBuffer = "";
+      return afterOpeningTag ? consumeWhileSuppressing(afterOpeningTag) : "";
+    }
+
+    if (isPotentialLeadingThinkingPrefix(prefixBuffer)) {
+      return "";
+    }
+
+    filterDone = true;
+    const passthrough = prefixBuffer;
+    prefixBuffer = "";
+    return passthrough;
+  };
+}
+
 function parseToolArgs(candidate: unknown): Record<string, unknown> | null {
   if (!candidate) return null;
   if (typeof candidate === "object" && !Array.isArray(candidate)) {
@@ -94,19 +152,25 @@ function resolveDirectProviderFromMeta(meta?: StreamMeta): "openai" | "anthropic
  */
 export function createCodeGenSSEStream(
   result: StreamTextLike,
-  options: { thinking?: boolean; meta?: StreamMeta } = {},
+  options: { thinking?: boolean; meta?: StreamMeta; abortController?: AbortController } = {},
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  const { thinking = true, meta } = options;
+  const { thinking = false, meta } = options;
+  const stripLeadingThinkingLeak = createLeadingThinkingLeakFilter(!thinking);
 
   return new ReadableStream({
     async start(controller) {
+      const streamStartedAt = Date.now();
       const eventCounts = new Map<string, number>();
       const toolCallCounts = new Map<string, number>();
+      const toolInputFallbackCounters = new Map<string, number>();
+      const activeToolFallbackKeys = new Map<string, string>();
       const pendingToolInputs = new Map<
         string,
         { toolName?: string; toolCallId?: string; inputText: string }
       >();
+      let firstReasoningTokenAt: number | null = null;
+      let firstContentTokenAt: number | null = null;
       let emittedGenerationStart = false;
       let emittedReasoningWait = false;
       let emittedOutputWait = false;
@@ -126,13 +190,31 @@ export function createCodeGenSSEStream(
           }),
         );
       };
-      const getToolInputKey = (part: { toolCallId?: string; toolName?: string }): string | null => {
+      const getToolInputKey = (part: {
+        type?: string;
+        toolCallId?: string;
+        toolName?: string;
+      }): string | null => {
         if (part.toolCallId) return part.toolCallId;
-        if (part.toolName) return `tool:${part.toolName}`;
-        return null;
+        if (!part.toolName) return null;
+
+        const isStartEvent =
+          part.type === "tool-input-start" || part.type === "tool_call_streaming_start";
+
+        if (!isStartEvent) {
+          const activeKey = activeToolFallbackKeys.get(part.toolName);
+          if (activeKey) return activeKey;
+        }
+
+        const nextIndex = (toolInputFallbackCounters.get(part.toolName) ?? 0) + 1;
+        toolInputFallbackCounters.set(part.toolName, nextIndex);
+        const fallbackKey = `tool:${part.toolName}:${nextIndex}`;
+        activeToolFallbackKeys.set(part.toolName, fallbackKey);
+        return fallbackKey;
       };
       const rememberToolInput = (
         part: {
+          type?: string;
           toolName?: string;
           toolCallId?: string;
           inputText?: string;
@@ -155,6 +237,7 @@ export function createCodeGenSSEStream(
         });
       };
       const emitToolCall = (part: {
+        type?: string;
         toolName?: string;
         toolCallId?: string;
         args?: Record<string, unknown>;
@@ -168,7 +251,10 @@ export function createCodeGenSSEStream(
           parseToolArgs(buffered?.inputText) ??
           {};
         const toolName = part.toolName ?? buffered?.toolName;
-        const toolCallId = part.toolCallId ?? buffered?.toolCallId;
+        const toolCallId =
+          part.toolCallId ??
+          buffered?.toolCallId ??
+          (key && key.startsWith("tool:") ? key : undefined);
         if (!toolName) return false;
         toolCallCounts.set(toolName, (toolCallCounts.get(toolName) ?? 0) + 1);
         enqueue(
@@ -179,6 +265,9 @@ export function createCodeGenSSEStream(
           }),
         );
         if (key) pendingToolInputs.delete(key);
+        if (!toolCallId && key && activeToolFallbackKeys.get(toolName) === key) {
+          activeToolFallbackKeys.delete(toolName);
+        }
         return true;
       };
 
@@ -189,6 +278,14 @@ export function createCodeGenSSEStream(
           outputTokens: number | undefined;
         },
       ) => {
+        const streamEndedAt = Date.now();
+        const durationMs = Math.max(0, streamEndedAt - streamStartedAt);
+        const reasoningMs =
+          firstReasoningTokenAt !== null && firstContentTokenAt !== null
+            ? Math.max(0, firstContentTokenAt - firstReasoningTokenAt)
+            : 0;
+        const outputMs =
+          firstContentTokenAt !== null ? Math.max(0, streamEndedAt - firstContentTokenAt) : 0;
         const usageAvailable =
           typeof usage?.inputTokens === "number" || typeof usage?.outputTokens === "number";
         debugLog("engine", "Own-engine stream summary (AI SDK wrapper, direct provider)", {
@@ -211,6 +308,23 @@ export function createCodeGenSSEStream(
                 : "stream_aborted_or_provider_error_before_usage_report",
           },
         });
+        debugLog("engine", "LLM stream phases", {
+          phase,
+          streamStartedAt,
+          firstReasoningTokenAt,
+          firstContentTokenAt,
+          streamEndedAt,
+          durationMs,
+          reasoningMs,
+          outputMs,
+          chatId: meta?.chatId ?? null,
+          versionId: meta?.versionId ?? null,
+        });
+        return {
+          durationMs,
+          reasoningMs,
+          outputMs,
+        };
       };
 
       try {
@@ -232,6 +346,9 @@ export function createCodeGenSSEStream(
 
             case "reasoning-start": {
               ensureGenerationStarted();
+              if (firstReasoningTokenAt === null) {
+                firstReasoningTokenAt = Date.now();
+              }
               if (thinking && !emittedReasoningWait) {
                 emittedReasoningWait = true;
                 enqueue(
@@ -248,6 +365,9 @@ export function createCodeGenSSEStream(
             case "reasoning-delta": {
               ensureGenerationStarted();
               const reasoningText = resolveReasoningText(part);
+              if (reasoningText && firstReasoningTokenAt === null) {
+                firstReasoningTokenAt = Date.now();
+              }
               if (thinking && reasoningText) {
                 enqueue(createBuilderStreamEvent("thinking", { text: reasoningText }));
               }
@@ -261,6 +381,9 @@ export function createCodeGenSSEStream(
 
             case "text-start": {
               ensureGenerationStarted();
+              if (firstContentTokenAt === null) {
+                firstContentTokenAt = Date.now();
+              }
               if (!emittedOutputWait) {
                 emittedOutputWait = true;
                 enqueue(
@@ -278,8 +401,11 @@ export function createCodeGenSSEStream(
             case "output-text":
             case "output-text-delta": {
               ensureGenerationStarted();
-              const contentText = resolveStreamText(part);
+              const contentText = stripLeadingThinkingLeak(resolveStreamText(part));
               if (contentText) {
+                if (firstContentTokenAt === null) {
+                  firstContentTokenAt = Date.now();
+                }
                 sawContentEvent = true;
                 enqueue(createBuilderStreamEvent("content", { text: contentText }));
               }
@@ -349,7 +475,16 @@ export function createCodeGenSSEStream(
         }
 
         const usage = await result.usage;
-        summarizeStream("done", usage);
+        const streamTiming = summarizeStream("done", usage);
+        enqueue(
+          createBuilderStreamEvent("progress", {
+            step: "generation",
+            phase: "done",
+            durationMs: streamTiming.durationMs,
+            reasoningMs: streamTiming.reasoningMs,
+            outputMs: streamTiming.outputMs,
+          }),
+        );
         enqueue(
           createBuilderStreamEvent("done", {
             promptTokens: usage?.inputTokens ?? 0,
@@ -374,6 +509,9 @@ export function createCodeGenSSEStream(
           // already closed
         }
       }
+    },
+    cancel() {
+      options.abortController?.abort();
     },
   });
 }

@@ -5,8 +5,8 @@ export type PreflightIssueCategory =
   | "shim_preview_failure"
   | "non_blocking_quality_warning";
 
-/** Only sandbox (fidelity 2) or no in-app preview; tier-1 shim removed. */
-export type SandboxPrimaryPreviewTarget = "sandbox" | "none";
+/** Only tier-2 live preview or no in-app preview; compatibility shim is no longer primary. */
+export type PreviewPrimaryTarget = "preview" | "none";
 
 export interface PreflightIssueLike {
   file: string;
@@ -22,14 +22,14 @@ export interface PreflightIssueInput {
   category?: PreflightIssueCategory | null;
 }
 
-export interface SandboxStartContract {
-  canStartSandbox: boolean;
-  primaryPreviewTarget: SandboxPrimaryPreviewTarget;
+export interface PreviewStartContract {
+  canStartPreview: boolean;
+  primaryPreviewTarget: PreviewPrimaryTarget;
   shimBlocked: boolean;
   requiresEnvConfig: boolean;
   hasCriticalInstallRisk: boolean;
   hasCriticalCodeFailure: boolean;
-  compatibilityShimAllowed: boolean;
+  compatibilityPreviewAllowed: boolean;
   issueCounts: Record<PreflightIssueCategory, number>;
   blockingCategories: PreflightIssueCategory[];
 }
@@ -91,11 +91,11 @@ export function resolvePreflightIssueCategory(params: PreflightIssueInput): Pref
   return params.category ?? detectPreflightIssueCategory(params);
 }
 
-export function buildSandboxStartContract(params: {
+export function buildPreviewStartContract(params: {
   issues: PreflightIssueLike[];
   finalizedPreviewFileCount: number;
-}): SandboxStartContract {
-  const compatibilityShimAllowed = false;
+}): PreviewStartContract {
+  const compatibilityPreviewAllowed = false;
   const issueCounts = createInitialCounts();
 
   for (const issue of params.issues) {
@@ -115,29 +115,29 @@ export function buildSandboxStartContract(params: {
     (issue) => issue.severity === "error" && issue.category === "shim_preview_failure",
   );
 
-  const canStartSandbox =
+  const canStartPreview =
     params.finalizedPreviewFileCount > 0 &&
     !hasCriticalCodeFailure &&
     !hasCriticalInstallRisk &&
     !requiresEnvConfig;
 
-  const primaryPreviewTarget: SandboxPrimaryPreviewTarget = canStartSandbox ? "sandbox" : "none";
+  const primaryPreviewTarget: PreviewPrimaryTarget = canStartPreview ? "preview" : "none";
 
   const blockingCategories = ([
     hasCriticalCodeFailure ? "code_structure_failure" : null,
     hasCriticalInstallRisk ? "dependency_install_failure" : null,
     requiresEnvConfig ? "env_config_missing" : null,
-    !canStartSandbox && shimBlocked && primaryPreviewTarget === "none" ? "shim_preview_failure" : null,
+    !canStartPreview && shimBlocked && primaryPreviewTarget === "none" ? "shim_preview_failure" : null,
   ].filter(Boolean) as PreflightIssueCategory[]);
 
   return {
-    canStartSandbox,
+    canStartPreview,
     primaryPreviewTarget,
     shimBlocked,
     requiresEnvConfig,
     hasCriticalInstallRisk,
     hasCriticalCodeFailure,
-    compatibilityShimAllowed,
+    compatibilityPreviewAllowed,
     issueCounts,
     blockingCategories,
   };

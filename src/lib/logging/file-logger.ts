@@ -159,7 +159,7 @@ export function logEventSync(record: LogRecord): void {
 // ============================================================================
 
 /**
- * Log AI provider selection (OpenAI vs Gateway)
+ * Log AI provider selection (OpenAI / Anthropic / other LLM provider lanes)
  */
 export function logAIProvider(details: {
   provider: "gateway" | "openai" | "anthropic";
@@ -170,7 +170,7 @@ export function logAIProvider(details: {
   gatewayFeatureEnabled: boolean;
 }): void {
   logEventSync({
-    source: "ai-gateway",
+    source: "llm-provider",
     event: "provider_selected",
     details,
   });

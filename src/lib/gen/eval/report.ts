@@ -21,9 +21,22 @@ export function formatEvalReport(report: EvalReport): string {
     "",
     `Model: ${report.model} | Total: ${summary.total} | Passed: ${summary.passed} | Avg Score: ${pct(summary.avgScore)} | Avg Time: ${fmtTime(summary.avgTimeMs)}`,
     "",
-    "| # | Prompt | Score | Files | Time | Status | Issues |",
-    "|---|--------|-------|-------|------|--------|--------|",
   ];
+
+  if (summary.blockingFailures > 0) {
+    const blockerList = Object.entries(summary.blockingCheckCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => `${name} (${count})`)
+      .join(", ");
+    lines.push(
+      `Blocking failures: ${summary.blockingFailures}/${summary.total}` +
+        (blockerList ? ` | Top blockers: ${blockerList}` : ""),
+      "",
+    );
+  }
+
+  lines.push("| # | Prompt | Score | Files | Time | Status | Issues |");
+  lines.push("|---|--------|-------|-------|------|--------|--------|");
 
   for (let i = 0; i < report.results.length; i++) {
     const r = report.results[i];
@@ -32,6 +45,8 @@ export function formatEvalReport(report: EvalReport): string {
       .filter((c) => !c.passed)
       .map((c) => `${c.name}: ${c.message}`)
       .join("; ");
+    const blocking =
+      r.blockingChecks.length > 0 ? ` blockers=${r.blockingChecks.join(",")}` : "";
 
     lines.push(
       `| ${pad(String(i + 1), 1)} ` +
@@ -40,7 +55,7 @@ export function formatEvalReport(report: EvalReport): string {
         `| ${pad(String(r.fileCount), 5)} ` +
         `| ${pad(fmtTime(r.generationTimeMs), 4)} ` +
         `| ${pad(status, 6)} ` +
-        `| ${failedChecks} |`,
+        `| ${failedChecks}${blocking} |`,
     );
   }
 
@@ -51,6 +66,9 @@ export function formatEvalReport(report: EvalReport): string {
     lines.push("## Failed Prompts", "");
     for (const r of failedResults) {
       lines.push(`### ${r.promptId}`, "");
+      if (r.blockingChecks.length > 0) {
+        lines.push(`- **Blocking checks:** ${r.blockingChecks.join(", ")}`);
+      }
       for (const c of r.checks.filter((ch) => !ch.passed)) {
         lines.push(`- **${c.name}** (${pct(c.score)}): ${c.message}`);
       }

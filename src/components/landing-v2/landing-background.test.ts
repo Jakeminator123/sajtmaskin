@@ -29,6 +29,8 @@ describe("landingBackgroundSemanticMode", () => {
 
   it("maps template and analyserad", () => {
     expect(landingBackgroundSemanticMode("template", false, undefined)).toBe("template")
+    expect(landingBackgroundSemanticMode("mall", false, undefined)).toBe("template")
+    expect(landingBackgroundSemanticMode("kategori", false, undefined)).toBe("template")
     expect(landingBackgroundSemanticMode("analyserad", false, undefined)).toBe("analyserad")
   })
 })

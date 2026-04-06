@@ -7,11 +7,11 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
-import { buildOwnEnginePreviewRuntime } from "@/lib/mcp/runtime-url";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveEngineModelId } from "@/lib/models/selection";
 import type { CodeFile } from "@/lib/gen/parser";
+import { startPreviewSession } from "@/lib/gen/preview/preview-session";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 
 const MAX_IMPORT_ARCHIVE_BYTES = 50 * 1024 * 1024;
 const MAX_IMPORTED_FILES = 600;
-const MAX_IMPORTED_TEXT_BYTES = 4 * 1024 * 1024;
+const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
 const BLOCKED_IMPORT_PREFIXES = [
   "node_modules/",
   ".git/",
@@ -497,16 +497,27 @@ export async function POST(req: Request) {
         assistantMessage.id,
         JSON.stringify(importedFiles),
       );
-      const previewRuntime = buildOwnEnginePreviewRuntime({
+      const previewSessionStarted = await startPreviewSession(importedFiles, {
         chatId: chat.id,
-        versionId: version.id,
-        projectId: project.id,
+        appProjectId: project.id,
+        versionIdForSession: version.id,
+        skipRepair: true,
       });
+      if (!previewSessionStarted.ok) {
+        throw new Error(
+          `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
+        );
+      }
+      const previewUrl = previewSessionStarted.result.sandboxUrl?.trim();
+      if (!previewUrl) {
+        throw new Error("Tier-2 preview started without a preview URL.");
+      }
+      await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
 
       await saveProjectData({
         project_id: project.id,
         chat_id: chat.id,
-        demo_url: previewRuntime.url,
+        demo_url: previewUrl,
         current_code: findPrimaryImportedFile(importedFiles),
         files: importedFiles.map((file) => ({
           name: file.path,
@@ -533,7 +544,7 @@ export async function POST(req: Request) {
           id: chat.id,
           chatId: chat.id,
           versionId: version.id,
-          ...previewUrlField(previewRuntime.url),
+          ...previewUrlField(previewUrl),
           projectId: project.id,
           source: source.type,
           lockedFiles: configLockedFiles,

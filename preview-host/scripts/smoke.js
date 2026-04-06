@@ -12,6 +12,7 @@ async function main() {
     );
   }
 
+  process.env.HOST = "127.0.0.1";
   process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
   const { createServer } = require("../src/server.js");
   const server = createServer();
@@ -41,7 +42,7 @@ async function main() {
     assert.match(phBody, /<svg[\s\S]*smoke[\s\S]*<\/svg>/i);
 
     const started = await postJson(`${baseUrl}/preview/session/start`, {
-      projectId: "demo-project",
+      chatId: "chat_demo_1",
       versionId: "ver_1",
       changeClass: "fresh",
       preferredBaseImage: "nextjs-basic",
@@ -72,18 +73,43 @@ async function main() {
       console.error("start failed", started.body);
     }
     assert.equal(started.status, 201);
-    assert.equal(started.body.projectId, "demo-project");
+    assert.equal(started.body.chatId, "chat_demo_1");
     assert.equal(started.body.lastAction, "start");
 
     const sessionId = started.body.sessionId;
     const sandboxId = started.body.sandboxId;
 
-    const st = await getJson(`${baseUrl}/preview/sandbox/${encodeURIComponent(sandboxId)}/status`);
+    const st = await getJson(`${baseUrl}/preview/session/${encodeURIComponent(sandboxId)}/status`);
     assert.equal(st.status, 200);
     assert.equal(st.body.ok, true);
     assert.equal(st.body.sandboxId, sandboxId);
 
-    const previewHtml = await waitForPreviewHtml(`${baseUrl}/demo-project`, /demo-project/);
+    const verified = await postJson(`${baseUrl}/preview/verify`, {
+      chatId: "chat_demo_1",
+      versionId: "ver_verify_1",
+      checks: ["lint"],
+      filesJson: {
+        "package.json": JSON.stringify(
+          {
+            name: "verify-project",
+            private: true,
+          },
+          null,
+          2,
+        ),
+        "README.md": "verify lane smoke",
+      },
+    });
+    assert.equal(verified.status, 200);
+    assert.equal(verified.body.ok, true);
+    assert.ok(Array.isArray(verified.body.results));
+    assert.equal(verified.body.results[0]?.check, "install");
+    assert.equal(verified.body.results[0]?.passed, true);
+    assert.equal(verified.body.results[1]?.check, "lint");
+    assert.equal(verified.body.results[1]?.passed, true);
+    assert.match(String(verified.body.results[1]?.output || ""), /Skipped lint/i);
+
+    const previewHtml = await waitForPreviewHtml(`${baseUrl}/chat_demo_1`, /demo-project/);
     assert.match(previewHtml, /demo-project/);
 
     const fetched = await getJson(`${baseUrl}/preview/session/${sessionId}`);
@@ -122,7 +148,11 @@ async function main() {
 
     console.log("Smoke test passed.");
   } finally {
-    server.close();
+    await new Promise((resolve) => {
+      server.close(() => resolve());
+      server.closeAllConnections?.();
+      server.closeIdleConnections?.();
+    });
     try {
       fs.rmSync(process.env.PREVIEW_HOST_DATA_DIR, { recursive: true, force: true });
     } catch {
@@ -169,7 +199,11 @@ async function waitForPreviewHtml(url, readyPattern) {
   throw new Error(`Preview did not become ready in time. Last HTML: ${lastHtml.slice(0, 400)}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import {
   isCompatibilityShimPreviewUrl,
-  isSandboxPreviewUrl,
+  isTier2LivePreviewUrl,
   normalizePreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 
@@ -15,7 +15,6 @@ export type VersionLike = {
   previewUrl?: string | null;
   demoUrl?: string | null;
   legacyShimPreviewUrl?: string | null;
-  sandboxUrl?: string | null;
   /** Own-engine list uses `false`; legacy mapped V0 DB rows use `true`. */
   canPin?: boolean;
   versionNumber?: number | null;
@@ -35,12 +34,12 @@ function isOwnEngineVersionRow(v: VersionLike | undefined): boolean {
 }
 
 function pickEngineIframeUrl(match: VersionLike, explicitDemo?: string | null): string | null {
-  const fromSandbox = normalizePreviewUrl(match.sandboxUrl);
-  if (fromSandbox && isSandboxPreviewUrl(fromSandbox)) {
-    return fromSandbox;
+  const fromPreview = normalizePreviewUrl(match.previewUrl);
+  if (fromPreview && isTier2LivePreviewUrl(fromPreview)) {
+    return fromPreview;
   }
   const explicit = normalizePreviewUrl(explicitDemo);
-  if (explicit && !isCompatibilityShimPreviewUrl(explicit) && isSandboxPreviewUrl(explicit)) {
+  if (explicit && !isCompatibilityShimPreviewUrl(explicit) && isTier2LivePreviewUrl(explicit)) {
     return explicit;
   }
   return null;
@@ -77,8 +76,8 @@ export function useBuilderCallbacks({
       return;
     }
     const prompt = currentPreviewUrl
-      ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande sandbox-preview (sandboxUrl). Behåll layouten om möjligt. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt."
-      : "Sandbox-preview saknas eller laddar inte. Regenerera eller starta om preview för senaste versionen. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt.";
+      ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande VM-preview (previewUrl). Behåll layouten om möjligt. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt."
+      : "VM-preview saknas eller laddar inte. Regenerera eller starta om preview för senaste versionen. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt.";
     await sendMessage(prompt);
   }, [chatId, currentPreviewUrl, sendMessage]);
 

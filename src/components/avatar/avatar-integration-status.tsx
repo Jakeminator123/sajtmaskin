@@ -67,6 +67,9 @@ export function AvatarIntegrationStatus({
           <div data-testid="avatar-integration-mock">
             Testläge: <strong className="text-foreground">{mockMode ? "Mockad avatartransport" : "Riktig D-ID-transport"}</strong>
           </div>
+          <div>
+            Rekommenderad användning: <strong className="text-foreground">isolerad pilot på <code>/avatar</code></strong>
+          </div>
         </div>
       </div>
 

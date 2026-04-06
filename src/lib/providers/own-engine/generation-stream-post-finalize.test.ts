@@ -1,42 +1,47 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { shouldTriggerPostFinalizeServerVerify } from "@/lib/gen/stream/post-finalize-policies";
+import {
+  resolvePostFinalizeServerVerifyDecision,
+  shouldTriggerPostFinalizeServerVerify,
+} from "@/lib/gen/stream/post-finalize-policies";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 
 const isServerVerifyEligible = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
-const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
+const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const parseCodeProjectMock = vi.hoisted(() =>
   vi.fn((_src: string) => ({ files: [] as Array<{ path: string; content: string }> })),
 );
-const shouldRunOwnEngineSandbox = vi.hoisted(() => vi.fn(() => false));
-const logSandboxLifecycleTelemetry = vi.hoisted(() => vi.fn());
-const startSandboxPreview = vi.hoisted(() => vi.fn());
+const shouldStartOwnEnginePreview = vi.hoisted(() => vi.fn(() => false));
+const logPreviewLifecycleTelemetryMock = vi.hoisted(() => vi.fn());
+const startPreviewSessionMock = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => false));
+const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn<() => string | null>(() => null));
+const devLogAppend = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getChat,
-  updateVersionSandboxUrl,
+  updateVersionPreviewUrl,
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
-  devLogAppend: vi.fn(),
+  devLogAppend,
   devLogFinalizeSite: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/sandbox/own-engine-sandbox-gate", () => ({
-  shouldRunOwnEngineSandbox,
+vi.mock("@/lib/gen/preview/should-start-preview", () => ({
+  shouldStartOwnEnginePreview,
 }));
 
 vi.mock("@/lib/gen/parser", () => ({
   parseCodeProject: (src: string) => parseCodeProjectMock(src),
 }));
 
-vi.mock("@/lib/gen/sandbox/lifecycle-telemetry", () => ({
-  logSandboxLifecycleTelemetry,
+vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
+  logPreviewLifecycleTelemetry: logPreviewLifecycleTelemetryMock,
 }));
 
-vi.mock("@/lib/gen/sandbox/sandbox-preview", () => ({
-  startSandboxPreview,
+vi.mock("@/lib/gen/preview/preview-session", () => ({
+  startPreviewSession: startPreviewSessionMock,
 }));
 
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
@@ -47,8 +52,9 @@ vi.mock("@/lib/gen/version-manager", () => ({
   parseCodeFilesFromFilesJson: vi.fn(() => []),
 }));
 
-vi.mock("@/lib/gen/sandbox/tier2-config", () => ({
+vi.mock("@/lib/gen/preview/tier2-config", () => ({
   isTier2PreviewConfigured,
+  getPreviewHostBaseUrl,
 }));
 
 vi.mock("@/lib/gen/server-verify", () => ({
@@ -61,6 +67,7 @@ vi.mock("@/lib/streaming", () => ({
 }));
 
 vi.mock("@/lib/utils/debug", () => ({
+  debugLog: vi.fn(),
   warnLog: vi.fn(),
 }));
 
@@ -68,21 +75,21 @@ const finalized = {
   version: { id: "ver_1" },
   messageId: "msg_1",
   previewUrl: null,
-  sandboxUrl: null,
+  tier2PreviewUrl: null,
   filesJson: "[]",
   contentForVersion: "",
   preflight: {
     previewBlocked: false,
     verificationBlocked: false,
     previewBlockingReason: null,
-    sandbox: {
-      canStartSandbox: true,
-      primaryPreviewTarget: "app",
+    previewStart: {
+      canStartPreview: true,
+      primaryPreviewTarget: "preview",
       shimBlocked: false,
       requiresEnvConfig: false,
       hasCriticalInstallRisk: false,
       hasCriticalCodeFailure: false,
-      compatibilityShimAllowed: false,
+      compatibilityPreviewAllowed: false,
       issueCounts: {
         code_structure_failure: 0,
         dependency_install_failure: 0,
@@ -98,15 +105,18 @@ const finalized = {
 describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
   beforeEach(() => {
     getChat.mockReset();
-    updateVersionSandboxUrl.mockReset();
+    updateVersionPreviewUrl.mockReset();
     parseCodeProjectMock.mockReset();
     parseCodeProjectMock.mockImplementation(() => ({ files: [] }));
-    shouldRunOwnEngineSandbox.mockReset();
-    shouldRunOwnEngineSandbox.mockReturnValue(false);
-    logSandboxLifecycleTelemetry.mockReset();
-    startSandboxPreview.mockReset();
+    shouldStartOwnEnginePreview.mockReset();
+    shouldStartOwnEnginePreview.mockReturnValue(false);
+    logPreviewLifecycleTelemetryMock.mockReset();
+    startPreviewSessionMock.mockReset();
     isTier2PreviewConfigured.mockReset();
     isTier2PreviewConfigured.mockReturnValue(false);
+    getPreviewHostBaseUrl.mockReset();
+    getPreviewHostBaseUrl.mockReturnValue(null);
+    updateVersionPreviewUrl.mockResolvedValue(true);
   });
 
   it("parses accumulatedContent when recovery flag is set and saved files are empty", async () => {
@@ -150,19 +160,20 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     expect(parseCodeProjectMock.mock.calls.some((c) => String(c[0]).includes(marker))).toBe(true);
   });
 
-  it("logs structured sandbox readiness telemetry with policy context", async () => {
-    shouldRunOwnEngineSandbox.mockReturnValue(true);
+  it("logs structured tier-2 preview readiness telemetry with policy context", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
     isTier2PreviewConfigured.mockReturnValue(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://vm-fly-jakem.fly.dev");
     getChat.mockResolvedValue({ project_id: "proj_1" });
-    startSandboxPreview.mockResolvedValue({
+    startPreviewSessionMock.mockResolvedValue({
       ok: true,
       result: {
-        sandboxUrl: "https://sandbox.example",
+        sandboxUrl: "https://preview.example",
         sandboxId: "sbx_1",
-        sandboxPreviewMode: "dev_then_build",
-        fidelityTier: 3,
-        prodBuildVerified: true,
+        sandboxPreviewMode: "dev_only",
+        fidelityTier: 2,
         startOutcome: "recreated",
+        tier2Meta: { tier2Provider: "preview_host" },
       },
     });
 
@@ -195,7 +206,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       },
     });
 
-    expect(startSandboxPreview).toHaveBeenCalledWith(
+    expect(startPreviewSessionMock).toHaveBeenCalledWith(
       [],
       expect.objectContaining({
         appProjectId: "proj_1",
@@ -205,9 +216,9 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         versionIdForSession: "ver_1",
       }),
     );
-    expect(logSandboxLifecycleTelemetry).toHaveBeenCalledWith(
+    expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: "sandbox_start_outcome",
+        kind: "preview_start_outcome",
         chatId: "chat_1",
         versionId: "ver_1",
         outcome: "recreated",
@@ -215,22 +226,21 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
         verificationPolicy: "strict",
       }),
     );
-    expect(logSandboxLifecycleTelemetry).toHaveBeenCalledWith(
+    expect(logPreviewLifecycleTelemetryMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: "sandbox_preview_ready",
+        kind: "preview_ready",
         chatId: "chat_1",
         versionId: "ver_1",
         sandboxId: "sbx_1",
-        sandboxPreviewMode: "dev_then_build",
-        fidelityTier: 3,
-        prodBuildVerified: true,
+        sandboxPreviewMode: "dev_only",
+        fidelityTier: 2,
         previewPolicy: "fidelity3",
         verificationPolicy: "strict",
         startOutcome: "recreated",
         msSinceEngineStart: expect.any(Number),
       }),
     );
-    expect(updateVersionSandboxUrl).toHaveBeenCalledWith("ver_1", "https://sandbox.example");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
   });
 });
 
@@ -238,6 +248,7 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
   beforeEach(() => {
     isServerVerifyEligible.mockReset();
     isServerVerifyEligible.mockReturnValue(true);
+    devLogAppend.mockReset();
   });
 
   it("skips background verify for fast follow-up policy", () => {
@@ -292,5 +303,110 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
         finalized: finalized as never,
       }),
     ).toBe(true);
+  });
+
+  it("skips low-risk standard website flows when nothing indicates extra verify value", () => {
+    expect(
+      shouldTriggerPostFinalizeServerVerify({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 20_000,
+            refsChars: 8_000,
+            systemContextChars: 28_000,
+          },
+        },
+        finalized: finalized as never,
+      }),
+    ).toBe(false);
+  });
+
+  it("reports why background verify is skipped for low-risk standard flows", () => {
+    expect(
+      resolvePostFinalizeServerVerifyDecision({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          scaffoldFamily: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "normal",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 20_000,
+            refsChars: 8_000,
+            systemContextChars: 28_000,
+          },
+        },
+        finalized: finalized as never,
+      }),
+    ).toEqual({
+      run: false,
+      reason: "low_risk_standard_flow",
+    });
+  });
+});
+
+describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
+  beforeEach(() => {
+    devLogAppend.mockReset();
+    isServerVerifyEligible.mockReset();
+    isServerVerifyEligible.mockReturnValue(true);
+  });
+
+  it("logs when background verify is skipped for a low-risk standard flow", async () => {
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 20_000,
+          refsChars: 8_000,
+          systemContextChars: 28_000,
+        },
+      },
+    });
+
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "server-verify.policy",
+        run: false,
+        reason: "low_risk_standard_flow",
+      }),
+    );
   });
 });

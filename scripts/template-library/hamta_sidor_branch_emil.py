@@ -1,14 +1,15 @@
 """
 Vercel Templates catalog scraper (Python / HTTP + BeautifulSoup).
 
-Output lane: same *research* purpose as `research/external-templates/` and the
-Playwright flow under `e2e/vercel-templates/` (Level 1 discovery; legacy `vercel_templates_levels/` optional). Default
-write root is **outside** the repo (`../vercel-scrape` or `SAJTMASKIN_VERCEL_SCRAPE_DIR`).
+Output lane: same *research* purpose as the canonical pipeline cache under
+`data/external-template-pipeline/scrape-cache/current` and the
+Playwright flow under `e2e/vercel-templates/` (Level 1 discovery; legacy
+`vercel_templates_levels/` optional).
 
 To normalize into canonical raw discovery JSON under
-`research/external-templates/raw-discovery/current/`, pass the generated
+`data/external-template-pipeline/raw-discovery/current/`, pass the generated
 `summary.json` through `scripts/template-library/import-template-discovery.ts` (see
-`research/external-templates/README.md` → Intake tools).
+`scripts/README.md` → template-library/import).
 
 Not related to product v0 gallery / builder Mall tab.
 """
@@ -25,7 +26,7 @@ from datetime import datetime, timezone
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import List, Optional, Dict, Tuple
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -280,6 +281,59 @@ def normalize_github_clone_url(url: Optional[str]) -> Optional[str]:
     if owner.lower() in reject_owners:
         return None
     return f"https://github.com/{owner}/{repo}"
+
+
+def normalize_public_http_url(url: Optional[str]) -> Optional[str]:
+    """Return absolute http(s) URL or None for placeholders / unsupported schemes."""
+    if not url:
+        return None
+    raw = url.strip()
+    if not raw or raw == "#":
+        return None
+    lower = raw.lower()
+    if lower.startswith(("javascript:", "mailto:", "tel:")):
+        return None
+    try:
+        parsed = urlparse(urljoin(BASE_URL, raw))
+    except ValueError:
+        return None
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    if not parsed.netloc:
+        return None
+    return parsed.geturl()
+
+
+def extract_vercel_clone_param_url(href: str, param_name: str) -> Optional[str]:
+    normalized_href = normalize_public_http_url(href)
+    if not normalized_href:
+        return None
+    try:
+        parsed = urlparse(normalized_href)
+    except ValueError:
+        return None
+    if parsed.netloc != "vercel.com" or parsed.path != "/new/clone":
+        return None
+    values = parse_qs(parsed.query).get(param_name) or []
+    for value in values:
+        normalized = normalize_public_http_url(value)
+        if normalized:
+            return normalized
+    return None
+
+
+def extract_repo_label_from_github_url(href: str) -> Optional[str]:
+    clone_url = normalize_github_clone_url(href)
+    if not clone_url:
+        return None
+    try:
+        parsed = urlparse(clone_url)
+    except ValueError:
+        return None
+    parts = parsed.path.split("/")
+    if len(parts) < 3:
+        return None
+    return f"{parts[1]}/{parts[2]}"
 
 
 def _walk_json_for_github_urls(obj: object) -> List[str]:
@@ -568,27 +622,10 @@ class VercelTemplateScraper:
             return h.strip().split("?")[0].rstrip("/")
 
         chosen: Optional[str] = None
+        labeled: List[Tuple[str, str]] = []
 
-        # 1) JSON-LD (ofta codeRepository) — minskar risk för fel första <a>-träff
-        for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
-            raw = script.string or script.get_text() or ""
-            if not raw.strip():
-                continue
-            try:
-                data = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            candidates = _walk_json_for_github_urls(data)
-            for c in candidates:
-                if _GITHUB_REPO_RE.search(c):
-                    chosen = normalize_href(c)
-                    break
-            if chosen:
-                break
-
-        # 2) Ankare med tydlig GitHub-etikett
+        # 1) Ankare med tydlig GitHub-etikett eller owner/repo-text.
         if not chosen:
-            labeled: List[Tuple[str, str]] = []
             for a in soup.find_all("a", href=True):
                 text = a.get_text(" ", strip=True).lower()
                 href = normalize_href(a["href"])
@@ -597,11 +634,41 @@ class VercelTemplateScraper:
                 if not _GITHUB_REPO_RE.search(href):
                     continue
                 labeled.append((href, text))
-                if "github repo" in text:
+                expected_repo_label = extract_repo_label_from_github_url(href)
+                if (
+                    "github repo" in text or
+                    (expected_repo_label and text == expected_repo_label.lower())
+                ):
                     chosen = href
                     break
 
-        # 3) Samla alla github owner/repo-länkar; undvik github.com/vercel/vercel om det finns alternativ
+        # 2) JSON-LD (ofta codeRepository) — bra fallback om ankaret inte är tydligt.
+        if not chosen:
+            for script in soup.find_all("script", attrs={"type": "application/ld+json"}):
+                raw = script.string or script.get_text() or ""
+                if not raw.strip():
+                    continue
+                try:
+                    data = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                candidates = _walk_json_for_github_urls(data)
+                for c in candidates:
+                    if _GITHUB_REPO_RE.search(c):
+                        chosen = normalize_href(c)
+                        break
+                if chosen:
+                    break
+
+        # 3) Deploy/clone-länkens repository-url-param som fallback.
+        if not chosen:
+            for a in soup.find_all("a", href=True):
+                candidate = extract_vercel_clone_param_url(a["href"], "repository-url")
+                if candidate:
+                    chosen = candidate
+                    break
+
+        # 4) Samla alla github owner/repo-länkar; undvik github.com/vercel/vercel om det finns alternativ.
         if not chosen:
             repos = [h for h, _ in labeled] if labeled else []
             if not repos:
@@ -630,7 +697,14 @@ class VercelTemplateScraper:
             text = a.get_text(" ", strip=True).lower()
             href = a["href"].strip()
             if "view demo" in text:
-                return href
+                normalized = normalize_public_http_url(href)
+                if normalized:
+                    return normalized
+
+        for a in soup.find_all("a", href=True):
+            candidate = extract_vercel_clone_param_url(a["href"], "demo-url")
+            if candidate:
+                return candidate
         return None
 
     @staticmethod
@@ -1070,7 +1144,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         default=None,
-        help="Utmapp (default: syskonmapp bredvid repot, t.ex. ../vercel-scrape).",
+        help="Utmapp (default: data/external-template-pipeline/scrape-cache/current).",
     )
     parser.add_argument(
         "--per-category",
@@ -1148,11 +1222,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def default_output_root() -> Path:
-    env = os.environ.get("SAJTMASKIN_VERCEL_SCRAPE_DIR", "").strip()
-    if env:
-        return Path(env).expanduser()
     repo_root = Path(__file__).resolve().parent.parent.parent
-    return repo_root.parent / "sajtmaskin-template-cache"
+    return repo_root / "data" / "external-template-pipeline" / "scrape-cache" / "current"
 
 
 def apply_arg_defaults(args: argparse.Namespace) -> None:
@@ -1183,7 +1254,7 @@ def _prompt_yes_no(prompt: str, default_yes: bool = False) -> bool:
 def interactive_args() -> argparse.Namespace:
     home_default = str(default_output_root())
     print("\n=== Vercel Templates — interaktiv körning ===\n")
-    out = input(f"Output-mapp (Zone 1, helst utanför repo) [{home_default}]: ").strip() or home_default
+    out = input(f"Output-mapp (kanonisk scrape-cache) [{home_default}]: ").strip() or home_default
     skip = _prompt_yes_no(
         "Endast metadata (summary.json + ingestion_report.json), utan git clone?",
         default_yes=True,
@@ -1467,6 +1538,10 @@ def run_scrape(args: argparse.Namespace) -> int:
         json.dumps(summary, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    (root / "summary-cleaned.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     write_index_file(
         root,
@@ -1482,6 +1557,7 @@ def run_scrape(args: argparse.Namespace) -> int:
     print(f"[INFO] INDEX: {root / 'INDEX_SV.md'}")
     print(f"[INFO] LAYOUT: {root / 'SCRAPE_LAYOUT_SV.md'}")
     print(f"[INFO] SUMMARY: {root / 'summary.json'}")
+    print(f"[INFO] CLEANED SUMMARY: {root / 'summary-cleaned.json'}")
     print(f"[INFO] INVENTERING (LLM): {root / 'ingestion_report.json'}")
     return 0
 

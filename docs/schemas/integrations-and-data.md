@@ -15,7 +15,7 @@ Primary code sources:
 - `scripts/db/db-init.mjs`
 - `src/lib/validations/chatSchemas.ts`
 - `src/lib/gen/template-library/types.ts`
-- `research/external-templates/reference-library/schema.template-manifest.json`
+- `data/external-template-pipeline/reference-library/schema.template-manifest.json`
 
 ## Database
 
@@ -75,7 +75,7 @@ This file defines:
 Curated external template data is documented by:
 
 - `src/lib/gen/template-library/types.ts`
-- `research/external-templates/reference-library/schema.template-manifest.json`
+- `data/external-template-pipeline/reference-library/schema.template-manifest.json`
 
 Important boundary:
 
@@ -91,7 +91,7 @@ Key concepts:
 - `TemplateLibraryRepoInfo`
 - `TemplateLibrarySignals`
 - per-dossier `manifest.json` files in
-  `research/external-templates/reference-library/dossiers/*`
+  `data/external-template-pipeline/reference-library/dossiers/*`
 
 ## Production boundary
 

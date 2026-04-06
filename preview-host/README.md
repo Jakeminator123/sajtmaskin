@@ -1,12 +1,12 @@
 # Preview Host
 
-Den har mappen ar ett avgransat spar for en framtida separat tjanst som ansvarar for stateful preview/sandbox-runtime. Tanken ar att den ska kunna lyftas ut till ett eget repo senare utan att blanda ihop sig med Sajtmaskins `src/`.
+Den har mappen ar ett avgransat spar for preview-host-tjansten som nu ar den primara tier-2-previewvagen nar `SAJTMASKIN_PREVIEW_HOST_BASE_URL` ar satt. Tanken ar fortfarande att den ska kunna lyftas ut till ett eget repo senare utan att blanda ihop sig med Sajtmaskins `src/`.
 
-## Detta som alternativ till sandbox
+## Detta spar relativt preview-systemet
 
-Detta spar ska ses som ett **alternativ till nuvarande sandbox-sparet**.
+Detta spar ska ses som den **nuvarande primara preview-host/VM-vagen** for tier-2 live-preview, medan vissa `sandbox`-namn i huvudappen fortfarande ar legacy-kontrakt och naming debt.
 
-Tanken ar inte att ersatta own-engine, buildern eller `files_json`, utan att ersatta sjalva runtime-lagret som idag startar preview i sandbox.
+Tanken ar inte att ersatta own-engine, buildern eller `files_json`, utan att vara det separata runtime-lager som startar och ager tier-2 preview.
 
 I praktiken betyder det:
 
@@ -14,14 +14,22 @@ I praktiken betyder det:
 - `engine_versions.files_json` fortsatter vara kanonisk artifact
 - `preview-host` blir en separat tjanst for preview-sessioner, leases, status och senare riktig runtime
 
+## ID och nycklar
+
+- **`appProjectId`** = Sajtmaskins riktiga projekt-id per anvandarprojekt. Det hor hemma i buildern, tenant/ownership och projekt-env.
+- **`chatId`** = own-engine-chattens id. Det ar **den faktiska runtime-/path-nyckeln i preview-host idag**.
+- Preview-hosts publika path ar darfor **`https://...fly.dev/{chatId}`**, inte `/{appProjectId}`.
+- Under rollout accepterar preview-host fortfarande legacy-faltet **`projectId`** i inkommande payload, men det tolkas som alias for **`chatId`**.
+
 ## Status (2026-04-01)
 
 ### Vad som fungerar
 
 - Fly-app `vm-fly-jakem` koer pa `performance-2x` (2 ded CPU, 4 GB RAM) i `arn` (Stockholm)
 - 10 GB krypterad Fly volume monterad pa `/data` for workspaces och session-store
-- `preview-host` tar emot projekt via HTTP, koer `npm install` + `npm run dev` pa Fly-maskinen
-- preview-URL `https://vm-fly-jakem.fly.dev/<projectId>` serverar riktiga SSR-renderade Next.js-sajter
+- `preview-host` tar emot preview-payloads via HTTP, koer `npm install` + `npm run dev` pa Fly-maskinen
+- `preview-host` kor ocksa en isolerad **verify-lane** for quality gate (`npm install` + `tsc` / `next build` / ev. `eslint`) i separat workspace
+- preview-URL `https://vm-fly-jakem.fly.dev/<chatId>` serverar riktiga SSR-renderade Next.js-sajter
 - Sajtmaskins huvudapp har tier-2-providerlager som valjer `preview_host` framfor Vercel Sandbox
 - vantesida visas i iframen medan projektet bootar (auto-reload var 4:e sekund)
 - workspace-caching: `node_modules` ateranvands om `package.json` inte andrats
@@ -39,8 +47,8 @@ I praktiken betyder det:
 - **`next` is not recognized** efter nedladdning: kör `npm install` fore `npm run dev` (samma som lokalt).
 - **`npm audit fix`**: valfritt rad fran npm, inte ett krav for preview.
 - **Readiness** vantar pa HTTP 200 HTML med tillrackligt med synlig text i `<body>`; tom sida efter nagra forsok loggas som varning men accepteras (annars blockerar vi legitima RSC-/compile-faser for lange).
-- **basePath / CSS som saknas i iframen**: publik URL ar `https://...fly.dev/{projectId}/...`. Utan `basePath` pekar HTML pa `/_next/...` mot hostroten (404) → sidan ser ut som "ren HTML". Runtime satter `SAJTMASKIN_PREVIEW_BASE_PATH=/{projectId}` och proxyn skickar **full** path till `next dev`; `next.config.ts` maste respektera env (scaffold + patch pa workspace vid boot).
-- **`/placeholder.svg` mot hostroten (404)**: motorn instruerar `<img src="/placeholder.svg?...">`. Webblasaren fragar da `https://...fly.dev/placeholder.svg`, inte under `/{projectId}/`. Preview-host svarar darfor pa `GET /placeholder.svg` med samma SVG som Sajtmaskin-huvudappens `/api/placeholder`. Baseline-scaffold inkluderar aven `app/api/placeholder` + rewrite for zip/sandbox utan Fly.
+- **basePath / CSS som saknas i iframen**: publik URL ar `https://...fly.dev/{chatId}/...`. Utan `basePath` pekar HTML pa `/_next/...` mot hostroten (404) → sidan ser ut som "ren HTML". Runtime satter `SAJTMASKIN_PREVIEW_BASE_PATH=/{chatId}` och proxyn skickar **full** path till `next dev`; `next.config.ts` maste respektera env (scaffold + patch pa workspace vid boot).
+- **`/placeholder.svg` mot hostroten (404)**: motorn instruerar `<img src="/placeholder.svg?...">`. Webblasaren fragar da `https://...fly.dev/placeholder.svg`, inte under `/{chatId}/`. Preview-host svarar darfor pa `GET /placeholder.svg` med samma SVG som Sajtmaskin-huvudappens `/api/placeholder`. Baseline-scaffold inkluderar aven `app/api/placeholder` + rewrite for zip/export utan Fly.
 
 ### Drift pa Fly
 
@@ -50,34 +58,34 @@ I praktiken betyder det:
 | Volume | `preview_host_data`, 10 GB, `/data` |
 | Region | `arn` (Stockholm) |
 | Secret | `PREVIEW_HOST_DATA_DIR=/data` |
-| Kostnad | ca 60-70 USD/man om maskinen star pa 24/7 |
+| Kostnad | ca 60-70 USD/man om maskinen står på 24/7 |
 
 ### Env i Sajtmaskins `.env.local` (repo-roten)
 
 ```env
 SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://vm-fly-jakem.fly.dev
-SAJTMASKIN_TIER2_RUNTIME=preview_host
+SAJTMASKIN_PREVIEW_HOST_API_KEY=...
 NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev
 ```
 
-Lagg **inte** `PREVIEW_HOST_DATA_DIR`, `PREVIEW_HOST_API_KEY` eller `DATA_DIR` i repo-rotens `.env.local`. De hor till Fly-tjansten.
+Lägg **inte** `PREVIEW_HOST_DATA_DIR`, `PREVIEW_HOST_API_KEY` eller `DATA_DIR` i repo-rotens `.env.local`. De hör till Fly-tjänsten.
 
-## Nasta steg nu
+## Nästa steg nu
 
-Nu ar vi forbi forsta deployen. Det viktigaste nasta steget ar inte fler features direkt, utan att gora prototypen **mer korrekt** for hur den faktiskt fungerar idag.
+Nu är vi förbi första deployen. Det viktigaste nästa steget är inte fler features direkt, utan att göra prototypen **mer korrekt** för hur den faktiskt fungerar idag.
 
-### Varfor detta behov finns
+### Varför detta behov finns
 
 Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DIR` (default `./data` i containern).
 
-- satt samma katalog pa en **Fly volume** om du skalar till flera machines
-- valfritt: `PREVIEW_HOST_API_KEY` pa servern + `Authorization: Bearer ...` (eller `X-Preview-Host-Key`) pa klienten
+- sätt samma katalog på en **Fly volume** om du skalar till flera machines
+- för icke-lokal drift: sätt `PREVIEW_HOST_API_KEY` på servern och samma värde som `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appen (`Authorization: Bearer ...` eller `X-Preview-Host-Key`)
 
-### Nasta steg (handoff)
+### Nästa steg (handoff)
 
-1. **Persistera sessions over restart**: sessioner maste sparas/aterhamtas fran volymen nar `preview-host` startar om, sa att builderns iframe inte tappar sin preview efter deploy.
-2. **CSP-header**: lagg till `*.fly.dev` i `frame-src` i huvudappens CSP-konfiguration (`next.config` eller `middleware.ts`).
-3. **Snabbare forsta boot**: forinstallera baseline-deps i Dockerfile eller cacha `node_modules` pa volymen mer aggressivt.
+1. **Persistera sessions över restart**: sessioner måste sparas/återhämtas från volymen när `preview-host` startar om, så att builderns iframe inte tappar sin preview efter deploy.
+2. **CSP-header**: lägg till `*.fly.dev` i `frame-src` i huvudappens CSP-konfiguration (`next.config` eller `middleware.ts`).
+3. **Snabbare första boot**: förinstallera baseline-deps i Dockerfile eller cacha `node_modules` på volymen mer aggressivt.
 4. **Autofix-loop**: throttla antal parallella preview-host-boots per chatt sa att autofix inte skapar 4 samtida install+dev-starter.
 5. **Observerbarhet**: lagg till tydligare loggning av Next.js stdout/stderr i runtime-loggar (just nu damps HMR-brus).
 
@@ -98,7 +106,7 @@ Det ar medvetet **inte** kopplat till Sajtmaskins vanliga scaffold-logik, templa
 
 ## Vad detta ar, enkelt uttryckt
 
-Tank pa detta som en **egen liten server** som senare ska fa ansvar for preview-sessioner.
+Tank pa detta som en **egen liten server** som nu ager preview-sessioner och senare kan hardnas ytterligare.
 
 Inte:
 
@@ -108,7 +116,7 @@ Inte:
 
 Utan:
 
-- ta emot ett `projectId` och `versionId`
+- ta emot ett `chatId` (legacy alias: `projectId`) och `versionId`
 - skapa eller uppdatera en preview-session
 - komma ihag `sandboxId`, `previewUrl` och status
 - senare kunna prata med riktig Docker/Machines-runtime
@@ -151,8 +159,9 @@ Viktiga test-endpoints i prototypen:
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/sandbox/:sandboxId/status`
+- `GET /preview/session/:sandboxId/status`
 - `GET /preview/logs/:sandboxId`
+- `POST /preview/verify`
 
 Detta ar nu en **minimal riktig sessionskontrolltjanst** for Tier 2-kontraktet. Det ar fortfarande **inte** en full runtime-motor: ingen riktig Docker-worker, ingen workspace-orkestrering och ingen multi-machine-store ar inkopplad an.
 
@@ -162,7 +171,7 @@ Fly-appen finns redan. Det praktiska driftflodet nu ar:
 
 1. Ga in i `preview-host/`
 2. valfritt: skapa en volume for `/data`
-3. valfritt: satt `PREVIEW_HOST_API_KEY`
+3. satt `PREVIEW_HOST_API_KEY`
 4. kor `flyctl deploy`
 5. testa `/health`, `start`, `status` och `hibernate` pa den deployade URL:en
 
@@ -196,7 +205,7 @@ Fran `preview-host/`:
 
 1. `flyctl auth whoami`
 2. valfritt: `fly volumes create preview_host_data --size 1 -r arn -a vm-fly-jakem`
-3. valfritt: `fly secrets set PREVIEW_HOST_API_KEY=... -a vm-fly-jakem`
+3. `fly secrets set PREVIEW_HOST_API_KEY=... -a vm-fly-jakem`
 4. `flyctl deploy`
 5. oppna `https://vm-fly-jakem.fly.dev/health`
 
@@ -231,14 +240,14 @@ Forst nar grundflodet ar stabilt ska vi lagga till:
 
 Min slutsats efter att ha last anteckningarna i `ovrigt/sanbox_vm_etc` och jamfort dem med hur Sajtmaskin redan fungerar ar:
 
-- Om malet ar varm pool, samma sandbox per projekt, diff-sync, hibernation och stabil `previewUrl`, da ska du **inte** bygga v1 som en Docker-orkestrerad sandbox-pool inuti en Render-tjanst.
+- Om malet ar varm pool, samma preview-runtime tillbaka per **chat/lane**, diff-sync, hibernation och stabil `previewUrl`, da ska du **inte** bygga v1 som en Docker-orkestrerad sandbox-pool inuti en Render-tjanst.
 - Render-dokumentationen visar tydligt stod for Docker-deploys, private services och persistent disks, men jag hittar **inte** tydligt stod for nested Docker / privileged runtime. Disk-backed services ar dessutom single-instance och tappar zero-downtime deploys.
 - Om du vill bygga precis det ni beskrivit i anteckningarna ar den rakaste vagen en **dedikerad Linux-VM** med Docker, Traefik, Redis och Postgres.
 - Om Render ar ett hart krav redan nu ska du medvetet valja en **enklare modell** i v1: ingen egen Docker-pool i tjansten, inga undercontainrar, och betydligt mindre ambition kring warm-empty/warm-project.
 
 Kort sagt:
 
-- **Vill du ha full kontroll och samma sandbox tillbaka per projekt:** kor en egen VM.
+- **Vill du ha full kontroll och samma preview-runtime tillbaka per chat/lane:** kor en egen VM.
 - **Vill du absolut vara pa Render direkt:** bygg en enklare preview-runtime, inte hela den avancerade preview-hosten.
 
 ## Varfor detta ar ett separat spar
@@ -253,13 +262,14 @@ Det nya systemet ska darfor inte ta over generering eller lagring av koden. Det 
 
 ## Det nya systemet ska aga
 
-- `project -> sandbox` affinity
+- `chat -> preview-runtime` affinity
 - sandbox lease, heartbeat och TTL
 - diff-klassificering for updates
 - restart-policy
 - preview lane kontra verify lane
 - route-register och stabil `previewUrl`
 - loggstream, healthchecks och hibernation
+- separat verify-lane for typecheck/build/lint utan att roera live-previewns workspace
 
 ## Sajtmaskin ska fortsatt aga
 
@@ -280,14 +290,15 @@ Foreslaget minsta kontrakt:
 - `POST /preview/session/hibernate`
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
-- `GET /preview/sandbox/:sandboxId/status`
+- `GET /preview/session/:sandboxId/status`
 - `GET /preview/logs/:sandboxId`
+- `POST /preview/verify`
 
-Alla `/preview/*`-endpoints kan skyddas med `PREVIEW_HOST_API_KEY` (Bearer eller `X-Preview-Host-Key`).
+Alla `/preview/*`-endpoints kraver `PREVIEW_HOST_API_KEY` i icke-lokal miljo (Bearer eller `X-Preview-Host-Key`).
 
 Payload in fran Sajtmaskin bor minst innehalla:
 
-- `projectId`
+- `chatId` (legacy alias: `projectId`)
 - `versionId`
 - `filesJson`
 - `dependencyFingerprint`
@@ -297,11 +308,14 @@ Payload in fran Sajtmaskin bor minst innehalla:
 
 Svar tillbaka bor minst innehalla:
 
+- `chatId`
 - `sandboxId`
 - `previewUrl`
 - `startOutcome` = `resumed | recreated | fresh`
 - `sessionExpiresAt`
 - `status`
+
+I huvudappen mappas preview-hostens interna `fresh` idag till produktens `recreated`, sa att engine-flodet bara exponerar `resumed | recreated` utat.
 
 ## Rekommenderad v1-arkitektur
 
@@ -319,7 +333,7 @@ Om du valjer den vagen jag tror mest pa:
 
 Viktiga regler att lasa fast tidigt:
 
-- preview ar **stateful per projekt**
+- preview ar **stateful per chat/lane**
 - samma sandbox ska **ateranvandas sa langt det gar**
 - snabb preview och strikt verify ar **olika lanes**
 - `previewUrl` ska vara stabil inom aktiv session
@@ -342,7 +356,7 @@ Om du vill prova Render for att komma igang snabbt, gor det med **medvetet reduc
 - kor en private service eller web service med Docker image
 - lagg workspace/cache pa persistent disk
 - kor **inte** Docker-in-Docker som grundantagande
-- kor en sandbox per projekt som process/workspace, inte en full egen container-pool
+- kor en preview-runtime per chat/workspace som process, inte en full egen container-pool
 - acceptera att detta ar en overgangslosning, inte slutarkitekturen
 
 Da far du:

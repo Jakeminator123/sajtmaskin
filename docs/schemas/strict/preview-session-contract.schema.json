@@ -1,0 +1,218 @@
+{
+  "$schemaVersion": 1,
+  "id": "preview-session-contract",
+  "title": "Preview session and verify-lane contract",
+  "kind": "strict_contract",
+  "sourceOfTruth": {
+    "types": [
+      "src/lib/gen/preview/preview-contract.ts",
+      "src/lib/gen/preview/preview-host-client.ts"
+    ],
+    "runtime": [
+      "src/lib/gen/preview-quality-gate.ts",
+      "src/lib/gen/server-verify.ts",
+      "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
+      "src/app/api/engine/chats/[chatId]/repair/route.ts",
+      "preview-host/src/server.js",
+      "preview-host/src/validate.js",
+      "preview-host/src/runtime.js"
+    ],
+    "humanDoc": "docs/schemas/preview-session-contract.md"
+  },
+  "identifiers": {
+    "appProjectId": {
+      "type": "string",
+      "canonical": true,
+      "layer": "builder/app state",
+      "meaning": "Durable Sajtmaskin project ID",
+      "mustNotBeConfusedWith": ["chatId", "VERCEL_PROJECT_ID"]
+    },
+    "chatId": {
+      "type": "string",
+      "canonical": true,
+      "layer": "own-engine and preview lane",
+      "meaning": "Durable own-engine chat ID and current preview-host runtime key",
+      "previewHostPathKey": true
+    },
+    "versionId": {
+      "type": "string",
+      "canonical": true,
+      "layer": "version state",
+      "meaning": "Specific saved version within a chat"
+    },
+    "sandboxId": {
+      "type": "string",
+      "canonical": true,
+      "layer": "tier-2 runtime/session",
+      "meaning": "Active tier-2 runtime or preview session ID"
+    },
+    "VERCEL_PROJECT_ID": {
+      "type": "string",
+      "canonical": true,
+      "layer": "Vercel auth/config",
+      "meaning": "Vercel project ID for Vercel-scoped auth, not a Sajtmaskin project identifier"
+    }
+  },
+  "lanes": {
+    "preview": {
+      "stateful": true,
+      "key": "chatId",
+      "workspaceIsolation": "live preview workspace per chat/session",
+      "producesPreviewUrl": true,
+      "auth": {
+        "requiredOutsideLocalDev": true,
+        "appEnvKey": "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+        "hostEnvKey": "PREVIEW_HOST_API_KEY"
+      }
+    },
+    "verify": {
+      "stateful": false,
+      "key": "chatId+versionId+verifyId",
+      "workspaceIsolation": "isolated temporary verify workspace",
+      "producesPreviewUrl": false,
+      "checks": ["typecheck", "build", "lint"],
+      "appSideTelemetryNote": "Sajtmaskin may attach optional compact visualQA inside persisted preflight:quality-gate log meta when SAJTMASKIN_VISUAL_QA is enabled and all verify checks passed; this is app-side only and not part of PreviewHostVerifyResponse.",
+      "auth": {
+        "requiredOutsideLocalDev": true,
+        "appEnvKey": "SAJTMASKIN_PREVIEW_HOST_API_KEY",
+        "hostEnvKey": "PREVIEW_HOST_API_KEY"
+      }
+    }
+  },
+  "contracts": {
+    "PreviewSessionPostApiJson": {
+      "route": "/api/engine/chats/[chatId]/preview-session",
+      "compatRoute": "/api/v0/chats/[chatId]/preview-session",
+      "type": "object",
+      "required": [],
+      "properties": {
+        "ok": { "type": "boolean", "required": false },
+        "code": { "type": "string", "required": false },
+        "hint": { "type": "string", "required": false },
+        "message": { "type": "string", "required": false },
+        "stage": { "type": "string", "required": false },
+        "failureCode": { "type": "string", "required": false },
+        "retryable": { "type": "boolean", "required": false },
+        "previewUrl": { "type": "string", "required": false },
+        "previewSessionId": { "type": "string", "required": false },
+        "previewMode": { "type": "string", "required": false },
+        "previewTier": { "type": "number", "required": false },
+        "prodBuildVerified": { "type": "boolean", "required": false },
+        "prodBuildLogSnippet": { "type": "string", "required": false },
+        "startOutcome": {
+          "type": "string",
+          "required": false,
+          "enum": ["reused_url", "resumed", "recreated"]
+        }
+      }
+    },
+    "PreviewStatusApiJson": {
+      "route": "/api/engine/chats/[chatId]/preview-status",
+      "type": "object",
+      "required": ["ok", "status", "previewSessionId", "previewUrl", "versionId", "sessionExpiresAt"],
+      "properties": {
+        "ok": { "type": "boolean", "required": true },
+        "status": {
+          "type": "string",
+          "required": true,
+          "enum": ["running", "stopped", "missing", "version_mismatch"]
+        },
+        "previewSessionId": { "type": ["string", "null"], "required": true },
+        "previewUrl": { "type": ["string", "null"], "required": true },
+        "versionId": { "type": ["string", "null"], "required": true },
+        "sessionExpiresAt": { "type": ["number", "null"], "required": true },
+        "reason": { "type": "string", "required": false },
+        "message": { "type": "string", "required": false }
+      }
+    },
+    "PreviewHeartbeatApiJson": {
+      "route": "/api/engine/chats/[chatId]/preview-heartbeat",
+      "type": "object",
+      "required": ["ok"],
+      "properties": {
+        "ok": { "type": "boolean", "required": true },
+        "reason": { "type": "string", "required": false }
+      }
+    },
+    "PreviewHibernateApiJson": {
+      "route": "/api/engine/chats/[chatId]/preview-hibernate",
+      "type": "object",
+      "required": ["ok"],
+      "properties": {
+        "ok": { "type": "boolean", "required": true },
+        "hibernated": { "type": "boolean", "required": false },
+        "reason": { "type": "string", "required": false },
+        "message": { "type": "string", "required": false }
+      }
+    },
+    "PreviewDestroyApiJson": {
+      "route": "/api/engine/chats/[chatId]/preview-destroy",
+      "type": "object",
+      "required": ["ok"],
+      "properties": {
+        "ok": { "type": "boolean", "required": true },
+        "destroyed": { "type": "boolean", "required": false },
+        "clearedPreviewUrl": { "type": "boolean", "required": false },
+        "tier2Provider": {
+          "type": ["string", "null"],
+          "required": false,
+          "enum": ["preview_host", null]
+        },
+        "reason": { "type": "string", "required": false },
+        "message": { "type": "string", "required": false }
+      }
+    },
+    "PreviewHostVerifyRequest": {
+      "route": "POST /preview/verify",
+      "type": "object",
+      "required": ["chatId", "versionId", "filesJson"],
+      "legacyAcceptedAliases": {
+        "projectId": "chatId"
+      },
+      "properties": {
+        "chatId": { "type": "string", "required": true },
+        "projectId": { "type": "string", "required": false },
+        "versionId": { "type": "string", "required": true },
+        "filesJson": { "type": "object", "required": true },
+        "checks": {
+          "type": "array",
+          "required": false,
+          "items": {
+            "type": "string",
+            "enum": ["typecheck", "build", "lint"]
+          }
+        }
+      }
+    },
+    "PreviewHostVerifyResponse": {
+      "route": "POST /preview/verify",
+      "type": "object",
+      "required": ["ok", "verifyId", "chatId", "versionId", "durationMs", "results"],
+      "properties": {
+        "ok": { "type": "boolean", "required": true },
+        "verifyId": { "type": "string", "required": true },
+        "chatId": { "type": "string", "required": true },
+        "versionId": { "type": "string", "required": true },
+        "durationMs": { "type": "number", "required": true },
+        "jobStartedAt": { "type": ["string", "null"], "required": false },
+        "jobFinishedAt": { "type": ["string", "null"], "required": false },
+        "firstFailureCheck": { "type": ["string", "null"], "required": false },
+        "results": {
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "required": ["check", "passed", "exitCode", "output"],
+            "properties": {
+              "check": { "type": "string", "required": true },
+              "passed": { "type": "boolean", "required": true },
+              "exitCode": { "type": "number", "required": true },
+              "output": { "type": "string", "required": true },
+              "durationMs": { "type": "number", "required": false }
+            }
+          }
+        }
+      }
+    }
+  }
+}

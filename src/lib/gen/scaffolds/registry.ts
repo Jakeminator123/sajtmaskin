@@ -3,8 +3,8 @@
  * scaffold selection. Only scaffolds listed in ALL_SCAFFOLDS are used
  * by matchScaffoldWithEmbeddings() during code generation.
  *
- * External Vercel template research (e.g. _template_refs/, optional
- * vercel_template_cli.py catalogue scrape) is reference material for new internal scaffolds.
+ * External Vercel template research (e.g. data/external-template-pipeline/,
+ * _template_refs/) is reference material for new internal scaffolds.
  * They are NOT used at runtime and have no connection to this registry.
  */
 import type { ScaffoldManifest, ScaffoldFamily } from "./types";
@@ -18,6 +18,7 @@ import { blogManifest } from "./blog/manifest";
 import { dashboardManifest } from "./dashboard/manifest";
 import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
+import { photoShopManifest } from "./photo-shop/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
@@ -29,13 +30,42 @@ const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   dashboardManifest,
   authPagesManifest,
   ecommerceManifest,
+  photoShopManifest,
   contentSiteManifest,
   appShellManifest,
 ];
 
+function mergeUniqueStrings(base: string[] = [], override: string[] = []): string[] {
+  return [...new Set([...base, ...override].map((value) => value.trim()).filter(Boolean))];
+}
+
+function mergeScaffoldResearch(
+  base: ScaffoldManifest["research"],
+  override: ScaffoldManifest["research"],
+): ScaffoldManifest["research"] {
+  if (!base && !override) return undefined;
+  return {
+    upgradeTargets: mergeUniqueStrings(base?.upgradeTargets ?? [], override?.upgradeTargets ?? []),
+    referenceTemplates:
+      override?.referenceTemplates && override.referenceTemplates.length > 0
+        ? override.referenceTemplates
+        : (base?.referenceTemplates ?? []),
+  };
+}
+
 const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => ({
-  ...scaffold,
-  ...getScaffoldResearchOverrides(scaffold.id),
+  ...(() => {
+    const overrides = getScaffoldResearchOverrides(scaffold.id);
+    return {
+      ...scaffold,
+      ...overrides,
+      qualityChecklist: mergeUniqueStrings(
+        scaffold.qualityChecklist ?? [],
+        overrides.qualityChecklist ?? [],
+      ),
+      research: mergeScaffoldResearch(scaffold.research, overrides.research),
+    };
+  })(),
 }));
 
 export function getScaffoldById(id: string): ScaffoldManifest | null {

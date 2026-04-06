@@ -28,12 +28,44 @@ function formatComparison(
     lines.push("");
   }
 
+  if (comparison.passRegressions.length > 0) {
+    lines.push("### PASS → FAIL", "");
+    for (const r of comparison.passRegressions) {
+      lines.push(`- **${r.promptId}**: PASS → FAIL`);
+    }
+    lines.push("");
+  }
+
+  if (comparison.blockingCheckRegressions.length > 0) {
+    lines.push("### New Blocking Checks", "");
+    for (const r of comparison.blockingCheckRegressions) {
+      lines.push(`- **${r.promptId}**: +${r.added.join(", ")}`);
+    }
+    lines.push("");
+  }
+
   if (comparison.improvements.length > 0) {
     lines.push("### Improvements", "");
     for (const r of comparison.improvements) {
       lines.push(
         `- **${r.promptId}**: ${pct(r.baselineScore)} → ${pct(r.currentScore)} (+${pct(r.delta)})`,
       );
+    }
+    lines.push("");
+  }
+
+  if (comparison.passImprovements.length > 0) {
+    lines.push("### FAIL → PASS", "");
+    for (const r of comparison.passImprovements) {
+      lines.push(`- **${r.promptId}**: FAIL → PASS`);
+    }
+    lines.push("");
+  }
+
+  if (comparison.blockingCheckImprovements.length > 0) {
+    lines.push("### Removed Blocking Checks", "");
+    for (const r of comparison.blockingCheckImprovements) {
+      lines.push(`- **${r.promptId}**: -${r.removed.join(", ")}`);
     }
     lines.push("");
   }

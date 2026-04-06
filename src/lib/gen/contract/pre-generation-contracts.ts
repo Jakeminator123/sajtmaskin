@@ -142,7 +142,7 @@ function mentionsMockData(corpus: string): boolean {
 /**
  * When the prompt implies persistence but no concrete DB was inferred from keywords,
  * default to **SQLite in the repo** (e.g. `file:./dev.db`) instead of blocking on a
- * clarifying modal. Env is non-blocking so preview/sandbox can use placeholders.
+ * clarifying modal. Env is non-blocking so preview/VM runtime can use placeholders.
  */
 function applyDefaultSqliteWhenPersistenceNeedsProvider(
   corpus: string,
@@ -507,7 +507,7 @@ export function inferPreGenerationContracts(params: {
       status: rule.status ?? "chosen",
       envVars: rule.envVars,
     });
-    // Inferred keyword matches are preview-first: never mark env as blocking — sandbox uses
+    // Inferred keyword matches are preview-first: never mark env as blocking — the
     // merged `.env.local` placeholders (`config/ai_models/40-generated-site-integration-placeholders.env.txt`).
     pushEnvVars(envVars, rule.envVars, rule.reason, false);
   }
@@ -535,7 +535,7 @@ export function inferPreGenerationContracts(params: {
 
   applyConfirmedAnswers(contractAnswers, contracts, unresolvedDecisions);
 
-  // Preview/sandbox is the first delivery target: keep env requirements visible in
+  // Preview is the first delivery target: keep env requirements visible in
   // `contracts.envVars`, but never stop first generation on missing keys. Placeholder
   // `.env.local` + project env UI handles the handoff to production-grade config later.
 

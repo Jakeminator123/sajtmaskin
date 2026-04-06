@@ -5,6 +5,23 @@
 const DEFAULT_REGISTRY_BASE_URL = "https://ui.shadcn.com";
 const DEFAULT_REGISTRY_STYLE = "new-york-v4";
 
+/** Default style segment when resolving legacy (v3) registry items — matches shadcn CLI "new-york". */
+export const LEGACY_STYLE_DEFAULT = "new-york";
+
+/**
+ * Build a docs URL for a shadcn/ui component.
+ * Canonical form is `https://ui.shadcn.com/docs/components/{slug}` (no `/radix/` prefix) —
+ * matches the official llms.txt and sidebar navigation.
+ */
+export function buildShadcnDocsUrl(
+  componentName: string,
+  options: { baseUrl?: string } = {},
+): string {
+  const base = options.baseUrl?.trim() || getRegistryBaseUrl();
+  const slug = componentName.trim().toLowerCase();
+  return `${base}/docs/components/${encodeURIComponent(slug)}`;
+}
+
 function normalizeRegistryBaseUrl(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;

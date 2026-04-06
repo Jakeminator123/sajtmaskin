@@ -18,13 +18,14 @@ import type {
 import {
   CANONICAL_USE_CASE_SLUGS,
   parseTemplateCategoryFromUrl,
+  PIPELINE_REPORTS_ROOT,
   prettifyCategoryName,
   RAW_DISCOVERY_CURRENT_ROOT,
-  RAW_DISCOVERY_ROOT,
+  REPO_CACHE_ROOT,
+  REFERENCE_LIBRARY_ROOT,
   normalizeLegacySummary,
   normalizeRepoUrl,
   readJson,
-  resolveExistingLegacySummaryPath,
   resolveRepoCacheDir,
   resolveSummaryPath,
   slugify,
@@ -34,12 +35,7 @@ import {
 import { writeScaffoldCandidateReport } from "../scaffolds/scaffold-candidate-report";
 
 const WORKSPACE_ROOT = process.cwd();
-const TEMPLATE_LIBRARY_ROOT = path.resolve(
-  WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "reference-library",
-);
+const TEMPLATE_LIBRARY_ROOT = REFERENCE_LIBRARY_ROOT;
 const GENERATED_CATALOG_PATH = path.resolve(
   WORKSPACE_ROOT,
   "src/lib/gen/template-library/template-library.generated.json",
@@ -49,19 +45,10 @@ const GENERATED_SCAFFOLD_RESEARCH_PATH = path.resolve(
   "src/lib/gen/scaffolds/scaffold-research.generated.json",
 );
 const SCAFFOLD_CANDIDATE_REPORT_PATH = path.resolve(
-  WORKSPACE_ROOT,
-  "data/scaffold-candidates-curated.json",
+  PIPELINE_REPORTS_ROOT,
+  "scaffold-candidates-curated.json",
 );
-const LEGACY_SUMMARY_PATH = resolveExistingLegacySummaryPath();
-const SOURCE_ROOT_CANDIDATES = [
-  path.resolve(WORKSPACE_ROOT, "scraped-vercel-scorefolds"),
-  RAW_DISCOVERY_CURRENT_ROOT,
-  RAW_DISCOVERY_ROOT,
-  path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
-  path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-  ...(LEGACY_SUMMARY_PATH ? [path.dirname(LEGACY_SUMMARY_PATH)] : []),
-];
-const DEFAULT_PORTABLE_SOURCE_ROOT = "research/external-templates/raw-discovery/current";
+const DEFAULT_PORTABLE_SOURCE_ROOT = "data/external-template-pipeline/raw-discovery/current";
 
 function toPortableWorkspacePath(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -146,42 +133,57 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
   "base-nextjs": [
     "Keep a minimal App Router structure with layout, page, and globals.css.",
     "Preserve @theme inline tokens and stable path aliases.",
+    "Do not add heavy product or marketing structure unless the prompt clearly asks for it.",
   ],
   "landing-page": [
     "Hero, trust, CTA, and clear section hierarchy should be present.",
     "Layout should remain editable without introducing app-shell complexity.",
+    "Copy and section order should feel business-specific rather than generic starter filler.",
   ],
   "saas-landing": [
     "Pricing, product narrative, trust signals, and dashboard preview should exist.",
     "Keep marketing structure separate from logged-in app structure.",
+    "Make the product value proposition and hero preview feel tied to the actual product domain.",
   ],
   portfolio: [
     "Strong work showcase and biography sections should remain first-class.",
     "Visual rhythm should prioritize image or project presentation over dashboard UI.",
+    "Project cards, case studies, or gallery areas should feel curated rather than generic service blocks.",
   ],
   blog: [
     "Editorial layout, post hierarchy, and reading flow should remain intact.",
     "Content lists and article pages should not collapse into generic marketing cards.",
+    "Headings, excerpts, and archive structure should support reading and navigation first.",
   ],
   dashboard: [
     "Sidebar, overview cards, table/chart areas, and dense app layout should remain intact.",
     "Prefer realistic analytics structure over marketing-page sections.",
+    "Primary screens should feel operational and data-driven, not like brochure sections.",
   ],
   "auth-pages": [
     "Login, signup, and recovery flows should exist with link relationships between pages.",
     "Auth scaffolds should look ready for real integration, not just a single isolated card.",
+    "The entry flow should keep clear form states, helper text, and obvious next actions.",
   ],
   ecommerce: [
     "Catalog, product detail, cart, and checkout direction should be represented.",
     "Use realistic storefront hierarchy instead of generic content sections.",
+    "Merchandising, cart, and conversion flow should stay clearer than decorative marketing flourishes.",
   ],
   "content-site": [
     "Keep broad reusable content structure that can support services, docs-lite, and editorial sites.",
     "Do not force pricing or app-shell patterns unless the prompt asks for them.",
+    "Navigation and section hierarchy should stay content-first and easy to extend.",
   ],
   "app-shell": [
     "Preserve navigation shell, settings-ready layout, and app-like information density.",
     "Allow auth, billing, and dashboard subflows to be layered in later.",
+    "Primary layout should feel like a real product workspace, not a simple landing page with a sidebar.",
+  ],
+  "photo-shop": [
+    "Keep the editorial product grid with large hero card and alternating 1-column cards.",
+    "Preserve the monochrome oklch design system and tight typography (line-height 1.2, negative letter-spacing).",
+    "Cart should be a drawer, not a page. Product detail should include a multi-image gallery.",
   ],
 };
 
@@ -196,6 +198,7 @@ const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
   ecommerce: ["Stronger product and checkout patterns", "Clearer storefront information architecture"],
   "content-site": ["Broader reusable section coverage", "More believable content-first defaults"],
   "app-shell": ["Deeper app navigation patterns", "More settings, account, and workspace affordances"],
+  "photo-shop": ["Richer product gallery patterns", "Stronger editorial visual rhythm"],
 };
 
 function ensureDir(target: string): void {
@@ -691,7 +694,16 @@ function recommendScaffoldFamilies(
 
   if (categorySlug === "marketing-sites") add("landing-page", 6);
   if (categorySlug === "starter") add("base-nextjs", 6);
-  if (!signals.dashboard && !signals.auth && !signals.ecommerce && !signals.blog && !signals.portfolio) {
+
+  const TECH_DEMO_CATEGORIES = new Set([
+    "ai", "cron", "edge-functions", "edge-middleware", "edge-config",
+    "web3", "vercel-firewall", "cdn", "backend", "security",
+    "microfrontends", "virtual-event", "monorepos", "realtime-apps",
+  ]);
+  if (
+    !TECH_DEMO_CATEGORIES.has(categorySlug) &&
+    !signals.dashboard && !signals.auth && !signals.ecommerce && !signals.blog && !signals.portfolio
+  ) {
     add("landing-page", 2);
   }
 
@@ -704,7 +716,7 @@ function recommendScaffoldFamilies(
     .slice(0, 3)
     .map(([family]) => family);
 
-  return ranked.length > 0 ? ranked : ["landing-page"];
+  return ranked.length > 0 ? ranked : ["base-nextjs"];
 }
 
 function scoreEntry(
@@ -747,39 +759,6 @@ function decideVerdict(
   return "research_only";
 }
 
-function resolveLegacyRepoDir(sourceRoot: string, template: RawTemplateRecord): string {
-  if (template.artifact_tier) {
-    const tieredFolder = path.join(
-      sourceRoot,
-      template.artifact_tier,
-      template.category_slug,
-      slugify(template.title),
-    );
-    return path.join(tieredFolder, "repo");
-  }
-  const folder = path.join(sourceRoot, template.category_slug, slugify(template.title));
-  return path.join(folder, "repo");
-}
-
-function resolveLinkedLegacyDatasetRoot(sourceRoot: string): string | null {
-  const metadataPath = path.join(sourceRoot, "source-metadata.json");
-  if (!fs.existsSync(metadataPath)) return null;
-
-  try {
-    const metadata = readJson<{ sourcePath?: string | null }>(metadataPath);
-    const sourcePath = metadata.sourcePath?.trim();
-    if (!sourcePath) return null;
-
-    const candidateRootRaw = sourcePath.endsWith(".json") ? path.dirname(sourcePath) : sourcePath;
-    const candidateRoot = path.isAbsolute(candidateRootRaw)
-      ? candidateRootRaw
-      : path.resolve(WORKSPACE_ROOT, candidateRootRaw);
-    return fs.existsSync(path.join(candidateRoot, "summary.json")) ? candidateRoot : null;
-  } catch {
-    return null;
-  }
-}
-
 function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRecord): {
   cloneRoot: string;
   inspectionRoot: string;
@@ -787,13 +766,7 @@ function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRec
 } {
   const repoUrl = assessRepoUrl(template.repo_url);
   const cachedRepoDir = resolveRepoCacheDir(repoUrl.normalizedUrl);
-  const legacyRepoDir = resolveLegacyRepoDir(sourceRoot, template);
-  const linkedLegacyRoot = resolveLinkedLegacyDatasetRoot(sourceRoot);
-  const linkedLegacyRepoDir = linkedLegacyRoot ? resolveLegacyRepoDir(linkedLegacyRoot, template) : null;
-  const cloneRoot =
-    (cachedRepoDir && fs.existsSync(cachedRepoDir) && cachedRepoDir) ||
-    (linkedLegacyRepoDir && fs.existsSync(linkedLegacyRepoDir) && linkedLegacyRepoDir) ||
-    (fs.existsSync(legacyRepoDir) ? legacyRepoDir : legacyRepoDir);
+  const cloneRoot = cachedRepoDir ?? path.join(sourceRoot, "__missing_repo_cache__");
 
   if (repoUrl.subpath) {
     const subpathDir = path.join(cloneRoot, repoUrl.subpath);
@@ -804,6 +777,36 @@ function resolveRepoInspectionPaths(sourceRoot: string, template: RawTemplateRec
   }
 
   return { cloneRoot, inspectionRoot: cloneRoot, subpathMissing: false };
+}
+
+function loadRepoCacheFailures(): Set<string> {
+  const indexPath = path.join(REPO_CACHE_ROOT, "index.json");
+  if (!fs.existsSync(indexPath)) return new Set();
+  try {
+    const indexJson = readJson<{ failedRepos?: string[] }>(indexPath);
+    return new Set((indexJson.failedRepos ?? []).map((value) => value.trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+function collectMissingRepoCacheUrls(
+  entries: RawTemplateRecord[],
+  failedRepoUrls: Set<string>,
+): string[] {
+  const missing = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.framework_match) continue;
+    if (entry.is_monorepo_example || entry.artifact_tier === "monorepo-examples") continue;
+    const repoUrl = assessRepoUrl(entry.repo_url);
+    if (!repoUrl.normalizedUrl) continue;
+    if (failedRepoUrls.has(repoUrl.normalizedUrl)) continue;
+    const cacheDir = resolveRepoCacheDir(repoUrl.normalizedUrl);
+    if (!cacheDir || !fs.existsSync(cacheDir)) {
+      missing.add(repoUrl.normalizedUrl);
+    }
+  }
+  return Array.from(missing).sort((a, b) => a.localeCompare(b));
 }
 
 function buildEntry(
@@ -1117,8 +1120,15 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 
   for (const family of families) {
     const groupedReferences = grouped.get(family) ?? [];
+    const RESEARCH_EXCLUDE_CATEGORIES = new Set([
+      "ai", "cron", "edge-functions", "edge-middleware", "edge-config",
+      "web3", "vercel-firewall", "cdn", "backend", "security",
+      "microfrontends", "virtual-event", "monorepos", "realtime-apps",
+    ]);
     const filteredReferences = groupedReferences.filter(
-      (entry) => !isStarterOrBoilerplateReference(entry),
+      (entry) =>
+        !isStarterOrBoilerplateReference(entry) &&
+        !RESEARCH_EXCLUDE_CATEGORIES.has(entry.categorySlug),
     );
     const references =
       family === "base-nextjs"
@@ -1184,20 +1194,10 @@ function validateScaffoldResearchAgainstCatalog(
   }
 }
 
-function resolveDefaultSourceRoot(): string {
-  for (const candidate of SOURCE_ROOT_CANDIDATES) {
-    if (fs.existsSync(resolveSummaryPath(candidate))) {
-      return candidate;
-    }
-  }
-
-  return SOURCE_ROOT_CANDIDATES[0];
-}
-
 function parseArgs(): { sourceRoot: string } {
   const explicit = process.argv.find((arg) => arg.startsWith("--source="));
   return {
-    sourceRoot: explicit ? explicit.slice("--source=".length) : resolveDefaultSourceRoot(),
+    sourceRoot: explicit ? explicit.slice("--source=".length) : RAW_DISCOVERY_CURRENT_ROOT,
   };
 }
 
@@ -1211,6 +1211,21 @@ function main(): void {
   const normalizedSummary = normalizeLegacySummary(readJson<unknown>(summaryPath));
   const sourceDir = fs.statSync(summaryPath).isFile() ? path.dirname(summaryPath) : sourceRoot;
   const rawEntries = Object.values(normalizedSummary).flat();
+  const failedRepoUrls = loadRepoCacheFailures();
+  if (failedRepoUrls.size > 0) {
+    console.warn(
+      `[template-library] hydrate reported ${failedRepoUrls.size} failed repo clone(s); affected entries may be demoted to research_only`,
+    );
+  }
+  const missingRepoCacheUrls = collectMissingRepoCacheUrls(rawEntries, failedRepoUrls);
+  if (missingRepoCacheUrls.length > 0) {
+    const preview = missingRepoCacheUrls.slice(0, 10).join("\n- ");
+    throw new Error(
+      `[template-library] Missing repo-cache entries for ${missingRepoCacheUrls.length} repos.\n` +
+      `Run scripts/template-library/hydrate-template-library-cache.ts against the same --source before build.\n` +
+      `Examples:\n- ${preview}`,
+    );
+  }
   const allEntries = rawEntries
     .map((entry) => buildEntry(entry, sourceDir))
     .sort((a, b) => b.qualityScore - a.qualityScore || a.title.localeCompare(b.title));

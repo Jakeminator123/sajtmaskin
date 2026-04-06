@@ -1,5 +1,5 @@
 /**
- * API Route: Analyze website with AI Gateway
+ * API Route: Analyze website
  * POST /api/analyze-website
  *
  * Scrapes the website first, then feeds the actual content to the AI model
@@ -11,7 +11,6 @@ import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { quickScrapeWebsite } from "@/lib/webscraper";
 import { withRateLimit } from "@/lib/rateLimit";
-import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const maxDuration = 60;
 
@@ -51,6 +50,10 @@ interface AnalysisResponse {
   scraped: boolean;
 }
 
+function hasOpenAIApiKey(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "analyze:website", async () => {
     console.info("[API/analyze-website] Request received");
@@ -81,11 +84,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid URL format" }, { status: 400 });
     }
 
-    const hasGateway = Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
-    if (!hasGateway) {
-      console.error("[API/analyze-website] AI Gateway auth not configured");
+    if (!hasOpenAIApiKey()) {
+      console.error("[API/analyze-website] OPENAI_API_KEY not configured");
       return NextResponse.json(
-        { success: false, error: "AI Gateway is not configured" },
+        { success: false, error: "OPENAI_API_KEY saknas" },
         { status: 500 },
       );
     }

@@ -1,8 +1,36 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { StructuredToolParts } from "./BuilderMessageTooling";
+import { buildAgentLogItems, CompactToolParts, StructuredToolParts } from "./BuilderMessageTooling";
 
 describe("StructuredToolParts", () => {
+  it("extracts detailed server-repair steps for the agent log", () => {
+    expect(
+      buildAgentLogItems([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:quality-gate",
+            name: "Server repair",
+            state: "output-available",
+            output: {
+              repaired: false,
+              method: "llm",
+              remainingErrors: 3,
+              improvedSyntax: true,
+              earlyStopReason: "no_improvement",
+            },
+          },
+        } as never,
+      ]),
+    ).toEqual([
+      { label: "Server repair blev inte fullständig." },
+      { label: "Metod: llm" },
+      { label: "Kvarvarande fel: 3" },
+      { label: "Syntax förbättrades: ja" },
+      { label: "Stopporsak: no_improvement" },
+    ]);
+  });
+
   it("keeps clarification prompts as free-text questions when no approval intent exists", () => {
     render(
       <StructuredToolParts
@@ -122,6 +150,269 @@ describe("StructuredToolParts", () => {
 
     expect(screen.getByText("Status: quality gate körs fortfarande")).toBeTruthy();
     expect(screen.queryByText(/autofix är köad/i)).toBeNull();
+  });
+
+  it("shows verify-lane metadata such as first failure check", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_quality_gate"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-available",
+              output: {
+                passed: false,
+                checks: [
+                  {
+                    check: "install",
+                    passed: false,
+                    exitCode: 1,
+                    output: "npm install failed",
+                    durationMs: 1850,
+                  },
+                ],
+                verifyLaneDurationMs: 3200,
+                firstFailureCheck: "install",
+                jobStartedAt: "2026-04-03T12:00:00.000Z",
+                jobFinishedAt: "2026-04-03T12:00:03.200Z",
+                visualQA: {
+                  overallScore: 74,
+                  passed: false,
+                  checks: [
+                    {
+                      check: "hero-balance",
+                      passed: false,
+                      score: 74,
+                      detail: "Hero layout feels uneven.",
+                    },
+                  ],
+                },
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("First failure: install")).toBeTruthy();
+    expect(screen.getByText("1.9s")).toBeTruthy();
+    expect(screen.getByText("Total: 3.2s")).toBeTruthy();
+    expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
+    expect(screen.getByText("Visual QA: 74/100 BELOW THRESHOLD")).toBeTruthy();
+  });
+
+  it("shows compact verify-lane summary without structured tool cards", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_quality_gate_compact"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-available",
+              output: {
+                passed: false,
+                checks: [
+                  {
+                    check: "build",
+                    passed: false,
+                    exitCode: 1,
+                    output: "Build failed: missing export",
+                    durationMs: 1800,
+                  },
+                ],
+                verifyLaneDurationMs: 3200,
+                firstFailureCheck: "build",
+                jobStartedAt: "2026-04-03T12:00:00.000Z",
+                jobFinishedAt: "2026-04-03T12:00:03.200Z",
+                visualQA: {
+                  overallScore: 74,
+                  passed: false,
+                  checks: [
+                    {
+                      check: "hero-balance",
+                      passed: false,
+                      score: 74,
+                      detail: "Hero layout feels uneven.",
+                    },
+                  ],
+                },
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Verify: FAIL")).toBeTruthy();
+    expect(screen.getByText("build (1.8s)")).toBeTruthy();
+    expect(screen.getByText("Detalj: Build failed: missing export")).toBeTruthy();
+    expect(screen.getByText("Total: 3.2s • First failure: build")).toBeTruthy();
+    expect(screen.getByText("Start: 12:00:00Z • Slut: 12:00:03Z")).toBeTruthy();
+    expect(screen.getByText("Visual QA: 74/100 BELOW THRESHOLD")).toBeTruthy();
+  });
+
+  it("shows compact skipped quality gate reason", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_quality_gate_skipped"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-available",
+              output: {
+                skipped: true,
+                reason: "Quality gate not configured",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Verify: hoppades över")).toBeTruthy();
+    expect(screen.getByText("Quality gate not configured")).toBeTruthy();
+  });
+
+  it("shows compact quality gate error text", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_quality_gate_error"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              state: "output-error",
+              errorText: "Quality gate request failed (network error)",
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Verify: fel")).toBeTruthy();
+    expect(screen.getByText("Quality gate request failed (network error)")).toBeTruthy();
+  });
+
+  it("shows structured server-repair summary", () => {
+    render(
+      <StructuredToolParts
+        messageId="msg_server_repair"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              name: "Server repair",
+              state: "output-available",
+              output: {
+                repaired: false,
+                status: "completed",
+                method: "llm",
+                remainingErrors: 3,
+                improvedSyntax: true,
+                earlyStopReason: "no_improvement",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getAllByText("Server repair").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Reparationsförsök slutfört utan full fix")).toBeTruthy();
+    expect(screen.getAllByText("Status: completed").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Metod: llm")).toBeTruthy();
+    expect(screen.getByText("Kvarvarande fel: 3")).toBeTruthy();
+    expect(screen.getByText("Syntax förbättrades: ja")).toBeTruthy();
+    expect(screen.getByText("Stopporsak: no_improvement")).toBeTruthy();
+  });
+
+  it("shows compact server-repair summary", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_server_repair_compact"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              name: "Server repair",
+              state: "output-available",
+              output: {
+                repaired: false,
+                status: "completed",
+                method: "llm",
+                remainingErrors: 3,
+                improvedSyntax: true,
+                earlyStopReason: "no_improvement",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Repair: ej fullständig")).toBeTruthy();
+    expect(screen.getAllByText("Status: completed").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Metod: llm")).toBeTruthy();
+    expect(
+      screen.getByText("Kvarvarande fel: 3 • Syntax förbättrades: ja • Stopporsak: no_improvement"),
+    ).toBeTruthy();
+  });
+
+  it("shows server-repair reason when the request fails before a repair result exists", () => {
+    render(
+      <CompactToolParts
+        messageId="msg_server_repair_request_failed"
+        toolParts={[
+          {
+            type: "tool",
+            tool: {
+              type: "tool:quality-gate",
+              name: "Server repair",
+              state: "output-available",
+              output: {
+                repaired: false,
+                status: "request_failed",
+                reason: "Repair request failed (HTTP 500)",
+              },
+            },
+          } as never,
+        ]}
+        pendingReply={null}
+        hasUserAfterCurrentMessage={false}
+        pendingQuickReplyKey={null}
+      />,
+    );
+
+    expect(screen.getByText("Repair: ej fullständig")).toBeTruthy();
+    expect(screen.getAllByText("Status: request_failed").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Orsak: Repair request failed (HTTP 500)")).toBeTruthy();
   });
 
   it("shows business workflow quick actions from post-check output", () => {

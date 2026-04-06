@@ -1,8 +1,8 @@
 /**
  * Integration checks for curated external templates (Vercel scrape → template-library).
- * Committed artifacts: template-library.generated.json + template-library-embeddings.json.
+ * Local generated artifacts: template-library.generated.json + template-library-embeddings.json.
  *
- * If entries.length === 0, run hydrate + build + embeddings (see research/external-templates/README.md and scripts/README.md).
+ * If entries.length === 0, run hydrate + build + embeddings (see scripts/README.md).
  */
 import { describe, expect, it } from "vitest";
 import { getScaffoldFamilies } from "@/lib/gen/scaffolds";
@@ -33,7 +33,7 @@ const catalogIds = new Set(entries.map((e) => e.id));
 const embeddingIds = new Set((embeddingsJson.embeddings ?? []).map((e) => e.id));
 const knownScaffoldFamilies = new Set(getScaffoldFamilies());
 
-describe("template-library external templates (committed catalog)", () => {
+describe("template-library external templates (local generated catalog)", () => {
   it("has at least one curated entry (rebuild pipeline if zero)", () => {
     expect(entries.length, "Run hydrate + build-template-library + template-library:embeddings").toBeGreaterThan(
       0,

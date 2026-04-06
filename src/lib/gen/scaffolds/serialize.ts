@@ -33,7 +33,7 @@ const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
   "Never leave literal brackets, curly-brace tokens, or obvious scaffold boilerplate in the final output.",
 ].join(" ");
 
-const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 25_000;
+const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 20_000;
 const CRITICAL_PATH_PATTERNS = [
   /^app\/layout\.tsx$/,
   /^src\/app\/layout\.tsx$/,
@@ -89,7 +89,7 @@ export function serializeScaffoldForPrompt(
       Math.min(maxChars, 10_000),
     );
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` uses deliberately neutral gray tokens (hue 0, no color). You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks gray/neutral, you forgot to adapt the colors.${hints}`;
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
   }
 
   if (!FEATURES.useLightweightScaffoldSerialization || options.forceFullDump) {
@@ -102,7 +102,7 @@ export function serializeScaffoldForPrompt(
 
     const fileBlocks = renderScaffoldFiles(scaffold, maxChars);
 
-    return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as a flexible starting point — not a rigid template. Adapt structure, pages, and components freely to match what the user actually asked for. If the user wants two pages, create two pages even if the scaffold only has one. Rewrite scaffold placeholder copy to reflect the user's actual topic, tone, language, and visual identity. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` contains deliberately neutral gray placeholder tokens (hue 0). You MUST replace them with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted \`@theme inline\` color tokens. Gray/neutral output means you forgot.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
+    return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as a flexible starting point — not a rigid template. Adapt structure, pages, and components freely to match what the user actually asked for. If the user wants two pages, create two pages even if the scaffold only has one. Rewrite scaffold placeholder copy to reflect the user's actual topic, tone, language, and visual identity. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` starter palette is a baseline, not the final brand palette. You MUST replace it with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted \`@theme inline\` color tokens. Default/neutral output means you forgot.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
   }
 
   const contextPolicy = options.contextPolicy ?? "normal";

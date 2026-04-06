@@ -3,13 +3,22 @@ export interface OpenClawChatMessageLike {
   content?: string | null;
 }
 
-export type OpenClawCodeContextMode = "none" | "snippet" | "manifest" | "full";
+export type OpenClawCodeContextMode = "none" | "light" | "manifest" | "full";
+export type OpenClawRoutingIntent = "general" | "review";
+
+export const OPENCLAW_ROUTING_STRATEGY = "internal_review_escalation";
 
 const FULL_CODE_CONTEXT_TERMS = [
   "läs koden",
   "lasa koden",
   "gå igenom koden",
   "ga igenom koden",
+  "gå igenom allt",
+  "ga igenom allt",
+  "granska allt",
+  "granska hela projektet",
+  "granska hela kodbasen",
+  "hela repot",
   "hela koden",
   "alla filer",
   "hela projektet",
@@ -47,7 +56,7 @@ const MANIFEST_CODE_CONTEXT_TERMS = [
   ".json",
 ] as const;
 
-const SNIPPET_CODE_CONTEXT_TERMS = [
+const LIGHT_CODE_CONTEXT_TERMS = [
   "kod",
   "koden",
   "code",
@@ -65,6 +74,37 @@ const SNIPPET_CODE_CONTEXT_TERMS = [
   "stack trace",
   "varför funkar",
   "varfor funkar",
+  "senaste prompt",
+  "latest prompt",
+  "senaste svar",
+  "senaste output",
+  "current output",
+] as const;
+
+const REVIEW_INTENT_TERMS = [
+  "granska",
+  "review",
+  "debug",
+  "bugg",
+  "bug",
+  "fel",
+  "vad kan förbättras",
+  "vad kan forbattras",
+  "vad borde jag ändra",
+  "vad borde jag andra",
+  "vad ska jag ändra",
+  "vad ska jag andra",
+  "forbattringsforslag",
+  "förbättringsförslag",
+  "recommend improvements",
+  "suggest improvements",
+  "what can be improved",
+  "what should i change",
+  "senaste prompt",
+  "latest prompt",
+  "senaste svar",
+  "senaste output",
+  "current output",
 ] as const;
 
 function normalizeIntentText(value: string): string {
@@ -88,6 +128,14 @@ export function getLatestOpenClawUserText(
   return "";
 }
 
+export function decideOpenClawRoutingIntent(params: {
+  messages: OpenClawChatMessageLike[];
+}): OpenClawRoutingIntent {
+  const latestUserText = getLatestOpenClawUserText(params.messages);
+  if (!latestUserText) return "general";
+  return hasAnyTerm(latestUserText, REVIEW_INTENT_TERMS) ? "review" : "general";
+}
+
 export function decideOpenClawCodeContextMode(params: {
   messages: OpenClawChatMessageLike[];
   page?: unknown;
@@ -109,18 +157,24 @@ export function decideOpenClawCodeContextMode(params: {
 
   if (hasAnyTerm(latestUserText, FULL_CODE_CONTEXT_TERMS)) {
     if (hasChatId) return "full";
-    if (hasCurrentCode) return "snippet";
+    if (hasCurrentCode) return "light";
     return "none";
   }
 
   if (hasAnyTerm(latestUserText, MANIFEST_CODE_CONTEXT_TERMS)) {
     if (hasChatId) return "manifest";
-    if (hasCurrentCode) return "snippet";
+    if (hasCurrentCode) return "light";
     return "none";
   }
 
-  if (hasAnyTerm(latestUserText, SNIPPET_CODE_CONTEXT_TERMS)) {
-    if (hasCurrentCode) return "snippet";
+  if (decideOpenClawRoutingIntent({ messages }) === "review") {
+    if (hasChatId) return "manifest";
+    if (hasCurrentCode) return "light";
+    return "none";
+  }
+
+  if (hasAnyTerm(latestUserText, LIGHT_CODE_CONTEXT_TERMS)) {
+    if (hasCurrentCode) return "light";
     if (hasChatId) return "manifest";
   }
 

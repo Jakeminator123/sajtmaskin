@@ -5,6 +5,18 @@ export type SseEvent = {
   data: unknown;
 };
 
+export type SyncLatestVersionPayload = {
+  id: string | null;
+  versionId: string | null;
+  messageId: string | null;
+  previewUrl: string | null;
+  previewPending: boolean;
+  releaseState: string | null;
+  verificationState: string | null;
+  verificationSummary: string | null;
+  promotedAt: string | null;
+};
+
 export function parseSseEvents(payload: string): SseEvent[] {
   return payload
     .split("\n\n")
@@ -41,6 +53,48 @@ function findLastEvent(events: SseEvent[], name: string): SseEvent | undefined {
   return undefined;
 }
 
+export function readPreviewReadyUrl(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const raw = typeof (data as { previewUrl?: unknown }).previewUrl === "string"
+    ? (data as { previewUrl: string }).previewUrl.trim()
+    : "";
+  return raw || null;
+}
+
+export function buildSyncLatestVersion(params: {
+  versionId: string | null;
+  messageId: string | null;
+  previewResolved: string | null;
+  previewPending: boolean;
+  releaseState?: string | null;
+  verificationState?: string | null;
+  verificationSummary?: string | null;
+  promotedAt?: string | null;
+}): SyncLatestVersionPayload | null {
+  const {
+    versionId,
+    messageId,
+    previewResolved,
+    previewPending,
+    releaseState = null,
+    verificationState = null,
+    verificationSummary = null,
+    promotedAt = null,
+  } = params;
+  if (!versionId && !previewResolved && !messageId) return null;
+  return {
+    id: versionId,
+    versionId,
+    messageId,
+    ...previewUrlField(previewResolved),
+    previewPending,
+    releaseState,
+    verificationState,
+    verificationSummary,
+    promotedAt,
+  };
+}
+
 /**
  * Convert create-chat SSE transcript to the JSON shape expected by `useCreateChat` sync fallback.
  */
@@ -52,7 +106,7 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
   const errorEvent = findLastEvent(events, "error");
   const doneEvent = findLastEvent(events, "done");
   const metaEvent = findLastEvent(events, "meta");
-  const sandboxReadyEvent = findLastEvent(events, "sandbox-ready");
+  const previewReadyEvent = findLastEvent(events, "preview-ready");
 
   if (!doneEvent) {
     const errorData =
@@ -86,19 +140,18 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
 
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
-  const sandboxPending = done.sandboxPending === true;
+  const previewPending = done.previewPending === true;
 
-  const sandboxData =
-    sandboxReadyEvent?.data && typeof sandboxReadyEvent.data === "object"
-      ? (sandboxReadyEvent.data as Record<string, unknown>)
+  const previewData =
+    previewReadyEvent?.data && typeof previewReadyEvent.data === "object"
+      ? (previewReadyEvent.data as Record<string, unknown>)
       : null;
-  const sandboxUrl =
-    sandboxData && typeof sandboxData.sandboxUrl === "string" ? sandboxData.sandboxUrl.trim() : "";
+  const previewReadyUrl = readPreviewReadyUrl(previewData);
 
   const previewResolved =
     readPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
     resolveInboundPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
-    (sandboxUrl ? sandboxUrl : null);
+    previewReadyUrl;
 
   const verificationState = done.verificationBlocked === true ? "failed" : "pending";
   const verificationSummary =
@@ -125,7 +178,7 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
     model: typeof meta.modelId === "string" ? meta.modelId : null,
     meta,
     ...previewUrlField(previewResolved),
-    sandboxPending,
+    previewPending,
     preflight: done.preflight,
     previewBlocked: done.previewBlocked,
     verificationBlocked: done.verificationBlocked,
@@ -135,18 +188,16 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
     planMode: done.planMode,
     reason: typeof done.reason === "string" ? done.reason : null,
     toolCalls: Array.isArray(done.toolCalls) ? done.toolCalls : [],
-    latestVersion: {
-      id: versionId,
+    latestVersion: buildSyncLatestVersion({
       versionId,
       messageId,
-      ...previewUrlField(previewResolved),
-      sandboxUrl: sandboxUrl || null,
-      sandboxPending,
+      previewResolved,
+      previewPending,
       releaseState: null,
       verificationState,
       verificationSummary,
       promotedAt: null,
-    },
+    }),
     usage: {
       promptTokens,
       completionTokens,

@@ -20,33 +20,33 @@ function spec(partial: Partial<BuildSpec> & Pick<BuildSpec, "changeScope" | "con
 }
 
 describe("resolveOwnEngineMaxSteps", () => {
-  it("uses 2 steps for first-generation style calls", () => {
+  it("uses 4 steps for first-generation style calls", () => {
     expect(
       resolveOwnEngineMaxSteps({
         buildSpec: spec({ changeScope: "redesign", contextPolicy: "heavy" }),
         userMessage: "anything",
         isFollowUp: false,
       }),
-    ).toBe(2);
+    ).toBe(4);
   });
 
-  it("bumps to 3 for heavy follow-up context policy", () => {
+  it("bumps to 5 for heavy follow-up context policy", () => {
     expect(
       resolveOwnEngineMaxSteps({
         buildSpec: spec({ changeScope: "copy", contextPolicy: "heavy" }),
         userMessage: "tiny tweak",
         isFollowUp: true,
       }),
-    ).toBe(3);
+    ).toBe(5);
   });
 
-  it("bumps to 3 for design-heavy user wording", () => {
+  it("bumps to 5 for design-heavy user wording", () => {
     expect(
       resolveOwnEngineMaxSteps({
         buildSpec: spec({ changeScope: "copy", contextPolicy: "light" }),
         userMessage: "New hero, animations, and color system on the landing page.",
         isFollowUp: true,
       }),
-    ).toBe(3);
+    ).toBe(5);
   });
 });

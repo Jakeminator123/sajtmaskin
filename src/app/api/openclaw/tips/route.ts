@@ -14,7 +14,7 @@ interface TipsRequestBody {
 
 const DEFAULT_UI_SURFACES = [
   "vänster chatpanel",
-  "Mer-menyn (import, sandbox, ZIP)",
+  "Mer-menyn (import, runtime, ZIP)",
   "Lanseringskortet",
   "previewpanelen",
   "sidchipsen under Preview",

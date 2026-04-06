@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OPENCLAW } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
+import {
+  decideOpenClawRoutingIntent,
+  OPENCLAW_ROUTING_STRATEGY,
+  type OpenClawChatMessageLike,
+} from "@/lib/openclaw/chat-context-policy";
+import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 
 export const runtime = "nodejs";
@@ -18,6 +24,7 @@ interface DidChatRequestBody {
   message?: string;
   text?: string;
   input?: string;
+  context?: Record<string, unknown> | null;
   recentMessages?: Array<{
     role?: unknown;
     content?: unknown;
@@ -31,6 +38,8 @@ const MAX_HISTORY_MESSAGE_CHARS = 800;
 
 const DID_BRIDGE_SYSTEM_PROMPT = `Du är Sajtagenten som hjärna bakom en svensk D-ID-avatar i Sajtmaskin.
 
+OpenClaw/Sajtagenten är en separat assistent- och agentyta. Builderns own-engine, promptassist, brief, verifiering och andra LLM-pass är andra LLM-flöden. Blanda inte ihop dem när du förklarar vad som händer.
+
 Regler:
 - Svara alltid på svenska.
 - Svara kort, naturligt och pratbart. Tänk talspråk, inte chattroman.
@@ -39,6 +48,20 @@ Regler:
 - Om något är osäkert: säg det kort och tydligt.
 - Om OpenClaw- eller systemspecifik infrastruktur är irrelevant för användaren: nämn den inte.
 - Om användaren ber om något som kräver webbplatsändring eller builder-ändring: säg kort vad som bör ändras, men låtsas inte att du redan gjort det.`;
+
+function buildRoutingSystemPrompt(intent: "general" | "review"): string {
+  if (intent === "review") {
+    return `Internt läge: review.
+
+Den publika ytan ska fortfarande vara Sajtagenten/avataren. Om djupare analys behövs ska den ske som intern review bakom Sajtagenten (${OPENCLAW_ROUTING_STRATEGY}), inte via en separat synlig agent.
+
+Använd djupare builder- eller kodkontext bara när den finns och verkligen behövs. Leverera sedan ett kort, pratbart svar med de viktigaste slutsatserna.`;
+  }
+
+  return `Internt läge: assistans.
+
+Håll dig till kort, naturlig vägledning. Läs inte in mer kod- eller filkontext än frågan motiverar.`;
+}
 
 function sanitizeText(value: unknown, maxChars: number): string {
   if (typeof value !== "string") return "";
@@ -95,12 +118,40 @@ function extractAssistantText(payload: unknown): string {
     .trim();
 }
 
-function buildMessages(userMessage: string, history: ChatMessage[]) {
-  return [
-    { role: "system", content: DID_BRIDGE_SYSTEM_PROMPT },
-    ...history,
-    { role: "user", content: userMessage },
+async function buildMessages(params: {
+  userMessage: string;
+  history: ChatMessage[];
+  context?: Record<string, unknown> | null;
+}) {
+  const conversationMessages: OpenClawChatMessageLike[] = [
+    ...params.history,
+    { role: "user", content: params.userMessage },
   ];
+  const routingIntent = decideOpenClawRoutingIntent({
+    messages: conversationMessages,
+  });
+  const messages: Array<{ role: "system" | ChatRole; content: string }> = [
+    { role: "system", content: DID_BRIDGE_SYSTEM_PROMPT },
+    { role: "system", content: buildRoutingSystemPrompt(routingIntent) },
+  ];
+
+  if (params.context && typeof params.context === "object") {
+    const contextMessage = await buildOpenClawContextSystemMessage({
+      messages: conversationMessages,
+      context: params.context,
+      currentCodeMaxChars: 12_000,
+      fullCodeContextMaxChars: 120_000,
+      manifestFileLimit: 14,
+      fullFileLimit: 20,
+    });
+    messages.push({
+      role: "system",
+      content: contextMessage.content,
+    });
+  }
+
+  messages.push(...params.history, { role: "user", content: params.userMessage });
+  return messages;
 }
 
 export async function POST(req: NextRequest) {
@@ -140,6 +191,11 @@ export async function POST(req: NextRequest) {
     const history = sanitizeHistory(body.recentMessages);
 
     try {
+      const messages = await buildMessages({
+        userMessage,
+        history,
+        context: body.context,
+      });
       const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {
         method: "POST",
         headers: {
@@ -150,7 +206,7 @@ export async function POST(req: NextRequest) {
           model: "openclaw:sajtagenten",
           stream: false,
           user: sessionId,
-          messages: buildMessages(userMessage, history),
+          messages,
         }),
         signal: AbortSignal.timeout(45_000),
       });

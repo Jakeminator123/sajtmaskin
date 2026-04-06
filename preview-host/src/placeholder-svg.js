@@ -3,7 +3,7 @@
 /**
  * Same contract as main app GET /api/placeholder — generated sites use
  * `/placeholder.svg?...` in <img src>. With Tier-2 basePath those URLs must hit
- * `/{projectId}/placeholder.svg` inside Next, but plain `/placeholder.svg` resolves
+ * `/{chatId}/placeholder.svg` inside Next, but plain `/placeholder.svg` resolves
  * against the preview-host origin root and would 404. We serve it here.
  */
 

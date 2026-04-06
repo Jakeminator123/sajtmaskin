@@ -28,6 +28,17 @@ const marketingRoutePlan: RoutePlan = {
   ],
 };
 
+const multiPageWebsiteRoutePlan: RoutePlan = {
+  source: "prompt",
+  siteType: "content-heavy",
+  reason: "test",
+  routes: [
+    { path: "/", name: "Home", intent: "Primary landing page", required: true },
+    { path: "/om-oss", name: "Om oss", intent: "About page", required: false },
+    { path: "/produkter", name: "Produkter", intent: "Catalog page", required: false },
+  ],
+};
+
 const saasScaffold: ScaffoldManifest = {
   id: "saas-landing",
   family: "saas-landing",
@@ -57,6 +68,7 @@ describe("deriveBuildSpec", () => {
     expect(spec.previewPolicy).toBe("fidelity2");
     expect(spec.verificationPolicy).toBe("standard");
     expect(spec.contextPolicy).toBe("normal");
+    expect(spec.tokenBudgets.scaffoldTokens).toBe(6_250);
     expect(spec.tokenBudgets.scaffoldChars).toBe(20_000);
   });
 
@@ -185,6 +197,22 @@ describe("deriveBuildSpec", () => {
     expect(spec.contextPolicy).toBe("heavy");
   });
 
+  it("keeps common multi-page websites at standard quality when they lack app/integration signals", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: multiPageWebsiteRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.changeScope).toBe("page-addition");
+    expect(spec.qualityTarget).toBe("standard");
+    expect(spec.contextPolicy).toBe("normal");
+  });
+
   it("maps tokenBudgets to contextPolicy levels (light, normal, heavy)", () => {
     const light = deriveBuildSpec({
       prompt: "Uppdatera bara rubriken, behåll layouten.",
@@ -197,6 +225,9 @@ describe("deriveBuildSpec", () => {
     });
     expect(light.contextPolicy).toBe("light");
     expect(light.tokenBudgets).toEqual({
+      scaffoldTokens: 3_750,
+      refsTokens: 1_250,
+      systemContextTokens: 5_625,
       scaffoldChars: 12_000,
       refsChars: 4_000,
       systemContextChars: 18_000,
@@ -213,6 +244,9 @@ describe("deriveBuildSpec", () => {
     });
     expect(normal.contextPolicy).toBe("normal");
     expect(normal.tokenBudgets).toEqual({
+      scaffoldTokens: 6_250,
+      refsTokens: 2_500,
+      systemContextTokens: 8_750,
       scaffoldChars: 20_000,
       refsChars: 8_000,
       systemContextChars: 28_000,
@@ -240,6 +274,9 @@ describe("deriveBuildSpec", () => {
     });
     expect(heavy.contextPolicy).toBe("heavy");
     expect(heavy.tokenBudgets).toEqual({
+      scaffoldTokens: 7_800,
+      refsTokens: 3_750,
+      systemContextTokens: 11_250,
       scaffoldChars: 25_000,
       refsChars: 12_000,
       systemContextChars: 36_000,

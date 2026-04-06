@@ -62,6 +62,7 @@ vi.mock("@/lib/builder/promptLimits", () => ({
   WARN_CHAT_MESSAGE_CHARS: 20_000,
   WARN_CHAT_SYSTEM_CHARS: 20_000,
   MAX_AI_BRIEF_PROMPT_CHARS: 20_000,
+  MAX_PROMPT_HANDOFF_CHARS: 20_000,
 }));
 
 vi.mock("@/lib/builder/promptOrchestration", () => ({
@@ -276,6 +277,14 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { POST } from "./route";
 
+/** `resolveOrchestrationBase` must never return `routePlan: null` — create-chat-stream reads `routePlan.routes`. */
+const unitTestRoutePlan = {
+  source: "prompt" as const,
+  siteType: "one-page" as const,
+  reason: "unit-test",
+  routes: [] as Array<{ path: string; name: string; intent: string; required: boolean }>,
+};
+
 function buildPipelineStream(events: Array<{ event: string; data: unknown }>) {
   const encoder = new TextEncoder();
 
@@ -346,7 +355,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         family: "marketing",
         label: "Marketing",
       },
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -399,7 +408,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         label: "Marketing",
       },
       scaffoldContext: undefined,
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -443,7 +452,6 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
       scaffoldAndCapability: "",
     });
     finalizeOrchestrationPrompts.mockResolvedValue({
-      templateLibrarySearchDiagnostics: null,
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
     });

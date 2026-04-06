@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS versions (
   message_id TEXT REFERENCES messages(id),
   version_number INTEGER NOT NULL,
   files_json TEXT NOT NULL,
-  sandbox_url TEXT,
+  preview_url TEXT,
   release_state TEXT NOT NULL DEFAULT 'draft',
   verification_state TEXT NOT NULL DEFAULT 'pending',
   verification_summary TEXT,

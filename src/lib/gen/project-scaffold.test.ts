@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildCompleteProject, mergePackageJsonWithBaseline } from "./project-scaffold";
+import {
+  buildCompleteProject,
+  mergePackageJsonWithBaseline,
+  mergeTsconfigWithBaseline,
+} from "./project-scaffold";
 import { buildExportableProject } from "./build-exportable-project";
 import { runProjectSanityChecks } from "./validation/project-sanity";
 import type { CodeFile } from "./parser";
@@ -55,6 +59,43 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.dependencies["@react-three/fiber"]).toBe("9.1.2");
     expect(merged.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(merged.dependencies.three).toBe("0.176.0");
+  });
+});
+
+describe("mergeTsconfigWithBaseline", () => {
+  it("keeps baseline libs/plugins/include while letting the model extend options", () => {
+    const merged = mergeTsconfigWithBaseline({
+      compilerOptions: {
+        strict: false,
+        lib: ["dom", "webworker"],
+        paths: {
+          "@generated/*": ["./generated/*"],
+        },
+      },
+      include: ["custom/**/*.ts"],
+    });
+
+    const compilerOptions = merged.compilerOptions as {
+      strict: boolean;
+      lib: string[];
+      plugins: Array<Record<string, unknown>>;
+      paths: Record<string, unknown>;
+    };
+
+    expect(compilerOptions.strict).toBe(false);
+    expect(compilerOptions.lib).toEqual(
+      expect.arrayContaining(["dom", "dom.iterable", "esnext", "webworker"]),
+    );
+    expect(compilerOptions.plugins).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "next" })]),
+    );
+    expect(compilerOptions.paths).toMatchObject({
+      "@/*": ["./*"],
+      "@generated/*": ["./generated/*"],
+    });
+    expect(merged.include).toEqual(
+      expect.arrayContaining(["next-env.d.ts", ".next/types/**/*.ts", "custom/**/*.ts"]),
+    );
   });
 });
 
@@ -115,6 +156,45 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.scripts).not.toHaveProperty("lint");
+  });
+
+  it("merges a model tsconfig with baseline compiler essentials", () => {
+    const generated: CodeFile[] = [
+      {
+        path: "tsconfig.json",
+        content: JSON.stringify({
+          compilerOptions: {
+            strict: false,
+            lib: ["webworker"],
+          },
+          include: ["src/**/*.ts"],
+        }),
+        language: "json",
+      },
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const tsconfig = JSON.parse(files.find((f) => f.path === "tsconfig.json")!.content) as {
+      compilerOptions: {
+        strict: boolean;
+        lib: string[];
+        plugins: Array<Record<string, unknown>>;
+      };
+      include: string[];
+    };
+
+    expect(tsconfig.compilerOptions.strict).toBe(false);
+    expect(tsconfig.compilerOptions.lib).toEqual(
+      expect.arrayContaining(["dom", "dom.iterable", "esnext", "webworker"]),
+    );
+    expect(tsconfig.compilerOptions.plugins).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "next" })]),
+    );
+    expect(tsconfig.include).toEqual(
+      expect.arrayContaining(["next-env.d.ts", ".next/types/**/*.ts", "src/**/*.ts"]),
+    );
   });
 
   it("pins react/next/fiber/drei to baseline even when model and code use old versions", () => {
@@ -197,6 +277,49 @@ describe("buildExportableProject", () => {
 });
 
 describe("runProjectSanityChecks peer heuristics", () => {
+  it("flags imported third-party packages that are not pinned in package.json", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: { react: "19.2.4", next: "16.2.1" },
+        }),
+        language: "json",
+      },
+      {
+        path: "app/page.tsx",
+        content: `import confetti from "canvas-confetti"; export default function Page() { return null; }`,
+        language: "tsx",
+      },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.some((i) => i.message.includes("canvas-confetti"))).toBe(true);
+    expect(result.issues.some((i) => i.category === "dependency_install_failure")).toBe(true);
+  });
+
+  it("does not flag manually pinned third-party packages", () => {
+    const files: CodeFile[] = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: {
+            react: "19.2.4",
+            next: "16.2.1",
+            "canvas-confetti": "^1.9.3",
+          },
+        }),
+        language: "json",
+      },
+      {
+        path: "app/page.tsx",
+        content: `import confetti from "canvas-confetti"; export default function Page() { return null; }`,
+        language: "tsx",
+      },
+    ];
+    const result = runProjectSanityChecks(files);
+    expect(result.issues.some((i) => i.message.includes("canvas-confetti"))).toBe(false);
+  });
+
   it("flags @react-three/fiber <9 with react 19", () => {
     const files: CodeFile[] = [
       {

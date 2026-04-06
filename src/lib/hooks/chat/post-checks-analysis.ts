@@ -60,7 +60,7 @@ export type SeoReview = {
 };
 
 type AnalyticsIssue = {
-  severity: "warning" | "error";
+  severity: "info" | "warning" | "error";
   code:
     | "missing-analytics-tracker"
     | "missing-conversion-events";
@@ -485,7 +485,7 @@ export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
 
   if (signals.conversionSurfaceCount > 0 && !signals.trackerDetected) {
     issues.push({
-      severity: "warning",
+      severity: "info",
       code: "missing-analytics-tracker",
       message: "Sidan verkar ha CTA-/formulärflöden men ingen analytics-tracker hittades.",
       file: null,
@@ -494,7 +494,7 @@ export function buildAnalyticsReview(files: FileEntry[]): AnalyticsReview {
 
   if (signals.conversionSurfaceCount > 0 && signals.trackerDetected && signals.conversionEventCount === 0) {
     issues.push({
-      severity: "warning",
+      severity: "info",
       code: "missing-conversion-events",
       message: "Tracker finns, men inga tydliga konverteringsevents hittades för CTA-/formulärflöden.",
       file: null,
@@ -527,7 +527,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera hero-sektionen med ny rubrik, ingress och CTA utan att ändra resten av designen.",
     });
   }
-  if (/\bservices?\b|tjanster|tjänster|offerings|what we do/i.test(combined)) {
+  if (/\b(services?|offerings|what we do)\b/i.test(combined) && /id=["']?(services|tjanster|erbjudande)\b|<h[2-3][^>]*>\s*(Tjänster|Services|Erbjudande)/i.test(combined)) {
     pushPack({
       id: "services",
       label: "Services",
@@ -543,7 +543,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera testimonials-sektionen med nya kundnamn, citat och roller utan att ändra layouten.",
     });
   }
-  if (/\bteam\b|medarbetare|our people|staff/i.test(combined)) {
+  if (/\b(team|medarbetare|our people|staff)\b/i.test(combined) && /id=["']?team\b|<h[2-3][^>]*>\s*(Team|Medarbetare|Our People)/i.test(combined)) {
     pushPack({
       id: "team",
       label: "Team",
@@ -551,7 +551,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera team-sektionen med nya personer, roller och korta bio-texter utan att ändra resten av sidan.",
     });
   }
-  if (/\bfaq\b|accordion|questions|fragor|frågor/i.test(combined)) {
+  if (/\bfaq\b/i.test(combined) || (/\b(accordion|frågor|fragor|questions)\b/i.test(combined) && /id=["']?faq\b|<h[2-3][^>]*>\s*(FAQ|Vanliga frågor|Questions)/i.test(combined))) {
     pushPack({
       id: "faq",
       label: "FAQ",
@@ -567,7 +567,7 @@ function buildEditorialReview(files: FileEntry[]): EditorialReview {
       suggestedPrompt: "Uppdatera kontaktsektionen med nya kontaktuppgifter, öppettider och CTA utan att ändra resten av designen.",
     });
   }
-  if (/\bblog\b|article|post|inlagg|inlägg|newsletter/i.test(combined) || /\/blog\b/i.test(routeNames)) {
+  if (/\bblog\b|inlagg|inlägg|newsletter/i.test(combined) || /\/blog\b/i.test(routeNames)) {
     pushPack({
       id: "blog",
       label: "Blog / content",
@@ -682,30 +682,8 @@ export function buildPostCheckBaseline(params: {
     const suffix = seoReview.issues.length > 4 ? " …" : "";
     warnings.push(`SEO: ${preview}${suffix}`);
   }
-  if (!analyticsReview.passed) {
-    const preview = analyticsReview.issues
-      .slice(0, 3)
-      .map((issue) => issue.message)
-      .join(" | ");
-    const suffix = analyticsReview.issues.length > 3 ? " …" : "";
-    warnings.push(`Analytics: ${preview}${suffix}`);
-  }
-  if (editorialReview.packs.length > 0) {
-    const preview = editorialReview.packs
-      .slice(0, 5)
-      .map((pack) => pack.label)
-      .join(", ");
-    const suffix = editorialReview.packs.length > 5 ? " …" : "";
-    warnings.push(`Editorial inventory: ${preview}${suffix}`);
-  }
-  if (businessWorkflowReview.packs.length > 0) {
-    const preview = businessWorkflowReview.packs
-      .slice(0, 5)
-      .map((pack) => pack.label)
-      .join(", ");
-    const suffix = businessWorkflowReview.packs.length > 5 ? " …" : "";
-    warnings.push(`Business packs: ${preview}${suffix}`);
-  }
+  // Analytics, editorial, and business packs are logged as separate info-level
+  // entries via post-checks-results — not included in the warning baseline.
 
   const versionEntry = versions.find(
     (entry) => entry.versionId === versionId || entry.id === versionId,

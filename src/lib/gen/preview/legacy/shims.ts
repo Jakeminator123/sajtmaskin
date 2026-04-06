@@ -4,8 +4,8 @@ import { normalizeFilePath, inferPreviewUiComponentName, resolveLocalImportPath 
 import { buildCodeFileMap, buildPreparedModuleMap } from "../file-resolution";
 
 /**
- * Legacy shim stubs for tier-1 static iframe preview (optional deps).
- * **Source of truth for visuals** is tier-2 sandbox (`npm run dev`) or production — not this layer.
+ * Legacy shim stubs for the compatibility iframe preview (optional deps).
+ * **Source of truth for visuals** is tier-2 live-preview (`npm run dev`) or production — not this layer.
  */
 
 export function buildPreviewPrelude(modules: PreparedModule[], routePath: string): string {

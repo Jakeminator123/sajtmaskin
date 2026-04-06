@@ -18,6 +18,9 @@ export type BuildSpecVerificationPolicy = "fast" | "standard" | "strict";
 export type BuildSpecContextPolicy = "light" | "normal" | "heavy";
 
 export interface BuildSpecTokenBudgets {
+  scaffoldTokens?: number;
+  refsTokens?: number;
+  systemContextTokens?: number;
   scaffoldChars: number;
   refsChars: number;
   systemContextChars: number;
@@ -222,15 +225,18 @@ function inferQualityTarget(params: {
   const { prompt, buildIntent, resolvedScaffold, routePlan, preGenerationContracts } = params;
   if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "release-candidate";
 
-  const premiumSignals =
-    buildIntent === "app" ||
-    routePlan.routes.length > 1 ||
-    preGenerationContracts.contracts.integrations.length > 0 ||
-    preGenerationContracts.contracts.dataMode === "persisted" ||
+  const advancedScaffoldFamily =
     resolvedScaffold?.family === "dashboard" ||
     resolvedScaffold?.family === "ecommerce" ||
     resolvedScaffold?.family === "app-shell" ||
     resolvedScaffold?.family === "saas-landing";
+  const routeCount = routePlan.routes.length;
+  const premiumSignals =
+    buildIntent === "app" ||
+    routeCount > 4 ||
+    preGenerationContracts.contracts.integrations.length > 0 ||
+    preGenerationContracts.contracts.dataMode === "persisted" ||
+    advancedScaffoldFamily;
 
   return premiumSignals ? "premium" : "standard";
 }
@@ -296,18 +302,27 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
   switch (contextPolicy) {
     case "light":
       return {
+        scaffoldTokens: 3_750,
+        refsTokens: 1_250,
+        systemContextTokens: 5_625,
         scaffoldChars: 12_000,
         refsChars: 4_000,
         systemContextChars: 18_000,
       };
     case "heavy":
       return {
+        scaffoldTokens: 7_800,
+        refsTokens: 3_750,
+        systemContextTokens: 11_250,
         scaffoldChars: 25_000,
         refsChars: 12_000,
         systemContextChars: 36_000,
       };
     default:
       return {
+        scaffoldTokens: 6_250,
+        refsTokens: 2_500,
+        systemContextTokens: 8_750,
         scaffoldChars: 20_000,
         refsChars: 8_000,
         systemContextChars: 28_000,
@@ -377,7 +392,7 @@ function deriveForbiddenPatterns(params: {
   const { buildIntent, generationMode, changeScope, previewPolicy } = params;
   const patterns = new Set<string>([
     "leave_bracket_placeholders",
-    "tier1_static_preview_primary",
+    "compat_preview_primary",
   ]);
 
   if (buildIntent !== "app") {

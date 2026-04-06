@@ -2,8 +2,8 @@ import { consumeSseResponse } from "@/lib/builder/sse";
 import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type {
   AutoFixPayload,
-  SandboxBuildErrorPayload,
-  SandboxProdBuildPayload,
+  PreviewBuildErrorPayload,
+  PreviewProdBuildPayload,
   SetMessages,
   StreamQualitySignal,
 } from "./types";
@@ -35,10 +35,12 @@ import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/pr
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 
 function effectivePreviewUrlFromDonePayload(done: Record<string, unknown>): string | null {
-  const raw = resolveInboundPreviewUrl({
-    previewUrl: done.previewUrl,
-    demoUrl: done.demoUrl,
-  });
+  const raw =
+    resolveInboundPreviewUrl({
+      previewUrl: done.previewUrl,
+      demoUrl: done.demoUrl,
+    }) ??
+    (typeof done.previewUrlHint === "string" ? done.previewUrlHint.trim() : null);
   if (!raw) return null;
   const normalized = normalizePreviewUrl(raw);
   if (!normalized || isCompatibilityShimPreviewUrl(normalized)) return null;
@@ -62,9 +64,9 @@ export type StreamContext = {
   onLinkedProjectId?: (projectId: string) => void;
 
   setCurrentPreviewUrl: (url: string | null) => void;
-  setSandboxBuildError?: (payload: SandboxBuildErrorPayload | null) => void;
-  setSandboxProdBuild?: (payload: SandboxProdBuildPayload | null) => void;
-  setSandboxPending?: (pending: boolean) => void;
+  setPreviewBuildError?: (payload: PreviewBuildErrorPayload | null) => void;
+  setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
+  setPreviewPending?: (pending: boolean) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: {
     chatId: string;
@@ -72,8 +74,8 @@ export type StreamContext = {
     previewUrl?: string;
     onlySelectVersionIfWasLatest?: boolean;
   }) => void;
-  /** Own-engine sandbox session metadata (SSE sandbox-ready). */
-  onSandboxSessionMeta?: (meta: { sandboxId: string; versionId: string | null } | null) => void;
+  /** Own-engine preview session metadata (SSE `preview-ready`). */
+  onPreviewSessionMeta?: (meta: { previewSessionId: string; versionId: string | null } | null) => void;
   mutateVersions: () => void;
   enableImageMaterialization: boolean;
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
@@ -97,6 +99,7 @@ export async function handleSseStream(
   let progressivePreviewFired = false;
   let didReceiveDone = false;
   let generationProgressStarted = false;
+  let generationDoneProgressReceived = false;
   let pendingStreamErrorMessage: string | null = null;
   const postCheckQueue: Array<{
     chatId: string;
@@ -120,11 +123,11 @@ export async function handleSseStream(
     appProjectId,
     pendingCreateKeyRef,
     onLinkedProjectId,
-    onSandboxSessionMeta,
+    onPreviewSessionMeta,
     setCurrentPreviewUrl,
-    setSandboxBuildError,
-    setSandboxProdBuild,
-    setSandboxPending,
+    setPreviewBuildError,
+    setPreviewProdBuild,
+    setPreviewPending,
     onPreviewRefresh,
     onGenerationComplete,
     mutateVersions,
@@ -137,12 +140,24 @@ export async function handleSseStream(
   const getProgressToolName = (step: string) => {
     if (isOwnEnginePostStreamPhaseId(step)) return ownEnginePostStreamStepLabelSv(step);
     if (step === "generation") return "Generering";
-    if (step === "sandbox") return "Sandbox";
+    if (step === "preview") return "Live-preview";
     if (step === "build-error") return "Byggfel";
     return step;
   };
 
   const buildProgressSteps = (step: string, phase: string, payload: Record<string, unknown>) => {
+    const durationMs =
+      typeof payload.durationMs === "number" && Number.isFinite(payload.durationMs)
+        ? payload.durationMs
+        : null;
+    const reasoningMs =
+      typeof payload.reasoningMs === "number" && Number.isFinite(payload.reasoningMs)
+        ? payload.reasoningMs
+        : null;
+    const outputMs =
+      typeof payload.outputMs === "number" && Number.isFinite(payload.outputMs)
+        ? payload.outputMs
+        : null;
     const errorCount =
       typeof payload.errorCount === "number" && Number.isFinite(payload.errorCount)
         ? payload.errorCount
@@ -157,6 +172,8 @@ export async function handleSseStream(
       typeof payload.versionId === "string" && payload.versionId.trim().length > 0
         ? payload.versionId.trim()
         : null;
+    const formatSeconds = (ms: number) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
+    const doneSuffix = durationMs !== null ? ` (${formatSeconds(durationMs)})` : "";
 
     if (step === "generation") {
       if (phase === "start") return ["Startar own-engine-strömmen."];
@@ -181,12 +198,20 @@ export async function handleSseStream(
             : "Modellen kör ett verktyg — väntar på nästa kodoutput.",
         ];
       }
-      if (phase === "done") return ["Generering klar. Startar efterkontroller och slutsteg."];
+      if (phase === "done") {
+        const lines = [`Generering klar${doneSuffix}. Startar efterkontroller och slutsteg.`];
+        if (reasoningMs !== null || outputMs !== null) {
+          lines.push(
+            `Faser: reasoning ${formatSeconds(reasoningMs ?? 0)}, output ${formatSeconds(outputMs ?? 0)}.`,
+          );
+        }
+        return lines;
+      }
     }
     if (step === "autofix") {
       if (phase === "start") return ["Autofix startad."];
       if (phase === "done") {
-        const summary: string[] = ["Autofix klar."];
+        const summary: string[] = [`Autofix klar${doneSuffix}.`];
         if (fixes !== null || warnings !== null) {
           summary.push(
             `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}.`,
@@ -205,37 +230,20 @@ export async function handleSseStream(
           typeof payload.blockingCount === "number" && Number.isFinite(payload.blockingCount)
             ? payload.blockingCount
             : null;
-        const pc =
-          typeof payload.polishCandidateCount === "number" && Number.isFinite(payload.polishCandidateCount)
-            ? payload.polishCandidateCount
+        const qc =
+          typeof payload.qualityCount === "number" && Number.isFinite(payload.qualityCount)
+            ? payload.qualityCount
             : null;
         return [
-          `Verifiering klar.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${pc !== null ? ` Polish-kandidater: ${pc}.` : ""}`,
+          `Verifiering klar${doneSuffix}.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${qc !== null ? ` Kvalitetsanteckningar: ${qc}.` : ""}`,
         ];
       }
-      if (phase === "error") return ["Verifiering misslyckades; polish körs utan målfil-lista."];
+      if (phase === "error") return ["Verifiering misslyckades; fortsätter med nuvarande kod."];
       if (phase === "skipped") return ["Verifiering hoppades över."];
-    }
-    if (step === "polish") {
-      if (phase === "start") {
-        return ["Polish: andra LLM-passet förbättrar texter och tar bort platshållare."];
-      }
-      if (phase === "done") {
-        const applied = payload.applied === true;
-        const filesChanged =
-          typeof payload.filesChanged === "number" && Number.isFinite(payload.filesChanged)
-            ? payload.filesChanged
-            : null;
-        if (!applied) return ["Polish hoppades över eller ändrade inget."];
-        return [
-          `Polish klar.${filesChanged !== null ? ` Uppdaterade filer: ${filesChanged}.` : ""}`,
-        ];
-      }
-      if (phase === "error") return ["Polish misslyckades. Fortsätter utan finputs."];
     }
     if (step === "url_expand") {
       if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];
-      if (phase === "done") return ["URL-expansion klar."];
+      if (phase === "done") return [`URL-expansion klar${doneSuffix}.`];
     }
     if (step === "materialize_images") {
       if (phase === "start") return ["Materialiserar bildplatshållare (t.ex. riktiga bild-URL:er)…"];
@@ -245,9 +253,9 @@ export async function handleSseStream(
             ? payload.replacedCount
             : null;
         if (replaced !== null && replaced > 0) {
-          return [`Bytte ut ${replaced} bildplatshållare.`];
+          return [`Bytte ut ${replaced} bildplatshållare${doneSuffix}.`];
         }
-        return ["Inga bildplatshållare behövde bytas."];
+        return [`Inga bildplatshållare behövde bytas${doneSuffix}.`];
       }
       if (phase === "error") {
         return ["Bildmaterialisering misslyckades; platshållare kan kvarstå."];
@@ -266,6 +274,7 @@ export async function handleSseStream(
         return [`Kör om valideringen efter fixförsök${pass ? ` i pass ${pass}` : ""}.`];
       }
       if (phase === "passed") return ["Validering klar."];
+      if (phase === "done") return [`Syntaxvalidering klar${doneSuffix}.`];
       if (phase === "gave-up") {
         return [
           `Valideringen gav upp${errorCount !== null ? ` med ${errorCount} kvarvarande fel` : ""}.`,
@@ -276,15 +285,15 @@ export async function handleSseStream(
     if (step === "parse_merge_preflight") {
       if (phase === "start") return ["Finaliserar filer, gör project checks och sparar versionen."];
       if (phase === "done") {
-        const details: string[] = ["Finalisering klar."];
+        const details: string[] = [`Finalisering klar${doneSuffix}.`];
         if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}.`);
         if (versionId) details.push(`Version: ${versionId}.`);
         return details;
       }
     }
-    if (step === "sandbox") {
+    if (step === "preview") {
       if (phase === "starting") {
-        return ["Startar tier-2-preview (VM / legacy sandbox-kontrakt)…"];
+        return ["Startar tier-2-preview (VM) ..."];
       }
       if (phase === "build-verified") {
         return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
@@ -608,6 +617,9 @@ export async function handleSseStream(
             if (step && phase) {
               if (step === "generation") {
                 generationProgressStarted = true;
+                if (phase === "done") {
+                  generationDoneProgressReceived = true;
+                }
               }
               appendProgressPart(step, phase, progressData);
             }
@@ -652,67 +664,69 @@ export async function handleSseStream(
             }
             break;
           }
-          case "sandbox-ready": {
-            const sandboxData = data as Record<string, unknown>;
-            const sandboxUrl =
-              typeof sandboxData.sandboxUrl === "string"
-                ? sandboxData.sandboxUrl.trim()
+          case "preview-ready": {
+            const previewData = data as Record<string, unknown>;
+            const previewUrl =
+              typeof previewData.previewUrl === "string"
+                ? previewData.previewUrl.trim()
                 : "";
-            const sandboxIdRaw =
-              typeof sandboxData.sandboxId === "string" ? sandboxData.sandboxId.trim() : "";
-            if (sandboxIdRaw) {
-              onSandboxSessionMeta?.({
-                sandboxId: sandboxIdRaw,
+            const previewSessionIdRaw =
+              typeof previewData.previewSessionId === "string"
+                ? previewData.previewSessionId.trim()
+                : "";
+            if (previewSessionIdRaw) {
+              onPreviewSessionMeta?.({
+                previewSessionId: previewSessionIdRaw,
                 versionId: versionIdFromStream,
               });
             }
 
-            setSandboxPending?.(false);
-            setSandboxBuildError?.(null);
+            setPreviewPending?.(false);
+            setPreviewBuildError?.(null);
 
-            if (sandboxUrl && !isCompatibilityShimPreviewUrl(sandboxUrl)) {
-              setCurrentPreviewUrl(sandboxUrl);
+            if (previewUrl && !isCompatibilityShimPreviewUrl(previewUrl)) {
+              setCurrentPreviewUrl(previewUrl);
               onPreviewRefresh?.();
               const pendingPost = postCheckQueue[postCheckQueue.length - 1];
               if (pendingPost) {
-                pendingPost.demoUrl = sandboxUrl;
+                pendingPost.demoUrl = previewUrl;
               }
             }
 
             const tierMeta =
-              typeof sandboxData.fidelityTier === "number"
+              typeof previewData.previewTier === "number"
                 ? {
-                    fidelityTier: sandboxData.fidelityTier,
-                    ...(typeof sandboxData.sandboxPreviewMode === "string"
-                      ? { sandboxPreviewMode: sandboxData.sandboxPreviewMode }
+                    previewTier: previewData.previewTier,
+                    ...(typeof previewData.previewMode === "string"
+                      ? { previewMode: previewData.previewMode }
                       : {}),
                   }
                 : {};
 
             const pb =
-              typeof sandboxData.prodBuildVerified === "boolean"
-                ? sandboxData.prodBuildVerified
+              typeof previewData.prodBuildVerified === "boolean"
+                ? previewData.prodBuildVerified
                 : undefined;
             if (pb !== undefined) {
               const logSnippet =
-                typeof sandboxData.prodBuildLogSnippet === "string"
-                  ? sandboxData.prodBuildLogSnippet
+                typeof previewData.prodBuildLogSnippet === "string"
+                  ? previewData.prodBuildLogSnippet
                   : undefined;
-              setSandboxProdBuild?.({
+              setPreviewProdBuild?.({
                 verified: pb,
                 logSnippet: !pb ? logSnippet : undefined,
               });
               appendProgressPart(
-                "sandbox",
+                "preview",
                 pb ? "build-verified" : "build-failed",
                 { prodBuildVerified: pb, ...tierMeta },
               );
-            } else if (sandboxUrl) {
-              setSandboxProdBuild?.(null);
+            } else if (previewUrl) {
+              setPreviewProdBuild?.(null);
             }
 
-            if (sandboxUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
-              appendProgressPart("sandbox", "ready", tierMeta);
+            if (previewUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
+              appendProgressPart("preview", "ready", tierMeta);
             }
             break;
           }
@@ -720,21 +734,26 @@ export async function handleSseStream(
             const buildErrorData = data as Record<string, unknown>;
             const stage = String(buildErrorData.stage ?? "build");
             const message = String(buildErrorData.message ?? "Build failed");
-            setSandboxPending?.(false);
-            setSandboxBuildError?.({
+            setPreviewPending?.(false);
+            setPreviewBuildError?.({
               stage,
               message,
             });
             appendProgressPart("build-error", "error", { stage, message });
             toast.error(
-              `Sandbox-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän sandbox lyckas.`,
+              `Live-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän VM-previewn lyckas.`,
             );
             break;
           }
           case "done": {
             didReceiveDone = true;
             streamStats.didReceiveDone = true;
-            if (generationProgressStarted || accumulatedContent.trim().length > 0 || accumulatedThinking.trim().length > 0) {
+            if (
+              !generationDoneProgressReceived &&
+              (generationProgressStarted ||
+                accumulatedContent.trim().length > 0 ||
+                accumulatedThinking.trim().length > 0)
+            ) {
               appendProgressPart("generation", "done");
             }
             const doneData =
@@ -750,7 +769,7 @@ export async function handleSseStream(
               setCurrentPreviewUrl(effectiveDoneDemo);
               onPreviewRefresh?.();
             }
-            setSandboxPending?.(Boolean(doneData.sandboxPending));
+            setPreviewPending?.(Boolean(doneData.previewPending));
             const resolvedChatId =
               doneData.chatId || doneData.id || chatIdFromStream || effectiveChatId || null;
             const resolvedVersionId =
@@ -1014,6 +1033,33 @@ export async function handleSseStream(
       chatId: latestMaterialize.chatId,
       versionId: latestMaterialize.versionId,
       enabled: enableImageMaterialization,
+    }).then((result) => {
+      if (!result) return;
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:image-materialization",
+        toolName: "Bildmaterialisering",
+        toolCallId: `image-materialization:${latestMaterialize.versionId}`,
+        state: result.error ? "output-error" : "output-available",
+        output: {
+          attempted: result.attempted,
+          strategy: result.strategy,
+          replaced: result.replaced,
+          uploaded: result.uploaded,
+          skipped: result.skipped,
+          warningCount: result.warningCount,
+          reason: result.reason ?? null,
+          error: result.error ?? null,
+          steps: result.error
+            ? ["Bildmaterialisering misslyckades efter att versionen sparats."]
+            : !result.attempted
+              ? [result.reason === "blob_not_configured"
+                ? "Blob-materialisering hoppades över eftersom Blob inte är konfigurerat."
+                : "Bildmaterialisering hoppades över i den här körningen."]
+              : result.replaced > 0
+                ? [`Speglade ${result.replaced} bildreferenser till Blob efter att versionen sparats.`]
+                : ["Ingen ytterligare bildmaterialisering behövdes efter att versionen sparats."],
+        },
+      } as Parameters<typeof appendToolPartToMessage>[2]);
     });
   }
 

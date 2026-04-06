@@ -122,7 +122,11 @@ MODEL_LABELS = {
     "gpt-4o-mini": "GPT-4o mini",
     "gpt-4.1": "GPT-4.1",
     "gpt-4.1-mini": "GPT-4.1 mini",
+    "gpt-5-mini": "GPT-5 mini",
+    "gpt-5-nano": "GPT-5 nano",
     "gpt-5.1-codex-max": "GPT-5.1 Codex Max",
+    "text-embedding-3-small": "OpenAI text-embedding-3-small",
+    "whisper-1": "OpenAI Whisper-1",
     "claude-sonnet-4.6": "Claude Sonnet 4.6",
     "claude-opus-4.6": "Claude Opus 4.6",
     "anthropic/claude-sonnet-4.6": "Anthropic Claude Sonnet 4.6",
@@ -141,6 +145,135 @@ def human_model_label(model: str) -> str:
     if model in MODEL_LABELS:
         return MODEL_LABELS[model]
     return model
+
+
+BUILD_PROFILE_ORDER = ("fast", "pro", "max", "codex", "anthropic")
+PHASE_ROUTED_WORKLOADS = {
+    "manual_repair_route_llm": "fixer",
+    "server_verify_repair_llm": "fixer",
+    "plan_mode_planner": "planner",
+    "post_generation_verifier": "verifier",
+}
+ROUTE_LOCAL_WORKLOAD_MODELS = {
+    "runtime_embeddings_query": (
+        "text-embedding-3-small",
+        "route-local constant",
+        "Embeddings-modell för semantiska query-vektorer.",
+    ),
+    "text_analyze": (
+        "gpt-5-nano",
+        "route-local constant",
+        "Hårdkodad responses-modell i `/api/text/analyze`.",
+    ),
+    "wizard_enrich_competitors": (
+        "openai/gpt-5-mini",
+        "route-local constant",
+        "Hårdkodad wizard-modell i `/api/wizard/enrich`.",
+    ),
+    "transcribe": (
+        "whisper-1",
+        "route-local constant",
+        "Transkriptionsmodell, inte vanlig textmodell.",
+    ),
+}
+
+
+def build_profile_defaults(manifest: dict[str, Any]) -> dict[str, str]:
+    defaults = ((manifest.get("buildProfiles") or {}).get("defaults") or {})
+    return {str(key): str(value or "").strip() for key, value in defaults.items()}
+
+
+def phase_routing_defaults(manifest: dict[str, Any]) -> dict[str, dict[str, str]]:
+    routing = ((manifest.get("phaseRouting") or {}).get("defaultByTier") or {})
+    out: dict[str, dict[str, str]] = {}
+    for tier, cfg in routing.items():
+        if not isinstance(cfg, dict):
+            continue
+        out[str(tier)] = {str(key): str(value or "").strip() for key, value in cfg.items()}
+    return out
+
+
+def summarize_tier_models(models_by_tier: dict[str, str]) -> str:
+    parts: list[str] = []
+    for tier in BUILD_PROFILE_ORDER:
+        model = models_by_tier.get(tier, "").strip()
+        if model:
+            parts.append(f"{tier}: {human_model_label(model)}")
+    return " | ".join(parts) if parts else "—"
+
+
+def resolve_phase_models_for_dashboard(
+    manifest: dict[str, Any], phase: str
+) -> dict[str, str]:
+    build_defaults = build_profile_defaults(manifest)
+    routing = phase_routing_defaults(manifest)
+    resolved: dict[str, str] = {}
+    for tier in BUILD_PROFILE_ORDER:
+        phase_ref = routing.get(tier, {}).get(phase, "selected_build_model").strip()
+        resolved[tier] = (
+            build_defaults.get(tier, "").strip()
+            if phase_ref == "selected_build_model"
+            else phase_ref
+        )
+    return resolved
+
+
+def describe_workload_model_resolution(
+    workload: dict[str, Any], manifest: dict[str, Any]
+) -> tuple[str, str, str]:
+    workload_id = str(workload.get("id", "")).strip()
+    explicit_default = str(workload.get("defaultModel", "")).strip()
+    if explicit_default:
+        return (
+            human_model_label(explicit_default),
+            "manifest.defaultModel",
+            "Workloaden har ett eget explicit standardmodellval i manifestet.",
+        )
+
+    if workload_id == "own_engine_codegen":
+        return (
+            summarize_tier_models(build_profile_defaults(manifest)),
+            "buildProfiles.defaults",
+            "Generatorn följer vald byggprofil; varje profil har eget standardmodellval.",
+        )
+
+    if workload_id == "autofix_llm":
+        fixer_models = summarize_tier_models(
+            resolve_phase_models_for_dashboard(manifest, "fixer")
+        )
+        pro_default = build_profile_defaults(manifest).get("pro", "").strip()
+        suffix = (
+            f" Fallback när tier saknas: {human_model_label(pro_default)}."
+            if pro_default
+            else ""
+        )
+        return (
+            fixer_models,
+            "phaseRouting.fixer + pro fallback",
+            "Autofix följer fixer-fasen när tier är känd." + suffix,
+        )
+
+    phase = PHASE_ROUTED_WORKLOADS.get(workload_id)
+    if phase:
+        return (
+            summarize_tier_models(resolve_phase_models_for_dashboard(manifest, phase)),
+            f"phaseRouting.{phase}",
+            f"Workloaden följer {phase}-fasen för aktuell byggprofil/tier.",
+        )
+
+    if workload_id in ROUTE_LOCAL_WORKLOAD_MODELS:
+        model_id, source, note = ROUTE_LOCAL_WORKLOAD_MODELS[workload_id]
+        return (human_model_label(model_id), source, note)
+
+    notes = str(workload.get("notes", "")).strip()
+    if notes:
+        return ("—", "notes / codeEntry", notes)
+
+    return (
+        "—",
+        "inspect codeEntry",
+        "Ingen explicit defaultModel i manifestet. Se codeEntry för faktisk källkod.",
+    )
 
 
 def sync_route_timeout_literals(
@@ -194,6 +327,16 @@ def render_where_panel(page: str, dm: dict[str, Any]) -> None:
                 st.markdown(f"- `{line}`")
         else:
             st.caption("Ingen doc-sökväg listad.")
+        human_schemas = meta.get("humanSchemaPaths") or []
+        if human_schemas:
+            st.markdown("**Human schemas** (mänskligt läsbara kontrakt)")
+            for line in human_schemas:
+                st.markdown(f"- `{line}`")
+        strict_schemas = meta.get("strictSchemaPaths") or []
+        if strict_schemas:
+            st.markdown("**Strict schemas** (maskinorienterade kontrakt)")
+            for line in strict_schemas:
+                st.markdown(f"- `{line}`")
         readers = meta.get("codeReaders") or []
         if readers:
             st.markdown("**Kod som läser / använder detta**")
@@ -244,6 +387,9 @@ NAV_PAGES = (
     "Codegen static",
     "prompt-static",
     "ai_models",
+    "Runtime scaffolds",
+    "Template pipeline",
+    "Preview och versioner",
     "env-policy",
     "shadcn-audit",
     "user_degraded_env",
@@ -466,7 +612,6 @@ elif page == "ai_models":
         planner = find_workload(manifest, "plan_mode_planner") or {}
         brief = find_workload(manifest, "brief_structured") or {}
         verifier = find_workload(manifest, "post_generation_verifier") or {}
-        polish = find_workload(manifest, "post_generation_polish") or {}
         manual_repair = find_workload(manifest, "manual_repair_route_llm") or {}
         server_repair = find_workload(manifest, "server_verify_repair_llm") or {}
 
@@ -475,12 +620,17 @@ elif page == "ai_models":
             f"1. **Första fritextprompten** kan först gå via **brief** ({human_model_label(brief.get('defaultModel', ''))}) om klienten eller servern behöver struktur.\n"
             f"2. Därefter går den in i **själva byggmodellen** ({human_model_label(build_profiles.get('max', ''))} när profilen är `max`).\n"
             f"3. Om du väljer **planläge** används planner-fasen ({planner.get('notes') or 'styrs av phase routing'}).\n"
-            f"4. Efter syntax körs **verifier** ({verifier.get('notes') or 'styrs av phase routing'}) och därefter ev. **polish** ({polish.get('title', 'post-generation polish')}).\n"
+            f"4. Efter syntax körs **verifier** ({verifier.get('notes') or 'styrs av phase routing'}).\n"
             f"5. Om kvaliteten fortfarande faller kan **fixer/repair** försöka laga fel — både i explicit repair-route och i background verify."
         )
         st.caption(
             "Begrepp: `planner` = tänk/plan före kod, `generator` = bygger sajten, `fixer` = försöker laga syntax/kvalitetsfel, "
             "`verifier` = efterkontroll i bakgrunden."
+        )
+        st.info(
+            "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: "
+            "`qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`. "
+            "En enkel website bör normalt stanna på `standard` + `medium` reasoning, medan app/ecommerce/integrationer kan eskalera till `premium` + `high`."
         )
 
         st.markdown("### Byggprofiler (själva kodgeneratorn)")
@@ -649,6 +799,9 @@ elif page == "ai_models":
             help="Äldre hjälparmodell för spec-first-flöde. Ingår inte i normal create-chat-kedja men hålls synkad här.",
             key="brief_spec_model",
         )
+        st.caption(
+            "Server-auto-brief körs nu mer selektivt: redan strukturerade website-prompts (t.ex. tydliga sektioner, CTA, färgriktning) hoppar oftare över detta steg för att spara tid."
+        )
 
         st.markdown("### Tillåtna assist-modeller")
         gateway_text = st.text_area(
@@ -695,6 +848,10 @@ elif page == "ai_models":
         )
         st.caption(
             "Det här styr den deterministiska orkestratorn före build. Det är inte en egen LLM, utan regler för när prompten ska skickas direkt, kondenseras eller delas upp."
+        )
+        st.info(
+            "Website-latens påverkas också av hur mycket kontext som byggs före modellanropet. "
+            "KB-sök och template-library-retrieval körs nu parallellt, men stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."
         )
 
         st.markdown("### Hard caps")
@@ -998,40 +1155,16 @@ elif page == "ai_models":
             key="rt_stream",
         )
 
-        st.markdown("### Post-generation (verifier + polish)")
+        st.markdown("### Post-generation (verifier)")
         st.caption(
-            "Styr `runVerifierPass` och `runPolishPass` efter syntax i finalize. "
-            "Verifiern följer `phaseRouting.verifier`, och polish använder verifierns "
-            "`polishCandidates` när de finns."
+            "Styr `runVerifierPass` efter syntax i finalize. "
+            "Verifiern följer `phaseRouting.verifier` och budgets i `postGenerationPasses`."
         )
         pgp = manifest.setdefault("postGenerationPasses", {})
-        p_polish_tok = pgp.setdefault("polishMaxOutputTokens", {})
-        p_polish_ms = pgp.setdefault("polishTimeoutMs", {})
-        p_polish_files = pgp.setdefault("polishMaxFilesWhenUnscoped", {})
         p_ver_tok = pgp.setdefault("verifierMaxOutputTokens", {})
         p_ver_ms = pgp.setdefault("verifierTimeoutMs", {})
         p_ver_snip = pgp.setdefault("verifierSnippetCharsPerFile", {})
 
-        polish_out = st.number_input(
-            "Polish: max output tokens",
-            value=int(p_polish_tok.get("default", 16000)),
-            step=512,
-            key="pgp_polish_out",
-        )
-        polish_ms = st.number_input(
-            "Polish: timeout (ms)",
-            value=int(p_polish_ms.get("default", 45000)),
-            step=1000,
-            key="pgp_polish_ms",
-        )
-        polish_files = st.number_input(
-            "Polish: max filer utan verifier-scope",
-            value=int(p_polish_files.get("default", 14)),
-            min_value=4,
-            max_value=40,
-            step=1,
-            key="pgp_polish_files",
-        )
         ver_out = st.number_input(
             "Verifier: max output tokens",
             value=int(p_ver_tok.get("default", 8192)),
@@ -1098,9 +1231,6 @@ elif page == "ai_models":
                 assist_timeout
             )
             rt.setdefault("streamSafetyTimeoutMs", {})["default"] = int(stream_timeout)
-            p_polish_tok["default"] = int(polish_out)
-            p_polish_ms["default"] = int(polish_ms)
-            p_polish_files["default"] = int(polish_files)
             p_ver_tok["default"] = int(ver_out)
             p_ver_ms["default"] = int(ver_ms)
             p_ver_snip["default"] = int(ver_snip)
@@ -1129,9 +1259,9 @@ elif page == "ai_models":
                 "Styrs av `/api/audit`. Här kan du sätta primary model och fallback-kedja.",
             ),
             (
-                "project_analyze_ai_gateway",
+                "project_analyze",
                 "Projektanalys",
-                "Gratis kodöversikt för projekt. Gateway-rutt.",
+                "Gratis kodöversikt för projekt via direkt OpenAI-anrop.",
             ),
             (
                 "inspector_ai_match",
@@ -1183,23 +1313,55 @@ elif page == "ai_models":
 
     elif models_part == "Workloads":
         st.markdown("### Alla katalogiserade LLM-/AI-anrop")
+        st.caption(
+            "`defaultModel` visar bara explicita manifestfält. `effectiveModel` visar i stället vad koden faktiskt utgår från när fältet är tomt, t.ex. buildProfiles, phaseRouting eller en route-lokal konstant."
+        )
         workloads = manifest.get("workloads") or []
         rows = []
         for workload in workloads:
             if not isinstance(workload, dict):
                 continue
+            effective_model, model_source, model_note = describe_workload_model_resolution(
+                workload, manifest
+            )
+            explicit_default = str(workload.get("defaultModel", "")).strip()
+            fallback_models = [
+                human_model_label(str(model).strip())
+                for model in (workload.get("fallbackModels") or [])
+                if str(model).strip()
+            ]
             rows.append(
                 {
                     "id": workload.get("id", ""),
                     "titel": workload.get("title", ""),
                     "provider": workload.get("provider", ""),
                     "invocation": workload.get("invocation", ""),
-                    "defaultModel": workload.get("defaultModel", ""),
-                    "fallbackModels": ", ".join(workload.get("fallbackModels") or []),
+                    "defaultModel": human_model_label(explicit_default),
+                    "effectiveModel": effective_model,
+                    "modelSource": model_source,
+                    "fallbackModels": ", ".join(fallback_models) or "—",
                     "authEnv": ", ".join(workload.get("authEnv") or []),
+                    "förklaring": model_note,
                 }
             )
-        st.dataframe(rows, width="stretch", hide_index=True, height=420)
+        st.dataframe(
+            rows,
+            width="stretch",
+            hide_index=True,
+            height=520,
+            column_config={
+                "id": st.column_config.TextColumn("id", width="medium"),
+                "titel": st.column_config.TextColumn("titel", width="medium"),
+                "provider": st.column_config.TextColumn("provider", width="medium"),
+                "invocation": st.column_config.TextColumn("invocation", width="medium"),
+                "defaultModel": st.column_config.TextColumn("explicit defaultModel", width="medium"),
+                "effectiveModel": st.column_config.TextColumn("effective model", width="large"),
+                "modelSource": st.column_config.TextColumn("källa", width="medium"),
+                "fallbackModels": st.column_config.TextColumn("fallbackModels", width="medium"),
+                "authEnv": st.column_config.TextColumn("authEnv", width="medium"),
+                "förklaring": st.column_config.TextColumn("förklaring", width="large"),
+            },
+        )
         st.caption(
             "Detta är katalog/överblick. De viktigaste redigerbara delarna ovan uppdaterar samma `manifest.json`."
         )
@@ -1233,6 +1395,123 @@ elif page == "ai_models":
                 st.rerun()
             except json.JSONDecodeError as e:
                 st.error(f"Ogiltig JSON: {e}")
+
+
+# -- runtime scaffolds -----------------------------------------------------------
+
+elif page == "Runtime scaffolds":
+    st.header("Runtime scaffolds")
+    render_where_panel("Runtime scaffolds", domain_map)
+    scaffold_dir = repo / "src" / "lib" / "gen" / "scaffolds"
+    manifests = sorted(scaffold_dir.glob("*/manifest.ts"))
+    research_path = scaffold_dir / "scaffold-research.generated.json"
+    embeddings_path = scaffold_dir / "scaffold-embeddings.json"
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Scaffold-familjer", len(manifests))
+    c2.metric("Research JSON", "finns" if research_path.is_file() else "saknas")
+    c3.metric("Embeddings JSON", "finns" if embeddings_path.is_file() else "saknas")
+
+    if research_path.is_file():
+        try:
+            research = read_json(research_path)
+            scaffolds = (research.get("scaffolds") or {}) if isinstance(research, dict) else {}
+            landing_refs = (
+                ((scaffolds.get("landing-page") or {}).get("research") or {}).get("referenceTemplates")
+                if isinstance(scaffolds, dict)
+                else []
+            ) or []
+            st.caption(
+                f"`scaffold-research.generated.json` innehåller {len(scaffolds)} scaffold-poster. "
+                f"`landing-page` har {len(landing_refs)} referenstemplates."
+            )
+        except Exception as e:
+            st.warning(f"Kunde inte läsa scaffold-research.generated.json: {e}")
+
+    rows = [
+        {
+            "Scaffold": manifest.parent.name,
+            "Manifest": str(manifest.relative_to(repo)).replace("\\", "/"),
+            "Senast ändrad": manifest.stat().st_mtime,
+        }
+        for manifest in manifests
+    ]
+    if rows:
+        st.dataframe(rows, width="stretch", hide_index=True)
+
+    st.info(
+        "Detta är den kanoniska runtime-ytan som own-engine matchar mot. "
+        "Builderns Mallar-tab och external-template-pipelinen är separata lager."
+    )
+
+
+# -- template pipeline -----------------------------------------------------------
+
+elif page == "Template pipeline":
+    st.header("Template pipeline och runtime-artifacts")
+    render_where_panel("Template pipeline", domain_map)
+    raw_dir = repo / "data" / "external-template-pipeline" / "raw-discovery" / "current"
+    repo_cache_dir = repo / "data" / "external-template-pipeline" / "repo-cache"
+    runtime_catalog = repo / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
+    runtime_embeddings = repo / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Raw discovery", "finns" if raw_dir.is_dir() else "saknas")
+    c2.metric("Repo-cache", "finns" if repo_cache_dir.is_dir() else "saknas")
+    c3.metric("Runtime catalog", "finns" if runtime_catalog.is_file() else "saknas")
+    c4.metric("Runtime embeddings", "finns" if runtime_embeddings.is_file() else "saknas")
+
+    if runtime_catalog.is_file():
+        try:
+            catalog = read_json(runtime_catalog)
+            entries = catalog.get("entries") if isinstance(catalog, dict) else None
+            count = len(entries) if isinstance(entries, list) else 0
+            st.caption(f"`template-library.generated.json` innehåller {count} entries.")
+        except Exception as e:
+            st.warning(f"Kunde inte läsa template-library.generated.json: {e}")
+
+    if raw_dir.is_dir():
+        catalog_path = raw_dir / "catalog.json"
+        summary_path = raw_dir / "summary.json"
+        st.markdown("**Rådata (research, inte runtime)**")
+        st.markdown(f"- `{catalog_path.relative_to(repo).as_posix()}`")
+        st.markdown(f"- `{summary_path.relative_to(repo).as_posix()}`")
+
+    st.info(
+        "Research-pipelinen under `data/external-template-pipeline/` är bygginput. "
+        "Current own-engine-prompten injicerar inte längre template-library-retrieval. "
+        "De genererade artefakterna under `src/lib/gen/template-library/` används främst av "
+        "validering, research-/byggskript och lokala kvalitetskontroller, medan "
+        "`src/lib/gen/scaffolds/scaffold-research.generated.json` fortsatt överlagras i runtime-scaffolds."
+    )
+
+
+# -- preview and versions --------------------------------------------------------
+
+elif page == "Preview och versioner":
+    st.header("Preview och versioner")
+    render_where_panel("Preview och versioner", domain_map)
+    log_dir = repo / "logs" / "generationslogg"
+    latest_runs = (
+        sorted([p for p in log_dir.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)[:5]
+        if log_dir.is_dir()
+        else []
+    )
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Generationslogg", "finns" if log_dir.is_dir() else "saknas")
+    c2.metric("Senaste körningar", len(latest_runs))
+    c3.metric("Tier-2 docs", "preview-deploy.md")
+
+    if latest_runs:
+        st.markdown("**Senaste generationskörningar**")
+        for run in latest_runs:
+            st.markdown(f"- `{run.relative_to(repo).as_posix()}`")
+
+    st.info(
+        "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
+        "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
+        "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
+    )
 
 
 # -- env-policy -----------------------------------------------------------------

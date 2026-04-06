@@ -38,19 +38,14 @@ import {
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
-  extractAppProjectIdFromMeta,
-  extractBriefFromMeta,
-  extractDesignThemePresetFromMeta,
-  extractPaletteStateFromMeta,
-  extractScaffoldSettingsFromMeta,
-  extractThemeColorsFromMeta,
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
+import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { createCommitCreditsOnce } from "./credits-handler";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context/file-context-builder";
-import type { CodeFile } from "@/lib/gen/parser";
 import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
 import {
   buildOwnEngineGenerationStreamMeta,
@@ -115,18 +110,14 @@ export async function handleMessageStreamRequest(
         thinking,
         imageGenerations,
         system,
-        designSystemId: _clientDesignSystemId,
         meta,
       } =
         validationResult.data;
       const requestAttachments = normalizeRequestAttachments(attachments);
-      const metaRequestedModelTier =
-        typeof (meta as { modelTier?: unknown })?.modelTier === "string"
-          ? String((meta as { modelTier?: string }).modelTier)
-          : null;
+      const parsedMeta = parseChatRequestMeta(meta);
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
-        requestedModelTier: metaRequestedModelTier,
+        requestedModelTier: parsedMeta.modelTier,
         fallbackTier: DEFAULT_MODEL_ID,
       });
       const engineChat = await getEngineChatByIdForRequest(req, chatId, { sessionId });
@@ -139,54 +130,26 @@ export async function handleMessageStreamRequest(
       const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
         const buildProfileId = getBuildProfileId(resolvedModelTier);
-        const resolvedThinking = typeof thinking === "boolean" ? thinking : true;
+        const resolvedThinking = typeof thinking === "boolean" ? thinking : false;
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
-        const metaBuildMethod =
-          typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
-            ? (meta as { buildMethod?: string }).buildMethod
-            : null;
-        const metaBuildIntent =
-          typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
-            ? (meta as { buildIntent?: string }).buildIntent
-            : null;
-        const metaPromptSourceKind =
-          typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
-            ? (meta as { promptSourceKind?: string }).promptSourceKind
-            : null;
-        const metaPromptSourceTechnical =
-          (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
-        const metaPromptSourcePreservePayload =
-          (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
-        const metaPlanMode =
-          (meta as { planMode?: unknown })?.planMode === true;
-        const metaEngineBaseVersionId =
-          typeof (meta as { engineBaseVersionId?: unknown })?.engineBaseVersionId === "string"
-            ? (meta as { engineBaseVersionId: string }).engineBaseVersionId.trim()
-            : null;
-        const metaAppProjectId = extractAppProjectIdFromMeta(meta);
-        const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
-          extractScaffoldSettingsFromMeta(meta);
-        const metaThemeColors = extractThemeColorsFromMeta(meta);
-        const metaBrief = extractBriefFromMeta(meta);
-        const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
-        const metaPalette = extractPaletteStateFromMeta(meta);
-        const metaPromptAssistModel =
-          typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
-            ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
-            : null;
-        const metaPromptAssistDeep =
-          typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
-            ? Boolean((meta as { promptAssistDeep: boolean }).promptAssistDeep)
-            : null;
-        const metaPromptAssistModeRaw =
-          typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
-            ? String((meta as { promptAssistMode: string }).promptAssistMode).trim()
-            : null;
-        const metaPromptAssistMode =
-          metaPromptAssistModeRaw === "polish" || metaPromptAssistModeRaw === "rewrite"
-            ? metaPromptAssistModeRaw
-            : null;
+        const metaBuildMethod = parsedMeta.buildMethod;
+        const metaBuildIntent = parsedMeta.buildIntent;
+        const metaPromptSourceKind = parsedMeta.promptSourceKind;
+        const metaPromptSourceTechnical = parsedMeta.promptSourceTechnical;
+        const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
+        const metaPlanMode = parsedMeta.planMode;
+        const metaEngineBaseVersionId = parsedMeta.engineBaseVersionId;
+        const metaAppProjectId = parsedMeta.appProjectId;
+        const metaScaffoldMode = parsedMeta.scaffoldMode;
+        const metaScaffoldId = parsedMeta.scaffoldId;
+        const metaThemeColors = parsedMeta.themeColors;
+        const metaBrief = parsedMeta.brief;
+        const metaDesignThemePreset = parsedMeta.designThemePreset;
+        const metaPalette = parsedMeta.palette;
+        const metaPromptAssistModel = parsedMeta.promptAssistModel;
+        const metaPromptAssistDeep = parsedMeta.promptAssistDeep;
+        const metaPromptAssistMode = parsedMeta.promptAssistMode;
         const designReferences = summarizeDesignReferences(requestAttachments);
         const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
 
@@ -413,16 +376,7 @@ export async function handleMessageStreamRequest(
         } catch (error) {
           console.warn("[prompt-log] Failed to record follow-up prompt log:", error);
         }
-        let didChargeCredits = false;
-        const commitCreditsOnce = async () => {
-          if (didChargeCredits) return;
-          didChargeCredits = true;
-          try {
-            await creditCheck.commit();
-          } catch (error) {
-            console.error("[credits] Failed to charge refine:", error);
-          }
-        };
+        const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
 
         const persistedScaffoldId = engineChat.scaffold_id;
         const ignorePersistedScaffoldForMatch =
@@ -439,6 +393,7 @@ export async function handleMessageStreamRequest(
             metaBuildIntent === "app"
               ? (metaBuildIntent as BuildIntent)
               : "website";
+          const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
             buildIntent: planEngineIntent,
@@ -454,6 +409,13 @@ export async function handleMessageStreamRequest(
             generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
+          });
+          debugLog("orchestration", "Follow-up plan orchestration prepared", {
+            chatId,
+            durationMs: Date.now() - planOrchestrationStartedAt,
+            qualityTarget: planOrchestration.buildSpec.qualityTarget,
+            contextPolicy: planOrchestration.buildSpec.contextPolicy,
+            scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
           });
           const planResolvedScaffold = planOrchestration.resolvedScaffold;
           if (
@@ -566,7 +528,16 @@ export async function handleMessageStreamRequest(
           generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
           ignorePersistedScaffoldForMatch,
         };
+        const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        debugLog("orchestration", "Follow-up orchestration base resolved", {
+          chatId,
+          durationMs: Date.now() - orchestrationStartedAt,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          routeCount: orchestrationBase.routePlan.routes.length,
+        });
         const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
         const contractClarification = buildContractClarificationQuestion({
           buildIntent: engineIntent,
@@ -692,8 +663,15 @@ export async function handleMessageStreamRequest(
             headers: createSSEHeaders(),
           }));
         }
-        const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
-          await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const finalizePromptStartedAt = Date.now();
+        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        debugLog("orchestration", "Follow-up system prompt finalized", {
+          chatId,
+          durationMs: Date.now() - finalizePromptStartedAt,
+          routeCount: orchestrationBase.routePlan.routes.length,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+        });
         const lineageHash = computeLineageHash({
           userPrompt: optimizedMessage,
           brief: metaBrief,
@@ -744,7 +722,6 @@ export async function handleMessageStreamRequest(
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
-            templateLibrarySearchDiagnostics,
           }),
           engineModel,
           optimizedMessage,

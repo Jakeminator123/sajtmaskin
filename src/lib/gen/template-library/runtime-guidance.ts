@@ -14,21 +14,22 @@ function limit(values: string[], max: number): string[] {
 const STARTER_OR_BOILERPLATE_RE = /\b(starter|boilerplate)\b/i;
 
 export function isStarterOrBoilerplateReference(entry: TemplateLibraryEntry): boolean {
-  if (entry.categorySlug === "starter" || entry.classification.useCaseTags.includes("starter")) return true;
+  const useCaseTags = entry.classification?.useCaseTags ?? [];
+  if (entry.categorySlug === "starter" || useCaseTags.includes("starter")) return true;
   const text = `${entry.title} ${entry.description} ${entry.summary}`;
   return STARTER_OR_BOILERPLATE_RE.test(text);
 }
 
 function hasUseCase(entry: TemplateLibraryEntry, tag: string): boolean {
-  return entry.classification.useCaseTags.includes(tag);
+  return (entry.classification?.useCaseTags ?? []).includes(tag);
 }
 
 function hasSiteForm(entry: TemplateLibraryEntry, tag: string): boolean {
-  return entry.classification.siteFormTags.includes(tag);
+  return (entry.classification?.siteFormTags ?? []).includes(tag);
 }
 
 function hasTechnicalPattern(entry: TemplateLibraryEntry, tag: string): boolean {
-  return entry.classification.technicalPatternTags.includes(tag);
+  return (entry.classification?.technicalPatternTags ?? []).includes(tag);
 }
 
 export function deriveTemplateRuntimeGuidance(

@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { TemplateLibraryEntry } from "../../src/lib/gen/template-library/types";
+import { PIPELINE_REPORTS_ROOT } from "../template-library/template-library-discovery";
 import { writeJson } from "../template-library/template-library-discovery";
 
 export interface ScaffoldCandidateRecord {
@@ -148,7 +149,7 @@ export function writeScaffoldCandidateReport(
     input?: string | null;
   },
 ): { outputPath: string; report: ScaffoldCandidateReportFile } {
-  const outputPath = options?.outputPath ?? path.resolve(process.cwd(), "data", "scaffold-candidates-curated.json");
+  const outputPath = options?.outputPath ?? path.resolve(PIPELINE_REPORTS_ROOT, "scaffold-candidates-curated.json");
   const report = buildScaffoldCandidateReport(entries, {
     source: options?.source,
     input: options?.input,

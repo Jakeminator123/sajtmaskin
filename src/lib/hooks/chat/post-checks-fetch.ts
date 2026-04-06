@@ -1,6 +1,17 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { FileEntry, VersionEntry } from "./types";
 
+export type ImageMaterializationStatus = {
+  attempted: boolean;
+  strategy: "blob";
+  replaced: number;
+  uploaded: number;
+  skipped: number;
+  warningCount: number;
+  reason?: string;
+  error?: string | null;
+};
+
 export async function fetchChatVersions(
   chatId: string,
   signal?: AbortSignal,
@@ -13,7 +24,10 @@ export async function fetchChatVersions(
         `Failed to fetch versions (HTTP ${response.status})`,
     );
   }
-  return Array.isArray(data?.versions) ? data.versions : [];
+  if (!Array.isArray(data?.versions)) {
+    throw new Error("Invalid versions response shape");
+  }
+  return data.versions;
 }
 
 export async function fetchChatFiles(
@@ -34,20 +48,45 @@ export async function fetchChatFiles(
   if (!response.ok) {
     throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
   }
-  return Array.isArray(data?.files) ? data.files : [];
+  if (!Array.isArray(data?.files)) {
+    throw new Error("Invalid files response shape");
+  }
+  return data.files;
 }
 
 export async function triggerImageMaterialization(params: {
   chatId: string;
   versionId: string;
   enabled: boolean;
-}): Promise<void> {
-  if (!params.enabled) return;
+}): Promise<ImageMaterializationStatus | null> {
+  if (!params.enabled) {
+    return {
+      attempted: false,
+      strategy: "blob",
+      replaced: 0,
+      uploaded: 0,
+      skipped: 0,
+      warningCount: 0,
+      reason: "disabled",
+    };
+  }
   const { chatId, versionId } = params;
   try {
     const url = `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(versionId)}&materialize=1`;
-    await fetch(url, { method: "GET" });
+    const response = await fetch(url, { method: "GET" });
+    const data = (await response.json().catch(() => null)) as {
+      imageMaterialization?: ImageMaterializationStatus;
+    } | null;
+    return data?.imageMaterialization ?? null;
   } catch {
-    // best-effort only
+    return {
+      attempted: true,
+      strategy: "blob",
+      replaced: 0,
+      uploaded: 0,
+      skipped: 0,
+      warningCount: 0,
+      error: "network_error",
+    };
   }
 }

@@ -96,7 +96,7 @@ export function detectBusinessWorkflowPacks(source: string): BusinessWorkflowPac
       envVars: strong ? ["RESEND_API_KEY"] : [],
       recommendedIntegrations: strong ? ["Resend"] : ["Resend eller annan e-postprovider (vid server-side)"],
       verificationChecklist: [
-        "Formuläret går att skicka från preview eller sandbox.",
+        "Formuläret går att skicka från preview.",
         "E-postrouting eller leadhantering är konfigurerad.",
         "Användaren får tydlig success/error-feedback.",
       ],

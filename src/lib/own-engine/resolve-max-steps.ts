@@ -10,13 +10,13 @@ export function resolveOwnEngineMaxSteps(input: {
   userMessage: string;
   isFollowUp: boolean;
 }): number {
-  if (!input.isFollowUp) return 2;
+  if (!input.isFollowUp) return 4;
   const trimmed = input.userMessage.trim();
-  if (input.buildSpec.contextPolicy === "heavy") return 3;
-  if (looksDesignHeavyMessage(trimmed)) return 3;
+  if (input.buildSpec.contextPolicy === "heavy") return 5;
+  if (looksDesignHeavyMessage(trimmed)) return 5;
   const scope = input.buildSpec.changeScope;
   if (scope === "redesign" || scope === "integration" || scope === "page-addition") {
-    return 3;
+    return 5;
   }
-  return 2;
+  return 4;
 }

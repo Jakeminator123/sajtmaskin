@@ -249,7 +249,7 @@ export const AI_ELEMENT_ITEMS: AiElementCatalogItem[] = [
     label: "Web Preview",
     description: "Embedded iframe preview with URL bar, refresh and responsive container.",
     category: "code",
-    tags: ["preview", "iframe", "navigation", "sandbox"],
+    tags: ["preview", "iframe", "navigation", "runtime"],
     promptHints: [
       "Include a compact URL bar and refresh action.",
       "Use a responsive container with rounded corners and loading state.",

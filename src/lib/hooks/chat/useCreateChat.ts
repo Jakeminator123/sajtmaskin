@@ -24,7 +24,6 @@ import { readPreviewPreflight } from "./post-checks-preview";
 import { handleSseStream } from "./stream-handlers";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
-import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 
 export function useCreateChat(
   params: ChatMessagingParams,
@@ -65,12 +64,12 @@ export function useCreateChat(
     pendingBriefRef,
     mutateVersions,
     setCurrentPreviewUrl,
-    setSandboxBuildError,
-    setSandboxProdBuild,
-    setSandboxPending,
+    setPreviewBuildError,
+    setPreviewProdBuild,
+    setPreviewPending,
     onPreviewRefresh,
     onGenerationComplete,
-    onSandboxSessionMeta,
+    onPreviewSessionMeta,
     onLinkedProjectId,
     setMessages,
     resetBeforeCreateChat,
@@ -262,22 +261,13 @@ export function useCreateChat(
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
           data.versionId || latestVersion?.id || latestVersion?.versionId || null;
-        const sandboxPending =
-          data?.sandboxPending === true ||
-          latestVersion?.sandboxPending === true;
-        const fromLatestSandbox = normalizePreviewUrl(
-          typeof latestVersion?.sandboxUrl === "string" ? latestVersion.sandboxUrl : null,
-        );
-        const sandboxLive =
-          fromLatestSandbox && isSandboxPreviewUrl(fromLatestSandbox) ? fromLatestSandbox : null;
+        const previewPending =
+          data?.previewPending === true ||
+          latestVersion?.previewPending === true;
         const fromDual =
           resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
           resolveInboundPreviewUrl(latestVersion as { previewUrl?: unknown; demoUrl?: unknown } | undefined);
-        const resolvedDemoUrl =
-          sandboxLive ||
-          fromDual ||
-          (typeof latestVersion?.legacyShimPreviewUrl === "string" && latestVersion.legacyShimPreviewUrl) ||
-          null;
+        const resolvedDemoUrl = fromDual || null;
 
         if (!newChatId) {
           throw new Error("No chat ID returned from API");
@@ -303,7 +293,7 @@ export function useCreateChat(
           setCurrentPreviewUrl(resolvedDemoUrl);
           onPreviewRefresh?.();
         }
-        setSandboxPending?.(sandboxPending);
+        setPreviewPending?.(previewPending);
         onGenerationComplete?.({
           chatId: String(newChatId),
           versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
@@ -452,12 +442,12 @@ export function useCreateChat(
               pendingCreateKeyRef,
               onLinkedProjectId,
               setCurrentPreviewUrl,
-              setSandboxBuildError,
-              setSandboxProdBuild,
-              setSandboxPending,
+              setPreviewBuildError,
+              setPreviewProdBuild,
+              setPreviewPending,
               onPreviewRefresh,
               onGenerationComplete,
-              onSandboxSessionMeta,
+              onPreviewSessionMeta,
               mutateVersions,
               enableImageMaterialization,
               autoFixHandlerRef,
@@ -556,11 +546,11 @@ export function useCreateChat(
       appProjectId,
       linkedProjectId,
       setCurrentPreviewUrl,
-      setSandboxBuildError,
-      setSandboxProdBuild,
+      setPreviewBuildError,
+      setPreviewProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
-      onSandboxSessionMeta,
+      onPreviewSessionMeta,
       onLinkedProjectId,
       mutateVersions,
       buildBuilderParams,

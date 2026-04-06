@@ -39,11 +39,15 @@ function manifestCacheKey(cwd: string, manifestPath: string, fragmentRels: strin
   const parts: string[] = [String(statSync(manifestPath).mtimeMs)];
   for (const rel of fragmentRels) {
     const fp = safeConfigFragmentPath(cwd, rel);
-    if (!fp || !existsSync(fp)) {
+    if (fp === null) {
       parts.push("missing");
       continue;
     }
-    parts.push(String(statSync(fp).mtimeMs));
+    try {
+      parts.push(String(statSync(fp).mtimeMs));
+    } catch {
+      parts.push("missing");
+    }
   }
   return parts.join("|");
 }
@@ -76,13 +80,16 @@ function tryLoadFromManifest(cwd: string): string | null {
   const chunks: string[] = [];
   for (const rel of fragmentRels) {
     const fp = safeConfigFragmentPath(cwd, rel);
-    if (!fp) {
+    if (fp === null) {
       throw new Error(`[sajtmaskin] Invalid fragment path in manifest: ${rel}`);
     }
-    if (!existsSync(fp)) {
+    let raw: string;
+    try {
+      raw = readFileSync(fp, "utf8");
+    } catch {
       throw new Error(`[sajtmaskin] Manifest fragment missing: ${rel} → ${fp}`);
     }
-    chunks.push(readFileSync(fp, "utf8").replace(/^\uFEFF/, "").trimEnd());
+    chunks.push(raw.replace(/^\uFEFF/, "").trimEnd());
   }
 
   const text = chunks.join(sep);

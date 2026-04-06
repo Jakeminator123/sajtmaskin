@@ -1,15 +1,15 @@
 import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
-import { hasSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { hasTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { VersionSummary } from "./useBuilderDerivedState";
 
-/** Sandbox (fidelity 2) only; legacy `demoUrl` shim URLs are ignored. */
+/** Live preview only; no shim fallback. */
 export function pickVersionPreviewUrl(
   v: VersionSummary | undefined,
   options?: { allowFailed?: boolean },
 ): string | null {
   if (!v) return null;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return null;
-  return normalizePreviewUrl(v.sandboxUrl);
+  return normalizePreviewUrl(v.previewUrl);
 }
 
 export function asRecord(value: unknown): Record<string, unknown> | null {
@@ -31,11 +31,11 @@ export function parsePreviewOverride(
   return { url, versionId };
 }
 
-export function versionSummaryHasSandbox(
+export function versionSummaryHasPreview(
   v: VersionSummary | undefined,
   options?: { allowFailed?: boolean },
 ): boolean {
   if (!v) return false;
   if (!options?.allowFailed && !canExposeEnginePreview(v)) return false;
-  return hasSandboxPreviewUrl(v.sandboxUrl);
+  return hasTier2LivePreviewUrl(v.previewUrl);
 }

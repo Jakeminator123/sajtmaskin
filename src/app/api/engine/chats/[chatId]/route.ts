@@ -4,9 +4,7 @@ import { versions } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
-import { buildPreviewUrl } from "@/lib/gen/preview/build-preview-document";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
-import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -20,10 +18,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           (await getPreferredVersion(resolvedChatId)) ??
           (await getLatestVersion(resolvedChatId));
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
-        const legacyShimPreviewUrl =
-          latest && canExposeEnginePreview(latest)
-            ? buildPreviewUrl(resolvedChatId, latest.id)
-            : null;
 
         return NextResponse.json({
           id: chat.id,
@@ -35,7 +29,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           scaffoldFamily: resolvedScaffold?.family ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
           ...previewUrlField(null),
-          legacyShimPreviewUrl,
+          legacyShimPreviewUrl: null,
           createdAt: chat.created_at,
           updatedAt: chat.updated_at,
           messages: chat.messages.map((m) => ({
@@ -50,12 +44,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             ? {
                 id: latest.id,
                 versionId: latest.id,
-                ...previewUrlField(null),
-                legacyShimPreviewUrl,
+                ...previewUrlField(latest.preview_url),
+                legacyShimPreviewUrl: null,
                 createdAt: latest.created_at,
                 versionNumber: latest.version_number,
                 messageId: latest.message_id,
-                sandboxUrl: latest.sandbox_url,
+                previewPending: false,
                 releaseState: latest.release_state,
                 verificationState: latest.verification_state,
                 verificationSummary: latest.verification_summary,

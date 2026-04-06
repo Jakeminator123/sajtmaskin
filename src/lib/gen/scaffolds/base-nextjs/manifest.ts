@@ -10,7 +10,21 @@ export const baseNextjsManifest: ScaffoldManifest = {
   tags: ["starter", "minimal", "nextjs"],
   promptHints: [
     "Keep it simple. This is a minimal base — add sections as needed.",
+    "Preserve the starter shape: App Router, globals.css tokens, and a clean baseline that can be extended safely.",
   ],
+  qualityChecklist: [
+    "Keep the starter minimal and easy to extend without unnecessary sections.",
+    "Preserve App Router basics: layout, page, and globals.css should stay intact.",
+    "Do not remove @theme inline tokens, path aliases, or the dark baseline without a clear replacement.",
+  ],
+  research: {
+    upgradeTargets: [
+      "Add a tiny reusable section system (hero + feature cards) while keeping starter simplicity.",
+      "Introduce metadata and OG defaults tied to brand/site context from the prompt.",
+      "Add one optional secondary route as a pattern for safe multi-page expansion.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",

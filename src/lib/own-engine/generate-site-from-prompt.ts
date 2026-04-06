@@ -9,12 +9,10 @@ import { getAgentTools } from "@/lib/gen/agent-tools";
 import { normalizeBuildIntent, type BuildIntent } from "@/lib/builder/build-intent";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
-import type { RuntimeMode, RuntimeFile, SandboxRuntimeOptions } from "@/lib/mcp/runtime-url";
-import {
-  buildOwnEnginePreviewRuntime,
-  createSandboxRuntimeFromFiles,
-} from "@/lib/mcp/runtime-url";
-import { buildSandboxEnvLocalContents } from "@/lib/gen/sandbox/env-local";
+import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+import { inferFileLanguage } from "@/lib/utils/infer-file-language";
+
+type RuntimeMode = "preview";
 
 export type GenerateOwnEngineSiteFromPromptParams = {
   prompt: string;
@@ -26,7 +24,6 @@ export type GenerateOwnEngineSiteFromPromptParams = {
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
   runtimeMode?: RuntimeMode;
-  sandbox?: SandboxRuntimeOptions;
 };
 
 export type GenerateOwnEngineSiteFromPromptResult = {
@@ -126,7 +123,7 @@ export async function generateOwnEngineSiteFromPrompt(
     model: String(engineModel),
     thinking,
     tools: getAgentTools(),
-    maxSteps: 2,
+    maxSteps: 4,
   });
 
   const reader = pipelineStream.getReader();
@@ -256,45 +253,32 @@ export async function generateOwnEngineSiteFromPrompt(
     const msg = err instanceof Error ? err.message : "Invalid filesJson";
     throw new Error(`Could not parse generated files: ${msg}`);
   }
-  const runtimeFiles: RuntimeFile[] = files.map((file) => ({
-    name: file.path,
-    content: file.content,
-  }));
-
   let runtimeUrl: string | null = finalized.previewUrl;
-  let sandboxId: string | undefined;
+  let previewSessionId: string | undefined;
   let runtime: string | undefined;
   let ports: number[] | undefined;
 
-  if (runtimeMode === "sandbox") {
-    const envLocalPath = ".env.local";
-    const envIdx = runtimeFiles.findIndex((f) => f.name === envLocalPath);
-    let priorEnvLocal: string | null = null;
-    if (envIdx >= 0) {
-      priorEnvLocal = runtimeFiles[envIdx]!.content;
-      runtimeFiles.splice(envIdx, 1);
-    }
-    const envBody = await buildSandboxEnvLocalContents({
-      appProjectId: projectId,
-      generatedEnvLocal: priorEnvLocal,
-    });
-    runtimeFiles.push({ name: envLocalPath, content: envBody });
-
-    const sandboxRuntime = await createSandboxRuntimeFromFiles(
-      runtimeFiles,
-      params.sandbox,
-    );
-    runtimeUrl = sandboxRuntime.primaryUrl;
-    sandboxId = sandboxRuntime.sandboxId;
-    runtime = sandboxRuntime.runtime;
-    ports = sandboxRuntime.ports;
-  } else {
-    runtimeUrl = buildOwnEnginePreviewRuntime({
+  const previewSessionStarted = await startPreviewSession(
+    files.map((file) => ({
+      path: file.path,
+      content: file.content,
+      language: inferFileLanguage(file.path),
+    })),
+    {
       chatId: chat.id,
-      versionId: finalized.version.id,
-      projectId,
-    }).url;
+      appProjectId: projectId,
+      versionIdForSession: finalized.version.id,
+      skipRepair: true,
+    },
+  );
+  if (!previewSessionStarted.ok) {
+    throw new Error(
+      `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
+    );
   }
+  runtimeUrl = previewSessionStarted.result.sandboxUrl;
+  previewSessionId = previewSessionStarted.result.sandboxId;
+  await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
 
   return {
     projectId,
@@ -304,11 +288,11 @@ export async function generateOwnEngineSiteFromPrompt(
     previewUrl: finalized.previewUrl,
     runtimeMode,
     runtimeUrl,
-    sandboxId,
+    sandboxId: previewSessionId,
     runtime,
     ports,
     scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-    filesCount: runtimeFiles.length,
+    filesCount: files.length,
     files,
     contentForVersion: finalized.contentForVersion,
     model: String(engineModel),

@@ -1,15 +1,20 @@
 /**
- * Validate a grouped discovery summary.json (e.g. scraped-vercel-scorefolds/summary.json).
+ * Validate a grouped discovery summary.json (e.g. data/external-template-pipeline/scrape-cache/current/summary.json).
  * Ensures build-template-library.ts can read it; does not require strict JSON Schema
  * (scrapes may add extra fields — normalizeLegacySummary strips to the core contract).
  *
  * Usage (repo root):
  *   npx tsx scripts/template-library/verify-discovered-summary.ts
- *   npx tsx scripts/template-library/verify-discovered-summary.ts --path=scraped-vercel-scorefolds
+ *   npx tsx scripts/template-library/verify-discovered-summary.ts --path=data/external-template-pipeline/scrape-cache/current
  */
 import fs from "node:fs";
 import path from "node:path";
-import { normalizeLegacySummary, resolveSummaryPath } from "./template-library-discovery";
+import {
+  RAW_DISCOVERY_CURRENT_ROOT,
+  SCRAPE_CACHE_CURRENT_ROOT,
+  normalizeLegacySummary,
+  resolveSummaryPath,
+} from "./template-library-discovery";
 
 const WORKSPACE_ROOT = process.cwd();
 
@@ -21,7 +26,7 @@ function readArg(name: string, argv: string[]): string | null {
 
 function main(): void {
   const argv = process.argv.slice(2);
-  const rawPath = readArg("--path", argv) ?? path.join(WORKSPACE_ROOT, "scraped-vercel-scorefolds");
+  const rawPath = readArg("--path", argv) ?? SCRAPE_CACHE_CURRENT_ROOT;
   const summaryPath = resolveSummaryPath(rawPath);
 
   if (!fs.existsSync(summaryPath)) {
@@ -41,7 +46,9 @@ function main(): void {
   console.info(`  Categories: ${categories.length} (${categories.slice(0, 5).join(", ")}${categories.length > 5 ? ", …" : ""})`);
   console.info(`  Template records after normalize: ${total}`);
   console.info(
-    `  Tip: run build with explicit source:\n    npx tsx scripts/template-library/build-template-library.ts --source="${path.dirname(summaryPath)}"`,
+    `  Tip: import to canonical raw discovery, then build from there:\n` +
+    `    npx tsx scripts/template-library/import-template-discovery.ts --from="${path.dirname(summaryPath)}"\n` +
+    `    npx tsx scripts/template-library/build-template-library.ts --source="${RAW_DISCOVERY_CURRENT_ROOT}"`,
   );
 }
 

@@ -12,12 +12,13 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-RAW_DISCOVERY_CURRENT = REPO_ROOT / "research" / "external-templates" / "raw-discovery" / "current"
+PIPELINE_ROOT = REPO_ROOT / "data" / "external-template-pipeline"
+SCRAPE_CACHE_ROOT = PIPELINE_ROOT / "scrape-cache" / "current"
+RAW_DISCOVERY_CURRENT = PIPELINE_ROOT / "raw-discovery" / "current"
 GENERATED_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
 EMBEDDINGS_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
 SCAFFOLD_EMBEDDINGS = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-embeddings.json"
-DOSSIER_ROOT = REPO_ROOT / "research" / "external-templates" / "reference-library" / "dossiers"
-SCRAPE_CACHE_ROOT = REPO_ROOT.parent / "sajtmaskin-template-cache"
+DOSSIER_ROOT = PIPELINE_ROOT / "reference-library" / "dossiers"
 
 BLUE = "\033[94m"
 GREEN = "\033[92m"
@@ -62,7 +63,7 @@ def show_status():
     print(f"\n{BOLD}=== Status ==={RESET}")
     has_discovery = (RAW_DISCOVERY_CURRENT / "summary.json").exists()
     has_scrape_cache = (SCRAPE_CACHE_ROOT / "summary.json").exists()
-    print(f"  External scrape cache (../sajtmaskin-template-cache): {'finns' if has_scrape_cache else 'SAKNAS'}")
+    print(f"  Canonical scrape cache (data/external-template-pipeline): {'finns' if has_scrape_cache else 'SAKNAS'}")
     print(f"  Raw discovery (current/summary.json): {'finns' if has_discovery else 'SAKNAS'}")
     print(f"  Dossiers:                             {count_dossiers()} st")
     print(f"  template-library.generated.json:      {count_json_entries(GENERATED_JSON)} kuraterade")
@@ -77,11 +78,11 @@ def menu():
 ║          Scaffold Pipeline — Sajtmaskin               ║
 ╚══════════════════════════════════════════════════════╝{RESET}
 
-  {GREEN}1{RESET}  Skrapa nya templates till syskonmappen
-     (Python intake — bred research, sibling cache utanför repot)
+  {GREEN}1{RESET}  Skrapa nya templates till kanonisk data-mapp
+     (Python intake — bred research till data/external-template-pipeline)
 
-  {GREEN}2{RESET}  Importera från syskonmappen till raw-discovery/current
-     (Snabb, använder ../sajtmaskin-template-cache/summary.json)
+  {GREEN}2{RESET}  Importera scrape-cache till raw-discovery/current
+     (Snabb, använder data/external-template-pipeline/scrape-cache/current)
 
   {GREEN}3{RESET}  Ladda ner repos (hydrate cache)
      (Shallow clones av alla repos, tar 5-15 min)
@@ -95,7 +96,7 @@ def menu():
   {GREEN}6{RESET}  Generera scaffold embeddings
      (OpenAI API-anrop för de 10 runtime scaffolds)
 
-  {GREEN}7{RESET}  Kör ALLT från befintlig syskonmapp
+  {GREEN}7{RESET}  Kör ALLT från befintlig scrape-cache
      (Import + hydrate + build + embeddings via full_template_refresh.py)
 
   {GREEN}8{RESET}  Kör ALLT från scratch
@@ -113,19 +114,19 @@ def confirm(msg: str) -> bool:
 
 
 def step_discover():
-    print(f"\n{BOLD}Steg: Skrapa templates till syskonmappen{RESET}")
+    print(f"\n{BOLD}Steg: Skrapa templates till kanonisk data-mapp{RESET}")
     print(f"Output: {SCRAPE_CACHE_ROOT}")
-    print("Detta kör den breda Python-intaken och sparar research utanför repot.")
+    print("Detta kör den breda Python-intaken och sparar research i den kanoniska data-mappen.")
     if not confirm("Fortsätt?"):
         return
     run(
         "py scripts/template-library/hamta_sidor_branch_emil.py "
-        f'--output "{SCRAPE_CACHE_ROOT}" --legacy-wide-use-cases --per-category 999 --delay 0.4'
+        f'--output "{SCRAPE_CACHE_ROOT}" --legacy-wide-use-cases --per-category 999 --delay 0.4 --skip-download'
     )
 
 
 def step_import_legacy():
-    print(f"\n{BOLD}Steg: Importera syskonmappen till raw-discovery/current{RESET}")
+    print(f"\n{BOLD}Steg: Importera scrape-cache till raw-discovery/current{RESET}")
     print(f"Källa: {SCRAPE_CACHE_ROOT}")
     run(
         "npx tsx scripts/template-library/import-template-discovery.ts "
@@ -139,12 +140,18 @@ def step_hydrate():
         print(f"{RED}Ingen summary.json hittad i raw-discovery/current/.")
         print(f"Kör steg 1 eller 2 först.{RESET}")
         return
-    run("npm run template-library:hydrate-cache")
+    run(
+        "npx tsx scripts/template-library/hydrate-template-library-cache.ts "
+        f'--source="{RAW_DISCOVERY_CURRENT}"'
+    )
 
 
 def step_build():
     print(f"\n{BOLD}Steg: Bygg template-library + dossiers{RESET}")
-    run("npm run template-library:build")
+    run(
+        "npx tsx scripts/template-library/build-template-library.ts "
+        f'--source="{RAW_DISCOVERY_CURRENT}"'
+    )
 
 
 def step_template_embeddings():
@@ -164,7 +171,7 @@ def step_scaffold_embeddings():
 
 
 def step_full_from_existing():
-    print(f"\n{BOLD}Kör hela kedjan från befintlig syskonmapp{RESET}")
+    print(f"\n{BOLD}Kör hela kedjan från befintlig scrape-cache{RESET}")
     if not (SCRAPE_CACHE_ROOT / "summary.json").exists():
         print(f"{RED}Ingen scrape-cache hittad i {SCRAPE_CACHE_ROOT}.{RESET}")
         print(f"Kör steg 1 först.{RESET}")
@@ -179,7 +186,7 @@ def step_full_from_existing():
 
 def step_full_from_scratch():
     print(f"\n{BOLD}Kör ALLT från scratch{RESET}")
-    print("1. Bred scrape till syskonmappen")
+    print("1. Bred scrape till kanonisk data-mapp")
     print("2. Import till raw-discovery/current")
     print("3. Hydrate repo-cache")
     print("4. Bygg dossiers + generated JSON")

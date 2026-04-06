@@ -59,12 +59,12 @@ export function useSendMessage(
     pendingBriefRef,
     mutateVersions,
     setCurrentPreviewUrl,
-    setSandboxBuildError,
-    setSandboxProdBuild,
-    setSandboxPending,
+    setPreviewBuildError,
+    setPreviewProdBuild,
+    setPreviewPending,
     onPreviewRefresh,
     onGenerationComplete,
-    onSandboxSessionMeta,
+    onPreviewSessionMeta,
     setMessages,
   } = params;
 
@@ -103,8 +103,8 @@ export function useSendMessage(
         engineModel,
       });
 
-      setSandboxBuildError?.(null);
-      setSandboxProdBuild?.(null);
+      setPreviewBuildError?.(null);
+      setPreviewProdBuild?.(null);
       setMessages((prev) => [
         ...prev,
         { id: userMessageId, role: "user", content: messageText },
@@ -122,7 +122,11 @@ export function useSendMessage(
         const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
         const previewResolved =
           resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
-          resolveInboundPreviewUrl(latestVersion);
+          resolveInboundPreviewUrl(
+            latestVersion as
+              | { previewUrl?: unknown; demoUrl?: unknown }
+              | undefined,
+          );
         const preflight = readPreviewPreflight(data);
         if (previewResolved) {
           const n = normalizePreviewUrl(previewResolved);
@@ -315,12 +319,12 @@ export function useSendMessage(
             setMessages,
             touchStreamSafetyTimer,
             setCurrentPreviewUrl,
-            setSandboxBuildError,
-            setSandboxProdBuild,
-            setSandboxPending,
+            setPreviewBuildError,
+            setPreviewProdBuild,
+            setPreviewPending,
             onPreviewRefresh,
             onGenerationComplete,
-            onSandboxSessionMeta,
+            onPreviewSessionMeta,
             mutateVersions,
             enableImageMaterialization,
             autoFixHandlerRef,
@@ -408,11 +412,11 @@ export function useSendMessage(
       systemPrompt,
       setMessages,
       setCurrentPreviewUrl,
-      setSandboxBuildError,
-      setSandboxProdBuild,
+      setPreviewBuildError,
+      setPreviewProdBuild,
       onPreviewRefresh,
       onGenerationComplete,
-      onSandboxSessionMeta,
+      onPreviewSessionMeta,
       selectedModelTier,
       buildIntent,
       buildMethod,

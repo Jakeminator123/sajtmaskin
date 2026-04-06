@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   decideOpenClawCodeContextMode,
+  decideOpenClawRoutingIntent,
   getLatestOpenClawUserText,
 } from "./chat-context-policy";
 
@@ -32,7 +33,7 @@ describe("chat-context-policy", () => {
     ).toBe("none");
   });
 
-  it("uses snippet mode for focused code questions", () => {
+  it("uses light mode for focused code questions", () => {
     expect(
       decideOpenClawCodeContextMode({
         messages: [{ role: "user", content: "Kan du förklara den här koden?" }],
@@ -40,7 +41,7 @@ describe("chat-context-policy", () => {
         chatId: "chat_123",
         currentCode: "export default function Page() {}",
       }),
-    ).toBe("snippet");
+    ).toBe("light");
   });
 
   it("uses manifest mode for file-location questions", () => {
@@ -65,5 +66,24 @@ describe("chat-context-policy", () => {
         currentCode: "export default function Page() {}",
       }),
     ).toBe("full");
+  });
+
+  it("uses manifest mode for improvement reviews without requiring full-code access", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Vad kan förbättras i den här versionen?" }],
+        page: "builder",
+        chatId: "chat_123",
+        currentCode: "export default function Page() {}",
+      }),
+    ).toBe("manifest");
+  });
+
+  it("marks latest-prompt questions as review intent", () => {
+    expect(
+      decideOpenClawRoutingIntent({
+        messages: [{ role: "user", content: "Kan du granska min senaste prompt och säga vad som kan förbättras?" }],
+      }),
+    ).toBe("review");
   });
 });

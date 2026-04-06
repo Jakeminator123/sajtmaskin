@@ -12,8 +12,8 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 |------|----------|
 | [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
 | [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt` (npm `predev` / `dev` / `build`) |
-| [`embeddings/`](embeddings/) | Mall-, template-library-, scaffold- och docs-embeddings |
-| [`template-library/`](template-library/) | Extern mallkedja: discovery-import, build, hydrate, v0-sync, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
+| [`embeddings/`](embeddings/) | Mall-, template-library- och scaffold-embeddings |
+| [`template-library/`](template-library/) | Extern mallkedja: scrape-cache, discovery-import, build, hydrate, v0-sync, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
 | [`scaffolds/`](scaffolds/) | Kandidatrapport, kurering, promote, `sync-scaffold-refs.mjs` |
 | [`eval/`](eval/) | `run-eval.ts` (eval-output) |
 | [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
@@ -31,70 +31,53 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
 | [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**Mallflöde (v0-templates i repo):** [`template-library/sync-v0-templates.mjs`](template-library/sync-v0-templates.mjs), [`template-library/validate-templates.mjs`](template-library/validate-templates.mjs), [`template-library/refresh-local-v0-catalog.mjs`](template-library/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
+**Mallflöde (v0-templates i repo, enbart lokal data):** [`template-library/sync-v0-templates.mjs`](template-library/sync-v0-templates.mjs), [`template-library/validate-templates.mjs`](template-library/validate-templates.mjs), [`template-library/refresh-local-v0-catalog.mjs`](template-library/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
 - **Delade TS-moduler (ingen egen CLI):** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
 - **Vercel use-case-skrapning (Python):**
   - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — tierad utdata, rapporter, bred research-intake som kan markera `framework_match: false` i stället för att kasta bort poster direkt.
-  - **Nuvarande standardflöde:** bred intake med `--legacy-wide-use-cases --per-category 999` till syskonmappen `../sajtmaskin-template-cache`, därefter import + build + embeddings. Smalare läge finns kvar med `--core-use-cases` via `full_template_refresh.py`.
+  - **Nuvarande standardflöde:** bred intake med `--legacy-wide-use-cases --per-category 999` till `data/external-template-pipeline/scrape-cache/current`, därefter import + hydrate + build + embeddings via den kanoniska refresh-kedjan.
   - **Kärnlistan** i skriptet = **`USE_CASES_CORE` (12 Vercel-sluggar)** + valfritt **`USE_CASES_EXTENDED` (2)** med `--extended-scrape`; den breda researchlistan = **`USE_CASES_LEGACY_WIDE` (25)**. Detta är **osammanhängande** med t.ex. **`EVAL_PROMPTS` (15 eval-promptar)** i `src/lib/gen/eval/prompts.ts` — olika domäner, räkna dem inte ihop.
   - **Icke-kanon:** lokal **`vercel_templates_levels/`** (gitignored); använd **inte** som källa för “hur många kategorier” produkten har. Spårat alternativ: **`e2e/vercel-templates/`**.
   - Se [`repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
-  - Standard-output ligger **utanför repot** (`../sajtmaskin-template-cache` eller `SAJTMASKIN_VERCEL_SCRAPE_DIR`); för kanonisk `raw-discovery/current/` se import-steget och Playwright-vägen `e2e/vercel-templates/scrape-catalog.spec.ts`.
+  - Kanonisk mutable data ligger i **`data/external-template-pipeline/`**. Om du behöver återanvända en annan scrape-cache ska du ange den **explicit** med `--scrape-output` / `--from`, inte förlita dig på path-fallbackar.
 - **~~vercel_template_cli.py~~** (borttagen) — använd `hamta_sidor_branch_emil.py` eller Playwright-discover i stället.
 
 ## Lokala v0-mallar (`templates_v0/`)
 
-Detta spår är till för **builderns mallgalleri**, inte för `template-library` eller Vercel-template research.
+Detta spår är till för **builderns mallgalleri**, inte för `template-library` eller Vercel-template research. All data hämtas lokalt — inga online-anrop till v0.app görs längre.
 
-### Vad som är kanoniskt för lokal intake
+### Mappstruktur
 
-- `templates_v0/out/collected-template-ids.json`
-  - Krävs. Detta är den lokala manifestfilen som listar vilka v0-mallar som ska in i den committade katalogen.
-- `templates_v0/out/downloaded.jsonl`
-  - Valfri men bra att ha. Innehåller logg per nedladdad ZIP och kan ge extra kategorisignal efter faktisk download.
-- `src/lib/templates/templates.json`
-  - Den genererade katalogen som appen faktiskt läser vid runtime.
-- `src/lib/templates/template-categories.json`
-  - Den genererade kategorimappningen som runtime använder för kategorisidor och modaler.
-- `src/lib/templates/template-embeddings.json`
-  - Embeddings för semantisk mallsökning. Om filen saknas eller är tom faller appen tillbaka till enklare keyword-sökning.
+Se [`templates_v0/README.txt`](../templates_v0/README.txt) för komplett mappstruktur. Kort:
 
-### När du har laddat ner nya ZIP-filer
+- `templates_v0/scripts/` — Python-skript (Playwright) som skrapar v0.app interaktivt.
+- `templates_v0/out/` — Lokal manifestdata, metadata-JSON per mall, loggar (gitignorerat).
+- `templates_v0/downloads/` — ZIP-arkiv och bilder per kategori/mall (gitignorerat).
 
-Kör detta från repo-roten:
+### Kanoniska datakällor
 
-```bash
-npm run templates:local:refresh
-```
+| Fil | Roll |
+|-----|------|
+| `templates_v0/out/collected-template-ids.json` | **Krävs.** Lokal manifestfil med alla insamlade mall-ID:n. |
+| `templates_v0/out/template-metadata/*.json` | Titel, beskrivning, og:image per mall — läses av sync-scriptet. |
+| `templates_v0/out/downloaded.jsonl` | Valfri. Logg per nedladdad ZIP, ger extra kategorisignal. |
+| `src/lib/templates/templates.json` | **Genererad** katalog som appen läser vid runtime. |
+| `src/lib/templates/template-categories.json` | **Genererad** kategorimappning för kategorisidor och modaler. |
+| `src/lib/templates/template-embeddings.json` | Embeddings för semantisk mallsökning. Fallback till keyword-sökning om filen saknas. |
 
-Det kommandot gör tre saker:
-
-1. Läser lokal manifestdata från `templates_v0/out/`.
-2. Regenererar `src/lib/templates/templates.json`.
-3. Validerar att alla mallar har en kategori och att katalogen är intern-konsistent.
-
-### Om du också vill regenerera embeddings
-
-Kör:
+### Kommandon
 
 ```bash
-npm run templates:local:refresh:embeddings
+npm run templates:local:refresh              # Sync + validering (enbart lokal data)
+npm run templates:local:refresh:embeddings   # Sync + validering + regenerera embeddings
 ```
-
-Detta gör samma sync + validering som ovan och kör sedan också:
-
-```bash
-npm run templates:embeddings
-```
-
-För embeddings krävs `OPENAI_API_KEY` i miljön. I praktiken räcker det att nyckeln redan finns tillgänglig för repo:t när du kör kommandot.
 
 ### Bra att veta
 
-- `templates:sync` i sig är nu smart nog att **föredra lokal manifest-intake** när `templates_v0/out/collected-template-ids.json` finns.
-- `templates:local:refresh` är ändå det tydligaste kommandot efter ny lokal intake, eftersom det låser körningen till `--source=local-manifest`.
-- Preview-bilderna i galleriet kommer från template-katalogens `preview_image_url`, inte från att ZIP:arna renderas live.
-- Nya ZIP-filer blir inte synliga i appen förrän du har kört ett sync-kommando som uppdaterar `src/lib/templates/*`.
+- `templates:sync` arbetar **enbart** mot lokala manifest — ingen remote-html-fallback finns kvar.
+- När en mall finns som lokal ZIP i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från filerna i arkivet.
+- Preview-bilderna i galleriet kommer från `preview_image_url` i katalogen (hämtad ur lokal metadata, pekar på Vercel Blob CDN).
+- Nya ZIP-filer eller metadata-filer blir inte synliga i appen förrän ett sync-kommando har uppdaterat `src/lib/templates/*`.
 
 ## Arkiverat labb (`archive/scripts-labs-testning_scarf/`)
 
@@ -145,7 +128,7 @@ Kanonisk plats: `scripts/env/`.
 
 Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hemsidemallsarbete.
 
-**OBS:** `_template_refs/` används inte vid runtime. Skriptet behövs endast om du utvecklar nya scaffolds från externa referenser. Se `_template_refs/README.md` för mer information.
+**OBS:** `_template_refs/` används inte vid runtime. Skriptet behövs endast om du utvecklar nya scaffolds från externa referenser. Om mappen inte finns i din checkout är det normalt; skapa/fyll den först när du faktiskt arbetar med externa scaffold-referenser.
 
 ### Användning
 
@@ -178,42 +161,35 @@ Auditerar rå extern template-research och bygger ett kuraterat
 
 ```bash
 npm run template-library:build
-npx tsx scripts/template-library/build-template-library.ts --source="research/external-templates/raw-discovery/current"
+npx tsx scripts/template-library/build-template-library.ts --source="data/external-template-pipeline/raw-discovery/current"
 ```
 
-För **lokal** `scraped-vercel-scorefolds/` (gitignorerad): verifiera först `summary.json` med `npm run template-library:verify-summary`, bygg sedan med explicit `--source="<repo>/scraped-vercel-scorefolds"`. Utan `repo-cache`-kloning ger många poster låg `qualityScore` → `curatedTemplates: 0`; kör `template-library:hydrate-cache` med samma `--source=` (se [builder-generation.md](../docs/architecture/builder-generation.md) och template-library-avsnitt i [research/external-templates/README.md](../research/external-templates/README.md); äldre pipeline-narrativ i git-historik).
-
-Skriptet letar annars automatiskt efter råinput i denna ordning:
-
-1. `research/external-templates/raw-discovery/current`
-2. `research/external-templates/raw-discovery`
-3. `_sidor/vercel_usecase_next_react_templates`
-4. `research/_sidor/vercel_usecase_next_react_templates`
-5. den äldre desktop-sökvägen
+Det här skriptet ska nu läsa **en explicit eller kanonisk raw-discovery-root**. Äldre lokala `_sidor`-, `scraped-vercel-scorefolds`- och syskonfallbackar ska inte användas som normal drift.
 
 ### Viktig arbetsordning
 
 Kör i denna ordning när du vill bygga om forskningsytan reproducerbart:
 
 ```bash
-npm run template-library:import-legacy
-npm run template-library:hydrate-cache
-npm run template-library:build
-npm run template-library:embeddings
+py scripts/template-library/full_template_refresh.py
 ```
+
+Diskreta steg finns kvar för riktad felsökning, men `full_template_refresh.py` är den kanoniska orkestratorn.
 
 ### Vad skriptet gör
 
 1. Läser det kanoniska `summary.json`-kontraktet från raw discovery
-2. Inspekterar shallow-clonade repos från `research/external-templates/repo-cache/`
+2. Inspekterar shallow-clonade repos från `data/external-template-pipeline/repo-cache/`
 3. Faller bara tillbaka till äldre `_sidor`-repo paths om den valda source-roten
    fortfarande pekar på en legacy-datasetmapp
 4. Separerar extern use-case, site form och technical pattern i katalogens klassificering
 5. Deduplicerar repo-överlapp och demoterar blocklistade / icke-Next referenser till research-only
-6. Skapar `research/external-templates/reference-library/` med katalog + dossiers
+6. Skapar `data/external-template-pipeline/reference-library/` med katalog + dossiers
 7. Genererar kuraterade research-artefakter för runtime-sökning i `src/lib/gen/template-library/`
 8. Genererar scaffold research metadata i `src/lib/gen/scaffolds/scaffold-research.generated.json`
-9. Skriver en prioriterad scaffold-kandidatsrapport till `data/scaffold-candidates-curated.json`
+9. Skriver en prioriterad scaffold-kandidatsrapport till `data/external-template-pipeline/reports/scaffold-candidates-curated.json`
+
+**Viktigt:** dossiers i `reference-library/` används inte direkt av runtime-own-engine. De fungerar som mellanlager för research/kurering. Den data som faktiskt når LLM-prompten efter build-steget är de commitade generated artefakterna i `src/lib/gen/template-library/` och `src/lib/gen/scaffolds/`.
 
 ### Produktionsgräns
 
@@ -224,21 +200,18 @@ eller råa lokala datasetmappar.
 ## import-template-discovery.ts
 
 Normaliserar discovery-data till den kanoniska research-lagret under
-`research/external-templates/raw-discovery/current/`.
+`data/external-template-pipeline/raw-discovery/current/`.
 
 ### Användning
 
 ```bash
-npm run template-library:import-legacy
-npx tsx scripts/template-library/import-template-discovery.ts --from="../vercel-scrape-fresh"
-npx tsx scripts/template-library/import-template-discovery.ts --from="<path-to>/vercel_usecase_next_react_templates/summary.json"
-npx tsx scripts/template-library/import-template-discovery.ts --from="research/external-templates/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
+npm run template-library:import
+npx tsx scripts/template-library/import-template-discovery.ts --from="data/external-template-pipeline/scrape-cache/current"
+npx tsx scripts/template-library/import-template-discovery.ts --from="data/external-template-pipeline/raw-discovery/current/playwright-catalog.json" --format=playwright-catalog
 ```
 
 Om den valda mappen innehåller både `summary-cleaned.json` och `summary.json` används den
-städade filen först. Standardkommandot `template-library:import-legacy` prioriterar
-`SAJTMASKIN_VERCEL_SCRAPE_DIR`, sedan syskonmappar som `../vercel-scrape-fresh` / `../vercel-scrape`,
-och faller därefter tillbaka till äldre `_sidor`-dataset.
+städade filen först. Normal drift ska peka explicit på den kanoniska scrape-cachen i `data/external-template-pipeline/`.
 
 ## hydrate-template-library-cache.ts
 
@@ -255,17 +228,17 @@ npx tsx scripts/template-library/hydrate-template-library-cache.ts --max=20
 
 - shallow clone only
 - ingen `install` eller `build`
-- output hamnar i `research/external-templates/repo-cache/` som är gitignorerad
+- output hamnar i `data/external-template-pipeline/repo-cache/` som är gitignorerad
 - `repo-cache` betyder lokal repo-spegel, inte runtime-cache
 - `monorepo-examples` och poster med `framework_match: false` klonas inte i hydrate-steget
 ### Begrepp
 
-- `research/external-templates/raw-discovery/`
+- `data/external-template-pipeline/raw-discovery/`
   Rå och brusig discovery-output. Bra för triage, inte canonical.
-- `research/external-templates/reference-library/`
+- `data/external-template-pipeline/reference-library/`
   Kuraterad extern referensyta med per-template dossiers.
 - `src/lib/gen/template-library/`
-  Genererade research-artefakter som används av kod vid sökning och promptstöd.
+  Genererade research-artefakter som används av validering, curation och lokala sök-/kontrollverktyg.
 - `src/lib/gen/scaffolds/`
   Den riktiga runtime-scaffold-registryt.
 
@@ -276,8 +249,8 @@ framtida scaffold-logik kan söka semantiskt i externa referensmallar.
 
 Detta skriver den stora generated-filen
 `src/lib/gen/template-library/template-library-embeddings.json`. Filen kan vara
-committad och runtime-viktig samtidigt som den hålls utanför normal
-Cursor-indexering för att minska brus och kontextkostnad.
+lokal och viktig för curation-/kontrollflöden samtidigt som den hålls utanför
+normal Cursor-indexering för att minska brus och kontextkostnad.
 
 ### Användning
 
@@ -310,7 +283,7 @@ npx tsx scripts/scaffolds/curate-scaffold-candidates.ts --input="src/lib/gen/tem
 Behandla `npm run scaffolds:curate` och TypeScript-skriptet ovan som det
 kanoniska gränssnittet för curation.
 
-Rapporten i `data/scaffold-candidates-curated.json` är en reproducerbar
+Rapporten i `data/external-template-pipeline/reports/scaffold-candidates-curated.json` är en reproducerbar
 arbetsartefakt för scaffold-triage, inte en runtime-källa. Behandla den som en
 kandidat för lokal-only output och regenerera den vid behov.
 
@@ -367,6 +340,7 @@ Interaktivt "allt-i-ett"-skript for external-template-pipelinen:
 Kör interaktivt:
 
 ```bash
+npm run template-pipeline:refresh
 py scripts/template-library/full_template_refresh.py
 ```
 
@@ -376,7 +350,7 @@ Nuvarande default för scrape-steget är **bred research-intake**:
 
 - `--legacy-wide-use-cases`
 - `--per-category=999`
-- output i syskonmappen `../sajtmaskin-template-cache`
+- output i `data/external-template-pipeline/scrape-cache/current`
 
 Vill du explicit köra det smalare historiska kärnläget använder du `--core-use-cases`.
 
@@ -404,11 +378,21 @@ sist för att ge mer verifieringssignal även när repot redan har kända lintfe
 
 Kör eval-suite + scorecard via `scripts/eval/run-eval.ts`. **Utdata:** katalogen `eval-output/` (gitignored) med `eval-report-YYYY-MM-DD.md` och `scorecard-YYYY-MM-DD.md` — datumet i filnamnet är **körningsdagen**, inte en mystisk import. *(Äldre körningar kan ligga i `EGEN_MOTOR_V2/` — byt till `eval-output/` eller flytta filer.)* Vill du spara en rapport i git, kopiera till t.ex. `docs/` medvetet.
 
-## references:discover / scaffolds:discover
+Nuvarande eval-checkar inkluderar också:
 
-Historiskt hette discovery-flödet `scaffolds:discover`, men det producerar inte
-interna runtime-scaffolds. Nu kör det Playwright-baserad extern
-template-discovery som normaliseras till `research/external-templates/raw-discovery/current/`.
+- `project-sanity` för cross-file/dependency-risker som saknade package pins eller kända installproblem
+- `no-bracket-placeholders` för kvarlämnade innehållsplaceholders som `[Company Name]`
+- `seo-publish-readiness` för metadata/title/description/robots/sitemap/H1 som behövs för riktig företagsleverans
+- `visual-quality` för heuristisk layout-/hierarki-/färg-/sektion-/bildsignal på den färdiga projektytan
+- `tier2-readiness` för om samma preflight-kontrakt som runtime använder fortfarande skulle tillåta tier-2 preview
+- baseline-gaten tittar nu också på `PASS -> FAIL` och `FAIL -> PASS`, inte bara score-delta
+- baseline-jämförelsen rapporterar också nya eller borttagna blockerande checks per prompt
+- eval-resultat far nu blockerande checks, sa `PASS` kraver att kritiska readiness-/sanity-checkar ocksa ar gröna, inte bara att medelscoren är okej
+
+## references:discover
+
+Playwright-baserad extern template-discovery som normaliseras till
+`data/external-template-pipeline/raw-discovery/current/`.
 
 Använd i första hand:
 
@@ -418,24 +402,13 @@ npm run references:discover:second-pass
 npm run references:discover:full
 ```
 
-Kompatibilitetsalias finns kvar:
-
-```bash
-npm run scaffolds:discover
-npm run scaffolds:discover:full
-```
-
-**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md) och [`research/external-templates/README.md`](../research/external-templates/README.md); äldre narrativfiler i git-historik.
-
-## ~~extract-static-core.mjs~~ (borttagen, 2026-03-27)
-
-Tidigare: extraherade `STATIC_CORE`-template från `system-prompt.ts` till `config/systemprompt.md`. **Monoliten är borta** — statisk kärna laddas via `getStaticCoreFromWorkspace` / `config/prompt-static/` (se `src/lib/gen/static-core-loader.ts`). Skriptet togs bort som **B3-05**.
+**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md); äldre narrativfiler i git-historik.
 
 ## scaffold-pipeline.py (avancerat, ej i package.json)
 
-Interaktivt Python-menyskript som samlar alla steg i template-library-kedjan.
-Visar aktuell status (antal dossiers, embeddings, kuraterade entries) och lat
-dig valja enskilda steg eller kora hela kedjan.
+Interaktivt Python-menyskript som visar status och exponerar de kanoniska
+stegen i template-library-kedjan ovanpå samma pipeline-rot som
+`full_template_refresh.py`.
 
 **Placering:** [`scripts/manual/scaffold-pipeline.py`](manual/scaffold-pipeline.py) (översikt: [`scripts/manual/README.md`](manual/README.md)). Gamla sökvägen `scripts/scaffold-pipeline.py` finns inte längre.
 
@@ -449,14 +422,14 @@ python scripts/manual/scaffold-pipeline.py
 
 | Val | Vad det gör |
 |-----|-------------|
-| 1 | Skrapa nya templates från vercel.com/templates (Playwright) |
-| 2 | Importera legacy-dataset från Desktop/_sidor |
-| 3 | Ladda ner repos (shallow clones till repo-cache) |
-| 4 | Bygg template-library + dossiers |
+| 1 | Skrapa nya templates till `data/external-template-pipeline/scrape-cache/current` |
+| 2 | Importera scrape-cache till `raw-discovery/current` |
+| 3 | Ladda ner repos (shallow clones till `repo-cache`) |
+| 4 | Bygg template-library + dossiers från explicit `raw-discovery/current` |
 | 5 | Generera template-library embeddings (OpenAI API) |
 | 6 | Generera scaffold embeddings (OpenAI API) |
-| 7 | Kör allt från befintlig discovery (2+3+4+5+6) |
-| 8 | Kör allt från scratch (1+3+4+5+6) |
+| 7 | Kör hela kedjan från befintlig scrape-cache via `full_template_refresh.py --skip-scrape` |
+| 8 | Kör hela kedjan från scratch via `full_template_refresh.py` |
 | 9 | Visa status |
 | 0 | Avsluta |
 
@@ -471,6 +444,3 @@ saknas lokalt, för att undvika att filer från fel del av repot (t.ex.
 
 Alla `npm run …`-namn och deras exakta kommandon ligger i **rot [`package.json`](../package.json)** (`scripts`-fältet). Den här README:n är tematisk; vid avvikelse gäller `package.json`.
 
-## recovery/recreate-repo-branch-commit.ps1 (saknas i repot)
-
-Tidigare dokumentation pekade på `scripts/recovery/recreate-repo-branch-commit.ps1`, men **filen finns inte** i denna checkout. För motsvarande arbetsflöde: klona repot manuellt, `git fetch`, `git checkout <commit>` (detached HEAD) i en ny katalog, eller återskapa skriptet från git-historik om du hade en lokal variant.

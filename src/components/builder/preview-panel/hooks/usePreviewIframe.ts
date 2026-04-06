@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
 import { describePreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
-import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   detectOwnEnginePreviewIssue,
   type PreviewIssuePayload,
@@ -128,7 +128,7 @@ export function usePreviewIframe(params: {
           setIframeDiagnosticCode("preview_ready_timeout");
           setIframeErrorMessage(describePreviewDiagnosticCode("preview_ready_timeout"));
           clearPreviewReadyTimer();
-          if (previewUrl && isSandboxPreviewUrl(previewUrl)) {
+          if (previewUrl && isTier2LivePreviewUrl(previewUrl)) {
             onPreviewSessionSuspect?.();
           }
           reportOwnEngineRenderFailure({

@@ -2,7 +2,7 @@
 
 These components are pre-installed at `@/components/ui/{name}`. Import them — NEVER generate them.
 Use any component by name: `import { Button } from "@/components/ui/button"`.
-The most relevant components and libraries for this task are listed in the **Relevant Documentation** section below.
+Choose components directly from this list and the request context; there is no separate dynamic docs section appended below.
 
 Common imports (always available):
 - `{ Button } from "@/components/ui/button"`

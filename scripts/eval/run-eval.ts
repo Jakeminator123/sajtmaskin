@@ -23,13 +23,17 @@ const REPO_FILES = {
   agentTools: "src/lib/gen/agent-tools.ts",
   detectIntegrations: "src/lib/gen/detect-integrations.ts",
   integrationRegistry: "src/lib/integrations/registry.ts",
-  planPrompt: "src/lib/gen/plan-prompt.ts",
+  planPrompt: "src/lib/gen/plan/prompt.ts",
   planExecution: "src/lib/gen/plan/schema.ts",
   validateAndFix: "src/lib/gen/autofix/validate-and-fix.ts",
+  serverVerify: "src/lib/gen/server-verify.ts",
+  serverRepairPolicy: "src/lib/gen/server-repair-policy.ts",
+  postFinalizePolicies: "src/lib/gen/stream/post-finalize-policies.ts",
+  generationStreamPostFinalize:
+    "src/lib/providers/own-engine/generation-stream-post-finalize.ts",
   orchestrate: "src/lib/gen/orchestrate.ts",
   generateSite: "src/lib/mcp/generate-site.ts",
   generationPipeline: "src/lib/gen/generation-pipeline.ts",
-  fallback: "src/lib/gen/fallback.ts",
   packageJson: "package.json",
 } as const;
 
@@ -149,9 +153,36 @@ function buildRepoCapabilityChecks(repoTexts: Record<RepoFileKey, string>): Chec
       { file: "validateAndFix", needle: "errorsAfter", label: "post-fix error count" },
     ]),
     buildRepoCheck(repoTexts, "multi-pass", "Validation runs across multiple fix passes", [
-      { file: "validateAndFix", needle: "MAX_FIX_PASSES", label: "max pass constant" },
-      { file: "validateAndFix", needle: "for (let pass = 1; pass <= MAX_FIX_PASSES; pass++)", label: "multi-pass loop" },
+      { file: "validateAndFix", needle: "SYNTAX_FIX_MAX_PASSES", label: "max pass constant" },
+      { file: "validateAndFix", needle: "for (let pass = 1; pass <= SYNTAX_FIX_MAX_PASSES; pass++)", label: "multi-pass loop" },
       { file: "validateAndFix", needle: "bestErrorCount", label: "best-pass tracking" },
+    ]),
+    buildRepoCheck(repoTexts, "repair-early-stop", "Repair loops stop early when fixer output is useless", [
+      { file: "validateAndFix", needle: "syntax-validation.early-stop", label: "syntax early-stop telemetry" },
+      { file: "validateAndFix", needle: "fixer_noop", label: "fixer noop stop" },
+      { file: "validateAndFix", needle: "no_improvement", label: "no-improvement stop" },
+    ]),
+    buildRepoCheck(repoTexts, "server-verify-policy", "Background server verify is policy-driven instead of always-on", [
+      {
+        file: "postFinalizePolicies",
+        needle: "resolvePostFinalizeServerVerifyDecision",
+        label: "server verify decision helper",
+      },
+      {
+        file: "postFinalizePolicies",
+        needle: "low_risk_standard_flow",
+        label: "low-risk skip reason",
+      },
+      {
+        file: "generationStreamPostFinalize",
+        needle: "server-verify.policy",
+        label: "server verify policy logging",
+      },
+      {
+        file: "serverVerify",
+        needle: "resolveServerRepairEarlyStopReason",
+        label: "server repair early-stop policy",
+      },
     ]),
     buildRepoCheck(repoTexts, "validation-passes", "Validation exposes granular progress phases", [
       { file: "validateAndFix", needle: 'phase: "validating"', label: "validating phase" },
@@ -178,8 +209,7 @@ function buildRepoCapabilityChecks(repoTexts: Record<RepoFileKey, string>): Chec
 
 function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckResult[] {
   return [
-    buildRepoCheck(repoTexts, "embeddings-ready", "Embeddings hooks are available for docs and scaffold matching", [
-      { file: "packageJson", needle: '"docs:embeddings"', label: "docs embeddings script" },
+    buildRepoCheck(repoTexts, "embeddings-ready", "Embeddings hooks are available for gallery and scaffold matching", [
       { file: "packageJson", needle: '"templates:embeddings"', label: "template embeddings script" },
       { file: "orchestrate", needle: "matchScaffoldWithEmbeddings(prompt, buildIntent)", label: "embedding-backed scaffold match" },
     ]),
@@ -190,7 +220,6 @@ function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckRes
     ]),
     buildRepoCheck(repoTexts, "own-build-default", "Own-engine builds are the primary path", [
       { file: "generationPipeline", needle: "export function createGenerationPipeline", label: "generation pipeline module" },
-      { file: "fallback", needle: "./generation-pipeline", label: "legacy fallback re-export" },
       { file: "generateSite", needle: "createGenerationPipeline", label: "MCP own-engine generation" },
       { file: "createRoute", needle: "prepareGenerationContext", label: "create-route own-engine path" },
     ]),

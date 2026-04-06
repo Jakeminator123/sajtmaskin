@@ -1,7 +1,11 @@
+import { FEATURES } from "@/lib/config";
 import type { TemplateLibraryCatalogFile, TemplateLibraryEntry } from "./types";
 
-const EXTERNAL_TEMPLATES_ROOT_MARKER = "/research/external-templates/";
-const DEFAULT_SOURCE_ROOT = "research/external-templates/raw-discovery/current";
+const EXTERNAL_TEMPLATES_ROOT_MARKERS = [
+  "/data/external-template-pipeline/",
+  "/research/external-templates/",
+];
+const DEFAULT_SOURCE_ROOT = "data/external-template-pipeline/raw-discovery/current";
 
 const EMPTY_CATALOG: TemplateLibraryCatalogFile = {
   generatedAt: "",
@@ -15,7 +19,14 @@ function loadRawCatalog(): TemplateLibraryCatalogFile {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("./template-library.generated.json") as TemplateLibraryCatalogFile;
-  } catch {
+  } catch (error) {
+    if (FEATURES.strictGeneratedArtifacts) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `[template-library] Missing or unreadable generated catalog. ` +
+        `Expected src/lib/gen/template-library/template-library.generated.json. ${reason}`,
+      );
+    }
     return EMPTY_CATALOG;
   }
 }
@@ -25,9 +36,11 @@ function sanitizeCatalogPath(value: string | null | undefined): string | null {
   const normalized = value.trim().replace(/\\/g, "/");
   if (!normalized) return null;
 
-  const markerIndex = normalized.toLowerCase().indexOf(EXTERNAL_TEMPLATES_ROOT_MARKER);
-  if (markerIndex >= 0) {
-    return normalized.slice(markerIndex + 1);
+  for (const marker of EXTERNAL_TEMPLATES_ROOT_MARKERS) {
+    const markerIndex = normalized.toLowerCase().indexOf(marker);
+    if (markerIndex >= 0) {
+      return normalized.slice(markerIndex + 1);
+    }
   }
 
   const isAbsolute = /^[a-z]:\//i.test(normalized) || normalized.startsWith("/");

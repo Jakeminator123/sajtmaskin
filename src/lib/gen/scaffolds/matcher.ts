@@ -210,6 +210,26 @@ const AUTH_KEYWORDS = [
   "tvåfaktor",
 ];
 
+const PHOTO_SHOP_KEYWORDS = [
+  "photo shop",
+  "fotoshop",
+  "foto shop",
+  "photo store",
+  "print shop",
+  "art prints",
+  "curated shop",
+  "editorial shop",
+  "lifestyle store",
+  "design store",
+  "gallery shop",
+  "galleri shop",
+  "photo ecommerce",
+];
+
+const PHOTO_SHOP_OVERRIDE_KEYWORDS = [
+  "jakob",
+];
+
 const ECOMMERCE_KEYWORDS = [
   "ecommerce",
   "e-commerce",
@@ -326,6 +346,16 @@ export function matchScaffold(
 ): ScaffoldManifest | null {
   const lower = prompt.toLowerCase();
 
+  const photoShopOverride = countKeywordMatches(lower, PHOTO_SHOP_OVERRIDE_KEYWORDS);
+  if (photoShopOverride >= 1) {
+    return getScaffoldByFamily("photo-shop");
+  }
+
+  const photoShopScore = countKeywordMatches(lower, PHOTO_SHOP_KEYWORDS);
+  if (photoShopScore >= MIN_SCORE) {
+    return getScaffoldByFamily("photo-shop");
+  }
+
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   if (authScore >= MIN_SCORE) {
     return getScaffoldByFamily("auth-pages");
@@ -433,8 +463,10 @@ export async function matchScaffoldWithEmbeddings(
 
       return embeddingResult;
     }
-  } catch {
-    // embedding search is best-effort; fall through to keyword result
+  } catch (err) {
+    console.info("[scaffold] Embedding scaffold match failed; using keyword result", {
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return keywordResult;

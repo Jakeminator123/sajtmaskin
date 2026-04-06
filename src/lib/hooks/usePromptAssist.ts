@@ -62,7 +62,7 @@ type PromptAssistOptions = {
 
 /**
  * Internal `PromptAssistProvider` still uses the label `"gateway"` for OpenAI-class models.
- * Server routes call OpenAI/Anthropic directly (`createDirectModel` + API keys) — not Vercel AI Gateway.
+ * Server routes call OpenAI/Anthropic directly (`createDirectModel` + API keys).
  */
 function promptAssistDebugFields(provider: PromptAssistProvider) {
   const directProvider = provider === "gateway" ? "openai" : "anthropic";

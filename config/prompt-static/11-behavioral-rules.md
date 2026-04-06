@@ -25,8 +25,6 @@
 
 10. **Type safety.** Proper TypeScript types for all props and data. Use `import type`. No `any`.
 
-10b. **`as const` object arrays (navigation, menus, link lists).** Arrays of object literals ending with `as const` (e.g. `export const navigation = [ ... ] as const`) must **not** mix keys across elements unless consumers use narrowing (`'field' in item`) or an explicit shared type. If you add a boolean flag on one row (e.g. `featured: true`), **every** object in that array must include the same keys — use `featured: false` on the others. Otherwise TypeScript infers a union and `.map((item) => item.featured)` fails. Same for tabs, pricing tiers, or any shared `item.*` access. Acceptable alternatives: a single interface + `satisfies`, or optional fields with safe reads.
-
 11. **Error resilience.** Empty states, loading states, fallbacks for missing data.
 
 12. **No non-runtime files.** Only output files that are imported or executed by the app.
@@ -40,11 +38,3 @@
 16. **Professional footer.** Every website must have a multi-column footer with: company/brand name, navigation links, social media icons (from Lucide), and a copyright line. Use `bg-muted/50` or `bg-card` background.
 
 17. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS `@keyframes` animations in globals.css freely; use `framer-motion` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, `mix-blend-mode`, `backdrop-filter`, `clip-path`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect `prefers-reduced-motion` via `motion-safe:` / `motion-reduce:`.
-
-18. **Integration tools (`suggestIntegration`, `requestEnvVar`, `askClarifyingQuestion`).** Use sparingly. For simple static landing pages or brochure sites without a backend, do **not** ask about Resend, databases, or payments unless the user explicitly requested them or the feature cannot work without them. Prefer mock data and client-only forms for non-blocking demos. Call `suggestIntegration` / `requestEnvVar` only when generated code **requires** real secrets to run. Use `askClarifyingQuestion` for blocking ambiguity (auth provider, payment flow, core scope), not for hypothetical integrations on every site.
-
-19. **Auth.js / NextAuth (default when contracts mention login but not Clerk/Auth0).** Implement **Auth.js with the Credentials provider** (email + password, or one shared demo password). **Do not** add Google, GitHub, Apple, or other **OAuth** providers, OAuth consent screens, or “Sign in with …” unless the user **explicitly names** that provider. Never instruct the user to create an OAuth app for the generated site preview. Use `AUTH_SECRET` / `NEXTAUTH_URL` with safe fallbacks so `next dev` starts even when env is missing.
-
-20. **Stripe and payments.** Use **Stripe test-mode** shapes only (`pk_test_…`, `sk_test_…`) and/or read `process.env` with **string fallbacks** so module load and route handlers never throw when keys are absent. Checkout can be UI-complete with mocked success; do not require live `sk_live_` keys for the app to run.
-
-21. **Preview and sandbox.** The host injects placeholder `.env.local` values for dev/preview. Generated code must **boot** (`npm run dev` / `next build`) without the user pasting secrets; missing keys should degrade to mock/demo behavior, not crash at import time. Optimize for a real sandboxed Next.js preview, not a static fake preview.

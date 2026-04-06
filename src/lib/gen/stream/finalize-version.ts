@@ -14,9 +14,7 @@ import {
   type ScaffoldRetrySuggestion,
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
-import { runPolishPass, isPolishPassEnabled } from "@/lib/gen/polish-pass";
-import { runVerifierPass } from "@/lib/gen/verifier-pass";
-import { resolvePostGenerationPolishConfig } from "@/lib/gen/post-generation-config";
+import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verifier-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -77,8 +75,8 @@ export interface FinalizeResult {
   messageId: string;
   telemetryRecordId: string | null;
   previewUrl: string | null;
-  /** Sandbox URL when full Next.js preview is started (null until sandbox boots). */
-  sandboxUrl: string | null;
+  /** Tier-2 live preview URL when the VM session boots (null until available). */
+  tier2PreviewUrl: string | null;
   filesJson: string;
   contentForVersion: string;
   preflight: PreviewPreflightSummary;
@@ -86,11 +84,30 @@ export interface FinalizeResult {
 
 interface FinalizePathPolicy {
   runDeepPath: boolean;
-  reason: "default" | "deep_path_disabled" | "repair_pass" | "light_followup_fast_policy";
+  reason:
+    | "default"
+    | "fast_path_disabled_by_flag"
+    | "repair_pass"
+    | "light_followup_fast_policy";
 }
+
+type FinalizeStepStatus = "done" | "skipped" | "error";
+
+type FinalizeStepTelemetry = {
+  status: FinalizeStepStatus;
+  durationMs: number;
+  reason?: string;
+} & Record<string, unknown>;
+
+type FinalizeStepTelemetryMap = Partial<Record<OwnEnginePostStreamPhaseId, FinalizeStepTelemetry>>;
 
 type FinalizeSyntaxResult = Awaited<ReturnType<typeof validateAndFix>>;
 type FinalizePreflightResult = Awaited<ReturnType<typeof runFinalizePreflight>>;
+
+interface FinalizeDeepPathResult {
+  contentForVersion: string;
+  stepTelemetry: FinalizeStepTelemetryMap;
+}
 
 interface FinalizeFastPathResult {
   contentForVersion: string;
@@ -102,6 +119,78 @@ interface FinalizeFastPathResult {
   previewBlockingReason: string | null;
   finalizedFilesForPreview: CodeFile[];
   scaffoldRetry: ScaffoldRetrySuggestion | null;
+  stepTelemetry: FinalizeStepTelemetryMap;
+}
+
+function createFinalizeStepTelemetry(
+  startedAtMs: number,
+  status: FinalizeStepStatus,
+  extra?: Record<string, unknown>,
+): FinalizeStepTelemetry {
+  return {
+    status,
+    durationMs: Math.max(0, Date.now() - startedAtMs),
+    ...(extra ?? {}),
+  };
+}
+
+function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number {
+  if (!buildSpec) return 4;
+  if (
+    buildSpec.previewPolicy === "fidelity3" ||
+    buildSpec.qualityTarget === "release-candidate"
+  ) {
+    return 6;
+  }
+  if (
+    buildSpec.qualityTarget !== "standard" ||
+    buildSpec.buildIntent === "app" ||
+    buildSpec.contextPolicy === "heavy" ||
+    buildSpec.changeScope === "integration"
+  ) {
+    return 5;
+  }
+  return 4;
+}
+
+function resolveVerifierPassPolicy(params: {
+  buildSpec?: BuildSpec | null;
+  finalizePath: FinalizePathPolicy;
+  repairPassIndex: number;
+}): { run: boolean; reason: string } {
+  const { buildSpec, finalizePath, repairPassIndex } = params;
+
+  if (!finalizePath.runDeepPath) {
+    return { run: false, reason: finalizePath.reason };
+  }
+  if (repairPassIndex > 0) {
+    return { run: false, reason: "repair_pass" };
+  }
+  if (!isVerifierPassEnabled()) {
+    return { run: false, reason: "disabled" };
+  }
+  if (!buildSpec) {
+    return { run: true, reason: "missing_build_spec" };
+  }
+  if (buildSpec.verificationPolicy === "strict") {
+    return { run: true, reason: "strict_policy" };
+  }
+  if (buildSpec.qualityTarget !== "standard") {
+    return { run: true, reason: "high_quality_target" };
+  }
+  if (buildSpec.buildIntent === "app") {
+    return { run: true, reason: "app_intent" };
+  }
+  if (buildSpec.contextPolicy === "heavy") {
+    return { run: true, reason: "heavy_context" };
+  }
+  if (buildSpec.changeScope === "integration" || buildSpec.changeScope === "page-addition") {
+    return { run: true, reason: "high_risk_change_scope" };
+  }
+  if (buildSpec.generationMode === "followUp" && buildSpec.changeScope === "redesign") {
+    return { run: true, reason: "followup_redesign" };
+  }
+  return { run: false, reason: "no_verifier_signal" };
 }
 
 export class EmptyGenerationError extends Error {
@@ -122,7 +211,9 @@ function resolveFinalizePathPolicy(params: {
 }): FinalizePathPolicy {
   const { buildSpec, repairPassIndex } = params;
   if (!FEATURES.useFinalizeDeepPath) {
-    return { runDeepPath: true, reason: "deep_path_disabled" };
+    // Historical env naming: false here disables the light fast-path shortcut
+    // and keeps finalize on the deep path for every run.
+    return { runDeepPath: true, reason: "fast_path_disabled_by_flag" };
   }
   if (repairPassIndex > 0) {
     return { runDeepPath: true, reason: "repair_pass" };
@@ -161,57 +252,13 @@ function ensureNonEmptyGenerationContent(params: {
   throw new EmptyGenerationError(chatId, resolvedScaffold?.id ?? null);
 }
 
-async function runFinalizeDeepPath(params: {
-  chatId: string;
-  model: string;
-  repairPassIndex: number;
-  onProgress?: FinalizeProgressCallback;
-  contentForVersion: string;
-  finalizePath: FinalizePathPolicy;
-}): Promise<string> {
-  const {
-    chatId,
-    model,
-    repairPassIndex,
-    onProgress,
-    finalizePath,
-  } = params;
-  let contentForVersion = params.contentForVersion;
-
-  if (finalizePath.runDeepPath) {
-    onProgress?.("materialize_images", { phase: "start" });
-    try {
-      const imgResult = await materializeImages(contentForVersion);
-      if (imgResult.replacedCount > 0) {
-        contentForVersion = imgResult.content;
-        devLogAppend("in-progress", {
-          type: "image-materialization",
-          chatId,
-          replacedCount: imgResult.replacedCount,
-          queries: imgResult.queries.slice(0, 10),
-        });
-      }
-      onProgress?.("materialize_images", {
-        phase: "done",
-        replacedCount: imgResult.replacedCount,
-      });
-    } catch (imgErr) {
-      console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
-      onProgress?.("materialize_images", { phase: "error" });
-    }
-  } else {
-    onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
-  }
-
-  return contentForVersion;
-}
-
 async function runFinalizeFastPath(params: {
   chatId: string;
   model: string;
   resolvedTier?: CanonicalModelId;
   originalPrompt?: string;
   buildIntent?: BuildIntent;
+  buildSpec?: BuildSpec | null;
   resolvedScaffold: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   previousFiles?: CodeFile[];
@@ -226,6 +273,7 @@ async function runFinalizeFastPath(params: {
     resolvedTier,
     originalPrompt,
     buildIntent,
+    buildSpec,
     resolvedScaffold,
     routePlan,
     previousFiles,
@@ -234,6 +282,7 @@ async function runFinalizeFastPath(params: {
     repairPassIndex,
   } = params;
   let contentForVersion = params.contentForVersion;
+  const stepTelemetry: FinalizeStepTelemetryMap = {};
 
   ensureNonEmptyGenerationContent({
     contentForVersion,
@@ -243,6 +292,7 @@ async function runFinalizeFastPath(params: {
     stage: "before_validation",
   });
 
+  const validateStartedAt = Date.now();
   onProgress?.("validate_syntax", { phase: "start" });
   const syntaxResult = await validateAndFix(contentForVersion, {
     chatId,
@@ -257,6 +307,22 @@ async function runFinalizeFastPath(params: {
     },
   });
   contentForVersion = syntaxResult.content;
+  onProgress?.("validate_syntax", {
+    phase: "done",
+    durationMs: Date.now() - validateStartedAt,
+    fixerUsed: syntaxResult.fixerUsed,
+    errorsBefore: syntaxResult.errorsBefore,
+    errorsAfter: syntaxResult.errorsAfter,
+    result: syntaxResult.status,
+  });
+  stepTelemetry.validate_syntax = createFinalizeStepTelemetry(validateStartedAt, "done", {
+    fixerUsed: syntaxResult.fixerUsed,
+    fixerImproved: syntaxResult.fixerImproved,
+    errorsBefore: syntaxResult.errorsBefore,
+    errorsAfter: syntaxResult.errorsAfter,
+    earlyStopReason: syntaxResult.earlyStopReason,
+    result: syntaxResult.status,
+  });
 
   if (syntaxResult.fixerUsed || syntaxResult.status !== "passed") {
     devLogAppend("in-progress", {
@@ -278,72 +344,89 @@ async function runFinalizeFastPath(params: {
     stage: "after_validation",
   });
 
-  let verifierPolishCandidates: string[] = [];
+  if (finalizePath.runDeepPath) {
+    const imageStartedAt = Date.now();
+    const maxReplacements = resolveImageMaterializationLimit(buildSpec);
+    onProgress?.("materialize_images", { phase: "start" });
+    try {
+      const imgResult = await materializeImages(contentForVersion, { maxReplacements });
+      if (imgResult.replacedCount > 0) {
+        contentForVersion = imgResult.content;
+        devLogAppend("in-progress", {
+          type: "image-materialization",
+          chatId,
+          replacedCount: imgResult.replacedCount,
+          skippedCount: imgResult.skippedCount,
+          queries: imgResult.queries.slice(0, 10),
+        });
+      }
+      onProgress?.("materialize_images", {
+        phase: "done",
+        durationMs: Date.now() - imageStartedAt,
+        replacedCount: imgResult.replacedCount,
+        skippedCount: imgResult.skippedCount,
+      });
+      stepTelemetry.materialize_images = createFinalizeStepTelemetry(imageStartedAt, "done", {
+        maxReplacements,
+        replacedCount: imgResult.replacedCount,
+        skippedCount: imgResult.skippedCount,
+      });
+    } catch (imgErr) {
+      console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+      onProgress?.("materialize_images", { phase: "error" });
+      stepTelemetry.materialize_images = createFinalizeStepTelemetry(imageStartedAt, "error");
+    }
+  } else {
+    onProgress?.("materialize_images", { phase: "skipped", reason: finalizePath.reason });
+    stepTelemetry.materialize_images = createFinalizeStepTelemetry(Date.now(), "skipped", {
+      reason: finalizePath.reason,
+    });
+  }
+
   const verifierTier = resolvedTier ?? "pro";
-  if (finalizePath.runDeepPath && repairPassIndex === 0) {
+  const verifierPolicy = resolveVerifierPassPolicy({
+    buildSpec,
+    finalizePath,
+    repairPassIndex,
+  });
+  if (verifierPolicy.run) {
+    const verifierStartedAt = Date.now();
     onProgress?.("verifier", { phase: "start" });
     try {
       const findings = await runVerifierPass(contentForVersion, { resolvedTier: verifierTier });
-      verifierPolishCandidates = findings.polishCandidates ?? [];
       devLogAppend("in-progress", {
         type: "verifier-pass",
         chatId,
         blocking: findings.blocking.length,
         quality: findings.quality.length,
-        polishCandidates: verifierPolishCandidates.length,
       });
       onProgress?.("verifier", {
         phase: "done",
+        durationMs: Date.now() - verifierStartedAt,
         blockingCount: findings.blocking.length,
         qualityCount: findings.quality.length,
-        polishCandidateCount: verifierPolishCandidates.length,
+      });
+      stepTelemetry.verifier = createFinalizeStepTelemetry(verifierStartedAt, "done", {
+        trigger: verifierPolicy.reason,
+        blockingCount: findings.blocking.length,
+        qualityCount: findings.quality.length,
       });
     } catch (verifierErr) {
       console.warn("[verifier-pass] Non-fatal error, skipping:", verifierErr);
       onProgress?.("verifier", { phase: "error" });
+      stepTelemetry.verifier = createFinalizeStepTelemetry(verifierStartedAt, "error");
     }
   } else {
     onProgress?.("verifier", {
       phase: "skipped",
-      reason: finalizePath.runDeepPath ? "repair_pass" : finalizePath.reason,
+      reason: verifierPolicy.reason,
+    });
+    stepTelemetry.verifier = createFinalizeStepTelemetry(Date.now(), "skipped", {
+      reason: verifierPolicy.reason,
     });
   }
 
-  if (finalizePath.runDeepPath && isPolishPassEnabled() && repairPassIndex === 0) {
-    onProgress?.("polish", { phase: "start" });
-    try {
-      const polishCfg = resolvePostGenerationPolishConfig();
-      const polishResult = await runPolishPass(contentForVersion, {
-        model,
-        polishTargetPaths: verifierPolishCandidates.length > 0 ? verifierPolishCandidates : undefined,
-        maxFilesWhenUnscoped: polishCfg.maxFilesWhenUnscoped,
-        maxOutputTokens: polishCfg.maxOutputTokens,
-        timeoutMs: polishCfg.timeoutMs,
-      });
-      if (polishResult.applied) {
-        contentForVersion = polishResult.polishedContent;
-        devLogAppend("in-progress", {
-          type: "polish-pass",
-          chatId,
-          filesChanged: polishResult.filesChanged,
-          applied: true,
-        });
-      }
-      onProgress?.("polish", {
-        phase: "done",
-        applied: polishResult.applied,
-        filesChanged: polishResult.filesChanged,
-      });
-    } catch (polishErr) {
-      console.warn("[polish-pass] Non-fatal error, skipping:", polishErr);
-      onProgress?.("polish", { phase: "error" });
-    }
-  } else if (!finalizePath.runDeepPath) {
-    onProgress?.("polish", { phase: "skipped", reason: finalizePath.reason });
-  } else {
-    onProgress?.("polish", { phase: "skipped", reason: "repair_pass_or_disabled" });
-  }
-
+  const parseMergePreflightStartedAt = Date.now();
   onProgress?.("parse_merge_preflight", { phase: "start" });
 
   let filesJson = parseFilesFromContent(contentForVersion);
@@ -399,6 +482,17 @@ async function runFinalizeFastPath(params: {
     }
   }
 
+  stepTelemetry.parse_merge_preflight = createFinalizeStepTelemetry(
+    parseMergePreflightStartedAt,
+    "done",
+    {
+      fileCount: preflightFileCount,
+      issueCount: preflightIssues.length,
+      previewBlocked: Boolean(previewBlockingReason),
+      scaffoldRetrySuggested: scaffoldRetry?.suggestedScaffoldId ?? null,
+    },
+  );
+
   return {
     contentForVersion,
     syntaxResult,
@@ -409,12 +503,13 @@ async function runFinalizeFastPath(params: {
     previewBlockingReason,
     finalizedFilesForPreview,
     scaffoldRetry,
+    stepTelemetry,
   };
 }
 
 /**
- * Shared post-generation pipeline: autofix -> URL expansion -> image materialize ->
- * optional polish LLM -> syntax validate/fix -> file parsing -> scaffold merge ->
+ * Shared post-generation pipeline: autofix -> URL expansion -> syntax validate/fix ->
+ * image materialize -> optional verifier -> file parsing -> scaffold merge ->
  * preflight -> assistant message -> version save.
  *
  * Assistant row + draft version are persisted in one DB transaction (no orphan assistant
@@ -425,6 +520,7 @@ async function runFinalizeFastPath(params: {
 export async function finalizeAndSaveVersion(
   params: FinalizeParams,
 ): Promise<FinalizeResult> {
+  const finalizePipelineStartedAt = Date.now();
   const {
     accumulatedContent,
     chatId,
@@ -453,6 +549,11 @@ export async function finalizeAndSaveVersion(
   let autoFixWarningCount = 0;
   let autoFixDependencyCount = 0;
   let telemetryRecordId: string | null = null;
+  const finalizeStepTelemetry: FinalizeStepTelemetryMap = {};
+  const resolveStepDurationMs = (step: OwnEnginePostStreamPhaseId): number => {
+    const duration = finalizeStepTelemetry[step]?.durationMs;
+    return typeof duration === "number" && Number.isFinite(duration) ? duration : 0;
+  };
 
   devLogAppend("in-progress", {
     type: "finalize.pipeline",
@@ -465,6 +566,7 @@ export async function finalizeAndSaveVersion(
 
   // 1. Autofix
   if (runAutofix) {
+    const autoFixStartedAt = Date.now();
     onProgress?.("autofix", { phase: "start", chatId });
     try {
       const autoFixResult = await runAutoFix(accumulatedContent, {
@@ -487,28 +589,32 @@ export async function finalizeAndSaveVersion(
       }
       onProgress?.("autofix", {
         phase: "done",
+        durationMs: Date.now() - autoFixStartedAt,
         fixes: autoFixResult.fixes.length,
         warnings: autoFixResult.warnings.length,
+      });
+      finalizeStepTelemetry.autofix = createFinalizeStepTelemetry(autoFixStartedAt, "done", {
+        fixCount: autoFixResult.fixes.length,
+        warningCount: autoFixResult.warnings.length,
+        dependencyCount: Object.keys(autoFixResult.dependencies).length,
       });
     } catch (autofixErr) {
       console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
       onProgress?.("autofix", { phase: "error" });
+      finalizeStepTelemetry.autofix = createFinalizeStepTelemetry(autoFixStartedAt, "error");
     }
+  } else {
+    finalizeStepTelemetry.autofix = createFinalizeStepTelemetry(Date.now(), "skipped", {
+      reason: "disabled",
+    });
   }
 
-  // 2. URL expansion (before polish so polish sees final URLs)
+  // 2. URL expansion (before verifier / parse)
+  const urlExpandStartedAt = Date.now();
   onProgress?.("url_expand", { phase: "start" });
   contentForVersion = expandUrls(contentForVersion, urlMap);
-  onProgress?.("url_expand", { phase: "done" });
-
-  contentForVersion = await runFinalizeDeepPath({
-    chatId,
-    model,
-    repairPassIndex,
-    onProgress,
-    contentForVersion,
-    finalizePath,
-  });
+  onProgress?.("url_expand", { phase: "done", durationMs: Date.now() - urlExpandStartedAt });
+  finalizeStepTelemetry.url_expand = createFinalizeStepTelemetry(urlExpandStartedAt, "done");
 
   const {
     contentForVersion: fastPathContent,
@@ -520,12 +626,14 @@ export async function finalizeAndSaveVersion(
     previewBlockingReason,
     finalizedFilesForPreview,
     scaffoldRetry,
+    stepTelemetry: fastPathStepTelemetry,
   } = await runFinalizeFastPath({
     chatId,
     model,
     resolvedTier,
     originalPrompt,
     buildIntent,
+    buildSpec,
     resolvedScaffold,
     routePlan,
     previousFiles,
@@ -535,6 +643,7 @@ export async function finalizeAndSaveVersion(
     repairPassIndex,
   });
   contentForVersion = fastPathContent;
+  Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
 
   // 5–6. Persist assistant + draft version atomically after merge/preflight.
   const { message: assistantMsg, version: initialVersion } =
@@ -576,7 +685,7 @@ export async function finalizeAndSaveVersion(
     preflightIssues,
     preflightFileCount,
     previewBlockingReason,
-    sandbox: preflightResult.sandbox,
+    previewStart: preflightResult.previewStart,
     finalizedPreviewFileCount: finalizedFilesForPreview.length,
     scaffoldRetry,
     routePlan,
@@ -596,6 +705,7 @@ export async function finalizeAndSaveVersion(
   });
   onProgress?.("parse_merge_preflight", {
     phase: "done",
+    durationMs: resolveStepDurationMs("parse_merge_preflight"),
     versionId: version.id,
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
@@ -625,6 +735,7 @@ export async function finalizeAndSaveVersion(
     const telemetryMeta: Record<string, unknown> = {
       finalizePath: finalizePath.runDeepPath ? "fast+deep" : "fast-only",
       finalizePathReason: finalizePath.reason,
+      postStreamSteps: finalizeStepTelemetry,
       repairPassIndex,
       autofix: {
         fixCount: autoFixFixCount,
@@ -752,6 +863,18 @@ export async function finalizeAndSaveVersion(
     }
   }
 
+  debugLog("finalize", "Finalize pipeline complete", {
+    chatId,
+    versionId: version.id,
+    autofix: resolveStepDurationMs("autofix"),
+    urlExpand: resolveStepDurationMs("url_expand"),
+    syntaxValidation: resolveStepDurationMs("validate_syntax"),
+    imageMaterialization: resolveStepDurationMs("materialize_images"),
+    verifier: resolveStepDurationMs("verifier"),
+    parseMergePreflight: resolveStepDurationMs("parse_merge_preflight"),
+    totalMs: Math.max(0, Date.now() - finalizePipelineStartedAt),
+  });
+
   debugLog("engine", "Version saved via finalizeAndSaveVersion", {
     chatId,
     versionId: version.id,
@@ -766,7 +889,7 @@ export async function finalizeAndSaveVersion(
     messageId: assistantMsg.id,
     telemetryRecordId,
     previewUrl: null,
-    sandboxUrl: null,
+    tier2PreviewUrl: null,
     filesJson,
     contentForVersion,
     preflight: {
@@ -776,9 +899,9 @@ export async function finalizeAndSaveVersion(
       errorCount: preflightErrors.length,
       warningCount: preflightWarnings.length,
       previewBlockingReason,
-      primaryPreviewTarget: preflightResult.sandbox.primaryPreviewTarget,
+      primaryPreviewTarget: preflightResult.previewStart.primaryPreviewTarget,
       issueCategories: [...new Set(preflightIssues.map((issue) => issue.category))],
-      sandbox: preflightResult.sandbox,
+      previewStart: preflightResult.previewStart,
       scaffoldRetry,
       routePlan,
     },

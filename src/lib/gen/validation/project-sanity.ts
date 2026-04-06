@@ -16,12 +16,35 @@ export interface SanityResult {
 const IMPORT_RE = /import\s+(?:(?:type\s+)?(?:\{[^}]*\}|[\w$]+)(?:\s*,\s*(?:\{[^}]*\}|[\w$]+))*\s+from\s+)?['"]([^'"]+)['"]/g;
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
+const THIRD_PARTY_SOURCE_RE = /import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g;
 
 const FONT_USAGE_RE = /\b(Inter|Geist|Geist_Mono|Roboto|Open_Sans|Lato|Montserrat|Poppins|Raleway|Nunito)\s*\(/;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
 const USE_CLIENT_RE = /^["']use client["'];?\s*$/m;
 const METADATA_EXPORT_RE =
   /\bexport\s+(?:const\s+metadata\b|(?:async\s+)?function\s+generateMetadata\b)/;
+const BUILTIN_PACKAGES = new Set([
+  "react",
+  "react-dom",
+  "react/jsx-runtime",
+  "next",
+  "next/font",
+  "next/font/google",
+  "next/image",
+  "next/link",
+  "next/navigation",
+  "next/headers",
+  "next/server",
+  "next/dynamic",
+  "tailwindcss",
+  "postcss",
+  "autoprefixer",
+  "typescript",
+  "clsx",
+  "tailwind-merge",
+  "class-variance-authority",
+  "node:",
+]);
 
 function createSanityIssue(
   file: string,
@@ -58,6 +81,52 @@ function normalizeToProjectPath(source: string, importerPath: string): string {
   return resolved.join("/");
 }
 
+function normalizePackageName(source: string): string {
+  if (source.startsWith("@")) {
+    const parts = source.split("/");
+    return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : source;
+  }
+  if (source.startsWith("node:")) return "node:";
+  return source.split("/")[0];
+}
+
+function isBuiltinPackage(pkg: string): boolean {
+  if (BUILTIN_PACKAGES.has(pkg)) return true;
+  for (const builtin of BUILTIN_PACKAGES) {
+    if (builtin.endsWith(":")) {
+      if (pkg.startsWith(builtin)) return true;
+      continue;
+    }
+    if (pkg.startsWith(`${builtin}/`)) return true;
+  }
+  return false;
+}
+
+function collectImportedPackages(files: CodeFile[]): Map<string, Set<string>> {
+  const imported = new Map<string, Set<string>>();
+  for (const file of files) {
+    if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
+    for (const match of file.content.matchAll(THIRD_PARTY_SOURCE_RE)) {
+      const source = match[1];
+      if (
+        !source ||
+        source.startsWith("@/") ||
+        source.startsWith("./") ||
+        source.startsWith("../") ||
+        source.startsWith("~/")
+      ) {
+        continue;
+      }
+      const pkg = normalizePackageName(source);
+      if (!pkg || isBuiltinPackage(pkg)) continue;
+      const importers = imported.get(pkg) ?? new Set<string>();
+      importers.add(file.path);
+      imported.set(pkg, importers);
+    }
+  }
+  return imported;
+}
+
 /**
  * Post-merge sanity checks on the full generated file set.
  * Catches issues that per-file autofix cannot see.
@@ -67,6 +136,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
   for (const f of files) fileMap.set(f.path, f);
 
   const issues: SanityIssue[] = [];
+  const importedPackages = collectImportedPackages(files);
 
   for (const file of files) {
     if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
@@ -187,8 +257,33 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
   const pkgFile = fileMap.get("package.json") ?? fileMap.get("src/package.json");
   if (pkgFile) {
     try {
-      const pkgJson = JSON.parse(pkgFile.content) as { dependencies?: Record<string, string> };
+      const pkgJson = JSON.parse(pkgFile.content) as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+        peerDependencies?: Record<string, string>;
+        optionalDependencies?: Record<string, string>;
+      };
       const deps = pkgJson.dependencies ?? {};
+      const declaredPackages = new Set<string>([
+        ...Object.keys(pkgJson.dependencies ?? {}),
+        ...Object.keys(pkgJson.devDependencies ?? {}),
+        ...Object.keys(pkgJson.peerDependencies ?? {}),
+        ...Object.keys(pkgJson.optionalDependencies ?? {}),
+      ]);
+
+      for (const [pkg, importers] of importedPackages.entries()) {
+        if (declaredPackages.has(pkg)) continue;
+        const importerPreview = [...importers].slice(0, 3).join(", ");
+        issues.push(
+          createSanityIssue(
+            "package.json",
+            "error",
+            `Imported third-party package "${pkg}" is used in code but not pinned in package.json (${importerPreview})`,
+            "dependency_install_failure",
+          ),
+        );
+      }
+
       checkKnownBadPeers(deps, issues);
     } catch {
       issues.push(

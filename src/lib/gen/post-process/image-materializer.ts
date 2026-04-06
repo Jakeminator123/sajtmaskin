@@ -367,20 +367,60 @@ function buildSearchCandidates(raw: string): string[] {
 export interface MaterializeResult {
   content: string;
   replacedCount: number;
+  skippedCount: number;
   queries: string[];
   /** URLs that were freshly resolved from Unsplash -- safe to skip HEAD-check. */
   resolvedUrls: Set<string>;
+}
+
+export interface MaterializeImagesOptions {
+  maxReplacements?: number;
+}
+
+export const DEFAULT_IMAGE_MATERIALIZATION_LIMIT = 3;
+export const IMAGE_MATERIALIZATION_CONCURRENCY = 2;
+
+type ImageResolution = {
+  url: string;
+  queryUsed: string;
+};
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const limit = Math.max(1, Math.floor(concurrency));
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function runWorker(): Promise<void> {
+    while (true) {
+      const current = nextIndex;
+      nextIndex += 1;
+      if (current >= items.length) return;
+      results[current] = await worker(items[current]!, current);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => runWorker()),
+  );
+  return results;
 }
 
 /**
  * Scans generated code for `/placeholder.svg?...&text=DESCRIPTION` patterns
  * and replaces them with real Unsplash photos by searching with the description.
  */
-export async function materializeImages(content: string): Promise<MaterializeResult> {
+export async function materializeImages(
+  content: string,
+  options: MaterializeImagesOptions = {},
+): Promise<MaterializeResult> {
   const accessKey = SECRETS.unsplashAccessKey;
   if (!accessKey || !FEATURES.useUnsplash) {
     debugLog("images", "Image materialization skipped (no Unsplash key)");
-    return { content, replacedCount: 0, queries: [], resolvedUrls: new Set() };
+    return { content, replacedCount: 0, skippedCount: 0, queries: [], resolvedUrls: new Set() };
   }
 
   const matches: Array<{
@@ -405,51 +445,96 @@ export async function materializeImages(content: string): Promise<MaterializeRes
   }
 
   if (matches.length === 0) {
-    return { content, replacedCount: 0, queries: [], resolvedUrls: new Set() };
+    return { content, replacedCount: 0, skippedCount: 0, queries: [], resolvedUrls: new Set() };
   }
 
-  debugLog("images", `Materializing ${matches.length} placeholder images`);
+  const maxReplacements = Math.max(
+    0,
+    Math.floor(options.maxReplacements ?? DEFAULT_IMAGE_MATERIALIZATION_LIMIT),
+  );
+  const selectedMatches = maxReplacements > 0 ? matches.slice(0, maxReplacements) : [];
+  const skippedCount = Math.max(0, matches.length - selectedMatches.length);
 
-  const seen = new Map<string, string>();
-  let replaced = 0;
-  const queries: string[] = [];
-  let result = content;
+  debugLog(
+    "images",
+    `Materializing ${selectedMatches.length}/${matches.length} placeholder images`,
+  );
 
-  for (const match of matches) {
+  const seen = new Map<string, ImageResolution>();
+  const uniqueMatches: Array<{
+    cacheKey: string;
+    match: (typeof selectedMatches)[number];
+  }> = [];
+  const uniqueKeys = new Set<string>();
+  for (const match of selectedMatches) {
     const cacheKey = `${match.text}|${match.width}|${match.height}`;
-    let url = seen.get(cacheKey);
-    let queryUsed = match.text;
+    if (uniqueKeys.has(cacheKey)) continue;
+    uniqueKeys.add(cacheKey);
+    uniqueMatches.push({ cacheKey, match });
+  }
 
-    if (!url) {
+  await mapWithConcurrency(
+    uniqueMatches,
+    IMAGE_MATERIALIZATION_CONCURRENCY,
+    async ({ cacheKey, match }) => {
+      let resolution = seen.get(cacheKey);
+      if (resolution) return resolution;
+
       const orientation = chooseUnsplashOrientation(match.width, match.height);
       const candidates = buildUnsplashSearchCandidates(match.text);
       for (const candidate of candidates) {
         const hit = await searchUnsplash(candidate, accessKey, orientation);
         if (!hit) continue;
-        url = buildUnsplashUrl(hit.rawUrl, match.width, match.height);
-        queryUsed = candidate;
-        seen.set(cacheKey, url);
+        resolution = {
+          url: buildUnsplashUrl(hit.rawUrl, match.width, match.height),
+          queryUsed: candidate,
+        };
+        seen.set(cacheKey, resolution);
         if (hit.downloadLocation) {
           trackUnsplashDownload(hit.downloadLocation, accessKey);
         }
-        break;
+        return resolution;
       }
-    }
 
-    if (!url) {
-      url = buildFallbackImageUrl(match.width, match.height);
-      seen.set(cacheKey, url);
+      resolution = {
+        url: buildFallbackImageUrl(match.width, match.height),
+        queryUsed: match.text,
+      };
+      seen.set(cacheKey, resolution);
       warnLog("images", "Unsplash miss, using fallback", {
         originalQuery: match.text,
-        fallbackUrl: url,
+        fallbackUrl: resolution.url,
       });
-    }
+      return resolution;
+    },
+  );
 
-    result = result.replace(match.fullMatch, url);
+  let replaced = 0;
+  const queries: string[] = [];
+  let result = content;
+  const appliedKeys = new Set<string>();
+
+  for (const match of selectedMatches) {
+    const cacheKey = `${match.text}|${match.width}|${match.height}`;
+    const resolution = seen.get(cacheKey);
+    if (!resolution) continue;
+
+    result = result.replace(match.fullMatch, resolution.url);
     replaced++;
-    queries.push(queryUsed);
+    queries.push(appliedKeys.has(cacheKey) ? match.text : resolution.queryUsed);
+    appliedKeys.add(cacheKey);
   }
 
-  debugLog("images", `Materialized ${replaced}/${matches.length} images`);
-  return { content: result, replacedCount: replaced, queries, resolvedUrls: new Set(seen.values()) };
+  debugLog(
+    "images",
+    `Materialized ${replaced}/${matches.length} images` +
+      (skippedCount > 0 ? ` (skipped ${skippedCount})` : ""),
+  );
+  return {
+    content: result,
+    replacedCount: replaced,
+    skippedCount,
+    queries,
+    resolvedUrls: new Set(Array.from(seen.values(), (resolution) => resolution.url)),
+  };
 }

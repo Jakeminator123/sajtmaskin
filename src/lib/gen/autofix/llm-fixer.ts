@@ -19,7 +19,12 @@ const DEFAULT_FIXER_MODEL = canonicalModelIdToOwnModelId("pro");
 export async function runLlmFixer(
   content: string,
   errors: string[],
-  options?: { model?: string; maxTokens?: number; requiredFiles?: string[] },
+  options?: {
+    model?: string;
+    maxTokens?: number;
+    requiredFiles?: string[];
+    abortSignal?: AbortSignal;
+  },
 ): Promise<FixerResult> {
   const start = performance.now();
 
@@ -32,6 +37,7 @@ export async function runLlmFixer(
       system: FIXER_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
       maxOutputTokens: options?.maxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS,
+      abortSignal: options?.abortSignal,
     });
 
     const fixedText = await result.text;

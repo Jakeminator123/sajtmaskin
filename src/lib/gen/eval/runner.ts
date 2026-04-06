@@ -5,8 +5,16 @@ import { buildSystemPrompt } from "../system-prompt";
 import { parseCodeProject } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
+import { buildCompleteProject } from "../project-scaffold";
+import { runFinalizePreflight } from "../stream/finalize-preflight";
+import { runSeoPreflightChecks } from "../validation/seo-preflight";
 import { EVAL_PROMPTS, type EvalPrompt } from "./prompts";
 import {
+  checkProjectSanity,
+  checkNoBracketPlaceholders,
+  checkSeoPublishReadiness,
+  checkTier2Readiness,
+  checkVisualQuality,
   checkFileCount,
   checkRequiredFiles,
   checkExports,
@@ -25,6 +33,7 @@ export interface EvalResult {
   checks: CheckResult[];
   totalScore: number;
   passed: boolean;
+  blockingChecks: string[];
 }
 
 export interface EvalSummary {
@@ -32,6 +41,8 @@ export interface EvalSummary {
   passed: number;
   avgScore: number;
   avgTimeMs: number;
+  blockingFailures: number;
+  blockingCheckCounts: Record<string, number>;
 }
 
 export interface EvalReport {
@@ -39,6 +50,35 @@ export interface EvalReport {
   model: string;
   results: EvalResult[];
   summary: EvalSummary;
+}
+
+const CRITICAL_EVAL_CHECKS = new Set([
+  "project-sanity",
+  "tier2-readiness",
+  "seo-publish-readiness",
+  "no-bracket-placeholders",
+  "required-files",
+  "exports",
+  "imports",
+  "syntax",
+]);
+
+export function resolveEvalPassOutcome(params: {
+  checks: CheckResult[];
+  shouldCompile: boolean;
+  totalScore: number;
+}): { passed: boolean; blockingChecks: string[] } {
+  const { checks, shouldCompile, totalScore } = params;
+  const syntaxCheck = checks.find((check) => check.name === "syntax");
+  const compileOk = !shouldCompile || syntaxCheck?.passed !== false;
+  const blockingChecks = checks
+    .filter((check) => CRITICAL_EVAL_CHECKS.has(check.name) && !check.passed)
+    .map((check) => check.name);
+
+  return {
+    passed: compileOk && blockingChecks.length === 0 && totalScore >= 0.6,
+    blockingChecks,
+  };
 }
 
 async function collectSSEContent(stream: ReadableStream<Uint8Array>): Promise<string> {
@@ -103,8 +143,20 @@ async function evaluatePrompt(
 
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
+  const completeProjectFiles = buildCompleteProject(project.files);
+  const seoIssues = runSeoPreflightChecks(completeProjectFiles);
+  const preflight = await runFinalizePreflight({
+    chatId: `eval_${evalPrompt.id}`,
+    model,
+    filesJson: JSON.stringify(project.files),
+  });
 
   const checks: CheckResult[] = [
+    checkProjectSanity(project.files),
+    checkNoBracketPlaceholders(project.files),
+    checkSeoPublishReadiness(seoIssues),
+    checkTier2Readiness(preflight),
+    checkVisualQuality(completeProjectFiles),
     checkFileCount(project.files, evalPrompt.expected.minFiles, evalPrompt.expected.maxFiles),
     checkRequiredFiles(project.files, evalPrompt.expected.requiredFiles),
     checkExports(project.files),
@@ -123,8 +175,11 @@ async function evaluatePrompt(
       ? checks.reduce((sum, c) => sum + c.score, 0) / checks.length
       : 0;
 
-  const syntaxCheck = checks.find((c) => c.name === "syntax");
-  const compileOk = !evalPrompt.expected.shouldCompile || syntaxCheck?.passed !== false;
+  const passOutcome = resolveEvalPassOutcome({
+    checks,
+    shouldCompile: evalPrompt.expected.shouldCompile,
+    totalScore,
+  });
 
   return {
     promptId: evalPrompt.id,
@@ -132,7 +187,8 @@ async function evaluatePrompt(
     fileCount: project.files.length,
     checks,
     totalScore,
-    passed: compileOk && totalScore >= 0.6,
+    passed: passOutcome.passed,
+    blockingChecks: passOutcome.blockingChecks,
   };
 }
 
@@ -173,6 +229,7 @@ export async function runEval(
         ],
         totalScore: 0,
         passed: false,
+        blockingChecks: ["generation"],
       });
     }
   }
@@ -186,6 +243,13 @@ export async function runEval(
     results.length > 0
       ? results.reduce((s, r) => s + r.generationTimeMs, 0) / results.length
       : 0;
+  const blockingFailures = results.filter((r) => r.blockingChecks.length > 0).length;
+  const blockingCheckCounts: Record<string, number> = {};
+  for (const result of results) {
+    for (const check of result.blockingChecks) {
+      blockingCheckCounts[check] = (blockingCheckCounts[check] ?? 0) + 1;
+    }
+  }
 
   return {
     timestamp: new Date().toISOString(),
@@ -196,6 +260,8 @@ export async function runEval(
       passed,
       avgScore,
       avgTimeMs: Math.round(avgTimeMs),
+      blockingFailures,
+      blockingCheckCounts,
     },
   };
 }

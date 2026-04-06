@@ -57,6 +57,35 @@ describe("PreviewPanel", () => {
     expect(screen.getByText("Innehåll")).toBeTruthy();
   });
 
+  it("shows a verification state while a saved version is still verifying", async () => {
+    renderPreviewPanel({
+      previewUrl: null,
+      versionId: "ver_1",
+      activeVersionStatus: "verifying",
+      activeVersionSummary: "Automatic verification in progress.",
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Verifierar version")).toBeTruthy();
+    });
+    expect(screen.getByText("Automatic verification in progress.")).toBeTruthy();
+  });
+
+  it("shows a repaired-version handoff state instead of stale repairing", async () => {
+    renderPreviewPanel({
+      previewUrl: null,
+      versionId: "ver_1",
+      activeVersionStatus: "retrying",
+      activeVersionSummary: "Superseded by repaired version ver_2.",
+      activeVersionIsLatest: false,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Byter till reparerad version")).toBeTruthy();
+    });
+    expect(screen.getByText("Superseded by repaired version ver_2.")).toBeTruthy();
+  });
+
   it("keeps hook order stable when preview URL appears after the empty state", () => {
     vi.stubGlobal(
       "fetch",

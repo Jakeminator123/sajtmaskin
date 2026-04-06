@@ -29,7 +29,7 @@ export const CANONICAL_MODEL_IDS = ["fast", "pro", "max", "codex", "anthropic"] 
 
 export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
-export const DEFAULT_MODEL_ID: CanonicalModelId = "max";
+export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
 
 /** Model IDs for the default engine (when not using v0 fallback). */
 export const OWN_MODEL_IDS = [

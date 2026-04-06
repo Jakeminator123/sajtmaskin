@@ -95,6 +95,8 @@ vi.mock("@/lib/validations/chatSchemas", () => ({
 vi.mock("@/lib/builder/promptLimits", () => ({
   WARN_CHAT_MESSAGE_CHARS: 20_000,
   WARN_CHAT_SYSTEM_CHARS: 20_000,
+  MAX_AI_BRIEF_PROMPT_CHARS: 20_000,
+  MAX_PROMPT_HANDOFF_CHARS: 20_000,
 }));
 
 vi.mock("@/lib/builder/promptOrchestration", () => ({
@@ -234,6 +236,13 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { POST } from "./route";
 
+const unitTestRoutePlan = {
+  source: "prompt" as const,
+  siteType: "one-page" as const,
+  reason: "unit-test",
+  routes: [] as Array<{ path: string; name: string; intent: string; required: boolean }>,
+};
+
 async function readSseEvents(response: Response) {
   const body = await response.text();
   const blocks = body.trim().split("\n\n").filter(Boolean);
@@ -319,7 +328,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         family: "marketing",
         label: "Marketing",
       },
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -357,7 +366,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         label: "Marketing",
       },
       scaffoldContext: undefined,
-      routePlan: null,
+      routePlan: unitTestRoutePlan,
       preGenerationContracts: {
         contracts: {
           dataMode: "none",
@@ -403,7 +412,6 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
-      templateLibrarySearchDiagnostics: null,
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },

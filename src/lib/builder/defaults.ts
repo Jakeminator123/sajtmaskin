@@ -157,7 +157,7 @@ export const DEFAULT_PROMPT_POLISH_MODEL = POLISH_MODEL;
 
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   model: ASSIST_MODEL,
-  deep: true,
+  deep: false,
 };
 
 // ============================================
@@ -167,8 +167,8 @@ export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
 /** Default for AI image generation toggle */
 export const DEFAULT_IMAGE_GENERATIONS = true;
 
-/** Default for v0 thinking toggle */
-export const DEFAULT_THINKING = true;
+/** Default for reasoning/thinking toggle — off for faster first generation */
+export const DEFAULT_THINKING = false;
 
 /** Default for spec mode in builder */
 export const DEFAULT_SPEC_MODE = true;

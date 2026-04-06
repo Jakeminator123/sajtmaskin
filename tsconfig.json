@@ -38,6 +38,7 @@
   ],
   "exclude": [
     "node_modules",
+    "data/external-template-pipeline",
     "output",
     "src/templates",
     "drizzle.config.ts",
@@ -45,6 +46,8 @@
     "_template_refs",
     "e2e",
     "vercel_templates_levels",
-    "research"
+    "research",
+    "övrigt/testyta",
+    "test_scarfold_foto"
   ]
 }

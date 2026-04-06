@@ -10,6 +10,8 @@ describe("shouldRunServerAutoBrief", () => {
         promptSourcePreservePayload: false,
         promptType: "freeform",
         orchestrationReason: "within_budget",
+        prompt: "Bygg en hemsida",
+        buildIntent: "website",
       }),
     ).toBe(false);
   });
@@ -22,6 +24,8 @@ describe("shouldRunServerAutoBrief", () => {
         promptSourcePreservePayload: false,
         promptType: "freeform",
         orchestrationReason: "within_budget",
+        prompt: "Bygg en hemsida",
+        buildIntent: "website",
       }),
     ).toBe(false);
   });
@@ -34,6 +38,8 @@ describe("shouldRunServerAutoBrief", () => {
         promptSourcePreservePayload: true,
         promptType: "freeform",
         orchestrationReason: "within_budget",
+        prompt: "Bygg en hemsida",
+        buildIntent: "website",
       }),
     ).toBe(false);
   });
@@ -46,6 +52,8 @@ describe("shouldRunServerAutoBrief", () => {
         promptSourcePreservePayload: false,
         promptType: "audit",
         orchestrationReason: "within_budget",
+        prompt: "Bygg en hemsida",
+        buildIntent: "website",
       }),
     ).toBe(false);
   });
@@ -59,6 +67,8 @@ describe("shouldRunServerAutoBrief", () => {
           promptSourcePreservePayload: false,
           promptType,
           orchestrationReason: "within_budget",
+          prompt: "Bygg en hemsida",
+          buildIntent: "website",
         }),
       ).toBe(false);
     }
@@ -76,12 +86,14 @@ describe("shouldRunServerAutoBrief", () => {
           promptSourcePreservePayload: false,
           promptType: "freeform",
           orchestrationReason,
+          prompt: "Bygg en hemsida",
+          buildIntent: "website",
         }),
       ).toBe(false);
     }
   });
 
-  it("runs for typical freeform init when env flag is off", () => {
+  it("runs for underspecified generic init when env flag is off", () => {
     const prev = process.env.SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF;
     delete process.env.SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF;
     try {
@@ -92,6 +104,8 @@ describe("shouldRunServerAutoBrief", () => {
           promptSourcePreservePayload: false,
           promptType: "freeform",
           orchestrationReason: "within_budget",
+          prompt: "Bygg något modernt för mitt företag.",
+          buildIntent: "website",
         }),
       ).toBe(true);
     } finally {
@@ -111,11 +125,42 @@ describe("shouldRunServerAutoBrief", () => {
           promptSourcePreservePayload: false,
           promptType: "freeform",
           orchestrationReason: "within_budget",
+          prompt: "Bygg en hemsida",
+          buildIntent: "website",
         }),
       ).toBe(false);
     } finally {
       if (prev === undefined) delete process.env.SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF;
       else process.env.SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF = prev;
     }
+  });
+
+  it("skips auto-brief for already structured website prompts", () => {
+    expect(
+      shouldRunServerAutoBrief({
+        hasClientBrief: false,
+        promptSourceTechnical: false,
+        promptSourcePreservePayload: false,
+        promptType: "freeform",
+        orchestrationReason: "within_budget",
+        prompt:
+          "Skapa en professionell hemsida med hero-sektion, om oss, kontakt, CTA och en varm grön färgpalett för en veterinärklinik i Malmö.",
+        buildIntent: "website",
+      }),
+    ).toBe(false);
+  });
+
+  it("skips auto-brief for short simple website prompts", () => {
+    expect(
+      shouldRunServerAutoBrief({
+        hasClientBrief: false,
+        promptSourceTechnical: false,
+        promptSourcePreservePayload: false,
+        promptType: "freeform",
+        orchestrationReason: "within_budget",
+        prompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
+        buildIntent: "website",
+      }),
+    ).toBe(false);
   });
 });

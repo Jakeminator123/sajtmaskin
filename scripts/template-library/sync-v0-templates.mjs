@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Sync v0 templates and category mapping.
+ * Sync v0 templates and category mapping from local manifests.
  *
- * Preferred discovery source is the local manifest created by templates_v0:
- * - templates_v0/out/collected-template-ids.json
- * - templates_v0/out/downloaded.jsonl (optional enrichment)
+ * Data source: the local manifest created by templates_v0 intake scripts:
+ * - templates_v0/out/collected-template-ids.json  (required)
+ * - templates_v0/out/downloaded.jsonl             (optional enrichment)
+ * - templates_v0/out/template-metadata/*.json     (title + preview image)
  *
- * If no local manifest exists, the script falls back to discovering templates
- * from v0.app category pages directly and regenerates:
+ * Regenerates:
  * - src/lib/templates/templates.json
  * - src/lib/templates/template-categories.json
  *
@@ -16,21 +16,75 @@
  *   node scripts/template-library/sync-v0-templates.mjs --dry-run
  *   node scripts/template-library/sync-v0-templates.mjs --force
  *   node scripts/template-library/sync-v0-templates.mjs --source=local-manifest
- *   node scripts/template-library/sync-v0-templates.mjs --source=remote-html
  */
 
-import { access, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import JSZip from "jszip";
+import { access, readFile, readdir, writeFile } from "node:fs/promises";
+import { isAbsolute, resolve } from "node:path";
 import process from "node:process";
-import { load as loadHtml } from "cheerio";
 
-const BASE_URL = "https://v0.app";
-const TEMPLATES_URL = `${BASE_URL}/templates`;
-const CATEGORIES_URL = `${TEMPLATES_URL}/categories`;
-const USER_AGENT = "sajtmaskin-template-sync/1.0 (+https://sajtmaskin.se)";
-
-const TEMPLATE_ID_MIN_LEN = 10;
-const TEMPLATE_ID_MAX_LEN = 16;
+const LOCAL_IMAGE_API_PREFIX = "/api/template-image";
+const LOCAL_TEMPLATE_DOWNLOADS_PREFIX = "templates_v0/downloads/";
+const TEMPLATE_IMAGES_ROOT = resolve(process.cwd(), "templates_v0/downloads/template-images");
+const MAX_IMPORT_ARCHIVE_BYTES = 50 * 1024 * 1024;
+const MAX_IMPORTABLE_FILES = 600;
+const MAX_IMPORTABLE_TEXT_BYTES = 16 * 1024 * 1024;
+const BLOCKED_IMPORT_PREFIXES = [
+  "node_modules/",
+  ".git/",
+  ".next/",
+  "dist/",
+  "build/",
+  "coverage/",
+  "out/",
+];
+const IMPORTABLE_TEXT_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".json",
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".html",
+  ".md",
+  ".mdx",
+  ".txt",
+  ".yml",
+  ".yaml",
+  ".toml",
+  ".env",
+  ".example",
+  ".svg",
+  ".sql",
+  ".sh",
+  ".prisma",
+  ".graphql",
+  ".gql",
+]);
+const IMPORTABLE_TEXT_BASENAMES = new Set([
+  "dockerfile",
+  "makefile",
+  ".gitignore",
+  ".npmrc",
+  ".nvmrc",
+  ".env",
+  ".env.local",
+  ".env.example",
+  ".env.production",
+  ".env.development",
+  ".env.test",
+  "readme",
+  "license",
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "pnpm-lock.yml",
+  "yarn.lock",
+]);
 
 const APP_CATEGORY_IDS = [
   "ai",
@@ -73,14 +127,6 @@ const SOURCE_TO_APP_CATEGORY = {
   "apps-and-games": "apps-and-games",
 };
 
-const IGNORED_SOURCE_SLUGS = new Set([
-  "categories",
-  "submissions",
-  "screenshots",
-  "assets",
-  "templates",
-]);
-
 const PATHS = {
   templates: resolve(process.cwd(), "src/lib/templates/templates.json"),
   categoryMap: resolve(process.cwd(), "src/lib/templates/template-categories.json"),
@@ -91,7 +137,7 @@ const LOCAL_MANIFEST_PATHS = {
   downloaded: resolve(process.cwd(), "templates_v0/out/downloaded.jsonl"),
 };
 
-const SOURCE_MODE_OPTIONS = new Set(["auto", "local-manifest", "remote-html"]);
+const SOURCE_MODE_OPTIONS = new Set(["auto", "local-manifest"]);
 
 const argv = process.argv.slice(2);
 const args = new Set(argv.filter((arg) => !arg.startsWith("--source=")));
@@ -113,21 +159,153 @@ async function fileExists(path) {
   }
 }
 
-function sanitizePathToSlug(href) {
-  const trimmed = String(href || "").trim();
-  if (!trimmed.startsWith("/templates/")) return null;
-  const withoutQuery = trimmed.split("?")[0]?.split("#")[0] || "";
-  const parts = withoutQuery.split("/").filter(Boolean);
-  if (parts.length < 2) return null;
-  return parts[1] || null;
+function normalizeSlashes(path) {
+  return String(path || "").replace(/\\/g, "/");
 }
 
-function isLikelyTemplateId(value) {
-  if (!value) return false;
-  if (!/^[A-Za-z0-9]+$/.test(value)) return false;
-  if (value.length < TEMPLATE_ID_MIN_LEN || value.length > TEMPLATE_ID_MAX_LEN) return false;
-  // Avoid plain words like "screenshots" while allowing real IDs.
-  return /[A-Z0-9]/.test(value);
+function normalizeDownloadedArchivePath(rawPath) {
+  const trimmed = String(rawPath || "").trim();
+  if (!trimmed) return null;
+  const normalized = normalizeSlashes(trimmed).replace(/^\.\/+/, "");
+  const marker = LOCAL_TEMPLATE_DOWNLOADS_PREFIX.toLowerCase();
+  const markerIndex = normalized.toLowerCase().indexOf(marker);
+  if (markerIndex >= 0) {
+    return normalized.slice(markerIndex);
+  }
+  if (!isAbsolute(trimmed)) {
+    return normalized;
+  }
+  return null;
+}
+
+function resolveArchivePath(rawPath) {
+  const normalized = normalizeDownloadedArchivePath(rawPath);
+  if (normalized) {
+    return resolve(process.cwd(), normalized);
+  }
+  return isAbsolute(rawPath) ? rawPath : resolve(process.cwd(), rawPath);
+}
+
+function normalizeDownloadedRows(rows) {
+  let rewrittenPathCount = 0;
+  const normalizedRows = rows.map((row) => {
+    if (!row || typeof row !== "object") return row;
+    const rawPath = typeof row.path === "string" ? row.path.trim() : "";
+    if (!rawPath) return row;
+    const normalizedPath = normalizeDownloadedArchivePath(rawPath);
+    if (!normalizedPath || normalizedPath === rawPath) return row;
+    rewrittenPathCount += 1;
+    return {
+      ...row,
+      path: normalizedPath,
+    };
+  });
+  return { normalizedRows, rewrittenPathCount };
+}
+
+function toJsonl(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return "";
+  return `${rows.map((row) => JSON.stringify(row)).join("\n")}\n`;
+}
+
+function normalizeImportedPath(rawPath) {
+  const normalized = String(rawPath || "").replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalized || normalized.includes("\0")) return null;
+  if (normalized.split("/").some((segment) => segment === "..")) return null;
+  if (BLOCKED_IMPORT_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return null;
+  return normalized;
+}
+
+function shouldTreatAsImportableText(filePath) {
+  const lowerPath = String(filePath || "").toLowerCase();
+  const basename = lowerPath.split("/").pop() ?? "";
+  if (IMPORTABLE_TEXT_BASENAMES.has(basename)) return true;
+  for (const extension of IMPORTABLE_TEXT_EXTENSIONS) {
+    if (lowerPath.endsWith(extension)) return true;
+  }
+  return false;
+}
+
+function stripCommonArchiveRoot(paths) {
+  if (paths.length === 0) return paths;
+  const segments = paths.map((filePath) => filePath.split("/").filter(Boolean));
+  const first = segments[0]?.[0];
+  if (!first) return paths;
+  const shouldStrip = segments.every((parts) => parts.length > 1 && parts[0] === first);
+  if (!shouldStrip) return paths;
+  return segments.map((parts) => parts.slice(1).join("/"));
+}
+
+function looksBinary(buffer) {
+  if (!buffer || buffer.length === 0) return false;
+  let suspicious = 0;
+  const sample = buffer.subarray(0, Math.min(buffer.length, 4096));
+  for (const byte of sample) {
+    if (byte === 0) return true;
+    if ((byte < 7 || (byte > 14 && byte < 32)) && byte !== 9 && byte !== 10 && byte !== 13) {
+      suspicious += 1;
+    }
+  }
+  return suspicious / sample.length > 0.1;
+}
+
+async function isArchiveImportable(archivePath) {
+  try {
+    const archiveBuffer = await readFile(archivePath);
+    if (archiveBuffer.byteLength > MAX_IMPORT_ARCHIVE_BYTES) {
+      return {
+        importable: false,
+        reason: `archive bytes exceed ${MAX_IMPORT_ARCHIVE_BYTES}`,
+      };
+    }
+
+    const zip = await JSZip.loadAsync(archiveBuffer);
+    const rawEntries = Object.values(zip.files)
+      .filter((entry) => !entry.dir)
+      .map((entry) => entry.name);
+    const normalizedEntries = stripCommonArchiveRoot(rawEntries);
+
+    let importedFileCount = 0;
+    let totalTextBytes = 0;
+
+    for (let index = 0; index < rawEntries.length; index += 1) {
+      const originalName = rawEntries[index];
+      const strippedName = normalizedEntries[index];
+      const safePath = normalizeImportedPath(strippedName);
+      if (!safePath) continue;
+      if (!shouldTreatAsImportableText(safePath)) continue;
+
+      const entry = zip.files[originalName];
+      const contentBuffer = Buffer.from(await entry.async("uint8array"));
+      if (looksBinary(contentBuffer)) continue;
+
+      importedFileCount += 1;
+      totalTextBytes += contentBuffer.byteLength;
+
+      if (importedFileCount > MAX_IMPORTABLE_FILES) {
+        return {
+          importable: false,
+          reason: `importable files exceed ${MAX_IMPORTABLE_FILES}`,
+        };
+      }
+      if (totalTextBytes > MAX_IMPORTABLE_TEXT_BYTES) {
+        return {
+          importable: false,
+          reason: `text bytes exceed ${MAX_IMPORTABLE_TEXT_BYTES}`,
+        };
+      }
+    }
+
+    return {
+      importable: importedFileCount > 0,
+      reason: importedFileCount > 0 ? null : "no importable text files",
+    };
+  } catch (error) {
+    return {
+      importable: false,
+      reason: error instanceof Error ? error.message : "unknown importability error",
+    };
+  }
 }
 
 function normalizeTitle(raw, fallbackId) {
@@ -138,7 +316,6 @@ function normalizeTitle(raw, fallbackId) {
     .replace(/\s*-\s*v0 by Vercel$/i, "")
     .trim();
 
-  // Remove trailing category suffixes like " - Apps & Games Templates".
   if (/ Templates$/i.test(cleaned)) {
     const dashIndex = Math.max(cleaned.lastIndexOf(" - "), cleaned.lastIndexOf(" – "));
     if (dashIndex > 0) {
@@ -150,63 +327,6 @@ function normalizeTitle(raw, fallbackId) {
   }
 
   return cleaned || fallbackId;
-}
-
-function extractTemplateIds(html) {
-  const $ = loadHtml(html);
-  const links = $("a[href^='/templates/']")
-    .map((_, el) => String($(el).attr("href") || ""))
-    .get();
-  return unique(
-    links
-      .map(sanitizePathToSlug)
-      .filter((value) => Boolean(value) && isLikelyTemplateId(value)),
-  );
-}
-
-function extractCategorySlugs(html) {
-  const $ = loadHtml(html);
-  const links = $("a[href^='/templates/']")
-    .map((_, el) => String($(el).attr("href") || ""))
-    .get();
-  const slugs = unique(links.map(sanitizePathToSlug).filter(Boolean));
-  return slugs.filter(
-    (slug) =>
-      Boolean(slug) &&
-      /^[a-z-]+$/.test(slug) &&
-      !IGNORED_SOURCE_SLUGS.has(slug) &&
-      !slug.startsWith("page-"),
-  );
-}
-
-async function fetchHtml(url) {
-  const response = await fetch(url, {
-    headers: {
-      "user-agent": USER_AGENT,
-      accept: "text/html,application/xhtml+xml",
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
-  }
-  return await response.text();
-}
-
-async function mapWithConcurrency(items, limit, mapper) {
-  const results = new Array(items.length);
-  let index = 0;
-
-  async function worker() {
-    while (true) {
-      const current = index++;
-      if (current >= items.length) return;
-      results[current] = await mapper(items[current], current);
-    }
-  }
-
-  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, () => worker());
-  await Promise.all(workers);
-  return results;
 }
 
 async function readJson(path, fallback) {
@@ -296,17 +416,37 @@ async function loadLocalManifestSource() {
   }
 
   let downloadedCount = 0;
+  let downloadedPathRewriteCount = 0;
+  let downloadedMissingArchiveRows = 0;
+  let normalizedDownloadedRows = [];
+  const zipBackedTemplateIds = new Set();
+  const zipArchivePathByTemplateId = new Map();
   if (await fileExists(LOCAL_MANIFEST_PATHS.downloaded)) {
-    const downloadedRows = await readJsonl(LOCAL_MANIFEST_PATHS.downloaded);
-    for (const row of downloadedRows) {
+    const downloadedRowsRaw = await readJsonl(LOCAL_MANIFEST_PATHS.downloaded);
+    const normalizedResult = normalizeDownloadedRows(downloadedRowsRaw);
+    normalizedDownloadedRows = normalizedResult.normalizedRows;
+    downloadedPathRewriteCount = normalizedResult.rewrittenPathCount;
+
+    for (const row of normalizedDownloadedRows) {
       const templateId =
         row && typeof row === "object" && typeof row.templateId === "string"
           ? row.templateId.trim()
           : "";
+      const rowPath = row && typeof row === "object" && typeof row.path === "string"
+        ? row.path.trim()
+        : "";
       if (!templateId) continue;
       downloadedCount += 1;
       discoveredIds.add(templateId);
       addSourceSlugs(templateToSourceCategories, templateId, row.sourceSlugs);
+      if (!rowPath) continue;
+      const archivePath = resolveArchivePath(rowPath);
+      if (await fileExists(archivePath)) {
+        zipBackedTemplateIds.add(templateId);
+        zipArchivePathByTemplateId.set(templateId, archivePath);
+      } else {
+        downloadedMissingArchiveRows += 1;
+      }
     }
   }
 
@@ -326,89 +466,95 @@ async function loadLocalManifestSource() {
     sourceCategorySizes: buildSourceCategorySizes(templateToSourceCategories),
     manifestTemplateCount: normalizeStringList(collected.ids).length,
     downloadedCount,
+    zipBackedTemplateIds: [...zipBackedTemplateIds].sort((a, b) => a.localeCompare(b)),
+    zipArchivePathByTemplateId,
+    normalizedDownloadedRows,
+    downloadedPathRewriteCount,
+    downloadedMissingArchiveRows,
   };
 }
 
-async function discoverTemplatesFromRemoteHtml() {
-  console.log("[templates:sync] Fetching category index...");
-  const categoriesHtml = await fetchHtml(CATEGORIES_URL);
-  const discoveredSourceSlugs = unique([
-    ...extractCategorySlugs(categoriesHtml),
-    ...Object.keys(SOURCE_TO_APP_CATEGORY),
-  ]).sort((a, b) => a.localeCompare(b));
 
-  const unknownSourceSlugs = discoveredSourceSlugs.filter((slug) => !SOURCE_TO_APP_CATEGORY[slug]);
-  if (unknownSourceSlugs.length > 0) {
-    console.warn(
-      "[templates:sync] Unmapped source categories found (fallback -> website-templates):",
-      unknownSourceSlugs.join(", "),
-    );
-  }
+const LOCAL_METADATA_DIR = resolve(process.cwd(), "templates_v0/out/template-metadata");
+const IMAGE_FILE_REGEX = /\.(jpe?g|png|webp|gif|svg)$/i;
 
-  const templateToSourceCategories = new Map();
-  const sourceCategorySizes = {};
-
-  console.log(`[templates:sync] Fetching ${discoveredSourceSlugs.length} source categories...`);
-  for (const sourceSlug of discoveredSourceSlugs) {
-    const url = `${TEMPLATES_URL}/${sourceSlug}`;
-    try {
-      const html = await fetchHtml(url);
-      const templateIds = extractTemplateIds(html);
-      sourceCategorySizes[sourceSlug] = templateIds.length;
-
-      for (const templateId of templateIds) {
-        addSourceSlugs(templateToSourceCategories, templateId, [sourceSlug]);
-      }
-    } catch (error) {
-      console.warn(`[templates:sync] Failed category fetch for ${sourceSlug}:`, error);
-      sourceCategorySizes[sourceSlug] = 0;
-    }
-  }
-
-  console.log("[templates:sync] Fetching templates root for additional IDs...");
-  const rootHtml = await fetchHtml(TEMPLATES_URL);
-  const rootTemplateIds = extractTemplateIds(rootHtml);
-  for (const templateId of rootTemplateIds) {
-    if (!templateToSourceCategories.has(templateId)) {
-      templateToSourceCategories.set(templateId, new Set());
-    }
-  }
-
-  return {
-    mode: "remote-html",
-    label: "v0.app category discovery",
-    source: CATEGORIES_URL,
-    discoveredTemplateIds: [...templateToSourceCategories.keys()].sort((a, b) =>
-      a.localeCompare(b),
-    ),
-    templateToSourceCategories,
-    sourceCategorySizes,
-  };
-}
-
-function buildTemplatePreviewImageUrl(templateId) {
-  return `${BASE_URL}/chat/api/og/t/${templateId}`;
-}
-
-async function fetchTemplateMeta(templateId) {
-  const url = `${TEMPLATES_URL}/${templateId}`;
+async function readDirEntries(path) {
   try {
-    const html = await fetchHtml(url);
-    const $ = loadHtml(html);
+    return await readdir(path, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+async function readTemplateIdsWithMetadata() {
+  const metadataEntries = await readDirEntries(LOCAL_METADATA_DIR);
+  const ids = new Set();
+  for (const entry of metadataEntries) {
+    if (!entry.isFile()) continue;
+    if (!entry.name.toLowerCase().endsWith(".json")) continue;
+    const templateId = entry.name.slice(0, -5).trim();
+    if (!templateId) continue;
+    ids.add(templateId);
+  }
+  return ids;
+}
+
+async function templateDirectoryHasImages(path) {
+  const directEntries = await readDirEntries(path);
+  for (const entry of directEntries) {
+    if (entry.isFile() && IMAGE_FILE_REGEX.test(entry.name)) {
+      return true;
+    }
+  }
+
+  for (const subdirName of ["listing", "detail"]) {
+    const subdirEntries = await readDirEntries(resolve(path, subdirName));
+    if (subdirEntries.some((entry) => entry.isFile() && IMAGE_FILE_REGEX.test(entry.name))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+async function readTemplateIdsWithImages() {
+  const categories = await readDirEntries(TEMPLATE_IMAGES_ROOT);
+  const ids = new Set();
+  for (const category of categories) {
+    if (!category.isDirectory()) continue;
+    const categoryPath = resolve(TEMPLATE_IMAGES_ROOT, category.name);
+    const templateEntries = await readDirEntries(categoryPath);
+    for (const templateEntry of templateEntries) {
+      if (!templateEntry.isDirectory()) continue;
+      const templateId = templateEntry.name.trim();
+      if (!templateId) continue;
+      const templatePath = resolve(categoryPath, templateEntry.name);
+      if (await templateDirectoryHasImages(templatePath)) {
+        ids.add(templateId);
+      }
+    }
+  }
+  return ids;
+}
+
+function buildLocalImageUrl(templateId) {
+  return `${LOCAL_IMAGE_API_PREFIX}/${templateId}`;
+}
+
+async function readLocalTemplateMeta(templateId) {
+  const metadataPath = resolve(LOCAL_METADATA_DIR, `${templateId}.json`);
+  try {
+    const raw = JSON.parse(await readFile(metadataPath, "utf8"));
     const title = normalizeTitle(
-      $("meta[property='og:title']").attr("content") || $("title").first().text(),
+      raw.ogTitle || raw.h1 || "",
       templateId,
     );
-    const previewImageUrl =
-      String($("meta[property='og:image']").attr("content") || "").trim() ||
-      buildTemplatePreviewImageUrl(templateId);
-    return { templateId, title, previewImageUrl };
-  } catch (error) {
-    console.warn(`[templates:sync] metadata fetch failed for ${templateId}:`, error);
+    return { templateId, title, previewImageUrl: buildLocalImageUrl(templateId) };
+  } catch {
     return {
       templateId,
       title: templateId,
-      previewImageUrl: buildTemplatePreviewImageUrl(templateId),
+      previewImageUrl: buildLocalImageUrl(templateId),
     };
   }
 }
@@ -431,14 +577,8 @@ function buildTemplateRecord(meta, sourceSlugs) {
     id: meta.templateId,
     title: meta.title || meta.templateId,
     slug: meta.templateId,
-    view_url: `${TEMPLATES_URL}/${meta.templateId}`,
-    edit_url: `${BASE_URL}/chat/${meta.templateId}`,
-    preview_image_url: meta.previewImageUrl || buildTemplatePreviewImageUrl(meta.templateId),
+    preview_image_url: meta.previewImageUrl || buildLocalImageUrl(meta.templateId),
     image_filename: `${meta.templateId}.jpg`,
-    views: "",
-    likes: "",
-    author: "",
-    author_avatar: "",
     category: categoryId,
   };
 }
@@ -470,18 +610,11 @@ async function main() {
     );
   }
 
-  let discovery;
-  if (sourceMode === "local-manifest") {
-    discovery = await loadLocalManifestSource();
-    if (!discovery) {
-      throw new Error(
-        `Requested --source=local-manifest but no manifest was found at ${LOCAL_MANIFEST_PATHS.collected}`,
-      );
-    }
-  } else if (sourceMode === "remote-html") {
-    discovery = await discoverTemplatesFromRemoteHtml();
-  } else {
-    discovery = (await loadLocalManifestSource()) ?? (await discoverTemplatesFromRemoteHtml());
+  const discovery = await loadLocalManifestSource();
+  if (!discovery) {
+    throw new Error(
+      `No local manifest found at ${LOCAL_MANIFEST_PATHS.collected}. Run the templates_v0 intake first.`,
+    );
   }
 
   console.log(`[templates:sync] Discovery source: ${discovery.label}`);
@@ -491,9 +624,67 @@ async function main() {
     console.log(`  Downloaded ZIP rows: ${discovery.downloadedCount}`);
   }
 
-  const { discoveredTemplateIds, templateToSourceCategories, sourceCategorySizes } = discovery;
+  const {
+    discoveredTemplateIds,
+    templateToSourceCategories,
+    sourceCategorySizes,
+    zipBackedTemplateIds,
+    zipArchivePathByTemplateId,
+    normalizedDownloadedRows,
+    downloadedPathRewriteCount,
+    downloadedMissingArchiveRows,
+  } = discovery;
+
   if (discoveredTemplateIds.length === 0) {
     throw new Error("No templates discovered from source pages.");
+  }
+
+  if (downloadedPathRewriteCount > 0) {
+    if (isDryRun) {
+      console.log(
+        `[templates:sync] Dry-run: would rewrite ${downloadedPathRewriteCount} downloaded.jsonl path values to repo-relative form.`,
+      );
+    } else {
+      await writeFile(LOCAL_MANIFEST_PATHS.downloaded, toJsonl(normalizedDownloadedRows), "utf8");
+      console.log(
+        `[templates:sync] Normalized ${downloadedPathRewriteCount} downloaded.jsonl path values to repo-relative form.`,
+      );
+    }
+  }
+
+  const zipBackedIdSet = new Set(zipBackedTemplateIds);
+  const metadataIdSet = await readTemplateIdsWithMetadata();
+  const imageIdSet = await readTemplateIdsWithImages();
+  const completeTemplateIds = discoveredTemplateIds.filter(
+    (templateId) =>
+      zipBackedIdSet.has(templateId) &&
+      metadataIdSet.has(templateId) &&
+      imageIdSet.has(templateId),
+  );
+
+  const importableTemplateIds = [];
+  const droppedImportability = [];
+  for (const templateId of completeTemplateIds) {
+    const archivePath = zipArchivePathByTemplateId.get(templateId);
+    if (!archivePath) {
+      droppedImportability.push({ templateId, reason: "missing archive path mapping" });
+      continue;
+    }
+    const importCheck = await isArchiveImportable(archivePath);
+    if (importCheck.importable) {
+      importableTemplateIds.push(templateId);
+    } else {
+      droppedImportability.push({
+        templateId,
+        reason: importCheck.reason || "not importable",
+      });
+    }
+  }
+
+  if (importableTemplateIds.length === 0) {
+    throw new Error(
+      "No importable templates found (requires ZIP + metadata + images + import budget compliance).",
+    );
   }
 
   const previousTemplates = await readJson(PATHS.templates, []);
@@ -501,25 +692,27 @@ async function main() {
     !forceWrite &&
     Array.isArray(previousTemplates) &&
     previousTemplates.length > 0 &&
-    discoveredTemplateIds.length < Math.floor(previousTemplates.length * 0.6)
+    importableTemplateIds.length < Math.floor(previousTemplates.length * 0.6)
   ) {
     throw new Error(
-      `Safety check failed: discovered ${discoveredTemplateIds.length} templates, previous file has ${previousTemplates.length}. Use --force if this drop is expected.`,
+      `Safety check failed: filtered ${importableTemplateIds.length} templates, previous file has ${previousTemplates.length}. Use --force if this drop is expected.`,
     );
   }
 
-  console.log(`[templates:sync] Fetching metadata for ${discoveredTemplateIds.length} templates...`);
-  const metas = await mapWithConcurrency(discoveredTemplateIds, 8, async (templateId) =>
-    fetchTemplateMeta(templateId),
+  console.log(
+    `[templates:sync] Reading metadata for ${importableTemplateIds.length} importable templates...`,
+  );
+  const metas = await Promise.all(
+    importableTemplateIds.map((templateId) => readLocalTemplateMeta(templateId)),
   );
 
   const templates = metas.map((meta) =>
     buildTemplateRecord(meta, [...(templateToSourceCategories.get(meta.templateId) || new Set())]),
   );
-  const categoryMapping = buildCategoryMapping(discoveredTemplateIds, templateToSourceCategories);
+  const categoryMapping = buildCategoryMapping(importableTemplateIds, templateToSourceCategories);
 
   const categoryFile = {
-    _comment: "Auto-generated template categorization from local v0 manifests or v0 source categories",
+    _comment: "Auto-generated template categorization from local templates_v0 manifests",
     _version: "2.0.0",
     _lastUpdated: todayIsoDate(),
     _source: discovery.source,
@@ -532,9 +725,24 @@ async function main() {
 
   console.log("[templates:sync] Summary");
   console.log("  Templates discovered:", discoveredTemplateIds.length);
+  console.log("  ZIP-backed templates:", zipBackedIdSet.size);
+  console.log("  Metadata templates:", metadataIdSet.size);
+  console.log("  Image-backed templates:", imageIdSet.size);
+  console.log("  Templates after ZIP+metadata+images filter:", completeTemplateIds.length);
+  console.log("  Templates after importability filter:", importableTemplateIds.length);
+  console.log("  Importability dropped templates:", droppedImportability.length);
+  console.log("  downloaded.jsonl rewritten paths:", downloadedPathRewriteCount);
+  console.log("  downloaded.jsonl missing archive rows:", downloadedMissingArchiveRows);
   console.log("  Missing preview images:", missingPreviews);
   console.log("  Fallback titles (id used):", fallbackTitles);
   console.log("  Source category sizes:", sourceCategorySizes);
+  if (droppedImportability.length > 0) {
+    const preview = droppedImportability
+      .slice(0, 10)
+      .map((row) => `${row.templateId} (${row.reason})`)
+      .join(", ");
+    console.log("  Importability dropped preview:", preview);
+  }
 
   if (isDryRun) {
     console.log("[templates:sync] Dry-run mode enabled. No files written.");

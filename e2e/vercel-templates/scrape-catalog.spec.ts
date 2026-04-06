@@ -13,10 +13,10 @@
  *    Uses query-param presets to collect repeatable focused and second-pass sets.
  *
  * Output:
- *   research/external-templates/raw-discovery/current/summary.json
- *   research/external-templates/raw-discovery/current/catalog.json
- *   research/external-templates/raw-discovery/current/source-metadata.json
- *   research/external-templates/raw-discovery/current/playwright-catalog.json
+ *   data/external-template-pipeline/raw-discovery/current/summary.json
+ *   data/external-template-pipeline/raw-discovery/current/catalog.json
+ *   data/external-template-pipeline/raw-discovery/current/source-metadata.json
+ *   data/external-template-pipeline/raw-discovery/current/playwright-catalog.json
  */
 import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";

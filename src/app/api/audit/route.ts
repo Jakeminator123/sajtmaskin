@@ -3,7 +3,7 @@
  * POST /api/audit - Analyze a website and return audit results
  *
  * Cost: See credits pricing
- * Model: AI Gateway (no web_search)
+ * Model: OpenAI Responses API (legacy fallback via AI SDK if disabled)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,7 +17,6 @@ import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
-import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 import {
   AUDIT_STRUCTURED_DEFAULT_MODEL,
   AUDIT_STRUCTURED_FALLBACK_MODELS,
@@ -626,16 +625,6 @@ if (schemaErrors.length > 0) {
 
 // Cost calculation (for logging/display only)
 const USD_TO_SEK = 11.0;
-
-function getGatewayAuth(): { enabled: boolean; source: "api-key" | "oidc" | "vercel" | "none" } {
-  const key = pickAiGatewayKeyFromEnv();
-  if (key) {
-    const source = process.env.AI_GATEWAY_API_KEY?.trim() ? ("api-key" as const) : ("oidc" as const);
-    return { enabled: true, source };
-  }
-  if (isVercelHostedRuntime()) return { enabled: true, source: "vercel" };
-  return { enabled: false, source: "none" };
-}
 
 // Create a fallback result when AI response is invalid
 function createFallbackResult(
@@ -1258,7 +1247,7 @@ export async function POST(request: NextRequest) {
       content: message.content.map((part) => part.text).join("\n"),
     }));
 
-    // ── AI call: Responses API (structured output) or Gateway fallback ──
+    // ── AI call: Responses API (structured output) or legacy fallback ──
     let auditResult: Partial<AuditResult> = {};
     let usedFallback = false;
     let webSearchCallCount = 0;
@@ -1332,24 +1321,13 @@ export async function POST(request: NextRequest) {
         usedFallback = true;
       }
     } else {
-      // ── Gateway fallback path (old behaviour) ───────────────────
-      const gatewayAuth = getGatewayAuth();
-      if (!gatewayAuth.enabled) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "AI Gateway är inte konfigurerad. Sätt AI_GATEWAY_API_KEY eller kör via Vercel OIDC.",
-          },
-          { status: 500 },
-        );
-      }
+      // ── Legacy fallback path: AI SDK direct model chain ─────────
 
       let aiResult: Awaited<ReturnType<typeof generateText>> | null = null;
-      let lastGatewayError: unknown = null;
+      let lastFallbackError: unknown = null;
       for (const candidateModel of AUDIT_MODEL_CANDIDATES) {
         usedModel = candidateModel;
-        console.info(`[${requestId}] Calling AI Gateway (${usedModel})`);
+        console.info(`[${requestId}] Calling fallback model (${usedModel})`);
         try {
           const candidateResult = await generateText({
             model: createDirectModel(usedModel),
@@ -1363,17 +1341,17 @@ export async function POST(request: NextRequest) {
           }
           aiResult = candidateResult;
           break;
-        } catch (gatewayError) {
-          lastGatewayError = gatewayError;
+        } catch (fallbackError) {
+          lastFallbackError = fallbackError;
           console.warn(
-            `[${requestId}] Gateway call failed for ${usedModel}:`,
-            gatewayError,
+            `[${requestId}] Fallback model call failed for ${usedModel}:`,
+            fallbackError,
           );
         }
       }
 
       if (!aiResult) {
-        console.error(`[${requestId}] All configured audit gateway models failed`, lastGatewayError);
+        console.error(`[${requestId}] All configured audit fallback models failed`, lastFallbackError);
         return NextResponse.json(
           { success: false, error: "Auditens fallback-kedja kunde inte generera ett svar." },
           { status: 502 },
@@ -1381,7 +1359,7 @@ export async function POST(request: NextRequest) {
       }
 
       const apiDuration = Date.now() - requestStartTime;
-      console.info(`[${requestId}] Gateway completed in ${apiDuration}ms using ${usedModel}`);
+      console.info(`[${requestId}] Fallback chain completed in ${apiDuration}ms using ${usedModel}`);
 
       const usage = aiResult.usage ?? {};
       inputTokens =
@@ -1707,10 +1685,10 @@ export async function POST(request: NextRequest) {
 
     if (
       err.status === 401 ||
-      err.message?.includes("AI_GATEWAY") ||
-      err.message?.includes("Gateway")
+      err.message?.includes("OPENAI_API_KEY") ||
+      err.message?.includes("ANTHROPIC_API_KEY")
     ) {
-      errorMessage = "AI Gateway saknas eller är ogiltig.";
+      errorMessage = "AI-provider saknas eller är felkonfigurerad (OPENAI_API_KEY / ANTHROPIC_API_KEY).";
     } else if (err.status === 429) {
       errorMessage = "För många förfrågningar. Vänta en stund och försök igen.";
     } else if (err.message?.includes("timeout")) {

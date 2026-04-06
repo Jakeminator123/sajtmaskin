@@ -1,7 +1,7 @@
 /**
- * Visual QA scoring for sandbox-rendered pages.
+ * Visual QA scoring for live-preview-rendered pages.
  *
- * When sandbox is running, captures a screenshot of the index route and
+ * When preview is running, captures a screenshot of the index route and
  * applies heuristic checks to detect common visual quality issues.
  *
  * Behind feature flag SAJTMASKIN_VISUAL_QA=1.
@@ -31,7 +31,7 @@ const MAX_DESIGN_PATCH_ATTEMPTS = 1;
 
 /**
  * Analyze generated HTML/CSS files for common visual quality issues
- * without requiring a running sandbox. This is a static heuristic check.
+ * without requiring a running preview session. This is a static heuristic check.
  */
 export function analyzeVisualQuality(
   files: Array<{ path: string; content: string }>,

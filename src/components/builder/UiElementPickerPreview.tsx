@@ -1,7 +1,7 @@
 "use client";
 
 import { Blocks, Code2, ExternalLink, Loader2, RefreshCw, Wand2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
 import type { ComponentItem } from "@/lib/shadcn/registry-service";
@@ -41,15 +41,13 @@ export function UiElementPickerPreview({
   const [previewTheme, setPreviewTheme] = useState<"light" | "dark">("light");
   const [lightFailed, setLightFailed] = useState(false);
   const [darkFailed, setDarkFailed] = useState(false);
-  const [prevItemName, setPrevItemName] = useState(selectedItem?.name);
 
-  if (selectedItem?.name !== prevItemName) {
-    setPrevItemName(selectedItem?.name);
+  useEffect(() => {
     setShowCode(false);
     setPreviewTheme("light");
     setLightFailed(false);
     setDarkFailed(false);
-  }
+  }, [selectedItem?.name]);
 
   const previewLink = useMemo(() => {
     if (!selectedItem) return null;

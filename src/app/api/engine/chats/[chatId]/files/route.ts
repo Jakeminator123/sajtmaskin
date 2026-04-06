@@ -22,7 +22,7 @@ import {
 import { deriveSetupContract, buildEnvExampleContent } from "@/lib/gen/contract/setup-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 
-function v0ErrorResponse(err: unknown, fallbackMessage: string) {
+function engineErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeProviderError(err);
   return NextResponse.json(
     { error: info.message || fallbackMessage, code: info.code },
@@ -95,6 +95,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
 
     if (files) {
       let imageMaterializeError: string | null = null;
+      let imageMaterialization:
+        | {
+            attempted: boolean;
+            strategy: "blob";
+            replaced: number;
+            uploaded: number;
+            skipped: number;
+            warningCount: number;
+            reason?: string;
+            error?: string | null;
+          }
+        | null = null;
       const effectiveVersionId = resolvedVersionId ?? requestedVersionId ?? chatId;
 
       const repairResult = repairGeneratedFiles(files);
@@ -105,33 +117,62 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
         }
       }
 
-      if (shouldMaterialize && process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const textFiles = files.map((f) => ({ name: f.path, content: f.content }));
-          const imageAssets = await materializeImagesInTextFiles({
-            files: textFiles,
+      if (shouldMaterialize) {
+        if (!process.env.BLOB_READ_WRITE_TOKEN) {
+          imageMaterialization = {
+            attempted: false,
             strategy: "blob",
-            blobToken: process.env.BLOB_READ_WRITE_TOKEN,
-            namespace: { chatId, versionId: effectiveVersionId },
-          });
+            replaced: 0,
+            uploaded: 0,
+            skipped: 0,
+            warningCount: 0,
+            reason: "blob_not_configured",
+          };
+        } else {
+          try {
+            const textFiles = files.map((f) => ({ name: f.path, content: f.content }));
+            const imageAssets = await materializeImagesInTextFiles({
+              files: textFiles,
+              strategy: "blob",
+              blobToken: process.env.BLOB_READ_WRITE_TOKEN,
+              namespace: { chatId, versionId: effectiveVersionId },
+            });
+            imageMaterialization = {
+              attempted: true,
+              strategy: "blob",
+              replaced: imageAssets.summary.replaced,
+              uploaded: imageAssets.summary.uploaded,
+              skipped: imageAssets.summary.skipped,
+              warningCount: imageAssets.warnings.length,
+            };
 
-          if (imageAssets.summary.replaced > 0) {
-            const blobFileMap = new Map(imageAssets.files.map((f) => [f.name, f.content]));
-            files = files.map((f) => ({
-              ...f,
-              content: blobFileMap.get(f.path) ?? f.content,
-            }));
-            if (resolvedVersionId) {
-              await updateVersionFiles(resolvedVersionId, JSON.stringify(files));
+            if (imageAssets.summary.replaced > 0) {
+              const blobFileMap = new Map(imageAssets.files.map((f) => [f.name, f.content]));
+              files = files.map((f) => ({
+                ...f,
+                content: blobFileMap.get(f.path) ?? f.content,
+              }));
+              if (resolvedVersionId) {
+                await updateVersionFiles(resolvedVersionId, JSON.stringify(files));
+              }
+              console.log(
+                `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references`,
+              );
             }
-            console.log(
-              `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references`,
-            );
+          } catch (error) {
+            console.error("[materialize] Own engine image materialization failed:", error);
+            imageMaterializeError =
+              error instanceof Error ? error.message : "Image materialization failed";
+            imageMaterialization = {
+              attempted: true,
+              strategy: "blob",
+              replaced: 0,
+              uploaded: 0,
+              skipped: 0,
+              warningCount: 0,
+              error: imageMaterializeError,
+            };
           }
-        } catch (error) {
-          console.error("[materialize] Own engine image materialization failed:", error);
-          imageMaterializeError =
-            error instanceof Error ? error.message : "Image materialization failed";
         }
       }
 
@@ -169,6 +210,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       return NextResponse.json({
         versionId: resolvedVersionId,
         files: formattedFiles,
+        ...(imageMaterialization ? { imageMaterialization } : {}),
         ...(imageMaterializeError ? { imageMaterializeError } : {}),
       });
     }
@@ -176,7 +218,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     return NextResponse.json({ error: "No files found for version" }, { status: 404 });
   } catch (err) {
     console.error("Error fetching files:", err);
-    return v0ErrorResponse(err, "Failed to fetch files");
+    return engineErrorResponse(err, "Failed to fetch files");
   }
 }
 
@@ -234,7 +276,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     });
   } catch (err) {
     console.error("Error updating files:", err);
-    return v0ErrorResponse(err, "Failed to update files");
+    return engineErrorResponse(err, "Failed to update files");
   }
 }
 
@@ -302,7 +344,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
     });
   } catch (err) {
     console.error("Error updating file:", err);
-    return v0ErrorResponse(err, "Failed to update file");
+    return engineErrorResponse(err, "Failed to update file");
   }
 }
 
@@ -339,6 +381,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
     });
   } catch (err) {
     console.error("Error deleting file:", err);
-    return v0ErrorResponse(err, "Failed to delete file");
+    return engineErrorResponse(err, "Failed to delete file");
   }
 }

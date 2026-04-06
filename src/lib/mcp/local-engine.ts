@@ -1,12 +1,9 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { getLatestVersionFiles, getVersionFiles } from "@/lib/gen/version-manager";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import {
-  buildOwnEnginePreviewRuntime,
-  createSandboxRuntimeFromFiles,
-  type RuntimeMode,
-  type SandboxRuntimeOptions,
-} from "./runtime-url";
+import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+
+type RuntimeMode = "preview";
 
 export interface LocalGeneratedFile {
   name: string;
@@ -31,12 +28,9 @@ export interface LocalGeneratedRuntimeResult {
   projectId: string | null;
   url?: string;
   sandboxId?: string;
-  primaryUrl?: string | null;
-  runtime?: string;
-  ports?: number[];
 }
 
-export interface CreateLocalGeneratedRuntimeParams extends SandboxRuntimeOptions {
+export interface CreateLocalGeneratedRuntimeParams {
   chatId: string;
   versionId?: string | null;
   mode?: RuntimeMode;
@@ -119,35 +113,42 @@ export async function loadGeneratedFile(
 export async function createLocalGeneratedRuntime(
   params: CreateLocalGeneratedRuntimeParams,
 ): Promise<LocalGeneratedRuntimeResult> {
-  const { chatId, versionId, mode = "preview", ...sandboxOptions } = params;
+  const { chatId, versionId, mode = "preview" } = params;
   const projectId = await getOwnEngineProjectId(chatId);
-
-  if (mode === "preview") {
-    const resolvedVersionId = versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null;
-    return buildOwnEnginePreviewRuntime({
-      chatId,
-      versionId: resolvedVersionId,
-      projectId,
-    });
-  }
 
   const { files, resolvedVersionId } = await resolveGeneratedFiles(chatId, versionId);
   if (files.length === 0) {
     throw new Error("No files found for the requested chat/version");
   }
 
-  const sandboxRuntime = await createSandboxRuntimeFromFiles(
+    const started = await startPreviewSession(
     files.map((file) => ({
-      name: file.name,
+      path: file.name,
       content: file.content,
+      language: file.language,
     })),
-    sandboxOptions,
+    {
+      chatId,
+      appProjectId: projectId,
+      versionIdForSession: resolvedVersionId,
+      skipRepair: true,
+    },
   );
+  if (!started.ok) {
+    throw new Error(
+      `Tier-2 preview failed (${started.error.stage}): ${started.error.message}`,
+    );
+  }
+  if (resolvedVersionId) {
+    await chatRepo.updateVersionPreviewUrl(resolvedVersionId, started.result.sandboxUrl);
+  }
 
   return {
-    ...sandboxRuntime,
+    mode,
     chatId,
     versionId: resolvedVersionId,
     projectId,
+    url: started.result.sandboxUrl,
+    sandboxId: started.result.sandboxId,
   };
 }

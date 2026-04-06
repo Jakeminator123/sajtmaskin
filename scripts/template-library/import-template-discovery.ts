@@ -5,7 +5,7 @@ import {
   normalizeLegacySummary,
   normalizePlaywrightCatalog,
   readJson,
-  resolveExistingLegacySummaryPath,
+  SCRAPE_CACHE_CURRENT_ROOT,
   resolveSummaryPath,
   writeCanonicalDiscoveryDataset,
   type CanonicalDiscoveryMetadata,
@@ -17,7 +17,11 @@ type InputFormat = "auto" | "legacy-summary" | "playwright-catalog";
 
 function inferSourceLabel(from: string): string {
   const normalized = from.replace(/\\/g, "/").toLowerCase();
-  if (normalized.includes("/sajtmaskin-template-cache") || normalized.includes("/vercel-scrape")) {
+  if (
+    normalized.includes("/data/external-template-pipeline/scrape-cache") ||
+    normalized.includes("/sajtmaskin-template-cache") ||
+    normalized.includes("/vercel-scrape")
+  ) {
     return "external-scrape-dataset";
   }
   return "legacy-external-dataset";
@@ -34,19 +38,13 @@ function parseArgs(): {
   const fromArg = args.find((arg) => arg.startsWith("--from="));
   const outputArg = args.find((arg) => arg.startsWith("--output="));
   const labelArg = args.find((arg) => arg.startsWith("--label="));
-
-  const defaultSource = resolveExistingLegacySummaryPath();
-  if (!fromArg && !defaultSource) {
-    throw new Error(
-      "No discovery source provided. Use --from=<summary.json|catalog.json|folder> or make the legacy _sidor summary available.",
-    );
-  }
+  const defaultSource = SCRAPE_CACHE_CURRENT_ROOT;
 
   return {
-    from: fromArg ? fromArg.slice("--from=".length) : defaultSource!,
+    from: fromArg ? fromArg.slice("--from=".length) : defaultSource,
     format: (formatArg?.slice("--format=".length) as InputFormat | undefined) ?? "auto",
     outputRoot: outputArg ? outputArg.slice("--output=".length) : RAW_DISCOVERY_CURRENT_ROOT,
-    sourceLabel: labelArg?.slice("--label=".length) ?? inferSourceLabel(fromArg ? fromArg.slice("--from=".length) : defaultSource!),
+    sourceLabel: labelArg?.slice("--label=".length) ?? inferSourceLabel(fromArg ? fromArg.slice("--from=".length) : defaultSource),
   };
 }
 

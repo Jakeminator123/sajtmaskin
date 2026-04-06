@@ -57,6 +57,64 @@ vi.mock("@/lib/logging/devLog", () => ({
 import { runFinalizePreflight } from "./finalize-preflight";
 
 describe("runFinalizePreflight", () => {
+  function withMinimalBaseline(files: unknown): unknown {
+    const arr = Array.isArray(files) ? [...files] : [];
+    const typed = arr as Array<{ path: string; content: string; language?: string }>;
+    const paths = new Set(typed.map((file) => file.path));
+
+    if (!paths.has("package.json")) {
+      typed.push({
+        path: "package.json",
+        content: JSON.stringify(
+          {
+            dependencies: {
+              next: "16.2.1",
+              react: "19.2.4",
+              "react-dom": "19.2.4",
+            },
+            devDependencies: {
+              typescript: "5.9.3",
+            },
+            scripts: {
+              dev: "next dev",
+              build: "next build",
+            },
+          },
+          null,
+          2,
+        ),
+        language: "json",
+      });
+    }
+
+    if (!paths.has("app/layout.tsx") && !paths.has("src/app/layout.tsx")) {
+      typed.push({
+        path: "app/layout.tsx",
+        content:
+          "export default function RootLayout({ children }: { children: React.ReactNode }) { return <html><body>{children}</body></html>; }",
+        language: "tsx",
+      });
+    }
+
+    if (!paths.has("app/globals.css") && !paths.has("src/app/globals.css")) {
+      typed.push({
+        path: "app/globals.css",
+        content: "@theme inline { --color-background: 0 0% 100%; }",
+        language: "css",
+      });
+    }
+
+    if (!paths.has("next-env.d.ts")) {
+      typed.push({
+        path: "next-env.d.ts",
+        content: '/// <reference types="next" />\n/// <reference types="next/image-types/global" />\n',
+        language: "ts",
+      });
+    }
+
+    return typed;
+  }
+
   beforeEach(() => {
     runAutoFix.mockReset();
     buildPreviewHtml.mockReset();
@@ -69,7 +127,7 @@ describe("runFinalizePreflight", () => {
     runLlmFixer.mockReset();
 
     repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
-    buildCompleteProject.mockImplementation((files: unknown) => files);
+    buildCompleteProject.mockImplementation((files: unknown) => withMinimalBaseline(files));
     runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
     runSeoPreflightChecks.mockReturnValue([]);
     validateGeneratedCode.mockResolvedValue({ valid: true, errors: [] });
@@ -101,8 +159,8 @@ describe("runFinalizePreflight", () => {
       message: "Automatic preflight could not build a renderable own-engine preview entrypoint.",
       category: "shim_preview_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(true);
-    expect(result.sandbox.primaryPreviewTarget).toBe("sandbox");
+    expect(result.previewStart.canStartPreview).toBe(true);
+    expect(result.previewStart.primaryPreviewTarget).toBe("preview");
   });
 
   it("preserves the thrown preview preparation error in the blocking reason", async () => {
@@ -131,7 +189,7 @@ describe("runFinalizePreflight", () => {
       message: "Automatic preflight failed while preparing preview: kaboom",
       category: "shim_preview_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(true);
+    expect(result.previewStart.canStartPreview).toBe(true);
   });
 
   it("keeps preview unblocked when only project sanity reports verification issues", async () => {
@@ -166,8 +224,8 @@ describe("runFinalizePreflight", () => {
       message: "Missing required export",
       category: "code_structure_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(false);
-    expect(result.sandbox.primaryPreviewTarget).toBe("none");
+    expect(result.previewStart.canStartPreview).toBe(false);
+    expect(result.previewStart.primaryPreviewTarget).toBe("none");
   });
 
   it("preserves explicit sanity categories instead of falling back to message heuristics", async () => {
@@ -202,11 +260,11 @@ describe("runFinalizePreflight", () => {
       message: "Install validation failed",
       category: "dependency_install_failure",
     });
-    expect(result.sandbox.canStartSandbox).toBe(false);
-    expect(result.sandbox.hasCriticalInstallRisk).toBe(true);
+    expect(result.previewStart.canStartPreview).toBe(false);
+    expect(result.previewStart.hasCriticalInstallRisk).toBe(true);
   });
 
-  it("keeps sandbox eligible when SEO preflight only reports non-blocking quality issues", async () => {
+  it("keeps preview eligible when SEO preflight only reports non-blocking quality issues", async () => {
     buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
     runSeoPreflightChecks.mockReturnValue([
       {
@@ -236,7 +294,7 @@ describe("runFinalizePreflight", () => {
       message: "Metadata saknar title.",
       category: "non_blocking_quality_warning",
     });
-    expect(result.sandbox.canStartSandbox).toBe(true);
-    expect(result.sandbox.primaryPreviewTarget).toBe("sandbox");
+    expect(result.previewStart.canStartPreview).toBe(true);
+    expect(result.previewStart.primaryPreviewTarget).toBe("preview");
   });
 });

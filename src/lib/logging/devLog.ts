@@ -35,6 +35,7 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "preview-preflight.error",
   "project-sanity",
   "project-sanity.error",
+  "server-verify.policy",
   "route-plan.preflight",
   "contracts.inferred",
   "contracts.clarification-requested",

@@ -150,7 +150,7 @@ export async function POST(req: Request) {
             {
               error: "Missing OpenAI API key",
               setup:
-                "Set OPENAI_API_KEY. Prompt-assist OpenAI models use the OpenAI API directly (see createDirectModel in gateway-policy), not Vercel AI Gateway.",
+                "Set OPENAI_API_KEY. Prompt-assist OpenAI models call the OpenAI API directly (see createDirectModel in gateway-policy).",
             },
             { status: 401 },
           );

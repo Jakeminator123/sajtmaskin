@@ -66,44 +66,27 @@ export interface PlaywrightCatalogFile {
 }
 
 export const WORKSPACE_ROOT = process.cwd();
-export const RAW_DISCOVERY_ROOT = path.resolve(
+export const EXTERNAL_TEMPLATE_PIPELINE_ROOT = path.resolve(
   WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "raw-discovery",
+  "data",
+  "external-template-pipeline",
 );
+export const SCRAPE_CACHE_ROOT = path.join(EXTERNAL_TEMPLATE_PIPELINE_ROOT, "scrape-cache");
+export const SCRAPE_CACHE_CURRENT_ROOT = path.join(SCRAPE_CACHE_ROOT, "current");
+export const RAW_DISCOVERY_ROOT = path.join(EXTERNAL_TEMPLATE_PIPELINE_ROOT, "raw-discovery");
 export const RAW_DISCOVERY_CURRENT_ROOT = path.join(RAW_DISCOVERY_ROOT, "current");
-export const REPO_CACHE_ROOT = path.resolve(
-  WORKSPACE_ROOT,
-  "research",
-  "external-templates",
-  "repo-cache",
+export const REPO_CACHE_ROOT = path.join(EXTERNAL_TEMPLATE_PIPELINE_ROOT, "repo-cache");
+export const REFERENCE_LIBRARY_ROOT = path.join(
+  EXTERNAL_TEMPLATE_PIPELINE_ROOT,
+  "reference-library",
 );
+export const PIPELINE_REPORTS_ROOT = path.join(EXTERNAL_TEMPLATE_PIPELINE_ROOT, "reports");
 const SUMMARY_FILE_CANDIDATES = ["summary-cleaned.json", "summary.json"] as const;
 
 function resolveWorkspaceRelativePath(value: string): string {
   return path.isAbsolute(value) ? value : path.resolve(WORKSPACE_ROOT, value);
 }
 
-/** Preferred external scrape roots for Python intake before older `_sidor` fallbacks. */
-const externalScrapeRootFromEnv = process.env.SAJTMASKIN_VERCEL_SCRAPE_DIR?.trim();
-/** Optional extra root (must exist on disk). Replaces former machine-specific paths in repo. */
-const legacyRootFromEnv = process.env.SAJTMASKIN_LEGACY_SUMMARY_ROOT?.trim();
-export const LEGACY_SOURCE_ROOT_CANDIDATES = Array.from(
-  new Set(
-    [
-      ...(externalScrapeRootFromEnv
-        ? [resolveWorkspaceRelativePath(externalScrapeRootFromEnv)]
-        : []),
-      path.resolve(WORKSPACE_ROOT, "..", "sajtmaskin-template-cache"),
-      path.resolve(WORKSPACE_ROOT, "..", "vercel-scrape-fresh"),
-      path.resolve(WORKSPACE_ROOT, "..", "vercel-scrape"),
-      path.resolve(WORKSPACE_ROOT, "_sidor", "vercel_usecase_next_react_templates"),
-      path.resolve(WORKSPACE_ROOT, "research", "_sidor", "vercel_usecase_next_react_templates"),
-      ...(legacyRootFromEnv ? [resolveWorkspaceRelativePath(legacyRootFromEnv)] : []),
-    ].filter((candidate) => fs.existsSync(candidate)),
-  ),
-);
 export const CANONICAL_USE_CASE_SLUGS = new Set([
   "ai",
   "starter",
@@ -192,6 +175,18 @@ export function prettifyCategoryName(categorySlug: string): string {
     .join(" ");
 }
 
+function normalizePublicHttpUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "#" || trimmed.startsWith("javascript:")) return null;
+  try {
+    const parsed = new URL(trimmed);
+    return /^https?:$/i.test(parsed.protocol) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseTemplateCategoryFromUrl(templateUrl: string): string | null {
   try {
     const parsed = new URL(templateUrl);
@@ -220,7 +215,7 @@ export function normalizeRawTemplateRecord(input: RawTemplateRecord): RawTemplat
     title: input.title.trim(),
     description: input.description.trim(),
     repo_url: input.repo_url?.trim() || null,
-    demo_url: input.demo_url?.trim() || null,
+    demo_url: normalizePublicHttpUrl(input.demo_url),
     framework_match: Boolean(input.framework_match),
     framework_reason: input.framework_reason.trim(),
     stack_tags: uniqueStrings(input.stack_tags ?? []),
@@ -395,10 +390,12 @@ export function resolveSummaryPath(target: string): string {
   return target;
 }
 
-export function resolveExistingLegacySummaryPath(): string | null {
-  for (const root of LEGACY_SOURCE_ROOT_CANDIDATES) {
-    const summaryPath = resolveSummaryFileInDirectory(root);
-    if (summaryPath) return summaryPath;
+function toPortableMetadataPath(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const absolute = resolveWorkspaceRelativePath(value);
+  const relative = path.relative(WORKSPACE_ROOT, absolute);
+  if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) {
+    return relative.replace(/\\/g, "/");
   }
   return null;
 }
@@ -421,13 +418,14 @@ export function writeCanonicalDiscoveryDataset(options: {
           discovery_source: options.metadata.sourceKind,
           image_url: null,
         }));
+  const portableSourcePath = toPortableMetadataPath(options.metadata.sourcePath);
 
   writeJson(path.join(outputRoot, "summary.json"), summary);
   writeJson(path.join(outputRoot, "catalog.json"), {
     generatedAt: options.metadata.generatedAt,
     sourceKind: options.metadata.sourceKind,
     sourceLabel: options.metadata.sourceLabel,
-    sourcePath: options.metadata.sourcePath,
+    sourcePath: portableSourcePath,
     sourceUrl: options.metadata.sourceUrl,
     filterPreset: options.metadata.filterPreset,
     totalTemplates: flatEntries.length,
@@ -435,6 +433,7 @@ export function writeCanonicalDiscoveryDataset(options: {
   });
   writeJson(path.join(outputRoot, "source-metadata.json"), {
     ...options.metadata,
+    sourcePath: portableSourcePath,
     totalTemplates: flattenRawSummary(summary).length,
     categorySlugs: Object.keys(summary).sort(),
   });

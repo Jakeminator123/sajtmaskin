@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const force = searchParams.get("force") === "1";
 
   try {
-    const baseUrl = process.env.REGISTRY_BASE_URL?.trim() || getRegistryBaseUrl();
+    const baseUrl = getRegistryBaseUrl();
     const cache = await getRegistryIndexWithCache(
       { baseUrl, style, source },
       { force },

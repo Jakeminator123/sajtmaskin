@@ -1,33 +1,15 @@
-# Generation Data (partially cursorignored)
+# Generation Data
 
-Knowledge base + prompt support. Parent: [`../README.md`](../README.md). **Inbäddningar** for docs KB: `docs-embeddings.json` + `context/semantic-search.ts` (see `.cursor/rules/terminology.mdc` § embeddings vs semantics).
-
-## Cursorignored files
-
-| File | Size | What it is |
-|------|------|-----------|
-| `docs-embeddings.json` | ~4 MB | OpenAI vectors for `docs-snippets.ts` entries. Used by `context/semantic-search.ts`. |
+Small shared lookup tables for generation and registry-related helpers. Parent: [`../README.md`](../README.md).
 
 ## Indexed files
 
 | File | What it does |
 |------|-------------|
-| `docs-snippets.ts` | Knowledge base: ~50 categorized snippets covering shadcn components, Tailwind patterns, libraries (Recharts, Framer Motion, React Three Fiber, Embla, TanStack Table), and code examples. Searched per-request and injected as "Relevant Documentation". |
-| `shadcn-components.ts` | Component metadata for the shadcn/ui registry. |
-| `lucide-icons.ts` | Icon name lookup data. |
+| `shadcn-components.ts` | Component metadata for the shadcn/ui registry and related tooling. |
+| `lucide-icons.ts` | Icon name lookup data used by generation helpers and audits. |
 
-## Knowledge base search flow
+## Notes
 
-1. `system-prompt.ts` calls `searchKnowledgeBaseAsync({ query: originalPrompt })`
-2. `context/knowledge-base.ts` does keyword + semantic search against `docs-snippets.ts`
-3. Top 7 matches injected as "Relevant Documentation" in system prompt
-
-## Gap: what the KB currently covers vs what it doesn't
-
-Covered: shadcn/ui components, Tailwind animations, Recharts, Framer Motion,
-React Three Fiber basics, Embla Carousel, TanStack Table, date-fns, Sonner,
-Next.js patterns, OG images, fonts, i18n.
-
-Not covered: physics engines (@react-three/cannon, @react-three/rapier),
-advanced Three.js (shaders, GLTF loading, post-processing), map libraries
-(Leaflet, Mapbox), video players, rich text editors, WebSocket patterns.
+- The older docs-snippet knowledge-base / semantic-retrieval layer is no longer part of the active own-engine prompt path.
+- If generation needs more library guidance in the future, prefer updating static prompt fragments or scaffold/context serialization rather than re-introducing a hidden docs-RAG layer by accident.

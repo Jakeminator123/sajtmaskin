@@ -3,7 +3,7 @@ import nodePath from "node:path";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
-import { loadPlaceholderRecord, formatDotenvBody } from "./sandbox/env-local";
+import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-local";
 
 /**
  * Download/export scaffold.
@@ -103,10 +103,11 @@ const TSCONFIG = `{
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
   "exclude": ["node_modules"]
 }`;
+const BASELINE_TSCONFIG = JSON.parse(TSCONFIG) as Record<string, unknown>;
 
 const NEXT_CONFIG = `import type { NextConfig } from "next";
 
-/** Tier 2 preview-host (Fly): public URL is /{projectId}/* — without this, CSS/JS request /_next/* and 404. */
+/** Tier 2 preview-host (Fly): public URL is /{chatId}/* — the path key is the own-engine chat id, not the app project id. */
 const previewBasePath = process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "";
 
 const nextConfig: NextConfig = {
@@ -326,7 +327,7 @@ const SCAFFOLD_FILES: Record<string, string> = {
 };
 
 const GENERATED_ENV_LOCAL_HEADER = `# Sajtmaskin — placeholder .env.local for local development (not production secrets)
-# Same keys as sandbox preview; override with real values when deploying.
+# Same keys as tier-2 preview runtime; override with real values when deploying.
 `;
 
 /**
@@ -346,7 +347,7 @@ const BASELINE_PINNED_DEPS = [
 
 /**
  * Model `package.json` is merged **onto** the Sajtmaskin baseline so scripts, devDependencies,
- * and core tooling survive thin LLM output (zip export / sandbox use the same merge).
+ * and core tooling survive thin LLM output (zip export / preview runtime use the same merge).
  */
 export function mergePackageJsonWithBaseline(
   model: Record<string, unknown>,
@@ -380,6 +381,104 @@ export function mergePackageJsonWithBaseline(
   };
 }
 
+const UNSAFE_TSCONFIG_COMPILER_KEYS = new Set([
+  "noLib",
+  "noResolve",
+  "types",
+  "typeRoots",
+  "rootDir",
+  "rootDirs",
+  "outDir",
+  "outFile",
+  "declaration",
+  "declarationDir",
+  "composite",
+]);
+
+function stripUnsafeCompilerOptions(
+  opts: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(opts).filter(([k]) => !UNSAFE_TSCONFIG_COMPILER_KEYS.has(k)),
+  );
+}
+
+export function mergeTsconfigWithBaseline(
+  model: Record<string, unknown>,
+): Record<string, unknown> {
+  const baseline = BASELINE_TSCONFIG;
+  const baselineCompilerOptions =
+    (baseline.compilerOptions as Record<string, unknown> | undefined) ?? {};
+  const modelCompilerOptions = stripUnsafeCompilerOptions(
+    (model.compilerOptions as Record<string, unknown> | undefined) ?? {},
+  );
+
+  const mergedLib = Array.from(
+    new Set([
+      ...(((baselineCompilerOptions.lib as unknown[]) ?? []).filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      )),
+      ...(((modelCompilerOptions.lib as unknown[]) ?? []).filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      )),
+    ]),
+  );
+
+  const mergedInclude = Array.from(
+    new Set([
+      ...((((baseline.include as unknown[]) ?? []).filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      ))),
+      ...((((model.include as unknown[]) ?? []).filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      ))),
+    ]),
+  );
+
+  const mergedExclude = Array.from(
+    new Set([
+      ...((((baseline.exclude as unknown[]) ?? []).filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      ))),
+      ...((((model.exclude as unknown[]) ?? []).filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      ))),
+    ]),
+  );
+
+  const mergedPlugins = Array.from(
+    new Map(
+      [
+        ...((((baselineCompilerOptions.plugins as unknown[]) ?? []).filter(
+          (value): value is Record<string, unknown> =>
+            Boolean(value) && typeof value === "object" && !Array.isArray(value),
+        ))),
+        ...((((modelCompilerOptions.plugins as unknown[]) ?? []).filter(
+          (value): value is Record<string, unknown> =>
+            Boolean(value) && typeof value === "object" && !Array.isArray(value),
+        ))),
+      ].map((plugin) => [JSON.stringify(plugin), plugin]),
+    ).values(),
+  );
+
+  return {
+    ...baseline,
+    ...model,
+    compilerOptions: {
+      ...baselineCompilerOptions,
+      ...modelCompilerOptions,
+      paths: {
+        ...(((baselineCompilerOptions.paths as Record<string, unknown> | undefined) ?? {})),
+        ...(((modelCompilerOptions.paths as Record<string, unknown> | undefined) ?? {})),
+      },
+      lib: mergedLib,
+      plugins: mergedPlugins,
+    },
+    include: mergedInclude,
+    exclude: mergedExclude,
+  };
+}
+
 function buildPlaceholderEnvLocalBody(): string | null {
   try {
     const record = loadPlaceholderRecord();
@@ -409,6 +508,18 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
     }
   };
 
+  const mergeModelTsconfig = (file: CodeFile): CodeFile => {
+    if (file.path !== "tsconfig.json") return file;
+    try {
+      const model = JSON.parse(file.content) as Record<string, unknown>;
+      const merged = mergeTsconfigWithBaseline(model);
+      return { ...file, content: JSON.stringify(merged, null, 2) };
+    } catch {
+      const merged = mergeTsconfigWithBaseline({});
+      return { ...file, content: JSON.stringify(merged, null, 2) };
+    }
+  };
+
   for (const [filePath, content] of Object.entries(SCAFFOLD_FILES)) {
     if (filePath === "package.json" && !generatedPaths.has(filePath)) {
       const merged = mergePackageJsonWithBaseline({}, detected);
@@ -428,7 +539,7 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
     }
   }
 
-  result.push(...generatedFiles.map(mergeModelPackageJson));
+  result.push(...generatedFiles.map((file) => mergeModelTsconfig(mergeModelPackageJson(file))));
 
   if (!result.some((f) => f.path === ".env.local")) {
     const envBody = buildPlaceholderEnvLocalBody();

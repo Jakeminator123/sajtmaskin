@@ -21,7 +21,6 @@ import { scrapeWebsite } from "@/lib/webscraper";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { prepareCredits } from "@/lib/credits/server";
 import { FEATURES, SECRETS } from "@/lib/config";
-import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -306,12 +305,9 @@ export async function POST(req: Request) {
       }
 
       if (!FEATURES.useResponsesApi) {
-        const hasGateway =
-          Boolean(pickAiGatewayKeyFromEnv()) || isVercelHostedRuntime();
-
-        if (!hasGateway) {
+        if (!SECRETS.openaiApiKey) {
           return NextResponse.json(
-            { error: "AI Gateway auth missing" },
+            { error: "OPENAI_API_KEY saknas" },
             { status: 503 },
           );
         }
@@ -452,7 +448,7 @@ ${suggestionRule}
         normalized = normalizeResponse(rawParsed);
         debugLog("WIZARD", "Responses API enrich completed", { model: RESPONSES_MODEL });
       } else {
-        // ── Gateway fallback path ───────────────────────────────
+        // ── Legacy fallback path (AI SDK + direct provider key) ─
         const result = await generateText({
           model: createDirectModel(ENRICH_MODEL),
           prompt,

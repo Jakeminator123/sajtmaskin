@@ -1,5 +1,6 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
+import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {
@@ -240,7 +241,7 @@ export async function runPostGenerationChecks(params: {
     );
 
     if (artifacts.autoFixReasons.length === 0) {
-      void runSandboxQualityGate({
+      void runPreviewQualityGate({
         chatId,
         versionId,
         assistantMessageId,
@@ -290,9 +291,33 @@ type QualityGateCheckResult = {
   passed: boolean;
   exitCode: number;
   output: string;
+  durationMs?: number | null;
 };
 
-async function runSandboxQualityGate(params: {
+type QualityGateVisualQaResult = {
+  overallScore: number;
+  passed: boolean;
+  checks: Array<{ check: string; passed: boolean; score: number; detail: string }>;
+};
+
+function formatDurationMs(durationMs: number | null | undefined): string | null {
+  if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < 0) {
+    return null;
+  }
+  if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
+  const seconds = durationMs / 1000;
+  return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1).replace(/\.0$/, "")}s`;
+}
+
+function formatUtcClock(timestamp: string | null | undefined): string | null {
+  if (typeof timestamp !== "string" || !timestamp.trim()) return null;
+  const value = timestamp.trim();
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return `${parsed.toISOString().slice(11, 19)}Z`;
+}
+
+async function runPreviewQualityGate(params: {
   chatId: string;
   versionId: string;
   assistantMessageId: string;
@@ -307,7 +332,7 @@ async function runSandboxQualityGate(params: {
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: ["typecheck", "build", "lint"] },
+    input: { chatId, versionId, checks: TIER2_QUALITY_GATE_CHECKS },
   } as UiMessagePart);
 
   try {
@@ -316,7 +341,7 @@ async function runSandboxQualityGate(params: {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: ["typecheck", "build", "lint"] }),
+        body: JSON.stringify({ versionId, checks: TIER2_QUALITY_GATE_CHECKS }),
       },
     );
 
@@ -326,7 +351,7 @@ async function runSandboxQualityGate(params: {
         toolName: "Quality gate",
         toolCallId,
         state: "output-available",
-        output: { skipped: true, reason: "Sandbox not configured" },
+        output: { skipped: true, reason: "Quality gate not configured" },
       } as UiMessagePart);
       return;
     }
@@ -334,13 +359,12 @@ async function runSandboxQualityGate(params: {
     const data = (await res.json().catch(() => null)) as {
       passed?: boolean;
       checks?: QualityGateCheckResult[];
-      sandboxDurationMs?: number;
+      verifyLaneDurationMs?: number;
+      firstFailureCheck?: string | null;
+      jobStartedAt?: string | null;
+      jobFinishedAt?: string | null;
       error?: string;
-      visualQA?: {
-        overallScore: number;
-        passed: boolean;
-        checks: Array<{ check: string; passed: boolean; score: number; detail: string }>;
-      };
+      visualQA?: QualityGateVisualQaResult;
     } | null;
 
     if (!res.ok || !data) {
@@ -358,11 +382,43 @@ async function runSandboxQualityGate(params: {
     const failedChecks: string[] = [];
     for (const check of data.checks ?? []) {
       const icon = check.passed ? "PASS" : "FAIL";
-      steps.push(`${check.check}: ${icon} (exit ${check.exitCode})`);
+      const durationLabel = formatDurationMs(check.durationMs);
+      steps.push(
+        `${check.check}: ${icon} (exit ${check.exitCode}${durationLabel ? `, ${durationLabel}` : ""})`,
+      );
       if (!check.passed) failedChecks.push(check.check);
     }
-    if (data.sandboxDurationMs) {
-      steps.push(`Duration: ${Math.round(data.sandboxDurationMs / 1000)}s`);
+    const totalDurationLabel = formatDurationMs(data.verifyLaneDurationMs);
+    if (totalDurationLabel) {
+      steps.push(`Duration: ${totalDurationLabel}`);
+    }
+    const startedAtLabel = formatUtcClock(data.jobStartedAt);
+    if (startedAtLabel) {
+      steps.push(`Started: ${startedAtLabel}`);
+    }
+    const finishedAtLabel = formatUtcClock(data.jobFinishedAt);
+    if (finishedAtLabel) {
+      steps.push(`Finished: ${finishedAtLabel}`);
+    }
+    if (typeof data.firstFailureCheck === "string" && data.firstFailureCheck.trim()) {
+      steps.push(`First failure: ${data.firstFailureCheck.trim()}`);
+    }
+
+    const visualQa =
+      data.visualQA &&
+      typeof data.visualQA.overallScore === "number" &&
+      Array.isArray(data.visualQA.checks)
+        ? data.visualQA
+        : undefined;
+
+    if (visualQa) {
+      const vqaSteps = visualQa.checks.map(
+        (c) => `visual:${c.check}: ${c.passed ? "PASS" : "FAIL"} (${c.score}/100) — ${c.detail}`,
+      );
+      steps.push(
+        `Visual QA: ${visualQa.overallScore}/100 ${visualQa.passed ? "PASS" : "BELOW THRESHOLD"}`,
+      );
+      steps.push(...vqaSteps);
     }
 
     appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -374,17 +430,16 @@ async function runSandboxQualityGate(params: {
         passed: data.passed,
         steps,
         checks: data.checks,
-        sandboxDurationMs: data.sandboxDurationMs,
+        verifyLaneDurationMs: data.verifyLaneDurationMs,
+        firstFailureCheck:
+          typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
+        jobStartedAt:
+          typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
+        jobFinishedAt:
+          typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
+        visualQA: visualQa,
       },
     } as UiMessagePart);
-
-    if (data.visualQA) {
-      const vqaSteps = data.visualQA.checks.map(
-        (c) => `visual:${c.check}: ${c.passed ? "PASS" : "FAIL"} (${c.score}/100) — ${c.detail}`,
-      );
-      steps.push(`Visual QA: ${data.visualQA.overallScore}/100 ${data.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}`);
-      steps.push(...vqaSteps);
-    }
 
     if (!data.passed && failedChecks.length > 0) {
       const missingEnvKeys = extractMissingEnvKeysFromQualityGate(data.checks ?? []);
@@ -415,23 +470,39 @@ async function runSandboxQualityGate(params: {
             check: c.check as "typecheck" | "build" | "lint",
             exitCode: c.exitCode,
             output: c.output.slice(0, 4000),
+            durationMs: c.durationMs ?? null,
           })),
+        qualityGateMeta: {
+          verifyLaneDurationMs: data.verifyLaneDurationMs ?? null,
+          firstFailureCheck:
+            typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
+          jobStartedAt: typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
+          jobFinishedAt: typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
+        },
       };
 
       const serverRepaired = await tryServerRepair(chatId, versionId, repair);
-      if (serverRepaired) {
-        appendToolPartToMessage(setMessages, assistantMessageId, {
-          type: "tool:quality-gate",
-          toolName: "Server repair",
-          toolCallId: `server-repair:${versionId}`,
-          state: "output-available",
-          output: {
-            repaired: true,
-            method: serverRepaired.deterministic ? "deterministic" : "llm",
-            newVersionId: serverRepaired.newVersionId,
-          },
-        } as UiMessagePart);
-      } else {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Server repair",
+        toolCallId: `server-repair:${versionId}`,
+        state: "output-available",
+        output: {
+          repaired: serverRepaired.repaired,
+          method: serverRepaired.status === "completed"
+            ? serverRepaired.deterministic
+              ? "deterministic"
+              : "llm"
+            : null,
+          newVersionId: serverRepaired.newVersionId,
+          remainingErrors: serverRepaired.remainingErrors ?? null,
+          improvedSyntax: serverRepaired.improvedSyntax ?? null,
+          earlyStopReason: serverRepaired.earlyStopReason ?? null,
+          status: serverRepaired.status ?? "completed",
+          reason: serverRepaired.reason ?? null,
+        },
+      } as UiMessagePart);
+      if (!serverRepaired.repaired) {
         onAutoFix?.({
           chatId,
           versionId,
@@ -439,9 +510,9 @@ async function runSandboxQualityGate(params: {
           repair,
         });
       }
-    } else if (data.passed && data.visualQA && !data.visualQA.passed && onAutoFix) {
+    } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
       const repair: RepairContext = {
-        visualQA: data.visualQA.checks
+        visualQA: visualQa.checks
           .filter((c) => !c.passed)
           .map((c) => ({ check: c.check, score: c.score, detail: c.detail }))
           .slice(0, 4),
@@ -449,7 +520,7 @@ async function runSandboxQualityGate(params: {
       onAutoFix({
         chatId,
         versionId,
-        reasons: [`Visual QA score ${data.visualQA.overallScore}/100 below threshold`],
+        reasons: [`Visual QA score ${visualQa.overallScore}/100 below threshold`],
         repair,
       });
     }
@@ -478,14 +549,25 @@ type ServerRepairResult = {
   deterministic: boolean;
   newVersionId?: string | null;
   remainingErrors?: number;
+  improvedSyntax?: boolean;
+  earlyStopReason?: "fixer_noop" | "no_improvement" | null;
+  status?: "completed" | "skipped" | "request_failed";
+  reason?: string | null;
 };
 
 async function tryServerRepair(
   chatId: string,
   versionId: string,
   repair: RepairContext,
-): Promise<ServerRepairResult | null> {
-  if (isServerRepairDisabled()) return null;
+): Promise<ServerRepairResult> {
+  if (isServerRepairDisabled()) {
+    return {
+      repaired: false,
+      deterministic: false,
+      status: "skipped",
+      reason: "Server repair är avstängt i klienten.",
+    };
+  }
   try {
     const res = await fetch(
       `${engineChatBaseUrl(chatId)}/repair`,
@@ -495,11 +577,34 @@ async function tryServerRepair(
         body: JSON.stringify({ versionId, repairContext: repair }),
       },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return {
+        repaired: false,
+        deterministic: false,
+        status: "request_failed",
+        reason: `Repair request failed (HTTP ${res.status})`,
+      };
+    }
     const data = (await res.json().catch(() => null)) as ServerRepairResult | null;
-    if (!data?.repaired) return null;
-    return data;
+    if (!data) {
+      return {
+        repaired: false,
+        deterministic: false,
+        status: "request_failed",
+        reason: "Repair request returned invalid payload.",
+      };
+    }
+    return {
+      ...data,
+      status: data.status ?? "completed",
+      reason: data.reason ?? null,
+    };
   } catch {
-    return null;
+    return {
+      repaired: false,
+      deterministic: false,
+      status: "request_failed",
+      reason: "Repair request failed (network error)",
+    };
   }
 }

@@ -285,4 +285,19 @@ describe("buildPreviewHtml", () => {
     expect(html).toContain("resolvedCollapsible === 'offcanvas'");
     expect(html).toContain("preview-ready");
   });
+
+  it("injects CDN load guards and boot timeout fallback for preview runtime", () => {
+    const html =
+      buildPreviewHtml([
+        file("src/app/page.tsx", 'export default function Page() { return <main>Ready</main>; }'),
+      ]) ?? "";
+
+    expect(html).toContain("window.__previewBootError");
+    expect(html).toContain("window.__previewMarkReady");
+    expect(html).toContain("Preview runtime timed out before React boot completed");
+    expect(html).toContain("onerror=\"window.__previewBootError");
+    expect(html).toContain("https://cdn.tailwindcss.com");
+    expect(html).toContain("https://unpkg.com/react@18.3.1/umd/react.production.min.js");
+    expect(html).toContain("https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js");
+  });
 });

@@ -10,8 +10,7 @@ export const runtime = "nodejs";
 /**
  * Serves a self-contained HTML preview of generated code (legacy / fast path).
  * Primary own-engine preview after generation is tier-2 runtime from
- * `startSandboxPreview` (normally `preview_host`/Fly when configured; Vercel
- * Sandbox only as explicit fallback/secondary path). This route remains useful
+ * `startPreviewSession` (`preview_host`/Fly). This route remains useful
  * for quick render and older demoUrl values pointing at /api/preview-render.
  *
  * Query params:
@@ -79,7 +78,7 @@ export async function GET(req: Request) {
     return new Response(
       errorPage(
         "Ingen renderbar komponent",
-        "Tier-1-previewn behöver en default-exportad React-komponent (t.ex. i app/page.tsx). Kontrollera att filerna innehåller giltig JSX och att huvudsidan exporteras. För full Next.js-körning, använd sandbox-preview (tier 2) i byggaren.",
+        "Kompatibilitets-previewn behöver en default-exportad React-komponent (t.ex. i app/page.tsx). Kontrollera att filerna innehåller giltig JSX och att huvudsidan exporteras. För full Next.js-körning, använd live-preview i byggaren.",
         "render_route_no_renderable_component",
       ),
       { status: 422, headers: { "Content-Type": "text/html; charset=utf-8" } },

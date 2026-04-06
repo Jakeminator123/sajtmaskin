@@ -14,7 +14,7 @@ export function parseFilesFromContent(content: string): string {
   return JSON.stringify(project.files);
 }
 
-/** Parse `versions.files_json` into code files (e.g. sandbox bootstrap when markdown parse yields nothing). */
+/** Parse `versions.files_json` into code files (e.g. preview bootstrap when markdown parse yields nothing). */
 export function parseCodeFilesFromFilesJson(filesJson: string): CodeFile[] | null {
   try {
     const parsed = JSON.parse(filesJson);

@@ -16,7 +16,8 @@ export function readPreviewUrl(data: { previewUrl?: unknown } | null | undefined
 }
 
 /**
- * Inbound webhook / legacy payloads: prefer `previewUrl`, fall back to `demoUrl`.
+ * Inbound webhook / legacy payloads: prefer `previewUrl`, then fall back to
+ * legacy `demoUrl`.
  */
 export function resolveInboundPreviewUrl(
   data: { previewUrl?: unknown; demoUrl?: unknown } | null | undefined,

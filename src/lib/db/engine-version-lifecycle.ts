@@ -25,20 +25,20 @@ export type EngineVersionLifecycleStatus = "draft" | "verifying" | "repairing" |
 
 export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
-export type QualityTier = "none" | "preview" | "sandbox" | "production";
+export type QualityTier = "none" | "preview" | "tier2" | "production";
 
 export function resolveQualityTier(
   version: EngineVersionLifecycleLike | null | undefined,
-  opts?: { hasDemoUrl?: boolean; hasSandboxUrl?: boolean; sandboxPassed?: boolean },
+  opts?: { hasDemoUrl?: boolean; hasTier2LivePreviewUrl?: boolean; sandboxPassed?: boolean },
 ): QualityTier {
   if (!version) return "none";
   const lifecycle = resolveEngineVersionLifecycleStatus(version);
   if (lifecycle === "failed") return "none";
 
-  if (opts?.sandboxPassed) return "sandbox";
-  if (lifecycle === "promoted") return "sandbox";
-  if (opts && "hasSandboxUrl" in opts && opts.hasSandboxUrl !== undefined) {
-    return opts.hasSandboxUrl ? "preview" : "none";
+  if (opts?.sandboxPassed) return "tier2";
+  if (lifecycle === "promoted") return "tier2";
+  if (opts && "hasTier2LivePreviewUrl" in opts && opts.hasTier2LivePreviewUrl !== undefined) {
+    return opts.hasTier2LivePreviewUrl ? "preview" : "none";
   }
   if (opts?.hasDemoUrl !== false) return "preview";
   return "none";
@@ -69,7 +69,7 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
   versions: T[] = [],
 ): EngineVersionDisplayStatus {
   const lifecycleStatus = resolveEngineVersionLifecycleStatus(version);
-  if (lifecycleStatus !== "failed" || !version) {
+  if (!version) {
     return lifecycleStatus;
   }
 
@@ -80,7 +80,15 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
     return getVersionSortKey(candidate) > currentSortKey;
   });
 
-  return hasNewerVersion ? "retrying" : "failed";
+  if (!hasNewerVersion) {
+    return lifecycleStatus;
+  }
+
+  if (lifecycleStatus === "failed" || lifecycleStatus === "repairing") {
+    return "retrying";
+  }
+
+  return lifecycleStatus;
 }
 
 export function canExposeEnginePreview(

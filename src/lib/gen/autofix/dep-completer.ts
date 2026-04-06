@@ -8,7 +8,7 @@ const IMPORT_SOURCE_RE =
   /from\s+["']((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))["']/g;
 
 /**
- * Packages the sandbox already ships (Next.js, React, tailwind, etc.).
+ * Packages the preview runtime already ships (Next.js, React, tailwind, etc.).
  * These should NOT appear in the dependency list.
  */
 const BUILTIN_PACKAGES = new Set([

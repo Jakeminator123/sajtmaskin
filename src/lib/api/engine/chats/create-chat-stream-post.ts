@@ -43,15 +43,11 @@ import {
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
-  extractAppProjectIdFromMeta,
-  extractBriefFromMeta,
-  extractDesignThemePresetFromMeta,
-  extractPaletteStateFromMeta,
-  extractScaffoldSettingsFromMeta,
-  extractThemeColorsFromMeta,
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
+import { parseChatRequestMeta } from "./parse-chat-request-meta";
+import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
@@ -74,6 +70,7 @@ import { createPreGenerationContractGateReadableStream } from "@/lib/providers/o
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
   return withRateLimit(req, "chat:create", async () => {
+    const requestStartedAt = Date.now();
     const requestId = req.headers.get("x-vercel-id") || "unknown";
     const session = ensureSessionIdFromRequest(req);
     const sessionId = session.sessionId;
@@ -106,42 +103,27 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         projectId,
         system,
         modelId = DEFAULT_MODEL_ID,
-        thinking = true,
+        thinking,
         imageGenerations,
         chatPrivacy,
         meta,
       } = validationResult.data;
       const requestAttachments = normalizeRequestAttachments(attachments);
-      const metaRequestedModelTier =
-        typeof (meta as { modelTier?: unknown })?.modelTier === "string"
-          ? String((meta as { modelTier?: string }).modelTier)
-          : null;
+      const parsedMeta = parseChatRequestMeta(meta);
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
-        requestedModelTier: metaRequestedModelTier,
+        requestedModelTier: parsedMeta.modelTier,
         fallbackTier: DEFAULT_MODEL_ID,
       });
       const resolvedModelId = modelSelection.modelId;
       const resolvedModelTier = modelSelection.modelTier;
-      const metaBuildMethod =
-        typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
-          ? (meta as { buildMethod?: string }).buildMethod
-          : null;
-      const metaBuildIntent =
-        typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
-          ? (meta as { buildIntent?: string }).buildIntent
-          : null;
-      const metaPromptSourceKind =
-        typeof (meta as { promptSourceKind?: unknown })?.promptSourceKind === "string"
-          ? (meta as { promptSourceKind?: string }).promptSourceKind
-          : null;
-      const metaPromptSourceTechnical =
-        (meta as { promptSourceTechnical?: unknown })?.promptSourceTechnical === true;
-      const metaPromptSourcePreservePayload =
-        (meta as { promptSourcePreservePayload?: unknown })?.promptSourcePreservePayload === true;
-      const metaPlanMode =
-        (meta as { planMode?: unknown })?.planMode === true;
-      const metaAppProjectId = extractAppProjectIdFromMeta(meta);
+      const metaBuildMethod = parsedMeta.buildMethod;
+      const metaBuildIntent = parsedMeta.buildIntent;
+      const metaPromptSourceKind = parsedMeta.promptSourceKind;
+      const metaPromptSourceTechnical = parsedMeta.promptSourceTechnical;
+      const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
+      const metaPlanMode = parsedMeta.planMode;
+      const metaAppProjectId = parsedMeta.appProjectId;
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
@@ -158,7 +140,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : true;
+        typeof thinking === "boolean" ? thinking : false;
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
@@ -192,11 +174,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         { signal: req.signal },
       );
 
-      const clientBriefFromMeta = extractBriefFromMeta(meta);
-      const assistModelHint =
-        typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
-          ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
-          : null;
+      const clientBriefFromMeta = parsedMeta.brief;
+      const assistModelHint = parsedMeta.promptAssistModel;
       let serverAutoBrief: Record<string, unknown> | null = null;
       let serverAutoBriefModel: string | null = null;
       if (
@@ -206,8 +185,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptSourcePreservePayload: metaPromptSourcePreservePayload,
           promptType: strategyMeta.promptType,
           orchestrationReason: strategyMeta.reason,
+          prompt: message,
+          buildIntent: metaBuildIntent,
         })
       ) {
+        const autoBriefStartedAt = Date.now();
         const generated = await tryGenerateServerAutoBrief({
           prompt: message,
           assistModelHint,
@@ -218,24 +200,20 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           serverAutoBrief = generated.brief;
           serverAutoBriefModel = generated.modelUsed;
           debugLog("orchestration", "Server auto brief applied", {
+            durationMs: Date.now() - autoBriefStartedAt,
             modelUsed: serverAutoBriefModel,
             pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
+          });
+        } else {
+          debugLog("orchestration", "Server auto brief skipped or returned empty", {
+            durationMs: Date.now() - autoBriefStartedAt,
           });
         }
       }
       const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
 
       const creditUser = creditCheck.user;
-      let didChargeCredits = false;
-      const commitCreditsOnce = async () => {
-        if (didChargeCredits) return;
-        didChargeCredits = true;
-        try {
-          await creditCheck.commit();
-        } catch (error) {
-          console.error("[credits] Failed to charge prompt:", error);
-        }
-      };
+      const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
 
       try {
         const metaPayload =
@@ -266,18 +244,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 serverAutoBriefGenerated: Boolean(serverAutoBrief),
                 ...(serverAutoBriefModel ? { serverAutoBriefModel } : {}),
               };
+        const metaObj = meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null;
         const promptOriginal =
-          typeof (meta as { promptOriginal?: unknown })?.promptOriginal === "string"
-            ? String((meta as { promptOriginal?: string }).promptOriginal)
-            : typeof message === "string"
-              ? message
-              : null;
+          typeof metaObj?.promptOriginal === "string"
+            ? String(metaObj.promptOriginal)
+            : message ?? null;
         const promptFormatted =
-          typeof (meta as { promptFormatted?: unknown })?.promptFormatted === "string"
-            ? String((meta as { promptFormatted?: string }).promptFormatted)
-            : typeof optimizedMessage === "string"
-              ? optimizedMessage
-              : null;
+          typeof metaObj?.promptFormatted === "string"
+            ? String(metaObj.promptFormatted)
+            : optimizedMessage ?? null;
         await createPromptLog({
           event: "create_chat",
           userId: creditUser?.id || null,
@@ -288,18 +263,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptOriginal,
           promptFormatted,
           systemPrompt: trimmedSystemPrompt || null,
-          promptAssistModel:
-            typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
-              ? String((meta as { promptAssistModel?: string }).promptAssistModel)
-              : null,
-          promptAssistDeep:
-            typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
-              ? Boolean((meta as { promptAssistDeep?: boolean }).promptAssistDeep)
-              : null,
-          promptAssistMode:
-            typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
-              ? String((meta as { promptAssistMode?: string }).promptAssistMode)
-              : null,
+          promptAssistModel: parsedMeta.promptAssistModel,
+          promptAssistDeep: parsedMeta.promptAssistDeep,
+          promptAssistMode: parsedMeta.promptAssistMode,
           buildIntent: metaBuildIntent,
           buildMethod: metaBuildMethod,
           modelTier: resolvedModelTier,
@@ -355,21 +321,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       });
 
       debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
-        promptAssistModel:
-          typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
-            ? String((meta as { promptAssistModel: string }).promptAssistModel).trim() || null
-            : null,
-        promptAssistDeep:
-          typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
-            ? Boolean((meta as { promptAssistDeep: boolean }).promptAssistDeep)
-            : null,
-        promptAssistMode: (() => {
-          const raw =
-            typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
-              ? String((meta as { promptAssistMode: string }).promptAssistMode).trim()
-              : null;
-          return raw === "polish" || raw === "rewrite" ? raw : null;
-        })(),
+        promptAssistModel: parsedMeta.promptAssistModel,
+        promptAssistDeep: parsedMeta.promptAssistDeep,
+        promptAssistMode: parsedMeta.promptAssistMode,
         promptStrategy: strategyMeta.strategy,
         promptType: strategyMeta.promptType,
       });
@@ -390,29 +344,21 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
-        const planScaffoldMode =
-          typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
-            ? (String((meta as Record<string, string>).scaffoldMode) as "auto" | "manual" | "off")
-            : "auto";
-
+        const planOrchestrationStartedAt = Date.now();
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
           buildIntent: engineIntent,
-          scaffoldMode: planScaffoldMode,
-          scaffoldId: typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
-            ? String((meta as Record<string, string>).scaffoldId)
-            : null,
+          scaffoldMode: parsedMeta.scaffoldMode,
+          scaffoldId: parsedMeta.scaffoldId,
           brief: effectiveBrief,
-          themeColors: (() => {
-            const raw = (meta as Record<string, unknown>)?.themeColors;
-            if (!raw || typeof raw !== "object") return null;
-            const tc = raw as Record<string, unknown>;
-            if (typeof tc.primary === "string" && typeof tc.secondary === "string" && typeof tc.accent === "string") {
-              return { primary: tc.primary, secondary: tc.secondary, accent: tc.accent };
-            }
-            return null;
-          })(),
+          themeColors: parsedMeta.themeColors,
           promptStrategyMeta: strategyMeta,
+        });
+        debugLog("orchestration", "Plan mode orchestration prepared", {
+          durationMs: Date.now() - planOrchestrationStartedAt,
+          qualityTarget: planOrchestration.buildSpec.qualityTarget,
+          contextPolicy: planOrchestration.buildSpec.contextPolicy,
+          scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
         });
 
         const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts(planOrchestration);
@@ -453,6 +399,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             ),
           );
         }
+        const plannerChatDbStartedAt = Date.now();
         const plannerChat = await chatRepo.createChat(
           projectIdForChat,
           planModel,
@@ -460,8 +407,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           planOrchestration.resolvedScaffold?.id,
         );
         await chatRepo.addMessage(plannerChat.id, "user", message);
+        debugLog("engine", "Chat DB bootstrap complete", {
+          durationMs: Date.now() - plannerChatDbStartedAt,
+          mode: "plan",
+          chatId: plannerChat.id,
+        });
 
-        return attachSessionCookie(createOwnEnginePlanModeResponse({
+        const planModeResponse = createOwnEnginePlanModeResponse({
           pipelineStream,
           chatId: plannerChat.id,
           modelTier: resolvedModelTier,
@@ -471,7 +423,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           promptStrategyMeta: strategyMeta,
           buildSpec: planOrchestration.buildSpec,
           resolvedScaffold: planOrchestration.resolvedScaffold,
-          scaffoldMode: planScaffoldMode,
+          scaffoldMode: parsedMeta.scaffoldMode,
           onResolved: (planData, hasBlockers, accumulatedContent) => {
             const blockerCount = Array.isArray(planData?.blockers)
               ? (planData.blockers as unknown[]).length
@@ -515,7 +467,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }),
           commitCredits: commitCreditsOnce,
           commitCreditsPosition: "before-done",
-        }));
+        });
+        debugLog("engine", "Create chat pre-stream complete", {
+          durationMs: Date.now() - requestStartedAt,
+          mode: "plan",
+          chatId: plannerChat.id,
+        });
+        return attachSessionCookie(planModeResponse);
       }
 
       // ── Own Engine Path ───────────────────────────────────────────────
@@ -524,12 +482,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
-        const { scaffoldMode: metaScaffoldMode, scaffoldId: metaScaffoldId } =
-          extractScaffoldSettingsFromMeta(meta);
-        const metaThemeColors = extractThemeColorsFromMeta(meta);
+        const metaScaffoldMode = parsedMeta.scaffoldMode;
+        const metaScaffoldId = parsedMeta.scaffoldId;
+        const metaThemeColors = parsedMeta.themeColors;
         const metaBrief = effectiveBrief;
-        const metaDesignThemePreset = extractDesignThemePresetFromMeta(meta);
-        const metaPalette = extractPaletteStateFromMeta(meta);
+        const metaDesignThemePreset = parsedMeta.designThemePreset;
+        const metaPalette = parsedMeta.palette;
         const designReferences = summarizeDesignReferences(requestAttachments);
 
         const orchestrationInput = {
@@ -546,7 +504,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           customInstructions: trimmedSystemPrompt || undefined,
           promptStrategyMeta: strategyMeta,
         };
+        const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+        debugLog("orchestration", "Orchestration base resolved", {
+          durationMs: Date.now() - orchestrationStartedAt,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          routeCount: orchestrationBase.routePlan.routes.length,
+        });
         const {
           resolvedScaffold,
           routePlan,
@@ -582,6 +548,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           );
         }
         if (contractClarification) {
+          const contractGateDbStartedAt = Date.now();
           const engineChat = await chatRepo.createChat(
             projectIdForChat,
             engineModel,
@@ -589,6 +556,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedScaffold?.id,
           );
           await chatRepo.addMessage(engineChat.id, "user", message);
+          debugLog("engine", "Chat DB bootstrap complete", {
+            durationMs: Date.now() - contractGateDbStartedAt,
+            mode: "pre-generation-contract-gate",
+            chatId: engineChat.id,
+          });
           devLogAppend("in-progress", {
             type: "contracts.inferred",
             chatId: engineChat.id,
@@ -636,12 +608,23 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               capabilities: engineCapabilities,
             }),
           );
+          debugLog("engine", "Create chat pre-stream complete", {
+            durationMs: Date.now() - requestStartedAt,
+            mode: "pre-generation-contract-gate",
+            chatId: engineChat.id,
+          });
           return attachSessionCookie(new Response(contractGateStream, {
             headers: createSSEHeaders(),
           }));
         }
-        const { engineSystemPrompt, templateLibrarySearchDiagnostics } =
-          await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const finalizePromptStartedAt = Date.now();
+        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        debugLog("orchestration", "System prompt finalized", {
+          durationMs: Date.now() - finalizePromptStartedAt,
+          routeCount: orchestrationBase.routePlan.routes.length,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+        });
         const lineageHash = computeLineageHash({
           userPrompt: optimizedMessage,
           brief: metaBrief,
@@ -659,6 +642,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
+        const engineChatDbStartedAt = Date.now();
         const engineChat = await chatRepo.createChat(
           projectIdForChat,
           engineModel,
@@ -666,6 +650,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           resolvedScaffold?.id,
         );
         await chatRepo.addMessage(engineChat.id, "user", message);
+        debugLog("engine", "Chat DB bootstrap complete", {
+          durationMs: Date.now() - engineChatDbStartedAt,
+          mode: "own-engine",
+          chatId: engineChat.id,
+        });
         devLogAppend("in-progress", {
           type: "contracts.inferred",
           chatId: engineChat.id,
@@ -677,7 +666,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
           unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
         });
+        const compressUrlsStartedAt = Date.now();
         const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
+        debugLog("engine", "Prompt URL compression complete", {
+          durationMs: Date.now() - compressUrlsStartedAt,
+          originalPromptLength: optimizedMessage.length,
+          compressedPromptLength: enginePrompt.length,
+          compressedUrlCount: Object.keys(urlMap).length,
+          chatId: engineChat.id,
+        });
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId: engineChat.id,
           pipeline: {
@@ -711,7 +708,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             scaffoldFamily: resolvedScaffold?.family ?? null,
-            templateLibrarySearchDiagnostics,
           }),
           engineModel,
           optimizedMessage,
@@ -725,6 +721,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         });
 
         const engineHeaders = new Headers(createSSEHeaders());
+        debugLog("engine", "Create chat pre-stream complete", {
+          durationMs: Date.now() - requestStartedAt,
+          mode: "own-engine",
+          chatId: engineChat.id,
+        });
         return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
       }
     } catch (err) {

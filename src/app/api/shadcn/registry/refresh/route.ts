@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const style = searchParams.get("style")?.trim() || undefined;
   const sourceParam = searchParams.get("source")?.trim() || undefined;
-  const baseUrl = process.env.REGISTRY_BASE_URL?.trim() || getRegistryBaseUrl();
+  const baseUrl = getRegistryBaseUrl();
 
   const scopes = getDefaultRegistryScopes().filter((scope) =>
     sourceParam ? scope.source === sourceParam : true,

@@ -1,10 +1,10 @@
 import type { RoutePlan } from "../route-plan";
-import type { PreflightIssueCategory, SandboxStartContract } from "@/lib/gen/stream/preflight-contract";
+import type { PreflightIssueCategory, PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
 
 export type PreviewDiagnosticCode =
   | "preflight_preview_blocked"
   | "preflight_verification_blocked"
-  | "preview_waiting_for_sandbox"
+  | "preview_waiting_for_vm"
   | "render_route_version_not_found"
   | "render_route_chat_not_found"
   | "render_route_files_missing"
@@ -38,9 +38,9 @@ export type PreviewPreflightState = {
   previewBlocked: boolean;
   verificationBlocked: boolean;
   previewBlockingReason: string | null;
-  primaryPreviewTarget?: "sandbox" | "none";
+  primaryPreviewTarget?: "preview" | "none";
   issueCategories?: PreflightIssueCategory[] | null;
-  sandbox?: SandboxStartContract | null;
+  previewStart?: PreviewStartContract | null;
   scaffoldRetry?: ScaffoldRetryState | null;
   routePlan?: RoutePlan | null;
 };
@@ -100,8 +100,8 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
       return "Preview blockerades redan i preflight.";
     case "preflight_verification_blocked":
       return "Previewn ar tillganglig, men verifieringen hittade blockerande problem.";
-    case "preview_waiting_for_sandbox":
-      return "Live-preview byggs fortfarande i sandbox.";
+    case "preview_waiting_for_vm":
+      return "Live-preview byggs fortfarande i VM.";
     case "render_route_version_not_found":
       return "Preview-route kunde inte hitta versionen.";
     case "render_route_chat_not_found":
@@ -148,7 +148,7 @@ export function previewRunbookLinesForCode(code: string | null | undefined): str
       return [
         "Shim-preview laddar React och Tailwind från CDN — öppna DevTools för iframe preview-iframe och kontrollera Network (unpkg, cdn.tailwindcss.com) att allt får 200.",
         "Om #root förblir tom: ofta blockerad CDN, eller genererad sida returnerar inget synligt DOM (null/ krasch).",
-        "Om live-preview (sandbox) finns för versionen: byt till den — då körs riktig Next.js i stället för shim.",
+        "Om live-preview finns för versionen: byt till den — då körs riktig Next.js i stället för shim.",
         docHint,
       ];
     case "preview_document_unavailable":
@@ -162,10 +162,10 @@ export function previewRunbookLinesForCode(code: string | null | undefined): str
         "Iframe kunde inte ladda URL:en (nätverk eller ogiltig preview-URL). Kontrollera att versionen har demoUrl och att servern svarar.",
         docHint,
       ];
-    case "preview_waiting_for_sandbox":
+    case "preview_waiting_for_vm":
       return [
-        "Sandbox är nu primär previewväg för den här versionen. Vänta på att npm install och dev-servern blir klara innan live-preview visas.",
-        "Om det fastnar länge: kontrollera sandbox-loggar, npm install-fel och readiness-timeout enligt runbooken.",
+        "VM är nu primär previewväg för den här versionen. Vänta på att npm install och dev-servern blir klara innan live-preview visas.",
+        "Om det fastnar länge: kontrollera VM-loggar, npm install-fel och readiness-timeout enligt runbooken.",
         docHint,
       ];
     case "preview_compile_error":
@@ -183,7 +183,7 @@ export function previewRunbookLinesForCode(code: string | null | undefined): str
     default:
       return [
         "Kontrollera Agentloggen och versionsfel-logg (preview) för samma version.",
-        "Skilj på shim (/api/preview-render) och sandbox — sandbox kräver Vercel Sandbox-credentials på servern.",
+        "Skilj på shim (/api/preview-render) och live-preview via preview-host/VM.",
         docHint,
       ];
   }
@@ -250,7 +250,7 @@ export function shouldAutoFixPreviewDiagnostic(code?: string | null): boolean {
     case "preview_document_unavailable":
     case "preflight_preview_blocked":
     case "preflight_verification_blocked":
-    case "preview_waiting_for_sandbox":
+    case "preview_waiting_for_vm":
     case "preview_missing_url":
     default:
       return false;

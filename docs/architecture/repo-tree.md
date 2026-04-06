@@ -10,8 +10,8 @@
 | `config/` | Kanonisk konfiguration (promptfragment, `ai_models`, `env-policy`, m.m.) — [`config/README.md`](../../config/README.md). |
 | `config/dashboard/` | Valfri **Streamlit**-GUI (`app.py`) för att redigera/överblicka samma material — **importeras inte** av Next.js. Karta: [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json). |
 | `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. `docs/handoffs/` håller bara en pekare — se [`handoffs/README.md`](../handoffs/README.md). |
-| `research/` | Icke-runtime: mall-discovery, dossiers, rådata. [`research/README.md`](../../research/README.md). |
-| `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite). Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
+| `research/` | Icke-runtime: äldre research/experiment och eventuella kvarvarande lokala arkiv. Den kanoniska external-template-pipelinen ligger inte här längre. |
+| `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite) plus kanonisk external-template-pipeline under `data/external-template-pipeline/`. Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
 | `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `cli/`, `env/`, `manual/`. |
@@ -21,6 +21,7 @@
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
 | `tests/` | Tester utanför `src/` där så är upplagt. |
 | `isolated_tests/` | Vitest-integrationstester som kräver isolation från `src/`-trädets tsconfig. |
+| `templates_v0/` | Lokalt nedladdade v0-mallar: Python-skript, ZIP-arkiv, bilder och metadata — [`templates_v0/README.txt`](../../templates_v0/README.txt). Data (out/, downloads/) är gitignorerat. |
 | `.cursor/` | Cursor-regler, skills, README — [`.cursor/README.md`](../../.cursor/README.md). |
 
 **Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Kanoniska env-skript ligger under `scripts/env/`.
@@ -45,7 +46,7 @@ Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan**
 |-------|------|
 | `src/lib/own-engine/` + `src/lib/providers/own-engine/` | Den kanoniska **produktbanan** för egen motor: sessioner, streams, plan-mode, contract-gate och providerkopplingar. |
 | `src/lib/gen/` | Delad **genereringskärna**: scaffold-matchning, orchestration, system prompts, autofix, finalize, merge, previewförberedelser. |
-| `src/lib/mcp/` | Programmatisk **adapteryta** runt own-engine-resultat: köra generation utan builder-UI, bygga preview/sandbox-runtime, läsa filer/versioner för verktyg och lokala runtime-flöden. |
+| `src/lib/mcp/` | Programmatisk **adapteryta** runt own-engine-resultat: köra generation utan builder-UI, bygga preview/VM-runtime, läsa filer/versioner för verktyg och lokala runtime-flöden. |
 | `src/lib/shadcn/` | Shadcn/ui registry-logik samlad: URL-parser, cache, service, types, utils. Importera härifrån direkt (inga kvarvarande `shadcn-registry-*.ts` root-shims). |
 
 ## Två olika “data” (förväxla inte)

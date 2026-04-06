@@ -22,6 +22,19 @@ export const portfolioManifest: ScaffoldManifest = {
     "Keep the portfolio rhythm: intro, selected work, experience or credibility, writing, and contact.",
     "Adapt the visuals and tone to the person or studio rather than turning it into a generic company landing page.",
   ],
+  qualityChecklist: [
+    "Featured work, credibility, and contact should stay more prominent than generic marketing sections.",
+    "Visual tone, imagery, and copy should feel specific to the person, studio, or discipline.",
+    "Project cards or case studies should read like real work, not placeholder service blurbs.",
+  ],
+  research: {
+    upgradeTargets: [
+      "Add richer case-study detail pages with challenge, process, and outcome blocks.",
+      "Add service boundaries and availability messaging that keeps the personal voice.",
+      "Add social proof blocks (selected clients, recognitions, testimonials) without turning corporate.",
+    ],
+    referenceTemplates: [],
+  },
   files: [
     {
       path: "app/globals.css",

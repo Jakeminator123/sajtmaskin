@@ -19,7 +19,10 @@ describe("preview-url-contract", () => {
 
   it("resolveInboundPreviewUrl prefers previewUrl then demoUrl", () => {
     expect(
-      resolveInboundPreviewUrl({ previewUrl: " https://p.test ", demoUrl: "https://d.test" }),
+      resolveInboundPreviewUrl({
+        previewUrl: " https://p.test ",
+        demoUrl: "https://d.test",
+      }),
     ).toBe("https://p.test");
     expect(resolveInboundPreviewUrl({ demoUrl: "https://legacy.test" })).toBe("https://legacy.test");
   });

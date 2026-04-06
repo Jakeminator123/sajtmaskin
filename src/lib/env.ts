@@ -114,33 +114,18 @@ export const serverSchema = z.object({
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),
-  AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
-  /** Vercel Sandbox: `dev_only`, `dev_then_build` (default), `build_only`. See `resolveSandboxPreviewModeFromEnv`. */
-  /** `dev_only` (default i kod om unset), `dev_then_build`, eller `build_only` — se `resolveSandboxPreviewModeFromEnv`. */
-  SAJTMASKIN_SANDBOX_PREVIEW_MODE: z.string().optional(),
-  /** Optional git URL for sandbox VM template (default: vercel/sandbox-example-next). Pin in production. */
-  SAJTMASKIN_SANDBOX_TEMPLATE_GIT_URL: z.string().optional(),
-  /** Max ms to wait for dev server HTTP after `npm run` dev in sandbox (digits only). Default 90000. */
-  SAJTMASKIN_SANDBOX_READINESS_MAX_MS: z.string().optional(),
+  /** Fail fast when required generated template/scaffold artifacts are missing or empty outside test. */
+  SAJTMASKIN_STRICT_GENERATED_ARTIFACTS: z.string().optional(),
   /** Fly (or other) preview-host service base URL — tier-2 runtime option. */
   SAJTMASKIN_PREVIEW_HOST_BASE_URL: z.string().optional(),
-  /** Optional Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host). */
+  /** Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host); required when preview-host runs outside local dev. */
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
-  /**
-   * Tier-2 runtime: `vercel_sandbox`, `preview_host`, `preview_host_then_vercel`.
-   * If unset: defaults to `preview_host` when `SAJTMASKIN_PREVIEW_HOST_BASE_URL` is set,
-   * otherwise falls back to `vercel_sandbox`.
-   */
-  SAJTMASKIN_TIER2_RUNTIME: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_MAX_PROMPT_HANDOFF_CHARS: z.string().optional(),
-  SAJTMASKIN_POLISH_MAX_OUTPUT_TOKENS: z.string().optional(),
-  SAJTMASKIN_POLISH_TIMEOUT_MS: z.string().optional(),
-  SAJTMASKIN_POLISH_MAX_FILES_UNSCOPED: z.string().optional(),
   SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS: z.string().optional(),
   SAJTMASKIN_VERIFIER_TIMEOUT_MS: z.string().optional(),
   SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE: z.string().optional(),
@@ -156,7 +141,6 @@ export const serverSchema = z.object({
   SAJTMASKIN_MODEL_ANTHROPIC: z.string().optional(),
   SAJTMASKIN_ASSIST_MODEL: z.string().optional(),
   SAJTMASKIN_POLISH_MODEL: z.string().optional(),
-  SAJTMASKIN_POLISH_PASS: z.string().optional(),
   SAJTMASKIN_VERIFIER_PASS: z.string().optional(),
   SAJTMASKIN_BRIEF_MODEL: z.string().optional(),
   SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI: z.string().optional(),
@@ -193,8 +177,7 @@ export const serverSchema = z.object({
   INSPECTOR_FORCE_WORKER_ONLY: z.string().optional(),
   INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS: z.string().optional(),
 
-  // Registry / remote component source
-  REGISTRY_BASE_URL: z.string().optional(),
+  // Registry / remote component source (auth token for private registries)
   REGISTRY_AUTH_TOKEN: z.string().optional(),
 
   // Public (validated server-side; client sees them via Next.js inlining)

@@ -12,6 +12,7 @@ interface OpenClawState {
   messages: OpenClawMessage[];
   isStreaming: boolean;
   scopeKey: string;
+  avatarMode: boolean;
 
   toggle: () => void;
   open: () => void;
@@ -21,6 +22,7 @@ interface OpenClawState {
   updateAssistantMessage: (id: string, content: string) => void;
   setStreaming: (v: boolean) => void;
   clearMessages: () => void;
+  setAvatarMode: (v: boolean) => void;
 }
 
 export const useOpenClawStore = create<OpenClawState>()((set) => ({
@@ -28,6 +30,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   messages: [],
   isStreaming: false,
   scopeKey: "global",
+  avatarMode: true,
 
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
   open: () => set({ isOpen: true }),
@@ -55,4 +58,5 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
 
   setStreaming: (v) => set({ isStreaming: v }),
   clearMessages: () => set({ messages: [] }),
+  setAvatarMode: (v) => set({ avatarMode: v }),
 }));

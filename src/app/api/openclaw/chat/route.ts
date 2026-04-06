@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { OPENCLAW } from "@/lib/config";
-import { decideOpenClawCodeContextMode } from "@/lib/openclaw/chat-context-policy";
+import {
+  decideOpenClawRoutingIntent,
+  OPENCLAW_ROUTING_STRATEGY,
+} from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
-import { resolveFileContext } from "@/lib/openclaw/resolve-file-context";
+import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -18,24 +21,14 @@ interface ChatRequestBody {
   context?: Record<string, unknown> | null;
 }
 
-function normalizeContextText(value: unknown, maxLength: number): string {
-  if (typeof value !== "string") return "";
-  return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
-}
-
-function normalizeCodeSnippet(value: unknown, maxLength: number): string {
-  if (typeof value !== "string") return "";
-  return value.trim().slice(0, maxLength);
-}
-
-const OPENCLAW_FIELD_VALUE_MAX_CHARS = 2_200;
-const OPENCLAW_RECENT_MESSAGE_MAX_CHARS = 2_200;
 const OPENCLAW_CURRENT_CODE_MAX_CHARS = 16_000;
 const OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS = 180_000;
 
 const SYSTEM_PROMPT = `Du är Sajtagenten — en vänlig, kunnig och hjälpsam svensk AI-assistent inbyggd i Sajtmaskin.
 
 Sajtmaskin är en AI-driven webbplatsbyggare för svenska småföretagare. Användaren beskriver sitt företag eller sin vision i fritext, och AI:n genererar en professionell sajt med modern teknik — ingen programmeringskunskap krävs. Tjänsten drivs av Pretty Good AB.
+
+OpenClaw/Sajtagenten är en separat assistent- och agentyta. Builderns own-engine, promptassist, brief, verifiering och andra LLM-pass tillhör ett annat LLM-flöde. Blanda inte ihop dem i dina svar.
 
 Huvudflödet:
 1. Användaren väljer ingångsmetod (fritext, Template/v0-templates, wizard eller sajtanalys).
@@ -63,84 +56,18 @@ Regler:
 - Kodkontext skickas sparsamt för att spara tokens. Om du inte ser kod i kontexten ska du inte hitta på detaljer, utan be om en mer specifik kodfråga eller relevant buildervy/version.
 - Nämn ALDRIG Vercel, v0, v0 Platform API eller specifik underliggande infrastruktur. Säg istället "publicera live", "vår AI-motor" eller "modern molninfrastruktur".`;
 
-function buildContextBlock(
-  ctx: Record<string, unknown>,
-  options?: {
-    fileBlock?: string | null;
-    includeCurrentCode?: boolean;
-  },
-): string {
-  const parts: string[] = ["[BUILDER-KONTEXT]"];
+function buildRoutingSystemPrompt(intent: "general" | "review"): string {
+  if (intent === "review") {
+    return `Internt läge: review.
 
-  if (ctx.page) parts.push(`Sida: ${ctx.page}`);
-  if (ctx.activeEntryMode) parts.push(`Aktivt läge: ${ctx.activeEntryMode}`);
-  if (typeof ctx.wizardOpen === "boolean") {
-    parts.push(`Wizard öppen: ${ctx.wizardOpen ? "ja" : "nej"}`);
-  }
-  if (ctx.expandedSection) parts.push(`Öppen sektion: ${ctx.expandedSection}`);
-  if (ctx.buildIntent) parts.push(`Byggintention: ${ctx.buildIntent}`);
-  if (ctx.chatId) parts.push(`Chatt-ID: ${ctx.chatId}`);
-  if (ctx.buildMethod) parts.push(`Byggmetod: ${ctx.buildMethod}`);
-  if (ctx.activeVersionId) parts.push(`Aktiv version: ${ctx.activeVersionId}`);
-  if (ctx.demoUrl) parts.push(`Demo-URL: ${ctx.demoUrl}`);
-  if (ctx.auditUrl) parts.push(`Audit-URL: ${ctx.auditUrl}`);
-  if (ctx.auditedUrl) parts.push(`Senast analyserad URL: ${ctx.auditedUrl}`);
-  if (ctx.selectedModelLabel) parts.push(`Byggprofil: ${ctx.selectedModelLabel}`);
-  if (ctx.promptAssistLabel) parts.push(`Förbättra-modell: ${ctx.promptAssistLabel}`);
-  if (typeof ctx.promptAssistDeep === "boolean") {
-    parts.push(`Deep brief: ${ctx.promptAssistDeep ? "på" : "av"}`);
-  }
-  if (ctx.scaffoldMode) parts.push(`Scaffold-läge: ${ctx.scaffoldMode}`);
-  if (ctx.scaffoldId) parts.push(`Scaffold: ${ctx.scaffoldId}`);
-  if (ctx.isStreaming) parts.push("(AI genererar just nu)");
+Publik yta och API ska förbli samma Sajtagenten-yta. Om frågan kräver djupare analys ska det ske som intern review/eskalering bakom Sajtagenten (${OPENCLAW_ROUTING_STRATEGY}), inte som en separat synlig agent för användaren.
 
-  if (Array.isArray(ctx.recentMessages) && ctx.recentMessages.length > 0) {
-    parts.push("\nSenaste meddelanden i buildern:");
-    for (const m of ctx.recentMessages as { role: string; content: string }[]) {
-      const role = normalizeContextText(m.role, 24);
-      const content = normalizeContextText(
-        m.content,
-        OPENCLAW_RECENT_MESSAGE_MAX_CHARS,
-      );
-      if (!role || !content) continue;
-      parts.push(`  ${role}: ${content}`);
-    }
+Prioritera de 1-3 viktigaste observationerna eller ändringsförslagen. Håll svaret kort även när du använder djupare builder- eller kodkontext.`;
   }
 
-  if (Array.isArray(ctx.textFields) && ctx.textFields.length > 0) {
-    parts.push("\n[SKRIVBARA TEXTFÄLT]");
-    for (const field of ctx.textFields.slice(0, 6) as Array<Record<string, unknown>>) {
-      const target = normalizeContextText(field.target, 160);
-      if (!target) continue;
-      const label = normalizeContextText(field.label, 160) || target;
-      const kind = normalizeContextText(field.kind, 40) || "text";
-      const placeholder = normalizeContextText(field.placeholder, 280);
-      const value = normalizeContextText(field.value, OPENCLAW_FIELD_VALUE_MAX_CHARS);
-      const canWrite = field.canWrite === false ? "nej" : "ja";
-      parts.push(`- target: ${target}`);
-      parts.push(`  label: ${label}`);
-      parts.push(`  typ: ${kind}`);
-      parts.push(`  skrivbar: ${canWrite}`);
-      if (placeholder) parts.push(`  placeholder: ${placeholder}`);
-      parts.push(`  värde: ${value || "(tomt)"}`);
-    }
-    parts.push("[/SKRIVBARA TEXTFÄLT]");
-  }
+  return `Internt läge: assistans.
 
-  if (options?.fileBlock) {
-    parts.push(`\n${options.fileBlock}`);
-  } else if (options?.includeCurrentCode) {
-    const currentCode = normalizeCodeSnippet(
-      ctx.currentCode,
-      OPENCLAW_CURRENT_CODE_MAX_CHARS,
-    );
-    if (currentCode) {
-      parts.push(`\nKodavsnitt (första ~${OPENCLAW_CURRENT_CODE_MAX_CHARS} tecken):\n\`\`\`\n${currentCode}\n\`\`\``);
-    }
-  }
-
-  parts.push("[/BUILDER-KONTEXT]");
-  return parts.join("\n");
+Håll dig till kort, tydlig vägledning. Använd bara djup kodgranskning när användaren uttryckligen ber om review, felsökning eller förbättringsanalys.`;
 }
 
 export async function POST(req: NextRequest) {
@@ -173,39 +100,22 @@ export async function POST(req: NextRequest) {
 
     const messages: ChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "system",
+        content: buildRoutingSystemPrompt(decideOpenClawRoutingIntent({ messages: body.messages })),
+      },
     ];
 
     if (body.context && typeof body.context === "object") {
-      const ctx = body.context;
-      let fileBlock: string | null = null;
-      const codeContextMode = decideOpenClawCodeContextMode({
+      const contextMessage = await buildOpenClawContextSystemMessage({
         messages: body.messages,
-        page: ctx.page,
-        chatId: ctx.chatId,
-        currentCode: ctx.currentCode,
+        context: body.context,
+        currentCodeMaxChars: OPENCLAW_CURRENT_CODE_MAX_CHARS,
+        fullCodeContextMaxChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
       });
-
-      const chatId = typeof ctx.chatId === "string" ? ctx.chatId : "";
-      const versionId = typeof ctx.activeVersionId === "string" ? ctx.activeVersionId : "";
-      if (chatId && (codeContextMode === "manifest" || codeContextMode === "full")) {
-        const fc = await resolveFileContext(chatId, versionId || null, {
-          includeFullText: codeContextMode === "full",
-          maxFullTextChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
-          maxManifestFiles: codeContextMode === "full" ? 24 : 16,
-        });
-        if (fc) {
-          fileBlock = codeContextMode === "full" && fc.fullText
-            ? `[GENERERADE FILER — ${fc.files.length} filer]\n${fc.fullText}\n[/GENERERADE FILER]`
-            : `[FILMANIFEST — ${fc.files.length} filer, kompakt för tokenbudget]\n${fc.manifest}\n[/FILMANIFEST]`;
-        }
-      }
-
       messages.push({
         role: "system",
-        content: buildContextBlock(ctx, {
-          fileBlock,
-          includeCurrentCode: codeContextMode === "snippet",
-        }),
+        content: contextMessage.content,
       });
     }
 

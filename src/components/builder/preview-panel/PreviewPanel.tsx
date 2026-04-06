@@ -28,7 +28,7 @@ import { PreviewPanelChrome } from "./PreviewPanelChrome";
 import { PreviewPanelCode } from "./PreviewPanelCode";
 import { PreviewPanelCodeSectionEditors } from "./PreviewPanelCodeSectionEditors";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
-import { PreviewPanelSandbox } from "./PreviewPanelSandbox";
+import { PreviewPanelFrame } from "./PreviewPanelFrame";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./hooks/usePreviewHeartbeat";
@@ -54,7 +54,7 @@ import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
-  isSandboxPreviewUrl,
+  isTier2LivePreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
 import { cn } from "@/lib/utils";
@@ -97,11 +97,14 @@ export function PreviewPanel({
   awaitingInput = false,
   awaitingInputQuestion = null,
   awaitingInputOptions = [],
-  sandboxBuildError = null,
-  sandboxProdBuild = null,
-  sandboxPending = false,
-  activeSandboxId = null,
+  previewBuildError = null,
+  previewProdBuild = null,
+  previewPending = false,
+  activePreviewSessionId = null,
   previewLifecycle,
+  activeVersionStatus = null,
+  activeVersionSummary = null,
+  activeVersionIsLatest = true,
   onPreviewSessionSuspect,
   placementMode = false,
   pendingPlacementItem = null,
@@ -633,16 +636,16 @@ export function PreviewPanel({
     () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
     [integrationStatus],
   );
-  const isSandboxPreview = useMemo(() => {
+  const isTier2LivePreview = useMemo(() => {
     if (!previewUrl) return false;
-    return isSandboxPreviewUrl(previewUrl);
+    return isTier2LivePreviewUrl(previewUrl);
   }, [previewUrl]);
 
   usePreviewHeartbeat({
     chatId,
     versionId,
     previewUrl,
-    activeSandboxId,
+    activePreviewSessionId,
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
   });
@@ -653,7 +656,7 @@ export function PreviewPanel({
     setIframeError(true);
     setIframeDiagnosticCode("preview_transport_error");
     setIframeErrorMessage(describePreviewDiagnosticCode("preview_transport_error"));
-    if (isSandboxPreview) {
+    if (isTier2LivePreview) {
       onPreviewSessionSuspect?.();
     }
     if (isOwnEnginePreview) {
@@ -668,7 +671,7 @@ export function PreviewPanel({
   }, [
     clearPreviewReadyTimer,
     isOwnEnginePreview,
-    isSandboxPreview,
+    isTier2LivePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
   ]);
@@ -676,8 +679,8 @@ export function PreviewPanel({
   const isV0Preview = Boolean(
     previewUrl && !isOwnEnginePreview && previewUrl.includes("vusercontent.net"),
   );
-  /** True när versionen har en sandbox-URL sparad — då kan användaren byta till live-preview. */
-  const sandboxUrlPresent = Boolean(alternatePreviewUrls?.sandboxUrl?.trim());
+  /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
+  const previewUrlPresent = Boolean(alternatePreviewUrls?.storedLivePreviewUrl?.trim());
   const surfaceDescriptor = useMemo(() => {
     if (viewMode === "registry") {
       return {
@@ -700,25 +703,25 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "Sandbox svarade inte som förväntat — vi kontrollerar sessionen mot servern och startar om vid behov.",
+            "VM-previewn svarade inte som förväntat — vi kontrollerar sessionen mot servern och startar om vid behov.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
       }
-      if (sandboxPending) {
+      if (previewPending) {
         return {
           label: "Live-preview",
           detail:
-            "Sandbox startar eller laddar om (Next dev i VM). Vänta tills URL:en är klar — då laddas live-preview om automatiskt.",
+            "VM-previewn startar eller laddar om (Next dev i VM). Vänta tills URL:en är klar — då laddas live-preview om automatiskt.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
       }
-      if (!sandboxUrlPresent) {
+      if (!previewUrlPresent) {
         return {
           label: "Kompatibilitetsvy",
           detail:
-            "Sandbox är primär previewväg. Den här kompatibilitetsvyn (äldre shim) är fallback tills live-preview finns.",
+            "VM-preview är primär previewväg. Den här kompatibilitetsvyn (äldre shim) är fallback tills live-preview finns.",
           className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
           badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
         };
@@ -726,17 +729,17 @@ export function PreviewPanel({
       return {
         label: "Kompatibilitetsvy",
         detail:
-          "Du tittar på shim-/kompatibilitetsvyn. Live-preview med Next.js i sandbox är den primära körbara ytan — byt när sandbox-URL finns.",
+          "Du tittar på shim-/kompatibilitetsvyn. Live-preview med Next.js i VM är den primära körbara ytan — byt när tier-2-URL finns.",
         className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
         badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
       };
     }
-    if (isSandboxPreview) {
+    if (isTier2LivePreview) {
       if (previewLifecycle === "recovering") {
         return {
           label: "Live-preview",
           detail:
-            "Återansluter till sandbox — sessionen verifieras mot servern och preview startas om vid behov.",
+            "Återansluter till live-preview — sessionen verifieras mot servern och preview startas om vid behov.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
@@ -767,10 +770,10 @@ export function PreviewPanel({
   }, [
     viewMode,
     isOwnEnginePreview,
-    isSandboxPreview,
+    isTier2LivePreview,
     isV0Preview,
-    sandboxPending,
-    sandboxUrlPresent,
+    previewPending,
+    previewUrlPresent,
     previewLifecycle,
   ]);
 
@@ -790,11 +793,11 @@ export function PreviewPanel({
   );
   const showBlobConfigWarning = Boolean(previewUrl && imageGenerationsEnabled && !isBlobConfigured);
   /** Tier 2: one user-facing strip for media/env limits — no env-var name dump (`preview-deploy.md`). */
-  const showSandboxUnifiedStrip = Boolean(
+  const showPreviewUnifiedStrip = Boolean(
     !isCodeView &&
       previewUrl &&
       !isOwnEnginePreview &&
-      isSandboxPreview &&
+      isTier2LivePreview &&
       (showBlobWarning ||
         showBlobConfigWarning ||
         integrationError ||
@@ -816,7 +819,7 @@ export function PreviewPanel({
       setSelectedPath(lastCodeMatch.item.filePath);
     });
   }, [lastCodeMatch, startViewSwitchTransition]);
-  const PreviewSurface = PreviewPanelSandbox;
+  const PreviewSurface = PreviewPanelFrame;
 
   if (!previewUrl && !isCodeView) {
     return (
@@ -827,8 +830,12 @@ export function PreviewPanel({
         awaitingInput={awaitingInput}
         awaitingInputQuestion={awaitingInputQuestion}
         awaitingInputOptions={awaitingInputOptions}
-        sandboxPending={sandboxPending}
-        sandboxBuildError={sandboxBuildError}
+        previewPending={previewPending}
+        previewBuildError={previewBuildError}
+        previewLifecycle={previewLifecycle}
+        activeVersionStatus={activeVersionStatus}
+        activeVersionSummary={activeVersionSummary}
+        activeVersionIsLatest={activeVersionIsLatest}
         onFixPreview={onFixPreview}
         simplified={simplified}
       />
@@ -841,8 +848,8 @@ export function PreviewPanel({
         previewUrl={previewUrl}
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
-        isSandboxPreview={isSandboxPreview}
-        sandboxUrlPresent={sandboxUrlPresent}
+        isTier2LivePreview={isTier2LivePreview}
+        livePreviewUrlStored={previewUrlPresent}
         inspectorEnabled={inspectorEnabled}
         handleToggleInspect={handleToggleInspect}
         placementMode={placementMode}
@@ -867,14 +874,14 @@ export function PreviewPanel({
         handleOpenInNewTab={handleOpenInNewTab}
         alternatePreviewBanner={alternatePreviewBanner}
         onNavigatePreviewUrl={onNavigatePreviewUrl}
-        sandboxBuildError={sandboxBuildError}
-        sandboxProdBuild={sandboxProdBuild}
+        previewBuildError={previewBuildError}
+        previewProdBuild={previewProdBuild}
         isCodeView={isCodeView}
         previewRoutesLoading={previewRoutesLoading}
         previewRoutes={previewRoutes}
         activePreviewRoute={activePreviewRoute}
         handleNavigateRoute={handleNavigateRoute}
-        showSandboxUnifiedStrip={showSandboxUnifiedStrip}
+        showTier2UnifiedStrip={showPreviewUnifiedStrip}
         showBlobWarning={showBlobWarning}
         showBlobConfigWarning={showBlobConfigWarning}
         integrationError={integrationError}

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getOpenClawSurfaceStatus = vi.hoisted(() => vi.fn());
+const decideOpenClawRoutingIntent = vi.hoisted(() => vi.fn());
+const buildOpenClawContextSystemMessage = vi.hoisted(() => vi.fn());
 const OPENCLAW = vi.hoisted(() => ({
   gatewayUrl: "https://gateway.example",
   gatewayToken: "test-token",
@@ -22,6 +24,15 @@ vi.mock("@/lib/openclaw/status", () => ({
   getOpenClawSurfaceStatus,
 }));
 
+vi.mock("@/lib/openclaw/chat-context-policy", () => ({
+  decideOpenClawRoutingIntent,
+  OPENCLAW_ROUTING_STRATEGY: "internal_review_escalation",
+}));
+
+vi.mock("@/lib/openclaw/server-context", () => ({
+  buildOpenClawContextSystemMessage,
+}));
+
 import { POST } from "@/app/api/did/chat/route";
 
 function buildRequest(body: unknown) {
@@ -39,10 +50,17 @@ describe("D-ID OpenClaw chat bridge route", () => {
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockReset();
     getOpenClawSurfaceStatus.mockReset();
+    decideOpenClawRoutingIntent.mockReset();
+    buildOpenClawContextSystemMessage.mockReset();
     getOpenClawSurfaceStatus.mockReturnValue({
       surfaceEnabled: true,
       surfaceStatus: "enabled",
       blockers: [],
+    });
+    decideOpenClawRoutingIntent.mockReturnValue("general");
+    buildOpenClawContextSystemMessage.mockResolvedValue({
+      codeContextMode: "light",
+      content: "[BUILDER-KONTEXT]\nSida: builder\n[/BUILDER-KONTEXT]",
     });
   });
 
@@ -128,11 +146,47 @@ describe("D-ID OpenClaw chat bridge route", () => {
     expect(payload.stream).toBe(false);
     expect(payload.user).toBe("sess_123");
     expect(payload.messages[0].role).toBe("system");
-    expect(payload.messages[1]).toMatchObject({ role: "assistant", content: "Tidigare svar" });
-    expect(payload.messages[2]).toMatchObject({ role: "user", content: "Tidigare fråga" });
-    expect(payload.messages[3]).toMatchObject({
+    expect(payload.messages[1].content).toContain("Internt läge: assistans");
+    expect(payload.messages[2]).toMatchObject({ role: "assistant", content: "Tidigare svar" });
+    expect(payload.messages[3]).toMatchObject({ role: "user", content: "Tidigare fråga" });
+    expect(payload.messages[4]).toMatchObject({
       role: "user",
       content: "Hjälp mig att komma vidare",
     });
+  });
+
+  it("adds shared builder context when the avatar bridge sends context", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: "Kort svar.",
+              },
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+
+    await POST(
+      buildRequest({
+        message: "Vad kan förbättras i senaste prompten?",
+        context: {
+          page: "builder",
+          chatId: "chat_123",
+          currentCode: "export default function Page() {}",
+        },
+      }) as never,
+    );
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const payload = JSON.parse(String(options.body));
+    expect(payload.messages[2].content).toContain("[BUILDER-KONTEXT]");
   });
 });

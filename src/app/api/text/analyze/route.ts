@@ -3,7 +3,6 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { withRateLimit } from "@/lib/rateLimit";
-import { pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 /**
  * Text Analysis API
@@ -49,8 +48,23 @@ const TEXT_ANALYZE_SCHEMA = {
   additionalProperties: false,
 };
 
-function getGatewayApiKey(): string | null {
-  return pickAiGatewayKeyFromEnv();
+function getDirectApiKey(): string | null {
+  const key = process.env.OPENAI_API_KEY;
+  return key?.trim() || null;
+}
+
+type FallbackClientConfig = {
+  client: OpenAI;
+  modelId: string;
+};
+
+function createFallbackClientConfig(): FallbackClientConfig | null {
+  const directApiKey = getDirectApiKey();
+  if (!directApiKey) return null;
+  return {
+    client: new OpenAI({ apiKey: directApiKey }),
+    modelId: ANALYSIS_MODEL,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -68,8 +82,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Gate: need either OPENAI_API_KEY (Responses API) or gateway key
-    if (!SECRETS.openaiApiKey && !getGatewayApiKey()) {
+    // Gate: without OPENAI_API_KEY we fall back to deterministic suggestions.
+    if (!SECRETS.openaiApiKey) {
       console.info("[Text/Analyze] No AI keys configured, using defaults");
       return NextResponse.json({
         success: true,
@@ -135,14 +149,18 @@ ${truncatedContent}`;
       });
     }
 
-    // ── Gateway fallback path (old behaviour) ───────────────────
-    const openai = new OpenAI({
-      apiKey: getGatewayApiKey() ?? "",
-      baseURL: "https://ai-gateway.vercel.sh/v1",
-    });
+    // ── Fallback path: direct OpenAI Responses call ───────────────
+    const fallbackClient = createFallbackClientConfig();
+    if (!fallbackClient) {
+      return NextResponse.json({
+        success: true,
+        summary: `${filename || "Textfil"} (${content.length} tecken)`,
+        suggestions: getDefaultSuggestions(content, contentType),
+      });
+    }
 
-    const response = await openai.responses.create({
-      model: `openai/${ANALYSIS_MODEL}`,
+    const response = await fallbackClient.client.responses.create({
+      model: fallbackClient.modelId,
       instructions,
       input: `${inputText}
 
@@ -217,7 +235,7 @@ Svara ENDAST med giltig JSON i detta format:
       }
 
       console.info(
-        `[Text/Analyze] Gateway: ${validSuggestions.length} suggestions for ${filename}`,
+        `[Text/Analyze] Legacy fallback: ${validSuggestions.length} suggestions for ${filename}`,
       );
 
       return NextResponse.json({
@@ -226,7 +244,7 @@ Svara ENDAST med giltig JSON i detta format:
         suggestions: validSuggestions,
       });
     } catch (parseError) {
-      console.error("[Text/Analyze] Failed to parse gateway AI response:", parseError);
+      console.error("[Text/Analyze] Failed to parse fallback AI response:", parseError);
       return NextResponse.json({
         success: true,
         summary: `${filename || "Textfil"} (${content.length} tecken)`,

@@ -25,7 +25,6 @@ import {
   type DesignReferenceAsset,
   type DynamicContextOptions,
 } from "./system-prompt";
-import type { TemplateLibrarySearchDiagnostics } from "./template-library/search";
 import {
   inferCapabilities,
   buildCapabilityHints,
@@ -45,6 +44,7 @@ import {
   serializePackageForDump,
 } from "./generation-input-package";
 import { deriveBuildSpec, type BuildSpec } from "./build-spec";
+import { estimateCharsForTokens } from "./tokens";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -79,11 +79,6 @@ export interface OrchestrationInput {
    * Default true. Used by CLI trace tools; production callers omit this.
    */
   embeddingScaffoldMatch?: boolean;
-  /**
-   * When false, system prompt dynamic context skips semantic KB + embedding template refs.
-   * Default true. Used for offline CLI traces.
-   */
-  embeddingEnrichment?: boolean;
   /** Optional prompt strategy metadata from builder orchestration. */
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
 }
@@ -101,7 +96,7 @@ export interface OrchestrationBase {
 
 /**
  * Resolve scaffold, route plan, and contracts without building the full system prompt.
- * Use before a pre-generation contract gate so clarification does not pay for STATIC_CORE + KB.
+ * Use before a pre-generation contract gate so clarification does not pay for STATIC_CORE.
  */
 export async function resolveOrchestrationBase(
   input: OrchestrationInput,
@@ -188,8 +183,11 @@ export async function resolveOrchestrationBase(
           ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
       : undefined;
     const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
+    const scaffoldBudgetChars =
+      buildSpec.tokenBudgets.scaffoldChars ??
+      estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode, {
-      maxChars: buildSpec.tokenBudgets.scaffoldChars,
+      maxChars: scaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
     });
   }
@@ -218,7 +216,6 @@ export async function finalizeOrchestrationPrompts(
 ): Promise<{
   engineSystemPrompt: string;
   dynamicContext: string;
-  templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null;
 }> {
   const {
     prompt,
@@ -230,7 +227,6 @@ export async function finalizeOrchestrationPrompts(
     designThemePreset = null,
     designReferences = [],
     customInstructions,
-    embeddingEnrichment = true,
     generationMode,
   } = input;
 
@@ -251,7 +247,6 @@ export async function finalizeOrchestrationPrompts(
     designReferences,
     buildSpec: base.buildSpec,
     customInstructions,
-    embeddingEnrichment,
     generationMode: resolvedMode,
   };
 
@@ -261,7 +256,6 @@ export async function finalizeOrchestrationPrompts(
   return {
     engineSystemPrompt,
     dynamicContext: dynamic.context,
-    templateLibrarySearchDiagnostics: dynamic.templateLibrarySearchDiagnostics,
   };
 }
 
@@ -276,8 +270,7 @@ export async function prepareGenerationContext(
   input: OrchestrationInput,
 ): Promise<GenerationInputPackage> {
   const base = await resolveOrchestrationBase(input);
-  const { engineSystemPrompt, dynamicContext, templateLibrarySearchDiagnostics } =
-    await finalizeOrchestrationPrompts(base, input);
+  const { engineSystemPrompt, dynamicContext } = await finalizeOrchestrationPrompts(base, input);
 
   const capabilityHints = base.scaffoldAndCapability;
   const lineageHash = computeLineageHash({
@@ -298,7 +291,6 @@ export async function prepareGenerationContext(
     scaffoldMode: input.scaffoldMode ?? "auto",
     engineSystemPrompt,
     dynamicContext,
-    templateLibrarySearchDiagnostics,
     lineageHash,
   };
 
@@ -321,15 +313,6 @@ export async function prepareGenerationContext(
       buildSpecContextPolicy: base.buildSpec.contextPolicy,
       buildSpecPreviewPolicy: base.buildSpec.previewPolicy,
       promptLength: input.prompt.length,
-      templateLibrarySearch: templateLibrarySearchDiagnostics
-        ? {
-            mode: templateLibrarySearchDiagnostics.mode,
-            reason: templateLibrarySearchDiagnostics.reason ?? null,
-            topScore: templateLibrarySearchDiagnostics.topScore ?? null,
-            catalogSize: templateLibrarySearchDiagnostics.catalogSize,
-            usedEmbeddings: templateLibrarySearchDiagnostics.usedEmbeddings,
-          }
-        : null,
     },
   );
 

@@ -7,10 +7,10 @@ import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
-  buildSandboxStartContract,
+  buildPreviewStartContract,
   resolvePreflightIssueCategory,
   type PreflightIssueCategory,
-  type SandboxStartContract,
+  type PreviewStartContract,
 } from "./preflight-contract";
 
 export type FinalizePreflightIssue = {
@@ -33,7 +33,7 @@ export interface RunFinalizePreflightResult {
   preflightFileCount: number;
   preflightIssues: FinalizePreflightIssue[];
   previewBlockingReason: string | null;
-  sandbox: SandboxStartContract;
+  previewStart: PreviewStartContract;
 }
 
 function inferCodeFenceLanguage(path: string): string {
@@ -182,7 +182,7 @@ export async function runFinalizePreflight({
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
-  let sandbox = buildSandboxStartContract({
+  let previewStart = buildPreviewStartContract({
     issues: [],
     finalizedPreviewFileCount: 0,
   });
@@ -204,8 +204,8 @@ export async function runFinalizePreflight({
     }
 
     const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
-    let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
-    let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+    const mergedProjectContent = serializeFilesToCodeProject(finalFiles);
+    const mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
       devLogAppend("in-progress", {
         type: "merged-syntax.invalid",
@@ -310,16 +310,28 @@ export async function runFinalizePreflight({
         completeProjectFiles: completeProjectFiles.length,
       });
     }
-    sandbox = buildSandboxStartContract({
+    previewStart = buildPreviewStartContract({
       issues: preflightIssues,
       finalizedPreviewFileCount: finalizedFilesForPreview.length,
     });
-  } catch (sanityErr) {
-    console.warn("[sanity] Project sanity check error:", sanityErr);
+  } catch (preflightErr) {
+    const message =
+      preflightErr instanceof Error
+        ? `Finalize preflight crashed: ${preflightErr.message}`
+        : "Finalize preflight crashed unexpectedly.";
+    console.warn("[preflight] Finalize preflight error:", preflightErr);
+    previewBlockingReason = previewBlockingReason ?? message;
+    preflightIssues.push(
+      createIssue("preflight", "error", message, "code_structure_failure"),
+    );
+    previewStart = buildPreviewStartContract({
+      issues: preflightIssues,
+      finalizedPreviewFileCount: finalizedFilesForPreview.length,
+    });
     devLogAppend("in-progress", {
-      type: "project-sanity.error",
+      type: "preflight.error",
       chatId,
-      message: sanityErr instanceof Error ? sanityErr.message : "Unknown sanity error",
+      message,
     });
   }
 
@@ -329,6 +341,6 @@ export async function runFinalizePreflight({
     preflightFileCount,
     preflightIssues,
     previewBlockingReason,
-    sandbox,
+    previewStart,
   };
 }

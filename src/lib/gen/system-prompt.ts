@@ -19,26 +19,17 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
-import { searchKnowledgeBaseAsync } from "./context/knowledge-base";
-import { enrichWithRegistry } from "./context/registry-enricher";
-import { getTemplateLibraryEntryById } from "./template-library/catalog";
-import {
-  searchTemplateLibraryWithDiagnostics,
-  searchTemplateLibraryKeywordsOnly,
-  selectTemplateReferenceFiles,
-  type TemplateLibrarySearchDiagnostics,
-} from "./template-library/search";
-import {
-  deriveTemplateRuntimeGuidance,
-  isStarterOrBoilerplateReference,
-} from "./template-library/runtime-guidance";
-import type { TemplateLibraryEntry } from "./template-library/types";
-import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
+import {
+  buildBudgetedSystemPrompt,
+  estimateTokens,
+  type PromptBudgetBlock,
+} from "./tokens";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
@@ -65,17 +56,11 @@ const BUILD_INTENT_GUIDANCE: Record<
     label: "Website",
     rules: [
       "Ship code that passes a real App Router build: valid `next/image`, metadata exports, and Server Components by default — not patterns that only work inside a browser-transpiled preview.",
-      "Build a complete, visually polished website that looks like it was designed by a professional agency.",
-      "Every website MUST include: (1) sticky navigation header, (2) hero section with headline + subtext + CTA, (3) 2-4 content sections, (4) multi-column footer.",
-      "Hero sections must be impactful: large typography (text-5xl+), generous padding (py-24+), clear call-to-action buttons.",
-      "Content sections should alternate backgrounds (bg-background / bg-muted/50) to create visual rhythm.",
-      "Use shadcn/ui Cards for feature grids, Badges for labels, Buttons for CTAs, Accordion for FAQs.",
-      "Include realistic mock content — specific to the business type. A law firm sounds different from a startup.",
-      "Add social proof: testimonial quotes with names/titles, client logos (as placeholder images), star ratings.",
-      "Match scope to the request: short prompt = polished one-pager; detailed prompt = multi-page site.",
-      "SEO baseline is required by default: include metadata with title/description, Open Graph/Twitter data, canonical strategy, sitemap, robots, and at least one sensible JSON-LD/schema.org block for company-style sites unless the user explicitly says otherwise.",
-      "Scroll-reveal animations (fade-in, slide-up) must NEVER be applied to hero sections or other above-the-fold content — that content must render instantly without any opacity/blur/transform transition. Only use reveal on sections that appear below the fold on scroll. Never use CSS blur as part of reveal transitions on text — it makes content unreadable during the transition. Prefer opacity + translateY only.",
-      "Never use the Tailwind arbitrary class `font-[family-name:var(--x)]` — it produces corrupt CSS in Turbopack. Instead, use inline `style={{ fontFamily: 'var(--font-serif)' }}` or define a utility class in globals.css.",
+      "Build a complete, visually polished website: sticky navigation, hero with headline + subtext + CTA, content sections for the business, footer with contact or links.",
+      "Use shadcn/ui Cards for feature grids, Badges for labels, Buttons for CTAs. Add Accordion for FAQs only when the user or brief explicitly asks.",
+      "Alternate section backgrounds (`bg-background` / `bg-muted/50`) for rhythm. Hero: large type (`text-5xl+`), generous vertical padding (`py-24+`).",
+      "Include realistic mock content specific to the business type — never generic placeholder copy.",
+      "Match scope: short prompt → polished one-pager; detailed prompt → multi-page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
     ],
   },
   app: {
@@ -177,11 +162,6 @@ export interface DynamicContextOptions {
   designReferences?: DesignReferenceAsset[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
-  /**
-   * When false, skip semantic KB fallback and embedding-based template reference search.
-   * Default true. Used by offline CLI traces; production omits this.
-   */
-  embeddingEnrichment?: boolean;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
@@ -195,190 +175,97 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
 
-const MIN_TEMPLATE_REFERENCE_QUALITY = 55;
-const MIN_SCAFFOLD_REFERENCE_QUALITY = 45;
+const DEFAULT_REFS_BUDGET_TOKENS = 2_500;
+const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 8_750;
 
-interface RankedTemplateReference {
-  entry: TemplateLibraryEntry;
-  score: number;
-  source: "prompt" | "scaffold" | "hybrid";
-  reasons: string[];
+const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
+  match: RegExp;
+  priority: number;
+  required?: boolean;
+}> = [
+  { match: /^generation mode:/i, priority: 100, required: true },
+  { match: /^custom instructions/i, priority: 100, required: true },
+  { match: /^build intent:/i, priority: 95, required: true },
+  { match: /^generation profile$/i, priority: 92, required: true },
+  { match: /^scaffold$/i, priority: 90, required: true },
+  { match: /^route plan$/i, priority: 90, required: true },
+  { match: /^pre-generation contracts$/i, priority: 90, required: true },
+  { match: /^project context$/i, priority: 88, required: true },
+  { match: /^pages & sections$/i, priority: 82 },
+  { match: /^media catalog$/i, priority: 80 },
+  { match: /^visual identity$/i, priority: 78 },
+  { match: /^original request/i, priority: 76 },
+  { match: /^design references$/i, priority: 72 },
+  { match: /^scaffold research priorities$/i, priority: 70 },
+  { match: /^imagery/i, priority: 66 },
+  { match: /^seo$/i, priority: 62 },
+];
+
+function normalizeContextBlockKey(title: string, index: number): string {
+  const normalized = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || `context_block_${index + 1}`;
 }
 
-interface RankedTemplateReferenceResponse {
-  matches: RankedTemplateReference[];
-  diagnostics: TemplateLibrarySearchDiagnostics | null;
-}
-
-function intersectsScaffoldFamilies(
-  entry: TemplateLibraryEntry,
-  resolvedScaffold: ScaffoldManifest | null | undefined,
-): boolean {
-  if (!resolvedScaffold) return false;
-  return entry.recommendedScaffoldFamilies.includes(resolvedScaffold.family);
-}
-
-function starterReferencePenalty(
-  entry: TemplateLibraryEntry,
-  resolvedScaffold: ScaffoldManifest | null | undefined,
-): number {
-  if (!isStarterOrBoilerplateReference(entry)) return 0;
-  // Keep starter references for structure in base-nextjs mode, but strongly
-  // downrank them as style references for richer scaffolds.
-  if (resolvedScaffold?.family === "base-nextjs") return 8;
-  return 24;
-}
-
-function addTemplateReferenceCandidate(
-  candidates: Map<string, RankedTemplateReference>,
-  entry: TemplateLibraryEntry,
-  score: number,
-  reason: string,
-  source: "prompt" | "scaffold",
-): void {
-  const existing = candidates.get(entry.id);
-  if (!existing) {
-    candidates.set(entry.id, {
-      entry,
-      score,
-      source,
-      reasons: [reason],
-    });
-    return;
-  }
-
-  existing.score += score;
-  existing.source = existing.source === source ? source : "hybrid";
-  if (!existing.reasons.includes(reason)) {
-    existing.reasons.push(reason);
-  }
-}
-
-async function rankTemplateReferences(
-  originalPrompt: string,
-  resolvedScaffold: ScaffoldManifest | null | undefined,
-  useEmbeddingSearch = true,
-  topK = 6,
-): Promise<RankedTemplateReferenceResponse> {
-  const templateSearch = useEmbeddingSearch
-    ? await searchTemplateLibraryWithDiagnostics(originalPrompt, topK)
-    : {
-        results: searchTemplateLibraryKeywordsOnly(originalPrompt, topK),
-        diagnostics: null,
+function resolveContextBlockPriority(title: string): { priority: number; required: boolean } {
+  for (const rule of CONTEXT_BLOCK_PRIORITY_RULES) {
+    if (rule.match.test(title)) {
+      return {
+        priority: rule.priority,
+        required: Boolean(rule.required),
       };
-  const promptMatches = templateSearch.results;
-  const candidates = new Map<string, RankedTemplateReference>();
-  const scaffoldLabel = resolvedScaffold?.label ?? "the selected scaffold";
-
-  for (const match of promptMatches) {
-    const fitBoost = intersectsScaffoldFamilies(match.entry, resolvedScaffold) ? 16 : 0;
-    const starterPenalty = starterReferencePenalty(match.entry, resolvedScaffold);
-    const starterHint = isStarterOrBoilerplateReference(match.entry)
-      ? " Tolkas som strukturreferens, inte stilfacit."
-      : "";
-    addTemplateReferenceCandidate(
-      candidates,
-      match.entry,
-      match.score * 100 + fitBoost + match.entry.qualityScore / 10 - starterPenalty,
-      fitBoost > 0
-        ? `Prompten matchar och referensen passar vald runtime scaffold.${starterHint}`
-        : `Prompten matchar denna kuraterade referens.${starterHint}`,
-      "prompt",
-    );
+    }
   }
+  return { priority: 60, required: false };
+}
 
-  for (const reference of resolvedScaffold?.research?.referenceTemplates ?? []) {
-    const entry = getTemplateLibraryEntryById(reference.id);
-    if (!entry) continue;
-    const fitBoost = intersectsScaffoldFamilies(entry, resolvedScaffold) ? 20 : 0;
-    const starterPenalty = starterReferencePenalty(entry, resolvedScaffold);
-    const starterHint = isStarterOrBoilerplateReference(entry)
-      ? " Referensen används som strukturhjälp, inte visuell facit."
-      : "";
-    addTemplateReferenceCandidate(
-      candidates,
-      entry,
-      35 + fitBoost + entry.qualityScore / 10 - starterPenalty,
-      `Scaffoldens research pekar ut denna referens för ${scaffoldLabel}.${starterHint}`,
-      "scaffold",
-    );
-  }
+function splitContextIntoBudgetBlocks(context: string): PromptBudgetBlock[] {
+  if (!context.trim()) return [];
 
-  return {
-    matches: [...candidates.values()]
-      .filter((candidate) => {
-        if (candidate.source === "scaffold" || candidate.source === "hybrid") {
-          return candidate.entry.qualityScore >= MIN_SCAFFOLD_REFERENCE_QUALITY;
-        }
-        return candidate.entry.qualityScore >= MIN_TEMPLATE_REFERENCE_QUALITY;
-      })
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return b.entry.qualityScore - a.entry.qualityScore;
-      }),
-    diagnostics: templateSearch.diagnostics,
+  const blocks: Array<{ title: string; content: string }> = [];
+  const lines = context.split("\n");
+  let currentTitle = "preamble";
+  let currentLines: string[] = [];
+
+  const flush = () => {
+    const content = currentLines.join("\n").trim();
+    if (!content) return;
+    blocks.push({ title: currentTitle, content });
   };
-}
 
-function describeTemplateSearchDiagnostics(
-  diagnostics: TemplateLibrarySearchDiagnostics | null,
-): string | null {
-  if (!diagnostics) return null;
-  switch (diagnostics.mode) {
-    case "empty_catalog":
-      return "Committed template library is empty, so runtime should rely on scaffold research and the user's request.";
-    case "hybrid_keyword_blend":
-      return "Semantic template retrieval was weak, so keyword fallback was blended in to keep references conservative.";
-    case "keyword_fallback":
-      switch (diagnostics.reason) {
-        case "missing_api_key":
-          return "Semantic template retrieval is unavailable in this environment, so references came from keyword fallback only.";
-        case "missing_embeddings":
-          return "Template embeddings are unavailable, so references came from keyword fallback only.";
-        case "embedding_query_failed":
-          return "Template embedding lookup failed at runtime, so references came from keyword fallback only.";
-        case "no_embedding_hits":
-          return "Semantic template search found no strong hits, so references came from keyword fallback only.";
-        default:
-          return "Template references came from keyword fallback only.";
-      }
-    default:
-      return null;
+  for (const line of lines) {
+    const headingMatch = /^##\s+(.+)$/.exec(line);
+    if (headingMatch) {
+      flush();
+      currentTitle = headingMatch[1].trim();
+      currentLines = [line];
+      continue;
+    }
+    currentLines.push(line);
   }
-}
+  flush();
 
-function shouldIncludeTemplateCodeSnippets(buildSpec: BuildSpec | null | undefined): boolean {
-  if (!buildSpec) return true;
-  if (buildSpec.contextPolicy === "light") return false;
-  return (
-    buildSpec.contextPolicy === "heavy" ||
-    buildSpec.changeScope === "redesign" ||
-    buildSpec.changeScope === "page-addition" ||
-    buildSpec.changeScope === "integration"
-  );
-}
+  const duplicateCounts = new Map<string, number>();
 
-function resolveTemplateSnippetSelectionOptions(
-  referenceBudget: number,
-  buildSpec: BuildSpec | null | undefined,
-): {
-  maxFiles: number;
-  maxExcerptChars: number;
-  maxTotalChars: number;
-} {
-  const isHeavy = buildSpec?.contextPolicy === "heavy";
-  const maxTotalChars = Math.max(2_400, Math.min(referenceBudget, isHeavy ? 5_000 : 3_000));
-  return {
-    maxFiles: isHeavy ? 2 : 1,
-    maxExcerptChars: Math.min(maxTotalChars, isHeavy ? 2_200 : 1_500),
-    maxTotalChars,
-  };
+  return blocks.map((block, index) => {
+    const { priority, required } = resolveContextBlockPriority(block.title);
+    const baseKey = normalizeContextBlockKey(block.title, index);
+    const seen = duplicateCounts.get(baseKey) ?? 0;
+    duplicateCounts.set(baseKey, seen + 1);
+    const key = seen === 0 ? baseKey : `${baseKey}_${seen + 1}`;
+    return {
+      key,
+      text: block.content,
+      priority,
+      required,
+    };
+  });
 }
 
 export type BuildDynamicContextResult = {
   context: string;
-  /** Set when template-library retrieval ran (skipped in light follow-up mode). */
-  templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null;
 };
 
 /**
@@ -403,22 +290,13 @@ export async function buildDynamicContext(
     designThemePreset,
     designReferences,
     customInstructions,
-    embeddingEnrichment = true,
     generationMode,
     buildSpec,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
-  const originalPromptTrimmed = (originalPrompt ?? "").trim();
-  const useLightFollowUpContext =
-    isFollowUp &&
-    buildSpec?.contextPolicy === "light" &&
-    (buildSpec.changeScope === "copy" || buildSpec.changeScope === "local-layout") &&
-    !looksDesignHeavyMessage(originalPromptTrimmed);
-  const referenceBudget = buildSpec?.tokenBudgets.refsChars ?? 8_000;
 
   const parts: string[] = [];
-  let templateLibrarySearchDiagnostics: TemplateLibrarySearchDiagnostics | null = null;
 
   // ── Generation Mode ────────────────────────────────────────────────────
   if (isFollowUp) {
@@ -474,7 +352,28 @@ export async function buildDynamicContext(
   if (resolvedScaffold) {
     const checklist = resolvedScaffold.qualityChecklist?.slice(0, 6) ?? [];
     const upgradeTargets = resolvedScaffold.research?.upgradeTargets.slice(0, 5) ?? [];
-    if (checklist.length > 0 || upgradeTargets.length > 0) {
+    const referenceTemplates = resolvedScaffold.research?.referenceTemplates ?? [];
+    const refsBudgetTokens = Math.max(
+      450,
+      buildSpec?.tokenBudgets.refsTokens ?? DEFAULT_REFS_BUDGET_TOKENS,
+    );
+    const referenceLines: string[] = [];
+    let refsUsedTokens = 0;
+    for (const template of referenceTemplates.slice(0, 5)) {
+      const strengths = template.strengths.slice(0, 3).join("; ");
+      const summary = strengths
+        ? `${template.title} (${template.categorySlug}, score ${template.qualityScore}): ${strengths}`
+        : `${template.title} (${template.categorySlug}, score ${template.qualityScore})`;
+      const line = `  - ${summary}`;
+      const lineTokens = estimateTokens(line);
+      if (refsUsedTokens + lineTokens > refsBudgetTokens && referenceLines.length > 0) {
+        break;
+      }
+      referenceLines.push(line);
+      refsUsedTokens += lineTokens;
+    }
+
+    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0) {
       parts.push(
         "## Scaffold Research Priorities",
         "",
@@ -487,6 +386,10 @@ export async function buildDynamicContext(
       if (upgradeTargets.length > 0) {
         parts.push("", "- Upgrade targets from curated research:");
         parts.push(...upgradeTargets.map((item) => `  - ${item}`));
+      }
+      if (referenceLines.length > 0) {
+        parts.push("", "- Reference inspirations from curated templates:");
+        parts.push(...referenceLines);
       }
       parts.push("");
     }
@@ -549,7 +452,7 @@ export async function buildDynamicContext(
       }
       parts.push(
         "",
-        "- **Placeholder policy (mandatory for runnable preview):** If **Auth** is NextAuth/Auth.js, use **Credentials** (password/demo user) only — **no OAuth** providers unless the user explicitly asked for one by name. If **Stripe/payment** appears, use test-mode keys and/or `process.env` fallbacks so the app never throws at import time. The preview/sandbox merges non-secret placeholder `.env.local` values; your code must still run when those are absent.",
+        "- **Placeholder policy (mandatory for runnable preview):** If **Auth** is NextAuth/Auth.js, use **Credentials** (password/demo user) only — **no OAuth** providers unless the user explicitly asked for one by name. If **Stripe/payment** appears, use test-mode keys and/or `process.env` fallbacks so the app never throws at import time. The preview runtime merges non-secret placeholder `.env.local` values; your code must still run when those are absent.",
         "",
       );
       if (unresolvedDecisions.length > 0) {
@@ -626,15 +529,6 @@ export async function buildDynamicContext(
     }
   }
 
-  parts.push(
-    "## Preview vs CodeProject parity",
-    "",
-    "- A tier-1 HTML preview in the product may appear before this stream finishes. Treat it as a rough layout approximation only, not the final design system.",
-    "- Your emitted files are the **source of truth**: they must reflect the **user message**, any **Project Context / brief** above, **Visual Identity**, and the **scaffold** (structure hints only). Do not replace a specific user topic, language, or palette with an unrelated generic marketing template.",
-    "- When a structured brief exists, major copy, sections, palette, and tone should be traceable to that brief or the prompt — **extend and refine**, do not reset to a generic narrative.",
-    "",
-  );
-
   // ── Visual Identity ─────────────────────────────────────────────────────
   const hasTheme = themeOverride && (themeOverride.primary || themeOverride.secondary || themeOverride.accent);
   const briefPalette = brief?.visualDirection?.colorPalette;
@@ -690,17 +584,7 @@ export async function buildDynamicContext(
     parts.push("");
   }
 
-  // ── Imagery ─────────────────────────────────────────────────────────────
-  parts.push("## Imagery", "");
-  parts.push(
-    "Use `/placeholder.svg?height=H&width=W&text=DESCRIPTION` for all images. Write descriptive `text` parameters that precisely match the site's subject (e.g. `text=Vintage+leather+cowboy+boots+warm+lighting`). Post-processing replaces these with real Unsplash photos automatically.",
-    "- The hero section **MUST** have a large image (height=600, width=1200 minimum).",
-    "- Include images in at least 2 additional sections beyond the hero.",
-    "- NEVER fabricate Unsplash photo IDs. NEVER use picsum.photos, placehold.co, `blob:`, or `data:` URIs.",
-  );
-  parts.push("");
-
-  // Imagery notes from brief
+  // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
   if (brief?.imagery) {
     const imgNotes = [
       ...strList(brief.imagery.styleKeywords),
@@ -708,7 +592,7 @@ export async function buildDynamicContext(
       ...strList(brief.imagery.styleNotes),
     ].filter(Boolean);
     if (imgNotes.length > 0) {
-      parts.push(...imgNotes.map((n) => `- ${n}`), "");
+      parts.push("## Imagery (from brief)", "", ...imgNotes.map((n) => `- ${n}`), "");
     }
   }
 
@@ -741,133 +625,6 @@ export async function buildDynamicContext(
     }
   }
 
-  // ── Relevant Documentation (KB search + registry enrichment) ────────────
-  if (originalPrompt && !useLightFollowUpContext) {
-    const kbSearch = await searchKnowledgeBaseAsync({
-      query: originalPrompt,
-      maxResults: 7,
-      maxChars: 4000,
-      allowSemantic: embeddingEnrichment,
-    });
-    if (kbSearch.matches.length > 0) {
-      parts.push("## Relevant Documentation", "");
-      if (kbSearch.mode === "keyword_weak_semantic") {
-        parts.push("- _Retrieval note: semantic search was unavailable or returned no strong hits; keyword fallback only._", "");
-      }
-      for (const match of kbSearch.matches) {
-        parts.push(`### ${match.title}`, "", match.content, "");
-      }
-
-      try {
-        const registryExtra = await enrichWithRegistry(kbSearch.matches);
-        if (registryExtra) {
-          parts.push(registryExtra, "");
-        }
-      } catch {
-        // Registry unavailable -- continue without enrichment
-      }
-    }
-  }
-
-  if (originalPrompt && !useLightFollowUpContext) {
-    const templateReferenceSearch = await rankTemplateReferences(
-      originalPrompt,
-      resolvedScaffold,
-      embeddingEnrichment,
-      buildSpec?.contextPolicy === "heavy" ? 6 : 4,
-    );
-    templateLibrarySearchDiagnostics = templateReferenceSearch.diagnostics;
-    const usefulTemplateMatches = templateReferenceSearch.matches.slice(
-      0,
-      buildSpec?.contextPolicy === "heavy" ? 3 : 2,
-    );
-    const templateSearchStatus = describeTemplateSearchDiagnostics(
-      templateReferenceSearch.diagnostics,
-    );
-    if (usefulTemplateMatches.length > 0) {
-      parts.push("## Relevant Template References", "");
-      parts.push(
-        "- Treat the structured guidance in this section as the primary runtime signal. If small code excerpts appear below, use them only as narrow structural inspiration.",
-      );
-      parts.push(
-        "- Never let a reference override the user's brief, route plan, selected scaffold, current project files, or follow-up scope.",
-      );
-      if (templateSearchStatus) {
-        parts.push(`- Retrieval status: ${templateSearchStatus}`);
-      }
-      parts.push("");
-      for (const match of usefulTemplateMatches) {
-        const guidance = deriveTemplateRuntimeGuidance(match.entry);
-        parts.push(`### ${match.entry.title}`, "");
-        parts.push(`- Category: ${match.entry.categoryName}`);
-        parts.push(`- Scaffold fit: ${match.entry.recommendedScaffoldFamilies.join(", ")}`);
-        parts.push(`- Quality score: ${match.entry.qualityScore}`);
-        parts.push(`- Why this reference: ${match.reasons.join(" ")}`);
-        parts.push(`- Summary: ${match.entry.summary}`);
-        if (isStarterOrBoilerplateReference(match.entry)) {
-          parts.push("- Reference mode: structure-only (starter/boilerplate).");
-        }
-        if (guidance.styleRules.length > 0) {
-          parts.push(`- Style rules: ${guidance.styleRules.join(" | ")}`);
-        }
-        if (guidance.sectionInventory.length > 0) {
-          parts.push(`- Section inventory: ${guidance.sectionInventory.join(" | ")}`);
-        }
-        if (guidance.avoidPatterns.length > 0) {
-          parts.push(`- Avoid: ${guidance.avoidPatterns.join(" | ")}`);
-        }
-        if (guidance.worldClassRubric.length > 0) {
-          parts.push(`- World-class rubric: ${guidance.worldClassRubric.join(" | ")}`);
-        }
-        parts.push("");
-      }
-
-      const allowTemplateCodeSnippets = shouldIncludeTemplateCodeSnippets(buildSpec);
-      const snippetSelectionOptions = resolveTemplateSnippetSelectionOptions(
-        referenceBudget,
-        buildSpec,
-      );
-      const snippetMatches = allowTemplateCodeSnippets
-        ? usefulTemplateMatches
-          .slice(0, 2)
-          .map((match) => ({
-            match,
-            files: selectTemplateReferenceFiles(match.entry, snippetSelectionOptions),
-          }))
-          .filter(
-            (item) =>
-              item.files.length > 0 && !isStarterOrBoilerplateReference(item.match.entry),
-          )
-        : [];
-
-      if (allowTemplateCodeSnippets && snippetMatches.length > 0) {
-        parts.push(
-          "## Reference Code Snippets",
-          "",
-          "Use these as structural inspiration only when they directly unblock a component or layout pattern. Keep them secondary to the guidance above.",
-          "",
-        );
-        for (const { match, files } of snippetMatches) {
-          parts.push(`### ${match.entry.title}`, "");
-          for (const file of files) {
-            parts.push(`- ${file.path} — ${file.reason}`, "");
-            parts.push("```text");
-            parts.push(file.excerpt);
-            parts.push("```", "");
-          }
-        }
-      }
-    } else if (templateSearchStatus) {
-      parts.push(
-        "## Template Reference Retrieval",
-        "",
-        `- ${templateSearchStatus}`,
-        "- No curated template references were injected, so scaffold guidance and the user's request should stay primary.",
-        "",
-      );
-    }
-  }
-
   // ── Original request reference ──────────────────────────────────────────
   if (originalPrompt) {
     const MAX_INLINE_ORIGINAL_PROMPT_CHARS = 400;
@@ -887,12 +644,37 @@ export async function buildDynamicContext(
     }
   }
 
+  let context = parts.join("\n").trim();
+  const contextBlocks = splitContextIntoBudgetBlocks(context);
+  const budgetTokens = Math.max(
+    900,
+    buildSpec?.tokenBudgets.systemContextTokens ?? DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS,
+  );
+  const budgeted = buildBudgetedSystemPrompt({
+    staticCore: "",
+    separator: "",
+    dynamicBlocks: contextBlocks,
+    dynamicBudgetTokens: budgetTokens,
+  });
+  context = budgeted.dynamicContext;
+
+  if (budgeted.droppedKeys.length > 0) {
+    try {
+      debugLog("engine", "Dynamic context pruned to token budget", {
+        budgetTokens,
+        usedTokens: budgeted.usedTokens,
+        droppedBlocks: budgeted.droppedKeys,
+        keptBlocks: budgeted.keptKeys,
+      });
+    } catch {
+      // Some isolated tests mock "@/lib/utils/debug" without debugLog.
+    }
+  }
+
   return {
-    context: parts.join("\n").trim(),
-    templateLibrarySearchDiagnostics,
+    context,
   };
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PUBLIC API — buildSystemPrompt(), getSystemPromptLengths()
@@ -916,7 +698,6 @@ export interface BuildSystemPromptOptions {
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
   customInstructions?: string;
-  embeddingEnrichment?: boolean;
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
 }
@@ -945,7 +726,6 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     designReferences: options.designReferences,
     buildSpec: options.buildSpec,
     customInstructions: options.customInstructions,
-    embeddingEnrichment: options.embeddingEnrichment,
     generationMode: options.generationMode,
   });
 
@@ -979,4 +759,3 @@ export function getSystemPromptLengths(fullPrompt: string): {
     dynamic: Math.max(0, dynamicLen),
   };
 }
-

@@ -42,7 +42,7 @@ async function readJson(path) {
 }
 
 function validateTemplateShape(template, errors, warnings) {
-  const required = ["id", "slug", "view_url", "edit_url", "preview_image_url"];
+  const required = ["id", "slug", "title", "preview_image_url", "image_filename", "category"];
   for (const key of required) {
     if (typeof template[key] !== "string") {
       errors.push(`Template ${template.id || "<unknown>"} is missing string field "${key}"`);
@@ -53,8 +53,30 @@ function validateTemplateShape(template, errors, warnings) {
     warnings.push(`Template ${template.id} has slug "${template.slug}" (expected same as id)`);
   }
 
-  if (template.id && template.view_url && !template.view_url.endsWith(`/templates/${template.id}`)) {
-    warnings.push(`Template ${template.id} has unexpected view_url: ${template.view_url}`);
+  if (
+    template.id &&
+    template.preview_image_url &&
+    template.preview_image_url !== `/api/template-image/${template.id}`
+  ) {
+    warnings.push(
+      `Template ${template.id} has unexpected preview_image_url: ${template.preview_image_url}`,
+    );
+  }
+
+  if (
+    template.id &&
+    template.image_filename &&
+    template.image_filename !== `${template.id}.jpg`
+  ) {
+    warnings.push(
+      `Template ${template.id} has unexpected image_filename: ${template.image_filename}`,
+    );
+  }
+
+  if (template.category && !APP_CATEGORY_IDS.includes(template.category)) {
+    warnings.push(
+      `Template ${template.id || "<unknown>"} has unknown category value: ${template.category}`,
+    );
   }
 }
 

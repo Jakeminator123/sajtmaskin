@@ -28,9 +28,10 @@ function createResult(parts: StreamPart[]) {
   };
 }
 
-async function collectEvents(parts: StreamPart[]) {
+async function collectEvents(parts: StreamPart[], options?: { thinking?: boolean }) {
   const stream = createCodeGenSSEStream(createResult(parts), {
     meta: { chatId: "chat_test" },
+    thinking: options?.thinking,
   });
   const reader = stream.getReader();
   const decoder = new TextDecoder();
@@ -55,6 +56,18 @@ async function collectEvents(parts: StreamPart[]) {
 }
 
 describe("createCodeGenSSEStream", () => {
+  it("propagates consumer cancellation through abort controller", async () => {
+    const abortController = new AbortController();
+    const stream = createCodeGenSSEStream(createResult([{ type: "start" }]), {
+      abortController,
+    });
+
+    const reader = stream.getReader();
+    await reader.cancel("test-cancel");
+
+    expect(abortController.signal.aborted).toBe(true);
+  });
+
   it("rebuilds streamed tool input into a tool-call event", async () => {
     const events = await collectEvents([
       {
@@ -125,6 +138,54 @@ describe("createCodeGenSSEStream", () => {
     expect(doneEvent?.event).toBe("done");
   });
 
+  it("uses monotonic fallback keys for tool calls without toolCallId", async () => {
+    const events = await collectEvents([
+      {
+        type: "tool-input-start",
+        toolName: "requestEnvVar",
+      },
+      {
+        type: "tool-input-delta",
+        toolName: "requestEnvVar",
+        inputTextDelta: '{"key":"FIRST"}',
+      },
+      {
+        type: "tool-call",
+        toolName: "requestEnvVar",
+      },
+      {
+        type: "tool-input-start",
+        toolName: "requestEnvVar",
+      },
+      {
+        type: "tool-input-delta",
+        toolName: "requestEnvVar",
+        inputTextDelta: '{"key":"SECOND"}',
+      },
+      {
+        type: "tool-call",
+        toolName: "requestEnvVar",
+      },
+    ]);
+
+    const toolEvents = events.filter((event) => event.event === "tool-call");
+    expect(toolEvents).toHaveLength(2);
+    expect(toolEvents[0]?.data).toEqual({
+      toolName: "requestEnvVar",
+      toolCallId: "tool:requestEnvVar:1",
+      args: {
+        key: "FIRST",
+      },
+    });
+    expect(toolEvents[1]?.data).toEqual({
+      toolName: "requestEnvVar",
+      toolCallId: "tool:requestEnvVar:2",
+      args: {
+        key: "SECOND",
+      },
+    });
+  });
+
   it("emits progress and an explicit silent-output error when no text events arrive", async () => {
     const events = await collectEvents([
       { type: "start" },
@@ -162,5 +223,89 @@ describe("createCodeGenSSEStream", () => {
       ),
     ).toBe(true);
     expect(events.at(-1)?.event).toBe("done");
+  });
+
+  it("emits generation done progress with stream timing metrics", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "reasoning-start" },
+      { type: "reasoning-delta", reasoningDelta: "thinking..." },
+      { type: "text-start" },
+      { type: "text-delta", textDelta: "<main>Hello</main>" },
+      { type: "finish" },
+    ]);
+
+    const generationDoneProgress = events.find(
+      (event) =>
+        event.event === "progress" &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        (event.data as Record<string, unknown>).step === "generation" &&
+        (event.data as Record<string, unknown>).phase === "done",
+    );
+    expect(generationDoneProgress).toBeTruthy();
+    const payload = generationDoneProgress?.data as Record<string, unknown> | undefined;
+    expect(typeof payload?.durationMs).toBe("number");
+    expect(typeof payload?.reasoningMs).toBe("number");
+    expect(typeof payload?.outputMs).toBe("number");
+    expect(Number(payload?.durationMs ?? -1)).toBeGreaterThanOrEqual(0);
+    expect(Number(payload?.reasoningMs ?? -1)).toBeGreaterThanOrEqual(0);
+    expect(Number(payload?.outputMs ?? -1)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("strips leaked leading thinking blocks when thinking is disabled", async () => {
+    const events = await collectEvents(
+      [
+        { type: "start" },
+        { type: "text-start" },
+        { type: "text-delta", textDelta: "<Thinking>\nprivate chain" },
+        {
+          type: "text-delta",
+          textDelta: " details</Thinking>\n```tsx file=\"app/page.tsx\"\nexport default function Page() { return null; }\n```",
+        },
+        { type: "finish" },
+      ],
+      { thinking: false },
+    );
+
+    const contentText = events
+      .filter((event) => event.event === "content")
+      .map((event) =>
+        typeof event.data === "object" && event.data !== null
+          ? String((event.data as Record<string, unknown>).text ?? "")
+          : "",
+      )
+      .join("");
+
+    expect(contentText).not.toContain("<Thinking>");
+    expect(contentText).not.toContain("private chain");
+    expect(contentText).toContain("```tsx file=\"app/page.tsx\"");
+  });
+
+  it("keeps leading thinking-tagged text when thinking is enabled", async () => {
+    const events = await collectEvents(
+      [
+        { type: "start" },
+        { type: "text-start" },
+        {
+          type: "text-delta",
+          textDelta: "<Thinking>\nprivate chain</Thinking>\nVisible output",
+        },
+        { type: "finish" },
+      ],
+      { thinking: true },
+    );
+
+    const contentText = events
+      .filter((event) => event.event === "content")
+      .map((event) =>
+        typeof event.data === "object" && event.data !== null
+          ? String((event.data as Record<string, unknown>).text ?? "")
+          : "",
+      )
+      .join("");
+
+    expect(contentText).toContain("<Thinking>");
+    expect(contentText).toContain("Visible output");
   });
 });

@@ -11,10 +11,8 @@ import {
   addMessage,
   createDraftVersion,
   getVersionsByChat,
-  updateVersionSandboxUrl,
+  updateVersionPreviewUrl,
 } from "@/lib/db/chat-repository-pg";
-import { buildPreviewUrl } from "@/lib/gen/preview/build-preview-document";
-import { canExposeEnginePreview } from "@/lib/db/engine-version-lifecycle";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -28,14 +26,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const versionsList = engineVersions.map((v) => ({
           id: v.id,
           versionId: v.id,
-          ...previewUrlField(null),
-          legacyShimPreviewUrl: canExposeEnginePreview(v)
-            ? buildPreviewUrl(engineChatId, v.id)
-            : null,
+          ...previewUrlField(v.preview_url),
+          legacyShimPreviewUrl: null,
           createdAt: v.created_at,
           versionNumber: v.version_number,
           messageId: v.message_id,
-          sandboxUrl: v.sandbox_url,
+          previewPending: false,
           releaseState: v.release_state,
           verificationState: v.verification_state,
           verificationSummary: v.verification_summary,
@@ -89,37 +85,37 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: strin
   try {
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
-    const { versionId, pinned, sandboxUrl } = body ?? {};
-    const hasSandboxUrl = Object.prototype.hasOwnProperty.call(body ?? {}, "sandboxUrl");
+    const { versionId, pinned, previewUrl } = body ?? {};
+    const hasPreviewUrl = Object.prototype.hasOwnProperty.call(body ?? {}, "previewUrl");
 
     if (
       !versionId ||
-      (typeof pinned !== "boolean" && !hasSandboxUrl)
+      (typeof pinned !== "boolean" && !hasPreviewUrl)
     ) {
       return NextResponse.json(
-        { error: "versionId plus either pinned or sandboxUrl is required" },
+        { error: "versionId plus either pinned or previewUrl is required" },
         { status: 400 },
       );
     }
 
     const engineChat = await getEngineChatByIdForRequest(req, chatId);
     if (engineChat) {
-      if (hasSandboxUrl) {
-        const normalizedSandboxUrl =
-          typeof sandboxUrl === "string" && sandboxUrl.trim().length > 0
-            ? sandboxUrl.trim()
+      if (hasPreviewUrl) {
+        const normalizedPreviewUrl =
+          typeof previewUrl === "string" && previewUrl.trim().length > 0
+            ? previewUrl.trim()
             : null;
-        if (sandboxUrl !== null && sandboxUrl !== undefined && normalizedSandboxUrl === null) {
+        if (previewUrl !== null && previewUrl !== undefined && normalizedPreviewUrl === null) {
           return NextResponse.json(
-            { error: "sandboxUrl must be a non-empty string or null" },
+            { error: "previewUrl must be a non-empty string or null" },
             { status: 400 },
           );
         }
-        if (normalizedSandboxUrl) {
+        if (normalizedPreviewUrl) {
           try {
-            new URL(normalizedSandboxUrl);
+            new URL(normalizedPreviewUrl);
           } catch {
-            return NextResponse.json({ error: "sandboxUrl must be a valid URL" }, { status: 400 });
+            return NextResponse.json({ error: "previewUrl must be a valid URL" }, { status: 400 });
           }
         }
 
@@ -128,13 +124,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: strin
           return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
         }
 
-        const updated = await updateVersionSandboxUrl(
+        const updated = await updateVersionPreviewUrl(
           scopedVersion.version.id,
-          normalizedSandboxUrl,
+          normalizedPreviewUrl,
         );
         if (!updated) {
           return NextResponse.json(
-            { error: "Failed to update sandbox URL" },
+            { error: "Failed to update preview URL" },
             { status: 500 },
           );
         }
@@ -142,7 +138,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ chatId: strin
         return NextResponse.json({
           success: true,
           versionId: scopedVersion.version.id,
-          sandboxUrl: normalizedSandboxUrl,
+          previewUrl: normalizedPreviewUrl,
         });
       }
 
@@ -198,9 +194,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       success: true,
       versionId: restoredVersion.id,
       ...previewUrlField(null),
-      legacyShimPreviewUrl: canExposeEnginePreview(restoredVersion)
-        ? buildPreviewUrl(engineChat.id, restoredVersion.id)
-        : null,
+      legacyShimPreviewUrl: null,
     });
   } catch (err) {
     return NextResponse.json(

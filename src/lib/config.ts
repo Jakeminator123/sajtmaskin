@@ -122,7 +122,7 @@ function getDataDir(): string {
     );
   }
 
-  const localDataDir = path.join(process.cwd(), "data");
+  const localDataDir = path.resolve("data");
 
   if (!IS_PRODUCTION && !hasWarnedAboutDataDir) {
     hasWarnedAboutDataDir = true;
@@ -345,7 +345,12 @@ export const FEATURES = {
   useLightweightScaffoldSerialization:
     env.SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION !== "false",
   useFollowUpLightContext: env.SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT !== "false",
+  // Historical name: setting this to false disables the light fast-path
+  // optimization and forces finalize to stay on the deep path.
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
+  strictGeneratedArtifacts:
+    env.NODE_ENV !== "test" &&
+    env.SAJTMASKIN_STRICT_GENERATED_ARTIFACTS !== "false",
 
   useGoogleAuth: Boolean(SECRETS.googleClientId && SECRETS.googleClientSecret),
 
@@ -373,6 +378,6 @@ export const FEATURES = {
 
   useOpenClawSurface: OPENCLAW.surfaceEnabled,
 
-  // Required for asset materialization and sandbox/shared preview flows
+  // Required for asset materialization and shared preview flows
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;

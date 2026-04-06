@@ -17,7 +17,6 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { prepareCredits } from "@/lib/credits/server";
 import { FEATURES, SECRETS } from "@/lib/config";
 import { braveWebSearch } from "@/lib/brave-search";
-import { isVercelHostedRuntime, pickAiGatewayKeyFromEnv } from "@/lib/vercel";
 
 export const runtime = "nodejs";
 export const maxDuration = 25;
@@ -125,8 +124,8 @@ export async function POST(req: Request) {
       if (!creditCheck.ok) return creditCheck.response;
 
       if (!FEATURES.useResponsesApi) {
-        if (!pickAiGatewayKeyFromEnv() && !isVercelHostedRuntime()) {
-          return NextResponse.json({ error: "AI Gateway auth missing", ...EMPTY }, { status: 503 });
+        if (!SECRETS.openaiApiKey) {
+          return NextResponse.json({ error: "OPENAI_API_KEY saknas", ...EMPTY }, { status: 503 });
         }
       }
 
@@ -187,7 +186,7 @@ Regler:
         normalized = normalizeResponse(rawParsed);
         debugLog("WIZARD", "Responses API competitors completed", { model: RESPONSES_MODEL });
       } else {
-        // ── Gateway fallback path ───────────────────────────────
+        // ── Legacy fallback path (AI SDK + direct provider key) ─
         const result = await generateText({
           model: createDirectModel("openai/gpt-5-mini"),
           prompt: `${competitorsPrompt}
