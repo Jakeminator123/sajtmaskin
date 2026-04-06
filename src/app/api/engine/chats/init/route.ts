@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 
 const MAX_IMPORT_ARCHIVE_BYTES = 50 * 1024 * 1024;
 const MAX_IMPORTED_FILES = 600;
-const MAX_IMPORTED_TEXT_BYTES = 4 * 1024 * 1024;
+const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
 const BLOCKED_IMPORT_PREFIXES = [
   "node_modules/",
   ".git/",
