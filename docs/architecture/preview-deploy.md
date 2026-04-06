@@ -83,7 +83,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | 2 — **Runtime preview** | `preview_host` (VM) bakom appens `preview-*`-kontrakt. Kör `npm run dev`, **inte** `npm run build`; preview-sessionen återanvänds eller hibernateras via status/heartbeat/destroy/hibernate. | Enda live-preview i produkt-UI |
 | 3 — **Build-check** | lockfile-aware install (npm/pnpm) + `tsc` / `next build` / ev. `eslint` i preview-hosts verify-lane | Validering närmare produktion utan att röra live-previewn |
 
-> **Tier-2 verify-gate:** Server-verify och promotion-gate kör default bara `install` + `typecheck` (`TIER2_QUALITY_GATE_CHECKS`). `next build` hör till tier-3/deploy-kontexten och körs inte automatiskt vid tier-2 dev-preview. Interaktiv quality gate från UI kan fortfarande inkludera build och lint via `INTERACTIVE_QUALITY_GATE_CHECKS`.
+> **Tier-2 verify-gate:** Alla quality gate-vägar (server-verify, klient post-check, API-default och preview-host fallback) kör default bara `install` + `typecheck` (`TIER2_QUALITY_GATE_CHECKS`). `next build` hör till tier-3/deploy-kontexten och körs inte automatiskt vid tier-2 dev-preview. `INTERACTIVE_QUALITY_GATE_CHECKS` och `PROMOTION_QUALITY_GATE_CHECKS` finns kvar som konstanter men används inte i standardflödet.
 
 ## ID och nycklar
 

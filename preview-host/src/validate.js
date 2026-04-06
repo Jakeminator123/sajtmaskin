@@ -207,7 +207,7 @@ function validateVerifyPayload(payload) {
     throw new Error("Invalid filesJson: verify requires a non-empty file set");
   }
 
-  let checks = ["typecheck", "build"];
+  let checks = ["typecheck"];
   if (p.checks !== undefined) {
     if (!Array.isArray(p.checks)) {
       throw new Error("Invalid checks: expected array");

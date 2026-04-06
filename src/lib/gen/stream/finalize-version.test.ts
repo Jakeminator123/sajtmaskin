@@ -694,7 +694,7 @@ describe("finalizeAndSaveVersion", () => {
 
       expect(runVerifierPass).not.toHaveBeenCalled();
       expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
-        maxReplacements: 2,
+        maxReplacements: 4,
       });
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({

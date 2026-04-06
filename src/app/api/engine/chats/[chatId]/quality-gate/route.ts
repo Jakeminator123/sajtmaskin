@@ -40,7 +40,7 @@ const requestSchema = z.object({
     .array(z.enum(QUALITY_GATE_CHECK_VALUES))
     .min(1, "At least one quality gate check is required.")
     .optional()
-    .default(["typecheck", "build"]),
+    .default(["typecheck"]),
 });
 
 type GateResult = {
