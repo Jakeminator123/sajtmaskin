@@ -10,8 +10,7 @@ export const runtime = "nodejs";
 /**
  * Serves a self-contained HTML preview of generated code (legacy / fast path).
  * Primary own-engine preview after generation is tier-2 runtime from
- * `startSandboxPreview` (normally `preview_host`/Fly when configured; Vercel
- * Sandbox only as explicit fallback/secondary path). This route remains useful
+ * `startPreviewSession` (`preview_host`/Fly). This route remains useful
  * for quick render and older demoUrl values pointing at /api/preview-render.
  *
  * Query params:

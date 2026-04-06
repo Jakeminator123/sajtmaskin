@@ -40,6 +40,11 @@ Start (PowerShell):
   Sedan: $env:PLAYWRIGHT_STORAGE_STATE="$PWD\\auth.json"
   Insamling: python scripts\\v0_download_zips.py --all-categories --collect-only
   Nedladdning: python scripts\\v0_download_zips.py --all-categories --pace-multiplier 2.5
+
+Återuppta avbruten ZIP-nedladdning (hoppar över id i out/downloaded.jsonl eller befintlig .zip):
+  python scripts\\v0_download_zips.py --all-categories --resume --pace-multiplier 2.5
+
+Vid insamling sparas även listingPreviewsByTemplateId (miniatyrer/video från rutnätet före klick).
 """
 
 from __future__ import annotations
@@ -223,11 +228,147 @@ def click_load_more_until_done(page: Page, label: str = "") -> None:
             print(f"    {prefix}… #{round_i + 1} klick, {cur} mall-id", flush=True)
 
 
-def collect_ids_from_url(page: Page, url: str) -> list[str]:
+LISTING_PREVIEW_JS = r"""() => {
+  const out = {};
+  function add(tid, url) {
+    if (!tid || !url || url.startsWith("data:")) return;
+    if (!out[tid]) out[tid] = [];
+    if (!out[tid].includes(url)) out[tid].push(url);
+  }
+  function abs(u) {
+    try { return new URL(u, document.baseURI).href; } catch { return null; }
+  }
+  function addSrcset(ss, tid) {
+    if (!ss) return;
+    for (const part of ss.split(",")) {
+      const u = part.trim().split(/\s+/)[0];
+      if (u && !u.startsWith("data:")) {
+        const x = abs(u);
+        if (x) add(tid, x);
+      }
+    }
+  }
+  function extract(root, tid) {
+    root.querySelectorAll("img[src], img[srcset]").forEach((img) => {
+      const s = img.getAttribute("src");
+      if (s && !s.startsWith("data:")) {
+        const x = abs(s);
+        if (x) add(tid, x);
+      }
+      addSrcset(img.getAttribute("srcset") || "", tid);
+    });
+    root.querySelectorAll("video[src], video source[src]").forEach((el) => {
+      const s = el.getAttribute("src");
+      if (s) { const x = abs(s); if (x) add(tid, x); }
+    });
+    root.querySelectorAll("video[poster]").forEach((v) => {
+      const p = v.getAttribute("poster");
+      if (p) { const x = abs(p); if (x) add(tid, x); }
+    });
+  }
+  for (const a of document.querySelectorAll('a[href^="/templates/"]')) {
+    const href = (a.getAttribute("href") || "").split("?")[0];
+    const segs = href.replace(/^\/+/, "").split("/");
+    if (segs.length !== 2 || segs[0] !== "templates") continue;
+    const tid = segs[1];
+    extract(a, tid);
+    if (a.parentElement) extract(a.parentElement, tid);
+    if (a.parentElement && a.parentElement.parentElement)
+      extract(a.parentElement.parentElement, tid);
+  }
+  return out;
+}"""
+
+
+def filter_listing_media_url(url: str) -> bool:
+    u = url.lower()
+    if u.startswith("data:"):
+        return False
+    if not (u.startswith("http://") or u.startswith("https://")):
+        return False
+    for s in (
+        "favicon",
+        "gravatar.com",
+        "/icon-",
+        "googleusercontent.com",
+        "avatar",
+        "emoji",
+        "twemoji",
+    ):
+        if s in u:
+            return False
+    return True
+
+
+def gather_listing_previews(page: Page) -> dict[str, list[str]]:
+    raw = page.evaluate(LISTING_PREVIEW_JS)
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for tid, urls in raw.items():
+        if not isinstance(tid, str) or tid in CATEGORY_SLUGS:
+            continue
+        seen: set[str] = set()
+        acc: list[str] = []
+        if isinstance(urls, list):
+            for u in urls:
+                if isinstance(u, str) and filter_listing_media_url(u) and u not in seen:
+                    seen.add(u)
+                    acc.append(u)
+        if acc:
+            out[tid] = acc
+    return out
+
+
+def merge_listing_previews(
+    dst: dict[str, list[str]], src: dict[str, list[str]]
+) -> None:
+    for tid, urls in src.items():
+        if tid in CATEGORY_SLUGS:
+            continue
+        seen = set(dst.get(tid, []))
+        for u in urls:
+            if filter_listing_media_url(u) and u not in seen:
+                seen.add(u)
+                dst.setdefault(tid, []).append(u)
+
+
+def collect_ids_from_url(page: Page, url: str) -> tuple[list[str], dict[str, list[str]]]:
     page.goto(url, wait_until="domcontentloaded", timeout=90_000)
     short = url.replace("https://v0.app", "") or "/"
     click_load_more_until_done(page, label=f" {short}")
-    return collect_template_ids(page)
+    ids = collect_template_ids(page)
+    print(f"    Extraherar listing-URL:er ({len(ids)} kort) …", end="", flush=True)
+    previews = gather_listing_previews(page)
+    n = sum(len(v) for v in previews.values())
+    print(f" {n} URL:er.", flush=True)
+    return ids, previews
+
+
+def collect_templates_scan(
+    page: Page, scan_urls: list[str]
+) -> tuple[list[str], dict[str, set[str]], dict[str, list[str]], dict[str, int]]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    id_sources: dict[str, set[str]] = {}
+    merged_previews: dict[str, list[str]] = {}
+    sources: dict[str, int] = {}
+    for u in scan_urls:
+        src_key = source_key_from_scan_url(u)
+        try:
+            part_ids, part_pv = collect_ids_from_url(page, u)
+        except Exception as e:
+            print(f"Varning: kunde inte läsa {u}: {e}", flush=True)
+            continue
+        sources[u] = len(part_ids)
+        merge_listing_previews(merged_previews, part_pv)
+        for tid in part_ids:
+            id_sources.setdefault(tid, set()).add(src_key)
+            if tid not in seen:
+                seen.add(tid)
+                merged.append(tid)
+        print(f"  {u} → {len(part_ids)} id (ackumulerat unika: {len(merged)})", flush=True)
+    return merged, id_sources, merged_previews, sources
 
 
 def collect_template_ids(page: Page) -> list[str]:
@@ -328,6 +469,35 @@ def append_jsonl(path: Path, obj: object) -> None:
         f.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
 
+def load_already_downloaded_template_ids(jsonl_path: Path) -> set[str]:
+    ids: set[str] = set()
+    if not jsonl_path.is_file():
+        return ids
+    with open(jsonl_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+                tid = row.get("templateId")
+                if isinstance(tid, str):
+                    ids.add(tid)
+            except json.JSONDecodeError:
+                pass
+    return ids
+
+
+def template_folder_has_valid_zip(template_id: str, min_bytes: int = 500) -> bool:
+    for z in DOWNLOAD_ROOT.glob(f"**/{template_id}/*.zip"):
+        try:
+            if z.is_file() and z.stat().st_size >= min_bytes:
+                return True
+        except OSError:
+            pass
+    return False
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="v0 templates: collect & download ZIP")
     p.add_argument("--collect-only", action="store_true")
@@ -374,6 +544,11 @@ def parse_args() -> argparse.Namespace:
         "--pause-before-close",
         action="store_true",
         help="Vänta på Enter i terminalen innan webbläsaren stängs (skriptet är annars färdigt)",
+    )
+    p.add_argument(
+        "--resume",
+        action="store_true",
+        help="Hoppa över mall-id som redan finns i out/downloaded.jsonl eller har .zip under downloads/.../id/",
     )
     return p.parse_args()
 
@@ -449,34 +624,22 @@ def main() -> None:
 
         sources: dict[str, int] = {}
         id_sources: dict[str, set[str]] = {}
+        merged_previews: dict[str, list[str]] = {}
         if args.all_categories:
             scan_urls = ["https://v0.app/templates"] + [
                 f"https://v0.app/templates/{slug}" for slug in BROWSE_CATEGORY_SLUGS
             ]
-            merged: list[str] = []
-            seen: set[str] = set()
-            for u in scan_urls:
-                src_key = source_key_from_scan_url(u)
-                try:
-                    part = collect_ids_from_url(page, u)
-                except Exception as e:
-                    print(f"Varning: kunde inte läsa {u}: {e}", flush=True)
-                    continue
-                sources[u] = len(part)
-                for tid in part:
-                    id_sources.setdefault(tid, set()).add(src_key)
-                    if tid not in seen:
-                        seen.add(tid)
-                        merged.append(tid)
-                print(f"  {u} → {len(part)} id (ackumulerat unika: {len(merged)})", flush=True)
-            ids = merged
+            ids, id_sources, merged_previews, sources = collect_templates_scan(page, scan_urls)
         else:
-            click_load_more_until_done(page, label=" (översikt)")
-            ids = collect_template_ids(page)
+            ids, part_pv = collect_ids_from_url(page, list_url)
+            merge_listing_previews(merged_previews, part_pv)
             sk = category_slug or BROWSE_ALL_KEY
             id_sources = {tid: {sk} for tid in ids}
+            sources = {list_url: len(ids)}
 
         print(f"Hittade {len(ids)} unika mall-id totalt.", flush=True)
+        n_prev = sum(len(v) for v in merged_previews.values())
+        print(f"Listing-förhands-URL:er för {len(merged_previews)} mall(ar), totalt {n_prev} länkar.", flush=True)
 
         links_path = OUT / "collected-template-ids.json"
         payload: dict = {
@@ -485,6 +648,7 @@ def main() -> None:
             "ids": ids,
             "count": len(ids),
             "templateSourceSlugs": {k: sorted(v) for k, v in sorted(id_sources.items())},
+            "listingPreviewsByTemplateId": merged_previews,
         }
         if args.all_categories:
             payload["sources"] = sources
@@ -528,6 +692,17 @@ def main() -> None:
             to_process = to_process[: max(0, args.limit)]
 
         pm = max(0.05, float(args.pace_multiplier))
+        resume_ids = (
+            load_already_downloaded_template_ids(OUT / "downloaded.jsonl")
+            if args.resume
+            else set()
+        )
+        if args.resume:
+            print(
+                f"--resume: {len(resume_ids)} id från downloaded.jsonl; "
+                "ZIP på disk räknas också.",
+                flush=True,
+            )
         print(
             f"Bearbetar {len(to_process)} mall(ar), shuffle={'av' if args.no_shuffle else 'på'}, "
             f"seed={repr(args.seed)}, pace-multiplier={pm}",
@@ -535,6 +710,11 @@ def main() -> None:
         )
 
         for i, template_id in enumerate(to_process):
+            if args.resume and (
+                template_id in resume_ids or template_folder_has_valid_zip(template_id)
+            ):
+                print(f"SKIP (resume) {template_id}", flush=True)
+                continue
             slugs = id_sources.get(template_id, {BROWSE_ALL_KEY})
             folder_label = folder_label_from_source_slugs(slugs)
             row = {

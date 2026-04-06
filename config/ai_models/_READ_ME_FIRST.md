@@ -16,7 +16,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
    - **tokenbudgetar** och **route-timeout**-värden (med min/max som i koden);
    - listor över **tillåtna assist-modeller**;
    - **`workloads`**: en post per huvudsakligt anropssteg (filvägar, auth-env, API-typ), inklusive planner/brief/repair där det är relevant.
-   - **`generatedSiteIntegrationPlaceholders`**: pekar på **`40-generated-site-integration-placeholders.env.txt`** — vanlig text i dotenv-stil (som `prompt-static`-fragment men för **genererade användarsajters** preview-runtime, inte Sajtmaskin-appens `.env`). Läs med `src/lib/ai-models/load-generated-site-placeholders.ts` (endast Node). När tier-2 preview-session startas via **`startSandboxPreview`** mergas innehållet in i `.env.local` av `src/lib/gen/sandbox/env-local.ts`. Policy: `config/user_degraded_env.txt`.
+  - **`generatedSiteIntegrationPlaceholders`**: pekar på **`40-generated-site-integration-placeholders.env.txt`** — vanlig text i dotenv-stil (som `prompt-static`-fragment men för **genererade användarsajters** preview-runtime, inte Sajtmaskin-appens `.env`). Läs med `src/lib/ai-models/load-generated-site-placeholders.ts` (endast Node). När tier-2 preview-session startas via **`startPreviewSession`** mergas innehållet in i `.env.local` av `src/lib/gen/preview/env-local.ts`. Policy: `config/user_degraded_env.txt`.
 2. **`00-overview.md`**, **`10-own-engine.md`**, **`20-prompt-assist.md`**, **`30-embeddings-and-misc.md`** — förklaringar och tabeller för människor.
 3. **`manifest.schema.json`** — JSON Schema för validering (t.ex. i editor eller CI).
 
@@ -24,7 +24,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 
 - **Nav:** håll `config/ai_models/manifest.json` som nav när **provider → env-nycklar** flyttas eller struktureras om ur `PROVIDER_RULES` i `src/lib/gen/pre-generation-contracts.ts`. Använd manifest + `generatedSiteIntegrationPlaceholders` (och vid behov en **generator** som läser `workloads` + den blocken) så ni inte får en **tredje osynkad lista** bredvid kod och JSON.
 - **Nu:** provider-regler och fallback-val för pre-generation contracts ligger i manifestet så dashboard + runtime kan läsa samma källa. Själva inferenslogiken (hur de används) ligger fortfarande i `pre-generation-contracts.ts`.
-- **Tier-2 preview runtime:** Både `startSandboxPreview` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) bygger **`.env.local`** med `buildSandboxEnvLocalContents` (`src/lib/gen/sandbox/env-local.ts`): globala placeholders från `40-…env.txt`, projekt-preview-token, lagrade projekt-env, sist innehåll från genererad `.env.local` om modellen skrev en — **senare lager vinner**. Loader: `readGeneratedSitePlaceholdersEnvText()` i `load-generated-site-placeholders.ts`.
+- **Tier-2 preview runtime:** Både `startPreviewSession` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) bygger **`.env.local`** med `buildPreviewEnvLocalContents` (`src/lib/gen/preview/env-local.ts`): globala placeholders från `40-…env.txt`, projekt-preview-token, lagrade projekt-env, sist innehåll från genererad `.env.local` om modellen skrev en — **senare lager vinner**. Loader: `readGeneratedSitePlaceholdersEnvText()` i `load-generated-site-placeholders.ts`.
 - **Utanför den kedjan:** Tier-1 shim och script som bara läser filen manuellt — **ingen** automatisk merge från denna pipeline.
 
 ## Viktiga regler

@@ -5,7 +5,7 @@ Kanoniska **JSON/MD/txt** som Sajtmaskin-appen, bygget och skript **läser** vid
 | Del | Roll |
 |-----|------|
 | `codegen-static-prompt.json` + `prompt-static/` | Statisk own-engine-systemprompt — fragmentordning i JSON, texter som `.md`. |
-| `ai_models/` | `manifest.json` + mänskliga noter; modellval, prompt/brief-ingress, tokenbudgetar, route-timeouts, phase-routing för planner/fixer/verifier, post-generation verifier-budgetar, repair-passgränser, prompt-orchestration-gränser, pre-generation contract/provider-regler, workload-katalog samt `40-generated-site-integration-placeholders.env.txt` som mergas till tier-2-previewens `.env.local` när `startSandboxPreview` körs, se `src/lib/gen/sandbox/env-local.ts`. |
+| `ai_models/` | `manifest.json` + mänskliga noter; modellval, prompt/brief-ingress, tokenbudgetar, route-timeouts, phase-routing för planner/fixer/verifier, post-generation verifier-budgetar, repair-passgränser, prompt-orchestration-gränser, pre-generation contract/provider-regler, workload-katalog samt `40-generated-site-integration-placeholders.env.txt` som mergas till tier-2-previewens `.env.local` när `startPreviewSession` körs, se `src/lib/gen/preview/env-local.ts`. |
 | `env-policy.json` | Policy för env-nycklar (par med `src/lib/env.ts`, `docs/ENV.md`). |
 | `shadcn-mirror-audit-policy.json` | Audit mot externa mall-repon. |
 | `user_degraded_env.txt` | Policytext för degraded/placeholder i användarprojekt. |

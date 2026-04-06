@@ -228,7 +228,7 @@ Om du vill att lokal utveckling ska vara mer isolerad från production:
 
 ## Genererade användarsajter (preview / VM runtime)
 
-Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/sandbox/env-local.ts`) med underlag från `config/ai_models/` — se **preview-deploy.md**, avsnitt om tier-2 preview `.env.local`.
+Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **preview-deploy.md**, avsnitt om tier-2 preview `.env.local`.
 
 ---
 

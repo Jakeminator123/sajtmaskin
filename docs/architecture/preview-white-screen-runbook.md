@@ -3,7 +3,7 @@
 **Senast uppdaterad:** 2026-04-02  
 **Mål:** Snabb felsökning när preview-ytan ser **vit** ut eller **ingen** Next.js-preview syns, plus **förebyggande** åtgärder så samma klass av fel inte upprepas. `preview_host` / VM är den primära previewvägen; shim är bara en kompatibilitetsvy under migration/fallback.
 
-**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` (implementation i `src/lib/gen/sandbox/sandbox-preview.ts`) + `preview-host/`.
+**Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` + `preview-host/`.
 
 ---
 

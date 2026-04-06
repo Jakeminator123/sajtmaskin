@@ -37,7 +37,7 @@
 #
 # This policy narrative file is *not* parsed by merge logic; it is human/agent
 # documentation. The KEY=value fragment is merged into the tier-2 preview
-# runtime's `.env.local` when preview starts via `startSandboxPreview`.
+# runtime's `.env.local` when preview starts via `startPreviewSession`.
 # Tier-1 HTML shim and some non-builder helper flows do not use this merge path.
 #
 # -----------------------------------------------------------------------------

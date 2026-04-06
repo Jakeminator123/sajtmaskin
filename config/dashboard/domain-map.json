@@ -83,6 +83,8 @@
         "src/lib/models/phase-routing.ts",
         "src/lib/builder/site-brief-generation.ts",
         "src/lib/gen/contract/pre-generation-contracts.ts",
+        "src/lib/gen/preview/env-local.ts",
+        "src/lib/gen/preview/project-preview-env.ts",
         "src/lib/gen/server-verify.ts",
         "src/lib/api/engine/chats/create-chat-stream-post.ts",
         "src/lib/api/engine/chats/chat-message-stream-post.ts",
@@ -199,7 +201,9 @@
       ],
       "codeReaders": [
         "src/lib/gen/contract/pre-generation-contracts.ts",
-        "src/lib/ai-models/load-generated-site-placeholders.ts"
+        "src/lib/ai-models/load-generated-site-placeholders.ts",
+        "src/lib/gen/preview/env-local.ts",
+        "src/lib/gen/preview/project-preview-env.ts"
       ]
     },
     "Cursor-agenter": {
