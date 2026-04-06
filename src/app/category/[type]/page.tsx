@@ -38,6 +38,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import Image from "next/image";
 import { PreviewModal } from "@/components/templates/preview-modal";
 import { toast } from "sonner";
+import { useLocalV0TemplateAvailability } from "@/lib/templates/use-local-v0-template-availability";
 
 // Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -66,6 +67,7 @@ export default function CategoryPage() {
   const category = getCategory(type);
   const v0Category = V0_CATEGORIES[type];
   const v0Templates = v0Category ? getTemplatesByCategory(type) : [];
+  const localRepoTemplateIds = useLocalV0TemplateAvailability(v0Templates.map((template) => template.id));
 
   // Use v0 category if available, otherwise use legacy category
   const displayCategory = v0Category || category;
@@ -368,14 +370,18 @@ export default function CategoryPage() {
               <div className="mb-4 flex items-center gap-2">
                 <Layout className="text-brand-teal h-5 w-5" />
                 <h2 className="text-lg font-semibold text-white">Mallar</h2>
-                <HelpTooltip text="Mallar från den externa mallkatalogen. Klicka för att öppna." />
+                <HelpTooltip text="Repo-baserade v0-mallar. Klicka för att starta just den mallen i buildern." />
               </div>
+              <p className="mb-4 text-xs leading-relaxed text-gray-400">
+                Mallar märkta <span className="font-medium text-emerald-300">Lokal repo</span> startar direkt från den nedladdade v0-ZIP:en i VM-previewn. Det här gäller bara v0-mallarna här, inte Vercel-templates.
+              </p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {v0Templates.map((template) => (
                   <V0TemplateCard
                     key={template.id}
                     template={template}
+                    hasLocalRepo={localRepoTemplateIds.has(template.id)}
                     disabled={isCreating}
                     buildIntent={buildIntent}
                   />
@@ -394,10 +400,12 @@ export default function CategoryPage() {
 // V0 Template Card Component
 function V0TemplateCard({
   template,
+  hasLocalRepo,
   disabled,
   buildIntent,
 }: {
   template: Template;
+  hasLocalRepo: boolean;
   disabled: boolean;
   buildIntent: BuildIntent;
 }) {
@@ -419,6 +427,10 @@ function V0TemplateCard({
     e.stopPropagation();
 
     if (disabled || isCreating) return;
+    if (!hasLocalRepo) {
+      toast.error("Den här v0-mallen är inte nedladdad lokalt ännu.");
+      return;
+    }
 
     setIsCreating(true);
     try {
@@ -456,9 +468,31 @@ function V0TemplateCard({
           />
         </div>
         <div className="space-y-3 p-4">
-          <h3 className="line-clamp-1 text-sm font-medium text-white">
-            {template.title || template.id}
-          </h3>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="line-clamp-1 text-sm font-medium text-white">
+                {template.title || template.id}
+              </h3>
+              {hasLocalRepo ? (
+                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
+                  Lokal repo
+                </span>
+              ) : (
+                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
+                  Ej lokal ännu
+                </span>
+              )}
+            </div>
+            {hasLocalRepo ? (
+              <p className="text-[11px] leading-relaxed text-gray-400">
+                Startar från den lokala repo-mallen i VM:n.
+              </p>
+            ) : (
+              <p className="text-[11px] leading-relaxed text-gray-500">
+                Visas i katalogen, men kan inte startas i VM förrän ZIP-repot finns lokalt.
+              </p>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               onClick={handlePreviewClick}
@@ -470,7 +504,7 @@ function V0TemplateCard({
             </button>
             <button
               onClick={handleEdit}
-              disabled={disabled || isCreating}
+              disabled={disabled || isCreating || !hasLocalRepo}
               className="flex flex-1 items-center justify-center gap-2 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isCreating ? (
@@ -478,7 +512,7 @@ function V0TemplateCard({
               ) : (
                 <Edit className="h-3.5 w-3.5" />
               )}
-              {isCreating ? "Skapar..." : "Redigera"}
+              {isCreating ? "Skapar..." : hasLocalRepo ? "Redigera" : "Inte redo än"}
             </button>
           </div>
         </div>

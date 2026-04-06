@@ -49,7 +49,7 @@ export default function TemplatesPage() {
             </h1>
             <p className="text-muted-foreground mx-auto max-w-xl text-lg leading-relaxed">
               Välj en mall och skapa din professionella webbplats på minuter med AI.
-              Alla mallar är anpassningsbara.
+              Alla mallar är anpassningsbara. Lokala repo-baserade v0-mallar markeras inne i respektive kategori.
             </p>
           </div>
 

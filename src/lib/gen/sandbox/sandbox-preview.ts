@@ -65,6 +65,22 @@ type StartSandboxPreviewOutcome =
 /** Own-engine stream + `/sandbox-preview` bootstrap can call `startSandboxPreview` at the same time for the same chat+version — share one in-flight promise so we do not spawn two VMs. */
 const inflightSandboxByChatVersion = new Map<string, Promise<StartSandboxPreviewOutcome>>();
 
+export function resolveTier2InstallCommand(files: RuntimeFile[]): string {
+  const basenames = new Set(
+    files.map((file) => file.name.split("/").pop()?.trim().toLowerCase() ?? ""),
+  );
+  if (basenames.has("pnpm-lock.yaml") || basenames.has("pnpm-lock.yml")) {
+    return "pnpm install --frozen-lockfile --prefer-offline";
+  }
+  if (basenames.has("package-lock.json")) {
+    return "npm ci --prefer-offline";
+  }
+  if (basenames.has("yarn.lock")) {
+    return "yarn install --frozen-lockfile";
+  }
+  return "npm install --prefer-offline";
+}
+
 export type StartSandboxPreviewOptions = {
   /** When set, decrypted `projectEnvVars` merge into sandbox `.env.local` (after placeholders). */
   appProjectId?: string | null;
@@ -305,7 +321,7 @@ async function runStartSandboxPreview(
 
   try {
     const runtime = await createSandboxRuntimeFromFiles(runtimeFiles, {
-      installCommand: "npm install --prefer-offline",
+      installCommand: resolveTier2InstallCommand(runtimeFiles),
       startCommand: "npm run dev",
       ports: [3000],
       sandboxPreviewMode: resolvedMode,

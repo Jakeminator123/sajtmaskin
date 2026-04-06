@@ -85,6 +85,7 @@ import {
   type CategoryInfo,
   type Template,
 } from "@/lib/templates/client";
+import { useLocalV0TemplateAvailability } from "@/lib/templates/use-local-v0-template-availability";
 
 import {
   DESIGN_THEME_OPTIONS,
@@ -381,6 +382,16 @@ export function UnifiedElementPicker({
   const [templateSearchResults, setTemplateSearchResults] = useState<TemplateSearchResultItem[] | null>(null);
   const [templateSearchLoading, setTemplateSearchLoading] = useState(false);
   const [templateSearchError, setTemplateSearchError] = useState(false);
+  const visibleTemplateIds = useMemo(() => {
+    const ids = templateItems.map((template) => template.id);
+    if (templateSearchResults) {
+      for (const result of templateSearchResults) {
+        ids.push(result.template.id);
+      }
+    }
+    return ids;
+  }, [templateItems, templateSearchResults]);
+  const localRepoTemplateIds = useLocalV0TemplateAvailability(visibleTemplateIds);
 
   useEffect(() => {
     const trimmed = templateQuery.trim();
@@ -431,9 +442,12 @@ export function UnifiedElementPicker({
     else setSelectedTemplate(null);
   }, [templateItems]);
 
-  const canStartTemplate = Boolean(selectedTemplate) && !isBusy;
+  const selectedTemplateHasLocalRepo = selectedTemplate
+    ? localRepoTemplateIds.has(selectedTemplate.id)
+    : false;
+  const canStartTemplate = Boolean(selectedTemplate) && selectedTemplateHasLocalRepo && !isBusy;
   const handleTemplateConfirm = () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || !selectedTemplateHasLocalRepo) return;
     onTemplateSelect(selectedTemplate.id);
   };
 
@@ -821,6 +835,9 @@ export function UnifiedElementPicker({
                   {hasChat && (
                     <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">Om du startar från en mall skapas en ny chat.</div>
                   )}
+                  <div className="mb-4 rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-3 text-xs text-muted-foreground">
+                    Mallar märkta <span className="font-medium text-emerald-300">Lokal repo</span> startar från den nedladdade v0-repo-ZIP:en i VM:n. Detta gäller inte Vercel-templates.
+                  </div>
                   {templateQuery.trim() && templateSearchLoading ? (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {Array.from({ length: 6 }).map((_, i) => (
@@ -841,16 +858,31 @@ export function UnifiedElementPicker({
                         {templateSearchResults.map((result) => {
                           const isSelected = selectedTemplate?.id === result.template.id;
                           const scorePercent = Math.round(result.score * 100);
+                          const hasLocalRepo = localRepoTemplateIds.has(result.template.id);
                           return (
                             <button key={result.template.id} type="button" onClick={() => handleSearchResultSelect(result)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
                               <div className="relative aspect-16/10 w-full overflow-hidden bg-muted/30">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={result.template.previewImageUrl} alt={result.template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                                {hasLocalRepo ? (
+                                  <Badge className="absolute top-2 left-2 border-emerald-400/20 bg-emerald-500/85 text-[10px] text-white">
+                                    Lokal repo
+                                  </Badge>
+                                ) : (
+                                  <Badge className="absolute top-2 left-2 border-amber-400/20 bg-amber-500/85 text-[10px] text-white">
+                                    Ej lokal ännu
+                                  </Badge>
+                                )}
                                 <Badge className="absolute top-2 right-2 border-0 bg-black/60 text-[10px] text-white backdrop-blur-sm">{scorePercent}% match</Badge>
                               </div>
                               <div className="p-3">
                                 <div className="truncate text-sm font-medium text-foreground">{result.template.title}</div>
                                 <div className="mt-1 text-[11px] text-muted-foreground">{result.template.category}</div>
+                                {!hasLocalRepo ? (
+                                  <div className="mt-1 text-[11px] text-amber-200/90">
+                                    Kräver lokal ZIP innan VM-start
+                                  </div>
+                                ) : null}
                               </div>
                             </button>
                           );
@@ -868,15 +900,36 @@ export function UnifiedElementPicker({
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {templateItems.map((template) => {
                             const isSelected = selectedTemplate?.id === template.id;
+                            const hasLocalRepo = localRepoTemplateIds.has(template.id);
                             return (
                               <button key={template.id} type="button" onClick={() => setSelectedTemplate(template)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
-                                <div className="aspect-16/10 w-full overflow-hidden bg-muted/30">
+                                <div className="relative aspect-16/10 w-full overflow-hidden bg-muted/30">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={getTemplateImageUrl(template)} alt={template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                                  {hasLocalRepo ? (
+                                    <Badge className="absolute top-2 left-2 border-emerald-400/20 bg-emerald-500/85 text-[10px] text-white">
+                                      Lokal repo
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="absolute top-2 left-2 border-amber-400/20 bg-amber-500/85 text-[10px] text-white">
+                                      Ej lokal ännu
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="p-3">
                                   <div className="text-sm font-medium text-foreground">{template.title}</div>
-                                  <div className="mt-1 text-[11px] text-muted-foreground">{template.category}</div>
+                                  <div className="mt-1 text-[11px] text-muted-foreground">
+                                    {template.category}
+                                  </div>
+                                  {hasLocalRepo ? (
+                                    <div className="mt-1 text-[11px] text-emerald-300/90">
+                                      Startar från lokal repo-mall
+                                    </div>
+                                  ) : (
+                                    <div className="mt-1 text-[11px] text-amber-200/90">
+                                      Kräver lokal ZIP innan VM-start
+                                    </div>
+                                  )}
                                 </div>
                               </button>
                             );
@@ -964,6 +1017,11 @@ export function UnifiedElementPicker({
             {activeTab === "mall" && selectedTemplate && (
               <div className="text-xs text-muted-foreground">
                 Vald mall: <span className="font-medium text-foreground">{selectedTemplate.title}</span>
+                {!selectedTemplateHasLocalRepo ? (
+                  <span className="ml-2 text-amber-200/90">
+                    Den här mallen kan inte startas förrän ZIP-repot finns lokalt.
+                  </span>
+                ) : null}
               </div>
             )}
             {(activeTab === "ui" || activeTab === "ai") && !hasChat && (

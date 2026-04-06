@@ -93,6 +93,7 @@ För embeddings krävs `OPENAI_API_KEY` i miljön. I praktiken räcker det att n
 
 - `templates:sync` i sig är nu smart nog att **föredra lokal manifest-intake** när `templates_v0/out/collected-template-ids.json` finns.
 - `templates:local:refresh` är ändå det tydligaste kommandot efter ny lokal intake, eftersom det låser körningen till `--source=local-manifest`.
+- När en mall även finns som lokal ZIP i `templates_v0/downloads/` initierar builderns v0-mallflöde own-engine från repo-filerna i ZIP:en i stället för att be own-engine generera en ny startmall från template-id:t.
 - Preview-bilderna i galleriet kommer från template-katalogens `preview_image_url`, inte från att ZIP:arna renderas live.
 - Nya ZIP-filer blir inte synliga i appen förrän du har kört ett sync-kommando som uppdaterar `src/lib/templates/*`.
 
