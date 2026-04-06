@@ -28,9 +28,10 @@ function createResult(parts: StreamPart[]) {
   };
 }
 
-async function collectEvents(parts: StreamPart[]) {
+async function collectEvents(parts: StreamPart[], options?: { thinking?: boolean }) {
   const stream = createCodeGenSSEStream(createResult(parts), {
     meta: { chatId: "chat_test" },
+    thinking: options?.thinking,
   });
   const reader = stream.getReader();
   const decoder = new TextDecoder();
@@ -250,5 +251,61 @@ describe("createCodeGenSSEStream", () => {
     expect(Number(payload?.durationMs ?? -1)).toBeGreaterThanOrEqual(0);
     expect(Number(payload?.reasoningMs ?? -1)).toBeGreaterThanOrEqual(0);
     expect(Number(payload?.outputMs ?? -1)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("strips leaked leading thinking blocks when thinking is disabled", async () => {
+    const events = await collectEvents(
+      [
+        { type: "start" },
+        { type: "text-start" },
+        { type: "text-delta", textDelta: "<Thinking>\nprivate chain" },
+        {
+          type: "text-delta",
+          textDelta: " details</Thinking>\n```tsx file=\"app/page.tsx\"\nexport default function Page() { return null; }\n```",
+        },
+        { type: "finish" },
+      ],
+      { thinking: false },
+    );
+
+    const contentText = events
+      .filter((event) => event.event === "content")
+      .map((event) =>
+        typeof event.data === "object" && event.data !== null
+          ? String((event.data as Record<string, unknown>).text ?? "")
+          : "",
+      )
+      .join("");
+
+    expect(contentText).not.toContain("<Thinking>");
+    expect(contentText).not.toContain("private chain");
+    expect(contentText).toContain("```tsx file=\"app/page.tsx\"");
+  });
+
+  it("keeps leading thinking-tagged text when thinking is enabled", async () => {
+    const events = await collectEvents(
+      [
+        { type: "start" },
+        { type: "text-start" },
+        {
+          type: "text-delta",
+          textDelta: "<Thinking>\nprivate chain</Thinking>\nVisible output",
+        },
+        { type: "finish" },
+      ],
+      { thinking: true },
+    );
+
+    const contentText = events
+      .filter((event) => event.event === "content")
+      .map((event) =>
+        typeof event.data === "object" && event.data !== null
+          ? String((event.data as Record<string, unknown>).text ?? "")
+          : "",
+      )
+      .join("");
+
+    expect(contentText).toContain("<Thinking>");
+    expect(contentText).toContain("Visible output");
   });
 });

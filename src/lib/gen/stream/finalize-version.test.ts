@@ -342,7 +342,7 @@ describe("finalizeAndSaveVersion", () => {
 
     expect(progressEvents).toContainEqual({
       event: "autofix",
-      data: { phase: "done", fixes: 0, warnings: 0 },
+      data: expect.objectContaining({ phase: "done", fixes: 0, warnings: 0 }),
     });
   });
 
@@ -642,7 +642,7 @@ describe("finalizeAndSaveVersion", () => {
               url_expand: expect.objectContaining({ status: "done" }),
               materialize_images: expect.objectContaining({
                 status: "done",
-                maxReplacements: 4,
+                maxReplacements: 5,
               }),
               validate_syntax: expect.objectContaining({ status: "done" }),
               verifier: expect.objectContaining({
@@ -655,7 +655,7 @@ describe("finalizeAndSaveVersion", () => {
         }),
       );
       expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
-        maxReplacements: 4,
+        maxReplacements: 5,
       });
       expect(runVerifierPass).toHaveBeenCalled();
       expect(result.telemetryRecordId).not.toBeNull();

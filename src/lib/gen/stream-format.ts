@@ -48,6 +48,64 @@ function resolveReasoningText(part: {
   return part.reasoningDelta ?? part.reasoning ?? part.textDelta ?? part.text;
 }
 
+const LEAKED_THINKING_OPEN_TAG = "<thinking>";
+const LEAKED_THINKING_CLOSE_TAG = "</thinking>";
+
+function isPotentialLeadingThinkingPrefix(value: string): boolean {
+  const afterLeadingWhitespace = value.replace(/^\s+/, "");
+  if (!afterLeadingWhitespace) return true;
+  return LEAKED_THINKING_OPEN_TAG.startsWith(afterLeadingWhitespace.toLowerCase());
+}
+
+function createLeadingThinkingLeakFilter(enabled: boolean): (chunk?: string) => string {
+  if (!enabled) {
+    return (chunk?: string) => chunk ?? "";
+  }
+
+  let prefixBuffer = "";
+  let suppressedBuffer = "";
+  let suppressing = false;
+  let filterDone = false;
+
+  const consumeWhileSuppressing = (chunk: string): string => {
+    suppressedBuffer += chunk;
+    const closeIndex = suppressedBuffer.toLowerCase().indexOf(LEAKED_THINKING_CLOSE_TAG);
+    if (closeIndex === -1) return "";
+    const trailing = suppressedBuffer.slice(closeIndex + LEAKED_THINKING_CLOSE_TAG.length);
+    suppressedBuffer = "";
+    suppressing = false;
+    filterDone = true;
+    return trailing;
+  };
+
+  return (chunk?: string): string => {
+    if (!chunk) return "";
+    if (filterDone) return chunk;
+
+    if (suppressing) {
+      return consumeWhileSuppressing(chunk);
+    }
+
+    prefixBuffer += chunk;
+    const openingMatch = /^\s*<thinking>/i.exec(prefixBuffer);
+    if (openingMatch) {
+      suppressing = true;
+      const afterOpeningTag = prefixBuffer.slice(openingMatch[0].length);
+      prefixBuffer = "";
+      return afterOpeningTag ? consumeWhileSuppressing(afterOpeningTag) : "";
+    }
+
+    if (isPotentialLeadingThinkingPrefix(prefixBuffer)) {
+      return "";
+    }
+
+    filterDone = true;
+    const passthrough = prefixBuffer;
+    prefixBuffer = "";
+    return passthrough;
+  };
+}
+
 function parseToolArgs(candidate: unknown): Record<string, unknown> | null {
   if (!candidate) return null;
   if (typeof candidate === "object" && !Array.isArray(candidate)) {
@@ -98,6 +156,7 @@ export function createCodeGenSSEStream(
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const { thinking = false, meta } = options;
+  const stripLeadingThinkingLeak = createLeadingThinkingLeakFilter(!thinking);
 
   return new ReadableStream({
     async start(controller) {
@@ -342,7 +401,7 @@ export function createCodeGenSSEStream(
             case "output-text":
             case "output-text-delta": {
               ensureGenerationStarted();
-              const contentText = resolveStreamText(part);
+              const contentText = stripLeadingThinkingLeak(resolveStreamText(part));
               if (contentText) {
                 if (firstContentTokenAt === null) {
                   firstContentTokenAt = Date.now();
