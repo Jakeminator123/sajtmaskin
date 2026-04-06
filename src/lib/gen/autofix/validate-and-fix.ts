@@ -6,7 +6,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 
 type ValidateFixStatus = "passed" | "partial" | "failed" | "pipeline-error";
-type ValidateFixEarlyStopReason = "fixer_noop" | "no_improvement" | null;
+type ValidateFixEarlyStopReason = "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
 
 export interface ValidateFixResult {
   content: string;
@@ -43,9 +43,12 @@ export async function validateAndFix(
     model: string;
     resolvedTier?: CanonicalModelId;
     onProgress?: ValidateFixProgressCallback;
+    fixBudgetMs?: number;
   },
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;
+  const fixBudgetMs = Math.max(1_000, opts.fixBudgetMs ?? 20_000);
+  const budgetDeadline = Date.now() + fixBudgetMs;
 
   try {
     const { validateGeneratedCode } = await import("../retry/validate-syntax");
@@ -59,8 +62,24 @@ export async function validateAndFix(
     let passCount = 0;
     let earlyStopReason: ValidateFixEarlyStopReason = null;
 
+    const stopForBudget = (pass: number) => {
+      earlyStopReason = "time_budget_exceeded";
+      onProgress?.({ pass, phase: "gave-up", errorCount: bestErrorCount === Infinity ? 0 : bestErrorCount });
+      devLogAppend("in-progress", {
+        type: "syntax-validation.early-stop",
+        chatId: opts.chatId,
+        pass,
+        reason: earlyStopReason,
+        fixBudgetMs,
+      });
+    };
+
     for (let pass = 1; pass <= SYNTAX_FIX_MAX_PASSES; pass++) {
       passCount = pass;
+      if (Date.now() >= budgetDeadline) {
+        stopForBudget(pass);
+        break;
+      }
       onProgress?.({ pass, phase: "validating", errorCount: 0 });
       devLogAppend("in-progress", {
         type: "syntax-validation.pass",
@@ -145,10 +164,23 @@ export async function validateAndFix(
         const brokenFiles = [
           ...new Set(validation.errors.map((error) => error.file).filter(Boolean)),
         ];
-        const fixerResult = await runLlmFixer(currentContent, errorSummary, {
-          model: fixerModel,
-          requiredFiles: brokenFiles,
-        });
+        const remainingBudgetMs = budgetDeadline - Date.now();
+        if (remainingBudgetMs <= 0) {
+          stopForBudget(pass);
+          break;
+        }
+        const fixerAbort = new AbortController();
+        const timeoutHandle = setTimeout(() => fixerAbort.abort(), remainingBudgetMs);
+        let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
+        try {
+          fixerResult = await runLlmFixer(currentContent, errorSummary, {
+            model: fixerModel,
+            requiredFiles: brokenFiles,
+            abortSignal: fixerAbort.signal,
+          });
+        } finally {
+          clearTimeout(timeoutHandle);
+        }
         const canRetryWithFixedOutput = fixerResult.success || fixerResult.partial;
         if (canRetryWithFixedOutput) {
           fixerUsed = true;
@@ -168,6 +200,11 @@ export async function validateAndFix(
             model: opts.model,
           });
           currentContent = reFixed.fixedContent;
+
+          if (Date.now() >= budgetDeadline) {
+            stopForBudget(pass);
+            break;
+          }
 
           const reValidation = await validateGeneratedCode(currentContent);
           if (reValidation.errors.length < bestErrorCount) {
@@ -244,6 +281,10 @@ export async function validateAndFix(
           errorCount: validation.errors.length,
           message: fixerError instanceof Error ? fixerError.message : "Unknown fixer error",
         });
+        if (Date.now() >= budgetDeadline) {
+          stopForBudget(pass);
+          break;
+        }
       }
     }
 

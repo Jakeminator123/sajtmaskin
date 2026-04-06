@@ -102,7 +102,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         projectId,
         system,
         modelId = DEFAULT_MODEL_ID,
-        thinking = true,
+        thinking,
         imageGenerations,
         chatPrivacy,
         meta,
@@ -139,7 +139,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : true;
+        typeof thinking === "boolean" ? thinking : false;
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";

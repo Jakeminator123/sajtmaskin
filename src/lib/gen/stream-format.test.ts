@@ -55,6 +55,18 @@ async function collectEvents(parts: StreamPart[]) {
 }
 
 describe("createCodeGenSSEStream", () => {
+  it("propagates consumer cancellation through abort controller", async () => {
+    const abortController = new AbortController();
+    const stream = createCodeGenSSEStream(createResult([{ type: "start" }]), {
+      abortController,
+    });
+
+    const reader = stream.getReader();
+    await reader.cancel("test-cancel");
+
+    expect(abortController.signal.aborted).toBe(true);
+  });
+
   it("rebuilds streamed tool input into a tool-call event", async () => {
     const events = await collectEvents([
       {
@@ -123,6 +135,54 @@ describe("createCodeGenSSEStream", () => {
 
     const doneEvent = events.at(-1);
     expect(doneEvent?.event).toBe("done");
+  });
+
+  it("uses monotonic fallback keys for tool calls without toolCallId", async () => {
+    const events = await collectEvents([
+      {
+        type: "tool-input-start",
+        toolName: "requestEnvVar",
+      },
+      {
+        type: "tool-input-delta",
+        toolName: "requestEnvVar",
+        inputTextDelta: '{"key":"FIRST"}',
+      },
+      {
+        type: "tool-call",
+        toolName: "requestEnvVar",
+      },
+      {
+        type: "tool-input-start",
+        toolName: "requestEnvVar",
+      },
+      {
+        type: "tool-input-delta",
+        toolName: "requestEnvVar",
+        inputTextDelta: '{"key":"SECOND"}',
+      },
+      {
+        type: "tool-call",
+        toolName: "requestEnvVar",
+      },
+    ]);
+
+    const toolEvents = events.filter((event) => event.event === "tool-call");
+    expect(toolEvents).toHaveLength(2);
+    expect(toolEvents[0]?.data).toEqual({
+      toolName: "requestEnvVar",
+      toolCallId: "tool:requestEnvVar:1",
+      args: {
+        key: "FIRST",
+      },
+    });
+    expect(toolEvents[1]?.data).toEqual({
+      toolName: "requestEnvVar",
+      toolCallId: "tool:requestEnvVar:2",
+      args: {
+        key: "SECOND",
+      },
+    });
   });
 
   it("emits progress and an explicit silent-output error when no text events arrive", async () => {

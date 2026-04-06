@@ -307,6 +307,14 @@ async function runFinalizeFastPath(params: {
     },
   });
   contentForVersion = syntaxResult.content;
+  onProgress?.("validate_syntax", {
+    phase: "done",
+    durationMs: Date.now() - validateStartedAt,
+    fixerUsed: syntaxResult.fixerUsed,
+    errorsBefore: syntaxResult.errorsBefore,
+    errorsAfter: syntaxResult.errorsAfter,
+    result: syntaxResult.status,
+  });
   stepTelemetry.validate_syntax = createFinalizeStepTelemetry(validateStartedAt, "done", {
     fixerUsed: syntaxResult.fixerUsed,
     fixerImproved: syntaxResult.fixerImproved,
@@ -354,6 +362,7 @@ async function runFinalizeFastPath(params: {
       }
       onProgress?.("materialize_images", {
         phase: "done",
+        durationMs: Date.now() - imageStartedAt,
         replacedCount: imgResult.replacedCount,
         skippedCount: imgResult.skippedCount,
       });
@@ -393,6 +402,7 @@ async function runFinalizeFastPath(params: {
       });
       onProgress?.("verifier", {
         phase: "done",
+        durationMs: Date.now() - verifierStartedAt,
         blockingCount: findings.blocking.length,
         qualityCount: findings.quality.length,
       });
@@ -579,6 +589,7 @@ export async function finalizeAndSaveVersion(
       }
       onProgress?.("autofix", {
         phase: "done",
+        durationMs: Date.now() - autoFixStartedAt,
         fixes: autoFixResult.fixes.length,
         warnings: autoFixResult.warnings.length,
       });
@@ -602,7 +613,7 @@ export async function finalizeAndSaveVersion(
   const urlExpandStartedAt = Date.now();
   onProgress?.("url_expand", { phase: "start" });
   contentForVersion = expandUrls(contentForVersion, urlMap);
-  onProgress?.("url_expand", { phase: "done" });
+  onProgress?.("url_expand", { phase: "done", durationMs: Date.now() - urlExpandStartedAt });
   finalizeStepTelemetry.url_expand = createFinalizeStepTelemetry(urlExpandStartedAt, "done");
 
   const {
@@ -694,6 +705,7 @@ export async function finalizeAndSaveVersion(
   });
   onProgress?.("parse_merge_preflight", {
     phase: "done",
+    durationMs: resolveStepDurationMs("parse_merge_preflight"),
     versionId: version.id,
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,

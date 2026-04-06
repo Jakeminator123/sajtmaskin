@@ -18,6 +18,9 @@ export type BuildSpecVerificationPolicy = "fast" | "standard" | "strict";
 export type BuildSpecContextPolicy = "light" | "normal" | "heavy";
 
 export interface BuildSpecTokenBudgets {
+  scaffoldTokens?: number;
+  refsTokens?: number;
+  systemContextTokens?: number;
   scaffoldChars: number;
   refsChars: number;
   systemContextChars: number;
@@ -299,18 +302,27 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
   switch (contextPolicy) {
     case "light":
       return {
+        scaffoldTokens: 3_750,
+        refsTokens: 1_250,
+        systemContextTokens: 5_625,
         scaffoldChars: 12_000,
         refsChars: 4_000,
         systemContextChars: 18_000,
       };
     case "heavy":
       return {
+        scaffoldTokens: 7_800,
+        refsTokens: 3_750,
+        systemContextTokens: 11_250,
         scaffoldChars: 25_000,
         refsChars: 12_000,
         systemContextChars: 36_000,
       };
     default:
       return {
+        scaffoldTokens: 6_250,
+        refsTokens: 2_500,
+        systemContextTokens: 8_750,
         scaffoldChars: 20_000,
         refsChars: 8_000,
         systemContextChars: 28_000,

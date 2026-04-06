@@ -11,6 +11,14 @@ export interface ScaffoldSearchResult {
 }
 
 let cachedEmbeddings: ScaffoldEmbeddingEntry[] | null = null;
+const EMBEDDING_TIMEOUT_MS = 3_000;
+
+function createEmbeddingAbortSignal(): AbortSignal | undefined {
+  if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") {
+    return undefined;
+  }
+  return AbortSignal.timeout(EMBEDDING_TIMEOUT_MS);
+}
 
 function loadEmbeddings(): ScaffoldEmbeddingEntry[] {
   if (cachedEmbeddings) return cachedEmbeddings;
@@ -92,6 +100,8 @@ export async function searchScaffolds(
   if (embeddings.length === 0) return [];
 
   const openai = new OpenAI({ apiKey });
+  const embeddingStartedAt = Date.now();
+  const embeddingSignal = createEmbeddingAbortSignal();
 
   let queryEmbedding: number[];
   try {
@@ -99,10 +109,20 @@ export async function searchScaffolds(
       model: SCAFFOLD_EMBEDDING_MODEL,
       input: expandQuery(query),
       dimensions: SCAFFOLD_EMBEDDING_DIMENSIONS,
-    });
+    }, embeddingSignal ? { signal: embeddingSignal } : undefined);
     queryEmbedding = response.data[0].embedding;
+    console.info("[scaffold-search] Embedding query completed", {
+      durationMs: Date.now() - embeddingStartedAt,
+      topK,
+      queryChars: query.length,
+    });
   } catch (err) {
-    console.error("[scaffold-search] Embedding API call failed:", err);
+    console.warn("[scaffold-search] Embedding API call failed", {
+      message: err instanceof Error ? err.message : String(err),
+      durationMs: Date.now() - embeddingStartedAt,
+      timeoutMs: EMBEDDING_TIMEOUT_MS,
+      queryChars: query.length,
+    });
     return [];
   }
 

@@ -150,6 +150,7 @@ export function buildPreviewScript(
     return escapeInlineScript(
       [
         prelude,
+        "window.__previewMarkReady?.();",
         `__previewShowError(${JSON.stringify(errorMessage)}, { kind: 'compile', code: 'preview_compile_error', stage: 'preview-script', source: 'own-engine-preview' });`,
       ].join("\n\n"),
     );
@@ -169,6 +170,7 @@ export function buildPreviewScript(
     return escapeInlineScript(
       [
         prelude,
+        "window.__previewMarkReady?.();",
         `__previewShowError(${JSON.stringify(errorMessage)}, { kind: 'validation', code: 'preview_validation_error', stage: 'preview-script', source: 'own-engine-preview' });`,
       ].join("\n\n"),
     );
@@ -196,9 +198,11 @@ export function buildPreviewScript(
       "    ReactDOM.createRoot(__previewRoot).render(",
       `      React.createElement(__PreviewErrorBoundary, null, React.createElement(${renderName})),`,
       "    );",
+      "    window.__previewMarkReady?.();",
       "    __previewPost('preview-ready', { ok: true });",
       "  }",
       "} catch (error) {",
+      "  window.__previewMarkReady?.();",
       "  __previewShowError(error, { kind: 'runtime', code: 'preview_runtime_error', stage: 'preview-script', source: 'own-engine-preview' });",
       "}",
     ].filter(Boolean).join("\n\n"),

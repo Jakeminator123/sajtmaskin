@@ -94,15 +94,15 @@ Dessa variabler styr hur mycket kontext LLM:en ser under kodgenerering. Alla def
 
 Sätts automatiskt via `BuildSpec.contextPolicy` i `src/lib/gen/build-spec.ts` baserat på prompt, routes, integrationer m.m. -- inga env-variabler att justera här.
 
-| Policy | `scaffoldChars` | `refsChars` | `systemContextChars` |
-|--------|----------------|-------------|---------------------|
-| `light` | 12 000 | 4 000 | 18 000 |
-| `normal` | 20 000 | 8 000 | 28 000 |
-| `heavy` | 25 000 | 12 000 | 36 000 |
+| Policy | `scaffoldTokens` | `refsTokens` | `systemContextTokens` | `scaffoldChars` | `refsChars` | `systemContextChars` |
+|--------|------------------|--------------|------------------------|-----------------|------------|----------------------|
+| `light` | 3 750 | 1 250 | 5 625 | 12 000 | 4 000 | 18 000 |
+| `normal` | 6 250 | 2 500 | 8 750 | 20 000 | 8 000 | 28 000 |
+| `heavy` | 7 800 | 3 750 | 11 250 | 25 000 | 12 000 | 36 000 |
 
 Statisk core (`config/prompt-static/*.md`) laddas separat och ligger utanfor det dynamiska budgettaket. Total systemprompt = statisk core (~6-10k tokens) + dynamisk kontext (cappat ovan).
 
-Om dynamisk kontext överstiger budgeten trunkeras den automatiskt med en `debugLog("engine", ...)` som loggar faktisk vs budgetstorlek.
+Om dynamisk kontext överstiger budgeten prunas den blockvis efter prioritet (lägre prioritet först) med tokenestimat, och loggas via `debugLog("engine", ...)` med dropped/kept block.
 
 ---
 

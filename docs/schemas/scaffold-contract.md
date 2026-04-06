@@ -103,7 +103,7 @@ When a scaffold is selected:
 
 - the scaffold is serialized into generation context
 - scaffold research priorities may include a curated reference-template summary
-  (bounded by `BuildSpec.tokenBudgets.refsChars`)
+  (bounded primärt av `BuildSpec.tokenBudgets.refsTokens`, med `refsChars` som kompat-fallback)
 - the model may replace, extend, or refine scaffold files
 - the finalized version may merge scaffold base files with generated output
 

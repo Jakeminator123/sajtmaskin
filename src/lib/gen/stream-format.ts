@@ -94,16 +94,18 @@ function resolveDirectProviderFromMeta(meta?: StreamMeta): "openai" | "anthropic
  */
 export function createCodeGenSSEStream(
   result: StreamTextLike,
-  options: { thinking?: boolean; meta?: StreamMeta } = {},
+  options: { thinking?: boolean; meta?: StreamMeta; abortController?: AbortController } = {},
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  const { thinking = true, meta } = options;
+  const { thinking = false, meta } = options;
 
   return new ReadableStream({
     async start(controller) {
       const streamStartedAt = Date.now();
       const eventCounts = new Map<string, number>();
       const toolCallCounts = new Map<string, number>();
+      const toolInputFallbackCounters = new Map<string, number>();
+      const activeToolFallbackKeys = new Map<string, string>();
       const pendingToolInputs = new Map<
         string,
         { toolName?: string; toolCallId?: string; inputText: string }
@@ -129,13 +131,31 @@ export function createCodeGenSSEStream(
           }),
         );
       };
-      const getToolInputKey = (part: { toolCallId?: string; toolName?: string }): string | null => {
+      const getToolInputKey = (part: {
+        type?: string;
+        toolCallId?: string;
+        toolName?: string;
+      }): string | null => {
         if (part.toolCallId) return part.toolCallId;
-        if (part.toolName) return `tool:${part.toolName}`;
-        return null;
+        if (!part.toolName) return null;
+
+        const isStartEvent =
+          part.type === "tool-input-start" || part.type === "tool_call_streaming_start";
+
+        if (!isStartEvent) {
+          const activeKey = activeToolFallbackKeys.get(part.toolName);
+          if (activeKey) return activeKey;
+        }
+
+        const nextIndex = (toolInputFallbackCounters.get(part.toolName) ?? 0) + 1;
+        toolInputFallbackCounters.set(part.toolName, nextIndex);
+        const fallbackKey = `tool:${part.toolName}:${nextIndex}`;
+        activeToolFallbackKeys.set(part.toolName, fallbackKey);
+        return fallbackKey;
       };
       const rememberToolInput = (
         part: {
+          type?: string;
           toolName?: string;
           toolCallId?: string;
           inputText?: string;
@@ -158,6 +178,7 @@ export function createCodeGenSSEStream(
         });
       };
       const emitToolCall = (part: {
+        type?: string;
         toolName?: string;
         toolCallId?: string;
         args?: Record<string, unknown>;
@@ -171,7 +192,10 @@ export function createCodeGenSSEStream(
           parseToolArgs(buffered?.inputText) ??
           {};
         const toolName = part.toolName ?? buffered?.toolName;
-        const toolCallId = part.toolCallId ?? buffered?.toolCallId;
+        const toolCallId =
+          part.toolCallId ??
+          buffered?.toolCallId ??
+          (key && key.startsWith("tool:") ? key : undefined);
         if (!toolName) return false;
         toolCallCounts.set(toolName, (toolCallCounts.get(toolName) ?? 0) + 1);
         enqueue(
@@ -182,6 +206,9 @@ export function createCodeGenSSEStream(
           }),
         );
         if (key) pendingToolInputs.delete(key);
+        if (!toolCallId && key && activeToolFallbackKeys.get(toolName) === key) {
+          activeToolFallbackKeys.delete(toolName);
+        }
         return true;
       };
 
@@ -423,6 +450,9 @@ export function createCodeGenSSEStream(
           // already closed
         }
       }
+    },
+    cancel() {
+      options.abortController?.abort();
     },
   });
 }

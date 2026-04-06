@@ -21,6 +21,7 @@ const DEFAULT_MAX_EXCERPT_CHARS = 9_000;
 const DEFAULT_MAX_TOTAL_CHARS = 18_000;
 /** First slice keeps a larger cap so ranking does not zero out all code context. */
 const FIRST_FILE_EXCERPT_FLOOR = 1_400;
+const EMBEDDING_TIMEOUT_MS = 3_000;
 const STOPWORDS = new Set([
   "en", "ett", "och", "med", "som", "för", "att", "jag", "vill", "ha", "den", "det", "är", "ska",
   "a", "an", "the", "and", "with", "for", "that", "this", "is", "it", "to", "of", "in", "my", "me",
@@ -28,6 +29,13 @@ const STOPWORDS = new Set([
 ]);
 
 let cachedEmbeddings: TemplateLibraryEmbeddingEntry[] | null = null;
+
+function createEmbeddingAbortSignal(): AbortSignal | undefined {
+  if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") {
+    return undefined;
+  }
+  return AbortSignal.timeout(EMBEDDING_TIMEOUT_MS);
+}
 
 export interface TemplateLibrarySearchDiagnostics {
   mode:
@@ -259,17 +267,27 @@ export async function searchTemplateLibraryWithDiagnostics(
       : query;
 
   let queryEmbedding: number[];
+  const embeddingStartedAt = Date.now();
+  const embeddingSignal = createEmbeddingAbortSignal();
   try {
     const openai = new OpenAI({ apiKey });
     const response = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: embeddingInput,
       dimensions: 1536,
-    });
+    }, embeddingSignal ? { signal: embeddingSignal } : undefined);
     queryEmbedding = response.data[0].embedding;
+    debugLog("template-library", "Embedding query completed", {
+      durationMs: Date.now() - embeddingStartedAt,
+      queryChars: embeddingInput.length,
+      catalogSize,
+    });
   } catch (err) {
     debugLog("template-library", "Embedding query failed; using keyword fallback", {
       message: err instanceof Error ? err.message : String(err),
+      durationMs: Date.now() - embeddingStartedAt,
+      timeoutMs: EMBEDDING_TIMEOUT_MS,
+      queryChars: embeddingInput.length,
     });
     return {
       results: fallbackResults,

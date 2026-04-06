@@ -44,12 +44,13 @@ export function generateCode(
   options: GenerateOptions,
   meta?: StreamMeta,
 ): ReadableStream<Uint8Array> {
+  const defaultThinkingEnabled = process.env.SAJTMASKIN_SHOW_THINKING === "true";
   const {
     prompt,
     systemPrompt,
     model: modelId,
     chatHistory,
-    thinking = true,
+    thinking,
     reasoningEffort = "medium",
     maxTokens,
     abortSignal,
@@ -57,6 +58,7 @@ export function generateCode(
     maxSteps,
     referenceAttachments,
   } = options;
+  const resolvedThinking = thinking ?? defaultThinkingEnabled;
 
   const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
 
@@ -67,9 +69,11 @@ export function generateCode(
 
   const resolvedId = modelId ?? DEFAULT_MODEL;
   const anthropic = isAnthropicModel(resolvedId);
+  const internalAbortController = abortSignal ? null : new AbortController();
+  const resolvedAbortSignal = abortSignal ?? internalAbortController!.signal;
 
   const providerOptions =
-    thinking && !anthropic
+    resolvedThinking && !anthropic
       ? { openai: { reasoningEffort } }
       : undefined;
 
@@ -78,10 +82,14 @@ export function generateCode(
     system: systemPrompt,
     messages: messages as ModelMessage[],
     maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
-    abortSignal,
+    abortSignal: resolvedAbortSignal,
     ...(tools ? { tools, maxSteps: maxSteps ?? 4 } : {}),
     ...(providerOptions ? { providerOptions } : {}),
   });
 
-  return createCodeGenSSEStream(result, { thinking, meta });
+  return createCodeGenSSEStream(result, {
+    thinking: resolvedThinking,
+    meta,
+    abortController: internalAbortController ?? undefined,
+  });
 }

@@ -251,9 +251,9 @@ export async function handleSseStream(
             ? payload.replacedCount
             : null;
         if (replaced !== null && replaced > 0) {
-          return [`Bytte ut ${replaced} bildplatshållare.`];
+          return [`Bytte ut ${replaced} bildplatshållare${doneSuffix}.`];
         }
-        return ["Inga bildplatshållare behövde bytas."];
+        return [`Inga bildplatshållare behövde bytas${doneSuffix}.`];
       }
       if (phase === "error") {
         return ["Bildmaterialisering misslyckades; platshållare kan kvarstå."];
@@ -272,6 +272,7 @@ export async function handleSseStream(
         return [`Kör om valideringen efter fixförsök${pass ? ` i pass ${pass}` : ""}.`];
       }
       if (phase === "passed") return ["Validering klar."];
+      if (phase === "done") return [`Syntaxvalidering klar${doneSuffix}.`];
       if (phase === "gave-up") {
         return [
           `Valideringen gav upp${errorCount !== null ? ` med ${errorCount} kvarvarande fel` : ""}.`,

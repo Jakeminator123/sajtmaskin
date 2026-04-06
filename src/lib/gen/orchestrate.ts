@@ -44,6 +44,7 @@ import {
   serializePackageForDump,
 } from "./generation-input-package";
 import { deriveBuildSpec, type BuildSpec } from "./build-spec";
+import { estimateCharsForTokens } from "./tokens";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -182,8 +183,11 @@ export async function resolveOrchestrationBase(
           ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
       : undefined;
     const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
+    const scaffoldBudgetChars =
+      buildSpec.tokenBudgets.scaffoldChars ??
+      estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
     scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode, {
-      maxChars: buildSpec.tokenBudgets.scaffoldChars,
+      maxChars: scaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
     });
   }

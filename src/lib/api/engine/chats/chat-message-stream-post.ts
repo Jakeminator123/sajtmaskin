@@ -130,7 +130,7 @@ export async function handleMessageStreamRequest(
       const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
         const buildProfileId = getBuildProfileId(resolvedModelTier);
-        const resolvedThinking = typeof thinking === "boolean" ? thinking : true;
+        const resolvedThinking = typeof thinking === "boolean" ? thinking : false;
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
         const metaBuildMethod = parsedMeta.buildMethod;

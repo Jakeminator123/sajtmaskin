@@ -78,7 +78,8 @@ export interface AutoFixContext {
  *
  * The full `runAutoFix()` wrapper may execute multiple deterministic passes
  * (see `repairPolicies.deterministicAutofixPasses` in `config/ai_models/manifest.json`)
- * before the caller escalates to an LLM fixer.
+ * before the caller escalates to an LLM fixer (`runLlmFixer`).
+ * The escalation phase is now also bounded by a time budget in `validateAndFix()`.
  *
  * Fail-safe: if any fixer throws, it is skipped and a warning is logged.
  */

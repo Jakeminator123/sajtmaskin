@@ -25,6 +25,11 @@ import type { PreGenerationContractContext } from "./contract/pre-generation-con
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
+import {
+  buildBudgetedSystemPrompt,
+  estimateTokens,
+  type PromptBudgetBlock,
+} from "./tokens";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
@@ -170,6 +175,95 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
 
+const DEFAULT_REFS_BUDGET_TOKENS = 2_500;
+const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 8_750;
+
+const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
+  match: RegExp;
+  priority: number;
+  required?: boolean;
+}> = [
+  { match: /^generation mode:/i, priority: 100, required: true },
+  { match: /^custom instructions/i, priority: 100, required: true },
+  { match: /^build intent:/i, priority: 95, required: true },
+  { match: /^generation profile$/i, priority: 92, required: true },
+  { match: /^scaffold$/i, priority: 90, required: true },
+  { match: /^route plan$/i, priority: 90, required: true },
+  { match: /^pre-generation contracts$/i, priority: 90, required: true },
+  { match: /^project context$/i, priority: 88, required: true },
+  { match: /^pages & sections$/i, priority: 82 },
+  { match: /^media catalog$/i, priority: 80 },
+  { match: /^visual identity$/i, priority: 78 },
+  { match: /^original request/i, priority: 76 },
+  { match: /^design references$/i, priority: 72 },
+  { match: /^scaffold research priorities$/i, priority: 70 },
+  { match: /^imagery/i, priority: 66 },
+  { match: /^seo$/i, priority: 62 },
+];
+
+function normalizeContextBlockKey(title: string, index: number): string {
+  const normalized = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || `context_block_${index + 1}`;
+}
+
+function resolveContextBlockPriority(title: string): { priority: number; required: boolean } {
+  for (const rule of CONTEXT_BLOCK_PRIORITY_RULES) {
+    if (rule.match.test(title)) {
+      return {
+        priority: rule.priority,
+        required: Boolean(rule.required),
+      };
+    }
+  }
+  return { priority: 60, required: false };
+}
+
+function splitContextIntoBudgetBlocks(context: string): PromptBudgetBlock[] {
+  if (!context.trim()) return [];
+
+  const blocks: Array<{ title: string; content: string }> = [];
+  const lines = context.split("\n");
+  let currentTitle = "preamble";
+  let currentLines: string[] = [];
+
+  const flush = () => {
+    const content = currentLines.join("\n").trim();
+    if (!content) return;
+    blocks.push({ title: currentTitle, content });
+  };
+
+  for (const line of lines) {
+    const headingMatch = /^##\s+(.+)$/.exec(line);
+    if (headingMatch) {
+      flush();
+      currentTitle = headingMatch[1].trim();
+      currentLines = [line];
+      continue;
+    }
+    currentLines.push(line);
+  }
+  flush();
+
+  const duplicateCounts = new Map<string, number>();
+
+  return blocks.map((block, index) => {
+    const { priority, required } = resolveContextBlockPriority(block.title);
+    const baseKey = normalizeContextBlockKey(block.title, index);
+    const seen = duplicateCounts.get(baseKey) ?? 0;
+    duplicateCounts.set(baseKey, seen + 1);
+    const key = seen === 0 ? baseKey : `${baseKey}_${seen + 1}`;
+    return {
+      key,
+      text: block.content,
+      priority,
+      required,
+    };
+  });
+}
+
 export type BuildDynamicContextResult = {
   context: string;
 };
@@ -259,20 +353,24 @@ export async function buildDynamicContext(
     const checklist = resolvedScaffold.qualityChecklist?.slice(0, 6) ?? [];
     const upgradeTargets = resolvedScaffold.research?.upgradeTargets.slice(0, 5) ?? [];
     const referenceTemplates = resolvedScaffold.research?.referenceTemplates ?? [];
-    const refsBudgetChars = Math.max(1_500, buildSpec?.tokenBudgets.refsChars ?? 8_000);
+    const refsBudgetTokens = Math.max(
+      450,
+      buildSpec?.tokenBudgets.refsTokens ?? DEFAULT_REFS_BUDGET_TOKENS,
+    );
     const referenceLines: string[] = [];
-    let refsUsedChars = 0;
+    let refsUsedTokens = 0;
     for (const template of referenceTemplates.slice(0, 5)) {
       const strengths = template.strengths.slice(0, 3).join("; ");
       const summary = strengths
         ? `${template.title} (${template.categorySlug}, score ${template.qualityScore}): ${strengths}`
         : `${template.title} (${template.categorySlug}, score ${template.qualityScore})`;
       const line = `  - ${summary}`;
-      if (refsUsedChars + line.length > refsBudgetChars && referenceLines.length > 0) {
+      const lineTokens = estimateTokens(line);
+      if (refsUsedTokens + lineTokens > refsBudgetTokens && referenceLines.length > 0) {
         break;
       }
       referenceLines.push(line);
-      refsUsedChars += line.length;
+      refsUsedTokens += lineTokens;
     }
 
     if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0) {
@@ -547,17 +645,30 @@ export async function buildDynamicContext(
   }
 
   let context = parts.join("\n").trim();
+  const contextBlocks = splitContextIntoBudgetBlocks(context);
+  const budgetTokens = Math.max(
+    900,
+    buildSpec?.tokenBudgets.systemContextTokens ?? DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS,
+  );
+  const budgeted = buildBudgetedSystemPrompt({
+    staticCore: "",
+    separator: "",
+    dynamicBlocks: contextBlocks,
+    dynamicBudgetTokens: budgetTokens,
+  });
+  context = budgeted.dynamicContext;
 
-  const budgetChars = buildSpec?.tokenBudgets.systemContextChars ?? 28_000;
-  if (context.length > budgetChars) {
-    const originalLength = context.length;
-    context = context.slice(0, budgetChars);
-    const lastNewline = context.lastIndexOf("\n");
-    if (lastNewline > budgetChars * 0.9) {
-      context = context.slice(0, lastNewline);
+  if (budgeted.droppedKeys.length > 0) {
+    try {
+      debugLog("engine", "Dynamic context pruned to token budget", {
+        budgetTokens,
+        usedTokens: budgeted.usedTokens,
+        droppedBlocks: budgeted.droppedKeys,
+        keptBlocks: budgeted.keptKeys,
+      });
+    } catch {
+      // Some isolated tests mock "@/lib/utils/debug" without debugLog.
     }
-    context += "\n\n_(Dynamic context truncated to budget.)_";
-    debugLog("engine", `Dynamic context truncated: ${originalLength} chars → ${context.length} chars (budget ${budgetChars})`);
   }
 
   return {

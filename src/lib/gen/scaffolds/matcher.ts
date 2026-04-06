@@ -463,8 +463,10 @@ export async function matchScaffoldWithEmbeddings(
 
       return embeddingResult;
     }
-  } catch {
-    // embedding search is best-effort; fall through to keyword result
+  } catch (err) {
+    console.info("[scaffold] Embedding scaffold match failed; using keyword result", {
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return keywordResult;
