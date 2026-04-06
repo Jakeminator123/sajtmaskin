@@ -109,5 +109,6 @@ next-env.d.ts
 #archive\scripts-labs-testning_scarf
 #files_envars
 
-templates_v0/downloads
+templates_v0/downloads/
+templates_v0/out/
 output/

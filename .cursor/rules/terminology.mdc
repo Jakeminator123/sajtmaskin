@@ -74,7 +74,7 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 
 2. **Användarens genererade sajt (Next-projekt i sandbox eller efter export)**
    - En **egen** `.env.local` (eller motsvarande) **inne i sandlådans / byggprojektets filträd** — inte samma fil som i Sajtmaskin-roten.
-   - Byggs/mergas i kod (`src/lib/gen/sandbox-env-local.ts`): placeholders från `config/ai_models/`, ev. `project_data.meta.projectEnvVars`, m.m.
+   - Byggs/mergas i kod (`src/lib/gen/preview/env-local.ts`): placeholders från `config/ai_models/`, ev. `project_data.meta.projectEnvVars`, m.m.
    - När någon säger **"användarens .env"**, **"kundprojektets env"** eller **"genererad sajts nycklar"** → mena detta lager, inte Sajtmaskins `.env.local`.
 
 3. **Driftordning**

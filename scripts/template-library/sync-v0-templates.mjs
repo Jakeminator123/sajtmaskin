@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Sync v0 templates and category mapping.
+ * Sync v0 templates and category mapping from local manifests.
  *
- * Preferred discovery source is the local manifest created by templates_v0:
- * - templates_v0/out/collected-template-ids.json
- * - templates_v0/out/downloaded.jsonl (optional enrichment)
+ * Data source: the local manifest created by templates_v0 intake scripts:
+ * - templates_v0/out/collected-template-ids.json  (required)
+ * - templates_v0/out/downloaded.jsonl             (optional enrichment)
+ * - templates_v0/out/template-metadata/*.json     (title + preview image)
  *
- * If no local manifest exists, the script falls back to discovering templates
- * from v0.app category pages directly and regenerates:
+ * Regenerates:
  * - src/lib/templates/templates.json
  * - src/lib/templates/template-categories.json
  *
@@ -16,21 +16,13 @@
  *   node scripts/template-library/sync-v0-templates.mjs --dry-run
  *   node scripts/template-library/sync-v0-templates.mjs --force
  *   node scripts/template-library/sync-v0-templates.mjs --source=local-manifest
- *   node scripts/template-library/sync-v0-templates.mjs --source=remote-html
  */
 
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, readFile, readdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
-import { load as loadHtml } from "cheerio";
 
-const BASE_URL = "https://v0.app";
-const TEMPLATES_URL = `${BASE_URL}/templates`;
-const CATEGORIES_URL = `${TEMPLATES_URL}/categories`;
-const USER_AGENT = "sajtmaskin-template-sync/1.0 (+https://sajtmaskin.se)";
-
-const TEMPLATE_ID_MIN_LEN = 10;
-const TEMPLATE_ID_MAX_LEN = 16;
+const V0_OG_IMAGE_BASE = "https://v0.app/chat/api/og/t";
 
 const APP_CATEGORY_IDS = [
   "ai",
@@ -73,14 +65,6 @@ const SOURCE_TO_APP_CATEGORY = {
   "apps-and-games": "apps-and-games",
 };
 
-const IGNORED_SOURCE_SLUGS = new Set([
-  "categories",
-  "submissions",
-  "screenshots",
-  "assets",
-  "templates",
-]);
-
 const PATHS = {
   templates: resolve(process.cwd(), "src/lib/templates/templates.json"),
   categoryMap: resolve(process.cwd(), "src/lib/templates/template-categories.json"),
@@ -91,7 +75,7 @@ const LOCAL_MANIFEST_PATHS = {
   downloaded: resolve(process.cwd(), "templates_v0/out/downloaded.jsonl"),
 };
 
-const SOURCE_MODE_OPTIONS = new Set(["auto", "local-manifest", "remote-html"]);
+const SOURCE_MODE_OPTIONS = new Set(["auto", "local-manifest"]);
 
 const argv = process.argv.slice(2);
 const args = new Set(argv.filter((arg) => !arg.startsWith("--source=")));
@@ -113,23 +97,6 @@ async function fileExists(path) {
   }
 }
 
-function sanitizePathToSlug(href) {
-  const trimmed = String(href || "").trim();
-  if (!trimmed.startsWith("/templates/")) return null;
-  const withoutQuery = trimmed.split("?")[0]?.split("#")[0] || "";
-  const parts = withoutQuery.split("/").filter(Boolean);
-  if (parts.length < 2) return null;
-  return parts[1] || null;
-}
-
-function isLikelyTemplateId(value) {
-  if (!value) return false;
-  if (!/^[A-Za-z0-9]+$/.test(value)) return false;
-  if (value.length < TEMPLATE_ID_MIN_LEN || value.length > TEMPLATE_ID_MAX_LEN) return false;
-  // Avoid plain words like "screenshots" while allowing real IDs.
-  return /[A-Z0-9]/.test(value);
-}
-
 function normalizeTitle(raw, fallbackId) {
   let cleaned = String(raw || "")
     .trim()
@@ -138,7 +105,6 @@ function normalizeTitle(raw, fallbackId) {
     .replace(/\s*-\s*v0 by Vercel$/i, "")
     .trim();
 
-  // Remove trailing category suffixes like " - Apps & Games Templates".
   if (/ Templates$/i.test(cleaned)) {
     const dashIndex = Math.max(cleaned.lastIndexOf(" - "), cleaned.lastIndexOf(" – "));
     if (dashIndex > 0) {
@@ -150,63 +116,6 @@ function normalizeTitle(raw, fallbackId) {
   }
 
   return cleaned || fallbackId;
-}
-
-function extractTemplateIds(html) {
-  const $ = loadHtml(html);
-  const links = $("a[href^='/templates/']")
-    .map((_, el) => String($(el).attr("href") || ""))
-    .get();
-  return unique(
-    links
-      .map(sanitizePathToSlug)
-      .filter((value) => Boolean(value) && isLikelyTemplateId(value)),
-  );
-}
-
-function extractCategorySlugs(html) {
-  const $ = loadHtml(html);
-  const links = $("a[href^='/templates/']")
-    .map((_, el) => String($(el).attr("href") || ""))
-    .get();
-  const slugs = unique(links.map(sanitizePathToSlug).filter(Boolean));
-  return slugs.filter(
-    (slug) =>
-      Boolean(slug) &&
-      /^[a-z-]+$/.test(slug) &&
-      !IGNORED_SOURCE_SLUGS.has(slug) &&
-      !slug.startsWith("page-"),
-  );
-}
-
-async function fetchHtml(url) {
-  const response = await fetch(url, {
-    headers: {
-      "user-agent": USER_AGENT,
-      accept: "text/html,application/xhtml+xml",
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
-  }
-  return await response.text();
-}
-
-async function mapWithConcurrency(items, limit, mapper) {
-  const results = new Array(items.length);
-  let index = 0;
-
-  async function worker() {
-    while (true) {
-      const current = index++;
-      if (current >= items.length) return;
-      results[current] = await mapper(items[current], current);
-    }
-  }
-
-  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, () => worker());
-  await Promise.all(workers);
-  return results;
 }
 
 async function readJson(path, fallback) {
@@ -329,86 +238,29 @@ async function loadLocalManifestSource() {
   };
 }
 
-async function discoverTemplatesFromRemoteHtml() {
-  console.log("[templates:sync] Fetching category index...");
-  const categoriesHtml = await fetchHtml(CATEGORIES_URL);
-  const discoveredSourceSlugs = unique([
-    ...extractCategorySlugs(categoriesHtml),
-    ...Object.keys(SOURCE_TO_APP_CATEGORY),
-  ]).sort((a, b) => a.localeCompare(b));
 
-  const unknownSourceSlugs = discoveredSourceSlugs.filter((slug) => !SOURCE_TO_APP_CATEGORY[slug]);
-  if (unknownSourceSlugs.length > 0) {
-    console.warn(
-      "[templates:sync] Unmapped source categories found (fallback -> website-templates):",
-      unknownSourceSlugs.join(", "),
-    );
-  }
+const LOCAL_METADATA_DIR = resolve(process.cwd(), "templates_v0/out/template-metadata");
 
-  const templateToSourceCategories = new Map();
-  const sourceCategorySizes = {};
-
-  console.log(`[templates:sync] Fetching ${discoveredSourceSlugs.length} source categories...`);
-  for (const sourceSlug of discoveredSourceSlugs) {
-    const url = `${TEMPLATES_URL}/${sourceSlug}`;
-    try {
-      const html = await fetchHtml(url);
-      const templateIds = extractTemplateIds(html);
-      sourceCategorySizes[sourceSlug] = templateIds.length;
-
-      for (const templateId of templateIds) {
-        addSourceSlugs(templateToSourceCategories, templateId, [sourceSlug]);
-      }
-    } catch (error) {
-      console.warn(`[templates:sync] Failed category fetch for ${sourceSlug}:`, error);
-      sourceCategorySizes[sourceSlug] = 0;
-    }
-  }
-
-  console.log("[templates:sync] Fetching templates root for additional IDs...");
-  const rootHtml = await fetchHtml(TEMPLATES_URL);
-  const rootTemplateIds = extractTemplateIds(rootHtml);
-  for (const templateId of rootTemplateIds) {
-    if (!templateToSourceCategories.has(templateId)) {
-      templateToSourceCategories.set(templateId, new Set());
-    }
-  }
-
-  return {
-    mode: "remote-html",
-    label: "v0.app category discovery",
-    source: CATEGORIES_URL,
-    discoveredTemplateIds: [...templateToSourceCategories.keys()].sort((a, b) =>
-      a.localeCompare(b),
-    ),
-    templateToSourceCategories,
-    sourceCategorySizes,
-  };
+function buildFallbackPreviewImageUrl(templateId) {
+  return `${V0_OG_IMAGE_BASE}/${templateId}`;
 }
 
-function buildTemplatePreviewImageUrl(templateId) {
-  return `${BASE_URL}/chat/api/og/t/${templateId}`;
-}
-
-async function fetchTemplateMeta(templateId) {
-  const url = `${TEMPLATES_URL}/${templateId}`;
+async function readLocalTemplateMeta(templateId) {
+  const metadataPath = resolve(LOCAL_METADATA_DIR, `${templateId}.json`);
   try {
-    const html = await fetchHtml(url);
-    const $ = loadHtml(html);
+    const raw = JSON.parse(await readFile(metadataPath, "utf8"));
     const title = normalizeTitle(
-      $("meta[property='og:title']").attr("content") || $("title").first().text(),
+      raw.ogTitle || raw.h1 || "",
       templateId,
     );
     const previewImageUrl =
-      String($("meta[property='og:image']").attr("content") || "").trim() ||
-      buildTemplatePreviewImageUrl(templateId);
+      String(raw.ogImage || "").trim() || buildFallbackPreviewImageUrl(templateId);
     return { templateId, title, previewImageUrl };
-  } catch (error) {
-    console.warn(`[templates:sync] metadata fetch failed for ${templateId}:`, error);
+  } catch {
     return {
       templateId,
       title: templateId,
-      previewImageUrl: buildTemplatePreviewImageUrl(templateId),
+      previewImageUrl: buildFallbackPreviewImageUrl(templateId),
     };
   }
 }
@@ -431,14 +283,8 @@ function buildTemplateRecord(meta, sourceSlugs) {
     id: meta.templateId,
     title: meta.title || meta.templateId,
     slug: meta.templateId,
-    view_url: `${TEMPLATES_URL}/${meta.templateId}`,
-    edit_url: `${BASE_URL}/chat/${meta.templateId}`,
-    preview_image_url: meta.previewImageUrl || buildTemplatePreviewImageUrl(meta.templateId),
+    preview_image_url: meta.previewImageUrl || buildFallbackPreviewImageUrl(meta.templateId),
     image_filename: `${meta.templateId}.jpg`,
-    views: "",
-    likes: "",
-    author: "",
-    author_avatar: "",
     category: categoryId,
   };
 }
@@ -470,18 +316,11 @@ async function main() {
     );
   }
 
-  let discovery;
-  if (sourceMode === "local-manifest") {
-    discovery = await loadLocalManifestSource();
-    if (!discovery) {
-      throw new Error(
-        `Requested --source=local-manifest but no manifest was found at ${LOCAL_MANIFEST_PATHS.collected}`,
-      );
-    }
-  } else if (sourceMode === "remote-html") {
-    discovery = await discoverTemplatesFromRemoteHtml();
-  } else {
-    discovery = (await loadLocalManifestSource()) ?? (await discoverTemplatesFromRemoteHtml());
+  const discovery = await loadLocalManifestSource();
+  if (!discovery) {
+    throw new Error(
+      `No local manifest found at ${LOCAL_MANIFEST_PATHS.collected}. Run the templates_v0 intake first.`,
+    );
   }
 
   console.log(`[templates:sync] Discovery source: ${discovery.label}`);
@@ -508,9 +347,10 @@ async function main() {
     );
   }
 
-  console.log(`[templates:sync] Fetching metadata for ${discoveredTemplateIds.length} templates...`);
-  const metas = await mapWithConcurrency(discoveredTemplateIds, 8, async (templateId) =>
-    fetchTemplateMeta(templateId),
+  const hasLocalMetadata = await fileExists(LOCAL_METADATA_DIR);
+  console.log(`[templates:sync] Reading metadata for ${discoveredTemplateIds.length} templates${hasLocalMetadata ? " (from local files)" : " (fallback titles)"}...`);
+  const metas = await Promise.all(
+    discoveredTemplateIds.map((templateId) => readLocalTemplateMeta(templateId)),
   );
 
   const templates = metas.map((meta) =>
@@ -519,7 +359,7 @@ async function main() {
   const categoryMapping = buildCategoryMapping(discoveredTemplateIds, templateToSourceCategories);
 
   const categoryFile = {
-    _comment: "Auto-generated template categorization from local v0 manifests or v0 source categories",
+    _comment: "Auto-generated template categorization from local templates_v0 manifests",
     _version: "2.0.0",
     _lastUpdated: todayIsoDate(),
     _source: discovery.source,

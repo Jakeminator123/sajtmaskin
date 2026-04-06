@@ -4,11 +4,11 @@ vi.mock("@/lib/project-env-vars", () => ({
   getStoredProjectEnvVarMap: vi.fn(async () => ({})),
 }));
 
-import { buildSandboxEnvLocalContents, mergeSandboxEnvRecords } from "./env-local";
+import { buildPreviewEnvLocalContents, mergePreviewEnvRecords } from "./env-local";
 
-describe("mergeSandboxEnvRecords", () => {
+describe("mergePreviewEnvRecords", () => {
   it("later layers override earlier keys", () => {
-    const merged = mergeSandboxEnvRecords(
+    const merged = mergePreviewEnvRecords(
       { A: "1", B: "from-placeholder" },
       { B: "from-project", C: "3" },
       { C: "from-generated" },
@@ -21,13 +21,13 @@ describe("mergeSandboxEnvRecords", () => {
   });
 });
 
-describe("buildSandboxEnvLocalContents", () => {
+describe("buildPreviewEnvLocalContents", () => {
   it("includes placeholder keys and applies project map when mocked", async () => {
     const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
       STRIPE_SECRET_KEY: "sk_from_project",
     });
-    const body = await buildSandboxEnvLocalContents({
+    const body = await buildPreviewEnvLocalContents({
       appProjectId: "proj_test",
       generatedEnvLocal: "FOO=from_gen\nSTRIPE_SECRET_KEY=sk_from_model",
     });

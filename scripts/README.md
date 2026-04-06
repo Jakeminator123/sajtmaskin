@@ -31,7 +31,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
 | [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**Mallflöde (v0-templates i repo):** [`template-library/sync-v0-templates.mjs`](template-library/sync-v0-templates.mjs), [`template-library/validate-templates.mjs`](template-library/validate-templates.mjs), [`template-library/refresh-local-v0-catalog.mjs`](template-library/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
+**Mallflöde (v0-templates i repo, enbart lokal data):** [`template-library/sync-v0-templates.mjs`](template-library/sync-v0-templates.mjs), [`template-library/validate-templates.mjs`](template-library/validate-templates.mjs), [`template-library/refresh-local-v0-catalog.mjs`](template-library/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
 - **Delade TS-moduler (ingen egen CLI):** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
 - **Vercel use-case-skrapning (Python):**
   - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — tierad utdata, rapporter, bred research-intake som kan markera `framework_match: false` i stället för att kasta bort poster direkt.
@@ -44,58 +44,40 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 
 ## Lokala v0-mallar (`templates_v0/`)
 
-Detta spår är till för **builderns mallgalleri**, inte för `template-library` eller Vercel-template research.
+Detta spår är till för **builderns mallgalleri**, inte för `template-library` eller Vercel-template research. All data hämtas lokalt — inga online-anrop till v0.app görs längre.
 
-### Vad som är kanoniskt för lokal intake
+### Mappstruktur
 
-- `templates_v0/out/collected-template-ids.json`
-  - Krävs. Detta är den lokala manifestfilen som listar vilka v0-mallar som ska in i den committade katalogen.
-- `templates_v0/out/downloaded.jsonl`
-  - Valfri men bra att ha. Innehåller logg per nedladdad ZIP och kan ge extra kategorisignal efter faktisk download.
-- `src/lib/templates/templates.json`
-  - Den genererade katalogen som appen faktiskt läser vid runtime.
-- `src/lib/templates/template-categories.json`
-  - Den genererade kategorimappningen som runtime använder för kategorisidor och modaler.
-- `src/lib/templates/template-embeddings.json`
-  - Embeddings för semantisk mallsökning. Om filen saknas eller är tom faller appen tillbaka till enklare keyword-sökning.
+Se [`templates_v0/README.txt`](../templates_v0/README.txt) för komplett mappstruktur. Kort:
 
-### När du har laddat ner nya ZIP-filer
+- `templates_v0/scripts/` — Python-skript (Playwright) som skrapar v0.app interaktivt.
+- `templates_v0/out/` — Lokal manifestdata, metadata-JSON per mall, loggar (gitignorerat).
+- `templates_v0/downloads/` — ZIP-arkiv och bilder per kategori/mall (gitignorerat).
 
-Kör detta från repo-roten:
+### Kanoniska datakällor
 
-```bash
-npm run templates:local:refresh
-```
+| Fil | Roll |
+|-----|------|
+| `templates_v0/out/collected-template-ids.json` | **Krävs.** Lokal manifestfil med alla insamlade mall-ID:n. |
+| `templates_v0/out/template-metadata/*.json` | Titel, beskrivning, og:image per mall — läses av sync-scriptet. |
+| `templates_v0/out/downloaded.jsonl` | Valfri. Logg per nedladdad ZIP, ger extra kategorisignal. |
+| `src/lib/templates/templates.json` | **Genererad** katalog som appen läser vid runtime. |
+| `src/lib/templates/template-categories.json` | **Genererad** kategorimappning för kategorisidor och modaler. |
+| `src/lib/templates/template-embeddings.json` | Embeddings för semantisk mallsökning. Fallback till keyword-sökning om filen saknas. |
 
-Det kommandot gör tre saker:
-
-1. Läser lokal manifestdata från `templates_v0/out/`.
-2. Regenererar `src/lib/templates/templates.json`.
-3. Validerar att alla mallar har en kategori och att katalogen är intern-konsistent.
-
-### Om du också vill regenerera embeddings
-
-Kör:
+### Kommandon
 
 ```bash
-npm run templates:local:refresh:embeddings
+npm run templates:local:refresh              # Sync + validering (enbart lokal data)
+npm run templates:local:refresh:embeddings   # Sync + validering + regenerera embeddings
 ```
-
-Detta gör samma sync + validering som ovan och kör sedan också:
-
-```bash
-npm run templates:embeddings
-```
-
-För embeddings krävs `OPENAI_API_KEY` i miljön. I praktiken räcker det att nyckeln redan finns tillgänglig för repo:t när du kör kommandot.
 
 ### Bra att veta
 
-- `templates:sync` i sig är nu smart nog att **föredra lokal manifest-intake** när `templates_v0/out/collected-template-ids.json` finns.
-- `templates:local:refresh` är ändå det tydligaste kommandot efter ny lokal intake, eftersom det låser körningen till `--source=local-manifest`.
-- När en mall även finns som lokal ZIP i `templates_v0/downloads/` initierar builderns v0-mallflöde own-engine från repo-filerna i ZIP:en i stället för att be own-engine generera en ny startmall från template-id:t.
-- Preview-bilderna i galleriet kommer från template-katalogens `preview_image_url`, inte från att ZIP:arna renderas live.
-- Nya ZIP-filer blir inte synliga i appen förrän du har kört ett sync-kommando som uppdaterar `src/lib/templates/*`.
+- `templates:sync` arbetar **enbart** mot lokala manifest — ingen remote-html-fallback finns kvar.
+- När en mall finns som lokal ZIP i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från filerna i arkivet.
+- Preview-bilderna i galleriet kommer från `preview_image_url` i katalogen (hämtad ur lokal metadata, pekar på Vercel Blob CDN).
+- Nya ZIP-filer eller metadata-filer blir inte synliga i appen förrän ett sync-kommando har uppdaterat `src/lib/templates/*`.
 
 ## Arkiverat labb (`archive/scripts-labs-testning_scarf/`)
 

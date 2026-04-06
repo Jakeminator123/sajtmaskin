@@ -40,7 +40,7 @@ type BuildIntent = "website" | "app" | "template";
 | `appProjectId` | client/server state | canonical durable ID | The durable Sajtmaskin project ID |
 | `promptId` | URL transport | canonical for prompt-driven entry | Stored prompt handoff fetched on builder load |
 | `chatId` | URL + client/server state | canonical durable ID | The durable builder conversation ID |
-| `templateId` | URL transport | canonical special-case trigger | v0-driven template initializer, not durable session identity |
+| `templateId` | URL transport | canonical special-case trigger | Template initializer (local v0 gallery), not durable session identity |
 | `source` | URL transport | compatibility-only | Legacy audit helper; not a primary entry discriminator |
 | `type` | URL transport | non-canonical | Category UI context only; not part of current builder state contract |
 | `v0ProjectId` | server/client state | non-entry state | External v0 project identity, not part of builder entry URL |
@@ -73,7 +73,7 @@ type PromptDrivenBuilderEntry = {
 
 ### Template-Driven Entry
 
-This is the special initializer used by the v0-driven Vercel template path.
+This is the special initializer used by the local template gallery path.
 
 ```ts
 type TemplateDrivenBuilderEntry = {

@@ -64,8 +64,6 @@ vi.mock("@/lib/templates/template-data", () => ({
           id: "tmpl_1",
           title: "Nordic Studio",
           slug: "nordic-studio",
-          viewUrl: "https://example.com/view",
-          editUrl: "https://example.com/edit",
           imageFilename: "nordic-studio.png",
           previewImageUrl: "https://example.com/preview.png",
           category: "website-templates",

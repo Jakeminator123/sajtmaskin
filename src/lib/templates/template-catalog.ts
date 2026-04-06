@@ -15,8 +15,6 @@ export type TemplateCatalogItem = {
   previewImageUrl: string;
   source: TemplateCatalogSource;
   buildIntent: BuildIntent;
-  viewUrl?: string;
-  editUrl?: string;
   repoUrl?: string;
   demoUrl?: string | null;
 };
@@ -39,8 +37,6 @@ function mapV0Template(template: Template): TemplateCatalogItem {
     previewImageUrl: template.previewImageUrl,
     source: "v0",
     buildIntent: inferBuildIntent(categoryId),
-    viewUrl: template.viewUrl,
-    editUrl: template.editUrl,
   };
 }
 
