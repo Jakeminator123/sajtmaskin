@@ -438,6 +438,48 @@ describe("handleSseStream", () => {
     );
   });
 
+  it("uses previewUrlHint from done when preview-ready is not received", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            previewUrlHint: "https://vm-fly-jakem.fly.dev/chat_1",
+            previewPending: true,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://vm-fly-jakem.fly.dev/chat_1");
+    expect(spies.onGenerationComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      }),
+    );
+  });
+
   it("does not apply shim fallback from build-error", async () => {
     consumeSseResponse.mockImplementation(
       async (

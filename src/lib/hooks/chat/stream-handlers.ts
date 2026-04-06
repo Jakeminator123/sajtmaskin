@@ -35,10 +35,12 @@ import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/pr
 import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 
 function effectivePreviewUrlFromDonePayload(done: Record<string, unknown>): string | null {
-  const raw = resolveInboundPreviewUrl({
-    previewUrl: done.previewUrl,
-    demoUrl: done.demoUrl,
-  });
+  const raw =
+    resolveInboundPreviewUrl({
+      previewUrl: done.previewUrl,
+      demoUrl: done.demoUrl,
+    }) ??
+    (typeof done.previewUrlHint === "string" ? done.previewUrlHint.trim() : null);
   if (!raw) return null;
   const normalized = normalizePreviewUrl(raw);
   if (!normalized || isCompatibilityShimPreviewUrl(normalized)) return null;

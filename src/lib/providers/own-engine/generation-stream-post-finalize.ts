@@ -4,7 +4,7 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
-import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
+import { getPreviewHostBaseUrl, isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import {
   resolvePostFinalizeServerVerifyDecision,
@@ -22,6 +22,23 @@ export type PostFinalizeSse = {
   enc: TextEncoder;
   safeEnqueue: (data: Uint8Array) => void;
 };
+
+function resolvePreviewUrlHint(chatId: string, previewWillRun: boolean): string | null {
+  if (!previewWillRun) return null;
+  const baseUrl = getPreviewHostBaseUrl();
+  if (!baseUrl) return null;
+
+  try {
+    const parsed = new URL(baseUrl);
+    const normalizedPath = parsed.pathname.replace(/\/$/, "");
+    parsed.pathname = `${normalizedPath}/${encodeURIComponent(chatId)}`;
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return `${baseUrl.replace(/\/$/, "")}/${encodeURIComponent(chatId)}`;
+  }
+}
 
 /**
  * After `finalizeAndSaveVersion`: integration hints, `done` SSE, credits, preview boot,
@@ -103,6 +120,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     finalized,
     parsedFileCount: parsedForPreview.length,
   });
+  const previewUrlHint = resolvePreviewUrlHint(chatId, previewWillRun);
 
   safeEnqueue(
     enc.encode(
@@ -117,6 +135,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
         previewBlocked: finalized.preflight.previewBlocked,
         verificationBlocked: finalized.preflight.verificationBlocked,
         previewBlockingReason: finalized.preflight.previewBlockingReason,
+        ...(previewUrlHint ? { previewUrlHint } : {}),
       }),
     ),
   );

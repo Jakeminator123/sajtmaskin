@@ -15,6 +15,7 @@ const shouldStartOwnEnginePreview = vi.hoisted(() => vi.fn(() => false));
 const logPreviewLifecycleTelemetryMock = vi.hoisted(() => vi.fn());
 const startPreviewSessionMock = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => false));
+const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn<() => string | null>(() => null));
 const devLogAppend = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
@@ -53,6 +54,7 @@ vi.mock("@/lib/gen/version-manager", () => ({
 
 vi.mock("@/lib/gen/preview/tier2-config", () => ({
   isTier2PreviewConfigured,
+  getPreviewHostBaseUrl,
 }));
 
 vi.mock("@/lib/gen/server-verify", () => ({
@@ -112,6 +114,8 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     startPreviewSessionMock.mockReset();
     isTier2PreviewConfigured.mockReset();
     isTier2PreviewConfigured.mockReturnValue(false);
+    getPreviewHostBaseUrl.mockReset();
+    getPreviewHostBaseUrl.mockReturnValue(null);
     updateVersionPreviewUrl.mockResolvedValue(true);
   });
 
@@ -159,6 +163,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
   it("logs structured tier-2 preview readiness telemetry with policy context", async () => {
     shouldStartOwnEnginePreview.mockReturnValue(true);
     isTier2PreviewConfigured.mockReturnValue(true);
+    getPreviewHostBaseUrl.mockReturnValue("https://vm-fly-jakem.fly.dev");
     getChat.mockResolvedValue({ project_id: "proj_1" });
     startPreviewSessionMock.mockResolvedValue({
       ok: true,
