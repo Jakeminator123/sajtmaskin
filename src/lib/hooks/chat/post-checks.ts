@@ -1,6 +1,6 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
-import { INTERACTIVE_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
+import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {
@@ -332,7 +332,7 @@ async function runPreviewQualityGate(params: {
     toolName: "Quality gate",
     toolCallId,
     state: "input-streaming",
-    input: { chatId, versionId, checks: INTERACTIVE_QUALITY_GATE_CHECKS },
+    input: { chatId, versionId, checks: TIER2_QUALITY_GATE_CHECKS },
   } as UiMessagePart);
 
   try {
@@ -341,7 +341,7 @@ async function runPreviewQualityGate(params: {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versionId, checks: INTERACTIVE_QUALITY_GATE_CHECKS }),
+        body: JSON.stringify({ versionId, checks: TIER2_QUALITY_GATE_CHECKS }),
       },
     );
 

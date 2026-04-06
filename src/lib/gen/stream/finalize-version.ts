@@ -135,7 +135,7 @@ function createFinalizeStepTelemetry(
 }
 
 function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number {
-  if (!buildSpec) return 3;
+  if (!buildSpec) return 4;
   if (
     buildSpec.previewPolicy === "fidelity3" ||
     buildSpec.qualityTarget === "release-candidate"
@@ -148,9 +148,9 @@ function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number 
     buildSpec.contextPolicy === "heavy" ||
     buildSpec.changeScope === "integration"
   ) {
-    return 4;
+    return 5;
   }
-  return 2;
+  return 4;
 }
 
 function resolveVerifierPassPolicy(params: {
