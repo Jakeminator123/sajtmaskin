@@ -242,7 +242,7 @@ export function UiElementPicker({
     return () => { active = false; };
   }, [open, itemType, reloadKey]);
 
-  // Load selected item details
+  // Load selected item details (official first; legacy for main item + deps when official is unavailable)
   useEffect(() => {
     if (!open || !selectedItem) return;
     let active = true;
@@ -253,38 +253,74 @@ export function UiElementPicker({
     setLegacyItemAvailable(null);
     const force = reloadKey > 0;
 
-    (async () => {
-      try {
-        const data = force
+    const fetchMain = async (source: "official" | "legacy"): Promise<ShadcnRegistryItem> => {
+      if (source === "official") {
+        return force
           ? await fetchRegistryItemWithOptions(selectedItem.name, DEFAULT_STYLE, { force: true })
           : await fetchRegistryItem(selectedItem.name, DEFAULT_STYLE);
+      }
+      return fetchRegistryItemWithOptions(selectedItem.name, undefined, { force, source: "legacy" });
+    };
+
+    const fetchDep = async (
+      depName: string,
+      source: "official" | "legacy",
+    ): Promise<ShadcnRegistryItem | null> => {
+      try {
+        if (source === "official") {
+          return await fetchRegistryItem(depName, DEFAULT_STYLE);
+        }
+        return await fetchRegistryItemWithOptions(depName, undefined, { source: "legacy" });
+      } catch (err) {
+        console.warn(`[UiElementPicker] dependency "${depName}" (${source}) failed:`, err);
+        return null;
+      }
+    };
+
+    (async () => {
+      try {
+        let data: ShadcnRegistryItem;
+        let source: "official" | "legacy" = "official";
+        try {
+          data = await fetchMain("official");
+        } catch (primaryErr) {
+          try {
+            data = await fetchMain("legacy");
+            source = "legacy";
+          } catch {
+            if (!active) return;
+            setItemError(
+              primaryErr instanceof Error ? primaryErr.message : "Kunde inte ladda registry-item",
+            );
+            try {
+              await fetchRegistryItemWithOptions(selectedItem.name, undefined, { force, source: "legacy" });
+              if (active) setLegacyItemAvailable(true);
+            } catch {
+              if (active) setLegacyItemAvailable(false);
+            }
+            return;
+          }
+        }
         if (!active) return;
         setRegistryItem(data);
         const depNames = Array.from(new Set(data.registryDependencies ?? []));
         if (depNames.length > 0) {
-          const deps = await Promise.all(
-            depNames.map(async (d) => { try { return await fetchRegistryItem(d, DEFAULT_STYLE); } catch { return null; } }),
-          );
+          const deps = await Promise.all(depNames.map((d) => fetchDep(d, source)));
           if (active) setDependencyItems(deps.filter(Boolean) as ShadcnRegistryItem[]);
         }
       } catch (err) {
         if (!active) return;
         setItemError(err instanceof Error ? err.message : "Kunde inte ladda registry-item");
-        try {
-          await fetchRegistryItemWithOptions(selectedItem.name, undefined, { force, source: "legacy" });
-          if (active) setLegacyItemAvailable(true);
-        } catch {
-          if (active) setLegacyItemAvailable(false);
-        }
       } finally {
         if (active) setIsLoadingItem(false);
       }
     })();
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [open, selectedItem, reloadKey]);
 
-  useEffect(() => { setLegacyItemAvailable(null); }, [selectedItem?.name, reloadKey]);
   useEffect(() => { setFailedThumbnails(new Set()); }, [open, itemType, reloadKey]);
   useEffect(() => {
     if (activeTab === "popular" && popularCategories.length === 0) {

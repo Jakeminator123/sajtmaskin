@@ -1,0 +1,71 @@
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  buildShadcnDocsUrl,
+  getRegistryBaseUrl,
+  LEGACY_STYLE_DEFAULT,
+  resolveRegistryStyle,
+} from "./registry-url";
+
+describe("registry-url", () => {
+  const prevBase = process.env.NEXT_PUBLIC_REGISTRY_BASE_URL;
+  const prevStyle = process.env.NEXT_PUBLIC_REGISTRY_STYLE;
+
+  afterEach(() => {
+    if (prevBase === undefined) delete process.env.NEXT_PUBLIC_REGISTRY_BASE_URL;
+    else process.env.NEXT_PUBLIC_REGISTRY_BASE_URL = prevBase;
+    if (prevStyle === undefined) delete process.env.NEXT_PUBLIC_REGISTRY_STYLE;
+    else process.env.NEXT_PUBLIC_REGISTRY_STYLE = prevStyle;
+  });
+
+  it("getRegistryBaseUrl defaults to ui.shadcn.com", () => {
+    delete process.env.NEXT_PUBLIC_REGISTRY_BASE_URL;
+    expect(getRegistryBaseUrl()).toBe("https://ui.shadcn.com");
+  });
+
+  it("getRegistryBaseUrl normalizes env override to origin", () => {
+    process.env.NEXT_PUBLIC_REGISTRY_BASE_URL = "https://registry.example.com/v1/";
+    expect(getRegistryBaseUrl()).toBe("https://registry.example.com");
+  });
+
+  it("resolveRegistryStyle appends -v4 for official ui.shadcn.com when style lacks -v4", () => {
+    expect(resolveRegistryStyle("new-york", "https://ui.shadcn.com")).toBe("new-york-v4");
+  });
+
+  it("resolveRegistryStyle keeps -v4 suffix when already present", () => {
+    expect(resolveRegistryStyle("new-york-v4", "https://ui.shadcn.com")).toBe("new-york-v4");
+  });
+
+  it("resolveRegistryStyle skips -v4 coercion when allowLegacy is true", () => {
+    expect(resolveRegistryStyle("new-york", "https://ui.shadcn.com", { allowLegacy: true })).toBe(
+      "new-york",
+    );
+  });
+
+  it("buildShadcnDocsUrl uses canonical /docs/components/{slug} path", () => {
+    expect(buildShadcnDocsUrl("carousel")).toBe(
+      "https://ui.shadcn.com/docs/components/carousel",
+    );
+    expect(buildShadcnDocsUrl("dialog")).toBe(
+      "https://ui.shadcn.com/docs/components/dialog",
+    );
+    expect(buildShadcnDocsUrl("button")).toBe(
+      "https://ui.shadcn.com/docs/components/button",
+    );
+  });
+
+  it("buildShadcnDocsUrl lowercases and trims slug", () => {
+    expect(buildShadcnDocsUrl("  Dialog ")).toBe(
+      "https://ui.shadcn.com/docs/components/dialog",
+    );
+  });
+
+  it("buildShadcnDocsUrl respects baseUrl override", () => {
+    expect(buildShadcnDocsUrl("button", { baseUrl: "https://mirror.example.com" })).toBe(
+      "https://mirror.example.com/docs/components/button",
+    );
+  });
+
+  it("LEGACY_STYLE_DEFAULT is new-york", () => {
+    expect(LEGACY_STYLE_DEFAULT).toBe("new-york");
+  });
+});

@@ -177,8 +177,7 @@ export const serverSchema = z.object({
   INSPECTOR_FORCE_WORKER_ONLY: z.string().optional(),
   INSPECTOR_CAPTURE_WORKER_TIMEOUT_MS: z.string().optional(),
 
-  // Registry / remote component source
-  REGISTRY_BASE_URL: z.string().optional(),
+  // Registry / remote component source (auth token for private registries)
   REGISTRY_AUTH_TOKEN: z.string().optional(),
 
   // Public (validated server-side; client sees them via Next.js inlining)

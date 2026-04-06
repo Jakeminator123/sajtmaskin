@@ -8,13 +8,8 @@ import {
 export const runtime = "nodejs";
 export const revalidate = 300;
 
-function resolveRegistryBaseUrl() {
-  const envBase = process.env.REGISTRY_BASE_URL?.trim();
-  return envBase || getRegistryBaseUrl();
-}
-
 function buildRegistryItemUrl(name: string, style?: string, source: "official" | "legacy" = "official"): string {
-  const baseUrl = resolveRegistryBaseUrl();
+  const baseUrl = getRegistryBaseUrl();
   const resolvedStyle =
     source === "legacy"
       ? (style?.trim() || LEGACY_STYLE_DEFAULT)
@@ -44,15 +39,20 @@ export async function GET(req: Request) {
   }
 
   const url = buildRegistryItemUrl(name, style, source);
-  const response = await fetch(
-    url,
-    force
-      ? { headers: buildRegistryHeaders(), cache: "no-store" }
-      : { headers: buildRegistryHeaders(), next: { revalidate } },
-  ).catch(() => null);
-
-  if (!response) {
-    return NextResponse.json({ error: "Registry request failed" }, { status: 502 });
+  let response: Response;
+  try {
+    response = await fetch(
+      url,
+      force
+        ? { headers: buildRegistryHeaders(), cache: "no-store" }
+        : { headers: buildRegistryHeaders(), next: { revalidate } },
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Network error";
+    return NextResponse.json(
+      { error: `Registry fetch failed: ${msg}`, url },
+      { status: 502 },
+    );
   }
 
   if (!response.ok) {
@@ -63,9 +63,14 @@ export async function GET(req: Request) {
     );
   }
 
-  const data = await response.json().catch(() => null);
-  if (!data) {
-    return NextResponse.json({ error: "Invalid registry response" }, { status: 502 });
+  let data: unknown;
+  try {
+    data = await response.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Registry returned non-JSON response" },
+      { status: 502 },
+    );
   }
 
   return NextResponse.json(data);

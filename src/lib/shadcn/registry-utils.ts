@@ -4,7 +4,7 @@ import {
   type PlacementOption,
 } from "@/lib/builder/placement-utils";
 import {
-  buildShadcnDocsUrl as buildShadcnDocsUrlFromRegistry,
+  buildShadcnDocsUrl as buildDocsUrlFromRegistry,
   getRegistryBaseUrl,
   resolveRegistryStyle,
 } from "@/lib/shadcn/registry-url";
@@ -81,15 +81,9 @@ export function buildShadcnPreviewUrl(blockName: string, style?: string): string
   return `${REGISTRY_BASE_URL}/view/${previewStyle}/${blockName}`;
 }
 
-/** Docs deep-link for a registry component slug (radix vs flat path resolved in registry-url). */
-export function buildShadcnDocsUrl(
-  componentName: string,
-  options: { radix?: boolean } = {},
-): string {
-  return buildShadcnDocsUrlFromRegistry(componentName, {
-    ...options,
-    baseUrl: REGISTRY_BASE_URL,
-  });
+/** Docs deep-link for a shadcn/ui component slug. */
+export function buildShadcnDocsUrl(componentName: string): string {
+  return buildDocsUrlFromRegistry(componentName, { baseUrl: REGISTRY_BASE_URL });
 }
 
 export function buildRegistryMarkdownPreview(

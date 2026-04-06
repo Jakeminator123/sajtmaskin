@@ -273,30 +273,72 @@ export function UnifiedElementPicker({
     setUiItemError(null);
     setUiLegacyAvailable(null);
     const force = uiReloadKey > 0;
-    (async () => {
-      try {
-        const data = force
+
+    const fetchMain = async (source: "official" | "legacy"): Promise<ShadcnRegistryItem> => {
+      if (source === "official") {
+        return force
           ? await fetchRegistryItemWithOptions(uiSelectedItem.name, DEFAULT_STYLE, { force: true })
           : await fetchRegistryItem(uiSelectedItem.name, DEFAULT_STYLE);
+      }
+      return fetchRegistryItemWithOptions(uiSelectedItem.name, undefined, { force, source: "legacy" });
+    };
+
+    const fetchDep = async (
+      depName: string,
+      source: "official" | "legacy",
+    ): Promise<ShadcnRegistryItem | null> => {
+      try {
+        if (source === "official") {
+          return await fetchRegistryItem(depName, DEFAULT_STYLE);
+        }
+        return await fetchRegistryItemWithOptions(depName, undefined, { source: "legacy" });
+      } catch (err) {
+        console.warn(`[UnifiedElementPicker] dependency "${depName}" (${source}) failed:`, err);
+        return null;
+      }
+    };
+
+    (async () => {
+      try {
+        let data: ShadcnRegistryItem;
+        let source: "official" | "legacy" = "official";
+        try {
+          data = await fetchMain("official");
+        } catch (primaryErr) {
+          try {
+            data = await fetchMain("legacy");
+            source = "legacy";
+          } catch {
+            if (!active) return;
+            setUiItemError(
+              primaryErr instanceof Error ? primaryErr.message : "Kunde inte ladda registry-item",
+            );
+            try {
+              await fetchRegistryItemWithOptions(uiSelectedItem.name, undefined, { force, source: "legacy" });
+              if (active) setUiLegacyAvailable(true);
+            } catch {
+              if (active) setUiLegacyAvailable(false);
+            }
+            return;
+          }
+        }
         if (!active) return;
         setUiRegistryItem(data);
         const depNames = Array.from(new Set(data.registryDependencies ?? []));
         if (depNames.length > 0) {
-          const deps = await Promise.all(
-            depNames.map(async (d) => { try { return await fetchRegistryItem(d, DEFAULT_STYLE); } catch { return null; } }),
-          );
+          const deps = await Promise.all(depNames.map((d) => fetchDep(d, source)));
           if (active) setUiDependencyItems(deps.filter(Boolean) as ShadcnRegistryItem[]);
         }
       } catch (err) {
         if (!active) return;
         setUiItemError(err instanceof Error ? err.message : "Kunde inte ladda registry-item");
-        try {
-          await fetchRegistryItemWithOptions(uiSelectedItem.name, undefined, { force, source: "legacy" });
-          if (active) setUiLegacyAvailable(true);
-        } catch { if (active) setUiLegacyAvailable(false); }
-      } finally { if (active) setUiLoadingItem(false); }
+      } finally {
+        if (active) setUiLoadingItem(false);
+      }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [open, activeTab, uiSelectedItem, uiReloadKey]);
 
   useEffect(() => { setUiFailedThumbs(new Set()); }, [open, uiItemType, uiReloadKey]);
