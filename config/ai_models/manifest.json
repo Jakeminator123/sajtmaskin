@@ -788,7 +788,8 @@
       "provider": "openai_direct",
       "codeEntry": [
         "src/lib/templates/template-search.ts",
-        "src/lib/gen/scaffolds/scaffold-search.ts"
+        "src/lib/gen/scaffolds/scaffold-search.ts",
+        "src/lib/gen/template-library/search.ts"
       ],
       "authEnv": [
         "OPENAI_API_KEY"

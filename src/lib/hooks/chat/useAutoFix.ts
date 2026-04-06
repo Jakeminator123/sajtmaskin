@@ -393,6 +393,11 @@ export function useAutoFix(
             pendingPayloadKeyRef.current = null;
             const messageOptions: MessageOptions = {
               engineBaseVersionIdOverride: payload.versionId,
+              promptSourceMeta: {
+                sourceKind: "autofix",
+                isTechnical: true,
+                preservePayload: true,
+              },
             };
             if (retryScaffoldId) {
               messageOptions.scaffoldModeOverride = "manual";

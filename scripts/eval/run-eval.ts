@@ -23,7 +23,7 @@ const REPO_FILES = {
   agentTools: "src/lib/gen/agent-tools.ts",
   detectIntegrations: "src/lib/gen/detect-integrations.ts",
   integrationRegistry: "src/lib/integrations/registry.ts",
-  planPrompt: "src/lib/gen/plan-prompt.ts",
+  planPrompt: "src/lib/gen/plan/prompt.ts",
   planExecution: "src/lib/gen/plan/schema.ts",
   validateAndFix: "src/lib/gen/autofix/validate-and-fix.ts",
   serverVerify: "src/lib/gen/server-verify.ts",
@@ -34,7 +34,6 @@ const REPO_FILES = {
   orchestrate: "src/lib/gen/orchestrate.ts",
   generateSite: "src/lib/mcp/generate-site.ts",
   generationPipeline: "src/lib/gen/generation-pipeline.ts",
-  fallback: "src/lib/gen/fallback.ts",
   packageJson: "package.json",
 } as const;
 
@@ -221,7 +220,6 @@ function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckRes
     ]),
     buildRepoCheck(repoTexts, "own-build-default", "Own-engine builds are the primary path", [
       { file: "generationPipeline", needle: "export function createGenerationPipeline", label: "generation pipeline module" },
-      { file: "fallback", needle: "./generation-pipeline", label: "legacy fallback re-export" },
       { file: "generateSite", needle: "createGenerationPipeline", label: "MCP own-engine generation" },
       { file: "createRoute", needle: "prepareGenerationContext", label: "create-route own-engine path" },
     ]),

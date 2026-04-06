@@ -19,7 +19,8 @@ export type PromptSourceKind =
   | "shadcn-component"
   | "ai-element"
   | "approved-plan"
-  | "page-block";
+  | "page-block"
+  | "autofix";
 
 export type PromptSourceMeta = {
   sourceKind: PromptSourceKind;

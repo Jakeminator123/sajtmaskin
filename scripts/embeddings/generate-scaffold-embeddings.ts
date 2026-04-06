@@ -3,10 +3,13 @@
  *
  * Usage:
  *   npx tsx scripts/embeddings/generate-scaffold-embeddings.ts
+ *   npm run scaffolds:embeddings
  *
- * Requires OPENAI_API_KEY in environment.
+ * Requires OPENAI_API_KEY in environment (or .env.local).
+ * Output:  src/lib/gen/scaffolds/scaffold-embeddings.json
  */
 
+import "dotenv/config";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { generateScaffoldEmbeddings } from "../../src/lib/gen/scaffolds/scaffold-embeddings-core";
@@ -14,7 +17,7 @@ import { generateScaffoldEmbeddings } from "../../src/lib/gen/scaffolds/scaffold
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
-    console.error("OPENAI_API_KEY is required");
+    console.error("OPENAI_API_KEY is required. Set it in .env.local or environment.");
     process.exit(1);
   }
 

@@ -404,10 +404,6 @@ npm run references:discover:full
 
 **OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md); äldre narrativfiler i git-historik.
 
-## ~~extract-static-core.mjs~~ (borttagen, 2026-03-27)
-
-Tidigare: extraherade `STATIC_CORE`-template från `system-prompt.ts` till `config/systemprompt.md`. **Monoliten är borta** — statisk kärna laddas via `getStaticCoreFromWorkspace` / `config/prompt-static/` (se `src/lib/gen/static-core-loader.ts`). Skriptet togs bort som **B3-05**.
-
 ## scaffold-pipeline.py (avancerat, ej i package.json)
 
 Interaktivt Python-menyskript som visar status och exponerar de kanoniska
@@ -448,6 +444,3 @@ saknas lokalt, för att undvika att filer från fel del av repot (t.ex.
 
 Alla `npm run …`-namn och deras exakta kommandon ligger i **rot [`package.json`](../package.json)** (`scripts`-fältet). Den här README:n är tematisk; vid avvikelse gäller `package.json`.
 
-## recovery/recreate-repo-branch-commit.ps1 (saknas i repot)
-
-Tidigare dokumentation pekade på `scripts/recovery/recreate-repo-branch-commit.ps1`, men **filen finns inte** i denna checkout. För motsvarande arbetsflöde: klona repot manuellt, `git fetch`, `git checkout <commit>` (detached HEAD) i en ny katalog, eller återskapa skriptet från git-historik om du hade en lokal variant.
