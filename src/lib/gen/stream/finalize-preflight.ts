@@ -1,11 +1,13 @@
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
-import type { CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type RoutePlan } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
+import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import {
   buildPreviewStartContract,
   resolvePreflightIssueCategory,
@@ -25,6 +27,7 @@ export interface RunFinalizePreflightParams {
   model: string;
   filesJson: string;
   routePlan?: RoutePlan | null;
+  orchestrationContract?: OrchestrationContract | null;
 }
 
 export interface RunFinalizePreflightResult {
@@ -171,11 +174,59 @@ function createIssue(
   };
 }
 
+function collectOrchestrationContractIssues(
+  orchestrationContract: OrchestrationContract | null | undefined,
+  actualRoutes: string[],
+  files: CodeFile[],
+): FinalizePreflightIssue[] {
+  if (!orchestrationContract) return [];
+  const issues: FinalizePreflightIssue[] = [];
+  const routeSet = new Set(actualRoutes);
+  const fileSet = new Set(files.map((file) => normPath(file.path)));
+  const hasRequiredFile = (requiredFile: string): boolean => {
+    const normalized = normPath(requiredFile);
+    if (fileSet.has(normalized)) return true;
+    if (normalized.startsWith("app/")) {
+      return fileSet.has(`src/${normalized}`);
+    }
+    if (normalized.startsWith("src/app/")) {
+      return fileSet.has(normalized.replace(/^src\//, ""));
+    }
+    return false;
+  };
+  for (const routePath of orchestrationContract.generationToValidate.requiredRoutePaths) {
+    if (!routeSet.has(routePath)) {
+      issues.push(
+        createIssue(
+          routePath,
+          "warning",
+          `Orchestration contract expected required route: ${routePath}`,
+          "non_blocking_quality_warning",
+        ),
+      );
+    }
+  }
+  for (const requiredFile of orchestrationContract.generationToValidate.requiredFiles) {
+    if (!hasRequiredFile(requiredFile)) {
+      issues.push(
+        createIssue(
+          requiredFile,
+          "warning",
+          `Orchestration contract expected required file: ${requiredFile}`,
+          "non_blocking_quality_warning",
+        ),
+      );
+    }
+  }
+  return issues;
+}
+
 export async function runFinalizePreflight({
   chatId,
   model: _model,
   filesJson,
   routePlan = null,
+  orchestrationContract = null,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   let nextFilesJson = filesJson;
   let preflightIssues: FinalizePreflightIssue[] = [];
@@ -204,8 +255,8 @@ export async function runFinalizePreflight({
     }
 
     const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
-    const mergedProjectContent = serializeFilesToCodeProject(finalFiles);
-    const mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+    let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
+    let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
       devLogAppend("in-progress", {
         type: "merged-syntax.invalid",
@@ -213,6 +264,34 @@ export async function runFinalizePreflight({
         errorCount: mergedSyntax.errors.length,
         errors: mergedSyntax.errors.slice(0, 8),
       });
+
+      const mergedFixResult = await validateAndFix(mergedProjectContent, {
+        chatId,
+        model: _model,
+        fixBudgetMs: 12_000,
+      });
+      if (mergedFixResult.fixerUsed || mergedFixResult.fixerImproved) {
+        devLogAppend("in-progress", {
+          type: "merged-syntax.fixer.result",
+          chatId,
+          fixerUsed: mergedFixResult.fixerUsed,
+          fixerImproved: mergedFixResult.fixerImproved,
+          errorsBefore: mergedFixResult.errorsBefore,
+          errorsAfter: mergedFixResult.errorsAfter,
+          status: mergedFixResult.status,
+          earlyStopReason: mergedFixResult.earlyStopReason,
+        });
+      }
+
+      if (mergedFixResult.fixerUsed && mergedFixResult.errorsAfter < mergedFixResult.errorsBefore) {
+        const fixedProject = parseCodeProject(mergedFixResult.content);
+        if (fixedProject.files.length > 0) {
+          finalFiles = fixedProject.files;
+          nextFilesJson = JSON.stringify(finalFiles);
+          mergedProjectContent = mergedFixResult.content;
+          mergedSyntax = await validateGeneratedCode(mergedProjectContent);
+        }
+      }
 
       if (!mergedSyntax.valid) {
         preflightIssues.push(
@@ -299,6 +378,20 @@ export async function runFinalizePreflight({
         source: routePlan?.source ?? null,
         siteType: routePlan?.siteType ?? null,
         missingRoutes: missingPlannedRoutes.map((route) => route.path),
+      });
+    }
+    const orchestrationContractIssues = collectOrchestrationContractIssues(
+      orchestrationContract,
+      actualRoutes,
+      completeProjectFiles,
+    );
+    if (orchestrationContractIssues.length > 0) {
+      preflightIssues.push(...orchestrationContractIssues);
+      devLogAppend("in-progress", {
+        type: "orchestration-contract.validate",
+        chatId,
+        issueCount: orchestrationContractIssues.length,
+        issues: orchestrationContractIssues.slice(0, 10),
       });
     }
     if (sanity.issues.length > 0) {

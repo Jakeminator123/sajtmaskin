@@ -22,6 +22,7 @@ export interface BuildFinalizePreflightLogBundleParams {
   finalizedPreviewFileCount: number;
   scaffoldRetry: ScaffoldRetrySuggestion | null;
   routePlan: RoutePlan | null | undefined;
+  scaffoldSelection: Record<string, unknown> | null;
 }
 
 export interface FinalizePreflightLogBundle {
@@ -43,6 +44,7 @@ export function buildFinalizePreflightLogBundle({
   finalizedPreviewFileCount,
   scaffoldRetry,
   routePlan,
+  scaffoldSelection,
 }: BuildFinalizePreflightLogBundleParams): FinalizePreflightLogBundle {
   const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
   const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
@@ -70,6 +72,7 @@ export function buildFinalizePreflightLogBundle({
         previewBlockingReason,
         previewStart,
         routePlan,
+        scaffoldSelection,
       },
     },
   ];
@@ -145,6 +148,24 @@ export function buildFinalizePreflightLogBundle({
       message: scaffoldRetry.reason,
       meta: {
         scaffoldRetry,
+      },
+    });
+  }
+
+  const semanticUnavailableReason =
+    scaffoldSelection && typeof scaffoldSelection.semanticUnavailableReason === "string"
+      ? scaffoldSelection.semanticUnavailableReason
+      : null;
+  if (semanticUnavailableReason) {
+    preflightLogs.push({
+      chatId,
+      versionId,
+      level: "warning",
+      category: "scaffold",
+      message: "Semantic scaffold matching was unavailable; keyword fallback was used.",
+      meta: {
+        scaffoldSelection,
+        event: "scaffold_semantic_unavailable",
       },
     });
   }

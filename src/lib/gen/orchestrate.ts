@@ -12,8 +12,8 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
-  matchScaffold,
-  matchScaffoldWithEmbeddings,
+  matchScaffoldAuto,
+  type ScaffoldSelectionMeta,
 } from "./scaffolds";
 import {
   serializeScaffoldForPrompt,
@@ -37,6 +37,10 @@ import {
   inferPreGenerationContracts,
   type PreGenerationContractContext,
 } from "./contract/pre-generation-contracts";
+import {
+  buildOrchestrationContract,
+  type OrchestrationContract,
+} from "./orchestration-contract";
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "./prompt-dump";
 import {
   type GenerationInputPackage,
@@ -85,6 +89,8 @@ export interface OrchestrationInput {
 
 export interface OrchestrationBase {
   resolvedScaffold: ScaffoldManifest | null;
+  scaffoldSelection?: ScaffoldSelectionMeta;
+  orchestrationContract: OrchestrationContract;
   scaffoldContext: string | undefined;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
@@ -116,6 +122,17 @@ export async function resolveOrchestrationBase(
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
+  let scaffoldSelection: ScaffoldSelectionMeta = {
+    selectedScaffold: null,
+    selectionMethod: scaffoldMode === "off" ? "off" : "default",
+    selectionConfidence: "low",
+    topCandidates: [],
+    keywordScores: {},
+    embeddingAvailable: false,
+    embeddingFailed: false,
+    embeddingTopResult: null,
+    semanticUnavailableReason: null,
+  };
 
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
@@ -124,12 +141,38 @@ export async function resolveOrchestrationBase(
     resolvedScaffold = null;
   } else if (scaffoldMode === "manual" && scaffoldId) {
     resolvedScaffold = getScaffoldById(scaffoldId);
+    scaffoldSelection = {
+      ...scaffoldSelection,
+      selectedScaffold: resolvedScaffold?.id ?? null,
+      selectionMethod: "manual",
+      selectionConfidence: resolvedScaffold ? "high" : "low",
+      topCandidates: resolvedScaffold
+        ? [{ id: resolvedScaffold.id, score: 1, source: "keyword" }]
+        : [],
+    };
   } else if (effectivePersistedScaffoldId) {
     resolvedScaffold = getScaffoldById(effectivePersistedScaffoldId);
+    scaffoldSelection = {
+      ...scaffoldSelection,
+      selectedScaffold: resolvedScaffold?.id ?? effectivePersistedScaffoldId,
+      selectionMethod: "persisted",
+      selectionConfidence: resolvedScaffold ? "high" : "low",
+      topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
+    };
   } else if (scaffoldMode === "auto") {
-    resolvedScaffold = embeddingScaffoldMatch
-      ? await matchScaffoldWithEmbeddings(prompt, buildIntent)
-      : matchScaffold(prompt, buildIntent);
+    const autoSelection = await matchScaffoldAuto(prompt, buildIntent, {
+      useEmbeddings: embeddingScaffoldMatch,
+    });
+    resolvedScaffold = autoSelection.scaffold;
+    scaffoldSelection = autoSelection.meta;
+
+    if (scaffoldSelection.semanticUnavailableReason) {
+      console.info("[scaffold] scaffold_semantic_unavailable", {
+        reason: scaffoldSelection.semanticUnavailableReason,
+        fallbackScaffoldId: resolvedScaffold?.id ?? null,
+        method: scaffoldSelection.selectionMethod,
+      });
+    }
 
     if (
       resolvedScaffold &&
@@ -176,6 +219,11 @@ export async function resolveOrchestrationBase(
     preGenerationContracts,
     promptStrategyMeta,
   });
+  const orchestrationContract = buildOrchestrationContract({
+    resolvedScaffold,
+    routePlan,
+    buildSpec,
+  });
   let scaffoldContext: string | undefined;
   if (resolvedScaffold) {
     const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
@@ -198,6 +246,8 @@ export async function resolveOrchestrationBase(
 
   return {
     resolvedScaffold,
+    scaffoldSelection,
+    orchestrationContract,
     scaffoldContext,
     routePlan,
     preGenerationContracts,

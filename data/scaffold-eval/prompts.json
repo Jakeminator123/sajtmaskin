@@ -1,0 +1,542 @@
+[
+  {
+    "id": "landing_01",
+    "prompt": "Create a one-page website for a local cleaning company with a hero, services, testimonials and contact CTA.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["hero", "cta", "services"],
+    "mustNotBe": ["dashboard", "auth-pages", "app-shell"]
+  },
+  {
+    "id": "landing_02",
+    "prompt": "Build a campaign landing page for a summer event with pricing cards and registration button.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["saas-landing"],
+    "mustHaveFeatures": ["hero", "pricing", "cta"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "landing_03",
+    "prompt": "Need a homepage for a construction firm. Keep it corporate, with trust badges and quote request CTA.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["hero", "trust-signals", "cta"],
+    "mustNotBe": ["blog", "dashboard"]
+  },
+  {
+    "id": "landing_04",
+    "prompt": "Generate a company site for a law office with one main page and clear call-to-action buttons.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["hero", "about", "cta"],
+    "mustNotBe": ["dashboard", "ecommerce"]
+  },
+  {
+    "id": "landing_05",
+    "prompt": "Create a startup landing page that highlights benefits and collects leads.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["saas-landing", "content-site"],
+    "mustHaveFeatures": ["hero", "benefits", "lead-capture"],
+    "mustNotBe": ["auth-pages", "dashboard"]
+  },
+  {
+    "id": "saas_01",
+    "prompt": "Build a SaaS marketing page with pricing tiers, feature comparison and free trial CTA.",
+    "buildIntent": "website",
+    "expectedScaffold": "saas-landing",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["pricing", "feature-grid", "cta"],
+    "mustNotBe": ["dashboard", "blog"]
+  },
+  {
+    "id": "saas_02",
+    "prompt": "Create a B2B software website describing product modules, ROI, integrations and demo booking.",
+    "buildIntent": "website",
+    "expectedScaffold": "saas-landing",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["features", "integrations", "cta"],
+    "mustNotBe": ["portfolio", "auth-pages"]
+  },
+  {
+    "id": "saas_03",
+    "prompt": "Need a product-led growth site with monthly/yearly plans and trust logos.",
+    "buildIntent": "website",
+    "expectedScaffold": "saas-landing",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["pricing", "social-proof", "cta"],
+    "mustNotBe": ["dashboard", "ecommerce"]
+  },
+  {
+    "id": "saas_04",
+    "prompt": "Marketing website for an AI platform. Include use cases, pricing and trial sign-up.",
+    "buildIntent": "website",
+    "expectedScaffold": "saas-landing",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["use-cases", "pricing", "cta"],
+    "mustNotBe": ["blog", "app-shell"]
+  },
+  {
+    "id": "saas_05",
+    "prompt": "Create a software subscription landing page with enterprise plan and FAQ.",
+    "buildIntent": "website",
+    "expectedScaffold": "saas-landing",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["pricing", "faq", "cta"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "portfolio_01",
+    "prompt": "Build a portfolio website for a freelance photographer with project gallery and contact page.",
+    "buildIntent": "website",
+    "expectedScaffold": "portfolio",
+    "acceptableScaffolds": ["content-site", "photo-shop"],
+    "mustHaveFeatures": ["gallery", "projects", "contact"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "portfolio_02",
+    "prompt": "Create a personal portfolio for a product designer with selected case studies.",
+    "buildIntent": "website",
+    "expectedScaffold": "portfolio",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["case-studies", "about", "contact"],
+    "mustNotBe": ["ecommerce", "dashboard"]
+  },
+  {
+    "id": "portfolio_03",
+    "prompt": "Need a portfolio for a videographer, visual-first design, gallery and booking CTA.",
+    "buildIntent": "website",
+    "expectedScaffold": "portfolio",
+    "acceptableScaffolds": ["photo-shop", "content-site"],
+    "mustHaveFeatures": ["gallery", "showcase", "cta"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "portfolio_04",
+    "prompt": "Build a resume and portfolio site for a frontend developer with project highlights.",
+    "buildIntent": "website",
+    "expectedScaffold": "portfolio",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["projects", "resume", "contact"],
+    "mustNotBe": ["ecommerce", "dashboard"]
+  },
+  {
+    "id": "portfolio_05",
+    "prompt": "Create a showcase site for an illustrator with curated works and biography.",
+    "buildIntent": "website",
+    "expectedScaffold": "portfolio",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["gallery", "bio", "cta"],
+    "mustNotBe": ["app-shell", "dashboard"]
+  },
+  {
+    "id": "blog_01",
+    "prompt": "Build a blog website with article list, categories and newsletter signup.",
+    "buildIntent": "website",
+    "expectedScaffold": "blog",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["article-list", "categories", "newsletter"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "blog_02",
+    "prompt": "Create an editorial magazine site focused on long-form stories and author pages.",
+    "buildIntent": "website",
+    "expectedScaffold": "blog",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["editorial", "articles", "authors"],
+    "mustNotBe": ["ecommerce", "app-shell"]
+  },
+  {
+    "id": "blog_03",
+    "prompt": "Need a tech blog with post cards, tags, and a featured article section.",
+    "buildIntent": "website",
+    "expectedScaffold": "blog",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["posts", "tags", "featured"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "blog_04",
+    "prompt": "Build a content hub for startup insights with resources and newsletter CTA.",
+    "buildIntent": "website",
+    "expectedScaffold": "blog",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["articles", "resources", "newsletter"],
+    "mustNotBe": ["dashboard", "ecommerce"]
+  },
+  {
+    "id": "blog_05",
+    "prompt": "Create a publishing-style website with clean reading experience and topic pages.",
+    "buildIntent": "website",
+    "expectedScaffold": "blog",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["reading", "topics", "posts"],
+    "mustNotBe": ["auth-pages", "app-shell"]
+  },
+  {
+    "id": "dashboard_01",
+    "prompt": "Build an analytics dashboard app with charts, KPI cards and report filters.",
+    "buildIntent": "app",
+    "expectedScaffold": "dashboard",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["charts", "kpi", "filters"],
+    "mustNotBe": ["landing-page", "blog"]
+  },
+  {
+    "id": "dashboard_02",
+    "prompt": "Need an admin dashboard for sales metrics and team performance.",
+    "buildIntent": "app",
+    "expectedScaffold": "dashboard",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["tables", "charts", "admin"],
+    "mustNotBe": ["portfolio", "landing-page"]
+  },
+  {
+    "id": "dashboard_03",
+    "prompt": "Create an operations dashboard with inventory trends and alerts.",
+    "buildIntent": "app",
+    "expectedScaffold": "dashboard",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["stats", "alerts", "charts"],
+    "mustNotBe": ["blog", "ecommerce"]
+  },
+  {
+    "id": "dashboard_04",
+    "prompt": "Build a reporting console with charts, segments and export options.",
+    "buildIntent": "app",
+    "expectedScaffold": "dashboard",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["reports", "charts", "segments"],
+    "mustNotBe": ["landing-page", "auth-pages"]
+  },
+  {
+    "id": "dashboard_05",
+    "prompt": "Need a metrics dashboard for customer success with trend analysis.",
+    "buildIntent": "app",
+    "expectedScaffold": "dashboard",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["analytics", "dashboard", "kpi"],
+    "mustNotBe": ["portfolio", "blog"]
+  },
+  {
+    "id": "appshell_01",
+    "prompt": "Create an internal app workspace with sidebar navigation, settings and user management.",
+    "buildIntent": "app",
+    "expectedScaffold": "app-shell",
+    "acceptableScaffolds": ["dashboard"],
+    "mustHaveFeatures": ["sidebar", "settings", "users"],
+    "mustNotBe": ["landing-page", "blog"]
+  },
+  {
+    "id": "appshell_02",
+    "prompt": "Build an admin tool with pages for account settings, permissions and integrations.",
+    "buildIntent": "app",
+    "expectedScaffold": "app-shell",
+    "acceptableScaffolds": ["dashboard"],
+    "mustHaveFeatures": ["admin", "settings", "integrations"],
+    "mustNotBe": ["portfolio", "landing-page"]
+  },
+  {
+    "id": "appshell_03",
+    "prompt": "Need a CRM application shell with users, pipelines and profile settings.",
+    "buildIntent": "app",
+    "expectedScaffold": "app-shell",
+    "acceptableScaffolds": ["dashboard"],
+    "mustHaveFeatures": ["crm", "users", "workspace"],
+    "mustNotBe": ["blog", "landing-page"]
+  },
+  {
+    "id": "appshell_04",
+    "prompt": "Create a backoffice app with sidebar, forms and multi-step admin flows.",
+    "buildIntent": "app",
+    "expectedScaffold": "app-shell",
+    "acceptableScaffolds": ["dashboard"],
+    "mustHaveFeatures": ["backoffice", "forms", "navigation"],
+    "mustNotBe": ["portfolio", "ecommerce"]
+  },
+  {
+    "id": "appshell_05",
+    "prompt": "Build a management portal with sections for teams, billing settings and audit logs.",
+    "buildIntent": "app",
+    "expectedScaffold": "app-shell",
+    "acceptableScaffolds": ["dashboard"],
+    "mustHaveFeatures": ["portal", "settings", "management"],
+    "mustNotBe": ["landing-page", "blog"]
+  },
+  {
+    "id": "auth_01",
+    "prompt": "Create authentication pages with sign in, sign up and forgot password.",
+    "buildIntent": "app",
+    "expectedScaffold": "auth-pages",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["login", "signup", "password-reset"],
+    "mustNotBe": ["landing-page", "blog"]
+  },
+  {
+    "id": "auth_02",
+    "prompt": "Build account access flow with register, verify email and reset password screens.",
+    "buildIntent": "app",
+    "expectedScaffold": "auth-pages",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["auth", "register", "verification"],
+    "mustNotBe": ["dashboard", "portfolio"]
+  },
+  {
+    "id": "auth_03",
+    "prompt": "Need only auth UI: login page and create account page for a SaaS app.",
+    "buildIntent": "app",
+    "expectedScaffold": "auth-pages",
+    "acceptableScaffolds": ["saas-landing"],
+    "mustHaveFeatures": ["login", "signup"],
+    "mustNotBe": ["dashboard", "ecommerce"]
+  },
+  {
+    "id": "auth_04",
+    "prompt": "Generate secure sign-in and password recovery pages with modern card layout.",
+    "buildIntent": "app",
+    "expectedScaffold": "auth-pages",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["auth", "password-reset"],
+    "mustNotBe": ["landing-page", "blog"]
+  },
+  {
+    "id": "ecom_01",
+    "prompt": "Build an ecommerce storefront with product grid, cart and checkout.",
+    "buildIntent": "website",
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["photo-shop"],
+    "mustHaveFeatures": ["products", "cart", "checkout"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "ecom_02",
+    "prompt": "Create an online store for sports gear with categories and product detail pages.",
+    "buildIntent": "website",
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["storefront", "catalog", "product-detail"],
+    "mustNotBe": ["blog", "dashboard"]
+  },
+  {
+    "id": "ecom_03",
+    "prompt": "Need a webshop with inventory display, order flow and payment experience.",
+    "buildIntent": "website",
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["photo-shop"],
+    "mustHaveFeatures": ["inventory", "checkout", "orders"],
+    "mustNotBe": ["portfolio", "auth-pages"]
+  },
+  {
+    "id": "ecom_04",
+    "prompt": "Build a product catalog site with featured products and shopping cart.",
+    "buildIntent": "website",
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["catalog", "products", "cart"],
+    "mustNotBe": ["dashboard", "blog"]
+  },
+  {
+    "id": "ecom_05",
+    "prompt": "Create an e-commerce site for home decor with category pages and checkout.",
+    "buildIntent": "website",
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["photo-shop"],
+    "mustHaveFeatures": ["store", "categories", "checkout"],
+    "mustNotBe": ["app-shell", "auth-pages"]
+  },
+  {
+    "id": "photoshop_01",
+    "prompt": "Build a photo print shop with collections, framed art and checkout flow.",
+    "buildIntent": "website",
+    "expectedScaffold": "photo-shop",
+    "acceptableScaffolds": ["ecommerce", "portfolio"],
+    "mustHaveFeatures": ["gallery", "collections", "checkout"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "photoshop_02",
+    "prompt": "Create a visual storefront for fine art photography prints.",
+    "buildIntent": "website",
+    "expectedScaffold": "photo-shop",
+    "acceptableScaffolds": ["portfolio", "ecommerce"],
+    "mustHaveFeatures": ["photo", "shop", "collections"],
+    "mustNotBe": ["dashboard", "blog"]
+  },
+  {
+    "id": "photoshop_03",
+    "prompt": "Need an editorial style gallery shop for limited edition photos.",
+    "buildIntent": "website",
+    "expectedScaffold": "photo-shop",
+    "acceptableScaffolds": ["portfolio"],
+    "mustHaveFeatures": ["gallery", "editorial", "shop"],
+    "mustNotBe": ["app-shell", "auth-pages"]
+  },
+  {
+    "id": "photoshop_04",
+    "prompt": "Generate a premium photo ecommerce site with print variants and cart.",
+    "buildIntent": "website",
+    "expectedScaffold": "photo-shop",
+    "acceptableScaffolds": ["ecommerce"],
+    "mustHaveFeatures": ["prints", "variants", "cart"],
+    "mustNotBe": ["dashboard", "blog"]
+  },
+  {
+    "id": "contentsite_01",
+    "prompt": "Create a brand content website with hero, feature sections and testimonials.",
+    "buildIntent": "website",
+    "expectedScaffold": "content-site",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["hero", "features", "testimonials"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "contentsite_02",
+    "prompt": "Build a multi-section company site with services, process and contact.",
+    "buildIntent": "website",
+    "expectedScaffold": "content-site",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["services", "process", "contact"],
+    "mustNotBe": ["dashboard", "ecommerce"]
+  },
+  {
+    "id": "contentsite_03",
+    "prompt": "Need a polished website for a consulting agency with trust content and CTA.",
+    "buildIntent": "website",
+    "expectedScaffold": "content-site",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["about", "social-proof", "cta"],
+    "mustNotBe": ["app-shell", "auth-pages"]
+  },
+  {
+    "id": "contentsite_04",
+    "prompt": "Create a modern website for a SaaS partner agency with sections and references.",
+    "buildIntent": "website",
+    "expectedScaffold": "content-site",
+    "acceptableScaffolds": ["saas-landing", "landing-page"],
+    "mustHaveFeatures": ["sections", "references", "cta"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "contentsite_05",
+    "prompt": "Build a website with many reusable sections for a media production company.",
+    "buildIntent": "website",
+    "expectedScaffold": "content-site",
+    "acceptableScaffolds": ["portfolio", "landing-page"],
+    "mustHaveFeatures": ["sections", "showcase", "contact"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "base_01",
+    "prompt": "Create a minimal Next.js starter page with no special sections.",
+    "buildIntent": "template",
+    "expectedScaffold": "base-nextjs",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["starter", "simple"],
+    "mustNotBe": ["dashboard", "ecommerce"]
+  },
+  {
+    "id": "base_02",
+    "prompt": "Need a very simple baseline project to extend later, keep it lightweight.",
+    "buildIntent": "template",
+    "expectedScaffold": "base-nextjs",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["minimal", "starter"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "base_03",
+    "prompt": "Give me only a clean Next.js + Tailwind base scaffold I can customize myself.",
+    "buildIntent": "template",
+    "expectedScaffold": "base-nextjs",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["nextjs", "tailwind", "starter"],
+    "mustNotBe": ["ecommerce", "dashboard"]
+  },
+  {
+    "id": "base_04",
+    "prompt": "Build a tiny website skeleton with one page and basic styling only.",
+    "buildIntent": "template",
+    "expectedScaffold": "base-nextjs",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["simple", "one-page", "starter"],
+    "mustNotBe": ["auth-pages", "dashboard"]
+  },
+  {
+    "id": "cross_01",
+    "prompt": "Create a website for a gym with plans, class schedule and contact form.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site", "saas-landing"],
+    "mustHaveFeatures": ["plans", "cta", "sections"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "cross_02",
+    "prompt": "Build a creator economy site with memberships and pricing tiers.",
+    "buildIntent": "website",
+    "expectedScaffold": "saas-landing",
+    "acceptableScaffolds": ["content-site", "landing-page"],
+    "mustHaveFeatures": ["pricing", "benefits", "cta"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "cross_03",
+    "prompt": "Need a portfolio + store hybrid for prints and case studies.",
+    "buildIntent": "website",
+    "expectedScaffold": "photo-shop",
+    "acceptableScaffolds": ["portfolio", "ecommerce"],
+    "mustHaveFeatures": ["gallery", "shop", "projects"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "cross_04",
+    "prompt": "Create a knowledge base style content site with articles and guides.",
+    "buildIntent": "website",
+    "expectedScaffold": "blog",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["articles", "guides", "searchable-content"],
+    "mustNotBe": ["dashboard", "ecommerce"]
+  },
+  {
+    "id": "cross_05",
+    "prompt": "Build an admin app with dashboard overview and settings pages.",
+    "buildIntent": "app",
+    "expectedScaffold": "dashboard",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["dashboard", "settings", "admin"],
+    "mustNotBe": ["landing-page", "blog"]
+  },
+  {
+    "id": "cross_06",
+    "prompt": "Need sign in and sign up screens before we build the rest of the app.",
+    "buildIntent": "app",
+    "expectedScaffold": "auth-pages",
+    "acceptableScaffolds": ["app-shell"],
+    "mustHaveFeatures": ["auth", "login", "signup"],
+    "mustNotBe": ["landing-page", "portfolio"]
+  },
+  {
+    "id": "cross_07",
+    "prompt": "Create an online catalog for fashion products with checkout.",
+    "buildIntent": "website",
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["catalog", "products", "checkout"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  },
+  {
+    "id": "cross_08",
+    "prompt": "Build an agency website that is section-rich and easy to expand with more pages.",
+    "buildIntent": "website",
+    "expectedScaffold": "content-site",
+    "acceptableScaffolds": ["landing-page"],
+    "mustHaveFeatures": ["sections", "expandable", "cta"],
+    "mustNotBe": ["dashboard", "auth-pages"]
+  }
+]

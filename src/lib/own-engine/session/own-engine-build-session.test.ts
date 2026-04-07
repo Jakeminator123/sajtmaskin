@@ -43,6 +43,22 @@ const buildSpec: BuildSpec = {
 function minimalOrchestrationBase(): OrchestrationBase {
   return {
     resolvedScaffold: null,
+    orchestrationContract: {
+      scaffoldToRoute: {
+        scaffoldId: null,
+        scaffoldFamily: null,
+        routeSource: "prompt",
+        plannedRoutes: [],
+        requiredRoutePaths: [],
+      },
+      generationToValidate: {
+        requiredRoutePaths: [],
+        requiredFiles: ["app/layout.tsx", "app/page.tsx"],
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        qualityTarget: "standard",
+      },
+    },
     scaffoldContext: undefined,
     routePlan: { source: "prompt", siteType: "one-page", reason: "t", routes: [] },
     preGenerationContracts: {

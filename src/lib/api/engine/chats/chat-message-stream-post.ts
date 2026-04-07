@@ -728,6 +728,7 @@ export async function handleMessageStreamRequest(
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
+          orchestrationContract: orchestrationBase.orchestrationContract,
           resolvedScaffold: resolvedScaffold ?? null,
           urlMap,
           commitCredits: commitCreditsOnce,

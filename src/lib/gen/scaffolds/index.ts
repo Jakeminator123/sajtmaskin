@@ -1,5 +1,22 @@
-export type { ScaffoldFamily, ScaffoldMode, ScaffoldFile, ScaffoldManifest } from "./types";
+export type {
+  ScaffoldComplexity,
+  ScaffoldFamily,
+  ScaffoldFile,
+  ScaffoldManifest,
+  ScaffoldMode,
+  ScaffoldSiteKind,
+} from "./types";
 export { getScaffoldById, getScaffoldByFamily, getAllScaffolds, getScaffoldFamilies } from "./registry";
-export { matchScaffold, matchScaffoldWithEmbeddings } from "./matcher";
+export {
+  matchScaffold,
+  matchScaffoldAuto,
+  matchScaffoldWithEmbeddings,
+} from "./matcher";
+export type {
+  ScaffoldSelectionConfidence,
+  ScaffoldSelectionMeta,
+  ScaffoldSelectionMethod,
+  ScaffoldSelectionResult,
+} from "./matcher";
 export { serializeScaffoldForPrompt, detectScaffoldMode } from "./serialize";
 export type { ScaffoldSerializeMode } from "./serialize";

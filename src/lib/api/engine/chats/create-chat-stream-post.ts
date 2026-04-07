@@ -713,6 +713,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
+          orchestrationContract: orchestrationBase.orchestrationContract,
           resolvedScaffold: resolvedScaffold ?? null,
           lineageHash,
           urlMap,

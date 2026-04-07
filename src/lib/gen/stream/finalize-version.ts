@@ -1,5 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
@@ -52,6 +53,7 @@ export interface FinalizeParams {
   buildIntent?: BuildIntent;
   buildSpec?: BuildSpec | null;
   routePlan?: RoutePlan | null;
+  orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
   startedAt: number;
@@ -261,6 +263,7 @@ async function runFinalizeFastPath(params: {
   buildSpec?: BuildSpec | null;
   resolvedScaffold: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
+  orchestrationContract?: OrchestrationContract | null;
   previousFiles?: CodeFile[];
   onProgress?: FinalizeProgressCallback;
   contentForVersion: string;
@@ -276,6 +279,7 @@ async function runFinalizeFastPath(params: {
     buildSpec,
     resolvedScaffold,
     routePlan,
+    orchestrationContract,
     previousFiles,
     onProgress,
     finalizePath,
@@ -451,6 +455,7 @@ async function runFinalizeFastPath(params: {
     model,
     filesJson,
     routePlan,
+    orchestrationContract,
   });
   filesJson = preflightResult.filesJson;
   filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
@@ -530,6 +535,7 @@ export async function finalizeAndSaveVersion(
     buildIntent,
     buildSpec,
     routePlan,
+    orchestrationContract,
     resolvedScaffold,
     urlMap,
     startedAt,
@@ -548,6 +554,7 @@ export async function finalizeAndSaveVersion(
   let autoFixFixCount = 0;
   let autoFixWarningCount = 0;
   let autoFixDependencyCount = 0;
+  let autoFixHeavyLoad = false;
   let telemetryRecordId: string | null = null;
   const finalizeStepTelemetry: FinalizeStepTelemetryMap = {};
   const resolveStepDurationMs = (step: OwnEnginePostStreamPhaseId): number => {
@@ -577,6 +584,7 @@ export async function finalizeAndSaveVersion(
       autoFixFixCount = autoFixResult.fixes.length;
       autoFixWarningCount = autoFixResult.warnings.length;
       autoFixDependencyCount = Object.keys(autoFixResult.dependencies).length;
+      autoFixHeavyLoad = autoFixFixCount > 5;
 
       if (autoFixResult.fixes.length > 0 || autoFixResult.warnings.length > 0) {
         devLogAppend("in-progress", {
@@ -585,6 +593,16 @@ export async function finalizeAndSaveVersion(
           fixes: autoFixResult.fixes,
           warnings: autoFixResult.warnings.slice(0, 20),
           dependencies: autoFixResult.dependencies,
+        });
+      }
+      if (autoFixHeavyLoad) {
+        devLogAppend("in-progress", {
+          type: "autofix.heavy_load",
+          chatId,
+          fixCount: autoFixFixCount,
+          threshold: 5,
+          warning:
+            "Deterministic autofix had to repair many issues. This usually indicates instability earlier in generation.",
         });
       }
       onProgress?.("autofix", {
@@ -636,6 +654,7 @@ export async function finalizeAndSaveVersion(
     buildSpec,
     resolvedScaffold,
     routePlan,
+    orchestrationContract,
     previousFiles,
     onProgress,
     contentForVersion,
@@ -672,6 +691,11 @@ export async function finalizeAndSaveVersion(
       console.warn("[orchestration-snapshot] Failed to persist:", e);
     }
   }
+  const scaffoldSelection =
+    orchestrationStreamMeta?.scaffoldSelection &&
+    typeof orchestrationStreamMeta.scaffoldSelection === "object"
+      ? (orchestrationStreamMeta.scaffoldSelection as Record<string, unknown>)
+      : null;
   const {
     preflightErrors,
     preflightWarnings,
@@ -689,7 +713,25 @@ export async function finalizeAndSaveVersion(
     finalizedPreviewFileCount: finalizedFilesForPreview.length,
     scaffoldRetry,
     routePlan,
+    scaffoldSelection,
   });
+  if (autoFixHeavyLoad) {
+    preflightLogs.push({
+      chatId,
+      versionId: version.id,
+      level: "warning",
+      category: "autofix",
+      message:
+        "Deterministic autofix applied many repairs; generation quality may be unstable upstream.",
+      meta: {
+        event: "autofix_heavy_load",
+        fixCount: autoFixFixCount,
+        threshold: 5,
+        warningCount: autoFixWarningCount,
+        dependencyCount: autoFixDependencyCount,
+      },
+    });
+  }
   devLogAppend("in-progress", {
     type: "preflight.summary",
     chatId,
@@ -702,6 +744,7 @@ export async function finalizeAndSaveVersion(
     previewBlocked: hasPreviewBlockingPreflightErrors,
     previewBlockingReason,
     scaffoldRetry,
+    scaffoldSelection,
   });
   onProgress?.("parse_merge_preflight", {
     phase: "done",
@@ -741,6 +784,7 @@ export async function finalizeAndSaveVersion(
         fixCount: autoFixFixCount,
         warningCount: autoFixWarningCount,
         dependencyCount: autoFixDependencyCount,
+        heavyLoad: autoFixHeavyLoad,
       },
       preflight: {
         previewBlocked: hasPreviewBlockingPreflightErrors,

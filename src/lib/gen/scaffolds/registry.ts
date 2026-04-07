@@ -1,7 +1,7 @@
 /**
  * Internal scaffold registry — the single source of truth for runtime
  * scaffold selection. Only scaffolds listed in ALL_SCAFFOLDS are used
- * by matchScaffoldWithEmbeddings() during code generation.
+ * by matchScaffoldAuto() during code generation.
  *
  * External Vercel template research (e.g. data/external-template-pipeline/,
  * _template_refs/) is reference material for new internal scaffolds.
@@ -20,6 +20,8 @@ import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
 import { photoShopManifest } from "./photo-shop/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
+import { applyScaffoldSeoDefaults } from "./seo-defaults";
+import { applyScaffoldTraits } from "./scaffold-traits";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   baseNextjsManifest,
@@ -53,8 +55,8 @@ function mergeScaffoldResearch(
   };
 }
 
-const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => ({
-  ...(() => {
+const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => {
+  const withResearchOverrides = (() => {
     const overrides = getScaffoldResearchOverrides(scaffold.id);
     return {
       ...scaffold,
@@ -65,8 +67,9 @@ const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => ({
       ),
       research: mergeScaffoldResearch(scaffold.research, overrides.research),
     };
-  })(),
-}));
+  })();
+  return applyScaffoldSeoDefaults(applyScaffoldTraits(withResearchOverrides));
+});
 
 export function getScaffoldById(id: string): ScaffoldManifest | null {
   return ALL_SCAFFOLDS.find((s) => s.id === id) ?? null;

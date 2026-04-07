@@ -12,6 +12,9 @@ export type ScaffoldFamily =
   | "photo-shop";
 export type ScaffoldMode = "off" | "auto" | "manual";
 
+export type ScaffoldSiteKind = "marketing" | "app" | "commerce" | "editorial";
+export type ScaffoldComplexity = "simple" | "medium" | "advanced";
+
 export interface ScaffoldFile {
   path: string;
   content: string;
@@ -35,6 +38,20 @@ export interface ScaffoldManifest {
   family: ScaffoldFamily;
   label: string;
   description: string;
+  /**
+   * Structure role: controls baseline file/project shape.
+   * Example: app-shell, one-page-marketing, editorial-hub.
+   */
+  structureProfile?: string;
+  /**
+   * Content role: controls domain/content direction independent of structure.
+   * Example: service-business, portfolio-creator, ecommerce-catalog.
+   */
+  contentProfile?: string;
+  /** First-step traits metadata for composable scaffold evolution. */
+  siteKind?: ScaffoldSiteKind;
+  complexity?: ScaffoldComplexity;
+  features?: string[];
   buildIntents: Array<"website" | "app" | "template">;
   tags: string[];
   promptHints: string[];

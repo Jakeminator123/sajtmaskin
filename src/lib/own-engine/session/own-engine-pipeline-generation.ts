@@ -4,6 +4,7 @@
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { CodeFile } from "@/lib/gen/parser";
 import type { PipelineOptions } from "@/lib/gen/generation-pipeline";
@@ -37,6 +38,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   engineIntent: BuildIntent;
   buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
+  orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
   commitCredits: () => Promise<void>;
@@ -80,6 +82,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     engineIntent: input.engineIntent,
     buildSpec: input.buildSpec,
     routePlan: input.routePlan,
+    orchestrationContract: input.orchestrationContract ?? null,
     resolvedScaffold: input.resolvedScaffold,
     urlMap: input.urlMap,
     commitCredits: input.commitCredits,

@@ -80,6 +80,16 @@ export function serializeScaffoldForPrompt(
   const hints = scaffold.promptHints.length > 0
     ? `\n\nScaffold hints:\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
     : "";
+  const traitLines = [
+    scaffold.structureProfile ? `- structure_profile: ${scaffold.structureProfile}` : null,
+    scaffold.contentProfile ? `- content_profile: ${scaffold.contentProfile}` : null,
+    scaffold.siteKind ? `- site_kind: ${scaffold.siteKind}` : null,
+    scaffold.complexity ? `- complexity: ${scaffold.complexity}` : null,
+    scaffold.features?.length ? `- features: ${scaffold.features.join(", ")}` : null,
+  ].filter(Boolean);
+  const roleSplit = traitLines.length
+    ? `\n\nScaffold role split (important):\n${traitLines.join("\n")}\n- Use structure_profile as the project/file architecture baseline.\n- Use content_profile as direction only; adapt pages and sections to the user request.\n- Never treat one scaffold as the full identity of the final site.`
+    : "";
 
   if (mode === "inspirational") {
     const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");
@@ -89,7 +99,7 @@ export function serializeScaffoldForPrompt(
       Math.min(maxChars, 10_000),
     );
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
   }
 
   if (!FEATURES.useLightweightScaffoldSerialization || options.forceFullDump) {
@@ -102,7 +112,7 @@ export function serializeScaffoldForPrompt(
 
     const fileBlocks = renderScaffoldFiles(scaffold, maxChars);
 
-    return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as a flexible starting point — not a rigid template. Adapt structure, pages, and components freely to match what the user actually asked for. If the user wants two pages, create two pages even if the scaffold only has one. Rewrite scaffold placeholder copy to reflect the user's actual topic, tone, language, and visual identity. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` starter palette is a baseline, not the final brand palette. You MUST replace it with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted \`@theme inline\` color tokens. Default/neutral output means you forgot.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
+    return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat these scaffold files as a flexible starting point — not a rigid template. Adapt structure, pages, and components freely to match what the user actually asked for. If the user wants two pages, create two pages even if the scaffold only has one. Rewrite scaffold placeholder copy to reflect the user's actual topic, tone, language, and visual identity. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` starter palette is a baseline, not the final brand palette. You MUST replace it with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted \`@theme inline\` color tokens. Default/neutral output means you forgot.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
   }
 
   const contextPolicy = options.contextPolicy ?? "normal";
@@ -115,7 +125,7 @@ export function serializeScaffoldForPrompt(
   const fileTree = buildScaffoldFileTree(scaffold);
   const criticalFiles = selectCriticalScaffoldFiles(scaffold, contextPolicy);
   const usedBeforeCritical =
-    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n`;
+    `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n`;
   const criticalBudget = Math.max(3_000, maxChars - usedBeforeCritical.length - hints.length);
   const criticalBlocks = renderSelectedScaffoldFiles(criticalFiles, criticalBudget);
 

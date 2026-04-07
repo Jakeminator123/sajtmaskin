@@ -56,6 +56,7 @@
     "references:discover:second-pass": "npx playwright test e2e/vercel-templates/scrape-catalog.spec.ts -g \"automated: scrape with secondPass preset filters\"",
     "references:discover:full": "npx playwright test e2e/vercel-templates/scrape-catalog.spec.ts -g \"automated: scrape with broad preset filters\"",
     "scaffolds:embeddings": "npx tsx scripts/embeddings/generate-scaffold-embeddings.ts",
+    "scaffolds:eval-selection": "npx tsx scripts/scaffolds/eval-scaffold-selection.ts",
     "scaffolds:curate": "npx tsx scripts/scaffolds/curate-scaffold-candidates.ts",
     "scaffolds:promote": "npx tsx scripts/scaffolds/promote-to-scaffold.ts",
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
