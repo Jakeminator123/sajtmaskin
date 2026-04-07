@@ -81,6 +81,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   const [previewBootstrapRetryNonce, setPreviewBootstrapRetryNonce] = useState(0);
   const previewBootstrapTransientAttemptsRef = useRef<Map<string, number>>(new Map());
   const [forcedPreviewRestartKey, setForcedPreviewRestartKey] = useState<string | null>(null);
+  const lastPreviewBootstrapSyncAtRef = useRef(0);
 
   const onPreviewSessionMeta = useCallback(
     (meta: { previewSessionId: string; versionId: string | null } | null) => {
@@ -125,6 +126,16 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     setPreviewPending(false);
     setPreviewSessionRecovering(false);
   }, [chatId]);
+
+  const syncServerStateAfterPreviewBootstrap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastPreviewBootstrapSyncAtRef.current < 15_000) {
+      return;
+    }
+    lastPreviewBootstrapSyncAtRef.current = now;
+    void mutateChat();
+    void mutateVersions();
+  }, [mutateChat, mutateVersions]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -380,8 +391,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
               ...(activeVersionId ? { versionId: activeVersionId } : {}),
             });
           }
-          void mutateChat();
-          void mutateVersions();
+          syncServerStateAfterPreviewBootstrap();
         } catch (err) {
           if (cancelled || previewBootstrapGenRef.current !== gen) return;
           if (err instanceof Error && err.name === "AbortError") return;
@@ -416,6 +426,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
     bumpPreviewRefreshToken,
     mutateChat,
     mutateVersions,
+    syncServerStateAfterPreviewBootstrap,
     forcedPreviewRestartKey,
     previewBootstrapRetryNonce,
     isShimOrMissingPreviewUrl,

@@ -18,28 +18,28 @@ interface UseVersionsOptions {
   pauseWhileGenerating?: boolean;
   /** Set to false to disable fetching entirely (e.g. when data comes from parent). Default: true */
   enabled?: boolean;
-  /** Polling interval while generating in ms. Default: 5000 */
+  /** Polling interval while generating in ms. Default: 10000 */
   generatingRefreshIntervalMs?: number;
-  /** Polling interval while idle in ms. Default: 30000 */
+  /** Polling interval while idle in ms. Default: 60000 */
   idleRefreshIntervalMs?: number;
 }
 
 /**
  * Hook to fetch and manage chat versions.
  * Polling is controlled by isGenerating:
- * - When generating: poll every 5s to show progress
- * - When idle: poll every 30s to reduce background churn
+ * - When generating: poll every 10s to show progress
+ * - When idle: poll every 60s to reduce background churn
  */
 export function useVersions(chatId: string | null, options: UseVersionsOptions = {}) {
   const {
     isGenerating = false,
     pauseWhileGenerating = false,
     enabled = true,
-    generatingRefreshIntervalMs = 5000,
-    idleRefreshIntervalMs = 30000,
+    generatingRefreshIntervalMs = 10000,
+    idleRefreshIntervalMs = 60000,
   } = options;
 
-  // Poll every 5s during generation, 30s when idle
+  // Poll every 10s during generation, 60s when idle
   const refreshInterval =
     pauseWhileGenerating && isGenerating
       ? 0
@@ -54,8 +54,8 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
       refreshInterval,
-      // Dedupe requests within 2 seconds
-      dedupingInterval: 2000,
+      // Keep repeated UI triggers from stampeding the same endpoint.
+      dedupingInterval: 10000,
     },
   );
 

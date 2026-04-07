@@ -160,22 +160,6 @@ export const SCAFFOLD_EMBEDDING_LOCALE: Record<ScaffoldFamily, ScaffoldEmbedding
       "kontrollpanel",
     ],
   },
-  "photo-shop": {
-    labelSv: "Fotoshop",
-    descriptionSv:
-      "Kurerad produkt-fotoshop med editorial rutnät, sidnavigering, varukorg och raffinerat monokromt designsystem.",
-    keywordsSv: [
-      "fotoshop",
-      "foto butik",
-      "galleri shop",
-      "mode",
-      "konsttryck",
-      "livsstil",
-      "kurerad",
-      "editorial",
-      "minimal butik",
-    ],
-  },
 };
 
 export function buildIntentBilingual(

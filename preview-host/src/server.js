@@ -2,8 +2,16 @@
 
 const http = require("node:http");
 const { URL } = require("node:url");
+const { execFileSync } = require("node:child_process");
+const fs = require("node:fs");
+const path = require("node:path");
 const { randomUUID } = require("node:crypto");
-const { readStoreSync, withStoreLock } = require("./store.js");
+const {
+  getDataDir,
+  getStoreFilePath,
+  readStoreSync,
+  withStoreLock,
+} = require("./store.js");
 const {
   buildPreviewUrl,
   cleanupPreviewHostStorage,
@@ -32,9 +40,11 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 const PREVIEW_BASE_URL =
   process.env.PREVIEW_BASE_URL ?? "https://preview-placeholder.example.com";
 const SESSION_TTL_MS =
-  Number.parseInt(process.env.PREVIEW_SESSION_TTL_MS ?? `${15 * 60 * 1000}`, 10);
+  Number.parseInt(process.env.PREVIEW_SESSION_TTL_MS ?? `${60 * 60 * 1000}`, 10);
 const OPPORTUNISTIC_CLEANUP_INTERVAL_MS =
   Number.parseInt(process.env.PREVIEW_HOST_OPPORTUNISTIC_CLEANUP_INTERVAL_MS ?? `${5 * 60 * 1000}`, 10);
+const BACKGROUND_CLEANUP_INTERVAL_MS =
+  Number.parseInt(process.env.PREVIEW_HOST_BACKGROUND_CLEANUP_INTERVAL_MS ?? `${10 * 60 * 1000}`, 10);
 let lastOpportunisticCleanupAt = 0;
 
 async function maybeRunOpportunisticCleanup() {
@@ -44,6 +54,118 @@ async function maybeRunOpportunisticCleanup() {
   }
   lastOpportunisticCleanupAt = now;
   await cleanupPreviewHostStorage().catch(() => null);
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) return null;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function getPathSizeBytes(targetPath) {
+  try {
+    const stats = fs.statSync(targetPath);
+    if (stats.isFile()) return stats.size;
+    if (!stats.isDirectory()) return 0;
+    let total = 0;
+    for (const entry of fs.readdirSync(targetPath)) {
+      total += getPathSizeBytes(path.join(targetPath, entry));
+    }
+    return total;
+  } catch {
+    return 0;
+  }
+}
+
+function readFilesystemUsage(targetPath) {
+  try {
+    const output = execFileSync("df", ["-kP", targetPath], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const lines = output.split(/\r?\n/);
+    const dataLine = lines[lines.length - 1] ?? "";
+    const parts = dataLine.trim().split(/\s+/);
+    if (parts.length < 6) return null;
+    const totalKb = Number(parts[1]);
+    const usedKb = Number(parts[2]);
+    const freeKb = Number(parts[3]);
+    const mountPath = parts[5];
+    if (![totalKb, usedKb, freeKb].every(Number.isFinite)) {
+      return null;
+    }
+    const totalBytes = totalKb * 1024;
+    const usedBytes = usedKb * 1024;
+    const freeBytes = freeKb * 1024;
+    return {
+      mountPath,
+      totalBytes,
+      usedBytes,
+      freeBytes,
+      totalHuman: formatBytes(totalBytes),
+      usedHuman: formatBytes(usedBytes),
+      freeHuman: formatBytes(freeBytes),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getPreviewStatusSandboxId(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts.length !== 4 || parts[0] !== "preview" || parts[3] !== "status") {
+    return "";
+  }
+  if (parts[1] !== "session" && parts[1] !== "sandbox") {
+    return "";
+  }
+  return parts[2] ?? "";
+}
+
+function describeStorageState() {
+  const dataDir = getDataDir();
+  const workspacesDir = path.join(dataDir, "workspaces");
+  const verifyWorkspacesDir = path.join(dataDir, "verify-workspaces");
+  const storeFilePath = getStoreFilePath();
+  const rootFilesystem = readFilesystemUsage("/");
+  const dataFilesystem = readFilesystemUsage(dataDir);
+
+  return {
+    dataDir,
+    storeFilePath,
+    volumeMountPath: "/data",
+    sessionTtlMs: SESSION_TTL_MS,
+    rootFilesystem,
+    dataFilesystem,
+    paths: {
+      dataDir: {
+        exists: fs.existsSync(dataDir),
+        bytes: getPathSizeBytes(dataDir),
+        human: formatBytes(getPathSizeBytes(dataDir)),
+      },
+      storeFilePath: {
+        exists: fs.existsSync(storeFilePath),
+        bytes: getPathSizeBytes(storeFilePath),
+        human: formatBytes(getPathSizeBytes(storeFilePath)),
+      },
+      workspacesDir: {
+        exists: fs.existsSync(workspacesDir),
+        bytes: getPathSizeBytes(workspacesDir),
+        human: formatBytes(getPathSizeBytes(workspacesDir)),
+      },
+      verifyWorkspacesDir: {
+        exists: fs.existsSync(verifyWorkspacesDir),
+        bytes: getPathSizeBytes(verifyWorkspacesDir),
+        human: formatBytes(getPathSizeBytes(verifyWorkspacesDir)),
+      },
+    },
+  };
 }
 
 function json(res, statusCode, payload) {
@@ -215,7 +337,12 @@ async function routeRequest(req, res) {
         "POST /preview/verify",
         "GET /preview/session/:id",
         "GET /preview/session/:sandboxId/status",
+        "GET /preview/sandbox/:sandboxId/status",
         "GET /preview/logs/:sandboxId",
+        "GET /admin/sessions",
+        "GET /admin/storage",
+        "POST /admin/cleanup",
+        "POST /admin/destroy-all",
         "GET /placeholder.svg",
         "GET /:chatId/*",
       ],
@@ -238,9 +365,9 @@ async function routeRequest(req, res) {
     return undefined;
   }
 
-  if (req.method === "GET" && url.pathname.startsWith("/preview/session/") && url.pathname.endsWith("/status")) {
-    const parts = url.pathname.split("/").filter(Boolean);
-    const sandboxId = parts.length >= 3 ? parts[2] : "";
+  const previewStatusSandboxId = getPreviewStatusSandboxId(url.pathname);
+  if (req.method === "GET" && previewStatusSandboxId) {
+    const sandboxId = previewStatusSandboxId;
     if (!sandboxId) {
       return json(res, 400, { error: "bad_request", message: "Missing sandboxId." });
     }
@@ -265,15 +392,6 @@ async function routeRequest(req, res) {
     const runtimeState = getRuntimeStateForChat(chatId);
     if (!runtimeState.running && statusResult.session.status !== "error" && statusResult.session.status !== "hibernated") {
       queueRuntimeBoot(chatId);
-    }
-    if (runtimeState.running) {
-      await withStoreLock((data) => {
-        const session = findSessionBySandboxId(data, sandboxId);
-        if (session) {
-          session.sessionExpiresAt = sessionExpiresAtIso();
-          session.updatedAt = nowIso();
-        }
-      });
     }
     const latest = findSessionBySandboxId(readStoreSync(), sandboxId) ?? statusResult.session;
     return json(res, 200, {
@@ -528,6 +646,14 @@ async function routeRequest(req, res) {
     });
   }
 
+  if (req.method === "GET" && url.pathname === "/admin/storage") {
+    if (!checkApiKey(req, res)) return;
+    return json(res, 200, {
+      ok: true,
+      storage: describeStorageState(),
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/admin/destroy-all") {
     if (!checkApiKey(req, res)) return;
     const activeSessions = listSessions(readStoreSync());
@@ -596,6 +722,11 @@ if (require.main === module) {
   server.listen(PORT, HOST, () => {
     console.log(`preview-host listening on http://${HOST}:${PORT}`);
   });
+  void cleanupPreviewHostStorage().catch(() => null);
+  const cleanupTimer = setInterval(() => {
+    void cleanupPreviewHostStorage().catch(() => null);
+  }, BACKGROUND_CLEANUP_INTERVAL_MS);
+  cleanupTimer.unref?.();
 }
 
 module.exports = {

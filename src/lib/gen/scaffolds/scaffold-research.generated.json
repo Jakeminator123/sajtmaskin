@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-07T16:25:34.635Z",
+  "generatedAt": "2026-04-07T19:06:27.338Z",
   "source": "scripts/template-library/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
@@ -637,20 +637,6 @@
             ]
           }
         ]
-      }
-    },
-    "photo-shop": {
-      "qualityChecklist": [
-        "Keep the editorial product grid with large hero card and alternating 1-column cards.",
-        "Preserve the monochrome oklch design system and tight typography (line-height 1.2, negative letter-spacing).",
-        "Cart should be a drawer, not a page. Product detail should include a multi-image gallery."
-      ],
-      "research": {
-        "upgradeTargets": [
-          "Richer product gallery patterns",
-          "Stronger editorial visual rhythm"
-        ],
-        "referenceTemplates": []
       }
     }
   }

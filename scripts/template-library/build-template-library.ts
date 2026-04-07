@@ -84,6 +84,8 @@ function sanitizeEntryForCatalogOutput(entry: TemplateLibraryEntry): TemplateLib
 
 const NOISE_LINE_RE =
   /\b(Vercel Agent|Vercel documentation|Deploy at the speed of AI|Ship features, not infrastructure|SDKs by Vercel)\b/i;
+const SETUP_NOISE_LINE_RE =
+  /^(getting started|installation|install dependencies|run locally|start the development server|start development server|clone the repository|clone git|npm install|pnpm install|yarn install|bun install|npm run dev|pnpm dev|yarn dev|bun dev|localhost|http:\/\/localhost|\.env(\.local|\.example)?|copy the keys|register an account|check out the docs|learn more|view demo)$/i;
 const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldFamilies());
 const TITLE_BLOCKLIST_PATTERNS = [
   "Express on Bun",
@@ -180,11 +182,6 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
     "Allow auth, billing, and dashboard subflows to be layered in later.",
     "Primary layout should feel like a real product workspace, not a simple landing page with a sidebar.",
   ],
-  "photo-shop": [
-    "Keep the editorial product grid with large hero card and alternating 1-column cards.",
-    "Preserve the monochrome oklch design system and tight typography (line-height 1.2, negative letter-spacing).",
-    "Cart should be a drawer, not a page. Product detail should include a multi-image gallery.",
-  ],
 };
 
 const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
@@ -198,7 +195,6 @@ const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
   ecommerce: ["Stronger product and checkout patterns", "Clearer storefront information architecture"],
   "content-site": ["Broader reusable section coverage", "More believable content-first defaults"],
   "app-shell": ["Deeper app navigation patterns", "More settings, account, and workspace affordances"],
-  "photo-shop": ["Richer product gallery patterns", "Stronger editorial visual rhythm"],
 };
 
 function ensureDir(target: string): void {
@@ -393,7 +389,6 @@ function findInterestingFiles(repoRoot: string, packageDir: string | null, allFi
 
   for (const root of preferredRoots) {
     explicitCandidates.push(
-      path.join(root, "README.md"),
       path.join(root, "package.json"),
       path.join(root, "app", "layout.tsx"),
       path.join(root, "app", "page.tsx"),
@@ -409,6 +404,7 @@ function findInterestingFiles(repoRoot: string, packageDir: string | null, allFi
       path.join(root, "src", "app", "signup", "page.tsx"),
       path.join(root, "app", "forgot-password", "page.tsx"),
       path.join(root, "src", "app", "forgot-password", "page.tsx"),
+      path.join(root, "README.md"),
     );
   }
 
@@ -460,14 +456,24 @@ function buildFileExcerpt(filePath: string, repoRoot: string): TemplateLibrarySe
   return { path: relativePath, reason, excerpt };
 }
 
+function isUsefulLineNoise(line: string): boolean {
+  const normalized = line.replace(/\s+/g, " ").trim();
+  if (!normalized) return true;
+  if (NOISE_LINE_RE.test(normalized)) return true;
+  if (/related templates?/i.test(normalized)) return true;
+  if (/^(deploy|features|gettings started|getting started|vercel)$/i.test(normalized)) return true;
+  if (SETUP_NOISE_LINE_RE.test(normalized)) return true;
+  return false;
+}
+
 function detectSignals(entry: RawTemplateRecord, selectedFiles: TemplateLibrarySelectedFile[]): TemplateLibrarySignals {
   const stackTags = (entry.stack_tags ?? []).filter((tag) => !/related templates?/i.test(tag));
   const useCaseBadges = entry.use_case_badges ?? [];
   const databaseBadges = entry.database_badges ?? [];
   const authBadges = entry.auth_badges ?? [];
   const usefulLines = (entry.important_lines ?? [])
-    .filter((line) => !NOISE_LINE_RE.test(line))
-    .filter((line) => !/^(deploy|features|gettings started|getting started|vercel)$/i.test(line.trim()));
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => !isUsefulLineNoise(line));
   const selectedPaths = selectedFiles.map((file) => file.path).join("\n").toLowerCase();
   const text = [
     entry.title,
@@ -848,8 +854,8 @@ function buildEntry(
   }
 
   const usefulLines = (template.important_lines ?? [])
-    .filter((line) => !NOISE_LINE_RE.test(line))
-    .filter((line) => !/related templates?/i.test(line))
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => !isUsefulLineNoise(line))
     .slice(0, 12);
   const noiseLines = (template.important_lines ?? []).filter((line) => NOISE_LINE_RE.test(line)).slice(0, 12);
   const repoInfo: TemplateLibraryRepoInfo = {

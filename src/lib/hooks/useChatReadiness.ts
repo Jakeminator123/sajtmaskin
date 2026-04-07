@@ -15,6 +15,8 @@ const fetcher = async (url: string) => {
 type UseChatReadinessOptions = {
   isGenerating?: boolean;
   pauseWhileGenerating?: boolean;
+  generatingRefreshIntervalMs?: number;
+  idleRefreshIntervalMs?: number;
 };
 
 export function useChatReadiness(
@@ -22,10 +24,21 @@ export function useChatReadiness(
   versionId: string | null,
   options: UseChatReadinessOptions = {},
 ) {
-  const { isGenerating = false, pauseWhileGenerating = false } = options;
+  const {
+    isGenerating = false,
+    pauseWhileGenerating = false,
+    generatingRefreshIntervalMs = 15000,
+    idleRefreshIntervalMs = 30000,
+  } = options;
   const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : "";
   const refreshInterval =
-    !versionId || (pauseWhileGenerating && isGenerating) ? 0 : 10000;
+    !versionId
+      ? 0
+      : pauseWhileGenerating && isGenerating
+        ? 0
+        : isGenerating
+          ? generatingRefreshIntervalMs
+          : idleRefreshIntervalMs;
   const { data, error, isLoading, mutate } = useSWR(
     chatId ? `${engineChatBaseUrl(chatId)}/readiness${query}` : null,
     fetcher,
@@ -33,7 +46,7 @@ export function useChatReadiness(
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
       refreshInterval,
-      dedupingInterval: 2000,
+      dedupingInterval: 10000,
     },
   );
 

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-07T16:25:49.309Z",
+  "timestamp": "2026-04-07T19:06:41.564Z",
   "results": [
     {
       "id": "landing_01",
@@ -622,12 +622,11 @@
     },
     {
       "id": "photoshop_01",
-      "expected": "photo-shop",
+      "expected": "ecommerce",
       "keywordTop1": "ecommerce",
       "semanticTop1": "ecommerce",
       "semanticTop3": [
-        "ecommerce",
-        "photo-shop"
+        "ecommerce"
       ],
       "keywordTop1Correct": true,
       "semanticTop1Correct": true,
@@ -638,28 +637,10 @@
     },
     {
       "id": "photoshop_02",
-      "expected": "photo-shop",
+      "expected": "ecommerce",
       "keywordTop1": "landing-page",
-      "semanticTop1": "photo-shop",
+      "semanticTop1": "ecommerce",
       "semanticTop3": [
-        "ecommerce",
-        "portfolio",
-        "photo-shop"
-      ],
-      "keywordTop1Correct": false,
-      "semanticTop1Correct": true,
-      "semanticTop3Correct": true,
-      "semanticMethod": "embedding",
-      "semanticConfidence": "medium",
-      "semanticUnavailableReason": null
-    },
-    {
-      "id": "photoshop_03",
-      "expected": "photo-shop",
-      "keywordTop1": "landing-page",
-      "semanticTop1": "photo-shop",
-      "semanticTop3": [
-        "photo-shop",
         "ecommerce",
         "portfolio"
       ],
@@ -671,13 +652,29 @@
       "semanticUnavailableReason": null
     },
     {
-      "id": "photoshop_04",
-      "expected": "photo-shop",
-      "keywordTop1": "ecommerce",
+      "id": "photoshop_03",
+      "expected": "portfolio",
+      "keywordTop1": "landing-page",
       "semanticTop1": "ecommerce",
       "semanticTop3": [
         "ecommerce",
-        "photo-shop"
+        "portfolio",
+        "blog"
+      ],
+      "keywordTop1Correct": false,
+      "semanticTop1Correct": true,
+      "semanticTop3Correct": true,
+      "semanticMethod": "embedding",
+      "semanticConfidence": "medium",
+      "semanticUnavailableReason": null
+    },
+    {
+      "id": "photoshop_04",
+      "expected": "ecommerce",
+      "keywordTop1": "ecommerce",
+      "semanticTop1": "ecommerce",
+      "semanticTop3": [
+        "ecommerce"
       ],
       "keywordTop1Correct": true,
       "semanticTop1Correct": true,
@@ -866,7 +863,7 @@
     },
     {
       "id": "cross_03",
-      "expected": "photo-shop",
+      "expected": "ecommerce",
       "keywordTop1": "portfolio",
       "semanticTop1": "portfolio",
       "semanticTop3": [

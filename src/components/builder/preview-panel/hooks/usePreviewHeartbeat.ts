@@ -8,6 +8,8 @@ import {
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 
+const HIDDEN_HIBERNATE_DELAY_MS = 60_000;
+
 export function usePreviewHeartbeat(params: {
   chatId: string | null;
   versionId: string | null;
@@ -27,12 +29,20 @@ export function usePreviewHeartbeat(params: {
 
   const viewerIdRef = useRef<string | null>(null);
   const hibernateRequestedRef = useRef(false);
+  const hiddenHibernateTimerRef = useRef<number | null>(null);
   if (typeof window !== "undefined" && !viewerIdRef.current) {
     viewerIdRef.current =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `viewer_${Math.random().toString(36).slice(2)}`;
   }
+
+  const clearHiddenHibernateTimer = () => {
+    if (hiddenHibernateTimerRef.current !== null) {
+      window.clearTimeout(hiddenHibernateTimerRef.current);
+      hiddenHibernateTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
@@ -85,17 +95,24 @@ export function usePreviewHeartbeat(params: {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        requestHibernate();
+        clearHiddenHibernateTimer();
+        hiddenHibernateTimerRef.current = window.setTimeout(() => {
+          requestHibernate();
+        }, HIDDEN_HIBERNATE_DELAY_MS);
+      } else {
+        clearHiddenHibernateTimer();
       }
     };
 
     const handlePageHide = () => {
+      clearHiddenHibernateTimer();
       requestHibernate();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pagehide", handlePageHide);
     return () => {
+      clearHiddenHibernateTimer();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
     };

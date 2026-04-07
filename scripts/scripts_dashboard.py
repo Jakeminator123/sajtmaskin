@@ -8,6 +8,7 @@ sequence, or with predefined "run all" presets.
 
 from __future__ import annotations
 
+import json
 import os
 import queue
 import subprocess
@@ -24,6 +25,13 @@ from tkinter.scrolledtext import ScrolledText
 REPO_ROOT = Path(__file__).resolve().parent.parent
 NPM_CMD = "npm.cmd" if os.name == "nt" else "npm"
 PYTHON_CMD = sys.executable
+
+BUILDER_TEMPLATES_PATH = REPO_ROOT / "src" / "lib" / "templates" / "templates.json"
+BUILDER_TEMPLATE_EMBEDDINGS_PATH = REPO_ROOT / "src" / "lib" / "templates" / "template-embeddings.json"
+EXTERNAL_TEMPLATE_LIBRARY_PATH = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
+EXTERNAL_TEMPLATE_LIBRARY_EMBEDDINGS_PATH = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
+SCAFFOLD_RESEARCH_PATH = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-research.generated.json"
+SCAFFOLD_EMBEDDINGS_PATH = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-embeddings.json"
 
 
 @dataclass(frozen=True)
@@ -223,6 +231,7 @@ class ScriptsDashboard:
         self._stop_requested = False
 
         self._build_layout()
+        self._refresh_status_panel()
         self._poll_output_queue()
 
     def _build_layout(self) -> None:
@@ -307,12 +316,61 @@ class ScriptsDashboard:
         self._build_output_panel(right)
 
     def _build_commands_panel(self, parent: ttk.Frame) -> None:
+        self._build_explanation_panel(parent)
+        self._build_status_panel(parent)
+
         groups = ["Artifacts", "Scaffolds", "Template Library", "v0 Templates", "Quality"]
         for group in groups:
             frame = ttk.LabelFrame(parent, text=group, padding=8)
             frame.pack(fill=tk.X, pady=(0, 8))
             for spec in [item for item in COMMANDS if item.group == group]:
                 self._build_command_row(frame, spec)
+
+    def _build_explanation_panel(self, parent: ttk.Frame) -> None:
+        frame = ttk.LabelFrame(parent, text="What Is What", padding=8)
+        frame.pack(fill=tk.X, pady=(0, 8))
+
+        lines = [
+            "Builder templates = src/lib/templates/*",
+            "Used by builderns Mallar-tab. Built from templates_v0/out/*.",
+            "",
+            "Scaffolds = src/lib/gen/scaffolds/*",
+            "Used by code generation as structured start points.",
+            "",
+            "Template library = src/lib/gen/template-library/*",
+            "External reference material built from data/external-template-pipeline/*.",
+            "",
+            "e2e/vercel-templates = automated external intake only.",
+            "It collects Vercel template research. It is not runtime.",
+            "",
+            "Embeddings files are precomputed artifacts.",
+            "Normal requests/searches may create one query embedding, not rebuild the full files.",
+        ]
+        label = ttk.Label(frame, text="\n".join(lines), justify=tk.LEFT)
+        label.pack(anchor=tk.W)
+
+    def _build_status_panel(self, parent: ttk.Frame) -> None:
+        frame = ttk.LabelFrame(parent, text="Artifact Status", padding=8)
+        frame.pack(fill=tk.BOTH, pady=(0, 8))
+
+        button_row = ttk.Frame(frame)
+        button_row.pack(fill=tk.X, pady=(0, 6))
+
+        refresh_button = ttk.Button(
+            button_row,
+            text="Refresh status",
+            command=self._refresh_status_panel,
+        )
+        refresh_button.pack(side=tk.LEFT)
+
+        self.status_text = ScrolledText(
+            frame,
+            wrap=tk.WORD,
+            height=16,
+            font=("Cascadia Mono", 9),
+            state=tk.DISABLED,
+        )
+        self.status_text.pack(fill=tk.BOTH, expand=True)
 
     def _build_command_row(self, parent: ttk.Frame, spec: CommandSpec) -> None:
         row = ttk.Frame(parent)
@@ -352,6 +410,85 @@ class ScriptsDashboard:
         self.output.pack(fill=tk.BOTH, expand=True)
 
         self._append_line(f"Repo root: {REPO_ROOT}")
+
+    def _load_json(self, path: Path):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+
+    def _format_status_lines(self) -> list[str]:
+        lines: list[str] = []
+
+        templates = self._load_json(BUILDER_TEMPLATES_PATH) or []
+        template_embeddings = self._load_json(BUILDER_TEMPLATE_EMBEDDINGS_PATH) or {}
+        template_entries = len(templates) if isinstance(templates, list) else 0
+        template_embedding_count = (
+            template_embeddings.get("_meta", {}).get("count")
+            if isinstance(template_embeddings, dict)
+            else None
+        )
+        lines.extend([
+            "Builder templates (Mallar-tab)",
+            f"  templates.json count: {template_entries}",
+            f"  template-embeddings.json count: {template_embedding_count}",
+            f"  parity: {'OK' if template_entries == template_embedding_count else 'MISMATCH'}",
+            f"  generated: {template_embeddings.get('_meta', {}).get('generated') if isinstance(template_embeddings, dict) else None}",
+            "",
+        ])
+
+        library = self._load_json(EXTERNAL_TEMPLATE_LIBRARY_PATH) or {}
+        library_embeddings = self._load_json(EXTERNAL_TEMPLATE_LIBRARY_EMBEDDINGS_PATH) or {}
+        library_entry_count = len(library.get("entries", [])) if isinstance(library, dict) else 0
+        library_embedding_count = (
+            library_embeddings.get("_meta", {}).get("count")
+            if isinstance(library_embeddings, dict)
+            else None
+        )
+        lines.extend([
+            "Template library (external references)",
+            f"  template-library.generated.json entries: {library_entry_count}",
+            f"  template-library-embeddings.json count: {library_embedding_count}",
+            f"  parity: {'OK' if library_entry_count == library_embedding_count else 'MISMATCH'}",
+            f"  generated: {library_embeddings.get('_meta', {}).get('generated') if isinstance(library_embeddings, dict) else None}",
+            "",
+        ])
+
+        scaffold_research = self._load_json(SCAFFOLD_RESEARCH_PATH) or {}
+        scaffold_embeddings = self._load_json(SCAFFOLD_EMBEDDINGS_PATH) or {}
+        scaffold_count = len(scaffold_research.get("scaffolds", {})) if isinstance(scaffold_research, dict) else 0
+        scaffold_embedding_count = (
+            scaffold_embeddings.get("_meta", {}).get("count")
+            if isinstance(scaffold_embeddings, dict)
+            else None
+        )
+        lines.extend([
+            "Scaffolds",
+            f"  scaffold-research.generated.json scaffolds: {scaffold_count}",
+            f"  scaffold-embeddings.json count: {scaffold_embedding_count}",
+            f"  parity: {'OK' if scaffold_count == scaffold_embedding_count else 'MISMATCH'}",
+            f"  generated: {scaffold_embeddings.get('_meta', {}).get('generated') if isinstance(scaffold_embeddings, dict) else None}",
+            "",
+        ])
+
+        lines.extend([
+            "Source paths",
+            "  Builder templates <- templates_v0/out/* -> src/lib/templates/*",
+            "  External intake <- e2e/vercel-templates/* -> data/external-template-pipeline/*",
+            "  External references <- data/external-template-pipeline/* -> src/lib/gen/template-library/*",
+            "  Scaffolds <- src/lib/gen/scaffolds/* + scaffold research overlays",
+        ])
+
+        return lines
+
+    def _refresh_status_panel(self) -> None:
+        if not hasattr(self, "status_text"):
+            return
+        self.status_text.configure(state=tk.NORMAL)
+        self.status_text.delete("1.0", tk.END)
+        self.status_text.insert(tk.END, "\n".join(self._format_status_lines()) + "\n")
+        self.status_text.see("1.0")
+        self.status_text.configure(state=tk.DISABLED)
 
     def _run_checked_sequence(self) -> None:
         selected_ids = [cid for cid, var in self._check_vars.items() if var.get()]
@@ -443,6 +580,7 @@ class ScriptsDashboard:
         finally:
             self._active_process = None
             self.root.after(0, lambda: self._set_running_state(False))
+            self.root.after(0, self._refresh_status_panel)
 
     def _set_running_state(self, running: bool) -> None:
         state = tk.DISABLED if running else tk.NORMAL

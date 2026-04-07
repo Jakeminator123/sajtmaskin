@@ -69,13 +69,6 @@ const TRAITS_BY_SCAFFOLD_ID: Record<string, ScaffoldTraits> = {
     contentProfile: "product-catalog",
     features: ["product-grid", "cart", "checkout", "product-detail"],
   },
-  "photo-shop": {
-    siteKind: "commerce",
-    complexity: "advanced",
-    structureProfile: "visual-commerce",
-    contentProfile: "photo-print-store",
-    features: ["gallery", "collection", "cart", "checkout"],
-  },
   "content-site": {
     siteKind: "marketing",
     complexity: "medium",

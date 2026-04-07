@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { regenerateTemplateEmbeddings } from "@/lib/templates/template-embeddings-refresh";
-import type { TemplateEmbeddingsStoragePreference } from "@/lib/templates/template-embeddings-storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 type RequestBody = {
-  storage?: TemplateEmbeddingsStoragePreference;
   dryRun?: boolean;
 };
-
-function normalizeStorage(
-  value: unknown,
-): TemplateEmbeddingsStoragePreference | undefined {
-  if (value === "blob" || value === "local" || value === "auto") return value;
-  return undefined;
-}
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdminAccess(req);
@@ -26,9 +17,19 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => null)) as RequestBody | null;
 
+  if (process.env.VERCEL) {
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Template embeddings ar lokala och commitade artifacts. Regenerera dem lokalt och deploya om produktionen.",
+      },
+      { status: 409 },
+    );
+  }
+
   try {
     const result = await regenerateTemplateEmbeddings({
-      storagePreference: normalizeStorage(body?.storage),
       dryRun: Boolean(body?.dryRun),
     });
 

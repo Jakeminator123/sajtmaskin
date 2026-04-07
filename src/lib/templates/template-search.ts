@@ -8,10 +8,6 @@ import type {
   EmbeddingEntry,
   EmbeddingsFile,
 } from "@/lib/templates/template-embeddings-core";
-import {
-  loadTemplateEmbeddingsFromBlob,
-  resolveTemplateEmbeddingsStorageMode,
-} from "@/lib/templates/template-embeddings-storage";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_TOP_K = 5;
@@ -25,47 +21,19 @@ const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
 
 // In-memory cache — loaded once per process lifetime
 let cachedEmbeddings: EmbeddingEntry[] | null = null;
-let loadingEmbeddingsPromise: Promise<EmbeddingEntry[]> | null = null;
 let catalogLookup: Map<string, TemplateCatalogItem> | null = null;
 
-function loadLocalEmbeddingsFromFile(): EmbeddingEntry[] {
+function loadEmbeddings(): EmbeddingEntry[] {
+  if (cachedEmbeddings) return cachedEmbeddings;
   try {
     // Dynamic require to load the JSON at runtime (not bundled by webpack)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const data: EmbeddingsFile = require("./template-embeddings.json");
-    return data.embeddings ?? [];
+    cachedEmbeddings = data.embeddings ?? [];
   } catch {
-    return [];
+    cachedEmbeddings = [];
   }
-}
-
-async function loadEmbeddings(): Promise<EmbeddingEntry[]> {
-  if (cachedEmbeddings) return cachedEmbeddings;
-  if (loadingEmbeddingsPromise) return loadingEmbeddingsPromise;
-
-  loadingEmbeddingsPromise = (async () => {
-    try {
-      if (resolveTemplateEmbeddingsStorageMode() === "blob") {
-        const remote = await loadTemplateEmbeddingsFromBlob();
-        if (remote?.embeddings?.length) {
-          cachedEmbeddings = remote.embeddings;
-          return cachedEmbeddings;
-        }
-      }
-
-      cachedEmbeddings = loadLocalEmbeddingsFromFile();
-      return cachedEmbeddings;
-    } finally {
-      loadingEmbeddingsPromise = null;
-    }
-  })();
-
-  try {
-    return await loadingEmbeddingsPromise;
-  } catch {
-    cachedEmbeddings = loadLocalEmbeddingsFromFile();
-    return cachedEmbeddings;
-  }
+  return cachedEmbeddings;
 }
 
 function getCatalogLookup(): Map<string, TemplateCatalogItem> {
@@ -171,7 +139,7 @@ export async function searchTemplates(
   const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) return fallbackResults;
 
-  const embeddings = await loadEmbeddings();
+  const embeddings = loadEmbeddings();
   if (embeddings.length === 0) return fallbackResults;
 
   const openai = new OpenAI({ apiKey });
@@ -226,6 +194,5 @@ export async function searchTemplates(
  */
 export function invalidateEmbeddingsCache(): void {
   cachedEmbeddings = null;
-  loadingEmbeddingsPromise = null;
   catalogLookup = null;
 }

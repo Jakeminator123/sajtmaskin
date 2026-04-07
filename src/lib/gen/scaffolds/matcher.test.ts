@@ -9,7 +9,7 @@ describe("matchScaffold", () => {
     expect(matchScaffold(prompt, "website")?.id).toBe("portfolio");
   });
 
-  it("does not route named restaurant prompts to the photo shop scaffold", () => {
+  it("does not route named restaurant prompts to an ecommerce-like scaffold", () => {
     const prompt =
       "Jag vill ha en hemsida för restaurangen Marias matrestaurang med meny, om oss, bokning och kontakt.";
 

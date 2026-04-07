@@ -94,7 +94,7 @@
     "prompt": "Build a portfolio website for a freelance photographer with project gallery and contact page.",
     "buildIntent": "website",
     "expectedScaffold": "portfolio",
-    "acceptableScaffolds": ["content-site", "photo-shop"],
+    "acceptableScaffolds": ["content-site"],
     "mustHaveFeatures": ["gallery", "projects", "contact"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -112,7 +112,7 @@
     "prompt": "Need a portfolio for a videographer, visual-first design, gallery and booking CTA.",
     "buildIntent": "website",
     "expectedScaffold": "portfolio",
-    "acceptableScaffolds": ["photo-shop", "content-site"],
+    "acceptableScaffolds": ["content-site"],
     "mustHaveFeatures": ["gallery", "showcase", "cta"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -310,7 +310,7 @@
     "prompt": "Build an ecommerce storefront with product grid, cart and checkout.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["photo-shop"],
+    "acceptableScaffolds": ["content-site"],
     "mustHaveFeatures": ["products", "cart", "checkout"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -328,7 +328,7 @@
     "prompt": "Need a webshop with inventory display, order flow and payment experience.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["photo-shop"],
+    "acceptableScaffolds": ["content-site"],
     "mustHaveFeatures": ["inventory", "checkout", "orders"],
     "mustNotBe": ["portfolio", "auth-pages"]
   },
@@ -346,7 +346,7 @@
     "prompt": "Create an e-commerce site for home decor with category pages and checkout.",
     "buildIntent": "website",
     "expectedScaffold": "ecommerce",
-    "acceptableScaffolds": ["photo-shop"],
+    "acceptableScaffolds": ["content-site"],
     "mustHaveFeatures": ["store", "categories", "checkout"],
     "mustNotBe": ["app-shell", "auth-pages"]
   },
@@ -354,8 +354,8 @@
     "id": "photoshop_01",
     "prompt": "Build a photo print shop with collections, framed art and checkout flow.",
     "buildIntent": "website",
-    "expectedScaffold": "photo-shop",
-    "acceptableScaffolds": ["ecommerce", "portfolio"],
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["portfolio"],
     "mustHaveFeatures": ["gallery", "collections", "checkout"],
     "mustNotBe": ["dashboard", "auth-pages"]
   },
@@ -363,8 +363,8 @@
     "id": "photoshop_02",
     "prompt": "Create a visual storefront for fine art photography prints.",
     "buildIntent": "website",
-    "expectedScaffold": "photo-shop",
-    "acceptableScaffolds": ["portfolio", "ecommerce"],
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["portfolio"],
     "mustHaveFeatures": ["photo", "shop", "collections"],
     "mustNotBe": ["dashboard", "blog"]
   },
@@ -372,8 +372,8 @@
     "id": "photoshop_03",
     "prompt": "Need an editorial style gallery shop for limited edition photos.",
     "buildIntent": "website",
-    "expectedScaffold": "photo-shop",
-    "acceptableScaffolds": ["portfolio"],
+    "expectedScaffold": "portfolio",
+    "acceptableScaffolds": ["ecommerce"],
     "mustHaveFeatures": ["gallery", "editorial", "shop"],
     "mustNotBe": ["app-shell", "auth-pages"]
   },
@@ -381,8 +381,8 @@
     "id": "photoshop_04",
     "prompt": "Generate a premium photo ecommerce site with print variants and cart.",
     "buildIntent": "website",
-    "expectedScaffold": "photo-shop",
-    "acceptableScaffolds": ["ecommerce"],
+    "expectedScaffold": "ecommerce",
+    "acceptableScaffolds": ["portfolio"],
     "mustHaveFeatures": ["prints", "variants", "cart"],
     "mustNotBe": ["dashboard", "blog"]
   },
@@ -489,7 +489,7 @@
     "id": "cross_03",
     "prompt": "Need a portfolio + store hybrid for prints and case studies.",
     "buildIntent": "website",
-    "expectedScaffold": "photo-shop",
+    "expectedScaffold": "ecommerce",
     "acceptableScaffolds": ["portfolio", "ecommerce"],
     "mustHaveFeatures": ["gallery", "shop", "projects"],
     "mustNotBe": ["dashboard", "auth-pages"]

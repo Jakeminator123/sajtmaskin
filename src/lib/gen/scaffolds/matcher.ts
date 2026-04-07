@@ -210,22 +210,6 @@ const AUTH_KEYWORDS = [
   "tvåfaktor",
 ];
 
-const PHOTO_SHOP_KEYWORDS = [
-  "photo shop",
-  "fotoshop",
-  "foto shop",
-  "photo store",
-  "print shop",
-  "art prints",
-  "curated shop",
-  "editorial shop",
-  "lifestyle store",
-  "design store",
-  "gallery shop",
-  "galleri shop",
-  "photo ecommerce",
-];
-
 const ECOMMERCE_KEYWORDS = [
   "ecommerce",
   "e-commerce",
@@ -354,7 +338,6 @@ function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
 }
 
 function buildKeywordScores(promptLower: string): Array<{ id: string; score: number }> {
-  const photoShopScore = countKeywordMatches(promptLower, PHOTO_SHOP_KEYWORDS);
   const authScore = countKeywordMatches(promptLower, AUTH_KEYWORDS);
   const ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
   const dashboardScore = countKeywordMatches(promptLower, DASHBOARD_KEYWORDS);
@@ -367,7 +350,6 @@ function buildKeywordScores(promptLower: string): Array<{ id: string; score: num
   const contentScore = countKeywordMatches(promptLower, CONTENT_KEYWORDS);
 
   return [
-    { id: "photo-shop", score: photoShopScore },
     { id: "auth-pages", score: authScore },
     { id: "ecommerce", score: ecommerceScore },
     { id: "dashboard", score: dashboardScore },
@@ -455,11 +437,6 @@ export function matchScaffold(
   buildIntent?: BuildIntent | null,
 ): ScaffoldManifest | null {
   const lower = prompt.toLowerCase();
-
-  const photoShopScore = countKeywordMatches(lower, PHOTO_SHOP_KEYWORDS);
-  if (photoShopScore >= MIN_SCORE) {
-    return getScaffoldByFamily("photo-shop");
-  }
 
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   if (authScore >= MIN_SCORE) {
