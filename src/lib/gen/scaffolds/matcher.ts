@@ -403,6 +403,38 @@ function inferKeywordConfidence(maxKeywordScore: number, method: ScaffoldSelecti
   return "medium";
 }
 
+function capSelectionConfidence(
+  current: ScaffoldSelectionConfidence,
+  maxAllowed: ScaffoldSelectionConfidence,
+): ScaffoldSelectionConfidence {
+  const rank: Record<ScaffoldSelectionConfidence, number> = {
+    low: 0,
+    medium: 1,
+    high: 2,
+  };
+  return rank[current] <= rank[maxAllowed] ? current : maxAllowed;
+}
+
+function inferFallbackConfidence(params: {
+  selectedScaffold: ScaffoldManifest | null;
+  currentConfidence: ScaffoldSelectionConfidence;
+  semanticAvailable: boolean;
+  semanticUnavailableReason: string | null;
+}): ScaffoldSelectionConfidence {
+  const {
+    selectedScaffold,
+    currentConfidence,
+    semanticAvailable,
+    semanticUnavailableReason,
+  } = params;
+  const isGenericDefault =
+    selectedScaffold?.id === "landing-page" || selectedScaffold?.id === "base-nextjs";
+  if (!isGenericDefault) return currentConfidence;
+  if (semanticUnavailableReason) return "low";
+  if (semanticAvailable) return capSelectionConfidence(currentConfidence, "medium");
+  return currentConfidence;
+}
+
 function withEmbeddingCandidate(
   candidates: Array<{ id: string; score: number; source: "keyword" | "embedding" }>,
   embeddingTopResult: { id: string; score: number } | null,
@@ -585,6 +617,12 @@ export async function matchScaffoldAuto(
       : null;
   const fallbackMeta: ScaffoldSelectionMeta = {
     ...keywordMeta,
+    selectionConfidence: inferFallbackConfidence({
+      selectedScaffold: keywordResult,
+      currentConfidence: keywordMeta.selectionConfidence,
+      semanticAvailable: semantic.diagnostics.available,
+      semanticUnavailableReason: semantic.diagnostics.unavailableReason,
+    }),
     topCandidates: withEmbeddingCandidate(keywordMeta.topCandidates, embeddingTopResult),
     embeddingAvailable: semantic.diagnostics.available,
     embeddingFailed: semantic.diagnostics.failed,

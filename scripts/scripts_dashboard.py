@@ -15,12 +15,13 @@ import subprocess
 import sys
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
 import tkinter as tk
 from tkinter import messagebox, ttk
 from tkinter.scrolledtext import ScrolledText
+
+from dashboard_shared import format_prompt_dump_status_lines
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -33,7 +34,6 @@ EXTERNAL_TEMPLATE_LIBRARY_PATH = REPO_ROOT / "src" / "lib" / "gen" / "template-l
 EXTERNAL_TEMPLATE_LIBRARY_EMBEDDINGS_PATH = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
 SCAFFOLD_RESEARCH_PATH = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-research.generated.json"
 SCAFFOLD_EMBEDDINGS_PATH = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-embeddings.json"
-PROMPT_DUMP_META_PATH = REPO_ROOT / "data" / "prompt-dumps" / "orchestration-dynamic" / "meta.json"
 
 
 @dataclass(frozen=True)
@@ -411,8 +411,9 @@ class ScriptsDashboard:
         dump_frame.pack(fill=tk.X, pady=(0, 8))
         dump_lines = [
             "Prompt-dumps skrivs bara när SAJTMASKIN_PROMPT_DUMP är på.",
-            "Om dumpning är avstängd ligger gamla latest.md/latest.json kvar och kan bli stale.",
-            "Lita därför mer på dumpedAt/status i panelen än på filnamnet latest.*.",
+            "Orchestration-dynamic skriver latest.md + generation-input-package.json.",
+            "De andra kategorierna har egna filer: own-engine-codegen och plan-mode-planner.",
+            "Om dumpning är avstängd markeras kategorin som disabled och gamla payloadfiler ska betraktas som stale-risk.",
             "Använd dumps för felsökning, inte som permanent source of truth.",
         ]
         dump_label = ttk.Label(dump_frame, text="\n".join(dump_lines), justify=tk.LEFT)
@@ -586,35 +587,13 @@ class ScriptsDashboard:
             "",
         ])
 
-        prompt_dump_meta = self._load_json(PROMPT_DUMP_META_PATH) or {}
-        dumped_at = prompt_dump_meta.get("dumpedAt") if isinstance(prompt_dump_meta, dict) else None
-        dump_status = "unknown"
-        if dumped_at:
-            try:
-                ts = dumped_at.replace("Z", "+00:00")
-                dt = datetime.fromisoformat(ts)
-                age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
-                dump_status = "fresh" if age_hours <= 6 else "stale-risk"
-                lines.extend([
-                    "Prompt dump-status",
-                    f"  dumpedAt: {dumped_at}",
-                    f"  status: {dump_status}",
-                    f"  SAJTMASKIN_PROMPT_DUMP: {os.environ.get('SAJTMASKIN_PROMPT_DUMP', '(unset)')}",
-                ])
-            except Exception:
-                lines.extend([
-                    "Prompt dump-status",
-                    f"  dumpedAt: {dumped_at}",
-                    "  status: invalid timestamp",
-                    f"  SAJTMASKIN_PROMPT_DUMP: {os.environ.get('SAJTMASKIN_PROMPT_DUMP', '(unset)')}",
-                ])
-        else:
-            lines.extend([
-                "Prompt dump-status",
-                "  dumpedAt: missing",
-                "  status: no dump metadata",
-                f"  SAJTMASKIN_PROMPT_DUMP: {os.environ.get('SAJTMASKIN_PROMPT_DUMP', '(unset)')}",
-            ])
+        lines.append("")
+        lines.extend(
+            format_prompt_dump_status_lines(
+                REPO_ROOT,
+                env_value=os.environ.get("SAJTMASKIN_PROMPT_DUMP"),
+            )
+        )
 
         return lines
 
@@ -701,7 +680,14 @@ class ScriptsDashboard:
                 if self._stop_requested:
                     if proc.poll() is None:
                         proc.terminate()
-                    proc.wait(timeout=10)
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        self._output_queue.put(
+                            "[dashboard] Graceful stop timed out, killing process..."
+                        )
+                        proc.kill()
+                        proc.wait(timeout=5)
                     self._output_queue.put("[dashboard] Command terminated.")
                     return
 
@@ -731,6 +717,11 @@ class ScriptsDashboard:
             return
         self._stop_requested = True
         self._append_line("[dashboard] Stop requested...")
+        try:
+            if self._active_process.poll() is None:
+                self._active_process.terminate()
+        except Exception as error:  # pragma: no cover - GUI guard
+            self._append_line(f"[dashboard] Failed to terminate process cleanly: {error}")
 
     def _clear_log(self) -> None:
         self.output.configure(state=tk.NORMAL)

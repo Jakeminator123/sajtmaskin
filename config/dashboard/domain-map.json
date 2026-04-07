@@ -133,10 +133,12 @@
       ]
     },
     "Preview och versioner": {
-      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion och de viktigaste logg-/telemetriytorna för buildern.",
+      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion, prompt-dumps och de viktigaste logg-/telemetriytorna för buildern.",
       "canonicalPaths": [
         "src/lib/db/engine-version-lifecycle.ts",
         "src/lib/gen/server-verify.ts",
+        "src/lib/gen/prompt-dump.ts",
+        "data/prompt-dumps/",
         "src/lib/providers/own-engine/generation-stream-post-finalize.ts",
         "src/app/api/engine/chats/[chatId]/preview-session/route.ts",
         "src/app/api/engine/chats/[chatId]/preview-status/route.ts",

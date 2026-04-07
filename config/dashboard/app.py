@@ -20,6 +20,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+SCRIPTS_DIR_FOR_IMPORT = Path(__file__).resolve().parents[2] / "scripts"
+if str(SCRIPTS_DIR_FOR_IMPORT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR_FOR_IMPORT))
+
+from dashboard_shared import collect_prompt_dump_statuses
+
 # Windows-konsol / felströmmar: tvinga UTF-8 när möjligt (Streamlit-UI är ändå UTF-8 i webbläsaren)
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -1508,6 +1514,32 @@ elif page == "Preview och versioner":
         st.markdown("**Senaste generationskörningar**")
         for run in latest_runs:
             st.markdown(f"- `{run.relative_to(repo).as_posix()}`")
+
+    prompt_dump_rows = collect_prompt_dump_statuses(
+        repo,
+        env_value=os.environ.get("SAJTMASKIN_PROMPT_DUMP"),
+    )
+    if prompt_dump_rows:
+        st.markdown("**Prompt-dumps**")
+        st.dataframe(
+            [
+                {
+                    "Kategori": row["category"],
+                    "Status": row["status"],
+                    "DumpedAt": row["dumpedAt"] or "missing",
+                    "StatusUpdatedAt": row["statusUpdatedAt"] or "—",
+                    "Filer": ", ".join(row["presentFiles"]) if row["presentFiles"] else "none",
+                    "Notis": row["note"],
+                }
+                for row in prompt_dump_rows
+            ],
+            width="stretch",
+            hide_index=True,
+        )
+        st.caption(
+            "`orchestration-dynamic` skriver `latest.md` + `generation-input-package.json`. "
+            "Övriga kategorier har egna payloadfiler. Om status är `disabled` ska befintliga payloadfiler läsas som stale-risk, inte som färska dumps."
+        )
 
     st.info(
         "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
