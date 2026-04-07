@@ -22,8 +22,8 @@ export type PreviewSessionEntry = {
   tier2Provider?: Tier2Provider;
 };
 
-const DEFAULT_IDLE_MS = 15 * 60 * 1000;
-const DEFAULT_HARD_CAP_MS = 45 * 60 * 1000;
+const DEFAULT_IDLE_MS = 60 * 60 * 1000;
+const DEFAULT_HARD_CAP_MS = 60 * 60 * 1000;
 
 const REDIS_SESSION_PREFIX = `${REDIS_KEY_PREFIX}preview-session:session:`;
 const LEGACY_REDIS_SESSION_PREFIX = `${REDIS_KEY_PREFIX}sandbox-preview:session:`;

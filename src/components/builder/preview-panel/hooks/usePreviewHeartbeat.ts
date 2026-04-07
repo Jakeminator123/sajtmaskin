@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { postPreviewHeartbeat } from "@/lib/builder/preview-session/api";
+import {
+  postPreviewHeartbeat,
+  postPreviewHibernate,
+} from "@/lib/builder/preview-session/api";
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+
+const HIDDEN_HIBERNATE_DELAY_MS = 60_000;
 
 export function usePreviewHeartbeat(params: {
   chatId: string | null;
   versionId: string | null;
   previewUrl: string | null;
-  activeSandboxId: string | null | undefined;
+  activeSandboxId?: string | null | undefined;
+  activePreviewSessionId?: string | null | undefined;
   previewLifecycle: PreviewLifecycleState | undefined;
   onSessionSuspect?: () => void;
 }) {
@@ -18,11 +24,15 @@ export function usePreviewHeartbeat(params: {
     versionId,
     previewUrl,
     activeSandboxId,
+    activePreviewSessionId,
     previewLifecycle,
     onSessionSuspect,
   } = params;
+  const previewSessionId = activePreviewSessionId ?? activeSandboxId;
 
   const viewerIdRef = useRef<string | null>(null);
+  const hibernateRequestedRef = useRef(false);
+  const hiddenHibernateTimerRef = useRef<number | null>(null);
   if (typeof window !== "undefined" && !viewerIdRef.current) {
     viewerIdRef.current =
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -30,8 +40,15 @@ export function usePreviewHeartbeat(params: {
         : `viewer_${Math.random().toString(36).slice(2)}`;
   }
 
+  const clearHiddenHibernateTimer = () => {
+    if (hiddenHibernateTimerRef.current !== null) {
+      window.clearTimeout(hiddenHibernateTimerRef.current);
+      hiddenHibernateTimerRef.current = null;
+    }
+  };
+
   useEffect(() => {
-    if (!chatId || !versionId || !activeSandboxId?.trim()) return;
+    if (!chatId || !versionId || !previewSessionId?.trim()) return;
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
     const allowHeartbeat =
       previewLifecycle === "live" ||
@@ -39,10 +56,11 @@ export function usePreviewHeartbeat(params: {
     if (!allowHeartbeat) return;
 
     const tick = async () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       const data = await postPreviewHeartbeat({
         chatId,
         versionId,
-        previewSessionId: activeSandboxId.trim(),
+        previewSessionId: previewSessionId.trim(),
         viewerId: viewerIdRef.current ?? "unknown",
       });
       if (
@@ -54,8 +72,52 @@ export function usePreviewHeartbeat(params: {
       }
     };
 
-    const id = window.setInterval(tick, 20_000);
+    const id = window.setInterval(tick, 25_000);
     void tick();
     return () => window.clearInterval(id);
-  }, [chatId, versionId, activeSandboxId, previewUrl, previewLifecycle, onSessionSuspect]);
+  }, [chatId, versionId, previewSessionId, previewUrl, previewLifecycle, onSessionSuspect]);
+
+  useEffect(() => {
+    if (!chatId || !versionId || !previewSessionId?.trim()) return;
+    if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
+
+    const requestHibernate = () => {
+      if (hibernateRequestedRef.current) return;
+      hibernateRequestedRef.current = true;
+      void postPreviewHibernate({
+        chatId,
+        versionId,
+        previewSessionId: previewSessionId.trim(),
+        keepalive: true,
+      }).finally(() => {
+        window.setTimeout(() => {
+          hibernateRequestedRef.current = false;
+        }, 1000);
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        clearHiddenHibernateTimer();
+        hiddenHibernateTimerRef.current = window.setTimeout(() => {
+          requestHibernate();
+        }, HIDDEN_HIBERNATE_DELAY_MS);
+      } else {
+        clearHiddenHibernateTimer();
+      }
+    };
+
+    const handlePageHide = () => {
+      clearHiddenHibernateTimer();
+      requestHibernate();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      clearHiddenHibernateTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [chatId, versionId, previewSessionId, previewUrl]);
 }
