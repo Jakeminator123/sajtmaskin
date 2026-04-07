@@ -54,10 +54,16 @@ async function streamOpenClawToMessages(
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
 ) {
   if (!res.ok || !res.body) {
+    const friendly =
+      res.status === 503
+        ? "Sajtagenten är inte aktiverad just nu. Skriv istället vad du vill ändra i chatten nedan."
+        : res.status === 404
+          ? "Sajtagenten är inte tillgänglig just nu. Skriv vad du vill ändra i chatten nedan."
+          : `Kunde inte nå Sajtagenten (${res.status}). Försök igen.`;
     setMessages((prev) =>
       prev.map((m) =>
         m.id === assistantId
-          ? { ...m, content: `Kunde inte nå Sajtagenten (${res.status}). Försök igen.`, isStreaming: false }
+          ? { ...m, content: friendly, isStreaming: false }
           : m,
       ),
     );

@@ -10,6 +10,7 @@ import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
+import type { GenerationPhase } from "@/components/builder/preview-panel/GenerationProgress";
 import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
@@ -52,6 +53,7 @@ import {
   isNeedsAnalysisActive,
   QUESTION_SUGGESTIONS,
   searchTemplatesForPicker,
+  SITE_TYPE_LABELS,
   type ScrapeResult,
   type SelectedTemplateInfo,
   type SiteTypeKey,
@@ -61,13 +63,12 @@ import {
 import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
 import { TemplatePickerPopup } from "@/components/builder/TemplatePickerPopup";
 import { SiteTypePickerPopup } from "@/components/builder/SiteTypePickerPopup";
-import { MustHavePickerPopup } from "@/components/builder/MustHavePickerPopup";
+import { MustHavePickerPopup, type MustHavePickerContext } from "@/components/builder/MustHavePickerPopup";
 import { ImageUploadPopup } from "@/components/builder/ImageUploadPopup";
 import {
   buildPromptSourceMessage,
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
-import { buildPostGenerationAdvisorMessage } from "@/lib/builder/post-generation-advisor";
 import type { ActionHubItemAction } from "@/lib/builder/action-hub-items";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import { saveProjectData } from "@/lib/project-client";
@@ -84,17 +85,14 @@ import {
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
 import { useBuilderHelpChat } from "@/lib/hooks/chat/useBuilderHelpChat";
-import {
-  ModeSelector,
-  readStoredMode,
-  writeStoredMode,
-  type BuilderMode,
-} from "@/components/builder/ModeSelector";
-import { FloatingChatBox } from "@/components/builder/FloatingChatBox";
+import { NeedsAnalysisProgress } from "@/components/builder/NeedsAnalysisProgress";
+import { AdvancedSettingsPanel } from "@/components/builder/AdvancedSettingsPanel";
+import { IntakeSummaryCard } from "@/components/builder/IntakeSummaryCard";
+import { PostGenerationAdvisor } from "@/components/builder/PostGenerationAdvisor";
+import { OnboardingOverlay, useOnboardingSeen } from "@/components/builder/OnboardingOverlay";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
@@ -200,7 +198,7 @@ function buildSelectedTemplateInfos(ids: string[]): SelectedTemplateInfo[] {
   return ids
     .map((id) => getTemplateCatalogItemById(id))
     .filter(Boolean)
-    .map((t) => ({ title: t!.title, category: t!.category, viewUrl: t!.viewUrl }));
+    .map((t) => ({ title: t!.title, category: t!.category, previewImageUrl: t!.previewImageUrl }));
 }
 
 const NEEDS_ANALYSIS_MESSAGES_KEY = "sajtmaskin:needs-analysis-messages";
@@ -218,42 +216,22 @@ function saveNeedsAnalysisMessages(messages: ChatMessage[]) {
   } catch {}
 }
 
-function loadAndClearNeedsAnalysisMessages(): ChatMessage[] {
-  try {
-    const raw = sessionStorage.getItem(NEEDS_ANALYSIS_MESSAGES_KEY);
-    sessionStorage.removeItem(NEEDS_ANALYSIS_MESSAGES_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as ChatMessage[];
-  } catch {
-    return [];
-  }
-}
 
 export function BuilderShellContent(vm: BuilderViewModel) {
-  const modeParam = useSearchParams().get("mode");
-  const [builderMode, setBuilderMode] = useState<BuilderMode | null>(() => {
-    if (modeParam === "starter" || modeParam === "pro") return modeParam;
-    if (vm.buildMethod === "freeform" && !vm.chatId) return null;
-    return null;
-  });
-  const modeHydratedRef = useRef(false);
+  
+  const scrapeDataRef = useRef<ScrapeResult | null>(null);
+  const companyBriefRef = useRef<Record<string, unknown> | null>(null);
+  const onboardingSeen = useOnboardingSeen();
+  const [showOnboarding, setShowOnboarding] = useState(!onboardingSeen);
+
+  const defaultModelAppliedRef = useRef(false);
   useEffect(() => {
-    if (modeHydratedRef.current) return;
-    modeHydratedRef.current = true;
-    if (modeParam === "starter" || modeParam === "pro") return;
-    if (vm.buildMethod === "freeform" && !vm.chatId) return;
-    const stored = readStoredMode();
-    if (stored) setBuilderMode(stored);
-  }, [modeParam, vm.buildMethod, vm.chatId]);
-  const starterDefaultAppliedRef = useRef(false);
-  const advisorVersionIdsRef = useRef<Set<string>>(new Set());
-  const initialVersionIdRef = useRef<string | null | undefined>(undefined);
-  const needsAnalysisLoadedRef = useRef(false);
-  const handleModeSelect = useCallback((mode: BuilderMode) => {
-    writeStoredMode(mode);
-    setBuilderMode(mode);
-  }, []);
-  const isStarter = builderMode === "starter";
+    if (defaultModelAppliedRef.current) return;
+    if (vm.chatId) return;
+    defaultModelAppliedRef.current = true;
+    vm.setSelectedModelTier("fast");
+    vm.setEnableThinking(false);
+  }, [vm.chatId, vm.setSelectedModelTier, vm.setEnableThinking]);
 
   const wrappedRequestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
@@ -285,13 +263,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         scrapeDataRef.current,
         tmplInfos.length > 0 ? tmplInfos : null,
         mediaInfos && mediaInfos.length > 0 ? mediaInfos : null,
+        companyBriefRef.current,
       );
-      const brief = companyBriefRef.current;
       void wrappedRequestCreateChat(prompt, {
         ...pending.options,
         skipDynamicInstructions: true,
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
-        ...(brief ? { meta: { brief } } : {}),
       });
     },
     [vm.selectedTemplateIds, wrappedRequestCreateChat],
@@ -317,94 +294,56 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     executeStarterGeneration();
   }, [executeStarterGeneration]);
 
-  const savedNeedsMessagesRef = useRef<ChatMessage[] | null>(null);
-  const [changeQueue, setChangeQueue] = useState<string[]>([]);
+  const displayMessages = vm.messages;
 
-  const starterMessages = useMemo((): ChatMessage[] => {
-    if (!isStarter) return vm.messages;
+  const needsAnalysisState = useMemo(() => {
+    if (vm.chatId) return null;
+    return deriveNeedsAnalysisState(vm.messages);
+  }, [vm.chatId, vm.messages]);
 
-    const isCodeOutput = (m: ChatMessage) =>
-      m.role === "assistant" &&
-      !m.isHelpMessage &&
-      m.content.length > 200 &&
-      (m.content.includes('file="') || m.content.includes("```"));
-
-    const TECHNICAL_PATTERNS = /följdfråga|preview kan genereras|planBlockers|Planen innehåller frågor|Sammanfattning av behovsanalys|AUTO-FIX REQUEST|TARGETED REPAIR|Issues detected:|typecheck failed|build failed|lint failed|quality-gate|Persisted errors|server-repair|Sandbox-preview saknas|sandbox.*laddar inte|preflight|node:internal|eslint\.config|Cannot find (name|package)|error TS\d{4}|exit code|ModuleLoader|stack trace/i;
-
-    const isTechnicalNoise = (m: ChatMessage) => {
-      if (m.role !== "assistant" || m.isHelpMessage) return false;
-      if (TECHNICAL_PATTERNS.test(m.content)) return true;
-      if (m.content.length > 300 && /\n.*\n.*\n/s.test(m.content) && /error|fail|warn|fix/i.test(m.content)) return true;
-      return false;
-    };
-
-    const isGenerating = vm.isAnyStreaming || vm.isCreatingChat;
-
-    if (vm.chatId) {
-      if (!needsAnalysisLoadedRef.current) {
-        needsAnalysisLoadedRef.current = true;
-        const saved = loadAndClearNeedsAnalysisMessages();
-        if (saved.length > 0) savedNeedsMessagesRef.current = saved;
-      }
-
-      const history = savedNeedsMessagesRef.current;
-
-      const liveMessages = vm.messages.filter((m) => {
-        if (isCodeOutput(m)) return false;
-        if (isTechnicalNoise(m)) return false;
-        if (m.role === "user" && /^(##\s*Starter intake|Sammanfattning av behovsanalys)/i.test(m.content.trim())) return false;
-        if (m.role === "user" || m.isHelpMessage) return true;
-        if (m.role === "assistant" && m.content.trim().length > 0 && m.content.trim().length <= 200) return true;
-        return false;
-      });
-
-      const base = history && history.length > 0
-        ? [...history, ...liveMessages.filter((m) => !history.some((h) => h.id === m.id))]
-        : liveMessages;
-
-      const hasExistingVersion = Boolean(vm.activeVersionId);
-      const hasAdvisor = base.some((m) => m.id.startsWith("advisor-"));
-
-      if (isGenerating) {
-        const genMsg: ChatMessage = {
-          id: "starter-generating",
-          role: "assistant",
-          content: hasExistingVersion
-            ? "Gör ändringarna nu — det kan ta en liten stund."
-            : "Så kul! Nu genererar jag en första version av din hemsida. Ha tålamod — det kan ta upp till 25 minuter.",
-          isHelpMessage: true,
-        };
-        return [...base, genMsg];
-      }
-
-      if (!hasAdvisor) {
-        const doneMsg: ChatMessage = {
-          id: "starter-done",
-          role: "assistant",
-          content: "Din hemsida är klar! Scrolla ned i förhandsgranskningen, eller berätta vad du vill ändra.",
-          isHelpMessage: true,
-        };
-        return [...base, doneMsg];
-      }
-
-      return base;
-    }
-
-    return vm.messages.map((m) =>
-      isCodeOutput(m) ? { ...m, content: "Din hemsida är klar!" } : m,
+  const generationPhase = useMemo((): GenerationPhase => {
+    const lastAssistant = [...displayMessages].reverse().find((m) => m.role === "assistant");
+    if (!lastAssistant?.uiParts) return null;
+    const progressParts = lastAssistant.uiParts.filter(
+      (p: Record<string, unknown>) => typeof p.type === "string" && (p.type as string).startsWith("tool:engine-"),
     );
-  }, [isStarter, vm.chatId, vm.messages, vm.isAnyStreaming, vm.isCreatingChat]);
+    if (progressParts.length === 0) return null;
+    const last = progressParts[progressParts.length - 1] as Record<string, unknown>;
+    const toolType = typeof last.type === "string" ? (last.type as string).replace("tool:engine-", "") : "";
+    const phaseMap: Record<string, GenerationPhase> = {
+      generation: "generation",
+      autofix: "autofix",
+      verifier: "verifier",
+      validate_syntax: "validate_syntax",
+      parse_merge_preflight: "parse_merge_preflight",
+      preview: "preview",
+    };
+    return phaseMap[toolType] ?? "generation";
+  }, [displayMessages]);
 
   const currentField = useMemo(() => {
-    if (!isStarter) return null;
-    const state = deriveNeedsAnalysisState(vm.messages);
-    if (state.ready) return null;
+    if (!needsAnalysisState || needsAnalysisState.ready) return null;
     return getCurrentQuestionField(vm.messages);
-  }, [isStarter, vm.messages]);
+  }, [needsAnalysisState, vm.messages]);
 
   const currentAnswerSuggestions = useMemo(() => {
-    if (currentField) return QUESTION_SUGGESTIONS[currentField] ?? undefined;
-    if (!isStarter || !vm.chatId) return undefined;
+    if (currentField) {
+      const brief = companyBriefRef.current;
+      if (brief) {
+        const briefMap: Partial<Record<string, string>> = {
+          offer: (brief.description as string) || undefined,
+          audience: (brief.targetAudience as string) || undefined,
+          goal: (brief.goals as string) || undefined,
+        };
+        const prefilled = briefMap[currentField];
+        if (prefilled) {
+          const defaults = QUESTION_SUGGESTIONS[currentField] ?? [];
+          return [prefilled, ...defaults.filter((s) => s !== prefilled)];
+        }
+      }
+      return QUESTION_SUGGESTIONS[currentField] ?? undefined;
+    }
+    if (!vm.chatId) return undefined;
     const advisorMsg = vm.messages.find((m) => m.id.startsWith("advisor-") && m.uiParts?.length);
     if (!advisorMsg) return undefined;
     const part = advisorMsg.uiParts?.find(
@@ -414,9 +353,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     const prompts = (part.output as Record<string, string[]>).suggestedPrompts;
     const labels = (part.output as Record<string, string[]>).options;
     return labels.map((label, i) => prompts[i] ?? label);
-  }, [currentField, isStarter, vm.chatId, vm.messages]);
+  }, [currentField, vm.chatId, vm.messages]);
 
-  const { isHelpStreaming, sendHelpMessage, sendCoachMessage } = useBuilderHelpChat();
+  const { isHelpStreaming, sendHelpMessage } = useBuilderHelpChat();
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt || isHelpStreaming;
   const isPreviewLoading =
     vm.isCreatingChat ||
@@ -524,8 +463,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [placementConfirmOpen, setPlacementConfirmOpen] = useState(false);
   const [isPlacementSubmitting, setIsPlacementSubmitting] = useState(false);
   const placementResolverRef = useRef<((decision: VisualPlacementDecision) => void) | null>(null);
-  const scrapeDataRef = useRef<ScrapeResult | null>(null);
-  const companyBriefRef = useRef<Record<string, unknown> | null>(null);
   const [templatePickerItems, setTemplatePickerItems] = useState<TemplatePickerItem[]>([]);
   const [isTemplatePickerLoading, setIsTemplatePickerLoading] = useState(false);
   const [showSiteTypePicker, setShowSiteTypePicker] = useState(false);
@@ -541,9 +478,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     options?: Record<string, unknown>;
   } | null>(null);
 
-  // Show siteType picker popup when entering starter mode and siteType is not yet answered
   useEffect(() => {
-    if (!isStarter) return;
     if (vm.chatId) return;
     if (siteTypePickerShownRef.current) return;
     if (vm.messages.length < 1) return;
@@ -567,7 +502,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
 
     setShowSiteTypePicker(true);
-  }, [isStarter, vm.chatId, vm.messages, vm.setMessages]);
+  }, [vm.chatId, vm.messages, vm.setMessages]);
 
   const handleSiteTypeSelect = useCallback(
     (selectedIds: string[], labels: string[]) => {
@@ -582,25 +517,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       const nextMessages = [...vm.messages, userMsg];
 
       const detectedType = chipToSiteType(answerText) || detectSiteTypeFromText(answerText) || (selectedIds[0] as SiteTypeKey) || "other";
-
-      // Trigger template picker
       templatePickerTriggeredRef.current = true;
       pendingSiteTypeRef.current = detectedType;
-      templatePickerMessagesRef.current = nextMessages;
-      vm.setMessages(nextMessages);
-      setIsTemplatePickerLoading(true);
-      vm.setShowTemplatePicker(true);
 
-      const userPrompt = nextMessages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join(" ");
-      searchTemplatesForPicker(userPrompt, detectedType).then((items) => {
-        setTemplatePickerItems(items);
-        setIsTemplatePickerLoading(false);
-      });
+      const nextState = deriveNeedsAnalysisState(nextMessages);
+      if (!nextState.ready) {
+        const nextQ = buildNextNeedsAnalysisMessage(nextMessages);
+        vm.setMessages(nextQ ? [...nextMessages, nextQ] : nextMessages);
+      } else {
+        vm.setMessages(nextMessages);
+        triggerStarterGeneration(nextMessages);
+      }
     },
-    [vm.messages, vm.setMessages, vm.setShowTemplatePicker],
+    [vm.messages, vm.setMessages, triggerStarterGeneration],
   );
 
   const handleSiteTypeClose = useCallback(() => {
@@ -611,9 +540,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
   }, [vm.messages, vm.setMessages]);
 
-  // Show mustHave picker popup when that question comes up in starter mode
   useEffect(() => {
-    if (!isStarter) return;
     if (vm.chatId) return;
     if (mustHavePickerShownRef.current) return;
     if (showSiteTypePicker || vm.showTemplatePicker) return;
@@ -640,7 +567,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
 
     setShowMustHavePicker(true);
-  }, [isStarter, vm.chatId, vm.messages, vm.setMessages, showSiteTypePicker, vm.showTemplatePicker]);
+  }, [vm.chatId, vm.messages, vm.setMessages, showSiteTypePicker, vm.showTemplatePicker]);
 
   const handleMustHaveSelect = useCallback(
     (labels: string[]) => {
@@ -674,10 +601,29 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
   }, [vm.messages, vm.setMessages]);
 
+  const mustHaveContext = useMemo((): MustHavePickerContext => {
+    const siteType = pendingSiteTypeRef.current
+      ? (SITE_TYPE_LABELS[pendingSiteTypeRef.current] ?? pendingSiteTypeRef.current)
+      : undefined;
+    const scrape = scrapeDataRef.current;
+    const brief = companyBriefRef.current;
+    const userMessages = vm.messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join(" ")
+      .slice(0, 1000);
+    const companyDesc = (brief?.description as string) || userMessages || undefined;
+    return {
+      siteType,
+      companyDescription: companyDesc,
+      scrapeText: scrape?.textSummary || undefined,
+    };
+  }, [vm.messages]);
+
+  // Detect site type from messages for downstream use (scaffold matching etc.)
+  // but do NOT auto-show the template picker — it interrupts the flow.
   useEffect(() => {
-    if (!isStarter) return;
     if (vm.chatId) return;
-    if (vm.showTemplatePicker) return;
     if (templatePickerTriggeredRef.current) return;
     if (vm.messages.length < 2) return;
 
@@ -691,27 +637,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       .map((m) => m.content)
       .join(" ");
     const detectedType = chipToSiteType(userTexts) || detectSiteTypeFromText(userTexts) || "other";
-
     pendingSiteTypeRef.current = detectedType;
-
-    const lastMsg = vm.messages[vm.messages.length - 1];
-    const isTrailingUnanswered =
-      lastMsg?.role === "assistant" &&
-      lastMsg.uiParts?.some(
-        (p) => p.type === "tool:awaiting-input" && p.kind === "needs-analysis",
-      );
-    templatePickerMessagesRef.current = isTrailingUnanswered
-      ? vm.messages.slice(0, -1)
-      : vm.messages;
-
-    setIsTemplatePickerLoading(true);
-    vm.setShowTemplatePicker(true);
-
-    searchTemplatesForPicker(userTexts, detectedType).then((items) => {
-      setTemplatePickerItems(items);
-      setIsTemplatePickerLoading(false);
-    });
-  }, [isStarter, vm.chatId, vm.messages, vm.showTemplatePicker, vm.setShowTemplatePicker]);
+  }, [vm.chatId, vm.messages]);
 
   const handleApproveBuildPlan = useCallback(
     async (plan: Record<string, unknown>) => {
@@ -1153,58 +1080,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setEnableAutofix(readAutofixLocalStorageOnly());
   }, []);
 
-  useEffect(() => {
-    if (starterDefaultAppliedRef.current) return;
-    if (modeParam === "starter" || modeParam === "pro") {
-      starterDefaultAppliedRef.current = true;
-      return;
-    }
-    if (vm.buildMethod === "freeform" && !vm.chatId) return;
-    starterDefaultAppliedRef.current = true;
-    if (!builderMode) {
-      setBuilderMode(readStoredMode() ?? "starter");
-    }
-  }, [builderMode, modeParam, vm.buildMethod, vm.chatId]);
 
   const handleEnableAutofixChange = useCallback((next: boolean) => {
     writeAutofixLocalStorage(next);
     setEnableAutofix(next);
   }, []);
 
-  useEffect(() => {
-    if (initialVersionIdRef.current === undefined) {
-      initialVersionIdRef.current = vm.activeVersionId ?? null;
-      if (vm.activeVersionId) {
-        advisorVersionIdsRef.current.add(vm.activeVersionId);
-      }
-      return;
-    }
-    if (!vm.chatId || !vm.activeVersionId || vm.isAnyStreaming) return;
-    if (advisorVersionIdsRef.current.has(vm.activeVersionId)) return;
-
-    const activeVersionId = vm.activeVersionId;
-    advisorVersionIdsRef.current.add(vm.activeVersionId);
-    vm.setMessages((prev) => {
-      const advisorId = `advisor-${activeVersionId}`;
-      if (prev.some((message) => message.id === advisorId)) return prev;
-      return [...prev, buildPostGenerationAdvisorMessage(prev, activeVersionId)];
-    });
-  }, [vm.activeVersionId, vm.chatId, vm.isAnyStreaming, vm.setMessages]);
-
-  const coachReviewSentRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!isStarter || !vm.chatId || !vm.activeVersionId || vm.isAnyStreaming || isHelpStreaming) return;
-    if (coachReviewSentRef.current.has(vm.activeVersionId)) return;
-    const hasAdvisor = vm.messages.some((m) => m.id === `advisor-${vm.activeVersionId}`);
-    if (!hasAdvisor) return;
-
-    coachReviewSentRef.current.add(vm.activeVersionId);
-    void sendCoachMessage(
-      "Granska sajten jag precis byggt. Ge 2–3 konkreta förslag på förbättringar baserat på koden och designen. Svara kort och koncist på svenska.",
-      vm.setMessages,
-      { silent: true },
-    );
-  }, [isStarter, vm.chatId, vm.activeVersionId, vm.isAnyStreaming, isHelpStreaming, vm.messages, vm.setMessages, sendCoachMessage]);
+  // Post-generation advisor is now handled purely by the PostGenerationAdvisor
+  // overlay in the preview panel — no injected chat message needed.
 
   const handleTemplateSelect = useCallback(
     (templateIds: string[]) => {
@@ -1227,8 +1110,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         role: "assistant",
         content:
           selectedTemplates.length > 0
-            ? `Snyggt öga! Nu vet jag vilken stil du gillar. Vi fortsätter.`
-            : "Inga problem — vi bygger helt från grunden. Vi kör vidare!",
+            ? "Bra val! Nu vet jag vilken stil du föredrar. Vi fortsätter."
+            : "Inga problem — vi bygger helt från grunden.",
         isHelpMessage: true,
       };
 
@@ -1249,19 +1132,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     handleTemplateSelect([]);
   }, [handleTemplateSelect]);
 
-  const flushChangeQueue = useCallback(
-    async (extraMessage?: string) => {
-      const items = extraMessage ? [...changeQueue, extraMessage] : [...changeQueue];
-      if (items.length === 0) return;
-      setChangeQueue([]);
-      const combined = items.length === 1
-        ? items[0]!
-        : `Gör följande ändringar på sajten:\n${items.map((item, i) => `${i + 1}. ${item}`).join("\n")}`;
-      await vm.sendMessage(combined);
-    },
-    [changeQueue, vm.sendMessage],
-  );
-
   const handleActionHubAction = useCallback(
     (action: ActionHubItemAction) => {
       if (action.type === "callback") {
@@ -1277,27 +1147,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             }
             break;
           case "export":
-            vm.setIsSandboxModalOpen(true);
-            break;
-          case "switch-pro":
-            handleModeSelect("pro");
-            break;
-        }
-      } else if (action.type === "panel") {
-        switch (action.id) {
-          case "env-vars":
-            handleModeSelect("pro");
-            break;
-          case "custom-instructions":
-            handleModeSelect("pro");
             break;
         }
       }
     },
-    [vm, handleModeSelect],
+    [vm],
   );
-
-  const EXECUTE_PATTERNS = /^(kör|gör ändring|kör alla|genomför|starta?|skicka|gör det|go|execute|run|do it)\b/i;
 
   const smartSendMessage = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
@@ -1307,25 +1162,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         return;
       }
 
-      const hasVersion = Boolean(vm.activeVersionId);
-      if (isStarter && hasVersion && vm.chatId) {
-        const trimmed = message.trim();
-
-        if (EXECUTE_PATTERNS.test(trimmed)) {
-          await flushChangeQueue(
-            trimmed.length > 20 ? trimmed : undefined,
-          );
-          return;
-        }
-
-        setChangeQueue((prev) => [...prev, trimmed]);
-        await sendCoachMessage(trimmed, vm.setMessages);
-        return;
-      }
-
       await vm.sendMessage(message, options);
     },
-    [sendCoachMessage, sendHelpMessage, vm.sendMessage, vm.setMessages, isStarter, vm.activeVersionId, vm.chatId, flushChangeQueue],
+    [sendHelpMessage, vm.sendMessage, vm.setMessages],
   );
 
   const smartCreateChat = useCallback(
@@ -1425,7 +1264,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         const nextState = deriveNeedsAnalysisState(nextMessages);
 
         const siteTypeJustAnswered =
-          isStarter &&
           !prevState.answeredFields.includes("siteType") &&
           nextState.answeredFields.includes("siteType");
 
@@ -1433,21 +1271,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           templatePickerTriggeredRef.current = true;
           const detectedType = chipToSiteType(message);
           pendingSiteTypeRef.current = detectedType;
-          templatePickerMessagesRef.current = nextMessages;
-          vm.setMessages(nextMessages);
-          setIsTemplatePickerLoading(true);
-          vm.setShowTemplatePicker(true);
-
-          const userPrompt =
-            nextMessages
-              .filter((m) => m.role === "user")
-              .map((m) => m.content)
-              .join(" ") || "";
-          searchTemplatesForPicker(userPrompt, detectedType).then((items) => {
-            setTemplatePickerItems(items);
-            setIsTemplatePickerLoading(false);
-          });
-          return true;
         }
 
         if (!nextState.ready) {
@@ -1467,7 +1290,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       }
       return wrappedRequestCreateChat(message, options);
     },
-    [sendHelpMessage, isStarter, vm.chatId, vm.messages, wrappedRequestCreateChat, vm.selectedTemplateIds, vm.setMessages, vm.setShowTemplatePicker, triggerStarterGeneration],
+    [sendHelpMessage, vm.chatId, vm.messages, wrappedRequestCreateChat, vm.selectedTemplateIds, vm.setMessages, vm.setShowTemplatePicker, triggerStarterGeneration],
   );
 
   const handleQuickReply = useCallback(
@@ -1481,19 +1304,26 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [smartCreateChat, smartSendMessage, vm.chatId],
   );
 
-  if (!builderMode) {
-    return (
-      <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
-        <ModeSelector onSelect={handleModeSelect} />
-      </BuilderLayout>
-    );
-  }
+  const autoReplyKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!latestPendingReply) return;
+    if (autoReplyKeyRef.current === latestPendingReply.key) return;
+    if (vm.isCreatingChat) return;
+    if (!vm.isAnyStreaming) return;
+    autoReplyKeyRef.current = latestPendingReply.key;
+
+    const firstOption = latestPendingReply.options[0];
+    if (firstOption) {
+      void handleQuickReply(firstOption, {
+        planMode: latestPendingReply.planMode,
+      });
+    }
+  }, [latestPendingReply, vm.isCreatingChat, vm.isAnyStreaming, handleQuickReply]);
 
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
-        builderMode={builderMode}
-        onModeChange={handleModeSelect}
+        
         selectedModelTier={vm.selectedModelTier}
         onSelectedModelTierChange={vm.setSelectedModelTier}
         onApplyAnthropicComparePreset={handleApplyAnthropicComparePreset}
@@ -1534,6 +1364,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onOpenImport={() => {
           vm.setIsImportModalOpen(true);
         }}
+        onOpenSandbox={() => {}}
         onDeployProduction={vm.handleOpenDeployDialog}
         onDomainSearch={() => {
           if (vm.lastDeployVercelProjectId) {
@@ -1556,7 +1387,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentUrl={vm.deploymentUrl}
         deployDisabledReason={deployDisabledReason}
       />
-      {!isStarter && (
+      {(
         <ModelTraceOverlay
           selectedModelTier={vm.selectedModelTier}
           promptAssistModel={vm.promptAssistModel}
@@ -1572,178 +1403,186 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           role="tab"
           aria-selected={mobileTab === "chat"}
           aria-controls="builder-chat-panel"
-          aria-label="Chat"
+          aria-label="Chatt"
           onClick={() => setMobileTab("chat")}
           className={cn(
-            "flex flex-1 items-center justify-center px-4 py-2.5 transition-colors",
+            "flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors",
             mobileTab === "chat"
               ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
           <MessageSquare className="h-4 w-4" />
+          Chatt
         </button>
         <button
           role="tab"
           aria-selected={mobileTab === "preview"}
           aria-controls="builder-preview-panel"
-          aria-label="Preview"
+          aria-label="Din sajt"
           onClick={() => setMobileTab("preview")}
           className={cn(
-            "relative flex flex-1 items-center justify-center px-4 py-2.5 transition-colors",
+            "relative flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors",
             mobileTab === "preview"
               ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Eye className="h-4 w-4" />
+          Din sajt
           {vm.currentPreviewUrl && mobileTab !== "preview" && (
-            <span className="bg-primary absolute top-1.5 right-[calc(50%-12px)] h-1.5 w-1.5 rounded-full" />
+            <span className="bg-primary absolute top-1 right-[calc(50%-20px)] h-1.5 w-1.5 rounded-full" />
           )}
         </button>
       </div>
 
-      <div className={cn("flex min-h-0 flex-1 overflow-hidden", isStarter && "relative")}>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* ---------- Chat panel ---------- */}
-        {isStarter ? (
-          <FloatingChatBox mobileVisible={mobileTab === "chat"}>
-            <div className="relative min-h-0 flex-1 overflow-hidden">
-              <MessageList
-                chatId={vm.chatId}
-                versionId={vm.activeVersionId}
-                messages={starterMessages}
-                showStructuredParts={vm.showStructuredChat}
-                onQuickReply={handleQuickReply}
-                onApproveBuildPlan={handleApproveBuildPlan}
-                quickReplyDisabled={isBusy}
-                onSuggestionSend={(text) => smartCreateChat(text)}
-                hideAgentLog
-                hideTooling
-              />
-              <ThinkingOverlay isVisible={vm.isAnyStreaming} />
-            </div>
-            <ChatInterface
-              chatId={vm.chatId}
-              initialPrompt={null}
-              onCreateChat={smartCreateChat}
-              onSendMessage={smartSendMessage}
-              onStartFromRegistry={vm.handleStartFromRegistry}
-              onRequestPlacement={handleRequestPlacement}
-              onStartFromTemplate={vm.handleStartFromTemplate}
-              onPaletteSelection={vm.handlePaletteSelection}
-              paletteSelections={vm.paletteState.selections}
-              designTheme={vm.designTheme}
-              onDesignThemeChange={vm.setDesignTheme}
-              onEnhancePrompt={vm.handlePromptEnhance}
-              isFigmaInputOpen={isFigmaInputOpen}
-              onFigmaInputOpenChange={setIsFigmaInputOpen}
-              isBusy={isBusy}
-              isPreparingPrompt={vm.isPreparingPrompt}
-              mediaEnabled={vm.mediaEnabled}
-              currentCode={vm.currentPageCode}
-              existingUiComponents={vm.existingUiComponents}
-              continuePlanMode={Boolean(latestPendingReply?.planMode)}
-              showAdvancedControls={false}
-              answerSuggestions={currentAnswerSuggestions}
-              answerSuggestionsField={currentField}
-              showActionHub={Boolean(vm.chatId && vm.activeVersionId && !currentField)}
-              onActionHubAction={handleActionHubAction}
-              changeQueueCount={changeQueue.length}
-              onFlushChangeQueue={changeQueue.length > 0 ? () => void flushChangeQueue() : undefined}
-            />
-            <button
-              type="button"
-              onClick={() => handleModeSelect("pro")}
-              className="w-full border-t border-border/30 py-2 text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
-            >
-              Byt till Pro
-            </button>
-          </FloatingChatBox>
-        ) : (
-          <div
-            id="builder-chat-panel"
-            role="tabpanel"
-            className={cn(
-              "border-border bg-background min-h-0 w-full flex-col border-r lg:flex lg:w-96",
-              mobileTab === "chat" ? "flex" : "hidden",
-            )}
-          >
-            <LaunchReadinessCard
-              readiness={vm.deployReadiness}
-              isLoading={vm.isDeployReadinessLoading}
-            />
-            <ProjectEnvVarsPanel
+        <div
+          id="builder-chat-panel"
+          role="tabpanel"
+          className={cn(
+            "border-border bg-background min-h-0 w-full flex-col border-r lg:flex lg:w-80",
+            mobileTab === "chat" ? "flex" : "hidden",
+          )}
+        >
+          <LaunchReadinessCard
+            readiness={vm.deployReadiness}
+            isLoading={vm.isDeployReadinessLoading}
+          />
+          <ProjectEnvVarsPanel
               v0ProjectId={vm.v0ProjectId}
               appProjectId={vm.appProjectId}
               chatId={vm.chatId}
               activeVersionId={vm.activeVersionId}
             />
-            <div className="relative min-h-0 flex-1 overflow-hidden">
-              <MessageList
-                chatId={vm.chatId}
-                versionId={vm.activeVersionId}
-                messages={vm.messages}
-                showStructuredParts={vm.showStructuredChat}
-                onQuickReply={handleQuickReply}
-                onApproveBuildPlan={handleApproveBuildPlan}
-                quickReplyDisabled={isBusy}
-                onSuggestionSend={(text) => smartCreateChat(text)}
-              />
-              <TipCard
-                open={tipPanelOpen && vm.tipsEnabled}
-                isLoading={isTipLoading}
-                tip={tipText}
-                error={tipError}
-                cost={tipCost}
-                onRefresh={handleRefreshTip}
-                onClose={() => setTipPanelOpen(false)}
-              />
-              <ThinkingOverlay isVisible={vm.isAnyStreaming} />
+          {needsAnalysisState && !needsAnalysisState.ready && (
+            <div className="shrink-0 border-b border-border/30 px-3 py-2">
+              <div className="flex items-center gap-3">
+                <div className="relative h-8 w-8">
+                  <svg width={32} height={32} className="-rotate-90">
+                    <circle cx={16} cy={16} r={12} fill="none" stroke="currentColor" strokeWidth={2.5} className="text-muted/20" />
+                    <circle cx={16} cy={16} r={12} fill="none" stroke="var(--accent-orange, hsl(var(--primary)))" strokeWidth={2.5} strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 12}
+                      strokeDashoffset={2 * Math.PI * 12 * (1 - needsAnalysisState.completionRatio)}
+                      className="transition-all duration-500"
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold tabular-nums text-foreground">
+                    {needsAnalysisState.answeredFields.length}/{needsAnalysisState.answeredFields.length + needsAnalysisState.missingFields.length}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium text-foreground/80">
+                    {needsAnalysisState.completionRatio >= 0.85
+                      ? "Nästan klart — sista detaljerna"
+                      : needsAnalysisState.completionRatio >= 0.5
+                        ? "Halvvägs! Bilden klarnar"
+                        : "Vi formar din sajt..."}
+                  </p>
+                </div>
+              </div>
             </div>
-            <ChatInterface
+          )}
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <MessageList
               chatId={vm.chatId}
-              initialPrompt={vm.initialPrompt}
-              onCreateChat={smartCreateChat}
-              onSendMessage={smartSendMessage}
-              onStartFromRegistry={vm.handleStartFromRegistry}
-              onRequestPlacement={handleRequestPlacement}
-              onStartFromTemplate={vm.handleStartFromTemplate}
-              onPaletteSelection={vm.handlePaletteSelection}
-              paletteSelections={vm.paletteState.selections}
-              designTheme={vm.designTheme}
-              onDesignThemeChange={vm.setDesignTheme}
-              onEnhancePrompt={vm.handlePromptEnhance}
-              isFigmaInputOpen={isFigmaInputOpen}
-              onFigmaInputOpenChange={setIsFigmaInputOpen}
-              isBusy={isBusy}
-              isPreparingPrompt={vm.isPreparingPrompt}
-              mediaEnabled={vm.mediaEnabled}
-              currentCode={vm.currentPageCode}
-              existingUiComponents={vm.existingUiComponents}
-              continuePlanMode={Boolean(latestPendingReply?.planMode)}
-              showAdvancedControls={true}
+              versionId={vm.activeVersionId}
+              messages={displayMessages}
+              showStructuredParts={vm.showStructuredChat}
+              onQuickReply={handleQuickReply}
+              onApproveBuildPlan={handleApproveBuildPlan}
+              quickReplyDisabled={isBusy}
+              onSuggestionSend={(text) => smartCreateChat(text)}
+              hasInitialPrompt={Boolean(vm.initialPrompt)}
+              isGenerating={isBusy}
             />
+            <TipCard
+              open={tipPanelOpen && vm.tipsEnabled}
+              isLoading={isTipLoading}
+              tip={tipText}
+              error={tipError}
+              cost={tipCost}
+              onRefresh={handleRefreshTip}
+              onClose={() => setTipPanelOpen(false)}
+            />
+            <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           </div>
-        )}
+          {needsAnalysisState?.ready && !vm.chatId && !showImageUpload && (
+            <IntakeSummaryCard
+              prompt={vm.messages.filter((m) => m.role === "user").map((m) => m.content).join("\n")}
+              siteType={pendingSiteTypeRef.current ?? undefined}
+              scrapeText={scrapeDataRef.current?.textSummary}
+              onBuild={() => triggerStarterGeneration(vm.messages)}
+              onEdit={() => {
+                const advancedPanel = document.querySelector("[data-advanced-panel]");
+                if (advancedPanel) {
+                  localStorage.setItem("sajtmaskin:advanced-panel-open", "true");
+                  window.dispatchEvent(new Event("storage"));
+                }
+              }}
+              disabled={isBusy}
+            />
+          )}
+          <ChatInterface
+            chatId={vm.chatId}
+            initialPrompt={vm.initialPrompt}
+            onCreateChat={smartCreateChat}
+            onSendMessage={smartSendMessage}
+            onStartFromRegistry={vm.handleStartFromRegistry}
+            onRequestPlacement={handleRequestPlacement}
+            onStartFromTemplate={vm.handleStartFromTemplate}
+            onPaletteSelection={vm.handlePaletteSelection}
+            paletteSelections={vm.paletteState.selections}
+            designTheme={vm.designTheme}
+            onDesignThemeChange={vm.setDesignTheme}
+            onEnhancePrompt={vm.handlePromptEnhance}
+            isFigmaInputOpen={isFigmaInputOpen}
+            onFigmaInputOpenChange={setIsFigmaInputOpen}
+            isBusy={isBusy}
+            isPreparingPrompt={vm.isPreparingPrompt}
+            mediaEnabled={vm.mediaEnabled}
+            currentCode={vm.currentPageCode}
+            existingUiComponents={vm.existingUiComponents}
+            continuePlanMode={Boolean(latestPendingReply?.planMode)}
+            showAdvancedControls={false}
+            answerSuggestions={currentAnswerSuggestions}
+            answerSuggestionsField={currentField}
+            showActionHub={Boolean(vm.chatId && vm.activeVersionId && !currentField)}
+            onActionHubAction={handleActionHubAction}
+          />
+          <AdvancedSettingsPanel
+            selectedModelTier={vm.selectedModelTier}
+            onSelectedModelTierChange={vm.setSelectedModelTier}
+            enableThinking={vm.enableThinking}
+            onEnableThinkingChange={vm.setEnableThinking}
+            isThinkingSupported={vm.isThinkingSupported}
+            customInstructions={vm.customInstructions}
+            onCustomInstructionsChange={vm.setCustomInstructions}
+            scaffoldMode={vm.scaffoldMode}
+            scaffoldId={vm.scaffoldId}
+            onScaffoldModeChange={vm.setScaffoldMode}
+            onScaffoldIdChange={vm.setScaffoldId}
+            disabled={isBusy}
+          />
+        </div>
 
-        {/* ---------- Site type picker popup (starter mode) ---------- */}
-        {showSiteTypePicker && isStarter && (
+        {showSiteTypePicker && (
           <SiteTypePickerPopup
             onSelect={handleSiteTypeSelect}
             onClose={handleSiteTypeClose}
           />
         )}
 
-        {/* ---------- Must-have picker popup (starter mode) ---------- */}
-        {showMustHavePicker && isStarter && (
+        {showMustHavePicker && (
           <MustHavePickerPopup
             onSelect={handleMustHaveSelect}
             onClose={handleMustHaveClose}
+            context={mustHaveContext}
           />
         )}
 
-        {/* ---------- Template picker popup (starter mode) ---------- */}
-        {vm.showTemplatePicker && isStarter && (
+        {vm.showTemplatePicker && (
           <TemplatePickerPopup
             templates={templatePickerItems}
             isLoading={isTemplatePickerLoading}
@@ -1752,8 +1591,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           />
         )}
 
-        {/* ---------- Image upload popup (starter mode, before generation) ---------- */}
-        {showImageUpload && isStarter && (
+        {showImageUpload && (
           <ImageUploadPopup
             onConfirm={handleImageUploadConfirm}
             onSkip={handleImageUploadSkip}
@@ -1829,7 +1667,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             mobileTab === "preview" ? "flex" : "hidden lg:flex",
           )}
         >
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
@@ -1852,9 +1690,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}
-              awaitingInput={isStarter ? false : vm.isAwaitingInput}
-              awaitingInputQuestion={isStarter ? null : (latestPendingReply?.question ?? null)}
-              awaitingInputOptions={isStarter ? [] : (latestPendingReply?.options ?? [])}
+              awaitingInput={vm.isAwaitingInput}
+              awaitingInputQuestion={latestPendingReply?.question ?? null}
+              awaitingInputOptions={latestPendingReply?.options ?? []}
               onClear={handleClearPreview}
               onFixPreview={vm.handleFixPreview}
               onFilesSaved={vm.handleFilesSaved}
@@ -1862,11 +1700,22 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               placementMode={Boolean(pendingPlacementRequest)}
               pendingPlacementItem={pendingPlacementItem}
               onPlacementComplete={handlePlacementComplete}
-              simplified={isStarter}
+              simplified={false}
+              generationPhase={generationPhase}
+            />
+            <PostGenerationAdvisor
+              visible={Boolean(
+                vm.chatId &&
+                vm.currentPreviewUrl &&
+                !isPreviewLoading &&
+                !vm.previewPending &&
+                vm.previewLifecycle === "live"
+              )}
+              onSuggestionClick={(prompt) => void vm.sendMessage(prompt)}
+              onDismiss={() => {}}
             />
           </div>
-          {!isStarter && (
-            <div
+          <div
               className={cn(
                 "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
                 vm.isVersionPanelCollapsed ? "w-10" : "w-80",
@@ -1882,7 +1731,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 mutateVersions={vm.mutateVersions}
               />
             </div>
-          )}
         </div>
       </div>
 
@@ -1925,6 +1773,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         }}
         reason={vm.authModalReason ?? "builder"}
       />
+
+      {showOnboarding && (
+        <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
+      )}
     </BuilderLayout>
   );
 }

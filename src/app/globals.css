@@ -29,9 +29,10 @@
     --ring: 220 60% 22%;
     --radius: 0.75rem;
     --brand-navy: 222 47% 11%;
-    --brand-orange: 220 60% 22%;
-    --brand-amber: 220 50% 30%;
-    --brand-warm: 220 55% 26%;
+    --brand-orange: 24 95% 53%;
+    --accent-orange: 24 95% 53%;
+    --brand-amber: 32 95% 44%;
+    --brand-warm: 20 90% 48%;
 
     /* Backward-compat aliases */
     --brand-blue: 220 60% 22%;

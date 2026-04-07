@@ -21,23 +21,13 @@ interface NeedsAnalysisProgressProps {
 const STEP_ICONS = [Globe, Briefcase, Link2, Target, Users, LayoutGrid, Palette];
 
 const MICRO_COPY: { threshold: number; text: string }[] = [
-  { threshold: 0, text: "Vi börjar forma din sajt..." },
-  { threshold: 0.15, text: "Bra — jag börjar se en riktning" },
-  { threshold: 0.3, text: "Snyggt. Bilden klarnar" },
-  { threshold: 0.5, text: "Halvvägs! Bara några frågor kvar" },
-  { threshold: 0.7, text: "Nästan där — din sajt tar form" },
-  { threshold: 0.85, text: "Sista detaljerna..." },
-  { threshold: 1, text: "Perfekt! Nu bygger jag din sajt" },
-];
-
-const FUN_FACTS = [
-  "Din sajt blir mobilanpassad från start",
-  "75% av besökare bedömer trovärdighet utifrån design",
-  "En snabb sajt ökar konverteringar med upp till 30%",
-  "Första intrycket skapas på under 0,05 sekunder",
-  "Vi optimerar automatiskt för sökmotorer",
-  "Över 50% av all webbtrafik kommer från mobilen",
-  "En tydlig CTA kan fördubbla dina leads",
+  { threshold: 0, text: "Börjar..." },
+  { threshold: 0.15, text: "Riktning klar" },
+  { threshold: 0.3, text: "Bilden klarnar" },
+  { threshold: 0.5, text: "Halvvägs" },
+  { threshold: 0.7, text: "Nästan klar" },
+  { threshold: 0.85, text: "Sista frågan" },
+  { threshold: 1, text: "Redo att bygga" },
 ];
 
 function getMicroCopy(ratio: number): string {
@@ -62,13 +52,6 @@ export function NeedsAnalysisProgress({
   const [displayedPercent, setDisplayedPercent] = useState(0);
   const animRef = useRef<number | null>(null);
   const prevRatioRef = useRef(0);
-  const [funFact, setFunFact] = useState(() => FUN_FACTS[Math.floor(Math.random() * FUN_FACTS.length)]);
-
-  useEffect(() => {
-    if (answeredCount > 0) {
-      setFunFact(FUN_FACTS[answeredCount % FUN_FACTS.length]);
-    }
-  }, [answeredCount]);
 
   useEffect(() => {
     const from = prevRatioRef.current;
@@ -101,7 +84,7 @@ export function NeedsAnalysisProgress({
   const dashOffset = CIRCUMFERENCE * (1 - displayedRatio);
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-8 bg-gradient-to-b from-neutral-950 to-neutral-900 px-6">
+    <div className="flex h-full flex-col items-center justify-center gap-8 bg-gradient-to-b from-background to-background/95 px-6">
       {/* Circle + percentage */}
       <div className="relative">
         <svg width={SIZE} height={SIZE} className="-rotate-90">
@@ -174,15 +157,9 @@ export function NeedsAnalysisProgress({
         })}
       </div>
 
-      {/* Micro copy */}
-      <div className="text-center">
-        <p className="text-sm font-medium text-white/70">
-          {getMicroCopy(completionRatio)}
-        </p>
-        <p className="mt-3 text-xs text-white/25">
-          {funFact}
-        </p>
-      </div>
+      <p className="text-sm font-medium text-white/70">
+        {getMicroCopy(completionRatio)}
+      </p>
     </div>
   );
 }

@@ -34,9 +34,9 @@ export function PreviewPanelFrame({
   children,
 }: PreviewPanelFrameProps) {
   return (
-    <div className="relative h-full overflow-hidden bg-gray-950">
+    <div className="relative h-full overflow-hidden bg-background">
       {isLoading ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/90">
           <div className="text-center">
             <Loader2 className="text-primary mx-auto mb-2 h-8 w-8 animate-spin" />
             <p className="text-muted-foreground text-sm">Laddar preview...</p>
@@ -45,22 +45,22 @@ export function PreviewPanelFrame({
       ) : null}
 
       {iframeError ? (
-        <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-black/85 p-4">
-          <AlertCircle className="mb-4 h-12 w-12 shrink-0 text-red-400" />
-          <p className="mb-2 max-w-lg text-center text-sm text-gray-300">
+        <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-background/95 p-4">
+          <AlertCircle className="mb-4 h-12 w-12 shrink-0 text-destructive" />
+          <p className="mb-2 max-w-lg text-center text-sm text-muted-foreground">
             {iframeErrorMessage || "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
           </p>
           {iframeDiagnosticCode ? (
-            <p className="mb-2 font-mono text-[11px] text-zinc-500">Kod: {iframeDiagnosticCode}</p>
+            <p className="mb-2 font-mono text-[11px] text-muted-foreground/60">Kod: {iframeDiagnosticCode}</p>
           ) : null}
           {iframeRunbookLines.length > 0 ? (
-            <ul className="mb-4 max-h-48 max-w-lg list-disc space-y-1.5 overflow-y-auto pl-5 text-left text-[11px] leading-snug text-zinc-400">
+            <ul className="mb-4 max-h-48 max-w-lg list-disc space-y-1.5 overflow-y-auto pl-5 text-left text-[11px] leading-snug text-muted-foreground/70">
               {iframeRunbookLines.map((line, idx) => (
                 <li key={`${idx}-${line.slice(0, 48)}`}>{line}</li>
               ))}
             </ul>
           ) : (
-            <p className="mb-4 text-center text-xs text-gray-500">
+            <p className="mb-4 text-center text-xs text-muted-foreground/60">
               Öppna i ny flik eller försök reparera previewn om felet kvarstår.
             </p>
           )}

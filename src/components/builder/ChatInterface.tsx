@@ -219,8 +219,6 @@ interface ChatInterfaceProps {
   answerSuggestionsField?: string | null;
   showActionHub?: boolean;
   onActionHubAction?: (action: ActionHubItemAction) => void;
-  changeQueueCount?: number;
-  onFlushChangeQueue?: () => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -294,8 +292,6 @@ export function ChatInterface({
   answerSuggestionsField: _answerSuggestionsField,
   showActionHub: showActionHubProp = false,
   onActionHubAction,
-  changeQueueCount = 0,
-  onFlushChangeQueue,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -396,7 +392,7 @@ export function ChatInterface({
         if (!response.ok) {
           const message =
             (data && typeof data === "object" && data.error) ||
-            `Preview failed (HTTP ${response.status})`;
+            `Kunde inte hämta förhandsvisning (HTTP ${response.status})`;
           throw new Error(String(message));
         }
 
@@ -655,7 +651,7 @@ export function ChatInterface({
     const figmaLink = normalizedFigmaUrl;
     const inspectPointsPrompt = buildInspectPointsPrompt(inspectPoints);
     const contextBlocks = [
-      figmaLink ? `Use this Figma design as a reference: ${figmaLink}` : "",
+      figmaLink ? `Använd denna Figma-design som referens: ${figmaLink}` : "",
       inspectPointsPrompt,
     ].filter(Boolean);
     const finalMessage = contextBlocks.length
@@ -712,7 +708,7 @@ export function ChatInterface({
     if (submitDisabled) return;
     const trimmed = text.trim();
     if (!trimmed && !hasSuccessFiles) return;
-    const baseMessage = trimmed || "Use the attached files as visual references for the design.";
+    const baseMessage = trimmed || "Använd de bifogade filerna som visuella referenser för designen.";
     await sendMessagePayload(baseMessage, {
       planMode: continuePlanMode || undefined,
     });
@@ -721,7 +717,7 @@ export function ChatInterface({
   const handleTextContentReady = async (content: string, filename: string) => {
     const trimmedContent = content.trim();
     if (!trimmedContent) return;
-    const baseMessage = `Use the following content from "${filename}" as source text:\n\n${trimmedContent}`;
+    const baseMessage = `Använd följande innehåll från "${filename}" som källtext:\n\n${trimmedContent}`;
     await sendMessagePayload(baseMessage);
   };
 
@@ -1061,7 +1057,7 @@ export function ChatInterface({
               type="button"
               className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
               disabled={inputDisabled}
-              title="Forslag och hjalp"
+              title="Förslag och hjälp"
               onClick={() => setShowHelpSuggestions((prev) => !prev)}
             >
               <HelpCircle className="size-4" />
@@ -1126,7 +1122,7 @@ export function ChatInterface({
             {figmaPreviewLoading && (
               <div className="text-muted-foreground text-xs">Hämtar Figma-preview...</div>
             )}
-            {figmaPreviewError && <div className="text-xs text-red-500">{figmaPreviewError}</div>}
+            {figmaPreviewError && <div className="text-xs text-destructive">{figmaPreviewError}</div>}
             {!figmaPreviewUrl && !figmaPreviewLoading && (
               <div className="text-muted-foreground text-[11px]">
                 Kräver FIGMA_ACCESS_TOKEN för preview.
@@ -1197,7 +1193,7 @@ export function ChatInterface({
                       </div>
                     )}
                     {point.element?.selector && (
-                      <div className="mt-1 line-clamp-2 font-mono text-[10px] text-zinc-400">
+                      <div className="mt-1 line-clamp-2 font-mono text-[10px] text-muted-foreground">
                         {point.element.selector}
                       </div>
                     )}
@@ -1220,7 +1216,7 @@ export function ChatInterface({
                       </div>
                     )}
                     {point.uploadError && (
-                      <div className="mt-1 text-[11px] text-red-500">{point.uploadError}</div>
+                      <div className="mt-1 text-[11px] text-destructive">{point.uploadError}</div>
                     )}
                     {!point.uploading && !point.uploadError && (
                       <div className="text-muted-foreground mt-1 text-[11px]">
@@ -1231,6 +1227,27 @@ export function ChatInterface({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {!showAdvancedControls && answerSuggestions && answerSuggestions.length > 0 && chatId && !input && (
+          <div className="flex flex-wrap gap-1.5 px-3 pb-1 pt-2">
+            {answerSuggestions.map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => {
+                  if (onQuickChipSend) {
+                    onQuickChipSend(suggestion);
+                  } else {
+                    setInput(suggestion);
+                  }
+                }}
+                disabled={inputDisabled}
+                className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-primary/10 disabled:opacity-50"
+              >
+                {suggestion}
+              </button>
+            ))}
           </div>
         )}
         <PromptInputBody>
@@ -1258,11 +1275,9 @@ export function ChatInterface({
                   : "Beskriv vad du vill bygga... (Enter för att skicka)"
                 : hasSuccessFiles && chatId
                   ? "Beskriv var bilden ska placeras..."
-                  : changeQueueCount > 0
-                    ? "Lägg till fler ändringar eller skriv 'kör'..."
-                    : chatId
-                      ? "Skriv här..."
-                      : "Skriv eller prata. Jag guidar dig."
+                  : chatId
+                    ? "Beskriv vad du vill ändra..."
+                    : "Skriv eller prata. Jag guidar dig."
             }
             aria-label={
               showAdvancedControls
@@ -1396,16 +1411,6 @@ export function ChatInterface({
                 </button>
               )}
             </PromptInputTools>
-            {changeQueueCount > 0 && onFlushChangeQueue && (
-              <button
-                type="button"
-                onClick={onFlushChangeQueue}
-                disabled={inputDisabled}
-                className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                Kör{changeQueueCount > 1 ? ` (${changeQueueCount})` : ""}
-              </button>
-            )}
             <PromptInputSubmit disabled={submitDisabled}>
               {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
             </PromptInputSubmit>

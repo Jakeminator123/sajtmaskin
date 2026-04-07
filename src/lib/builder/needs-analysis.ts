@@ -126,12 +126,6 @@ const QUESTION_ORDER: QuestionConfig[] = [
     followUp: "Tänk på vad en besökare behöver se direkt.",
     options: ["Kontaktformulär", "Priser och paket", "Bildgalleri", "Bokning online"],
   },
-  {
-    field: "style",
-    question: "Vilken känsla vill du att sidan ska ge?",
-    followUp: "Ska det kännas rent och modernt, varmt och personligt, lyxigt, eller mer lekfullt?",
-    options: ["Rent och modernt", "Varmt och personligt", "Mörkt och lyxigt", "Skandinavisk och stilren"],
-  },
 ];
 
 export const QUESTION_SUGGESTIONS: Record<NeedsAnalysisField, string[]> = {
@@ -387,15 +381,15 @@ export function buildSeedNeedsAnalysisMessages(initialPrompt: string): ChatMessa
     seedUserMessage,
     createNeedsAnalysisMessage(
       nextQuestion,
-      "Bra start. Du har redan gett mig en tydlig riktning. Jag håller dig i handen och tar en liten fråga i taget innan jag bygger.",
+      "Tack! Jag behöver bara ett par snabba svar innan jag börjar bygga.",
     ),
   ];
 }
 
 const FOLLOW_UP_PREFIXES = [
-  "Ingen stress! Jag vill bara förstå dig lite bättre.",
-  "Helt okej — låt mig ställa frågan på ett annat sätt.",
-  "Inga konstigheter! Jag frågar bara för att bygga rätt åt dig.",
+  "Ingen stress — jag frågar bara för att bygga rätt.",
+  "Helt okej. Låt mig formulera om det lite.",
+  "Inga konstigheter, jag vill bara förstå dig bättre.",
 ];
 
 export function buildNextNeedsAnalysisMessage(messages: ChatMessage[]): ChatMessage | null {
@@ -419,12 +413,14 @@ export function buildNextNeedsAnalysisMessage(messages: ChatMessage[]): ChatMess
   const nextQuestion = getNextQuestion(state.missingFields, askedFields);
   if (!nextQuestion) return null;
 
-  return createNeedsAnalysisMessage(
-    nextQuestion,
-    state.completionRatio >= 0.5
-      ? "Snyggt. Det här ser redan lovande ut. Jag vill bara spika en sista viktig detalj."
-      : "Snyggt. Du gör det här enkelt för mig. Jag tar nästa lilla fråga så fortsätter vi.",
-  );
+  const prefix =
+    state.completionRatio >= 0.7
+      ? "Nästan klart — en sista sak."
+      : state.completionRatio >= 0.4
+        ? "Bra, det börjar ta form. En fråga till."
+        : "Tack! Då kör vi vidare.";
+
+  return createNeedsAnalysisMessage(nextQuestion, prefix);
 }
 
 export function extractUrlFromMessages(messages: ChatMessage[]): string | null {
@@ -514,11 +510,87 @@ export interface UploadedMediaInfo {
   purpose?: string;
 }
 
+function buildPageStructure(mustHave: string | null, siteType: string | null): string[] {
+  const pages: string[] = [];
+
+  const hasFeature = (keyword: string) =>
+    mustHave?.toLowerCase().includes(keyword.toLowerCase()) ?? false;
+
+  const isRestaurant = siteType?.toLowerCase().includes("restaurang") ?? false;
+  const isEcommerce = siteType?.toLowerCase().includes("webshop") || siteType?.toLowerCase().includes("e-handel");
+  const isPortfolio = siteType?.toLowerCase().includes("portfolio") ?? false;
+
+  pages.push(
+    "### Startsida (`app/page.tsx`)",
+    "1. Hero med rubrik, underrubrik och primär CTA",
+    isRestaurant
+      ? "2. Meny-höjdpunkter eller populära rätter (3-4 kort)"
+      : isEcommerce
+        ? "2. Utvalda produkter (3-4 kort)"
+        : "2. Tjänster/erbjudanden (3-4 kort med ikon och kort beskrivning)",
+    "3. Kort om oss (2-3 meningar + bild eller ikon)",
+    "4. Socialt bevis (2-3 kundcitat med namn och roll/företag)",
+    "5. CTA-banner (tydlig uppmaning med kontrasterande bakgrund)",
+    "6. Kontaktsektion (adress, telefon, e-post, eventuellt karta)",
+  );
+
+  pages.push("", "### Om oss (`app/om-oss/page.tsx`)", "1. Rubrik och inledning", "2. Vår historia / bakgrund", "3. Teamet (om relevant) — namn, roll, kort bio", "4. Värderingar eller arbetssätt");
+
+  if (isRestaurant) {
+    pages.push("", "### Meny (`app/meny/page.tsx`)", "1. Menykategorier (förrätter, varmrätter, desserter, drycker)", "2. Varje rätt: namn, kort beskrivning, pris", "3. Allergeniformation eller dietfilter");
+  }
+
+  if (hasFeature("pris") || hasFeature("paket")) {
+    pages.push("", "### Priser (`app/priser/page.tsx`)", "1. Prispaket (2-3 nivåer i kolumner)", "2. Vad som ingår per paket (checkmarks)", "3. CTA under varje paket", "4. FAQ om priser");
+  }
+
+  if (hasFeature("galleri") || isPortfolio) {
+    pages.push("", "### Galleri / Portfolio (`app/galleri/page.tsx`)", "1. Bildrutnät (responsivt grid, 2-3 kolumner)", "2. Filterkategorier om relevant", "3. Lightbox vid klick");
+  }
+
+  if (hasFeature("bokning")) {
+    pages.push("", "### Boka tid (`app/boka/page.tsx`)", "1. Rubrik och kort beskrivning", "2. Bokningsformulär (namn, e-post, telefon, datum, tid, meddelande)", "3. Bekräftelsemeddelande efter submit");
+  }
+
+  pages.push(
+    "",
+    "### Kontakt (`app/kontakt/page.tsx`)",
+    "1. Kontaktformulär (namn, e-post, telefon, meddelande)",
+    "2. Direktkontaktinfo (telefon, e-post, adress)",
+    isRestaurant ? "3. Öppettider" : "3. Besöksadress / karta",
+    "4. Sociala medier-länkar",
+  );
+
+  return pages;
+}
+
+function extractCompanyName(userMessages: string[]): string | null {
+  for (const msg of userMessages) {
+    const match = msg.match(/(?:heter|kallas|företag(?:et)?|salon(?:g(?:en)?)?|restaurang(?:en)?|butik(?:en)?|byrå(?:n)?)\s+["']?([A-ZÅÄÖ][a-zåäöA-ZÅÄÖ &]+)/i);
+    if (match?.[1]) return match[1].trim();
+  }
+  return null;
+}
+
+function extractLocation(userMessages: string[]): string | null {
+  const cities = ["stockholm", "göteborg", "malmö", "uppsala", "västerås", "örebro", "linköping", "helsingborg", "jönköping", "norrköping", "lund", "umeå", "gävle", "borås", "sundsvall", "eskilstuna", "karlstad", "växjö", "halmstad", "luleå", "trollhättan"];
+  const joined = userMessages.join(" ").toLowerCase();
+  for (const city of cities) {
+    if (joined.includes(city)) {
+      return city.charAt(0).toUpperCase() + city.slice(1);
+    }
+  }
+  const match = joined.match(/\bi\s+([A-ZÅÄÖ][a-zåäö]+(?:\s[A-ZÅÄÖ][a-zåäö]+)?)/);
+  if (match?.[1]) return match[1];
+  return null;
+}
+
 export function buildNeedsAnalysisPrompt(
   messages: ChatMessage[],
   scrapeData?: ScrapeResult | null,
   selectedTemplates?: SelectedTemplateInfo[] | null,
   uploadedMedia?: UploadedMediaInfo[] | null,
+  companyBrief?: Record<string, unknown> | null,
 ): string {
   const userMessages = getUserMessages(messages);
   const rawUserMessages = getRawUserMessages(messages);
@@ -568,8 +640,27 @@ export function buildNeedsAnalysisPrompt(
       ].filter(Boolean)
     : [];
 
-  const ownMedia = uploadedMedia?.filter((m) => m.purpose !== "design-reference") ?? [];
+  const brandLogos = uploadedMedia?.filter((m) => m.purpose === "brand-logo") ?? [];
+  const ownMedia = uploadedMedia?.filter((m) => m.purpose !== "design-reference" && m.purpose !== "brand-logo") ?? [];
   const inspirationMedia = uploadedMedia?.filter((m) => m.purpose === "design-reference") ?? [];
+
+  const logoSection =
+    brandLogos.length > 0
+      ? [
+          "",
+          "## Logotyp",
+          "",
+          "Användaren har laddat upp sin logotyp. Den SKA användas på följande platser:",
+          "- **Header/navbar** — visa logotypen istället för text-logotyp, vänsterställd",
+          "- **Footer** — visa logotypen i footerns övre del",
+          "- **Kontaktsida** — valfritt, om det finns en kontaktsida",
+          "",
+          "Använd `next/image` med logotypens URL. Anpassa storlek per placering (header: h-8 till h-10, footer: h-6 till h-8).",
+          "Lägg INTE logotypen som hero-bakgrund eller dekorativt element.",
+          "",
+          ...brandLogos.map((m) => `- Logotyp: ${m.url} (${m.filename})`),
+        ]
+      : [];
 
   const ownMediaSection =
     ownMedia.length > 0
@@ -582,7 +673,6 @@ export function buildNeedsAnalysisPrompt(
           "Filerna bifogas som bilder i meddelandet. Analysera VARJE bild och bestäm:",
           "",
           "### Placeringsregler (följ noggrant)",
-          "- **Logotyp / varumärkesbild** → header/navbar och footer",
           "- **Personalbilder / porträtt** → 'Om oss'-sektionen eller teamsektion",
           "- **Produktbilder** → produktkort, produktgalleri, hero om det är en webshop",
           "- **Lokalbild / fasad / interiör** → hero-bakgrund, kontaktsektion eller gallerisektion",
@@ -626,7 +716,34 @@ export function buildNeedsAnalysisPrompt(
         ]
       : [];
 
-  const mediaSection = [...ownMediaSection, ...inspirationSection];
+  const mediaSection = [...logoSection, ...ownMediaSection, ...inspirationSection];
+
+  const mustHaveEvidence = getEvidenceForField("mustHave", userMessages, rawUserMessages);
+  const siteTypeEvidence = getEvidenceForField("siteType", userMessages, rawUserMessages);
+  const offerEvidence = getEvidenceForField("offer", userMessages, rawUserMessages);
+
+  const companyBriefSection: string[] = [];
+  if (companyBrief && typeof companyBrief === "object") {
+    const desc = typeof companyBrief.description === "string" ? companyBrief.description.trim() : "";
+    const industry = typeof companyBrief.industry === "string" ? companyBrief.industry.trim() : "";
+    const tone = typeof companyBrief.tone === "string" ? companyBrief.tone.trim() : "";
+    const services = typeof companyBrief.services === "string" ? companyBrief.services.trim() : "";
+    const target = typeof companyBrief.targetAudience === "string" ? companyBrief.targetAudience.trim() : "";
+    if (desc || industry || tone || services || target) {
+      companyBriefSection.push("", "## Företagsprofil (automatiskt analyserad)");
+      if (desc) companyBriefSection.push(`- Verksamhet: ${desc.slice(0, 500)}`);
+      if (industry) companyBriefSection.push(`- Bransch: ${industry}`);
+      if (services) companyBriefSection.push(`- Tjänster/Produkter: ${services.slice(0, 300)}`);
+      if (target) companyBriefSection.push(`- Målgrupp: ${target}`);
+      if (tone) companyBriefSection.push(`- Ton/Stil: ${tone}`);
+      companyBriefSection.push("", "Använd denna företagsprofil för att anpassa tonalitet, innehåll och struktur.");
+    }
+  }
+
+  const pageStructure = buildPageStructure(mustHaveEvidence, siteTypeEvidence);
+
+  const companyName = extractCompanyName(userMessages);
+  const location = extractLocation(userMessages);
 
   return [
     "## Starter intake",
@@ -636,20 +753,46 @@ export function buildNeedsAnalysisPrompt(
     ...summary,
     ...templateSection,
     ...scrapedSection,
+    ...companyBriefSection,
     ...mediaSection,
     "",
     "## Användarens egna formuleringar",
     ...userMessages.map((message, index) => `${index + 1}. ${message}`),
     "",
+    "## Sidstruktur",
+    "Bygg följande sidor med dessa sektioner:",
+    "",
+    ...pageStructure,
+    "",
     "## Instruktion",
-    "- Bygg direkt utifrån underlaget ovan.",
+    "- Bygg direkt utifrån underlaget ovan. Följ sidstrukturen exakt.",
     "- Ta trygga designbeslut när detaljer saknas.",
     "- Prioritera tydlig struktur, ett starkt första intryck och en relevant CTA.",
     "- VIKTIGT: Varje sida ska ha MINST 3-4 sektioner med verkligt innehåll. Ingen sida får ha bara en hero/rubrik och sedan tom yta ner till footer.",
-    "- Startsidan ska ha: hero, tjänster/produkter, kort om oss, socialt bevis (citat/kunder), CTA-banner och kontaktsektion.",
     "- Undersidor ska vara innehållsrika — inte bara en rubrik. Om det inte finns tillräckligt innehåll för en separat sida, slå ihop den med en annan.",
+    "",
+    "## Heading-hierarki och bildhantering",
+    "- Exakt EN `<h1>` per sida. Aldrig fler.",
+    "- Headings i strikt hierarki: h1 → h2 → h3. Hoppa aldrig över nivåer.",
+    "- Alla bilder via `next/image` med `alt`-text på svenska.",
+    "- Hero-bilder: `priority` och `fill` eller explicit bredd/höjd. Övriga: lazy loading (default).",
+    "- Footer: logotyp (om uppladdad), kontaktinfo, öppettider (om relevant), sociala medier-ikoner, copyright-text.",
+    "",
+    "## SEO-metadata",
+    `- title: "${companyName ? `${companyName} — ${offerEvidence || ""}` : "Företagsnamn — Beskrivning"}${location ? ` i ${location}` : ""}" (anpassa per sida)`,
+    "- description: 150-160 tecken, på svenska, som sammanfattar sidans innehåll.",
+    "- keywords: relevanta svenska sökord som `string[]` — ALDRIG `as const`.",
+    "- Open Graph: title och description på svenska.",
+    "",
+    "## Språk och ton (svenska)",
+    "All text ska vara på svenska (å, ä, ö). Inga emojis. Inga engelska placeholder.",
+    "Skriv riktiga stycken (2-3 meningar). Autentiska svenska namn och adresser.",
+    "Navigation: Hem, Om oss, Tjänster, Kontakt, Priser. Knappar: Kom igång, Läs mer, Kontakta oss, Boka tid.",
+    "Telefonnummer: 070-123 45 67. Adress: Storgatan 12, 411 38 Göteborg.",
+    "Footer-copyright: \"© 2025 Företagsnamn\" (INTE \"All rights reserved\").",
+    "Metadata-arrayer: ALDRIG `as const` — TypeScript kräver mutable `string[]`.",
     ...(uploadedMedia && uploadedMedia.length > 0
-      ? ["- Använd de uppladdade bilderna/videos på logiskt rätt plats enligt placeringsreglerna ovan."]
+      ? ["Använd de uppladdade bilderna/videos på logiskt rätt plats enligt placeringsreglerna ovan."]
       : []),
   ].join("\n");
 }

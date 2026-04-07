@@ -8,12 +8,12 @@ describe("buildRoutePlan", () => {
     brief: undefined as undefined,
   };
 
-  it("maps Swedish om oss to /om", () => {
+  it("maps Swedish om oss to /om-oss", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Vi behöver en tydlig sida om oss för byrån.",
     });
-    expect(plan.routes.some((r) => r.path === "/om" && r.name === "Om oss")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/om-oss" && r.name === "Om oss")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/about")).toBe(false);
   });
 
@@ -23,7 +23,7 @@ describe("buildRoutePlan", () => {
       prompt: "Add an about page and our company story.",
     });
     expect(plan.routes.some((r) => r.path === "/about" && r.name === "About")).toBe(true);
-    expect(plan.routes.some((r) => r.path === "/om")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/om-oss")).toBe(false);
   });
 
   it("does not add /services for a simple one-page bakery prompt", () => {
@@ -52,12 +52,12 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/blog")).toBe(false);
   });
 
-  it("adds /blog when the prompt explicitly says blog", () => {
+  it("adds /blogg when the prompt explicitly says blogg", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
       prompt: "Sajten behöver en blogg där vi delar recept.",
     });
-    expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/blogg")).toBe(true);
   });
 
   it("uses brief-based routes when brief has pages", () => {

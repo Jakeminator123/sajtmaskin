@@ -316,6 +316,7 @@ export function useCreateChat(
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            suppressSummaryText: true,
           });
         }
 

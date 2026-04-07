@@ -11,15 +11,6 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-const OVERLAY_STYLE: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 99999,
-  display: "flex",
-  flexDirection: "column",
-  background: "#ffffff",
-};
-
 interface ActionHubPopupProps {
   onAction: (action: ActionHubItemAction) => void;
   onClose: () => void;
@@ -56,22 +47,20 @@ function HubInner({ onAction, onClose }: ActionHubPopupProps) {
   }, [onClose]);
 
   return (
-    <div style={OVERLAY_STYLE}>
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
-        <h2 className="text-lg font-medium text-neutral-900">Vad vill du göra?</h2>
+    <div className="fixed inset-0 z-[99999] flex flex-col bg-background">
+      <div className="flex items-center justify-between border-b border-border/30 px-6 py-4">
+        <h2 className="text-lg font-medium text-foreground">Vad vill du göra?</h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full p-2 text-neutral-400 transition-colors hover:bg-neutral-50 hover:text-neutral-600"
+          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Stäng"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
 
-      {/* Category tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-neutral-100 px-6 py-2">
+      <div className="flex gap-1 overflow-x-auto border-b border-border/30 px-6 py-2">
         <CategoryTab
           label="Alla"
           active={activeCategory === null}
@@ -87,7 +76,6 @@ function HubInner({ onAction, onClose }: ActionHubPopupProps) {
         ))}
       </div>
 
-      {/* Grid */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <div className="mx-auto max-w-3xl space-y-8">
           {visibleCategories.map((category) => (
@@ -119,8 +107,8 @@ function CategoryTab({
       className={cn(
         "whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-colors",
         active
-          ? "bg-neutral-900 text-white"
-          : "text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700",
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
       {label}
@@ -137,7 +125,7 @@ function CategorySection({
 }) {
   return (
     <div>
-      <h3 className="mb-3 text-xs font-medium tracking-wide text-neutral-400 uppercase">
+      <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {category.label}
       </h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -146,10 +134,10 @@ function CategorySection({
             key={item.id}
             type="button"
             onClick={() => onItemClick(item)}
-            className="flex flex-col items-center gap-2 rounded-xl border border-neutral-100 bg-white p-4 transition-all hover:border-neutral-200 hover:shadow-sm active:scale-[0.98]"
+            className="flex flex-col items-center gap-2 rounded-xl border border-border/40 bg-card p-4 transition-all hover:border-border hover:shadow-sm active:scale-[0.98]"
           >
-            <item.icon className="h-6 w-6 text-neutral-500" />
-            <span className="text-center text-sm text-neutral-700">{item.label}</span>
+            <item.icon className="h-6 w-6 text-muted-foreground" />
+            <span className="text-center text-sm text-foreground/80">{item.label}</span>
           </button>
         ))}
       </div>

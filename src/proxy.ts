@@ -101,7 +101,7 @@ function buildCspPolicy(pathname: string, nonce: string): string {
     "*.vercel.run",
     "*.vercel.app",
   ];
-  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", ...tier2PreviewHosts];
+  const frameSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "player.vimeo.com", ...tier2PreviewHosts];
   const connectSrc = [`'self'`, "*.vusercontent.net", "*.vercel.run", "*.vercel.app", "wss:", ...tier2PreviewHosts];
   const mediaSrc = [`'self'`, "blob:"];
   const workerSrc = [`'self'`, "blob:"];

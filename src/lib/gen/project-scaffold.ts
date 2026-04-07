@@ -113,6 +113,7 @@ const previewBasePath = process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() || "";
 const nextConfig: NextConfig = {
   ...(previewBasePath ? { basePath: previewBasePath } : {}),
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
       { protocol: "https", hostname: "plus.unsplash.com" },

@@ -283,10 +283,14 @@ const BRIEF_SYSTEM_PROMPT =
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
   "SCOPE AWARENESS (important):\n" +
   "- Match the scope to the complexity of the user's request.\n" +
-  "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
-  "- A detailed, structured request with many requirements should produce a multi-page brief (2-5 pages) with richer sections.\n" +
-  "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
-  "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.";
+  "- A short, casual request without specific page needs (e.g. 'a page for Lasse's flea market') can be a compact brief with 4-6 sections on a single page.\n" +
+  "- When the user's input mentions multiple pages or the needs-analysis specifies pages (Om oss, Kontakt, Priser, etc.), always include them in the brief's pages array with proper paths.\n" +
+  "- A detailed, structured request should produce a multi-page brief (2-5 pages) with richer sections.\n" +
+  "- When in doubt, include the pages the user's input references rather than collapsing everything into one page.\n\n" +
+  "SWEDISH CONTENT (default language):\n" +
+  "- All text, headings, section names, and metadata in Swedish with correct å, ä, ö. No emojis.\n" +
+  "- Authentic Swedish names and places. Tone: professional yet warm (lagom).\n" +
+  "- Full Swedish content rules are in the codegen system prompt (14-swedish-content.md).";
 
 function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string {
   const siteTypeHint = inferSiteTypeHint(prompt);

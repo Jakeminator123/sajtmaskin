@@ -24,10 +24,13 @@ export function useChatReadiness(
 ) {
   const { isGenerating = false, pauseWhileGenerating = false } = options;
   const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : "";
-  const refreshInterval =
-    !versionId || (pauseWhileGenerating && isGenerating) ? 0 : 10000;
+  const shouldPause = pauseWhileGenerating && isGenerating;
+  const refreshInterval = !versionId || shouldPause ? 0 : 10000;
+  const swrKey = chatId && versionId && !shouldPause
+    ? `${engineChatBaseUrl(chatId)}/readiness${query}`
+    : null;
   const { data, error, isLoading, mutate } = useSWR(
-    chatId ? `${engineChatBaseUrl(chatId)}/readiness${query}` : null,
+    swrKey,
     fetcher,
     {
       revalidateOnFocus: false,

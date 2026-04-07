@@ -41,7 +41,7 @@ import type { MediaFileType, MediaItem } from "./media-bank";
 // CONSTANTS
 // ============================================================================
 
-const MAX_IMAGES = 10;
+const MAX_IMAGES = 30;
 const MAX_VIDEOS = 3;
 
 // ============================================================================

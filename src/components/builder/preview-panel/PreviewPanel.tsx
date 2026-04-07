@@ -111,6 +111,7 @@ export function PreviewPanel({
   onPlacementComplete,
   simplified = false,
   onComposerAiFallback,
+  generationPhase,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
@@ -645,7 +646,7 @@ export function PreviewPanel({
     chatId,
     versionId,
     previewUrl,
-    activePreviewSessionId,
+    activeSandboxId: activePreviewSessionId,
     previewLifecycle,
     onSessionSuspect: onPreviewSessionSuspect,
   });
@@ -838,12 +839,13 @@ export function PreviewPanel({
         activeVersionIsLatest={activeVersionIsLatest}
         onFixPreview={onFixPreview}
         simplified={simplified}
+        generationPhase={generationPhase}
       />
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-black/40">
+    <div className="flex h-full flex-col bg-muted/30">
       <PreviewPanelChrome
         previewUrl={previewUrl}
         surfaceDescriptor={surfaceDescriptor}

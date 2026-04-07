@@ -1,35 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { deleteMediaLibraryItem, getMediaLibraryItemById } from "@/lib/db/services/media";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-/**
- * Media Library Item API
- * ======================
- *
- * DELETE /api/media/[id] - Delete a media library item
- *
- * SECURITY:
- * - Requires authentication
- * - Users can only delete their own files (enforced by deleteMediaLibraryItem)
- */
-
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    // Require authentication
     const user = await getCurrentUser(request);
-    if (!user) {
+    const sessionId = getSessionIdFromRequest(request);
+    if (!user && !sessionId) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Du måste vara inloggad för att ta bort filer",
-        },
+        { success: false, error: "Du måste vara inloggad för att ta bort filer" },
         { status: 401 },
       );
     }
+    const ownerId = user?.id ?? sessionId!;
 
     const { id } = await params;
     const mediaId = parseInt(id, 10);
@@ -38,7 +26,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Ogiltigt fil-ID" }, { status: 400 });
     }
 
-    const item = await getMediaLibraryItemById(mediaId, user.id);
+    const item = await getMediaLibraryItemById(mediaId, ownerId);
     if (!item) {
       return NextResponse.json(
         { success: false, error: "Filen hittades inte eller du har inte behörighet" },
@@ -46,9 +34,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Delete the file (both from disk/blob and database)
-    const success = await deleteMediaLibraryItem(mediaId, user.id);
-
+    const success = await deleteMediaLibraryItem(mediaId, ownerId);
     if (!success) {
       return NextResponse.json(
         { success: false, error: "Kunde inte ta bort filen" },
@@ -56,8 +42,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    console.info(`[Media/Delete] User ${user.id} deleted file ${mediaId}`);
-
+    console.info(`[Media/Delete] Owner ${ownerId} deleted file ${mediaId}`);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";

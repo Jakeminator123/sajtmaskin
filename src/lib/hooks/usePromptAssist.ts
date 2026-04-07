@@ -376,19 +376,19 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         }
 
         const betterMessage = (() => {
-          if (isAbort) return "AI Assist tog för lång tid (timeout).";
+          if (isAbort) return "Det tog för lång tid. Försök igen.";
           if (isGatewayTimeout) {
-            return "Prompt-assist-anropet tog för lång tid. Prova igen eller välj en snabbare modell.";
+            return "Det tog för lång tid. Försök igen om en stund.";
           }
           if (!isFailedFetch) return rawMessage;
 
           if (provider === "gateway") {
-            return "Kunde inte nå OpenAI för prompt-assist. Sätt OPENAI_API_KEY i .env.local (eller motsvarande i Vercel).";
+            return "AI-tjänsten kunde inte nås. Försök igen om en stund.";
           }
           if (provider === "anthropic") {
-            return "Kunde inte nå Anthropic för prompt-assist. Sätt ANTHROPIC_API_KEY i .env.local (eller motsvarande i Vercel).";
+            return "AI-tjänsten kunde inte nås. Försök igen om en stund.";
           }
-          return "Kunde inte nå AI Assist-endpointen. Kontrollera att servern kör.";
+          return "Något gick fel. Försök igen.";
         })();
 
         toast.error(betterMessage, { id: "sajtmaskin:prompt-assist" });
@@ -541,16 +541,16 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         });
 
         if (isAbort) {
-          toast.error("Brief/instruktions-generering tog för lång tid (timeout)", {
+          toast.error("Förberedelsen tog för lång tid. Vi bygger ändå.", {
             id: "sajtmaskin:dynamic-instructions",
           });
         } else if (isParseError) {
-          toast("Instruktions‑generering misslyckades, använder snabbare variant.", {
+          toast("Förberedelsen kunde inte slutföras helt. Vi bygger ändå.", {
             id: "sajtmaskin:dynamic-instructions",
             icon: "⚠️",
           });
         } else {
-          toast.error(`Instruktions‑generering misslyckades: ${rawMessage}`, {
+          toast.error("Förberedelsen misslyckades. Vi bygger med grundinställningar.", {
             id: "sajtmaskin:dynamic-instructions",
           });
         }

@@ -1,15 +1,19 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
+  ChevronDown,
   CircleCheck,
   Code2,
   ExternalLink,
   FileText,
   LayoutGrid,
+  MoreVertical,
   Redo2,
   RefreshCw,
   Search,
+  Trash2,
   Undo2,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -75,6 +79,220 @@ interface PreviewPanelChromeProps {
   simplified?: boolean;
 }
 
+const GENERATION_PHASES = [
+  { label: "Analyserar din brief...", duration: 8_000 },
+  { label: "Planerar sidstruktur...", duration: 12_000 },
+  { label: "Genererar kod...", duration: 60_000 },
+  { label: "Bygger preview...", duration: 30_000 },
+  { label: "Finjusterar detaljer...", duration: 20_000 },
+];
+
+function SimplifiedProgressBar() {
+  const startRef = useRef(Date.now());
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setElapsed(Date.now() - startRef.current), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  let cumulative = 0;
+  let currentPhase = GENERATION_PHASES[GENERATION_PHASES.length - 1]!;
+  for (const phase of GENERATION_PHASES) {
+    cumulative += phase.duration;
+    if (elapsed < cumulative) {
+      currentPhase = phase;
+      break;
+    }
+  }
+
+  const totalDuration = GENERATION_PHASES.reduce((s, p) => s + p.duration, 0);
+  const raw = Math.min(elapsed / totalDuration, 1);
+  const eased = 1 - Math.pow(1 - raw, 1.6);
+  const pct = Math.min(eased * 100, 99);
+
+  return (
+    <div className="shrink-0 border-b border-border/30 px-4 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+          <span className="text-sm font-medium text-foreground">{currentPhase.label}</span>
+        </div>
+        <span className="text-xs tabular-nums text-muted-foreground">{Math.round(pct)}%</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ToolMenuItem({
+  icon,
+  label,
+  active = false,
+  disabled = false,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-xs transition-colors",
+        disabled
+          ? "cursor-not-allowed text-muted-foreground/40"
+          : active
+            ? "bg-primary/10 font-medium text-primary"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function RouteDropdown({
+  previewRoutes,
+  activePreviewRoute,
+  handleNavigateRoute,
+  previewRoutesLoading,
+}: {
+  previewRoutes: string[];
+  activePreviewRoute: string | null;
+  handleNavigateRoute: (route: string) => void;
+  previewRoutesLoading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {previewRoutesLoading ? "Laddar..." : activePreviewRoute || "/"}
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[140px] rounded-md border border-border bg-popover p-1 shadow-md">
+          {previewRoutes.map((route) => (
+            <button
+              key={route}
+              type="button"
+              onClick={() => { handleNavigateRoute(route); setOpen(false); }}
+              className={cn(
+                "block w-full rounded-sm px-2 py-1 text-left text-xs transition-colors hover:bg-muted",
+                activePreviewRoute === route ? "font-medium text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {route}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SimplifiedToolbar({
+  previewRoutes,
+  previewRoutesLoading,
+  activePreviewRoute,
+  handleNavigateRoute,
+  handleRefresh,
+  handleOpenInNewTab,
+  isLoading,
+}: {
+  previewRoutes: string[];
+  previewRoutesLoading: boolean;
+  activePreviewRoute: string | null;
+  handleNavigateRoute: (route: string) => void;
+  handleRefresh: () => void;
+  handleOpenInNewTab: () => void;
+  isLoading: boolean;
+}) {
+  const [routeMenuOpen, setRouteMenuOpen] = useState(false);
+  const hasRoutes = previewRoutes.length > 1;
+
+  return (
+    <div className="flex shrink-0 items-center justify-between border-b border-border/30 px-3 py-1.5">
+      <div className="flex items-center gap-1">
+        {hasRoutes ? (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setRouteMenuOpen((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {activePreviewRoute || "/"}
+              <ChevronDown className="h-3 w-3" />
+            </button>
+            {routeMenuOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1 min-w-[140px] rounded-md border border-border bg-popover p-1 shadow-md">
+                {previewRoutes.map((route) => (
+                  <button
+                    key={route}
+                    type="button"
+                    onClick={() => {
+                      handleNavigateRoute(route);
+                      setRouteMenuOpen(false);
+                    }}
+                    className={cn(
+                      "block w-full rounded-sm px-2 py-1 text-left text-xs transition-colors hover:bg-muted",
+                      activePreviewRoute === route ? "font-medium text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {route}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="px-2 text-xs text-muted-foreground">
+            {previewRoutesLoading ? "Laddar sidor..." : activePreviewRoute || "/"}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleRefresh}
+          disabled={isLoading}
+          title="Uppdatera"
+          aria-label="Uppdatera"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+        >
+          <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleOpenInNewTab}
+          title="Öppna i ny flik"
+          aria-label="Öppna i ny flik"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function PreviewPanelChrome({
   previewUrl,
   surfaceDescriptor,
@@ -121,214 +339,182 @@ export function PreviewPanelChrome({
   showExternalWarning,
   simplified = false,
 }: PreviewPanelChromeProps) {
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!toolsMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(e.target as Node)) {
+        setToolsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [toolsMenuOpen]);
+
   if (simplified) {
+    if (isLoading) {
+      return <SimplifiedProgressBar />;
+    }
+    if (previewUrl) {
+      return (
+        <SimplifiedToolbar
+          previewRoutes={previewRoutes}
+          previewRoutesLoading={previewRoutesLoading}
+          activePreviewRoute={activePreviewRoute}
+          handleNavigateRoute={handleNavigateRoute}
+          handleRefresh={handleRefresh}
+          handleOpenInNewTab={handleOpenInNewTab}
+          isLoading={isLoading}
+        />
+      );
+    }
     return null;
   }
 
+  const hasAnyWarning =
+    showBlobWarning || showBlobConfigWarning || integrationError ||
+    showImagesDisabledWarning || showImagesUnsupportedWarning || showExternalWarning;
+
   return (
-    <div className="max-h-[40%] shrink-0 overflow-y-auto">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold tracking-tight text-white">Preview</h3>
-          <Badge variant="outline" className={surfaceDescriptor.badgeClassName}>
-            {surfaceDescriptor.label}
-          </Badge>
-          {isOwnEnginePreview && !livePreviewUrlStored ? (
-            <Badge
-              variant="outline"
-              className="border-amber-500/35 bg-amber-500/10 text-[11px] text-amber-100"
-              title="Live-preview med Next.js i tier-2-runtime/VM är inte tillgänglig än — ofta miljö, npm install eller byggfel."
-            >
-              Live-preview väntar
-            </Badge>
-          ) : null}
-          {previewUrl && isTier2LivePreview && !isOwnEnginePreview ? (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/35 bg-emerald-500/10 text-[11px] text-emerald-100"
-              title="Next.js körs i tier-2-preview (VM / legacy preview-kontrakt) — motsvarar lokal utveckling."
-            >
-              Next.js
-            </Badge>
-          ) : null}
+    <div className="shrink-0">
+      {/* ── Compact toolbar ────────────────────────────────────── */}
+      <div className="flex items-center justify-between border-b border-border/30 px-3 py-1.5">
+        <div className="flex items-center gap-1.5">
+          {/* Route selector */}
+          {previewRoutes.length > 1 ? (
+            <RouteDropdown
+              previewRoutes={previewRoutes}
+              activePreviewRoute={activePreviewRoute}
+              handleNavigateRoute={handleNavigateRoute}
+              previewRoutesLoading={previewRoutesLoading}
+            />
+          ) : (
+            <span className="px-2 text-xs text-muted-foreground">
+              {previewRoutesLoading ? "Laddar..." : activePreviewRoute || "/"}
+            </span>
+          )}
+
+          {/* Active mode indicator */}
+          {composerMode && (
+            <Badge variant="outline" className="border-primary/35 bg-primary/10 text-[10px] text-primary">Composer</Badge>
+          )}
+          {inspectMode && (
+            <Badge variant="outline" className="border-primary/35 bg-primary/10 text-[10px] text-primary">Inspektera</Badge>
+          )}
+          {viewMode === "code" && (
+            <Badge variant="outline" className="border-primary/35 bg-primary/10 text-[10px] text-primary">Kod</Badge>
+          )}
+          {showElementRegistry && viewMode !== "code" && (
+            <Badge variant="outline" className="border-primary/35 bg-primary/10 text-[10px] text-primary">Element</Badge>
+          )}
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleComposer}
-            disabled={!previewUrl || placementMode || inspectMode}
-            title={
-              placementMode
-                ? "Avsluta placering först"
-                : inspectMode
-                  ? "Stäng inspektionsläget först"
-                  : composerMode
-                    ? "Stäng Visual Composer"
-                    : "Dra sajblock till previewn (startsida)"
-            }
-            className={cn(
-              "text-gray-400 hover:text-white",
-              composerMode && "bg-violet-900/45 text-violet-200 hover:text-violet-100",
-            )}
-          >
-            <LayoutGrid className="mr-1 h-4 w-4" />
-            Composer
-          </Button>
-          {composerMode ? (
+
+        <div className="flex items-center gap-0.5">
+          {composerMode && (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onComposerUndo}
-                disabled={
-                  !previewUrl ||
-                  placementMode ||
-                  inspectMode ||
-                  composerHistoryBusy ||
-                  !composerCanUndo
-                }
-                title="Ångra senaste direkta patch i Composer"
-                className="text-gray-400 hover:text-white"
-              >
-                <Undo2 className="mr-1 h-4 w-4" />
-                Ångra
+              <Button variant="ghost" size="icon" onClick={onComposerUndo} disabled={!composerCanUndo || composerHistoryBusy} title="Ångra" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                <Undo2 className="h-3.5 w-3.5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onComposerRedo}
-                disabled={
-                  !previewUrl ||
-                  placementMode ||
-                  inspectMode ||
-                  composerHistoryBusy ||
-                  !composerCanRedo
-                }
-                title="Gör om senast ångrade direkta patch"
-                className="text-gray-400 hover:text-white"
-              >
-                <Redo2 className="mr-1 h-4 w-4" />
-                Gör om
+              <Button variant="ghost" size="icon" onClick={onComposerRedo} disabled={!composerCanRedo || composerHistoryBusy} title="Gör om" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                <Redo2 className="h-3.5 w-3.5" />
               </Button>
             </>
-          ) : null}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleInspect}
-            disabled={!inspectorEnabled || !previewUrl || placementMode || composerMode}
-            title={
-              !inspectorEnabled
-                ? "Inspector är avstängd via feature flag"
-                : composerMode
-                  ? "Stäng Composer först"
-                  : placementMode
-                    ? "Placering aktiv - avsluta placering först"
-                    : "Markera punkt i preview och skicka till chatten"
-            }
-            className={cn(
-              "text-gray-400 hover:text-white",
-              inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200",
-            )}
-          >
-            <Search className="mr-1 h-4 w-4" />
-            Inspektera preview
+          )}
+          <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isLoading} title="Uppdatera" aria-label="Uppdatera" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+            <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleElementRegistry}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100",
-            )}
-          >
-            <Code2 className="mr-1 h-4 w-4" />
-            Elementregister
+          <Button variant="ghost" size="icon" onClick={handleOpenInNewTab} title="Öppna i ny flik" aria-label="Öppna i ny flik" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+            <ExternalLink className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleCode}
-            disabled={!canShowCode || isViewSwitchPending}
-            title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
-            className={cn(
-              "text-gray-400 hover:text-white",
-              viewMode === "code" && "bg-gray-800 text-white hover:text-white",
-            )}
-          >
-            <FileText className="mr-1 h-4 w-4" />
-            Kodvy
-          </Button>
-          {previewUrl && onClear ? (
+
+          {/* Tools dropdown */}
+          <div className="relative" ref={toolsMenuRef}>
             <Button
               variant="ghost"
-              size="sm"
-              onClick={handleClear}
-              disabled={isLoading}
-              title="Rensa preview"
-              className="text-gray-400 hover:text-white"
+              size="icon"
+              onClick={() => setToolsMenuOpen((v) => !v)}
+              title="Verktyg"
+              aria-label="Verktyg"
+              className={cn("h-7 w-7 text-muted-foreground hover:text-foreground", toolsMenuOpen && "bg-muted")}
             >
-              Rensa
+              <MoreVertical className="h-3.5 w-3.5" />
             </Button>
-          ) : null}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={isLoading}
-            title="Uppdatera preview"
-            aria-label="Uppdatera preview"
-            className="text-gray-400 hover:text-white"
-          >
-            <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenInNewTab}
-            title="Öppna i ny flik"
-            className="text-gray-400 hover:text-white"
-          >
-            <ExternalLink className="mr-1 h-4 w-4" />
-            Öppna
-          </Button>
+            {toolsMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-md">
+                <ToolMenuItem
+                  icon={<LayoutGrid className="h-3.5 w-3.5" />}
+                  label="Composer"
+                  active={composerMode}
+                  disabled={!previewUrl || placementMode || inspectMode}
+                  onClick={() => { handleToggleComposer(); setToolsMenuOpen(false); }}
+                />
+                <ToolMenuItem
+                  icon={<Search className="h-3.5 w-3.5" />}
+                  label="Inspektera"
+                  active={inspectMode}
+                  disabled={!inspectorEnabled || !previewUrl || placementMode || composerMode}
+                  onClick={() => { handleToggleInspect(); setToolsMenuOpen(false); }}
+                />
+                <ToolMenuItem
+                  icon={<Code2 className="h-3.5 w-3.5" />}
+                  label="Elementregister"
+                  active={showElementRegistry}
+                  disabled={!canShowCode || isViewSwitchPending}
+                  onClick={() => { handleToggleElementRegistry(); setToolsMenuOpen(false); }}
+                />
+                <ToolMenuItem
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  label="Kodvy"
+                  active={viewMode === "code"}
+                  disabled={!canShowCode || isViewSwitchPending}
+                  onClick={() => { handleToggleCode(); setToolsMenuOpen(false); }}
+                />
+                {previewUrl && onClear ? (
+                  <>
+                    <div className="my-1 h-px bg-border/40" />
+                    <ToolMenuItem
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                      label="Rensa"
+                      disabled={isLoading}
+                      onClick={() => { handleClear(); setToolsMenuOpen(false); }}
+                    />
+                  </>
+                ) : null}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
-        {surfaceDescriptor.detail}
-      </div>
-
+      {/* ── Alerts (only shown when relevant) ─────────────────── */}
       {alternatePreviewBanner && onNavigatePreviewUrl ? (
-        <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
-          <span>Live-preview med Next.js finns också för samma version.</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 border-zinc-600 text-xs text-zinc-200 hover:bg-zinc-800"
-            onClick={() => onNavigatePreviewUrl(alternatePreviewBanner.livePreviewUrl)}
-          >
-            Byt till live-preview
-          </Button>
+        <div className="border-b border-border/30 px-3 py-1.5">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>Live-preview tillgänglig.</span>
+            <button
+              type="button"
+              className="font-medium text-primary hover:underline"
+              onClick={() => onNavigatePreviewUrl(alternatePreviewBanner.livePreviewUrl)}
+            >
+              Byt
+            </button>
+          </div>
         </div>
       ) : null}
 
       {previewBuildError ? (
-        <Alert variant="destructive" className="mx-4 mt-2 border-rose-900/55 bg-rose-950/45 text-rose-50">
+        <Alert variant="destructive" className="mx-3 my-1.5">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle className="text-sm text-rose-100">
+          <AlertTitle className="text-sm">
             {previewBuildError.stage === "sandbox_disabled"
-              ? "Tier-2-preview inte tillgänglig"
-              : `Tier-2 / build: ${previewBuildError.stage}`}
+              ? "Preview inte tillgänglig"
+              : `Build: ${previewBuildError.stage}`}
           </AlertTitle>
           <AlertDescription
             className={cn(
-              "max-h-36 overflow-y-auto text-[11px] whitespace-pre-wrap text-rose-200/95",
+              "max-h-28 overflow-y-auto text-[11px] whitespace-pre-wrap",
               previewBuildError.stage === "sandbox_disabled" ? "font-medium" : "font-mono",
             )}
           >
@@ -339,22 +525,20 @@ export function PreviewPanelChrome({
 
       {previewProdBuild && !previewBuildError ? (
         previewProdBuild.verified ? (
-          <Alert className="mx-4 mt-2 border-emerald-900/50 bg-emerald-950/35 text-emerald-50">
-            <CircleCheck className="h-4 w-4 text-emerald-400" />
-            <AlertTitle className="text-sm text-emerald-100">Production build OK</AlertTitle>
-            <AlertDescription className="text-[11px] text-emerald-200/90">
-              <code className="font-mono">npm run build</code> lyckades i verifierings-VM — separat signal från
-              dev-preview (<code className="font-mono">npm run dev</code>).
-            </AlertDescription>
-          </Alert>
+          <div className="border-b border-border/30 px-3 py-1.5">
+            <div className="flex items-center gap-1.5 text-[11px] text-primary">
+              <CircleCheck className="h-3.5 w-3.5" />
+              <span className="font-medium">Build OK</span>
+            </div>
+          </div>
         ) : (
-          <Alert className="mx-4 mt-2 border-amber-900/50 bg-amber-950/40 text-amber-50">
-            <AlertCircle className="h-4 w-4 text-amber-400" />
-            <AlertTitle className="text-sm text-amber-100">Production build misslyckades</AlertTitle>
-            <AlertDescription className="space-y-1 text-[11px] text-amber-200/90">
-              <p>Dev-preview kan ändå fungera. Åtgärda build-fel innan deploy — se loggutdrag nedan.</p>
+          <Alert className="mx-3 my-1.5 border-destructive/30 bg-destructive/5">
+            <AlertCircle className="h-4 w-4 text-destructive" />
+            <AlertTitle className="text-sm">Build misslyckades</AlertTitle>
+            <AlertDescription className="space-y-1 text-[11px] text-muted-foreground">
+              <p>Preview kan ändå fungera.</p>
               {previewProdBuild.logSnippet ? (
-                <pre className="max-h-36 overflow-y-auto rounded border border-amber-900/40 bg-black/30 p-2 font-mono text-[10px] whitespace-pre-wrap text-amber-100/95">
+                <pre className="max-h-28 overflow-y-auto rounded border border-border/40 bg-muted/30 p-1.5 font-mono text-[10px] whitespace-pre-wrap">
                   {previewProdBuild.logSnippet}
                 </pre>
               ) : null}
@@ -363,90 +547,11 @@ export function PreviewPanelChrome({
         )
       ) : null}
 
-      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) ? (
-        <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
-          <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
-          <div className="flex flex-wrap gap-1.5">
-            {previewRoutesLoading && previewRoutes.length === 0 ? (
-              <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
-            ) : (
-              previewRoutes.map((route) => (
-                <Button
-                  key={route}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-6 border-gray-700 px-2 text-[11px] text-gray-300 hover:bg-gray-800 hover:text-white",
-                    activePreviewRoute === route && "border-sky-500/60 bg-sky-500/10 text-sky-200",
-                  )}
-                  onClick={() => handleNavigateRoute(route)}
-                  title={`Visa ${route}`}
-                >
-                  {route}
-                </Button>
-              ))
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {showTier2UnifiedStrip ? (
-        <div className="border-b border-amber-900/45 bg-amber-950/30 px-4 py-2 text-xs text-amber-100">
-          <p className="font-medium text-amber-50">Live-preview (Next.js)</p>
-          <p className="mt-1 text-amber-100/90">
-            Din genererade kod körs med Next.js i den här miljön. Följande kan fortfarande gälla:
-          </p>
-          <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-amber-100/85">
-            {(showBlobWarning || showBlobConfigWarning) ? (
-              <li>Bilder och uppladdningar kan saknas om mediastorage inte är aktivt i byggaren.</li>
-            ) : null}
-            {integrationError ? (
-              <li>Integrationsstatus kunde inte läsas — vissa resurser kan saknas i preview.</li>
-            ) : null}
-            {showImagesDisabledWarning ? (
-              <li>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</li>
-            ) : null}
-            {showImagesUnsupportedWarning ? (
-              <li>Bildgenerering är inte tillgänglig med nuvarande konfiguration.</li>
-            ) : null}
-          </ul>
-        </div>
-      ) : null}
-
-      {!isCodeView &&
-      !isOwnEnginePreview &&
-      !isTier2LivePreview &&
-      (showBlobWarning ||
-        showExternalWarning ||
-        integrationError ||
-        showImagesDisabledWarning ||
-        showImagesUnsupportedWarning ||
-        showBlobConfigWarning) ? (
-        <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
-          {showExternalWarning ? (
-            <div>
-              Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404
-              eller blockeras. Ladda upp media via mediabiblioteket för publika Blob‑URL:er.
-            </div>
-          ) : null}
-          {showBlobWarning ? (
-            <div>
-              Mediastorage för uppladdningar saknas. AI-bilder och filer visas inte fullt ut i preview
-              förrän det är aktiverat för byggaren.
-            </div>
-          ) : null}
-          {showImagesDisabledWarning ? <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div> : null}
-          {showImagesUnsupportedWarning ? (
-            <div>Bildgenerering är inte tillgänglig just nu (saknad/ogiltig AI-konfiguration).</div>
-          ) : null}
-          {showBlobConfigWarning ? (
-            <div>
-              Mediastorage är inte aktivt. Bilder kan skapas av AI men saknas i preview tills det är
-              påslaget.
-            </div>
-          ) : null}
-          {integrationError ? <div>Kunde inte hämta integrationsstatus. Media kan saknas i preview.</div> : null}
+      {hasAnyWarning && !showTier2UnifiedStrip && !isCodeView && !isOwnEnginePreview && !isTier2LivePreview ? (
+        <div className="border-b border-border/30 px-3 py-1.5 text-[11px] text-muted-foreground">
+          {showBlobWarning || showBlobConfigWarning ? <span>Media kan saknas i preview. </span> : null}
+          {showImagesDisabledWarning ? <span>AI-bilder avstängda. </span> : null}
+          {integrationError ? <span>Integrationsstatus okänd. </span> : null}
         </div>
       ) : null}
     </div>

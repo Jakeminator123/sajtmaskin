@@ -19,6 +19,11 @@ import { dashboardManifest } from "./dashboard/manifest";
 import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
 import { photoShopManifest } from "./photo-shop/manifest";
+import { restaurantManifest } from "./restaurant/manifest";
+import { salonManifest } from "./salon/manifest";
+import { tradesmanManifest } from "./tradesman/manifest";
+import { professionalManifest } from "./professional/manifest";
+import { localRetailManifest } from "./local-retail/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
@@ -33,6 +38,11 @@ const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   photoShopManifest,
   contentSiteManifest,
   appShellManifest,
+  restaurantManifest,
+  salonManifest,
+  tradesmanManifest,
+  professionalManifest,
+  localRetailManifest,
 ];
 
 function mergeUniqueStrings(base: string[] = [], override: string[] = []): string[] {

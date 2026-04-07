@@ -85,6 +85,8 @@ interface MessageListProps {
   onSuggestionSend?: (text: string) => void;
   hideAgentLog?: boolean;
   hideTooling?: boolean;
+  hasInitialPrompt?: boolean;
+  isGenerating?: boolean;
 }
 
 function hasGenerationContent(text: string, isStreaming: boolean): boolean {
@@ -107,6 +109,8 @@ const MessageListComponent = ({
   quickReplyDisabled = false,
   hideAgentLog = false,
   hideTooling = false,
+  hasInitialPrompt = false,
+  isGenerating = false,
 }: MessageListProps) => {
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
@@ -114,9 +118,13 @@ const MessageListComponent = ({
   const [showNudge, setShowNudge] = useState(false);
   const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
   const lastAutoOpenedEnvRequirementRef = useRef<string | null>(null);
-  const isEmpty = (!chatId && externalMessages.length === 0) || externalMessages.length === 0;
+  const hasNoMessages = externalMessages.length === 0;
+  const isNewEmptyChat = !chatId && hasNoMessages && !isGenerating;
+  const greetingText = isNewEmptyChat
+    ? PROACTIVE_QUESTION
+    : "";
   const { displayed: typedQuestion, done: typingDone } = useTypewriter(
-    isEmpty ? PROACTIVE_QUESTION : "",
+    isNewEmptyChat ? greetingText : "",
     25,
     1000,
   );
@@ -206,10 +214,12 @@ const MessageListComponent = ({
     }
   };
 
-  if (isEmpty) {
+  if (hasNoMessages) {
+    if (!isNewEmptyChat) {
+      return <div className="flex h-full flex-col items-center justify-center px-4" />;
+    }
     return (
       <div className="flex h-full flex-col gap-4 px-4 pt-6">
-        {/* Proactive AI question — typewriter effect */}
         {typedQuestion && (
           <div className="flex gap-2.5">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
@@ -361,7 +371,7 @@ const MessageListComponent = ({
                       {part.plan.actions && part.plan.actions.length > 0 && (
                         <PlanFooter>
                           <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
-                            Plan actions
+                            Planerade åtgärder
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {part.plan.actions.map((action) => (
@@ -487,7 +497,7 @@ const MessageListComponent = ({
           <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-semibold text-amber-500">
+                <DialogTitle className="font-semibold text-primary">
                   Svar krävs
                 </DialogTitle>
                 <DialogDescription>
@@ -529,7 +539,7 @@ const MessageListComponent = ({
           {!isReplyDialogOpen && (
             <Button
               type="button"
-              className="fixed bottom-6 right-6 z-40 bg-amber-500 text-black hover:bg-amber-400"
+              className="fixed bottom-6 right-6 z-40 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => setIsReplyDialogOpen(true)}
             >
               Svar krävs

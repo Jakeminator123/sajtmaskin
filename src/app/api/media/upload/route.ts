@@ -40,8 +40,8 @@ import { errorLog, warnLog } from "@/lib/utils/debug";
 // CONSTANTS
 // ============================================================================
 
-const MAX_IMAGES = 12;
-const MAX_VIDEOS = 3;
+const MAX_IMAGES = 30;
+const MAX_VIDEOS = 6;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 const ALLOWED_MIME_TYPES = [

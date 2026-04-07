@@ -201,6 +201,7 @@ export function useSendMessage(
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            suppressSummaryText: true,
           });
         }
       };

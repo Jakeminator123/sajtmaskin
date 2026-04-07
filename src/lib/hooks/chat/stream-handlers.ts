@@ -1075,6 +1075,7 @@ export async function handleSseStream(
       setMessages,
       streamQuality,
       onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+      suppressSummaryText: true,
     });
   }
 

@@ -32,9 +32,9 @@ const WEBSITE_ROUTE_PATTERNS: Array<{
 }> = [
   {
     match: /\bom\s+oss\b/i,
-    path: "/om",
+    path: "/om-oss",
     name: "Om oss",
-    intent: "Build trust and explain the company or creator (Swedish sites: use /om).",
+    intent: "Build trust and explain the company or creator. Use Swedish slug /om-oss.",
   },
   {
     match: /\b(about|company|story)\b/i,
@@ -42,10 +42,14 @@ const WEBSITE_ROUTE_PATTERNS: Array<{
     name: "About",
     intent: "Build trust and explain the company or creator.",
   },
-  { match: /\b(services?\s+page|tjänste?r?\s*sida|our services|våra tjänster)\b/i, path: "/services", name: "Services", intent: "Explain offers, packages, or capabilities." },
-  { match: /\b(pricing|price|pris|priser|billing)\b/i, path: "/pricing", name: "Pricing", intent: "Show pricing, plans, or billing details." },
-  { match: /\b(contact|kontakta|kontakt|book|booking|boka)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },
-  { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blog", name: "Blog", intent: "Publish articles, updates, or editorial content." },
+  { match: /\b(tjänste?r?\s*sida|våra tjänster|tjänster)\b/i, path: "/tjanster", name: "Tjänster", intent: "Explain offers, packages, or capabilities. Swedish slug /tjanster." },
+  { match: /\b(services?\s+page|our services)\b/i, path: "/services", name: "Services", intent: "Explain offers, packages, or capabilities." },
+  { match: /\b(pris|priser)\b/i, path: "/priser", name: "Priser", intent: "Show pricing, plans, or billing details. Swedish slug /priser." },
+  { match: /\b(pricing|price|billing)\b/i, path: "/pricing", name: "Pricing", intent: "Show pricing, plans, or billing details." },
+  { match: /\b(kontakta|kontakt)\b/i, path: "/kontakt", name: "Kontakt", intent: "Capture leads or contact requests. Swedish slug /kontakt." },
+  { match: /\b(boka|bokning)\b/i, path: "/boka", name: "Boka", intent: "Booking or appointment page. Swedish slug /boka." },
+  { match: /\b(contact|book|booking)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },
+  { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blogg", name: "Blogg", intent: "Publish articles, updates, or editorial content." },
   { match: /\b(docs|documentation|kunskapsbank|guide|guides)\b/i, path: "/docs", name: "Docs", intent: "Provide structured documentation or help content." },
   { match: /\b(support|help center|faq|kundservice)\b/i, path: "/support", name: "Support", intent: "Answer common questions and support flows." },
   { match: /\b(portfolio|case study|case studies|work|projekt)\b/i, path: "/work", name: "Work", intent: "Show portfolio pieces, projects, or case studies." },
@@ -196,6 +200,26 @@ function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: Scaff
   }
 }
 
+/**
+ * Extract explicit page routes from needs-analysis prompt structure.
+ * Matches patterns like: ### Sida (`app/om-oss/page.tsx`)
+ */
+function extractRoutesFromPromptStructure(prompt: string, routes: PlannedRoute[]): void {
+  const pattern = /###\s+(.+?)\s*\(`?app\/([^`)\s]+\/)?page\.tsx`?\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(prompt)) !== null) {
+    const name = match[1].trim();
+    const subPath = match[2]?.replace(/\/$/, "") ?? "";
+    const path = subPath ? `/${subPath}` : "/";
+    pushRoute(routes, {
+      path,
+      name,
+      intent: `Build the ${name} page as specified in the prompt structure.`,
+      required: true,
+    });
+  }
+}
+
 export function buildRoutePlan(params: {
   prompt: string;
   buildIntent: BuildIntent;
@@ -222,6 +246,7 @@ export function buildRoutePlan(params: {
       intent: "Use the root route for the primary landing page or homepage.",
       required: true,
     });
+    extractRoutesFromPromptStructure(prompt, routes);
     applyPromptPatterns(prompt, WEBSITE_ROUTE_PATTERNS, routes);
   }
 

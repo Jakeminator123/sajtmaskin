@@ -73,6 +73,11 @@ data/external-template-pipeline/reports/**
 
 # run-eval / codegen harness markdown output (scripts/eval/run-eval.ts)
 eval-output/
+
+# QA autoloop output
+output/qa-runs/
+output/qa-browser-runs/
+output/generations/
 # Legacy output dir (rename → eval-output/); safe to delete locally
 EGEN_MOTOR_V2/
 

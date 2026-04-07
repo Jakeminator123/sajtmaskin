@@ -64,6 +64,7 @@
     "eval": "npx tsx scripts/eval/run-eval.ts",
     "eval:suite": "npx tsx src/lib/gen/eval/cli.ts",
     "eval:gate": "npx tsx src/lib/gen/eval/cli.ts --gate",
+    "qa:autoloop": "npx tsx scripts/qa/autoloop.ts",
     "eval:baseline": "npx tsx src/lib/gen/eval/cli.ts --save-baseline",
     "db:migrate": "npx tsx scripts/db/run-migrations.ts",
     "db:push": "node scripts/db/db-push.mjs",

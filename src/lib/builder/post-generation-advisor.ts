@@ -55,8 +55,8 @@ function buildAdvisorSuggestions(context: string, isFollowUp: boolean): AdvisorS
         prompt: "Lägg till en ny undersida som saknas — t.ex. Om oss, Kontakt eller Blogg.",
       },
       {
-        label: "Ladda upp egna bilder",
-        prompt: "Jag vill byta ut stockbilder mot mina egna bilder.",
+        label: "Byt ut bilderna",
+        prompt: "Byt ut stockbilderna mot mer relevanta bilder som passar verksamheten.",
       },
       {
         label: "Publicera",
@@ -66,16 +66,16 @@ function buildAdvisorSuggestions(context: string, isFollowUp: boolean): AdvisorS
   } else {
     suggestions.push(
       {
-        label: "Skapa mer förtroende",
-        prompt: "Gör sajten mer trovärdig med starkare rubriker, referenser och tydligare struktur.",
-      },
-      {
-        label: "Vassa innehållet",
+        label: "Förbättra texterna",
         prompt: "Förbättra copy, struktur och CTA så att sajten blir tydligare och mer övertygande.",
       },
       {
-        label: "Förbättra konvertering",
-        prompt: "Optimera första intrycket och CTA-flödet så att fler besökare tar nästa steg.",
+        label: "Byt färger och stil",
+        prompt: "Ändra färgerna och den visuella stilen så att den passar min varumärkeskänsla bättre.",
+      },
+      {
+        label: "Lägg till fler sidor",
+        prompt: "Lägg till undersidor som saknas — t.ex. Om oss, Kontakt, Priser eller Blogg.",
       },
     );
   }
@@ -98,8 +98,8 @@ export function buildPostGenerationAdvisorMessage(
   const summary = suggestions.map((s) => `- ${s.label}`).join("\n");
 
   const intro = isFollowUp
-    ? "Ändringarna är klara! Här är vad jag skulle göra härnäst:"
-    : "Första versionen är uppe! Jag skulle ta den vidare med:";
+    ? "Ändringarna är klara. Här är några förslag:"
+    : "Din sajt är redo! Här är vad du kan göra härnäst:";
 
   return {
     id: `advisor-${versionId}`,

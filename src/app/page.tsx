@@ -7,7 +7,6 @@ import { Navbar } from "@/components/landing-v2/navbar";
 import { ChatArea } from "@/components/landing-v2/chat-area";
 import { AuditModal } from "@/components/modals/audit-modal";
 import { EntryModal } from "@/components/modals/entry-modal";
-import { OnboardingModal, useOnboarding } from "@/components/modals/onboarding-modal";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals/prompt-wizard-modal-v2";
 import { WelcomeOverlay } from "@/components/modals/welcome-overlay";
 import { useEntryParams } from "@/lib/entry/use-entry-params";
@@ -53,7 +52,7 @@ function RootLandingContent() {
   const [auditSubmitSignal, setAuditSubmitSignal] = useState(0);
 
   const entry = useEntryParams();
-  const { showOnboarding, handleComplete, handleSkip } = useOnboarding();
+
 
   useEffect(() => {
     fetchUser().catch(() => {});
@@ -419,9 +418,6 @@ function RootLandingContent() {
         />
       )}
 
-      {showOnboarding && (
-        <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />
-      )}
     </>
   );
 }

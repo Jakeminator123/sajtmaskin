@@ -150,6 +150,27 @@ export async function deleteMediaLibraryItem(id: number, userId: string): Promis
   return true;
 }
 
+export async function deleteAllUserMedia(userId: string): Promise<number> {
+  assertDbConfigured();
+  const items = await db
+    .select()
+    .from(mediaLibrary)
+    .where(eq(mediaLibrary.user_id, userId));
+
+  for (const item of items) {
+    if (item.blob_url || item.file_path) {
+      try {
+        await deleteBlob(item.blob_url || item.file_path);
+      } catch {
+        // best-effort blob cleanup
+      }
+    }
+  }
+
+  await db.delete(mediaLibrary).where(eq(mediaLibrary.user_id, userId));
+  return items.length;
+}
+
 export async function saveImage(
   projectId: string,
   filename: string,

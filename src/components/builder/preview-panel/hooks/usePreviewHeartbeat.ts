@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { postSandboxHeartbeat } from "@/lib/builder/preview-session/api";
-import { isSandboxPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { postPreviewHeartbeat } from "@/lib/builder/preview-session/api";
+import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 
 export function usePreviewHeartbeat(params: {
@@ -32,17 +32,17 @@ export function usePreviewHeartbeat(params: {
 
   useEffect(() => {
     if (!chatId || !versionId || !activeSandboxId?.trim()) return;
-    if (!previewUrl || !isSandboxPreviewUrl(previewUrl)) return;
+    if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
     const allowHeartbeat =
       previewLifecycle === "live" ||
-      (previewLifecycle === undefined && isSandboxPreviewUrl(previewUrl));
+      (previewLifecycle === undefined && isTier2LivePreviewUrl(previewUrl));
     if (!allowHeartbeat) return;
 
     const tick = async () => {
-      const data = await postSandboxHeartbeat({
+      const data = await postPreviewHeartbeat({
         chatId,
         versionId,
-        sandboxId: activeSandboxId.trim(),
+        previewSessionId: activeSandboxId.trim(),
         viewerId: viewerIdRef.current ?? "unknown",
       });
       if (

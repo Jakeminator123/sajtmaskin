@@ -8,15 +8,6 @@ import { createPortal } from "react-dom";
 
 const PER_PAGE = 6;
 
-const OVERLAY_STYLE: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 99999,
-  display: "flex",
-  flexDirection: "column",
-  background: "#ffffff",
-};
-
 interface TemplatePickerPopupProps {
   templates: TemplatePickerItem[];
   isLoading?: boolean;
@@ -54,11 +45,11 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
 
   if (isLoading) {
     return (
-      <div style={OVERLAY_STYLE}>
+      <div className="fixed inset-0 z-[99999] flex flex-col bg-background">
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-6 w-6 animate-spin text-neutral-300" />
-            <p className="text-sm font-medium text-neutral-500">Letar efter din stil…</p>
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+            <p className="text-sm font-medium text-muted-foreground">Letar efter din stil&hellip;</p>
           </div>
         </div>
       </div>
@@ -70,13 +61,12 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
   const canNext = page < pages - 1;
 
   return (
-    <div style={OVERLAY_STYLE}>
-      {/* ── Header ── */}
+    <div className="fixed inset-0 z-[99999] flex flex-col bg-background">
       <header className="shrink-0 px-8 pt-12 pb-8 text-center sm:pt-14 sm:pb-10">
-        <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           Vilken stil tilltalar dig?
         </h2>
-        <p className="mt-2 text-sm text-neutral-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           Välj en eller flera som inspiration
         </p>
 
@@ -89,13 +79,13 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full transition-all",
                 canPrev
-                  ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                  : "text-neutral-200",
+                  ? "bg-muted text-foreground/60 hover:bg-muted/80"
+                  : "text-muted-foreground/20",
               )}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-[2.5rem] text-center text-xs font-medium tabular-nums text-neutral-300">
+            <span className="min-w-[2.5rem] text-center text-xs font-medium tabular-nums text-muted-foreground/50">
               {page + 1} / {pages}
             </span>
             <button
@@ -105,8 +95,8 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full transition-all",
                 canNext
-                  ? "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                  : "text-neutral-200",
+                  ? "bg-muted text-foreground/60 hover:bg-muted/80"
+                  : "text-muted-foreground/20",
               )}
             >
               <ChevronRight className="h-4 w-4" />
@@ -115,9 +105,8 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
         )}
       </header>
 
-      {/* ── Cards 3×2 ── */}
       <div className="min-h-0 flex-1 px-6 sm:px-10 lg:px-16">
-        <div className="mx-auto grid h-full max-w-6xl grid-cols-3 grid-rows-2 gap-5">
+        <div className="mx-auto grid h-full max-w-6xl grid-cols-2 grid-rows-3 gap-4 sm:grid-cols-3 sm:grid-rows-2 sm:gap-5">
           {visible.map((t) => {
             const on = selected.has(t.id);
             return (
@@ -128,10 +117,9 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
                 className={cn(
                   "group relative overflow-hidden rounded-xl transition-all duration-200",
                   on
-                    ? "shadow-lg"
-                    : "ring-1 ring-neutral-200 hover:ring-neutral-300 hover:shadow-md",
+                    ? "shadow-lg ring-[3px] ring-primary ring-offset-0"
+                    : "ring-1 ring-border hover:ring-border/60 hover:shadow-md",
                 )}
-                style={on ? { outline: "3px solid #1a1a2e", outlineOffset: "-3px" } : undefined}
               >
                 {t.previewImageUrl ? (
                   <img
@@ -141,15 +129,12 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
                     loading="eager"
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center bg-neutral-50" />
+                  <div className="flex h-full items-center justify-center bg-muted" />
                 )}
 
                 {on && (
-                  <div
-                    className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full shadow-lg"
-                    style={{ background: "#1a1a2e", border: "3px solid #fff" }}
-                  >
-                    <Check className="h-5 w-5 text-white" strokeWidth={3} />
+                  <div className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-background bg-primary shadow-lg">
+                    <Check className="h-5 w-5 text-primary-foreground" strokeWidth={3} />
                   </div>
                 )}
               </button>
@@ -158,25 +143,24 @@ function PickerInner({ templates, isLoading, onSelect, onClose }: TemplatePicker
         </div>
       </div>
 
-      {/* ── Footer ── */}
       <footer className="flex shrink-0 flex-col items-center gap-4 px-8 pt-6 pb-10">
         <button
           type="button"
           onClick={confirm}
           disabled={!has}
-          className="w-full max-w-xs rounded-full py-3 text-sm font-semibold transition-all"
-          style={
+          className={cn(
+            "w-full max-w-xs rounded-full py-3 text-sm font-semibold transition-all",
             has
-              ? { background: "#1a1a2e", color: "#fff", boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }
-              : { background: "#e5e5e5", color: "#a3a3a3" }
-          }
+              ? "bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+              : "bg-muted text-muted-foreground",
+          )}
         >
           {has ? "Fortsätt" : "Välj minst en"}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="text-sm text-neutral-400 transition-colors hover:text-neutral-600"
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Hoppa över
         </button>

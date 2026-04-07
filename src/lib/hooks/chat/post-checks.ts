@@ -132,6 +132,7 @@ export async function runPostGenerationChecks(params: {
   setMessages: SetMessages;
   streamQuality?: StreamQualitySignal;
   onAutoFix?: (payload: AutoFixPayload) => void;
+  suppressSummaryText?: boolean;
 }) {
   const {
     chatId,
@@ -142,6 +143,7 @@ export async function runPostGenerationChecks(params: {
     setMessages,
     streamQuality,
     onAutoFix,
+    suppressSummaryText = false,
   } = params;
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
@@ -224,21 +226,23 @@ export async function runPostGenerationChecks(params: {
       output: artifacts.output,
     });
 
-    appendPostCheckSummaryToMessage(
-      setMessages,
-      assistantMessageId,
-      buildPostCheckSummary({
-        changes: baseline.changes,
-        warnings,
-        demoUrl: artifacts.finalDemoUrl,
-        previewBlockingReason: artifacts.previewBlockingReason,
-        provisional: artifacts.provisionalVersion,
-        qualityGatePending: artifacts.qualityGatePending,
-        autoFixQueued: artifacts.autoFixQueued,
-        qualityTier: artifacts.qualityTier,
-        warningReasons: artifacts.warningReasons,
-      }),
-    );
+    if (!suppressSummaryText) {
+      appendPostCheckSummaryToMessage(
+        setMessages,
+        assistantMessageId,
+        buildPostCheckSummary({
+          changes: baseline.changes,
+          warnings,
+          demoUrl: artifacts.finalDemoUrl,
+          previewBlockingReason: artifacts.previewBlockingReason,
+          provisional: artifacts.provisionalVersion,
+          qualityGatePending: artifacts.qualityGatePending,
+          autoFixQueued: artifacts.autoFixQueued,
+          qualityTier: artifacts.qualityTier,
+          warningReasons: artifacts.warningReasons,
+        }),
+      );
+    }
 
     if (artifacts.autoFixReasons.length === 0) {
       void runPreviewQualityGate({

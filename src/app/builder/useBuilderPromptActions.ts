@@ -87,17 +87,6 @@ type Args = {
   applyAppProjectId: (nextProjectId: string | null, options?: { chatId?: string | null }) => void;
 };
 
-function shouldForceDeepBriefForFirstPrompt(message: string): boolean {
-  const trimmed = message.trim();
-  if (!trimmed) return false;
-
-  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-  const hasStructuredSignal = /[:\n]/.test(trimmed);
-
-  // Short landing-style openers are better handled by the fast prompt addendum path.
-  // Deep brief remains valuable once the prompt is more detailed or structured.
-  return trimmed.length >= 140 || wordCount >= 20 || hasStructuredSignal;
-}
 
 export function useBuilderPromptActions({
   chatId,
@@ -251,10 +240,9 @@ export function useBuilderPromptActions({
       try {
         pendingBriefRef.current = null;
         pendingSpecRef.current = null;
-        const forceDeepBrief = shouldForceDeepBriefForFirstPrompt(trimmed);
         const addendum = await generateDynamicInstructions(trimmed, {
-          forceShallow: !forceDeepBrief,
-          forceDeepBrief,
+          forceShallow: false,
+          forceDeepBrief: true,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
             if (specMode) {
@@ -304,6 +292,9 @@ export function useBuilderPromptActions({
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
       setEntryIntentActive(false);
+      pendingBriefRef.current = null;
+      pendingSpecRef.current = null;
+      pendingInstructionsRef.current = null;
       if (options?.skipDynamicInstructions) {
         captureInstructionSnapshot();
         await createNewChat(message, options);
@@ -317,7 +308,7 @@ export function useBuilderPromptActions({
       await createNewChat(message, options, systemOverride);
       return true;
     },
-    [createNewChat, captureInstructionSnapshot, applyDynamicInstructionsForNewChat, setEntryIntentActive],
+    [createNewChat, captureInstructionSnapshot, applyDynamicInstructionsForNewChat, setEntryIntentActive, pendingBriefRef, pendingSpecRef, pendingInstructionsRef],
   );
 
   const handleStartFromRegistry = useCallback(

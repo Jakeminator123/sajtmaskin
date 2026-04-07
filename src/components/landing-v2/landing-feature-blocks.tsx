@@ -54,7 +54,7 @@ export function FeatureCard({
         className="pointer-events-none absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{
           background:
-            "radial-gradient(250px circle at var(--glow-x, 50%) var(--glow-y, 50%), oklch(0.72 0.15 192 / 0.07) 0%, transparent 70%)",
+            "radial-gradient(250px circle at var(--glow-x, 50%) var(--glow-y, 50%), hsl(var(--primary) / 0.07) 0%, transparent 70%)",
         }}
       />
 

@@ -5,7 +5,7 @@ import {
   resolveEngineVersionDisplayStatus,
   resolveQualityTier,
 } from "@/lib/db/engine-version-lifecycle";
-import { isSandboxPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
+import { isTier2LivePreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   AlertCircle,
   CheckCircle,
@@ -188,10 +188,10 @@ export function VersionHistory({
 
     try {
       window.open(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`, "_blank");
-      toast.success("Download started");
+      toast.success("Nedladdning startad");
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Failed to download");
+      toast.error("Kunde inte ladda ner");
     } finally {
       setDownloadingVersionId(null);
     }
@@ -422,10 +422,10 @@ export function VersionHistory({
       <div className="border-border border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-semibold">Version History</h3>
+            <h3 className="font-semibold">Versionshistorik</h3>
             <p className="text-muted-foreground mt-1 text-xs">
-              {versions.length} version{versions.length !== 1 ? "s" : ""}
-              {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
+              {versions.length} version{versions.length !== 1 ? "er" : ""}
+              {pinnedCount > 0 ? ` • ${pinnedCount} fästa` : ""}
             </p>
             <p className="text-muted-foreground text-xs">
               Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
@@ -539,7 +539,7 @@ export function VersionHistory({
               version.canPin === false || typeof version.versionNumber === "number";
             const sandboxNorm = normalizePreviewUrl(version.sandboxUrl);
             const hasSandboxForTier = Boolean(
-              sandboxNorm && isSandboxPreviewUrl(sandboxNorm),
+              sandboxNorm && isTier2LivePreviewUrl(sandboxNorm),
             );
             const qualityTier = resolveQualityTier(
               {
@@ -547,25 +547,25 @@ export function VersionHistory({
                 verificationState: version.verificationState,
               },
               isEngineVersionRow
-                ? { hasSandboxUrl: hasSandboxForTier }
+                ? { hasTier2LivePreviewUrl: hasSandboxForTier }
                 : { hasDemoUrl: Boolean(version.demoUrl) },
             );
             const listPreviewUrl =
-              (sandboxNorm && isSandboxPreviewUrl(sandboxNorm) ? sandboxNorm : null) ??
+              (sandboxNorm && isTier2LivePreviewUrl(sandboxNorm) ? sandboxNorm : null) ??
               normalizePreviewUrl(version.legacyShimPreviewUrl) ??
               normalizePreviewUrl(version.demoUrl);
             const qualityTierLabel =
               qualityTier === "production"
                 ? "Produktionsklar"
-                : qualityTier === "sandbox"
-                  ? "Sandbox-klar"
+                : qualityTier === "tier2"
+                  ? "Preview-klar"
                   : qualityTier === "preview"
-                    ? "Preview-klar"
+                    ? "Preview"
                     : null;
             const qualityTierBadgeClass =
               qualityTier === "production"
                 ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
-                : qualityTier === "sandbox"
+                : qualityTier === "tier2"
                   ? "border-primary/40 bg-primary/10 text-primary"
                   : qualityTier === "preview"
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
@@ -702,7 +702,7 @@ export function VersionHistory({
                       aria-label="Jämför med föregående version"
                       className="h-7 px-2 text-xs"
                     >
-                      Compare
+                      Jämför
                     </Button>
                     {canRestore && (
                       <Button
@@ -753,8 +753,8 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleDownload(e, version)}
                       disabled={isDownloading}
-                      title="Download version"
-                      aria-label="Download version"
+                      title="Ladda ner version"
+                      aria-label="Ladda ner version"
                       className="h-7 w-7"
                     >
                       {isDownloading ? (

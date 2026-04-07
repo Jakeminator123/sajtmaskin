@@ -9,7 +9,12 @@ export type ScaffoldFamily =
   | "dashboard"
   | "auth-pages"
   | "ecommerce"
-  | "photo-shop";
+  | "photo-shop"
+  | "restaurant"
+  | "salon"
+  | "tradesman"
+  | "professional"
+  | "local-retail";
 export type ScaffoldMode = "off" | "auto" | "manual";
 
 export interface ScaffoldFile {

@@ -56,8 +56,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
         <LandingHero
           heroPrefix={heroPrefix}
           expandedContent={expandedContent}
-          selectedCategory={selectedCategory}
-          pickCategory={pickCategory}
           showVoiceRecorder={showVoiceRecorder}
           setShowVoiceRecorder={setShowVoiceRecorder}
           inputValue={inputValue}

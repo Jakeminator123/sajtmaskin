@@ -47,8 +47,6 @@ import {
   Globe,
   Rocket,
   Save,
-  Settings2,
-  Sparkles,
   Wand2,
   Wrench,
   TerminalSquare,
@@ -57,13 +55,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import type { BuilderMode } from "@/components/builder/ModeSelector";
+import { HelpCircle } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useId, useState } from "react";
 
 export function BuilderHeader(props: {
-  builderMode?: BuilderMode;
-  onModeChange?: (mode: BuilderMode) => void;
+  onHelpClick?: () => void;
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
   onApplyAnthropicComparePreset: () => void;
@@ -183,9 +180,7 @@ export function BuilderHeader(props: {
     deployDisabledReason,
   } = props;
 
-  const builderMode = props.builderMode ?? "pro";
-  const onModeChange = props.onModeChange;
-  const isStarter = builderMode === "starter";
+  const onHelpClick = props.onHelpClick;
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
   const modelButtonLabel = currentModel?.label || "AI";
@@ -261,7 +256,7 @@ export function BuilderHeader(props: {
           <Button
             size="sm"
             variant="outline"
-            className="border-green-500 text-green-600"
+            className="border-primary/40 text-primary"
             onClick={() => window.open(deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`, "_blank")}
           >
             <Globe className="h-4 w-4" />
@@ -300,26 +295,6 @@ export function BuilderHeader(props: {
           </TooltipProvider>
         )}
 
-        {isStarter && onModeChange && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onModeChange("pro")}
-                  aria-label="Byt till Pro"
-                >
-                  <Settings2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Pro</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">Visa Pro-verktyg</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
-        {!isStarter && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={isBusy} aria-label="Meny">
@@ -523,14 +498,20 @@ export function BuilderHeader(props: {
               <Save className="mr-2 h-4 w-4" />
               Spara
             </DropdownMenuItem>
-            {onModeChange && (
-              <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onModeChange("starter"); }}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Byt till Amatör
-              </DropdownMenuItem>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {onHelpClick && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onHelpClick} aria-label="Hjälp">
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Visa guide</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {isAuthenticated && (
