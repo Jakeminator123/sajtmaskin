@@ -8,7 +8,7 @@
   },
   "pages": {
     "Översikt": {
-      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/.",
+      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För stegvis LLM-kedja (builder → modell): se LLM_KEDJA_STEG_FOR_STEG.txt och SYSTEMKARTA_SAJTMASKIN.txt i repo-roten.",
       "canonicalPaths": [
         "config/codegen-static-prompt.json",
         "config/prompt-static/",
@@ -19,7 +19,9 @@
       ],
       "docsPaths": [
         "docs/architecture/repository-and-platform.md",
-        "config/dashboard/domain-map.json"
+        "config/dashboard/domain-map.json",
+        "LLM_KEDJA_STEG_FOR_STEG.txt",
+        "SYSTEMKARTA_SAJTMASKIN.txt"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"
@@ -57,7 +59,7 @@
       ]
     },
     "ai_models": {
-      "summary": "Modellregister och LLM-kedja: buildprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter.",
+      "summary": "Modellregister och LLM-kedja: buildprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize-policy — samma ord betyder alltså inte samma sak.",
       "canonicalPaths": [
         "config/ai_models/manifest.json",
         "config/ai_models/*.md",
@@ -94,7 +96,7 @@
       ]
     },
     "Runtime scaffolds": {
-      "summary": "Kanoniska runtime-scaffolds som own-engine faktiskt använder före generation. Skilj detta från builderns Mallar-tab och från external-template-pipelinen.",
+      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Traits + filträd + kritiska filer serialiseras i serialize.ts; route plan, pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts) före dynamisk prompt. Skilj från Mallar-tab och external-template-pipelinen.",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/registry.ts",
@@ -109,6 +111,8 @@
         "src/lib/gen/scaffolds/registry.ts",
         "src/lib/gen/scaffolds/matcher.ts",
         "src/lib/gen/scaffolds/serialize.ts",
+        "src/lib/gen/route-plan.ts",
+        "src/lib/gen/contract/pre-generation-contracts.ts",
         "src/lib/gen/orchestrate.ts"
       ]
     },
@@ -133,7 +137,7 @@
       ]
     },
     "Preview och versioner": {
-      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion, prompt-dumps och de viktigaste logg-/telemetriytorna för buildern.",
+      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion, prompt-dumps och de viktigaste logg-/telemetriytorna för buildern. Prompt-dump-status delas med scriptpanelen via scripts/dashboard_shared.py.",
       "canonicalPaths": [
         "src/lib/db/engine-version-lifecycle.ts",
         "src/lib/gen/server-verify.ts",
@@ -212,6 +216,7 @@
       "summary": "Ordlista, struktur och aktiv backlog — projektregler + arkitektur + en samlad planfil.",
       "canonicalPaths": [
         ".cursor/rules/terminology.mdc",
+        ".cursor/rules/llm-pipeline-docs-sync.mdc",
         ".cursor/rules/session-git-docs.mdc",
         ".cursor/rules/repo-env-indexing.mdc",
         ".cursor/rules/cleanup-and-scope.mdc",

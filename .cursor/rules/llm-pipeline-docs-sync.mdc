@@ -1,6 +1,14 @@
 ---
-description: Håll LLM-pipeline-docs och diagram synkade vid kodändringar
+description: Håll LLM-flödesdocs, mindmap och dashboard-karta synkade
 globs:
+  - src/app/builder/builder-entry.ts
+  - src/lib/gen/orchestrate.ts
+  - src/lib/gen/build-spec.ts
+  - src/lib/gen/route-plan.ts
+  - src/lib/gen/contract/pre-generation-contracts.ts
+  - src/lib/gen/scaffolds/**
+  - src/lib/gen/prompt-dump.ts
+  - scripts/dashboard_shared.py
   - src/lib/gen/autofix/**
   - src/lib/gen/autofix/rules/**
   - src/lib/gen/stream/finalize-version.ts
@@ -15,22 +23,29 @@ globs:
 
 # LLM-pipeline docs sync
 
-När du ändrar filer i autofix-pipelinen, repair-kedjan, fixer-prompten, verifier-pass, manifest-konfigurationen eller finalize-flödet:
+När du ändrar builder-entry, scaffoldval, route plan, pre-generation contracts, prompt-dumps, autofix/repair/verifier, manifest-konfigurationen eller finalize-flödet:
 
 ## Alltid uppdatera (i samma commit)
 
-1. **`docs/architecture/builder-generation.md`** — pipeline-steglistan (sektionen "Fixer order") och relaterade beskrivningar.
-2. **`docs/architecture/llm-pipeline-flow.html`** — Mermaid-diagrammet. Lägg till/ta bort noder och pilar som matchar den nya verkligheten. Kontrollera legenden.
-3. **`src/lib/gen/autofix/pipeline.ts`** — den inledande JSDoc-kommentaren som listar fixer-ordning (steg 1-8+).
+1. **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, finalize/repair/preview-kedja och relaterade beskrivningar.
+2. Relevanta kanoniska kontrakt/översikter:
+   - **`docs/schemas/builder-entry-contract.md`** — när builder-ingång, `entryKind`, ID-termer eller legacy-ingress ändras.
+   - **`docs/schemas/scaffold-contract.md`** — när scaffold-kontrakt, traits, research eller runtime-serialisering ändras.
+   - **`SYSTEMKARTA_SAJTMASKIN.txt`** och **`LLM_KEDJA_STEG_FOR_STEG.txt`** — när mindmap, stegkedja eller faktisk LLM-input förändras.
+3. **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
 
 ## Uppdatera vid behov
 
+- **`docs/architecture/llm-pipeline-flow.html`** — om flödets noder eller pilar faktiskt ändras.
 - **`docs/architecture/preview-deploy.md`** — om ändringen påverkar preview-kedjan eller tier-2-flödet.
 - **`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`** — om ändringen stänger eller öppnar ett spår.
-- **`config/dashboard/domain-map.json`** — om nya `codeReaders` eller `canonicalPaths` tillkommer.
+- **`config/dashboard/domain-map.json`** — om nya `codeReaders`, `docsPaths`, `canonicalPaths` eller dashboardscope tillkommer.
+- **`src/lib/gen/autofix/pipeline.ts`** — om fixer-ordning eller pipelinekommentarerna ändras.
 
 ## Principer
 
 - Diagram och docs ska avspegla **faktisk kod**, inte ambition.
+- **`config/dashboard/app.py`** är konfigurations-/översiktspanel; **`scripts/scripts_dashboard.py`** är pipeline-/artifactpanel.
+- Delad dashboardlogik ska, när det är rimligt, centraliseras i **`scripts/dashboard_shared.py`** i stället för att dupliceras.
 - Använd samma terminologi som `.cursor/rules/terminology.mdc`.
 - Ändra aldrig docs utan att ha verifierat mot koden att beskrivningen stämmer.

@@ -1,6 +1,6 @@
 # Builder — generering, modeller, prompt och SSE
 
-**Senast uppdaterad:** 2026-04-06
+**Senast uppdaterad:** 2026-04-08
 
 ## Modellbanor (UI ↔ API)
 
@@ -23,6 +23,17 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 - Använd **OpenClaw / Sajtagenten** när du menar den hjälpassistent som kan läsa builderkontext, ge tips, föreslå textfältsinnehåll och göra djupare review på begäran.
 - Om Sajtagenten får mer kod- eller builderinsyn för review betyder det **inte** att own-engine-routen har bytt motor.
 
+## Builder-entry före modellen
+
+Innan modellen ser någonting normaliserar buildern nu URL-ingången i
+`src/app/builder/builder-entry.ts` till en intern `entryKind` / `entryState`.
+
+- **`appProjectId`** är builderns kanoniska projekt-id.
+- **`externalProjectId`** är builder-lagrets namn för extern/legacy-identitet och ska inte blandas ihop med `appProjectId`.
+- **`source=audit`** är kompat-/transportlager; resten av buildern ska hellre utgå från normaliserad `entryKind: "audit"` än från rå querytolkning.
+
+Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
+
 ## Promptlager och träd
 
 - **Statisk kärna** + dynamisk kontext (scaffold, brief, tema, KB) byggs i `system-prompt.ts` m.m.
@@ -39,6 +50,7 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 3. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via Deep Brief (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`). **Briefen genereras alltid från originalprompt** — inte den orkestrerade/summarerade versionen. Auto-brief blockeras för follow-ups, audit, tekniska prompts och nu även för **redan strukturerade website-prompts** där användaren redan specificerat flera sektioner/styrsignaler.
 4. **Spec-first chain (valfritt, `specMode=true`):** Om briefen finns konverteras den till en `WebsiteSpec` via `briefToSpec()` i `promptAssistContext.ts`, annars via `promptToSpec()`. Specfilen bifogas som strukturerad kontext till systemprompten.
 5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
+   `RoutePlan.source` betyder nu faktiskt det den säger: `brief` när briefens sidor styr, `prompt` när routingen kommer från promptmönster, och `scaffold` när scaffold-defaults verkligen lägger till routes som inte redan fanns.
 6. **Scaffoldval i `auto`:** `matchScaffoldAuto()` kör keyword som primär path; scaffold-embeddings används bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
 7. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, scaffold research-prioriteringar (inkl. budgeterade reference inspirations), route plan, pre-generation contracts, brief-/temasignaler och övrig request-specifik kontext. Dynamisk kontext budgeteras nu blockvis med tokenestimat (`BuildSpec.tokenBudgets.systemContextTokens`) och prunar lägre prioritet först; `systemContextChars` finns kvar som kompat-fallback i callsites som fortfarande arbetar teckenbaserat.
 8. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, verifier, parse/merge/preflight och sparar versionen innan tier-2-preview följer upp. `reasoning_effort` sätts nu adaptivt: vanliga `website`-fall landar oftare på `medium`, medan `app` / integrationer / mer avancerade builds kan ligga kvar på `high`.
@@ -49,6 +61,29 @@ Snabba lokala orienteringsfiler för nästa agent:
 - `src/lib/gen/README.md`
 - `src/lib/gen/scaffolds/README.md`
 - `src/lib/gen/template-library/README.md`
+
+## Prompt-dumps och dashboard-observability
+
+Prompt-dumps är **debug-/observabilityartefakter**, inte source of truth för
+runtime. Den kanoniska skrivningen ligger i `src/lib/gen/prompt-dump.ts`, och
+båda Python-panelerna läser nu samma statussemantik via
+`scripts/dashboard_shared.py`.
+
+Kategorier:
+
+- `orchestration-dynamic` — `latest.md`, `generation-input-package.json`, `meta.json`
+- `own-engine-codegen` — `full-system.md`, `dynamic-context.md`, `meta.json`
+- `plan-mode-planner` — `planner-preamble.md`, `dynamic-context.md`, `full-system.md`, `meta.json`
+
+Statusord som visas i panelerna:
+
+- `fresh` — nyligen skriven dump
+- `stale-risk` — dump finns men ser gammal ut; kontrollera tidsstämpeln
+- `disabled` — dumpning är avstängd; gamla payloadfiler kan fortfarande ligga kvar
+
+`config/dashboard/app.py` visar detta i preview-/versionsöversikten som del av
+konfigurations- och observabilityytan. `scripts/scripts_dashboard.py` använder
+samma statusdata i pipeline-/artifactpanelen.
 
 ## SSE / stream-scope (W3)
 

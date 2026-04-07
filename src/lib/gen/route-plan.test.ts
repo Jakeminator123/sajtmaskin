@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getScaffoldById } from "./scaffolds/registry";
 import { buildRoutePlan } from "./route-plan";
 
 describe("buildRoutePlan", () => {
@@ -73,5 +74,26 @@ describe("buildRoutePlan", () => {
     expect(plan.source).toBe("brief");
     expect(plan.routes).toHaveLength(1);
     expect(plan.routes[0].path).toBe("/");
+  });
+
+  it("marks route plan source as prompt when scaffold defaults do not add routes", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "En enkelsidig landningssida för ett bageri.",
+      resolvedScaffold: getScaffoldById("landing-page"),
+    });
+    expect(plan.source).toBe("prompt");
+  });
+
+  it("marks route plan source as scaffold when scaffold defaults add routes", () => {
+    const blogScaffold = getScaffoldById("blog");
+    expect(blogScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "En enkelsidig landningssida för ett bageri.",
+      resolvedScaffold: blogScaffold,
+    });
+    expect(plan.source).toBe("scaffold");
+    expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
   });
 });

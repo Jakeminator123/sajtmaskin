@@ -65,6 +65,8 @@ Används direkt av runtime / own-engine:
 - src/lib/gen/scaffolds/*
 - src/lib/gen/scaffolds/scaffold-research.generated.json
 - src/lib/gen/scaffolds/scaffold-embeddings.json
+- builder-entry-normalisering i src/app/builder/builder-entry.ts styr builderns ingress
+  före create-chat, men är inte direkt modellinput i sig
 
 Används inte direkt av runtime:
 - e2e/vercel-templates/*
@@ -155,7 +157,8 @@ heavy
 
 A) config/dashboard/app.py
    - Konfigurationspanel
-   - Fokuserar på config/*, docs, rules, manifest och policy
+   - Fokuserar på config/*, docs, rules, manifest, policy och översikt
+   - Visar också prompt-dumps, runtime-scaffolds och template-pipeline-status
 
 B) scripts/scripts_dashboard.py
    - Pipeline-/artifactpanel
@@ -177,6 +180,9 @@ Tolkning:
 - fresh = nyligen skriven dump
 - stale-risk = gammal dump, kontrollera tidsstampeln
 - disabled = dumpning avstangd; befintliga filer kan vara gamla
+
+Gemensam statuslogik ligger i:
+- scripts/dashboard_shared.py
 
 
 8. Rekommenderad nästa genomgång

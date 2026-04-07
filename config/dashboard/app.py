@@ -856,8 +856,11 @@ elif page == "ai_models":
             "Det här styr den deterministiska orkestratorn före build. Det är inte en egen LLM, utan regler för när prompten ska skickas direkt, kondenseras eller delas upp."
         )
         st.info(
-            "Website-latens påverkas också av hur mycket kontext som byggs före modellanropet. "
-            "KB-sök och template-library-retrieval körs nu parallellt, men stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."
+            "Website-latens påverkas av hur mycket kontext som byggs före modellanropet: "
+            "`resolveOrchestrationBase` sätter scaffold, route plan, pre-generation contracts och `BuildSpec`; "
+            "därefter byggs dynamisk kontext i `buildDynamicContext` med tokenbudgetar från `BuildSpec`. "
+            "Template-library är inte samma hot-path som scaffold-kontext (se docs/architecture/builder-generation.md). "
+            "Stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."
         )
 
         st.markdown("### Hard caps")
@@ -1446,9 +1449,13 @@ elif page == "Runtime scaffolds":
         st.dataframe(rows, width="stretch", hide_index=True)
 
     st.info(
-        "Detta är den kanoniska runtime-ytan som own-engine matchar mot. "
+        "Denna vy listar manifest per scaffold-mapp; kanonisk källa är runtime-registret under `src/lib/gen/scaffolds/`. "
+        "I `resolveOrchestrationBase` (`orchestrate.ts`) väljs scaffold (manual / persisted / auto), "
+        "sedan `buildRoutePlan`, `inferPreGenerationContracts`, `deriveBuildSpec`, därefter serialisering via `serialize.ts` "
+        "(traits som `structure_profile` m.m., filträd, kritiska filer — budget styrs av `BuildSpec`). "
+        "Auto-läge: keyword-match primärt; scaffold-embeddings när träff saknas eller valet blir generiskt (`landing-page` / `base-nextjs`). "
         "Builderns Mallar-tab och external-template-pipelinen är separata lager. "
-        "För rebuild/status/embeddings-artifacts: använd `scripts/scripts_dashboard.py`."
+        "För rebuild/status/embeddings-artifacts: `scripts/scripts_dashboard.py`."
     )
 
 

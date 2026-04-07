@@ -225,10 +225,16 @@ export function buildRoutePlan(params: {
     applyPromptPatterns(prompt, WEBSITE_ROUTE_PATTERNS, routes);
   }
 
+  const pathsBeforeScaffoldDefaults = new Set(
+    routes.map((route) => normalizeRoutePath(route.path)),
+  );
   applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
+  const scaffoldAddedRoutes = routes.some(
+    (route) => !pathsBeforeScaffoldDefaults.has(normalizeRoutePath(route.path)),
+  );
 
   return {
-    source: resolvedScaffold ? "prompt" : "prompt",
+    source: scaffoldAddedRoutes ? "scaffold" : "prompt",
     siteType: inferSiteType(buildIntent, routes.length),
     reason:
       routes.length > 1

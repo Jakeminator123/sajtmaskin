@@ -49,6 +49,13 @@ scaffold into:
 This is then combined with route plan, contracts, brief, design/theme context,
 and other request-specific data.
 
+`RoutePlan` is separate from the scaffold itself. In the active chain it may come
+primarily from:
+
+- `brief` — explicit pages from the current brief/spec
+- `prompt` — prompt-pattern inference in `route-plan.ts`
+- `scaffold` — scaffold defaults that add real routes (for example blog/auth/commerce helpers)
+
 ## Current manifest shape
 
 `ScaffoldManifest` currently includes:

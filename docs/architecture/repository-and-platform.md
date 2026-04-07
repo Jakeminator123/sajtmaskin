@@ -1,6 +1,6 @@
 # Repository, terminologi och plattformsintegrationer
 
-**Senast uppdaterad:** 2026-03-27
+**Senast uppdaterad:** 2026-04-08
 
 ## Terminologi (mappar och lager)
 
@@ -30,6 +30,7 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 - **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/template-library/full_template_refresh.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
+- **Prompt-dump-status** delas mellan panelerna via `scripts/dashboard_shared.py`.
 
 ### Tre separata mallspår
 
@@ -74,7 +75,10 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 
 ## Övrigt
 
-- **Config dashboard (Streamlit)** vs `docs/`: `config/dashboard/` (se `config/dashboard/domain-map.json`).
+- **Config dashboard (Streamlit)**: `config/dashboard/app.py` är konfigurations- och översiktspanel för `config/*`, vissa docs/rules, runtime-scaffolds, template-pipelineöversikt och prompt-dump-status. Det är inte en egen runtime-källa.
+- **Scriptpanel (Tkinter)**: `scripts/scripts_dashboard.py` är pipeline-/artifactpanel för rebuild, embeddings, scaffolds, externa referenser, parity och prompt-dump-status.
+- **Delad dashboardlogik**: `scripts/dashboard_shared.py` bär gemensam statuslogik för prompt-dumps så att panelerna inte driver isär i kategorier, filnamn eller statusord.
+- **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
 - **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.
 - **D-ID / avatar**: isolerad pilotyta under `src/app/avatar/`, med bridge-rutter i `src/app/api/did/` och komponenter i `src/components/avatar/`. `D-ID` är medvetet avskilt från den vanliga widgeten tills ett separat beslut tas om bredare inbäddning.
 - **Orchestrator i Cursor**: borttaget; äldre planhistorik i git under `docs/plans/avklarat/` (se [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).

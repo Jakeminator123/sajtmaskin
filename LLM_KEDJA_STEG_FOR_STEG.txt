@@ -90,3 +90,23 @@ Min bedomning
 
 Nasta steg
 - granska scaffoldval + BuildSpec + route plan + pre-generation contracts
+
+
+TVARGAENDE NOTER FOR KOMMANDE STEG
+----------------------------------
+
+Detta dokument ska lasas tillsammans med:
+- SYSTEMKARTA_SAJTMASKIN.txt
+- docs/architecture/builder-generation.md
+
+Nar runtime-sanningen andras i ett steg ska vi samtidigt halla ajour:
+- kanoniska docs/schemas
+- SYSTEMKARTA_SAJTMASKIN.txt
+- config/dashboard/app.py och/eller scripts/scripts_dashboard.py nar deras
+  overblick, status eller kartyta annars blir missvisande
+
+Prompt-dumps ar debug/observability, inte source of truth. Delad statuslogik for:
+- orchestration-dynamic
+- own-engine-codegen
+- plan-mode-planner
+ligger i scripts/dashboard_shared.py.
