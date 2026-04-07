@@ -16,7 +16,7 @@ const {
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   queueRuntimeBoot,
-  runVerifyJob,
+  runQueuedVerifyJob,
   stopRuntimeForSession,
 } = require("./runtime.js");
 const {
@@ -33,6 +33,18 @@ const PREVIEW_BASE_URL =
   process.env.PREVIEW_BASE_URL ?? "https://preview-placeholder.example.com";
 const SESSION_TTL_MS =
   Number.parseInt(process.env.PREVIEW_SESSION_TTL_MS ?? `${15 * 60 * 1000}`, 10);
+const OPPORTUNISTIC_CLEANUP_INTERVAL_MS =
+  Number.parseInt(process.env.PREVIEW_HOST_OPPORTUNISTIC_CLEANUP_INTERVAL_MS ?? `${5 * 60 * 1000}`, 10);
+let lastOpportunisticCleanupAt = 0;
+
+async function maybeRunOpportunisticCleanup() {
+  const now = Date.now();
+  if (now - lastOpportunisticCleanupAt < OPPORTUNISTIC_CLEANUP_INTERVAL_MS) {
+    return;
+  }
+  lastOpportunisticCleanupAt = now;
+  await cleanupPreviewHostStorage().catch(() => null);
+}
 
 function json(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -278,7 +290,7 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/preview/session/start") {
     const raw = await readJsonBody(req);
     const validated = validateStartPayload(raw);
-    await cleanupPreviewHostStorage().catch(() => null);
+    await maybeRunOpportunisticCleanup();
     const created = await withStoreLock((data) => {
       const existing = findSessionByChatId(data, validated.chatId);
       const createdAt = existing?.createdAt ?? nowIso();
@@ -441,7 +453,7 @@ async function routeRequest(req, res) {
     const validated = validateVerifyPayload(raw);
     const verifyId = `verify_${randomUUID()}`;
     try {
-      const result = await runVerifyJob({
+      const result = await runQueuedVerifyJob({
         verifyId,
         chatId: validated.chatId,
         versionId: validated.versionId,
@@ -450,7 +462,7 @@ async function routeRequest(req, res) {
       });
       return json(res, 200, {
         ok: true,
-        verifyId,
+        verifyId: result.verifyId,
         chatId: validated.chatId,
         versionId: validated.versionId,
         durationMs: result.durationMs,

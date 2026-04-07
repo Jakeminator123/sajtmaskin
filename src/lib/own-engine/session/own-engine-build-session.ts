@@ -154,7 +154,6 @@ export function buildOwnEngineGenerationStreamMeta(
     promptComplexityScore: sm.complexityScore,
     buildSpecEnabled: isBuildSpecEnabled(),
     buildSpec: input.buildSpec,
-    orchestrationContract: orch.orchestrationContract,
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,
     customInstructionsLength: input.customInstructionsLength,

@@ -1,6 +1,0 @@
-https://vercel.com/docs
-
-
-/reset
-/reload
-/exit

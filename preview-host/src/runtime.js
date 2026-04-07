@@ -35,6 +35,9 @@ const VERIFY_OUTPUT_CAP_BY_STAGE = {
 
 const runtimeChildren = new Map();
 const inflightBootByChat = new Map();
+const activeVerifyChatKeys = new Set();
+const inflightVerifyByKey = new Map();
+let verifyQueue = Promise.resolve();
 
 const proxy = httpProxy.createProxyServer({
   xfwd: true,
@@ -637,6 +640,47 @@ async function runVerifyJob(params) {
   return withNoSpaceCleanupRetry(runJob);
 }
 
+function buildVerifyJobKey(params) {
+  const checks = Array.isArray(params.checks) ? [...params.checks].sort().join(",") : "";
+  return [
+    params.chatId,
+    params.versionId,
+    checks,
+    dependencyFingerprint(params.filesJson),
+  ].join(":");
+}
+
+function runQueuedVerifyJob(params) {
+  const jobKey = buildVerifyJobKey(params);
+  const existing = inflightVerifyByKey.get(jobKey);
+  if (existing) {
+    return existing;
+  }
+
+  // Verify runs beside live previews on the same VM, so serialize jobs to avoid
+  // duplicated installs/typechecks fighting for RAM and disk at the same time.
+  const task = verifyQueue
+    .catch(() => undefined)
+    .then(async () => {
+      const chatKey = safeChatKey(params.chatId);
+      activeVerifyChatKeys.add(chatKey);
+      try {
+        return await runVerifyJob(params);
+      } finally {
+        activeVerifyChatKeys.delete(chatKey);
+      }
+    });
+
+  inflightVerifyByKey.set(jobKey, task);
+  verifyQueue = task.catch(() => undefined);
+
+  return task.finally(() => {
+    if (inflightVerifyByKey.get(jobKey) === task) {
+      inflightVerifyByKey.delete(jobKey);
+    }
+  });
+}
+
 function stopChildProcessTree(child) {
   return new Promise((resolve) => {
     if (!child || child.exitCode !== null) {
@@ -1036,7 +1080,10 @@ async function cleanupPreviewHostStorage() {
     }
   });
 
-  const verifyResult = await cleanupDirectoryEntries(VERIFY_WORKSPACES_DIR);
+  const verifyResult = await cleanupDirectoryEntries(
+    VERIFY_WORKSPACES_DIR,
+    activeVerifyChatKeys,
+  );
   const workspaceResult = await cleanupDirectoryEntries(
     WORKSPACES_DIR,
     activeWorkspaceEntries,
@@ -1081,6 +1128,7 @@ module.exports = {
   listSessions,
   hibernateChatRuntime,
   destroyChatWorkspace,
+  runQueuedVerifyJob,
   runVerifyJob,
   stopRuntimeForSession,
   cleanupPreviewHostStorage,

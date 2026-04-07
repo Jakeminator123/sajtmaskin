@@ -26,7 +26,7 @@ individual scaffold folders into generation flows directly.
 |------|-------------|
 | `registry.ts` | Imports the 10 manifests and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
 | `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. |
-| `matcher.ts` | Primary keyword-based scaffold matching. `matchScaffoldWithEmbeddings()` calls this first and only uses embeddings when the keyword result is missing or too generic. |
+| `matcher.ts` | Primary keyword-based scaffold matching. `matchScaffoldAuto()` uses keyword matching first and only uses embeddings when the keyword result is missing or too generic. |
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns the resolved scaffold into prompt context. |
 | `scaffold-search.ts` | Embedding-based `searchScaffolds()`; expands SV<->EN query hints before cosine ranking. |
 | `scaffold-embedding-locale.ts` | Swedish mirrors (label, description, keywords) paired with English manifest text in embedding documents. |
@@ -39,7 +39,7 @@ individual scaffold folders into generation flows directly.
 
 1. `registry.ts` imports all manifest folders and overlays `scaffold-research.generated.json`.
 2. `orchestrate.ts` resolves scaffold mode (`auto` / `manual` / `off`).
-3. In `auto`, `matchScaffold()` is the primary path. `matchScaffoldWithEmbeddings()` only falls back to `searchScaffolds()` when the keyword result is missing or lands on a generic default such as `landing-page` or `base-nextjs`.
+3. In `auto`, `matchScaffoldAuto()` runs keyword matching first and only falls back to `searchScaffolds()` when the keyword result is missing or lands on a generic default such as `landing-page` or `base-nextjs`.
 4. `serializeScaffoldForPrompt()` turns the resolved scaffold into prompt text.
 5. `system-prompt.ts` combines scaffold context with route plan, contracts, brief/context signals, and visual direction.
 6. `finalize-version.ts` can later call `scaffold-aware-retry.ts` if preflight suggests that the original scaffold was a poor fit.

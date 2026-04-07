@@ -105,7 +105,7 @@ export default function FAQPage() {
                   </Link>
                 </Button>
                 <Button variant="ghost" className="w-full border border-primary/20 text-primary hover:bg-primary/5" asChild>
-                  <a href="mailto:jakob.olof.eberg@gmail.com,erik@sajtstudio.se">Kontakta teamet</a>
+                  <a href="mailto:hej@sajtmaskin.se">Kontakta teamet</a>
                 </Button>
               </div>
             </aside>

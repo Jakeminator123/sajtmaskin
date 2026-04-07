@@ -226,10 +226,6 @@ const PHOTO_SHOP_KEYWORDS = [
   "photo ecommerce",
 ];
 
-const PHOTO_SHOP_OVERRIDE_KEYWORDS = [
-  "jakob",
-];
-
 const ECOMMERCE_KEYWORDS = [
   "ecommerce",
   "e-commerce",
@@ -358,11 +354,7 @@ function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
 }
 
 function buildKeywordScores(promptLower: string): Array<{ id: string; score: number }> {
-  const photoShopOverride = countKeywordMatches(promptLower, PHOTO_SHOP_OVERRIDE_KEYWORDS);
-  const photoShopScore = Math.max(
-    countKeywordMatches(promptLower, PHOTO_SHOP_KEYWORDS),
-    photoShopOverride >= 1 ? MIN_SCORE + 2 : 0,
-  );
+  const photoShopScore = countKeywordMatches(promptLower, PHOTO_SHOP_KEYWORDS);
   const authScore = countKeywordMatches(promptLower, AUTH_KEYWORDS);
   const ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
   const dashboardScore = countKeywordMatches(promptLower, DASHBOARD_KEYWORDS);
@@ -463,11 +455,6 @@ export function matchScaffold(
   buildIntent?: BuildIntent | null,
 ): ScaffoldManifest | null {
   const lower = prompt.toLowerCase();
-
-  const photoShopOverride = countKeywordMatches(lower, PHOTO_SHOP_OVERRIDE_KEYWORDS);
-  if (photoShopOverride >= 1) {
-    return getScaffoldByFamily("photo-shop");
-  }
 
   const photoShopScore = countKeywordMatches(lower, PHOTO_SHOP_KEYWORDS);
   if (photoShopScore >= MIN_SCORE) {
@@ -659,13 +646,3 @@ export async function matchScaffoldAuto(
   };
 }
 
-/**
- * Backwards-compatible helper used by older callsites.
- */
-export async function matchScaffoldWithEmbeddings(
-  prompt: string,
-  buildIntent?: BuildIntent | null,
-): Promise<ScaffoldManifest | null> {
-  const result = await matchScaffoldAuto(prompt, buildIntent, { useEmbeddings: true });
-  return result.scaffold;
-}

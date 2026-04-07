@@ -13,14 +13,13 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`db/`](db/) | Postgres-init, migrationer, push, sanity (`db-target-guard.mjs` delas här) |
 | [`dev/`](dev/) | `next-runner`, `refresh-token`, `check-systemprompt` (npm `predev` / `dev` / `build`) |
 | [`embeddings/`](embeddings/) | Mall-, template-library- och scaffold-embeddings |
-| [`template-library/`](template-library/) | Extern mallkedja: scrape-cache, discovery-import, build, hydrate, v0-sync, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
-| [`scaffolds/`](scaffolds/) | Kandidatrapport, kurering, promote, `sync-scaffold-refs.mjs` |
+| [`template-library/`](template-library/) | Extern mallkedja: scrape-cache, discovery-import, build, hydrate, `hamta_sidor_branch_emil.py`, `full_template_refresh.py` |
+| [`v0-templates/`](v0-templates/) | Separat v0/runtime/workflow-spår: lokal sync, validering och local refresh av mallkatalog |
+| [`scaffolds/`](scaffolds/) | Kanonisk `scaffold_cli.py`, kandidatrapport, kurering, promote, eval |
 | [`eval/`](eval/) | `run-eval.ts` (eval-output) |
 | [`deps/`](deps/) | Baseline `package.json`-verifiering (peer/registry) |
 | [`audit/`](audit/) | Shadcn-mirror + runtime component-library snapshot |
-| [`cli/`](cli/) | `builder-generate.py` (batch mot own-engine API) |
 | [`env/`](env/) | `manage_env.py`, `model_trace_overlay.py` |
-| [`manual/`](manual/) | Övriga manuella verktyg (`scaffold-pipeline.py`) |
 
 ### Next / dev-server (npm hooks)
 
@@ -31,7 +30,7 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
 | [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**Mallflöde (v0-templates i repo, enbart lokal data):** [`template-library/sync-v0-templates.mjs`](template-library/sync-v0-templates.mjs), [`template-library/validate-templates.mjs`](template-library/validate-templates.mjs), [`template-library/refresh-local-v0-catalog.mjs`](template-library/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
+**Mallflöde (v0-templates i repo, enbart lokal data):** [`v0-templates/sync-v0-templates.mjs`](v0-templates/sync-v0-templates.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/refresh-local-v0-catalog.mjs`](v0-templates/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
 - **Delade TS-moduler (ingen egen CLI):** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
 - **Vercel use-case-skrapning (Python):**
   - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — tierad utdata, rapporter, bred research-intake som kan markera `framework_match: false` i stället för att kasta bort poster direkt.
@@ -42,9 +41,38 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
   - Kanonisk mutable data ligger i **`data/external-template-pipeline/`**. Om du behöver återanvända en annan scrape-cache ska du ange den **explicit** med `--scrape-output` / `--from`, inte förlita dig på path-fallbackar.
 - **~~vercel_template_cli.py~~** (borttagen) — använd `hamta_sidor_branch_emil.py` eller Playwright-discover i stället.
 
+## Kanonisk scaffold-CLI (`scripts/scaffolds/scaffold_cli.py`)
+
+Detta är den nya manuella huvudingången för scaffold-spåret. `package.json`
+pekar hit för de tydliga scaffold-kommandona:
+
+```bash
+npm run scaffolds:status
+npm run scaffolds:import
+npm run scaffolds:hydrate
+npm run scaffolds:build
+npm run scaffolds:embeddings
+npm run scaffolds:eval
+npm run scaffolds:verify
+npm run scaffolds:all
+```
+
+Direktkörning fungerar också:
+
+```bash
+python scripts/scaffolds/scaffold_cli.py status
+python scripts/scaffolds/scaffold_cli.py all --typecheck
+```
+
+CLI:n anropar low-level-skripten i rätt ordning och håller **v0-mallspåret**
+separerat. Den triggar inte `templates:*`-kommandon automatiskt.
+
 ## Lokala v0-mallar (`templates_v0/`)
 
 Detta spår är till för **builderns mallgalleri**, inte för `template-library` eller Vercel-template research. All data hämtas lokalt — inga online-anrop till v0.app görs längre.
+
+`templates:*`-kommandon är ett separat spår och ingår inte i den nya
+`scaffolds:*`-CLI:n.
 
 ### Mappstruktur
 
@@ -90,21 +118,6 @@ npm run templates:local:refresh:embeddings   # Sync + validering + regenerera em
 | `first-llm:lab` / live | `python archive/scripts-labs-testning_scarf/first_llm_promptlab.py` / `npx tsx archive/scripts-labs-testning_scarf/run_first_llm_live.ts …` |
 | `testning:codegen-print` | `python archive/scripts-labs-testning_scarf/print_codegen_context.py` |
 
-## Builder batch-generering (`cli/builder-generate.py`)
-
-Interaktivt Python-skript som anropar Sajtmaskins API:er direkt (HTTP + SSE) utan Builder-UI:t. Används för att massproducera och jämföra genererade sidor.
-
-```bash
-# Kräver npm run dev (eller SAJTMASKIN_URL=https://…)
-python scripts/cli/builder-generate.py
-```
-
-**Menyval:** prompt, modell-tier (`fast`/`pro`/`max`/`codex`/`anthropic`), deep brief, scaffold-läge, build intent, thinking, image generations.
-
-**Output:** `output/generations/{timestamp}-{slug}/` med `metadata.json`, `files/`, och `brief.json` (vid deep brief). Output-mappen är gitignored.
-
-**Beroenden:** Python 3.10+, inga pip-paket (stdlib only).
-
 ## Env-verktyg (`scripts/env/`)
 
 Kanonisk plats: `scripts/env/`.
@@ -123,34 +136,6 @@ Kanonisk plats: `scripts/env/`.
 | `npm run db:push` | [`db/db-push.mjs`](db/db-push.mjs) — guardad wrapper runt `drizzle-kit push`. **Skrivande**: samma prod-lik guard som `db:init`. |
 | `npm run db:check` | [`db/check-dev-db.mjs`](db/check-dev-db.mjs) — read-only sanity-koll av kärntabeller; varnar om targeten ser prod-lik ut. Valfri flagga `--allow-insecure-ssl`. |
 | `npm run db:rows` | [`db/db-row-overview.mjs`](db/db-row-overview.mjs) — read-only: `COUNT(*)` per utvald tabell (own-engine + app + legacy); varnar om targeten ser prod-lik ut. Samma env som `db:check`. |
-
-## sync-scaffold-refs (`scaffolds/sync-scaffold-refs.mjs`)
-
-Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hemsidemallsarbete.
-
-**OBS:** `_template_refs/` används inte vid runtime. Skriptet behövs endast om du utvecklar nya scaffolds från externa referenser. Om mappen inte finns i din checkout är det normalt; skapa/fyll den först när du faktiskt arbetar med externa scaffold-referenser.
-
-### Användning
-
-```bash
-node scripts/scaffolds/sync-scaffold-refs.mjs
-node scripts/scaffolds/sync-scaffold-refs.mjs --force
-node scripts/scaffolds/sync-scaffold-refs.mjs --only=nextjs-saas-starter,ibelick-nim
-```
-
-### Vad skriptet gör
-
-1. Klonar eller sparse-checkout:ar utvalda referensrepon
-2. Sparar dem under `_template_refs/`
-3. Gör det lättare att hålla scaffold-kandidater reproducerbara mellan chats
-
-### Exempel på referenser
-
-- `nextjs/saas-starter`
-- `auth0-developer-hub/auth0-b2b-saas-starter`
-- `dzlau/stripe-supabase-saas-template`
-- `vercel/examples` (`solutions/blog`)
-- `vercel/next.js` (`examples/blog-starter`, `examples/with-cloudinary`)
 
 ## build-template-library.ts
 
@@ -323,6 +308,7 @@ build-time beteende även om den ligger i `.cursorignore` och normalt inte ska
 
 ```bash
 npm run scaffolds:embeddings
+python scripts/scaffolds/scaffold_cli.py embeddings
 npx tsx scripts/embeddings/generate-scaffold-embeddings.ts
 ```
 
@@ -403,42 +389,6 @@ npm run references:discover:full
 ```
 
 **OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md); äldre narrativfiler i git-historik.
-
-## scaffold-pipeline.py (avancerat, ej i package.json)
-
-Interaktivt Python-menyskript som visar status och exponerar de kanoniska
-stegen i template-library-kedjan ovanpå samma pipeline-rot som
-`full_template_refresh.py`.
-
-**Placering:** [`scripts/manual/scaffold-pipeline.py`](manual/scaffold-pipeline.py) (översikt: [`scripts/manual/README.md`](manual/README.md)). Gamla sökvägen `scripts/scaffold-pipeline.py` finns inte längre.
-
-### Användning
-
-```bash
-python scripts/manual/scaffold-pipeline.py
-```
-
-### Menyval
-
-| Val | Vad det gör |
-|-----|-------------|
-| 1 | Skrapa nya templates till `data/external-template-pipeline/scrape-cache/current` |
-| 2 | Importera scrape-cache till `raw-discovery/current` |
-| 3 | Ladda ner repos (shallow clones till `repo-cache`) |
-| 4 | Bygg template-library + dossiers från explicit `raw-discovery/current` |
-| 5 | Generera template-library embeddings (OpenAI API) |
-| 6 | Generera scaffold embeddings (OpenAI API) |
-| 7 | Kör hela kedjan från befintlig scrape-cache via `full_template_refresh.py --skip-scrape` |
-| 8 | Kör hela kedjan från scratch via `full_template_refresh.py` |
-| 9 | Visa status |
-| 0 | Avsluta |
-
-### Monorepo-skydd
-
-`build-template-library.ts` skippar filval för monorepo-entries där subpath
-saknas lokalt, för att undvika att filer från fel del av repot (t.ex.
-`apps/bundle-analyzer/` i `vercel/next.js`) hamnar i dossiers. Metadata
-(summary, signals, styrkor) behålls.
 
 ## Synk med `package.json`
 

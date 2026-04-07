@@ -1,11 +1,12 @@
 {
-  "generatedAt": "2026-04-05T12:28:50.258Z",
+  "generatedAt": "2026-04-07T16:25:34.635Z",
   "source": "scripts/template-library/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
       "qualityChecklist": [
         "Keep a minimal App Router structure with layout, page, and globals.css.",
-        "Preserve @theme inline tokens and stable path aliases."
+        "Preserve @theme inline tokens and stable path aliases.",
+        "Do not add heavy product or marketing structure unless the prompt clearly asks for it."
       ],
       "research": {
         "upgradeTargets": [
@@ -78,7 +79,8 @@
     "landing-page": {
       "qualityChecklist": [
         "Hero, trust, CTA, and clear section hierarchy should be present.",
-        "Layout should remain editable without introducing app-shell complexity."
+        "Layout should remain editable without introducing app-shell complexity.",
+        "Copy and section order should feel business-specific rather than generic starter filler."
       ],
       "research": {
         "upgradeTargets": [
@@ -91,7 +93,8 @@
     "saas-landing": {
       "qualityChecklist": [
         "Pricing, product narrative, trust signals, and dashboard preview should exist.",
-        "Keep marketing structure separate from logged-in app structure."
+        "Keep marketing structure separate from logged-in app structure.",
+        "Make the product value proposition and hero preview feel tied to the actual product domain."
       ],
       "research": {
         "upgradeTargets": [
@@ -162,7 +165,8 @@
     "portfolio": {
       "qualityChecklist": [
         "Strong work showcase and biography sections should remain first-class.",
-        "Visual rhythm should prioritize image or project presentation over dashboard UI."
+        "Visual rhythm should prioritize image or project presentation over dashboard UI.",
+        "Project cards, case studies, or gallery areas should feel curated rather than generic service blocks."
       ],
       "research": {
         "upgradeTargets": [
@@ -212,7 +216,8 @@
     "blog": {
       "qualityChecklist": [
         "Editorial layout, post hierarchy, and reading flow should remain intact.",
-        "Content lists and article pages should not collapse into generic marketing cards."
+        "Content lists and article pages should not collapse into generic marketing cards.",
+        "Headings, excerpts, and archive structure should support reading and navigation first."
       ],
       "research": {
         "upgradeTargets": [
@@ -286,7 +291,8 @@
     "dashboard": {
       "qualityChecklist": [
         "Sidebar, overview cards, table/chart areas, and dense app layout should remain intact.",
-        "Prefer realistic analytics structure over marketing-page sections."
+        "Prefer realistic analytics structure over marketing-page sections.",
+        "Primary screens should feel operational and data-driven, not like brochure sections."
       ],
       "research": {
         "upgradeTargets": [
@@ -360,7 +366,8 @@
     "auth-pages": {
       "qualityChecklist": [
         "Login, signup, and recovery flows should exist with link relationships between pages.",
-        "Auth scaffolds should look ready for real integration, not just a single isolated card."
+        "Auth scaffolds should look ready for real integration, not just a single isolated card.",
+        "The entry flow should keep clear form states, helper text, and obvious next actions."
       ],
       "research": {
         "upgradeTargets": [
@@ -434,7 +441,8 @@
     "ecommerce": {
       "qualityChecklist": [
         "Catalog, product detail, cart, and checkout direction should be represented.",
-        "Use realistic storefront hierarchy instead of generic content sections."
+        "Use realistic storefront hierarchy instead of generic content sections.",
+        "Merchandising, cart, and conversion flow should stay clearer than decorative marketing flourishes."
       ],
       "research": {
         "upgradeTargets": [
@@ -484,7 +492,8 @@
     "content-site": {
       "qualityChecklist": [
         "Keep broad reusable content structure that can support services, docs-lite, and editorial sites.",
-        "Do not force pricing or app-shell patterns unless the prompt asks for them."
+        "Do not force pricing or app-shell patterns unless the prompt asks for them.",
+        "Navigation and section hierarchy should stay content-first and easy to extend."
       ],
       "research": {
         "upgradeTargets": [
@@ -558,7 +567,8 @@
     "app-shell": {
       "qualityChecklist": [
         "Preserve navigation shell, settings-ready layout, and app-like information density.",
-        "Allow auth, billing, and dashboard subflows to be layered in later."
+        "Allow auth, billing, and dashboard subflows to be layered in later.",
+        "Primary layout should feel like a real product workspace, not a simple landing page with a sidebar."
       ],
       "research": {
         "upgradeTargets": [
@@ -627,6 +637,20 @@
             ]
           }
         ]
+      }
+    },
+    "photo-shop": {
+      "qualityChecklist": [
+        "Keep the editorial product grid with large hero card and alternating 1-column cards.",
+        "Preserve the monochrome oklch design system and tight typography (line-height 1.2, negative letter-spacing).",
+        "Cart should be a drawer, not a page. Product detail should include a multi-image gallery."
+      ],
+      "research": {
+        "upgradeTargets": [
+          "Richer product gallery patterns",
+          "Stronger editorial visual rhythm"
+        ],
+        "referenceTemplates": []
       }
     }
   }

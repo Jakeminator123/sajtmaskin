@@ -81,7 +81,7 @@ const PROJECT_TYPES = [
 
 // ─── Contact emails (displayed vs actual) ─────────────────────────
 const DISPLAY_EMAIL = "hej@sajtmaskin.se";
-const MAILTO_RECIPIENTS = "jakob.olof.eberg@gmail.com,erik@sajtstudio.se";
+const MAILTO_RECIPIENTS = DISPLAY_EMAIL;
 
 // ─── Generate mailto link from form data ──────────────────────────
 function buildMailtoLink(data: {

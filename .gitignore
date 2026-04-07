@@ -61,7 +61,7 @@ archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 # Legacy (före samlad output-mapp)
 scripts/output_test_scaffold/
 
-# scripts/builder-generate.py — lokala jämförelsekörningar
+# Local generation comparisons (manual API runs)
 output/generations/
 
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
@@ -211,8 +211,6 @@ _sidor/
 research/_sidor/
 _input_for_cursor/
 STOR_MIGRATION
-
-internt_jakob/
 
 .env*.local
 files_envvars

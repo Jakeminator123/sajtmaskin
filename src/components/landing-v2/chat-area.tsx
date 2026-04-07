@@ -582,7 +582,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                     <Button
                       className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
                       onClick={() => {
-                        window.location.href = "mailto:jakob.olof.eberg@gmail.com,erik@sajtstudio.se"
+                        window.location.href = "mailto:hej@sajtmaskin.se"
                       }}
                     >
                       Prata med teamet

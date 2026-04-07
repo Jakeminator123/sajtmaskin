@@ -10,7 +10,6 @@ export { getScaffoldById, getScaffoldByFamily, getAllScaffolds, getScaffoldFamil
 export {
   matchScaffold,
   matchScaffoldAuto,
-  matchScaffoldWithEmbeddings,
 } from "./matcher";
 export type {
   ScaffoldSelectionConfidence,

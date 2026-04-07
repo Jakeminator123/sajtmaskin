@@ -104,18 +104,13 @@ npm run scaffolds:validate
 
 ## Practical Smoke Test
 
-For a real prompt-driven dry run against the local dev server, use:
+For a real prompt-driven dry run against the local dev server, use Builder or
+call the own-engine HTTP/SSE routes directly:
 
 ```bash
-python scripts/cli/builder-generate.py
+POST /api/engine/chats/stream
+GET  /api/engine/chats/{chatId}/files?versionId=...
 ```
-
-That script calls the same own-engine HTTP/SSE routes as Builder and writes the
-captured result under `output/generations/<timestamp>-<slug>/` with:
-
-- `metadata.json` (`streamMeta`, route plan, preflight)
-- `brief.json` when deep brief was used
-- `files/` with the saved version payload
 
 ## Adding suspense stream rules
 
