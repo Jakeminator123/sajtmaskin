@@ -817,7 +817,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isLoading={vm.isDeployReadinessLoading}
           />
           <ProjectEnvVarsPanel
-            v0ProjectId={vm.v0ProjectId}
+            externalProjectId={vm.externalProjectId}
             appProjectId={vm.appProjectId}
             chatId={vm.chatId}
             activeVersionId={vm.activeVersionId}

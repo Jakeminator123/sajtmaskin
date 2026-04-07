@@ -3,12 +3,11 @@
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
 import type { ChatMessage } from "@/lib/builder/types";
 import {
-  normalizeBuildIntent,
-  normalizeBuildMethod,
   resolveBuildIntentForMethod,
   type BuildIntent,
   type BuildMethod,
 } from "@/lib/builder/build-intent";
+import { deriveBuilderEntryState } from "./builder-entry";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import {
   getDefaultPaletteState,
@@ -32,15 +31,19 @@ import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
-  const chatIdParam = searchParams.get("chatId");
-  const promptParam = searchParams.get("prompt");
-  const promptId = searchParams.get("promptId");
-  const projectParam = searchParams.get("project");
-  const templateId = searchParams.get("templateId");
-  const source = searchParams.get("source");
-  const buildIntentParam = searchParams.get("buildIntent");
-  const buildMethodParam = searchParams.get("buildMethod");
-  const hasEntryParams = Boolean(promptParam || promptId || templateId || source === "audit");
+  const entry = deriveBuilderEntryState(searchParams);
+  const {
+    chatIdParam,
+    promptParam,
+    promptId,
+    projectParam,
+    templateId,
+    source,
+    buildIntentParam,
+    buildMethodParam,
+    hasEntryParams,
+    isAuditEntry,
+  } = entry;
 
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState<string | null>(null);
@@ -50,10 +53,10 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
   const [buildIntent, setBuildIntent] = useState<BuildIntent>(() =>
-    normalizeBuildIntent(buildIntentParam),
+    buildIntentParam,
   );
   const [buildMethod, setBuildMethod] = useState<BuildMethod | null>(
-    () => normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
+    () => buildMethodParam,
   );
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
   const [promptAssistModel, setPromptAssistModel] = useState(() => getDefaultPromptAssistModel());
@@ -86,14 +89,10 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const hasLoadedInstructionsOnce = useRef(false);
   const pendingInstructionsOnceRef = useRef<boolean | null>(null);
   const autoProjectInitRef = useRef(false);
-  const lastSyncedInstructionsRef = useRef<{ v0ProjectId: string; instructions: string } | null>(
-    null,
-  );
-
   const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== "audit");
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
   const [entryIntentActive, setEntryIntentActive] = useState(
-    Boolean(promptParam || promptId || source === "audit"),
+    hasEntryParams && !isAuditEntry ? Boolean(promptParam || promptId) : isAuditEntry,
   );
   const [isTemplateLoading, setIsTemplateLoading] = useState(false);
   const [isPreparingPrompt, setIsPreparingPrompt] = useState(false);
@@ -115,7 +114,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [lastDeployVercelProjectId, setLastDeployVercelProjectId] = useState<string | null>(null);
   const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
   const [isDeployNameSaving, setIsDeployNameSaving] = useState(false);
-  const [v0ProjectId, setV0ProjectId] = useState<string | null>(null);
+  const [externalProjectId, setExternalProjectId] = useState<string | null>(null);
   const [promptAssistContext, setPromptAssistContext] = useState<string | null>(null);
   const promptAssistContextKeyRef = useRef<string | null>(null);
   // Raw page code for section analysis in component picker
@@ -164,6 +163,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     projectParam,
     templateId,
     source,
+    entry,
     buildIntentParam,
     buildMethodParam,
     hasEntryParams,
@@ -230,7 +230,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     hasLoadedInstructionsOnce,
     pendingInstructionsOnceRef,
     autoProjectInitRef,
-    lastSyncedInstructionsRef,
     auditPromptLoaded,
     setAuditPromptLoaded,
     resolvedPrompt,
@@ -274,8 +273,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setActiveDeploymentId,
     isDeployNameSaving,
     setIsDeployNameSaving,
-    v0ProjectId,
-    setV0ProjectId,
+    externalProjectId,
+    setExternalProjectId,
     promptAssistContext,
     setPromptAssistContext,
     promptAssistContextKeyRef,

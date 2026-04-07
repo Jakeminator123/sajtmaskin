@@ -1,0 +1,92 @@
+LLM-KEDJAN - STEG FOR STEG
+==========================
+
+Detta dokument fylls pa under den stegvisa genomgangen av LLM-kedjan.
+Fokus:
+- vad ar input
+- vad ar output
+- vad ar source of truth
+- vad ar hjalpdata
+- vad far faktiskt na modellen
+- vad ar risk / stale / legacy
+
+
+STEG 1 - BUILDER ENTRY / PROMPT IN / FORSTA KLASSNING
+-----------------------------------------------------
+
+Primara kodkallor
+- docs/schemas/builder-entry-contract.md
+- src/app/builder/useBuilderState.ts
+- src/app/builder/useBuilderPageController.ts
+- src/app/builder/useBuilderEffects.ts
+- src/app/builder/useBuilderPromptActions.ts
+- src/lib/hooks/chat/useCreateChat.ts
+- src/lib/hooks/chat/useChatMessaging.ts
+
+Vad ar input?
+- URL-parametrar till /builder
+  - buildMethod
+  - buildIntent
+  - project
+  - prompt
+  - promptId
+  - templateId
+  - chatId
+  - source=audit (kompat / legacy)
+- lokal client state
+- project/client persistence
+- ev. prompt handoff via /api/prompts/[promptId]
+- ev. template-init via /api/template
+
+Vad ar source of truth?
+- builder-entry-contract.md for den onskade publika kontraktsbilden
+- useBuilderState.ts + useBuilderPageController.ts for faktisk klientlogik
+
+Vad ar output fran steg 1?
+- ett aktivt builder-state med:
+  - appProjectId
+  - buildMethod
+  - resolvedBuildIntent
+  - chatId eller null
+  - resolvedPrompt eller templateId-init
+  - en normaliserad entryKind / entryState for ingressen
+- detta mynnar senare ut i create chat eller template init
+
+Vad far faktiskt na modellen i detta steg?
+- ingenting an
+- detta steg klassar och forbereder builder-state
+- modellen far forst input nar create-chat / stream-begaran byggs
+
+Bra saker just nu
+- fresh-entry guards finns och blockerar stale chat-restore
+- prompt-driven och template-driven entry ar dokumenterade separat
+- templateId ar tydligt markerad som transient trigger, inte durable ID
+- entry-logiken ar nu samlad under builder-entry / entryKind i stallet for att
+  spridas lika mycket over flera effekter
+- dod instruction-sync till /api/v0/projects/instructions ar borttagen ur
+  builderflodet
+
+Risker / komplexitet
+- source of truth ar mindre utspridd nu, men det finns fortfarande flera
+  kompatlager:
+  - hasEntryParams
+  - entryIntentActive
+  - templateId-specialfall
+  - gamla payload-falt som v0ProjectId
+- legacy v0ProjectId lever kvar i payload-/DB-kompatibilitet och kan fortsatt
+  forvirra om det blandas ihop med appProjectId
+- flera ingressvagar samverkar:
+  - promptId fetch
+  - prompt param
+  - template init
+  - project restore
+  - auto project init
+
+Min bedomning
+- Steg 1 ar ganska robust, men mer komplext an det borde vara.
+- Ingen akut bug sticker ut just nu efter saneringen.
+- Den viktigaste kvarvarande uppgiften ar att fortsatta minska legacy-namn i
+  payload/kontrakt utan att bryta gamla data- och kompatspår.
+
+Nasta steg
+- granska scaffoldval + BuildSpec + route plan + pre-generation contracts
