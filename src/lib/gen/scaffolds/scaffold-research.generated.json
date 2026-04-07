@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-07T19:06:27.338Z",
+  "generatedAt": "2026-04-07T19:27:46.700Z",
   "source": "scripts/template-library/build-template-library.ts",
   "scaffolds": {
     "base-nextjs": {
@@ -27,18 +27,6 @@
             ]
           },
           {
-            "id": "portfolio-magic-portfolio-for-next-js",
-            "title": "Magic Portfolio for Next.js",
-            "categorySlug": "portfolio",
-            "qualityScore": 94,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "editorial content hierarchy",
-              "portfolio or gallery presentation"
-            ]
-          },
-          {
             "id": "blog-launchpad-next-js-strapi-starter",
             "title": "LaunchPad: Next.js × Strapi Starter",
             "categorySlug": "blog",
@@ -60,6 +48,17 @@
               "App Router structure",
               "editorial content hierarchy",
               "CMS integration hints"
+            ]
+          },
+          {
+            "id": "starter-next-js-motherduck-wasm-minimal",
+            "title": "Next.js MotherDuck Wasm minimal",
+            "categorySlug": "starter",
+            "qualityScore": 92,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns"
             ]
           },
           {
@@ -153,10 +152,9 @@
             "id": "saas-hacker-news-slack-bot",
             "title": "Hacker News Slack Bot",
             "categorySlug": "saas",
-            "qualityScore": 74,
+            "qualityScore": 70,
             "strengths": [
-              "verified Next.js codebase",
-              "multi-tenant or workspace patterns"
+              "verified Next.js codebase"
             ]
           }
         ]
@@ -202,12 +200,12 @@
             "id": "authentication-partner-gallery",
             "title": "Partner Gallery",
             "categorySlug": "authentication",
-            "qualityScore": 82,
+            "qualityScore": 80,
             "strengths": [
               "verified Next.js codebase",
               "auth flow reference",
               "dashboard shell patterns",
-              "pricing or billing structure"
+              "portfolio or gallery presentation"
             ]
           }
         ]
@@ -229,7 +227,7 @@
             "id": "blog-notion-powered-next-js-blog",
             "title": "Notion-Powered Next.js Blog",
             "categorySlug": "blog",
-            "qualityScore": 96,
+            "qualityScore": 94,
             "strengths": [
               "verified Next.js codebase",
               "App Router structure",
@@ -325,18 +323,6 @@
             ]
           },
           {
-            "id": "blog-notion-powered-next-js-blog",
-            "title": "Notion-Powered Next.js Blog",
-            "categorySlug": "blog",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
             "id": "saas-router-so-headless-forms-and-lead-routing",
             "title": "Router.so - Headless Forms and Lead Routing",
             "categorySlug": "saas",
@@ -358,6 +344,18 @@
               "App Router structure",
               "auth flow reference",
               "dashboard shell patterns"
+            ]
+          },
+          {
+            "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+            "title": "Your Next Store — Commerce with Next.js and Stripe",
+            "categorySlug": "ecommerce",
+            "qualityScore": 96,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "pricing or billing structure"
             ]
           }
         ]
@@ -601,18 +599,6 @@
             ]
           },
           {
-            "id": "blog-notion-powered-next-js-blog",
-            "title": "Notion-Powered Next.js Blog",
-            "categorySlug": "blog",
-            "qualityScore": 96,
-            "strengths": [
-              "verified Next.js codebase",
-              "App Router structure",
-              "dashboard shell patterns",
-              "editorial content hierarchy"
-            ]
-          },
-          {
             "id": "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
             "title": "Your Next Store — Commerce with Next.js and Stripe",
             "categorySlug": "ecommerce",
@@ -622,6 +608,18 @@
               "App Router structure",
               "dashboard shell patterns",
               "pricing or billing structure"
+            ]
+          },
+          {
+            "id": "blog-notion-powered-next-js-blog",
+            "title": "Notion-Powered Next.js Blog",
+            "categorySlug": "blog",
+            "qualityScore": 94,
+            "strengths": [
+              "verified Next.js codebase",
+              "App Router structure",
+              "dashboard shell patterns",
+              "editorial content hierarchy"
             ]
           },
           {

@@ -10,6 +10,8 @@ Primary code sources:
 - `src/lib/gen/scaffolds/registry.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/scaffolds/serialize.ts`
+- `src/lib/gen/build-spec.ts`
+- `src/lib/gen/system-prompt.ts`
 
 ## Core rule
 
@@ -23,6 +25,29 @@ Do not confuse runtime scaffolds with:
 - `src/lib/templates/` template-gallery items
 - external Vercel templates
 - curated external references in `data/external-template-pipeline/reference-library/`
+
+## What a scaffold actually contains
+
+A runtime scaffold is **not** just a thin label file.
+
+Each scaffold manifest contains:
+
+- metadata (`id`, `family`, `label`, `description`, `tags`, `promptHints`)
+- runtime traits (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`)
+- actual starter files in `files[]`
+- optional `qualityChecklist`
+- optional `research` (`upgradeTargets`, `referenceTemplates`)
+
+The LLM does not receive the entire repo. Instead, runtime serializes a
+scaffold into:
+
+- scaffold metadata
+- scaffold file tree
+- a small set of critical scaffold files
+- optional scaffold research priorities
+
+This is then combined with route plan, contracts, brief, design/theme context,
+and other request-specific data.
 
 ## Current manifest shape
 
@@ -69,6 +94,9 @@ Current `ScaffoldFamily` values:
 - `auth-pages`
 - `ecommerce`
 
+`family` is scaffoldens runtime-bucket, i.e. the canonical scaffold family used
+for registry lookup, matching, embeddings, and telemetry.
+
 ## Validation rules
 
 `validateScaffoldManifest()` currently checks:
@@ -106,6 +134,28 @@ When a scaffold is selected:
   (bounded primärt av `BuildSpec.tokenBudgets.refsTokens`, med `refsChars` som kompat-fallback)
 - the model may replace, extend, or refine scaffold files
 - the finalized version may merge scaffold base files with generated output
+
+## What reaches the model
+
+The active own-engine prompt path uses:
+
+- selected scaffold metadata
+- serialized scaffold context (file tree + critical files)
+- route plan
+- pre-generation contracts
+- brief / spec signals when present
+- BuildSpec policy and context budgets
+- theme, design references, media aliases, and custom instructions
+
+The active own-engine prompt path does **not** send:
+
+- the full Sajtmaskin repo
+- full external repos from `repo-cache`
+- raw discovery catalogs
+- full dossier directories
+
+External reference material influences runtime indirectly through generated
+artifacts such as `scaffold-research.generated.json`.
 
 ## Quality boundary
 

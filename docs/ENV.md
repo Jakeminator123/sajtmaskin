@@ -67,14 +67,14 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 När `preview-host` används på Fly finns **två** olika env-ytor:
 
 - **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` när preview-host kör icke-lokalt.
-- **Preview-host-tjänsten (Fly secrets / env):** `PREVIEW_HOST_API_KEY` och valfritt `PREVIEW_HOST_DATA_DIR`.
+- **Preview-host-tjänsten (Fly):** `PREVIEW_HOST_API_KEY`, plus host-sidans `PREVIEW_HOST_DATA_DIR=/data` i `preview-host/fly.toml` eller motsvarande service-env.
 
 Praktisk rekommendation:
 
 - Sätt `SAJTMASKIN_PREVIEW_HOST_BASE_URL=https://<din-app>.fly.dev` (root-URL, inte `/preview`)
 - Sätt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` på preview-hosten
 - Sätt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
-- Sätt `PREVIEW_HOST_DATA_DIR=/data` **först** när du faktiskt monterat en Fly volume på `/data`
+- Låt `PREVIEW_HOST_DATA_DIR=/data` leva på host-sidan (`fly.toml` / Fly-env), inte i repo-rotens `.env.local`
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.
 
@@ -212,7 +212,7 @@ Om du **medvetet** måste skriva mot en sådan target krävs explicit override:
 
 Om du vill att lokal utveckling ska vara mer isolerad från production:
 
-- **Blob / bilder / filer:** kommentera ut `BLOB_READ_WRITE_TOKEN`, sätt `STORAGE_BACKEND=fs`, och använd `TEMPLATE_EMBEDDINGS_STORAGE=local`. Då sparas lokala mediafiler via appens uploads-API och embeddings i lokal fil i stället för delad Vercel Blob.
+- **Blob / bilder / filer:** kommentera ut `BLOB_READ_WRITE_TOKEN` och sätt `STORAGE_BACKEND=fs` om du vill hålla media/uppladdningar lokala. **`template-embeddings.json` är nu alltid lokal och commitad**; produktionen läser den filen från repot i stället för blob.
 - **Redis:** kan delas tillfälligt mellan local/preview/production eftersom koden prefixes nycklar per miljö (`dev:`, `preview:`, `prod:`). Separat dev-Redis är bra för renare drift/observability, men inte lika akut som separat DB eller Blob.
 
 ---

@@ -33,7 +33,7 @@ Conservative rollout rule:
   The canonical builder entry contract for `buildMethod`, `buildIntent`,
   `appProjectId`, prompt handoff, and the v0-driven template exception path.
 - `scaffold-contract.md`
-  The runtime scaffold manifest contract and validation expectations.
+  The runtime scaffold manifest contract, scaffold family meaning, and what scaffold context actually reaches the model.
 - `integrations-and-data.md`
   The most important data, validation, and template-library schema surfaces.
 - `external-template-pipeline-contract.md`
@@ -62,6 +62,8 @@ The **own-engine static system prompt** is not a “schema” doc in this folder
 is configured as JSON + Markdown under the repo root: `config/codegen-static-prompt.json`
 and `config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
 dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md) (prompt layering and STATIC_CORE live there; older prompt-tree narrative was removed with the archive — recover via `git log` on that path if needed).
+
+For runtime scaffold input specifically, also read `scaffold-contract.md`.
 
 ## Code sources of truth
 

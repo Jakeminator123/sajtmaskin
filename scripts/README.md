@@ -30,8 +30,8 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
 | [`dev/refresh-token.mjs`](dev/refresh-token.mjs) | `predev`, `refresh-token` |
 | [`db/db-init.mjs`](db/db-init.mjs) | `predev`, `db:init` |
 
-**Mallflöde (v0-templates i repo, enbart lokal data):** [`v0-templates/sync-v0-templates.mjs`](v0-templates/sync-v0-templates.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/refresh-local-v0-catalog.mjs`](v0-templates/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
-- **Delade TS-moduler (ingen egen CLI):** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
+**v0-mallar (builderns Mallar-tab, enbart lokal data):** [`v0-templates/sync-v0-templates.mjs`](v0-templates/sync-v0-templates.mjs), [`v0-templates/validate-templates.mjs`](v0-templates/validate-templates.mjs), [`v0-templates/refresh-local-v0-catalog.mjs`](v0-templates/refresh-local-v0-catalog.mjs), [`embeddings/generate-template-embeddings.ts`](embeddings/generate-template-embeddings.ts) — `templates:sync`, `templates:validate`, `templates:refresh`, `templates:local:refresh`, `templates:local:refresh:embeddings`, `templates:embeddings`.
+- **Externa Vercel-mallar / externa referenser:** [`template-library/template-library-discovery.ts`](template-library/template-library-discovery.ts) (JSON/summary-hjälp) används av build/hydrate/import/promote/verify, tester och `e2e/vercel-templates/scrape-catalog.spec.ts`. [`scaffolds/scaffold-candidate-report.ts`](scaffolds/scaffold-candidate-report.ts) anropas från `build-template-library` och `curate-scaffold-candidates`. Kör dem via npm eller `npx tsx` enligt avsnitten nedan.
 - **Vercel use-case-skrapning (Python):**
   - **Kanonisk entrypoint:** [`template-library/hamta_sidor_branch_emil.py`](template-library/hamta_sidor_branch_emil.py) — tierad utdata, rapporter, bred research-intake som kan markera `framework_match: false` i stället för att kasta bort poster direkt.
   - **Nuvarande standardflöde:** bred intake med `--legacy-wide-use-cases --per-category 999` till `data/external-template-pipeline/scrape-cache/current`, därefter import + hydrate + build + embeddings via den kanoniska refresh-kedjan.
@@ -40,6 +40,17 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
   - Se [`repository-and-platform.md`](../docs/architecture/repository-and-platform.md).
   - Kanonisk mutable data ligger i **`data/external-template-pipeline/`**. Om du behöver återanvända en annan scrape-cache ska du ange den **explicit** med `--scrape-output` / `--from`, inte förlita dig på path-fallbackar.
 - **~~vercel_template_cli.py~~** (borttagen) — använd `hamta_sidor_branch_emil.py` eller Playwright-discover i stället.
+
+## Tre separata spår
+
+1. **`v0-mallar`**
+   Builderns Mallar-tab. Källa: `templates_v0/*`. Runtimefiler: `src/lib/templates/*`.
+
+2. **Vercel-mallar / externa referenser**
+   Extern intake via `e2e/vercel-templates/*` och `data/external-template-pipeline/*`. Kurateras till `src/lib/gen/template-library/*`.
+
+3. **Scaffolds**
+   Interna runtime-startpunkter i `src/lib/gen/scaffolds/*` som own-engine använder vid codegen.
 
 ## Kanonisk scaffold-CLI (`scripts/scaffolds/scaffold_cli.py`)
 
@@ -64,12 +75,12 @@ python scripts/scaffolds/scaffold_cli.py status
 python scripts/scaffolds/scaffold_cli.py all --typecheck
 ```
 
-CLI:n anropar low-level-skripten i rätt ordning och håller **v0-mallspåret**
+CLI:n anropar low-level-skripten i rätt ordning och håller `v0-mallar`
 separerat. Den triggar inte `templates:*`-kommandon automatiskt.
 
 ## Lokala v0-mallar (`templates_v0/`)
 
-Detta spår är till för **builderns mallgalleri**, inte för `template-library` eller Vercel-template research. All data hämtas lokalt — inga online-anrop till v0.app görs längre.
+Detta spår är till för **builderns Mallar-tab / `v0-mallar`**, inte för `template-library`, Vercel-mallar eller scaffolds. All data hämtas lokalt — inga online-anrop till v0.app görs längre.
 
 `templates:*`-kommandon är ett separat spår och ingår inte i den nya
 `scaffolds:*`-CLI:n.
@@ -91,7 +102,7 @@ Se [`templates_v0/README.txt`](../templates_v0/README.txt) för komplett mappstr
 | `templates_v0/out/downloaded.jsonl` | Valfri. Logg per nedladdad ZIP, ger extra kategorisignal. |
 | `src/lib/templates/templates.json` | **Genererad** katalog som appen läser vid runtime. |
 | `src/lib/templates/template-categories.json` | **Genererad** kategorimappning för kategorisidor och modaler. |
-| `src/lib/templates/template-embeddings.json` | Embeddings för semantisk mallsökning. Fallback till keyword-sökning om filen saknas. |
+| `src/lib/templates/template-embeddings.json` | Embeddings för semantisk sökning i builderns Mallar-tab. Commitad och läses lokalt av produktionen; byggs om via scripts, inte via blob/cron i drift. |
 
 ### Kommandon
 
@@ -139,8 +150,9 @@ Kanonisk plats: `scripts/env/`.
 
 ## build-template-library.ts
 
-Auditerar rå extern template-research och bygger ett kuraterat
-`reference-library`-lager för agenter och scaffold-arbete.
+Auditerar rå extern research från **Vercel-mallar** och bygger ett kuraterat
+`reference-library`-lager för externa referenser, scaffold-arbete och
+kurering.
 
 ### Användning
 
@@ -233,9 +245,10 @@ Genererar embeddings för den kuraterade externa referensytan så att agenter oc
 framtida scaffold-logik kan söka semantiskt i externa referensmallar.
 
 Detta skriver den stora generated-filen
-`src/lib/gen/template-library/template-library-embeddings.json`. Filen kan vara
-lokal och viktig för curation-/kontrollflöden samtidigt som den hålls utanför
-normal Cursor-indexering för att minska brus och kontextkostnad.
+`src/lib/gen/template-library/template-library-embeddings.json`. Filen gäller
+**externa referenser / `template-library`**, inte builderns `v0-mallar`. Den
+är viktig för curation-/kontrollflöden och hålls utanför normal
+Cursor-indexering för att minska brus och kontextkostnad.
 
 ### Användning
 
@@ -377,7 +390,7 @@ Nuvarande eval-checkar inkluderar också:
 
 ## references:discover
 
-Playwright-baserad extern template-discovery som normaliseras till
+Playwright-baserad extern discovery av **Vercel-mallar** som normaliseras till
 `data/external-template-pipeline/raw-discovery/current/`.
 
 Använd i första hand:
@@ -388,7 +401,7 @@ npm run references:discover:second-pass
 npm run references:discover:full
 ```
 
-**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md); äldre narrativfiler i git-historik.
+**OBS:** Playwright-specen ligger under **`e2e/vercel-templates/`** (spårad). Den är **extern intake**, inte runtime. Kräver Playwright; kör `npx playwright install` vid behov. Scaffolds uppdateras inte automatiskt — se [`e2e/README.md`](../e2e/README.md); äldre narrativfiler i git-historik.
 
 ## Synk med `package.json`
 

@@ -224,7 +224,23 @@ async function extractTemplateDetails(
         new Set(
           [template.title, template.description, ...stackTags, ...visibleText]
             .map((value) => value.replace(/\s+/g, " ").trim())
-            .filter((value) => value.length >= 2)
+            .filter((value) => {
+              if (value.length < 2) return false;
+              if (
+                /^(getting started|installation|install dependencies|run locally|start the development server|start development server|clone the repository|clone git|clone\s|git clone|npm install|pnpm install|yarn install|bun install|npm run dev|pnpm dev|yarn dev|bun dev|npm$|install$|localhost|http:\/\/localhost|\.env(\.local|\.example)?|copy the keys|register an account|check out the docs|learn more|view demo|if you want to learn more|file\. then, enable|^https?:\/\/localhost|^https?:\/\/|^git@github\.com:)/i.test(value)
+              ) {
+                return false;
+              }
+              if (/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(value)) return false;
+              const wordCount = value.split(" ").length;
+              if (
+                wordCount <= 4 &&
+                !/\b(next\.?js|app router|dashboard|analytics|checkout|cart|catalog|storefront|ecommerce|multi-tenant|authentication|login|signup|pricing|portfolio|blog|cms|sidebar|middleware|api|server actions?)\b/i.test(value)
+              ) {
+                return false;
+              }
+              return true;
+            })
             .slice(0, 28),
         ),
       );

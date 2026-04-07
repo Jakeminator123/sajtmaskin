@@ -14,6 +14,14 @@ It covers:
 - generated runtime artifacts
 - validation expectations
 
+It is specifically about **Vercel-mallar / externa referenser** and the
+generated artifacts that come from that lane.
+
+It does **not** describe:
+
+- builderns `v0-mallar` under `src/lib/templates/*`
+- runtime scaffold manifests under `src/lib/gen/scaffolds/*`
+
 It does **not** redefine runtime scaffold manifests in
 `src/lib/gen/scaffolds/`. Those remain documented in
 [`scaffold-contract.md`](./scaffold-contract.md).
@@ -128,6 +136,12 @@ Important fields:
 
 Production/runtime code should rely on the generated artifacts under `src/lib/gen/`
 and internal scaffold manifests under `src/lib/gen/scaffolds/`.
+
+The runtime does **not** read dossiers directly. Dossiers are first condensed
+into:
+
+- `src/lib/gen/template-library/template-library.generated.json`
+- `src/lib/gen/scaffolds/scaffold-research.generated.json`
 
 It must **not** depend on:
 

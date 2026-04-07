@@ -219,7 +219,7 @@ PRESET_FULL_ALL = [
 class ScriptsDashboard:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Sajtmaskin Scripts Dashboard")
+        self.root.title("Sajtmaskin Scriptpanel")
         self.root.geometry("1360x860")
         self.root.minsize(1200, 760)
 
@@ -243,7 +243,7 @@ class ScriptsDashboard:
 
         title = ttk.Label(
             top,
-            text="Scripts Dashboard (manual pipeline control)",
+            text="Sajtmaskin Scriptpanel",
             font=("Segoe UI", 13, "bold"),
         )
         title.pack(anchor=tk.W)
@@ -251,8 +251,8 @@ class ScriptsDashboard:
         subtitle = ttk.Label(
             top,
             text=(
-                "Kör enstaka script, valda sekvenser eller preset-all. "
-                "Kommandon som kan skriva/uppdatera data markeras som risky."
+                "Kör enstaka steg eller hela pipelines. "
+                "Saker som skriver om data eller bygger om artifacts markeras som riskabla."
             ),
         )
         subtitle.pack(anchor=tk.W, pady=(2, 0))
@@ -262,28 +262,28 @@ class ScriptsDashboard:
 
         self.run_checked_button = ttk.Button(
             controls,
-            text="Run checked sequence",
+            text="Kör markerade",
             command=self._run_checked_sequence,
         )
         self.run_checked_button.pack(side=tk.LEFT)
 
         self.run_safe_all_button = ttk.Button(
             controls,
-            text="Run SAFE all",
+            text="Kör säker helkörning",
             command=lambda: self._run_preset(PRESET_SAFE_ALL, "SAFE all"),
         )
         self.run_safe_all_button.pack(side=tk.LEFT, padx=(8, 0))
 
         self.run_full_all_button = ttk.Button(
             controls,
-            text="Run FULL all (risky)",
+            text="Rensa och bygg om allt",
             command=lambda: self._run_preset(PRESET_FULL_ALL, "FULL all"),
         )
         self.run_full_all_button.pack(side=tk.LEFT, padx=(8, 0))
 
         self.stop_button = ttk.Button(
             controls,
-            text="Stop active",
+            text="Stoppa aktiv körning",
             command=self._stop_active_process,
             state=tk.DISABLED,
         )
@@ -291,7 +291,7 @@ class ScriptsDashboard:
 
         self.clear_button = ttk.Button(
             controls,
-            text="Clear log",
+            text="Rensa logg",
             command=self._clear_log,
         )
         self.clear_button.pack(side=tk.LEFT, padx=(8, 0))
@@ -300,7 +300,7 @@ class ScriptsDashboard:
         auto_confirm = ttk.Checkbutton(
             controls,
             variable=self.auto_confirm_var,
-            text="Auto-confirm risky commands",
+            text="Bekräfta riskabla kommandon automatiskt",
         )
         auto_confirm.pack(side=tk.RIGHT)
 
@@ -317,6 +317,8 @@ class ScriptsDashboard:
 
     def _build_commands_panel(self, parent: ttk.Frame) -> None:
         self._build_explanation_panel(parent)
+        self._build_button_help_panel(parent)
+        self._build_runtime_usage_panel(parent)
         self._build_status_panel(parent)
 
         groups = ["Artifacts", "Scaffolds", "Template Library", "v0 Templates", "Quality"]
@@ -327,30 +329,95 @@ class ScriptsDashboard:
                 self._build_command_row(frame, spec)
 
     def _build_explanation_panel(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="What Is What", padding=8)
+        frame = ttk.LabelFrame(parent, text="Vad är vad?", padding=8)
         frame.pack(fill=tk.X, pady=(0, 8))
 
         lines = [
-            "Builder templates = src/lib/templates/*",
-            "Used by builderns Mallar-tab. Built from templates_v0/out/*.",
+            "Mallar i buildern = src/lib/templates/*",
+            "Detta är builderns Mallar-tab och byggs från templates_v0/out/*.",
             "",
             "Scaffolds = src/lib/gen/scaffolds/*",
-            "Used by code generation as structured start points.",
+            "Detta är interna startpunkter som own-engine använder vid codegen.",
+            "Scaffold family = scaffoldens runtime-bucket i registret.",
+            "Exempel: auth-pages/manifest.ts -> registry.ts -> matcher -> system prompt -> own-engine.",
             "",
-            "Template library = src/lib/gen/template-library/*",
-            "External reference material built from data/external-template-pipeline/*.",
+            "Externa referenser = src/lib/gen/template-library/*",
+            "Byggs från data/external-template-pipeline/* och används som referens-/researchmaterial.",
+            "README i template-library betyder README.md från det externa referensrepot, inte detta repo.",
             "",
-            "e2e/vercel-templates = automated external intake only.",
-            "It collects Vercel template research. It is not runtime.",
+            "e2e/vercel-templates = automatisk hämtning av externa Vercel-mallar.",
+            "Det är intake/research, inte runtime.",
             "",
-            "Embeddings files are precomputed artifacts.",
-            "Normal requests/searches may create one query embedding, not rebuild the full files.",
+            "Embeddingsfiler är förgenererade artifacts.",
+            "Vanliga requests kan skapa en query-embedding, men bygger inte om hela filerna.",
+        ]
+        label = ttk.Label(frame, text="\n".join(lines), justify=tk.LEFT)
+        label.pack(anchor=tk.W)
+
+        llm_frame = ttk.LabelFrame(parent, text="Vad skickas till LLM?", padding=8)
+        llm_frame.pack(fill=tk.X, pady=(0, 8))
+        llm_lines = [
+            "Direkt input idag:",
+            "- originalprompt",
+            "- brief / spec om den finns",
+            "- route plan",
+            "- pre-generation contracts",
+            "- scaffold-kontext (filträd + kritiska scaffold-filer)",
+            "- tema / designreferenser / media-katalog / custom instructions",
+            "",
+            "Inte direkt runtime-input:",
+            "- hela externa repos",
+            "- fulla dossiers",
+            "",
+            "Dossiers kondenseras först till:",
+            "- template-library.generated.json",
+            "- scaffold-research.generated.json",
+            "",
+            "Du kan köra hela ombyggnaden manuellt via:",
+            "- Artifacts: smart rebuild (reuse cache)",
+            "- Rensa och bygg om allt",
+        ]
+        llm_label = ttk.Label(llm_frame, text="\n".join(llm_lines), justify=tk.LEFT)
+        llm_label.pack(anchor=tk.W)
+
+    def _build_button_help_panel(self, parent: ttk.Frame) -> None:
+        frame = ttk.LabelFrame(parent, text="Vad händer om jag trycker här?", padding=8)
+        frame.pack(fill=tk.X, pady=(0, 8))
+        lines = [
+            "Kör säker helkörning = rensar artifacts, återanvänder scrape-cache/repo-cache, bygger om v0-mallar, externa referenser, scaffolds, embeddings, eval och typecheck.",
+            "Rensa och bygg om allt = samma som ovan men kör också ny full scrape av externa Vercel-mallar.",
+            "Scaffolds: all = kör scaffold-pipelinen från import/hydrate/build till embeddings/eval/verify.",
+            "Template pipeline: refresh reuse cache = bygger om externa referenser utan ny scrape.",
+            "v0 templates: local refresh + embeddings = bygger om Mallar-tab + dess embeddings lokalt.",
+        ]
+        label = ttk.Label(frame, text="\n".join(f"- {line}" for line in lines), justify=tk.LEFT)
+        label.pack(anchor=tk.W)
+
+    def _build_runtime_usage_panel(self, parent: ttk.Frame) -> None:
+        frame = ttk.LabelFrame(parent, text="Vad används direkt av runtime?", padding=8)
+        frame.pack(fill=tk.X, pady=(0, 8))
+        lines = [
+            "Ja:",
+            "- src/lib/templates/templates.json",
+            "- src/lib/templates/template-embeddings.json",
+            "- src/lib/gen/scaffolds/* (manifest + scaffold research + scaffold embeddings)",
+            "",
+            "Inte direkt:",
+            "- e2e/vercel-templates/*",
+            "- data/external-template-pipeline/raw-discovery/*",
+            "- data/external-template-pipeline/repo-cache/*",
+            "- data/external-template-pipeline/reference-library/* (dossiers)",
+            "- fulla externa repos",
+            "",
+            "Dossiers kondenseras först till runtime-/buildartefakter:",
+            "- src/lib/gen/template-library/template-library.generated.json",
+            "- src/lib/gen/scaffolds/scaffold-research.generated.json",
         ]
         label = ttk.Label(frame, text="\n".join(lines), justify=tk.LEFT)
         label.pack(anchor=tk.W)
 
     def _build_status_panel(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Artifact Status", padding=8)
+        frame = ttk.LabelFrame(parent, text="Artifact-status", padding=8)
         frame.pack(fill=tk.BOTH, pady=(0, 8))
 
         button_row = ttk.Frame(frame)
@@ -358,7 +425,7 @@ class ScriptsDashboard:
 
         refresh_button = ttk.Button(
             button_row,
-            text="Refresh status",
+            text="Uppdatera status",
             command=self._refresh_status_panel,
         )
         refresh_button.pack(side=tk.LEFT)
@@ -429,7 +496,7 @@ class ScriptsDashboard:
             else None
         )
         lines.extend([
-            "Builder templates (Mallar-tab)",
+            "Mallar i buildern",
             f"  templates.json count: {template_entries}",
             f"  template-embeddings.json count: {template_embedding_count}",
             f"  parity: {'OK' if template_entries == template_embedding_count else 'MISMATCH'}",
@@ -446,7 +513,7 @@ class ScriptsDashboard:
             else None
         )
         lines.extend([
-            "Template library (external references)",
+            "Externa referenser",
             f"  template-library.generated.json entries: {library_entry_count}",
             f"  template-library-embeddings.json count: {library_embedding_count}",
             f"  parity: {'OK' if library_entry_count == library_embedding_count else 'MISMATCH'}",
@@ -463,19 +530,20 @@ class ScriptsDashboard:
             else None
         )
         lines.extend([
-            "Scaffolds",
+            "Aktiva scaffolds",
             f"  scaffold-research.generated.json scaffolds: {scaffold_count}",
             f"  scaffold-embeddings.json count: {scaffold_embedding_count}",
             f"  parity: {'OK' if scaffold_count == scaffold_embedding_count else 'MISMATCH'}",
             f"  generated: {scaffold_embeddings.get('_meta', {}).get('generated') if isinstance(scaffold_embeddings, dict) else None}",
+            f"  runtime scaffold ids: {', '.join(sorted(scaffold_research.get('scaffolds', {}).keys())) if isinstance(scaffold_research, dict) else ''}",
             "",
         ])
 
         lines.extend([
-            "Source paths",
-            "  Builder templates <- templates_v0/out/* -> src/lib/templates/*",
-            "  External intake <- e2e/vercel-templates/* -> data/external-template-pipeline/*",
-            "  External references <- data/external-template-pipeline/* -> src/lib/gen/template-library/*",
+            "Källvägar",
+            "  Mallar i buildern <- templates_v0/out/* -> src/lib/templates/*",
+            "  Extern intake <- e2e/vercel-templates/* -> data/external-template-pipeline/*",
+            "  Externa referenser <- data/external-template-pipeline/* -> src/lib/gen/template-library/*",
             "  Scaffolds <- src/lib/gen/scaffolds/* + scaffold research overlays",
         ])
 

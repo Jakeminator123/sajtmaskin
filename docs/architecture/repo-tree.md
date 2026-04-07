@@ -14,7 +14,7 @@
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite) plus kanonisk external-template-pipeline under `data/external-template-pipeline/`. Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
-| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `cli/`, `env/`, `manual/`. |
+| `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`. |
 | `archive/` | Icke-aktiva labb m.m. — [`archive/README.md`](../../archive/README.md) (t.ex. tidigare `scripts/labs/testning_scarf/`). |
 | `tools/` | Verktyg utanför runtime (t.ex. doc-browser) — [`tools/README.md`](../../tools/README.md). |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |

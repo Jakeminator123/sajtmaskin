@@ -31,6 +31,25 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
 
+### Tre separata mallspår
+
+1. **`v0-mallar` / builderns Mallar-tab**
+   - källa: `templates_v0/*`
+   - genererade runtimefiler: `src/lib/templates/*`
+   - används i builderns mallkatalog och mallsök
+   - embeddings: `src/lib/templates/template-embeddings.json`
+
+2. **Vercel-mallar / externa referenser**
+   - källa: `e2e/vercel-templates/*`
+   - rå pipeline: `data/external-template-pipeline/*`
+   - används för extern research, dossiers och scaffold research
+   - embeddings: `src/lib/gen/template-library/template-library-embeddings.json`
+
+3. **Scaffolds**
+   - källa: interna `manifest.ts`-filer under `src/lib/gen/scaffolds/*`
+   - används direkt av own-engine som runtime-startpunkter för codegen
+   - embeddings: `src/lib/gen/scaffolds/scaffold-embeddings.json`
+
 ## Kända fel och autofix
 
 Autofix-steg (use client, imports, metadata, esbuild, …): kod `src/lib/gen/autofix/`.
@@ -41,12 +60,13 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 
 1. **API-versionering** — `/api/v0/...` är Sajtmaskins HTTP-API v0, inte leverantören V0.
 2. **Naming debt** — symboler som `v0ChatId`, `v0EnrichmentContext`, `v0Stream.ts` m.fl. kvarstår historiskt; interna namn rensas löpande, payload-/DB-nycklar bryts inte utan migrationsplan.
-3. **Template-källa** — mallgalleriet läser genererad katalog i `src/lib/templates/`; `scripts/v0-templates/sync-v0-templates.mjs` läser enbart lokala `templates_v0/out`-manifest (ingen online-hämtning). `templates_v0/` innehåller lokalt nedladdade ZIP-arkiv, bilder och metadata för alla mallar. När en lokal ZIP finns i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från repo-filerna i arkivet; detta är separat från Vercel template research.
+3. **Template-källa** — builderns `v0-mallar` läser genererad katalog i `src/lib/templates/`; `scripts/v0-templates/sync-v0-templates.mjs` läser enbart lokala `templates_v0/out`-manifest (ingen online-hämtning). `templates_v0/` innehåller lokalt nedladdade ZIP-arkiv, bilder och metadata för alla mallar. När en lokal ZIP finns i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från repo-filerna i arkivet; detta är separat från Vercel-mallar / externa referenser.
 
-## Vercel Templates / Playwright / scorefolds
+## Vercel Templates / Playwright / extern intake
 
-- Discovery pipeline, Playwright-spec, koppling till scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
-- `data/external-template-pipeline/reference-library/` och dess **dossiers** är build-time researchmaterial. Runtime own-engine läser inte dossiers direkt; `build-template-library.ts` kondenserar dem först till `src/lib/gen/template-library/template-library.generated.json` och `src/lib/gen/scaffolds/scaffold-research.generated.json`, som sedan används av `system-prompt.ts` och scaffold-registret.
+- Discovery pipeline, Playwright-spec och koppling till externa referenser/scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
+- `e2e/vercel-templates/*` är **automatiserad extern intake**, inte runtime.
+- `data/external-template-pipeline/reference-library/` och dess **dossiers** är build-time researchmaterial. Runtime own-engine läser inte dossiers direkt; `build-template-library.ts` kondenserar dem först till `src/lib/gen/template-library/template-library.generated.json` och `src/lib/gen/scaffolds/scaffold-research.generated.json`, som sedan används som referens-/researchartefakter i scaffold- och promptflöden.
 
 ## Inspector / Playwright worker
 

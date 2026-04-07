@@ -7,30 +7,51 @@ alwaysApply: true
 
 Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines: `docs/architecture/repository-and-platform.md` och `docs/architecture/repo-tree.md`.
 
+## Kort ordlista
+
+| Term | Betyder | Källa / plats | Används till |
+|------|---------|---------------|--------------|
+| **`v0-mallar`** | Builderns Mallar-tab / mallkatalog | `templates_v0/*` → `src/lib/templates/*` | användarvända mallar i buildern |
+| **Vercel-mallar / externa referenser** | Externa mallar från Vercel Templates | `e2e/vercel-templates/*` → `data/external-template-pipeline/*` | extern research, dossiers, scaffold research |
+| **`template-library`** | Kuraterad referensartefakt byggd från externa referenser | `src/lib/gen/template-library/*` | referens-/researchartefakt, validering, tooling |
+| **scaffolds** | Interna runtime-startpunkter | `src/lib/gen/scaffolds/*` | own-engine codegen |
+| **scaffold family** | Scaffoldens runtime-bucket (`landing-page`, `auth-pages`, ...) | `ScaffoldManifest.family` | matchning, registry, embeddings, telemetry |
+| **dossiers** | Fullt researchmaterial från externa referenser | `data/external-template-pipeline/reference-library/*` | build-time underlag, inte direkt runtime-input |
+| **embeddings** | Förgenererade JSON-vektorer per spår | `src/lib/templates/*`, `src/lib/gen/template-library/*`, `src/lib/gen/scaffolds/*` | semantisk sökning / fallback |
+
 ## `v0` betyder tre olika saker
 
 1. **API-versionering**: Sajtmaskins egna routes under `/api/v0/`. Det har inget med leverantören v0 att göra.
 2. **Naming debt**: gamla symbolnamn eller payload-nycklar från tidigare v0-baserad codegen.
-3. **Builderns Mallar-tab / mallgalleri**: användarvänd startyta med data synkad från `v0.app` via `src/lib/templates/`. Detta är **inte** runtime `template-library`, **inte** Vercel template research och **inte** scaffold.
+3. **Builderns Mallar-tab / `v0-mallar`**: användarvänd startyta med data synkad från lokala `templates_v0/*` till `src/lib/templates/`. Detta är **inte** `template-library`, **inte** Vercel-mallar / externa referenser och **inte** scaffolds.
 
 `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime. **own-engine** är den enda aktiva codegen-vägen.
 
 ### Namnge det som faktiskt händer
 
 - Säg **own-engine** när du menar den aktiva generationmotorn.
-- Säg **`/api/v0/`-route** eller **API-versionering** när du menar egna serverroutes.
-- Säg **builderns Mallar-tab**, **mallgalleri** eller **mallkatalog** när du menar den användarvända katalogen i `src/lib/templates/`.
-- Säg **`template-library`** när du menar runtime referensbiblioteket i `src/lib/gen/template-library`.
-- Säg **Vercel template research** eller **`data/external-template-pipeline`** när du menar research-/importspåret.
+- Säg **`/api/v0/`-route** eller **API-versionering** när du menar egna serverroutes (denna väg ska betraktas legasy, eller ngt vi ska bort från). 
+- Säg **`v0-mallar`**, **builderns Mallar-tab**, **mallgalleri** eller **mallkatalog** när du menar den användarvända katalogen i `src/lib/templates/`.
+- Säg **Vercel-mallar**, **externa referenser** eller **Vercel template research** när du menar externa mallar från [Vercel Templates](https://vercel.com/templates) som går via `e2e/vercel-templates/` och `data/external-template-pipeline/`.
+- Säg **`template-library`** när du menar den kuraterade referensartefakten i `src/lib/gen/template-library` som byggs från de externa Vercel-mallarna.
+- Säg **scaffolds** när du menar interna runtime-startpunkter i `src/lib/gen/scaffolds/` som own-engine faktiskt använder vid codegen.
+- Säg **scaffold family** när du menar `family`-fältet i ett runtime-scaffold, dvs den interna scaffold-bucketen (`landing-page`, `auth-pages`, `dashboard`, m.fl.).
 - Säg **inte** "v0-provider", "v0-engine", "v0-generation" eller liknande om nuvarande runtime.
 - Säg helst inte bara **"template"** eller **"mall"** utan förtydligande i tekniska resonemang; välj den specifika ytan ovan.
 - Hitta inte på nya produktnamn för samma sak. Om du är osäker: använd repoets befintliga ord `own-engine`, `preview_host`, `VM`, `template-library`, `preview`. Använd `sandbox` när du faktiskt menar legacy-namn, delat tier-2-kontrakt eller Vercel Sandbox-fallback.
+- När tekniska engelska ord eller kodnamn används i förklaringar för användaren, ge **selektivt** en kort svensk parentes direkt efter första användningen om termen riskerar att misstolkas. Exempel: `scaffold family` (scaffoldens runtime-bucket), `template-library` (kuraterad referensartefakt), `dossier` (researchunderlag). Håll parentesen kort — synonym eller en mycket kort mening räcker.
 
-## Mall, preview, sandbox
+## Mall, scaffold, preview, sandbox
 
-- **Builderns Mallar-tab / mallgalleri**: den användarvända katalogen i `src/lib/templates/`, med kategorier och startpunkter synkade från `v0.app`. Inte samma sak som `template-library`, Vercel template research eller scaffold.
-- **`template-library`**: internt runtime referensbibliotek i `src/lib/gen/template-library` som används för prompt guidance och retrieval. Inte samma sak som builderns Mallar-tab.
-- **Vercel-mall / external-template research**: research-material i `data/external-template-pipeline/`. Inte samma sak som builderns Mallar-tab eller runtime `template-library`.
+- **`v0-mallar` / Builderns Mallar-tab / mallgalleri**: den användarvända katalogen i `src/lib/templates/`, med kategorier och startpunkter synkade från `templates_v0/*`. Inte samma sak som `template-library`, Vercel-mallar / externa referenser eller scaffolds.
+- **Vercel-mallar / externa referenser**: externa mallar från Vercel Templates som hämtas via `e2e/vercel-templates/` till `data/external-template-pipeline/`. Inte samma sak som builderns Mallar-tab eller scaffolds.
+- **`template-library`**: kuraterad referensartefakt i `src/lib/gen/template-library` byggd från de externa Vercel-mallarna. Inte samma sak som builderns Mallar-tab och inte samma sak som runtime-scaffolds.
+- **Dossiers**: build-time researchmaterial i `data/external-template-pipeline/reference-library/`. Dossiers är inte direkta runtime-inputs till own-engine; de kondenseras först till `template-library.generated.json` och `scaffold-research.generated.json`.
+- **Scaffolds**: interna runtime-startpunkter i `src/lib/gen/scaffolds/`. Det är dessa `manifest.ts`-filer som importeras i `registry.ts`, väljs i `matchScaffoldAuto()`, serialiseras till promptkontext och används av own-engine.
+- **Scaffold family**: `family`-värdet på ett scaffold (`landing-page`, `auth-pages`, `dashboard`, osv). Detta är scaffoldens interna bucket/klassning i runtime.
+- **Embeddings för `v0-mallar`**: `src/lib/templates/template-embeddings.json` — semantisk sökning i builderns Mallar-tab.
+- **Embeddings för `template-library`**: `src/lib/gen/template-library/template-library-embeddings.json` — semantisk sökning i externa referenser / `template-library`.
+- **Embeddings för scaffolds**: `src/lib/gen/scaffolds/scaffold-embeddings.json` — semantisk scaffold-fallback när keyword-matchning är för svag eller generisk.
 - **Preview**: det användaren ser i buildern.
 - **VM / `preview_host`**: den aktuella primära tier-2-live-previewen via Fly.io. **Detta är riktningen framåt.** All ny preview-logik ska använda `preview_host` / VM-terminologi.
 - **Sandbox (LEGACY — undvik i ny kod)**: äldre paraplyterm som lever kvar i DB-kolumner (`sandbox_url`), vissa Redis-nycklar, TypeScript-typer och SSE-fält (`sandboxPending`, `sandboxUrl`, `sandboxId`). Publika preview-routes är nu `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy`, `preview-hibernate`, men nya interna kommentarer/loggar ska ändå använda **preview** / **VM** / **tier-2** i stället för "sandbox" när det inte handlar om legacy-kontraktet. Se **explicit allowlist** i `docs/schemas/preview-session-contract.md` (*Remaining `sandbox` wording*).
@@ -60,7 +81,7 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 ## Fidelity
 
 - **1**: enklare eller statisk preview (kan också vara legacy).
-- **2**: (VI JOBBAR I 90% AV FALLEN MOT DETTA) körbar live-preview via `preview_host` / VM, med vissa legacy `sandbox`-namn kvar i kod och DB. Server-verify kör bara `typecheck` för tier-2 (`TIER2_QUALITY_GATE_CHECKS`). `next build` körs **inte** automatiskt — det hör till tier-3.
+- **2**: (VI JOBBAR I 90% AV FALLEN MOT DETTA) körbar live-preview via `preview_host` / VM, med vissa legacy `sandbox`-namn kvar i kod och DB. Server-verify kör bara `typecheck` för tier-2. Motssvarande 'npm install' eller 'pnpm install' körs på dev VM som använder ett användarprojekt.  (`TIER2_QUALITY_GATE_CHECKS`). `next build` körs **inte** automatiskt — det hör till tier-3.
 - **3**: byggbar och deploybar produktionstro version. Inkluderar `next build` i quality gate.
 
 `docs/architecture/preview-deploy.md` är kanonisk källa för den faktiska preview-kedjan.

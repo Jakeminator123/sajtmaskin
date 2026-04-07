@@ -13,6 +13,11 @@ Each family directory contains a `manifest.ts` plus template files. Those
 manifests are imported only through `registry.ts`; callers should not wire
 individual scaffold folders into generation flows directly.
 
+**Example:** `auth-pages/manifest.ts` is imported by `registry.ts`, can be
+selected by `matchScaffoldAuto()`, is serialized into prompt context via
+`serializeScaffoldForPrompt()`, and then own-engine uses that scaffold context
+when generating code.
+
 ## Cursorignored generated files
 
 | File | Size | What it is |
@@ -25,7 +30,7 @@ individual scaffold folders into generation flows directly.
 | File | What it does |
 |------|-------------|
 | `registry.ts` | Imports the 10 manifests and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
-| `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. |
+| `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. `family` is scaffoldens runtime bucket, dvs scaffold family. |
 | `matcher.ts` | Primary keyword-based scaffold matching. `matchScaffoldAuto()` uses keyword matching first and only uses embeddings when the keyword result is missing or too generic. |
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns the resolved scaffold into prompt context. |
 | `scaffold-search.ts` | Embedding-based `searchScaffolds()`; expands SV<->EN query hints before cosine ranking. |

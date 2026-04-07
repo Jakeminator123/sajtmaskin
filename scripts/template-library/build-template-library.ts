@@ -85,7 +85,15 @@ function sanitizeEntryForCatalogOutput(entry: TemplateLibraryEntry): TemplateLib
 const NOISE_LINE_RE =
   /\b(Vercel Agent|Vercel documentation|Deploy at the speed of AI|Ship features, not infrastructure|SDKs by Vercel)\b/i;
 const SETUP_NOISE_LINE_RE =
-  /^(getting started|installation|install dependencies|run locally|start the development server|start development server|clone the repository|clone git|npm install|pnpm install|yarn install|bun install|npm run dev|pnpm dev|yarn dev|bun dev|localhost|http:\/\/localhost|\.env(\.local|\.example)?|copy the keys|register an account|check out the docs|learn more|view demo)$/i;
+  /^(getting started|installation|install dependencies|run locally|start the development server|start development server|clone the repository|clone git|clone\s|git clone|npm install|pnpm install|yarn install|bun install|npm run dev|pnpm dev|yarn dev|bun dev|npm$|install$|localhost|http:\/\/localhost|\.env(\.local|\.example)?|copy the keys|register an account|check out the docs|learn more|view demo|if you want to learn more|file\. then, enable|^https?:\/\/localhost|^https?:\/\/|^git@github\.com:)/i;
+const STRUCTURAL_USEFUL_LINE_RE =
+  /\b(next\.?js|app router|dashboard|analytics|checkout|cart|catalog|storefront|ecommerce|multi-tenant|authentication|login|signup|pricing|portfolio|blog|cms|sidebar|middleware|api|server actions?)\b/i;
+const USEFUL_LINE_STOPWORDS = new Set([
+  "the", "and", "for", "with", "that", "this", "from", "into", "your", "you",
+  "all", "one", "two", "are", "was", "were", "have", "has", "had", "not",
+  "och", "att", "det", "den", "som", "med", "har", "kan", "för", "till",
+  "template", "starter", "templates",
+]);
 const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldFamilies());
 const TITLE_BLOCKLIST_PATTERNS = [
   "Express on Bun",
@@ -386,6 +394,7 @@ function inspectRepo(repoRoot: string): {
 function findInterestingFiles(repoRoot: string, packageDir: string | null, allFiles: string[]): string[] {
   const preferredRoots = [packageDir, repoRoot].filter(Boolean) as string[];
   const explicitCandidates: string[] = [];
+  const readmeCandidates: string[] = [];
 
   for (const root of preferredRoots) {
     explicitCandidates.push(
@@ -404,8 +413,8 @@ function findInterestingFiles(repoRoot: string, packageDir: string | null, allFi
       path.join(root, "src", "app", "signup", "page.tsx"),
       path.join(root, "app", "forgot-password", "page.tsx"),
       path.join(root, "src", "app", "forgot-password", "page.tsx"),
-      path.join(root, "README.md"),
     );
+    readmeCandidates.push(path.join(root, "README.md"));
   }
 
   const ranked = new Set(
@@ -427,7 +436,15 @@ function findInterestingFiles(repoRoot: string, packageDir: string | null, allFi
       ),
   );
 
-  return Array.from(ranked).slice(0, 10);
+  const selected = Array.from(ranked);
+  if (selected.length < 5) {
+    for (const readmePath of readmeCandidates) {
+      if (fs.existsSync(readmePath) && !selected.includes(readmePath)) {
+        selected.push(readmePath);
+      }
+    }
+  }
+  return selected.slice(0, 10);
 }
 
 function buildFileExcerpt(filePath: string, repoRoot: string): TemplateLibrarySelectedFile | null {
@@ -463,7 +480,48 @@ function isUsefulLineNoise(line: string): boolean {
   if (/related templates?/i.test(normalized)) return true;
   if (/^(deploy|features|gettings started|getting started|vercel)$/i.test(normalized)) return true;
   if (SETUP_NOISE_LINE_RE.test(normalized)) return true;
+  if (/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(normalized)) return true;
+  const wordCount = normalized.split(" ").length;
+  if (wordCount <= 4 && !STRUCTURAL_USEFUL_LINE_RE.test(normalized)) return true;
   return false;
+}
+
+function usefulLineTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && !USEFUL_LINE_STOPWORDS.has(token));
+}
+
+function buildUsefulLines(template: RawTemplateRecord): string[] {
+  const contextTokens = new Set(
+    usefulLineTokens(
+      [
+        template.title,
+        template.description,
+        template.category_name,
+        template.framework_reason,
+        ...(template.stack_tags ?? []),
+      ].join(" "),
+    ),
+  );
+
+  return (template.important_lines ?? [])
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => !isUsefulLineNoise(line))
+    .filter((line) => {
+      if (STRUCTURAL_USEFUL_LINE_RE.test(line)) return true;
+      const lineTokens = usefulLineTokens(line);
+      if (lineTokens.length === 0) return false;
+      const overlap = lineTokens.filter((token) => contextTokens.has(token)).length;
+      if (lineTokens.length <= 6) return overlap >= 1;
+      return overlap >= 2;
+    })
+    .slice(0, 12);
 }
 
 function detectSignals(entry: RawTemplateRecord, selectedFiles: TemplateLibrarySelectedFile[]): TemplateLibrarySignals {
@@ -471,9 +529,7 @@ function detectSignals(entry: RawTemplateRecord, selectedFiles: TemplateLibraryS
   const useCaseBadges = entry.use_case_badges ?? [];
   const databaseBadges = entry.database_badges ?? [];
   const authBadges = entry.auth_badges ?? [];
-  const usefulLines = (entry.important_lines ?? [])
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    .filter((line) => !isUsefulLineNoise(line));
+  const usefulLines = buildUsefulLines(entry);
   const selectedPaths = selectedFiles.map((file) => file.path).join("\n").toLowerCase();
   const text = [
     entry.title,
@@ -853,10 +909,7 @@ function buildEntry(
     console.warn(`[template-library] Monorepo without subpath for ${template.title} — skipping file selection to avoid contamination`);
   }
 
-  const usefulLines = (template.important_lines ?? [])
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    .filter((line) => !isUsefulLineNoise(line))
-    .slice(0, 12);
+  const usefulLines = buildUsefulLines(template);
   const noiseLines = (template.important_lines ?? []).filter((line) => NOISE_LINE_RE.test(line)).slice(0, 12);
   const repoInfo: TemplateLibraryRepoInfo = {
     ...repoInspection.repoInfo,
