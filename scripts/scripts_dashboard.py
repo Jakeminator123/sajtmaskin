@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import tkinter as tk
@@ -32,6 +33,7 @@ EXTERNAL_TEMPLATE_LIBRARY_PATH = REPO_ROOT / "src" / "lib" / "gen" / "template-l
 EXTERNAL_TEMPLATE_LIBRARY_EMBEDDINGS_PATH = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library-embeddings.json"
 SCAFFOLD_RESEARCH_PATH = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-research.generated.json"
 SCAFFOLD_EMBEDDINGS_PATH = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds" / "scaffold-embeddings.json"
+PROMPT_DUMP_META_PATH = REPO_ROOT / "data" / "prompt-dumps" / "orchestration-dynamic" / "meta.json"
 
 
 @dataclass(frozen=True)
@@ -317,6 +319,7 @@ class ScriptsDashboard:
 
     def _build_commands_panel(self, parent: ttk.Frame) -> None:
         self._build_explanation_panel(parent)
+        self._build_terms_panel(parent)
         self._build_button_help_panel(parent)
         self._build_runtime_usage_panel(parent)
         self._build_status_panel(parent)
@@ -363,6 +366,7 @@ class ScriptsDashboard:
             "- route plan",
             "- pre-generation contracts",
             "- scaffold-kontext (filträd + kritiska scaffold-filer)",
+            "- scaffold-traits (structure_profile, content_profile, site_kind, complexity, features)",
             "- tema / designreferenser / media-katalog / custom instructions",
             "",
             "Inte direkt runtime-input:",
@@ -379,6 +383,40 @@ class ScriptsDashboard:
         ]
         llm_label = ttk.Label(llm_frame, text="\n".join(llm_lines), justify=tk.LEFT)
         llm_label.pack(anchor=tk.W)
+
+    def _build_terms_panel(self, parent: ttk.Frame) -> None:
+        frame = ttk.LabelFrame(parent, text="BuildSpec och kedjetermer", padding=8)
+        frame.pack(fill=tk.X, pady=(0, 8))
+        lines = [
+            "buildIntent = vad som byggs: website / app / template",
+            "generationMode = init (första bygget) eller followUp (ändra befintligt)",
+            "changeScope = vilken typ av ändring: copy / local-layout / page-addition / redesign / integration",
+            "qualityTarget = kvalitetsnivå: standard / premium / release-candidate",
+            "previewPolicy = previewnivå: fidelity2 / fidelity3",
+            "verificationPolicy = kontrollnivå: fast / standard / strict",
+            "contextPolicy = kontextnivå: light / normal / heavy",
+            "routePlan.siteType = sidtyp: one-page / brochure / content-heavy / app-shell",
+            "scaffoldFamily = vald runtime-scaffold-bucket",
+            "",
+            "Användning i kedjan:",
+            "- BuildSpec sätts i orchestrate.ts före promptbygget",
+            "- contextPolicy styr tokenbudgetar och scaffold-serialisering",
+            "- routePlan och contracts styr vilka sidor och integrationer som ska med",
+            "- scaffoldFamily påverkar scaffold-kontext och referenskategorier",
+        ]
+        label = ttk.Label(frame, text="\n".join(lines), justify=tk.LEFT)
+        label.pack(anchor=tk.W)
+
+        dump_frame = ttk.LabelFrame(parent, text="Prompt-dumps och stale-risk", padding=8)
+        dump_frame.pack(fill=tk.X, pady=(0, 8))
+        dump_lines = [
+            "Prompt-dumps skrivs bara när SAJTMASKIN_PROMPT_DUMP är på.",
+            "Om dumpning är avstängd ligger gamla latest.md/latest.json kvar och kan bli stale.",
+            "Lita därför mer på dumpedAt/status i panelen än på filnamnet latest.*.",
+            "Använd dumps för felsökning, inte som permanent source of truth.",
+        ]
+        dump_label = ttk.Label(dump_frame, text="\n".join(dump_lines), justify=tk.LEFT)
+        dump_label.pack(anchor=tk.W)
 
     def _build_button_help_panel(self, parent: ttk.Frame) -> None:
         frame = ttk.LabelFrame(parent, text="Vad händer om jag trycker här?", padding=8)
@@ -545,7 +583,38 @@ class ScriptsDashboard:
             "  Extern intake <- e2e/vercel-templates/* -> data/external-template-pipeline/*",
             "  Externa referenser <- data/external-template-pipeline/* -> src/lib/gen/template-library/*",
             "  Scaffolds <- src/lib/gen/scaffolds/* + scaffold research overlays",
+            "",
         ])
+
+        prompt_dump_meta = self._load_json(PROMPT_DUMP_META_PATH) or {}
+        dumped_at = prompt_dump_meta.get("dumpedAt") if isinstance(prompt_dump_meta, dict) else None
+        dump_status = "unknown"
+        if dumped_at:
+            try:
+                ts = dumped_at.replace("Z", "+00:00")
+                dt = datetime.fromisoformat(ts)
+                age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600
+                dump_status = "fresh" if age_hours <= 6 else "stale-risk"
+                lines.extend([
+                    "Prompt dump-status",
+                    f"  dumpedAt: {dumped_at}",
+                    f"  status: {dump_status}",
+                    f"  SAJTMASKIN_PROMPT_DUMP: {os.environ.get('SAJTMASKIN_PROMPT_DUMP', '(unset)')}",
+                ])
+            except Exception:
+                lines.extend([
+                    "Prompt dump-status",
+                    f"  dumpedAt: {dumped_at}",
+                    "  status: invalid timestamp",
+                    f"  SAJTMASKIN_PROMPT_DUMP: {os.environ.get('SAJTMASKIN_PROMPT_DUMP', '(unset)')}",
+                ])
+        else:
+            lines.extend([
+                "Prompt dump-status",
+                "  dumpedAt: missing",
+                "  status: no dump metadata",
+                f"  SAJTMASKIN_PROMPT_DUMP: {os.environ.get('SAJTMASKIN_PROMPT_DUMP', '(unset)')}",
+            ])
 
         return lines
 

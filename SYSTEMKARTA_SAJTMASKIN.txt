@@ -1,0 +1,203 @@
+SAJTMASKIN - SYSTEMKARTA / MINDMAP
+=================================
+
+Syfte
+-----
+Detta dokument är en snabb, mänsklig översikt över:
+- vad som är vad
+- vilka lager som finns
+- vad som används direkt av runtime
+- vad som bara är intake / research / rebuild
+
+
+1. Tre separata mallspår
+------------------------
+
+A) v0-mallar
+   - Builderns Mallar-tab
+   - Källa: templates_v0/*
+   - Byggs till:
+     - src/lib/templates/templates.json
+     - src/lib/templates/template-categories.json
+     - src/lib/templates/template-embeddings.json
+   - Används i runtime:
+     - ja, i builderns mallsök
+
+B) Vercel-mallar / externa referenser
+   - Extern intake från vercel.com/templates
+   - Intake:
+     - e2e/vercel-templates/*
+     - scripts/template-library/hamta_sidor_branch_emil.py
+   - Rå pipeline-data:
+     - data/external-template-pipeline/*
+   - Kondenseras till:
+     - src/lib/gen/template-library/template-library.generated.json
+     - src/lib/gen/template-library/template-library-embeddings.json
+     - src/lib/gen/scaffolds/scaffold-research.generated.json
+   - Används i runtime:
+     - indirekt / delvis
+     - inte som fulla repos eller fulla dossiers
+
+C) Scaffolds
+   - Interna runtime-startpunkter för own-engine
+   - Källa:
+     - src/lib/gen/scaffolds/*
+   - Aktiva runtime-scaffolds:
+     - base-nextjs
+     - landing-page
+     - saas-landing
+     - portfolio
+     - blog
+     - dashboard
+     - auth-pages
+     - ecommerce
+     - content-site
+     - app-shell
+   - Embeddings:
+     - src/lib/gen/scaffolds/scaffold-embeddings.json
+
+
+2. Runtime vs inte runtime
+--------------------------
+
+Används direkt av runtime / own-engine:
+- src/lib/templates/*
+- src/lib/gen/scaffolds/*
+- src/lib/gen/scaffolds/scaffold-research.generated.json
+- src/lib/gen/scaffolds/scaffold-embeddings.json
+
+Används inte direkt av runtime:
+- e2e/vercel-templates/*
+- data/external-template-pipeline/raw-discovery/*
+- data/external-template-pipeline/repo-cache/*
+- data/external-template-pipeline/reference-library/*
+- fulla dossiers
+- fulla externa repos
+
+
+3. Vad som faktiskt når LLM
+---------------------------
+
+Direkt input i own-engine-kedjan:
+- originalprompt
+- brief/spec (om finns)
+- route plan
+- pre-generation contracts
+- scaffold-kontext
+- scaffold-traits
+- theme / design references / media catalog
+- custom instructions
+
+Inte direkt input:
+- hela externa repos
+- fulla dossiers
+- hela Sajtmaskin-repot
+
+
+4. Scaffold-kontexten består av
+-------------------------------
+
+När ett scaffold väljs får modellen typiskt:
+- scaffold description
+- scaffold family
+- scaffold traits
+- file tree
+- critical scaffold files
+- quality checklist
+- scaffold research priorities
+
+Källor:
+- src/lib/gen/scaffolds/registry.ts
+- src/lib/gen/scaffolds/serialize.ts
+- src/lib/gen/orchestrate.ts
+- src/lib/gen/system-prompt.ts
+
+
+5. BuildSpec / styrsignaler
+---------------------------
+
+Ord att kunna:
+- buildIntent = vad som byggs
+- generationMode = första build eller follow-up
+- changeScope = vilken sorts ändring
+- qualityTarget = kvalitetsnivå
+- previewPolicy = previewnivå
+- verificationPolicy = kontrollnivå efter build
+- contextPolicy = light / normal / heavy
+- routePlan.siteType = one-page / brochure / content-heavy / app-shell
+- scaffoldFamily = scaffoldens runtime-bucket
+
+Källa:
+- src/lib/gen/build-spec.ts
+
+
+6. light / normal / heavy
+-------------------------
+
+contextPolicy styr hur mycket kontext som skickas.
+
+light
+- små follow-ups
+- copy / local-layout
+
+normal
+- standardfall
+
+heavy
+- appfall
+- fler routes
+- fler integrationer
+- persisted/data-tyngre flöden
+
+
+7. Två GUI-paneler
+------------------
+
+A) config/dashboard/app.py
+   - Konfigurationspanel
+   - Fokuserar på config/*, docs, rules, manifest och policy
+
+B) scripts/scripts_dashboard.py
+   - Pipeline-/artifactpanel
+   - Fokuserar på rebuild, embeddings, scaffolds, externa referenser, parity och status
+
+
+8. Rekommenderad nästa genomgång
+--------------------------------
+
+Steg 1
+- Granska prompt-dumps och stale-risk
+
+Steg 2
+- Granska scaffoldstorlek och vilka filer som faktiskt bör vara scaffold files[]
+
+Steg 3
+- Granska varje BuildSpec-signal och om den ger rätt effekt
+
+Steg 4
+- Granska externa referenser / template-library och hur mycket de faktiskt hjälper
+
+Steg 5
+- Städa kvarvarande restspår i scripts/template-library och övriga hjälpspår
+
+
+9. Source of truth - snabblista
+-------------------------------
+
+Terminologi:
+- .cursor/rules/terminology.mdc
+
+Scaffold-kontrakt:
+- docs/schemas/scaffold-contract.md
+
+External template pipeline:
+- docs/schemas/external-template-pipeline-contract.md
+
+Konfigurationsöversikt:
+- config/README.md
+
+Builder / LLM-flöde:
+- docs/architecture/builder-generation.md
+
+Repo-/lagerkarta:
+- docs/architecture/repository-and-platform.md

@@ -417,7 +417,7 @@ with st.sidebar:
 
 st.title("Konfigurationsdashboard")
 st.caption(
-    "Välj vy i sidopanelen. Svenska tecken (åäö) sparas som UTF-8; JSON skrivs med ensure_ascii=False."
+    "Välj vy i sidopanelen. Detta är konfigurationspanelen för `config/*` och vissa docs/rules. För rebuild, embeddings, scaffolds, externa referenser och artifact-status: använd `scripts/scripts_dashboard.py`. Svenska tecken (åäö) sparas som UTF-8; JSON skrivs med ensure_ascii=False."
 )
 
 # -- Översikt -------------------------------------------------------------------
@@ -1441,7 +1441,8 @@ elif page == "Runtime scaffolds":
 
     st.info(
         "Detta är den kanoniska runtime-ytan som own-engine matchar mot. "
-        "Builderns Mallar-tab och external-template-pipelinen är separata lager."
+        "Builderns Mallar-tab och external-template-pipelinen är separata lager. "
+        "För rebuild/status/embeddings-artifacts: använd `scripts/scripts_dashboard.py`."
     )
 
 
@@ -1482,7 +1483,8 @@ elif page == "Template pipeline":
         "Current own-engine-prompten injicerar inte längre template-library-retrieval. "
         "De genererade artefakterna under `src/lib/gen/template-library/` används främst av "
         "validering, research-/byggskript och lokala kvalitetskontroller, medan "
-        "`src/lib/gen/scaffolds/scaffold-research.generated.json` fortsatt överlagras i runtime-scaffolds."
+        "`src/lib/gen/scaffolds/scaffold-research.generated.json` fortsatt överlagras i runtime-scaffolds. "
+        "För att faktiskt köra pipeline-steg: använd `scripts/scripts_dashboard.py`."
     )
 
 

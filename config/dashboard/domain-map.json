@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "title": "Karta: dashboard-vy → kataloger",
   "repoSiblings": {
-    "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ har valfri Streamlit-GUI (app.py) för samma material — importeras inte av Next.js.",
+    "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ har valfri Streamlit-GUI (app.py) för samma material — importeras inte av Next.js och är konfigurationspanel, inte pipelinepanel.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
     ".cursor": "Cursor-projektregler och skills. Fyra kärnregler (`terminology`, `session-git-docs`, `repo-env-indexing`, `cleanup-and-scope`) plus en svagare `platform-quirks` — redigeras från vyn Cursor-agenter."
   },

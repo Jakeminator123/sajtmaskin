@@ -16,6 +16,7 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 | **`template-library`** | Kuraterad referensartefakt byggd från externa referenser | `src/lib/gen/template-library/*` | referens-/researchartefakt, validering, tooling |
 | **scaffolds** | Interna runtime-startpunkter | `src/lib/gen/scaffolds/*` | own-engine codegen |
 | **scaffold family** | Scaffoldens runtime-bucket (`landing-page`, `auth-pages`, ...) | `ScaffoldManifest.family` | matchning, registry, embeddings, telemetry |
+| **traits** | Högre nivå-metadata om scaffoldens roll (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`) | `src/lib/gen/scaffolds/scaffold-traits.ts` | scaffoldkontext till modellen |
 | **dossiers** | Fullt researchmaterial från externa referenser | `data/external-template-pipeline/reference-library/*` | build-time underlag, inte direkt runtime-input |
 | **embeddings** | Förgenererade JSON-vektorer per spår | `src/lib/templates/*`, `src/lib/gen/template-library/*`, `src/lib/gen/scaffolds/*` | semantisk sökning / fallback |
 
@@ -40,6 +41,7 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 - Säg helst inte bara **"template"** eller **"mall"** utan förtydligande i tekniska resonemang; välj den specifika ytan ovan.
 - Hitta inte på nya produktnamn för samma sak. Om du är osäker: använd repoets befintliga ord `own-engine`, `preview_host`, `VM`, `template-library`, `preview`. Använd `sandbox` när du faktiskt menar legacy-namn, delat tier-2-kontrakt eller Vercel Sandbox-fallback.
 - När tekniska engelska ord eller kodnamn används i förklaringar för användaren, ge **selektivt** en kort svensk parentes direkt efter första användningen om termen riskerar att misstolkas. Exempel: `scaffold family` (scaffoldens runtime-bucket), `template-library` (kuraterad referensartefakt), `dossier` (researchunderlag). Håll parentesen kort — synonym eller en mycket kort mening räcker.
+- Inför inte nya interna tekniska ord eller etiketter av den här karaktären utan att först bekräfta med användaren att termen ska införas. När möjligt: återanvänd redan etablerade ord i ordlistan ovan i stället för att skapa nya.
 
 ## Mall, scaffold, preview, sandbox
 
