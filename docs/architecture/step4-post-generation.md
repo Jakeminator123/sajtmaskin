@@ -22,7 +22,7 @@ Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine
 
 1. **`autofix`** — `runAutoFix()` på ackumulerat stream-innehåll (kan stängas av med `runAutofix: false`). Deterministiska fixar (imports, struktur m.m.).
 2. **`url_expand`** — `expandUrls()` med `urlMap` från orkestrering.
-3. **`validate_syntax`** — `validateAndFix()`: syntax/lint, loopar deterministiska pass och **LLM-fixer** vid behov. Uppdaterar `contentForVersion`.
+3. **`validate_syntax`** — `validateAndFix()`: syntax-/typecheck-orienterad validering via repoets validate/fix-kedja, loopar deterministiska pass och **LLM-fixer** vid behov. Uppdaterar `contentForVersion`.
 4. **`materialize_images`** — **endast om «deep path»** (`runDeepPath === true` i `resolveFinalizePathPolicy`). Ersätter placeholder-bilder m.m. Vid fel: **non-fatal**, logg och fortsätt.
 5. **`verifier`** — **endast om deep path** *och* `resolveVerifierPassPolicy` säger ja (BuildSpec, feature flag, inte repair-pass > 0). Read-only LLM; fel här är **non-fatal** (hoppar över).
 6. **`parse_merge_preflight`** — parse JSON-filer från innehåll, `mergeGeneratedProjectFiles`, `runFinalizePreflight`, `injectIntegrationManifestIntoFilesJson`, scaffold-retry-förslag.

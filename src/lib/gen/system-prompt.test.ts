@@ -202,8 +202,8 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("## Generation Profile");
     });
 
-    it("returns pruning metadata and may drop blocks when systemContextTokens is tight", async () => {
-      const { context, pruning } = await buildDynamicContext({
+    it("returns pruning metadata and block trace when systemContextTokens is tight", async () => {
+      const { context, pruning, blocks } = await buildDynamicContext({
         intent: "website",
         generationMode: "init",
         brief: {
@@ -231,6 +231,9 @@ describe("buildDynamicContext", () => {
       expect(pruning.usedTokens).toBeGreaterThan(0);
       expect(context.length).toBeGreaterThan(0);
       expect(pruning.droppedBlockKeys.length + pruning.keptBlockKeys.length).toBeGreaterThan(0);
+      expect(blocks.length).toBeGreaterThan(0);
+      expect(blocks.some((block) => block.title === "Build Intent: Website")).toBe(true);
+      expect(blocks.some((block) => block.kept)).toBe(true);
     });
   });
 });

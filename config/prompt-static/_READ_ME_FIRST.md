@@ -10,10 +10,11 @@ The app **does not** inject placeholders into these files. Anything that changes
 
 - Custom instructions from the builder UI  
 - Build intent rules (template / website / app)  
-- Serialized scaffold + research hints  
+- Serialized scaffold + capability hints  
 - Route plan, pre-generation contracts  
-- Template-library matches, KB snippets  
+- Scaffold research priorities / reference inspirations  
 - Brief structure from deep brief (when present)  
+- Design references, theme signals, follow-up context  
 
 If you duplicate those topics here, the model gets **conflicting or stale** instructions. Keep this folder for **stable** product rules only.
 
@@ -30,8 +31,8 @@ Set `SAJTMASKIN_PROMPT_DUMP=1` (or `true`) in `.env.local`, restart `npm run dev
 
 | Folder | Innehåll |
 |--------|----------|
-| `orchestration-dynamic/` | `latest.md` — output från `buildDynamicContext` (samma som `v0EnrichmentContext`). |
+| `orchestration-dynamic/` | `latest.md` + `generation-input-package.json` — request-specifik dynamisk systemkontext och serialiserad fan-in-artefakt från orkestreringen. |
 | `own-engine-codegen/` | `full-system.md` + `dynamic-context.md` — exakt vad codegen-LLM:en får som `system` (plus `meta.json`). |
-| `plan-mode-planner/` | Planläge: `planner-preamble.md`, `dynamic-context.md`, `full-system.md`. |
+| `plan-mode-planner/` | Planläge: `planner-preamble.md`, `dynamic-context.md`, `full-system.md` (plus `meta.json`). |
 
-Utan denna env-variabel skrivs inga dumpfiler (t.ex. i produktion).
+Utan denna env-variabel skrivs inga nya payload-dumpfiler. `meta.json` kan fortfarande uppdateras så dashboardar kan markera status som `disabled` eller `stale-risk`.

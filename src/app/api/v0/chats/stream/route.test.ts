@@ -328,7 +328,16 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
     vi.clearAllMocks();
     failVersionVerification.mockResolvedValue(null);
     buildGenerationInputPackage.mockImplementation(
-      (_base: unknown, _input: unknown, finalized: { engineSystemPrompt: string; dynamicContext: string; dynamicContextPruning: unknown }) => ({
+      (
+        _base: unknown,
+        _input: unknown,
+        finalized: {
+          engineSystemPrompt: string;
+          dynamicContext: string;
+          dynamicContextPruning: unknown;
+          dynamicContextBlocks?: unknown;
+        },
+      ) => ({
         resolvedScaffold: {
           id: "scaffold_1",
           family: "marketing",
@@ -383,6 +392,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         engineSystemPrompt: finalized.engineSystemPrompt,
         dynamicContext: finalized.dynamicContext,
         dynamicContextPruning: finalized.dynamicContextPruning,
+        dynamicContextBlocks: finalized.dynamicContextBlocks ?? [],
         lineageHash: "lineage-1",
       }),
     );
@@ -470,6 +480,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         droppedBlockKeys: [],
         keptBlockKeys: ["build_intent_website"],
       },
+      dynamicContextBlocks: [],
     });
     resolveOrchestrationBase.mockResolvedValue({
       resolvedScaffold: {
@@ -530,6 +541,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         droppedBlockKeys: [],
         keptBlockKeys: ["build_intent_website"],
       },
+      dynamicContextBlocks: [],
     });
     createChat.mockResolvedValue({ id: "engine_chat_1" });
     addMessage.mockResolvedValue(undefined);

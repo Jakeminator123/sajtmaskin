@@ -123,6 +123,8 @@ Tvargaende leveranser under alla steg
 - `config/dashboard/app.py` och `scripts/scripts_dashboard.py` har uppdaterats for
   att spegla faktisk runtime i stallet for gamla mentala modeller
 - prompt-dumps behandlas nu tydligare som observability, inte source of truth
+- dynamisk promptkontext kan nu foljas blockvis i fan-in-artefakten
+  (`dynamicContextBlocks`) med titel, prioritet, tokenestimat och kept/dropped-status
 - `env`-lagret halls isar mellan:
   - repoets app-env
   - preview-host/VM-env

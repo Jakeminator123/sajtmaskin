@@ -23,6 +23,7 @@ Källkod: `src/lib/gen/system-prompt.ts`, `src/lib/gen/orchestrate.ts`, `src/lib
 3. `buildBudgetedSystemPrompt()` (`tokens.ts`) fyller block i prioritetsordning upp till `BuildSpec.tokenBudgets.systemContextTokens` (heuristik `estimateTokens`, ~3.2 tecken/token).
 4. **Obligatoriska** block (`required`) kan trunkeras till minimum i stället för att slängas helt.
 5. Resultatet av pruning exponeras som `DynamicContextPruning` på `buildDynamicContext()` och i `GenerationInputPackage.dynamicContextPruning` (prompt-dump `meta.json` + `generation-input-package.json`).
+6. Varje dynamiskt block exponeras också strukturerat i `GenerationInputPackage.dynamicContextBlocks` med titel, prioritet, required-flagga, tokenestimat och om blocket faktiskt behölls efter budgetering.
 
 ## Teckenfält vs tokenbudget i `BuildSpec`
 

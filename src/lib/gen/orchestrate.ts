@@ -21,6 +21,7 @@ import {
 } from "./scaffolds/serialize";
 import {
   buildDynamicContext,
+  type DynamicContextBlockTrace,
   composeEngineSystemPrompt,
   type DesignReferenceAsset,
   type DynamicContextOptions,
@@ -111,6 +112,7 @@ export interface FinalizedOrchestrationContext {
   engineSystemPrompt: string;
   dynamicContext: string;
   dynamicContextPruning: DynamicContextPruning;
+  dynamicContextBlocks: DynamicContextBlockTrace[];
 }
 
 export function buildGenerationInputPackage(
@@ -138,6 +140,7 @@ export function buildGenerationInputPackage(
     engineSystemPrompt: finalized.engineSystemPrompt,
     dynamicContext: finalized.dynamicContext,
     dynamicContextPruning: finalized.dynamicContextPruning,
+    dynamicContextBlocks: finalized.dynamicContextBlocks,
     lineageHash,
   };
 }
@@ -377,6 +380,7 @@ export async function finalizeOrchestrationPrompts(
     engineSystemPrompt,
     dynamicContext: dynamic.context,
     dynamicContextPruning: dynamic.pruning,
+    dynamicContextBlocks: dynamic.blocks,
   };
 }
 

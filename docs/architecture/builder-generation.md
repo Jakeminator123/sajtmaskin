@@ -40,7 +40,7 @@ Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
 
 ## Promptlager och träd
 
-- **Statisk kärna** + dynamisk kontext (scaffold, brief, tema, KB) byggs i `system-prompt.ts` m.m.
+- **Statisk kärna** + dynamisk kontext (scaffold, route plan, kontrakt, brief, tema och övrig request-specifik kontext) byggs i `system-prompt.ts` m.m.
 - **Fan-in före modellen:** `prepareGenerationContext()` / `resolveOrchestrationBase()` bygger nu ett litet **`BuildSpec`** (`src/lib/gen/build-spec.ts`) som bär styrsignaler som `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`. Det används för att hålla scaffold-/referensbudget, follow-up-policy och previewpolicy deterministiska.
 - **Narrow follow-up policy:** när `BuildSpec` landar i `followUp + light + fast` hålls dynamisk kontext märkbart smalare: scaffold serialiseras lättare och bred KB/template-retrieval hoppas över för lokala copy/layout-ändringar.
 - **Scaffold research i prompten:** `buildDynamicContext()` injicerar nu `qualityChecklist`, `upgradeTargets` och ett budgeterat urval av `referenceTemplates` som **Reference inspirations**. Urvalet begränsas primärt av `BuildSpec.tokenBudgets.refsTokens` (med `refsChars` som kompat-fallback).

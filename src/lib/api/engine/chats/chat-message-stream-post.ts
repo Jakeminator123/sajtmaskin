@@ -71,6 +71,7 @@ import {
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
+import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapper-contract";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
@@ -254,43 +255,41 @@ export async function handleMessageStreamRequest(
           });
 
           if (skipIntentClassification) {
-            optimizedMessage = [
-              "## Existing Project Files (reference)",
-              "",
-              "Apply the requested change precisely. Do not modify unrelated sections or files.",
-              "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-              "",
-              fileCtx.summary,
-              "",
-              "---",
-              "",
-              optimizedMessage,
-            ].join("\n");
+            optimizedMessage = wrapWithSection({
+              heading: PROMPT_WRAPPER_HEADINGS.existingProjectFilesReference,
+              introLines: [
+                "Apply the requested change precisely. Do not modify unrelated sections or files.",
+                "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+              ],
+              body: fileCtx.summary,
+              divider: true,
+              trailingBody: optimizedMessage,
+            });
           } else {
             optimizedMessage = [
-              "## Follow-up Editing Mode",
+              wrapWithSection({
+                heading: PROMPT_WRAPPER_HEADINGS.followUpEditingMode,
+                introLines: [
+                  followUpIntent === "clear-redesign"
+                    ? "The user wants a genuine redesign of the existing site, not a small refinement."
+                    : "You are editing an existing project, not starting over.",
+                  followUpIntent === "clear-redesign"
+                    ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
+                    : "Apply the user's requested changes directly to the current files below.",
+                  followUpIntent === "clear-redesign"
+                    ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
+                    : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
+                  followUpIntent === "clear-redesign"
+                    ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
+                    : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+                  followUpIntent === "clear-redesign"
+                    ? "You may still reuse useful content or information architecture from the current project when relevant."
+                    : "",
+                ],
+                body: fileCtx.summary,
+              }),
               "",
-              followUpIntent === "clear-redesign"
-                ? "The user wants a genuine redesign of the existing site, not a small refinement."
-                : "You are editing an existing project, not starting over.",
-              followUpIntent === "clear-redesign"
-                ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
-                : "Apply the user's requested changes directly to the current files below.",
-              followUpIntent === "clear-redesign"
-                ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
-                : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
-              followUpIntent === "clear-redesign"
-                ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
-                : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-              followUpIntent === "clear-redesign"
-                ? "You may still reuse useful content or information architecture from the current project when relevant."
-                : "",
-              "",
-              fileCtx.summary,
-              "",
-              "---",
-              "",
-              "## Requested Changes",
+              PROMPT_WRAPPER_HEADINGS.requestedChanges,
               "",
               optimizedMessage,
             ].join("\n");
@@ -301,15 +300,18 @@ export async function handleMessageStreamRequest(
           const latestAnswer = contractAnswerContext.confirmedAnswers.at(-1);
           if (latestAnswer) {
             optimizedMessage = [
-              "## Contract Clarification Answer",
+              wrapWithSection({
+                heading: PROMPT_WRAPPER_HEADINGS.contractClarificationAnswer,
+                introLines: [
+                  "The user is answering the previous contract clarification question. Use this answer to continue the existing generation safely.",
+                  `Question: ${latestAnswer.question}`,
+                  `Answer: ${latestAnswer.answer}`,
+                  "",
+                  "Continue the existing implementation using this confirmed decision. Do not ask the same question again unless the answer is still genuinely insufficient.",
+                ],
+              }),
               "",
-              "The user is answering the previous contract clarification question. Use this answer to continue the existing generation safely.",
-              `Question: ${latestAnswer.question}`,
-              `Answer: ${latestAnswer.answer}`,
-              "",
-              "Continue the existing implementation using this confirmed decision. Do not ask the same question again unless the answer is still genuinely insufficient.",
-              "",
-              "## User Reply",
+              PROMPT_WRAPPER_HEADINGS.userReply,
               "",
               optimizedMessage,
             ].join("\n");

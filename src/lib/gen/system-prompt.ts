@@ -229,7 +229,12 @@ function resolveContextBlockPriority(title: string): { priority: number; require
   return { priority: 60, required: false };
 }
 
-function splitContextIntoBudgetBlocks(context: string): PromptBudgetBlock[] {
+type DynamicContextBlock = PromptBudgetBlock & {
+  title: string;
+  estimatedTokens: number;
+};
+
+function splitContextIntoBudgetBlocks(context: string): DynamicContextBlock[] {
   if (!context.trim()) return [];
 
   const blocks: Array<{ title: string; content: string }> = [];
@@ -266,8 +271,10 @@ function splitContextIntoBudgetBlocks(context: string): PromptBudgetBlock[] {
     return {
       key,
       text: block.content,
+      title: block.title,
       priority,
       required,
+      estimatedTokens: estimateTokens(block.content),
     };
   });
 }
@@ -280,9 +287,19 @@ export interface DynamicContextPruning {
   keptBlockKeys: string[];
 }
 
+export interface DynamicContextBlockTrace {
+  key: string;
+  title: string;
+  priority: number;
+  required: boolean;
+  estimatedTokens: number;
+  kept: boolean;
+}
+
 export type BuildDynamicContextResult = {
   context: string;
   pruning: DynamicContextPruning;
+  blocks: DynamicContextBlockTrace[];
 };
 
 /**
@@ -658,6 +675,15 @@ export async function buildDynamicContext(
     dynamicBudgetTokens: budgetTokens,
   });
   context = budgeted.dynamicContext;
+  const keptKeys = new Set(budgeted.keptKeys);
+  const blockTrace = contextBlocks.map((block) => ({
+    key: block.key,
+    title: block.title,
+    priority: block.priority,
+    required: block.required,
+    estimatedTokens: block.estimatedTokens,
+    kept: keptKeys.has(block.key),
+  }));
 
   if (budgeted.droppedKeys.length > 0) {
     try {
@@ -680,6 +706,7 @@ export async function buildDynamicContext(
       droppedBlockKeys: budgeted.droppedKeys,
       keptBlockKeys: budgeted.keptKeys,
     },
+    blocks: blockTrace,
   };
 }
 

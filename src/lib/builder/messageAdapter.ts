@@ -1,5 +1,6 @@
 import type { ToolUIPart } from "ai";
 import type { ChatMessage, UiMessagePart } from "./types";
+import { PROMPT_WRAPPER_HEADINGS } from "@/lib/gen/prompt-wrapper-contract";
 
 type TextPart = { type: "text"; text: string };
 type ReasoningPart = { type: "reasoning"; reasoning: string };
@@ -36,10 +37,10 @@ export type AIElementsMessage = {
 };
 
 const DISPLAY_SANITIZE_MAX_PASSES = 4;
-const DISPLAY_CONTINUITY_HEADING = "## Continuity (from previous generation)";
-const DISPLAY_EXISTING_PROJECT_HEADING = "## Existing Project Files (reference)";
-const DISPLAY_REQUESTED_CHANGES_HEADING = "## Requested Changes";
-const DISPLAY_USER_REPLY_HEADING = "## User Reply";
+const DISPLAY_CONTINUITY_HEADING = PROMPT_WRAPPER_HEADINGS.continuity;
+const DISPLAY_EXISTING_PROJECT_HEADING = PROMPT_WRAPPER_HEADINGS.existingProjectFilesReference;
+const DISPLAY_REQUESTED_CHANGES_HEADING = PROMPT_WRAPPER_HEADINGS.requestedChanges;
+const DISPLAY_USER_REPLY_HEADING = PROMPT_WRAPPER_HEADINGS.userReply;
 
 function extractSectionAfterHeading(text: string, heading: string): string | null {
   const headingIndex = text.indexOf(heading);
@@ -59,12 +60,12 @@ function stripKnownUserPromptWrapper(text: string): string {
   const trimmed = text.trim();
   if (!trimmed.startsWith("## ")) return text;
 
-  if (trimmed.startsWith("## Follow-up Editing Mode")) {
+  if (trimmed.startsWith(PROMPT_WRAPPER_HEADINGS.followUpEditingMode)) {
     const requestedChanges = extractSectionAfterHeading(trimmed, DISPLAY_REQUESTED_CHANGES_HEADING);
     if (requestedChanges) return requestedChanges;
   }
 
-  if (trimmed.startsWith("## Contract Clarification Answer")) {
+  if (trimmed.startsWith(PROMPT_WRAPPER_HEADINGS.contractClarificationAnswer)) {
     const userReply = extractSectionAfterHeading(trimmed, DISPLAY_USER_REPLY_HEADING);
     if (userReply) return userReply;
   }

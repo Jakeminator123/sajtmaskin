@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 
 import type { OrchestrationBase, OrchestrationInput } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
-import type { DynamicContextPruning } from "./system-prompt";
+import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User-turn text that shaped orchestration/system assembly for this run. */
@@ -26,6 +26,8 @@ export interface GenerationInputPackage extends OrchestrationBase {
   dynamicContext: string;
   /** Token budgeting / pruning applied to dynamic context (see `buildBudgetedSystemPrompt`). */
   dynamicContextPruning: DynamicContextPruning;
+  /** Structured observability for the dynamic prompt blocks before/after pruning. */
+  dynamicContextBlocks: DynamicContextBlockTrace[];
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
 }
@@ -81,5 +83,6 @@ export function serializePackageForDump(
     engineSystemPromptLength: pkg.engineSystemPrompt.length,
     dynamicContextLength: pkg.dynamicContext.length,
     dynamicContextPruning: pkg.dynamicContextPruning,
+    dynamicContextBlocks: pkg.dynamicContextBlocks,
   };
 }

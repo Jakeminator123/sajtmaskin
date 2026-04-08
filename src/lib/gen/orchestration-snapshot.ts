@@ -3,6 +3,7 @@
  * successful version save so follow-up prompts can recover tier/contract/strategy
  * signals without duplicating the full optimized prompt.
  */
+import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
 
 const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|api_key/i;
 const MAX_STRING = 12_000;
@@ -127,15 +128,14 @@ export function prependOrchestrationContinuityToFollowUp(
     lines.push(`- Previous preview policy: ${buildSpec.previewPolicy}`);
   }
   if (lines.length === 0) return message;
-  return [
-    "## Continuity (from previous generation)",
-    "",
-    ...lines,
-    "",
-    "Apply the user's new request below. Do not discard previous work unless the user asks to.",
-    "",
-    "---",
-    "",
-    message,
-  ].join("\n");
+  return wrapWithSection({
+    heading: PROMPT_WRAPPER_HEADINGS.continuity,
+    introLines: [
+      ...lines,
+      "",
+      "Apply the user's new request below. Do not discard previous work unless the user asks to.",
+    ],
+    divider: true,
+    trailingBody: message,
+  });
 }
