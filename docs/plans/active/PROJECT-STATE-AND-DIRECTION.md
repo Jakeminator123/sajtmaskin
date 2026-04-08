@@ -17,7 +17,8 @@ Kort kanonisk aktiv status tills ett bredare backlog-pass uppdaterar filen mer f
 
 ## Nästa aktiva steg
 
-- Steg 3 (pågår / itereras): faktisk LLM-input — karta i `docs/architecture/llm-input-blocks.md`, pruning via `DynamicContextPruning`, inga dubbla user-textblock i system; därefter Steg 4–5 enligt `LLM_KEDJA_STEG_FOR_STEG.txt`.
+- Steg 3 är avslutat och redo för extern review. Samlad risk-/reviewbild: `docs/plans/active/LLM-PIPELINE-REVIEWLAGE-OCH-OPNA-RISKER.md`.
+- Nästa huvudspår efter review: Steg 4 — generera, finalisera och validera resultatet.
 
 ## Arbetsprinciper
 
