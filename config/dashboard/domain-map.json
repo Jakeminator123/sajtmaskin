@@ -73,7 +73,8 @@
         "docs/architecture/builder-generation.md",
         "docs/architecture/llm-input-blocks.md",
         "docs/architecture/step4-post-generation.md",
-        "docs/plans/active/step4-quality-hotspots-and-verification.md"
+        "5-steg.txt",
+        "övrigt/problemomraden-efter-5-steg.txt"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -160,7 +161,8 @@
       ],
       "docsPaths": [
         "docs/architecture/preview-deploy.md",
-        "docs/plans/active/PROJECT-STATE-AND-DIRECTION.md"
+        "5-steg.txt",
+        "övrigt/problemomraden-efter-5-steg.txt"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"
@@ -228,7 +230,7 @@
         ".cursor/rules/cleanup-and-scope.mdc",
         ".cursor/rules/platform-quirks.mdc",
         "docs/architecture/repository-and-platform.md",
-        "docs/plans/active/PROJECT-STATE-AND-DIRECTION.md"
+        "5-steg.txt"
       ],
       "docsPaths": [
         ".cursor/README.md",

@@ -6,12 +6,21 @@
 
 ## Aktiva filer (`active/`)
 
-Löpande ska **primärt** dessa ligga här:
+Efter den avslutade 5-stegsgenomgången finns **inga kvarvarande aktiva planfiler** i `docs/plans/active/`.
 
-- [`PROJECT-STATE-AND-DIRECTION.md`](./active/PROJECT-STATE-AND-DIRECTION.md) — kort kanonisk aktiv status med öppna spår, beslut och pekare vidare.
-- [`step4-quality-hotspots-and-verification.md`](./active/step4-quality-hotspots-and-verification.md) — aktiv Steg 4-plan/leverans: rangordnade hotspots, verifieringsplan och doc-sync-ankare.
+Nuvarande orientering:
 
-Nya tillfälliga planer skapas under **`docs/plans/active/`** och flyttas till **`avklarat/`** när spåret är avslutat. **Använd git-trackade filer här** i stället för Cursor-interna planfiler utanför repot — en sanning för teamet och CI. För den avslutade 5-stegsgenomgången finns en kort slutöversikt i repo-roten: `5-steg.txt`.
+- **Samlad slutöversikt:** [`../../5-steg.txt`](../../5-steg.txt)
+- **Kvarvarande problemområden / nästa auditspår:** [`../../övrigt/problemomraden-efter-5-steg.txt`](../../övrigt/problemomraden-efter-5-steg.txt)
+- **Steg 4-djupkarta:** [`../architecture/step4-post-generation.md`](../architecture/step4-post-generation.md)
+
+När ett nytt riktigt arbetsspår startar:
+
+- skapa en ny smal fil under **`docs/plans/active/`**
+- håll bara sådant där som verkligen styr arbete nu
+- flytta eller rensa filen när spåret är avslutat
+
+**Använd git-trackade filer här** i stället för Cursor-interna planfiler utanför repot — en sanning för teamet och CI.
 
 ## Arkiv (`avklarat/`)
 

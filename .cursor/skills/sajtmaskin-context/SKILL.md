@@ -11,7 +11,7 @@ Use this skill to stay aligned with Sajtmaskin's domain language and canonical d
 
 1. `.cursor/rules/terminology.mdc` - canonical product/code terminology
 2. `docs/README.md` - canonical doc navigation
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` - active backlog and decisions
+3. `docs/plans/README.md` and `5-steg.txt` - current status, final summary, and decisions
 
 ## Core guardrails
 

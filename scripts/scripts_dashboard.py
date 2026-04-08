@@ -408,7 +408,7 @@ class ScriptsDashboard:
             "kartläggning: docs/architecture/llm-input-blocks.md.",
             "",
             "Efter codegen (Steg 4): finalizeAndSaveVersion — se docs/architecture/step4-post-generation.md;",
-            "hotspots/testplan: docs/plans/active/step4-quality-hotspots-and-verification.md.",
+            "samlad 5-stegsbild + kvarvarande problemomraden: 5-steg.txt.",
             "",
             "Steg 5-smalt kontrakt efter done:",
             "- done = version sparad (inte att preview redan ar live)",

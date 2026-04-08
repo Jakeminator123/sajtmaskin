@@ -64,7 +64,7 @@ Tom `/builder` är **inte** en sjätte canonical metod — bootstrap. v0-templat
 
 ## Planer och handoff
 
-- **Aktiv status (kanonisk):** [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — öppna spår, beslut och kort status.
+- **Samlad slutstatus för avslutat 5-stegsspår:** [`../../5-steg.txt`](../../5-steg.txt) — sammanfattning, kvarvarande problemområden och nästa naturliga pass.
 - **Index / buckets:** [`docs/plans/README.md`](../plans/README.md).
 - **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [preview-deploy.md](./preview-deploy.md) → capstone ovan vid backlog-frågor.
 - Tidigare `docs/handoffs/*.md` är **borttagna**; fulltext i **git-historik**. Pekare: [`docs/handoffs/README.md`](../handoffs/README.md).

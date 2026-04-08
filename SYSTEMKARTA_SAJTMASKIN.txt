@@ -182,7 +182,7 @@ Viktiga gränssignaler runt preview:
 
 Kanonisk karta:
   - docs/architecture/step4-post-generation.md
-  - docs/plans/active/step4-quality-hotspots-and-verification.md
+  - 5-steg.txt
 
 
 8. Två GUI-paneler

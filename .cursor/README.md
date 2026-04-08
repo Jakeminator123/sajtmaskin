@@ -2,7 +2,7 @@
 
 ## Agent: var börja?
 
-Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordning: `docs/README.md` → `docs/architecture/repo-tree.md` → `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` → `rules/terminology.mdc`.
+Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordning: `docs/README.md` → `docs/architecture/repo-tree.md` → `docs/plans/README.md` → `../5-steg.txt` → `rules/terminology.mdc`.
 
 ## Workspace (en rot, samma verktygsinställningar)
 
@@ -45,7 +45,7 @@ Repo-lokala slash-kommandon kan ligga i `.cursor/commands/` och visas när du sk
 
 För **mappar och research-flöde** utöver själva ordlistan, se `docs/architecture/repository-and-platform.md` och `docs/README.md` § Terminology. **Dokumentationspolicy:** `docs/architecture/documentation-lifecycle.md`.
 
-**Aktiv backlog / K-rader / Plan 17:** `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`.
+**Samlad slutstatus for avslutat 5-stegsspar:** `5-steg.txt`.
 
 För **Djup brief vs större arbets­paket**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
 

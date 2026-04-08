@@ -4,7 +4,7 @@ Tunn pekare — canonical innehåll ligger under `docs/` och `.cursor/`.
 
 - **Dokumentationsnav:** [`docs/README.md`](docs/README.md)
 - **Snabb repokarta (rot, `data/` vs codegen-data):** [`docs/architecture/repo-tree.md`](docs/architecture/repo-tree.md)
-- **Aktiv backlog:** [`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`](docs/plans/active/PROJECT-STATE-AND-DIRECTION.md)
+- **Samlad slutöversikt för 5-stegsspåret:** [`5-steg.txt`](5-steg.txt)
 - **Storstäd / äldre större cleanup:** se `docs/plans/avklarat/README.md` och git-historik. Gemensam linje: `master` i huvudcheckouten; nya smala städspår följer `PROJECT-STATE` i stället för att duplicera hela epiken.
 - **Flera agenter / parallellt:** [`docs/contributing/agent-workflows.md`](docs/contributing/agent-workflows.md) § *Flera agenter* — spår A vs B, **konfliktzoner** (stäm av före spår A rör `gen`, `own-engine`, `hooks/chat`, `env.ts`, `config.ts`, vissa `docs/architecture/*` samtidigt som B).
 - **Preview-term att hålla fast vid:** publika API/SSE-svar använder `previewUrl`; `demoUrl` är legacy/intern naming debt i vissa inbound-/DB-/typlager och ska inte återintroduceras som nytt publikt namn utan uttrycklig migreringsscope.

@@ -153,7 +153,7 @@ STEG 4 — GENERERA (CODEGEN), FINALISERA, VALIDERA (POST-STREAM)
 
 Kallor:
 - docs/architecture/step4-post-generation.md (ordning, fast-only vs fast+deep, Steg 4/5-gräns)
-- docs/plans/active/step4-quality-hotspots-and-verification.md (prioriterade riskytor + testplan)
+- 5-steg.txt (samlad slutbild och kvarvarande risker)
 - src/lib/gen/stream/finalize-version.ts (finalizeAndSaveVersion)
 - src/lib/gen/stream/finalize-pipeline-contract.ts (fas-id:n)
 - src/lib/gen/autofix/validate-and-fix.ts (syntax + LLM-fixer)

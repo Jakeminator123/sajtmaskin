@@ -87,8 +87,8 @@ Resultat:
 - tydligare finalize-kontrakt
 - verifier-pass och server-verify skildes tydligare åt
 - dashboards, ordlista och step-4-docs beskriver nu kedjan bättre
-- Step 4-hotspots finns kvar som smal referens i
-  `docs/plans/active/step4-quality-hotspots-and-verification.md`
+- Step 4-hotspots ar sammanfattade i detta dokument och i
+  `docs/architecture/step4-post-generation.md`
 
 
 Steg 5 - Preview handoff / session / status

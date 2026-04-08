@@ -25,7 +25,6 @@ globs:
   - src/app/api/engine/chats/*/repair/**
   - src/lib/gen/verifier-pass.ts
   - docs/architecture/step4-post-generation.md
-  - docs/plans/active/step4-quality-hotspots-and-verification.md
   - config/ai_models/manifest.json
 ---
 
@@ -44,9 +43,9 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 
 ## Uppdatera vid behov
 
-- **`docs/plans/active/step4-quality-hotspots-and-verification.md`** — när prioriterad kvalitets- eller testplan för Steg 4 faktiskt ändras.
+- **`5-steg.txt`** eller annan etablerad slutöversikt — när ett större stegspår stängs och den sammanfattande risk-/slutbilden ändras.
 - **`docs/architecture/preview-deploy.md`** — när preview-kedjan eller tier-2-beteendet ändras.
-- **`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`** — när ett aktivt spår öppnas, stängs eller byter riktning.
+- **`docs/plans/README.md`** — när planstrukturen eller statusnavet ändras.
 - **`docs/architecture/llm-pipeline-flow.html`** — när noder eller pilar faktiskt ändras.
 - **`config/dashboard/domain-map.json`**, **`config/dashboard/app.py`** och **`scripts/scripts_dashboard.py`** — när dashboardscope, canonical paths eller paneltexter ändras.
 - **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.

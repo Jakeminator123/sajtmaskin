@@ -26,7 +26,7 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 ## Operativa dokument (kör utan separata plan-ID)
 
 - **Preview / sandbox / deploy:** [`preview-deploy.md`](../architecture/preview-deploy.md) — inkl. § *Levererat* och länkar till kod.
-- **Aktiv status / beslut:** [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
+- **Samlad slutstatus efter 5-stegssparet:** [`../../5-steg.txt`](../../5-steg.txt).
 - **Äldre större städ-/previewpass:** se `docs/plans/avklarat/README.md` och git-historik.
 
 Historiska planhandoff finns i **git-historik** (`docs/plans/avklarat/`, äldre commits). **Aktuell drift:** tabellen *Operativa dokument* ovan — inga separata numrerade kördokument i repo-trädet.
@@ -57,6 +57,6 @@ Kör `npm run typecheck` och `npx vitest run` (plus `npm run lint` vid behov) in
 
 ## Plan / backlog
 
-- [PROJECT-STATE-AND-DIRECTION.md](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — kort kanonisk aktiv status  
+- [`../../5-steg.txt`](../../5-steg.txt) — samlad slutstatus för avslutade 5-stegsspåret  
 - [`avklarat/README.md`](../plans/avklarat/README.md) — äldre planhandoff i git-historik
 
