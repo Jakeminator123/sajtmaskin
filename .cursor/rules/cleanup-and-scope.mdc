@@ -11,17 +11,20 @@ När användaren ber om att **städa**, **ta bort**, **flytta** eller göra en t
 
 - Radera duplicat, död kod och historiskt brus hellre än att skapa nya arkivnivåer.
 - Skapa inte nya docs för att förklara gamla docs.
-- Fixera brutna importer, länkar, script- eller env-referenser i samma svep.
+- Fixa brutna importer, länkar, script- eller env-referenser i samma svep.
+- Tolkad "städning" är inte fria händer till bred omorganisation.
 
 ## Gör så här
 
-1. Spåra beroenden: importer, dynamiska strängar, script, CI och docs-länkar.
-2. Utför borttagning, flytt eller refaktor inom begärt scope.
-3. Uppdatera referenser som annars blir fel.
-4. Verifiera med `npm run typecheck` plus relevant test-, build- eller områdesspecifikt kommando för det som ändrats. Vid ren docs-städning räcker målgranskad länk- och referenskoll.
+1. Om användaren är vag eller om städningen kan bli bred/destruktiv: smalna först av till närmaste rimliga scope.
+2. Spåra beroenden: importer, dynamiska strängar, script, CI och docs-länkar.
+3. Utför borttagning, flytt eller refaktor inom begärt scope.
+4. Uppdatera referenser som annars blir fel.
+5. Verifiera med `npm run typecheck` plus relevant test-, build- eller områdesspecifikt kommando för det som ändrats. Vid ren docs-städning räcker målgranskad länk- och referenskoll.
 
 ## Fortfarande försiktighet
 
+- Radera inte större kluster förrän du verifierat att de faktiskt är oimporterade, orefererade eller uttryckligen ersatta.
 - Radera inte secrets, `.env*`-innehåll eller produktionsdata.
 - Ta inte bort uppenbart runtime-kritiska delar utan uttryckligt scope eller verifierad ersättning.
 - Stage:a inte andras filer; följ `session-git-docs.mdc` om parallellt arbete syns.

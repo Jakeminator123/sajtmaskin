@@ -50,6 +50,7 @@ När runtime i Steg 4 ändras, uppdatera minst:
 - `docs/architecture/step4-post-generation.md`
 - Denna fil (om prioritering eller testplan ändras)
 - `.cursor/rules/terminology.mdc`
+- `.cursor/rules/terminology-builder-runtime.mdc`
 - `SYSTEMKARTA_SAJTMASKIN.txt`, `LLM_KEDJA_STEG_FOR_STEG.txt`
 - `docs/architecture/builder-generation.md`
 - `.cursor/rules/llm-pipeline-docs-sync.mdc`

@@ -14,11 +14,12 @@
 
 | Audience / topic | Canonical location | What it covers |
 |------------------|-------------------|----------------|
-| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | builderns **Mallar** (`src/lib/templates`) vs runtime **`template-library`** vs **Vercel-mall** (research), **buildern**, **fidelity**, **own-engine**, demo/preview, m.m.; **V0-mapp vs v0-SDK vs V0 Platform API** (zip/egen kod vs extern leverantör). **Hur du öppnar:** `.cursor/README.md`. |
+| **Cursor / AI agents / product language** | `.cursor/rules/terminology.mdc` | kärntermer och vanliga förväxlingar: builderns **Mallar** (`src/lib/templates`) vs runtime **`template-library`** vs **Vercel-mall** (research), **own-engine**, preview/VM, `appProjectId` vs `chatId`, m.m. **Hur du öppnar:** `.cursor/README.md`. |
+| **Builder / preview / finalize deep terms** | `.cursor/rules/terminology-builder-runtime.mdc` | sekundär ordlista för builderns LLM-flöde, finalize/repair, preview-/VM-kontrakt, ingress och runtime-ord. |
 | **Repo layout & research pipeline** | `docs/architecture/repository-and-platform.md` | Mappar, skript, integrationer; mermaid där det behövs. |
 | **Dokumentationspolicy (var saker ska ligga)** | `docs/architecture/documentation-lifecycle.md` | Planstatus, rensning, varför policy ligger i `docs/` inte bara i `.cursor/rules/`. |
 
-**Rule:** Nya **UI/produkt**-termer → `terminology.mdc`. Nya **mapp-/pipeline**-detaljer → `repository-and-platform.md` (eller `repo-tree.md` för snabb orientering). Länka; klistra inte in hela ordlistan i planfiler.
+**Rule:** Nya **UI/produkt**-termer och återkommande grundförväxlingar -> `terminology.mdc`. Smalare builder-/runtimeord -> `terminology-builder-runtime.mdc`. Nya **mapp-/pipeline**-detaljer -> `repository-and-platform.md` (eller `repo-tree.md` för snabb orientering). Länka; klistra inte in hela ordlistan i planfiler.
 
 ## Quick path (when `docs/` feels heavy)
 

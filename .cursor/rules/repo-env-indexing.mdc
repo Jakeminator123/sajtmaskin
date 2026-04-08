@@ -8,12 +8,13 @@ alwaysApply: true
 ## Canonical env sources
 
 - Börja med `docs/ENV.md`, `src/lib/env.ts` och `config/env-policy.json`.
-- `.env.example` och `.env.*.example` visar mallar; `.env.local` och andra riktiga `.env*` får läsas vid felsökning eller setup.
+- `.env.example` och `.env.*.example` visar mallar; läs riktiga `.env*` bara när uppgiften uttryckligen kräver det eller när felet annars inte går att förstå.
 - Sammanfatta nycklar och mismatchar i chatten; klistra inte in secret-värden om det inte efterfrågas uttryckligen.
 
 ## Practical policy
 
 - Ändra `.env*` minimalt och committa aldrig hemligheter.
+- När riktiga `.env*` måste läsas: läs minsta nödvändiga omfattning, inte hela filer slentrianmässigt.
 - Läs `.vercel/` när deploy, projektlänkning eller env-kopplingar behöver felsökas. Committa inte lokal state därifrån.
 - Läs eller uppdatera `.gitignore`, `.cursorignore` och workspace-ignores när uppgiften kräver det.
 

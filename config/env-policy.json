@@ -55,6 +55,7 @@
     "SAJTMASKIN_DEV_LOG",
     "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
     "GENERATIONSLOGG",
+    "SAJTMASKIN_VISUAL_QA",
     "AI_BRIEF_MAX_TOKENS",
     "AI_CHAT_MAX_TOKENS",
     "V0_MAX_PROMPT_LENGTH",
@@ -557,6 +558,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional image sourcing key for placeholder materialization."
+    },
+    {
+      "key": "SAJTMASKIN_VISUAL_QA",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Optional app-side static visual QA after passing preview-host verify checks."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",

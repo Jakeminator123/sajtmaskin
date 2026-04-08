@@ -1,5 +1,5 @@
 ---
-description: Håll LLM-flödesdocs, mindmap och dashboard-karta synkade
+description: Synka bara direkt berörda LLM-flödesdocs och dashboardkartor
 globs:
   - src/app/builder/builder-entry.ts
   - src/lib/gen/orchestrate.ts
@@ -31,32 +31,31 @@ globs:
 
 # LLM-pipeline docs sync
 
-När du ändrar builder-entry, scaffoldval, route plan, pre-generation contracts, prompt-dumps, autofix/repair/verifier, manifest-konfigurationen eller finalize-flödet:
+När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps, autofix/repair/verifier, manifest-konfiguration eller finalize-flödet ska kod, verifiering och kanoniska docs hållas synkade i samma leverans.
 
-## Alltid uppdatera (i samma commit)
+## Uppdatera alltid när respektive yta faktiskt ändras
 
-1. **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, finalize/repair/preview-kedja och relaterade beskrivningar.
-2. **`docs/architecture/llm-input-blocks.md`** — när faktisk LLM-input, budget/pruning eller system vs user-turn ändras i `system-prompt.ts` / `tokens.ts` / `generation-input-package.ts`.
-3. **`docs/architecture/step4-post-generation.md`** — när post-stream-ordning, finalize-path policy (fast-only vs fast+deep), blocking/preflight eller gräns Steg 4/5 ändras i `finalize-version.ts` / `finalize-preflight.ts` / `validate-and-fix.ts` / `verifier-pass.ts` / `server-verify.ts`.
-4. **`docs/plans/active/step4-quality-hotspots-and-verification.md`** — när prioriterad kvalitets-/testplan för Steg 4 ändras (sällan; vid större omstrukturering av finalize).
-5. Relevanta kanoniska kontrakt/översikter:
-   - **`docs/schemas/builder-entry-contract.md`** — när builder-ingång, `entryKind`, ID-termer eller legacy-ingress ändras.
-   - **`docs/schemas/scaffold-contract.md`** — när scaffold-kontrakt, traits, research eller runtime-serialisering ändras.
-   - **`SYSTEMKARTA_SAJTMASKIN.txt`** och **`LLM_KEDJA_STEG_FOR_STEG.txt`** — när mindmap, stegkedja, LLM-input **eller Steg 4 post-stream** förändras.
-6. **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
+- **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, generate/finalize/preview-kedjan.
+- **`docs/architecture/llm-input-blocks.md`** — faktisk LLM-input, budget/pruning eller system vs user-turn.
+- **`docs/architecture/step4-post-generation.md`** — finalize, validate, repair, verifier, preflight och gränsen mellan Steg 4 och Steg 5.
+- **`docs/schemas/builder-entry-contract.md`** — builder-ingång, `entryKind`, ID-termer eller legacy-ingress.
+- **`docs/schemas/scaffold-contract.md`** — scaffold-kontrakt, traits, research eller runtime-serialisering.
+- **`SYSTEMKARTA_SAJTMASKIN.txt`** och **`LLM_KEDJA_STEG_FOR_STEG.txt`** — när stegnamn, mindmap eller LLM-kedjans faktiska ordning ändras.
 
 ## Uppdatera vid behov
 
-- **`docs/architecture/llm-pipeline-flow.html`** — om flödets noder eller pilar faktiskt ändras.
-- **`docs/architecture/preview-deploy.md`** — om ändringen påverkar preview-kedjan eller tier-2-flödet.
-- **`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`** — om ändringen stänger eller öppnar ett spår.
-- **`config/dashboard/domain-map.json`** — om nya `codeReaders`, `docsPaths`, `canonicalPaths` eller dashboardscope tillkommer.
-- **`src/lib/gen/autofix/pipeline.ts`** — om fixer-ordning eller pipelinekommentarerna ändras.
+- **`docs/plans/active/step4-quality-hotspots-and-verification.md`** — när prioriterad kvalitets- eller testplan för Steg 4 faktiskt ändras.
+- **`docs/architecture/preview-deploy.md`** — när preview-kedjan eller tier-2-beteendet ändras.
+- **`docs/plans/active/PROJECT-STATE-AND-DIRECTION.md`** — när ett aktivt spår öppnas, stängs eller byter riktning.
+- **`docs/architecture/llm-pipeline-flow.html`** — när noder eller pilar faktiskt ändras.
+- **`config/dashboard/domain-map.json`**, **`config/dashboard/app.py`** och **`scripts/scripts_dashboard.py`** — när dashboardscope, canonical paths eller paneltexter ändras.
+- **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
 
 ## Principer
 
 - Diagram och docs ska avspegla **faktisk kod**, inte ambition.
 - Arbetsordning: **kod först, sedan verifiering, sedan docs/dashboard-sync**.
+- Uppdatera bara de kanoniska filer som faktiskt berörs; gör inte ett brett docs-pass av rutin.
 - **`config/dashboard/app.py`** är konfigurations-/översiktspanel; **`scripts/scripts_dashboard.py`** är pipeline-/artifactpanel.
 - Delad dashboardlogik ska, när det är rimligt, centraliseras i **`scripts/dashboard_shared.py`** i stället för att dupliceras.
 - Använd samma terminologi som `.cursor/rules/terminology.mdc`.

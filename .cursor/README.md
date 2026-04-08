@@ -14,11 +14,12 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 
 ## Projektregler (`.cursor/rules/*.mdc`)
 
-Fyra kärnregler är tänkta att vara alltid på. `platform-quirks.mdc` är medvetet svagare och ska bara laddas när uppgiften faktiskt är plattforms- eller shell-känslig. I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
+Fyra kärnregler är tänkta att vara alltid på. `platform-quirks.mdc` är medvetet svagare och ska bara laddas när uppgiften faktiskt är plattforms- eller shell-känslig. `terminology-builder-runtime.mdc` är en sekundär fördjupningsregel för builder/preview/finalize. I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
 
 | Regel | Syfte (kort) |
 |--------|----------------|
-| [terminology.mdc](rules/terminology.mdc) | Stack, lager, kod vs UI, scaffold/builderns Mallar/runtime `template-library`, lanes |
+| [terminology.mdc](rules/terminology.mdc) | Kärntermer och vanliga förväxlingar |
+| [terminology-builder-runtime.mdc](rules/terminology-builder-runtime.mdc) | Sekundär builder-/preview-/finalize-ordlista |
 | [session-git-docs.mdc](rules/session-git-docs.mdc) | Git-hygien, parallellt arbete, docs/plans-livscykel |
 | [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
 | [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
@@ -38,6 +39,8 @@ Repo-lokala slash-kommandon kan ligga i `.cursor/commands/` och visas när du sk
 1. **Projektfilträdet:** öppna `.cursor/rules/terminology.mdc`.
 2. **Cursor Settings → Rules / Project rules:** regeln kan laddas som kärnregel för produkttermer.
 3. I chat kan du skriva **`@terminology`** eller **`@.cursor/rules/terminology.mdc`** för att bifoga filen.
+
+**Sekundär fördjupning:** [rules/terminology-builder-runtime.mdc](rules/terminology-builder-runtime.mdc) för builder-/preview-/finalize-termer.
 
 För **mappar och research-flöde** utöver själva ordlistan, se `docs/architecture/repository-and-platform.md` och `docs/README.md` § Terminology. **Dokumentationspolicy:** `docs/architecture/documentation-lifecycle.md`.
 

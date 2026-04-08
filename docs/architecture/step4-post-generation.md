@@ -72,6 +72,7 @@ Uppdatera i samma leverans:
 - `docs/architecture/step4-post-generation.md` (denna fil)
 - `docs/plans/active/step4-quality-hotspots-and-verification.md` (hotspots/verify-plan)
 - `.cursor/rules/terminology.mdc`
+- `.cursor/rules/terminology-builder-runtime.mdc`
 - `SYSTEMKARTA_SAJTMASKIN.txt`, `LLM_KEDJA_STEG_FOR_STEG.txt`
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)
