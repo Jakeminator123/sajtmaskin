@@ -24,6 +24,7 @@ import {
   composeEngineSystemPrompt,
   type DesignReferenceAsset,
   type DynamicContextOptions,
+  type DynamicContextPruning,
 } from "./system-prompt";
 import {
   inferCapabilities,
@@ -98,6 +99,68 @@ export interface OrchestrationBase {
   buildSpec: BuildSpec;
   /** Combined scaffold + capability hints string for dynamic context */
   scaffoldAndCapability: string;
+}
+
+export interface FinalizedOrchestrationContext {
+  engineSystemPrompt: string;
+  dynamicContext: string;
+  dynamicContextPruning: DynamicContextPruning;
+}
+
+export function buildGenerationInputPackage(
+  base: OrchestrationBase,
+  input: OrchestrationInput,
+  finalized: FinalizedOrchestrationContext,
+): GenerationInputPackage {
+  const capabilityHints = base.scaffoldAndCapability;
+  const lineageHash = computeLineageHash({
+    userPrompt: input.prompt,
+    brief: input.brief,
+    scaffoldMode: input.scaffoldMode ?? "auto",
+    scaffoldContext: base.scaffoldContext,
+    routePlan: base.routePlan,
+    preGenerationContracts: base.preGenerationContracts,
+    buildSpec: base.buildSpec,
+    capabilityHints,
+  });
+
+  return {
+    ...base,
+    userPrompt: input.prompt,
+    brief: (input.brief as Record<string, unknown>) ?? null,
+    scaffoldMode: input.scaffoldMode ?? "auto",
+    engineSystemPrompt: finalized.engineSystemPrompt,
+    dynamicContext: finalized.dynamicContext,
+    dynamicContextPruning: finalized.dynamicContextPruning,
+    lineageHash,
+  };
+}
+
+export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void {
+  writeLatestPromptDump(
+    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
+    {
+      "latest.md": pkg.dynamicContext,
+      "generation-input-package.json": JSON.stringify(
+        serializePackageForDump(pkg),
+        null,
+        2,
+      ),
+    },
+    {
+      lineageHash: pkg.lineageHash,
+      buildIntent: pkg.buildSpec.buildIntent,
+      scaffoldId: pkg.resolvedScaffold?.id ?? null,
+      scaffoldFamily: pkg.resolvedScaffold?.family ?? null,
+      buildSpecChangeScope: pkg.buildSpec.changeScope,
+      buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
+      buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,
+      promptLength: pkg.userPrompt.length,
+      dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
+      dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
+      dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
+    },
+  );
 }
 
 /**
@@ -263,10 +326,7 @@ export async function resolveOrchestrationBase(
 export async function finalizeOrchestrationPrompts(
   base: OrchestrationBase,
   input: OrchestrationInput,
-): Promise<{
-  engineSystemPrompt: string;
-  dynamicContext: string;
-}> {
+): Promise<FinalizedOrchestrationContext> {
   const {
     prompt,
     buildIntent,
@@ -287,7 +347,6 @@ export async function finalizeOrchestrationPrompts(
     brief: brief as DynamicContextOptions["brief"],
     themeOverride: themeColors,
     imageGenerations,
-    originalPrompt: prompt,
     scaffoldContext: base.scaffoldAndCapability || undefined,
     resolvedScaffold: base.resolvedScaffold,
     routePlan: base.routePlan,
@@ -306,6 +365,7 @@ export async function finalizeOrchestrationPrompts(
   return {
     engineSystemPrompt,
     dynamicContext: dynamic.context,
+    dynamicContextPruning: dynamic.pruning,
   };
 }
 
@@ -320,51 +380,9 @@ export async function prepareGenerationContext(
   input: OrchestrationInput,
 ): Promise<GenerationInputPackage> {
   const base = await resolveOrchestrationBase(input);
-  const { engineSystemPrompt, dynamicContext } = await finalizeOrchestrationPrompts(base, input);
-
-  const capabilityHints = base.scaffoldAndCapability;
-  const lineageHash = computeLineageHash({
-    userPrompt: input.prompt,
-    brief: input.brief,
-    scaffoldMode: input.scaffoldMode ?? "auto",
-    scaffoldContext: base.scaffoldContext,
-    routePlan: base.routePlan,
-    preGenerationContracts: base.preGenerationContracts,
-    buildSpec: base.buildSpec,
-    capabilityHints,
-  });
-
-  const pkg: GenerationInputPackage = {
-    ...base,
-    userPrompt: input.prompt,
-    brief: (input.brief as Record<string, unknown>) ?? null,
-    scaffoldMode: input.scaffoldMode ?? "auto",
-    engineSystemPrompt,
-    dynamicContext,
-    lineageHash,
-  };
-
-  writeLatestPromptDump(
-    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    {
-      "latest.md": dynamicContext,
-      "generation-input-package.json": JSON.stringify(
-        serializePackageForDump(pkg),
-        null,
-        2,
-      ),
-    },
-    {
-      lineageHash,
-      buildIntent: input.buildIntent,
-      scaffoldId: base.resolvedScaffold?.id ?? null,
-      scaffoldFamily: base.resolvedScaffold?.family ?? null,
-      buildSpecChangeScope: base.buildSpec.changeScope,
-      buildSpecContextPolicy: base.buildSpec.contextPolicy,
-      buildSpecPreviewPolicy: base.buildSpec.previewPolicy,
-      promptLength: input.prompt.length,
-    },
-  );
+  const finalized = await finalizeOrchestrationPrompts(base, input);
+  const pkg = buildGenerationInputPackage(base, input, finalized);
+  writeOrchestrationDynamicDump(pkg);
 
   return pkg;
 }

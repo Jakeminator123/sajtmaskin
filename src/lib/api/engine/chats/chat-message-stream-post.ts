@@ -26,11 +26,12 @@ import {
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
+  buildGenerationInputPackage,
   finalizeOrchestrationPrompts,
   prepareGenerationContext,
   resolveOrchestrationBase,
+  writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
-import { computeLineageHash } from "@/lib/gen/generation-input-package";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
@@ -668,7 +669,8 @@ export async function handleMessageStreamRequest(
           }));
         }
         const finalizePromptStartedAt = Date.now();
-        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const { engineSystemPrompt } = finalized;
         debugLog("orchestration", "Follow-up system prompt finalized", {
           chatId,
           durationMs: Date.now() - finalizePromptStartedAt,
@@ -676,16 +678,13 @@ export async function handleMessageStreamRequest(
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
         });
-        const lineageHash = computeLineageHash({
-          userPrompt: optimizedMessage,
-          brief: metaBrief,
-          scaffoldMode: metaScaffoldMode ?? "auto",
-          scaffoldContext: orchestrationBase.scaffoldContext,
-          routePlan: orchestrationBase.routePlan,
-          preGenerationContracts: orchestrationBase.preGenerationContracts,
-          buildSpec: orchestrationBase.buildSpec,
-          capabilityHints: orchestrationBase.scaffoldAndCapability,
-        });
+        const generationInputPackage = buildGenerationInputPackage(
+          orchestrationBase,
+          orchestrationInput,
+          finalized,
+        );
+        const lineageHash = generationInputPackage.lineageHash;
+        writeOrchestrationDynamicDump(generationInputPackage);
         dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
           route: "POST /api/engine/chats/[chatId]/stream",
           planMode: false,

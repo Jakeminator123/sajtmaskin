@@ -858,7 +858,9 @@ elif page == "ai_models":
         st.info(
             "Website-latens påverkas av hur mycket kontext som byggs före modellanropet: "
             "`resolveOrchestrationBase` orkestrerar scaffold, route plan, pre-generation contracts och `BuildSpec`; "
-            "därefter byggs faktisk LLM-input i `buildDynamicContext` med tokenbudgetar från `BuildSpec`. "
+            "därefter byggs faktisk LLM-input i `buildDynamicContext` med tokenbudgetar från `BuildSpec` "
+            "(blockprioritet + pruning; se `DynamicContextPruning` / `generation-input-package.json` i prompt-dumps). "
+            "Kanonisk karta: docs/architecture/llm-input-blocks.md. "
             "Template-library är inte samma hot-path som scaffold-kontext (se docs/architecture/builder-generation.md). "
             "Koden är source of truth; panelen ska spegla runtime-sanningen, inte leda den. "
             "Stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."

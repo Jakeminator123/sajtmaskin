@@ -127,3 +127,19 @@ Tvargaende krav i varje steg:
 - runtime-koden ar source of truth
 - docs, systemkarta och dashboardar ska spegla koden efter verifiering
 - minska naming debt, dubbletter och stale spar i samma pass nar det ar sakert
+
+STEG 3 — FAKTISK LLM-INPUT (egen motor)
+----------------------------------------
+Kallor:
+- docs/architecture/llm-input-blocks.md (karta: system vs user-turn vs historik)
+- src/lib/gen/system-prompt.ts (buildDynamicContext, blockprioritet, ingen dubbel user-text i system)
+- src/lib/gen/tokens.ts (buildBudgetedSystemPrompt)
+- src/lib/gen/generation-input-package.ts (dynamicContextPruning i dump)
+
+Vad ska vi kunna svara pa?
+- Vad fick modellen i system vs user-turn?
+- Vilka block kapades (DynamicContextPruning / meta.json)?
+
+Verifiering:
+- src/lib/gen/system-prompt.test.ts
+- src/lib/gen/llm-input-scenarios.test.ts

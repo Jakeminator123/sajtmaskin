@@ -81,7 +81,7 @@ Används inte direkt av runtime:
 ---------------------------
 
 Direkt input i own-engine-kedjan:
-- originalprompt
+- användarens senaste meddelande (user-turn; skickas separat — dupliceras inte som extra "original request" i system)
 - brief/spec (om finns)
 - route plan (med provenance: primarySource + sources[])
 - pre-generation contracts
@@ -89,6 +89,7 @@ Direkt input i own-engine-kedjan:
 - scaffold-traits
 - theme / design references / media catalog
 - custom instructions
+- dynamisk kontext budgeteras/prunas; se DynamicContextPruning / docs/architecture/llm-input-blocks.md
 
 Inte direkt input:
 - hela externa repos

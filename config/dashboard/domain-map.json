@@ -59,7 +59,7 @@
       ]
     },
     "ai_models": {
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-input-blocks.md. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
       "canonicalPaths": [
         "config/ai_models/manifest.json",
         "config/ai_models/*.md",
@@ -69,7 +69,8 @@
       ],
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
-        "docs/architecture/builder-generation.md"
+        "docs/architecture/builder-generation.md",
+        "docs/architecture/llm-input-blocks.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"

@@ -25,10 +25,12 @@ Builder/API prompt
            │
            └─ finalizeOrchestrationPrompts()
                 └─ buildDynamicContext()  (system-prompt.ts)
-                     ├─ scaffold context
+                     ├─ scaffold context (+ capability hints via orchestrate)
                      ├─ route plan + pre-generation contracts
                      ├─ brief / visual identity / design references
-                     └─ final engine system prompt
+                     ├─ token budget + block pruning → `DynamicContextPruning`
+                     └─ compose static core + dynamic → `engineSystemPrompt`
+                (user prompt text → **user** message in the completions request, not duplicated in system)
 
 own-engine stream
     │

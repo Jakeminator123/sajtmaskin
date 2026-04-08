@@ -3,6 +3,9 @@ description: Håll LLM-flödesdocs, mindmap och dashboard-karta synkade
 globs:
   - src/app/builder/builder-entry.ts
   - src/lib/gen/orchestrate.ts
+  - src/lib/gen/system-prompt.ts
+  - src/lib/gen/generation-input-package.ts
+  - src/lib/gen/tokens.ts
   - src/lib/gen/build-spec.ts
   - src/lib/gen/route-plan.ts
   - src/lib/gen/contract/pre-generation-contracts.ts
@@ -28,11 +31,12 @@ När du ändrar builder-entry, scaffoldval, route plan, pre-generation contracts
 ## Alltid uppdatera (i samma commit)
 
 1. **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, finalize/repair/preview-kedja och relaterade beskrivningar.
-2. Relevanta kanoniska kontrakt/översikter:
+2. **`docs/architecture/llm-input-blocks.md`** — när faktisk LLM-input, budget/pruning eller system vs user-turn ändras i `system-prompt.ts` / `tokens.ts` / `generation-input-package.ts`.
+3. Relevanta kanoniska kontrakt/översikter:
    - **`docs/schemas/builder-entry-contract.md`** — när builder-ingång, `entryKind`, ID-termer eller legacy-ingress ändras.
    - **`docs/schemas/scaffold-contract.md`** — när scaffold-kontrakt, traits, research eller runtime-serialisering ändras.
    - **`SYSTEMKARTA_SAJTMASKIN.txt`** och **`LLM_KEDJA_STEG_FOR_STEG.txt`** — när mindmap, stegkedja eller faktisk LLM-input förändras.
-3. **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
+4. **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
 
 ## Uppdatera vid behov
 

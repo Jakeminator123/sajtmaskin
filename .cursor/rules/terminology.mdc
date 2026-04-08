@@ -16,6 +16,8 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 | **`template-library`** | Kuraterad referensartefakt byggd från externa referenser | `src/lib/gen/template-library/*` | referens-/researchartefakt, validering, tooling |
 | **scaffolds** | Interna runtime-startpunkter | `src/lib/gen/scaffolds/*` | own-engine codegen |
 | **scaffold family** | Scaffoldens runtime-bucket (`landing-page`, `auth-pages`, ...) | `ScaffoldManifest.family` | matchning, registry, embeddings, telemetry |
+| **`DynamicContextPruning`** | Budget/pruning för dynamisk systemkontext (vilka block som behölls/kapades) | `buildDynamicContext` → `GenerationInputPackage` / prompt-dump `meta.json` | Steg 3-observability |
+| **User-turn** | Senaste användarmeddelandet i chat/completions | API → pipeline | ska inte dupliceras som extra «original request» i systemprompten |
 | **`RoutePlan.provenance`** | Källspårning för route-plan (`primarySource` + `sources[]`) | `src/lib/gen/route-plan.ts` | route-struktur, BuildSpec, preflight/post-checks |
 | **persisted scaffold** | Tidigare scaffold-id som återanvänds i samma chat om inte follow-up låser upp det | `engine_chats.scaffold_id`, `chat-message-stream-post.ts` | scaffold-kontinuitet i follow-ups |
 | **traits** | Högre nivå-metadata om scaffoldens roll (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`) | `src/lib/gen/scaffolds/scaffold-traits.ts` | scaffoldkontext till modellen |

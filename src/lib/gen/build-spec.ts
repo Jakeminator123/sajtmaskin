@@ -17,6 +17,11 @@ export type BuildSpecPreviewPolicy = "fidelity2" | "fidelity3";
 export type BuildSpecVerificationPolicy = "fast" | "standard" | "strict";
 export type BuildSpecContextPolicy = "light" | "normal" | "heavy";
 
+/**
+ * Token fields drive runtime budgets (`systemContextTokens`, etc.).
+ * `*Chars` fields are approximate compat mirrors via `estimateCharsForTokens` for
+ * char-oriented call-sites (e.g. scaffold serialization), not a second source of truth.
+ */
 export interface BuildSpecTokenBudgets {
   scaffoldTokens?: number;
   refsTokens?: number;

@@ -17,7 +17,7 @@ Kort kanonisk aktiv status tills ett bredare backlog-pass uppdaterar filen mer f
 
 ## Nästa aktiva steg
 
-- Steg 3: bygg faktisk LLM-input — statisk prompt, dynamisk kontext, budgetar, prioritering/pruning och exakt vad modellen verkligen får.
+- Steg 3 (pågår / itereras): faktisk LLM-input — karta i `docs/architecture/llm-input-blocks.md`, pruning via `DynamicContextPruning`, inga dubbla user-textblock i system; därefter Steg 4–5 enligt `LLM_KEDJA_STEG_FOR_STEG.txt`.
 
 ## Arbetsprinciper
 

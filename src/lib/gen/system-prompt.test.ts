@@ -26,7 +26,6 @@ describe("buildDynamicContext", () => {
   it("does not inject KB or template-library sections", async () => {
     const { context } = await buildDynamicContext({
       intent: "website",
-      originalPrompt: "Build a SaaS website with product storytelling.",
       generationMode: "init",
       buildSpec: {
         ...lightFollowUpSpec,
@@ -44,11 +43,27 @@ describe("buildDynamicContext", () => {
     expect(context).not.toContain("## Preview vs CodeProject parity");
   });
 
+  it("does not duplicate the user prompt as an Original Request block (carried by user message)", async () => {
+    const { context } = await buildDynamicContext({
+      intent: "website",
+      generationMode: "init",
+      buildSpec: {
+        ...lightFollowUpSpec,
+        generationMode: "init",
+        changeScope: "redesign",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+      },
+      scaffoldContext: "Scaffold context",
+    });
+
+    expect(context).not.toContain("## Original Request");
+  });
+
   describe("Generation Profile", () => {
     it("still includes Generation Profile for light follow-up when buildSpec is present", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
-        originalPrompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
         generationMode: "followUp",
         buildSpec: lightFollowUpSpec,
         scaffoldContext: "Scaffold context",
@@ -63,7 +78,6 @@ describe("buildDynamicContext", () => {
     it("omits Generation Profile when buildSpec is absent", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
-        originalPrompt: "Build a landing page.",
         generationMode: "init",
         scaffoldContext: "Scaffold context",
       });
@@ -74,7 +88,6 @@ describe("buildDynamicContext", () => {
     it("lists forbiddenPatterns when non-empty", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
-        originalPrompt: "Tweak hero copy only.",
         generationMode: "followUp",
         buildSpec: {
           ...lightFollowUpSpec,
@@ -89,7 +102,6 @@ describe("buildDynamicContext", () => {
     it("omits the Forbidden patterns line when forbiddenPatterns is empty", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
-        originalPrompt: "Tweak hero copy only.",
         generationMode: "followUp",
         buildSpec: { ...lightFollowUpSpec, forbiddenPatterns: [] },
         scaffoldContext: "Scaffold context",
@@ -101,11 +113,10 @@ describe("buildDynamicContext", () => {
   });
 
   describe("prompt assembly integration", () => {
-    it("init website with brief surfaces intent, profile, project context, and original request in order", async () => {
+    it("init website with brief surfaces intent, profile, scaffold, and project context in order", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
         generationMode: "init",
-        originalPrompt: "Build a professional law firm website",
         brief: {
           projectTitle: "Advokatbyrån Lindström",
           brandName: "Lindström & Co",
@@ -126,18 +137,14 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("- **Style direction:** brand-led");
       expect(context).toContain("## Project Context");
       expect(context).toContain("Lindström");
-      expect(context).toContain("## Original Request");
-      expect(context).toContain("Build a professional law firm website");
 
       const buildIntentIdx = context.indexOf("## Build Intent: Website");
       const profileIdx = context.indexOf("## Generation Profile");
       const scaffoldIdx = context.indexOf("## Scaffold");
       const projectIdx = context.indexOf("## Project Context");
-      const originalIdx = context.indexOf("## Original Request");
       expect(buildIntentIdx).toBeLessThan(profileIdx);
       expect(profileIdx).toBeLessThan(scaffoldIdx);
       expect(scaffoldIdx).toBeLessThan(projectIdx);
-      expect(projectIdx).toBeLessThan(originalIdx);
     });
 
     it("init app with route plan surfaces application intent, routes, and multi-page instruction", async () => {
@@ -155,7 +162,6 @@ describe("buildDynamicContext", () => {
       const { context } = await buildDynamicContext({
         intent: "app",
         generationMode: "init",
-        originalPrompt: "Build an internal admin application",
         routePlan,
         buildSpec: {
           ...lightFollowUpSpec,
@@ -185,7 +191,6 @@ describe("buildDynamicContext", () => {
     it("follow-up keeps mode and profile without retrieval sections", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
-        originalPrompt: "Tweak hero copy only; keep layout.",
         generationMode: "followUp",
         buildSpec: lightFollowUpSpec,
         scaffoldContext: "Scaffold context",
@@ -197,18 +202,35 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("## Generation Profile");
     });
 
-    it("truncates very long original request in follow-up mode", async () => {
-      const long = "x".repeat(500);
-      const { context } = await buildDynamicContext({
+    it("returns pruning metadata and may drop blocks when systemContextTokens is tight", async () => {
+      const { context, pruning } = await buildDynamicContext({
         intent: "website",
-        originalPrompt: long,
-        generationMode: "followUp",
-        buildSpec: lightFollowUpSpec,
-        scaffoldContext: "Scaffold",
+        generationMode: "init",
+        brief: {
+          projectTitle: "Acme",
+          pages: [{ name: "Home", path: "/", purpose: "Marketing", sections: [{ type: "hero", heading: "Welcome" }] }],
+          seo: { titleTemplate: "T".repeat(200), metaDescription: "D".repeat(200), keywords: ["a", "b", "c"] },
+        },
+        buildSpec: {
+          ...lightFollowUpSpec,
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+          tokenBudgets: {
+            ...lightFollowUpSpec.tokenBudgets,
+            // Minimum enforced in buildDynamicContext is 900 tokens
+            systemContextTokens: 900,
+          },
+        },
+        scaffoldContext: "Scaffold body ".repeat(80),
       });
 
-      expect(context).toContain("## Original Request (summary)");
-      expect(context).toContain("500 chars, truncated");
+      expect(pruning.budgetTokens).toBe(900);
+      expect(pruning.usedTokens).toBeGreaterThan(0);
+      expect(context.length).toBeGreaterThan(0);
+      expect(pruning.droppedBlockKeys.length + pruning.keptBlockKeys.length).toBeGreaterThan(0);
     });
   });
 });
