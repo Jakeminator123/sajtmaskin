@@ -16,6 +16,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/preview-quality-gate";
+import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -24,6 +25,7 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
+import { buildLintRepairContextLines } from "@/lib/gen/lint-output";
 import {
   buildServerRepairOutcomeMeta,
   buildServerVerifyQualityGateMeta,
@@ -185,6 +187,7 @@ export async function POST(
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
+        checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
         exportable,
@@ -321,6 +324,9 @@ export async function POST(
         jobStartedAt: repairContext.qualityGateMeta?.jobStartedAt ?? null,
         jobFinishedAt: repairContext.qualityGateMeta?.jobFinishedAt ?? null,
       }),
+      ...gateFailures
+        .filter((failure) => failure.check === "lint")
+        .flatMap((failure) => buildLintRepairContextLines(failure.output)),
       ...extractErrorLines(gateFailures),
     ];
     const filesFromGateOutput = new Set<string>();

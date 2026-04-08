@@ -4,6 +4,7 @@ import {
   describeQualityGateVerification,
   maybeAnalyzeVisualQAForPassedExportable,
   qualityGateAllPassed,
+  resolveRepairQualityGateChecks,
 } from "./preview-quality-gate";
 
 const sampleExportable: CodeFile[] = [
@@ -119,5 +120,18 @@ describe("describeQualityGateVerification", () => {
     expect(describeQualityGateVerification([])).toBe(
       "Automatic verification could not run because no checks executed.",
     );
+  });
+});
+
+describe("resolveRepairQualityGateChecks", () => {
+  it("keeps explicit repair checks when provided", () => {
+    expect(resolveRepairQualityGateChecks(["typecheck", "lint"])).toEqual([
+      "typecheck",
+      "lint",
+    ]);
+  });
+
+  it("falls back to tier-2 defaults when no explicit checks are provided", () => {
+    expect(resolveRepairQualityGateChecks()).toEqual(["typecheck"]);
   });
 });

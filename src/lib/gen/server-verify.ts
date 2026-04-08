@@ -25,7 +25,7 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
+import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -37,6 +37,7 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
+import { buildLintRepairContextLines } from "@/lib/gen/lint-output";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
@@ -83,7 +84,7 @@ export async function triggerServerVerification(params: {
       chatId,
       versionId,
       exportable,
-      checks: TIER2_QUALITY_GATE_CHECKS,
+      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);
@@ -200,6 +201,7 @@ async function tryServerRepairLoop(params: {
       versionId,
       exportable: exportableForGate,
       hadQualityGateFailures,
+      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
@@ -273,6 +275,11 @@ async function tryServerRepairLoop(params: {
     jobStartedAt,
     jobFinishedAt,
   });
+  for (const failure of failedOutputs) {
+    if (failure.check === "lint") {
+      errorLines.push(...buildLintRepairContextLines(failure.output));
+    }
+  }
   for (const f of failedOutputs) {
     const outputLines = f.output.split("\n");
     for (let i = 0; i < outputLines.length; i++) {

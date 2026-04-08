@@ -64,6 +64,11 @@ That does **not** change the default tier-2 contract: live preview still optimiz
 `npm run dev`, and the default verify-gate remains install + typecheck unless a route
 or operator explicitly asks for `build` and/or `lint`.
 
+Background `server-verify` is allowed to be a little stricter than live tier-2 preview:
+it may include `lint` in its own verify profile so lint failures become part of the
+existing repair context. The important boundary is unchanged: this is still the same
+quality-gate / repair architecture, not a separate lint-fix subsystem.
+
 ### App-side quality gate (Sajtmaskin API, not `POST /preview/verify`)
 
 Engine-routen `POST /api/engine/chats/[chatId]/quality-gate` accepterar en `checks`-lista; **minst en** check krävs (tom lista avvisas vid validering).
