@@ -186,6 +186,41 @@ Rekommenderade nasta pass
    - generated artifacts och deras lasa-/skriva-kedjor
 
 
+Extra leveranser efter 5-stegssparets avslut (2026-04-08)
+-----------------------------------------------------------
+
+Repair in-place (annan agent, commit 28e49c967):
+- server-verify och repair uppdaterar nu v1 in-place istallet for att skapa v2
+- ny DB-funktion addAssistantMessageAndUpdateExistingVersion
+- repair-route timeout okad till 300s
+
+Animation-safety (commit 329c30e9b):
+- systemprompt-regel 18: LLM far inte goma sidkritiskt innehall bakom opacity:0
+  utan CSS-fallback (forhindrar "tom sida" nar framer-motion inte laddar)
+
+Turbopack broad-pattern (commit e1767421e):
+- framer-motion uppdaterad till 12.38.0 i scaffold-baseline (loser typ-resolution pa VM)
+- template-image-route refactorad till katalog-lookup istallet for dir-scan
+- static-core-loader och ui-reader: cachad CWD for att minska breda filmonster
+
+Kvarstående Turbopack-varningar (12 st, kosmetiska):
+- orsakas av att Turbopack statiskt analyserar process.cwd() + readFile/access
+  i App Routes som en bred filmonster-matchning
+- paverkar inte runtime, build-korrekthet eller generering
+- kan bara elimineras helt genom att flytta filsystemslogik utanfor App Router
+  eller vanta pa forbattrad Turbopack-analys
+- template-image-routen serverar bara lokal-lagrade galleri-thumbnails fran
+  templates_v0/downloads/; har ingen koppling till LLM-kedjan, VMen eller genereringen
+
+Kvarstående VM/preview-problem (inte kodbuggar):
+- framer-motion-baserade Reveal-wrappers med initial opacity:0 kunde gora
+  hela sidan osynlig om biblioteket inte laddade korrekt pa VMen;
+  systemprompt-regeln forhindrar nu att LLM genererar detta monster
+- Fly VM hyper-fel (connection closed) ar infrastruktur, inte appkod
+- DB-pool MaxClientsInSessionMode vid npm run dev med manga parallella
+  processer — losning: starta om dev-servern
+
+
 Slutbedomning
 -------------
 5-stegssparet har gjort kedjan tydligare, mer repo-ratt och mer testad.
@@ -195,6 +230,9 @@ Det viktigaste resultatet ar inte ett enskilt dokument, utan att:
 - begreppen ar mindre sammanblandade
 - preview-handoff ar mer robust
 - dashboards och ordlistor speglar verkligheten battre
+- systempromptens regler ar nu skarpta mot osynligt innehall
+- framer-motion baseline ar uppdaterad
+- repair uppdaterar v1 in-place istallet for att skapa forvirrande v2
 
 Det betyder inte att allt ar "klart for alltid", men det ar en betydligt battre grund
 for fortsatt review, cleanup och kvalitetspass.
