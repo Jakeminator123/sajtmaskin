@@ -1,18 +1,13 @@
 import fs from "node:fs";
 import nodePath from "node:path";
-import { fileURLToPath } from "node:url";
 import type { CodeFile } from "./parser";
 
 const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
 
-const MODULE_DIR =
-  typeof import.meta.url === "string" && import.meta.url.startsWith("file:")
-    ? fileURLToPath(new URL(".", import.meta.url))
-    : nodePath.resolve(process.cwd(), "src/lib/gen");
-
+const CWD = process.cwd();
 const SEARCH_ROOTS = [
-  nodePath.resolve(MODULE_DIR, "../../components/ui"),
-  nodePath.resolve(MODULE_DIR, "../../../components/ui"),
+  nodePath.resolve(CWD, "src/components/ui"),
+  nodePath.resolve(CWD, "components/ui"),
 ] as const;
 
 export interface UiComponent {

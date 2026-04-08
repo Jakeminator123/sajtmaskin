@@ -46,7 +46,7 @@ const PACKAGE_JSON = `{
     "react-hook-form": "7.71.2",
     "@hookform/resolvers": "5.2.2",
     "zod": "4.3.6",
-    "framer-motion": "12.12.1",
+    "framer-motion": "12.38.0",
     "three": "0.176.0",
     "@react-three/fiber": "9.1.2",
     "@react-three/drei": "10.7.7",
