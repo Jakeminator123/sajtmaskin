@@ -151,6 +151,7 @@ describe("buildCompleteProject", () => {
     const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
       engines: Record<string, string>;
       dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
       scripts: Record<string, string>;
     };
     expect(pkg.engines.node).toBe(">=22.14.0 <23");
