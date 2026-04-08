@@ -66,7 +66,7 @@ export async function runQualityGateChecks(params: {
   chatId: string;
   versionId: string;
   files: QualityGateFileLike[];
-  checks: QualityGateCheck[];
+  checks: readonly QualityGateCheck[];
 }): Promise<{
   results: QualityGateCheckResult[];
   verifyLaneDurationMs: number;
@@ -109,7 +109,7 @@ export function qualityGateAllPassed(results: QualityGateCheckResult[]): boolean
 }
 
 export function resolveRepairQualityGateChecks(
-  checks?: QualityGateCheck[],
+  checks?: readonly QualityGateCheck[],
 ): readonly QualityGateCheck[] {
   return Array.isArray(checks) && checks.length > 0 ? checks : TIER2_QUALITY_GATE_CHECKS;
 }
@@ -156,7 +156,7 @@ export async function runQualityGateOnExportable(params: {
   chatId: string;
   versionId: string;
   exportable: CodeFile[];
-  checks?: QualityGateCheck[];
+  checks?: readonly QualityGateCheck[];
 }): Promise<{
   results: QualityGateCheckResult[];
   verifyLaneDurationMs: number;
@@ -197,7 +197,7 @@ export async function shouldPromoteAfterRepair(params: {
   versionId: string;
   exportable: CodeFile[];
   hadQualityGateFailures: boolean;
-  checks?: QualityGateCheck[];
+  checks?: readonly QualityGateCheck[];
 }): Promise<PostRepairGateDecision> {
   const repairChecks = resolveRepairQualityGateChecks(params.checks);
   const gate = await runQualityGateOnExportable({

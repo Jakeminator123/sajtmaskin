@@ -354,7 +354,7 @@ export async function runPreviewHostQualityGate(params: {
   chatId: string;
   versionId: string;
   filesJson: Record<string, string>;
-  checks: Array<"typecheck" | "build" | "lint">;
+  checks: ReadonlyArray<"typecheck" | "build" | "lint">;
 }): Promise<PreviewHostVerifyOk | PreviewHostVerifyErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {

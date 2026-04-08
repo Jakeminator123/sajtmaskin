@@ -680,7 +680,7 @@ export async function buildDynamicContext(
     key: block.key,
     title: block.title,
     priority: block.priority,
-    required: block.required,
+    required: Boolean(block.required),
     estimatedTokens: block.estimatedTokens,
     kept: keptKeys.has(block.key),
   }));
