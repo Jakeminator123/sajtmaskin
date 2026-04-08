@@ -28,6 +28,35 @@ describe("matchScaffold", () => {
     expect(matchScaffold(prompt, "website")?.id).toBe("landing-page");
   });
 
+  it("does not route restaurant prompts with product-like words to ecommerce", () => {
+    const prompt =
+      "Bygg en varm hemsida för en restaurang med meny, produkter som rätter och boka bord. Gult och rött tema.";
+
+    const result = matchScaffold(prompt, "website");
+    expect(result?.id).not.toBe("ecommerce");
+  });
+
+  it("does not route hotel or spa prompts to ecommerce", () => {
+    const prompt =
+      "Skapa en sajt för ett boutiquehotell med rum, spa, restaurang och bokning.";
+
+    expect(matchScaffold(prompt, "website")?.id).not.toBe("ecommerce");
+  });
+
+  it("does not route café prompts to ecommerce", () => {
+    const prompt =
+      "Jag vill ha en hemsida för mitt café med meny, öppettider och om oss.";
+
+    expect(matchScaffold(prompt, "website")?.id).not.toBe("ecommerce");
+  });
+
+  it("still selects ecommerce when strong ecommerce intent is present alongside hospitality", () => {
+    const prompt =
+      "Bygg en webshop för en restaurang som säljer produkter online med varukorg och checkout.";
+
+    expect(matchScaffold(prompt, "website")?.id).toBe("ecommerce");
+  });
+
   it("does not over-promote generic company gallery sites to portfolio", () => {
     const prompt =
       "Bygg en företagshemsida för ett konsultbolag med galleri, tjänster, testimonials och kontakt.";

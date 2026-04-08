@@ -277,6 +277,78 @@ const CONTENT_KEYWORDS = [
   "abonnemang",
 ];
 
+/**
+ * Domain keywords that indicate the site is a service/hospitality business,
+ * NOT an online store. When these are present and ecommerce intent is weak,
+ * the ecommerce scaffold should be vetoed in favor of landing-page or content-site.
+ */
+const HOSPITALITY_SERVICE_KEYWORDS = [
+  "restaurang",
+  "restaurant",
+  "café",
+  "cafe",
+  "kafé",
+  "bistro",
+  "bar",
+  "pub",
+  "bakeri",
+  "bageri",
+  "bakery",
+  "konditori",
+  "pizzeria",
+  "hotell",
+  "hotel",
+  "hostel",
+  "bed and breakfast",
+  "b&b",
+  "spa",
+  "salong",
+  "salon",
+  "frisör",
+  "barber",
+  "tandläkare",
+  "dentist",
+  "clinic",
+  "klinik",
+  "veterinär",
+  "gym",
+  "yoga",
+  "pilates",
+  "massage",
+  "terapeut",
+  "therapist",
+  "catering",
+  "food truck",
+  "matrestaurang",
+  "meny",
+  "menu",
+  "boka bord",
+  "book a table",
+  "reservation",
+  "öppettider",
+  "opening hours",
+];
+
+/**
+ * Strong ecommerce-intent keywords that override the hospitality veto.
+ * Only if these appear alongside hospitality words should ecommerce still win.
+ */
+const STRONG_ECOMMERCE_INTENT = [
+  "webshop",
+  "webbshop",
+  "e-handel",
+  "ecommerce",
+  "e-commerce",
+  "varukorg",
+  "kundvagn",
+  "cart",
+  "checkout",
+  "kassa",
+  "storefront",
+  "nätbutik",
+  "online store",
+];
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -339,7 +411,7 @@ function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
 
 function buildKeywordScores(promptLower: string): Array<{ id: string; score: number }> {
   const authScore = countKeywordMatches(promptLower, AUTH_KEYWORDS);
-  const ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
+  let ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
   const dashboardScore = countKeywordMatches(promptLower, DASHBOARD_KEYWORDS);
   const appScore = countKeywordMatches(promptLower, APP_KEYWORDS);
   const saasScore = countKeywordMatches(promptLower, SAAS_KEYWORDS);
@@ -348,6 +420,12 @@ function buildKeywordScores(promptLower: string): Array<{ id: string; score: num
   const landingScore = countKeywordMatches(promptLower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(promptLower, BLOG_KEYWORDS);
   const contentScore = countKeywordMatches(promptLower, CONTENT_KEYWORDS);
+
+  const hospitalityScore = countKeywordMatches(promptLower, HOSPITALITY_SERVICE_KEYWORDS);
+  const strongEcommerceScore = countKeywordMatches(promptLower, STRONG_ECOMMERCE_INTENT);
+  if (hospitalityScore > 0 && strongEcommerceScore === 0) {
+    ecommerceScore = 0;
+  }
 
   return [
     { id: "auth-pages", score: authScore },
@@ -477,7 +555,14 @@ export function matchScaffold(
 
   const ecommerceScore = countKeywordMatches(lower, ECOMMERCE_KEYWORDS);
   if (ecommerceScore >= MIN_SCORE) {
-    return getScaffoldByFamily("ecommerce");
+    const hospitalityScore = countKeywordMatches(lower, HOSPITALITY_SERVICE_KEYWORDS);
+    const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
+    if (hospitalityScore > 0 && strongEcommerceScore === 0) {
+      // Domain is hospitality/service — weak ecommerce signals (e.g. "produkt", "meny")
+      // are false positives. Fall through to landing-page/content-site matching.
+    } else {
+      return getScaffoldByFamily("ecommerce");
+    }
   }
 
   if (buildIntent === "app") {

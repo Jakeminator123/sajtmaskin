@@ -400,8 +400,9 @@ export async function runPreviewHostQualityGate(params: {
               if (!entry || typeof entry !== "object") return null;
               const row = entry as Record<string, unknown>;
               const check = typeof row.check === "string" ? row.check : "";
-              const output = typeof row.output === "string" ? row.output : "";
               const exitCode = typeof row.exitCode === "number" ? row.exitCode : 1;
+              const rawOutput = typeof row.output === "string" ? row.output : "";
+              const output = rawOutput || (row.passed !== true ? `(No ${check || "check"} output captured from verify lane; exit ${exitCode}).` : "");
               const passed = row.passed === true;
               const durationMs =
                 typeof row.durationMs === "number" && Number.isFinite(row.durationMs)

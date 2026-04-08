@@ -157,7 +157,7 @@ export const DEFAULT_PROMPT_POLISH_MODEL = POLISH_MODEL;
 
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   model: ASSIST_MODEL,
-  deep: false,
+  deep: true,
 };
 
 // ============================================

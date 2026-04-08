@@ -387,6 +387,51 @@
     "mustNotBe": ["dashboard", "blog"]
   },
   {
+    "id": "hospitality_01",
+    "prompt": "Jag vill ha en hemsida för en restaurang som heter Jakobs Matrestaurang med meny, om oss, bokning och kontakt.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["menu", "contact", "booking"],
+    "mustNotBe": ["ecommerce", "dashboard", "auth-pages"]
+  },
+  {
+    "id": "hospitality_02",
+    "prompt": "Skapa en sajt för ett boutiquehotell med rum, spa, restaurang och bokning.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["rooms", "spa", "booking"],
+    "mustNotBe": ["ecommerce", "dashboard", "auth-pages"]
+  },
+  {
+    "id": "hospitality_03",
+    "prompt": "Bygg en hemsida för ett café med öppettider, meny och om oss.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["menu", "hours", "about"],
+    "mustNotBe": ["ecommerce", "dashboard"]
+  },
+  {
+    "id": "hospitality_04",
+    "prompt": "Create a website for a hair salon with services, booking and gallery.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site", "portfolio"],
+    "mustHaveFeatures": ["services", "booking", "gallery"],
+    "mustNotBe": ["ecommerce", "dashboard", "auth-pages"]
+  },
+  {
+    "id": "hospitality_05",
+    "prompt": "Need a site for an event venue with capacity info, booking form and photo gallery.",
+    "buildIntent": "website",
+    "expectedScaffold": "landing-page",
+    "acceptableScaffolds": ["content-site"],
+    "mustHaveFeatures": ["venue", "booking", "gallery"],
+    "mustNotBe": ["ecommerce", "auth-pages"]
+  },
+  {
     "id": "contentsite_01",
     "prompt": "Create a brand content website with hero, feature sections and testimonials.",
     "buildIntent": "website",
