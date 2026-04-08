@@ -1,0 +1,17 @@
+FEEDBACK — Persona 4: Mohammed
+Företag: Bilverkstad i Västerås
+Poäng: 0% (0/1 checks)
+Sidor: 0
+Tid: 1024s
+=== KVALITETSKONTROLL ===
+FEL | iframe-accessible: No iframe present — preview VM not provisioned
+=== NAVIGATION ===
+  Inga navigeringslänkar hittades
+=== FÖRBÄTTRINGSFÖRSLAG ===
+  [preview] Preview iframe not available
+  → Check preview_host (Fly.io VM) health and sandbox-preview route for errors
+=== SAMMANFATTNING ===
+Sajten för "Bilverkstad i Västerås" hade 1 problem:
+  - iframe-accessible: No iframe present — preview VM not provisioned
+REKOMMENDERADE PROMPTÄNDRINGAR:
+  1. Check preview_host (Fly.io VM) health and sandbox-preview route for errors

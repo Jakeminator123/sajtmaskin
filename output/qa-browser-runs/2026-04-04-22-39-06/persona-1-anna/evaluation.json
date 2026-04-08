@@ -1,0 +1,37 @@
+{
+  "persona": "Anna",
+  "business": "Frisörsalong i Göteborg",
+  "authenticated": false,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": false,
+      "detail": "No iframe present — preview VM not provisioned"
+    }
+  ],
+  "suggestions": [
+    {
+      "area": "preview",
+      "current": "Preview iframe not available",
+      "suggestion": "Check preview_host (Fly.io VM) health and sandbox-preview route for errors"
+    }
+  ],
+  "score": 0,
+  "pageCount": 0,
+  "navLinks": [],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/builder-full-page.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-22-39-06/persona-1-anna/step-99-final.png"
+  ]
+}

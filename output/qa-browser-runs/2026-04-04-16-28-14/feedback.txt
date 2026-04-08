@@ -1,0 +1,36 @@
+SAJTMASKIN QA — SAMMANFATTNING
+Datum: 2026-04-04
+Personas: 10
+Lyckade med preview: 7/10
+Lyckade med 100%: 5/10
+Snittpoäng (lyckade): 99%
+Total tid: ~159 min
+
+=== PER PERSONA ===
+OK  | Anna (Frisörsalong i Göteborg) — 93%, 5 sidor
+OK  | Erik (IT-konsult i Stockholm) — 100%, 5 sidor
+OK  | Fatima (Restaurang i Malmö) — 100%, 5 sidor
+FEL | Mohammed (Bilverkstad i Västerås) — 0%, preview laddade ej
+OK  | Linnea (Yoga-studio i Lund) — 100%, 5 sidor
+FEL | Oskar (Advokatbyrå i Linköping) — generationen kraschade (import-fel)
+FEL | Mei (Second-hand butik i Uppsala) — timeout, preview ej provisionerad
+OK  | Björn (Takläggeri i Norrköping) — 100%, 7 sidor
+OK  | Saga (Influencer/content i Malmö) — 100%, 5 sidor
+FEL | Lars (Pensionär hobby blogg) — timeout, lucide-import-fel
+
+=== ALLA FÖRBÄTTRINGSFÖRSLAG ===
+  1. [heading] Ange hero-rubrik i prompten, t.ex. 'med rubriken: Din lokala frisör i Göteborg' (Anna)
+
+=== VANLIGASTE FELEN ===
+  relevant-heading: 1 persona (generisk rubrik istället för unik)
+
+=== MISSLYCKADE PERSONAS ===
+  Mohammed: Preview-host (Fly.io VM) provisionerade ej session
+  Oskar: Generation kraschade (troligt import-fel eller timeout)
+  Mei: Timeout — preview ej provisionerad
+  Lars: Lucide-import-fel (TapeMeasure finns inte i lucide-react)
+
+=== SYSTEMFEL ATT ÅTGÄRDA ===
+  1. Preview-host (Fly.io VM) misslyckas ibland provisionera — behöver stabiliseras
+  2. LLM genererar ibland 'TapeMeasure' import från lucide-react som inte finns — behöver läggas till i autofix
+  3. "Ladda ner"-knappen clickas felaktigt under generation — scriptet bör filtrera bort den

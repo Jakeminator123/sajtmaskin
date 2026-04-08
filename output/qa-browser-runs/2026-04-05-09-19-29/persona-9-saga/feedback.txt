@@ -1,0 +1,46 @@
+FEEDBACK — Persona 9: Saga
+Företag: Influencer/content i Malmö
+Poäng: 43% (6/14 checks)
+Sidor: 1
+Tid: 209s
+=== KVALITETSKONTROLL ===
+OK | iframe-accessible: OK
+OK | swedish-characters: Found å/ä/ö
+OK | no-english-body: No English phrases
+OK | no-lorem-ipsum: Clean
+OK | has-heading: 1 H1(s)
+FEL | has-cta: No Swedish CTA button found
+FEL | has-images: No images
+FEL | has-footer: No footer found
+FEL | has-navigation: No nav found
+FEL | content-density: 21 words
+FEL | has-sections: 0 sections
+FEL | has-internal-links: 0 links
+FEL | has-contact-info: No contact info detected
+OK | relevant-heading: Heading: "Startar preview"
+=== NAVIGATION ===
+  Inga navigeringslänkar hittades
+=== FÖRBÄTTRINGSFÖRSLAG ===
+  [cta] No clear Swedish call-to-action button
+  → Specify the desired CTA text in the prompt, e.g. 'med en tydlig Boka tid-knapp'
+  [content] Only 21 words generated
+  → Provide more details about services, team, and unique selling points in the prompt
+  [structure] Only 0 sections
+  → Request specific sections in the prompt: 'med sektioner för tjänster, om oss, kontakt och kundrecensioner'
+  [contact] No phone number or email visible
+  → Include phone number and email in the prompt for the AI to use
+=== SAMMANFATTNING ===
+Sajten för "Influencer/content i Malmö" hade 8 problem:
+  - has-cta: No Swedish CTA button found
+  - has-images: No images
+  - has-footer: No footer found
+  - has-navigation: No nav found
+  - content-density: 21 words
+  - has-sections: 0 sections
+  - has-internal-links: 0 links
+  - has-contact-info: No contact info detected
+REKOMMENDERADE PROMPTÄNDRINGAR:
+  1. Specify the desired CTA text in the prompt, e.g. 'med en tydlig Boka tid-knapp'
+  2. Provide more details about services, team, and unique selling points in the prompt
+  3. Request specific sections in the prompt: 'med sektioner för tjänster, om oss, kontakt och kundrecensioner'
+  4. Include phone number and email in the prompt for the AI to use

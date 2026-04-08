@@ -41,10 +41,28 @@ type BuildIntent = "website" | "app" | "template";
 | `promptId` | URL transport | canonical for prompt-driven entry | Stored prompt handoff fetched on builder load |
 | `chatId` | URL + client/server state | canonical durable ID | The durable builder conversation ID |
 | `templateId` | URL transport | canonical special-case trigger | Template initializer (local v0 gallery), not durable session identity |
-| `source` | URL transport | compatibility-only | Legacy audit helper; not a primary entry discriminator |
+| `source` | URL transport | compatibility-only | Legacy audit helper; builder normalizes this into `entryKind: "audit"` |
 | `type` | URL transport | non-canonical | Category UI context only; not part of current builder state contract |
-| `v0ProjectId` | server/client state | non-entry state | External v0 project identity, not part of builder entry URL |
+| `v0ProjectId` | server/client payload | legacy compatibility | Old payload key for external project identity; not part of builder entry URL |
+| `externalProjectId` | client state | non-entry state | Builder-local name for external legacy project identity; not the canonical project root |
 | `sandboxUrl` | server/client version state | non-entry state | Version-level sandbox runtime URL, not part of builder entry |
+
+## Normalized Entry Classifier
+
+Buildern centraliserar nu URL-ingången till en intern `entryKind` / `entryState`
+så att flera hooks inte behöver tolka samma parametrar var för sig.
+
+```ts
+type BuilderEntryKind =
+  | "template"
+  | "prompt-handoff"
+  | "audit"
+  | "project-restore"
+  | "blank";
+```
+
+Detta är inte en publik URL-parameter i sig, men det är den kanoniska interna
+klassningen som resten av buildern ska utgå från.
 
 ## HTTP JSON (chats / template / project save)
 
@@ -119,9 +137,9 @@ type BlankBuilderBootstrap = {
 
 ### Fresh-entry guards
 
-When the builder opens with `hasEntryParams` (`promptId`, `promptParam`,
-`templateId`, or `source=audit`), the following are blocked until the entry
-is consumed:
+When the builder opens with a normalized fresh entry (`entryKind` =
+`prompt-handoff`, `template`, or `audit`), the following are blocked until the
+entry is consumed:
 
 - **Project-chat restore** (`GET /api/projects/[id]/chat`) is skipped entirely
   for fresh entries and template entries to prevent a race where a stale
@@ -146,8 +164,9 @@ is consumed:
 
 ## Compatibility Notes
 
-- `source=audit` currently acts as a fallback when `buildMethod` is absent, but
-  it should not be treated as the primary standard.
+- `source=audit` remains compatibility input only. Runtime code should prefer
+  the normalized `entryKind: "audit"` branch instead of spreading raw
+  `source === "audit"` checks further.
 - `type` from category routes is currently presentation context only.
 - Direct blank `/builder` bootstrap remains useful for recovery and utility
   navigation, but should stay outside the primary five-entry-point model.

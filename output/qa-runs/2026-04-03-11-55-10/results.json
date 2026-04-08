@@ -1,0 +1,10 @@
+[
+  {
+    "personaId": 1,
+    "name": "Klipp & Stil",
+    "finalScore": 0,
+    "totalDurationMs": 2180903,
+    "phases": [],
+    "fatalError": "Stream timeout after 720s"
+  }
+]

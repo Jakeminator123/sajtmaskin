@@ -55,7 +55,7 @@ export function useBuilderDerivedState({
   isMediaEnabled,
   enableBlobMedia,
 }: Args) {
-  const chatV0ProjectId = chat?.v0ProjectId ?? null;
+  const chatExternalProjectId = chat?.v0ProjectId ?? null;
 
   const isAnyStreaming = useMemo(
     () => messages.some((m) => Boolean(m.isStreaming)),
@@ -130,7 +130,7 @@ export function useBuilderDerivedState({
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
 
   return {
-    chatV0ProjectId,
+    chatExternalProjectId,
     isAnyStreaming,
     isAwaitingInput,
     versionsList,

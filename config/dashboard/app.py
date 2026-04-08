@@ -20,6 +20,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+SCRIPTS_DIR_FOR_IMPORT = Path(__file__).resolve().parents[2] / "scripts"
+if str(SCRIPTS_DIR_FOR_IMPORT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR_FOR_IMPORT))
+
+from dashboard_shared import collect_prompt_dump_statuses
+
 # Windows-konsol / felströmmar: tvinga UTF-8 när möjligt (Streamlit-UI är ändå UTF-8 i webbläsaren)
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -417,7 +423,7 @@ with st.sidebar:
 
 st.title("Konfigurationsdashboard")
 st.caption(
-    "Välj vy i sidopanelen. Svenska tecken (åäö) sparas som UTF-8; JSON skrivs med ensure_ascii=False."
+    "Välj vy i sidopanelen. Detta är konfigurationspanelen för `config/*` och vissa docs/rules. För rebuild, embeddings, scaffolds, externa referenser och artifact-status: använd `scripts/scripts_dashboard.py`. Svenska tecken (åäö) sparas som UTF-8; JSON skrivs med ensure_ascii=False."
 )
 
 # -- Översikt -------------------------------------------------------------------
@@ -850,8 +856,14 @@ elif page == "ai_models":
             "Det här styr den deterministiska orkestratorn före build. Det är inte en egen LLM, utan regler för när prompten ska skickas direkt, kondenseras eller delas upp."
         )
         st.info(
-            "Website-latens påverkas också av hur mycket kontext som byggs före modellanropet. "
-            "KB-sök och template-library-retrieval körs nu parallellt, men stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."
+            "Website-latens påverkas av hur mycket kontext som byggs före modellanropet: "
+            "`resolveOrchestrationBase` orkestrerar scaffold, route plan, pre-generation contracts och `BuildSpec`; "
+            "därefter byggs faktisk LLM-input i `buildDynamicContext` med tokenbudgetar från `BuildSpec` "
+            "(blockprioritet + pruning; se `DynamicContextPruning` / `generation-input-package.json` i prompt-dumps). "
+            "Kanonisk karta: docs/architecture/llm-input-blocks.md. "
+            "Template-library är inte samma hot-path som scaffold-kontext (se docs/architecture/builder-generation.md). "
+            "Koden är source of truth; panelen ska spegla runtime-sanningen, inte leda den. "
+            "Stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."
         )
 
         st.markdown("### Hard caps")
@@ -1158,7 +1170,9 @@ elif page == "ai_models":
         st.markdown("### Post-generation (verifier)")
         st.caption(
             "Styr `runVerifierPass` efter syntax i finalize. "
-            "Verifiern följer `phaseRouting.verifier` och budgets i `postGenerationPasses`."
+            "Verifiern följer `phaseRouting.verifier` och budgets i `postGenerationPasses`. "
+            "Hela post-stream-kedjan (finalize-path, preflight, gräns mot preview) dokumenteras i "
+            "`docs/architecture/step4-post-generation.md`."
         )
         pgp = manifest.setdefault("postGenerationPasses", {})
         p_ver_tok = pgp.setdefault("verifierMaxOutputTokens", {})
@@ -1440,8 +1454,16 @@ elif page == "Runtime scaffolds":
         st.dataframe(rows, width="stretch", hide_index=True)
 
     st.info(
-        "Detta är den kanoniska runtime-ytan som own-engine matchar mot. "
-        "Builderns Mallar-tab och external-template-pipelinen är separata lager."
+        "Denna vy listar manifest per scaffold-mapp; kanonisk källa är runtime-registret under `src/lib/gen/scaffolds/`. "
+        "I `resolveOrchestrationBase` (`orchestrate.ts`) väljs scaffold (manual / persisted / auto), "
+        "sedan `buildRoutePlan` (RoutePlan.provenance: primarySource + sources), `inferPreGenerationContracts`, `deriveBuildSpec`, "
+        "därefter serialisering via `serialize.ts` "
+        "(traits som `structure_profile` m.m., filträd, kritiska filer — budget styrs av `BuildSpec`). "
+        "Auto-läge: keyword-match primärt; scaffold-embeddings när träff saknas eller valet blir generiskt (`landing-page` / `base-nextjs`). "
+        "Follow-up-redesign kan låsa upp persisted scaffold i auto-läge utan ny scaffold-pin (`shouldIgnorePersistedScaffoldForMatch`). "
+        "Builderns Mallar-tab och external-template-pipelinen är separata lager. "
+        "Detta är observability/översikt; runtimekoden vinner alltid vid konflikt. "
+        "För rebuild/status/embeddings-artifacts: `scripts/scripts_dashboard.py`."
     )
 
 
@@ -1479,10 +1501,13 @@ elif page == "Template pipeline":
 
     st.info(
         "Research-pipelinen under `data/external-template-pipeline/` är bygginput. "
-        "Current own-engine-prompten injicerar inte längre template-library-retrieval. "
+        "Current own-engine-prompten injicerar inte längre template-library-retrieval direkt. "
+        "Kondenserad extern research kan fortfarande nå modellen indirekt via "
+        "`scaffold-research.generated.json` (`referenceTemplates`). "
         "De genererade artefakterna under `src/lib/gen/template-library/` används främst av "
         "validering, research-/byggskript och lokala kvalitetskontroller, medan "
-        "`src/lib/gen/scaffolds/scaffold-research.generated.json` fortsatt överlagras i runtime-scaffolds."
+        "`src/lib/gen/scaffolds/scaffold-research.generated.json` fortsatt överlagras i runtime-scaffolds. "
+        "För att faktiskt köra pipeline-steg: använd `scripts/scripts_dashboard.py`."
     )
 
 
@@ -1507,9 +1532,39 @@ elif page == "Preview och versioner":
         for run in latest_runs:
             st.markdown(f"- `{run.relative_to(repo).as_posix()}`")
 
+    prompt_dump_rows = collect_prompt_dump_statuses(
+        repo,
+        env_value=os.environ.get("SAJTMASKIN_PROMPT_DUMP"),
+    )
+    if prompt_dump_rows:
+        st.markdown("**Prompt-dumps**")
+        st.dataframe(
+            [
+                {
+                    "Kategori": row["category"],
+                    "Status": row["status"],
+                    "DumpedAt": row["dumpedAt"] or "missing",
+                    "StatusUpdatedAt": row["statusUpdatedAt"] or "—",
+                    "Filer": ", ".join(row["presentFiles"]) if row["presentFiles"] else "none",
+                    "Notis": row["note"],
+                }
+                for row in prompt_dump_rows
+            ],
+            width="stretch",
+            hide_index=True,
+        )
+        st.caption(
+            "`orchestration-dynamic` skriver `latest.md` + `generation-input-package.json`. "
+            "Övriga kategorier har egna payloadfiler. Om status är `disabled` ska befintliga payloadfiler läsas som stale-risk, inte som färska dumps."
+        )
+
     st.info(
         "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
         "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
+        "`done` kan bära `previewPending` + `previewUrlHint` medan VM-preview fortfarande bootar; "
+        "`previewUrlHint` är en boot-hint, inte en färdig live-URL. "
+        "chat-/versions-API håller `previewUrl` null tills previewn faktiskt är redo. "
+        "`legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. "
         "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
     )
 

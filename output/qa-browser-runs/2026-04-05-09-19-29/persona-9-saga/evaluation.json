@@ -1,0 +1,120 @@
+{
+  "persona": "Saga",
+  "business": "Influencer/content i Malmö",
+  "authenticated": false,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": true,
+      "detail": "OK"
+    },
+    {
+      "name": "swedish-characters",
+      "passed": true,
+      "detail": "Found å/ä/ö"
+    },
+    {
+      "name": "no-english-body",
+      "passed": true,
+      "detail": "No English phrases"
+    },
+    {
+      "name": "no-lorem-ipsum",
+      "passed": true,
+      "detail": "Clean"
+    },
+    {
+      "name": "has-heading",
+      "passed": true,
+      "detail": "1 H1(s)"
+    },
+    {
+      "name": "has-cta",
+      "passed": false,
+      "detail": "No Swedish CTA button found"
+    },
+    {
+      "name": "has-images",
+      "passed": false,
+      "detail": "No images"
+    },
+    {
+      "name": "has-footer",
+      "passed": false,
+      "detail": "No footer found"
+    },
+    {
+      "name": "has-navigation",
+      "passed": false,
+      "detail": "No nav found"
+    },
+    {
+      "name": "content-density",
+      "passed": false,
+      "detail": "21 words"
+    },
+    {
+      "name": "has-sections",
+      "passed": false,
+      "detail": "0 sections"
+    },
+    {
+      "name": "has-internal-links",
+      "passed": false,
+      "detail": "0 links"
+    },
+    {
+      "name": "has-contact-info",
+      "passed": false,
+      "detail": "No contact info detected"
+    },
+    {
+      "name": "relevant-heading",
+      "passed": true,
+      "detail": "Heading: \"Startar preview\""
+    }
+  ],
+  "suggestions": [
+    {
+      "area": "cta",
+      "current": "No clear Swedish call-to-action button",
+      "suggestion": "Specify the desired CTA text in the prompt, e.g. 'med en tydlig Boka tid-knapp'"
+    },
+    {
+      "area": "content",
+      "current": "Only 21 words generated",
+      "suggestion": "Provide more details about services, team, and unique selling points in the prompt"
+    },
+    {
+      "area": "structure",
+      "current": "Only 0 sections",
+      "suggestion": "Request specific sections in the prompt: 'med sektioner för tjänster, om oss, kontakt och kundrecensioner'"
+    },
+    {
+      "area": "contact",
+      "current": "No phone number or email visible",
+      "suggestion": "Include phone number and email in the prompt for the AI to use"
+    }
+  ],
+  "score": 0.42857142857142855,
+  "pageCount": 1,
+  "navLinks": [],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/site-scroll-00.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/site-scroll-01.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/site-scroll-02.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/site-full-page.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-05-09-19-29/persona-9-saga/step-99-final.png"
+  ]
+}

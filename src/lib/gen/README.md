@@ -25,10 +25,12 @@ Builder/API prompt
            │
            └─ finalizeOrchestrationPrompts()
                 └─ buildDynamicContext()  (system-prompt.ts)
-                     ├─ scaffold context
+                     ├─ scaffold context (+ capability hints via orchestrate)
                      ├─ route plan + pre-generation contracts
                      ├─ brief / visual identity / design references
-                     └─ final engine system prompt
+                     ├─ token budget + block pruning → `DynamicContextPruning`
+                     └─ compose static core + dynamic → `engineSystemPrompt`
+                (user prompt text → **user** message in the completions request, not duplicated in system)
 
 own-engine stream
     │
@@ -64,6 +66,9 @@ actual scaffold/template lookup behavior, read `scaffolds/README.md` and
 | `autofix/` | Post-generation fixers: import validation, JSX check, dep completer. |
 | `parser.ts` | Parses fenced code blocks from streamed content. |
 | `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
+| `project-scaffold.ts` | Scaffold merge for exported/previewed projects: baseline package.json, tsconfig, boilerplate files. `buildCompleteProject()` accepts optional pre-resolved UI components. |
+| `project-scaffold-ui-reader.ts` | Reads `@/components/ui/*` sources from the host repo via `fs.readFileSync`. Separated to keep dynamic filesystem reads out of Turbopack's static App Route bundle analysis. Loaded via `await import()` by callers. |
+| `build-exportable-project.ts` | Canonical wrapper: scaffold merge + UI resolution + repair. **`buildExportableProject()` is async** (dynamic import of the UI reader). All callers must `await`. |
 | `version-manager.ts` | Creates versions from content, parses files. |
 
 ## Generated Artifacts And Indexing
@@ -104,18 +109,13 @@ npm run scaffolds:validate
 
 ## Practical Smoke Test
 
-For a real prompt-driven dry run against the local dev server, use:
+For a real prompt-driven dry run against the local dev server, use Builder or
+call the own-engine HTTP/SSE routes directly:
 
 ```bash
-python scripts/cli/builder-generate.py
+POST /api/engine/chats/stream
+GET  /api/engine/chats/{chatId}/files?versionId=...
 ```
-
-That script calls the same own-engine HTTP/SSE routes as Builder and writes the
-captured result under `output/generations/<timestamp>-<slug>/` with:
-
-- `metadata.json` (`streamMeta`, route plan, preflight)
-- `brief.json` when deep brief was used
-- `files/` with the saved version payload
 
 ## Adding suspense stream rules
 

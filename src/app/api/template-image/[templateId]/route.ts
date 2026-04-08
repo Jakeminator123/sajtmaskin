@@ -1,6 +1,7 @@
-import { readdir, readFile } from "node:fs/promises";
-import { resolve, extname } from "node:path";
+import { access, readFile } from "node:fs/promises";
+import { resolve, extname, join } from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
+import { getTemplateById } from "@/lib/templates/template-data";
 
 const TEMPLATE_IMAGES_ROOT = resolve(
   process.cwd(),
@@ -18,45 +19,37 @@ const MIME_TYPES: Record<string, string> = {
 
 const CACHE_HEADER = "public, max-age=86400, stale-while-revalidate=604800";
 
-async function tryReadDir(path: string): Promise<string[]> {
+async function canAccess(path: string): Promise<boolean> {
   try {
-    return await readdir(path);
+    await access(path);
+    return true;
   } catch {
-    return [];
+    return false;
   }
 }
 
 async function findFirstImage(
   templateId: string,
 ): Promise<{ buffer: Buffer; contentType: string } | null> {
-  const categories = await tryReadDir(TEMPLATE_IMAGES_ROOT);
-  if (categories.length === 0) return null;
+  const template = getTemplateById(templateId);
+  if (!template) return null;
 
-  for (const category of categories) {
-    const templateDir = resolve(
-      TEMPLATE_IMAGES_ROOT,
-      category,
-      templateId,
-    );
+  const imageFilename =
+    typeof template.imageFilename === "string" && template.imageFilename.trim()
+      ? template.imageFilename.trim()
+      : `${templateId}.jpg`;
+  const ext = extname(imageFilename).toLowerCase();
+  const contentType = MIME_TYPES[ext] || "application/octet-stream";
+  const base = join(TEMPLATE_IMAGES_ROOT, template.category, templateId);
 
-    for (const subdir of ["listing", "detail"]) {
-      const dir = resolve(templateDir, subdir);
-      const files = await tryReadDir(dir);
-      const imageFile = files
-        .filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
-        .sort()[0];
-
-      if (imageFile) {
-        const fullPath = resolve(dir, imageFile);
-        const ext = extname(imageFile).toLowerCase();
-        const contentType = MIME_TYPES[ext] || "application/octet-stream";
-        try {
-          const buffer = await readFile(fullPath);
-          return { buffer, contentType };
-        } catch {
-          continue;
-        }
-      }
+  for (const subdir of ["listing", "detail"]) {
+    const fullPath = join(base, subdir, imageFilename);
+    if (!(await canAccess(fullPath))) continue;
+    try {
+      const buffer = await readFile(fullPath);
+      return { buffer, contentType };
+    } catch {
+      continue;
     }
   }
 

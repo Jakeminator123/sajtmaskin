@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 13564,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: page.goto: net::ERR_ABORTED at http://localhost:3000/builder?project=WJ3BNqZqirmPdQPwE8gHj&buildMethod=starter_freeform&buildIntent=starter&promptId=zJC4QbUtuButha0ulnCnD\nCall log:\n  - navigating to \"http://localhost:3000/builder?project=WJ3BNqZqirmPdQPwE8gHj&buildMethod=starter_freeform&buildIntent=starter&promptId=zJC4QbUtuButha0ulnCnD\", waiting until \"domcontentloaded\"\n",
+    "authenticated": false
+  }
+]

@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: oklch(0.985 0.008 196);
+  --color-foreground: oklch(0.23 0.028 212);
+  --color-card: oklch(0.995 0.004 180);
+  --color-card-foreground: oklch(0.23 0.028 212);
+  --color-primary: oklch(0.56 0.118 198);
+  --color-primary-foreground: oklch(0.985 0.004 180);
+  --color-secondary: oklch(0.955 0.014 196);
+  --color-secondary-foreground: oklch(0.3 0.03 212);
+  --color-muted: oklch(0.965 0.01 196);
+  --color-muted-foreground: oklch(0.5 0.02 212);
+  --color-accent: oklch(0.92 0.032 86);
+  --color-accent-foreground: oklch(0.29 0.024 64);
+  --color-destructive: oklch(0.58 0.19 28);
+  --color-destructive-foreground: oklch(0.985 0.004 180);
+  --color-border: oklch(0.89 0.012 204);
+  --color-input: oklch(0.93 0.011 204);
+  --color-ring: oklch(0.56 0.118 198);
+  --radius: 1rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 14%, transparent) 0%, transparent 28%),
+      radial-gradient(circle at top right, color-mix(in oklab, var(--color-accent) 18%, transparent) 0%, transparent 24%),
+      linear-gradient(to bottom, transparent, color-mix(in oklab, var(--color-secondary) 42%, transparent)),
+      repeating-linear-gradient(
+        90deg,
+        transparent 0,
+        transparent 118px,
+        color-mix(in oklab, var(--color-border) 35%, transparent) 118px,
+        color-mix(in oklab, var(--color-border) 35%, transparent) 119px
+      );
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 22%, white);
+    color: var(--color-foreground);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .section-shell {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .panel-surface {
+    @apply rounded-[1.75rem] border border-border/70 bg-card/95 shadow-sm backdrop-blur-sm;
+  }
+
+  .section-label {
+    @apply inline-flex w-fit items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-sm font-medium text-muted-foreground;
+  }
+
+  .icon-chip {
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-secondary text-primary;
+  }
+}

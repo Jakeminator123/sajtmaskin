@@ -33,7 +33,7 @@ Conservative rollout rule:
   The canonical builder entry contract for `buildMethod`, `buildIntent`,
   `appProjectId`, prompt handoff, and the v0-driven template exception path.
 - `scaffold-contract.md`
-  The runtime scaffold manifest contract and validation expectations.
+  The runtime scaffold manifest contract, scaffold family meaning, and what scaffold context actually reaches the model.
 - `integrations-and-data.md`
   The most important data, validation, and template-library schema surfaces.
 - `external-template-pipeline-contract.md`
@@ -45,6 +45,12 @@ Conservative rollout rule:
 - `preview-session-contract.md`
   The stable human-readable contract for preview/session identifiers, preview
   URLs, and the verify-lane boundary.
+- `llm-role-matrix.md`
+  Canonical human-readable matrix of LLM roles: prompt assist, Deep brief,
+  planner, generator, fixer, verifier, and deploy-assistant.
+- `orchestration-signal-contract.md`
+  Canonical signal-layer contract: prompt formatting, scaffold match, route
+  plan, capabilities, contracts, dynamic context, and post-check layers.
 - `strict/README.md`
   Explains the machine-oriented strict layer.
 - `strict/preview-session-contract.schema.json`
@@ -62,6 +68,11 @@ The **own-engine static system prompt** is not a “schema” doc in this folder
 is configured as JSON + Markdown under the repo root: `config/codegen-static-prompt.json`
 and `config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
 dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md) (prompt layering and STATIC_CORE live there; older prompt-tree narrative was removed with the archive — recover via `git log` on that path if needed).
+
+For runtime scaffold input specifically, also read `scaffold-contract.md`.
+
+For signal flow and how these layers interact in init/follow-up/repair, also
+read `docs/architecture/llm-signal-flow.md`.
 
 ## Code sources of truth
 

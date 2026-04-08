@@ -26,9 +26,8 @@ Kort guide för att skilja **produktfunktioner** från **repo-lokala agentverkty
 ## Operativa dokument (kör utan separata plan-ID)
 
 - **Preview / sandbox / deploy:** [`preview-deploy.md`](../architecture/preview-deploy.md) — inkl. § *Levererat* och länkar till kod.
-- **Aktiv status / beslut:** [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
-- **Storstädsepik (arkiverad; pass-logg + Fas D vid datastäd):** [`STORDSTAD-repo-kod-databas.md`](../plans/avklarat/STORDSTAD-repo-kod-databas.md).
-- **Preview-URL i JSON/SSE (klar):** [`KORPLAN-preview-url-api.md`](../plans/avklarat/KORPLAN-preview-url-api.md) (arkiverad körplan).
+- **Samlad slutstatus efter 5-stegssparet:** [`../../5-steg.txt`](../../5-steg.txt).
+- **Äldre större städ-/previewpass:** se `docs/plans/avklarat/README.md` och git-historik.
 
 Historiska planhandoff finns i **git-historik** (`docs/plans/avklarat/`, äldre commits). **Aktuell drift:** tabellen *Operativa dokument* ovan — inga separata numrerade kördokument i repo-trädet.
 
@@ -44,13 +43,13 @@ När flera agenter delar samma repo är den största risken ofta **arbetsyta och
 - **Verifiera före push:** `git fetch`, synka mot fjärr enligt teamets vana, kör `npm run typecheck` och `npx vitest run` (plus riktade tester vid behov).
 - **Städa efter merge:** när ett sidospår är uppätet av `master`, ta bort tillfällig branch/worktree så Cursor inte fortsätter visa gamla arbetslinjer.
 
-**Två spår samtidigt (låg konfliktrisk):** zonmodellen (spår A = repo/docs vs spår B = own-engine/generation) finns i den arkiverade [`STORDSTAD-repo-kod-databas.md`](../plans/avklarat/STORDSTAD-repo-kod-databas.md). **Ingen paus behövs av tekniska skäl** så länge `master` är grön (`npm run typecheck`, `npm run test:ci`) och zonerna nedan respekteras.
+**Två spår samtidigt (låg konfliktrisk):** zonmodellen (spår A = repo/docs vs spår B = own-engine/generation) gäller fortfarande. **Ingen paus behövs av tekniska skäl** så länge `master` är grön (`npm run typecheck`, `npm run test:ci`) och zonerna nedan respekteras.
 
 **Konfliktzoner — stäm av innan spår A rör här parallellt med spår B:** `src/lib/gen/*`, `src/lib/providers/own-engine/*`, `src/lib/own-engine/*`, `src/lib/hooks/chat/*`, `src/lib/env.ts`, `src/lib/config.ts`, samt kanoniska generation/preview-arkitekturdocs (`docs/architecture/builder-generation.md`, `preview-deploy.md`; vid modell/stream-frågor även `system-overview.md`). Spår A kan fortsätta fritt i t.ex. `docs/` (undantag: de arkitekturfiler som listas om B jobbar där), `docs/ENV.md`, `scripts/README.md`, dokumentation kring `scripts/env/*` (utan att röra `src/lib/env.ts` utan samordning), `AGENTS.md`, `.cursor/README.md`, `tools/README.md`, `docs/plans/active/`, `repo-tree.md` när det inte krockar med B.
 
 **Spår B** kör i `src/lib/gen/*` (undantag: `scaffolds/*` utan egen scope), `src/lib/providers/own-engine/*` och prompt/runtime/orchestration. Pågår samma fil i två commits: undvik — eller merge/synka först.
 
-Vilka doc-filer som rörts i en större städvåg kan spåras i den arkiverade [`POST-EPIC-CLEANUP.md`](../plans/avklarat/POST-EPIC-CLEANUP.md) § *Dokumentation som berörts*.
+Vilka doc-filer som rörts i äldre större städvågor får vid behov spåras via `docs/plans/avklarat/README.md` och git-historik.
 
 ## Verifiering före större merge
 
@@ -58,6 +57,6 @@ Kör `npm run typecheck` och `npx vitest run` (plus `npm run lint` vid behov) in
 
 ## Plan / backlog
 
-- [PROJECT-STATE-AND-DIRECTION.md](../plans/active/PROJECT-STATE-AND-DIRECTION.md) — kort kanonisk aktiv status  
+- [`../../5-steg.txt`](../../5-steg.txt) — samlad slutstatus för avslutade 5-stegsspåret  
 - [`avklarat/README.md`](../plans/avklarat/README.md) — äldre planhandoff i git-historik
 

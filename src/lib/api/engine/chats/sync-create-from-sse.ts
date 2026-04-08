@@ -1,4 +1,8 @@
-import { previewUrlField, readPreviewUrl, resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import {
+  previewUrlField,
+  resolveCanonicalLivePreviewUrlFromDonePayload,
+  resolveCanonicalLivePreviewUrlFromPreviewReadyPayload,
+} from "@/lib/api/preview-url-contract";
 
 export type SseEvent = {
   event: string;
@@ -53,12 +57,30 @@ function findLastEvent(events: SseEvent[], name: string): SseEvent | undefined {
   return undefined;
 }
 
-export function readPreviewReadyUrl(data: unknown): string | null {
-  if (!data || typeof data !== "object") return null;
-  const raw = typeof (data as { previewUrl?: unknown }).previewUrl === "string"
-    ? (data as { previewUrl: string }).previewUrl.trim()
-    : "";
-  return raw || null;
+function readDonePreviewPending(done: Record<string, unknown>): boolean {
+  return done.previewPending === true || done.sandboxPending === true;
+}
+
+export function resolveSyncPreviewState(params: {
+  done: Record<string, unknown>;
+  previewReadyData?: unknown;
+  hasPreviewReadyEvent: boolean;
+  hasBuildErrorEvent: boolean;
+}): { previewResolved: string | null; previewPending: boolean } {
+  const previewReadyUrl = resolveCanonicalLivePreviewUrlFromPreviewReadyPayload(
+    params.previewReadyData && typeof params.previewReadyData === "object"
+      ? (params.previewReadyData as { previewUrl?: unknown })
+      : null,
+  );
+  const previewResolved = resolveCanonicalLivePreviewUrlFromDonePayload(
+    params.done as { previewUrl?: unknown; demoUrl?: unknown },
+  ) ?? previewReadyUrl;
+  const previewSettled =
+    params.hasPreviewReadyEvent || params.hasBuildErrorEvent || Boolean(previewResolved);
+  return {
+    previewResolved,
+    previewPending: readDonePreviewPending(params.done) && !previewSettled,
+  };
 }
 
 export function buildSyncLatestVersion(params: {
@@ -107,6 +129,7 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
   const doneEvent = findLastEvent(events, "done");
   const metaEvent = findLastEvent(events, "meta");
   const previewReadyEvent = findLastEvent(events, "preview-ready");
+  const buildErrorEvent = findLastEvent(events, "build-error");
 
   if (!doneEvent) {
     const errorData =
@@ -140,18 +163,12 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
 
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
-  const previewPending = done.previewPending === true;
-
-  const previewData =
-    previewReadyEvent?.data && typeof previewReadyEvent.data === "object"
-      ? (previewReadyEvent.data as Record<string, unknown>)
-      : null;
-  const previewReadyUrl = readPreviewReadyUrl(previewData);
-
-  const previewResolved =
-    readPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
-    resolveInboundPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
-    previewReadyUrl;
+  const { previewResolved, previewPending } = resolveSyncPreviewState({
+    done,
+    previewReadyData: previewReadyEvent?.data,
+    hasPreviewReadyEvent: Boolean(previewReadyEvent),
+    hasBuildErrorEvent: Boolean(buildErrorEvent),
+  });
 
   const verificationState = done.verificationBlocked === true ? "failed" : "pending";
   const verificationSummary =

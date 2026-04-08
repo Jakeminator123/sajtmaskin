@@ -17,6 +17,9 @@ const startPreviewSessionMock = vi.hoisted(() => vi.fn());
 const isTier2PreviewConfigured = vi.hoisted(() => vi.fn(() => false));
 const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn<() => string | null>(() => null));
 const devLogAppend = vi.hoisted(() => vi.fn());
+const formatSSEEventMock = vi.hoisted(() =>
+  vi.fn((event: string, payload: unknown) => JSON.stringify({ event, payload })),
+);
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getChat,
@@ -63,7 +66,7 @@ vi.mock("@/lib/gen/server-verify", () => ({
 }));
 
 vi.mock("@/lib/streaming", () => ({
-  formatSSEEvent: vi.fn(() => ""),
+  formatSSEEvent: formatSSEEventMock,
 }));
 
 vi.mock("@/lib/utils/debug", () => ({
@@ -117,6 +120,7 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     getPreviewHostBaseUrl.mockReset();
     getPreviewHostBaseUrl.mockReturnValue(null);
     updateVersionPreviewUrl.mockResolvedValue(true);
+    formatSSEEventMock.mockClear();
   });
 
   it("parses accumulatedContent when recovery flag is set and saved files are empty", async () => {
@@ -241,6 +245,53 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
       }),
     );
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
+  });
+
+  it("emits done with previewPending + previewUrlHint, but no previewUrl", async () => {
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(false);
+    getPreviewHostBaseUrl.mockReturnValue("https://vm-fly-jakem.fly.dev");
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldFamily: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 20_000,
+          refsChars: 8_000,
+          systemContextChars: 28_000,
+        },
+      },
+    });
+
+    expect(formatSSEEventMock).toHaveBeenCalledWith(
+      "done",
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        previewUrl: null,
+        shimPreviewUrl: null,
+        previewPending: true,
+        previewUrlHint: "https://vm-fly-jakem.fly.dev/chat_1",
+      }),
+    );
   });
 });
 

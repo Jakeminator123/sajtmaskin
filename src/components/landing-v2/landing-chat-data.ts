@@ -278,9 +278,9 @@ export const studioTiers = [
 ]
 
 export const studioTeam = [
-  { name: "Jakob", role: "Strategi & flöden" },
-  { name: "Erik", role: "Design & konvertering" },
-  { name: "Teamet", role: "Kod, integrationer & lansering" },
+  { name: "Strategi", role: "Mål, struktur & flöden" },
+  { name: "Design", role: "Visuellt uttryck & konvertering" },
+  { name: "Leverans", role: "Kod, integrationer & lansering" },
 ]
 
 export const trustLogos = [

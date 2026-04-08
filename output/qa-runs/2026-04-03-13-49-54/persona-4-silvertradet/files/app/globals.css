@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: oklch(0.985 0.003 260);
+  --color-foreground: oklch(0.17 0.002 260);
+  --color-card: oklch(0.995 0.002 260);
+  --color-card-foreground: oklch(0.17 0.002 260);
+  --color-popover: oklch(0.995 0.002 260);
+  --color-popover-foreground: oklch(0.17 0.002 260);
+  --color-primary: oklch(0.17 0.002 260);
+  --color-primary-foreground: oklch(0.985 0.003 260);
+  --color-secondary: oklch(0.95 0.005 260);
+  --color-secondary-foreground: oklch(0.28 0.006 260);
+  --color-muted: oklch(0.965 0.004 260);
+  --color-muted-foreground: oklch(0.52 0.008 260);
+  --color-accent: oklch(0.82 0.01 260);
+  --color-accent-foreground: oklch(0.2 0.003 260);
+  --color-destructive: oklch(0.58 0.18 28);
+  --color-destructive-foreground: oklch(0.985 0.003 260);
+  --color-border: oklch(0.89 0.005 260);
+  --color-input: oklch(0.89 0.005 260);
+  --color-ring: oklch(0.42 0.008 260);
+  --color-chart-1: oklch(0.27 0.004 260);
+  --color-chart-2: oklch(0.55 0.012 260);
+  --color-chart-3: oklch(0.74 0.013 260);
+  --color-chart-4: oklch(0.63 0.02 80);
+  --color-chart-5: oklch(0.83 0.01 260);
+  --radius: 1rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top right, color-mix(in oklab, var(--color-accent) 18%, white) 0%, transparent 28%),
+      radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 4%, white) 0%, transparent 22%),
+      linear-gradient(180deg, color-mix(in oklab, var(--color-background) 96%, white) 0%, var(--color-background) 100%);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 55%, white);
+    color: var(--color-foreground);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .section-shell {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .silver-panel {
+    @apply rounded-[calc(var(--radius)+0.35rem)] border border-border/70 bg-card/90 shadow-sm;
+    background-image: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--color-card) 92%, white) 0%,
+      color-mix(in oklab, var(--color-accent) 8%, white) 100%
+    );
+  }
+
+  .soft-metal {
+    background-image: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-accent) 20%, white) 0%,
+      color-mix(in oklab, var(--color-card) 96%, white) 100%
+    );
+  }
+
+  .hairline {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--color-border) 85%, white) 12%,
+      color-mix(in oklab, var(--color-border) 85%, white) 88%,
+      transparent 100%
+    );
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

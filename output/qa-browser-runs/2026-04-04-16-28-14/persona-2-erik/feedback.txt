@@ -1,0 +1,29 @@
+FEEDBACK — Persona 2: Erik
+Företag: IT-konsult i Stockholm
+Poäng: 100% (14/14 checks)
+Sidor: 5
+Tid: 945s
+=== KVALITETSKONTROLL ===
+OK | iframe-accessible: OK
+OK | swedish-characters: Found å/ä/ö
+OK | no-english-body: No English phrases
+OK | no-lorem-ipsum: Clean
+OK | has-heading: 1 H1(s)
+OK | has-cta: Swedish CTA found
+OK | has-images: 3 images
+OK | has-footer: Footer present
+OK | has-navigation: Nav present
+OK | content-density: 706 words
+OK | has-sections: 5 sections
+OK | has-internal-links: 27 links
+OK | has-contact-info: Phone/email found
+OK | relevant-heading: Heading: "IT-konsulter i Stockholm för säkra och skalbara digitala lös"
+=== NAVIGATION ===
+  Hem → /8b125d38-dd71-4ff8-83ac-99da23e099bf
+  Tjänster → /8b125d38-dd71-4ff8-83ac-99da23e099bf/tjanster
+  Om oss → /8b125d38-dd71-4ff8-83ac-99da23e099bf/om-oss
+  Kontakt → /8b125d38-dd71-4ff8-83ac-99da23e099bf/kontakt
+=== FÖRBÄTTRINGSFÖRSLAG ===
+  Inga förbättringar behövs — prompten fungerade bra
+=== SAMMANFATTNING ===
+Sajten för "IT-konsult i Stockholm" klarade alla kvalitetskontroller. Prompten fungerar bra.

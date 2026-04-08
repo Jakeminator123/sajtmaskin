@@ -1,0 +1,131 @@
+{
+  "persona": "Mohammed",
+  "business": "Bilverkstad i Västerås",
+  "authenticated": true,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": true,
+      "detail": "OK"
+    },
+    {
+      "name": "swedish-characters",
+      "passed": true,
+      "detail": "Found å/ä/ö"
+    },
+    {
+      "name": "no-english-body",
+      "passed": true,
+      "detail": "No English phrases"
+    },
+    {
+      "name": "no-lorem-ipsum",
+      "passed": true,
+      "detail": "Clean"
+    },
+    {
+      "name": "has-heading",
+      "passed": true,
+      "detail": "1 H1(s)"
+    },
+    {
+      "name": "has-cta",
+      "passed": true,
+      "detail": "Swedish CTA found"
+    },
+    {
+      "name": "has-images",
+      "passed": true,
+      "detail": "5 images"
+    },
+    {
+      "name": "has-footer",
+      "passed": true,
+      "detail": "Footer present"
+    },
+    {
+      "name": "has-navigation",
+      "passed": true,
+      "detail": "Nav present"
+    },
+    {
+      "name": "content-density",
+      "passed": true,
+      "detail": "1307 words"
+    },
+    {
+      "name": "has-sections",
+      "passed": true,
+      "detail": "7 sections"
+    },
+    {
+      "name": "has-internal-links",
+      "passed": true,
+      "detail": "28 links"
+    },
+    {
+      "name": "has-contact-info",
+      "passed": true,
+      "detail": "Phone/email found"
+    },
+    {
+      "name": "relevant-heading",
+      "passed": true,
+      "detail": "Heading: \"Bilservice och reparationer i Västerås\""
+    }
+  ],
+  "suggestions": [],
+  "score": 1,
+  "pageCount": 6,
+  "navLinks": [
+    "Hem → /7d11c6e5-f9c1-45eb-b059-3b78442c13bf#hem",
+    "Tjänster → /7d11c6e5-f9c1-45eb-b059-3b78442c13bf#tjanster",
+    "Fördelar → /7d11c6e5-f9c1-45eb-b059-3b78442c13bf#fordelar",
+    "Frågor → /7d11c6e5-f9c1-45eb-b059-3b78442c13bf#vanliga-fragor",
+    "Kontakt → /7d11c6e5-f9c1-45eb-b059-3b78442c13bf#kontakt"
+  ],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-00.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-01.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-02.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-03.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-04.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-05.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-06.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-07.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-08.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-09.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-10.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-11.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-12.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-13.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-scroll-14.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-hem-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-hem-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-hem-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-tjanster-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-tjanster-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-tjanster-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-fordelar-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-fordelar-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-fordelar-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-fragor-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-fragor-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-fragor-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-kontakt-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-kontakt-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/site-page-kontakt-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-4-mohammed/step-99-final.png"
+  ]
+}

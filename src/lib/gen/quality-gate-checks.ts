@@ -16,3 +16,10 @@ export const PROMOTION_QUALITY_GATE_CHECKS = [
 export const TIER2_QUALITY_GATE_CHECKS = [
   "typecheck",
 ] satisfies readonly QualityGateCheck[];
+
+// Background server verification may include lint now that generated projects
+// ship their own minimal ESLint setup, but this must not affect live tier-2 preview.
+export const SERVER_VERIFY_QUALITY_GATE_CHECKS = [
+  "typecheck",
+  "lint",
+] satisfies readonly QualityGateCheck[];

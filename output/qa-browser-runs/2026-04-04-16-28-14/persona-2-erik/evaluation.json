@@ -1,0 +1,123 @@
+{
+  "persona": "Erik",
+  "business": "IT-konsult i Stockholm",
+  "authenticated": true,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": true,
+      "detail": "OK"
+    },
+    {
+      "name": "swedish-characters",
+      "passed": true,
+      "detail": "Found å/ä/ö"
+    },
+    {
+      "name": "no-english-body",
+      "passed": true,
+      "detail": "No English phrases"
+    },
+    {
+      "name": "no-lorem-ipsum",
+      "passed": true,
+      "detail": "Clean"
+    },
+    {
+      "name": "has-heading",
+      "passed": true,
+      "detail": "1 H1(s)"
+    },
+    {
+      "name": "has-cta",
+      "passed": true,
+      "detail": "Swedish CTA found"
+    },
+    {
+      "name": "has-images",
+      "passed": true,
+      "detail": "3 images"
+    },
+    {
+      "name": "has-footer",
+      "passed": true,
+      "detail": "Footer present"
+    },
+    {
+      "name": "has-navigation",
+      "passed": true,
+      "detail": "Nav present"
+    },
+    {
+      "name": "content-density",
+      "passed": true,
+      "detail": "706 words"
+    },
+    {
+      "name": "has-sections",
+      "passed": true,
+      "detail": "5 sections"
+    },
+    {
+      "name": "has-internal-links",
+      "passed": true,
+      "detail": "27 links"
+    },
+    {
+      "name": "has-contact-info",
+      "passed": true,
+      "detail": "Phone/email found"
+    },
+    {
+      "name": "relevant-heading",
+      "passed": true,
+      "detail": "Heading: \"IT-konsulter i Stockholm för säkra och skalbara digitala lös\""
+    }
+  ],
+  "suggestions": [],
+  "score": 1,
+  "pageCount": 5,
+  "navLinks": [
+    "Hem → /8b125d38-dd71-4ff8-83ac-99da23e099bf",
+    "Tjänster → /8b125d38-dd71-4ff8-83ac-99da23e099bf/tjanster",
+    "Om oss → /8b125d38-dd71-4ff8-83ac-99da23e099bf/om-oss",
+    "Kontakt → /8b125d38-dd71-4ff8-83ac-99da23e099bf/kontakt"
+  ],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-00.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-01.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-02.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-03.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-04.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-05.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-06.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-07.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-08.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-scroll-09.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-full-page.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-hem-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-hem-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-hem-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-tjanster-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-tjanster-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-tjanster-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-om-oss-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-om-oss-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-om-oss-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-kontakt-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-kontakt-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/site-page-kontakt-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-2-erik/step-99-final.png"
+  ]
+}

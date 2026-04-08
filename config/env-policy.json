@@ -22,6 +22,8 @@
     "DEBUG",
     "SAJTMASKIN_BUILD_SPEC_ENABLED",
     "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
+    "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
+    "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
@@ -55,6 +57,7 @@
     "SAJTMASKIN_DEV_LOG",
     "SAJTMASKIN_DEV_LOG_DOC_MAX_WORDS",
     "GENERATIONSLOGG",
+    "SAJTMASKIN_VISUAL_QA",
     "AI_BRIEF_MAX_TOKENS",
     "AI_CHAT_MAX_TOKENS",
     "V0_MAX_PROMPT_LENGTH",
@@ -162,6 +165,8 @@
     "SAJTMASKIN_PHASE_FORCE_CHARS",
     "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
     "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
+    "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
+    "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
     "SAJTMASKIN_SOFT_TARGET_AUDIT_CHARS",
     "SAJTMASKIN_SOFT_TARGET_FOLLOWUP_CHARS",
@@ -188,9 +193,6 @@
     "SUPERADMIN_DIAMONDS",
     "SUPERADMIN_EMAIL",
     "SUPERADMIN_PASSWORD",
-    "TEMPLATE_EMBEDDINGS_AUTO_REBUILD",
-    "TEMPLATE_EMBEDDINGS_BLOB_KEY",
-    "TEMPLATE_EMBEDDINGS_STORAGE",
     "TEMPLATE_SYNC_GITHUB_TOKEN",
     "TEMPLATE_SYNC_INCLUDE_EMBEDDINGS",
     "TEMPLATE_SYNC_REF",
@@ -560,6 +562,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional image sourcing key for placeholder materialization."
+    },
+    {
+      "key": "SAJTMASKIN_VISUAL_QA",
+      "classification": "environment_specific",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Optional app-side static visual QA after passing preview-host verify checks."
     },
     {
       "key": "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",

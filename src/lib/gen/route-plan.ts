@@ -4,6 +4,14 @@ import type { ScaffoldManifest } from "./scaffolds/types";
 export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
 export type RoutePlanSource = "brief" | "prompt" | "scaffold";
 
+/** Ordered route-plan contributors (e.g. prompt patterns then scaffold defaults). */
+export interface RoutePlanProvenance {
+  /** Drives planning UX and BuildSpec: brief wins, else scaffold if it changed IA, else prompt. */
+  primarySource: RoutePlanSource;
+  /** All sources that contributed routes or structure (stable order). */
+  sources: RoutePlanSource[];
+}
+
 export interface PlannedRoute {
   path: string;
   name: string;
@@ -12,10 +20,98 @@ export interface PlannedRoute {
 }
 
 export interface RoutePlan {
-  source: RoutePlanSource;
+  provenance: RoutePlanProvenance;
   siteType: RoutePlanSiteType;
   reason: string;
   routes: PlannedRoute[];
+}
+
+export function isRoutePlanSource(value: unknown): value is RoutePlanSource {
+  return value === "brief" || value === "prompt" || value === "scaffold";
+}
+
+/** Null-safe primary source; supports legacy persisted payloads that only had `source`. */
+export function getRoutePlanPrimarySource(
+  plan: RoutePlan | { provenance?: RoutePlanProvenance; source?: RoutePlanSource } | null | undefined,
+): RoutePlanSource | null {
+  if (!plan) return null;
+  if ("provenance" in plan && plan.provenance?.primarySource) {
+    return plan.provenance.primarySource;
+  }
+  if ("source" in plan && isRoutePlanSource((plan as { source?: unknown }).source)) {
+    return (plan as { source: RoutePlanSource }).source;
+  }
+  return null;
+}
+
+/**
+ * Parse a loose JSON object into RoutePlan, accepting legacy `{ source }` or new `{ provenance }`.
+ */
+export function parseRoutePlanFromUnknown(data: Record<string, unknown> | null | undefined): RoutePlan | null {
+  if (!data || typeof data !== "object") return null;
+  const siteType = data.siteType;
+  const reason = data.reason;
+  const routesRaw = data.routes;
+  if (
+    siteType !== "one-page" &&
+    siteType !== "brochure" &&
+    siteType !== "content-heavy" &&
+    siteType !== "app-shell"
+  ) {
+    return null;
+  }
+  if (typeof reason !== "string" || !Array.isArray(routesRaw)) return null;
+
+  let provenance: RoutePlanProvenance | undefined;
+  const prov = data.provenance;
+  if (prov && typeof prov === "object" && !Array.isArray(prov)) {
+    const p = prov as Record<string, unknown>;
+    const primary = p.primarySource;
+    const sources = p.sources;
+    if (
+      isRoutePlanSource(primary) &&
+      Array.isArray(sources) &&
+      sources.length > 0 &&
+      sources.every(isRoutePlanSource)
+    ) {
+      provenance = { primarySource: primary, sources: [...sources] };
+    }
+  }
+  if (!provenance && isRoutePlanSource(data.source)) {
+    provenance = { primarySource: data.source, sources: [data.source] };
+  }
+  if (!provenance) return null;
+
+  const routes: PlannedRoute[] = [];
+  for (const item of routesRaw) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    if (typeof r.path !== "string") continue;
+    const path = normalizeRoutePath(r.path);
+    const name =
+      typeof r.name === "string" && r.name.trim()
+        ? r.name.trim()
+        : path === "/"
+          ? "Home"
+          : path.split("/").filter(Boolean).join(" ") || "Route";
+    const intent =
+      typeof r.intent === "string" && r.intent.trim()
+        ? r.intent.trim()
+        : `Implement the ${name} route as planned.`;
+    routes.push({
+      path,
+      name,
+      intent,
+      required: typeof r.required === "boolean" ? r.required : false,
+    });
+  }
+
+  return {
+    provenance,
+    siteType,
+    reason,
+    routes,
+  };
 }
 
 type BriefPageLike = {
@@ -32,9 +128,9 @@ const WEBSITE_ROUTE_PATTERNS: Array<{
 }> = [
   {
     match: /\bom\s+oss\b/i,
-    path: "/om-oss",
+    path: "/om",
     name: "Om oss",
-    intent: "Build trust and explain the company or creator. Use Swedish slug /om-oss.",
+    intent: "Build trust and explain the company or creator (Swedish sites: use /om).",
   },
   {
     match: /\b(about|company|story)\b/i,
@@ -42,14 +138,10 @@ const WEBSITE_ROUTE_PATTERNS: Array<{
     name: "About",
     intent: "Build trust and explain the company or creator.",
   },
-  { match: /\b(tjänste?r?\s*sida|våra tjänster|tjänster)\b/i, path: "/tjanster", name: "Tjänster", intent: "Explain offers, packages, or capabilities. Swedish slug /tjanster." },
-  { match: /\b(services?\s+page|our services)\b/i, path: "/services", name: "Services", intent: "Explain offers, packages, or capabilities." },
-  { match: /\b(pris|priser)\b/i, path: "/priser", name: "Priser", intent: "Show pricing, plans, or billing details. Swedish slug /priser." },
-  { match: /\b(pricing|price|billing)\b/i, path: "/pricing", name: "Pricing", intent: "Show pricing, plans, or billing details." },
-  { match: /\b(kontakta|kontakt)\b/i, path: "/kontakt", name: "Kontakt", intent: "Capture leads or contact requests. Swedish slug /kontakt." },
-  { match: /\b(boka|bokning)\b/i, path: "/boka", name: "Boka", intent: "Booking or appointment page. Swedish slug /boka." },
-  { match: /\b(contact|book|booking)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },
-  { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blogg", name: "Blogg", intent: "Publish articles, updates, or editorial content." },
+  { match: /\b(services?\s+page|tjänste?r?\s*sida|our services|våra tjänster)\b/i, path: "/services", name: "Services", intent: "Explain offers, packages, or capabilities." },
+  { match: /\b(pricing|price|pris|priser|billing)\b/i, path: "/pricing", name: "Pricing", intent: "Show pricing, plans, or billing details." },
+  { match: /\b(contact|kontakta|kontakt|kontaktsida|kontaktsidan|book|booking|boka)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },
+  { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blog", name: "Blog", intent: "Publish articles, updates, or editorial content." },
   { match: /\b(docs|documentation|kunskapsbank|guide|guides)\b/i, path: "/docs", name: "Docs", intent: "Provide structured documentation or help content." },
   { match: /\b(support|help center|faq|kundservice)\b/i, path: "/support", name: "Support", intent: "Answer common questions and support flows." },
   { match: /\b(portfolio|case study|case studies|work|projekt)\b/i, path: "/work", name: "Work", intent: "Show portfolio pieces, projects, or case studies." },
@@ -72,6 +164,14 @@ const APP_ROUTE_PATTERNS: Array<{
   { match: /\b(report|reports|analytics|metrics|statistik)\b/i, path: "/reports", name: "Reports", intent: "Show analytics, reports, or metrics." },
   { match: /\b(login|inlogg|auth|signup|sign up|register|registr)\b/i, path: "/login", name: "Login", intent: "Provide authentication entry for the application." },
 ];
+
+// Keep removal language explicit so "utan ..." copy/layout phrasing
+// does not silently delete routes during follow-ups.
+const ROUTE_REMOVAL_VERB_RE =
+  /\b(remove|delete|drop|ta bort|plocka bort|radera)\b/i;
+const ROUTE_REMOVAL_CONTEXT_RE =
+  /\b(page|pages|route|routes|sida|sidor|sidan|sidorna)\b|[a-zåäö]+sida(?:n|rna)?\b/i;
+const ROUTE_PATH_MENTION_RE = /\/[a-z0-9/_-]*/gi;
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -97,6 +197,41 @@ function pushRoute(routes: PlannedRoute[], route: PlannedRoute): void {
     ...route,
     path: normalizedPath,
   });
+}
+
+function collectExplicitRouteRemovals(
+  prompt: string,
+  buildIntent: BuildIntent,
+  existingPaths: string[],
+): Set<string> {
+  const removals = new Set<string>();
+  const normalizedExisting = new Set(existingPaths.map((path) => normalizeRoutePath(path)));
+  if (!ROUTE_REMOVAL_VERB_RE.test(prompt)) return removals;
+
+  for (const rawPath of prompt.match(ROUTE_PATH_MENTION_RE) ?? []) {
+    const normalized = normalizeRoutePath(rawPath);
+    if (normalized !== "/" && normalizedExisting.has(normalized)) {
+      removals.add(normalized);
+    }
+  }
+
+  // Keep keyword-based removals conservative: require route/page wording in the same prompt.
+  if (!ROUTE_REMOVAL_CONTEXT_RE.test(prompt)) return removals;
+
+  const candidatePatterns =
+    buildIntent === "app"
+      ? [...APP_ROUTE_PATTERNS, ...WEBSITE_ROUTE_PATTERNS]
+      : [...WEBSITE_ROUTE_PATTERNS, ...APP_ROUTE_PATTERNS];
+
+  for (const candidate of candidatePatterns) {
+    if (candidate.path === "/") continue;
+    if (!normalizedExisting.has(candidate.path)) continue;
+    if (candidate.match.test(prompt)) {
+      removals.add(candidate.path);
+    }
+  }
+
+  return removals;
 }
 
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
@@ -126,7 +261,7 @@ function buildRoutesFromBrief(brief: Record<string, unknown> | null | undefined,
   }
 
   return {
-    source: "brief",
+    provenance: { primarySource: "brief", sources: ["brief"] },
     siteType: inferSiteType(buildIntent, routes.length),
     reason: "Using explicit pages from the current brief/spec instead of guessing route structure from the prompt.",
     routes,
@@ -200,65 +335,123 @@ function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: Scaff
   }
 }
 
-/**
- * Extract explicit page routes from needs-analysis prompt structure.
- * Matches patterns like: ### Sida (`app/om-oss/page.tsx`)
- */
-function extractRoutesFromPromptStructure(prompt: string, routes: PlannedRoute[]): void {
-  const pattern = /###\s+(.+?)\s*\(`?app\/([^`)\s]+\/)?page\.tsx`?\)/g;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(prompt)) !== null) {
-    const name = match[1].trim();
-    const subPath = match[2]?.replace(/\/$/, "") ?? "";
-    const path = subPath ? `/${subPath}` : "/";
-    pushRoute(routes, {
-      path,
-      name,
-      intent: `Build the ${name} page as specified in the prompt structure.`,
-      required: true,
-    });
-  }
-}
-
 export function buildRoutePlan(params: {
   prompt: string;
   buildIntent: BuildIntent;
   brief?: Record<string, unknown> | null;
   resolvedScaffold: ScaffoldManifest | null;
+  generationMode?: "init" | "followUp";
+  existingRoutePaths?: string[];
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [] } = params;
   const briefPlan = buildRoutesFromBrief(brief, buildIntent);
   if (briefPlan) return briefPlan;
 
   const routes: PlannedRoute[] = [];
+  const normalizedExistingPaths = Array.from(
+    new Set(
+      existingRoutePaths
+        .map((path) => normalizeRoutePath(path))
+        .filter((path) => typeof path === "string" && path.length > 0),
+    ),
+  );
+  const useFollowUpFreeze = generationMode === "followUp" && normalizedExistingPaths.length > 0;
+  const explicitRouteRemovals = useFollowUpFreeze
+    ? collectExplicitRouteRemovals(prompt, buildIntent, normalizedExistingPaths)
+    : new Set<string>();
+
+  const routeNameFromPath = (path: string): string => {
+    if (path === "/") {
+      return buildIntent === "app" ? "Dashboard" : "Home";
+    }
+    const label = path
+      .replace(/^\/+/, "")
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => segment.replace(/[-_]/g, " "))
+      .join(" ")
+      .trim();
+    return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Route";
+  };
+
+  if (useFollowUpFreeze) {
+    for (const existingPath of normalizedExistingPaths) {
+      if (explicitRouteRemovals.has(existingPath)) {
+        continue;
+      }
+      const isRoot = existingPath === "/";
+      pushRoute(routes, {
+        path: existingPath,
+        name: routeNameFromPath(existingPath),
+        intent: isRoot
+          ? "Keep the root route as the primary entry point while applying follow-up changes."
+          : `Preserve the existing ${routeNameFromPath(existingPath)} route unless the user explicitly asks to remove it.`,
+        required: isRoot,
+      });
+    }
+  }
+
   if (buildIntent === "app") {
-    pushRoute(routes, {
-      path: "/",
-      name: "Dashboard",
-      intent: "Use the root route as the main product workspace or dashboard.",
-      required: true,
-    });
+    if (!useFollowUpFreeze) {
+      pushRoute(routes, {
+        path: "/",
+        name: "Dashboard",
+        intent: "Use the root route as the main product workspace or dashboard.",
+        required: true,
+      });
+    }
     applyPromptPatterns(prompt, APP_ROUTE_PATTERNS, routes);
   } else {
-    pushRoute(routes, {
-      path: "/",
-      name: "Home",
-      intent: "Use the root route for the primary landing page or homepage.",
-      required: true,
-    });
-    extractRoutesFromPromptStructure(prompt, routes);
+    if (!useFollowUpFreeze) {
+      pushRoute(routes, {
+        path: "/",
+        name: "Home",
+        intent: "Use the root route for the primary landing page or homepage.",
+        required: true,
+      });
+    }
     applyPromptPatterns(prompt, WEBSITE_ROUTE_PATTERNS, routes);
   }
 
-  applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
+  if (useFollowUpFreeze && explicitRouteRemovals.size > 0) {
+    for (let i = routes.length - 1; i >= 0; i -= 1) {
+      const normalizedPath = normalizeRoutePath(routes[i]!.path);
+      if (normalizedPath !== "/" && explicitRouteRemovals.has(normalizedPath)) {
+        routes.splice(i, 1);
+      }
+    }
+  }
+
+  const pathsBeforeScaffoldDefaults = new Set(
+    routes.map((route) => normalizeRoutePath(route.path)),
+  );
+  if (!useFollowUpFreeze) {
+    applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
+  }
+  const scaffoldAddedRoutes = routes.some(
+    (route) => !pathsBeforeScaffoldDefaults.has(normalizeRoutePath(route.path)),
+  );
+
+  const sources: RoutePlanSource[] = ["prompt"];
+  if (scaffoldAddedRoutes) {
+    sources.push("scaffold");
+  }
+  const primarySource: RoutePlanSource = scaffoldAddedRoutes ? "scaffold" : "prompt";
+
+  const reason = useFollowUpFreeze
+    ? explicitRouteRemovals.size > 0
+      ? "Follow-up mode preserves existing App Router routes by default, while explicit route-removal intent can remove selected pages."
+      : "Follow-up mode preserves existing App Router routes by default; only explicit user intent should add new pages."
+    : scaffoldAddedRoutes
+    ? "Scaffold defaults added routes on top of prompt-inferred structure; keep real App Router pages for each planned path."
+    : routes.length > 1
+      ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
+      : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.";
 
   return {
-    source: resolvedScaffold ? "prompt" : "prompt",
+    provenance: { primarySource, sources },
     siteType: inferSiteType(buildIntent, routes.length),
-    reason:
-      routes.length > 1
-        ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
-        : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.",
+    reason,
     routes,
   };
 }
@@ -313,15 +506,38 @@ function routePatternToRegex(route: string): RegExp {
   return new RegExp(pattern);
 }
 
+function dynamicPrefixCoversPath(actualRoute: string, plannedPath: string): boolean {
+  const actual = normalizeRoutePath(actualRoute);
+  const planned = normalizeRoutePath(plannedPath);
+  if (actual === planned) return true;
+
+  const segments = actual.split("/").filter(Boolean);
+  const firstDynamicIndex = segments.findIndex(
+    (segment) =>
+      (segment.startsWith("[") && segment.endsWith("]")) ||
+      (segment.startsWith("[...") && segment.endsWith("]")) ||
+      (segment.startsWith("[[...") && segment.endsWith("]]")),
+  );
+  if (firstDynamicIndex < 0) return false;
+
+  const prefixSegments = segments.slice(0, firstDynamicIndex);
+  const prefixPath = prefixSegments.length > 0 ? `/${prefixSegments.join("/")}` : "/";
+  return planned === prefixPath;
+}
+
 export function findMissingPlannedRoutes(
   routePlan: RoutePlan | null | undefined,
   actualRoutes: string[],
 ): PlannedRoute[] {
   if (!routePlan || routePlan.routes.length === 0) return [];
-  const matchers = actualRoutes.map(routePatternToRegex);
+  const normalizedActualRoutes = actualRoutes.map((route) => normalizeRoutePath(route));
+  const matchers = normalizedActualRoutes.map(routePatternToRegex);
   return routePlan.routes.filter((route) => {
     if (!route.required) return false;
     const plannedPath = normalizeRoutePath(route.path);
-    return !matchers.some((matcher) => matcher.test(plannedPath));
+    return !matchers.some((matcher, index) => {
+      if (matcher.test(plannedPath)) return true;
+      return dynamicPrefixCoversPath(normalizedActualRoutes[index]!, plannedPath);
+    });
   });
 }

@@ -211,7 +211,7 @@ function buildBuildStackChecks(repoTexts: Record<RepoFileKey, string>): CheckRes
   return [
     buildRepoCheck(repoTexts, "embeddings-ready", "Embeddings hooks are available for gallery and scaffold matching", [
       { file: "packageJson", needle: '"templates:embeddings"', label: "template embeddings script" },
-      { file: "orchestrate", needle: "matchScaffoldWithEmbeddings(prompt, buildIntent)", label: "embedding-backed scaffold match" },
+      { file: "orchestrate", needle: "matchScaffoldAuto(prompt, buildIntent", label: "embedding-backed scaffold match" },
     ]),
     buildRepoCheck(repoTexts, "scaffold-routing", "Scaffold selection is centralized for own-engine flows", [
       { file: "orchestrate", needle: 'scaffoldMode === "manual"', label: "manual scaffold path" },

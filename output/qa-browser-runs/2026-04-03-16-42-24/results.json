@@ -1,0 +1,102 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "score": 0,
+    "success": false,
+    "durationMs": 635674,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out"
+  },
+  {
+    "personaId": 2,
+    "name": "Erik",
+    "score": 0,
+    "success": false,
+    "durationMs": 635021,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out"
+  },
+  {
+    "personaId": 3,
+    "name": "Fatima",
+    "score": 0,
+    "success": false,
+    "durationMs": 633673,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out"
+  },
+  {
+    "personaId": 4,
+    "name": "Mohammed",
+    "score": 0,
+    "success": false,
+    "durationMs": 637009,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out"
+  },
+  {
+    "personaId": 5,
+    "name": "Linnea",
+    "score": 0,
+    "success": false,
+    "durationMs": 628531,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out"
+  },
+  {
+    "personaId": 6,
+    "name": "Oskar",
+    "score": 0,
+    "success": false,
+    "durationMs": 628231,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out"
+  },
+  {
+    "personaId": 7,
+    "name": "Mei",
+    "score": 0,
+    "success": false,
+    "durationMs": 164,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/builder?mode=starter\nCall log:\n  - navigating to \"http://localhost:3000/builder?mode=starter\", waiting until \"networkidle\"\n"
+  },
+  {
+    "personaId": 8,
+    "name": "Björn",
+    "score": 0,
+    "success": false,
+    "durationMs": 142,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/builder?mode=starter\nCall log:\n  - navigating to \"http://localhost:3000/builder?mode=starter\", waiting until \"networkidle\"\n"
+  },
+  {
+    "personaId": 9,
+    "name": "Saga",
+    "score": 0,
+    "success": false,
+    "durationMs": 131,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/builder?mode=starter\nCall log:\n  - navigating to \"http://localhost:3000/builder?mode=starter\", waiting until \"networkidle\"\n"
+  },
+  {
+    "personaId": 10,
+    "name": "Lars",
+    "score": 0,
+    "success": false,
+    "durationMs": 130,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/builder?mode=starter\nCall log:\n  - navigating to \"http://localhost:3000/builder?mode=starter\", waiting until \"networkidle\"\n"
+  }
+]

@@ -7,8 +7,9 @@ alwaysApply: true
 
 ## Git hygiene
 
-- Vid **massradering** eller mycket bred städ-PR (t.ex. >~40 filer / hel epik-svep): nämn `git rev-parse HEAD` i PR-beskrivningen som referens — se `docs/plans/avklarat/STORDSTAD-repo-kod-databas.md` Fas A.
+- Vid **massradering** eller mycket bred städ-PR (t.ex. >~40 filer / hel epik-svep): nämn `git rev-parse HEAD` i PR-beskrivningen som referens, så större cleanup-pass blir spårbara även om äldre planfiler bara finns i git-historik.
 - Stage och commit:a bara filer som hör till den aktuella uppgiften.
+- Dra inte in bred formattering, opportunistiska sidofixar eller annat diffbrus i samma stage om det inte faktiskt hör till scopet.
 - Om delade filer redan har oväntade diffar eller parallellt arbete syns: smalna av scope, läs om och fråga innan du skriver över något tvetydigt.
 - Commit eller push bara när användaren faktiskt ber om det.
 

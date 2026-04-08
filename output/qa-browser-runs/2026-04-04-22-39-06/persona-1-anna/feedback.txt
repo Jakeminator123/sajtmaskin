@@ -1,0 +1,17 @@
+FEEDBACK — Persona 1: Anna
+Företag: Frisörsalong i Göteborg
+Poäng: 0% (0/1 checks)
+Sidor: 0
+Tid: 207s
+=== KVALITETSKONTROLL ===
+FEL | iframe-accessible: No iframe present — preview VM not provisioned
+=== NAVIGATION ===
+  Inga navigeringslänkar hittades
+=== FÖRBÄTTRINGSFÖRSLAG ===
+  [preview] Preview iframe not available
+  → Check preview_host (Fly.io VM) health and sandbox-preview route for errors
+=== SAMMANFATTNING ===
+Sajten för "Frisörsalong i Göteborg" hade 1 problem:
+  - iframe-accessible: No iframe present — preview VM not provisioned
+REKOMMENDERADE PROMPTÄNDRINGAR:
+  1. Check preview_host (Fly.io VM) health and sandbox-preview route for errors

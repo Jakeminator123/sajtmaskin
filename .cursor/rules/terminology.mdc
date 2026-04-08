@@ -1,131 +1,76 @@
 ---
-description: Kanoniska begrepp som agenter ofta blandar ihop
+description: Kärntermer och vanliga förväxlingar i repoet
 alwaysApply: true
 ---
 
 # Terminology
 
-Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines: `docs/architecture/repository-and-platform.md` och `docs/architecture/repo-tree.md`.
+Kort kärnordlista för begrepp som oftast blir fel. Håll den här filen snabb att läsa. För repo-karta och research-flöde: `docs/architecture/repository-and-platform.md` och `docs/architecture/repo-tree.md`. För builder-/runtimefördjupning: `terminology-builder-runtime.mdc`.
+
+## Kort ordlista
+
+| Term | Betyder | Källa / plats | Blanda inte ihop med |
+|------|---------|---------------|----------------------|
+| **`v0-mallar`** | builderns användarvända Mallar-tab / mallkatalog | `templates_v0/*` -> `src/lib/templates/*` | `template-library`, scaffolds, Vercel-mallar |
+| **Vercel-mallar / externa referenser** | extern research från Vercel Templates | `e2e/vercel-templates/*` -> `data/external-template-pipeline/*` | `v0-mallar`, scaffolds |
+| **`template-library`** | kuraterad referensartefakt byggd från externa referenser | `src/lib/gen/template-library/*` | `v0-mallar`, scaffolds |
+| **scaffolds** | interna runtime-startpunkter för own-engine | `src/lib/gen/scaffolds/*` | `template-library`, Vercel-mallar |
+| **own-engine** | den enda aktiva codegen-vägen | `src/lib/gen/*`, `src/lib/providers/own-engine/*` | OpenClaw, gammal v0-runtime |
+| **preview** | det användaren ser i buildern | UI, preview-routes | `sandbox` som generell term |
+| **VM / `preview_host`** | primär tier-2-live-preview | preview-host / Fly.io-kedjan | legacy `sandbox*`-namn |
+| **OpenClaw / Sajtagenten** | separat assistent-/agentyta | `src/components/openclaw/*`, `/api/openclaw/*` | builderns LLM-flöde |
+| **`appProjectId`** | användarprojektets riktiga projekt-id | `projects.id`, builder-state | `chatId`, `VERCEL_PROJECT_ID` |
+| **`chatId`** | own-engine-chattens id; preview-lanen följer detta | `engine_chats.id`, preview-host path | `appProjectId` |
 
 ## `v0` betyder tre olika saker
 
-1. **API-versionering**: Sajtmaskins egna routes under `/api/v0/`. Det har inget med leverantören v0 att göra.
-2. **Naming debt**: gamla symbolnamn eller payload-nycklar från tidigare v0-baserad codegen.
-3. **Builderns Mallar-tab / mallgalleri**: användarvänd startyta med data synkad från `v0.app` via `src/lib/templates/`. Detta är **inte** runtime `template-library`, **inte** Vercel template research och **inte** scaffold.
+1. API-versionering i Sajtmaskins egna compat-routes under `/api/v0/`.
+2. Naming debt i äldre symboler och payload-nycklar.
+3. Builderns Mallar-tab / `v0-mallar`.
 
-`v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime. **own-engine** är den enda aktiva codegen-vägen.
+`v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime.
 
-### Namnge det som faktiskt händer
+## Namnge det som faktiskt händer
 
-- Säg **own-engine** när du menar den aktiva generationmotorn.
-- Säg **`/api/v0/`-route** eller **API-versionering** när du menar egna serverroutes.
-- Säg **builderns Mallar-tab**, **mallgalleri** eller **mallkatalog** när du menar den användarvända katalogen i `src/lib/templates/`.
-- Säg **`template-library`** när du menar runtime referensbiblioteket i `src/lib/gen/template-library`.
-- Säg **Vercel template research** eller **`data/external-template-pipeline`** när du menar research-/importspåret.
-- Säg **inte** "v0-provider", "v0-engine", "v0-generation" eller liknande om nuvarande runtime.
-- Säg helst inte bara **"template"** eller **"mall"** utan förtydligande i tekniska resonemang; välj den specifika ytan ovan.
-- Hitta inte på nya produktnamn för samma sak. Om du är osäker: använd repoets befintliga ord `own-engine`, `preview_host`, `VM`, `template-library`, `preview`. Använd `sandbox` när du faktiskt menar legacy-namn, delat tier-2-kontrakt eller Vercel Sandbox-fallback.
+- Säg `own-engine`, `preview`, `VM`, `template-library`, `scaffolds` och `builderns Mallar-tab` när det är det du menar.
+- Säg inte bara `template`, `mall` eller `sandbox` om en mer exakt term finns.
+- Hitta inte på nya interna etiketter eller produktnamn utan att först bekräfta dem.
+- Ge en kort svensk parentes första gången ett engelskt kodord riskerar att misstolkas.
 
-## Mall, preview, sandbox
+## Vanliga förväxlingar
 
-- **Builderns Mallar-tab / mallgalleri**: den användarvända katalogen i `src/lib/templates/`, med kategorier och startpunkter synkade från `v0.app`. Inte samma sak som `template-library`, Vercel template research eller scaffold.
-- **`template-library`**: internt runtime referensbibliotek i `src/lib/gen/template-library` som används för prompt guidance och retrieval. Inte samma sak som builderns Mallar-tab.
-- **Vercel-mall / external-template research**: research-material i `data/external-template-pipeline/`. Inte samma sak som builderns Mallar-tab eller runtime `template-library`.
-- **Preview**: det användaren ser i buildern.
-- **VM / `preview_host`**: den aktuella primära tier-2-live-previewen via Fly.io. **Detta är riktningen framåt.** All ny preview-logik ska använda `preview_host` / VM-terminologi.
-- **Sandbox (LEGACY — undvik i ny kod)**: äldre paraplyterm som lever kvar i DB-kolumner (`sandbox_url`), vissa Redis-nycklar, TypeScript-typer och SSE-fält (`sandboxPending`, `sandboxUrl`, `sandboxId`). Publika preview-routes är nu `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy`, `preview-hibernate`, men nya interna kommentarer/loggar ska ändå använda **preview** / **VM** / **tier-2** i stället för "sandbox" när det inte handlar om legacy-kontraktet. Se **explicit allowlist** i `docs/schemas/preview-session-contract.md` (*Remaining `sandbox` wording*).
-- **Vercel Sandbox**: inte längre aktiv tier-2-väg i runtime. Om du ser `@vercel/sandbox` eller Vercel-sandbox-termer i repoet, behandla dem som legacy-/arkivspår eller separat Vercel-plattformskontext, inte som den nuvarande preview-arkitekturen.
-- **demoUrl**: legacy-namn för URL eller preview-mål; tolka efter kontext.
+- `template-library` är inte samma sak som builderns `v0-mallar`.
+- Scaffolds är inte samma sak som `template-library`.
+- Preview / VM är inte samma sak som `sandbox`, utom när legacy-kontrakt uttryckligen använder `sandbox*`-namn.
+- OpenClaw / Sajtagenten är inte samma sak som builderns LLM-flöde.
+- `appProjectId` är inte samma sak som `chatId`; preview-host-pathen följer `chatId`.
 
-## Projekt, chat och preview-ID
+## Env
 
-| Term | Kanonisk betydelse | Vanliga ställen | Blanda inte ihop med |
-|------|---------------------|-----------------|----------------------|
-| **`appProjectId` / `projects.id`** | Sajtmaskins riktiga projekt-id per användarprojekt | builder-state, ägarskap, project env vars, `engine_chats.project_id` | `chatId`, `VERCEL_PROJECT_ID` |
-| **`chatId` / `engine_chats.id`** | own-engine-chattens id; den faktiska preview-lanen för iterationer | `/api/engine/chats/[chatId]`, versionsval, tier-2 session-store, preview-host path | `appProjectId` |
-| **`versionId` / `engine_versions.id`** | specifik sparad version inom en chatt | preview-resume, bootstrap, heartbeat, versions-API | `chatId`, `sandboxId` |
-| **`sandboxId`** | id för aktiv tier-2-runtime/session | preview-status/heartbeat/destroy + intern legacy storage | `chatId`, `appProjectId` |
-| **`VERCEL_PROJECT_ID`** | Vercel-projekt-id för Vercel-plattformsanrop | env, admin/deploy/domain-integrationer | Sajtmaskins `appProjectId` |
+- Skilj på repoets `.env*` och användarens genererade sajts `.env*`.
+- För namn och policy: `src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md`.
+- För djupare env-, preview- och finalize-termer: `terminology-builder-runtime.mdc`.
 
-- **Preview-host-pathen är `/{chatId}`**, inte `/{appProjectId}`.
-- Om du ser preview-host-payload eller äldre kommentar med **`projectId`** för denna path/key: läs det som **legacy alias för `chatId`**, inte som det riktiga app-projekt-id:t.
+## Builder model lanes
 
-## AI Gateway (LEGACY — rör dig bort)
-
-- **Vercel AI Gateway** (`https://ai-gateway.vercel.sh/v1`) är **borttagen ur runtime**. Huvudkedjan och sido-routes använder **direkt OpenAI/Anthropic API** via `createDirectModel()` eller officiella SDK-klienter.
-- **`AI_GATEWAY_API_KEY`** ska inte längre finnas i ny kod, ny docs eller ny env-policy.
-- **Ny kod ska aldrig använda AI Gateway.** Använd `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`.
-- **`VERCEL_OIDC_TOKEN`** är nu endast relevant för Vercel-plattformsflöden som faktiskt använder Vercel-auth, inte för LLM-routes.
+- `Byggmodell` = build lane / build profile.
+- `Förbättra` = prompt-assist lane.
+- `Skriv om` = polish lane.
+- `Thinking` = separat flagga, inte en lane.
 
 ## Fidelity
 
-- **1**: enklare eller statisk preview (kan också vara legacy).
-- **2**: (VI JOBBAR I 90% AV FALLEN MOT DETTA) körbar live-preview via `preview_host` / VM, med vissa legacy `sandbox`-namn kvar i kod och DB. Server-verify kör bara `typecheck` för tier-2 (`TIER2_QUALITY_GATE_CHECKS`). `next build` körs **inte** automatiskt — det hör till tier-3.
-- **3**: byggbar och deploybar produktionstro version. Inkluderar `next build` i quality gate.
+- `fidelity2` = normal tier-2 live-preview via VM / `preview_host`.
+- `fidelity3` = striktare/buildbar lane där `next build` ingår i quality gate.
 
-`docs/architecture/preview-deploy.md` är kanonisk källa för den faktiska preview-kedjan.
+## Steg 4
 
-## Env: flera lager (blanda inte ihop)
+- Steg 4 = post-stream: finalize, validate/repair, verifier-pass, preflight och sparad version.
+- Preview-start hör till Steg 5 även om SSE fortsätter efter `done`.
+- Djupare finalize-/repairtermer finns i `terminology-builder-runtime.mdc` och `docs/architecture/step4-post-generation.md`.
 
-1. **Sajtmaskin-plattformen (detta repo)**
-   - Filer i **repo-roten**: `.env.local`, `.env.production`, `.env.*` — **gitignorade** och ofta **`.cursorignore`** (agenter ser dem inte i index; öppna med `@` / Read om användaren delar).
-   - **Vercel Environment Variables** för den deployade Sajtmaskin-appen. Tre Vercel-targets: **development** (= `vercel dev`), **preview** (PR-deploys), **production** (live). I praktiken: **development = lokal dev** (via `.env.local` + `npm run dev`), **production = Vercel** (deployer från `master`), **preview = speglar production** (samma env-värden; sällan använt). Sätt preview-variabler identiskt med production.
-   - **Kanon för *namn* som appen läser:** `src/lib/env.ts` (Zod `serverSchema`). **Klassificering / audit:** `config/env-policy.json`. Människotext: `docs/ENV.md`.
+## När filen uppdateras
 
-2. **Användarens genererade sajt (Next-projekt i sandbox eller efter export)**
-   - En **egen** `.env.local` (eller motsvarande) **inne i sandlådans / byggprojektets filträd** — inte samma fil som i Sajtmaskin-roten.
-   - Byggs/mergas i kod (`src/lib/gen/preview/env-local.ts`): placeholders från `config/ai_models/`, ev. `project_data.meta.projectEnvVars`, m.m.
-   - När någon säger **"användarens .env"**, **"kundprojektets env"** eller **"genererad sajts nycklar"** → mena detta lager, inte Sajtmaskins `.env.local`.
-
-3. **Driftordning**
-   - Felsök **preview/sandbox**: börja med plattforms-env (`VERCEL_OIDC_TOKEN`, m.m.) och `docs/architecture/preview-deploy.md`.
-   - Felsök **"saknas API_KEY i byggd sajt"**: användarprojektets env / deploy-precheck, inte automatiskt Sajtmaskins rot-env.
-
-Agenter: säg explicit vilket lager du menar om det kan misstolkas.
-
-## own-engine, `src/lib/gen/`, `src/lib/mcp/`
-
-- **own-engine**: produktens kanoniska genereringsbana.
-- **`src/lib/gen/`**: delad genereringskärna och verktyg som own-engine bygger på.
-- **`src/lib/mcp/`**: adapterlager för att använda befintliga flöden programmässigt; inte en separat motor.
-
-## OpenClaw / Sajtagenten vs builderns LLM-flöde
-
-- **OpenClaw / Sajtagenten**: separat assistent-/agentyta för råd, tips, textfältsförslag, avatar-bridge och löpande hjälp. Vanliga ytor: `src/components/openclaw/*`, `/api/openclaw/*`, den isolerade `D-ID`-pilotytan `/avatar` och `/api/did/chat`.
-- **Builderns `LLM`-flöde / `LLM`-pipeline**: samlingsnamn för de övriga AI-stegen runt själva byggandet, t.ex. prompt assist, deep brief, spec-first, own-engine generation, verifiering, polish och repair.
-- **Blanda inte ihop dem**: OpenClaw bygger normalt **inte** sajten. own-engine och övriga builder-steg är **inte** samma sak som Sajtagenten, även om de kan referera till samma builderkontext.
-- **Djup granskning på begäran**: Sajtagenten kan få mer builder-/kodinsyn för review, felsökning eller förbättringsförslag, men den publika ytan förblir samma assistent. Säg inte att en separat publik agent används om repot inte faktiskt exponerar den.
-- När du skriver docs eller förklaringar: säg **OpenClaw / Sajtagenten** för assistentytan, och säg **builderns `LLM`-flöde** eller den specifika fasen när du menar generationskedjan.
-
-## LLM-lager i buildern
-
-- **Prompt assist / Förbättra**: hjälpassistent **före build**. Förbättrar eller skriver om användarens prompt men bygger inte sajten.
-- **Prompt polish / `Skriv om`**: den lätta copy-editor-varianten. Den ska främst rätta språk, tydlighet och form, inte skapa en full brief eller ersätta codegen.
-- **Deep brief / site brief**: strukturerad brief före första builden (`sidor`, `sektioner`, `tone`, `SEO`, `imagery`, m.m.). Genereras via `/api/ai/brief` (klient) eller `tryGenerateServerAutoBrief` (server-fallback). Briefen genereras alltid från **originalprompt**, inte summarerad text. Server auto-brief blockeras för follow-ups.
-- **Spec-first chain / `WebsiteSpec`**: valfri kedja (`specMode=true` default) som konverterar brief → strukturerad spec (`promptAssistContext.ts`). Specen bifogas systemprompten som `sajtmaskin.spec.json`-referens. Separat från deep brief — spec *bygger på* briefen.
-- **`orchestratePromptMessage()`**: deterministisk promptvakt/budgetering — **inte** en LLM. Den väljer `direct`, `preserved` (full handoff över mjuk gräns), `phase_plan_build_polish`, eller sällan `summarize` som nödfallback vid hård cap.
-- **Verifier-pass (post-generation)**: read-only LLM-granskning **efter** syntax i finalize; returnerar `blocking`/`quality`-fynd för telemetry och kvalitetsgrind. Styrs av `phaseRouting.verifier` och `postGenerationPasses` i manifest.
-- **`resolveOrchestrationBase()` / `BuildSpec`**: den faktiska orkestreringen före codegen. Här väljs scaffold, route plan, kontrakt, context-policy, preview-policy och verification-policy.
-- **Plan mode**: separat planner-LLM som returnerar plan-/JSON-artifact, **inte kod**.
-- **own-engine generator**: huvud-LLM:n som faktiskt genererar kod.
-- **`thinking`**: resonemangs-/reasoning-flagga på generatorbanan, inte en separat modellbana.
-- **Repair / fixer**: eftergenereringskedjor för fel. Deterministisk autofix loopas (`DETERMINISTIC_AUTOFIX_MAX_PASSES`, manifest-styrt), sedan eskalering till LLM-fixer. Fixer-modellen matchar generatorns tier via `resolvePhaseModel(tier, "fixer")`. Alla reparationsparametrar styrs via `repairPolicies` i `manifest.json`.
-- **Prompt wizard**: 5-stegs wizard med AI-drivna adaptiva följdfrågor via `/api/wizard/enrich`. Producerar en rik prompt som sedan kan gå genom deep brief → orchestrering → generation. Inte "12 frågor" — antalet varierar dynamiskt.
-- **Audit / analyze-routes**: separata analysbanor utanför own-engine-build. Blanda inte ihop dem med builderns codegen-flöde.
-
-## Integrationer och källor
-
-- Provider- och integrationsnamn ska följa repoets faktiska källor, främst `sajtmaskin.integration-manifest.json` om den finns, pre-generation contracts, `config/env-policy.json`, `src/lib/env.ts` och `docs/ENV.md`.
-- Hitta inte på nya providernamn i copy eller frågor när projektets befintliga konfiguration redan visar vad som gäller.
-
-## Aliaser
-
-Varicell / Vericell → **Vercel**
-
-## Överlappande ord och när den här filen uppdateras
-
-Samma vardagsord (**preview**, **mall**, **template**) förekommer ofta i **flera olika betydelser** i repo och produkt. Den här ordlistan kan inte fånga allt; den ska bara täcka det som **faktiskt** brukar bli fel.
-
-- **Uppdatera sällan men ibland:** lägg till eller skärp en rad här när samma begreppsförvirring **återkommer** (t.ex. två agenter eller två issues blandar ihop samma par). Undvik att växa listan för varje engångsfråga eller för varje nytt internnamn i kod.
-- **Varför:** andra agenter ska veta att överlapp finns och var de ska leta — inte att varje ny synonym måste in här direkt.
-- **Var:** håll tillägg korta; koppla till befintlig sektion (t.ex. mall/preview) hellre än nya långa stycken.
+- Lägg bara till termer här när samma förväxling återkommer.
+- Håll filen kort; flytta smalare builder-/runtimeord till `terminology-builder-runtime.mdc` eller vanliga docs.
+- Kod och kanoniska docs vinner över gamla förklaringar.

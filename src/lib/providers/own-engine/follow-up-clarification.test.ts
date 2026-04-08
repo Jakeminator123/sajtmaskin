@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyFollowUpIntent,
   resolveFollowUpClarification,
+  shouldIgnorePersistedScaffoldForMatch,
 } from "./follow-up-clarification";
 
 describe("follow-up clarification intent classification", () => {
@@ -17,5 +18,43 @@ describe("follow-up clarification intent classification", () => {
     const message = "Bygg en ny hemsida for samma kund";
 
     expect(classifyFollowUpIntent(message)).toBe("ambiguous-redesign");
+  });
+});
+
+describe("shouldIgnorePersistedScaffoldForMatch", () => {
+  it("does not unlock in manual mode even for clear redesign", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "clear-redesign",
+        message: "Redesign everything",
+        scaffoldMode: "manual",
+        scaffoldId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not unlock when user pinned a scaffold for this message", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "clear-redesign",
+        message: "Redesign everything",
+        scaffoldMode: "manual",
+        scaffoldId: "blog",
+      }),
+    ).toBe(false);
+  });
+
+  it("unlocks via supplement pattern when intent is neutral", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "neutral",
+        message: "Please do a full redesign of the landing experience.",
+        scaffoldMode: "auto",
+        scaffoldId: null,
+      }),
+    ).toBe(true);
   });
 });

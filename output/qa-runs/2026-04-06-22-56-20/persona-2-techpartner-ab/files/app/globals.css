@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: oklch(0.985 0.004 235);
+  --color-foreground: oklch(0.245 0.02 246);
+  --color-card: oklch(0.995 0.002 235);
+  --color-card-foreground: oklch(0.245 0.02 246);
+  --color-primary: oklch(0.56 0.095 233);
+  --color-primary-foreground: oklch(0.985 0.003 235);
+  --color-secondary: oklch(0.955 0.01 235);
+  --color-secondary-foreground: oklch(0.29 0.02 246);
+  --color-muted: oklch(0.965 0.008 235);
+  --color-muted-foreground: oklch(0.49 0.018 246);
+  --color-accent: oklch(0.94 0.014 223);
+  --color-accent-foreground: oklch(0.27 0.02 246);
+  --color-destructive: oklch(0.58 0.19 27);
+  --color-destructive-foreground: oklch(0.985 0.004 25);
+  --color-border: oklch(0.89 0.008 235);
+  --color-input: oklch(0.91 0.008 235);
+  --color-ring: oklch(0.56 0.095 233);
+  --radius: 0.875rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(
+        circle at top left,
+        color-mix(in oklab, var(--color-primary) 14%, transparent) 0%,
+        transparent 30%
+      ),
+      radial-gradient(
+        circle at 100% 20%,
+        color-mix(in oklab, var(--color-accent) 45%, transparent) 0%,
+        transparent 24%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in oklab, var(--color-muted) 55%, transparent) 0%,
+        transparent 24%
+      );
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 22%, white);
+    color: var(--color-foreground);
+  }
+}
+
+@layer utilities {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.7s ease-out both;
+  }
+}

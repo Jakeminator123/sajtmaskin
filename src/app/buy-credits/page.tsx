@@ -3,12 +3,13 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Navbar } from "@/components/layout";
-import { MinimalFooter } from "@/components/layout/minimal-footer";
-import { AuthModal } from "@/components/auth";
+import { Navbar } from "@/components/layout/navbar";
+import { ShaderBackground } from "@/components/layout/shader-background";
+import { AuthModal } from "@/components/auth/auth-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,33 +22,55 @@ import {
 } from "@/components/ui/select";
 import {
   Coins,
+  ArrowLeft,
   CheckCircle,
+  Wand2,
   Loader2,
   Star,
+  Zap,
   Building2,
+  Mail,
   Send,
   Sparkles,
   Globe,
   ShoppingCart,
   Palette,
+  Phone,
   ArrowRight,
-  ArrowLeft,
-  ChevronDown,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
+// ─── Credit Packages ──────────────────────────────────────────────
 const PACKAGES = [
   { id: "10_credits", name: "Starter", diamonds: 10, price: 49, popular: false, savings: 0 },
   { id: "25_credits", name: "Popular", diamonds: 25, price: 99, popular: true, savings: 19 },
   { id: "50_credits", name: "Pro", diamonds: 50, price: 179, popular: false, savings: 27 },
 ];
 
+// ─── SajtStudio Pricing Tiers ─────────────────────────────────────
 const STUDIO_TIERS = [
-  { name: "Start", range: "5 000 – 10 000 kr", features: ["1-5 sidor", "Kontaktformulär", "Grundläggande SEO"] },
-  { name: "Plus", range: "10 000 – 20 000 kr", features: ["5-10 sidor", "Blogg/nyheter", "Utökad SEO"] },
-  { name: "Pro", range: "20 000 – 40 000+ kr", features: ["E-handel", "API-integrationer", "Specialutveckling"] },
+  {
+    name: "Start",
+    range: "5 000 – 10 000 kr",
+    description: "1-5 sidor, standardmall, grundläggande anpassning",
+    features: ["Kontaktformulär", "Responsiv design", "Grundläggande SEO"],
+  },
+  {
+    name: "Plus",
+    range: "10 000 – 20 000 kr",
+    description: "5-10 sidor, mer anpassning och funktionalitet",
+    features: ["Allt i Start", "Blogg/nyheter", "Nyhetsbrev", "Utökad SEO"],
+  },
+  {
+    name: "Pro",
+    range: "20 000 – 40 000+ kr",
+    description: "Unika lösningar, integrationer och e-handel",
+    features: ["Allt i Plus", "E-handel", "API-integrationer", "Specialutveckling"],
+  },
 ];
 
+// ─── Project Type Options ─────────────────────────────────────────
 const PROJECT_TYPES = [
   { id: "new", label: "Ny webbplats", icon: Globe },
   { id: "redesign", label: "Redesign", icon: Palette },
@@ -56,25 +79,59 @@ const PROJECT_TYPES = [
   { id: "other", label: "Annat", icon: Building2 },
 ];
 
-const MAILTO_RECIPIENTS = "ch.genberg@gmail.com,erik@sajtstudio.se";
+// ─── Contact emails (displayed vs actual) ─────────────────────────
+const DISPLAY_EMAIL = "hej@sajtmaskin.se";
+const MAILTO_RECIPIENTS = DISPLAY_EMAIL;
 
+// ─── Generate mailto link from form data ──────────────────────────
 function buildMailtoLink(data: {
-  name: string; company: string; email: string; phone: string;
-  projectTypes: string[]; currentUrl: string; description: string;
-  budget: string; timeline: string; notes: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  projectTypes: string[];
+  currentUrl: string;
+  description: string;
+  budget: string;
+  timeline: string;
+  notes: string;
 }): string {
-  const subject = encodeURIComponent(`Projektförfrågan – ${data.company || data.name}`);
+  const subject = encodeURIComponent(
+    `Projektförfrågan via SajtMaskin – ${data.company || data.name}`,
+  );
+
   const lines = [
-    "Hej!", "", `Namn: ${data.name}`, `Företag: ${data.company || "–"}`,
-    `E-post: ${data.email}`, `Telefon: ${data.phone || "–"}`, "",
-    `Typ: ${data.projectTypes.join(", ") || "–"}`, `Webb: ${data.currentUrl || "–"}`,
-    `Beskrivning: ${data.description || "–"}`, "",
-    `Budget: ${data.budget || "–"}`, `Tidplan: ${data.timeline || "–"}`,
+    `Hej SajtStudio!`,
+    ``,
+    `Jag vill gärna diskutera ett webbprojekt.`,
+    ``,
+    `── KONTAKTUPPGIFTER ──`,
+    `Namn: ${data.name}`,
+    `Företag: ${data.company || "–"}`,
+    `E-post: ${data.email}`,
+    `Telefon: ${data.phone || "–"}`,
+    ``,
+    `── OM PROJEKTET ──`,
+    `Typ: ${data.projectTypes.length > 0 ? data.projectTypes.join(", ") : "–"}`,
+    `Nuvarande webb: ${data.currentUrl || "–"}`,
+    `Beskrivning: ${data.description || "–"}`,
+    ``,
+    `── BUDGET & TIDPLAN ──`,
+    `Budgetram: ${data.budget || "–"}`,
+    `Tidplan: ${data.timeline || "–"}`,
     `Övrigt: ${data.notes || "–"}`,
+    ``,
+    `──`,
+    `Skickat via sajtmaskin.se`,
   ];
-  return `mailto:${MAILTO_RECIPIENTS}?subject=${subject}&body=${encodeURIComponent(lines.join("\n"))}`;
+
+  const body = encodeURIComponent(lines.join("\n"));
+  return `mailto:${MAILTO_RECIPIENTS}?subject=${subject}&body=${body}`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Main Content Component
+// ═══════════════════════════════════════════════════════════════════
 function BuyCreditsContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -85,21 +142,29 @@ function BuyCreditsContent() {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showCostBreakdown, setShowCostBreakdown] = useState(false);
 
+  // ─── SajtStudio form state ────────────────────────────────────
   const [formStep, setFormStep] = useState(0);
   const [formData, setFormData] = useState({
-    name: "", company: "", email: "", phone: "",
-    projectTypes: [] as string[], currentUrl: "", description: "",
-    budget: "", timeline: "", notes: "",
+    name: "",
+    company: "",
+    email: "",
+    phone: "",
+    projectTypes: [] as string[],
+    currentUrl: "",
+    description: "",
+    budget: "",
+    timeline: "",
+    notes: "",
   });
   const [formSubmitted, setFormSubmitted] = useState(false);
 
+  // Check URL params for success/cancel
   useEffect(() => {
     const success = searchParams.get("success");
     const sessionId = searchParams.get("session_id");
     if (success === "true" && sessionId) {
-      setSuccessMessage("Köp genomfört! Credits tillagda.");
+      setSuccessMessage("Tack för ditt köp! Credits har lagts till på ditt konto.");
       fetchUser();
     }
 
@@ -109,42 +174,75 @@ function BuyCreditsContent() {
     const reason = searchParams.get("reason");
     if (!login && !authError && !verified) return;
 
-    if (login === "success") toast.success("Inloggningen lyckades.");
-    if (authError) { toast.error(authError); setAuthMode("login"); setShowAuthModal(true); }
+    if (login === "success") {
+      toast.success("Inloggningen lyckades.");
+    }
+    if (authError) {
+      toast.error(authError);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
     if (verified === "success") {
-      toast.success("E-post verifierad. Logga in för att fortsätta.");
-      setAuthMode("login"); setShowAuthModal(true);
+      toast.success("E-postadressen är verifierad. Logga in för att fortsätta.");
+      setAuthMode("login");
+      setShowAuthModal(true);
     } else if (verified === "error") {
-      const msg = reason === "missing_token" ? "Token saknas."
-        : reason === "invalid_or_expired" ? "Länken är ogiltig."
-        : "Verifiering misslyckades.";
-      toast.error(msg); setAuthMode("login"); setShowAuthModal(true);
+      const verificationMessage =
+        reason === "missing_token"
+          ? "Verifieringslänken saknar token."
+          : reason === "invalid_or_expired"
+            ? "Verifieringslänken är ogiltig eller har gått ut."
+            : reason === "server_error"
+              ? "Något gick fel vid e-postverifiering."
+              : "Kunde inte verifiera e-postadressen.";
+      toast.error(verificationMessage);
+      setAuthMode("login");
+      setShowAuthModal(true);
     }
 
     const nextParams = new URLSearchParams(searchParams.toString());
-    ["login", "error", "verified", "reason"].forEach((k) => nextParams.delete(k));
+    nextParams.delete("login");
+    nextParams.delete("error");
+    nextParams.delete("verified");
+    nextParams.delete("reason");
     const nextQuery = nextParams.toString();
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   }, [fetchUser, pathname, router, searchParams]);
 
-  useEffect(() => { fetchUser(); }, [fetchUser]);
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
 
+  // ─── Stripe checkout handler ──────────────────────────────────
   const handlePurchase = async (packageId: string) => {
-    if (!isAuthenticated) { setAuthMode("login"); setShowAuthModal(true); return; }
+    if (!isAuthenticated) {
+      setAuthMode("login");
+      setShowAuthModal(true);
+      return;
+    }
     setSelectedPackage(packageId);
     setIsLoading(true);
     try {
       const response = await fetch("/api/stripe/checkout", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ packageId }),
       });
       const data = await response.json();
-      if (data.success && data.url) window.location.href = data.url;
-      else toast.error(data.error || "Kunde inte starta betalning.");
-    } catch { toast.error("Kunde inte starta betalningen."); }
-    finally { setIsLoading(false); setSelectedPackage(null); }
+      if (data.success && data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Kunde inte starta betalning. Försök igen.");
+      }
+    } catch {
+      alert("Kunde inte starta betalningen");
+    } finally {
+      setIsLoading(false);
+      setSelectedPackage(null);
+    }
   };
 
+  // ─── Form helpers ─────────────────────────────────────────────
   const toggleProjectType = useCallback((typeId: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -159,7 +257,8 @@ function BuyCreditsContent() {
   }, []);
 
   const handleFormSubmit = () => {
-    window.open(buildMailtoLink(formData), "_blank");
+    const mailto = buildMailtoLink(formData);
+    window.open(mailto, "_blank");
     setFormSubmitted(true);
   };
 
@@ -168,136 +267,299 @@ function BuyCreditsContent() {
 
   return (
     <div className="bg-background min-h-screen">
+      <ShaderBackground theme="warm" speed={0.2} opacity={0.25} />
       <Navbar
-        onLoginClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
-        onRegisterClick={() => { setAuthMode("register"); setShowAuthModal(true); }}
+        onLoginClick={() => {
+          setAuthMode("login");
+          setShowAuthModal(true);
+        }}
+        onRegisterClick={() => {
+          setAuthMode("register");
+          setShowAuthModal(true);
+        }}
       />
 
-      <main className="px-4 pt-24 pb-16">
-        <div className="mx-auto max-w-4xl">
-          <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Tillbaka
+      <main className="relative z-10 px-4 pt-24 pb-16">
+        <div className="mx-auto max-w-5xl">
+          {/* Back link */}
+          <Link
+            href="/"
+            className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Tillbaka till start
           </Link>
 
-          <div className="mb-8">
-            <h1 className="mb-1 text-2xl font-semibold tracking-tight text-foreground">Priser</h1>
-            <p className="text-sm text-muted-foreground">
-              Credits för AI-generering eller professionell hjälp via SajtStudio.
-            </p>
-            {isAuthenticated && (
-              <span className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Coins className="h-3.5 w-3.5 text-primary" />
-                {diamonds} credits
+          {/* ═══ HERO ═══ */}
+          <div className="mb-10 text-center">
+            <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              Priser{" "}
+              <span className="bg-linear-to-r from-brand-teal via-brand-blue to-brand-amber bg-clip-text text-transparent animate-gradient">
+                &amp; Tjänster
               </span>
+            </h1>
+            <p className="mx-auto max-w-lg text-muted-foreground">
+              Köp credits för AI-generering eller få professionell hjälp av SajtStudio med ditt
+              webbprojekt.
+            </p>
+
+            {isAuthenticated && (
+              <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-card/80 backdrop-blur-sm px-4 py-2">
+                <Coins className="text-brand-amber h-4 w-4" />
+                <span className="text-sm text-muted-foreground">
+                  Ditt saldo:{" "}
+                  <span className="text-brand-amber font-semibold">{diamonds} credits</span>
+                </span>
+              </div>
             )}
           </div>
 
+          {/* Success message */}
           {successMessage && (
-            <div className="mb-6 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
-              <CheckCircle className="h-4 w-4 text-primary shrink-0" />
-              <p className="text-sm text-primary">{successMessage}</p>
+            <div className="mb-8 flex items-center gap-3 rounded-lg border border-brand-teal/30 bg-brand-teal/5 p-4">
+              <CheckCircle className="text-brand-teal h-5 w-5 shrink-0" />
+              <p className="text-brand-teal text-sm">{successMessage}</p>
             </div>
           )}
 
           <Tabs defaultValue="credits" className="w-full gap-0">
-            <div className="mb-8 flex justify-center">
-              <TabsList className="inline-flex rounded-lg border border-border bg-muted/50 p-1 gap-1">
-                <TabsTrigger value="credits" className="rounded-md px-4 py-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                  Credits
-                </TabsTrigger>
-                <TabsTrigger value="studio" className="rounded-md px-4 py-2 text-sm data-[state=active]:bg-foreground data-[state=active]:text-background">
-                  SajtStudio
-                </TabsTrigger>
-              </TabsList>
-            </div>
+          {/* ═══ TAB NAVIGATION ═══ */}
+          <div className="mb-10 flex justify-center">
+            <TabsList className="inline-flex h-auto w-auto rounded-lg border border-border bg-card/50 backdrop-blur-sm p-1 gap-1">
+              <TabsTrigger
+                value="credits"
+                className="flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-brand-teal/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50"
+              >
+                <Sparkles className="h-4 w-4" />
+                AI Credits
+              </TabsTrigger>
+              <TabsTrigger
+                value="studio"
+                className="flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:bg-brand-blue data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-brand-blue/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50"
+              >
+                <Building2 className="h-4 w-4" />
+                SajtStudio Hjälp
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            {/* Credits tab */}
-            <TabsContent value="credits">
-              <div className="grid gap-4 sm:grid-cols-3">
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* CREDITS TAB                                            */}
+          {/* ═══════════════════════════════════════════════════════ */}
+          <TabsContent value="credits">
+            <div className="animate-fadeIn">
+              {/* Package cards */}
+              <div className="grid gap-6 md:grid-cols-3">
                 {PACKAGES.map((pkg) => (
-                  <Card key={pkg.id} className={`relative transition-all ${pkg.popular ? "border-primary/40 shadow-sm" : "border-border"}`}>
-                    <CardContent className="flex flex-col p-5">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-foreground">{pkg.name}</h3>
+                  <Card
+                    key={pkg.id}
+                    className={`relative overflow-hidden transition-all hover-lift ${
+                      pkg.popular
+                        ? "border-brand-teal/50 bg-brand-teal/5 shadow-lg shadow-brand-teal/5"
+                        : "border-border bg-card/80 backdrop-blur-sm"
+                    }`}
+                  >
+                    {/* Popular badge */}
+                    {pkg.popular && (
+                      <div className="absolute -top-px left-0 right-0 h-0.5 bg-linear-to-r from-transparent via-brand-teal to-transparent" />
+                    )}
+
+                    <CardContent className="flex flex-col p-6">
+                      {/* Header */}
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-foreground">{pkg.name}</h3>
                         {pkg.popular && (
-                          <span className="flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                            <Star className="h-2.5 w-2.5 fill-current" /> Populär
-                          </span>
+                          <Badge className="bg-brand-teal/10 text-brand-teal border-brand-teal/30 text-[11px]">
+                            <Star className="h-3 w-3 fill-current mr-0.5" />
+                            Populär
+                          </Badge>
+                        )}
+                        {pkg.savings > 0 && !pkg.popular && (
+                          <Badge variant="secondary" className="text-[11px]">
+                            Spara {pkg.savings}%
+                          </Badge>
                         )}
                       </div>
-                      <div className="mb-1">
-                        <span className="text-3xl font-bold text-foreground">{pkg.diamonds}</span>
-                        <span className="ml-1 text-xs text-muted-foreground">credits</span>
+
+                      {/* Credit count */}
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-4xl font-bold text-foreground">{pkg.diamonds}</span>
+                        <span className="text-muted-foreground text-sm">credits</span>
                       </div>
-                      <p className="mb-4 text-lg font-semibold text-foreground">
-                        {pkg.price} kr
-                        <span className="ml-1 text-xs font-normal text-muted-foreground">
-                          ({(pkg.price / pkg.diamonds).toFixed(1)} kr/st)
+
+                      {/* Price */}
+                      <div className="mb-6">
+                        <span className="text-2xl font-bold text-foreground">{pkg.price} kr</span>
+                        <span className="text-muted-foreground text-xs ml-2">
+                          {(pkg.price / pkg.diamonds).toFixed(1)} kr/credit
                         </span>
-                      </p>
+                      </div>
+
+                      {/* Features */}
+                      <ul className="mb-6 grow space-y-2.5">
+                        <li className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                          <Wand2 className="text-brand-teal h-4 w-4 shrink-0" />
+                          AI-generering &amp; förfining
+                        </li>
+                        <li className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                          <Zap className="text-brand-amber h-4 w-4 shrink-0" />
+                          Aldrig utgångsdatum
+                        </li>
+                        <li className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                          <CheckCircle className="text-brand-teal h-4 w-4 shrink-0" />
+                          Engångsköp – ingen prenumeration
+                        </li>
+                      </ul>
+
+                      {/* Buy button */}
                       <Button
                         onClick={() => handlePurchase(pkg.id)}
                         disabled={isLoading}
-                        variant={pkg.popular ? "default" : "outline"}
-                        className="mt-auto"
+                        className={`h-11 w-full font-medium ${
+                          pkg.popular
+                            ? "bg-brand-teal hover:bg-brand-teal/90 text-white"
+                            : "bg-secondary hover:bg-secondary/80 text-foreground"
+                        }`}
                       >
                         {isLoading && selectedPackage === pkg.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : isAuthenticated ? "Köp" : "Logga in & köp"}
+                        ) : (
+                          <>{isAuthenticated ? "Köp nu" : "Logga in & köp"}</>
+                        )}
                       </Button>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              {/* Collapsible cost breakdown */}
-              <div className="mt-8">
-                <button
-                  type="button"
-                  onClick={() => setShowCostBreakdown((v) => !v)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Vad kostar varje åtgärd?
-                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${showCostBreakdown ? "rotate-180" : ""}`} />
-                </button>
-                <div className={`overflow-hidden transition-all duration-200 ${showCostBreakdown ? "mt-3 max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
-                  <div className="grid gap-1.5 sm:grid-cols-2 max-w-xl">
-                    {[
-                      ["Generering (Mini)", "5"], ["Generering (Pro)", "7"], ["Generering (Max)", "10"],
-                      ["Förfining (Mini)", "3"], ["Förfining (Pro)", "4"], ["Förfining (Max)", "6"],
-                      ["Wizard-läge", "11"], ["Audit", "15–25"], ["Publicering", "20"], ["Hosting/mån", "10"],
-                    ].map(([label, cost]) => (
-                      <div key={label} className="flex items-center justify-between rounded-md border border-border px-3 py-1.5 text-xs">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-medium text-foreground">{cost} credits</span>
-                      </div>
-                    ))}
-                  </div>
+              {/* Pricing breakdown */}
+              <div className="mt-16">
+                <h2 className="mb-8 text-xl font-semibold text-foreground text-center">
+                  Vad kostar det?
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-2 max-w-2xl mx-auto">
+                  {[
+                    { label: "Generering (Mini)", cost: "5", icon: Wand2, color: "text-brand-teal" },
+                    { label: "Generering (Pro)", cost: "7", icon: Wand2, color: "text-brand-teal" },
+                    { label: "Generering (Max)", cost: "10", icon: Wand2, color: "text-brand-teal" },
+                    { label: "Förfining (Mini)", cost: "3", icon: Zap, color: "text-brand-amber" },
+                    { label: "Förfining (Pro)", cost: "4", icon: Zap, color: "text-brand-amber" },
+                    { label: "Förfining (Max)", cost: "6", icon: Zap, color: "text-brand-amber" },
+                    {
+                      label: "Wizard-läge",
+                      cost: "11",
+                      icon: Sparkles,
+                      color: "text-brand-blue",
+                    },
+                    {
+                      label: "Audit (Basic)",
+                      cost: "15",
+                      icon: Globe,
+                      color: "text-brand-warm",
+                    },
+                    {
+                      label: "Audit (Advanced)",
+                      cost: "25",
+                      icon: Globe,
+                      color: "text-brand-warm",
+                    },
+                    {
+                      label: "Publicering",
+                      cost: "20",
+                      icon: ArrowRight,
+                      color: "text-muted-foreground",
+                    },
+                    {
+                      label: "Hosting (per månad)",
+                      cost: "10",
+                      icon: Globe,
+                      color: "text-muted-foreground",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="flex items-center justify-between rounded-lg border border-border bg-card/50 px-4 py-2.5"
+                    >
+                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <item.icon className={`h-4 w-4 shrink-0 ${item.color}`} />
+                        {item.label}
+                      </span>
+                      <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
+                        <Coins className="h-3.5 w-3.5 text-brand-amber" />
+                        {item.cost}
+                      </span>
+                    </div>
+                  ))}
                 </div>
+                <p className="mt-4 text-center text-xs text-muted-foreground">
+                  Engångsköp – credits gäller för alltid, ingen prenumeration.
+                </p>
               </div>
 
-              <p className="mt-6 text-center text-xs text-muted-foreground">
-                Säker betalning via Stripe. Engångsköp — inga prenumerationer.
+              {/* Payment footer */}
+              <p className="mt-12 text-center text-sm text-muted-foreground">
+                Säker betalning via Stripe. Vi accepterar Visa, Mastercard, Apple Pay &amp; Google
+                Pay.
               </p>
-            </TabsContent>
+            </div>
+          </TabsContent>
 
-            {/* SajtStudio tab */}
-            <TabsContent value="studio">
-              <p className="mb-6 text-center text-sm text-muted-foreground">
-                Professionell webbhjälp från SajtStudio — från enkla sajter till e-handel.
-              </p>
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* SAJTSTUDIO TAB                                         */}
+          {/* ═══════════════════════════════════════════════════════ */}
+          <TabsContent value="studio">
+            <div className="animate-fadeIn">
+              {/* Intro */}
+              <div className="text-center mb-10">
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-xl bg-brand-blue/10 border border-brand-blue/20">
+                  <Building2 className="text-brand-blue h-8 w-8" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-3">
+                  SajtStudio – Professionell Webbhjälp
+                </h2>
+                <p className="mx-auto max-w-lg text-muted-foreground">
+                  Behöver du mer än vad AI kan erbjuda? Vårt systerföretag{" "}
+                  <a
+                    href="https://www.sajtmaskin.se"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-1 font-medium"
+                  >
+                    SajtStudio
+                    <ExternalLink className="h-3 w-3" />
+                  </a>{" "}
+                  hjälper dig med skräddarsydda webbprojekt – från enklare sajter till avancerad
+                  e-handel.
+                </p>
+              </div>
 
-              <div className="grid gap-3 sm:grid-cols-3 mb-10">
-                {STUDIO_TIERS.map((tier) => (
-                  <Card key={tier.name} className="border-border">
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-foreground mb-0.5">{tier.name}</h3>
-                      <p className="text-sm font-semibold text-foreground mb-2">{tier.range}</p>
-                      <ul className="space-y-1">
+              {/* Pricing tiers */}
+              <div className="grid gap-4 md:grid-cols-3 mb-12">
+                {STUDIO_TIERS.map((tier, i) => (
+                  <Card
+                    key={tier.name}
+                    className={`border-border bg-card/80 backdrop-blur-sm transition-all hover-lift ${
+                      i === 1 ? "border-brand-blue/30 md:scale-[1.02]" : ""
+                    }`}
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-foreground">{tier.name}</h3>
+                        {i === 1 && (
+                          <Badge className="bg-brand-blue/10 text-brand-blue border-brand-blue/30 text-[11px]">
+                            Vanligast
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xl font-bold text-foreground mb-2">{tier.range}</p>
+                      <p className="text-sm text-muted-foreground mb-4">{tier.description}</p>
+                      <ul className="space-y-1.5">
                         {tier.features.map((f) => (
-                          <li key={f} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <CheckCircle className="h-3 w-3 text-primary shrink-0" />
+                          <li
+                            key={f}
+                            className="flex items-center gap-2 text-xs text-muted-foreground"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 text-brand-blue shrink-0" />
                             {f}
                           </li>
                         ))}
@@ -307,100 +569,312 @@ function BuyCreditsContent() {
                 ))}
               </div>
 
-              {/* Stepper form */}
-              <Card className="border-border max-w-xl mx-auto">
-                <CardContent className="p-6">
-                  <h3 className="font-semibold text-foreground mb-1">Projektförfrågan</h3>
-                  <p className="text-xs text-muted-foreground mb-5">Fyll i så återkommer vi med offert.</p>
+              {/* ─── Project inquiry form ─────────────────────────── */}
+              <Card className="border-border bg-card/80 backdrop-blur-sm max-w-2xl mx-auto">
+                <CardContent className="p-6 sm:p-8">
+                  <h3 className="text-lg font-semibold text-foreground mb-1">
+                    Skicka en projektförfrågan
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Fyll i formuläret så återkommer vi med en offert. Alla fält markerade med * är
+                    obligatoriska.
+                  </p>
 
                   {formSubmitted ? (
-                    <div className="py-6 text-center">
-                      <CheckCircle className="mx-auto mb-2 h-8 w-8 text-primary" />
-                      <p className="text-sm text-foreground mb-1">Skickat!</p>
-                      <p className="text-xs text-muted-foreground mb-4">Ditt mailprogram har öppnats.</p>
-                      <Button variant="outline" size="sm" onClick={() => { setFormSubmitted(false); setFormStep(0); setFormData({ name: "", company: "", email: "", phone: "", projectTypes: [], currentUrl: "", description: "", budget: "", timeline: "", notes: "" }); }}>
-                        Ny förfrågan
-                      </Button>
+                    /* ─── Success state ─── */
+                    <div className="text-center py-8">
+                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-teal/10 border border-brand-teal/20">
+                        <CheckCircle className="text-brand-teal h-7 w-7" />
+                      </div>
+                      <h4 className="text-lg font-semibold text-foreground mb-2">
+                        Förfrågan skickad!
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
+                        Ditt mailprogram har öppnats med din förfrågan. Om det inte fungerade, maila
+                        oss direkt.
+                      </p>
+                      <a
+                        href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Projektförfrågan via SajtMaskin")}`}
+                        className="text-brand-blue hover:text-brand-blue/80 text-sm font-medium inline-flex items-center gap-1"
+                      >
+                        <Mail className="h-4 w-4" />
+                        {DISPLAY_EMAIL}
+                      </a>
+                      <div className="mt-6">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setFormSubmitted(false);
+                            setFormStep(0);
+                            setFormData({
+                              name: "",
+                              company: "",
+                              email: "",
+                              phone: "",
+                              projectTypes: [],
+                              currentUrl: "",
+                              description: "",
+                              budget: "",
+                              timeline: "",
+                              notes: "",
+                            });
+                          }}
+                          className="text-sm"
+                        >
+                          Skicka en till
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-2 mb-6">
+                      {/* Step indicators */}
+                      <div className="flex items-center gap-2 mb-8">
                         {["Kontakt", "Projekt", "Budget"].map((label, i) => (
-                          <button key={label} onClick={() => { if (i < formStep) setFormStep(i); }} className="flex items-center gap-1.5">
-                            <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium ${i === formStep ? "bg-primary text-primary-foreground" : i < formStep ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                              {i < formStep ? <CheckCircle className="h-3 w-3" /> : i + 1}
+                          <button
+                            key={label}
+                            onClick={() => {
+                              if (i < formStep) setFormStep(i);
+                            }}
+                            className="flex items-center gap-2 group"
+                          >
+                            <div
+                              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${
+                                i === formStep
+                                  ? "bg-brand-blue text-white"
+                                  : i < formStep
+                                    ? "bg-brand-teal/20 text-brand-teal"
+                                    : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {i < formStep ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
                             </div>
-                            <span className={`text-xs hidden sm:block ${i === formStep ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
-                            {i < 2 && <div className={`w-6 h-px ${i < formStep ? "bg-primary/30" : "bg-border"}`} />}
+                            <span
+                              className={`text-xs font-medium hidden sm:block ${
+                                i === formStep
+                                  ? "text-foreground"
+                                  : i < formStep
+                                    ? "text-brand-teal"
+                                    : "text-muted-foreground"
+                              }`}
+                            >
+                              {label}
+                            </span>
+                            {i < 2 && (
+                              <div
+                                className={`w-8 h-px ${i < formStep ? "bg-brand-teal/40" : "bg-border"}`}
+                              />
+                            )}
                           </button>
                         ))}
                       </div>
 
+                      {/* Step 0: Contact */}
                       {formStep === 0 && (
-                        <div className="space-y-3">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Input placeholder="Namn *" value={formData.name} onChange={(e) => updateField("name", e.target.value)} />
-                            <Input placeholder="Företag" value={formData.company} onChange={(e) => updateField("company", e.target.value)} />
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                                Namn *
+                              </label>
+                              <Input
+                                placeholder="Ditt namn"
+                                value={formData.name}
+                                onChange={(e) => updateField("name", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                                Företag
+                              </label>
+                              <Input
+                                placeholder="Företagsnamn"
+                                value={formData.company}
+                                onChange={(e) => updateField("company", e.target.value)}
+                              />
+                            </div>
                           </div>
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Input type="email" placeholder="E-post *" value={formData.email} onChange={(e) => updateField("email", e.target.value)} />
-                            <Input type="tel" placeholder="Telefon" value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} />
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                                E-post *
+                              </label>
+                              <Input
+                                type="email"
+                                placeholder="din@email.se"
+                                value={formData.email}
+                                onChange={(e) => updateField("email", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                                Telefon
+                              </label>
+                              <Input
+                                type="tel"
+                                placeholder="070-123 45 67"
+                                value={formData.phone}
+                                onChange={(e) => updateField("phone", e.target.value)}
+                              />
+                            </div>
                           </div>
-                          <div className="flex justify-end">
-                            <Button size="sm" onClick={() => setFormStep(1)} disabled={!canProceedStep0}>Nästa <ArrowRight className="h-3.5 w-3.5 ml-1" /></Button>
+                          <div className="flex justify-end pt-2">
+                            <Button
+                              onClick={() => setFormStep(1)}
+                              disabled={!canProceedStep0}
+                              className="bg-brand-blue hover:bg-brand-blue/90 text-white"
+                            >
+                              Nästa
+                              <ArrowRight className="h-4 w-4 ml-1" />
+                            </Button>
                           </div>
                         </div>
                       )}
 
+                      {/* Step 1: Project */}
                       {formStep === 1 && (
-                        <div className="space-y-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {PROJECT_TYPES.map((t) => {
-                              const Icon = t.icon;
-                              const sel = formData.projectTypes.includes(t.id);
-                              return (
-                                <button key={t.id} type="button" onClick={() => toggleProjectType(t.id)} className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${sel ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted/50"}`}>
-                                  <Icon className="h-3.5 w-3.5" />{t.label}
-                                </button>
-                              );
-                            })}
+                        <div className="space-y-4 animate-fadeIn">
+                          <div>
+                            <label className="text-sm font-medium text-foreground mb-2 block">
+                              Typ av projekt
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                              {PROJECT_TYPES.map((type) => {
+                                const Icon = type.icon;
+                                const selected = formData.projectTypes.includes(type.id);
+                                return (
+                                  <button
+                                    key={type.id}
+                                    type="button"
+                                    onClick={() => toggleProjectType(type.id)}
+                                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all ${
+                                      selected
+                                        ? "border-brand-blue/50 bg-brand-blue/10 text-brand-blue"
+                                        : "border-border bg-muted/30 text-muted-foreground hover:border-border hover:bg-muted/50"
+                                    }`}
+                                  >
+                                    <Icon className="h-4 w-4" />
+                                    {type.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <Input placeholder="Nuvarande webbplats (URL)" value={formData.currentUrl} onChange={(e) => updateField("currentUrl", e.target.value)} />
-                          <Textarea placeholder="Beskriv ditt projekt *" rows={3} value={formData.description} onChange={(e) => updateField("description", e.target.value)} />
-                          <div className="flex justify-between">
-                            <Button variant="outline" size="sm" onClick={() => setFormStep(0)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Tillbaka</Button>
-                            <Button size="sm" onClick={() => setFormStep(2)} disabled={!canProceedStep1}>Nästa <ArrowRight className="h-3.5 w-3.5 ml-1" /></Button>
+
+                          <div>
+                            <label className="text-sm font-medium text-foreground mb-1.5 block">
+                              Nuvarande webbplats (URL)
+                            </label>
+                            <Input
+                              placeholder="https://example.com"
+                              value={formData.currentUrl}
+                              onChange={(e) => updateField("currentUrl", e.target.value)}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-foreground mb-1.5 block">
+                              Beskriv ditt projekt *
+                            </label>
+                            <Textarea
+                              placeholder="Berätta kortfattat vad du behöver – vad vill du uppnå med webbplatsen?"
+                              rows={4}
+                              value={formData.description}
+                              onChange={(e) => updateField("description", e.target.value)}
+                            />
+                          </div>
+
+                          <div className="flex justify-between pt-2">
+                            <Button variant="outline" onClick={() => setFormStep(0)}>
+                              <ArrowLeft className="h-4 w-4 mr-1" />
+                              Tillbaka
+                            </Button>
+                            <Button
+                              onClick={() => setFormStep(2)}
+                              disabled={!canProceedStep1}
+                              className="bg-brand-blue hover:bg-brand-blue/90 text-white"
+                            >
+                              Nästa
+                              <ArrowRight className="h-4 w-4 ml-1" />
+                            </Button>
                           </div>
                         </div>
                       )}
 
+                      {/* Step 2: Budget & Timeline */}
                       {formStep === 2 && (
-                        <div className="space-y-3">
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Select value={formData.budget} onValueChange={(v) => updateField("budget", v)}>
-                              <SelectTrigger><SelectValue placeholder="Budget" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="5000-10000">5 000 – 10 000 kr</SelectItem>
-                                <SelectItem value="10000-20000">10 000 – 20 000 kr</SelectItem>
-                                <SelectItem value="20000-40000">20 000 – 40 000 kr</SelectItem>
-                                <SelectItem value="40000+">40 000+ kr</SelectItem>
-                                <SelectItem value="unsure">Flexibel</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <Select value={formData.timeline} onValueChange={(v) => updateField("timeline", v)}>
-                              <SelectTrigger><SelectValue placeholder="Tidplan" /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="asap">Så snart som möjligt</SelectItem>
-                                <SelectItem value="1-2months">1-2 månader</SelectItem>
-                                <SelectItem value="3-6months">3-6 månader</SelectItem>
-                                <SelectItem value="flexible">Flexibelt</SelectItem>
-                              </SelectContent>
-                            </Select>
+                        <div className="space-y-4 animate-fadeIn">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                                Budgetram
+                              </label>
+                              <Select
+                                value={formData.budget}
+                                onValueChange={(v) => updateField("budget", v)}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Välj budget" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="5000-10000">
+                                    Start: 5 000 – 10 000 kr
+                                  </SelectItem>
+                                  <SelectItem value="10000-20000">
+                                    Plus: 10 000 – 20 000 kr
+                                  </SelectItem>
+                                  <SelectItem value="20000-40000">
+                                    Pro: 20 000 – 40 000 kr
+                                  </SelectItem>
+                                  <SelectItem value="40000+">40 000+ kr</SelectItem>
+                                  <SelectItem value="unsure">Vet ej / Flexibel</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                                Önskad tidplan
+                              </label>
+                              <Select
+                                value={formData.timeline}
+                                onValueChange={(v) => updateField("timeline", v)}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue placeholder="Välj tidplan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="asap">Så snart som möjligt</SelectItem>
+                                  <SelectItem value="1-2months">1-2 månader</SelectItem>
+                                  <SelectItem value="3-6months">3-6 månader</SelectItem>
+                                  <SelectItem value="flexible">Flexibelt</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
-                          <Textarea placeholder="Övrigt" rows={2} value={formData.notes} onChange={(e) => updateField("notes", e.target.value)} />
-                          <div className="flex justify-between">
-                            <Button variant="outline" size="sm" onClick={() => setFormStep(1)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Tillbaka</Button>
-                            <Button size="sm" onClick={handleFormSubmit}><Send className="h-3.5 w-3.5 mr-1" />Skicka</Button>
+
+                          <div>
+                            <label className="text-sm font-medium text-foreground mb-1.5 block">
+                              Övrigt / kommentarer
+                            </label>
+                            <Textarea
+                              placeholder="Något annat du vill berätta? Integrationer, speciella önskemål, etc."
+                              rows={3}
+                              value={formData.notes}
+                              onChange={(e) => updateField("notes", e.target.value)}
+                            />
+                          </div>
+
+                          <div className="flex justify-between pt-2">
+                            <Button variant="outline" onClick={() => setFormStep(1)}>
+                              <ArrowLeft className="h-4 w-4 mr-1" />
+                              Tillbaka
+                            </Button>
+                            <Button
+                              onClick={handleFormSubmit}
+                              className="bg-brand-blue hover:bg-brand-blue/90 text-white"
+                            >
+                              <Send className="h-4 w-4 mr-1.5" />
+                              Skicka förfrågan
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -408,26 +882,55 @@ function BuyCreditsContent() {
                   )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            </div>
+          </TabsContent>
           </Tabs>
+
+          {/* ═══ CONTACT FOOTER ═══ */}
+          <div className="mt-20 text-center">
+            <div className="inline-flex flex-col items-center gap-3 rounded-xl border border-border bg-card/50 backdrop-blur-sm px-8 py-6">
+              <div className="flex items-center gap-3">
+                <Mail className="text-brand-blue h-5 w-5" />
+                <span className="text-sm text-muted-foreground">Har du frågor? Kontakta oss:</span>
+              </div>
+              <a
+                href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Fråga via SajtMaskin")}`}
+                className="text-lg font-semibold text-brand-blue hover:text-brand-blue/80 transition-colors inline-flex items-center gap-2"
+              >
+                <span>{DISPLAY_EMAIL}</span>
+              </a>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  Vi svarar inom 24h
+                </span>
+                <span>•</span>
+                <span>Säker betalning via Stripe</span>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
-      <MinimalFooter />
-
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} defaultMode={authMode} />
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        defaultMode={authMode}
+      />
     </div>
   );
 }
 
+// ─── Loading Fallback ─────────────────────────────────────────────
 function BuyCreditsLoading() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
   );
 }
 
+// ─── Page Export ───────────────────────────────────────────────────
 export default function BuyCreditsPage() {
   return (
     <Suspense fallback={<BuyCreditsLoading />}>

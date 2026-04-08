@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: oklch(0.985 0.01 55);
+  --color-foreground: oklch(0.28 0.04 5);
+  --color-card: oklch(0.995 0.008 50);
+  --color-card-foreground: oklch(0.28 0.04 5);
+  --color-primary: oklch(0.64 0.19 355);
+  --color-primary-foreground: oklch(0.98 0.01 50);
+  --color-secondary: oklch(0.94 0.05 85);
+  --color-secondary-foreground: oklch(0.3 0.04 25);
+  --color-muted: oklch(0.95 0.025 65);
+  --color-muted-foreground: oklch(0.5 0.04 20);
+  --color-accent: oklch(0.82 0.11 82);
+  --color-accent-foreground: oklch(0.25 0.04 22);
+  --color-destructive: oklch(0.58 0.2 28);
+  --color-destructive-foreground: oklch(0.98 0.01 50);
+  --color-border: oklch(0.87 0.03 65);
+  --color-input: oklch(0.9 0.03 62);
+  --color-ring: oklch(0.64 0.19 355);
+  --radius: 1rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top left, rgb(214 74 140 / 0.16), transparent 30%),
+      radial-gradient(circle at bottom right, rgb(212 173 92 / 0.2), transparent 34%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), Georgia, serif;
+    letter-spacing: -0.02em;
+  }
+
+  a,
+  button,
+  input,
+  textarea,
+  select {
+    @apply outline-none;
+  }
+
+  :focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 0.7s ease-out both;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-fade-in,
+  .animate-float {
+    animation: none !important;
+  }
+}

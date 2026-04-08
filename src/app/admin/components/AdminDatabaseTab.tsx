@@ -322,7 +322,7 @@ export function AdminDatabaseTab({
                   const res = await fetch("/api/admin/templates/embeddings", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ storage: "auto" }),
+                    body: JSON.stringify({}),
                   });
                   const data = (await res.json().catch(() => null)) as
                     | { success?: boolean; error?: string; message?: string }
@@ -344,7 +344,7 @@ export function AdminDatabaseTab({
               ) : (
                 <Wand2 className="h-4 w-4" />
               )}
-              Bygg om inbäddningar (Vercel)
+              Bygg om inbäddningar (lokalt)
             </Button>
             <Button
               variant="outline"

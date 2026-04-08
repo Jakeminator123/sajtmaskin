@@ -50,6 +50,7 @@ export interface TemplateLibrarySearchDiagnostics {
     | "embedding_query_failed"
     | "missing_api_key"
     | "missing_embeddings"
+    | "embeddings_id_mismatch"
     | "no_embedding_hits"
     | "weak_embedding_match";
   topScore?: number;
@@ -246,6 +247,11 @@ export async function searchTemplateLibraryWithDiagnostics(
 
   const embeddings = loadEmbeddings();
   if (embeddings.length === 0) {
+    if (FEATURES.strictGeneratedArtifacts) {
+      throw new Error(
+        "[template-library] Missing template-library embeddings while catalog has entries. Run template-library:embeddings.",
+      );
+    }
     return {
       results: fallbackResults,
       diagnostics: {
@@ -253,6 +259,31 @@ export async function searchTemplateLibraryWithDiagnostics(
         catalogSize,
         usedEmbeddings: false,
         reason: "missing_embeddings",
+      },
+    };
+  }
+  const catalogIds = new Set(catalogEntries.map((entry) => entry.id));
+  const embeddingIds = new Set(embeddings.map((entry) => entry.id));
+  const missingEmbeddings = [...catalogIds].filter((id) => !embeddingIds.has(id));
+  const orphanEmbeddings = [...embeddingIds].filter((id) => !catalogIds.has(id));
+  if (missingEmbeddings.length > 0 || orphanEmbeddings.length > 0) {
+    if (FEATURES.strictGeneratedArtifacts) {
+      const missingSample = missingEmbeddings.slice(0, 4).join(", ");
+      const orphanSample = orphanEmbeddings.slice(0, 4).join(", ");
+      throw new Error(
+        `[template-library] Embedding id mismatch. ` +
+          `Missing: ${missingEmbeddings.length}${missingSample ? ` (${missingSample})` : ""}; ` +
+          `Orphan: ${orphanEmbeddings.length}${orphanSample ? ` (${orphanSample})` : ""}. ` +
+          `Rebuild template-library artifacts.`,
+      );
+    }
+    return {
+      results: fallbackResults,
+      diagnostics: {
+        mode: "keyword_fallback",
+        catalogSize,
+        usedEmbeddings: false,
+        reason: "embeddings_id_mismatch",
       },
     };
   }

@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: oklch(0.15 0.012 65);
+  --color-foreground: oklch(0.95 0.02 85);
+  --color-card: oklch(0.19 0.014 62);
+  --color-card-foreground: oklch(0.95 0.02 85);
+  --color-primary: oklch(0.77 0.12 76);
+  --color-primary-foreground: oklch(0.18 0.015 62);
+  --color-secondary: oklch(0.24 0.012 62);
+  --color-secondary-foreground: oklch(0.95 0.02 85);
+  --color-muted: oklch(0.22 0.012 62);
+  --color-muted-foreground: oklch(0.72 0.02 82);
+  --color-accent: oklch(0.28 0.02 70);
+  --color-accent-foreground: oklch(0.95 0.02 85);
+  --color-destructive: oklch(0.62 0.18 26);
+  --color-destructive-foreground: oklch(0.98 0.01 80);
+  --color-border: oklch(0.3 0.012 65);
+  --color-input: oklch(0.24 0.012 64);
+  --color-ring: oklch(0.77 0.12 76);
+  --radius: 0.875rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top, color-mix(in oklab, var(--color-primary) 14%, transparent) 0%, transparent 36%),
+      linear-gradient(to bottom, color-mix(in oklab, var(--color-accent) 12%, transparent), transparent 30%);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), var(--font-sans), serif;
+    letter-spacing: -0.02em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 35%, transparent);
+    color: var(--color-foreground);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes soft-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.05);
+  }
+}
+
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fade-in-up 0.7s ease-out both;
+  }
+
+  .animate-soft-glow {
+    animation: soft-glow 6s ease-in-out infinite;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}

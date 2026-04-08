@@ -1,0 +1,22 @@
+SAJTMASKIN QA — SAMMANFATTNING
+Datum: 2026-04-05
+Personas: 1
+Lyckade: 1/1
+Snittpoäng: 43%
+Total tid: 3 min
+=== PER PERSONA ===
+OK | Saga (Influencer/content i Malmö) — 43%, 1 sidor
+=== ALLA FÖRBÄTTRINGSFÖRSLAG ===
+  1. [cta] Specify the desired CTA text in the prompt, e.g. 'med en tydlig Boka tid-knapp'
+  2. [content] Provide more details about services, team, and unique selling points in the prompt
+  3. [structure] Request specific sections in the prompt: 'med sektioner för tjänster, om oss, kontakt och kundrecensioner'
+  4. [contact] Include phone number and email in the prompt for the AI to use
+=== VANLIGASTE FELEN ===
+  has-cta: 1 personas
+  has-images: 1 personas
+  has-footer: 1 personas
+  has-navigation: 1 personas
+  content-density: 1 personas
+  has-sections: 1 personas
+  has-internal-links: 1 personas
+  has-contact-info: 1 personas

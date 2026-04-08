@@ -1,0 +1,33 @@
+FEEDBACK — Persona 1: Anna
+Företag: Frisörsalong i Göteborg
+Poäng: 93% (13/14 checks)
+Sidor: 5
+Tid: 934s
+=== KVALITETSKONTROLL ===
+OK | iframe-accessible: OK
+OK | swedish-characters: Found å/ä/ö
+OK | no-english-body: No English phrases
+OK | no-lorem-ipsum: Clean
+OK | has-heading: 1 H1(s)
+OK | has-cta: Swedish CTA found
+OK | has-images: 15 images
+OK | has-footer: Footer present
+OK | has-navigation: Nav present
+OK | content-density: 1441 words
+OK | has-sections: 8 sections
+OK | has-internal-links: 21 links
+OK | has-contact-info: Phone/email found
+FEL | relevant-heading: Generic heading: "Välkommen till Salong Bella i Göteborg"
+=== NAVIGATION ===
+  Hem → /8244491d-e817-44b4-b6c1-d6965c52533f#hem
+  Behandlingar → /8244491d-e817-44b4-b6c1-d6965c52533f#behandlingar
+  Om salongen → /8244491d-e817-44b4-b6c1-d6965c52533f#om-salongen
+  Kontakt → /8244491d-e817-44b4-b6c1-d6965c52533f#kontakt
+=== FÖRBÄTTRINGSFÖRSLAG ===
+  [heading] Generic heading: "Välkommen till Salong Bella i Göteborg"
+  → Specify the hero headline in the prompt, e.g. 'med rubriken: Din lokala frisör i Göteborg'
+=== SAMMANFATTNING ===
+Sajten för "Frisörsalong i Göteborg" hade 1 problem:
+  - relevant-heading: Generic heading: "Välkommen till Salong Bella i Göteborg"
+REKOMMENDERADE PROMPTÄNDRINGAR:
+  1. Specify the hero headline in the prompt, e.g. 'med rubriken: Din lokala frisör i Göteborg'

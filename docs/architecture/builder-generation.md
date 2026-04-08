@@ -1,6 +1,10 @@
 # Builder — generering, modeller, prompt och SSE
 
-**Senast uppdaterad:** 2026-04-06
+**Senast uppdaterad:** 2026-04-08 (scaffold merge-policy + env)
+
+## Steg 4 — post-stream (finalize, validering, preflight)
+
+Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`. **Samlad slutbild + kvarvarande risker:** `5-steg.txt` och `docs/plans/active/remaining-focus-after-5-step.md`.
 
 ## Modellbanor (UI ↔ API)
 
@@ -23,26 +27,47 @@ Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `s
 - Använd **OpenClaw / Sajtagenten** när du menar den hjälpassistent som kan läsa builderkontext, ge tips, föreslå textfältsinnehåll och göra djupare review på begäran.
 - Om Sajtagenten får mer kod- eller builderinsyn för review betyder det **inte** att own-engine-routen har bytt motor.
 
+## Builder-entry före modellen
+
+Innan modellen ser någonting normaliserar buildern nu URL-ingången i
+`src/app/builder/builder-entry.ts` till en intern `entryKind` / `entryState`.
+
+- **`appProjectId`** är builderns kanoniska projekt-id.
+- **`externalProjectId`** är builder-lagrets namn för extern/legacy-identitet och ska inte blandas ihop med `appProjectId`.
+- **`source=audit`** är kompat-/transportlager; resten av buildern ska hellre utgå från normaliserad `entryKind: "audit"` än från rå querytolkning.
+
+Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
+
 ## Promptlager och träd
 
-- **Statisk kärna** + dynamisk kontext (scaffold, brief, tema, KB) byggs i `system-prompt.ts` m.m.
+- **Statisk kärna** + dynamisk kontext (scaffold, route plan, kontrakt, brief, tema och övrig request-specifik kontext) byggs i `system-prompt.ts` m.m.
+- **Statisk kärna är stabil produktpolicy, inte request-payload.** `config/prompt-static/*.md` ska beskriva varaktiga regler för output/runtime. Request-specifika signaler som component palette, design references, scaffold payloads, media aliases, follow-up-kontext och kontrakt ska i stället komma via den dynamiska kontexten eller via user-turn wrappers.
+- **Visible `<Thinking>` är inte del av normalkontraktet längre.** Reasoning kan fortfarande exponeras separat när `thinking` är aktiverat, men själva projektsvaret ska hållas i CodeProject-format utan synlig wrapper före filblocken.
+- **shadcn-reglerna är nu tvålagriga:** modellen ska i första hand använda projektets lokala `@/components/ui/*`, men request-specifik shadcn-/registry-/palette-kontext får utöka komponentvokabulären när hosten redan skickat sådan payload.
 - **Fan-in före modellen:** `prepareGenerationContext()` / `resolveOrchestrationBase()` bygger nu ett litet **`BuildSpec`** (`src/lib/gen/build-spec.ts`) som bär styrsignaler som `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`. Det används för att hålla scaffold-/referensbudget, follow-up-policy och previewpolicy deterministiska.
+- **`GenerationInputPackage` är kanonisk fan-in-artefakt för generationen.** Den bär bl.a. `engineSystemPrompt`, `dynamicContext`, `dynamicContextPruning`, `dynamicContextBlocks` och `lineageHash`, och skrivs till prompt-dumps för observability.
+- **Deep brief default-on (2026-04-08):** `DEFAULT_PROMPT_ASSIST.deep` är nu `true`. Alla nya chattar kör Deep brief som standard. Briefens output driver side-/sektionsstruktur, visuell riktning och SEO i den dynamiska kontexten, men scaffoldvalet konsulterar ännu inte briefen direkt utan drivs av keyword/embedding-merge på rå-prompten (se `matchScaffoldAuto()`). Framtida förbättring: mata briefens domänsignaler tillbaka till scaffold-matchern. *Vertikal* (t.ex. restaurang) vs *sidtyp* (landning, flersidor) är medvetet inte en första klass-modell i scaffold-registret ännu — brief + dynamisk kontext bär mer av den friheten än scaffold-etiketten.
+- **Signal- och rollöversikter:** Den kanoniska tabellen över LLM-roller finns i `docs/schemas/llm-role-matrix.md`. Den kanoniska tabellen över signallager finns i `docs/schemas/orchestration-signal-contract.md`. Flödesöversikten för hur dessa lager samspelar finns i `docs/architecture/llm-signal-flow.md`.
 - **Narrow follow-up policy:** när `BuildSpec` landar i `followUp + light + fast` hålls dynamisk kontext märkbart smalare: scaffold serialiseras lättare och bred KB/template-retrieval hoppas över för lokala copy/layout-ändringar.
+- **Follow-up wrappers ligger på user-turnen, inte i systemprompten.** `chat-message-stream-post.ts` använder `prompt-wrapper-contract.ts` för att prefixa follow-ups med sektioner som `## Continuity (from previous generation)`, `## Existing Project Files (reference)` och `## Follow-up Editing Mode`. `messageAdapter.ts` tar sedan bort kända wrappers i UI-visningen så användaren ser sin faktiska prompt, inte hela transportomslaget.
 - **Scaffold research i prompten:** `buildDynamicContext()` injicerar nu `qualityChecklist`, `upgradeTargets` och ett budgeterat urval av `referenceTemplates` som **Reference inspirations**. Urvalet begränsas primärt av `BuildSpec.tokenBudgets.refsTokens` (med `refsChars` som kompat-fallback).
-- **Template-library i prompten:** runtime-guidance (`style rules`, `section inventory`, `avoid patterns`, `world-class rubric`) är nu uttryckligen primär signal före kodsnippets. Prompten kan också signalera när template-libraryn är tom eller när retrieval faller tillbaka till keyword/hybrid-läge, och snippets trycks ned för mer scoped edits. KB-sök och template-library-rankning körs nu parallellt när båda behövs.
+- **Template-library och prompten:** den kuraterade `template-library`-datan lever kvar som externa referenser / researchartefakter och används för scaffold research, validering och lokala kontrollflöden. **Nuvarande own-engine-hot-path injicerar inte `template-library`-sökning direkt i prompten på samma sätt som scaffold-kontexten gör.** Däremot kan kondenserad extern research nå prompten indirekt via scaffold research (`referenceTemplates` i `scaffold-research.generated.json`). Den direkta promptkontexten bär i övrigt scaffold-kontext, route plan, kontrakt, brief, tema och request-specifik information.
 - **Prompt tree** (alla lager och parametrar): se arkiv `prompt-tree.md` och kod: `config/prompt-static/`, `codegen-static-prompt.json`.
 
 ## Nuvarande kodflöde
 
-1. **Prompt in** via Builder eller `scripts/cli/builder-generate.py`.
+1. **Prompt in** via Builder (kanonisk väg) eller direkt mot own-engine API-routes.
 2. **Före-build prompt-verktyg (valfritt):** "Skriv om" (polish) eller "Förbättra" (rewrite) via `/api/ai/chat` + guardrails i `usePromptAssist.ts`. Redigerar text i realtid utan att skicka iväg.
 3. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via Deep Brief (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`). **Briefen genereras alltid från originalprompt** — inte den orkestrerade/summarerade versionen. Auto-brief blockeras för follow-ups, audit, tekniska prompts och nu även för **redan strukturerade website-prompts** där användaren redan specificerat flera sektioner/styrsignaler.
 4. **Spec-first chain (valfritt, `specMode=true`):** Om briefen finns konverteras den till en `WebsiteSpec` via `briefToSpec()` i `promptAssistContext.ts`, annars via `promptToSpec()`. Specfilen bifogas som strukturerad kontext till systemprompten.
-5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
-6. **Scaffoldval i `auto`:** `matchScaffold()` är primär keyword-path; `matchScaffoldWithEmbeddings()` använder scaffold-embeddings bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
-7. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, scaffold research-prioriteringar (inkl. budgeterade reference inspirations), route plan, pre-generation contracts, brief-/temasignaler och övrig request-specifik kontext. Dynamisk kontext budgeteras nu blockvis med tokenestimat (`BuildSpec.tokenBudgets.systemContextTokens`) och prunar lägre prioritet först; `systemContextChars` finns kvar som kompat-fallback i callsites som fortfarande arbetar teckenbaserat.
-8. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, verifier, parse/merge/preflight och sparar versionen innan tier-2-preview följer upp. `reasoning_effort` sätts nu adaptivt: vanliga `website`-fall landar oftare på `medium`, medan `app` / integrationer / mer avancerade builds kan ligga kvar på `high`.
-9. **Saved version** hämtas sedan via chat/version/files-routes; tier-2-start kan komma efter `done` (primärt `preview_host`, med legacy `sandbox`-namn kvar i delar av kontraktet). Om server repair skapar en ny promotad version markeras den tidigare repair-källan nu som **superseded** i stället för att lämnas kvar i `repairing`.
+5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` orkestrerar generationen: väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
+   **`RoutePlan.provenance`:** `primarySource` är `brief` när briefens sidor styr strukturen, annars `scaffold` när scaffold-defaults faktiskt lagt till nya routes utöver promptmönster, annars `prompt`. `sources[]` listar alla bidrag i ordning (t.ex. `["prompt","scaffold"]` när båda bidragit). Persisted JSON kan fortfarande ha äldre fältet `source`; runtime tolkar det via `parseRoutePlanFromUnknown` / `getRoutePlanPrimarySource`.
+   **Follow-up / redesign:** tydliga redesign-signaler kan låsa upp persisted scaffold (ny scaffold-match) i auto-läge utan explicit scaffold-pin — se `shouldIgnorePersistedScaffoldForMatch` i `follow-up-clarification.ts` och anrop i `chat-message-stream-post.ts`.
+6. **Scaffoldval i `auto`:** `matchScaffoldAuto()` kör keyword-scoring och embedding-sökning i parallell väggklocka-tid och **slår ihop** resultaten: semantik får utmana även icke-generiska keyword-val när likhetsgraden är hög nog (justerbart via `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS`). Sätt `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` för att bara använda intent-baseline (t.ex. `landing-page`) och låta embeddings/brief styra mer — experimentellt.
+7. **`buildDynamicContext()`** i `system-prompt.ts` bygger faktisk LLM-input: scaffold-kontext, scaffold research-prioriteringar (inkl. budgeterade reference inspirations), route plan, pre-generation contracts, brief-/temasignaler och övrig request-specifik kontext. Den **återanvänder inte** användarens prompt som en extra «Original request»-sektion i system — samma text skickas som **user**-meddelande. Dynamisk kontext budgeteras blockvis med tokenestimat (`BuildSpec.tokenBudgets.systemContextTokens`, minimum 900 tokens i praktiken) och prunar lägre prioritet först; resultatet exponeras som `DynamicContextPruning` på paketet och i prompt-dump `meta.json`. `systemContextChars` / övriga `*Chars`-fält är kompat-/ungefärliga motsvarigheter. Se **`docs/architecture/llm-input-blocks.md`**.
+8. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, verifier, parse/merge/preflight och sparar versionen. `reasoning_effort` sätts nu adaptivt: vanliga `website`-fall landar oftare på `medium`, medan `app` / integrationer / mer avancerade builds kan ligga kvar på `high`.
+9. **Export/download-pipeline:** `buildExportableProject()` i `build-exportable-project.ts` är **async** (sedan 2026-04-08) — den laddar UI-komponentresolvern via `await import("./project-scaffold-ui-reader")` för att hålla dynamiska `fs.readFileSync`-anrop utanför Turbopacks statiska bundleanalys. Alla anropare (routes, server-verify, eval, preview-session) måste `await`-a.
+10. **Version och preview materialiseras** sedan via chat/version/files-routes och tier-2-preview (`preview_host` / VM). Tier-2-start kan komma efter `done` (med legacy `sandbox`-namn kvar i delar av kontraktet). Om server repair skapar en ny promotad version markeras den tidigare repair-källan nu som **superseded** i stället för att lämnas kvar i `repairing`.
 
 Snabba lokala orienteringsfiler för nästa agent:
 
@@ -50,13 +75,47 @@ Snabba lokala orienteringsfiler för nästa agent:
 - `src/lib/gen/scaffolds/README.md`
 - `src/lib/gen/template-library/README.md`
 
+## Prompt-dumps och dashboard-observability
+
+Prompt-dumps är **debug-/observabilityartefakter**, inte source of truth för
+runtime. Den kanoniska skrivningen ligger i `src/lib/gen/prompt-dump.ts`, och
+båda Python-panelerna läser nu samma statussemantik via
+`scripts/dashboard_shared.py`.
+
+Det finns nu tre separata observability-spår som är lätta att blanda ihop:
+
+- **Prompt-dumps på disk** under `data/prompt-dumps/` — full/dynamisk systemkontext och serialiserad `GenerationInputPackage`.
+- **Prompt logs i databasen** via `createPromptLog()` / `prompt_logs` — bästa effort-logg av originalprompt, formatterad prompt, trunkerad systemprompt, model tier, build method, thinking, m.m.; visas via admin-API och `app/log/log-viewer`.
+- **Dev/runtime-loggar** — request-/stream-/generation-event via dev-loggning och serverterminal.
+
+Det finns **ingen** samlad kanonisk `logs/`-mapp ännu som binder ihop prompt-dumps, prompt logs, evals, verifieringsresultat, modeller, tokens och slutlig scaffold/utfall i en enda körjournal. Dagens läge är i stället uppdelat mellan `data/prompt-dumps/`, databastabeller/UI för prompt logs och vanliga dev-/runtime-loggar.
+
+**Viktigt:** `config/dashboard/app.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
+inte leda den. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
+
+Kategorier:
+
+- `orchestration-dynamic` — `latest.md`, `generation-input-package.json`, `meta.json`
+- `own-engine-codegen` — `full-system.md`, `dynamic-context.md`, `meta.json`
+- `plan-mode-planner` — `planner-preamble.md`, `dynamic-context.md`, `full-system.md`, `meta.json`
+
+Statusord som visas i panelerna:
+
+- `fresh` — nyligen skriven dump
+- `stale-risk` — dump finns men ser gammal ut; kontrollera tidsstämpeln
+- `disabled` — dumpning är avstängd; gamla payloadfiler kan fortfarande ligga kvar
+
+`config/dashboard/app.py` visar detta i preview-/versionsöversikten som del av
+konfigurations- och observabilityytan. `scripts/scripts_dashboard.py` använder
+samma statusdata i pipeline-/artifactpanelen.
+
 ## SSE / stream-scope (W3)
 
 Builder **egen motor** använder SSE på engine-routes — det är **kanon** för chat/generation. Övriga SSE-ytor (admin, observability) är **inte** samma backlog som W3; K-009 är stängd — nya behov = ny planrad (tidigare `own-engine-sse-scope.md` i arkivet).
 
 ### Livscykel: `done` och tier-2 preview
 
-Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assistant + `files_json`), inte att alla sidoeffekter är klara. **Efter `done`** kan servern fortfarande skicka t.ex. **`preview-ready`** eller **`build-error`**, och klienten ska fortsätta lyssna tills tier-2-steget är avslutat eller fel rapporterats. Fält som `sandboxPending` på `done` signalerar att tier-2-preview kan komma strax. Byggaren skiljer nu tydligare på **genererar kod**, **verifierar version**, **startar VM-preview** och **byter till reparerad version** när en ny version tar över.
+Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assistant + `files_json`), inte att alla sidoeffekter är klara. **Efter `done`** kan servern fortfarande skicka t.ex. **`preview-ready`** eller **`build-error`**, och klienten ska fortsätta lyssna tills tier-2-steget är avslutat eller fel rapporterats. Fält som `previewPending` på `done` signalerar att tier-2-preview kan komma strax, medan `previewUrlHint` bara är en tillfällig boot-hint. Byggaren skiljer nu tydligare på **genererar kod**, **verifierar version**, **startar VM-preview** och **byter till reparerad version** när en ny version tar över.
 
 Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/stream/builder-stream-contract.ts) och post-finalize i `generation-stream-post-finalize.ts`.
 
@@ -84,13 +143,13 @@ Det finns inte längre någon separat kanonisk `meritmind-build-flows.md` i trä
 
 *Gäller **allt** som genereras från prompt (egen motor): jämförelse mellan **tier‑1** `/api/preview-render` (snabb kompatibilitetsvy) och **Fidelity 2 / tier-2 runtime** (`next dev` i VM), som normalt går via `preview_host` när den är konfigurerad (Vercel Sandbox endast när explicit valt eller som sekundär väg).*
 
-**Kontrakt (2026-03-30):** För own-engine returnerar chat- och versions-API `previewUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; `demoUrl` finns kvar bara i vissa legacy-/inboundlager. Byggaren väljer **sandbox-URL** vid versionsbyte och visar quality-tier «preview» först när **sandbox** finns, inte när bara shim finns.
+**Kontrakt (2026-04-08):** För own-engine returnerar chat- och versions-API `previewUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; `demoUrl` finns kvar bara i vissa legacy-/inboundlager. Byggaren väljer **VM-/preview-host-URL** vid versionsbyte och visar quality-tier «preview» först när riktig tier-2-preview finns, inte när bara shim finns.
 
 | # | Problemtyp | Kort beskrivning |
 |---|------------|------------------|
-| P1 | **Runtime-paritet** | Shim bygger självständig HTML/React-ström; **samma beteende** som full Next + WebGL i sandbox är **inte garanterad** (t.ex. spelloopar, `canvas`, audio). |
-| P2 | **WebGL / Three / R3F** | Fiber + `Canvas` kräver **browser + WebGL-kontext**; server-side tier‑1 kan **förenkla, hoppa över eller feltolka** importer och livscykel jämfört med klientbundle i sandbox. |
-| P3 | **Bundling & sidoeffekter** | Workers, WASM, dynamiska `import()`, villkor beroende på `window` — risk för **skillnad** mellan shim, sandbox-build och produktion. |
+| P1 | **Runtime-paritet** | Shim bygger självständig HTML/React-ström; **samma beteende** som full Next + WebGL i VM-preview är **inte garanterad** (t.ex. spelloopar, `canvas`, audio). |
+| P2 | **WebGL / Three / R3F** | Fiber + `Canvas` kräver **browser + WebGL-kontext**; server-side tier‑1 kan **förenkla, hoppa över eller feltolka** importer och livscykel jämfört med klientbundle i VM-preview. |
+| P3 | **Bundling & sidoeffekter** | Workers, WASM, dynamiska `import()`, villkor beroende på `window` — risk för **skillnad** mellan shim, VM-preview-build och produktion. |
 | P4 | **Routing & bas-URL** | Länkar och `next/link` som blir **absoluta mot fel host** i iframe (t.ex. pekar på appens domän i stället för preview-host). |
 | P5 | **Flera routes** | Shim styrs ofta med `?route=`; **riktig** App Router har **egna** segment, layouts, `loading.tsx` — paritet saknas ofta. |
 | P6 | **API routes / server actions** | Genererade `app/api/*`, server actions och **reella nätverksanrop** körs **inte** som i en riktig Next-server inuti tier‑1. |
@@ -99,11 +158,11 @@ Det finns inte längre någon separat kanonisk `meritmind-build-flows.md` i trä
 | P9 | **Hemligheter vs demo** | Stripe/DB utan nycklar: shim kan **visa statiskt innehåll** medan **preview-host verify-lane** (`tsc` / `next build`) **faller** — **dubbla sanningar**. |
 | P10 | **Verifiering vs förhandsvisning** | **Lyckad** `preview-render` + **misslyckad** server-verify — svårt för medlemmar utan tydlig koppling i UI. |
 | P11 | **CSP & eval** | Dev/prod och iframe **CSP** skiljer sig; vissa 3D-/spelbibliotek utlöser **strängare** policy i preview än lokalt. |
-| P12 | **Prestanda & DPR** | Hög `dpr`, partiklar, post-processing — **smidigt i sandbox**, **dyrt eller nedbantat** i shim eller på svaga enheter. |
+| P12 | **Prestanda & DPR** | Hög `dpr`, partiklar, post-processing — **smidigt i VM-preview**, **dyrt eller nedbantat** i shim eller på svaga enheter. |
 | P13 | **Tillgång till devserver** | Externa webbläsare (t.ex. assistenter i **Cursor IDE**) når ofta **inte** utvecklarens `localhost`; **deployad URL** kan ge annan **auth/data** än lokal DB — förvirring vid felsökning. *Detta är inte en del av Sajtmaskin-produkten.* |
 | P14 | **Tredjepartsskript** | Analytics, Stripe.js, kartor — **laddning/blockering** skiljer sig mellan shim-HTML och full app. |
 
-**Produktmål:** medlemmar skapar sidor **via prompt**; **standardpreview** ska vara **sandbox (Fidelity 2)** när miljön tillåter — shim finns som fallback under tid eller vid fel.
+**Produktmål:** medlemmar skapar sidor **via prompt**; **standardpreview** ska vara **VM / `preview_host` (Fidelity 2)** när miljön tillåter — shim finns som fallback under tid eller vid fel.
 
 ## Snabb felsökning
 

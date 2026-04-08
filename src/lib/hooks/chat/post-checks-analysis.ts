@@ -658,14 +658,8 @@ export function buildPostCheckBaseline(params: {
     const suffix = missingRoutes.length > 6 ? " …" : "";
     warnings.push(`Saknar route för ${preview}${suffix}.`);
   }
-  if (missingPlannedRoutes.length > 0) {
-    const preview = missingPlannedRoutes
-      .slice(0, 6)
-      .map((route) => route.path)
-      .join(", ");
-    const suffix = missingPlannedRoutes.length > 6 ? " …" : "";
-    warnings.push(`Planerade routes saknas: ${preview}${suffix}.`);
-  }
+  // Route-plan mismatches are already emitted by preflight diagnostics.
+  // Keep this data in baseline for tooling, but avoid duplicate user-facing warnings.
   if (lucideLinkMisuse.length > 0) {
     const preview = lucideLinkMisuse.slice(0, 6).join(", ");
     const suffix = lucideLinkMisuse.length > 6 ? " …" : "";

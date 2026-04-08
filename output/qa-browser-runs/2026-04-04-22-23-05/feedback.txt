@@ -1,0 +1,19 @@
+SAJTMASKIN QA — SAMMANFATTNING
+Datum: 2026-04-04
+Personas: 1
+Lyckade: 0/1
+Snittpoäng: 0%
+Total tid: 0 min
+=== PER PERSONA ===
+FEL | Anna (Frisörsalong i Göteborg) — 0%, 0 sidor, FEL: Error: page.goto: net::ERR_ABORTED at http://localhost:3000/builder?project=WJ3BNqZqirmPdQPwE8gHj&buildMethod=starter_freeform&buildIntent=starter&promptId=zJC4QbUtuButha0ulnCnD
+Call log:
+  - navigating to "http://localhost:3000/builder?project=WJ3BNqZqirmPdQPwE8gHj&buildMethod=starter_freeform&buildIntent=starter&promptId=zJC4QbUtuButha0ulnCnD", waiting until "domcontentloaded"
+
+=== ALLA FÖRBÄTTRINGSFÖRSLAG ===
+  Inga förbättringsförslag — alla prompts fungerade bra
+=== VANLIGASTE FELEN ===
+  Inga fel — alla checks passerade
+=== MISSLYCKADE PERSONAS ===
+  Anna: Error: page.goto: net::ERR_ABORTED at http://localhost:3000/builder?project=WJ3BNqZqirmPdQPwE8gHj&buildMethod=starter_freeform&buildIntent=starter&promptId=zJC4QbUtuButha0ulnCnD
+Call log:
+  - navigating to "http://localhost:3000/builder?project=WJ3BNqZqirmPdQPwE8gHj&buildMethod=starter_freeform&buildIntent=starter&promptId=zJC4QbUtuButha0ulnCnD", waiting until "domcontentloaded"

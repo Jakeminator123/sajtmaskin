@@ -6,6 +6,7 @@ import {
   type FinalizeResult,
 } from "@/lib/gen/stream/finalize-version";
 import type { BuildSpec } from "@/lib/gen/build-spec";
+import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { finalizeOrHandleEmptyGeneration } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
@@ -39,12 +40,15 @@ export interface GenerationStreamParams {
   engineIntent: BuildIntent;
   buildSpec: BuildSpec;
   routePlan: RoutePlan | null;
+  orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: UrlMap;
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
   /** SHA-256 of deterministic generation inputs (prompt lineage). */
   lineageHash?: string | null;
+  /** When set, repair replaces this version in-place instead of creating a new one. */
+  targetVersionId?: string | null;
 }
 
 export function createOwnEngineGenerationStream(
@@ -60,11 +64,13 @@ export function createOwnEngineGenerationStream(
     engineIntent,
     buildSpec,
     routePlan,
+    orchestrationContract,
     resolvedScaffold,
     urlMap,
     commitCredits,
     previousFiles,
     lineageHash,
+    targetVersionId,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -206,6 +212,7 @@ export function createOwnEngineGenerationStream(
         buildIntent: engineIntent,
         buildSpec,
         routePlan,
+        orchestrationContract,
         resolvedScaffold,
         urlMap,
         startedAt: engineStartedAt,
@@ -217,6 +224,7 @@ export function createOwnEngineGenerationStream(
         previousFiles,
         onProgress: emitProgress,
         lineageHash,
+        targetVersionId,
         ...extra,
       });
 

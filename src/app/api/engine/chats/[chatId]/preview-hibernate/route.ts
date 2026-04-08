@@ -7,6 +7,7 @@ import {
 } from "@/lib/tenant";
 import { getActivePreviewSessionAsync } from "@/lib/gen/preview/session-store";
 import { hibernatePreviewHostSession } from "@/lib/gen/preview/preview-host-client";
+import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import type { PreviewHibernateApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
@@ -18,6 +19,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
   return withRateLimit(req, "preview-session:hibernate", async () => {
     try {
       const { chatId } = await ctx.params;
+      if (!isTier2PreviewConfigured()) {
+        return NextResponse.json(
+          {
+            ok: false,
+            reason: "preview_session_not_configured",
+            message: "Tier-2 preview is not configured on this deployment.",
+          } satisfies PreviewHibernateApiJson,
+          { status: 503 },
+        );
+      }
       const chat = await getEngineChatByIdForRequest(req, chatId);
       if (!chat) {
         return NextResponse.json(

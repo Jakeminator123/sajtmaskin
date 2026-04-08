@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import nodePath from "node:path";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
@@ -14,18 +12,21 @@ import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-l
  *
  * `_template_refs/` is a third, separate concept: research material only.
  */
+const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
+
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": "${GENERATED_PROJECT_NODE_RANGE}"
   },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "next": "16.2.1",
@@ -48,7 +49,7 @@ const PACKAGE_JSON = `{
     "react-hook-form": "7.71.2",
     "@hookform/resolvers": "5.2.2",
     "zod": "4.3.6",
-    "framer-motion": "12.12.1",
+    "framer-motion": "12.38.0",
     "three": "0.176.0",
     "@react-three/fiber": "9.1.2",
     "@react-three/drei": "10.7.7",
@@ -70,6 +71,8 @@ const PACKAGE_JSON = `{
     "@radix-ui/react-popover": "1.1.15"
   },
   "devDependencies": {
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.1",
     "typescript": "5.8.3",
     "@types/node": "22.15.18",
     "@types/react": "19.1.2",
@@ -186,6 +189,23 @@ const POSTCSS_CONFIG = `const config = {
   },
 };
 export default config;
+`;
+
+const ESLINT_CONFIG = `import { defineConfig, globalIgnores } from "eslint/config";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
+
+export default defineConfig([
+  ...nextCoreWebVitals,
+  ...nextTypescript,
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "dist/**",
+    "next-env.d.ts",
+  ]),
+]);
 `;
 
 const GLOBALS_CSS = `@import "tailwindcss";
@@ -320,6 +340,7 @@ const SCAFFOLD_FILES: Record<string, string> = {
   "next.config.ts": NEXT_CONFIG,
   "app/api/placeholder/route.ts": PLACEHOLDER_API_ROUTE,
   "postcss.config.mjs": POSTCSS_CONFIG,
+  "eslint.config.mjs": ESLINT_CONFIG,
   "app/globals.css": GLOBALS_CSS,
   "app/layout.tsx": LAYOUT_TSX,
   "app/robots.ts": ROBOTS_TS,
@@ -490,11 +511,17 @@ function buildPlaceholderEnvLocalBody(): string | null {
   }
 }
 
-export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
+export function buildCompleteProject(
+  generatedFiles: CodeFile[],
+  uiComponents?: Array<{ filename: string; content: string }>,
+): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
 
-  const allCode = generatedFiles.map((f) => f.content).join("\n");
+  const allCode = [
+    ...generatedFiles.map((f) => f.content),
+    ...(uiComponents ?? []).map((component) => component.content),
+  ].join("\n");
   const detected = runDepCompleter(allCode);
 
   const mergeModelPackageJson = (file: CodeFile): CodeFile => {
@@ -532,8 +559,7 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
     }
   }
 
-  const uiComponents = collectRequiredUiComponents(generatedFiles);
-  for (const comp of uiComponents) {
+  for (const comp of uiComponents ?? []) {
     const destPath = `components/ui/${comp.filename}`;
     if (!generatedPaths.has(destPath)) {
       result.push({ path: destPath, content: comp.content, language: "tsx" });
@@ -552,60 +578,4 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
-
-interface UiComponent {
-  filename: string;
-  content: string;
-}
-
-function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
-  const needed = new Set<string>();
-  for (const file of files) {
-    for (const match of file.content.matchAll(UI_IMPORT_RE)) {
-      needed.add(match[1]);
-    }
-  }
-
-  const searchDirs = [
-    nodePath.resolve(process.cwd(), "src/components/ui"),
-    nodePath.resolve(process.cwd(), "components/ui"),
-  ];
-  const resolved = new Map<string, UiComponent>();
-  const queue = [...needed];
-
-  while (queue.length > 0) {
-    const name = queue.shift();
-    if (!name || resolved.has(name)) continue;
-
-    const content = readUiComponent(name, searchDirs);
-    if (!content) continue;
-
-    resolved.set(name, { filename: `${name}.tsx`, content });
-
-    for (const match of content.matchAll(UI_IMPORT_RE)) {
-      const dependency = match[1];
-      if (!resolved.has(dependency)) {
-        queue.push(dependency);
-      }
-    }
-  }
-
-  return Array.from(resolved.values());
-}
-
-function readUiComponent(name: string, searchDirs: string[]): string | null {
-  const filename = `${name}.tsx`;
-
-  for (const dir of searchDirs) {
-    const fullPath = nodePath.join(dir, filename);
-    try {
-      return fs.readFileSync(fullPath, "utf-8");
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
 

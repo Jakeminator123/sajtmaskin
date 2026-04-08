@@ -1,0 +1,12 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "score": 0,
+    "success": false,
+    "durationMs": 627799,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out"
+  }
+]

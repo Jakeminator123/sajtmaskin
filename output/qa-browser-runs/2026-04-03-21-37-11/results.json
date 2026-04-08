@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 85680,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for locator('[class*=\"chat\"], [class*=\"builder\"], [data-testid*=\"chat\"], main').locator('button.rounded-full, button[class*=\"rounded-xl\"], button[class*=\"rounded-lg\"]').first()\n    - locator resolved to <button disabled type=\"button\" class=\"rounded-xl border border-primary/20 bg-primary/5 px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-primary/10 disabled:opacity-50\">Nej, börja från noll</button>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not enabled\n    - retrying click action\n      - waiting 100ms\n    58 × waiting for element to be visible, enabled and stable\n       - element is not enabled\n     - retrying click action\n       - waiting 500ms\n",
+    "authenticated": false
+  }
+]

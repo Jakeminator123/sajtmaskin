@@ -6,6 +6,7 @@ import {
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
 } from "./server-verify-log-meta";
+import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 
 describe("resolveServerRepairEarlyStopReason", () => {
   it("stops when the fixer produced no output", () => {
@@ -36,6 +37,12 @@ describe("resolveServerRepairEarlyStopReason", () => {
         errorsAfter: 1,
       }),
     ).toBe("continue");
+  });
+});
+
+describe("SERVER_VERIFY_QUALITY_GATE_CHECKS", () => {
+  it("adds lint to background server verification without changing tier-2 preview defaults", () => {
+    expect(SERVER_VERIFY_QUALITY_GATE_CHECKS).toEqual(["typecheck", "lint"]);
   });
 });
 

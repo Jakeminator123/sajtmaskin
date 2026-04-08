@@ -5,10 +5,10 @@ import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
-  createAndPromoteDraftVersion,
   markVersionRepairing,
   failVersionVerification,
-  markVersionSupersededByRepair,
+  updateVersionFiles,
+  promoteVersion,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
@@ -16,6 +16,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/preview-quality-gate";
+import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -24,6 +25,7 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
+import { buildLintRepairContextLines } from "@/lib/gen/lint-output";
 import {
   buildServerRepairOutcomeMeta,
   buildServerVerifyQualityGateMeta,
@@ -32,7 +34,7 @@ import {
 } from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -157,7 +159,7 @@ export async function POST(
       });
     }
 
-    const exportable = buildExportableProject(codeFiles);
+    const exportable = await buildExportableProject(codeFiles);
     let content = filesToCodeProject(exportable);
 
     // Phase 1: deterministic autofix
@@ -179,12 +181,13 @@ export async function POST(
       promoteReason: string,
     ): Promise<{ ok: boolean; newVersionId: string | null }> {
       const repairedFiles = codeProjectToFiles(projectContent);
-      const exportable = buildExportableProject(repairedFiles);
+      const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
         chatId,
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
+        checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
         exportable,
@@ -200,23 +203,19 @@ export async function POST(
       let newVersionId: string | null = null;
       if (decision.promote && dbConfigured) {
         const filesJson = JSON.stringify(repairedFiles);
-        const promotedVersion = await createAndPromoteDraftVersion(
-          chatId,
-          null,
-          filesJson,
-          promoteReason,
-        ).catch((err) => {
-          console.warn("[repair] Failed to promote repaired version:", err);
-          return null;
+        const updated = await updateVersionFiles(currentVersionId, filesJson).catch((err) => {
+          console.warn("[repair] Failed to update repaired version files:", err);
+          return false;
         });
-        if (!promotedVersion) {
-          console.warn("[repair] Repaired draft version was created but promotion did not complete.");
-        } else {
-          promoted = true;
-          newVersionId = promotedVersion.id;
-          await markVersionSupersededByRepair(currentVersionId, promotedVersion.id).catch((err) => {
-            console.warn("[repair] Failed to mark repaired-from version superseded:", err);
+        if (updated) {
+          const promotedVersion = await promoteVersion(currentVersionId, promoteReason).catch((err) => {
+            console.warn("[repair] Failed to promote repaired version:", err);
+            return null;
           });
+          if (promotedVersion) {
+            promoted = true;
+            newVersionId = promotedVersion.id;
+          }
         }
       }
       if (dbConfigured) {
@@ -325,6 +324,9 @@ export async function POST(
         jobStartedAt: repairContext.qualityGateMeta?.jobStartedAt ?? null,
         jobFinishedAt: repairContext.qualityGateMeta?.jobFinishedAt ?? null,
       }),
+      ...gateFailures
+        .filter((failure) => failure.check === "lint")
+        .flatMap((failure) => buildLintRepairContextLines(failure.output)),
       ...extractErrorLines(gateFailures),
     ];
     const filesFromGateOutput = new Set<string>();

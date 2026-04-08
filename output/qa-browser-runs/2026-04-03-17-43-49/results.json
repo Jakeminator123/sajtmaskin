@@ -1,0 +1,32 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 34514,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: No input field found on landing page",
+    "authenticated": false
+  },
+  {
+    "personaId": 2,
+    "name": "Erik",
+    "business": "IT-konsult i Stockholm",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 457,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\nCall log:\n  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\n",
+    "authenticated": false
+  }
+]

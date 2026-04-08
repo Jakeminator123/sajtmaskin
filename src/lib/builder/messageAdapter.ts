@@ -1,5 +1,6 @@
 import type { ToolUIPart } from "ai";
 import type { ChatMessage, UiMessagePart } from "./types";
+import { PROMPT_WRAPPER_HEADINGS } from "@/lib/gen/prompt-wrapper-contract";
 
 type TextPart = { type: "text"; text: string };
 type ReasoningPart = { type: "reasoning"; reasoning: string };
@@ -33,15 +34,13 @@ export type AIElementsMessage = {
   role: "user" | "assistant";
   parts: MessagePart[];
   isStreaming?: boolean;
-  isHelpMessage?: boolean;
 };
 
 const DISPLAY_SANITIZE_MAX_PASSES = 4;
-const DISPLAY_CONTINUITY_HEADING = "## Continuity (from previous generation)";
-const DISPLAY_EXISTING_PROJECT_HEADING = "## Existing Project Files (reference)";
-const DISPLAY_REQUESTED_CHANGES_HEADING = "## Requested Changes";
-const DISPLAY_USER_REPLY_HEADING = "## User Reply";
-const DISPLAY_STARTER_INTAKE_HEADING = "## Starter intake";
+const DISPLAY_CONTINUITY_HEADING = PROMPT_WRAPPER_HEADINGS.continuity;
+const DISPLAY_EXISTING_PROJECT_HEADING = PROMPT_WRAPPER_HEADINGS.existingProjectFilesReference;
+const DISPLAY_REQUESTED_CHANGES_HEADING = PROMPT_WRAPPER_HEADINGS.requestedChanges;
+const DISPLAY_USER_REPLY_HEADING = PROMPT_WRAPPER_HEADINGS.userReply;
 
 function extractSectionAfterHeading(text: string, heading: string): string | null {
   const headingIndex = text.indexOf(heading);
@@ -59,14 +58,23 @@ function extractSectionAfterDivider(text: string): string | null {
 
 function stripKnownUserPromptWrapper(text: string): string {
   const trimmed = text.trim();
+
+  if (trimmed.includes("## Starter intake")) {
+    return "Bygger sajt baserat på dina val…";
+  }
+
+  if (trimmed.startsWith("MÅL") && (trimmed.includes("SEKTIONER") || trimmed.includes("CONSTRAINTS"))) {
+    return "Bygger sajt baserat på dina val…";
+  }
+
   if (!trimmed.startsWith("## ")) return text;
 
-  if (trimmed.startsWith("## Follow-up Editing Mode")) {
+  if (trimmed.startsWith(PROMPT_WRAPPER_HEADINGS.followUpEditingMode)) {
     const requestedChanges = extractSectionAfterHeading(trimmed, DISPLAY_REQUESTED_CHANGES_HEADING);
     if (requestedChanges) return requestedChanges;
   }
 
-  if (trimmed.startsWith("## Contract Clarification Answer")) {
+  if (trimmed.startsWith(PROMPT_WRAPPER_HEADINGS.contractClarificationAnswer)) {
     const userReply = extractSectionAfterHeading(trimmed, DISPLAY_USER_REPLY_HEADING);
     if (userReply) return userReply;
   }
@@ -76,10 +84,6 @@ function stripKnownUserPromptWrapper(text: string): string {
     trimmed.startsWith(DISPLAY_EXISTING_PROJECT_HEADING)
   ) {
     return extractSectionAfterDivider(trimmed) ?? text;
-  }
-
-  if (trimmed.startsWith(DISPLAY_STARTER_INTAKE_HEADING)) {
-    return "Sammanfattning av behovsanalysen skickad.";
   }
 
   return text;
@@ -126,7 +130,6 @@ export function toAIElementsFormat(msg: ChatMessage): AIElementsMessage {
     role: msg.role,
     parts,
     isStreaming: msg.isStreaming,
-    isHelpMessage: msg.isHelpMessage,
   };
 }
 
@@ -200,8 +203,6 @@ function normalizeToolPart(part: UiMessagePart): ToolUIPart {
     (typeof raw.state === "string" && raw.state) ||
     (errorText ? "output-error" : output !== undefined ? "output-available" : "input-available");
 
-  const kind = typeof raw.kind === "string" ? raw.kind : undefined;
-
   return {
     type: toolType as ToolUIPart["type"],
     state: state as ToolUIPart["state"],
@@ -211,7 +212,6 @@ function normalizeToolPart(part: UiMessagePart): ToolUIPart {
     output: resolvedOutput as ToolUIPart["output"],
     approval,
     errorText,
-    kind,
   } as ToolUIPart;
 }
 

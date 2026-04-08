@@ -34,8 +34,8 @@ package-lock.json
 #ENV_JAMFORRELSE.txt
 #di-d.txt
 
-# --- Data & prompt-dumpar ---
-#data/prompt-dumps/*
+# --- Data & prompt-dumpar (samma som .gitignore: dumps bort, README kan indexeras) ---
+data/prompt-dumps/*
 !data/prompt-dumps/README.md
 
 archive/scripts-labs-testning_scarf/output/
@@ -69,8 +69,8 @@ src/lib/templates/template-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 
 # --- Cursor session / automation / migration ---
-.cursor/plans/
-.cursor/documents/
+#.cursor/plans/
+#.cursor/documents/
 .cursor/automation/runs/
 .cursor/automation/archive/
 .cursor/automation/input/
@@ -97,6 +97,20 @@ old/
 skrapning/
 #övrigt/
 
+templates_v0/downloads/agenter/
+templates_v0/downloads/animationer/
+templates_v0/downloads/apps-and-games/
+templates_v0/downloads/blogg-och-portfolio/
+templates_v0/downloads/komponenter/
+templates_v0/downloads/ecommerce/
+templates_v0/downloads/AI/
+templates_v0/downloads/designsystem/
+templates_v0/downloads/e-handel/
+templates_v0/downloads/landningssidor/
+templates_v0/downloads/layouter/
+templates_v0/downloads/webbplatsmallar/
+templates_v0/downloads/alla mallar/
+
 eval-output/
 EGEN_MOTOR_V2/
 #_template_refs/
@@ -106,9 +120,10 @@ research/_sidor/
 services/mpc/docs/**
 services/mpc/logs/
 next-env.d.ts
-#archive\scripts-labs-testning_scarf
+# archive/scripts-labs-testning_scarf (labb under archive/ — se archive/README.md)
 #files_envars
 
-templates_v0/downloads/
+
 templates_v0/out/
-output/
+# Matchar .gitignore: bara generations-output, inte hela output/
+output/generations/

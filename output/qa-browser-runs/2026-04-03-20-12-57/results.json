@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 168906,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: Build setup failed after 3 attempts: Project creation failed: Failed query: select count(*) from \"app_projects\" where \"app_projects\".\"session_id\" = $1\nparams: sess_84330c8c-46e4-4132-b4ac-460505d8e87e",
+    "authenticated": false
+  }
+]

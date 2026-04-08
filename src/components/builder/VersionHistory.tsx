@@ -46,6 +46,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 type VersionSummary = {
   id?: string | null;
   versionId?: string | null;
+  previewUrl?: string | null;
   demoUrl?: string | null;
   legacyShimPreviewUrl?: string | null;
   sandboxUrl?: string | null;
@@ -537,9 +538,9 @@ export function VersionHistory({
                   : undefined;
             const isEngineVersionRow =
               version.canPin === false || typeof version.versionNumber === "number";
-            const sandboxNorm = normalizePreviewUrl(version.sandboxUrl);
-            const hasSandboxForTier = Boolean(
-              sandboxNorm && isTier2LivePreviewUrl(sandboxNorm),
+            const tier2PreviewNorm = normalizePreviewUrl(version.previewUrl ?? version.sandboxUrl);
+            const hasTier2LivePreviewForRow = Boolean(
+              tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm),
             );
             const qualityTier = resolveQualityTier(
               {
@@ -547,7 +548,7 @@ export function VersionHistory({
                 verificationState: version.verificationState,
               },
               isEngineVersionRow
-                ? { hasTier2LivePreviewUrl: hasSandboxForTier }
+                ? { hasTier2LivePreviewUrl: hasTier2LivePreviewForRow }
                 : { hasDemoUrl: Boolean(version.demoUrl) },
             );
             const listPreviewUrl =

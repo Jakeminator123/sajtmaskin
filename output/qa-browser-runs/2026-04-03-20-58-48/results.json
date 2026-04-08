@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 950005,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out or blocked",
+    "authenticated": true
+  }
+]

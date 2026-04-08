@@ -72,6 +72,28 @@ describe("dep-completer", () => {
     expect(result.dependencies["@react-three/drei"]).toBe(KNOWN_PACKAGES["@react-three/drei"]);
   });
 
+  it("adds a few common app packages used by generated projects", () => {
+    const result = runDepCompleter(
+      [
+        'import { configureStore } from "@reduxjs/toolkit";',
+        'import { Provider } from "react-redux";',
+        'import confetti from "canvas-confetti";',
+        'import * as HoverCard from "@radix-ui/react-hover-card";',
+        "void configureStore;",
+        "void Provider;",
+        "void confetti;",
+        "void HoverCard;",
+      ].join("\n"),
+    );
+
+    expect(result.dependencies["@reduxjs/toolkit"]).toBe(KNOWN_PACKAGES["@reduxjs/toolkit"]);
+    expect(result.dependencies["react-redux"]).toBe(KNOWN_PACKAGES["react-redux"]);
+    expect(result.dependencies["canvas-confetti"]).toBe(KNOWN_PACKAGES["canvas-confetti"]);
+    expect(result.dependencies["@radix-ui/react-hover-card"]).toBe(
+      KNOWN_PACKAGES["@radix-ui/react-hover-card"],
+    );
+  });
+
   it("does not treat @/ path alias as an npm package", () => {
     const result = runDepCompleter('import { cn } from "@/lib/utils";\n');
     expect(result.dependencies["@/lib/utils"]).toBeUndefined();

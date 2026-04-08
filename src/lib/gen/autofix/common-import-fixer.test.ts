@@ -3,7 +3,9 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
   buildProjectModuleExportIndex,
+  fixImportedDeclarationConflicts,
   fixLocalDefaultImportMismatches,
+  fixLocalNamedImportDefaultMismatches,
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
@@ -102,5 +104,87 @@ describe("common-import-fixer", () => {
 
     expect(result.fixed).toBe(true);
     expect(result.code).toContain('import { SiteFooter } from "@/components/site-footer";');
+  });
+
+  it("rewires local named imports to default imports when the target has only default export", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/header-truck-3d.tsx",
+        content: `export default function HeaderTruck3D() { return <div />; }`,
+        language: "tsx",
+      },
+      {
+        path: "components/site-header.tsx",
+        content:
+          `import { HeaderTruck3D } from "@/components/header-truck-3d";\n\nexport default function SiteHeader() {\n  return <HeaderTruck3D />;\n}`,
+        language: "tsx",
+      },
+    ];
+
+    const moduleExportIndex = buildProjectModuleExportIndex(files);
+    const result = fixLocalNamedImportDefaultMismatches(
+      files[1]!.content,
+      files[1]!.path,
+      files,
+      moduleExportIndex,
+    );
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import HeaderTruck3D from "@/components/header-truck-3d";');
+  });
+
+  it("rewires local named import to default even when local alias differs", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/fancy-header.tsx",
+        content: `export default function FancyHeader() { return <header />; }`,
+        language: "tsx",
+      },
+      {
+        path: "components/site-header.tsx",
+        content:
+          `import { Header } from "@/components/fancy-header";\n\nexport default function SiteHeader() {\n  return <Header />;\n}`,
+        language: "tsx",
+      },
+    ];
+
+    const moduleExportIndex = buildProjectModuleExportIndex(files);
+    const result = fixLocalNamedImportDefaultMismatches(
+      files[1]!.content,
+      files[1]!.path,
+      files,
+      moduleExportIndex,
+    );
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import Header from "@/components/fancy-header";');
+  });
+
+  it("removes import bindings that conflict with local declarations", () => {
+    const code = `import { Group, Mesh } from "three";\n\nfunction Group() { return null; }\n\nexport default function Scene() {\n  return <Mesh />;\n}`;
+    const result = fixImportedDeclarationConflicts(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.removedBindings).toEqual(["Group"]);
+    expect(result.code).toContain('import { Mesh } from "three";');
+  });
+
+  it("does not remove an import binding that is used before a later shadowing declaration", () => {
+    const code = `import { Group, Mesh } from "three";\n\nexport default function Scene() {\n  return <Group />;\n}\n\nfunction Group() { return null; }\n`;
+    const result = fixImportedDeclarationConflicts(code);
+
+    expect(result.fixed).toBe(false);
+    expect(result.removedBindings).toEqual([]);
+    expect(result.code).toContain("Group");
+    expect(result.code).toContain("Mesh");
+  });
+
+  it("treats destructuring aliases as local declarations when removing import conflicts", () => {
+    const code = `import { bar, baz } from "./lib";\n\nfunction Component({ foo: bar }: { foo: string }) {\n  return <div>{bar}</div>;\n}\n`;
+    const result = fixImportedDeclarationConflicts(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.removedBindings).toEqual(["bar"]);
+    expect(result.code).toContain('import { baz } from "./lib";');
   });
 });

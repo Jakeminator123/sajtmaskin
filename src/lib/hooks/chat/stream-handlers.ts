@@ -32,20 +32,10 @@ import {
   ownEnginePostStreamStepLabelSv,
 } from "@/lib/gen/stream/finalize-pipeline-contract";
 import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
-import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
-
-function effectivePreviewUrlFromDonePayload(done: Record<string, unknown>): string | null {
-  const raw =
-    resolveInboundPreviewUrl({
-      previewUrl: done.previewUrl,
-      demoUrl: done.demoUrl,
-    }) ??
-    (typeof done.previewUrlHint === "string" ? done.previewUrlHint.trim() : null);
-  if (!raw) return null;
-  const normalized = normalizePreviewUrl(raw);
-  if (!normalized || isCompatibilityShimPreviewUrl(normalized)) return null;
-  return normalized;
-}
+import {
+  resolveCanonicalLivePreviewUrlFromDonePayload,
+  resolveCanonicalLivePreviewUrlFromPreviewReadyPayload,
+} from "@/lib/api/preview-url-contract";
 
 export type StreamContext = {
   streamType: "create" | "send";
@@ -667,9 +657,9 @@ export async function handleSseStream(
           case "preview-ready": {
             const previewData = data as Record<string, unknown>;
             const previewUrl =
-              typeof previewData.previewUrl === "string"
-                ? previewData.previewUrl.trim()
-                : "";
+              resolveCanonicalLivePreviewUrlFromPreviewReadyPayload(
+                previewData as { previewUrl?: unknown },
+              ) ?? "";
             const previewSessionIdRaw =
               typeof previewData.previewSessionId === "string"
                 ? previewData.previewSessionId.trim()
@@ -684,7 +674,7 @@ export async function handleSseStream(
             setPreviewPending?.(false);
             setPreviewBuildError?.(null);
 
-            if (previewUrl && !isCompatibilityShimPreviewUrl(previewUrl)) {
+            if (previewUrl) {
               setCurrentPreviewUrl(previewUrl);
               onPreviewRefresh?.();
               const pendingPost = postCheckQueue[postCheckQueue.length - 1];
@@ -764,7 +754,9 @@ export async function handleSseStream(
               linkedProjectIdFromStream = String(doneV0ProjectId);
               onLinkedProjectId?.(linkedProjectIdFromStream);
             }
-            const effectiveDoneDemo = effectivePreviewUrlFromDonePayload(doneData);
+            const effectiveDoneDemo = resolveCanonicalLivePreviewUrlFromDonePayload(
+              doneData as { previewUrl?: unknown; demoUrl?: unknown },
+            );
             if (effectiveDoneDemo) {
               setCurrentPreviewUrl(effectiveDoneDemo);
               onPreviewRefresh?.();

@@ -72,8 +72,8 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
     return {
       id: "version-verifying",
       title: "Verifiering pågår fortfarande.",
-      detail: summary || "Vänta tills quality gate och efterkontroller är klara.",
-      severity: "blocker",
+      detail: summary || "Quality gate och efterkontroller körs i bakgrunden. Preview är tillgänglig under tiden.",
+      severity: "warning",
       action: "versions",
     };
   }

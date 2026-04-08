@@ -438,7 +438,7 @@ describe("handleSseStream", () => {
     );
   });
 
-  it("uses previewUrlHint from done when preview-ready is not received", async () => {
+  it("keeps previewUrlHint as boot hint only when preview-ready is not received", async () => {
     consumeSseResponse.mockImplementation(
       async (
         _response: Response,
@@ -470,12 +470,13 @@ describe("handleSseStream", () => {
 
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
-    expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://vm-fly-jakem.fly.dev/chat_1");
+    expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+    expect(spies.setPreviewPending).toHaveBeenCalledWith(true);
     expect(spies.onGenerationComplete).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: "chat_1",
         versionId: "ver_1",
-        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        previewUrl: undefined,
       }),
     );
   });

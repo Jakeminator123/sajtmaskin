@@ -231,6 +231,56 @@ export async function addAssistantMessageAndCreateDraftVersion(
   });
 }
 
+/**
+ * Create assistant message and update an existing version's files in one transaction.
+ * Used by autofix / repair so the result replaces v1 instead of creating v2.
+ */
+export async function addAssistantMessageAndUpdateExistingVersion(
+  chatId: string,
+  versionId: string,
+  content: string,
+  filesJson: string,
+  options: {
+    tokenCount?: number;
+    uiParts?: Record<string, unknown>[] | null;
+  } = {},
+): Promise<{ message: Message; version: Version }> {
+  const { tokenCount, uiParts } = options;
+  return db.transaction(async (tx) => {
+    const messageId = uuid();
+    await tx.insert(engineMessages).values({
+      id: messageId,
+      chatId,
+      role: "assistant",
+      content,
+      uiParts: Array.isArray(uiParts) ? uiParts : null,
+      tokenCount: tokenCount ?? null,
+    });
+    await tx
+      .update(engineChats)
+      .set({ updatedAt: new Date() })
+      .where(eq(engineChats.id, chatId));
+    await tx
+      .update(engineVersions)
+      .set({
+        filesJson,
+        messageId,
+        releaseState: "draft" as EngineVersionReleaseState,
+        verificationState: "pending" as EngineVersionVerificationState,
+        verificationSummary: null,
+        promotedAt: null,
+      })
+      .where(eq(engineVersions.id, versionId));
+
+    const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
+    const verRows = await tx.select().from(engineVersions).where(eq(engineVersions.id, versionId)).limit(1);
+    return {
+      message: toRow(msgRows[0]) as unknown as Message,
+      version: toRow(verRows[0]) as unknown as Version,
+    };
+  });
+}
+
 export async function createDraftVersion(
   chatId: string,
   messageId: string | null,

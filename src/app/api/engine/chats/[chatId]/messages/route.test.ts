@@ -40,7 +40,7 @@ describe("POST /api/engine/chats/[chatId]/messages", () => {
             messageId: "msg_1",
             versionId: "ver_1",
             previewUrl: null,
-            sandboxPending: true,
+            previewPending: true,
             preflight: { previewBlocked: false, verificationBlocked: false },
             previewBlocked: false,
             verificationBlocked: false,
@@ -74,6 +74,54 @@ describe("POST /api/engine/chats/[chatId]/messages", () => {
         previewUrl: "https://vm.example/chat_1/ver_1",
         previewPending: false,
         verificationState: "pending",
+      },
+      text: "Uppdaterad sida",
+    });
+  });
+
+  it("does not promote compatibility shim preview-ready to canonical previewUrl in follow-up sync JSON", async () => {
+    handleMessageStreamRequest.mockResolvedValue(
+      buildSseResponse([
+        { event: "content", data: "Uppdaterad sida" },
+        {
+          event: "done",
+          data: {
+            chatId: "chat_1",
+            messageId: "msg_1",
+            versionId: "ver_1",
+            previewUrl: null,
+            previewPending: true,
+            preflight: { previewBlocked: false, verificationBlocked: false },
+            previewBlocked: false,
+            verificationBlocked: false,
+          },
+        },
+        {
+          event: "preview-ready",
+          data: {
+            previewUrl: "/api/preview-render?chatId=chat_1&versionId=ver_1",
+            previewSessionId: "sbx_1",
+          },
+        },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/messages", { method: "POST" }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      previewUrl: null,
+      previewPending: false,
+      latestVersion: {
+        id: "ver_1",
+        versionId: "ver_1",
+        previewUrl: null,
+        previewPending: false,
       },
       text: "Uppdaterad sida",
     });

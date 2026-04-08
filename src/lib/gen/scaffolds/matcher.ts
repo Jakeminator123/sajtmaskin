@@ -1,14 +1,24 @@
 /**
  * Scaffold matching — selects the best internal scaffold for a prompt.
  *
- * Uses keyword matching as primary strategy, with embedding-based
- * semantic search as fallback when keywords yield only generic defaults.
- * Only matches against the 10 internal scaffolds in registry.ts.
+ * Keyword scores and embedding similarity are both computed for auto mode:
+ * embedding search starts immediately (parallel wall-clock with sync keyword
+ * scoring), then the stronger signal wins for non-generic keyword picks.
+ * Embeddings still override generic defaults (`landing-page` / `base-nextjs`)
+ * when similarity clears the floor and safety guards pass.
+ *
+ * `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` skips keyword *selection* (defaults
+ * to intent baseline) so experiments can lean on embeddings + brief.
+ *
+ * Only matches against internal scaffolds in registry.ts.
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getScaffoldByFamily, getScaffoldById } from "./registry";
-import { searchScaffolds } from "./scaffold-search";
+import {
+  searchScaffoldsWithDiagnostics,
+  type ScaffoldSearchResponse,
+} from "./scaffold-search";
 
 const LANDING_KEYWORDS = [
   "landing",
@@ -210,26 +220,6 @@ const AUTH_KEYWORDS = [
   "verifiera",
   "verifiering",
   "tvåfaktor",
-];
-
-const PHOTO_SHOP_KEYWORDS = [
-  "photo shop",
-  "fotoshop",
-  "foto shop",
-  "photo store",
-  "print shop",
-  "art prints",
-  "curated shop",
-  "editorial shop",
-  "lifestyle store",
-  "design store",
-  "gallery shop",
-  "galleri shop",
-  "photo ecommerce",
-];
-
-const PHOTO_SHOP_OVERRIDE_KEYWORDS = [
-  "jakob",
 ];
 
 const ECOMMERCE_KEYWORDS = [
@@ -550,6 +540,78 @@ const SWEDISH_BUSINESS_KEYWORDS = [
   "upplev",
 ];
 
+/**
+ * Domain keywords that indicate the site is a service/hospitality business,
+ * NOT an online store. When these are present and ecommerce intent is weak,
+ * the ecommerce scaffold should be vetoed in favor of landing-page or content-site.
+ */
+const HOSPITALITY_SERVICE_KEYWORDS = [
+  "restaurang",
+  "restaurant",
+  "café",
+  "cafe",
+  "kafé",
+  "bistro",
+  "bar",
+  "pub",
+  "bakeri",
+  "bageri",
+  "bakery",
+  "konditori",
+  "pizzeria",
+  "hotell",
+  "hotel",
+  "hostel",
+  "bed and breakfast",
+  "b&b",
+  "spa",
+  "salong",
+  "salon",
+  "frisör",
+  "barber",
+  "tandläkare",
+  "dentist",
+  "clinic",
+  "klinik",
+  "veterinär",
+  "gym",
+  "yoga",
+  "pilates",
+  "massage",
+  "terapeut",
+  "therapist",
+  "catering",
+  "food truck",
+  "matrestaurang",
+  "meny",
+  "menu",
+  "boka bord",
+  "book a table",
+  "reservation",
+  "öppettider",
+  "opening hours",
+];
+
+/**
+ * Strong ecommerce-intent keywords that override the hospitality veto.
+ * Only if these appear alongside hospitality words should ecommerce still win.
+ */
+const STRONG_ECOMMERCE_INTENT = [
+  "webshop",
+  "webbshop",
+  "e-handel",
+  "ecommerce",
+  "e-commerce",
+  "varukorg",
+  "kundvagn",
+  "cart",
+  "checkout",
+  "kassa",
+  "storefront",
+  "nätbutik",
+  "online store",
+];
+
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -579,6 +641,156 @@ function countPortfolioSignalBoost(text: string): number {
 /** Minimum score to prefer a specific scaffold over fallbacks */
 const MIN_SCORE = 2;
 
+export type ScaffoldSelectionMethod =
+  | "off"
+  | "manual"
+  | "persisted"
+  | "keyword"
+  | "embedding"
+  | "default";
+
+export type ScaffoldSelectionConfidence = "high" | "medium" | "low";
+
+export interface ScaffoldSelectionMeta {
+  selectedScaffold: string | null;
+  selectionMethod: ScaffoldSelectionMethod;
+  selectionConfidence: ScaffoldSelectionConfidence;
+  topCandidates: Array<{ id: string; score: number; source: "keyword" | "embedding" }>;
+  keywordScores: Record<string, number>;
+  embeddingAvailable: boolean;
+  embeddingFailed: boolean;
+  embeddingTopResult: { id: string; score: number } | null;
+  semanticUnavailableReason: string | null;
+}
+
+export interface ScaffoldSelectionResult {
+  scaffold: ScaffoldManifest | null;
+  meta: ScaffoldSelectionMeta;
+}
+
+function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
+  return [...scores].sort((a, b) => b.score - a.score);
+}
+
+function buildKeywordScores(promptLower: string): Array<{ id: string; score: number }> {
+  const authScore = countKeywordMatches(promptLower, AUTH_KEYWORDS);
+  let ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
+  const dashboardScore = countKeywordMatches(promptLower, DASHBOARD_KEYWORDS);
+  const appScore = countKeywordMatches(promptLower, APP_KEYWORDS);
+  const saasScore = countKeywordMatches(promptLower, SAAS_KEYWORDS);
+  const portfolioScore =
+    countKeywordMatches(promptLower, PORTFOLIO_KEYWORDS) + countPortfolioSignalBoost(promptLower);
+  const landingScore = countKeywordMatches(promptLower, LANDING_KEYWORDS);
+  const blogScore = countKeywordMatches(promptLower, BLOG_KEYWORDS);
+  const contentScore = countKeywordMatches(promptLower, CONTENT_KEYWORDS);
+
+  const hospitalityScore = countKeywordMatches(promptLower, HOSPITALITY_SERVICE_KEYWORDS);
+  const strongEcommerceScore = countKeywordMatches(promptLower, STRONG_ECOMMERCE_INTENT);
+  if (hospitalityScore > 0 && strongEcommerceScore === 0) {
+    ecommerceScore = 0;
+  }
+
+  return [
+    { id: "auth-pages", score: authScore },
+    { id: "ecommerce", score: ecommerceScore },
+    { id: "dashboard", score: dashboardScore },
+    { id: "app-shell", score: appScore },
+    { id: "saas-landing", score: saasScore },
+    { id: "portfolio", score: portfolioScore },
+    { id: "landing-page", score: landingScore },
+    { id: "blog", score: blogScore },
+    { id: "content-site", score: contentScore },
+    { id: "base-nextjs", score: 0 },
+  ];
+}
+
+function getTopKeywordCandidates(
+  scores: Array<{ id: string; score: number }>,
+  selectedScaffoldId: string | null,
+): Array<{ id: string; score: number; source: "keyword" }> {
+  const sorted = sortScoresDesc(scores).filter((entry) => entry.score > 0);
+  if (sorted.length > 0) {
+    return sorted.slice(0, 3).map((entry) => ({
+      id: entry.id,
+      score: entry.score,
+      source: "keyword",
+    }));
+  }
+  if (!selectedScaffoldId) return [];
+  return [{ id: selectedScaffoldId, score: 0, source: "keyword" }];
+}
+
+function keywordScoreRecord(scores: Array<{ id: string; score: number }>): Record<string, number> {
+  return Object.fromEntries(scores.map((entry) => [entry.id, entry.score]));
+}
+
+function inferKeywordSelectionMethod(params: {
+  selectedScaffold: ScaffoldManifest | null;
+  maxKeywordScore: number;
+}): ScaffoldSelectionMethod {
+  const { selectedScaffold, maxKeywordScore } = params;
+  if (!selectedScaffold) return "default";
+  const isGenericDefault =
+    selectedScaffold.id === "landing-page" || selectedScaffold.id === "base-nextjs";
+  if (isGenericDefault && maxKeywordScore < MIN_SCORE) {
+    return "default";
+  }
+  return "keyword";
+}
+
+function inferKeywordConfidence(maxKeywordScore: number, method: ScaffoldSelectionMethod): ScaffoldSelectionConfidence {
+  if (method === "default") return "low";
+  if (maxKeywordScore >= MIN_SCORE + 2) return "high";
+  return "medium";
+}
+
+function capSelectionConfidence(
+  current: ScaffoldSelectionConfidence,
+  maxAllowed: ScaffoldSelectionConfidence,
+): ScaffoldSelectionConfidence {
+  const rank: Record<ScaffoldSelectionConfidence, number> = {
+    low: 0,
+    medium: 1,
+    high: 2,
+  };
+  return rank[current] <= rank[maxAllowed] ? current : maxAllowed;
+}
+
+function inferFallbackConfidence(params: {
+  selectedScaffold: ScaffoldManifest | null;
+  currentConfidence: ScaffoldSelectionConfidence;
+  semanticAvailable: boolean;
+  semanticUnavailableReason: string | null;
+}): ScaffoldSelectionConfidence {
+  const {
+    selectedScaffold,
+    currentConfidence,
+    semanticAvailable,
+    semanticUnavailableReason,
+  } = params;
+  const isGenericDefault =
+    selectedScaffold?.id === "landing-page" || selectedScaffold?.id === "base-nextjs";
+  if (!isGenericDefault) return currentConfidence;
+  if (semanticUnavailableReason) return "low";
+  if (semanticAvailable) return capSelectionConfidence(currentConfidence, "medium");
+  return currentConfidence;
+}
+
+function withEmbeddingCandidate(
+  candidates: Array<{ id: string; score: number; source: "keyword" | "embedding" }>,
+  embeddingTopResult: { id: string; score: number } | null,
+): Array<{ id: string; score: number; source: "keyword" | "embedding" }> {
+  if (!embeddingTopResult) return candidates;
+  if (candidates.some((candidate) => candidate.id === embeddingTopResult.id)) {
+    return candidates;
+  }
+  const withEmbedding = [
+    { id: embeddingTopResult.id, score: embeddingTopResult.score, source: "embedding" as const },
+    ...candidates,
+  ];
+  return sortScoresDesc(withEmbedding).slice(0, 3);
+}
+
 /** Picks the best scaffold from scored candidates, or null if none meets threshold */
 function pickBestScaffold(
   scores: Array<{ id: string; score: number }>,
@@ -602,17 +814,11 @@ export function matchScaffold(
   prompt: string,
   buildIntent?: BuildIntent | null,
 ): ScaffoldManifest | null {
+  if (isScaffoldKeywordMatchDisabled()) {
+    return defaultScaffoldForIntent(buildIntent);
+  }
+
   const lower = prompt.toLowerCase();
-
-  const photoShopOverride = countKeywordMatches(lower, PHOTO_SHOP_OVERRIDE_KEYWORDS);
-  if (photoShopOverride >= 1) {
-    return getScaffoldByFamily("photo-shop");
-  }
-
-  const photoShopScore = countKeywordMatches(lower, PHOTO_SHOP_KEYWORDS);
-  if (photoShopScore >= MIN_SCORE) {
-    return getScaffoldByFamily("photo-shop");
-  }
 
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   if (authScore >= MIN_SCORE) {
@@ -621,7 +827,14 @@ export function matchScaffold(
 
   const ecommerceScore = countKeywordMatches(lower, ECOMMERCE_KEYWORDS);
   if (ecommerceScore >= MIN_SCORE) {
-    return getScaffoldByFamily("ecommerce");
+    const hospitalityScore = countKeywordMatches(lower, HOSPITALITY_SERVICE_KEYWORDS);
+    const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
+    if (hospitalityScore > 0 && strongEcommerceScore === 0) {
+      // Domain is hospitality/service — weak ecommerce signals (e.g. "produkt", "meny")
+      // are false positives. Fall through to landing-page/content-site matching.
+    } else {
+      return getScaffoldByFamily("ecommerce");
+    }
   }
 
   if (buildIntent === "app") {
@@ -698,58 +911,250 @@ export function matchScaffold(
 
 const EMBEDDING_MIN_SCORE = 0.35;
 
+/** Normalizes raw keyword score for the selected scaffold to ~0..1 for head-to-head vs cosine. */
+const KEYWORD_STRENGTH_CAP = 12;
+
 /**
- * Async scaffold matching that combines keyword matching with semantic
- * embedding search. Uses keyword match as the primary result; falls back
- * to embedding search when keywords only produce a generic default
- * (landing-page or base-nextjs), which suggests the prompt uses
- * vocabulary not covered by the keyword lists.
+ * When cosine similarity is at least this fraction of normalized keyword strength,
+ * the embedding pick wins (non-generic keyword case). Lower → embeddings win more often.
+ * Override: `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (e.g. `0.75`–`1.1`).
  */
-export async function matchScaffoldWithEmbeddings(
+const DEFAULT_EMBED_VS_KEYWORD_BIAS = 0.82;
+
+/** True → `matchScaffold()` does not use keyword lists; returns intent baseline only. */
+export function isScaffoldKeywordMatchDisabled(): boolean {
+  const v = process.env.SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH?.trim().toLowerCase();
+  if (!v) return false;
+  return v === "0" || v === "false" || v === "off" || v === "disabled";
+}
+
+function readEmbedVsKeywordBias(): number {
+  const raw = process.env.SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS?.trim();
+  if (!raw) return DEFAULT_EMBED_VS_KEYWORD_BIAS;
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 2) return DEFAULT_EMBED_VS_KEYWORD_BIAS;
+  return n;
+}
+
+function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): ScaffoldManifest {
+  if (buildIntent === "website" || buildIntent === "template") {
+    return getScaffoldById("landing-page")!;
+  }
+  return getScaffoldByFamily("base-nextjs")!;
+}
+
+function normalizedKeywordStrength(score: number): number {
+  return Math.min(1, score / KEYWORD_STRENGTH_CAP);
+}
+
+function isGenericScaffoldId(id: string | null | undefined): boolean {
+  return !id || id === "landing-page" || id === "base-nextjs";
+}
+
+function shouldPreferEmbeddingOverKeyword(params: {
+  keywordResult: ScaffoldManifest | null;
+  keywordScores: Array<{ id: string; score: number }>;
+  embeddingScaffold: ScaffoldManifest;
+  embeddingScore: number;
+  embedVsKeywordBias: number;
+  authScore: number;
+  appScore: number;
+  dashboardScore: number;
+  buildIntent?: BuildIntent | null;
+}): boolean {
+  const {
+    keywordResult,
+    keywordScores,
+    embeddingScaffold,
+    embeddingScore,
+    embedVsKeywordBias,
+    authScore,
+    appScore,
+    dashboardScore,
+    buildIntent,
+  } = params;
+
+  if (embeddingScore < EMBEDDING_MIN_SCORE) return false;
+
+  if (
+    !canUseEmbeddingOverride({
+      embeddingResult: embeddingScaffold,
+      authScore,
+      appScore,
+      dashboardScore,
+      buildIntent,
+    })
+  ) {
+    return false;
+  }
+
+  if (keywordResult?.id === embeddingScaffold.id) {
+    return false;
+  }
+
+  const kwId = keywordResult?.id ?? null;
+  if (isGenericScaffoldId(kwId)) {
+    return true;
+  }
+
+  const kwScoreForPick = keywordScores.find((entry) => entry.id === kwId)?.score ?? 0;
+  const kwNorm = normalizedKeywordStrength(kwScoreForPick);
+  return embeddingScore >= kwNorm * embedVsKeywordBias;
+}
+
+function canUseEmbeddingOverride(params: {
+  embeddingResult: ScaffoldManifest;
+  authScore: number;
+  appScore: number;
+  dashboardScore: number;
+  buildIntent?: BuildIntent | null;
+}): boolean {
+  const { embeddingResult, authScore, appScore, dashboardScore, buildIntent } = params;
+  if (embeddingResult.id === "auth-pages" && authScore < 1) {
+    return false;
+  }
+  if (
+    buildIntent !== "app" &&
+    (embeddingResult.id === "dashboard" || embeddingResult.id === "app-shell") &&
+    appScore < 1 &&
+    dashboardScore < 1
+  ) {
+    return false;
+  }
+  return true;
+}
+
+const EMPTY_SEMANTIC_RESPONSE: ScaffoldSearchResponse = {
+  results: [],
+  diagnostics: {
+    attempted: false,
+    available: false,
+    failed: false,
+    unavailableReason: null,
+    errorMessage: null,
+    durationMs: null,
+  },
+};
+
+/**
+ * Async scaffold matching with explicit metadata for debugging/evaluation.
+ * Keyword and embedding runs overlap in wall-clock time; the merged policy
+ * lets embeddings challenge non-generic keyword picks when similarity is
+ * strong enough (see `shouldPreferEmbeddingOverKeyword`).
+ */
+export async function matchScaffoldAuto(
   prompt: string,
   buildIntent?: BuildIntent | null,
-): Promise<ScaffoldManifest | null> {
-  const keywordResult = matchScaffold(prompt, buildIntent);
+  options: { useEmbeddings?: boolean } = {},
+): Promise<ScaffoldSelectionResult> {
+  const useEmbeddings = options.useEmbeddings ?? true;
   const lower = prompt.toLowerCase();
+
+  const embeddingPromise = useEmbeddings
+    ? searchScaffoldsWithDiagnostics(prompt, 3)
+    : Promise.resolve(EMPTY_SEMANTIC_RESPONSE);
+
+  const keywordResult = matchScaffold(prompt, buildIntent);
+  const baseKeywordScores = buildKeywordScores(lower);
+  const keywordsDisabled = isScaffoldKeywordMatchDisabled();
+  const keywordScores = keywordsDisabled
+    ? baseKeywordScores.map((entry) => ({ ...entry, score: 0 }))
+    : baseKeywordScores;
+
+  const keywordTopCandidates = getTopKeywordCandidates(keywordScores, keywordResult?.id ?? null);
+  const maxKeywordScore = Math.max(...keywordScores.map((entry) => entry.score), 0);
+  const keywordMethod = keywordsDisabled
+    ? "default"
+    : inferKeywordSelectionMethod({
+        selectedScaffold: keywordResult,
+        maxKeywordScore,
+      });
+
+  const keywordMetaBase: ScaffoldSelectionMeta = {
+    selectedScaffold: keywordResult?.id ?? null,
+    selectionMethod: keywordMethod,
+    selectionConfidence: inferKeywordConfidence(maxKeywordScore, keywordMethod),
+    topCandidates: keywordTopCandidates,
+    keywordScores: keywordScoreRecord(keywordScores),
+    embeddingAvailable: false,
+    embeddingFailed: false,
+    embeddingTopResult: null,
+    semanticUnavailableReason: null,
+  };
+
+  if (!useEmbeddings) {
+    return {
+      scaffold: keywordResult,
+      meta: keywordMetaBase,
+    };
+  }
+
+  const semantic = await embeddingPromise;
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   const appScore = countKeywordMatches(lower, APP_KEYWORDS);
   const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
+  const embedBias = readEmbedVsKeywordBias();
 
-  const isGenericDefault =
-    !keywordResult ||
-    keywordResult.id === "landing-page" ||
-    keywordResult.id === "base-nextjs";
+  const embeddingTopResult =
+    semantic.results.length > 0
+      ? {
+          id: semantic.results[0].scaffold.id,
+          score: semantic.results[0].score,
+        }
+      : null;
 
-  if (!isGenericDefault) return keywordResult;
+  const fallbackMeta: ScaffoldSelectionMeta = {
+    ...keywordMetaBase,
+    selectionConfidence: inferFallbackConfidence({
+      selectedScaffold: keywordResult,
+      currentConfidence: keywordMetaBase.selectionConfidence,
+      semanticAvailable: semantic.diagnostics.available,
+      semanticUnavailableReason: semantic.diagnostics.unavailableReason,
+    }),
+    topCandidates: withEmbeddingCandidate(keywordMetaBase.topCandidates, embeddingTopResult),
+    embeddingAvailable: semantic.diagnostics.available,
+    embeddingFailed: semantic.diagnostics.failed,
+    embeddingTopResult,
+    semanticUnavailableReason: semantic.diagnostics.unavailableReason,
+  };
 
-  try {
-    const results = await searchScaffolds(prompt, 1);
-    if (results.length > 0 && results[0].score >= EMBEDDING_MIN_SCORE) {
-      const embeddingResult = results[0].scaffold;
-
-      // Embeddings are only allowed to override generic website defaults when the
-      // prompt actually signals the specialized scaffold. This prevents cases
-      // where a generic one-page site is incorrectly pushed into auth/app shells.
-      if (embeddingResult.id === "auth-pages" && authScore < 1) {
-        return keywordResult;
-      }
-
-      if (
-        buildIntent !== "app" &&
-        (embeddingResult.id === "dashboard" || embeddingResult.id === "app-shell") &&
-        appScore < 1 &&
-        dashboardScore < 1
-      ) {
-        return keywordResult;
-      }
-
-      return embeddingResult;
-    }
-  } catch (err) {
-    console.info("[scaffold] Embedding scaffold match failed; using keyword result", {
-      message: err instanceof Error ? err.message : String(err),
-    });
+  if (semantic.results.length === 0) {
+    return {
+      scaffold: keywordResult,
+      meta: fallbackMeta,
+    };
   }
 
-  return keywordResult;
+  const top = semantic.results[0]!;
+  const preferEmbedding = shouldPreferEmbeddingOverKeyword({
+    keywordResult,
+    keywordScores,
+    embeddingScaffold: top.scaffold,
+    embeddingScore: top.score,
+    embedVsKeywordBias: embedBias,
+    authScore,
+    appScore,
+    dashboardScore,
+    buildIntent,
+  });
+
+  if (preferEmbedding) {
+    const embeddingConfidence: ScaffoldSelectionConfidence =
+      top.score >= 0.55 ? "high" : "medium";
+    return {
+      scaffold: top.scaffold,
+      meta: {
+        ...fallbackMeta,
+        selectedScaffold: top.scaffold.id,
+        selectionMethod: "embedding",
+        selectionConfidence: embeddingConfidence,
+      },
+    };
+  }
+
+  return {
+    scaffold: keywordResult,
+    meta: fallbackMeta,
+  };
 }
+

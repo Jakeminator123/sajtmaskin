@@ -28,10 +28,18 @@ next-env.d.ts
 !.env.*.example
 # Renamed snapshots used for diffing against Vercel — often contain real secrets
 OLD.env*
+# Same policy: manual exports / zip restores sometimes omit the leading dot (`env.*` not `.env.*`)
+env.vercel*.local
+*.env.backup
+*.env.bak
 *.pem
 *key
 .env.production
 .token-status.json
+
+# Local notes / chat dumps (keep secrets and noise out of git)
+ENV_JAMFORRELSE.txt
+di-d.txt
 
 # Local prompt dumps (opt-in: SAJTMASKIN_PROMPT_DUMP=1)
 data/prompt-dumps/*
@@ -43,19 +51,17 @@ data/*.db-shm
 data/*.db-wal
 data/uploads/
 
-# testning_scarf (under scripts/labs): trace, suite, first_llm, codegen snapshots
-scripts/labs/testning_scarf/output/
-# Äldre körningar (före output/)
-scripts/labs/testning_scarf/output_test_scaffold/
-scripts/labs/testning_scarf/output_first_llm_underlag/
+# Lokalt arkiv (labs, gamla scripts) — håll borta från git-status
+/archive/
+
+# testning_scarf-output (om du återställer scripts utanför /archive/)
+archive/scripts-labs-testning_scarf/output/
+archive/scripts-labs-testning_scarf/output_test_scaffold/
+archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 # Legacy (före samlad output-mapp)
 scripts/output_test_scaffold/
 
-# Local generated reports (recreate from scripts when needed)
-data/scaffold-candidates-curated.json
-src/lib/gen/data/docs-embeddings.json
-
-# scripts/builder-generate.py — lokala jämförelsekörningar
+# Local generation comparisons (manual API runs)
 output/generations/
 
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
@@ -73,11 +79,6 @@ data/external-template-pipeline/reports/**
 
 # run-eval / codegen harness markdown output (scripts/eval/run-eval.ts)
 eval-output/
-
-# QA autoloop output
-output/qa-runs/
-output/qa-browser-runs/
-output/generations/
 # Legacy output dir (rename → eval-output/); safe to delete locally
 EGEN_MOTOR_V2/
 
@@ -116,20 +117,11 @@ pot_buggs/
 **/client_secret*.json
 google-services.json
 
-# Local Cursor orchestration artifacts
-.cursor/orchestrator/run/**
-!.cursor/orchestrator/run/
-!.cursor/orchestrator/run/README.md
-.cursor/orchestrator/archive/*
-!.cursor/orchestrator/archive/README.md
-.cursor/control-agent/run/**
-!.cursor/control-agent/run/
-!.cursor/control-agent/run/README.md
-.cursor/control-agent/archive/
-.cursor/agent-intents/BOARD.md
-.cursor/automation/runs/**
-.cursor/automation/archive/**
-.cursor/automation/input/**
+# --- Cursor session / automation / migration ---
+.cursor/automation/runs/
+.cursor/automation/archive/
+.cursor/automation/input/
+.cursor/migration-archive/
 
 # Logs
 *.log
@@ -182,9 +174,7 @@ docs/old/**/*env*.txt
 .vercel
 
 # Automation kit + cursor-gpt local artifacts (local-only)
-!.cursor/agents/
-.cursor/agents/**
-!.cursor/agents/workstream-sentry.md
+.cursor/agents/
 .cursor/rules/automation-safety.mdc
 automation/
 .automation/
@@ -222,10 +212,8 @@ research/_sidor/
 _input_for_cursor/
 STOR_MIGRATION
 
-internt_jakob/
 .env*.local
 files_envvars
 
 # OpenClaw bridge (local agent communication, never commit)
 .cursor/openclaw-bridge/
-docs/plans/avklarat/

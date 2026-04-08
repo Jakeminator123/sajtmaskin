@@ -132,7 +132,14 @@ function pushIntegration(target: PlanIntegrationContract[], nextIntegration: Pla
 
 function mentionsDataPersistence(corpus: string, capabilities: InferredCapabilities): boolean {
   if (capabilities.needsDatabase || capabilities.needsAuth || capabilities.needsEcommerce) return true;
-  return /\b(database|databas|save|persist|storage|crm|booking|calendar|submission|submissions|member area|portal|konto)\b/i.test(corpus);
+  if (/\b(database|databas|save|persist|storage|crm|member area|portal)\b/i.test(corpus)) return true;
+  if (/\b(booking|calendar|submission|submissions|konto)\b/i.test(corpus)) {
+    const hasExplicitBackendIntent = /\b(database|databas|backend|server|api route|persist|save to|store in)\b/i.test(corpus);
+    const mentionsMock = /\b(mock|mocked|demo|placeholder|utan backend|no backend|ingen riktig backend)\b/i.test(corpus);
+    if (mentionsMock || !hasExplicitBackendIntent) return false;
+    return true;
+  }
+  return false;
 }
 
 function mentionsMockData(corpus: string): boolean {

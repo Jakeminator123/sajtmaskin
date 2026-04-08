@@ -1,0 +1,22 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0.9285714285714286,
+    "success": true,
+    "pageCount": 5,
+    "navLinks": [
+      "Hem → /2220b2f4-632c-4a2f-bb3a-a8021b097b4f#hem",
+      "Tjänster → /2220b2f4-632c-4a2f-bb3a-a8021b097b4f#tjanster",
+      "Om salongen → /2220b2f4-632c-4a2f-bb3a-a8021b097b4f#om",
+      "Kontakt → /2220b2f4-632c-4a2f-bb3a-a8021b097b4f#kontakt"
+    ],
+    "suggestionsCount": 1,
+    "durationMs": 663765,
+    "checksTotal": 14,
+    "checksPassed": 13,
+    "error": null,
+    "authenticated": true
+  }
+]

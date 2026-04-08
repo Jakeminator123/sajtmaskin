@@ -30,11 +30,12 @@ import {
   buildStoredContractClarificationUiPart,
 } from "@/lib/gen/contract/clarification";
 import {
+  buildGenerationInputPackage,
   finalizeOrchestrationPrompts,
   prepareGenerationContext,
   resolveOrchestrationBase,
+  writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
-import { computeLineageHash } from "@/lib/gen/generation-input-package";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildPlanSummaryMessage,
@@ -618,23 +619,21 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           }));
         }
         const finalizePromptStartedAt = Date.now();
-        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const { engineSystemPrompt } = finalized;
         debugLog("orchestration", "System prompt finalized", {
           durationMs: Date.now() - finalizePromptStartedAt,
           routeCount: orchestrationBase.routePlan.routes.length,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
         });
-        const lineageHash = computeLineageHash({
-          userPrompt: optimizedMessage,
-          brief: metaBrief,
-          scaffoldMode: metaScaffoldMode ?? "auto",
-          scaffoldContext: orchestrationBase.scaffoldContext,
-          routePlan: orchestrationBase.routePlan,
-          preGenerationContracts: orchestrationBase.preGenerationContracts,
-          buildSpec: orchestrationBase.buildSpec,
-          capabilityHints: orchestrationBase.scaffoldAndCapability,
-        });
+        const generationInputPackage = buildGenerationInputPackage(
+          orchestrationBase,
+          orchestrationInput,
+          finalized,
+        );
+        const lineageHash = generationInputPackage.lineageHash;
+        writeOrchestrationDynamicDump(generationInputPackage);
         dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
           route: "POST /api/engine/chats/stream",
           planMode: false,
@@ -714,6 +713,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
+          orchestrationContract: orchestrationBase.orchestrationContract,
           resolvedScaffold: resolvedScaffold ?? null,
           lineageHash,
           urlMap,

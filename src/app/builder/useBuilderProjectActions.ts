@@ -61,7 +61,7 @@ type Args = {
   setApplyInstructionsOnce: Dispatch<SetStateAction<boolean>>;
   setDeployNameInput: Dispatch<SetStateAction<string>>;
   setDeployNameDialogOpen: Dispatch<SetStateAction<boolean>>;
-  setV0ProjectId: Dispatch<SetStateAction<string | null>>;
+  setExternalProjectId: Dispatch<SetStateAction<string | null>>;
   setIsIntentionalReset: Dispatch<SetStateAction<boolean>>;
   setAuthModalReason: Dispatch<SetStateAction<"builder" | "save" | null>>;
 };
@@ -110,7 +110,7 @@ export function useBuilderProjectActions({
   setApplyInstructionsOnce,
   setDeployNameInput,
   setDeployNameDialogOpen,
-  setV0ProjectId,
+  setExternalProjectId,
   setIsIntentionalReset,
   setAuthModalReason: _setAuthModalReason,
 }: Args) {
@@ -250,7 +250,7 @@ export function useBuilderProjectActions({
       setPendingProjectName(null);
       setDeployNameInput("");
       setDeployNameDialogOpen(false);
-      setV0ProjectId(null);
+      setExternalProjectId(null);
       setCurrentPreviewUrl(null);
       setPreviewRefreshToken(0);
       setMessages([]);
@@ -281,7 +281,7 @@ export function useBuilderProjectActions({
     setPendingProjectName,
     setDeployNameInput,
     setDeployNameDialogOpen,
-    setV0ProjectId,
+    setExternalProjectId,
     setCurrentPreviewUrl,
     setPreviewRefreshToken,
     setMessages,

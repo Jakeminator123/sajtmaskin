@@ -13,6 +13,8 @@ const commitCredits = vi.hoisted(() => vi.fn());
 const prepareGenerationContext = vi.hoisted(() => vi.fn());
 const resolveOrchestrationBase = vi.hoisted(() => vi.fn());
 const finalizeOrchestrationPrompts = vi.hoisted(() => vi.fn());
+const buildGenerationInputPackage = vi.hoisted(() => vi.fn());
+const writeOrchestrationDynamicDump = vi.hoisted(() => vi.fn());
 const finalizeOrHandleEmptyGeneration = vi.hoisted(() => vi.fn());
 const buildFileContext = vi.hoisted(() => vi.fn());
 const parseSSEBuffer = vi.hoisted(() => vi.fn());
@@ -153,6 +155,8 @@ vi.mock("@/lib/gen/orchestrate", () => ({
   prepareGenerationContext,
   resolveOrchestrationBase,
   finalizeOrchestrationPrompts,
+  buildGenerationInputPackage,
+  writeOrchestrationDynamicDump,
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -237,7 +241,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 import { POST } from "./route";
 
 const unitTestRoutePlan = {
-  source: "prompt" as const,
+  provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
   siteType: "one-page" as const,
   reason: "unit-test",
   routes: [] as Array<{ path: string; name: string; intent: string; required: boolean }>,
@@ -285,6 +289,76 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     createPromptLog.mockResolvedValue(undefined);
     buildFileContext.mockReset();
     parseSSEBuffer.mockReset();
+    buildGenerationInputPackage.mockImplementation(
+      (
+        _base: unknown,
+        _input: unknown,
+        finalized: {
+          engineSystemPrompt: string;
+          dynamicContext: string;
+          dynamicContextPruning: unknown;
+          dynamicContextBlocks?: unknown;
+        },
+      ) => ({
+        resolvedScaffold: {
+          id: "scaffold_1",
+          family: "marketing",
+          label: "Marketing",
+        },
+        routePlan: unitTestRoutePlan,
+        preGenerationContracts: {
+          contracts: {
+            dataMode: "none",
+            databaseProvider: null,
+            authProvider: null,
+            paymentProvider: null,
+            integrations: [],
+            envVars: [],
+          },
+          unresolvedDecisions: [],
+          confirmedAnswers: [],
+        },
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "local-layout",
+          scaffoldFamily: "landing-page",
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "fast",
+          contextPolicy: "light",
+          referenceCategories: ["marketing-sites"],
+          forbiddenPatterns: ["leave_bracket_placeholders"],
+          tokenBudgets: { scaffoldChars: 12000, refsChars: 4000, systemContextChars: 18000 },
+        },
+        scaffoldContext: undefined,
+        scaffoldAndCapability: "",
+        capabilities: {
+          needsMotion: false,
+          needs3D: false,
+          needsCharts: false,
+          needsDatabase: false,
+          needsAuth: false,
+          needsAppShell: false,
+          needsDataUI: false,
+          needsForms: false,
+          needsEcommerce: false,
+          needsCarousel: false,
+          needsPremiumVisuals: false,
+        },
+        userPrompt: "hello",
+        brief: null,
+        scaffoldMode: "auto",
+        engineSystemPrompt: finalized.engineSystemPrompt,
+        dynamicContext: finalized.dynamicContext,
+        dynamicContextPruning: finalized.dynamicContextPruning,
+        dynamicContextBlocks: finalized.dynamicContextBlocks ?? [],
+        lineageHash: "lineage-1",
+      }),
+    );
+    writeOrchestrationDynamicDump.mockImplementation(() => undefined);
     commitCredits.mockResolvedValue(undefined);
     prepareCredits.mockResolvedValue({
       ok: true,
@@ -358,6 +432,13 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       },
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
+      dynamicContextPruning: {
+        budgetTokens: 5625,
+        usedTokens: 10,
+        droppedBlockKeys: [],
+        keptBlockKeys: ["build_intent_website"],
+      },
+      dynamicContextBlocks: [],
     });
     resolveOrchestrationBase.mockResolvedValue({
       resolvedScaffold: {
@@ -412,6 +493,13 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
+      dynamicContextPruning: {
+        budgetTokens: 5625,
+        usedTokens: 10,
+        droppedBlockKeys: [],
+        keptBlockKeys: ["build_intent_website"],
+      },
+      dynamicContextBlocks: [],
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },
@@ -617,6 +705,8 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         }),
       }),
     );
+    expect(buildGenerationInputPackage).toHaveBeenCalledTimes(1);
+    expect(writeOrchestrationDynamicDump).toHaveBeenCalledTimes(1);
   });
 
   it("ignores persisted scaffold lock for clear-redesign follow-ups in auto mode", async () => {

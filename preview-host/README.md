@@ -21,26 +21,29 @@ I praktiken betyder det:
 - Preview-hosts publika path ar darfor **`https://...fly.dev/{chatId}`**, inte `/{appProjectId}`.
 - Under rollout accepterar preview-host fortfarande legacy-faltet **`projectId`** i inkommande payload, men det tolkas som alias for **`chatId`**.
 
-## Status (2026-04-01)
+## Status (2026-04-07)
 
 ### Vad som fungerar
 
 - Fly-app `vm-fly-jakem` koer pa `performance-2x` (2 ded CPU, 4 GB RAM) i `arn` (Stockholm)
-- 10 GB krypterad Fly volume monterad pa `/data` for workspaces och session-store
+- Persistent Fly volume `preview_host_data` ar monterad pa `/data` for workspaces och session-store (nuvarande deploy: 20 GB)
 - `preview-host` tar emot preview-payloads via HTTP, koer `npm install` + `npm run dev` pa Fly-maskinen
 - `preview-host` kor ocksa en isolerad **verify-lane** for quality gate (`npm install` + `tsc` / `next build` / ev. `eslint`) i separat workspace
 - preview-URL `https://vm-fly-jakem.fly.dev/<chatId>` serverar riktiga SSR-renderade Next.js-sajter
 - Sajtmaskins huvudapp har tier-2-providerlager som valjer `preview_host` framfor Vercel Sandbox
+- samma `chatId` ateranvander normalt samma preview-session/path; ny version restartar runtime med nya filer i stallet for att skapa en helt separat lane
 - vantesida visas i iframen medan projektet bootar (auto-reload var 4:e sekund)
 - workspace-caching: `node_modules` ateranvands om `package.json` inte andrats
-- icke-blockerande boot: runtime-processen dor inte av readiness-timeout
+- verify-jobb koas lugnare pa enskild VM for att undvika att flera tunga `npm install`/`tsc` kor samtidigt
+- `GET /admin/storage`, `GET /admin/sessions`, `POST /admin/cleanup` och `POST /admin/destroy-all` finns for drift och felsokning
+- sessionstiden ar nu forenklad till cirka 1 timme pa bade host och app-sida
 
 ### Vad som inte fungerar annu
 
-- **Sessions-persistens over deploy/restart**: sessioner lagras delvis i minne och tappas vid Fly-restart/deploy. Session-store pa volymen har metadata men runtime-stateocken (barnprocesser) forsvinner. Det gor att builderns iframe tappar previewn efter varje deploy.
+- **Deploy/restart**: sessionmetadata overlever pa volymen, men runtime-processerna maste fortfarande startas om. Recover bygger pa status/bootstrap och ar inte "magi" over deploy.
 - **CSP-header**: `frame-src` i huvudappens CSP-policy listar bara `*.vercel.run` / `*.vercel.app`, inte `*.fly.dev`. Det ger report-only-varningar i konsolen (blockerar inte iframen an men bor fixas).
 - **Forsta boot ar seg** (2-5 min for riktiga Next-projekt med tunga deps som `three.js`). Workspace-caching hjalper vid andra koerningen men forsta ar fortfarande lang.
-- **Autofix-loopen**: nar preview misslyckas triggar buildern autofix-reparation som genererar nya versioner. Det kan skapa 3-4 versioner i snabb folid som alla forsoker boota pa Fly parallellt.
+- **Aktiv workspace-storlek**: ett levande preview-projekt kan fortfarande bli hundratals MB stort (framfor allt `node_modules` och dev-artifacts), sa diskforbrukningen sjunker forst efter cleanup eller destroy.
 
 ### Tier 2 / export — vanliga generiska fel (inte VM-specifika)
 
@@ -167,123 +170,59 @@ Detta ar nu en **minimal riktig sessionskontrolltjanst** for Tier 2-kontraktet. 
 
 ## Fly-drift nu
 
-Fly-appen finns redan. Det praktiska driftflodet nu ar:
+Fly-appen finns redan och kor som den aktiva tier-2-previewen. Det praktiska driftflodet nu ar:
 
-1. Ga in i `preview-host/`
-2. valfritt: skapa en volume for `/data`
-3. satt `PREVIEW_HOST_API_KEY`
-4. kor `flyctl deploy`
-5. testa `/health`, `start`, `status` och `hibernate` pa den deployade URL:en
-
-Vi ska **inte** koppla GitHub eller vanliga scaffold-floden for detta sparet i forsta laget.
+1. ga in i `preview-host/`
+2. kontrollera `fly.toml`
+3. satt eller uppdatera `PREVIEW_HOST_API_KEY`
+4. kor `fly deploy`
+5. verifiera `GET /health`, `GET /admin/storage` och `GET /admin/sessions`
 
 ### Det som redan ar satt
 
-Just nu ar dessa val redan gjorda:
-
 - Fly-appnamn: `vm-fly-jakem`
-- Tankt preview-base-url: `https://vm-fly-jakem.fly.dev`
+- preview-base-url: `https://vm-fly-jakem.fly.dev`
+- mountad volume-path: `/data`
+- host-sidans `PREVIEW_HOST_DATA_DIR=/data` ligger i `fly.toml`, inte i repo-rotens `.env.local`
 
-### Historik: varfor `flyctl deploy` gav `app not found`
+### Viktiga admin-endpoints
 
-Felet:
+- `GET /health`
+- `GET /admin/storage`
+- `GET /admin/sessions`
+- `POST /admin/cleanup`
+- `POST /admin/destroy-all`
 
-- `Error: app not found`
+`/admin/storage` ar nu den snabbaste sanningskallan for:
 
-betyder i det har laget inte att `fly.toml` ar fel, utan att Fly inte annu har en skapad app-resurs med namnet `vm-fly-jakem`.
+- vilken disk/path hosten faktiskt anvander
+- rootfs kontra `/data`
+- hur mycket som ar upptaget pa filsystemet
+- hur stora `workspaces` och `verify-workspaces` ar
 
-Med andra ord:
+### Vad som ar robust just nu
 
-- `fly.toml` pekar pa ett appnamn
-- men Fly-kontot har annu inte fatt appen skapad pa plattformen
+- Egen isolerad mapp och egen Node-service
+- Aktiv Fly-VM med persistent volume pa `/data`
+- Preview lanes nycklade per `chatId`
+- Samma `chatId` ateranvander normalt samma session/path och restartar runtime vid ny version
+- Verify-lane separat fran live-preview
+- Verify-jobb koas lugnare pa single-VM-host
+- Filbaserad session-store med atomisk write pa volume
+- Cleanup, destroy-all, storage-insyn och sessionsinsyn
 
-Detta var normalt for forsta deployen om man gar direkt pa `flyctl deploy`.
+### Vad som fortfarande ar bra att veta
 
-### Nasta konkreta steg i terminalen
-
-Fran `preview-host/`:
-
-1. `flyctl auth whoami`
-2. valfritt: `fly volumes create preview_host_data --size 1 -r arn -a vm-fly-jakem`
-3. `fly secrets set PREVIEW_HOST_API_KEY=... -a vm-fly-jakem`
-4. `flyctl deploy`
-5. oppna `https://vm-fly-jakem.fly.dev/health`
-
-Flys officiella CLI-dokumentation for detta spar:
-
-- `fly apps create`: [Fly Docs](https://fly.io/docs/flyctl/apps-create/)
-- deploy: [Fly Docs](https://fly.io/docs/apps/deploy/)
-
-## Vad som ar robust just nu
-
-- Egen isolerad mapp
-- Inga beroenden till huvudappens scaffoldlogik
-- Eget `package.json`
-- Enkel Dockerfil
-- Enkel health check
-- Filbaserad session-store med atomisk write
-- Status-endpoint for provider-agnostisk recover
-- Tydlig payload-validering
-- Ett `smoke`-kommando som testar hela grundflodet
-
-## Vad som kommer senare
-
-Forst nar grundflodet ar stabilt ska vi lagga till:
-
-- Fly volume eller Redis/Postgres for starkare durability over redeploy / machine-replacement
-- riktig runtime bakom sessionerna
-- fler-worker / multi-machine-strategi
-- riktig `previewUrl`-routing
-- skarpare builder-telemetri och rollout-regler
-
-## Tydlig rekommendation
-
-Min slutsats efter att ha last anteckningarna i `ovrigt/sanbox_vm_etc` och jamfort dem med hur Sajtmaskin redan fungerar ar:
-
-- Om malet ar varm pool, samma preview-runtime tillbaka per **chat/lane**, diff-sync, hibernation och stabil `previewUrl`, da ska du **inte** bygga v1 som en Docker-orkestrerad sandbox-pool inuti en Render-tjanst.
-- Render-dokumentationen visar tydligt stod for Docker-deploys, private services och persistent disks, men jag hittar **inte** tydligt stod for nested Docker / privileged runtime. Disk-backed services ar dessutom single-instance och tappar zero-downtime deploys.
-- Om du vill bygga precis det ni beskrivit i anteckningarna ar den rakaste vagen en **dedikerad Linux-VM** med Docker, Traefik, Redis och Postgres.
-- Om Render ar ett hart krav redan nu ska du medvetet valja en **enklare modell** i v1: ingen egen Docker-pool i tjansten, inga undercontainrar, och betydligt mindre ambition kring warm-empty/warm-project.
-
-Kort sagt:
-
-- **Vill du ha full kontroll och samma preview-runtime tillbaka per chat/lane:** kor en egen VM.
-- **Vill du absolut vara pa Render direkt:** bygg en enklare preview-runtime, inte hela den avancerade preview-hosten.
-
-## Varfor detta ar ett separat spar
-
-Sajtmaskin har redan en tydlig produktkedja:
-
-- own-engine ager generering
-- `engine_versions.files_json` ar kanonisk artifact
-- buildern ager versionval, UI och preview-bootstrap
-
-Det nya systemet ska darfor inte ta over generering eller lagring av koden. Det ska bara agera **runtime for preview**.
-
-## Det nya systemet ska aga
-
-- `chat -> preview-runtime` affinity
-- sandbox lease, heartbeat och TTL
-- diff-klassificering for updates
-- restart-policy
-- preview lane kontra verify lane
-- route-register och stabil `previewUrl`
-- loggstream, healthchecks och hibernation
-- separat verify-lane for typecheck/build/lint utan att roera live-previewns workspace
-
-## Sajtmaskin ska fortsatt aga
-
-- own-engine och prompt/generering
-- `engine_chats`, `engine_messages`, `engine_versions`
-- `files_json` som source of truth
-- builder-UI och versionsval
-- beslut om nar preview ska startas eller uppdateras
+- Forsta boot for tunga projekt kan fortfarande vara seg
+- Ett aktivt preview-workspace kan bli stort, ofta framfor allt pga `node_modules`
+- Runtime-processer maste fortfarande startas om over deploy; volymen sparar metadata, inte levande processer
+- `frame-src` for `*.fly.dev` bor fortsatt hallas i synk i huvudappen
 
 ## Rekommenderad integrationsgrans
 
-Preview-hosten bor vara en separat HTTP-tjanst som Sajtmaskin anropar efter finalize.
+Preview-hosten ska fortsatt vara en separat HTTP-tjanst som Sajtmaskin anropar efter finalize.
 
-Foreslaget minsta kontrakt:
+Minsta viktiga kontrakt just nu:
 
 - `POST /preview/session/start`
 - `POST /preview/session/update`
@@ -311,74 +250,20 @@ Svar tillbaka bor minst innehalla:
 - `chatId`
 - `sandboxId`
 - `previewUrl`
-- `startOutcome` = `resumed | recreated | fresh`
+- `startOutcome`
 - `sessionExpiresAt`
 - `status`
 
 I huvudappen mappas preview-hostens interna `fresh` idag till produktens `recreated`, sa att engine-flodet bara exponerar `resumed | recreated` utat.
 
-## Rekommenderad v1-arkitektur
+## Aktuell rekommendation
 
-Om du valjer den vagen jag tror mest pa:
+Det har ar inte langre bara ett experimentellt sidospår. Det ar den aktiva Fly-baserade preview-vagen for tier-2.
 
-- 1 Ubuntu-VM
-- 1 preview-controller
-- 1 worker-daemon pa samma host
-- Docker Engine
-- Traefik
-- Redis
-- Postgres
-- 2 warm-empty sandboxes
-- 1 wildcard subdomain for previews
+Det som bor hallas sant i dokumentation och drift framover ar:
 
-Viktiga regler att lasa fast tidigt:
-
-- preview ar **stateful per chat/lane**
-- samma sandbox ska **ateranvandas sa langt det gar**
-- snabb preview och strikt verify ar **olika lanes**
-- `previewUrl` ska vara stabil inom aktiv session
-
-## Restart- och diffpolicy
-
-En enkel men bra klassificering i v1:
-
-- `light`: komponenter, copy, CSS -> skriv filer, lat HMR gora jobbet
-- `medium`: nya routes, layout, API-routes -> restart av dev-server
-- `heavy`: `package.json`, lockfile, `next.config.*` -> reinstall eller ny sandbox
-- `rebuild`: trasig runtime eller stor systemforandring -> skapa ny sandbox
-
-Detta matchar resonemangen i anteckningarna och ligger nara hur Sajtmaskin redan tanker kring preview kontra verify.
-
-## Render-sparet om du maste starta dar
-
-Om du vill prova Render for att komma igang snabbt, gor det med **medvetet reducerad scope**:
-
-- kor en private service eller web service med Docker image
-- lagg workspace/cache pa persistent disk
-- kor **inte** Docker-in-Docker som grundantagande
-- kor en preview-runtime per chat/workspace som process, inte en full egen container-pool
-- acceptera att detta ar en overgangslosning, inte slutarkitekturen
-
-Da far du:
-
-- mindre ops i starten
-- snabbare forsta leverans
-- men mindre kontroll over isolation, reuse och scheduler-beteende
-
-## Det jag tycker du ska gora nu
-
-1. Las detta som ett beslut mellan **Render som enkel start** och **egen VM som riktig preview-host**.
-2. Om den langsiktiga malbilden fortfarande ar warm pool + reuse + hibernation: valj egen VM direkt.
-3. Hall den nya tjansten separat fran Sajtmaskins huvudapp och lat den konsumera `files_json` over HTTP.
-4. Bygg bara v1: start, update, heartbeat/status, logs, hibernate, destroy.
-5. Skjut upp Kubernetes, Firecracker, multi-host-scheduler och avancerad autoskalning.
-
-## Min slutliga rekommendation
-
-Det ni har resonerat fram ar tillrackligt specifikt for att jag tycker att du ska behandla detta som en **separat produkt-/infra-komponent**, inte som lite mer sandbox-kod inne i huvudappen.
-
-Om du fragar mig vad jag sjalv hade valt:
-
-- Jag hade skapat ett separat repo utifran den har mappen senare.
-- Jag hade borjat med **en egen Linux-VM** for preview-hosten.
-- Jag hade latit Render vara sekundart eller ett enklare fallback-spar, inte huvudmiljon for en Docker-styrd sandbox-pool.
+- Sajtmaskin ager generering och `files_json`
+- preview-host ager runtime-preview, status, cleanup och verify-lane
+- `chatId` ar lane-nyckeln
+- `/data` ar hostens preview-disk
+- preview ska normalt leva hogst ungefär en timme per start/update-cykel om ingen ny cykel tar over

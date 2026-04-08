@@ -1,0 +1,272 @@
+[
+  {
+    "personaId": 1,
+    "name": "Klipp & Stil",
+    "finalScore": 0.9523809523809523,
+    "totalDurationMs": 980274,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": true,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": true,
+        "iterations": 3,
+        "errors": 0
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 2,
+    "name": "TechPartner AB",
+    "finalScore": 0.9047619047619048,
+    "totalDurationMs": 995333,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": true,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 5,
+        "errors": 0
+      },
+      {
+        "phase": "follow-ups",
+        "success": true,
+        "iterations": 2,
+        "errors": 0
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 3,
+    "name": "Sjöstaden Bistro",
+    "finalScore": 0.9523809523809523,
+    "totalDurationMs": 637500,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": true,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": true,
+        "iterations": 3,
+        "errors": 0
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 4,
+    "name": "Silverträdet",
+    "finalScore": 0.47619047619047616,
+    "totalDurationMs": 240758,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": false,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": false,
+        "iterations": 0,
+        "errors": 2
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 5,
+    "name": "Anna Lindqvist Foto",
+    "finalScore": 0.47619047619047616,
+    "totalDurationMs": 19153,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": false,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": false,
+        "iterations": 0,
+        "errors": 3
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 6,
+    "name": "FitTrack",
+    "finalScore": 0.47619047619047616,
+    "totalDurationMs": 17529,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": false,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": false,
+        "iterations": 0,
+        "errors": 2
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 7,
+    "name": "Advokatfirman Bergström & Co",
+    "finalScore": 0.47619047619047616,
+    "totalDurationMs": 18643,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": false,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": false,
+        "iterations": 0,
+        "errors": 3
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 8,
+    "name": "Bryggkajen",
+    "finalScore": 0.47619047619047616,
+    "totalDurationMs": 15706,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": false,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": false,
+        "iterations": 0,
+        "errors": 2
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 9,
+    "name": "Hälsokällan",
+    "finalScore": 0.47619047619047616,
+    "totalDurationMs": 17955,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": false,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": false,
+        "iterations": 0,
+        "errors": 3
+      }
+    ],
+    "fatalError": null
+  },
+  {
+    "personaId": 10,
+    "name": "Svensson Bygg AB",
+    "finalScore": 0.47619047619047616,
+    "totalDurationMs": 17936,
+    "phases": [
+      {
+        "phase": "generate",
+        "success": false,
+        "iterations": 1,
+        "errors": 0
+      },
+      {
+        "phase": "fix-loop",
+        "success": false,
+        "iterations": 0,
+        "errors": 5
+      },
+      {
+        "phase": "follow-ups",
+        "success": false,
+        "iterations": 0,
+        "errors": 3
+      }
+    ],
+    "fatalError": null
+  }
+]

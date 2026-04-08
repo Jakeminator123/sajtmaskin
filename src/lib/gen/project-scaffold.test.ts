@@ -149,13 +149,18 @@ describe("buildCompleteProject", () => {
     ];
     const files = buildCompleteProject(generated);
     const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      engines: Record<string, string>;
       dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
       scripts: Record<string, string>;
     };
+    expect(pkg.engines.node).toBe(">=22.14.0 <23");
     expect(pkg.dependencies.next).toBe("16.2.1");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
-    expect(pkg.scripts).not.toHaveProperty("lint");
+    expect(pkg.scripts.lint).toBe("eslint .");
+    expect(pkg.devDependencies.eslint).toBe("9.39.2");
+    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.1");
   });
 
   it("merges a model tsconfig with baseline compiler essentials", () => {
@@ -248,10 +253,54 @@ describe("buildCompleteProject", () => {
     };
     expect(pkg.dependencies["@radix-ui/react-dialog"]).toBeDefined();
   });
+
+  it("ships a minimal eslint flat config for generated Next projects", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const eslintConfig = files.find((f) => f.path === "eslint.config.mjs");
+    expect(eslintConfig).toBeDefined();
+    expect(eslintConfig!.content).toContain('eslint-config-next/core-web-vitals');
+    expect(eslintConfig!.content).toContain('eslint-config-next/typescript');
+    expect(eslintConfig!.content).toContain("globalIgnores");
+  });
+
+  it("includes dependencies required by copied ui components when completing the project", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `import { HoverCard } from "@/components/ui/hover-card";\nexport default function Page() { return <HoverCard />; }`,
+        language: "tsx",
+      },
+    ];
+
+    const files = buildCompleteProject(generated, [
+      {
+        filename: "hover-card.tsx",
+        content: [
+          '"use client";',
+          'import * as React from "react";',
+          'import * as HoverCardPrimitive from "@radix-ui/react-hover-card";',
+          'export function HoverCard() {',
+          "  return <HoverCardPrimitive.Root />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies["@radix-ui/react-hover-card"]).toBe("^1");
+  });
 });
 
 describe("buildExportableProject", () => {
-  it("produces the same output as manual buildCompleteProject + repairGeneratedFiles", () => {
+  it("produces the same output as manual buildCompleteProject + repairGeneratedFiles", async () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },
       {
@@ -262,7 +311,7 @@ describe("buildExportableProject", () => {
       { path: "app/page.tsx", content: `export default function Page() { return <div>Hi</div>; }`, language: "tsx" },
     ];
 
-    const exported = buildExportableProject(generated);
+    const exported = await buildExportableProject(generated);
     expect(exported.length).toBeGreaterThan(generated.length);
 
     const pkg = JSON.parse(exported.find((f) => f.path === "package.json")!.content) as {

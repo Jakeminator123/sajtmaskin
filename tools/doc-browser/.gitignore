@@ -1,6 +1,0 @@
-.env
-!.env.example
-.chrome-v0-profile/
-.chrome-vercel-profile/
-__pycache__/
-*.pyc

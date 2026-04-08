@@ -1,0 +1,79 @@
+---
+description: Sekundär fördjupningsordlista för builder, preview, finalize och runtime
+alwaysApply: false
+---
+
+# Terminology Builder Runtime
+
+Sekundär ordlista för smalare builder-/runtimebegrepp. Använd den när uppgiften rör promptkedjan, preview-/VM-kontrakt, finalize/repair eller annan Steg 4/5-logik. Kärntermerna finns i `terminology.mdc`.
+
+## Builderns LLM-flöde
+
+- **Prompt assist / Förbättra**: hjälpassistent före build; förbättrar prompt men bygger inte sajten.
+- **Prompt polish / `Skriv om`**: lätt copy-editor för promptfältet; inte deep brief och inte codegen.
+- **Deep brief / site brief**: strukturerad brief före första builden; byggs från originalprompten.
+- **Spec-first / `WebsiteSpec`**: brief -> strukturerad spec som extra systempromptkontext.
+- **`orchestratePromptMessage()`**: promptvakt/budgetering, inte scaffoldval och inte en LLM.
+- **`resolveOrchestrationBase()` / `BuildSpec`**: faktisk orkestrering före codegen.
+- **Plan mode**: planner-LLM som returnerar plan/JSON, inte sajtkod.
+- **`thinking`**: reasoning-flagga på generatorbanan, inte en egen lane eller separat motor.
+
+## Steg 4: post-stream
+
+- **codegen**: själva genereringsstreamen före finalize.
+- **finalize / `finalizeAndSaveVersion`**: post-stream-kedjan som gör output till sparad version.
+- **`validate` / syntaxvalidering**: parser/lint i `validateAndFix`; inte samma sak som `server-verify`.
+- **verifier-pass**: read-only LLM-granskning efter syntax i finalize.
+- **`server-verify`**: asynk quality gate + repair efter finalize.
+- **autofix**: deterministiska fixar före eller utanför LLM-fixer.
+- **repair / fixer**: reparationskedjan efter syntaxproblem eller senare quality gate.
+- **preflight**: förkontroll inför preview som bl.a. kan sätta `previewBlocking`.
+- **quality gate**: samlingsnamn för checks som `typecheck`, exportabilitet och buildbarhet.
+
+## Preview / VM / sandbox
+
+- **preview**: det användaren ser i buildern.
+- **VM / `preview_host`**: primär tier-2-live-preview och riktningen framåt.
+- **sandbox**: legacy-/compat-term som bara ska användas när gamla kontrakt eller fältnamn faktiskt kräver det.
+- **`previewPending`**: finalize är klar och preview väntas.
+- **`previewUrlHint`**: temporär VM-hint medan preview bootar; inte samma sak som slutlig `previewUrl`.
+- **`preview-session`**: kanonisk bootstrap-route för tier-2-preview; startar eller återanvänder preview för en viss chat/version.
+- **`preview-status`**: recover-/statusroute för tier-2-preview; returnerar bl.a. `running`, `stopped`, `missing` eller `version_mismatch`.
+- **`startOutcome`**: hur preview-sessionen löstes: `reused_url`, `resumed` eller `recreated`.
+- **`legacyShimPreviewUrl`**: shim-/fallback-URL till `/api/preview-render`; inte primär tier-2-preview.
+- **`sandboxId`**: id för aktiv tier-2-runtime/session; inte samma sak som `chatId` eller `appProjectId`.
+
+## ID- och ingressord
+
+- **`entryKind`**: normaliserad ingressgren i buildern.
+- **`externalProjectId`**: builder-lagrets namn för extern/legacy projektidentitet; inte samma som `appProjectId`.
+- **compat-route / compat-routes**: bakåtkompatibel HTTP-yta som återanvänder kanonisk runtime.
+- **`v0 streams`**: legacy-kompatibla stream-routes under `/api/v0/chats/*/stream`; inte gammal leverantör.
+
+## Research- och scaffoldord
+
+- **dossiers**: build-time researchmaterial från externa referenser; inte direkta runtime-inputs.
+- **embeddings**: förgenererade JSON-vektorer för `v0-mallar`, `template-library` eller scaffolds.
+- **traits**: högre nivå-metadata om scaffoldens roll.
+- **persisted scaffold**: senast sparade scaffold-id som återanvänds i samma chat om inte redesign låser upp det.
+- **`RoutePlan.provenance`**: källspårning för route-plan med `primarySource` och `sources[]`.
+
+## Env-lager
+
+1. **Sajtmaskin-plattformens env**: repoets rot-`.env*`, Vercel env vars och policyn i `src/lib/env.ts` + `config/env-policy.json`.
+2. **Användarens genererade sajt**: egen `.env.local` inne i byggprojektet / previewmiljön.
+3. **Felsökningsordning**:
+   - Preview-/VM-problem -> börja med plattforms-env och `docs/architecture/preview-deploy.md`.
+   - Saknade nycklar i byggd sajt -> börja med användarprojektets env / deploy-precheck.
+
+## Legacy som inte ska återintroduceras
+
+- **AI Gateway** är borttaget ur runtime; använd direkt OpenAI/Anthropic.
+- `AI_GATEWAY_API_KEY` ska inte tillbaka i ny kod eller ny env-policy.
+- `Vercel Sandbox` är inte aktiv primär preview-väg.
+
+## När den här filen används
+
+- Använd den här filen sekundärt, inte som förstahandsregel för alla sessioner.
+- Uppdatera den när builder-/runtimeförvirring återkommer, inte för varje engångsdetalj.
+- Om innehållet blir mer arkitektur än ordlista: flytta det till vanliga docs.

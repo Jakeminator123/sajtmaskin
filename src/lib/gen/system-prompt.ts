@@ -12,6 +12,16 @@
  *  │  → Build intent, visual identity, project ctx    │
  *  └─────────────────────────────────────────────────┘
  *
+ * Step 3 — what actually reaches the model (own-engine):
+ *  - **Static core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
+ *    **dynamic context** from this file = full **system** message.
+ *  - **User turn** = current request prompt (possibly URL-compressed); it is **not**
+ *    duplicated here — we do not inject a second "original request" block that mirrors
+ *    the same user text (see `buildDynamicContext`).
+ *  - **Chat history** = prior user/assistant turns, assembled by the generation
+ *    pipeline (`createOwnEnginePipelineAndGenerationStream`, etc.), separate from system.
+ * Canonical map: `docs/architecture/llm-input-blocks.md`.
+ *
  * Keeping the static block in one stable file helps prompt-prefix caching;
  * edit config/prompt-static/*.md and/or the manifest; see _READ_ME_FIRST.md.
  */
@@ -153,7 +163,6 @@ export interface DynamicContextOptions {
   themeOverride?: ThemeColors | null;
   imageGenerations?: boolean;
   mediaCatalog?: MediaCatalogItem[];
-  originalPrompt?: string;
   scaffoldContext?: string;
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
@@ -195,7 +204,6 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^pages & sections$/i, priority: 82 },
   { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
-  { match: /^original request/i, priority: 76 },
   { match: /^design references$/i, priority: 72 },
   { match: /^scaffold research priorities$/i, priority: 70 },
   { match: /^imagery/i, priority: 66 },
@@ -222,7 +230,12 @@ function resolveContextBlockPriority(title: string): { priority: number; require
   return { priority: 60, required: false };
 }
 
-function splitContextIntoBudgetBlocks(context: string): PromptBudgetBlock[] {
+type DynamicContextBlock = PromptBudgetBlock & {
+  title: string;
+  estimatedTokens: number;
+};
+
+function splitContextIntoBudgetBlocks(context: string): DynamicContextBlock[] {
   if (!context.trim()) return [];
 
   const blocks: Array<{ title: string; content: string }> = [];
@@ -259,14 +272,35 @@ function splitContextIntoBudgetBlocks(context: string): PromptBudgetBlock[] {
     return {
       key,
       text: block.content,
+      title: block.title,
       priority,
       required,
+      estimatedTokens: estimateTokens(block.content),
     };
   });
 }
 
+/** Observability for dynamic-context token budgeting (`buildBudgetedSystemPrompt`). */
+export interface DynamicContextPruning {
+  budgetTokens: number;
+  usedTokens: number;
+  droppedBlockKeys: string[];
+  keptBlockKeys: string[];
+}
+
+export interface DynamicContextBlockTrace {
+  key: string;
+  title: string;
+  priority: number;
+  required: boolean;
+  estimatedTokens: number;
+  kept: boolean;
+}
+
 export type BuildDynamicContextResult = {
   context: string;
+  pruning: DynamicContextPruning;
+  blocks: DynamicContextBlockTrace[];
 };
 
 /**
@@ -282,7 +316,6 @@ export async function buildDynamicContext(
     themeOverride,
     imageGenerations: _imageGenerations = false,
     mediaCatalog,
-    originalPrompt,
     scaffoldContext,
     resolvedScaffold,
     routePlan,
@@ -401,7 +434,8 @@ export async function buildDynamicContext(
       "## Route Plan",
       "",
       `- **Site type:** ${routePlan.siteType}`,
-      `- **Planning source:** ${routePlan.source}`,
+      `- **Planning source:** ${routePlan.provenance.primarySource}`,
+      `- **Route contributors:** ${routePlan.provenance.sources.join(" → ")}`,
       `- **Why:** ${routePlan.reason}`,
       "",
     );
@@ -655,24 +689,8 @@ export async function buildDynamicContext(
     }
   }
 
-  // ── Original request reference ──────────────────────────────────────────
-  if (originalPrompt) {
-    const MAX_INLINE_ORIGINAL_PROMPT_CHARS = 400;
-    const trimmed = originalPrompt.trim();
-    if (trimmed.length <= MAX_INLINE_ORIGINAL_PROMPT_CHARS || !isFollowUp) {
-      parts.push("## Original Request (for reference)", "", trimmed, "");
-    } else {
-      const summary = trimmed.slice(0, MAX_INLINE_ORIGINAL_PROMPT_CHARS).trimEnd();
-      parts.push(
-        "## Original Request (summary)",
-        "",
-        `${summary} …`,
-        "",
-        `_(Full original request: ${trimmed.length} chars, truncated for prompt budget.)_`,
-        "",
-      );
-    }
-  }
+  // User prompt text is carried by the **user** message in the chat/completions
+  // request — do not duplicate it here as a second "original request" block.
 
   let context = parts.join("\n").trim();
   const contextBlocks = splitContextIntoBudgetBlocks(context);
@@ -687,6 +705,15 @@ export async function buildDynamicContext(
     dynamicBudgetTokens: budgetTokens,
   });
   context = budgeted.dynamicContext;
+  const keptKeys = new Set(budgeted.keptKeys);
+  const blockTrace = contextBlocks.map((block) => ({
+    key: block.key,
+    title: block.title,
+    priority: block.priority,
+    required: Boolean(block.required),
+    estimatedTokens: block.estimatedTokens,
+    kept: keptKeys.has(block.key),
+  }));
 
   if (budgeted.droppedKeys.length > 0) {
     try {
@@ -703,6 +730,13 @@ export async function buildDynamicContext(
 
   return {
     context,
+    pruning: {
+      budgetTokens: budgeted.budgetTokens,
+      usedTokens: budgeted.usedTokens,
+      droppedBlockKeys: budgeted.droppedKeys,
+      keptBlockKeys: budgeted.keptKeys,
+    },
+    blocks: blockTrace,
   };
 }
 
@@ -719,7 +753,6 @@ export interface BuildSystemPromptOptions {
   themeOverride?: ThemeColors | null;
   imageGenerations?: boolean;
   mediaCatalog?: MediaCatalogItem[];
-  originalPrompt?: string;
   scaffoldContext?: string;
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
@@ -746,7 +779,6 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     themeOverride: options.themeOverride,
     imageGenerations: options.imageGenerations,
     mediaCatalog: options.mediaCatalog,
-    originalPrompt: options.originalPrompt,
     scaffoldContext: options.scaffoldContext,
     resolvedScaffold: options.resolvedScaffold,
     routePlan: options.routePlan,

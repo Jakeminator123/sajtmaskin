@@ -10,8 +10,27 @@ export interface ScaffoldSearchResult {
   score: number;
 }
 
+export type ScaffoldSearchUnavailableReason =
+  | "missing_api_key"
+  | "missing_embeddings"
+  | "request_failed";
+
+export interface ScaffoldSearchDiagnostics {
+  attempted: boolean;
+  available: boolean;
+  failed: boolean;
+  unavailableReason: ScaffoldSearchUnavailableReason | null;
+  errorMessage: string | null;
+  durationMs: number | null;
+}
+
+export interface ScaffoldSearchResponse {
+  results: ScaffoldSearchResult[];
+  diagnostics: ScaffoldSearchDiagnostics;
+}
+
 let cachedEmbeddings: ScaffoldEmbeddingEntry[] | null = null;
-const EMBEDDING_TIMEOUT_MS = 3_000;
+const EMBEDDING_TIMEOUT_MS = 5_000;
 
 function createEmbeddingAbortSignal(): AbortSignal | undefined {
   if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") {
@@ -93,11 +112,43 @@ export async function searchScaffolds(
   query: string,
   topK: number = 3,
 ): Promise<ScaffoldSearchResult[]> {
+  const { results } = await searchScaffoldsWithDiagnostics(query, topK);
+  return results;
+}
+
+export async function searchScaffoldsWithDiagnostics(
+  query: string,
+  topK: number = 3,
+): Promise<ScaffoldSearchResponse> {
   const apiKey = SECRETS.openaiApiKey;
-  if (!apiKey) return [];
+  if (!apiKey) {
+    return {
+      results: [],
+      diagnostics: {
+        attempted: false,
+        available: false,
+        failed: false,
+        unavailableReason: "missing_api_key",
+        errorMessage: null,
+        durationMs: null,
+      },
+    };
+  }
 
   const embeddings = loadEmbeddings();
-  if (embeddings.length === 0) return [];
+  if (embeddings.length === 0) {
+    return {
+      results: [],
+      diagnostics: {
+        attempted: false,
+        available: false,
+        failed: false,
+        unavailableReason: "missing_embeddings",
+        errorMessage: null,
+        durationMs: null,
+      },
+    };
+  }
 
   const openai = new OpenAI({ apiKey });
   const embeddingStartedAt = Date.now();
@@ -123,7 +174,17 @@ export async function searchScaffolds(
       timeoutMs: EMBEDDING_TIMEOUT_MS,
       queryChars: query.length,
     });
-    return [];
+    return {
+      results: [],
+      diagnostics: {
+        attempted: true,
+        available: false,
+        failed: true,
+        unavailableReason: "request_failed",
+        errorMessage: err instanceof Error ? err.message : String(err),
+        durationMs: Date.now() - embeddingStartedAt,
+      },
+    };
   }
 
   const scored = embeddings
@@ -141,7 +202,17 @@ export async function searchScaffolds(
     if (scaffold) results.push({ scaffold, score });
   }
 
-  return results;
+  return {
+    results,
+    diagnostics: {
+      attempted: true,
+      available: true,
+      failed: false,
+      unavailableReason: null,
+      errorMessage: null,
+      durationMs: Date.now() - embeddingStartedAt,
+    },
+  };
 }
 
 export function invalidateScaffoldEmbeddingsCache(): void {

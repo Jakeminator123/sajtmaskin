@@ -124,6 +124,16 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   if (result.needs3D) result.needsMotion = true;
   if (result.needsPremiumVisuals) result.needsMotion = true;
 
+  if (result.needsEcommerce) {
+    const hospitalityVeto =
+      /\b(restaurang|restaurant|café|cafe|kafé|bistro|hotell|hotel|spa|salong|salon|klinik|clinic|bakeri|bageri|bakery|pizzeria|catering|matrestaurang|boka bord|book a table|meny|menu|öppettider|opening hours)\b/i;
+    const strongEcommerceIntent =
+      /\b(webshop|webbshop|e-handel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|online store)\b/i;
+    if (hospitalityVeto.test(prompt) && !strongEcommerceIntent.test(prompt)) {
+      result.needsEcommerce = false;
+    }
+  }
+
   return result;
 }
 

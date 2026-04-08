@@ -16,8 +16,7 @@ import {
   markVersionRepairing,
   promoteVersion,
   failVersionVerification,
-  markVersionSupersededByRepair,
-  createAndPromoteDraftVersion,
+  updateVersionFiles,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
@@ -26,7 +25,7 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
+import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -38,6 +37,7 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
+import { buildLintRepairContextLines } from "@/lib/gen/lint-output";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
@@ -79,12 +79,12 @@ export async function triggerServerVerification(params: {
 
     await markVersionVerifying(versionId).catch(() => null);
 
-    const exportable = buildExportableProject(codeFiles);
+    const exportable = await buildExportableProject(codeFiles);
     const gateResult = await runQualityGateOnExportable({
       chatId,
       versionId,
       exportable,
-      checks: TIER2_QUALITY_GATE_CHECKS,
+      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);
@@ -184,7 +184,7 @@ async function tryServerRepairLoop(params: {
 
   await markVersionRepairing(versionId).catch(() => null);
 
-  const exportable = buildExportableProject(codeFiles);
+  const exportable = await buildExportableProject(codeFiles);
   let content = filesToCodeProjectContent(exportable);
 
   const autoFixResult = await runAutoFix(content);
@@ -195,12 +195,13 @@ async function tryServerRepairLoop(params: {
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
     const repairedFiles = parseCodeProject(projectContent).files;
-    const exportableForGate = buildExportableProject(repairedFiles);
+    const exportableForGate = await buildExportableProject(repairedFiles);
     const decision = await shouldPromoteAfterRepair({
       chatId,
       versionId,
       exportable: exportableForGate,
       hadQualityGateFailures,
+      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,
@@ -219,20 +220,16 @@ async function tryServerRepairLoop(params: {
         method === "deterministic"
           ? "Server repair succeeded (deterministic); quality gate re-passed."
           : "Server repair succeeded (LLM); quality gate re-passed.";
-      const promotedVersion = await createAndPromoteDraftVersion(
-        chatId,
-        null,
-        filesJson,
-        msg,
-      ).catch((err) => {
-        console.warn("[server-verify] Failed to promote repaired version:", err);
-        return null;
+      const updated = await updateVersionFiles(versionId, filesJson).catch((err) => {
+        console.warn("[server-verify] Failed to update repaired version files:", err);
+        return false;
       });
-      if (!promotedVersion) {
-        console.warn("[server-verify] Repaired draft version was created but promotion did not complete.");
-      } else {
-        promoted = true;
-        await markVersionSupersededByRepair(versionId, promotedVersion.id).catch(() => null);
+      if (updated) {
+        const promotedVersion = await promoteVersion(versionId, msg).catch((err) => {
+          console.warn("[server-verify] Failed to promote repaired version:", err);
+          return null;
+        });
+        promoted = Boolean(promotedVersion);
       }
     }
     await createEngineVersionErrorLogs([
@@ -278,6 +275,11 @@ async function tryServerRepairLoop(params: {
     jobStartedAt,
     jobFinishedAt,
   });
+  for (const failure of failedOutputs) {
+    if (failure.check === "lint") {
+      errorLines.push(...buildLintRepairContextLines(failure.output));
+    }
+  }
   for (const f of failedOutputs) {
     const outputLines = f.output.split("\n");
     for (let i = 0; i < outputLines.length; i++) {

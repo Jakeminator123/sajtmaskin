@@ -1,0 +1,122 @@
+{
+  "persona": "Saga",
+  "business": "Influencer/content i Malmö",
+  "authenticated": true,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": true,
+      "detail": "OK"
+    },
+    {
+      "name": "swedish-characters",
+      "passed": true,
+      "detail": "Found å/ä/ö"
+    },
+    {
+      "name": "no-english-body",
+      "passed": true,
+      "detail": "No English phrases"
+    },
+    {
+      "name": "no-lorem-ipsum",
+      "passed": true,
+      "detail": "Clean"
+    },
+    {
+      "name": "has-heading",
+      "passed": true,
+      "detail": "1 H1(s)"
+    },
+    {
+      "name": "has-cta",
+      "passed": true,
+      "detail": "Swedish CTA found"
+    },
+    {
+      "name": "has-images",
+      "passed": true,
+      "detail": "9 images"
+    },
+    {
+      "name": "has-footer",
+      "passed": true,
+      "detail": "Footer present"
+    },
+    {
+      "name": "has-navigation",
+      "passed": true,
+      "detail": "Nav present"
+    },
+    {
+      "name": "content-density",
+      "passed": true,
+      "detail": "879 words"
+    },
+    {
+      "name": "has-sections",
+      "passed": true,
+      "detail": "6 sections"
+    },
+    {
+      "name": "has-internal-links",
+      "passed": true,
+      "detail": "17 links"
+    },
+    {
+      "name": "has-contact-info",
+      "passed": true,
+      "detail": "Phone/email found"
+    },
+    {
+      "name": "relevant-heading",
+      "passed": true,
+      "detail": "Heading: \"Saga skapar innehåll som känns personligt, estetiskt och red\""
+    }
+  ],
+  "suggestions": [],
+  "score": 1,
+  "pageCount": 4,
+  "navLinks": [
+    "Hem → /fb42b767-a23c-4991-8f39-122dfef30ba6",
+    "Samarbeten → /fb42b767-a23c-4991-8f39-122dfef30ba6/samarbeten",
+    "Kontakt → /fb42b767-a23c-4991-8f39-122dfef30ba6/kontakt"
+  ],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-00.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-01.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-02.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-03.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-04.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-05.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-06.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-07.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-08.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-09.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-10.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-11.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-scroll-12.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-full-page.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-hem-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-hem-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-hem-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-samarbeten-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-samarbeten-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-samarbeten-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-kontakt-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-kontakt-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/site-page-kontakt-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-16-28-14/persona-9-saga/step-99-final.png"
+  ]
+}

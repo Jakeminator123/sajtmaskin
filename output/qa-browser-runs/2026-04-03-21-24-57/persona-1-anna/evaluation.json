@@ -1,0 +1,30 @@
+{
+  "persona": "Anna",
+  "business": "Frisörsalong i Göteborg",
+  "authenticated": true,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": false,
+      "detail": "Could not read iframe body"
+    }
+  ],
+  "suggestions": [],
+  "score": 0,
+  "pageCount": 1,
+  "navLinks": [],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-03-21-24-57/persona-1-anna/step-99-final.png"
+  ]
+}

@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 9,
+    "name": "Saga",
+    "business": "Influencer/content i Malmö",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 948721,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Generation timed out or blocked",
+    "authenticated": false
+  }
+]

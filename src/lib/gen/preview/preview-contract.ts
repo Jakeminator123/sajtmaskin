@@ -21,6 +21,13 @@ export type PreviewSessionPostApiJson = {
 };
 
 /** `GET /api/engine/chats/[chatId]/preview-status?versionId=&previewSessionId=` (v0 route is compat). */
+export type PreviewStatusReason =
+  | "preview_session_not_configured"
+  | "no_session"
+  | "session_bound_to_other_version"
+  | "preview_session_id_mismatch"
+  | "provider_not_running_or_unreachable";
+
 export type PreviewStatusApiJson = {
   ok: boolean;
   status: "running" | "stopped" | "missing" | "version_mismatch";
@@ -28,7 +35,7 @@ export type PreviewStatusApiJson = {
   previewUrl: string | null;
   versionId: string | null;
   sessionExpiresAt: number | null;
-  reason?: string;
+  reason?: PreviewStatusReason;
   message?: string;
 };
 

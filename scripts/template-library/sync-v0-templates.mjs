@@ -11,11 +11,11 @@
  * - src/lib/templates/templates.json
  * - src/lib/templates/template-categories.json
  *
- * Usage:
- *   node scripts/template-library/sync-v0-templates.mjs
- *   node scripts/template-library/sync-v0-templates.mjs --dry-run
- *   node scripts/template-library/sync-v0-templates.mjs --force
- *   node scripts/template-library/sync-v0-templates.mjs --source=local-manifest
+ * Canonical entrypoint:
+ *   node scripts/v0-templates/sync-v0-templates.mjs
+ *   node scripts/v0-templates/sync-v0-templates.mjs --dry-run
+ *   node scripts/v0-templates/sync-v0-templates.mjs --force
+ *   node scripts/v0-templates/sync-v0-templates.mjs --source=local-manifest
  */
 
 import JSZip from "jszip";

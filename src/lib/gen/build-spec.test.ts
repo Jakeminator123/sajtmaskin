@@ -15,7 +15,7 @@ const emptyContracts: PreGenerationContractContext = {
 };
 
 const marketingRoutePlan: RoutePlan = {
-  source: "prompt",
+  provenance: { primarySource: "prompt", sources: ["prompt"] },
   siteType: "one-page",
   reason: "test",
   routes: [
@@ -29,8 +29,8 @@ const marketingRoutePlan: RoutePlan = {
 };
 
 const multiPageWebsiteRoutePlan: RoutePlan = {
-  source: "prompt",
-  siteType: "content-heavy",
+  provenance: { primarySource: "prompt", sources: ["prompt"] },
+  siteType: "brochure",
   reason: "test",
   routes: [
     { path: "/", name: "Home", intent: "Primary landing page", required: true },
@@ -97,7 +97,7 @@ describe("deriveBuildSpec", () => {
       generationMode: "init",
       resolvedScaffold: saasScaffold,
       routePlan: {
-        source: "prompt",
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
         siteType: "app-shell",
         reason: "test",
         routes: [
@@ -147,6 +147,22 @@ describe("deriveBuildSpec", () => {
     expect(spec.verificationPolicy).not.toBe("fast");
   });
 
+  it("does not treat route wording alone as page-addition in follow-ups", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Update the CTA route in the header and tighten the spacing.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+    });
+
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.contextPolicy).toBe("light");
+    expect(spec.verificationPolicy).toBe("fast");
+  });
+
   it("keeps redesign follow-ups at least normal context with standard verification", () => {
     const spec = deriveBuildSpec({
       prompt: "Jag vill ha en full redesign av landningssidan.",
@@ -172,7 +188,7 @@ describe("deriveBuildSpec", () => {
       generationMode: "init",
       resolvedScaffold: null,
       routePlan: {
-        source: "prompt",
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
         siteType: "app-shell",
         reason: "test",
         routes: [{ path: "/", name: "App", intent: "Main", required: true }],

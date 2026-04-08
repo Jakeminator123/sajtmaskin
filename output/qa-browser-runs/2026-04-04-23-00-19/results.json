@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 9,
+    "name": "Saga",
+    "business": "Influencer/content i Malmö",
+    "score": 0,
+    "success": true,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 1,
+    "durationMs": 474551,
+    "checksTotal": 1,
+    "checksPassed": 0,
+    "error": null,
+    "authenticated": false
+  }
+]

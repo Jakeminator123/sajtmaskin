@@ -11,13 +11,13 @@ Use this skill to stay aligned with Sajtmaskin's domain language and canonical d
 
 1. `.cursor/rules/terminology.mdc` - canonical product/code terminology
 2. `docs/README.md` - canonical doc navigation
-3. `docs/plans/active/PROJECT-STATE-AND-DIRECTION.md` - active backlog and decisions
+3. `docs/plans/README.md` and `5-steg.txt` - current status, final summary, and decisions
 
 ## Core guardrails
 
 - Keep Sajtmaskin terminology consistent.
-- Do not confuse builderns `Mallar` / mallgalleri in `src/lib/templates` with runtime `template-library` in `src/lib/gen/template-library` or with Vercel template research under `data/external-template-pipeline/`.
-- Do not confuse runtime scaffolds under `src/lib/gen/scaffolds/` with either of those template sources.
+- Do not confuse builderns `v0-mallar` / `Mallar` / mallgalleri in `src/lib/templates` with `template-library` in `src/lib/gen/template-library` or with Vercel-mallar / externa referenser under `data/external-template-pipeline/`.
+- Do not confuse runtime scaffolds under `src/lib/gen/scaffolds/` with either `v0-mallar` or externa Vercel-mallar.
 - `/api/v0/` is API versioning, not automatically the external v0 provider.
 - Own-engine behavior should be understood from repo code and canonical docs, not guessed.
 

@@ -1,8 +1,9 @@
 # Model And Build Profile Schema
 
 **Terminology:** “Model lane”, “product lane”, “polish lane”, and “Thinking” are
-defined in `.cursor/rules/terminology.mdc` (§ Builder model lanes). This file
-maps those concepts to **profile IDs**, **env keys**, and **code entry points**.
+defined in `.cursor/rules/terminology.mdc` under **Builder model lanes**. This
+file maps those concepts to **profile IDs**, **env keys**, and **code entry
+points**.
 
 ## Scope
 
@@ -57,8 +58,8 @@ They are not the same thing as:
 
 ## Default selection
 
-- default selected build profile: `max`
-- default resolved own-engine build model: `gpt-5.4`
+- default selected build profile: `pro`
+- default resolved own-engine build model: `gpt-5.3-codex`
 - default prompt-assist model: `openai/gpt-5.4`
 - default polish model: `openai/gpt-5.3-codex`
 

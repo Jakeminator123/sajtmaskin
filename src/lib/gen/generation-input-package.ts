@@ -1,18 +1,20 @@
 /**
- * Canonical fan-in type for own-engine generation.
+ * Canonical orchestration/system fan-in type for own-engine generation.
  *
- * Every signal the model needs — scaffold, routes, contracts, brief, theme,
- * prompts — is consolidated into this single artifact before generation.
- * Callers should treat this as the sole source of truth for what was fed
- * into the LLM (and optionally log/persist it for lineage).
+ * Captures the system-side inputs that shape generation before the LLM call:
+ * scaffold, routes, contracts, brief, theme, dynamic context, and lineage.
+ * User-turn and chat history are still assembled separately by the API/pipeline
+ * layer, so this artifact should be read as the canonical source of truth for
+ * orchestration/system assembly — not the entire completions request.
  */
 import { createHash } from "node:crypto";
 
 import type { OrchestrationBase, OrchestrationInput } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
+import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 
 export interface GenerationInputPackage extends OrchestrationBase {
-  /** User's original prompt text. */
+  /** User-turn text that shaped orchestration/system assembly for this run. */
   userPrompt: string;
   /** Structured brief (deep brief) when available. */
   brief: Record<string, unknown> | null;
@@ -22,6 +24,10 @@ export interface GenerationInputPackage extends OrchestrationBase {
   engineSystemPrompt: string;
   /** Dynamic-only context for plan mode, prompt dump, and debug. */
   dynamicContext: string;
+  /** Token budgeting / pruning applied to dynamic context (see `buildBudgetedSystemPrompt`). */
+  dynamicContextPruning: DynamicContextPruning;
+  /** Structured observability for the dynamic prompt blocks before/after pruning. */
+  dynamicContextBlocks: DynamicContextBlockTrace[];
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
 }
@@ -68,11 +74,15 @@ export function serializePackageForDump(
     scaffoldMode: pkg.scaffoldMode,
     scaffoldId: pkg.resolvedScaffold?.id ?? null,
     scaffoldFamily: pkg.resolvedScaffold?.family ?? null,
+    scaffoldSelection: pkg.scaffoldSelection ?? null,
     buildSpec: pkg.buildSpec,
     routePlan: pkg.routePlan,
+    orchestrationContract: pkg.orchestrationContract,
     contracts: pkg.preGenerationContracts,
     capabilityHints: pkg.scaffoldAndCapability,
     engineSystemPromptLength: pkg.engineSystemPrompt.length,
     dynamicContextLength: pkg.dynamicContext.length,
+    dynamicContextPruning: pkg.dynamicContextPruning,
+    dynamicContextBlocks: pkg.dynamicContextBlocks,
   };
 }

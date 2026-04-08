@@ -135,6 +135,7 @@ export function buildOwnEngineGenerationStreamMeta(
     imageGenerations: input.resolvedImageGenerations,
     scaffoldId: input.scaffoldId,
     scaffoldFamily: input.scaffoldFamily,
+    scaffoldSelection: orch.scaffoldSelection ?? null,
     capabilities: orch.capabilities,
     contractDataMode: orch.preGenerationContracts.contracts.dataMode,
     contractDatabaseProvider: orch.preGenerationContracts.contracts.databaseProvider ?? null,

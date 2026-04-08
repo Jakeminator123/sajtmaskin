@@ -28,7 +28,8 @@ Machine-oriented companion:
 | `versionId` / `engine_versions.id` | version state | canonical | The specific saved version within a chat |
 | `sandboxId` | tier-2 runtime/session | legacy canonical | Internal/legacy tier-2 runtime/session ID carried behind public preview-session APIs |
 | `previewUrl` | public API/client | canonical | The public preview/live URL field |
-| `sandboxUrl` / `sandbox_url` | version/runtime state | legacy structural | Legacy preview field/column name still used in storage/internal state |
+| `sandboxUrl` | version/runtime state | legacy structural | Legacy internal/session variable name in parts of preview/runtime flow |
+| `preview_url` | DB column (`engine_versions`) | canonical | Persisted tier-2 preview URL in Postgres |
 | `VERCEL_PROJECT_ID` | Vercel auth/config | canonical in Vercel scope | Vercel project ID, not a Sajtmaskin project identifier |
 
 ## Preview lane vs verify lane
@@ -57,6 +58,17 @@ The quality-gate / server-verify lane is isolated from the live preview:
 - may run `npm install`, `npx tsc --noEmit`, `npx next build`, and optional lint
 - does not expose a live preview URL
 
+Generated/exportable Next projects ship a minimal `eslint.config.mjs` and `npm run lint`
+in the scaffold baseline, so lint is available when a caller explicitly requests it.
+That does **not** change the default tier-2 contract: live preview still optimizes for
+`npm run dev`, and the default verify-gate remains install + typecheck unless a route
+or operator explicitly asks for `build` and/or `lint`.
+
+Background `server-verify` is allowed to be a little stricter than live tier-2 preview:
+it may include `lint` in its own verify profile so lint failures become part of the
+existing repair context. The important boundary is unchanged: this is still the same
+quality-gate / repair architecture, not a separate lint-fix subsystem.
+
 ### App-side quality gate (Sajtmaskin API, not `POST /preview/verify`)
 
 Engine-routen `POST /api/engine/chats/[chatId]/quality-gate` accepterar en `checks`-lista; **minst en** check krävs (tom lista avvisas vid validering).
@@ -69,6 +81,17 @@ När alla verify-resultat är godkända och `SAJTMASKIN_VISUAL_QA` är på kan S
 Samma villkor och filurval delas av `maybeAnalyzeVisualQAForPassedExportable()` i `src/lib/gen/preview-quality-gate.ts` (anropas från quality-gate-routen, `repair/route.ts` och `server-verify.ts`). Sammanfattningstext för DB vid promote/fail styrs av `describeQualityGateVerification()` i samma modul.
 
 ## Public app/API contracts
+
+### SSE boundary from finalize (`done` -> preview start)
+
+After finalize, stream contract should be read as:
+
+- `done` = version is persisted (not that preview is already live)
+- `done.previewPending` = preview bootstrap is expected
+- `done.previewUrlHint` = optional temporary VM boot hint
+- `preview-ready` / `build-error` = actual preview start outcome
+
+`previewUrlHint` must not be treated as persisted live `previewUrl` in version APIs.
 
 ### Tier-2 preview bootstrap
 
@@ -116,6 +139,14 @@ Stable contract types:
 - `PreviewHeartbeatApiJson`
 - `PreviewHibernateApiJson`
 - `PreviewDestroyApiJson`
+
+`PreviewStatusApiJson.reason` (when present) uses these stable values:
+
+- `preview_session_not_configured`
+- `no_session`
+- `session_bound_to_other_version`
+- `preview_session_id_mismatch`
+- `provider_not_running_or_unreachable`
 
 ## Preview-host contracts
 
@@ -179,7 +210,7 @@ categories unless a dedicated migration removes them:
 |---|---|---|
 | HTML | `<iframe sandbox="...">` | Browser attribute; unrelated to tier-2 naming. |
 | Preview-host / HTTP paths | `/preview/session/:sandboxId/status`, `GET /preview/logs/:sandboxId` | Route segments on the VM host; renaming requires host + client rollout. |
-| Storage / Redis | `sandbox-preview:session:` prefix, `sandbox_url` column | Persisted keys and columns — migration scope. |
+| Storage / Redis | `sandbox-preview:session:` prefix, legacy `sandbox*` JSON/session fields | Persisted keys/values — migration scope. |
 | Wire / SSE / API fields | `sandboxId`, `sandboxUrl`, `sandboxPending`, `sandbox_disabled` stage | Backwards-compatible payloads until versioned. |
 | Heuristics | hostname contains `sandbox`, `.vercel.run` | Detecting legacy preview URLs, not product naming. |
 | Provider copy | Resend/email “sandbox mode” | Third-party terminology. |
@@ -194,5 +225,5 @@ If another agent is cleaning unrelated areas, the safest rule is:
 
 - touch `preview-session` / `preview-status` / `preview-heartbeat` / `preview-hibernate` / `preview-destroy`
   only when the change is explicitly about preview/Fly behavior
-- treat `sandboxUrl`, `sandbox_url`, and `sandboxId` as **legacy structural names**
+- treat `sandboxUrl` and `sandboxId` as **legacy structural names** in runtime/session layers
   unless the task is a dedicated migration of storage/tests/docs

@@ -7,8 +7,13 @@ import { repairGeneratedFiles } from "./repair-generated-files";
  * from stored version files. Every surface that exports, downloads, verifies,
  * or previews a project MUST use this function to guarantee consistency.
  *
- * Steps: scaffold merge → dependency completion → deterministic repairs.
+ * Steps: scaffold merge → UI component resolution → dependency completion → deterministic repairs.
+ *
+ * Async because the UI component reader is loaded via dynamic import to keep
+ * its `fs.readFileSync` calls out of Turbopack's static bundle analysis.
  */
-export function buildExportableProject(generatedFiles: CodeFile[]): CodeFile[] {
-  return repairGeneratedFiles(buildCompleteProject(generatedFiles)).files;
+export async function buildExportableProject(generatedFiles: CodeFile[]): Promise<CodeFile[]> {
+  const { collectRequiredUiComponents } = await import("./project-scaffold-ui-reader");
+  const uiComponents = collectRequiredUiComponents(generatedFiles);
+  return repairGeneratedFiles(buildCompleteProject(generatedFiles, uiComponents)).files;
 }

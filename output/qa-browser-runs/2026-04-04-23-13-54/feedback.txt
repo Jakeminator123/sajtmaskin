@@ -1,0 +1,12 @@
+SAJTMASKIN QA — SAMMANFATTNING
+Datum: 2026-04-04
+Personas: 1
+Lyckade: 1/1
+Snittpoäng: 0%
+Total tid: 8 min
+=== PER PERSONA ===
+OK | Saga (Influencer/content i Malmö) — 0%, 0 sidor
+=== ALLA FÖRBÄTTRINGSFÖRSLAG ===
+  1. [preview] Check preview_host (Fly.io VM) health and sandbox-preview route for errors
+=== VANLIGASTE FELEN ===
+  iframe-accessible: 1 personas

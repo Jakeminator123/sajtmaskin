@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { SYSTEM_PROMPT_SEPARATOR } from "./system-prompt";
@@ -29,9 +29,32 @@ function isPromptDumpEnabled(): boolean {
   return v === "1" || v === "true" || v === "yes";
 }
 
+function readExistingMeta(dir: string): Record<string, unknown> | null {
+  const metaPath = join(dir, "meta.json");
+  if (!existsSync(metaPath)) return null;
+  try {
+    return JSON.parse(readFileSync(metaPath, "utf8")) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function writePromptDumpMeta(
+  dir: string,
+  payload: Record<string, unknown>,
+): void {
+  writeFileSync(
+    join(dir, "meta.json"),
+    JSON.stringify(payload, null, 2) + "\n",
+    "utf8",
+  );
+}
+
 /**
  * Writes files under data/prompt-dumps/<category>/ (overwrites same names each time).
- * No-op unless SAJTMASKIN_PROMPT_DUMP=1 (or true/yes).
+ * When dumping is disabled we still refresh meta.json so dashboards can mark
+ * existing `latest.*` artifacts as stale-risk instead of pretending they were
+ * refreshed by the current run.
  */
 /** Split own-engine full `system` on the standard separator; writes latest codegen dumps. */
 export function dumpOwnEngineCodegenFromFullSystem(
@@ -56,24 +79,40 @@ export function writeLatestPromptDump(
   files: Record<string, string>,
   meta?: Record<string, unknown>,
 ): void {
-  if (!isPromptDumpEnabled()) return;
   const dir = PROMPT_DUMP_DIR_BY_CATEGORY[category];
   mkdirSync(dir, { recursive: true });
+  const now = new Date().toISOString();
+  const dumpingEnabled = isPromptDumpEnabled();
+  if (!dumpingEnabled) {
+    const existingMeta = readExistingMeta(dir);
+    writePromptDumpMeta(dir, {
+      category,
+      dumpingEnabled: false,
+      status: "disabled",
+      statusUpdatedAt: now,
+      dumpedAt:
+        existingMeta && typeof existingMeta.dumpedAt === "string"
+          ? existingMeta.dumpedAt
+          : null,
+      ...meta,
+    });
+    return;
+  }
+
+  const writtenFiles = Object.keys(files).filter(
+    (name) => name && !name.includes("..") && !name.includes("/") && !name.includes("\\"),
+  );
   for (const [name, content] of Object.entries(files)) {
     if (!name || name.includes("..") || name.includes("/") || name.includes("\\")) continue;
     writeFileSync(join(dir, name), content, "utf8");
   }
-  writeFileSync(
-    join(dir, "meta.json"),
-    JSON.stringify(
-      {
-        dumpedAt: new Date().toISOString(),
-        category,
-        ...meta,
-      },
-      null,
-      2,
-    ) + "\n",
-    "utf8",
-  );
+  writePromptDumpMeta(dir, {
+    dumpedAt: now,
+    statusUpdatedAt: now,
+    category,
+    dumpingEnabled: true,
+    status: "written",
+    writtenFiles,
+    ...meta,
+  });
 }

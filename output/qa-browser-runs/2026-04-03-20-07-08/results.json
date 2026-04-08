@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 105640,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "Error: Build setup failed: Project creation failed: Failed query: select \"id\", \"email\", \"password_hash\", \"name\", \"image\", \"provider\", \"google_id\", \"github_id\", \"github_username\", \"github_token\", \"diamonds\", \"tier\", \"email_verified\", \"verification_token\", \"verification_token_expires\", \"created_at\", \"updated_at\", \"last_login_at\" from \"users\" where \"users\".\"id\" = $1 limit $2\nparams: Na2CFASaKYvY9YemKjzCM,1",
+    "authenticated": false
+  }
+]

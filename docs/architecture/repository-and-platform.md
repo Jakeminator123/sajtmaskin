@@ -1,6 +1,6 @@
 # Repository, terminologi och plattformsintegrationer
 
-**Senast uppdaterad:** 2026-03-27
+**Senast uppdaterad:** 2026-04-08
 
 ## Terminologi (mappar och lager)
 
@@ -30,6 +30,26 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 - **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/template-library/full_template_refresh.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
+- **Prompt-dump-status** delas mellan panelerna via `scripts/dashboard_shared.py`.
+
+### Tre separata mallspår
+
+1. **`v0-mallar` / builderns Mallar-tab**
+   - källa: `templates_v0/*`
+   - genererade runtimefiler: `src/lib/templates/*`
+   - används i builderns mallkatalog och mallsök
+   - embeddings: `src/lib/templates/template-embeddings.json`
+
+2. **Vercel-mallar / externa referenser**
+   - källa: `e2e/vercel-templates/*`
+   - rå pipeline: `data/external-template-pipeline/*`
+   - används för extern research, dossiers och scaffold research
+   - embeddings: `src/lib/gen/template-library/template-library-embeddings.json`
+
+3. **Scaffolds**
+   - källa: interna `manifest.ts`-filer under `src/lib/gen/scaffolds/*`
+   - används direkt av own-engine som runtime-startpunkter för codegen
+   - embeddings: `src/lib/gen/scaffolds/scaffold-embeddings.json`
 
 ## Kända fel och autofix
 
@@ -41,12 +61,13 @@ Own-engine är **enda** codegen-väg. `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` �
 
 1. **API-versionering** — `/api/v0/...` är Sajtmaskins HTTP-API v0, inte leverantören V0.
 2. **Naming debt** — symboler som `v0ChatId`, `v0EnrichmentContext`, `v0Stream.ts` m.fl. kvarstår historiskt; interna namn rensas löpande, payload-/DB-nycklar bryts inte utan migrationsplan.
-3. **Template-källa** — mallgalleriet läser genererad katalog i `src/lib/templates/`; `scripts/template-library/sync-v0-templates.mjs` läser enbart lokala `templates_v0/out`-manifest (ingen online-hämtning). `templates_v0/` innehåller lokalt nedladdade ZIP-arkiv, bilder och metadata för alla mallar. När en lokal ZIP finns i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från repo-filerna i arkivet; detta är separat från Vercel template research.
+3. **Template-källa** — builderns `v0-mallar` läser genererad katalog i `src/lib/templates/`; `scripts/v0-templates/sync-v0-templates.mjs` läser enbart lokala `templates_v0/out`-manifest (ingen online-hämtning). `templates_v0/` innehåller lokalt nedladdade ZIP-arkiv, bilder och metadata för alla mallar. När en lokal ZIP finns i `templates_v0/downloads/` initierar builderns mallflöde own-engine direkt från repo-filerna i arkivet; detta är separat från Vercel-mallar / externa referenser.
 
-## Vercel Templates / Playwright / scorefolds
+## Vercel Templates / Playwright / extern intake
 
-- Discovery pipeline, Playwright-spec, koppling till scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
-- `data/external-template-pipeline/reference-library/` och dess **dossiers** är build-time researchmaterial. Runtime own-engine läser inte dossiers direkt; `build-template-library.ts` kondenserar dem först till `src/lib/gen/template-library/template-library.generated.json` och `src/lib/gen/scaffolds/scaffold-research.generated.json`, som sedan används av `system-prompt.ts` och scaffold-registret.
+- Discovery pipeline, Playwright-spec och koppling till externa referenser/scaffold-kandidater: [`e2e/README.md`](../../e2e/README.md), [`scripts/README.md`](../../scripts/README.md), [`../schemas/external-template-pipeline-contract.md`](../schemas/external-template-pipeline-contract.md).
+- `e2e/vercel-templates/*` är **automatiserad extern intake**, inte runtime.
+- `data/external-template-pipeline/reference-library/` och dess **dossiers** är build-time researchmaterial. Runtime own-engine läser inte dossiers direkt; `build-template-library.ts` kondenserar dem först till `src/lib/gen/template-library/template-library.generated.json` och `src/lib/gen/scaffolds/scaffold-research.generated.json`, som sedan används som referens-/researchartefakter i scaffold- och promptflöden.
 
 ## Inspector / Playwright worker
 
@@ -54,7 +75,11 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 
 ## Övrigt
 
-- **Config dashboard (Streamlit)** vs `docs/`: `config/dashboard/` (se `config/dashboard/domain-map.json`).
+- **Config dashboard (Streamlit)**: `config/dashboard/app.py` är konfigurations- och översiktspanel för `config/*`, vissa docs/rules, runtime-scaffolds, template-pipelineöversikt och prompt-dump-status. Det är inte en egen runtime-källa.
+- **Scriptpanel (Tkinter)**: `scripts/scripts_dashboard.py` är pipeline-/artifactpanel för rebuild, embeddings, scaffolds, externa referenser, parity och prompt-dump-status.
+- **Delad dashboardlogik**: `scripts/dashboard_shared.py` bär gemensam statuslogik för prompt-dumps så att panelerna inte driver isär i kategorier, filnamn eller statusord.
+- **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
+- **Cursor slash-kommandon**: repo-lokala kommandon kan ligga i `.cursor/commands/` och användas via `/...` i Cursor-chatten, t.ex. `/avslutning` för slutstädning/sync/verify/ship.
 - **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.
 - **D-ID / avatar**: isolerad pilotyta under `src/app/avatar/`, med bridge-rutter i `src/app/api/did/` och komponenter i `src/components/avatar/`. `D-ID` är medvetet avskilt från den vanliga widgeten tills ett separat beslut tas om bredare inbäddning.
 - **Orchestrator i Cursor**: borttaget; äldre planhistorik i git under `docs/plans/avklarat/` (se [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).

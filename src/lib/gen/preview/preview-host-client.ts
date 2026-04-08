@@ -12,7 +12,11 @@ export function isPreviewHostDiskFullMessage(message: string | null | undefined)
 }
 
 export function describePreviewHostHttpFailure(params: {
-  endpoint: "/preview/session/start" | "/preview/session/destroy" | "/preview/verify";
+  endpoint:
+    | "/preview/session/start"
+    | "/preview/session/destroy"
+    | "/preview/session/hibernate"
+    | "/preview/verify";
   status: number;
   body: Record<string, unknown>;
 }): string {
@@ -329,7 +333,7 @@ export async function hibernatePreviewHostSession(params: {
     }
     if (!res.ok) {
       const msg = describePreviewHostHttpFailure({
-        endpoint: "/preview/session/destroy",
+        endpoint: "/preview/session/hibernate",
         status: res.status,
         body,
       });
@@ -350,7 +354,7 @@ export async function runPreviewHostQualityGate(params: {
   chatId: string;
   versionId: string;
   filesJson: Record<string, string>;
-  checks: Array<"typecheck" | "build" | "lint">;
+  checks: ReadonlyArray<"typecheck" | "build" | "lint">;
 }): Promise<PreviewHostVerifyOk | PreviewHostVerifyErr> {
   const base = getPreviewHostBaseUrl();
   if (!base) {
@@ -396,8 +400,9 @@ export async function runPreviewHostQualityGate(params: {
               if (!entry || typeof entry !== "object") return null;
               const row = entry as Record<string, unknown>;
               const check = typeof row.check === "string" ? row.check : "";
-              const output = typeof row.output === "string" ? row.output : "";
               const exitCode = typeof row.exitCode === "number" ? row.exitCode : 1;
+              const rawOutput = typeof row.output === "string" ? row.output : "";
+              const output = rawOutput || (row.passed !== true ? `(No ${check || "check"} output captured from verify lane; exit ${exitCode}).` : "");
               const passed = row.passed === true;
               const durationMs =
                 typeof row.durationMs === "number" && Number.isFinite(row.durationMs)

@@ -42,16 +42,26 @@ export const OWN_ENGINE_POST_STREAM_PIPELINE = [
 
 export type OwnEnginePostStreamPhaseId = (typeof OWN_ENGINE_POST_STREAM_PIPELINE)[number]["id"];
 
-export const OWN_ENGINE_FINALIZE_FAST_PATH_PHASES: OwnEnginePostStreamPhaseId[] = [
+/**
+ * Phases that always run in the light finalize path (`runDeepPath === false`).
+ * `verifier` is intentionally excluded because it is gated by deep-path policy
+ * in `resolveVerifierPassPolicy()` inside `finalize-version.ts`.
+ */
+export const OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES: OwnEnginePostStreamPhaseId[] = [
   "autofix",
   "url_expand",
   "validate_syntax",
-  "verifier",
   "parse_merge_preflight",
 ];
 
+/**
+ * Phases that are only considered when deep path is active.
+ * `materialize_images` runs on deep path; `verifier` is deep-path gated and can
+ * still be skipped by additional policy checks.
+ */
 export const OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES: OwnEnginePostStreamPhaseId[] = [
   "materialize_images",
+  "verifier",
 ];
 
 const POST_STREAM_PHASE_ID_SET = new Set<string>(

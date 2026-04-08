@@ -1451,39 +1451,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isLoading={vm.isDeployReadinessLoading}
           />
           <ProjectEnvVarsPanel
-              v0ProjectId={vm.v0ProjectId}
-              appProjectId={vm.appProjectId}
-              chatId={vm.chatId}
-              activeVersionId={vm.activeVersionId}
-            />
-          {needsAnalysisState && !needsAnalysisState.ready && (
-            <div className="shrink-0 border-b border-border/30 px-3 py-2">
-              <div className="flex items-center gap-3">
-                <div className="relative h-8 w-8">
-                  <svg width={32} height={32} className="-rotate-90">
-                    <circle cx={16} cy={16} r={12} fill="none" stroke="currentColor" strokeWidth={2.5} className="text-muted/20" />
-                    <circle cx={16} cy={16} r={12} fill="none" stroke="var(--accent-orange, hsl(var(--primary)))" strokeWidth={2.5} strokeLinecap="round"
-                      strokeDasharray={2 * Math.PI * 12}
-                      strokeDashoffset={2 * Math.PI * 12 * (1 - needsAnalysisState.completionRatio)}
-                      className="transition-all duration-500"
-                    />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold tabular-nums text-foreground">
-                    {needsAnalysisState.answeredFields.length}/{needsAnalysisState.answeredFields.length + needsAnalysisState.missingFields.length}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-foreground/80">
-                    {needsAnalysisState.completionRatio >= 0.85
-                      ? "Nästan klart — sista detaljerna"
-                      : needsAnalysisState.completionRatio >= 0.5
-                        ? "Halvvägs! Bilden klarnar"
-                        : "Vi formar din sajt..."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+            externalProjectId={vm.externalProjectId}
+            appProjectId={vm.appProjectId}
+            chatId={vm.chatId}
+            activeVersionId={vm.activeVersionId}
+          />
           <div className="relative min-h-0 flex-1 overflow-hidden">
             <MessageList
               chatId={vm.chatId}

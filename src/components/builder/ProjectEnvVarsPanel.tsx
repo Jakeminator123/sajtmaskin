@@ -109,7 +109,7 @@ type McpPrioritiesResponse = {
 };
 
 interface ProjectSettingsPanelProps {
-  v0ProjectId: string | null;
+  externalProjectId: string | null;
   appProjectId: string | null;
   chatId: string | null;
   activeVersionId: string | null;
@@ -170,7 +170,7 @@ function isValidEnvKey(value: string): boolean {
 // ---------------------------------------------------------------------------
 
 export function ProjectEnvVarsPanel({
-  v0ProjectId,
+  externalProjectId,
   appProjectId,
   chatId,
   activeVersionId,
@@ -208,10 +208,16 @@ export function ProjectEnvVarsPanel({
   const [showSetupWizard, setShowSetupWizard] = useState(false);
 
   const envVarCount = envVars.length;
-  const hasRealV0Project = Boolean(v0ProjectId && !isSyntheticV0ProjectId(v0ProjectId));
-  const hasSyntheticV0Project = Boolean(v0ProjectId && isSyntheticV0ProjectId(v0ProjectId));
-  const effectiveEnvProjectId = hasRealV0Project ? v0ProjectId : appProjectId ?? v0ProjectId ?? null;
-  const marketplaceProjectId = hasRealV0Project ? v0ProjectId : null;
+  const hasRealExternalProject = Boolean(
+    externalProjectId && !isSyntheticV0ProjectId(externalProjectId),
+  );
+  const hasSyntheticExternalProject = Boolean(
+    externalProjectId && isSyntheticV0ProjectId(externalProjectId),
+  );
+  const effectiveEnvProjectId = hasRealExternalProject
+    ? externalProjectId
+    : appProjectId ?? externalProjectId ?? null;
+  const marketplaceProjectId = hasRealExternalProject ? externalProjectId : null;
   const hasProjectContext = Boolean(effectiveEnvProjectId);
 
   const applyPreferredEnvKeys = useCallback((preferredKeys: string[]) => {
@@ -242,7 +248,7 @@ export function ProjectEnvVarsPanel({
       setSyntheticProject(false);
       return;
     }
-    if (hasSyntheticV0Project && !appProjectId) {
+    if (hasSyntheticExternalProject && !appProjectId) {
       setEnvVars([]);
       setError(null);
       setSyntheticProject(true);
@@ -270,7 +276,7 @@ export function ProjectEnvVarsPanel({
     } finally {
       setIsLoading(false);
     }
-  }, [appProjectId, effectiveEnvProjectId, hasSyntheticV0Project]);
+  }, [appProjectId, effectiveEnvProjectId, hasSyntheticExternalProject]);
 
   const loadIntegrationStatus = useCallback(async () => {
     try {
@@ -1321,10 +1327,10 @@ export function ProjectEnvVarsPanel({
                 <code>.env.local</code>.
               </div>
 
-              {appProjectId && !hasRealV0Project && (
+              {appProjectId && !hasRealExternalProject && (
                 <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-100">
                   Egna motorn sparar dessa projektvariabler i Sajtmaskins projektdata och skickar dem
-                  vidare vid publicering. När ett riktigt v0-projekt finns används dess projektvariabler i
+                  vidare vid publicering. När ett riktigt externt projekt finns används dess projektvariabler i
                   stället.
                 </div>
               )}
@@ -1383,7 +1389,7 @@ export function ProjectEnvVarsPanel({
               {syntheticProject && !appProjectId && (
                 <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                   Projektet har just nu ett tillfälligt ID. Du kan redan se vilka nycklar sajten verkar
-                  behöva, men själva projektvariablerna kan först sättas när ett riktigt v0-project skapas.
+                  behöva, men själva projektvariablerna kan först sättas när ett riktigt externt projekt skapas.
                 </div>
               )}
 

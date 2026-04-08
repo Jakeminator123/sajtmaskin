@@ -1,10 +1,10 @@
 # Preview, VM och deploy
 
-**Senast uppdaterad:** 2026-04-05 (preview/version-lifecycle uppdaterad)
+**Senast uppdaterad:** 2026-04-08 (tier-2 gate vs VM bootstrap tydliggjord)
 
-**Terminologinot:** den relevanta tier-2-previewen just nu är **VM / `preview_host` via Fly.io**. Publika app-routes använder `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy` och `preview-hibernate`. Ordet **`sandbox`** lever fortfarande kvar i DB-kolumner (`sandbox_url`), vissa interna typer, legacy Redis-nycklar och några interna wrapper-moduler. **Quality gate / server-verify** kör nu också via preview-host, men i en **separat verify-lane** och inte i samma workspace som live-previewn.
+**Terminologinot:** den relevanta tier-2-previewen just nu är **VM / `preview_host` via Fly.io**. Publika app-routes använder `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy` och `preview-hibernate`. Ordet **`sandbox`** lever fortfarande kvar i vissa interna typer, legacy Redis-nycklar och några interna wrapper-moduler, medan DB-kolumnen i `engine_versions` nu är **`preview_url`**. **Quality gate / server-verify** kör nu också via preview-host, men i en **separat verify-lane** och inte i samma workspace som live-previewn.
 
-**Operativt kördokument** för own-engine → finalize → tier-2-preview → iframe. Intent, leveranser och kodpekare: denna fil + [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md) (backlog/beslut).
+**Operativt kördokument** för own-engine → finalize → tier-2-preview → iframe. Intent, leveranser och kodpekare: denna fil + [`../../5-steg.txt`](../../5-steg.txt) (samlad 5-stegsbild och kvarvarande problemområden).
 
 ## End-to-end: own-engine som ägare och Fidelity 2
 
@@ -15,7 +15,7 @@
 1. `POST /api/engine/chats/stream` är builderns kanoniska stream-route för own-engine. `/api/v0/chats/stream` är en compat-wrapper runt samma handler.
 2. **Finalize** (`finalize-version.ts`) kör autofix, validering, merge, preflight och sparar **`files_json`** på versionen.
 3. `startPreviewSession` (kanoniskt interface i `src/lib/gen/preview/preview-session.ts`) bygger fullt projekt och startar sedan **preview_host** över HTTP (VM via Fly.io). Tier-2 i aktiv runtime är preview-host only; `SAJTMASKIN_PREVIEW_HOST_BASE_URL` måste vara satt för att preview ska kunna starta. Runtime-/path-nyckeln är **own-engine `chatId`**, inte appens `appProjectId`.
-4. Vid lyckad sessionskapande: **`engine_versions.sandbox_url`** sätts fortfarande (legacy kolumnnamn), men publika app-svar använder **`previewUrl`** och **`previewSessionId`** via `/preview-session`-kontraktet. Klienten visar **Fidelity 2**. **Tier-1 shim** (`/api/preview-render`) är borttagen ur standardflödet och lever bara kvar som legacy/diagnostik.
+4. Vid lyckad sessionskapande: **`engine_versions.preview_url`** uppdateras, medan publika app-svar använder **`previewUrl`** och **`previewSessionId`** via `/preview-session`-kontraktet. Klienten visar **Fidelity 2**. **Tier-1 shim** (`/api/preview-render`) är borttagen ur standardflödet och lever bara kvar som legacy/diagnostik.
 
 **Preview mode idag:** public contract har fortfarande `previewMode`, `previewTier` och valfritt `prodBuildVerified`, men den aktiva preview-host-startvägen returnerar i praktiken `previewMode: "dev_only"` och `previewTier: 2`. Verify/build ligger i separat lane, inte i live-previewns runtime.
 
@@ -27,7 +27,7 @@
 
 - `engine_chats` / `engine_messages` för chatt- och körmetadata
 - `engine_versions.files_json` för det genererade filträdet
-- `engine_versions.sandbox_url` för senaste lyckade tier-2-preview (legacy fältnamn, även för `preview_host`)
+- `engine_versions.preview_url` för senaste lyckade tier-2-preview
 
 `project_data` finns kvar som **app-/builder-snapshot** (t.ex. `chat_id`, legacy `demo_url`, UI-meta, vissa importerade filer/messages), men ska **inte** behandlas som primär källa för sparad own-engine-kod när en version redan finns i `engine_versions`.
 
@@ -56,21 +56,22 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | `previewBlocked` | Betyder att ingen previewyta kan exponeras för versionen; shimfel ensamt ska inte längre stoppa tier-2 | `should-start-preview.ts`, `generation-stream.ts` |
 | Tier-2 provider | `preview_host` (HTTP) är den aktiva tier-2-vägen | `preview-session.ts`, `tier2-config.ts`, `preview-host-client.ts`, `tier2-resume.ts` |
 | Readiness | Preview-host svarar med startad session + publik URL; appen normaliserar host/root URL och litar sedan på status/heartbeat-livscykeln | `preview-session.ts`, `tier2-config.ts`, `preview-status/route.ts` |
-| Preview-only | Publika `done`-/GET-svar har `previewUrl: null` medan `previewPending` kan vara true; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` eller `sandboxUrl` som legacy fältnamn | `generation-stream.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
+| Preview-only | Publika `done`-/GET-svar har `previewUrl: null` medan `previewPending` kan vara true; `previewUrlHint` i `done` är endast en tillfällig boot-hint och ska inte behandlas som färdig `previewUrl` | `generation-stream.ts`, `generation-stream-post-finalize.ts`, `stream-handlers.ts`, `PreviewPanel.tsx` |
 | HTTP API | Meningsfulla statuskoder + `retryable` för `/preview-session` | `preview-errors.ts`, `preview-session/route.ts` |
 | Bootstrap-retry | Klienten respekterar `retryable`, **500** med `retryable: true`, `Retry-After` | `preview-bootstrap-retry.ts`, `useBuilderPageController.ts` |
-| Session / lease | `POST preview-heartbeat` — vid `no_session` / `session_mismatch` triggar klienten `handlePreviewSessionSuspect`; `GET preview-status` med `running` men annan URL än iframe → uppdatera preview-URL + refresh (telemetri `sandbox_url_resync`). Recover är nu provider-agnostisk via `tryResumeTier2Runtime`. Klient-API: `preview-session/api.ts`. | `preview-heartbeat/route.ts`, `preview-status/route.ts`, `tier2-resume.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `usePreviewSession.ts`, `useBuilderVmPreview.ts` |
+| Session / lease | `POST preview-heartbeat` uppdaterar bara aktiv session när samma chat+version+session-id fortfarande gäller; dold flik schemalägger `preview-hibernate` efter grace period och `pagehide` försöker hibernatera direkt. `GET preview-status` används för recover/url-resync och ska inte i sig vara den sak som håller previewn vid liv. Recover är provider-agnostisk via `tryResumeTier2Runtime`. Klient-API: `preview-session/api.ts`. | `preview-heartbeat/route.ts`, `preview-status/route.ts`, `tier2-resume.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `usePreviewSession.ts`, `useBuilderVmPreview.ts` |
 | Repair-versioner | När server-verify eller manuell repair skapar en ny promotad version markeras den tidigare repair-källan som ersatt/superseded i stället för att lämnas kvar i `repairing`. UI visar detta som `Omtag`. | `server-verify.ts`, `repair/route.ts`, `chat-repository-pg.ts`, `engine-version-lifecycle.ts`, `VersionHistory.tsx` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `preview-session.ts` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` följer fortfarande med i telemetri och startparams, men aktiv preview-startväg är preview-host `dev_only` | `build-spec.ts`, `preview-session.ts`, `generation-stream-post-finalize.ts` |
 | Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; preview-lifecycle loggar `preview_ready` / `preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `preview/lifecycle-telemetry.ts` |
 | Finalize fast/deep path | Lätta follow-ups kan stanna på finalize fast path och hoppa över deep-path-steg som bildmaterialisering, verifier och polish | `finalize-version.ts`, `finalize-pipeline-contract.ts` |
 | VM-resume | Session återanvänds **före** `buildCompleteProject` när session matchar | `preview-session.ts`, `tier2-resume.ts` |
+| Versionsrullning | Ny version på samma `chatId` återanvänder normalt samma preview-session / path och restartar runtime med nya filer i stället för att skapa en helt separat långlivad lane per version | `preview-session.ts`, `preview-host/src/server.js`, `preview-host/src/runtime.js` |
 | Scaffold | Pinnade versioner i standard-`package.json` (minimal `^`-drift) | `project-scaffold.ts` |
 | Tester | Bl.a. `httpStatusForPreviewSessionFailure`, bootstrap-retry, preview-gate, repair-idempotens | `*.test.ts` under `src/lib/gen`, `src/lib/builder` |
 | Vitest / config-mock | `route.test.ts` mockar `REDIS_KEY_PREFIX` m.m. när `redis.ts` laddas | `src/app/api/v0/chats/stream/route.test.ts` |
 
-**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se backlog i [`PROJECT-STATE-AND-DIRECTION.md`](../plans/active/PROJECT-STATE-AND-DIRECTION.md).
+**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se problemområdena i [`../../5-steg.txt`](../../5-steg.txt) och [`../plans/active/remaining-focus-after-5-step.md`](../plans/active/remaining-focus-after-5-step.md).
 
 **Vit / tom preview:** operativ runbook + checklista — [`preview-white-screen-runbook.md`](./preview-white-screen-runbook.md). Kort hjälptext visas i byggarens iframe-overlay (`previewRunbookLinesForCode` i `preview-diagnostics.ts`).
 
@@ -80,10 +81,10 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 | Tier | Vad | Ungefär |
 |------|-----|--------|
-| 2 — **Runtime preview** | `preview_host` (VM) bakom appens `preview-*`-kontrakt. Kör `npm run dev`, **inte** `npm run build`; preview-sessionen återanvänds eller hibernateras via status/heartbeat/destroy/hibernate. | Enda live-preview i produkt-UI |
+| 2 — **Runtime preview** | `preview_host` (VM) bakom appens `preview-*`-kontrakt. Kör `npm run dev`, **inte** `npm run build`; preview-sessionen återanvänds eller hibernateras via status/heartbeat/destroy/hibernate och har nu en enhetlig maxtid på ungefär 1 timme. | Enda live-preview i produkt-UI |
 | 3 — **Build-check** | lockfile-aware install (npm/pnpm) + `tsc` / `next build` / ev. `eslint` i preview-hosts verify-lane | Validering närmare produktion utan att röra live-previewn |
 
-> **Tier-2 verify-gate:** Alla quality gate-vägar (server-verify, klient post-check, API-default och preview-host fallback) kör default bara `install` + `typecheck` (`TIER2_QUALITY_GATE_CHECKS`). `next build` hör till tier-3/deploy-kontexten och körs inte automatiskt vid tier-2 dev-preview. `INTERACTIVE_QUALITY_GATE_CHECKS` och `PROMOTION_QUALITY_GATE_CHECKS` finns kvar som konstanter men används inte i standardflödet.
+> **Tier-2: två spår — iframe vs verify-gate.** Själva **preview-sessionen** på VM kör fortfarande `npm install` + `npm run dev` så att iframen får en dev-server (`preview-session.ts`). Den **asynkrona quality-gate** som post-checks kan trigga mot preview-host verify-lanen använder däremot default bara **`typecheck`** (`TIER2_QUALITY_GATE_CHECKS` i `quality-gate-checks.ts`) — alltså inte samma lista som bootstrappen. `next build` hör till tier-3/deploy-kontexten. Background `server-verify` kan använda `SERVER_VERIFY_QUALITY_GATE_CHECKS` (`typecheck` + `lint`). `INTERACTIVE_QUALITY_GATE_CHECKS` och `PROMOTION_QUALITY_GATE_CHECKS` finns för explicitare flöden.
 
 ## ID och nycklar
 
@@ -97,14 +98,15 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 **Viktig skillnad:** `preview_host` använder i nuläget **`chatId` som route/runtime-key**. `appProjectId` används separat för projektkoppling och env-merge, inte som publik preview-host-path.
 
-**Produktintent:** **tier-2-URL** (lagrad internt som legacy `sandboxUrl` / `sandbox_url`) är den enda iframe-källan för live-preview. Publik HTTP-yta använder `previewUrl` / `previewSessionId`. Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `preview-session.ts` → `PreviewPanel.tsx`.
+**Produktintent:** **tier-2-URL** (lagrad i `engine_versions.preview_url`; vissa interna lager använder fortfarande legacy-variabler som `sandboxUrl`) är den enda iframe-källan för live-preview. Publik HTTP-yta använder `previewUrl` / `previewSessionId`. Fel (`502`, HMR-brus) och sekvens: följ `generation-stream.ts` → `preview-session.ts` → `PreviewPanel.tsx`.
 
 ## Preview-URL-kedja (legacy `demoUrl` finns kvar internt)
 
-1. Efter `done` i SSE är **tier-2 preview** den enda produktpreviewytan. I publika event/svar är `previewUrl` och `legacyShimPreviewUrl` **`null`** tills preview-sessionen är redo; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` eller `sandboxUrl`.
-2. Kanoniska filer för preview-start är **`filesJson` efter finalize** (merge + preflight), inte rå `contentForVersion`.
-3. Om tier-2 är konfigurerad och versionen inte är `previewBlocked`: `startPreviewSession` → `preview-ready` / `build-error`. Preview-host returnerar publik URL och session-id; status/recover går sedan via `preview-status` / `preview-heartbeat` / `preview-destroy` / `preview-hibernate`.
-4. `engine_versions.sandbox_url` uppdateras fortfarande internt vid lyckad preview-start.
+1. Efter `done` i SSE är **tier-2 preview** den enda produktpreviewytan. `done` betyder att versionen är sparad, inte att preview redan är live. I publika event/svar är `previewUrl` och `legacyShimPreviewUrl` **`null`** tills preview-sessionen är redo; äldre interna eller lagrade payloads kan fortfarande bära `demoUrl` eller `sandboxUrl`.
+2. `done.previewPending` betyder att preview-start väntas efter finalize. `done.previewUrlHint` är en tillfällig VM-hint under boot och får inte ersätta `preview-ready` eller `preview-session` som källa för faktisk live-URL.
+3. Kanoniska filer för preview-start är **`filesJson` efter finalize** (merge + preflight), inte rå `contentForVersion`.
+4. Om tier-2 är konfigurerad och versionen inte är `previewBlocked`: `startPreviewSession` → `preview-ready` / `build-error`. Preview-host returnerar publik URL och session-id; status/recover går sedan via `preview-status` / `preview-heartbeat` / `preview-destroy` / `preview-hibernate`.
+5. `engine_versions.preview_url` uppdateras vid lyckad preview-start.
 
 **HTTP GET `/api/engine/chats/[chatId]` och `.../versions`** (v0-yta finns som compat): publikt fält är `previewUrl`; för own-engine är det **`null`** som huvudsignal tills preview-sessionen finns. Live-preview ligger internt i legacyfältet **`sandboxUrl`**. Shim till `/api/preview-render` exponeras som **`legacyShimPreviewUrl`** (när `canExposeEnginePreview` tillåter), inte som primär preview-signal. DB-kolumnen är fortfarande `demo_url`, och inbound legacy-payloads tolkas via `resolveInboundPreviewUrl()`. Klienten använder preview-sessionen först och null + bootstrap när ingen aktiv session finns, i stället för att låsa iframe till shim som standard. Varje GET till `/api/preview-render` loggas med prefix **`[telemetry:legacy-preview-render]`** för uppföljning innan ev. borttagning.
 
@@ -113,9 +115,11 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 ### Aktiv preview-session (lease, status, recover)
 
 - **`GET /api/engine/chats/[chatId]/preview-status?versionId=`** (valfritt `&previewSessionId=`; v0-route finns som compat): serverns bild av sessionen — `running` \| `stopped` \| `missing` \| `version_mismatch` samt `previewSessionId`, `previewUrl`, `sessionExpiresAt`, `reason`.
-- **`POST /api/engine/chats/[chatId]/preview-heartbeat`** (v0-route finns som compat): JSON `{ versionId, previewSessionId, viewerId }`. Uppdaterar `lastUsedAt` endast om Redis/minnet fortfarande binder samma chat+version+session-id.
-- **`POST /api/engine/chats/[chatId]/preview-hibernate`** (v0-route finns som compat): bygger vidare på samma session-id och ber preview-hosten att hibernatera runtime-processen utan att rensa sessionnyckeln.
-- **`POST /api/engine/chats/[chatId]/preview-destroy`** (v0-route finns som compat): builderns "Rensa preview" använder nu den här vägen för att aktivt stänga preview-host/Fly-sessionen, rensa session-store och nolla `engine_versions.sandbox_url` för versionen.
+  - Vanliga `reason`-värden: `no_session`, `session_bound_to_other_version`, `preview_session_id_mismatch`, `provider_not_running_or_unreachable` (samt `preview_session_not_configured` när tier-2 saknas).
+- **`POST /api/engine/chats/[chatId]/preview-heartbeat`** (v0-route finns som compat): JSON `{ versionId, previewSessionId, viewerId }`. Uppdaterar `lastUsedAt` endast om Redis/minnet fortfarande binder samma chat+version+session-id. Heartbeat körs från synlig flik ungefär var 25:e sekund.
+- **`POST /api/engine/chats/[chatId]/preview-hibernate`** (v0-route finns som compat): bygger vidare på samma session-id och ber preview-hosten att hibernatera runtime-processen utan att rensa sessionnyckeln. Klienten försöker detta direkt på `pagehide` och efter kort grace period när fliken blir dold.
+- **`POST /api/engine/chats/[chatId]/preview-destroy`** (v0-route finns som compat): builderns "Rensa preview" använder nu den här vägen för att aktivt stänga preview-host/Fly-sessionen, rensa session-store och nolla `engine_versions.preview_url` för versionen.
+- **Sessionstid:** appens preview-session-store och hostens session-TTL är nu båda satta till cirka **1 timme**. Det är den förenklade sanningen för hur länge en preview maximalt ska leva utan ny start/update-cykel.
 - **Klient:** `PreviewPanel` pingar heartbeat ca var 25s (synlig flik) när livscykel är `live`; `previewSessionId` hålls i builder-state från lyckad `preview-session` och SSE `preview-ready`.
 - **Recover:** Misstanke från iframe (t.ex. transportfel, ready-timeout) → status-GET; om inte `running` → tvingad `preview-session` med `forceRestart`, debounce och maxförsök (se `useBuilderPageController`).
 - **Livscykel-UI:** `PreviewLifecycleState` i `src/lib/builder/preview-lifecycle.ts` — `idle` \| `bootstrapping` \| `live` \| `recovering` \| `failed`.
@@ -130,7 +134,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 **Tier-2 preview `.env.local`:** Både **`startPreviewSession`** (builder/UI) och **`generateOwnEngineSiteFromPrompt`** (MCP/own-engine) anropar `buildPreviewEnvLocalContents` (`src/lib/gen/preview/env-local.ts`) som bygger merged `.env.local` i VM — globala placeholders från `config/ai_models/40-generated-site-integration-placeholders.env.txt`, projekt-preview-token, lagrade projekt-env, sist genererad `.env.local` om modellen skrev en (senare vinner). Se `config/user_degraded_env.txt` och avsnittet *Genererade användarsajter* i [`docs/ENV.md`](../ENV.md).
 
-**Scaffold-beroenden:** Standard-`package.json` i `project-scaffold.ts` använder **exakta versionsnummer** (inga `^`) för reproducerbara `npm install` i sandbox. Paket som `runDepCompleter` lägger till från import-scan kan fortfarande använda intervall — okända paket kräver manuell pin.
+**Scaffold-beroenden:** Standard-`package.json` i `project-scaffold.ts` använder **exakta versionsnummer** (inga `^`) för reproducerbara `npm install` i sandbox. Paket som `runDepCompleter` lägger till från import-scan kan fortfarande använda intervall — okända paket kräver manuell pin. Baseline-projektet innehåller nu också ett litet, självständigt `eslint.config.mjs` och `npm run lint`, men det är **stöd i projektet**, inte en signal att tier-2-preview automatiskt måste köra lint på varje preview-start.
 
 ### ERESOLVE / peer-dependency-fel vid `npm install`
 
@@ -179,9 +183,10 @@ Tier 2 är **inte** ett enda alltid-igång subsystem. `preview_host` är en sepa
 
 ## Tier-2 provider config
 
-- **Preview-host som aktiv väg:** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY` (samma secret som `PREVIEW_HOST_API_KEY` på hosten när den kör icke-lokalt), och `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` för klientens host-detektion.
+- **Preview-host som aktiv väg:** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY` (samma secret som `PREVIEW_HOST_API_KEY` på hosten när den kör icke-lokalt), och `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` för klientens host-detektion. Hosten skriver preview-data under `/data` när `PREVIEW_HOST_DATA_DIR=/data` är satt i host-konfigen.
 - **Ingen preview-selector behövs längre:** appen använder preview-host som tier-2-väg när `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt.
-- **Verifiering/validering:** quality-gate, server-verify och repair re-check använder preview-hosts separata verify-lane. Den kör i isolerad workspace och återanvänder inte live-previewns dev-workspace. Installsteget är lockfile-aware (`npm ci` med `package-lock.json`, `pnpm install --frozen-lockfile` med `pnpm-lock.yaml`, annars `npm install`). **Tier-2 server-verify kör bara `typecheck`** — `next build` körs inte automatiskt. Interaktiv quality gate kan inkludera build/lint. Verify-workspaces rensas efter varje jobb, och preview-hostens cleanup (`POST /admin/cleanup`, API-key-skyddad) rensar nu även stale preview-workspaces / utgångna sessioner. App-sidan försöker en cleanup + en enda retry när preview-host svarar med `ENOSPC`.
+- **Verifiering/validering:** quality-gate, server-verify och repair re-check använder preview-hosts separata verify-lane. Den kör i isolerad workspace och återanvänder inte live-previewns dev-workspace. Installsteget är lockfile-aware (`npm ci` med `package-lock.json`, `pnpm install --frozen-lockfile` med `pnpm-lock.yaml`, annars `npm install`). **Tier-2 live-previewns vanliga gate kör default bara `typecheck`, medan background `server-verify` nu använder `typecheck` + `lint`** — `next build` körs inte automatiskt i något av dessa standardflöden. Interaktiv quality gate kan inkludera build/lint. Verify-workspaces rensas efter varje jobb, verify-jobb köas nu lugnare på single-VM-hosts, och preview-hostens cleanup (`POST /admin/cleanup`, API-key-skyddad) rensar stale preview-workspaces / utgångna sessioner. App-sidan försöker en cleanup + en enda retry när preview-host svarar med `ENOSPC`.
+- **Ops-insyn:** preview-hosten exponerar nu också `GET /admin/storage`, `GET /admin/sessions`, `POST /admin/cleanup` och `POST /admin/destroy-all` för drift- och städarbete.
 
 Se även [`docs/ENV.md`](../ENV.md) och `src/lib/env.ts`.
 

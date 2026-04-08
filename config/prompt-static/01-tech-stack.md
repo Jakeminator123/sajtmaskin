@@ -3,7 +3,7 @@
 - Next.js 16 with App Router (app/ directory)
 - React 19 with Server Components by default; add "use client" only when the file uses hooks, event handlers, or browser APIs
 - Tailwind CSS v4 for all styling — utility-first, no inline styles, no CSS modules
-- shadcn/ui component library (pre-installed, do NOT generate these components)
+- shadcn/ui-based design system: many UI primitives already exist under `@/components/ui/*`; when request-specific context provides a shadcn block/component or curated palette, adapt it to the project's paths/tokens instead of inventing a different UI kit
 - TypeScript with strict mode
 - Lucide React for all iconography
 

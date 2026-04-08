@@ -1,0 +1,133 @@
+{
+  "persona": "Björn",
+  "business": "Takläggeri i Norrköping",
+  "authenticated": true,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": true,
+      "detail": "OK"
+    },
+    {
+      "name": "swedish-characters",
+      "passed": true,
+      "detail": "Found å/ä/ö"
+    },
+    {
+      "name": "no-english-body",
+      "passed": true,
+      "detail": "No English phrases"
+    },
+    {
+      "name": "no-lorem-ipsum",
+      "passed": true,
+      "detail": "Clean"
+    },
+    {
+      "name": "has-heading",
+      "passed": true,
+      "detail": "1 H1(s)"
+    },
+    {
+      "name": "has-cta",
+      "passed": true,
+      "detail": "Swedish CTA found"
+    },
+    {
+      "name": "has-images",
+      "passed": true,
+      "detail": "8 images"
+    },
+    {
+      "name": "has-footer",
+      "passed": true,
+      "detail": "Footer present"
+    },
+    {
+      "name": "has-navigation",
+      "passed": true,
+      "detail": "Nav present"
+    },
+    {
+      "name": "content-density",
+      "passed": true,
+      "detail": "1263 words"
+    },
+    {
+      "name": "has-sections",
+      "passed": true,
+      "detail": "8 sections"
+    },
+    {
+      "name": "has-internal-links",
+      "passed": true,
+      "detail": "26 links"
+    },
+    {
+      "name": "has-contact-info",
+      "passed": true,
+      "detail": "Phone/email found"
+    },
+    {
+      "name": "relevant-heading",
+      "passed": true,
+      "detail": "Heading: \"Tak, fasad och plåtarbeten i Norrköping utförda med trygg ha\""
+    }
+  ],
+  "suggestions": [],
+  "score": 1,
+  "pageCount": 7,
+  "navLinks": [
+    "Hem → /52e2987b-f945-401a-8bbb-c8c45033f8df#hem",
+    "Tjänster → /52e2987b-f945-401a-8bbb-c8c45033f8df#tjanster",
+    "Projekt → /52e2987b-f945-401a-8bbb-c8c45033f8df#projekt",
+    "Om oss → /52e2987b-f945-401a-8bbb-c8c45033f8df#om-oss",
+    "Frågor → /52e2987b-f945-401a-8bbb-c8c45033f8df#fragor",
+    "Kontakt → /52e2987b-f945-401a-8bbb-c8c45033f8df#kontakt"
+  ],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-00.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-01.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-02.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-03.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-04.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-05.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-06.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-07.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-08.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-09.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-10.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-11.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-scroll-12.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-hem-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-hem-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-hem-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-tjanster-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-tjanster-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-tjanster-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-projekt-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-projekt-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-projekt-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-om-oss-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-om-oss-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-om-oss-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-fragor-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-fragor-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-fragor-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-kontakt-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-kontakt-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/site-page-kontakt-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-00-30-02/persona-8-bjorn/step-99-final.png"
+  ]
+}

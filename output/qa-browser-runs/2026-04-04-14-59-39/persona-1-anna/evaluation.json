@@ -1,0 +1,132 @@
+{
+  "persona": "Anna",
+  "business": "Frisörsalong i Göteborg",
+  "authenticated": true,
+  "checks": [
+    {
+      "name": "iframe-accessible",
+      "passed": true,
+      "detail": "OK"
+    },
+    {
+      "name": "swedish-characters",
+      "passed": true,
+      "detail": "Found å/ä/ö"
+    },
+    {
+      "name": "no-english-body",
+      "passed": true,
+      "detail": "No English phrases"
+    },
+    {
+      "name": "no-lorem-ipsum",
+      "passed": true,
+      "detail": "Clean"
+    },
+    {
+      "name": "has-heading",
+      "passed": true,
+      "detail": "1 H1(s)"
+    },
+    {
+      "name": "has-cta",
+      "passed": true,
+      "detail": "Swedish CTA found"
+    },
+    {
+      "name": "has-images",
+      "passed": true,
+      "detail": "7 images"
+    },
+    {
+      "name": "has-footer",
+      "passed": true,
+      "detail": "Footer present"
+    },
+    {
+      "name": "has-navigation",
+      "passed": true,
+      "detail": "Nav present"
+    },
+    {
+      "name": "content-density",
+      "passed": true,
+      "detail": "1271 words"
+    },
+    {
+      "name": "has-sections",
+      "passed": true,
+      "detail": "7 sections"
+    },
+    {
+      "name": "has-internal-links",
+      "passed": true,
+      "detail": "28 links"
+    },
+    {
+      "name": "has-contact-info",
+      "passed": true,
+      "detail": "Phone/email found"
+    },
+    {
+      "name": "relevant-heading",
+      "passed": true,
+      "detail": "Heading: \"Klippning, färgning och styling med lugn, känsla och precisi\""
+    }
+  ],
+  "suggestions": [],
+  "score": 1,
+  "pageCount": 6,
+  "navLinks": [
+    "Hem → /d43785da-d7e1-4732-bab0-10924778be39#hem",
+    "Behandlingar → /d43785da-d7e1-4732-bab0-10924778be39#behandlingar",
+    "Galleri → /d43785da-d7e1-4732-bab0-10924778be39#galleri",
+    "Om salongen → /d43785da-d7e1-4732-bab0-10924778be39#om-salongen",
+    "Kontakt → /d43785da-d7e1-4732-bab0-10924778be39#kontakt"
+  ],
+  "screenshots": [
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-01-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-02-landing.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-03-builder-loaded.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-03b-after-chat-send.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-04-site-type.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-05-template.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-06-must-have.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-07-after-popups.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-08-pre-generation.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-09-generation-done.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-overview.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-00.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-01.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-02.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-03.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-04.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-05.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-06.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-07.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-08.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-09.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-10.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-11.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-12.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-13.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-14.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-scroll-15.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-hem-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-hem-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-hem-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-behandlingar-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-behandlingar-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-behandlingar-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-galleri-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-galleri-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-galleri-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-om-salongen-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-om-salongen-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-om-salongen-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-kontakt-top.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-kontakt-mid.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/site-page-kontakt-bottom.png",
+    "/Users/christophergenberg/Desktop/Sajtmaskin_Genberg/output/qa-browser-runs/2026-04-04-14-59-39/persona-1-anna/step-99-final.png"
+  ]
+}

@@ -26,11 +26,12 @@ import {
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
+  buildGenerationInputPackage,
   finalizeOrchestrationPrompts,
   prepareGenerationContext,
   resolveOrchestrationBase,
+  writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
-import { computeLineageHash } from "@/lib/gen/generation-input-package";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
@@ -47,6 +48,7 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context/file-context-builder";
 import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
+import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
 import {
   buildOwnEngineGenerationStreamMeta,
   buildPreGenerationContractGateParams,
@@ -66,8 +68,10 @@ import {
   classifyFollowUpIntent,
   persistFollowUpClarification,
   resolveFollowUpClarification,
+  shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
+import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapper-contract";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
@@ -196,6 +200,10 @@ export async function handleMessageStreamRequest(
           chatId,
           metaEngineBaseVersionId,
         );
+        const existingRoutePaths =
+          previousFiles.length > 0
+            ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
+            : [];
 
         const skipIntentClassification =
           metaPromptSourcePreservePayload ||
@@ -247,43 +255,41 @@ export async function handleMessageStreamRequest(
           });
 
           if (skipIntentClassification) {
-            optimizedMessage = [
-              "## Existing Project Files (reference)",
-              "",
-              "Apply the requested change precisely. Do not modify unrelated sections or files.",
-              "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-              "",
-              fileCtx.summary,
-              "",
-              "---",
-              "",
-              optimizedMessage,
-            ].join("\n");
+            optimizedMessage = wrapWithSection({
+              heading: PROMPT_WRAPPER_HEADINGS.existingProjectFilesReference,
+              introLines: [
+                "Apply the requested change precisely. Do not modify unrelated sections or files.",
+                "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+              ],
+              body: fileCtx.summary,
+              divider: true,
+              trailingBody: optimizedMessage,
+            });
           } else {
             optimizedMessage = [
-              "## Follow-up Editing Mode",
+              wrapWithSection({
+                heading: PROMPT_WRAPPER_HEADINGS.followUpEditingMode,
+                introLines: [
+                  followUpIntent === "clear-redesign"
+                    ? "The user wants a genuine redesign of the existing site, not a small refinement."
+                    : "You are editing an existing project, not starting over.",
+                  followUpIntent === "clear-redesign"
+                    ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
+                    : "Apply the user's requested changes directly to the current files below.",
+                  followUpIntent === "clear-redesign"
+                    ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
+                    : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
+                  followUpIntent === "clear-redesign"
+                    ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
+                    : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+                  followUpIntent === "clear-redesign"
+                    ? "You may still reuse useful content or information architecture from the current project when relevant."
+                    : "",
+                ],
+                body: fileCtx.summary,
+              }),
               "",
-              followUpIntent === "clear-redesign"
-                ? "The user wants a genuine redesign of the existing site, not a small refinement."
-                : "You are editing an existing project, not starting over.",
-              followUpIntent === "clear-redesign"
-                ? "Replace the visual identity, background treatment, layout rhythm, and dominant UI patterns where needed."
-                : "Apply the user's requested changes directly to the current files below.",
-              followUpIntent === "clear-redesign"
-                ? "Rewrite the main experience aggressively enough that the result feels new. You may replace globals.css, app/page.tsx, and other dominant UI files."
-                : "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
-              followUpIntent === "clear-redesign"
-                ? "Do not preserve the previous design language unless the user explicitly asked to keep parts of it."
-                : "Return only the files you need to create or modify. Files you omit will be kept as-is.",
-              followUpIntent === "clear-redesign"
-                ? "You may still reuse useful content or information architecture from the current project when relevant."
-                : "",
-              "",
-              fileCtx.summary,
-              "",
-              "---",
-              "",
-              "## Requested Changes",
+              PROMPT_WRAPPER_HEADINGS.requestedChanges,
               "",
               optimizedMessage,
             ].join("\n");
@@ -294,15 +300,18 @@ export async function handleMessageStreamRequest(
           const latestAnswer = contractAnswerContext.confirmedAnswers.at(-1);
           if (latestAnswer) {
             optimizedMessage = [
-              "## Contract Clarification Answer",
+              wrapWithSection({
+                heading: PROMPT_WRAPPER_HEADINGS.contractClarificationAnswer,
+                introLines: [
+                  "The user is answering the previous contract clarification question. Use this answer to continue the existing generation safely.",
+                  `Question: ${latestAnswer.question}`,
+                  `Answer: ${latestAnswer.answer}`,
+                  "",
+                  "Continue the existing implementation using this confirmed decision. Do not ask the same question again unless the answer is still genuinely insufficient.",
+                ],
+              }),
               "",
-              "The user is answering the previous contract clarification question. Use this answer to continue the existing generation safely.",
-              `Question: ${latestAnswer.question}`,
-              `Answer: ${latestAnswer.answer}`,
-              "",
-              "Continue the existing implementation using this confirmed decision. Do not ask the same question again unless the answer is still genuinely insufficient.",
-              "",
-              "## User Reply",
+              PROMPT_WRAPPER_HEADINGS.userReply,
               "",
               optimizedMessage,
             ].join("\n");
@@ -379,10 +388,13 @@ export async function handleMessageStreamRequest(
         const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
 
         const persistedScaffoldId = engineChat.scaffold_id;
-        const ignorePersistedScaffoldForMatch =
-          previousFiles.length > 0 &&
-          followUpIntent === "clear-redesign" &&
-          metaScaffoldMode === "auto";
+        const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
+          hasPreviousFiles: previousFiles.length > 0,
+          followUpIntent,
+          message,
+          scaffoldMode: metaScaffoldMode,
+          scaffoldId: metaScaffoldId,
+        });
 
         if (metaPlanMode) {
           await chatRepo.addMessage(engineChat.id, "user", message);
@@ -396,6 +408,8 @@ export async function handleMessageStreamRequest(
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
+            routePlanPrompt: message,
+            buildSpecPrompt: message,
             buildIntent: planEngineIntent,
             scaffoldMode: metaScaffoldMode,
             scaffoldId: metaScaffoldId,
@@ -409,6 +423,7 @@ export async function handleMessageStreamRequest(
             generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
+            existingRoutePaths,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,
@@ -512,6 +527,8 @@ export async function handleMessageStreamRequest(
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
         const orchestrationInput = {
           prompt: optimizedMessage,
+          routePlanPrompt: message,
+          buildSpecPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
@@ -527,6 +544,7 @@ export async function handleMessageStreamRequest(
           promptStrategyMeta: promptOrchestration.strategyMeta,
           generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
           ignorePersistedScaffoldForMatch,
+          existingRoutePaths,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -664,7 +682,8 @@ export async function handleMessageStreamRequest(
           }));
         }
         const finalizePromptStartedAt = Date.now();
-        const { engineSystemPrompt } = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
+        const { engineSystemPrompt } = finalized;
         debugLog("orchestration", "Follow-up system prompt finalized", {
           chatId,
           durationMs: Date.now() - finalizePromptStartedAt,
@@ -672,16 +691,13 @@ export async function handleMessageStreamRequest(
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
         });
-        const lineageHash = computeLineageHash({
-          userPrompt: optimizedMessage,
-          brief: metaBrief,
-          scaffoldMode: metaScaffoldMode ?? "auto",
-          scaffoldContext: orchestrationBase.scaffoldContext,
-          routePlan: orchestrationBase.routePlan,
-          preGenerationContracts: orchestrationBase.preGenerationContracts,
-          buildSpec: orchestrationBase.buildSpec,
-          capabilityHints: orchestrationBase.scaffoldAndCapability,
-        });
+        const generationInputPackage = buildGenerationInputPackage(
+          orchestrationBase,
+          orchestrationInput,
+          finalized,
+        );
+        const lineageHash = generationInputPackage.lineageHash;
+        writeOrchestrationDynamicDump(generationInputPackage);
         dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
           route: "POST /api/engine/chats/[chatId]/stream",
           planMode: false,
@@ -728,11 +744,16 @@ export async function handleMessageStreamRequest(
           engineIntent,
           buildSpec: orchestrationBase.buildSpec,
           routePlan: routePlan ?? null,
+          orchestrationContract: orchestrationBase.orchestrationContract,
           resolvedScaffold: resolvedScaffold ?? null,
           urlMap,
           commitCredits: commitCreditsOnce,
           previousFiles: previousFiles.length > 0 ? previousFiles : undefined,
           lineageHash,
+          targetVersionId:
+            metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
+              ? metaEngineBaseVersionId
+              : undefined,
         });
 
         const engineHeaders = new Headers(createSSEHeaders());

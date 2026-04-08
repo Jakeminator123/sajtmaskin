@@ -43,7 +43,7 @@
 
 - Sök serverloggar efter: `preview_failed`, `preview_session_disabled` eller preview-host-fel/timeout från `preview-session`.
 - Klient: `useBuilderPageController` POST `/preview-session` — vid `preview_session_disabled` finns hint i svar.
-- Om buildern visar “Startar live-preview” länge utan iframe-URL: kontrollera `sandboxPending`, preview-status och npm-install-fel i preview-host före du misstänker att preview “bara är statisk”.
+- Om buildern visar “Startar live-preview” länge utan iframe-URL: kontrollera `previewPending`, preview-status och npm-install-fel i preview-host före du misstänker att preview “bara är statisk”.
 
 ---
 

@@ -4,7 +4,11 @@ import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixReactHookImports } from "./react-hook-import-fixer";
 import {
+  buildProjectModuleExportIndex,
+  fixImportedDeclarationConflicts,
+  fixLocalNamedImportDefaultMismatches,
   buildProjectExportIndex,
+  fixLocalDefaultImportMismatches,
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
@@ -104,6 +108,7 @@ async function runAutoFixSinglePass(
 
   const fixedFiles: CodeFile[] = [];
   const exportIndex = buildProjectExportIndex(project.files);
+  const moduleExportIndex = buildProjectModuleExportIndex(project.files);
 
   for (const file of project.files) {
     const isTsxOrJsx =
@@ -230,6 +235,60 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] local-symbol-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3f. local-import-mismatch-fixer — reconcile local default/named import mismatches
+      try {
+        const namedToDefault = fixLocalNamedImportDefaultMismatches(
+          currentCode,
+          file.path,
+          project.files,
+          moduleExportIndex,
+        );
+        if (namedToDefault.fixed) {
+          currentCode = namedToDefault.code;
+          allFixes.push({
+            fixer: "local-named-import-default-fixer",
+            description: `Rewired local named imports to default imports: ${namedToDefault.rewiredImports.join(", ")}`,
+            file: file.path,
+          });
+        }
+
+        const defaultToNamed = fixLocalDefaultImportMismatches(
+          currentCode,
+          file.path,
+          project.files,
+          moduleExportIndex,
+        );
+        if (defaultToNamed.fixed) {
+          currentCode = defaultToNamed.code;
+          allFixes.push({
+            fixer: "local-default-import-fixer",
+            description: `Rewired local default imports to named imports: ${defaultToNamed.rewiredImports.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] local-import-mismatch-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3g. import-declaration-conflict-fixer — drop imports that shadow local declarations
+      try {
+        const conflictResult = fixImportedDeclarationConflicts(currentCode);
+        if (conflictResult.fixed) {
+          currentCode = conflictResult.code;
+          allFixes.push({
+            fixer: "import-declaration-conflict-fixer",
+            description: `Removed conflicting import bindings: ${conflictResult.removedBindings.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] import-declaration-conflict-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

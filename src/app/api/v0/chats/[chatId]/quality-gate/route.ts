@@ -3,4 +3,4 @@
  */
 export { POST } from "@/app/api/engine/chats/[chatId]/quality-gate/route";
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;

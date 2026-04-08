@@ -16,7 +16,7 @@ export async function GET(
     }
     const codeFiles = await getVersionFiles(scopedVersion.version.id);
     if (codeFiles && codeFiles.length > 0) {
-      const completeProject = buildExportableProject(codeFiles);
+      const completeProject = await buildExportableProject(codeFiles);
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       for (const file of completeProject) {

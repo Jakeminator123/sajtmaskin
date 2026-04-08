@@ -23,7 +23,7 @@ export async function buildZipBufferFromEngineVersion(
   if (!files || files.length === 0) {
     return null;
   }
-  const completeProject = buildExportableProject(files);
+  const completeProject = await buildExportableProject(files);
   const zip = new JSZip();
   for (const file of completeProject) {
     const path = typeof file.path === "string" ? file.path.trim() : "";

@@ -1,0 +1,17 @@
+[
+  {
+    "personaId": 1,
+    "name": "Anna",
+    "business": "Frisörsalong i Göteborg",
+    "score": 0,
+    "success": false,
+    "pageCount": 0,
+    "navLinks": [],
+    "suggestionsCount": 0,
+    "durationMs": 72133,
+    "checksTotal": 0,
+    "checksPassed": 0,
+    "error": "TimeoutError: locator.waitFor: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator('button[aria-label=\"Skicka\"]:not([disabled])').first() to be visible\n",
+    "authenticated": false
+  }
+]

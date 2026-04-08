@@ -1,7 +1,7 @@
 import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "./types";
 
-type ScaffoldResearchFile = {
+export type ScaffoldResearchFile = {
   generatedAt: string;
   source: string;
   scaffolds: Record<
@@ -9,6 +9,8 @@ type ScaffoldResearchFile = {
     Pick<ScaffoldManifest, "qualityChecklist" | "research">
   >;
 };
+
+type TemplateResolver = (id: string) => unknown;
 
 const EMPTY_SCAFFOLD_RESEARCH: ScaffoldResearchFile = {
   generatedAt: "",
@@ -39,7 +41,11 @@ function loadScaffoldResearch(): ScaffoldResearchFile {
     if (!rawResearch && FEATURES.strictGeneratedArtifacts && !allowEmptyDuringRebuild) {
       throw new Error("scaffold-research.generated.json loaded empty content");
     }
-    cachedScaffoldResearch = rawResearch ?? EMPTY_SCAFFOLD_RESEARCH;
+    const research = rawResearch ?? EMPTY_SCAFFOLD_RESEARCH;
+    if (FEATURES.strictGeneratedArtifacts && !allowEmptyDuringRebuild) {
+      validateReferenceTemplateIds(research, resolveTemplateLibraryEntryById);
+    }
+    cachedScaffoldResearch = research;
   } catch (error) {
     if (FEATURES.strictGeneratedArtifacts && !allowEmptyDuringRebuild) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -52,6 +58,36 @@ function loadScaffoldResearch(): ScaffoldResearchFile {
   }
 
   return cachedScaffoldResearch;
+}
+
+function resolveTemplateLibraryEntryById(id: string): unknown {
+  // Avoid importing template-library catalog during pipeline rebuild contexts.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getTemplateLibraryEntryById } = require("../template-library/catalog") as
+    typeof import("../template-library/catalog");
+  return getTemplateLibraryEntryById(id);
+}
+
+export function validateReferenceTemplateIds(
+  research: ScaffoldResearchFile,
+  resolveTemplateById: TemplateResolver,
+): void {
+  const missingRefs: string[] = [];
+
+  for (const [scaffoldId, override] of Object.entries(research.scaffolds ?? {})) {
+    for (const reference of override.research?.referenceTemplates ?? []) {
+      if (!resolveTemplateById(reference.id)) {
+        missingRefs.push(`${scaffoldId}:${reference.id}`);
+      }
+    }
+  }
+
+  if (missingRefs.length === 0) return;
+  const examples = missingRefs.slice(0, 6).join(", ");
+  const more = missingRefs.length > 6 ? ` (+${missingRefs.length - 6} more)` : "";
+  throw new Error(
+    `[scaffolds] scaffold-research.generated.json references template ids not present in template-library.generated.json: ${examples}${more}. Rebuild template-library artifacts.`,
+  );
 }
 
 export function getScaffoldResearchOverrides(

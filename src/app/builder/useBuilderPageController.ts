@@ -47,10 +47,11 @@ import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
 import { useBuilderVmPreview } from "./useBuilderVmPreview";
 import { usePreviewSession } from "./usePreviewSession";
-import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
-  isCompatibilityShimPreviewUrl,
-  isTier2LivePreviewUrl,
+  derivePreviewLifecycleState,
+  type PreviewLifecycleState,
+} from "@/lib/builder/preview-lifecycle";
+import {
   isShimOrMissingPreviewUrl,
   normalizePreviewUrl,
   resolveAlternatePreviewUrls,
@@ -80,12 +81,12 @@ export function useBuilderPageController() {
     appProjectId, applyInstructionsOnce, buildIntentParam, buildMethod,
     buildMethodParam, chatId, chatIdParam, currentPreviewUrl, customInstructions,
     designTheme, designSystemId, enableBlobMedia, enableImageGenerations, enableThinking,
-    entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
+    entry, entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
     projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
     selectedVersionId, serverProjectChatId, serverProjectDemoUrl,
     serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId,
     clearedPreviewVersionId,
-    showStructuredChat, source, templateId, v0ProjectId,
+    showStructuredChat, source, templateId, externalProjectId,
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
     setCurrentPreviewUrl, setCurrentPageCode, setCustomInstructions,
@@ -98,10 +99,10 @@ export function useBuilderPageController() {
     setServerProjectChatId, setServerProjectDemoUrl, setServerProjectMessages,
     setServerProjectPreviewOverrideUrl, setServerProjectPreviewOverrideVersionId,
     setClearedPreviewVersionId,
-    setShowStructuredChat, setV0ProjectId,
+    setShowStructuredChat, setExternalProjectId,
     applyingGenerationSettingsRef, autoProjectInitRef, featureWarnedRef,
     hasLoadedInstructions, hasLoadedInstructionsOnce, lastActiveVersionIdRef,
-    lastPaletteSavedRef, lastProjectIdRef, lastSyncedInstructionsRef,
+    lastPaletteSavedRef, lastProjectIdRef,
     loadedGenerationSettingsChatRef, paletteLoadedRef, pendingBriefRef,
     pendingInstructionsOnceRef, pendingInstructionsRef, pendingSpecRef,
     promptAssistContextKeyRef, promptFetchDoneRef,
@@ -220,7 +221,7 @@ export function useBuilderPageController() {
     setApplyInstructionsOnce: state.setApplyInstructionsOnce,
     setDeployNameInput: state.setDeployNameInput,
     setDeployNameDialogOpen: state.setDeployNameDialogOpen,
-    setV0ProjectId: state.setV0ProjectId,
+    setExternalProjectId: state.setExternalProjectId,
     setIsIntentionalReset: state.setIsIntentionalReset,
     setAuthModalReason,
   });
@@ -314,6 +315,16 @@ export function useBuilderPageController() {
     previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
     setPreviewBootstrapRetryNonce: vmPreview.setPreviewBootstrapRetryNonce,
+    onRecoverFailed: ({ reason }) => {
+      setPreviewBuildError({
+        stage: "preview-recover",
+        message:
+          reason === "status_unavailable"
+            ? "Live-preview kunde inte verifieras mot servern efter flera försök."
+            : "Live-preview kunde inte återansluta efter flera försök.",
+      });
+      setPreviewPending(false);
+    },
   });
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
 
@@ -332,7 +343,7 @@ export function useBuilderPageController() {
       chatIdParam: state.chatIdParam,
       router,
       appProjectId: state.appProjectId,
-      linkedProjectId: state.v0ProjectId,
+      linkedProjectId: state.externalProjectId,
       selectedModelTier: state.selectedModelTier,
       enableImageGenerations: state.enableImageGenerations,
       enableImageMaterialization: derived.mediaEnabled,
@@ -359,7 +370,7 @@ export function useBuilderPageController() {
       onPreviewRefresh: bumpPreviewRefreshToken,
       onGenerationComplete: deployActions.handleGenerationComplete,
       onPreviewSessionMeta,
-      onLinkedProjectId: (nextId) => state.setV0ProjectId(nextId),
+      onLinkedProjectId: (nextId) => state.setExternalProjectId(nextId),
       setMessages: state.setMessages,
       resetBeforeCreateChat,
     });
@@ -480,8 +491,8 @@ export function useBuilderPageController() {
 
   // Prompt fetch
   useEffect(() => {
-    if (templateId) return;
-    if (!promptId) return;
+    if (entry.isTemplateEntry) return;
+    if (!entry.shouldFetchPromptHandoff || !promptId) return;
     if (promptFetchDoneRef.current === promptId) return;
     if (promptFetchInFlightRef.current === promptId) return;
     promptFetchInFlightRef.current = promptId;
@@ -565,7 +576,7 @@ export function useBuilderPageController() {
         promptFetchInFlightRef.current = null;
       }
     };
-  }, [templateId, promptId, promptFetchDoneRef, promptFetchInFlightRef, promptFetchRetryNonce, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
+  }, [entry.isTemplateEntry, entry.shouldFetchPromptHandoff, promptId, promptFetchDoneRef, promptFetchInFlightRef, promptFetchRetryNonce, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
 
   // Auth fetch
   useEffect(() => {
@@ -578,17 +589,8 @@ export function useBuilderPageController() {
   }, [buildIntentParam, setBuildIntent]);
 
   useEffect(() => {
-    const normalized = normalizeBuildMethod(buildMethodParam);
-    if (normalized) {
-      setBuildMethod(normalized);
-      return;
-    }
-    if (source === "audit") {
-      setBuildMethod("audit");
-      return;
-    }
-    setBuildMethod(null);
-  }, [buildMethodParam, source, setBuildMethod]);
+    setBuildMethod(entry.buildMethodParam);
+  }, [entry.buildMethodParam, setBuildMethod]);
 
   // Auth modal
   useEffect(() => {
@@ -609,7 +611,11 @@ export function useBuilderPageController() {
   useEffect(() => {
     if (chatIdParam) return;
 
-    const routeRepresentsFreshBuilderEntry = Boolean(projectParam) || hasEntryParams;
+    const routeRepresentsFreshBuilderEntry =
+      entry.entryKind === "prompt-handoff" ||
+      entry.entryKind === "template" ||
+      entry.entryKind === "audit" ||
+      Boolean(projectParam);
     if (!routeRepresentsFreshBuilderEntry) return;
 
     const shouldResetChatState = Boolean(chatId);
@@ -624,7 +630,7 @@ export function useBuilderPageController() {
       setMessages([]);
       setCurrentPreviewUrl(null);
       setSelectedVersionId(null);
-      setV0ProjectId(null);
+      setExternalProjectId(null);
     }
 
     if (shouldResetResolvedPrompt) {
@@ -634,7 +640,7 @@ export function useBuilderPageController() {
   }, [
     chatIdParam,
     projectParam,
-    hasEntryParams,
+    entry.entryKind,
     chatId,
     promptId,
     promptParam,
@@ -645,14 +651,14 @@ export function useBuilderPageController() {
     setMessages,
     setCurrentPreviewUrl,
     setSelectedVersionId,
-    setV0ProjectId,
+    setExternalProjectId,
     setResolvedPrompt,
   ]);
 
   // Load latest chat for project when project is in URL but chatId is not
   useEffect(() => {
     if (!projectParam || chatIdParam || chatId) return;
-    if (hasEntryParams || templateId) return;
+    if (entry.entryKind !== "project-restore") return;
     let isActive = true;
     const controller = new AbortController();
 
@@ -700,7 +706,7 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [projectParam, chatIdParam, chatId, hasEntryParams, templateId, setChatId, router, searchParams]);
+  }, [projectParam, chatIdParam, chatId, entry.entryKind, setChatId, router, searchParams]);
 
   // Legacy localStorage cleanup
   useEffect(() => {
@@ -805,7 +811,7 @@ export function useBuilderPageController() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (autoProjectInitRef.current) return;
-    if (appProjectId || projectParam || chatIdParam || promptId || templateId || hasEntryParams) {
+    if (appProjectId || projectParam || chatIdParam || hasEntryParams) {
       return;
     }
     autoProjectInitRef.current = true;
@@ -849,13 +855,12 @@ export function useBuilderPageController() {
           }
         }),
     );
-  }, [appProjectId, projectParam, chatIdParam, promptId, templateId, hasEntryParams, autoProjectInitRef, setAppProjectId, router, searchParams]);
+  }, [appProjectId, projectParam, chatIdParam, hasEntryParams, autoProjectInitRef, setAppProjectId, router, searchParams]);
 
   // Entry intent sync
   useEffect(() => {
-    const hasIntent = Boolean(promptParam || promptId || source === "audit");
-    setEntryIntentActive(hasIntent);
-  }, [promptParam, promptId, source, setEntryIntentActive]);
+    setEntryIntentActive(entry.entryKind === "prompt-handoff" || entry.entryKind === "audit");
+  }, [entry.entryKind, setEntryIntentActive]);
 
   useEffect(() => {
     if (chatId) setEntryIntentActive(false);
@@ -1003,54 +1008,6 @@ export function useBuilderPageController() {
       /* ignore */
     }
   }, [chatId, customInstructions, hasLoadedInstructions]);
-
-  // V0 project instructions sync
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!v0ProjectId || !hasLoadedInstructions.current) return;
-    if (applyInstructionsOnce) return;
-    const normalized = customInstructions.trim();
-    const last = lastSyncedInstructionsRef.current;
-    if (last && last.v0ProjectId === v0ProjectId && last.instructions === normalized) return;
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 10_000);
-
-    fetch("/api/v0/projects/instructions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({ projectId: v0ProjectId, instructions: normalized }),
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = (await res.json().catch(() => null)) as unknown;
-          const errorMessage =
-            err && typeof err === "object" && "error" in err
-              ? (err as { error?: unknown }).error
-              : null;
-          const msg =
-            typeof errorMessage === "string"
-              ? errorMessage
-              : `Failed to sync project instructions (HTTP ${res.status})`;
-          throw new Error(msg);
-        }
-        lastSyncedInstructionsRef.current = {
-          v0ProjectId: v0ProjectId!,
-          instructions: normalized,
-        };
-      })
-      .catch((error) => {
-        if (error instanceof Error && error.name === "AbortError") return;
-        debugLog("builder", "Failed to sync project instructions", {
-          projectId: v0ProjectId,
-          error: error instanceof Error ? error.message : "Unknown error",
-        });
-      })
-      .finally(() => {
-        window.clearTimeout(timeoutId);
-      });
-  }, [v0ProjectId, customInstructions, applyInstructionsOnce, hasLoadedInstructions, lastSyncedInstructionsRef]);
 
   // Apply-instructions-once load / save
   useEffect(() => {
@@ -1210,9 +1167,9 @@ export function useBuilderPageController() {
 
   // Audit prompt loaded
   useEffect(() => {
-    if (source !== "audit") return;
+    if (!entry.isAuditEntry) return;
     if (!promptId) setAuditPromptLoaded(true);
-  }, [source, promptId, setAuditPromptLoaded]);
+  }, [entry.isAuditEntry, promptId, setAuditPromptLoaded]);
 
   // Chat not found
   useEffect(() => {
@@ -1232,22 +1189,25 @@ export function useBuilderPageController() {
     router.replace("/builder");
   }, [chatId, isChatError, router, setChatId, setCurrentPreviewUrl, setMessages, pendingBriefRef, pendingSpecRef]);
 
-  // V0 project id sync
+  // External project id sync
   useEffect(() => {
     if (!chatId) {
-      setV0ProjectId(null);
+      setExternalProjectId(null);
       return;
     }
-    if (derived.chatV0ProjectId && derived.chatV0ProjectId !== v0ProjectId) {
-      setV0ProjectId(derived.chatV0ProjectId);
+    if (
+      derived.chatExternalProjectId &&
+      derived.chatExternalProjectId !== externalProjectId
+    ) {
+      setExternalProjectId(derived.chatExternalProjectId);
     }
-  }, [chatId, derived.chatV0ProjectId, v0ProjectId, setV0ProjectId]);
+  }, [chatId, derived.chatExternalProjectId, externalProjectId, setExternalProjectId]);
 
   // Reset selected version on chat change
   useEffect(() => {
     setSelectedVersionId(null);
-    setV0ProjectId(null);
-  }, [chatId, setSelectedVersionId, setV0ProjectId]);
+    setExternalProjectId(null);
+  }, [chatId, setSelectedVersionId, setExternalProjectId]);
 
   useEffect(() => {
     if (!selectedVersionId) return;
@@ -1356,16 +1316,17 @@ export function useBuilderPageController() {
     }
   }, [derived.activeVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
 
-  const previewLifecycle: PreviewLifecycleState = useMemo(() => {
-    if (previewBuildError?.stage === "preview_session_disabled") return "failed";
-    if (previewSessionRecovering) return "recovering";
-    if (previewPending) return "bootstrapping";
-    if (previewBuildError) return "failed";
-    const url = normalizePreviewUrl(currentPreviewUrl);
-    if (url && isTier2LivePreviewUrl(url)) return "live";
-    if (url && !isCompatibilityShimPreviewUrl(url)) return "live";
-    return "idle";
-  }, [previewBuildError, previewSessionRecovering, previewPending, currentPreviewUrl]);
+  const previewLifecycle: PreviewLifecycleState = useMemo(
+    () =>
+      derivePreviewLifecycleState({
+        previewBuildErrorStage: previewBuildError?.stage ?? null,
+        hasPreviewBuildError: Boolean(previewBuildError),
+        previewSessionRecovering,
+        previewPending,
+        currentPreviewUrl,
+      }),
+    [previewBuildError, previewSessionRecovering, previewPending, currentPreviewUrl],
+  );
 
   // Prompt assist context fetch
   useEffect(() => {
@@ -1562,7 +1523,7 @@ export function useBuilderPageController() {
     deploymentInspectorUrl: deploymentStatus.inspectorUrl,
     deployReadiness,
     isDeployReadinessLoading,
-    v0ProjectId: state.v0ProjectId,
+    externalProjectId: state.externalProjectId,
     paletteState: state.paletteState,
     currentPreviewUrl: state.currentPreviewUrl,
     previewBuildError,
