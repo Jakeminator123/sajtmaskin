@@ -155,7 +155,34 @@ heavy
 - persisted/data-tyngre flöden
 
 
-7. Två GUI-paneler
+7. Post-codegen / Steg 4 (finalize)
+----------------------------------
+
+Efter own-engine codegen (stream) körs finalizeAndSaveVersion:
+  src/lib/gen/stream/finalize-version.ts
+
+Grovt flode:
+  autofix -> url_expand -> validate_syntax -> (ev. materialize_images om deep path)
+  -> (ev. verifier-pass om deep path + policy) -> parse_merge_preflight -> sparad version
+
+Telemetry:
+  - "fast+deep" = kör deep path (bildmaterialisering enligt policy)
+  - "fast-only" = smal finalize (t.ex. lätt follow-up): hoppar över bildsteg och verifier i finalize
+
+Asynk efter finalize (gräns till Steg 5):
+  - server-verify / tier-2 quality gate: src/lib/gen/server-verify.ts
+
+Viktiga gränssignaler runt preview:
+  - previewPending = preview väntas efter finalize
+  - previewUrlHint = temporär VM-hint i done-event
+  - legacyShimPreviewUrl = äldre shim/fallback, inte primär tier-2-preview
+
+Kanonisk karta:
+  - docs/architecture/step4-post-generation.md
+  - docs/plans/active/step4-quality-hotspots-and-verification.md
+
+
+8. Två GUI-paneler
 ------------------
 
 A) config/dashboard/app.py
@@ -167,7 +194,8 @@ B) scripts/scripts_dashboard.py
    - Pipeline-/artifactpanel
    - Fokuserar på rebuild, embeddings, scaffolds, externa referenser, parity och status
 
-Prompt-dumps delas nu som gemensam debugyta mellan panelerna:
+
+9. Prompt-dumps delas nu som gemensam debugyta mellan panelerna:
 - data/prompt-dumps/orchestration-dynamic
   - latest.md
   - generation-input-package.json
@@ -188,26 +216,35 @@ Gemensam statuslogik ligger i:
 - scripts/dashboard_shared.py
 
 
-8. Rekommenderad nästa genomgång
---------------------------------
+10. Rekommenderad nästa genomgång (bakåt mot aktiv LLM-kedja)
+-------------------------------------------------------------
 
 Steg 1
-- Granska prompt-dumps och stale-risk
+- Builder-entry, ingress, ID-termer
 
 Steg 2
-- Granska scaffoldstorlek och vilka filer som faktiskt bör vara scaffold files[]
+- Scaffold, route plan, BuildSpec, contracts
 
 Steg 3
-- Bygg faktisk LLM-input: statisk prompt, dynamisk kontext, budgetar, prioritering/pruning och exakt vad modellen far
+- Faktisk LLM-input: llm-input-blocks.md, DynamicContextPruning
 
 Steg 4
-- Granska externa referenser / template-library och hur mycket de faktiskt hjälper
+- Finalize, validate, verifier, preflight, server-verify (se step4-post-generation.md)
 
 Steg 5
-- Städa kvarvarande restspår i scripts/template-library och övriga hjälpspår
+- Preview, VM/preview_host, materialisering, uppföljning
+
+Separat (inte samma som Steg 4/5 i kedjan):
+- template-library / extern pipeline-städ när tid finns
+
+Andra återkommande begrepp att hålla isär:
+- entryKind = normaliserad builder-ingress
+- externalProjectId = extern/legacy projektidentitet, inte appProjectId
+- compat-routes / v0 streams = bakåtkompatibla HTTP-ytor, inte separat motor
+- prompt-dumps = observability, inte source of truth
 
 
-9. Source of truth - snabblista
+11. Source of truth - snabblista
 -------------------------------
 
 Terminologi:
@@ -225,8 +262,11 @@ Konfigurationsöversikt:
 Builder / LLM-flöde:
 - docs/architecture/builder-generation.md
 
+Steg 4 post-stream:
+- docs/architecture/step4-post-generation.md
+
 Tvargaende arbetsregel:
-- runtime-kod forst
+- runtime-kod först
 - sedan verifiering
 - sedan docs/dashboard-sync
 

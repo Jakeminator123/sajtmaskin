@@ -102,6 +102,7 @@ Not runtime dependencies:
 | **Arkitektur** (fyra kapitel) | [`docs/architecture/README.md`](architecture/README.md) |
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
 | Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/builder-generation.md`](architecture/builder-generation.md) |
+| Steg 4: finalize / validate / verifier / preflight | [`docs/architecture/step4-post-generation.md`](architecture/step4-post-generation.md) |
 | Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) |
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Plans (all buckets) | `docs/plans/README.md` |

@@ -8,7 +8,7 @@
   },
   "pages": {
     "Översikt": {
-      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För stegvis LLM-kedja (builder → modell): se LLM_KEDJA_STEG_FOR_STEG.txt och SYSTEMKARTA_SAJTMASKIN.txt i repo-roten.",
+      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För stegvis LLM-kedja (builder → modell): se LLM_KEDJA_STEG_FOR_STEG.txt och SYSTEMKARTA_SAJTMASKIN.txt i repo-roten. Steg 4 (finalize/validering): docs/architecture/step4-post-generation.md.",
       "canonicalPaths": [
         "config/codegen-static-prompt.json",
         "config/prompt-static/",
@@ -21,7 +21,8 @@
         "docs/architecture/repository-and-platform.md",
         "config/dashboard/domain-map.json",
         "LLM_KEDJA_STEG_FOR_STEG.txt",
-        "SYSTEMKARTA_SAJTMASKIN.txt"
+        "SYSTEMKARTA_SAJTMASKIN.txt",
+        "docs/architecture/step4-post-generation.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"
@@ -59,7 +60,7 @@
       ]
     },
     "ai_models": {
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-input-blocks.md. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-input-blocks.md. Post-stream finalize/verifier/server-verify: docs/architecture/step4-post-generation.md. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
       "canonicalPaths": [
         "config/ai_models/manifest.json",
         "config/ai_models/*.md",
@@ -70,7 +71,9 @@
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
         "docs/architecture/builder-generation.md",
-        "docs/architecture/llm-input-blocks.md"
+        "docs/architecture/llm-input-blocks.md",
+        "docs/architecture/step4-post-generation.md",
+        "docs/plans/active/step4-quality-hotspots-and-verification.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"

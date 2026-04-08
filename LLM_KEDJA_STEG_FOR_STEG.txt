@@ -143,3 +143,32 @@ Vad ska vi kunna svara pa?
 Verifiering:
 - src/lib/gen/system-prompt.test.ts
 - src/lib/gen/llm-input-scenarios.test.ts
+
+
+STEG 4 — GENERERA (CODEGEN), FINALISERA, VALIDERA (POST-STREAM)
+---------------------------------------------------------------
+
+Kallor:
+- docs/architecture/step4-post-generation.md (ordning, fast-only vs fast+deep, Steg 4/5-gräns)
+- docs/plans/active/step4-quality-hotspots-and-verification.md (prioriterade riskytor + testplan)
+- src/lib/gen/stream/finalize-version.ts (finalizeAndSaveVersion)
+- src/lib/gen/stream/finalize-pipeline-contract.ts (fas-id:n)
+- src/lib/gen/autofix/validate-and-fix.ts (syntax + LLM-fixer)
+- src/lib/gen/verifier-pass.ts (read-only verifier efter syntax, kan hoppas över på fast-only)
+- src/lib/gen/server-verify.ts (asynk efter finalize — inte samma pipeline som finalize)
+
+Vad är input?
+- Rå stream-output (ackumulerat innehåll) + orkestreringsmetadata (BuildSpec, route plan, urlMap, scaffold, ev. previousFiles).
+
+Vad är output?
+- Sparad engine-version med files_json, assistant-meddelande, preflight-loggar/telemetry, ev. failed verification state.
+
+Vad ska vi kunna svara på?
+- Vilken är den exakta stegordningen efter stream?
+- Vad är blocking jämfört med telemetry-only?
+- När körs «fast-only» finalize och vad hoppas över (bilder + verifier i finalize)?
+- Var slutar Steg 4 och var börjar preview/tier-2 (Steg 5)?
+- Hur ska `previewPending`, `previewUrlHint` och `legacyShimPreviewUrl` tolkas utan att blanda ihop finalize med preview-start?
+
+Verifiering (se hotspots-dokumentet):
+- Riktade tester / manuella scenarier för finalize-path policy, preflight blocking och server-verify-loop.

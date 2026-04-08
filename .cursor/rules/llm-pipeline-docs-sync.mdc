@@ -15,12 +15,17 @@ globs:
   - src/lib/gen/autofix/**
   - src/lib/gen/autofix/rules/**
   - src/lib/gen/stream/finalize-version.ts
+  - src/lib/gen/stream/finalize-pipeline-contract.ts
+  - src/lib/gen/stream/finalize-preflight.ts
+  - src/lib/providers/own-engine/generation-stream-post-finalize.ts
   - src/lib/gen/server-verify.ts
   - src/lib/gen/autofix/llm-fixer.ts
   - src/lib/gen/autofix/fixer-prompt.ts
   - src/lib/gen/autofix/validate-and-fix.ts
   - src/app/api/engine/chats/*/repair/**
   - src/lib/gen/verifier-pass.ts
+  - docs/architecture/step4-post-generation.md
+  - docs/plans/active/step4-quality-hotspots-and-verification.md
   - config/ai_models/manifest.json
 ---
 
@@ -32,11 +37,13 @@ När du ändrar builder-entry, scaffoldval, route plan, pre-generation contracts
 
 1. **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, finalize/repair/preview-kedja och relaterade beskrivningar.
 2. **`docs/architecture/llm-input-blocks.md`** — när faktisk LLM-input, budget/pruning eller system vs user-turn ändras i `system-prompt.ts` / `tokens.ts` / `generation-input-package.ts`.
-3. Relevanta kanoniska kontrakt/översikter:
+3. **`docs/architecture/step4-post-generation.md`** — när post-stream-ordning, finalize-path policy (fast-only vs fast+deep), blocking/preflight eller gräns Steg 4/5 ändras i `finalize-version.ts` / `finalize-preflight.ts` / `validate-and-fix.ts` / `verifier-pass.ts` / `server-verify.ts`.
+4. **`docs/plans/active/step4-quality-hotspots-and-verification.md`** — när prioriterad kvalitets-/testplan för Steg 4 ändras (sällan; vid större omstrukturering av finalize).
+5. Relevanta kanoniska kontrakt/översikter:
    - **`docs/schemas/builder-entry-contract.md`** — när builder-ingång, `entryKind`, ID-termer eller legacy-ingress ändras.
    - **`docs/schemas/scaffold-contract.md`** — när scaffold-kontrakt, traits, research eller runtime-serialisering ändras.
-   - **`SYSTEMKARTA_SAJTMASKIN.txt`** och **`LLM_KEDJA_STEG_FOR_STEG.txt`** — när mindmap, stegkedja eller faktisk LLM-input förändras.
-4. **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
+   - **`SYSTEMKARTA_SAJTMASKIN.txt`** och **`LLM_KEDJA_STEG_FOR_STEG.txt`** — när mindmap, stegkedja, LLM-input **eller Steg 4 post-stream** förändras.
+6. **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
 
 ## Uppdatera vid behov
 

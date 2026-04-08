@@ -19,6 +19,9 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 | **`DynamicContextPruning`** | Budget/pruning för dynamisk systemkontext (vilka block som behölls/kapades) | `buildDynamicContext` → `GenerationInputPackage` / prompt-dump `meta.json` | Steg 3-observability |
 | **User-turn** | Senaste användarmeddelandet i chat/completions | API → pipeline | ska inte dupliceras som extra «original request» i systemprompten |
 | **`RoutePlan.provenance`** | Källspårning för route-plan (`primarySource` + `sources[]`) | `src/lib/gen/route-plan.ts` | route-struktur, BuildSpec, preflight/post-checks |
+| **codegen** | Steget där own-engine-generatorn **producerar** stream/kod (före finalize) | `src/lib/gen/engine.ts`, stream-handlers | inte samma sak som orkestrering eller finalize |
+| **finalize / `finalizeAndSaveVersion`** | Post-stream-kedja: autofix → url → syntaxfix → ev. bilder/verifier → parse/merge/preflight → **sparad version** | `src/lib/gen/stream/finalize-version.ts` | inte preview-start; se `docs/architecture/step4-post-generation.md` |
+| **verifier-pass** | Read-only LLM-granskning **efter** syntax i finalize (kan hoppas över på «fast-only»-finalize) | `src/lib/gen/verifier-pass.ts` | inte `server-verify`; inte syntaxparser |
 | **persisted scaffold** | Tidigare scaffold-id som återanvänds i samma chat om inte follow-up låser upp det | `engine_chats.scaffold_id`, `chat-message-stream-post.ts` | scaffold-kontinuitet i follow-ups |
 | **traits** | Högre nivå-metadata om scaffoldens roll (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`) | `src/lib/gen/scaffolds/scaffold-traits.ts` | scaffoldkontext till modellen |
 | **dossiers** | Fullt researchmaterial från externa referenser | `data/external-template-pipeline/reference-library/*` | build-time underlag, inte direkt runtime-input |
@@ -141,6 +144,55 @@ Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 - **Repair / fixer**: eftergenereringskedjor för fel. Deterministisk autofix loopas (`DETERMINISTIC_AUTOFIX_MAX_PASSES`, manifest-styrt), sedan eskalering till LLM-fixer. Fixer-modellen matchar generatorns tier via `resolvePhaseModel(tier, "fixer")`. Alla reparationsparametrar styrs via `repairPolicies` i `manifest.json`.
 - **Prompt wizard**: 5-stegs wizard med AI-drivna adaptiva följdfrågor via `/api/wizard/enrich`. Producerar en rik prompt som sedan kan gå genom deep brief → orchestrering → generation. Inte "12 frågor" — antalet varierar dynamiskt.
 - **Audit / analyze-routes**: separata analysbanor utanför own-engine-build. Blanda inte ihop dem med builderns codegen-flöde.
+
+## Steg 4 — post-stream: codegen, finalize, validering, repair
+
+**Steg 4** (i `LLM_KEDJA_STEG_FOR_STEG.txt`) = **efter codegen-stream**: deterministisk bearbetning, syntaxvalidering/repair, ev. verifier-pass, preflight, **persist av version**. **Steg 5** börjar vid preview/version-materialisering, tier-2 och uppföljning — inte i samma kodsteg som `finalizeAndSaveVersion`, även om SSE fortsätter efter `done`.
+
+| Term | Svenskt / kort | Var i koden | Blanda inte ihop med |
+|------|----------------|-------------|------------------------|
+| **own-engine orchestration** | **Orkestrering före generatorn**: scaffold, route plan, kontrakt, `BuildSpec`, promptfan-in | `resolveOrchestrationBase()`, `orchestrate.ts` | `orchestratePromptMessage()` (promptvakt/budget, **inte** scaffold-val) |
+| **`orchestratePromptMessage()`** | **Promptvakt / budget**: direct/preserved/plan-build/summarize | `src/lib/builder/promptOrchestration.ts` | Orkestrering av scaffold/route plan — annan modul med liknande namn |
+| **codegen** | **Kodgenerering**: LLM stream + ev. verktyg som skriver projektsträng | `engine.ts`, stream routes | Finalize, autofix, preflight |
+| **finalize** | **Efter stream**: göra output till **sparad `files_json`/version** + preflight-loggar | `finalize-version.ts` | Själva LLM-streamen |
+| **`validate` / syntaxvalidering** | Parser/lint-steg i **`validateAndFix`** (blockerar inte alltid sparande — se kod) | `validate-and-fix.ts` | `verification` i DB, `server-verify` |
+| **verification (policy / DB)** | **`BuildSpec.verificationPolicy`**, eller versionsstatus efter preflight/server-verify | `build-spec.ts`, DB | Bara ordet «verify» i UI |
+| **`verifier` / verifier-pass** | **Read-only LLM** i finalize, *efter* syntax | `verifier-pass.ts` | Syntaxfixer, `server-verify` |
+| **`server-verify` / server verification** | **Asynk** quality gate + repair **efter** finalize (tier-2/export), fire-and-forget | `server-verify.ts` | Verifier-pass i finalize |
+| **autofix** | **Deterministiska** fixar före/utanför LLM-fixer | `autofix/pipeline.ts` | LLM-fixer i `validate-and-fix` |
+| **repair / fixer** | **Reparationskedja**: deterministiska pass → LLM-fixer → ev. server-repair | `validate-and-fix.ts`, `repairPolicies` i manifest | Verifier-pass (read-only) |
+| **preflight** | **Förkontroll** inför preview: parse/merge, integration manifest, routes — ger bl.a. `previewBlocking` | `finalize-preflight.ts`, `runFinalizePreflight` | `server-verify` |
+| **quality gate** | **Samlingsnamn** för checks (t.ex. tier-2 `typecheck`, exportable) — ofta **asynk** | `quality-gate-checks.ts`, `preview-quality-gate.ts` | Enstaka syntaxfel |
+| **plan mode** | **Planner-LLM** returnerar plan/JSON, **inte** sajtkod | plan-mode routes + dumps | Codegen-stream |
+| **prompt assist / «Förbättra»** | Före build: skärper/omskriver prompt **utan att bygga** | `/api/ai/chat`, `usePromptAssist` | Codegen |
+| **prompt polish / «Skriv om»** | **Lätt** språk-/tydlighetsredigering av promptfält | polish-modell i manifest | Deep brief, spec-first |
+| **deep brief / site brief** | Strukturerad brief före första build | `site-brief-generation.ts`, `/api/ai/brief` | `WebsiteSpec` (se spec-first) |
+| **spec-first / `WebsiteSpec`** | Brief → strukturerad spec som **extra kontext** i systemprompt | `promptAssistContext.ts` | Självständig codegen |
+| **`/api/v0/`** | **HTTP-prefix** för Sajtmaskins **egna** compat-routes (legacy **namn**, inte v0-leverantör) | `src/app/api/v0/*` | «v0-mallar», v0-sdk (borta) |
+
+**Sandbox / preview / VM i Steg 4–5:** finalize **sparar version** och sätter preflight-blockers; **VM / `preview_host`** startar i **Steg 5**-kedjan. Legacy-fält (`sandboxPending`, `sandboxUrl`) kan fortfarande förekomma — se avsnittet **«Mall, scaffold, preview, sandbox»** nedan i denna fil.
+
+Kanonisk djupkarta: `docs/architecture/step4-post-generation.md`. Rangordnad risk/verifiering: `docs/plans/active/step4-quality-hotspots-and-verification.md`.
+
+## Ingress, compat, SSE och dump-ord
+
+| Term | Svenskt / kort | Var i koden | Blanda inte ihop med |
+|------|----------------|-------------|------------------------|
+| **`entryKind`** | **Normaliserad ingressgren** i buildern (`prompt-handoff`, `template`, `audit`, `project-restore` m.fl.) | `src/app/builder/builder-entry.ts`, `docs/schemas/builder-entry-contract.md` | råa URL-parametrar som `source`, `templateId`, `project` |
+| **`externalProjectId`** | Builder-lagrets namn för **extern/legacy projektidentitet** | `useBuilderState.ts`, `docs/schemas/builder-entry-contract.md` | `appProjectId` |
+| **compat-route / compat-routes** | **Bakåtkompatibel HTTP-yta** som återanvänder kanonisk runtime | främst `src/app/api/v0/*` | separat motor eller separat produktflöde |
+| **`v0 streams`** | Kortnamn för **legacy-kompatibla stream-routes** under `/api/v0/chats/*/stream` | `src/app/api/v0/chats/stream/route.ts`, `src/app/api/v0/chats/[chatId]/stream/route.ts` | gammal v0-provider eller nuvarande codegenmotor |
+| **`previewPending`** | **Gränssignal** i `done`/GET: tier-2-preview väntas efter finalize | `generation-stream-post-finalize.ts`, engine chat-/versions-routes | `previewBlocked` eller färdig `preview-ready` |
+| **`previewUrlHint`** | **Temporär VM-hint** i `done` medan preview bootar | `generation-stream-post-finalize.ts`, `stream-handlers.ts` | persisterad `previewUrl` |
+| **`legacyShimPreviewUrl`** | **Shim-/fallback-URL** till `/api/preview-render` | engine chat-/versions-routes, preview docs | primär tier-2-preview |
+| **`fast-only` finalize** | **Smal finalize** för lätta follow-ups: hoppar över bildmaterialisering + verifier-pass, men kör fortfarande syntax/preflight/persist | `resolveFinalizePathPolicy()` i `finalize-version.ts` | att finalize "inte körs" |
+| **`fast+deep` finalize** | Finalize med **deep path** påslagen | telemetry i `finalize-version.ts` | separat pipeline |
+| **`generation-input-package.json`** | Serialiserat **GenerationInputPackage** för observability | `orchestrate.ts`, `generation-input-package.ts`, prompt-dumps | hela completions-requesten |
+| **`orchestration-dynamic`** | Prompt-dump-kategori för dynamisk kontext + paketdump | `prompt-dump.ts`, `dashboard_shared.py` | `own-engine-codegen` |
+| **`own-engine-codegen`** | Prompt-dump-kategori för full `system` till codegen | `prompt-dump.ts`, `dashboard_shared.py` | `orchestration-dynamic` |
+| **`plan-mode-planner`** | Prompt-dump-kategori för planner-/plan mode-kedjan | `prompt-dump.ts`, `dashboard_shared.py` | codegen-dumps |
+| **`prompt-dumps`** | **Debug-/observabilityartefakter** för LLM-kedjan | `src/lib/gen/prompt-dump.ts`, `scripts/dashboard_shared.py` | source of truth |
+| **`stale-risk`** | Dump/artifact **kan vara gammal** och ska kontrolleras mot timestamp/status | dashboards, prompt-dump status | färsk runtime-sanning |
 
 ## Integrationer och källor
 

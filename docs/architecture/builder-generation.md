@@ -2,6 +2,10 @@
 
 **Senast uppdaterad:** 2026-04-08
 
+## Steg 4 — post-stream (finalize, validering, preflight)
+
+Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`. **Hotspots + verifieringsplan:** `docs/plans/active/step4-quality-hotspots-and-verification.md`.
+
 ## Modellbanor (UI ↔ API)
 
 Tre **lanes** + flaggor (detalj + mermaid i arkiv: `builder-model-routing-and-trace.md`):

@@ -18,7 +18,7 @@ Kort kanonisk aktiv status tills ett bredare backlog-pass uppdaterar filen mer f
 ## Nästa aktiva steg
 
 - Steg 3 är avslutat och redo för extern review. Samlad risk-/reviewbild: `docs/plans/active/LLM-PIPELINE-REVIEWLAGE-OCH-OPNA-RISKER.md`.
-- Nästa huvudspår efter review: Steg 4 — generera, finalisera och validera resultatet.
+- **Steg 4 (planfas):** kartläggning och ordlista levererade i `docs/architecture/step4-post-generation.md`, `docs/plans/active/step4-quality-hotspots-and-verification.md` och `.cursor/rules/terminology.mdc` (Steg 4-avsnitt). Nästa huvudspår: **implementation** av kvalitetsförbättringar i finalize/validate/repair enligt hotspots-dokumentet.
 
 ## Arbetsprinciper
 

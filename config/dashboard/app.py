@@ -1170,7 +1170,9 @@ elif page == "ai_models":
         st.markdown("### Post-generation (verifier)")
         st.caption(
             "Styr `runVerifierPass` efter syntax i finalize. "
-            "Verifiern följer `phaseRouting.verifier` och budgets i `postGenerationPasses`."
+            "Verifiern följer `phaseRouting.verifier` och budgets i `postGenerationPasses`. "
+            "Hela post-stream-kedjan (finalize-path, preflight, gräns mot preview) dokumenteras i "
+            "`docs/architecture/step4-post-generation.md`."
         )
         pgp = manifest.setdefault("postGenerationPasses", {})
         p_ver_tok = pgp.setdefault("verifierMaxOutputTokens", {})
