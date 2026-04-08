@@ -66,6 +66,9 @@ actual scaffold/template lookup behavior, read `scaffolds/README.md` and
 | `autofix/` | Post-generation fixers: import validation, JSX check, dep completer. |
 | `parser.ts` | Parses fenced code blocks from streamed content. |
 | `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
+| `project-scaffold.ts` | Scaffold merge for exported/previewed projects: baseline package.json, tsconfig, boilerplate files. `buildCompleteProject()` accepts optional pre-resolved UI components. |
+| `project-scaffold-ui-reader.ts` | Reads `@/components/ui/*` sources from the host repo via `fs.readFileSync`. Separated to keep dynamic filesystem reads out of Turbopack's static App Route bundle analysis. Loaded via `await import()` by callers. |
+| `build-exportable-project.ts` | Canonical wrapper: scaffold merge + UI resolution + repair. **`buildExportableProject()` is async** (dynamic import of the UI reader). All callers must `await`. |
 | `version-manager.ts` | Creates versions from content, parses files. |
 
 ## Generated Artifacts And Indexing
