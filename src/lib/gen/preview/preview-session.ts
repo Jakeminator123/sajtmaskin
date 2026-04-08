@@ -182,7 +182,11 @@ async function runStartPreviewSession(
     }
   }
 
-  const projectFiles = buildCompleteProject(filesForProject);
+  const { collectRequiredUiComponents } = await import("@/lib/gen/project-scaffold-ui-reader");
+  const projectFiles = buildCompleteProject(
+    filesForProject,
+    collectRequiredUiComponents(filesForProject),
+  );
 
   const runtimeFiles: RuntimeFile[] = projectFiles.map((f) => ({
     name: f.path,

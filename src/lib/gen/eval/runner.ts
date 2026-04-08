@@ -143,7 +143,11 @@ async function evaluatePrompt(
 
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
-  const completeProjectFiles = buildCompleteProject(project.files);
+  const { collectRequiredUiComponents } = await import("@/lib/gen/project-scaffold-ui-reader");
+  const completeProjectFiles = buildCompleteProject(
+    project.files,
+    collectRequiredUiComponents(project.files),
+  );
   const seoIssues = runSeoPreflightChecks(completeProjectFiles);
   const preflight = await runFinalizePreflight({
     chatId: `eval_${evalPrompt.id}`,

@@ -345,7 +345,10 @@ export async function runFinalizePreflight({
       });
     }
 
-    const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
+    const { collectRequiredUiComponents } = await import("@/lib/gen/project-scaffold-ui-reader");
+    const completeProjectFiles = repairGeneratedFiles(
+      buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles)),
+    ).files;
     preflightFileCount = completeProjectFiles.length;
     preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));
     const sanity = runProjectSanityChecks(completeProjectFiles);

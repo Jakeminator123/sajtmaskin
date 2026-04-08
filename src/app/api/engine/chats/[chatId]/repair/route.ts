@@ -157,7 +157,7 @@ export async function POST(
       });
     }
 
-    const exportable = buildExportableProject(codeFiles);
+    const exportable = await buildExportableProject(codeFiles);
     let content = filesToCodeProject(exportable);
 
     // Phase 1: deterministic autofix
@@ -179,7 +179,7 @@ export async function POST(
       promoteReason: string,
     ): Promise<{ ok: boolean; newVersionId: string | null }> {
       const repairedFiles = codeProjectToFiles(projectContent);
-      const exportable = buildExportableProject(repairedFiles);
+      const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
         chatId,
         versionId: currentVersionId,

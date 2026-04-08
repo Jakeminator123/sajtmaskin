@@ -251,7 +251,7 @@ describe("buildCompleteProject", () => {
 });
 
 describe("buildExportableProject", () => {
-  it("produces the same output as manual buildCompleteProject + repairGeneratedFiles", () => {
+  it("produces the same output as manual buildCompleteProject + repairGeneratedFiles", async () => {
     const generated: CodeFile[] = [
       { path: "package.json", content: "{}", language: "json" },
       {
@@ -262,7 +262,7 @@ describe("buildExportableProject", () => {
       { path: "app/page.tsx", content: `export default function Page() { return <div>Hi</div>; }`, language: "tsx" },
     ];
 
-    const exported = buildExportableProject(generated);
+    const exported = await buildExportableProject(generated);
     expect(exported.length).toBeGreaterThan(generated.length);
 
     const pkg = JSON.parse(exported.find((f) => f.path === "package.json")!.content) as {

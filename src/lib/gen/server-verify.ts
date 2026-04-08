@@ -79,7 +79,7 @@ export async function triggerServerVerification(params: {
 
     await markVersionVerifying(versionId).catch(() => null);
 
-    const exportable = buildExportableProject(codeFiles);
+    const exportable = await buildExportableProject(codeFiles);
     const gateResult = await runQualityGateOnExportable({
       chatId,
       versionId,
@@ -184,7 +184,7 @@ async function tryServerRepairLoop(params: {
 
   await markVersionRepairing(versionId).catch(() => null);
 
-  const exportable = buildExportableProject(codeFiles);
+  const exportable = await buildExportableProject(codeFiles);
   let content = filesToCodeProjectContent(exportable);
 
   const autoFixResult = await runAutoFix(content);
@@ -195,7 +195,7 @@ async function tryServerRepairLoop(params: {
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
     const repairedFiles = parseCodeProject(projectContent).files;
-    const exportableForGate = buildExportableProject(repairedFiles);
+    const exportableForGate = await buildExportableProject(repairedFiles);
     const decision = await shouldPromoteAfterRepair({
       chatId,
       versionId,

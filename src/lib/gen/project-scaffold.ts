@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import nodePath from "node:path";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { runDepCompleter } from "./autofix/dep-completer";
 import type { CodeFile } from "./parser";
@@ -489,7 +487,10 @@ function buildPlaceholderEnvLocalBody(): string | null {
   }
 }
 
-export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
+export function buildCompleteProject(
+  generatedFiles: CodeFile[],
+  uiComponents?: Array<{ filename: string; content: string }>,
+): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
 
@@ -531,8 +532,7 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
     }
   }
 
-  const uiComponents = collectRequiredUiComponents(generatedFiles);
-  for (const comp of uiComponents) {
+  for (const comp of uiComponents ?? []) {
     const destPath = `components/ui/${comp.filename}`;
     if (!generatedPaths.has(destPath)) {
       result.push({ path: destPath, content: comp.content, language: "tsx" });
@@ -551,60 +551,4 @@ export function buildCompleteProject(generatedFiles: CodeFile[]): CodeFile[] {
   return result.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
-
-interface UiComponent {
-  filename: string;
-  content: string;
-}
-
-function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
-  const needed = new Set<string>();
-  for (const file of files) {
-    for (const match of file.content.matchAll(UI_IMPORT_RE)) {
-      needed.add(match[1]);
-    }
-  }
-
-  const searchDirs = [
-    nodePath.resolve(process.cwd(), "src/components/ui"),
-    nodePath.resolve(process.cwd(), "components/ui"),
-  ];
-  const resolved = new Map<string, UiComponent>();
-  const queue = [...needed];
-
-  while (queue.length > 0) {
-    const name = queue.shift();
-    if (!name || resolved.has(name)) continue;
-
-    const content = readUiComponent(name, searchDirs);
-    if (!content) continue;
-
-    resolved.set(name, { filename: `${name}.tsx`, content });
-
-    for (const match of content.matchAll(UI_IMPORT_RE)) {
-      const dependency = match[1];
-      if (!resolved.has(dependency)) {
-        queue.push(dependency);
-      }
-    }
-  }
-
-  return Array.from(resolved.values());
-}
-
-function readUiComponent(name: string, searchDirs: string[]): string | null {
-  const filename = `${name}.tsx`;
-
-  for (const dir of searchDirs) {
-    const fullPath = nodePath.join(dir, filename);
-    try {
-      return fs.readFileSync(fullPath, "utf-8");
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
 

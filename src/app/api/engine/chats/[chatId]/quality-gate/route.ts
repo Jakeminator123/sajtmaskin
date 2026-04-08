@@ -131,7 +131,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         );
       }
 
-      const completeProjectFiles = buildExportableProject(codeFiles);
+      const completeProjectFiles = await buildExportableProject(codeFiles);
       const qualityGateFiles = exportableToQualityGateFiles(completeProjectFiles);
 
       await markVersionVerifying(internalVersionId).catch((err) => {
