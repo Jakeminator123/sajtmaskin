@@ -134,7 +134,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 
 **Tier-2 preview `.env.local`:** Både **`startPreviewSession`** (builder/UI) och **`generateOwnEngineSiteFromPrompt`** (MCP/own-engine) anropar `buildPreviewEnvLocalContents` (`src/lib/gen/preview/env-local.ts`) som bygger merged `.env.local` i VM — globala placeholders från `config/ai_models/40-generated-site-integration-placeholders.env.txt`, projekt-preview-token, lagrade projekt-env, sist genererad `.env.local` om modellen skrev en (senare vinner). Se `config/user_degraded_env.txt` och avsnittet *Genererade användarsajter* i [`docs/ENV.md`](../ENV.md).
 
-**Scaffold-beroenden:** Standard-`package.json` i `project-scaffold.ts` använder **exakta versionsnummer** (inga `^`) för reproducerbara `npm install` i sandbox. Paket som `runDepCompleter` lägger till från import-scan kan fortfarande använda intervall — okända paket kräver manuell pin.
+**Scaffold-beroenden:** Standard-`package.json` i `project-scaffold.ts` använder **exakta versionsnummer** (inga `^`) för reproducerbara `npm install` i sandbox. Paket som `runDepCompleter` lägger till från import-scan kan fortfarande använda intervall — okända paket kräver manuell pin. Baseline-projektet innehåller nu också ett litet, självständigt `eslint.config.mjs` och `npm run lint`, men det är **stöd i projektet**, inte en signal att tier-2-preview automatiskt måste köra lint på varje preview-start.
 
 ### ERESOLVE / peer-dependency-fel vid `npm install`
 

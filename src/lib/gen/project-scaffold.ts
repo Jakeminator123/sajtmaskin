@@ -25,7 +25,8 @@ const PACKAGE_JSON = `{
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "next": "16.2.1",
@@ -70,6 +71,8 @@ const PACKAGE_JSON = `{
     "@radix-ui/react-popover": "1.1.15"
   },
   "devDependencies": {
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.1",
     "typescript": "5.8.3",
     "@types/node": "22.15.18",
     "@types/react": "19.1.2",
@@ -185,6 +188,23 @@ const POSTCSS_CONFIG = `const config = {
   },
 };
 export default config;
+`;
+
+const ESLINT_CONFIG = `import { defineConfig, globalIgnores } from "eslint/config";
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
+
+export default defineConfig([
+  ...nextCoreWebVitals,
+  ...nextTypescript,
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "dist/**",
+    "next-env.d.ts",
+  ]),
+]);
 `;
 
 const GLOBALS_CSS = `@import "tailwindcss";
@@ -319,6 +339,7 @@ const SCAFFOLD_FILES: Record<string, string> = {
   "next.config.ts": NEXT_CONFIG,
   "app/api/placeholder/route.ts": PLACEHOLDER_API_ROUTE,
   "postcss.config.mjs": POSTCSS_CONFIG,
+  "eslint.config.mjs": ESLINT_CONFIG,
   "app/globals.css": GLOBALS_CSS,
   "app/layout.tsx": LAYOUT_TSX,
   "app/robots.ts": ROBOTS_TS,

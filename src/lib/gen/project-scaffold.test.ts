@@ -157,7 +157,9 @@ describe("buildCompleteProject", () => {
     expect(pkg.dependencies.next).toBe("16.2.1");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
-    expect(pkg.scripts).not.toHaveProperty("lint");
+    expect(pkg.scripts.lint).toBe("eslint .");
+    expect(pkg.devDependencies.eslint).toBe("9.39.2");
+    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.1");
   });
 
   it("merges a model tsconfig with baseline compiler essentials", () => {
@@ -249,6 +251,20 @@ describe("buildCompleteProject", () => {
       dependencies: Record<string, string>;
     };
     expect(pkg.dependencies["@radix-ui/react-dialog"]).toBeDefined();
+  });
+
+  it("ships a minimal eslint flat config for generated Next projects", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "app/page.tsx", content: `export default function Page() { return null; }`, language: "tsx" },
+    ];
+
+    const files = buildCompleteProject(generated);
+    const eslintConfig = files.find((f) => f.path === "eslint.config.mjs");
+    expect(eslintConfig).toBeDefined();
+    expect(eslintConfig!.content).toContain('eslint-config-next/core-web-vitals');
+    expect(eslintConfig!.content).toContain('eslint-config-next/typescript');
+    expect(eslintConfig!.content).toContain("globalIgnores");
   });
 
   it("includes dependencies required by copied ui components when completing the project", () => {
