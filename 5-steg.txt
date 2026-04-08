@@ -275,5 +275,29 @@ Problem D: "Startar preview"-sidan visas langa stunder
 - men for anvandaren ser det ut som att "ngt ar fel" nar det tar 30-90s
 - bor undersoka: kan boot-sidan visa progress (install %, dev ready)?
 
+Problem E: LLM genererar inkonsistenta exports och duplicate identifiers
+- typecheck-loggen visar tre konkreta fel i header-truck-3d.tsx:
+  1. Duplicate identifier 'Group' (importerade fran 'three' OCH deklarerade lokalt)
+  2. site-header.tsx importerade { HeaderTruck3D } (named) men filen har export default (default)
+  3. tsc foreslor sjalv ratten: 'import HeaderTruck3D from ...' istallet for '{ HeaderTruck3D }'
+- repair-loopen (deterministisk + LLM) forsokte fixa men gav "no_improvement" / "0 errors remain"
+  trots att typecheck fortfarande failade — det tyder pa att repairens syntaxparser
+  inte ser samma fel som tsc (den ser 0 parsfel men tsc ser typfel)
+- detta ar ett generiskt monster: LLM genererar kod, syntaxparser sager "ok",
+  men tsc hittar typfel som repair inte kan losa
+- bor fixas: lagg till en autofix-regel som upptacker named import av default export,
+  och en som upptacker duplicate identifier-importer
+
+Problem F: route plan eskalerar fran 2 → 6 → 7 → 8 sidor over follow-ups
+- v1 prompt: "En hemsida for en ehandel" → orkestreringsloggen byggde 6 routes
+  (/, /products, /dashboard, /categories, /pricing, /work) trots att prompten
+  inte namnde nagra specifika sidor
+- v2 follow-up: orkestreringsloggen visar routeCount: 6 → 7
+- v3 follow-up: routeCount: 7, route plan inkluderar nu /om, /pricing, /work,
+  /products, /cart, /checkout, /dashboard, /categories
+- anvandaren bad aldrig om 8 sidor
+- rotorsak: buildRoutePlan infererar routes fran promptkontext + scaffold defaults
+  och varje follow-up arver foregangendes routes utan att nagonsin minska
+
 Dessa problem ar alla generiska (inte engangsbeteende) och bor
 prioriteras for nasta produktkvalitetspass.
