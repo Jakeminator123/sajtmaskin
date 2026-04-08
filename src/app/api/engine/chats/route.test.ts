@@ -29,7 +29,7 @@ describe("/api/engine/chats POST (sync JSON)", () => {
       'data: {"enginePath":"own-engine"}',
       "",
       "event: done",
-      'data: {"chatId":"chat_eng","versionId":"ver_eng","messageId":"msg_eng","sandboxPending":false,"preflight":{"previewBlocked":false,"verificationBlocked":false}}',
+      'data: {"chatId":"chat_eng","versionId":"ver_eng","messageId":"msg_eng","previewPending":false,"preflight":{"previewBlocked":false,"verificationBlocked":false}}',
       "",
     ].join("\n");
 
@@ -82,7 +82,7 @@ describe("/api/engine/chats POST (sync JSON)", () => {
       id: "ver_eng",
       versionId: "ver_eng",
       previewUrl: "https://vm.example/chat_eng/ver_eng",
-      previewPending: true,
+      previewPending: false,
       verificationState: "pending",
     });
   });

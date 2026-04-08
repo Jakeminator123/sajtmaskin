@@ -40,7 +40,7 @@ describe("POST /api/engine/chats/[chatId]/messages", () => {
             messageId: "msg_1",
             versionId: "ver_1",
             previewUrl: null,
-            sandboxPending: true,
+            previewPending: true,
             preflight: { previewBlocked: false, verificationBlocked: false },
             previewBlocked: false,
             verificationBlocked: false,

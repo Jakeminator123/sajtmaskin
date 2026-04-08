@@ -1,7 +1,8 @@
 /**
  * Public HTTP/SSE JSON uses `previewUrl` only (no response key `demoUrl`).
  * DB column remains `demo_url`. Inbound webhooks may still send legacy `demoUrl`.
- * @see docs/plans/avklarat/KORPLAN-preview-url-api.md
+ * Historical roadmap lives in git history; current public preview contract is
+ * documented in docs/architecture/preview-deploy.md and docs/schemas/preview-session-contract.md.
  */
 
 export function previewUrlField(url: string | null | undefined): { previewUrl: string | null } {

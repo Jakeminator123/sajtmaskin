@@ -70,6 +70,17 @@ Samma villkor och filurval delas av `maybeAnalyzeVisualQAForPassedExportable()` 
 
 ## Public app/API contracts
 
+### SSE boundary from finalize (`done` -> preview start)
+
+After finalize, stream contract should be read as:
+
+- `done` = version is persisted (not that preview is already live)
+- `done.previewPending` = preview bootstrap is expected
+- `done.previewUrlHint` = optional temporary VM boot hint
+- `preview-ready` / `build-error` = actual preview start outcome
+
+`previewUrlHint` must not be treated as persisted live `previewUrl` in version APIs.
+
 ### Tier-2 preview bootstrap
 
 Canonical route:
@@ -116,6 +127,14 @@ Stable contract types:
 - `PreviewHeartbeatApiJson`
 - `PreviewHibernateApiJson`
 - `PreviewDestroyApiJson`
+
+`PreviewStatusApiJson.reason` (when present) uses these stable values:
+
+- `preview_session_not_configured`
+- `no_session`
+- `session_bound_to_other_version`
+- `preview_session_id_mismatch`
+- `provider_not_running_or_unreachable`
 
 ## Preview-host contracts
 

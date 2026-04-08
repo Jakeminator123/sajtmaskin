@@ -108,6 +108,23 @@ Foljande kluster ar **medvetet parkerade** till ett separat migreringspass (inte
 
 Skal: de ar fortfarande aktivt refererade i runtime, UI, tester och/eller docs och krav pa telemetri + kontraktsmigrering finns innan saker borttagning.
 
+## Steg 5 smalt pass - vad som skarps nu
+
+- `done` tolkas strikt som "version sparad", inte "preview live".
+- `previewPending` signalerar att preview-start forvantas efter finalize.
+- `previewUrlHint` ar en tillfallig VM-hint under boot och ska inte behandlas som persisterad `previewUrl`.
+- Faktisk preview-startutfall maste komma via `preview-ready` / `build-error` eller `preview-session`/`preview-status` vid recover.
+
+### Verifieringsplan (smalt Steg 5-pass)
+
+- Korda kontraktstester:
+  - `src/lib/providers/own-engine/generation-stream-post-finalize.test.ts`
+  - `src/lib/hooks/chat/stream-handlers.test.ts`
+- Nast pa tur i bredare pass:
+  - route-/kontraktstester for `preview-session` (`reused_url` / `resumed` / `recreated`)
+  - route-/kontraktstester for `preview-status` (`running` / `stopped` / `missing` / `version_mismatch`)
+  - regressionsfall dar `legacyShimPreviewUrl` inte tar over live-preview i own-engine happy path
+
 ## Ar det redo for extern review?
 
 Ja.

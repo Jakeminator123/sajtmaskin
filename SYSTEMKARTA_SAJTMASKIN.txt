@@ -174,7 +174,7 @@ Asynk efter finalize (gräns till Steg 5):
 
 Viktiga gränssignaler runt preview:
   - previewPending = preview väntas efter finalize
-  - previewUrlHint = temporär VM-hint i done-event
+  - previewUrlHint = temporär VM-hint i done-event (inte samma som färdig previewUrl)
   - legacyShimPreviewUrl = äldre shim/fallback, inte primär tier-2-preview
 
 Kanonisk karta:
@@ -233,6 +233,8 @@ Steg 4
 
 Steg 5
 - Preview, VM/preview_host, materialisering, uppföljning
+  - smalt kontrakt nu: done -> previewPending/previewUrlHint -> preview-ready/build-error
+  - preview-session/preview-status styr bootstrap/recover och version-bunden session
 
 Separat (inte samma som Steg 4/5 i kedjan):
 - template-library / extern pipeline-städ när tid finns

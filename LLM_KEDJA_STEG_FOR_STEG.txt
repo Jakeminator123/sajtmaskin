@@ -172,3 +172,36 @@ Vad ska vi kunna svara på?
 
 Verifiering (se hotspots-dokumentet):
 - Riktade tester / manuella scenarier för finalize-path policy, preflight blocking och server-verify-loop.
+
+
+STEG 5 - PREVIEW START / SESSION / STATUS (SMALT KONTRAKTSPASS)
+---------------------------------------------------------------
+
+Kallor:
+- docs/architecture/preview-deploy.md
+- src/lib/providers/own-engine/generation-stream-post-finalize.ts
+- src/lib/hooks/chat/stream-handlers.ts
+- src/app/api/engine/chats/[chatId]/preview-session/route.ts
+- src/app/api/engine/chats/[chatId]/preview-status/route.ts
+- src/lib/gen/preview/preview-session.ts
+
+Vad ar input?
+- Sparad version efter finalize (`done` i stream)
+- preview-start policy + filesJson
+- aktiv sessionstatus (om den finns) for chat+version
+
+Vad ar output?
+- Antingen `preview-ready` med faktisk `previewUrl` + `previewSessionId`
+- Eller `build-error` med stage/message
+- Eller statussvar (`running` / `stopped` / `missing` / `version_mismatch`) for recover
+
+Vad ska vi kunna svara pa?
+- Att `done` betyder "version sparad", inte "preview live"
+- Att `previewPending` betyder "boot forvantas", inte "preview klar"
+- Att `previewUrlHint` ar tillfallig hint under boot, inte persisterad live-url
+- Att `preview-session` och `preview-status` ar version-bundna och skiljer `reused_url` / `resumed` / `recreated`
+- Att `legacyShimPreviewUrl` ar fallback/shim, inte primar own-engine preview
+
+Verifiering:
+- src/lib/providers/own-engine/generation-stream-post-finalize.test.ts
+- src/lib/hooks/chat/stream-handlers.test.ts

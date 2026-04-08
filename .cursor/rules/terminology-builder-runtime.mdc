@@ -37,6 +37,9 @@ Sekundär ordlista för smalare builder-/runtimebegrepp. Använd den när uppgif
 - **sandbox**: legacy-/compat-term som bara ska användas när gamla kontrakt eller fältnamn faktiskt kräver det.
 - **`previewPending`**: finalize är klar och preview väntas.
 - **`previewUrlHint`**: temporär VM-hint medan preview bootar; inte samma sak som slutlig `previewUrl`.
+- **`preview-session`**: kanonisk bootstrap-route för tier-2-preview; startar eller återanvänder preview för en viss chat/version.
+- **`preview-status`**: recover-/statusroute för tier-2-preview; returnerar bl.a. `running`, `stopped`, `missing` eller `version_mismatch`.
+- **`startOutcome`**: hur preview-sessionen löstes: `reused_url`, `resumed` eller `recreated`.
 - **`legacyShimPreviewUrl`**: shim-/fallback-URL till `/api/preview-render`; inte primär tier-2-preview.
 - **`sandboxId`**: id för aktiv tier-2-runtime/session; inte samma sak som `chatId` eller `appProjectId`.
 

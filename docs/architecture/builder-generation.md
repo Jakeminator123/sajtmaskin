@@ -100,7 +100,7 @@ Builder **egen motor** använder SSE på engine-routes — det är **kanon** fö
 
 ### Livscykel: `done` och tier-2 preview
 
-Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assistant + `files_json`), inte att alla sidoeffekter är klara. **Efter `done`** kan servern fortfarande skicka t.ex. **`preview-ready`** eller **`build-error`**, och klienten ska fortsätta lyssna tills tier-2-steget är avslutat eller fel rapporterats. Fält som `sandboxPending` på `done` signalerar att tier-2-preview kan komma strax. Byggaren skiljer nu tydligare på **genererar kod**, **verifierar version**, **startar VM-preview** och **byter till reparerad version** när en ny version tar över.
+Eventet **`done`** betyder att **versionen är finaliserad och sparad** (assistant + `files_json`), inte att alla sidoeffekter är klara. **Efter `done`** kan servern fortfarande skicka t.ex. **`preview-ready`** eller **`build-error`**, och klienten ska fortsätta lyssna tills tier-2-steget är avslutat eller fel rapporterats. Fält som `previewPending` på `done` signalerar att tier-2-preview kan komma strax, medan `previewUrlHint` bara är en tillfällig boot-hint. Byggaren skiljer nu tydligare på **genererar kod**, **verifierar version**, **startar VM-preview** och **byter till reparerad version** när en ny version tar över.
 
 Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/stream/builder-stream-contract.ts) och post-finalize i `generation-stream-post-finalize.ts`.
 
@@ -128,13 +128,13 @@ Det finns inte längre någon separat kanonisk `meritmind-build-flows.md` i trä
 
 *Gäller **allt** som genereras från prompt (egen motor): jämförelse mellan **tier‑1** `/api/preview-render` (snabb kompatibilitetsvy) och **Fidelity 2 / tier-2 runtime** (`next dev` i VM), som normalt går via `preview_host` när den är konfigurerad (Vercel Sandbox endast när explicit valt eller som sekundär väg).*
 
-**Kontrakt (2026-03-30):** För own-engine returnerar chat- och versions-API `previewUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; `demoUrl` finns kvar bara i vissa legacy-/inboundlager. Byggaren väljer **sandbox-URL** vid versionsbyte och visar quality-tier «preview» först när **sandbox** finns, inte när bara shim finns.
+**Kontrakt (2026-04-08):** För own-engine returnerar chat- och versions-API `previewUrl: null` och sätter ev. shim i **`legacyShimPreviewUrl`**; `demoUrl` finns kvar bara i vissa legacy-/inboundlager. Byggaren väljer **VM-/preview-host-URL** vid versionsbyte och visar quality-tier «preview» först när riktig tier-2-preview finns, inte när bara shim finns.
 
 | # | Problemtyp | Kort beskrivning |
 |---|------------|------------------|
-| P1 | **Runtime-paritet** | Shim bygger självständig HTML/React-ström; **samma beteende** som full Next + WebGL i sandbox är **inte garanterad** (t.ex. spelloopar, `canvas`, audio). |
-| P2 | **WebGL / Three / R3F** | Fiber + `Canvas` kräver **browser + WebGL-kontext**; server-side tier‑1 kan **förenkla, hoppa över eller feltolka** importer och livscykel jämfört med klientbundle i sandbox. |
-| P3 | **Bundling & sidoeffekter** | Workers, WASM, dynamiska `import()`, villkor beroende på `window` — risk för **skillnad** mellan shim, sandbox-build och produktion. |
+| P1 | **Runtime-paritet** | Shim bygger självständig HTML/React-ström; **samma beteende** som full Next + WebGL i VM-preview är **inte garanterad** (t.ex. spelloopar, `canvas`, audio). |
+| P2 | **WebGL / Three / R3F** | Fiber + `Canvas` kräver **browser + WebGL-kontext**; server-side tier‑1 kan **förenkla, hoppa över eller feltolka** importer och livscykel jämfört med klientbundle i VM-preview. |
+| P3 | **Bundling & sidoeffekter** | Workers, WASM, dynamiska `import()`, villkor beroende på `window` — risk för **skillnad** mellan shim, VM-preview-build och produktion. |
 | P4 | **Routing & bas-URL** | Länkar och `next/link` som blir **absoluta mot fel host** i iframe (t.ex. pekar på appens domän i stället för preview-host). |
 | P5 | **Flera routes** | Shim styrs ofta med `?route=`; **riktig** App Router har **egna** segment, layouts, `loading.tsx` — paritet saknas ofta. |
 | P6 | **API routes / server actions** | Genererade `app/api/*`, server actions och **reella nätverksanrop** körs **inte** som i en riktig Next-server inuti tier‑1. |
@@ -143,11 +143,11 @@ Det finns inte längre någon separat kanonisk `meritmind-build-flows.md` i trä
 | P9 | **Hemligheter vs demo** | Stripe/DB utan nycklar: shim kan **visa statiskt innehåll** medan **preview-host verify-lane** (`tsc` / `next build`) **faller** — **dubbla sanningar**. |
 | P10 | **Verifiering vs förhandsvisning** | **Lyckad** `preview-render` + **misslyckad** server-verify — svårt för medlemmar utan tydlig koppling i UI. |
 | P11 | **CSP & eval** | Dev/prod och iframe **CSP** skiljer sig; vissa 3D-/spelbibliotek utlöser **strängare** policy i preview än lokalt. |
-| P12 | **Prestanda & DPR** | Hög `dpr`, partiklar, post-processing — **smidigt i sandbox**, **dyrt eller nedbantat** i shim eller på svaga enheter. |
+| P12 | **Prestanda & DPR** | Hög `dpr`, partiklar, post-processing — **smidigt i VM-preview**, **dyrt eller nedbantat** i shim eller på svaga enheter. |
 | P13 | **Tillgång till devserver** | Externa webbläsare (t.ex. assistenter i **Cursor IDE**) når ofta **inte** utvecklarens `localhost`; **deployad URL** kan ge annan **auth/data** än lokal DB — förvirring vid felsökning. *Detta är inte en del av Sajtmaskin-produkten.* |
 | P14 | **Tredjepartsskript** | Analytics, Stripe.js, kartor — **laddning/blockering** skiljer sig mellan shim-HTML och full app. |
 
-**Produktmål:** medlemmar skapar sidor **via prompt**; **standardpreview** ska vara **sandbox (Fidelity 2)** när miljön tillåter — shim finns som fallback under tid eller vid fel.
+**Produktmål:** medlemmar skapar sidor **via prompt**; **standardpreview** ska vara **VM / `preview_host` (Fidelity 2)** när miljön tillåter — shim finns som fallback under tid eller vid fel.
 
 ## Snabb felsökning
 

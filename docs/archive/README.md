@@ -4,6 +4,6 @@
 
 **Kanonisk policy:** [`docs/architecture/documentation-lifecycle.md`](../architecture/documentation-lifecycle.md).
 
-**Aktiva planer:** [`docs/plans/active/`](../plans/active/) — där `PROJECT-STATE-AND-DIRECTION.md` lever. Avslutad städlista: [`docs/plans/avklarat/POST-EPIC-CLEANUP.md`](../plans/avklarat/POST-EPIC-CLEANUP.md).
+**Aktiva planer:** [`docs/plans/active/`](../plans/active/) — där `PROJECT-STATE-AND-DIRECTION.md` lever. Äldre avslutade planlistor: [`docs/plans/avklarat/README.md`](../plans/avklarat/README.md).
 
 **Avklarade planer / historik:** [`docs/plans/avklarat/`](../plans/avklarat/).

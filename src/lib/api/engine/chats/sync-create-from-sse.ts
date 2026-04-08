@@ -53,6 +53,10 @@ function findLastEvent(events: SseEvent[], name: string): SseEvent | undefined {
   return undefined;
 }
 
+function readDonePreviewPending(done: Record<string, unknown>): boolean {
+  return done.previewPending === true || done.sandboxPending === true;
+}
+
 export function readPreviewReadyUrl(data: unknown): string | null {
   if (!data || typeof data !== "object") return null;
   const raw = typeof (data as { previewUrl?: unknown }).previewUrl === "string"
@@ -107,6 +111,7 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
   const doneEvent = findLastEvent(events, "done");
   const metaEvent = findLastEvent(events, "meta");
   const previewReadyEvent = findLastEvent(events, "preview-ready");
+  const buildErrorEvent = findLastEvent(events, "build-error");
 
   if (!doneEvent) {
     const errorData =
@@ -140,8 +145,6 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
 
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
-  const previewPending = done.previewPending === true;
-
   const previewData =
     previewReadyEvent?.data && typeof previewReadyEvent.data === "object"
       ? (previewReadyEvent.data as Record<string, unknown>)
@@ -152,6 +155,8 @@ export function buildSyncCreateChatPayload(events: SseEvent[]): {
     readPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
     resolveInboundPreviewUrl(done as { previewUrl?: unknown; demoUrl?: unknown }) ??
     previewReadyUrl;
+  const previewSettled = Boolean(previewReadyEvent) || Boolean(buildErrorEvent) || Boolean(previewResolved);
+  const previewPending = readDonePreviewPending(done) && !previewSettled;
 
   const verificationState = done.verificationBlocked === true ? "failed" : "pending";
   const verificationSummary =

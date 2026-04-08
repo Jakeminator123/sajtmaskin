@@ -19,6 +19,7 @@ type DonePayload = {
   previewUrl?: string | null;
   demoUrl?: string | null;
   previewPending?: boolean;
+  sandboxPending?: boolean;
   preflight?: unknown;
   previewBlocked?: boolean;
   verificationBlocked?: boolean;
@@ -160,10 +161,13 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
       ? (doneEvent.data as DonePayload)
       : {};
   const previewReadyEvent = findLastEvent(events, "preview-ready");
+  const buildErrorEvent = findLastEvent(events, "build-error");
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
   const previewReadyUrl = readPreviewReadyUrl(previewReadyEvent?.data);
-  const previewPending = done.previewPending === true;
+  const previewSettled = Boolean(previewReadyEvent) || Boolean(buildErrorEvent) || Boolean(previewReadyUrl);
+  const previewPending =
+    (done.previewPending === true || done.sandboxPending === true) && !previewSettled;
   const previewResolved =
     readPreviewUrl(done) ??
     resolveInboundPreviewUrl(done) ??

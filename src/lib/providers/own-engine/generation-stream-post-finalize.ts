@@ -122,6 +122,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
   });
   const previewUrlHint = resolvePreviewUrlHint(chatId, previewWillRun);
 
+  // `done` confirms that version persistence/finalize finished. Live preview is a separate
+  // post-done phase and only becomes canonical on `preview-ready` (or explicit GET status/routes).
   safeEnqueue(
     enc.encode(
       formatSSEEvent("done", {

@@ -1562,6 +1562,7 @@ elif page == "Preview och versioner":
         "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
         "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
         "`done` kan bära `previewPending` + `previewUrlHint` medan VM-preview fortfarande bootar; "
+        "`previewUrlHint` är en boot-hint, inte en färdig live-URL. "
         "chat-/versions-API håller `previewUrl` null tills previewn faktiskt är redo. "
         "`legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. "
         "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."

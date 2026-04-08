@@ -15,9 +15,4 @@ Nya tillfälliga planer skapas under **`docs/plans/active/`** och flyttas till *
 
 ## Arkiv (`avklarat/`)
 
-- [`STORDSTAD-repo-kod-databas.md`](./avklarat/STORDSTAD-repo-kod-databas.md) — storstädning repo/kod/docs (arkiverad 2026-03-31); pass-logg + **Fas D** som kvarstående DB-checklista vid medveten datastäd.
-- [`POST-EPIC-CLEANUP.md`](./avklarat/POST-EPIC-CLEANUP.md) — post preview/sandbox-städ (avslutad 2026-03-30); historik + doc-register över berörda filer.
-- [`KORPLAN-preview-url-api.md`](./avklarat/KORPLAN-preview-url-api.md) — preview-URL API/SSE (fas A+B avslutad 2026-03-30).
-- [`CONSOLIDATED-own-engine-platform-and-quality-v2.md`](./avklarat/CONSOLIDATED-own-engine-platform-and-quality-v2.md) — stor historisk roadmap (plattform + kvalitet); operativ sanning = PROJECT-STATE + arkitekturdocs.
-- [`LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md`](./avklarat/LLM-PIPELINE-MILESTONE-AND-REVIEW-RUNBOOK.md) — Git-milstolpe + stängd review (Del B).
-- [`README.md`](./avklarat/README.md) — kort historiktabell och pekare.
+- [`README.md`](./avklarat/README.md) — kort historiktabell och pekare. Om äldre planfiler saknas i trädet, använd git-historik i stället för att återskapa brutna länkar här.

@@ -28,7 +28,7 @@
 
 ## `.cursorignore` (varför vissa sökvägar “saknas” i index)
 
-Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps (se även [STORDSTAD-planen](../plans/avklarat/STORDSTAD-repo-kod-databas.md) § `.cursorignore`). För orientering: denna fil + README i respektive mapp (`archive/`, `research/`, `data/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
+Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps. För orientering: denna fil + README i respektive mapp (`archive/`, `research/`, `data/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
 
 ## Mentala repo-zoner (kod)
 

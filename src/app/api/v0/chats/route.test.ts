@@ -73,7 +73,7 @@ describe("POST /api/v0/chats (sync JSON adapter)", () => {
       'data: {"enginePath":"own-engine","promptStrategy":"direct","modelId":"gpt-test"}',
       "",
       "event: done",
-      'data: {"chatId":"chat_1","versionId":"ver_1","messageId":"msg_1","sandboxPending":false,"preflight":{"previewBlocked":false,"verificationBlocked":false,"previewBlockingReason":null}}',
+      'data: {"chatId":"chat_1","versionId":"ver_1","messageId":"msg_1","previewPending":false,"preflight":{"previewBlocked":false,"verificationBlocked":false,"previewBlockingReason":null}}',
       "",
     ].join("\n");
 
