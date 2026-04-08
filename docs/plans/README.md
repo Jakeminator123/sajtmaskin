@@ -6,12 +6,12 @@
 
 ## Aktiva filer (`active/`)
 
-Efter den avslutade 5-stegsgenomgången finns **inga kvarvarande aktiva planfiler** i `docs/plans/active/`.
+Efter den avslutade 5-stegsgenomgången ar arbetet normalt smala uppfoljningspass.
 
 Nuvarande orientering:
 
-- **Samlad slutöversikt:** [`../../5-steg.txt`](../../5-steg.txt)
-- **Kvarvarande problemområden / nästa auditspår:** [`../../övrigt/problemomraden-efter-5-steg.txt`](../../övrigt/problemomraden-efter-5-steg.txt)
+- **Samlad slutoversikt:** [`../../5-steg.txt`](../../5-steg.txt)
+- **Kvarvarande fokus / nasta pass:** [`active/remaining-focus-after-5-step.md`](active/remaining-focus-after-5-step.md)
 - **Steg 4-djupkarta:** [`../architecture/step4-post-generation.md`](../architecture/step4-post-generation.md)
 
 När ett nytt riktigt arbetsspår startar:

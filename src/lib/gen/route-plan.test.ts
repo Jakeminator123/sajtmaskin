@@ -130,6 +130,30 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
   });
 
+  it("follow-up can remove an existing route when prompt explicitly removes route path", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Ta bort /om route och uppdatera bara startsidan.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/om", "/pricing"],
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/pricing"]);
+    expect(plan.reason).toContain("route-removal intent");
+  });
+
+  it("follow-up can remove an existing route when prompt explicitly removes page by name", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Ta bort kontaktsidan och behåll resten oförändrat.",
+      resolvedScaffold: getScaffoldById("landing-page"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/contact", "/om"],
+    });
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
+  });
+
   it("parseRoutePlanFromUnknown accepts legacy JSON with source only", () => {
     const parsed = parseRoutePlanFromUnknown({
       source: "brief",

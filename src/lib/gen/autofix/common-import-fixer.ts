@@ -9,6 +9,8 @@ const NAMED_IMPORT_RE = /import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)[
 const DEFAULT_IMPORT_RE = /import\s+([A-Za-z_$][\w$]*)\s+from\s+["']([^"']+)["'];?/g;
 const LOCAL_DEFAULT_IMPORT_LINE_RE =
   /^(\s*import\s+)([A-Za-z_$][\w$]*)(\s*,\s*\{([^}]*)\})?\s+from\s+["']([^"']+)["'];?/gm;
+const LOCAL_NAMED_IMPORT_LINE_RE =
+  /^(\s*import\s+)(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["'];?/gm;
 const TYPE_IMPORT_RE = /import\s+type\s+\{([^}]+)\}\s+from\s+["']react["'];?/;
 const REACT_IMPORT_RE = /import\s+\{([^}]+)\}\s+from\s+["']react["'];?/;
 const USE_CLIENT_DIRECTIVE_RE = /^["']use client["'];?\s*\n/;
@@ -64,6 +66,31 @@ function parseImportNames(specifiers: string): string[] {
       return aliasParts[aliasParts.length - 1]!.replace(/^type\s+/, "").trim();
     })
     .filter(Boolean);
+}
+
+type NamedImportSpecifier = {
+  raw: string;
+  imported: string;
+  local: string;
+};
+
+function parseNamedImportSpecifiersDetailed(specifiers: string): NamedImportSpecifier[] {
+  const parsed: NamedImportSpecifier[] = [];
+  for (const part of specifiers.split(",")) {
+    const raw = part.trim();
+    if (!raw) continue;
+    const cleaned = raw.replace(/^type\s+/, "").trim();
+    const aliasParts = cleaned.split(/\s+as\s+/i).map((segment) => segment.trim());
+    const imported = aliasParts[0] ?? "";
+    const local = aliasParts[aliasParts.length - 1] ?? "";
+    if (!imported || !local) continue;
+    parsed.push({ raw, imported, local });
+  }
+  return parsed;
+}
+
+function formatNamedImportSpecifier(spec: NamedImportSpecifier): string {
+  return spec.imported === spec.local ? spec.imported : `${spec.imported} as ${spec.local}`;
 }
 
 function extractImportedNames(code: string): Set<string> {
@@ -311,6 +338,111 @@ export function fixLocalDefaultImportMismatches(
     code: nextCode,
     fixed: nextCode !== code,
     rewiredImports: [...new Set(rewiredImports)].sort(),
+  };
+}
+
+export function fixLocalNamedImportDefaultMismatches(
+  code: string,
+  filePath: string,
+  files: CodeFile[],
+  moduleExportIndex: ModuleExportIndex,
+): { code: string; fixed: boolean; rewiredImports: string[] } {
+  const fileMap = new Map<string, CodeFile>(
+    files.map((file) => [normalizeFilePath(file.path), file]),
+  );
+  const rewiredImports: string[] = [];
+  let nextCode = code;
+
+  for (const match of code.matchAll(LOCAL_NAMED_IMPORT_LINE_RE)) {
+    const full = match[0];
+    const prefix = match[1] ?? "import ";
+    const namedSpecifiersRaw = match[2] ?? "";
+    const source = match[3];
+
+    if (!source.startsWith("@/") && !source.startsWith("./") && !source.startsWith("../")) continue;
+
+    const targetPath = resolveLocalImportPath(fileMap, filePath, source);
+    if (!targetPath) continue;
+
+    const target = moduleExportIndex.get(normalizeFilePath(targetPath));
+    if (!target?.hasDefault || !target.defaultName) continue;
+
+    const parsed = parseNamedImportSpecifiersDetailed(namedSpecifiersRaw);
+    if (parsed.length === 0) continue;
+
+    const defaultCandidate = parsed.find(
+      (spec) => spec.imported === target.defaultName && !target.named.has(spec.imported),
+    );
+    if (!defaultCandidate) continue;
+
+    const remaining = parsed.filter((spec) => spec !== defaultCandidate);
+    const rewritten =
+      remaining.length > 0
+        ? `${prefix}${defaultCandidate.local}, { ${remaining.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`
+        : `${prefix}${defaultCandidate.local} from "${source}";`;
+    nextCode = nextCode.replace(full, rewritten);
+    rewiredImports.push(source);
+  }
+
+  return {
+    code: nextCode,
+    fixed: nextCode !== code,
+    rewiredImports: [...new Set(rewiredImports)].sort(),
+  };
+}
+
+export function fixImportedDeclarationConflicts(
+  code: string,
+): { code: string; fixed: boolean; removedBindings: string[] } {
+  const declarations = extractLocalDeclarations(code);
+  if (declarations.size === 0) {
+    return { code, fixed: false, removedBindings: [] };
+  }
+
+  const removedBindings: string[] = [];
+  let nextCode = code;
+
+  nextCode = nextCode.replace(LOCAL_DEFAULT_IMPORT_LINE_RE, (full, prefix, defaultLocal, namedPart, namedSpecs, source) => {
+    const defaultConflicts = declarations.has(defaultLocal);
+    const namedSpecsParsed = parseNamedImportSpecifiersDetailed(namedSpecs ?? "");
+    const keptNamed = namedSpecsParsed.filter((spec) => {
+      const shouldDrop = declarations.has(spec.local);
+      if (shouldDrop) removedBindings.push(spec.local);
+      return !shouldDrop;
+    });
+
+    if (defaultConflicts) {
+      removedBindings.push(defaultLocal);
+    }
+
+    if (defaultConflicts && keptNamed.length === 0) {
+      return "";
+    }
+    if (defaultConflicts) {
+      return `${prefix}{ ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
+    }
+    if ((namedSpecsParsed.length > 0 || namedPart) && keptNamed.length !== namedSpecsParsed.length) {
+      return `${prefix}${defaultLocal}, { ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
+    }
+    return full;
+  });
+
+  nextCode = nextCode.replace(LOCAL_NAMED_IMPORT_LINE_RE, (full, prefix, specifiers, source) => {
+    const namedSpecsParsed = parseNamedImportSpecifiersDetailed(specifiers ?? "");
+    const keptNamed = namedSpecsParsed.filter((spec) => {
+      const shouldDrop = declarations.has(spec.local);
+      if (shouldDrop) removedBindings.push(spec.local);
+      return !shouldDrop;
+    });
+    if (keptNamed.length === namedSpecsParsed.length) return full;
+    if (keptNamed.length === 0) return "";
+    return `${prefix}{ ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
+  });
+
+  return {
+    code: nextCode,
+    fixed: nextCode !== code,
+    removedBindings: [...new Set(removedBindings)].sort(),
   };
 }
 

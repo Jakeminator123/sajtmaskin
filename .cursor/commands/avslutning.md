@@ -14,8 +14,8 @@ Avsluta det aktuella arbetet i följande ordning:
    - relevanta schemas/docs
    - `config/dashboard/app.py`
    - `scripts/scripts_dashboard.py`
-   - `SYSTEMKARTA_SAJTMASKIN.txt`
-   - `LLM_KEDJA_STEG_FOR_STEG.txt`
+   - `docs/plans/active/remaining-focus-after-5-step.md`
+   - `5-steg.txt` (vid större slutbildsändring)
    - `.cursor/rules/terminology.mdc`
    - håll fast vid ord som passar repoet bättre än generisk CI/CD: `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization`, `verify`
 4. Verifiera med riktade tester/lints/typecheck efter behov.

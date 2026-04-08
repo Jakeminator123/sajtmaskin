@@ -8,7 +8,7 @@
   },
   "pages": {
     "Översikt": {
-      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För stegvis LLM-kedja (builder → modell): se LLM_KEDJA_STEG_FOR_STEG.txt och SYSTEMKARTA_SAJTMASKIN.txt i repo-roten. Steg 4 (finalize/validering): docs/architecture/step4-post-generation.md.",
+      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. For stegvis LLM-kedja och kvarvarande fokus: se docs/architecture/README.md och docs/plans/active/remaining-focus-after-5-step.md. Steg 4 (finalize/validering): docs/architecture/step4-post-generation.md.",
       "canonicalPaths": [
         "config/codegen-static-prompt.json",
         "config/prompt-static/",
@@ -20,8 +20,8 @@
       "docsPaths": [
         "docs/architecture/repository-and-platform.md",
         "config/dashboard/domain-map.json",
-        "LLM_KEDJA_STEG_FOR_STEG.txt",
-        "SYSTEMKARTA_SAJTMASKIN.txt",
+        "docs/architecture/README.md",
+        "docs/plans/active/remaining-focus-after-5-step.md",
         "docs/architecture/step4-post-generation.md"
       ],
       "humanSchemaPaths": [
@@ -74,7 +74,7 @@
         "docs/architecture/llm-input-blocks.md",
         "docs/architecture/step4-post-generation.md",
         "5-steg.txt",
-        "övrigt/problemomraden-efter-5-steg.txt"
+        "docs/plans/active/remaining-focus-after-5-step.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -162,7 +162,7 @@
       "docsPaths": [
         "docs/architecture/preview-deploy.md",
         "5-steg.txt",
-        "övrigt/problemomraden-efter-5-steg.txt"
+        "docs/plans/active/remaining-focus-after-5-step.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"

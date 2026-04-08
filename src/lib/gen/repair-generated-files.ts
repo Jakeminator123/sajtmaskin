@@ -2,7 +2,9 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
   buildProjectModuleExportIndex,
+  fixImportedDeclarationConflicts,
   fixLocalDefaultImportMismatches,
+  fixLocalNamedImportDefaultMismatches,
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
@@ -240,12 +242,32 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       return content === file.content ? file : { ...file, content };
     }
 
+    const namedImportResult = fixLocalNamedImportDefaultMismatches(content, file.path, files, moduleExportIndex);
+    if (namedImportResult.fixed) {
+      content = namedImportResult.code;
+      fixes.push({
+        fixer: "local-named-import-default-fixer",
+        description: `Rewired local named imports to default imports: ${namedImportResult.rewiredImports.join(", ")}`,
+        file: file.path,
+      });
+    }
+
     const defaultImportResult = fixLocalDefaultImportMismatches(content, file.path, files, moduleExportIndex);
     if (defaultImportResult.fixed) {
       content = defaultImportResult.code;
       fixes.push({
         fixer: "local-default-import-fixer",
         description: `Rewired local default imports to named imports: ${defaultImportResult.rewiredImports.join(", ")}`,
+        file: file.path,
+      });
+    }
+
+    const conflictImportResult = fixImportedDeclarationConflicts(content);
+    if (conflictImportResult.fixed) {
+      content = conflictImportResult.code;
+      fixes.push({
+        fixer: "import-declaration-conflict-fixer",
+        description: `Removed conflicting import bindings: ${conflictImportResult.removedBindings.join(", ")}`,
         file: file.path,
       });
     }

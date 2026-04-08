@@ -39,14 +39,13 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 - **`docs/architecture/step4-post-generation.md`** — finalize, validate, repair, verifier, preflight och gränsen mellan Steg 4 och Steg 5.
 - **`docs/schemas/builder-entry-contract.md`** — builder-ingång, `entryKind`, ID-termer eller legacy-ingress.
 - **`docs/schemas/scaffold-contract.md`** — scaffold-kontrakt, traits, research eller runtime-serialisering.
-- **`SYSTEMKARTA_SAJTMASKIN.txt`** och **`LLM_KEDJA_STEG_FOR_STEG.txt`** — när stegnamn, mindmap eller LLM-kedjans faktiska ordning ändras.
+- **`docs/architecture/README.md`** och **`docs/plans/active/remaining-focus-after-5-step.md`** — när stegordning, restlista eller tvärgående LLM-kedjefokus ändras.
 
 ## Uppdatera vid behov
 
 - **`5-steg.txt`** eller annan etablerad slutöversikt — när ett större stegspår stängs och den sammanfattande risk-/slutbilden ändras.
 - **`docs/architecture/preview-deploy.md`** — när preview-kedjan eller tier-2-beteendet ändras.
 - **`docs/plans/README.md`** — när planstrukturen eller statusnavet ändras.
-- **`docs/architecture/llm-pipeline-flow.html`** — när noder eller pilar faktiskt ändras.
 - **`config/dashboard/domain-map.json`**, **`config/dashboard/app.py`** och **`scripts/scripts_dashboard.py`** — när dashboardscope, canonical paths eller paneltexter ändras.
 - **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
 

@@ -4,7 +4,7 @@
 
 ## Steg 4 — post-stream (finalize, validering, preflight)
 
-Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`. **Samlad slutbild + kvarvarande risker:** `5-steg.txt` och `övrigt/problemomraden-efter-5-steg.txt`.
+Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`. **Samlad slutbild + kvarvarande risker:** `5-steg.txt` och `docs/plans/active/remaining-focus-after-5-step.md`.
 
 ## Modellbanor (UI ↔ API)
 
@@ -89,8 +89,7 @@ Det finns nu tre separata observability-spår som är lätta att blanda ihop:
 
 Det finns **ingen** samlad kanonisk `logs/`-mapp ännu som binder ihop prompt-dumps, prompt logs, evals, verifieringsresultat, modeller, tokens och slutlig scaffold/utfall i en enda körjournal. Dagens läge är i stället uppdelat mellan `data/prompt-dumps/`, databastabeller/UI för prompt logs och vanliga dev-/runtime-loggar.
 
-**Viktigt:** `config/dashboard/app.py`, `scripts/scripts_dashboard.py`,
-`SYSTEMKARTA_SAJTMASKIN.txt` och övriga docs ska **spegla** runtime-sanningen,
+**Viktigt:** `config/dashboard/app.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
 inte leda den. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
 
 Kategorier:

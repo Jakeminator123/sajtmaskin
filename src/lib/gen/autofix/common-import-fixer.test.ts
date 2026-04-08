@@ -3,7 +3,9 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
   buildProjectModuleExportIndex,
+  fixImportedDeclarationConflicts,
   fixLocalDefaultImportMismatches,
+  fixLocalNamedImportDefaultMismatches,
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
@@ -102,5 +104,41 @@ describe("common-import-fixer", () => {
 
     expect(result.fixed).toBe(true);
     expect(result.code).toContain('import { SiteFooter } from "@/components/site-footer";');
+  });
+
+  it("rewires local named imports to default imports when the target has only default export", () => {
+    const files: CodeFile[] = [
+      {
+        path: "components/header-truck-3d.tsx",
+        content: `export default function HeaderTruck3D() { return <div />; }`,
+        language: "tsx",
+      },
+      {
+        path: "components/site-header.tsx",
+        content:
+          `import { HeaderTruck3D } from "@/components/header-truck-3d";\n\nexport default function SiteHeader() {\n  return <HeaderTruck3D />;\n}`,
+        language: "tsx",
+      },
+    ];
+
+    const moduleExportIndex = buildProjectModuleExportIndex(files);
+    const result = fixLocalNamedImportDefaultMismatches(
+      files[1]!.content,
+      files[1]!.path,
+      files,
+      moduleExportIndex,
+    );
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import HeaderTruck3D from "@/components/header-truck-3d";');
+  });
+
+  it("removes import bindings that conflict with local declarations", () => {
+    const code = `import { Group, Mesh } from "three";\n\nfunction Group() { return null; }\n\nexport default function Scene() {\n  return <Mesh />;\n}`;
+    const result = fixImportedDeclarationConflicts(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.removedBindings).toEqual(["Group"]);
+    expect(result.code).toContain('import { Mesh } from "three";');
   });
 });

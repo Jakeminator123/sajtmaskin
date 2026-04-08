@@ -140,7 +140,7 @@ const WEBSITE_ROUTE_PATTERNS: Array<{
   },
   { match: /\b(services?\s+page|tjänste?r?\s*sida|our services|våra tjänster)\b/i, path: "/services", name: "Services", intent: "Explain offers, packages, or capabilities." },
   { match: /\b(pricing|price|pris|priser|billing)\b/i, path: "/pricing", name: "Pricing", intent: "Show pricing, plans, or billing details." },
-  { match: /\b(contact|kontakta|kontakt|book|booking|boka)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },
+  { match: /\b(contact|kontakta|kontakt|kontaktsida|kontaktsidan|book|booking|boka)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },
   { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blog", name: "Blog", intent: "Publish articles, updates, or editorial content." },
   { match: /\b(docs|documentation|kunskapsbank|guide|guides)\b/i, path: "/docs", name: "Docs", intent: "Provide structured documentation or help content." },
   { match: /\b(support|help center|faq|kundservice)\b/i, path: "/support", name: "Support", intent: "Answer common questions and support flows." },
@@ -164,6 +164,12 @@ const APP_ROUTE_PATTERNS: Array<{
   { match: /\b(report|reports|analytics|metrics|statistik)\b/i, path: "/reports", name: "Reports", intent: "Show analytics, reports, or metrics." },
   { match: /\b(login|inlogg|auth|signup|sign up|register|registr)\b/i, path: "/login", name: "Login", intent: "Provide authentication entry for the application." },
 ];
+
+const ROUTE_REMOVAL_VERB_RE =
+  /\b(remove|delete|drop|ta bort|plocka bort|radera|utan)\b/i;
+const ROUTE_REMOVAL_CONTEXT_RE =
+  /\b(page|pages|route|routes|sida|sidor|sidan|sidorna)\b|[a-zåäö]+sida(?:n|rna)?\b/i;
+const ROUTE_PATH_MENTION_RE = /\/[a-z0-9/_-]*/gi;
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -189,6 +195,41 @@ function pushRoute(routes: PlannedRoute[], route: PlannedRoute): void {
     ...route,
     path: normalizedPath,
   });
+}
+
+function collectExplicitRouteRemovals(
+  prompt: string,
+  buildIntent: BuildIntent,
+  existingPaths: string[],
+): Set<string> {
+  const removals = new Set<string>();
+  const normalizedExisting = new Set(existingPaths.map((path) => normalizeRoutePath(path)));
+  if (!ROUTE_REMOVAL_VERB_RE.test(prompt)) return removals;
+
+  for (const rawPath of prompt.match(ROUTE_PATH_MENTION_RE) ?? []) {
+    const normalized = normalizeRoutePath(rawPath);
+    if (normalized !== "/" && normalizedExisting.has(normalized)) {
+      removals.add(normalized);
+    }
+  }
+
+  // Keep keyword-based removals conservative: require route/page wording in the same prompt.
+  if (!ROUTE_REMOVAL_CONTEXT_RE.test(prompt)) return removals;
+
+  const candidatePatterns =
+    buildIntent === "app"
+      ? [...APP_ROUTE_PATTERNS, ...WEBSITE_ROUTE_PATTERNS]
+      : [...WEBSITE_ROUTE_PATTERNS, ...APP_ROUTE_PATTERNS];
+
+  for (const candidate of candidatePatterns) {
+    if (candidate.path === "/") continue;
+    if (!normalizedExisting.has(candidate.path)) continue;
+    if (candidate.match.test(prompt)) {
+      removals.add(candidate.path);
+    }
+  }
+
+  return removals;
 }
 
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
@@ -313,6 +354,9 @@ export function buildRoutePlan(params: {
     ),
   );
   const useFollowUpFreeze = generationMode === "followUp" && normalizedExistingPaths.length > 0;
+  const explicitRouteRemovals = useFollowUpFreeze
+    ? collectExplicitRouteRemovals(prompt, buildIntent, normalizedExistingPaths)
+    : new Set<string>();
 
   const routeNameFromPath = (path: string): string => {
     if (path === "/") {
@@ -330,6 +374,9 @@ export function buildRoutePlan(params: {
 
   if (useFollowUpFreeze) {
     for (const existingPath of normalizedExistingPaths) {
+      if (explicitRouteRemovals.has(existingPath)) {
+        continue;
+      }
       const isRoot = existingPath === "/";
       pushRoute(routes, {
         path: existingPath,
@@ -364,6 +411,15 @@ export function buildRoutePlan(params: {
     applyPromptPatterns(prompt, WEBSITE_ROUTE_PATTERNS, routes);
   }
 
+  if (useFollowUpFreeze && explicitRouteRemovals.size > 0) {
+    for (let i = routes.length - 1; i >= 0; i -= 1) {
+      const normalizedPath = normalizeRoutePath(routes[i]!.path);
+      if (normalizedPath !== "/" && explicitRouteRemovals.has(normalizedPath)) {
+        routes.splice(i, 1);
+      }
+    }
+  }
+
   const pathsBeforeScaffoldDefaults = new Set(
     routes.map((route) => normalizeRoutePath(route.path)),
   );
@@ -381,7 +437,9 @@ export function buildRoutePlan(params: {
   const primarySource: RoutePlanSource = scaffoldAddedRoutes ? "scaffold" : "prompt";
 
   const reason = useFollowUpFreeze
-    ? "Follow-up mode preserves existing App Router routes by default; only explicit user intent should add new pages."
+    ? explicitRouteRemovals.size > 0
+      ? "Follow-up mode preserves existing App Router routes by default, while explicit route-removal intent can remove selected pages."
+      : "Follow-up mode preserves existing App Router routes by default; only explicit user intent should add new pages."
     : scaffoldAddedRoutes
     ? "Scaffold defaults added routes on top of prompt-inferred structure; keep real App Router pages for each planned path."
     : routes.length > 1

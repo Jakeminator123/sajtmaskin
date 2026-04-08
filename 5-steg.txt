@@ -116,8 +116,8 @@ Resultat:
 
 Tvargaende leveranser under alla steg
 -------------------------------------
-- `SYSTEMKARTA_SAJTMASKIN.txt` har hallits ajour som snabb systemkarta
-- `LLM_KEDJA_STEG_FOR_STEG.txt` beskriver stegkedjan sekventiellt
+- `docs/architecture/README.md` och tillhorande arkitekturdokument har hallits ajour som kanonisk stegkarta
+- `docs/plans/active/remaining-focus-after-5-step.md` bär kvarvarande fokus i stallet for parallella rotfiler
 - `.cursor/rules/terminology.mdc` + `.cursor/rules/terminology-builder-runtime.mdc`
   har skarpts for produkt- och runtimebegrepp
 - `config/dashboard/app.py` och `scripts/scripts_dashboard.py` har uppdaterats for

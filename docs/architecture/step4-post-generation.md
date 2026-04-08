@@ -2,7 +2,7 @@
 
 **Senast uppdaterad:** 2026-04-08
 
-Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna. Detta motsvarar **Steg 4** i `LLM_KEDJA_STEG_FOR_STEG.txt`. **Steg 5** (preview/materialisering, tier-2, uppföljning) börjar **efter** denna kedja — även om SSE kan fortsätta med `preview-ready` m.m.
+Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna. Detta motsvarar **Steg 4** i 5-stegskartan. **Steg 5** (preview/materialisering, tier-2, uppföljning) börjar **efter** denna kedja — även om SSE kan fortsätta med `preview-ready` m.m.
 
 ## Kanoniska källfiler
 
@@ -73,7 +73,7 @@ Uppdatera i samma leverans:
 - `5-steg.txt` (samlad slutbild och kvarvarande problemomraden)
 - `.cursor/rules/terminology.mdc`
 - `.cursor/rules/terminology-builder-runtime.mdc`
-- `SYSTEMKARTA_SAJTMASKIN.txt`, `LLM_KEDJA_STEG_FOR_STEG.txt`
+- `docs/plans/active/remaining-focus-after-5-step.md`
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)
 - Vid manifeständringar: `config/dashboard/app.py` (repair/verifier/timeouts), ev. `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
