@@ -1,0 +1,200 @@
+5-STEGSGENOMGANG AV LLM-FLODET
+==============================
+
+Syfte
+-----
+Detta dokument summerar den stegvisa genomgangen av builderns LLM-flode i fem delar.
+Målet har varit att:
+
+- fa en repo-ratt karta over hur flodet faktiskt fungerar
+- minska naming debt och begreppsforvirring
+- synka docs, dashboards och ordlistor med runtime-sanningen
+- hitta buggrisker och regressionsrisker i kedjan
+- stanga glapp mellan build, finalize och preview
+
+
+Steg 1 - Builder entry / prompt in / forsta klassning
+-----------------------------------------------------
+Fokus:
+- hur /builder normaliserar ingressen
+- vilka id:n och query-parametrar som betyder vad
+- vad som ar forberedelse och vad som faktiskt nar modellen
+
+Vi ville svara pa:
+- vad ar input i buildern innan modellen kallas?
+- vad ar source of truth for ingressen?
+- hur halls `appProjectId`, `chatId`, `templateId`, `entryKind` och gamla compatfalt isar?
+
+Resultat:
+- tydligare mental modell for ingressen
+- minskad risk att blanda ihop prompt, template-init och restore
+- tydligare avgransning mot gamla v0-/compatfalt
+
+
+Steg 2 - Scaffold, route plan, BuildSpec, contracts
+---------------------------------------------------
+Fokus:
+- scaffoldval
+- route plan
+- BuildSpec
+- pre-generation contracts
+
+Vi ville svara pa:
+- vilken scaffold valjs och varfor?
+- hur spåras route-strukturens kalla?
+- hur styr BuildSpec context, preview, verify och quality?
+- hur kopplas integrationer och kontrakt in fore codegen?
+
+Resultat:
+- klarare skillnad mellan scaffolds, `v0-mallar` och `template-library`
+- `RoutePlan.provenance` med `primarySource` + `sources[]`
+- tydligare BuildSpec-driven orkestrering
+- bättre docs/dashboards kring scaffold- och kontraktssanning
+
+
+Steg 3 - Faktisk LLM-input
+--------------------------
+Fokus:
+- vad modellen faktiskt far
+- statisk prompt vs dynamisk kontext vs user-turn
+- budget, pruning och observability
+
+Vi ville svara pa:
+- vad fick modellen exakt?
+- varfor fick modellen det?
+- vad kapades?
+
+Resultat:
+- dubbel "original request"-kontext togs bort ur systemprompten
+- `DynamicContextPruning` exponerar budget/kapning tydligare
+- `GenerationInputPackage` och prompt-dumps blev mer konsekventa
+- verkliga scenariotester lades till for faktisk LLM-input
+
+
+Steg 4 - Codegen, finalize, validate, verifier
+----------------------------------------------
+Fokus:
+- vad som hander efter streamad codegen
+- syntax, repair, verifier-pass, preflight och sparad version
+
+Vi ville svara pa:
+- vilken ar den faktiska stegordningen efter stream?
+- vad ar blocking vs kvalitetssignal vs observability?
+- nar kor fast-only vs fast+deep?
+- var slutar Steg 4 och var borjar preview?
+
+Resultat:
+- tydligare finalize-kontrakt
+- verifier-pass och server-verify skildes tydligare åt
+- dashboards, ordlista och step-4-docs beskriver nu kedjan bättre
+- Step 4-hotspots finns kvar som smal referens i
+  `docs/plans/active/step4-quality-hotspots-and-verification.md`
+
+
+Steg 5 - Preview handoff / session / status
+-------------------------------------------
+Fokus:
+- gransen efter `done`
+- `previewPending`
+- `previewUrlHint`
+- `preview-ready` / `build-error`
+- `preview-session` / `preview-status`
+- shim/fallback vs primar VM-preview
+
+Vi ville svara pa:
+- betyder `done` att preview ar live? (nej)
+- ar `previewUrlHint` en riktig preview-URL? (nej)
+- nar blir preview kanonisk? (pa `preview-ready` eller via explicita status/session-rutter)
+
+Resultat:
+- `done` betyder nu tydligt "version sparad"
+- `previewUrlHint` ar bara boot-hint
+- sync-fallback och SSE-klient ligger narmare varandra i semantik
+- route-tester finns nu for `preview-session` och `preview-status`
+- shared preview-state-resolution minskar drift mellan create-sync och message-sync
+
+
+Tvargaende leveranser under alla steg
+-------------------------------------
+- `SYSTEMKARTA_SAJTMASKIN.txt` har hallits ajour som snabb systemkarta
+- `LLM_KEDJA_STEG_FOR_STEG.txt` beskriver stegkedjan sekventiellt
+- `.cursor/rules/terminology.mdc` + `.cursor/rules/terminology-builder-runtime.mdc`
+  har skarpts for produkt- och runtimebegrepp
+- `config/dashboard/app.py` och `scripts/scripts_dashboard.py` har uppdaterats for
+  att spegla faktisk runtime i stallet for gamla mentala modeller
+- prompt-dumps behandlas nu tydligare som observability, inte source of truth
+- `env`-lagret halls isar mellan:
+  - repoets app-env
+  - preview-host/VM-env
+  - anvandarens genererade projekts env
+
+
+Verifiering som gjorts i detta spar
+-----------------------------------
+- riktade tester for faktisk LLM-input
+- riktade finalize-/post-finalize-tester
+- riktade preview-handoff-tester
+- route-tester for:
+  - create-sync / message-sync fallback
+  - `preview-session`
+  - `preview-status`
+- upprepade typecheck-pass
+- lints pa andrade filer efter storre editeringar
+
+Eval, scaffolds, artifacts och loggning
+---------------------------------------
+- scaffolds-sparet ar fortsatt aktivt och relevant; det ar inte dod kod
+- generated artifacts som `scaffold-research.generated.json` och
+  `scaffold-embeddings.json` ar viktiga men medvetet cursorignorade for att minska brus
+- `template-library` ar fortsatt viktigt for research/validering/tooling, men ar inte
+  samma sak som direkt prompt-injektion i hot path
+- `scripts/rebuild_artifacts.py` ar fortfarande ett aktivt rebuild-skript, men ar en
+  naturlig kandidat for senare dead-path/dead-tooling-audit
+- prompt-dumps och `GENERATIONSLOGG` ar nyttiga for observability, men ska inte lasas
+  som om de vore kanonisk systemsanning
+
+
+Det som fortfarande ar svagare an idealet
+-----------------------------------------
+- naming debt runt `/api/v0/`
+- naming debt runt `sandbox` i kontrakt, typer och DB-falt
+- follow-up-flodet ar fortfarande mer komplext an init-flodet
+- `template-library` / extern pipeline ar fortfarande tung att forsta
+- bredare preview lifecycle efter Steg 5-smalpasset ar inte genomlyst fullt ut
+- logging / rebuild / eval / artifacts kan fortfarande innehalla halvlevande tooling
+
+
+Saker vi medvetet inte tog bort i detta spar
+--------------------------------------------
+- `/api/v0/`-compatlagret
+- bred `sandbox`-rename i DB/Redis/payloads
+- `legacyShimPreviewUrl`
+- bred rensning av `template-library` / extern pipeline
+- bred dead-code-rensning utan separat migrerings- eller auditpass
+
+
+Rekommenderade nasta pass
+-------------------------
+1. Extern review pa den nuvarande helheten.
+2. Ett riktat pass for:
+   - `/api/v0/` compat
+   - `sandbox` naming debt
+   - full preview lifecycle (`heartbeat`, `hibernate`, `destroy`, version rollover)
+3. En separat dead-path / dead-tooling-audit for:
+   - `scripts/`
+   - rebuild/eval/loggning
+   - generated artifacts och deras lasa-/skriva-kedjor
+
+
+Slutbedomning
+-------------
+5-stegssparet har gjort kedjan tydligare, mer repo-ratt och mer testad.
+
+Det viktigaste resultatet ar inte ett enskilt dokument, utan att:
+- runtime-koden och docs nu ligger narmare varandra
+- begreppen ar mindre sammanblandade
+- preview-handoff ar mer robust
+- dashboards och ordlistor speglar verkligheten battre
+
+Det betyder inte att allt ar "klart for alltid", men det ar en betydligt battre grund
+for fortsatt review, cleanup och kvalitetspass.

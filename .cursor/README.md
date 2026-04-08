@@ -29,6 +29,7 @@ Fyra kärnregler är tänkta att vara alltid på. `platform-quirks.mdc` är medv
 Repo-lokala slash-kommandon kan ligga i `.cursor/commands/` och visas när du skriver `/` i Cursor-chatten.
 
 - `/avslutning` = städning inom scope, docs-/schema-/dashboard-sync, verifiering och därefter commit + push när användarens begäran faktiskt är en avslutning/ship.
+- `/slut` = stäng ett helt arbetsspår: ta in review-fixar, konsolidera kördokument, skriv slutöversikt, verifiera och därefter ship:a.
 
 ## Terminologidokument (produkt- och kodnamn)
 

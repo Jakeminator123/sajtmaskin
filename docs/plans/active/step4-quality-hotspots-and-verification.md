@@ -2,7 +2,7 @@
 
 **Senast uppdaterad:** 2026-04-08
 
-Leverans från **planfasen** för Steg 4: **rangordnade** riskytor, **doc-sync**-ankare och **konkret** test-/verifieringsplan — inte själva implementationen av nya features.
+Bevarad som **smal referens** efter 5-stegsgenomgången: **rangordnade** riskytor, **doc-sync**-ankare och **konkret** test-/verifieringsplan för Steg 4 — inte en fortsatt huvudplan i sig.
 
 ## A) Rangordnade kvalitetshotspots
 
@@ -18,7 +18,7 @@ Prioritet = **användarvärde** × **sannolikhet att påverka stabilitet** / **k
 | 6 | **Deterministisk autofix** | Många fixar = varning «heavy load»; kan maskera upstream-problem | `autofix/pipeline.ts` |
 | 7 | **Naming debt `/api/v0/`** | Förvirrar avläsning av var codegen går; **inte** samma som v0-mallar | Stream routes under `src/app/api/v0/chats/*` |
 
-**Obs:** `template-library` / extern pipeline är **uttryckligen inte** huvudspår för Steg 4-kvalitet (se `LLM-PIPELINE-REVIEWLAGE-OCH-OPNA-RISKER.md`).
+**Obs:** `template-library` / extern pipeline är **uttryckligen inte** huvudspår för Steg 4-kvalitet. Samlad 5-stegsbild och kvarvarande risker finns i `5-steg.txt`.
 
 ## B) Verifieringsplan (beteende, inte bara typer)
 

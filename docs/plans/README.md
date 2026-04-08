@@ -11,7 +11,7 @@ Löpande ska **primärt** dessa ligga här:
 - [`PROJECT-STATE-AND-DIRECTION.md`](./active/PROJECT-STATE-AND-DIRECTION.md) — kort kanonisk aktiv status med öppna spår, beslut och pekare vidare.
 - [`step4-quality-hotspots-and-verification.md`](./active/step4-quality-hotspots-and-verification.md) — aktiv Steg 4-plan/leverans: rangordnade hotspots, verifieringsplan och doc-sync-ankare.
 
-Nya tillfälliga planer skapas under **`docs/plans/active/`** och flyttas till **`avklarat/`** när spåret är avslutat. **Använd git-trackade filer här** i stället för Cursor-interna planfiler utanför repot — en sanning för teamet och CI.
+Nya tillfälliga planer skapas under **`docs/plans/active/`** och flyttas till **`avklarat/`** när spåret är avslutat. **Använd git-trackade filer här** i stället för Cursor-interna planfiler utanför repot — en sanning för teamet och CI. För den avslutade 5-stegsgenomgången finns en kort slutöversikt i repo-roten: `5-steg.txt`.
 
 ## Arkiv (`avklarat/`)
 

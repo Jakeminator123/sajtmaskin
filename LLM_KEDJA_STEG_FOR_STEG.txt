@@ -10,6 +10,9 @@ Fokus:
 - vad far faktiskt na modellen
 - vad ar risk / stale / legacy
 
+Samlad slutoversikt over alla fem steg:
+- 5-steg.txt
+
 
 STEG 1 - BUILDER ENTRY / PROMPT IN / FORSTA KLASSNING
 -----------------------------------------------------

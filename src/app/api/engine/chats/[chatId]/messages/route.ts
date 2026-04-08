@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { previewUrlField, readPreviewUrl, resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
+import { previewUrlField } from "@/lib/api/preview-url-contract";
 import {
   buildSyncLatestVersion,
-  readPreviewReadyUrl,
+  resolveSyncPreviewState,
 } from "@/lib/api/engine/chats/sync-create-from-sse";
 import { handleMessageStreamRequest } from "../stream/route";
 
@@ -164,14 +164,12 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
   const buildErrorEvent = findLastEvent(events, "build-error");
   const versionId = typeof done.versionId === "string" ? done.versionId : null;
   const messageId = typeof done.messageId === "string" ? done.messageId : null;
-  const previewReadyUrl = readPreviewReadyUrl(previewReadyEvent?.data);
-  const previewSettled = Boolean(previewReadyEvent) || Boolean(buildErrorEvent) || Boolean(previewReadyUrl);
-  const previewPending =
-    (done.previewPending === true || done.sandboxPending === true) && !previewSettled;
-  const previewResolved =
-    readPreviewUrl(done) ??
-    resolveInboundPreviewUrl(done) ??
-    previewReadyUrl;
+  const { previewResolved, previewPending } = resolveSyncPreviewState({
+    done: done as Record<string, unknown>,
+    previewReadyData: previewReadyEvent?.data,
+    hasPreviewReadyEvent: Boolean(previewReadyEvent),
+    hasBuildErrorEvent: Boolean(buildErrorEvent),
+  });
   const verificationState = done.verificationBlocked === true ? "failed" : "pending";
   const verificationSummary =
     typeof done.previewBlockingReason === "string" && done.previewBlockingReason.trim()

@@ -86,6 +86,42 @@ describe("/api/engine/chats POST (sync JSON)", () => {
       verificationState: "pending",
     });
   });
+
+  it("does not promote compatibility shim preview-ready to canonical previewUrl", async () => {
+    const sse = [
+      "event: meta",
+      'data: {"enginePath":"own-engine"}',
+      "",
+      "event: done",
+      'data: {"chatId":"chat_eng","versionId":"ver_eng","messageId":"msg_eng","previewPending":true,"preflight":{"previewBlocked":false,"verificationBlocked":false}}',
+      "",
+      "event: preview-ready",
+      'data: {"previewUrl":"/api/preview-render?chatId=chat_eng&versionId=ver_eng","previewSessionId":"sbx_1"}',
+      "",
+    ].join("\n");
+
+    handleCreateChatStreamPost.mockResolvedValue(
+      new Response(sse, {
+        headers: { "content-type": "text/event-stream" },
+      }),
+    );
+
+    const res = await POST(
+      new Request("https://example.com/api/engine/chats", {
+        method: "POST",
+        body: JSON.stringify({ message: "hi" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const json = await res.json();
+    expect(json.previewUrl).toBeNull();
+    expect(json.latestVersion).toMatchObject({
+      id: "ver_eng",
+      versionId: "ver_eng",
+      previewUrl: null,
+      previewPending: false,
+    });
+  });
 });
 
 describe("/api/engine/chats GET", () => {

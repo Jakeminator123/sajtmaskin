@@ -9,6 +9,9 @@ Detta dokument är en snabb, mänsklig översikt över:
 - vad som används direkt av runtime
 - vad som bara är intake / research / rebuild
 
+Samlad slutoversikt over hela 5-stegssparet:
+- 5-steg.txt
+
 
 1. Tre separata mallspår
 ------------------------
@@ -266,6 +269,9 @@ Builder / LLM-flöde:
 
 Steg 4 post-stream:
 - docs/architecture/step4-post-generation.md
+
+Samlad slutoversikt:
+- 5-steg.txt
 
 Tvargaende arbetsregel:
 - runtime-kod först

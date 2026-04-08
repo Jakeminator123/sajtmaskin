@@ -17,9 +17,9 @@ Kort kanonisk aktiv status tills ett bredare backlog-pass uppdaterar filen mer f
 
 ## Nästa aktiva steg
 
-- Steg 3 är avslutat och redo för extern review. Samlad risk-/reviewbild: `docs/plans/active/LLM-PIPELINE-REVIEWLAGE-OCH-OPNA-RISKER.md`.
-- **Steg 4 (planfas):** kartläggning och ordlista levererade i `docs/architecture/step4-post-generation.md`, `docs/plans/active/step4-quality-hotspots-and-verification.md`, `.cursor/rules/terminology.mdc` och `.cursor/rules/terminology-builder-runtime.mdc`.
-- **Aktivt smalt Steg 5-pass:** lås kontraktet `done` -> `previewPending`/`previewUrlHint` -> `preview-ready`/`build-error` samt `preview-session`/`preview-status` för bootstrap/recover innan bredare lifecycle-pass.
+- **5-stegsgenomgången är avslutad.** Samlad sammanfattning, syfte per steg och kvarvarande problemområden finns i `5-steg.txt`.
+- **Steg 4-referens:** `docs/plans/active/step4-quality-hotspots-and-verification.md` behålls som smal referens för finalize-/verify-hotspots, inte som fortsatt huvudplan.
+- **Nästa huvudspår efter review:** riktade pass på `/api/v0/` compat, `sandbox`-naming debt, full preview lifecycle och eventuell dead-path/dead-tooling-audit.
 - **Parkering i detta pass:** ingen bred rensning av `/api/v0/`, `sandbox`-namn, `legacyShimPreviewUrl` eller `template-library`/extern-pipeline utan separat migreringspass.
 
 ## Arbetsprinciper
