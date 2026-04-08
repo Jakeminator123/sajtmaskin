@@ -149,9 +149,11 @@ describe("buildCompleteProject", () => {
     ];
     const files = buildCompleteProject(generated);
     const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      engines: Record<string, string>;
       dependencies: Record<string, string>;
       scripts: Record<string, string>;
     };
+    expect(pkg.engines.node).toBe(">=22.14.0 <23");
     expect(pkg.dependencies.next).toBe("16.2.1");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
@@ -247,6 +249,36 @@ describe("buildCompleteProject", () => {
       dependencies: Record<string, string>;
     };
     expect(pkg.dependencies["@radix-ui/react-dialog"]).toBeDefined();
+  });
+
+  it("includes dependencies required by copied ui components when completing the project", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `import { HoverCard } from "@/components/ui/hover-card";\nexport default function Page() { return <HoverCard />; }`,
+        language: "tsx",
+      },
+    ];
+
+    const files = buildCompleteProject(generated, [
+      {
+        filename: "hover-card.tsx",
+        content: [
+          '"use client";',
+          'import * as React from "react";',
+          'import * as HoverCardPrimitive from "@radix-ui/react-hover-card";',
+          'export function HoverCard() {',
+          "  return <HoverCardPrimitive.Root />;",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    const pkg = JSON.parse(files.find((f) => f.path === "package.json")!.content) as {
+      dependencies: Record<string, string>;
+    };
+    expect(pkg.dependencies["@radix-ui/react-hover-card"]).toBe("^1");
   });
 });
 
