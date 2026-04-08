@@ -53,6 +53,10 @@ import { estimateCharsForTokens } from "./tokens";
 
 export interface OrchestrationInput {
   prompt: string;
+  /** Optional prompt used specifically for route-planning inference (defaults to `prompt`). */
+  routePlanPrompt?: string;
+  /** Optional prompt used for BuildSpec classification (defaults to `prompt`). */
+  buildSpecPrompt?: string;
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
@@ -86,6 +90,8 @@ export interface OrchestrationInput {
   embeddingScaffoldMatch?: boolean;
   /** Optional prompt strategy metadata from builder orchestration. */
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
+  existingRoutePaths?: string[];
 }
 
 export interface OrchestrationBase {
@@ -172,6 +178,8 @@ export async function resolveOrchestrationBase(
 ): Promise<OrchestrationBase> {
   const {
     prompt,
+    routePlanPrompt,
+    buildSpecPrompt,
     buildIntent,
     scaffoldMode = "auto",
     scaffoldId = null,
@@ -182,6 +190,7 @@ export async function resolveOrchestrationBase(
     generationMode,
     promptStrategyMeta = null,
     ignorePersistedScaffoldForMatch = false,
+    existingRoutePaths = [],
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -259,11 +268,14 @@ export async function resolveOrchestrationBase(
 
   const capabilities = inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
+  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
   const routePlan = buildRoutePlan({
-    prompt,
+    prompt: routePlanPrompt ?? prompt,
     buildIntent,
     brief,
     resolvedScaffold,
+    generationMode: resolvedMode,
+    existingRoutePaths,
   });
   const preGenerationContracts = inferPreGenerationContracts({
     prompt,
@@ -272,9 +284,8 @@ export async function resolveOrchestrationBase(
     capabilities,
     contractAnswers,
   });
-  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
   const buildSpec = deriveBuildSpec({
-    prompt,
+    prompt: buildSpecPrompt ?? prompt,
     buildIntent,
     generationMode: resolvedMode,
     resolvedScaffold,

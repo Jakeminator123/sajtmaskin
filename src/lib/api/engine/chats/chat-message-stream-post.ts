@@ -48,6 +48,7 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context/file-context-builder";
 import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
+import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
 import {
   buildOwnEngineGenerationStreamMeta,
   buildPreGenerationContractGateParams,
@@ -198,6 +199,10 @@ export async function handleMessageStreamRequest(
           chatId,
           metaEngineBaseVersionId,
         );
+        const existingRoutePaths =
+          previousFiles.length > 0
+            ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
+            : [];
 
         const skipIntentClassification =
           metaPromptSourcePreservePayload ||
@@ -401,6 +406,8 @@ export async function handleMessageStreamRequest(
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
+            routePlanPrompt: message,
+            buildSpecPrompt: message,
             buildIntent: planEngineIntent,
             scaffoldMode: metaScaffoldMode,
             scaffoldId: metaScaffoldId,
@@ -414,6 +421,7 @@ export async function handleMessageStreamRequest(
             generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
+            existingRoutePaths,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,
@@ -517,6 +525,8 @@ export async function handleMessageStreamRequest(
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
         const orchestrationInput = {
           prompt: optimizedMessage,
+          routePlanPrompt: message,
+          buildSpecPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
@@ -532,6 +542,7 @@ export async function handleMessageStreamRequest(
           promptStrategyMeta: promptOrchestration.strategyMeta,
           generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
           ignorePersistedScaffoldForMatch,
+          existingRoutePaths,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

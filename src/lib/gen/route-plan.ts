@@ -297,34 +297,79 @@ export function buildRoutePlan(params: {
   buildIntent: BuildIntent;
   brief?: Record<string, unknown> | null;
   resolvedScaffold: ScaffoldManifest | null;
+  generationMode?: "init" | "followUp";
+  existingRoutePaths?: string[];
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [] } = params;
   const briefPlan = buildRoutesFromBrief(brief, buildIntent);
   if (briefPlan) return briefPlan;
 
   const routes: PlannedRoute[] = [];
+  const normalizedExistingPaths = Array.from(
+    new Set(
+      existingRoutePaths
+        .map((path) => normalizeRoutePath(path))
+        .filter((path) => typeof path === "string" && path.length > 0),
+    ),
+  );
+  const useFollowUpFreeze = generationMode === "followUp" && normalizedExistingPaths.length > 0;
+
+  const routeNameFromPath = (path: string): string => {
+    if (path === "/") {
+      return buildIntent === "app" ? "Dashboard" : "Home";
+    }
+    const label = path
+      .replace(/^\/+/, "")
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => segment.replace(/[-_]/g, " "))
+      .join(" ")
+      .trim();
+    return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Route";
+  };
+
+  if (useFollowUpFreeze) {
+    for (const existingPath of normalizedExistingPaths) {
+      const isRoot = existingPath === "/";
+      pushRoute(routes, {
+        path: existingPath,
+        name: routeNameFromPath(existingPath),
+        intent: isRoot
+          ? "Keep the root route as the primary entry point while applying follow-up changes."
+          : `Preserve the existing ${routeNameFromPath(existingPath)} route unless the user explicitly asks to remove it.`,
+        required: isRoot,
+      });
+    }
+  }
+
   if (buildIntent === "app") {
-    pushRoute(routes, {
-      path: "/",
-      name: "Dashboard",
-      intent: "Use the root route as the main product workspace or dashboard.",
-      required: true,
-    });
+    if (!useFollowUpFreeze) {
+      pushRoute(routes, {
+        path: "/",
+        name: "Dashboard",
+        intent: "Use the root route as the main product workspace or dashboard.",
+        required: true,
+      });
+    }
     applyPromptPatterns(prompt, APP_ROUTE_PATTERNS, routes);
   } else {
-    pushRoute(routes, {
-      path: "/",
-      name: "Home",
-      intent: "Use the root route for the primary landing page or homepage.",
-      required: true,
-    });
+    if (!useFollowUpFreeze) {
+      pushRoute(routes, {
+        path: "/",
+        name: "Home",
+        intent: "Use the root route for the primary landing page or homepage.",
+        required: true,
+      });
+    }
     applyPromptPatterns(prompt, WEBSITE_ROUTE_PATTERNS, routes);
   }
 
   const pathsBeforeScaffoldDefaults = new Set(
     routes.map((route) => normalizeRoutePath(route.path)),
   );
-  applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
+  if (!useFollowUpFreeze) {
+    applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
+  }
   const scaffoldAddedRoutes = routes.some(
     (route) => !pathsBeforeScaffoldDefaults.has(normalizeRoutePath(route.path)),
   );
@@ -335,7 +380,9 @@ export function buildRoutePlan(params: {
   }
   const primarySource: RoutePlanSource = scaffoldAddedRoutes ? "scaffold" : "prompt";
 
-  const reason = scaffoldAddedRoutes
+  const reason = useFollowUpFreeze
+    ? "Follow-up mode preserves existing App Router routes by default; only explicit user intent should add new pages."
+    : scaffoldAddedRoutes
     ? "Scaffold defaults added routes on top of prompt-inferred structure; keep real App Router pages for each planned path."
     : routes.length > 1
       ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."

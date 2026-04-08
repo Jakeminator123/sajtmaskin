@@ -100,6 +100,36 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
   });
 
+  it("follow-up keeps existing routes and does not add scaffold defaults by default", () => {
+    const ecommerceScaffold = getScaffoldById("ecommerce");
+    expect(ecommerceScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Byt hero-text och uppdatera färgerna.",
+      resolvedScaffold: ecommerceScaffold,
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/om"],
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om"]);
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
+    expect(plan.reason).toContain("Follow-up mode preserves existing App Router routes");
+  });
+
+  it("follow-up can still add explicitly requested new routes", () => {
+    const ecommerceScaffold = getScaffoldById("ecommerce");
+    expect(ecommerceScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Lägg till en tydlig contact-sida.",
+      resolvedScaffold: ecommerceScaffold,
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/om"],
+    });
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
+  });
+
   it("parseRoutePlanFromUnknown accepts legacy JSON with source only", () => {
     const parsed = parseRoutePlanFromUnknown({
       source: "brief",
