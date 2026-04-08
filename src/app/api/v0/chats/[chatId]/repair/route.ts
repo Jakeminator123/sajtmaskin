@@ -3,4 +3,4 @@
  */
 export { POST } from "@/app/api/engine/chats/[chatId]/repair/route";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
