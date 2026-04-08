@@ -5,7 +5,7 @@ const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
-const updateVersionSandboxUrl = vi.hoisted(() => vi.fn());
+const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/generation-pipeline", () => ({
@@ -20,7 +20,7 @@ vi.mock("@/lib/tenant", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   getVersionsByChat,
-  updateVersionSandboxUrl,
+  updateVersionPreviewUrl,
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -69,7 +69,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     getEngineVersionForChatByIdForRequest.mockReset();
     getChatByV0ChatIdForRequest.mockReset();
     getVersionsByChat.mockReset();
-    updateVersionSandboxUrl.mockReset();
+    updateVersionPreviewUrl.mockReset();
     buildPreviewUrl.mockReset();
   });
 
@@ -101,7 +101,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
-  it("returns legacyShimPreviewUrl but null previewUrl when own-engine preview may be exposed", async () => {
+  it("keeps legacyShimPreviewUrl null for own-engine version rows", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getVersionsByChat.mockResolvedValue([
       {
@@ -126,10 +126,8 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
-    expect(json.versions[0].legacyShimPreviewUrl).toBe(
-      "/api/preview-render?chatId=chat_1&versionId=ver_ok",
-    );
-    expect(buildPreviewUrl).toHaveBeenCalledWith("chat_1", "ver_ok");
+    expect(json.versions[0].legacyShimPreviewUrl).toBeNull();
+    expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {
@@ -146,13 +144,13 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     expect(json).toEqual({ versions: [] });
   });
 
-  it("persists sandbox URLs for own-engine versions", async () => {
+  it("persists preview URLs for own-engine versions", async () => {
     getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
       chat: { id: "chat_1" },
       version: { id: "ver_1" },
     });
-    updateVersionSandboxUrl.mockResolvedValue(true);
+    updateVersionPreviewUrl.mockResolvedValue(true);
 
     const response = await PATCH(
       new Request("https://example.com/api/v0/chats/chat_1/versions", {
@@ -160,7 +158,7 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           versionId: "ver_1",
-          sandboxUrl: "https://sandbox.example/ver_1",
+          previewUrl: "https://sandbox.example/ver_1",
         }),
       }),
       { params: Promise.resolve({ chatId: "chat_1" }) },
@@ -168,14 +166,14 @@ describe("GET /api/v0/chats/[chatId]/versions", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(updateVersionSandboxUrl).toHaveBeenCalledWith(
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith(
       "ver_1",
       "https://sandbox.example/ver_1",
     );
     expect(json).toEqual({
       success: true,
       versionId: "ver_1",
-      sandboxUrl: "https://sandbox.example/ver_1",
+      previewUrl: "https://sandbox.example/ver_1",
     });
   });
 });

@@ -39,7 +39,7 @@ These tables are used by the own-engine build path and are fully integrated:
 
 - `engine_chats` — chat sessions, scaffold choice, model
 - `engine_messages` — message history
-- `engine_versions` — generated code (`files_json`), release state, optional **`sandbox_url`** (kanonisk live-preview för own-engine när sandbox lyckats; tom tills dess). HTTP-API för own-engine annonserar inte shim som primär `demoUrl`; shim finns som **`legacyShimPreviewUrl`** vid behov (2026-03-30) — se [preview-deploy.md](../architecture/preview-deploy.md).
+- `engine_versions` — generated code (`files_json`), release state, optional **`preview_url`** (kanonisk live-preview för own-engine när preview-session lyckats; tom tills dess). HTTP-API för own-engine annonserar inte shim som primär `demoUrl`; shim finns som **`legacyShimPreviewUrl`** vid behov (2026-03-30) — se [preview-deploy.md](../architecture/preview-deploy.md).
 - `engine_generation_logs` — token usage, duration, errors
 - `engine_version_error_logs` — per-version error diagnostics
 
@@ -54,7 +54,7 @@ These tables are used by the own-engine build path and are fully integrated:
 ### Preview vs persisted URL
 
 - **Shim / legacy:** ingen egen DB-kolumn för shim; `/api/preview-render` används via **`legacyShimPreviewUrl`** i API när det behövs. `project_data.demo_url` kan fortfarande bära äldre värden i vissa flöden.
-- **Sandbox (Fidelity 2):** `engine_versions.sandbox_url` när servern sparat lyckad sandbox-start — [preview-deploy.md](../architecture/preview-deploy.md).
+- **Tier-2 preview (Fidelity 2):** `engine_versions.preview_url` när servern sparat lyckad preview-start — [preview-deploy.md](../architecture/preview-deploy.md).
 
 ## Request validation
 

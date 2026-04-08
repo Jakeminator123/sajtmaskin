@@ -28,7 +28,8 @@ Machine-oriented companion:
 | `versionId` / `engine_versions.id` | version state | canonical | The specific saved version within a chat |
 | `sandboxId` | tier-2 runtime/session | legacy canonical | Internal/legacy tier-2 runtime/session ID carried behind public preview-session APIs |
 | `previewUrl` | public API/client | canonical | The public preview/live URL field |
-| `sandboxUrl` / `sandbox_url` | version/runtime state | legacy structural | Legacy preview field/column name still used in storage/internal state |
+| `sandboxUrl` | version/runtime state | legacy structural | Legacy internal/session variable name in parts of preview/runtime flow |
+| `preview_url` | DB column (`engine_versions`) | canonical | Persisted tier-2 preview URL in Postgres |
 | `VERCEL_PROJECT_ID` | Vercel auth/config | canonical in Vercel scope | Vercel project ID, not a Sajtmaskin project identifier |
 
 ## Preview lane vs verify lane
@@ -198,7 +199,7 @@ categories unless a dedicated migration removes them:
 |---|---|---|
 | HTML | `<iframe sandbox="...">` | Browser attribute; unrelated to tier-2 naming. |
 | Preview-host / HTTP paths | `/preview/session/:sandboxId/status`, `GET /preview/logs/:sandboxId` | Route segments on the VM host; renaming requires host + client rollout. |
-| Storage / Redis | `sandbox-preview:session:` prefix, `sandbox_url` column | Persisted keys and columns — migration scope. |
+| Storage / Redis | `sandbox-preview:session:` prefix, legacy `sandbox*` JSON/session fields | Persisted keys/values — migration scope. |
 | Wire / SSE / API fields | `sandboxId`, `sandboxUrl`, `sandboxPending`, `sandbox_disabled` stage | Backwards-compatible payloads until versioned. |
 | Heuristics | hostname contains `sandbox`, `.vercel.run` | Detecting legacy preview URLs, not product naming. |
 | Provider copy | Resend/email “sandbox mode” | Third-party terminology. |
@@ -213,5 +214,5 @@ If another agent is cleaning unrelated areas, the safest rule is:
 
 - touch `preview-session` / `preview-status` / `preview-heartbeat` / `preview-hibernate` / `preview-destroy`
   only when the change is explicitly about preview/Fly behavior
-- treat `sandboxUrl`, `sandbox_url`, and `sandboxId` as **legacy structural names**
+- treat `sandboxUrl` and `sandboxId` as **legacy structural names** in runtime/session layers
   unless the task is a dedicated migration of storage/tests/docs
