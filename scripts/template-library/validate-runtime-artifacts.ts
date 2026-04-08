@@ -122,6 +122,64 @@ function pushFreshnessCheck(results: CheckResult[], sourceRel: string, artifactR
   }
 }
 
+function pushTemplateEmbeddingAlignmentCheck(results: CheckResult[]): void {
+  const catalogPath = repoPath("src", "lib", "gen", "template-library", "template-library.generated.json");
+  const embeddingsPath = repoPath("src", "lib", "gen", "template-library", "template-library-embeddings.json");
+  if (!fs.existsSync(catalogPath) || !fs.existsSync(embeddingsPath)) return;
+
+  try {
+    const catalogParsed = JSON.parse(fs.readFileSync(catalogPath, "utf8")) as {
+      entries?: Array<{ id?: string }>;
+    };
+    const embeddingsParsed = JSON.parse(fs.readFileSync(embeddingsPath, "utf8")) as {
+      embeddings?: Array<{ id?: string }>;
+    };
+
+    const catalogIds = new Set(
+      (catalogParsed.entries ?? [])
+        .map((entry) => entry.id?.trim())
+        .filter((id): id is string => Boolean(id)),
+    );
+    const embeddingIds = new Set(
+      (embeddingsParsed.embeddings ?? [])
+        .map((entry) => entry.id?.trim())
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    const missingEmbeddings = [...catalogIds].filter((id) => !embeddingIds.has(id));
+    const orphanEmbeddings = [...embeddingIds].filter((id) => !catalogIds.has(id));
+
+    if (missingEmbeddings.length === 0 && orphanEmbeddings.length === 0) {
+      results.push({
+        label: "Template embedding id alignment",
+        path: "src/lib/gen/template-library/template-library-embeddings.json",
+        severity: "ok",
+        message: `catalog ids and embeddings ids aligned (${catalogIds.size} ids)`,
+      });
+      return;
+    }
+
+    const missingSample = missingEmbeddings.slice(0, 4).join(", ");
+    const orphanSample = orphanEmbeddings.slice(0, 4).join(", ");
+    results.push({
+      label: "Template embedding id alignment",
+      path: "src/lib/gen/template-library/template-library-embeddings.json",
+      severity: "error",
+      message:
+        `id mismatch between template catalog and embeddings. ` +
+        `missing embeddings: ${missingEmbeddings.length}${missingSample ? ` (${missingSample})` : ""}; ` +
+        `orphan embeddings: ${orphanEmbeddings.length}${orphanSample ? ` (${orphanSample})` : ""}`,
+    });
+  } catch (error) {
+    results.push({
+      label: "Template embedding id alignment",
+      path: "src/lib/gen/template-library/template-library-embeddings.json",
+      severity: "error",
+      message: error instanceof Error ? error.message : "failed to parse embedding/catalog JSON",
+    });
+  }
+}
+
 function printResults(title: string, results: CheckResult[]) {
   console.log(`\n## ${title}`);
   for (const result of results) {
@@ -197,6 +255,7 @@ function main() {
     "src/lib/gen/scaffolds/scaffold-research.generated.json",
     "Scaffold research freshness",
   );
+  pushTemplateEmbeddingAlignmentCheck(artifactChecks);
 
   printResults("Runtime artifacts", artifactChecks);
   printResults("Research inputs", sourceChecks);
