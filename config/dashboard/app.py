@@ -1501,7 +1501,9 @@ elif page == "Template pipeline":
 
     st.info(
         "Research-pipelinen under `data/external-template-pipeline/` är bygginput. "
-        "Current own-engine-prompten injicerar inte längre template-library-retrieval. "
+        "Current own-engine-prompten injicerar inte längre template-library-retrieval direkt. "
+        "Kondenserad extern research kan fortfarande nå modellen indirekt via "
+        "`scaffold-research.generated.json` (`referenceTemplates`). "
         "De genererade artefakterna under `src/lib/gen/template-library/` används främst av "
         "validering, research-/byggskript och lokala kvalitetskontroller, medan "
         "`src/lib/gen/scaffolds/scaffold-research.generated.json` fortsatt överlagras i runtime-scaffolds. "
@@ -1559,6 +1561,9 @@ elif page == "Preview och versioner":
     st.info(
         "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
         "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
+        "`done` kan bära `previewPending` + `previewUrlHint` medan VM-preview fortfarande bootar; "
+        "chat-/versions-API håller `previewUrl` null tills previewn faktiskt är redo. "
+        "`legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. "
         "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
     )
 

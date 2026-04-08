@@ -14,8 +14,9 @@ Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine
 | Deterministisk autofix före syntax | `src/lib/gen/autofix/pipeline.ts` — `runAutoFix()` |
 | Verifier-pass (read-only LLM) | `src/lib/gen/verifier-pass.ts` |
 | Parse / merge / preflight | `src/lib/gen/stream/finalize-preflight.ts`, `finalize-merge.ts` |
+| Stream → finalize anrop | `src/lib/providers/own-engine/generation-stream.ts`, `src/lib/gen/stream/shared-own-engine-helpers.ts` |
+| Efter finalize (done/preview/server-verify) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` |
 | Asynk server-verify (ej i finalize) | `src/lib/gen/server-verify.ts` |
-| Stream → finalize anrop | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` |
 
 ## Faktisk stegordning i `finalizeAndSaveVersion`
 

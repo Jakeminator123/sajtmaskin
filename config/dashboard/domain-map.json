@@ -123,7 +123,7 @@
       ]
     },
     "Template pipeline": {
-      "summary": "External-template research och de genererade artifacts som byggs från den. Research-data under data/ är inte runtime i sig, och current own-engine-prompten injicerar inte längre template-library-retrieval.",
+      "summary": "External-template research och de genererade artifacts som byggs från den. Research-data under data/ är inte runtime i sig, och current own-engine-prompten injicerar inte längre template-library-retrieval direkt. Kondenserad extern research kan dock nå modellen indirekt via scaffold-research/referenceTemplates.",
       "canonicalPaths": [
         "data/external-template-pipeline/",
         "data/external-template-pipeline/raw-discovery/current/catalog.json",
@@ -143,7 +143,7 @@
       ]
     },
     "Preview och versioner": {
-      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion, prompt-dumps och de viktigaste logg-/telemetriytorna för buildern. Prompt-dump-status delas med scriptpanelen via scripts/dashboard_shared.py.",
+      "summary": "Tier-2 VM-preview, version-lifecycle, repair/promotion, prompt-dumps och de viktigaste logg-/telemetriytorna för buildern. `done` kan bära `previewPending` och `previewUrlHint` innan previewn är redo; `legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. Prompt-dump-status delas med scriptpanelen via scripts/dashboard_shared.py.",
       "canonicalPaths": [
         "src/lib/db/engine-version-lifecycle.ts",
         "src/lib/gen/server-verify.ts",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES,
-  OWN_ENGINE_FINALIZE_FAST_PATH_PHASES,
+  OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES,
   OWN_ENGINE_POST_STREAM_PIPELINE,
   type OwnEnginePostStreamPhaseId,
 } from "./finalize-pipeline-contract";
@@ -35,14 +35,16 @@ describe("finalize-pipeline-contract", () => {
     expect(OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id)).toEqual(allowed);
   });
 
-  it("declares a fast-path subset and deep-path subset", () => {
-    expect(OWN_ENGINE_FINALIZE_FAST_PATH_PHASES).toEqual([
+  it("declares a fast-only subset and deep-path subset", () => {
+    expect(OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES).toEqual([
       "autofix",
       "url_expand",
       "validate_syntax",
-      "verifier",
       "parse_merge_preflight",
     ]);
-    expect(OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES).toEqual(["materialize_images"]);
+    expect(OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES).toEqual([
+      "materialize_images",
+      "verifier",
+    ]);
   });
 });

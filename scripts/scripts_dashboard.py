@@ -344,8 +344,9 @@ class ScriptsDashboard:
             "Scaffold family = scaffoldens runtime-bucket i registret.",
             "Exempel: auth-pages/manifest.ts -> registry.ts -> matcher -> system prompt -> own-engine.",
             "",
-            "Externa referenser = src/lib/gen/template-library/*",
-            "Byggs från data/external-template-pipeline/* och används som referens-/researchmaterial.",
+            "Template-library = src/lib/gen/template-library/*",
+            "Det är den kuraterade referensartefakten som byggs från data/external-template-pipeline/*.",
+            "Externa referenser / rå research lever främst under data/external-template-pipeline/*.",
             "README i template-library betyder README.md från det externa referensrepot, inte detta repo.",
             "",
             "e2e/vercel-templates = automatisk hämtning av externa Vercel-mallar.",
@@ -361,7 +362,7 @@ class ScriptsDashboard:
         llm_frame.pack(fill=tk.X, pady=(0, 8))
         llm_lines = [
             "Direkt input idag:",
-            "- originalprompt",
+            "- user-turn / senaste användarmeddelandet (skickas separat; dupliceras inte som extra originalprompt i systemprompten)",
             "- brief / spec om den finns",
             "- route plan (provenance.primarySource + provenance.sources[])",
             "- pre-generation contracts",

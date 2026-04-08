@@ -93,7 +93,20 @@ Foljde slutsatser ska **inte** dras utan bredare verifiering:
 - att hela `template-library` kan raderas
 - att hela `data/external-template-pipeline/` ar onodig
 - att `/api/v0/` redan ar trygg att ta bort
+- att `sandbox`-namn i preview-kontrakt kan bytas brett utan migreringsplan
+- att `legacyShimPreviewUrl` kan tas bort utan separat UI/API-kontraktspass
 - att avatar / D-ID / OpenClaw ar samma sak som builderns codegenflode
+
+## Steg 4 review triage - parkera cleanup uttryckligen
+
+Foljande kluster ar **medvetet parkerade** till ett separat migreringspass (inte detta Steg 4-triagepass):
+
+- `/api/v0/` compat-lagret
+- `sandbox`-namn i preview/kontrakt
+- `legacyShimPreviewUrl` / shim-sparet
+- bred `template-library` / extern-pipeline-rensning
+
+Skal: de ar fortfarande aktivt refererade i runtime, UI, tester och/eller docs och krav pa telemetri + kontraktsmigrering finns innan saker borttagning.
 
 ## Ar det redo for extern review?
 
