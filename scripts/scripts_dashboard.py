@@ -48,25 +48,35 @@ class CommandSpec:
 
 COMMANDS: list[CommandSpec] = [
     CommandSpec(
-        id="artifacts_rebuild_safe",
-        label="Artifacts: smart rebuild (reuse cache)",
-        command=(PYTHON_CMD, "scripts/rebuild_artifacts.py", "--with-eval", "--with-typecheck"),
+        id="artifacts_rebuild_safe_validate",
+        label="Artifacts: smart rebuild (reuse cache, validate-only)",
+        command=(NPM_CMD, "run", "artifacts:rebuild"),
         group="Artifacts",
-        description="Purge generated outputs, reuse scrape/repo cache, rebuild and validate everything.",
+        description="Purge generated outputs, reuse scrape/repo cache, rebuild + runtime validation + typecheck.",
         risky=True,
     ),
     CommandSpec(
-        id="artifacts_rebuild_full",
-        label="Artifacts: smart rebuild (full scrape)",
-        command=(
-            PYTHON_CMD,
-            "scripts/rebuild_artifacts.py",
-            "--refresh-scrape",
-            "--with-eval",
-            "--with-typecheck",
-        ),
+        id="artifacts_rebuild_safe_with_eval",
+        label="Artifacts: smart rebuild (reuse cache, with eval)",
+        command=(NPM_CMD, "run", "artifacts:rebuild:with-eval"),
         group="Artifacts",
-        description="Purge generated outputs, refresh scrape-cache, rebuild and validate everything.",
+        description="Same as validate-only rebuild, but also runs eval suite.",
+        risky=True,
+    ),
+    CommandSpec(
+        id="artifacts_rebuild_full_validate",
+        label="Artifacts: smart rebuild (full scrape, validate-only)",
+        command=(NPM_CMD, "run", "artifacts:rebuild:full"),
+        group="Artifacts",
+        description="Purge generated outputs, refresh scrape-cache, rebuild + runtime validation + typecheck.",
+        risky=True,
+    ),
+    CommandSpec(
+        id="artifacts_rebuild_full_with_eval",
+        label="Artifacts: smart rebuild (full scrape, with eval)",
+        command=(NPM_CMD, "run", "artifacts:rebuild:full:with-eval"),
+        group="Artifacts",
+        description="Same as full validate-only rebuild, but also runs eval suite.",
         risky=True,
     ),
     CommandSpec(
@@ -210,11 +220,11 @@ COMMANDS: list[CommandSpec] = [
 
 
 PRESET_SAFE_ALL = [
-    "artifacts_rebuild_safe",
+    "artifacts_rebuild_safe_validate",
 ]
 
 PRESET_FULL_ALL = [
-    "artifacts_rebuild_full",
+    "artifacts_rebuild_full_validate",
 ]
 
 
@@ -443,8 +453,9 @@ class ScriptsDashboard:
         frame = ttk.LabelFrame(parent, text="Vad händer om jag trycker här?", padding=8)
         frame.pack(fill=tk.X, pady=(0, 8))
         lines = [
-            "Kör säker helkörning = rensar artifacts, återanvänder scrape-cache/repo-cache, bygger om v0-mallar, externa referenser, scaffolds, embeddings, eval och typecheck.",
-            "Rensa och bygg om allt = samma som ovan men kör också ny full scrape av externa Vercel-mallar.",
+            "Kör säker helkörning = rensar artifacts, återanvänder scrape-cache/repo-cache och kör rebuild + validering + typecheck (utan eval).",
+            "Rensa och bygg om allt = samma som ovan men kör också ny full scrape av externa Vercel-mallar (utan eval).",
+            "With eval-varianterna kör extra eval-suite ovanpå samma rebuild.",
             "Scaffolds: all = kör scaffold-pipelinen från import/hydrate/build till embeddings/eval/verify.",
             "Template pipeline: refresh reuse cache = bygger om externa referenser utan ny scrape.",
             "v0 templates: local refresh + embeddings = bygger om Mallar-tab + dess embeddings lokalt.",

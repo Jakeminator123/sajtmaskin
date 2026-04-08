@@ -146,7 +146,6 @@ def validate_outputs(*, with_eval: bool, with_typecheck: bool, dry_run: bool) ->
 
     for label, cmd in [
         ("template-library:validate-runtime", [NPM, "run", "template-library:validate-runtime"]),
-        ("scaffolds:eval", [NPM, "run", "scaffolds:eval"]),
         ("scaffolds:verify", [NPM, "run", "scaffolds:verify"]),
     ]:
         exit_code = run(cmd, dry_run=dry_run, allow_failure=True)
@@ -154,6 +153,9 @@ def validate_outputs(*, with_eval: bool, with_typecheck: bool, dry_run: bool) ->
             failures.append((label, exit_code))
 
     if with_eval:
+        exit_code = run([NPM, "run", "scaffolds:eval"], dry_run=dry_run, allow_failure=True)
+        if exit_code != 0:
+            failures.append(("scaffolds:eval", exit_code))
         exit_code = run([NPM, "run", "eval"], dry_run=dry_run, allow_failure=True)
         if exit_code != 0:
             failures.append(("eval", exit_code))

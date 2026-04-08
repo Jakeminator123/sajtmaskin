@@ -353,6 +353,25 @@ Nuvarande default för scrape-steget är **bred research-intake**:
 
 Vill du explicit köra det smalare historiska kärnläget använder du `--core-use-cases`.
 
+## artifacts:rebuild (validate-only vs with-eval)
+
+`scripts/rebuild_artifacts.py` är den kanoniska "smart rebuild"-entrypointen för generated artifacts.
+
+Rekommenderade npm-kommandon:
+
+```bash
+npm run artifacts:rebuild                  # reuse cache, validate + typecheck (ingen eval)
+npm run artifacts:rebuild:full             # full scrape, validate + typecheck (ingen eval)
+npm run artifacts:rebuild:with-eval        # reuse cache + eval + typecheck
+npm run artifacts:rebuild:full:with-eval   # full scrape + eval + typecheck
+```
+
+Direktkörning fungerar också, t.ex.:
+
+```bash
+python scripts/rebuild_artifacts.py --with-typecheck --dry-run
+```
+
 ## devtest
 
 Kör en konservativ repo-smoke-test för vanlig utveckling efter större
