@@ -6,12 +6,11 @@ import os
 import queue
 import re
 import subprocess
-import sys
 import threading
 import urllib.error
 import urllib.request
 import webbrowser
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import tkinter as tk
@@ -42,6 +41,22 @@ def pretty_json(data: object) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False)
 
 
+def format_bytes(value: object) -> str:
+    if not isinstance(value, (int, float)):
+        return "unknown"
+    bytes_value = int(value)
+    if bytes_value < 0:
+        return "unknown"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    size = float(bytes_value)
+    unit_index = 0
+    while size >= 1024 and unit_index < len(units) - 1:
+        size /= 1024
+        unit_index += 1
+    precision = 0 if size >= 10 or unit_index == 0 else 1
+    return f"{size:.{precision}f} {units[unit_index]}"
+
+
 def run_command(args: list[str], *, cwd: Path | None = None) -> str:
     completed = subprocess.run(
         args,
@@ -60,22 +75,32 @@ def run_command(args: list[str], *, cwd: Path | None = None) -> str:
     return output or "(no output)"
 
 
+def run_command_json(args: list[str], *, cwd: Path | None = None) -> object:
+    output = run_command(args, cwd=cwd)
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"Command did not return valid JSON: {' '.join(args)}") from error
+
+
 def preview_host_request(
     base_url: str,
-    api_key: str,
+    api_key: str | None,
     path: str,
     *,
     method: str = "GET",
+    require_auth: bool = False,
 ) -> object:
     url = f"{base_url.rstrip('/')}{path}"
-    request = urllib.request.Request(
-        url,
-        method=method,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-    )
+    headers = {
+        "Content-Type": "application/json",
+    }
+    token = (api_key or "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    elif require_auth:
+        raise RuntimeError("Preview host API key is required for this endpoint.")
+    request = urllib.request.Request(url, method=method, headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
             payload = response.read().decode("utf-8")
@@ -87,19 +112,221 @@ def preview_host_request(
         raise RuntimeError(f"Could not reach {url}: {error.reason}") from error
 
 
-def detect_machine_id(machine_list_output: str) -> str | None:
-    match = re.search(r"\b([0-9a-f]{14,})\b", machine_list_output, flags=re.IGNORECASE)
-    return match.group(1) if match else None
+def detect_machine_id(machine_list: object, machine_list_output: str | None = None) -> str | None:
+    if isinstance(machine_list, list):
+        for entry in machine_list:
+            if isinstance(entry, dict):
+                machine_id = entry.get("id")
+                if isinstance(machine_id, str) and machine_id.strip():
+                    return machine_id.strip()
+    if machine_list_output:
+        match = re.search(r"\b([0-9a-f]{14,})\b", machine_list_output, flags=re.IGNORECASE)
+        return match.group(1) if match else None
+    return None
+
+
+def parse_secret_names(secrets_output: str) -> list[str]:
+    names: list[str] = []
+    for index, raw_line in enumerate(secrets_output.splitlines()):
+        line = raw_line.strip()
+        if not line:
+            continue
+        if index == 0 and "NAME" in line.upper():
+            continue
+        parts = re.split(r"\s{2,}|\t+", line)
+        if parts and parts[0]:
+            names.append(parts[0].strip())
+    return names
+
+
+def first_machine(payload: "RefreshPayload") -> dict[str, object] | None:
+    if isinstance(payload.machine_list_json, list) and payload.machine_list_json:
+        first = payload.machine_list_json[0]
+        if isinstance(first, dict):
+            return first
+    if isinstance(payload.fly_status_json, dict):
+        machines = payload.fly_status_json.get("Machines")
+        if isinstance(machines, list) and machines:
+            first = machines[0]
+            if isinstance(first, dict):
+                return first
+    return None
+
+
+def first_volume(payload: "RefreshPayload") -> dict[str, object] | None:
+    if isinstance(payload.volume_list_json, list) and payload.volume_list_json:
+        first = payload.volume_list_json[0]
+        if isinstance(first, dict):
+            return first
+    return None
+
+
+def format_machine_resources(machine: dict[str, object]) -> str:
+    config = machine.get("config")
+    if not isinstance(config, dict):
+        return "unknown"
+    guest = config.get("guest")
+    if not isinstance(guest, dict):
+        return "unknown"
+    cpus = guest.get("cpus")
+    memory_mb = guest.get("memory_mb")
+    cpu_kind = guest.get("cpu_kind")
+    if not isinstance(cpus, int) or not isinstance(memory_mb, int):
+        return "unknown"
+    kind_suffix = f" ({cpu_kind})" if isinstance(cpu_kind, str) and cpu_kind.strip() else ""
+    return f"{cpus} CPU / {memory_mb} MB RAM{kind_suffix}"
+
+
+def build_summary(payload: "RefreshPayload", *, app_name: str, base_url: str, api_key_present: bool) -> str:
+    machine = first_machine(payload)
+    volume = first_volume(payload)
+    storage_root = payload.storage.get("storage") if isinstance(payload.storage, dict) else None
+    storage_paths = storage_root.get("paths") if isinstance(storage_root, dict) else None
+    host_health_ok = (
+        payload.host_health.get("ok")
+        if isinstance(payload.host_health, dict)
+        else None
+    )
+    host_health_sessions = (
+        payload.host_health.get("sessions")
+        if isinstance(payload.host_health, dict)
+        else None
+    )
+    sessions_count = (
+        payload.sessions.get("count")
+        if isinstance(payload.sessions, dict)
+        else None
+    )
+    data_fs = storage_root.get("dataFilesystem") if isinstance(storage_root, dict) else None
+    data_dir = storage_root.get("dataDir") if isinstance(storage_root, dict) else None
+    data_dir_info = storage_paths.get("dataDir") if isinstance(storage_paths, dict) else None
+    workspace_info = storage_paths.get("workspacesDir") if isinstance(storage_paths, dict) else None
+    verify_workspace_info = (
+        storage_paths.get("verifyWorkspacesDir")
+        if isinstance(storage_paths, dict)
+        else None
+    )
+
+    lines = [
+        "=== Live audit summary ===",
+        "",
+        f"Fly app: {app_name or 'unknown'}",
+        f"Preview host URL: {base_url or 'missing'}",
+        f"Preview host API key configured in dashboard: {'yes' if api_key_present else 'no'}",
+        "",
+    ]
+
+    if machine:
+        lines.extend(
+            [
+                f"Machine: {machine.get('id', 'unknown')} ({machine.get('name', 'unknown')})",
+                f"State: {machine.get('state', 'unknown')}",
+                f"Region: {machine.get('region', 'unknown')}",
+                f"Resources: {format_machine_resources(machine)}",
+                f"Image: {machine.get('config', {}).get('image', 'unknown') if isinstance(machine.get('config'), dict) else 'unknown'}",
+            ]
+        )
+    else:
+        lines.append("Machine: unavailable")
+
+    if volume:
+        lines.extend(
+            [
+                f"Volume: {volume.get('name', 'unknown')} ({volume.get('id', 'unknown')})",
+                f"Volume size: {volume.get('size_gb', 'unknown')} GB",
+                f"Volume state: {volume.get('state', 'unknown')}",
+                f"Volume attached machine: {volume.get('attached_machine_id', 'unknown')}",
+            ]
+        )
+    else:
+        lines.append("Volume: unavailable")
+
+    lines.append("")
+    lines.append(
+        f"Host health: {'ok' if host_health_ok is True else 'unavailable' if host_health_ok is None else host_health_ok}"
+    )
+    if host_health_sessions is not None:
+        lines.append(f"Host reported sessions (/health): {host_health_sessions}")
+    if sessions_count is not None:
+        lines.append(f"Admin session count (/admin/sessions): {sessions_count}")
+
+    if data_fs or data_dir_info or workspace_info or verify_workspace_info:
+        lines.append("")
+        lines.append("Storage:")
+        if isinstance(data_fs, dict):
+            lines.append(
+                f"- /data filesystem: {data_fs.get('usedHuman', 'unknown')} used / {data_fs.get('freeHuman', 'unknown')} free / {data_fs.get('totalHuman', 'unknown')} total"
+            )
+        elif isinstance(data_dir_info, dict):
+            lines.append(
+                f"- /data directory usage: {data_dir_info.get('human', format_bytes(data_dir_info.get('bytes')))}"
+            )
+        if data_dir:
+            lines.append(f"- Data dir: {data_dir}")
+        if isinstance(workspace_info, dict):
+            lines.append(
+                f"- /data/workspaces: {workspace_info.get('human', format_bytes(workspace_info.get('bytes')))}"
+            )
+        if isinstance(verify_workspace_info, dict):
+            lines.append(
+                f"- /data/verify-workspaces: {verify_workspace_info.get('human', format_bytes(verify_workspace_info.get('bytes')))}"
+            )
+
+    warnings: list[str] = []
+    if not api_key_present:
+        warnings.append(
+            "Preview host API key saknas i dashboarden; admin/storage och admin/sessions kan inte läsas."
+        )
+    if machine and machine.get("state") != "started":
+        warnings.append(f"Machine state är {machine.get('state')}, inte started.")
+    if machine and volume:
+        machine_id = machine.get("id")
+        attached_machine_id = volume.get("attached_machine_id")
+        if isinstance(machine_id, str) and isinstance(attached_machine_id, str):
+            if attached_machine_id and attached_machine_id != machine_id:
+                warnings.append(
+                    f"Volume är kopplad till {attached_machine_id}, inte aktuell machine {machine_id}."
+                )
+    if host_health_ok is not True:
+        warnings.append("Preview host /health svarar inte med ok=true.")
+    warnings.extend(payload.errors)
+
+    lines.append("")
+    lines.append("Warnings:")
+    if warnings:
+        lines.extend([f"- {warning}" for warning in warnings])
+    else:
+        lines.append("- none")
+    return "\n".join(lines)
+
+
+def build_overview(payload: "RefreshPayload") -> str:
+    sections: list[str] = []
+    if payload.fly_status_json is not None:
+        sections.append("=== fly status --json ===\n" + pretty_json(payload.fly_status_json))
+    if payload.machine_list_json is not None:
+        sections.append("=== fly machine list --json ===\n" + pretty_json(payload.machine_list_json))
+    if payload.volume_list_json is not None:
+        sections.append("=== fly volumes list --json ===\n" + pretty_json(payload.volume_list_json))
+    if payload.host_health is not None:
+        sections.append("=== preview host /health ===\n" + pretty_json(payload.host_health))
+    if payload.secrets_list:
+        sections.append("=== fly secrets list ===\n" + payload.secrets_list)
+    if payload.errors:
+        sections.append("=== partial refresh errors ===\n" + "\n".join(payload.errors))
+    return "\n\n".join(sections) if sections else "(no overview data)"
 
 
 @dataclass
 class RefreshPayload:
-    fly_status: str
-    machine_list: str
-    volume_list: str
-    secrets_list: str
-    storage: object
-    sessions: object
+    fly_status_json: object | None = None
+    machine_list_json: object | None = None
+    volume_list_json: object | None = None
+    secrets_list: str | None = None
+    host_health: object | None = None
+    storage: object | None = None
+    sessions: object | None = None
+    errors: list[str] = field(default_factory=list)
 
 
 class FlyVmDashboard:
@@ -123,6 +350,7 @@ class FlyVmDashboard:
 
         self._output_queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self._worker_thread: threading.Thread | None = None
+        self._latest_payload: RefreshPayload | None = None
 
         self._build_layout()
         self._poll_output_queue()
@@ -142,7 +370,7 @@ class FlyVmDashboard:
         ).pack(anchor=tk.W)
         ttk.Label(
             header,
-            text="En enkel GUI för preview-host, Fly-status, disk, sessions och vanliga åtgärder.",
+            text="Live-audit för preview-host, Fly-status, disk, sessioner och vanliga driftåtgärder.",
         ).pack(anchor=tk.W, pady=(2, 0))
 
         form = ttk.LabelFrame(wrapper, text="Anslutning", padding=8)
@@ -203,6 +431,7 @@ class FlyVmDashboard:
         notebook = ttk.Notebook(left)
         notebook.pack(fill=tk.BOTH, expand=True)
 
+        self.summary_text = self._build_text_tab(notebook, "Summary")
         self.overview_text = self._build_text_tab(notebook, "Overview")
         self.storage_text = self._build_text_tab(notebook, "Storage")
         self.sessions_text = self._build_text_tab(notebook, "Sessions")
@@ -276,47 +505,110 @@ class FlyVmDashboard:
         self._worker_thread = threading.Thread(target=wrapped, daemon=True)
         self._worker_thread.start()
 
+    def _safe_call(self, payload: RefreshPayload, label: str, callback):
+        try:
+            return callback()
+        except Exception as error:
+            message = f"{label}: {error}"
+            payload.errors.append(message)
+            self._output_queue.put(("log", f"[warn] {message}"))
+            return None
+
     def _fly(self, *args: str, cwd: Path | None = None) -> str:
         command = [FLY_CMD, *args]
         self._output_queue.put(("log", f"> {' '.join(command)}"))
         return run_command(command, cwd=cwd)
 
+    def _fly_json(self, *args: str, cwd: Path | None = None) -> object:
+        command = [FLY_CMD, *args]
+        self._output_queue.put(("log", f"> {' '.join(command)}"))
+        return run_command_json(command, cwd=cwd)
+
+    def _host_public(self, path: str, *, method: str = "GET") -> object:
+        base_url = self.base_url_var.get().strip()
+        if not base_url:
+            raise RuntimeError("Preview host URL must be set.")
+        self._output_queue.put(("log", f"> {method} {base_url.rstrip('/')}{path}"))
+        return preview_host_request(base_url, None, path, method=method, require_auth=False)
+
     def _host(self, path: str, *, method: str = "GET") -> object:
         base_url = self.base_url_var.get().strip()
         api_key = self.api_key_var.get().strip()
-        if not base_url or not api_key:
-            raise RuntimeError("Preview host URL och API key måste vara ifyllda.")
+        if not base_url:
+            raise RuntimeError("Preview host URL must be set.")
+        if not api_key:
+            raise RuntimeError("Preview host API key must be set.")
         self._output_queue.put(("log", f"> {method} {base_url.rstrip('/')}{path}"))
-        return preview_host_request(base_url, api_key, path, method=method)
+        return preview_host_request(base_url, api_key, path, method=method, require_auth=True)
+
+    def _collect_refresh_payload(self) -> RefreshPayload:
+        app_name = self.app_name_var.get().strip()
+        payload = RefreshPayload()
+        payload.fly_status_json = self._safe_call(
+            payload,
+            "fly status --json",
+            lambda: self._fly_json("status", "-a", app_name, "--json"),
+        )
+        payload.machine_list_json = self._safe_call(
+            payload,
+            "fly machine list --json",
+            lambda: self._fly_json("machine", "list", "-a", app_name, "--json"),
+        )
+        payload.volume_list_json = self._safe_call(
+            payload,
+            "fly volumes list --json",
+            lambda: self._fly_json("vol", "list", "-a", app_name, "--json"),
+        )
+        payload.secrets_list = self._safe_call(
+            payload,
+            "fly secrets list",
+            lambda: self._fly("secrets", "list", "-a", app_name),
+        )
+        payload.host_health = self._safe_call(
+            payload,
+            "preview host /health",
+            lambda: self._host_public("/health"),
+        )
+        api_key_present = bool(self.api_key_var.get().strip())
+        if api_key_present:
+            payload.storage = self._safe_call(
+                payload,
+                "preview host /admin/storage",
+                lambda: self._host("/admin/storage"),
+            )
+            payload.sessions = self._safe_call(
+                payload,
+                "preview host /admin/sessions",
+                lambda: self._host("/admin/sessions"),
+            )
+        else:
+            payload.errors.append("Preview host API key missing; skipped /admin/storage and /admin/sessions.")
+        return payload
+
+    def _apply_refresh_payload(self, payload: RefreshPayload) -> None:
+        self._latest_payload = payload
+        detected_machine = detect_machine_id(payload.machine_list_json)
+        if detected_machine:
+            self.machine_id_var.set(detected_machine)
+
+        summary = build_summary(
+            payload,
+            app_name=self.app_name_var.get().strip(),
+            base_url=self.base_url_var.get().strip(),
+            api_key_present=bool(self.api_key_var.get().strip()),
+        )
+        overview = build_overview(payload)
+        storage = pretty_json(payload.storage) if payload.storage is not None else "(storage unavailable)"
+        sessions = pretty_json(payload.sessions) if payload.sessions is not None else "(sessions unavailable)"
+        self._set_text(self.summary_text, summary)
+        self._set_text(self.overview_text, overview)
+        self._set_text(self.storage_text, storage)
+        self._set_text(self.sessions_text, sessions)
 
     def refresh_all(self) -> None:
         def worker() -> None:
-            payload = RefreshPayload(
-                fly_status=self._fly("status", "-a", self.app_name_var.get().strip()),
-                machine_list=self._fly("machine", "list", "-a", self.app_name_var.get().strip()),
-                volume_list=self._fly("vol", "list", "-a", self.app_name_var.get().strip()),
-                secrets_list=self._fly("secrets", "list", "-a", self.app_name_var.get().strip()),
-                storage=self._host("/admin/storage"),
-                sessions=self._host("/admin/sessions"),
-            )
-            detected_machine = detect_machine_id(payload.machine_list)
-            if detected_machine:
-                self.root.after(0, lambda: self.machine_id_var.set(detected_machine))
-            overview = "\n\n".join(
-                [
-                    "=== fly status ===",
-                    payload.fly_status,
-                    "=== fly machine list ===",
-                    payload.machine_list,
-                    "=== fly volume list ===",
-                    payload.volume_list,
-                    "=== fly secrets list ===",
-                    payload.secrets_list,
-                ],
-            )
-            self.root.after(0, lambda: self._set_text(self.overview_text, overview))
-            self.root.after(0, lambda: self._set_text(self.storage_text, pretty_json(payload.storage)))
-            self.root.after(0, lambda: self._set_text(self.sessions_text, pretty_json(payload.sessions)))
+            payload = self._collect_refresh_payload()
+            self.root.after(0, lambda: self._apply_refresh_payload(payload))
 
         self._run_async("Refresh all", worker)
 
@@ -337,7 +629,9 @@ class FlyVmDashboard:
     def cleanup_host(self) -> None:
         def worker() -> None:
             result = self._host("/admin/cleanup", method="POST")
-            self.root.after(0, lambda: self._set_text(self.storage_text, pretty_json(result)))
+            payload = self._collect_refresh_payload()
+            self._output_queue.put(("log", pretty_json(result)))
+            self.root.after(0, lambda: self._apply_refresh_payload(payload))
 
         self._run_async("Cleanup host", worker)
 
@@ -351,11 +645,9 @@ class FlyVmDashboard:
 
         def worker() -> None:
             result = self._host("/admin/destroy-all", method="POST")
-            storage = self._host("/admin/storage")
-            sessions = self._host("/admin/sessions")
-            self.root.after(0, lambda: self._set_text(self.sessions_text, pretty_json(sessions)))
-            self.root.after(0, lambda: self._set_text(self.storage_text, pretty_json(storage)))
+            payload = self._collect_refresh_payload()
             self._output_queue.put(("log", pretty_json(result)))
+            self.root.after(0, lambda: self._apply_refresh_payload(payload))
 
         self._run_async("Destroy all previews", worker)
 
@@ -363,7 +655,7 @@ class FlyVmDashboard:
         def worker() -> None:
             machine_id = self.machine_id_var.get().strip()
             if not machine_id:
-                machine_list = self._fly("machine", "list", "-a", self.app_name_var.get().strip())
+                machine_list = self._fly_json("machine", "list", "-a", self.app_name_var.get().strip(), "--json")
                 machine_id_local = detect_machine_id(machine_list)
                 if not machine_id_local:
                     raise RuntimeError("Could not determine machine id.")
@@ -371,7 +663,9 @@ class FlyVmDashboard:
                 machine_id = machine_id_local
 
             result = self._fly("machine", "restart", machine_id, "-a", self.app_name_var.get().strip())
+            payload = self._collect_refresh_payload()
             self._output_queue.put(("log", result))
+            self.root.after(0, lambda: self._apply_refresh_payload(payload))
 
         self._run_async("Restart machine", worker)
 
@@ -393,7 +687,9 @@ class FlyVmDashboard:
                 "--now",
                 cwd=PREVIEW_HOST_ROOT,
             )
+            payload = self._collect_refresh_payload()
             self._output_queue.put(("log", result))
+            self.root.after(0, lambda: self._apply_refresh_payload(payload))
 
         self._run_async("Deploy preview-host", worker)
 

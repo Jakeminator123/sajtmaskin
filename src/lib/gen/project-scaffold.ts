@@ -12,12 +12,14 @@ import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-l
  *
  * `_template_refs/` is a third, separate concept: research material only.
  */
+const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
+
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": "${GENERATED_PROJECT_NODE_RANGE}"
   },
   "scripts": {
     "dev": "next dev",
@@ -494,7 +496,10 @@ export function buildCompleteProject(
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
 
-  const allCode = generatedFiles.map((f) => f.content).join("\n");
+  const allCode = [
+    ...generatedFiles.map((f) => f.content),
+    ...(uiComponents ?? []).map((component) => component.content),
+  ].join("\n");
   const detected = runDepCompleter(allCode);
 
   const mergeModelPackageJson = (file: CodeFile): CodeFile => {
