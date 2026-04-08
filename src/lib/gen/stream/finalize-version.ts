@@ -70,6 +70,11 @@ export interface FinalizeParams {
   repairPassIndex?: number;
   /** SHA-256 of deterministic generation inputs (prompt lineage). */
   lineageHash?: string | null;
+  /**
+   * When set, update this existing version's files instead of creating a new version row.
+   * Used by autofix so a repair attempt replaces v1 in-place rather than minting v2.
+   */
+  targetVersionId?: string | null;
 }
 
 export interface FinalizeResult {
@@ -547,6 +552,7 @@ export async function finalizeAndSaveVersion(
     orchestrationStreamMeta,
     repairPassIndex = 0,
     lineageHash,
+    targetVersionId,
   } = params;
 
   let contentForVersion = accumulatedContent;
@@ -664,9 +670,17 @@ export async function finalizeAndSaveVersion(
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);
 
-  // 5–6. Persist assistant + draft version atomically after merge/preflight.
-  const { message: assistantMsg, version: initialVersion } =
-    await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson);
+  // 5–6. Persist assistant + version atomically after merge/preflight.
+  // When targetVersionId is set (autofix / repair), update existing version in-place
+  // instead of minting a new version number.
+  const { message: assistantMsg, version: initialVersion } = targetVersionId
+    ? await chatRepo.addAssistantMessageAndUpdateExistingVersion(
+        chatId,
+        targetVersionId,
+        contentForVersion,
+        filesJson,
+      )
+    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson);
   let version = initialVersion;
   devLogAppend("in-progress", {
     type: "version.created",

@@ -16,8 +16,7 @@ import {
   markVersionRepairing,
   promoteVersion,
   failVersionVerification,
-  markVersionSupersededByRepair,
-  createAndPromoteDraftVersion,
+  updateVersionFiles,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
@@ -219,20 +218,16 @@ async function tryServerRepairLoop(params: {
         method === "deterministic"
           ? "Server repair succeeded (deterministic); quality gate re-passed."
           : "Server repair succeeded (LLM); quality gate re-passed.";
-      const promotedVersion = await createAndPromoteDraftVersion(
-        chatId,
-        null,
-        filesJson,
-        msg,
-      ).catch((err) => {
-        console.warn("[server-verify] Failed to promote repaired version:", err);
-        return null;
+      const updated = await updateVersionFiles(versionId, filesJson).catch((err) => {
+        console.warn("[server-verify] Failed to update repaired version files:", err);
+        return false;
       });
-      if (!promotedVersion) {
-        console.warn("[server-verify] Repaired draft version was created but promotion did not complete.");
-      } else {
-        promoted = true;
-        await markVersionSupersededByRepair(versionId, promotedVersion.id).catch(() => null);
+      if (updated) {
+        const promotedVersion = await promoteVersion(versionId, msg).catch((err) => {
+          console.warn("[server-verify] Failed to promote repaired version:", err);
+          return null;
+        });
+        promoted = Boolean(promotedVersion);
       }
     }
     await createEngineVersionErrorLogs([

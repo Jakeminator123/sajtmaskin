@@ -5,10 +5,10 @@ import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
-  createAndPromoteDraftVersion,
   markVersionRepairing,
   failVersionVerification,
-  markVersionSupersededByRepair,
+  updateVersionFiles,
+  promoteVersion,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/build-exportable-project";
@@ -32,7 +32,7 @@ import {
 } from "@/lib/gen/server-verify-log-meta";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -200,23 +200,19 @@ export async function POST(
       let newVersionId: string | null = null;
       if (decision.promote && dbConfigured) {
         const filesJson = JSON.stringify(repairedFiles);
-        const promotedVersion = await createAndPromoteDraftVersion(
-          chatId,
-          null,
-          filesJson,
-          promoteReason,
-        ).catch((err) => {
-          console.warn("[repair] Failed to promote repaired version:", err);
-          return null;
+        const updated = await updateVersionFiles(currentVersionId, filesJson).catch((err) => {
+          console.warn("[repair] Failed to update repaired version files:", err);
+          return false;
         });
-        if (!promotedVersion) {
-          console.warn("[repair] Repaired draft version was created but promotion did not complete.");
-        } else {
-          promoted = true;
-          newVersionId = promotedVersion.id;
-          await markVersionSupersededByRepair(currentVersionId, promotedVersion.id).catch((err) => {
-            console.warn("[repair] Failed to mark repaired-from version superseded:", err);
+        if (updated) {
+          const promotedVersion = await promoteVersion(currentVersionId, promoteReason).catch((err) => {
+            console.warn("[repair] Failed to promote repaired version:", err);
+            return null;
           });
+          if (promotedVersion) {
+            promoted = true;
+            newVersionId = promotedVersion.id;
+          }
         }
       }
       if (dbConfigured) {

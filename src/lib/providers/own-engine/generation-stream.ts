@@ -47,6 +47,8 @@ export interface GenerationStreamParams {
   previousFiles?: CodeFile[];
   /** SHA-256 of deterministic generation inputs (prompt lineage). */
   lineageHash?: string | null;
+  /** When set, repair replaces this version in-place instead of creating a new one. */
+  targetVersionId?: string | null;
 }
 
 export function createOwnEngineGenerationStream(
@@ -68,6 +70,7 @@ export function createOwnEngineGenerationStream(
     commitCredits,
     previousFiles,
     lineageHash,
+    targetVersionId,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -221,6 +224,7 @@ export function createOwnEngineGenerationStream(
         previousFiles,
         onProgress: emitProgress,
         lineageHash,
+        targetVersionId,
         ...extra,
       });
 

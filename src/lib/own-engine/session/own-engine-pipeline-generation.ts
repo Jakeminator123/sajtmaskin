@@ -44,6 +44,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
   lineageHash?: string | null;
+  targetVersionId?: string | null;
 };
 
 /**
@@ -88,5 +89,6 @@ export function createOwnEnginePipelineAndGenerationStream(
     commitCredits: input.commitCredits,
     previousFiles: input.previousFiles,
     lineageHash: input.lineageHash,
+    targetVersionId: input.targetVersionId,
   });
 }

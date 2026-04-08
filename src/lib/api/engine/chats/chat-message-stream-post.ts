@@ -737,6 +737,10 @@ export async function handleMessageStreamRequest(
           commitCredits: commitCreditsOnce,
           previousFiles: previousFiles.length > 0 ? previousFiles : undefined,
           lineageHash,
+          targetVersionId:
+            metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
+              ? metaEngineBaseVersionId
+              : undefined,
         });
 
         const engineHeaders = new Headers(createSSEHeaders());
