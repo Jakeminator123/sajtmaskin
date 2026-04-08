@@ -16,6 +16,8 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 | **`template-library`** | Kuraterad referensartefakt byggd från externa referenser | `src/lib/gen/template-library/*` | referens-/researchartefakt, validering, tooling |
 | **scaffolds** | Interna runtime-startpunkter | `src/lib/gen/scaffolds/*` | own-engine codegen |
 | **scaffold family** | Scaffoldens runtime-bucket (`landing-page`, `auth-pages`, ...) | `ScaffoldManifest.family` | matchning, registry, embeddings, telemetry |
+| **`RoutePlan.provenance`** | Källspårning för route-plan (`primarySource` + `sources[]`) | `src/lib/gen/route-plan.ts` | route-struktur, BuildSpec, preflight/post-checks |
+| **persisted scaffold** | Tidigare scaffold-id som återanvänds i samma chat om inte follow-up låser upp det | `engine_chats.scaffold_id`, `chat-message-stream-post.ts` | scaffold-kontinuitet i follow-ups |
 | **traits** | Högre nivå-metadata om scaffoldens roll (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`) | `src/lib/gen/scaffolds/scaffold-traits.ts` | scaffoldkontext till modellen |
 | **dossiers** | Fullt researchmaterial från externa referenser | `data/external-template-pipeline/reference-library/*` | build-time underlag, inte direkt runtime-input |
 | **embeddings** | Förgenererade JSON-vektorer per spår | `src/lib/templates/*`, `src/lib/gen/template-library/*`, `src/lib/gen/scaffolds/*` | semantisk sökning / fallback |
@@ -31,7 +33,7 @@ Kort ordlista för de begrepp som oftast blir fel. För repo-karta och pipelines
 ### Namnge det som faktiskt händer
 
 - Säg **own-engine** när du menar den aktiva generationmotorn.
-- Säg **`/api/v0/`-route** eller **API-versionering** när du menar egna serverroutes (denna väg ska betraktas legasy, eller ngt vi ska bort från). 
+- Säg **`/api/v0/`-route** eller **API-versionering** när du menar egna serverroutes (denna väg ska betraktas som legacy, eller något vi ska bort från).
 - Säg **`v0-mallar`**, **builderns Mallar-tab**, **mallgalleri** eller **mallkatalog** när du menar den användarvända katalogen i `src/lib/templates/`.
 - Säg **Vercel-mallar**, **externa referenser** eller **Vercel template research** när du menar externa mallar från [Vercel Templates](https://vercel.com/templates) som går via `e2e/vercel-templates/` och `data/external-template-pipeline/`.
 - Säg **`template-library`** när du menar den kuraterade referensartefakten i `src/lib/gen/template-library` som byggs från de externa Vercel-mallarna.
@@ -129,6 +131,8 @@ Agenter: säg explicit vilket lager du menar om det kan misstolkas.
 - **`orchestratePromptMessage()`**: deterministisk promptvakt/budgetering — **inte** en LLM. Den väljer `direct`, `preserved` (full handoff över mjuk gräns), `phase_plan_build_polish`, eller sällan `summarize` som nödfallback vid hård cap.
 - **Verifier-pass (post-generation)**: read-only LLM-granskning **efter** syntax i finalize; returnerar `blocking`/`quality`-fynd för telemetry och kvalitetsgrind. Styrs av `phaseRouting.verifier` och `postGenerationPasses` i manifest.
 - **`resolveOrchestrationBase()` / `BuildSpec`**: den faktiska orkestreringen före codegen. Här väljs scaffold, route plan, kontrakt, context-policy, preview-policy och verification-policy.
+- **`RoutePlan.provenance`**: route-planets källspårning. `primarySource` är den huvudsakliga strukturkällan (`brief`, `prompt`, `scaffold`), medan `sources[]` visar alla bidrag i ordning.
+- **Persisted scaffold**: chattens senast sparade scaffold-id. Det används för kontinuitet i follow-ups men kan låsas upp vid tydlig redesign när prompten signalerar ny riktning.
 - **Plan mode**: separat planner-LLM som returnerar plan-/JSON-artifact, **inte kod**.
 - **own-engine generator**: huvud-LLM:n som faktiskt genererar kod.
 - **`thinking`**: resonemangs-/reasoning-flagga på generatorbanan, inte en separat modellbana.

@@ -66,6 +66,7 @@ import {
   classifyFollowUpIntent,
   persistFollowUpClarification,
   resolveFollowUpClarification,
+  shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
@@ -379,10 +380,13 @@ export async function handleMessageStreamRequest(
         const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
 
         const persistedScaffoldId = engineChat.scaffold_id;
-        const ignorePersistedScaffoldForMatch =
-          previousFiles.length > 0 &&
-          followUpIntent === "clear-redesign" &&
-          metaScaffoldMode === "auto";
+        const ignorePersistedScaffoldForMatch = shouldIgnorePersistedScaffoldForMatch({
+          hasPreviousFiles: previousFiles.length > 0,
+          followUpIntent,
+          message,
+          scaffoldMode: metaScaffoldMode,
+          scaffoldId: metaScaffoldId,
+        });
 
         if (metaPlanMode) {
           await chatRepo.addMessage(engineChat.id, "user", message);

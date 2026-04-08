@@ -1,0 +1,48 @@
+# Avslutning
+
+Använd detta när användaren vill göra ett riktigt slutpass på ett arbete: granska, städa inom scope, synka docs och därefter ship:a.
+
+## Mål
+
+Avsluta det aktuella arbetet i följande ordning:
+
+1. Granska ändringarna med code-review-ögon: buggrisker, regressionsrisker, överdrivna docs och missad verifiering.
+2. Städa inom **berört scope**:
+   - ta bort tydligt död/duplicerad kod eller missvisande text
+   - rensa inte brett "legacy" utan verifierad ersättning
+3. Synka dokumentation och orienteringsfiler om runtime-sanningen ändrats:
+   - relevanta schemas/docs
+   - `config/dashboard/app.py`
+   - `scripts/scripts_dashboard.py`
+   - `SYSTEMKARTA_SAJTMASKIN.txt`
+   - `LLM_KEDJA_STEG_FOR_STEG.txt`
+   - `.cursor/rules/terminology.mdc`
+4. Verifiera med riktade tester/lints/typecheck efter behov.
+5. Commit:a och pusha när användaren uttryckligen vill avsluta/ship:a arbetet.
+
+## Obligatorisk rutin
+
+- Börja med att kontrollera `git status`, diff och senaste commit-stil.
+- Om du ser oväntade eller andras ändringar: stoppa och fråga användaren innan du fortsätter.
+- Leta efter kvarvarande gamla begrepp eller fältnamn om en migration nyss gjorts.
+- Om du överväger att radera filer eller mappar:
+  - verifiera först att de inte importeras, refereras i script eller docs, eller används som kompatspår
+  - om det inte är uppenbart säkert: rapportera som "kan städas senare" i stället för att ta bort nu
+- Om en planfil finns i kontexten: använd den som referens men ändra den inte om inte användaren uttryckligen ber om det.
+
+## Commit och push
+
+När `/avslutning` används ska det behandlas som ett uttryckligt önskemål om slutpass och leverans, om inte användaren samtidigt säger att push ska hoppas över.
+
+- Följ repoets commit-stil.
+- Commit:a bara relevanta filer.
+- Kör push utan force.
+
+## Slutsvar
+
+Rapportera kort:
+
+- vilka risker du hittade och fixade
+- vad du medvetet **inte** tog bort
+- vilken verifiering som kördes
+- commit-hash och branch efter push

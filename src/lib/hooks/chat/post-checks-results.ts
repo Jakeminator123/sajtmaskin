@@ -1,5 +1,5 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
-import type { PlannedRoute } from "@/lib/gen/route-plan";
+import { getRoutePlanPrimarySource, type PlannedRoute } from "@/lib/gen/route-plan";
 import type { SanityIssue } from "@/lib/gen/validation/project-sanity";
 import { formatChangeSteps } from "./post-checks-summary";
 import {
@@ -434,7 +434,7 @@ export function buildPostCheckArtifacts(params: {
   }
   if (
     missingPlannedRoutes.length > 0 &&
-    preflight?.routePlan?.source === "brief" &&
+    getRoutePlanPrimarySource(preflight?.routePlan) === "brief" &&
     !finalDemoUrl
   ) {
     qualityGateFailures.push("planned_routes_missing");
@@ -459,7 +459,7 @@ export function buildPostCheckArtifacts(params: {
   if (shouldEscalateScaffoldRetry) criticalReasons.push("misstänkt scaffold-mismatch");
   if (
     missingPlannedRoutes.length > 0 &&
-    preflight?.routePlan?.source === "brief" &&
+    getRoutePlanPrimarySource(preflight?.routePlan) === "brief" &&
     !finalDemoUrl &&
     sanityErrors.length > 0
   ) {
@@ -469,10 +469,10 @@ export function buildPostCheckArtifacts(params: {
   const warningReasons: string[] = [];
   if (missingRoutes.length > 0) warningReasons.push("saknade routes");
   if (preflight?.previewStart?.requiresEnvConfig) warningReasons.push("miljövariabler saknas");
-  if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source !== "brief") {
+  if (missingPlannedRoutes.length > 0 && getRoutePlanPrimarySource(preflight?.routePlan) !== "brief") {
     warningReasons.push("route-plan mismatch");
   }
-  if (missingPlannedRoutes.length > 0 && preflight?.routePlan?.source === "brief") {
+  if (missingPlannedRoutes.length > 0 && getRoutePlanPrimarySource(preflight?.routePlan) === "brief") {
     warningReasons.push("planerade routes saknas");
   }
   if (preflight?.scaffoldRetry && !shouldEscalateScaffoldRetry) {
@@ -585,11 +585,11 @@ export function buildPostCheckArtifacts(params: {
   }
   if (missingPlannedRoutes.length > 0) {
     logItems.push({
-      level: preflight?.routePlan?.source === "brief" ? "error" : "warning",
+      level: getRoutePlanPrimarySource(preflight?.routePlan) === "brief" ? "error" : "warning",
       category: "route-plan",
       message: "Planerade routes saknas i den genererade versionen.",
       meta: {
-        source: preflight?.routePlan?.source ?? null,
+        source: getRoutePlanPrimarySource(preflight?.routePlan),
         siteType: preflight?.routePlan?.siteType ?? null,
         missingPlannedRoutes,
       },

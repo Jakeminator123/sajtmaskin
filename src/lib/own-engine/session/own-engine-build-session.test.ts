@@ -60,7 +60,12 @@ function minimalOrchestrationBase(): OrchestrationBase {
       },
     },
     scaffoldContext: undefined,
-    routePlan: { source: "prompt", siteType: "one-page", reason: "t", routes: [] },
+    routePlan: {
+      provenance: { primarySource: "prompt", sources: ["prompt"] },
+      siteType: "one-page",
+      reason: "t",
+      routes: [],
+    },
     preGenerationContracts: {
       contracts: {
         dataMode: "none",

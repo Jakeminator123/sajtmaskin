@@ -400,7 +400,8 @@ export async function buildDynamicContext(
       "## Route Plan",
       "",
       `- **Site type:** ${routePlan.siteType}`,
-      `- **Planning source:** ${routePlan.source}`,
+      `- **Planning source:** ${routePlan.provenance.primarySource}`,
+      `- **Route contributors:** ${routePlan.provenance.sources.join(" → ")}`,
       `- **Why:** ${routePlan.reason}`,
       "",
     );

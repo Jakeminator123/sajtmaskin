@@ -79,6 +79,7 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 - **Scriptpanel (Tkinter)**: `scripts/scripts_dashboard.py` är pipeline-/artifactpanel för rebuild, embeddings, scaffolds, externa referenser, parity och prompt-dump-status.
 - **Delad dashboardlogik**: `scripts/dashboard_shared.py` bär gemensam statuslogik för prompt-dumps så att panelerna inte driver isär i kategorier, filnamn eller statusord.
 - **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
+- **Cursor slash-kommandon**: repo-lokala kommandon kan ligga i `.cursor/commands/` och användas via `/...` i Cursor-chatten, t.ex. `/avslutning` för slutstädning/sync/verify/ship.
 - **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.
 - **D-ID / avatar**: isolerad pilotyta under `src/app/avatar/`, med bridge-rutter i `src/app/api/did/` och komponenter i `src/components/avatar/`. `D-ID` är medvetet avskilt från den vanliga widgeten tills ett separat beslut tas om bredare inbäddning.
 - **Orchestrator i Cursor**: borttaget; äldre planhistorik i git under `docs/plans/avklarat/` (se [`../plans/avklarat/README.md`](../plans/avklarat/README.md)).

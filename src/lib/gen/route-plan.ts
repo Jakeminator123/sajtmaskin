@@ -4,6 +4,14 @@ import type { ScaffoldManifest } from "./scaffolds/types";
 export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
 export type RoutePlanSource = "brief" | "prompt" | "scaffold";
 
+/** Ordered route-plan contributors (e.g. prompt patterns then scaffold defaults). */
+export interface RoutePlanProvenance {
+  /** Drives planning UX and BuildSpec: brief wins, else scaffold if it changed IA, else prompt. */
+  primarySource: RoutePlanSource;
+  /** All sources that contributed routes or structure (stable order). */
+  sources: RoutePlanSource[];
+}
+
 export interface PlannedRoute {
   path: string;
   name: string;
@@ -12,10 +20,98 @@ export interface PlannedRoute {
 }
 
 export interface RoutePlan {
-  source: RoutePlanSource;
+  provenance: RoutePlanProvenance;
   siteType: RoutePlanSiteType;
   reason: string;
   routes: PlannedRoute[];
+}
+
+export function isRoutePlanSource(value: unknown): value is RoutePlanSource {
+  return value === "brief" || value === "prompt" || value === "scaffold";
+}
+
+/** Null-safe primary source; supports legacy persisted payloads that only had `source`. */
+export function getRoutePlanPrimarySource(
+  plan: RoutePlan | { provenance?: RoutePlanProvenance; source?: RoutePlanSource } | null | undefined,
+): RoutePlanSource | null {
+  if (!plan) return null;
+  if ("provenance" in plan && plan.provenance?.primarySource) {
+    return plan.provenance.primarySource;
+  }
+  if ("source" in plan && isRoutePlanSource((plan as { source?: unknown }).source)) {
+    return (plan as { source: RoutePlanSource }).source;
+  }
+  return null;
+}
+
+/**
+ * Parse a loose JSON object into RoutePlan, accepting legacy `{ source }` or new `{ provenance }`.
+ */
+export function parseRoutePlanFromUnknown(data: Record<string, unknown> | null | undefined): RoutePlan | null {
+  if (!data || typeof data !== "object") return null;
+  const siteType = data.siteType;
+  const reason = data.reason;
+  const routesRaw = data.routes;
+  if (
+    siteType !== "one-page" &&
+    siteType !== "brochure" &&
+    siteType !== "content-heavy" &&
+    siteType !== "app-shell"
+  ) {
+    return null;
+  }
+  if (typeof reason !== "string" || !Array.isArray(routesRaw)) return null;
+
+  let provenance: RoutePlanProvenance | undefined;
+  const prov = data.provenance;
+  if (prov && typeof prov === "object" && !Array.isArray(prov)) {
+    const p = prov as Record<string, unknown>;
+    const primary = p.primarySource;
+    const sources = p.sources;
+    if (
+      isRoutePlanSource(primary) &&
+      Array.isArray(sources) &&
+      sources.length > 0 &&
+      sources.every(isRoutePlanSource)
+    ) {
+      provenance = { primarySource: primary, sources: [...sources] };
+    }
+  }
+  if (!provenance && isRoutePlanSource(data.source)) {
+    provenance = { primarySource: data.source, sources: [data.source] };
+  }
+  if (!provenance) return null;
+
+  const routes: PlannedRoute[] = [];
+  for (const item of routesRaw) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    if (typeof r.path !== "string") continue;
+    const path = normalizeRoutePath(r.path);
+    const name =
+      typeof r.name === "string" && r.name.trim()
+        ? r.name.trim()
+        : path === "/"
+          ? "Home"
+          : path.split("/").filter(Boolean).join(" ") || "Route";
+    const intent =
+      typeof r.intent === "string" && r.intent.trim()
+        ? r.intent.trim()
+        : `Implement the ${name} route as planned.`;
+    routes.push({
+      path,
+      name,
+      intent,
+      required: typeof r.required === "boolean" ? r.required : false,
+    });
+  }
+
+  return {
+    provenance,
+    siteType,
+    reason,
+    routes,
+  };
 }
 
 type BriefPageLike = {
@@ -122,7 +218,7 @@ function buildRoutesFromBrief(brief: Record<string, unknown> | null | undefined,
   }
 
   return {
-    source: "brief",
+    provenance: { primarySource: "brief", sources: ["brief"] },
     siteType: inferSiteType(buildIntent, routes.length),
     reason: "Using explicit pages from the current brief/spec instead of guessing route structure from the prompt.",
     routes,
@@ -233,13 +329,22 @@ export function buildRoutePlan(params: {
     (route) => !pathsBeforeScaffoldDefaults.has(normalizeRoutePath(route.path)),
   );
 
+  const sources: RoutePlanSource[] = ["prompt"];
+  if (scaffoldAddedRoutes) {
+    sources.push("scaffold");
+  }
+  const primarySource: RoutePlanSource = scaffoldAddedRoutes ? "scaffold" : "prompt";
+
+  const reason = scaffoldAddedRoutes
+    ? "Scaffold defaults added routes on top of prompt-inferred structure; keep real App Router pages for each planned path."
+    : routes.length > 1
+      ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
+      : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.";
+
   return {
-    source: scaffoldAddedRoutes ? "scaffold" : "prompt",
+    provenance: { primarySource, sources },
     siteType: inferSiteType(buildIntent, routes.length),
-    reason:
-      routes.length > 1
-        ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
-        : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.",
+    reason,
     routes,
   };
 }

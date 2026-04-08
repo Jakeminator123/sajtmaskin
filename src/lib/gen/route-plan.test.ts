@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
-import { buildRoutePlan } from "./route-plan";
+import { buildRoutePlan, parseRoutePlanFromUnknown } from "./route-plan";
 
 describe("buildRoutePlan", () => {
   const websiteBase = {
@@ -71,7 +71,8 @@ describe("buildRoutePlan", () => {
         ],
       },
     });
-    expect(plan.source).toBe("brief");
+    expect(plan.provenance.primarySource).toBe("brief");
+    expect(plan.provenance.sources).toEqual(["brief"]);
     expect(plan.routes).toHaveLength(1);
     expect(plan.routes[0].path).toBe("/");
   });
@@ -82,7 +83,8 @@ describe("buildRoutePlan", () => {
       prompt: "En enkelsidig landningssida för ett bageri.",
       resolvedScaffold: getScaffoldById("landing-page"),
     });
-    expect(plan.source).toBe("prompt");
+    expect(plan.provenance.primarySource).toBe("prompt");
+    expect(plan.provenance.sources).toEqual(["prompt"]);
   });
 
   it("marks route plan source as scaffold when scaffold defaults add routes", () => {
@@ -93,7 +95,36 @@ describe("buildRoutePlan", () => {
       prompt: "En enkelsidig landningssida för ett bageri.",
       resolvedScaffold: blogScaffold,
     });
-    expect(plan.source).toBe("scaffold");
+    expect(plan.provenance.primarySource).toBe("scaffold");
+    expect(plan.provenance.sources).toEqual(["prompt", "scaffold"]);
     expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
+  });
+
+  it("parseRoutePlanFromUnknown accepts legacy JSON with source only", () => {
+    const parsed = parseRoutePlanFromUnknown({
+      source: "brief",
+      siteType: "one-page",
+      reason: "legacy",
+      routes: [{ path: "/", name: "Hem", intent: "Home", required: true }],
+    });
+    expect(parsed?.provenance.primarySource).toBe("brief");
+    expect(parsed?.provenance.sources).toEqual(["brief"]);
+  });
+
+  it("parseRoutePlanFromUnknown keeps legacy routes even when intent is missing", () => {
+    const parsed = parseRoutePlanFromUnknown({
+      source: "prompt",
+      siteType: "brochure",
+      reason: "legacy-missing-intent",
+      routes: [{ path: "/contact", name: "Contact", required: true }],
+    });
+    expect(parsed?.routes).toEqual([
+      {
+        path: "/contact",
+        name: "Contact",
+        intent: "Implement the Contact route as planned.",
+        required: true,
+      },
+    ]);
   });
 });

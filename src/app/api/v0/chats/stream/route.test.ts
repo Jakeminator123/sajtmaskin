@@ -279,7 +279,7 @@ import { POST } from "./route";
 
 /** `resolveOrchestrationBase` must never return `routePlan: null` — create-chat-stream reads `routePlan.routes`. */
 const unitTestRoutePlan = {
-  source: "prompt" as const,
+  provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
   siteType: "one-page" as const,
   reason: "unit-test",
   routes: [] as Array<{ path: string; name: string; intent: string; required: boolean }>,

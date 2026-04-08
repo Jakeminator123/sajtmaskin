@@ -96,7 +96,7 @@
       ]
     },
     "Runtime scaffolds": {
-      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Traits + filträd + kritiska filer serialiseras i serialize.ts; route plan, pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts) före dynamisk prompt. Skilj från Mallar-tab och external-template-pipelinen.",
+      "summary": "Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab och external-template-pipelinen.",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/registry.ts",
@@ -113,7 +113,9 @@
         "src/lib/gen/scaffolds/serialize.ts",
         "src/lib/gen/route-plan.ts",
         "src/lib/gen/contract/pre-generation-contracts.ts",
-        "src/lib/gen/orchestrate.ts"
+        "src/lib/gen/orchestrate.ts",
+        "src/lib/providers/own-engine/follow-up-clarification.ts",
+        "src/lib/api/engine/chats/chat-message-stream-post.ts"
       ]
     },
     "Template pipeline": {

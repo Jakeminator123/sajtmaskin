@@ -1451,9 +1451,11 @@ elif page == "Runtime scaffolds":
     st.info(
         "Denna vy listar manifest per scaffold-mapp; kanonisk källa är runtime-registret under `src/lib/gen/scaffolds/`. "
         "I `resolveOrchestrationBase` (`orchestrate.ts`) väljs scaffold (manual / persisted / auto), "
-        "sedan `buildRoutePlan`, `inferPreGenerationContracts`, `deriveBuildSpec`, därefter serialisering via `serialize.ts` "
+        "sedan `buildRoutePlan` (RoutePlan.provenance: primarySource + sources), `inferPreGenerationContracts`, `deriveBuildSpec`, "
+        "därefter serialisering via `serialize.ts` "
         "(traits som `structure_profile` m.m., filträd, kritiska filer — budget styrs av `BuildSpec`). "
         "Auto-läge: keyword-match primärt; scaffold-embeddings när träff saknas eller valet blir generiskt (`landing-page` / `base-nextjs`). "
+        "Follow-up-redesign kan låsa upp persisted scaffold utan ny scaffold-pin (`shouldIgnorePersistedScaffoldForMatch`). "
         "Builderns Mallar-tab och external-template-pipelinen är separata lager. "
         "För rebuild/status/embeddings-artifacts: `scripts/scripts_dashboard.py`."
     )

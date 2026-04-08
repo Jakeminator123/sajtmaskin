@@ -23,6 +23,12 @@ Fyra kärnregler är tänkta att vara alltid på. `platform-quirks.mdc` är medv
 | [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
 | [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
 
+## Slash-kommandon (`.cursor/commands/*.md`)
+
+Repo-lokala slash-kommandon kan ligga i `.cursor/commands/` och visas när du skriver `/` i Cursor-chatten.
+
+- `/avslutning` = städning inom scope, docs-/schema-/dashboard-sync, verifiering och därefter commit + push när användarens begäran faktiskt är en avslutning/ship.
+
 ## Terminologidokument (produkt- och kodnamn)
 
 **Fil:** [rules/terminology.mdc](rules/terminology.mdc)

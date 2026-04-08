@@ -48,6 +48,44 @@ export type FollowUpIntentMode =
   | "ambiguous-followup"
   | "neutral";
 
+/**
+ * High-precision phrases where we should re-run scaffold resolution even if
+ * {@link classifyFollowUpIntent} returns neutral (e.g. user vocabulary differs).
+ */
+const PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS: RegExp[] = [
+  /\bfull(?:\s+|-)?redesign\b/i,
+  /\b(total|complete|komplett)\s+redesign\b/i,
+  /\bgör\s+om\s+(?:hela\s+)?(?:sajten|webbplatsen|sidan)\b/i,
+  /\b(website|sajt|site)\s+from\s+scratch\b/i,
+];
+
+/**
+ * Follow-ups: when true, {@link resolveOrchestrationBase} should not lock to the chat's
+ * persisted scaffold — re-match so redesign / new-IA requests can switch scaffold.
+ *
+ * Requires previous files, no explicit scaffold pin for this message, and auto/manual mode.
+ */
+export function shouldIgnorePersistedScaffoldForMatch(params: {
+  hasPreviousFiles: boolean;
+  followUpIntent: FollowUpIntentMode;
+  message: string;
+  scaffoldMode: "auto" | "manual" | "off";
+  scaffoldId?: string | null;
+}): boolean {
+  const { hasPreviousFiles, followUpIntent, message, scaffoldMode, scaffoldId } = params;
+  if (!hasPreviousFiles) return false;
+  if (scaffoldMode === "off") return false;
+  if (scaffoldId) return false;
+
+  const wantsUnlock =
+    followUpIntent === "clear-redesign" ||
+    PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS.some((re) => re.test(message));
+
+  if (!wantsUnlock) return false;
+
+  return scaffoldMode === "auto" || scaffoldMode === "manual";
+}
+
 export type FollowUpClarificationReason =
   | "followup_redesign_ambiguous"
   | "followup_edit_underspecified";

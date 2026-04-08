@@ -83,7 +83,7 @@ Används inte direkt av runtime:
 Direkt input i own-engine-kedjan:
 - originalprompt
 - brief/spec (om finns)
-- route plan
+- route plan (med provenance: primarySource + sources[])
 - pre-generation contracts
 - scaffold-kontext
 - scaffold-traits
@@ -127,6 +127,8 @@ Ord att kunna:
 - verificationPolicy = kontrollnivå efter build
 - contextPolicy = light / normal / heavy
 - routePlan.siteType = one-page / brochure / content-heavy / app-shell
+- routePlan.provenance.primarySource = brief / prompt / scaffold
+- persisted scaffold = tidigare scaffold-id som kan låsas upp vid tydlig redesign
 - scaffoldFamily = scaffoldens runtime-bucket
 
 Källa:

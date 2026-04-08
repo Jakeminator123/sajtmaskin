@@ -142,7 +142,7 @@ describe("buildDynamicContext", () => {
 
     it("init app with route plan surfaces application intent, routes, and multi-page instruction", async () => {
       const routePlan = {
-        source: "prompt" as const,
+        provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
         siteType: "app-shell" as const,
         reason: "Multi-area dashboard application",
         routes: [

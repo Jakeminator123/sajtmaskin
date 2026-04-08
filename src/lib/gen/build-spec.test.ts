@@ -15,7 +15,7 @@ const emptyContracts: PreGenerationContractContext = {
 };
 
 const marketingRoutePlan: RoutePlan = {
-  source: "prompt",
+  provenance: { primarySource: "prompt", sources: ["prompt"] },
   siteType: "one-page",
   reason: "test",
   routes: [
@@ -29,8 +29,8 @@ const marketingRoutePlan: RoutePlan = {
 };
 
 const multiPageWebsiteRoutePlan: RoutePlan = {
-  source: "prompt",
-  siteType: "content-heavy",
+  provenance: { primarySource: "prompt", sources: ["prompt"] },
+  siteType: "brochure",
   reason: "test",
   routes: [
     { path: "/", name: "Home", intent: "Primary landing page", required: true },
@@ -97,7 +97,7 @@ describe("deriveBuildSpec", () => {
       generationMode: "init",
       resolvedScaffold: saasScaffold,
       routePlan: {
-        source: "prompt",
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
         siteType: "app-shell",
         reason: "test",
         routes: [
@@ -172,7 +172,7 @@ describe("deriveBuildSpec", () => {
       generationMode: "init",
       resolvedScaffold: null,
       routePlan: {
-        source: "prompt",
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
         siteType: "app-shell",
         reason: "test",
         routes: [{ path: "/", name: "App", intent: "Main", required: true }],

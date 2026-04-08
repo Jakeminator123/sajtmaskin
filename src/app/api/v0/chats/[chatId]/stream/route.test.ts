@@ -237,7 +237,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 import { POST } from "./route";
 
 const unitTestRoutePlan = {
-  source: "prompt" as const,
+  provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
   siteType: "one-page" as const,
   reason: "unit-test",
   routes: [] as Array<{ path: string; name: string; intent: string; required: boolean }>,

@@ -49,8 +49,14 @@ scaffold into:
 This is then combined with route plan, contracts, brief, design/theme context,
 and other request-specific data.
 
-`RoutePlan` is separate from the scaffold itself. In the active chain it may come
-primarily from:
+`RoutePlan` is separate from the scaffold itself. It includes **`provenance`**:
+
+- **`primarySource`** — `brief` if the brief pages drive structure; else `scaffold` if scaffold defaults added routes beyond prompt inference; else `prompt`.
+- **`sources`** — ordered list of contributors (e.g. `["prompt","scaffold"]` when both applied).
+
+Legacy stored payloads may still use a flat `source` field; parsers normalize that to `provenance`.
+
+The plan may draw routes from:
 
 - `brief` — explicit pages from the current brief/spec
 - `prompt` — prompt-pattern inference in `route-plan.ts`

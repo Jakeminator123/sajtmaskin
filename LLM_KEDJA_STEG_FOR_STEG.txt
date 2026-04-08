@@ -110,3 +110,8 @@ Prompt-dumps ar debug/observability, inte source of truth. Delad statuslogik for
 - own-engine-codegen
 - plan-mode-planner
 ligger i scripts/dashboard_shared.py.
+
+Steg 2 / route plan (snabb sanning):
+- RoutePlan har provenance.primarySource (brief / prompt / scaffold) och provenance.sources[].
+- BuildSpec använder bland annat routePlan.siteType och scaffold-signaler för contextPolicy/qualityTarget.
+- Follow-up: persisted scaffold kan låsas upp vid tydlig redesign (shouldIgnorePersistedScaffoldForMatch).

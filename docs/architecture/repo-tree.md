@@ -22,7 +22,7 @@
 | `tests/` | Tester utanför `src/` där så är upplagt. |
 | `isolated_tests/` | Vitest-integrationstester som kräver isolation från `src/`-trädets tsconfig. |
 | `templates_v0/` | Lokalt nedladdade v0-mallar: Python-skript, ZIP-arkiv, bilder och metadata — [`templates_v0/README.txt`](../../templates_v0/README.txt). Data (out/, downloads/) är gitignorerat. |
-| `.cursor/` | Cursor-regler, skills, README — [`.cursor/README.md`](../../.cursor/README.md). |
+| `.cursor/` | Cursor-regler, skills, repo-lokala slash-kommandon och README — [`.cursor/README.md`](../../.cursor/README.md). |
 
 **Rotfiler (kort):** [`AGENTS.md`](../../AGENTS.md) (agentpekare) · [`ARBETSANTECKNINGAR.txt`](../../ARBETSANTECKNINGAR.txt) (arkiv/minneslista, ej backlog). Kanoniska env-skript ligger under `scripts/env/`.
 

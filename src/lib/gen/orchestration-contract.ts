@@ -1,11 +1,11 @@
 import type { BuildSpec } from "./build-spec";
-import type { RoutePlan } from "./route-plan";
+import type { RoutePlan, RoutePlanSource } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 
 export interface ScaffoldRouteContract {
   scaffoldId: string | null;
   scaffoldFamily: string | null;
-  routeSource: RoutePlan["source"];
+  routeSource: RoutePlanSource;
   plannedRoutes: Array<{
     path: string;
     name: string;
@@ -40,7 +40,7 @@ export function buildOrchestrationContract(params: {
     scaffoldToRoute: {
       scaffoldId: resolvedScaffold?.id ?? null,
       scaffoldFamily: resolvedScaffold?.family ?? null,
-      routeSource: routePlan.source,
+      routeSource: routePlan.provenance.primarySource,
       plannedRoutes: routePlan.routes.map((route) => ({
         path: route.path,
         name: route.name,

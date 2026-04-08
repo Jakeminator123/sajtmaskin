@@ -4,6 +4,7 @@ import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import {
   extractAppRoutePathsFromFilePaths,
   findMissingPlannedRoutes,
+  getRoutePlanPrimarySource,
   type PlannedRoute,
   type RoutePlan,
 } from "@/lib/gen/route-plan";
@@ -191,8 +192,9 @@ function buildContractBackedRoutePlan(
     intent: "Derived from orchestration contract required routes.",
     required: true,
   }));
+  const rs = orchestrationContract.scaffoldToRoute.routeSource;
   return {
-    source: orchestrationContract.scaffoldToRoute.routeSource,
+    provenance: { primarySource: rs, sources: [rs] },
     siteType:
       routes.length === 1
         ? "one-page"
@@ -392,7 +394,7 @@ export async function runFinalizePreflight({
       devLogAppend("in-progress", {
         type: "route-plan.preflight",
         chatId,
-        source: effectiveRoutePlan?.source ?? null,
+        source: getRoutePlanPrimarySource(effectiveRoutePlan),
         siteType: effectiveRoutePlan?.siteType ?? null,
         missingRoutes: missingPlannedRoutes.map((route) => route.path),
       });

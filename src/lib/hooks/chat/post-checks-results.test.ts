@@ -105,7 +105,7 @@ describe("post-checks-results", () => {
           confidence: "medium",
         },
         routePlan: {
-          source: "brief",
+          provenance: { primarySource: "brief", sources: ["brief"] },
           siteType: "brochure",
           reason: "Prompten antydde flera routes.",
           routes: [

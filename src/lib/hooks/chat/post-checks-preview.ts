@@ -1,4 +1,5 @@
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
+import { parseRoutePlanFromUnknown } from "@/lib/gen/route-plan";
 import type { PreflightIssueCategory, PreviewPrimaryTarget } from "@/lib/gen/stream/preflight-contract";
 import type { VersionErrorLogPayload } from "./types";
 
@@ -155,36 +156,8 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
       : null;
   const routePlanData = routePlanNested ?? routePlanRoot;
   const routePlan =
-    routePlanData &&
-    (routePlanData.source === "brief" ||
-      routePlanData.source === "prompt" ||
-      routePlanData.source === "scaffold") &&
-    (routePlanData.siteType === "one-page" ||
-      routePlanData.siteType === "brochure" ||
-      routePlanData.siteType === "content-heavy" ||
-      routePlanData.siteType === "app-shell") &&
-    typeof routePlanData.reason === "string" &&
-    Array.isArray(routePlanData.routes)
-      ? {
-          source: routePlanData.source as "brief" | "prompt" | "scaffold",
-          siteType: routePlanData.siteType as "one-page" | "brochure" | "content-heavy" | "app-shell",
-          reason: routePlanData.reason,
-          routes: routePlanData.routes
-            .filter(
-              (route): route is Record<string, unknown> =>
-                Boolean(route) &&
-                typeof route === "object" &&
-                typeof route.path === "string" &&
-                typeof route.name === "string" &&
-                typeof route.intent === "string",
-            )
-            .map((route) => ({
-              path: route.path as string,
-              name: route.name as string,
-              intent: route.intent as string,
-              required: typeof route.required === "boolean" ? route.required : false,
-            })),
-        }
+    routePlanData && typeof routePlanData === "object" && !Array.isArray(routePlanData)
+      ? parseRoutePlanFromUnknown(routePlanData as Record<string, unknown>)
       : null;
 
   if (

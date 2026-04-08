@@ -148,7 +148,7 @@ function buildRoutePlanSummary(routePlan: RoutePlan): string {
     .slice(0, 8)
     .map((route) => route.path)
     .join(",");
-  return `${routePlan.source}:${routePlan.siteType}:${routes || "/"}`;
+  return `${routePlan.provenance.primarySource}:${routePlan.siteType}:${routes || "/"}`;
 }
 
 function inferStylePack(
@@ -234,6 +234,8 @@ function inferQualityTarget(params: {
   const premiumSignals =
     buildIntent === "app" ||
     routeCount > 4 ||
+    routePlan.siteType === "content-heavy" ||
+    (routePlan.provenance.primarySource === "scaffold" && routeCount >= 3) ||
     preGenerationContracts.contracts.integrations.length > 0 ||
     preGenerationContracts.contracts.dataMode === "persisted" ||
     advancedScaffoldFamily;
@@ -285,11 +287,17 @@ function inferContextPolicy(params: {
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
     return "light";
   }
+  const routePlanHeavyStructure =
+    routePlan.siteType === "content-heavy" ||
+    routePlan.siteType === "app-shell" ||
+    (routePlan.provenance.primarySource === "scaffold" && routePlan.routes.length >= 3);
+
   if (
     promptStrategyMeta?.strategy === "phase_plan_build_polish" ||
     promptStrategyMeta?.strategy === "preserved" ||
     buildIntent === "app" ||
     routePlan.routes.length > 4 ||
+    routePlanHeavyStructure ||
     preGenerationContracts.contracts.integrations.length > 0 ||
     preGenerationContracts.contracts.dataMode === "persisted"
   ) {
