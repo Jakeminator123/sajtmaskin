@@ -45,7 +45,9 @@ När du ändrar builder-entry, scaffoldval, route plan, pre-generation contracts
 ## Principer
 
 - Diagram och docs ska avspegla **faktisk kod**, inte ambition.
+- Arbetsordning: **kod först, sedan verifiering, sedan docs/dashboard-sync**.
 - **`config/dashboard/app.py`** är konfigurations-/översiktspanel; **`scripts/scripts_dashboard.py`** är pipeline-/artifactpanel.
 - Delad dashboardlogik ska, när det är rimligt, centraliseras i **`scripts/dashboard_shared.py`** i stället för att dupliceras.
 - Använd samma terminologi som `.cursor/rules/terminology.mdc`.
 - Ändra aldrig docs utan att ha verifierat mot koden att beskrivningen stämmer.
+- Undvik generisk CI/CD-terminologi om den blir missvisande för repoet; säg hellre `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization` och `verify` när det är det som faktiskt händer.

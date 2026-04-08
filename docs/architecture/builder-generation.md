@@ -49,13 +49,13 @@ Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
 2. **Före-build prompt-verktyg (valfritt):** "Skriv om" (polish) eller "Förbättra" (rewrite) via `/api/ai/chat` + guardrails i `usePromptAssist.ts`. Redigerar text i realtid utan att skicka iväg.
 3. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via Deep Brief (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`). **Briefen genereras alltid från originalprompt** — inte den orkestrerade/summarerade versionen. Auto-brief blockeras för follow-ups, audit, tekniska prompts och nu även för **redan strukturerade website-prompts** där användaren redan specificerat flera sektioner/styrsignaler.
 4. **Spec-first chain (valfritt, `specMode=true`):** Om briefen finns konverteras den till en `WebsiteSpec` via `briefToSpec()` i `promptAssistContext.ts`, annars via `promptToSpec()`. Specfilen bifogas som strukturerad kontext till systemprompten.
-5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
+5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` orkestrerar generationen: väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
    **`RoutePlan.provenance`:** `primarySource` är `brief` när briefens sidor styr strukturen, annars `scaffold` när scaffold-defaults faktiskt lagt till nya routes utöver promptmönster, annars `prompt`. `sources[]` listar alla bidrag i ordning (t.ex. `["prompt","scaffold"]` när båda bidragit). Persisted JSON kan fortfarande ha äldre fältet `source`; runtime tolkar det via `parseRoutePlanFromUnknown` / `getRoutePlanPrimarySource`.
-   **Follow-up / redesign:** tydliga redesign-signaler kan låsa upp persisted scaffold (ny scaffold-match) utan explicit scaffold-pin — se `shouldIgnorePersistedScaffoldForMatch` i `follow-up-clarification.ts` och anrop i `chat-message-stream-post.ts`.
+   **Follow-up / redesign:** tydliga redesign-signaler kan låsa upp persisted scaffold (ny scaffold-match) i auto-läge utan explicit scaffold-pin — se `shouldIgnorePersistedScaffoldForMatch` i `follow-up-clarification.ts` och anrop i `chat-message-stream-post.ts`.
 6. **Scaffoldval i `auto`:** `matchScaffoldAuto()` kör keyword som primär path; scaffold-embeddings används bara när keyword-resultatet saknas eller blir generiskt (`landing-page` / `base-nextjs`).
-7. **`buildDynamicContext()`** i `system-prompt.ts` lägger på scaffold-kontext, scaffold research-prioriteringar (inkl. budgeterade reference inspirations), route plan, pre-generation contracts, brief-/temasignaler och övrig request-specifik kontext. Dynamisk kontext budgeteras nu blockvis med tokenestimat (`BuildSpec.tokenBudgets.systemContextTokens`) och prunar lägre prioritet först; `systemContextChars` finns kvar som kompat-fallback i callsites som fortfarande arbetar teckenbaserat.
-8. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, verifier, parse/merge/preflight och sparar versionen innan tier-2-preview följer upp. `reasoning_effort` sätts nu adaptivt: vanliga `website`-fall landar oftare på `medium`, medan `app` / integrationer / mer avancerade builds kan ligga kvar på `high`.
-9. **Saved version** hämtas sedan via chat/version/files-routes; tier-2-start kan komma efter `done` (primärt `preview_host`, med legacy `sandbox`-namn kvar i delar av kontraktet). Om server repair skapar en ny promotad version markeras den tidigare repair-källan nu som **superseded** i stället för att lämnas kvar i `repairing`.
+7. **`buildDynamicContext()`** i `system-prompt.ts` bygger faktisk LLM-input: scaffold-kontext, scaffold research-prioriteringar (inkl. budgeterade reference inspirations), route plan, pre-generation contracts, brief-/temasignaler och övrig request-specifik kontext. Dynamisk kontext budgeteras nu blockvis med tokenestimat (`BuildSpec.tokenBudgets.systemContextTokens`) och prunar lägre prioritet först; `systemContextChars` finns kvar som kompat-fallback i callsites som fortfarande arbetar teckenbaserat.
+8. **Streamen** producerar innehåll; efteråt kör `finalizeAndSaveVersion()` i `src/lib/gen/stream/finalize-version.ts` autofix, URL-expansion, ev. deep-path-steg, syntaxvalidering, verifier, parse/merge/preflight och sparar versionen. `reasoning_effort` sätts nu adaptivt: vanliga `website`-fall landar oftare på `medium`, medan `app` / integrationer / mer avancerade builds kan ligga kvar på `high`.
+9. **Version och preview materialiseras** sedan via chat/version/files-routes och tier-2-preview (`preview_host` / VM). Tier-2-start kan komma efter `done` (med legacy `sandbox`-namn kvar i delar av kontraktet). Om server repair skapar en ny promotad version markeras den tidigare repair-källan nu som **superseded** i stället för att lämnas kvar i `repairing`.
 
 Snabba lokala orienteringsfiler för nästa agent:
 
@@ -69,6 +69,10 @@ Prompt-dumps är **debug-/observabilityartefakter**, inte source of truth för
 runtime. Den kanoniska skrivningen ligger i `src/lib/gen/prompt-dump.ts`, och
 båda Python-panelerna läser nu samma statussemantik via
 `scripts/dashboard_shared.py`.
+
+**Viktigt:** `config/dashboard/app.py`, `scripts/scripts_dashboard.py`,
+`SYSTEMKARTA_SAJTMASKIN.txt` och övriga docs ska **spegla** runtime-sanningen,
+inte leda den. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
 
 Kategorier:
 

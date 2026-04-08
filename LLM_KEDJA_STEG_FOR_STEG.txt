@@ -114,4 +114,16 @@ ligger i scripts/dashboard_shared.py.
 Steg 2 / route plan (snabb sanning):
 - RoutePlan har provenance.primarySource (brief / prompt / scaffold) och provenance.sources[].
 - BuildSpec använder bland annat routePlan.siteType och scaffold-signaler för contextPolicy/qualityTarget.
-- Follow-up: persisted scaffold kan låsas upp vid tydlig redesign (shouldIgnorePersistedScaffoldForMatch).
+- Follow-up: persisted scaffold kan låsas upp vid tydlig redesign i auto-läge (shouldIgnorePersistedScaffoldForMatch).
+
+Repo-ratt stegordning for resten av kedjan:
+- Steg 1 = normalisera ingressen och las begreppen
+- Steg 2 = orkestrera generationen
+- Steg 3 = bygg faktisk LLM-input
+- Steg 4 = generera, finalisera och validera resultatet
+- Steg 5 = materialisera version/preview och folj upp stabilitet
+
+Tvargaende krav i varje steg:
+- runtime-koden ar source of truth
+- docs, systemkarta och dashboardar ska spegla koden efter verifiering
+- minska naming debt, dubbletter och stale spar i samma pass nar det ar sakert

@@ -17,7 +17,7 @@ Kort kanonisk aktiv status tills ett bredare backlog-pass uppdaterar filen mer f
 
 ## Nästa aktiva steg
 
-- Steg 2: scaffoldval, traits, `BuildSpec`, route plan och pre-generation contracts.
+- Steg 3: bygg faktisk LLM-input — statisk prompt, dynamisk kontext, budgetar, prioritering/pruning och exakt vad modellen verkligen får.
 
 ## Arbetsprinciper
 

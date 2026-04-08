@@ -22,7 +22,7 @@ describe("follow-up clarification intent classification", () => {
 });
 
 describe("shouldIgnorePersistedScaffoldForMatch", () => {
-  it("unlocks for clear-redesign in manual mode when no scaffold is pinned", () => {
+  it("does not unlock in manual mode even for clear redesign", () => {
     expect(
       shouldIgnorePersistedScaffoldForMatch({
         hasPreviousFiles: true,
@@ -31,7 +31,7 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
         scaffoldMode: "manual",
         scaffoldId: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("does not unlock when user pinned a scaffold for this message", () => {

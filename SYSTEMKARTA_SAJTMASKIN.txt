@@ -197,7 +197,7 @@ Steg 2
 - Granska scaffoldstorlek och vilka filer som faktiskt bör vara scaffold files[]
 
 Steg 3
-- Granska varje BuildSpec-signal och om den ger rätt effekt
+- Bygg faktisk LLM-input: statisk prompt, dynamisk kontext, budgetar, prioritering/pruning och exakt vad modellen far
 
 Steg 4
 - Granska externa referenser / template-library och hur mycket de faktiskt hjälper
@@ -223,6 +223,11 @@ Konfigurationsöversikt:
 
 Builder / LLM-flöde:
 - docs/architecture/builder-generation.md
+
+Tvargaende arbetsregel:
+- runtime-kod forst
+- sedan verifiering
+- sedan docs/dashboard-sync
 
 Repo-/lagerkarta:
 - docs/architecture/repository-and-platform.md

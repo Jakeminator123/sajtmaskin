@@ -17,6 +17,7 @@ Avsluta det aktuella arbetet i följande ordning:
    - `SYSTEMKARTA_SAJTMASKIN.txt`
    - `LLM_KEDJA_STEG_FOR_STEG.txt`
    - `.cursor/rules/terminology.mdc`
+   - håll fast vid ord som passar repoet bättre än generisk CI/CD: `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization`, `verify`
 4. Verifiera med riktade tester/lints/typecheck efter behov.
 5. Commit:a och pusha när användaren uttryckligen vill avsluta/ship:a arbetet.
 
@@ -25,6 +26,7 @@ Avsluta det aktuella arbetet i följande ordning:
 - Börja med att kontrollera `git status`, diff och senaste commit-stil.
 - Om du ser oväntade eller andras ändringar: stoppa och fråga användaren innan du fortsätter.
 - Leta efter kvarvarande gamla begrepp eller fältnamn om en migration nyss gjorts.
+- Om dashboards eller docs berörs: låt dem spegla runtime-sanningen, inte definiera den.
 - Om du överväger att radera filer eller mappar:
   - verifiera först att de inte importeras, refereras i script eller docs, eller används som kompatspår
   - om det inte är uppenbart säkert: rapportera som "kan städas senare" i stället för att ta bort nu

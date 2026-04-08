@@ -857,9 +857,10 @@ elif page == "ai_models":
         )
         st.info(
             "Website-latens påverkas av hur mycket kontext som byggs före modellanropet: "
-            "`resolveOrchestrationBase` sätter scaffold, route plan, pre-generation contracts och `BuildSpec`; "
-            "därefter byggs dynamisk kontext i `buildDynamicContext` med tokenbudgetar från `BuildSpec`. "
+            "`resolveOrchestrationBase` orkestrerar scaffold, route plan, pre-generation contracts och `BuildSpec`; "
+            "därefter byggs faktisk LLM-input i `buildDynamicContext` med tokenbudgetar från `BuildSpec`. "
             "Template-library är inte samma hot-path som scaffold-kontext (se docs/architecture/builder-generation.md). "
+            "Koden är source of truth; panelen ska spegla runtime-sanningen, inte leda den. "
             "Stora systemprompter och onödiga brief-pass kan fortfarande göra create-chat dyrt."
         )
 
@@ -1455,8 +1456,9 @@ elif page == "Runtime scaffolds":
         "därefter serialisering via `serialize.ts` "
         "(traits som `structure_profile` m.m., filträd, kritiska filer — budget styrs av `BuildSpec`). "
         "Auto-läge: keyword-match primärt; scaffold-embeddings när träff saknas eller valet blir generiskt (`landing-page` / `base-nextjs`). "
-        "Follow-up-redesign kan låsa upp persisted scaffold utan ny scaffold-pin (`shouldIgnorePersistedScaffoldForMatch`). "
+        "Follow-up-redesign kan låsa upp persisted scaffold i auto-läge utan ny scaffold-pin (`shouldIgnorePersistedScaffoldForMatch`). "
         "Builderns Mallar-tab och external-template-pipelinen är separata lager. "
+        "Detta är observability/översikt; runtimekoden vinner alltid vid konflikt. "
         "För rebuild/status/embeddings-artifacts: `scripts/scripts_dashboard.py`."
     )
 

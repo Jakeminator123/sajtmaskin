@@ -63,7 +63,7 @@ const PERSISTED_SCAFFOLD_UNLOCK_SUPPLEMENT_PATTERNS: RegExp[] = [
  * Follow-ups: when true, {@link resolveOrchestrationBase} should not lock to the chat's
  * persisted scaffold — re-match so redesign / new-IA requests can switch scaffold.
  *
- * Requires previous files, no explicit scaffold pin for this message, and auto/manual mode.
+ * Requires previous files, no explicit scaffold pin for this message, and auto mode.
  */
 export function shouldIgnorePersistedScaffoldForMatch(params: {
   hasPreviousFiles: boolean;
@@ -75,6 +75,7 @@ export function shouldIgnorePersistedScaffoldForMatch(params: {
   const { hasPreviousFiles, followUpIntent, message, scaffoldMode, scaffoldId } = params;
   if (!hasPreviousFiles) return false;
   if (scaffoldMode === "off") return false;
+  if (scaffoldMode !== "auto") return false;
   if (scaffoldId) return false;
 
   const wantsUnlock =
@@ -83,7 +84,7 @@ export function shouldIgnorePersistedScaffoldForMatch(params: {
 
   if (!wantsUnlock) return false;
 
-  return scaffoldMode === "auto" || scaffoldMode === "manual";
+  return true;
 }
 
 export type FollowUpClarificationReason =
