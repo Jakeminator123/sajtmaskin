@@ -1,8 +1,19 @@
 import fs from "node:fs";
 import nodePath from "node:path";
+import { fileURLToPath } from "node:url";
 import type { CodeFile } from "./parser";
 
 const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
+
+const MODULE_DIR =
+  typeof import.meta.url === "string" && import.meta.url.startsWith("file:")
+    ? fileURLToPath(new URL(".", import.meta.url))
+    : nodePath.resolve(process.cwd(), "src/lib/gen");
+
+const SEARCH_ROOTS = [
+  nodePath.resolve(MODULE_DIR, "../../components/ui"),
+  nodePath.resolve(MODULE_DIR, "../../../components/ui"),
+] as const;
 
 export interface UiComponent {
   filename: string;
@@ -52,19 +63,15 @@ export function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
 }
 
 function buildUiComponentFileIndex(): UiComponentFileIndex {
-  const searchRoots = [
-    nodePath.resolve(process.cwd(), "src/components/ui"),
-    nodePath.resolve(process.cwd(), "components/ui"),
-  ];
   const index: UiComponentFileIndex = new Map();
 
-  for (const root of searchRoots) {
+  for (const root of SEARCH_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith(".tsx")) continue;
       const key = entry.name.slice(0, -4);
       if (!index.has(key)) {
-        index.set(key, nodePath.join(root, entry.name));
+        index.set(key, `${root}/${entry.name}`);
       }
     }
   }

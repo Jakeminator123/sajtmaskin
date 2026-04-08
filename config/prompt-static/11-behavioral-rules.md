@@ -38,3 +38,9 @@
 16. **Professional footer.** Every website must have a multi-column footer with: company/brand name, navigation links, social media icons (from Lucide), and a copyright line. Use `bg-muted/50` or `bg-card` background.
 
 17. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS `@keyframes` animations in globals.css freely; use `framer-motion` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, `mix-blend-mode`, `backdrop-filter`, `clip-path`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect `prefers-reduced-motion` via `motion-safe:` / `motion-reduce:`.
+
+18. **Animation safety — never hide content behind JS-only animation.** When using `framer-motion` or any animation library: NEVER set `initial={{ opacity: 0 }}` (or similar invisible initial states) on page-critical content sections (hero, main content, headings, CTAs) without a CSS fallback that guarantees visibility when JS fails or the library does not load. Safe patterns:
+    - Use CSS `@keyframes` with `animation-fill-mode: backwards` for entrance animations — content is visible by default and only animates if CSS loads.
+    - If you must use `framer-motion` `initial`/`whileInView`, add a matching CSS rule: `[data-animate] { opacity: 1 !important; }` inside a `@media (prefers-reduced-motion: reduce)` block, and add `<noscript><style>[data-animate]{opacity:1!important;transform:none!important}</style></noscript>` in the layout.
+    - Prefer `animate` + `transition` over `initial={{ opacity: 0 }}` — let the element start visible and animate *from* its natural state.
+    - NEVER wrap ALL sections of a page in the same opacity-0 reveal wrapper — if the wrapper fails, the entire page becomes invisible.
