@@ -103,6 +103,7 @@ Not runtime dependencies:
 | **Arkitektur** (fyra kapitel) | [`docs/architecture/README.md`](architecture/README.md) |
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
 | Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/builder-generation.md`](architecture/builder-generation.md) |
+| LLM-roller och signallager | [`docs/schemas/llm-role-matrix.md`](schemas/llm-role-matrix.md), [`docs/schemas/orchestration-signal-contract.md`](schemas/orchestration-signal-contract.md), [`docs/architecture/llm-signal-flow.md`](architecture/llm-signal-flow.md) |
 | Steg 4: finalize / validate / verifier / preflight | [`docs/architecture/step4-post-generation.md`](architecture/step4-post-generation.md) |
 | Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) |
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |

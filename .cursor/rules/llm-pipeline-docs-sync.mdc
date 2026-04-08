@@ -36,9 +36,12 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 
 - **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, generate/finalize/preview-kedjan.
 - **`docs/architecture/llm-input-blocks.md`** — faktisk LLM-input, budget/pruning eller system vs user-turn.
+- **`docs/architecture/llm-signal-flow.md`** — hur prompt assist, Deep brief, scaffold, route plan, capabilities, contracts och post-checks samspelar.
 - **`docs/architecture/step4-post-generation.md`** — finalize, validate, repair, verifier, preflight och gränsen mellan Steg 4 och Steg 5.
 - **`docs/schemas/builder-entry-contract.md`** — builder-ingång, `entryKind`, ID-termer eller legacy-ingress.
 - **`docs/schemas/scaffold-contract.md`** — scaffold-kontrakt, traits, research eller runtime-serialisering.
+- **`docs/schemas/llm-role-matrix.md`** — LLM-roller, modellsteg och ansvar.
+- **`docs/schemas/orchestration-signal-contract.md`** — signallager, inputs, outputs, risker och sanningsfiler.
 - **`docs/architecture/README.md`** och **`docs/plans/active/remaining-focus-after-5-step.md`** — när stegordning, restlista eller tvärgående LLM-kedjefokus ändras.
 
 ## Uppdatera vid behov

@@ -262,6 +262,143 @@ const IMAGE_DENSITY_GUIDANCE = [
   "Consistent aspect ratios and professional cropping throughout.",
 ];
 
+type DomainProfile =
+  | "restaurant"
+  | "hotel"
+  | "spa-salon"
+  | "clinic"
+  | "event-venue"
+  | "ecommerce"
+  | "portfolio"
+  | "saas"
+  | "general";
+
+function inferDomainProfile(prompt: string): DomainProfile {
+  const lower = prompt.toLowerCase();
+  if (/\b(restaurang|restaurant|café|cafe|kafé|bistro|bar|pub|matrestaurang|meny|menu|boka bord|book a table)\b/i.test(lower)) {
+    return "restaurant";
+  }
+  if (/\b(hotell|hotel|boutiquehotell|boutique hotel|spa retreat|bed and breakfast|b&b)\b/i.test(lower)) {
+    return "hotel";
+  }
+  if (/\b(spa|salong|salon|frisör|barber|massage|skincare|hudvård)\b/i.test(lower)) {
+    return "spa-salon";
+  }
+  if (/\b(klinik|clinic|dentist|tandläkare|läkare|doctor|veterinär|vet)\b/i.test(lower)) {
+    return "clinic";
+  }
+  if (/\b(event venue|bröllop|wedding venue|konferens|conference venue|festival venue|festlokal)\b/i.test(lower)) {
+    return "event-venue";
+  }
+  if (/\b(ecommerce|e-commerce|e-handel|webshop|webbshop|checkout|varukorg|kundvagn|storefront|online store)\b/i.test(lower)) {
+    return "ecommerce";
+  }
+  if (/\b(portfolio|photographer|designer|showcase|creative studio|fotograf|portfolio)\b/i.test(lower)) {
+    return "portfolio";
+  }
+  if (/\b(saas|platform|dashboard|workspace|subscription|pricing)\b/i.test(lower)) {
+    return "saas";
+  }
+  return "general";
+}
+
+function buildDomainStructureHints(domain: DomainProfile): string[] {
+  switch (domain) {
+    case "restaurant":
+      return [
+        "Treat this as a hospitality/restaurant website, not an online store.",
+        "Strong default pages/sections: home, menu, about, contact, booking/reservation, opening hours, FAQ.",
+        "Do not introduce cart, checkout, product catalog, inventory, or payment-provider flows unless the user explicitly asks for online ordering.",
+        "Emphasize atmosphere, food/drink presentation, trust, practical visit information, and clear reservation/contact CTAs.",
+      ];
+    case "hotel":
+      return [
+        "Treat this as a hospitality/hotel website, not ecommerce.",
+        "Strong default pages/sections: home, rooms, amenities/spa, about, contact, booking, FAQ.",
+        "Focus on stay experience, location, rooms, amenities, and booking journey.",
+      ];
+    case "spa-salon":
+      return [
+        "Treat this as a service-booking website, not ecommerce.",
+        "Strong default pages/sections: home, services/treatments, about/team, contact, booking, FAQ.",
+        "Focus on treatments/services, trust, staff, ambience, and appointment booking CTAs.",
+      ];
+    case "clinic":
+      return [
+        "Treat this as a clinic/service website, not ecommerce.",
+        "Strong default pages/sections: home, services, practitioners/team, about, contact, booking/request appointment, FAQ.",
+        "Focus on trust, credentials, patient journey, and practical contact/booking information.",
+      ];
+    case "event-venue":
+      return [
+        "Treat this as a venue/hospitality website, not ecommerce.",
+        "Strong default pages/sections: home, venue spaces, events/packages, gallery, contact, booking inquiry, FAQ.",
+        "Focus on spaces, atmosphere, booking inquiry, logistics, and social proof.",
+      ];
+    case "ecommerce":
+      return [
+        "Treat this as a real online store/storefront.",
+        "Strong default pages/sections: home, product/category pages, cart, checkout, trust/returns/shipping information.",
+      ];
+    case "portfolio":
+      return [
+        "Treat this as a portfolio/showcase site.",
+        "Strong default pages/sections: home, selected work, about, services/contact, case studies or gallery.",
+      ];
+    case "saas":
+      return [
+        "Treat this as product/saas positioning or app-marketing.",
+        "Strong default pages/sections: home, features, pricing, FAQ, contact/demo CTA.",
+      ];
+    default:
+      return [];
+  }
+}
+
+function buildDomainContractHints(domain: DomainProfile): string[] {
+  switch (domain) {
+    case "restaurant":
+    case "hotel":
+    case "spa-salon":
+    case "clinic":
+    case "event-venue":
+      return [
+        "Booking/contact keywords in hospitality or service domains do not automatically imply Stripe, checkout, carts, or persisted database contracts.",
+        "If no real backend is explicitly requested, prefer static/reservation-request flows, contact forms, booking CTAs, or external-booking placeholders over local databases and payment providers.",
+      ];
+    case "ecommerce":
+      return [
+        "Ecommerce keywords do imply storefront/cart/checkout patterns and may justify payment/provider contracts.",
+      ];
+    default:
+      return [];
+  }
+}
+
+function buildPromptAssistObservations(
+  originalPrompt: string,
+  domain: DomainProfile,
+  sections: string[],
+  styles: string[],
+): string[] {
+  const lines: string[] = [];
+  if (domain !== "general") {
+    lines.push(`- Domain profile inferred from the prompt: ${domain}.`);
+  }
+  if (sections.length > 0) {
+    lines.push(`- Explicit section/page hints detected: ${sections.join(", ")}.`);
+  }
+  if (styles.length > 0) {
+    lines.push(`- Style/tone hints detected: ${styles.join(", ")}.`);
+  }
+  if (!/\b(about|om oss|kontakt|contact|faq|pricing|menu|meny|book|booking|boka|services|tjänster)\b/i.test(originalPrompt)) {
+    lines.push(
+      "- Prompt is sparse; infer sensible default information architecture from the domain instead of keeping the site too generic.",
+    );
+  }
+  return lines;
+}
+
 // ── Dynamic guidance resolvers ──────────────────────────────────────────
 // These functions adapt the static guidance based on brief data (tone,
 // style keywords, color palette) so that a playful pink site gets
@@ -918,6 +1055,11 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const topicIsSeasonalOrCultural = isSeasonalOrCulturalTopic(
     [projectTitle, brandName, pitch, originalPrompt, imageryNotes.join(" ")].join(" "),
   );
+  const domainProfile = inferDomainProfile(
+    [projectTitle, brandName, pitch, audience, originalPrompt, pageLines].filter(Boolean).join(" "),
+  );
+  const domainStructureHints = buildDomainStructureHints(domainProfile);
+  const domainContractHints = buildDomainContractHints(domainProfile);
 
   const mustHave = asStringList(brief.mustHave).slice(0, 10);
   const avoid = asStringList(brief.avoid).slice(0, 8);
@@ -976,6 +1118,17 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     parts.push("## Pages & Sections", pageLines, "");
   }
 
+  if (domainProfile !== "general") {
+    parts.push(
+      "## Domain Inference",
+      `- Domain profile inferred from prompt + brief: ${domainProfile}.`,
+      "",
+    );
+  }
+  if (domainStructureHints.length > 0) {
+    parts.push("## Structure Hints", ...domainStructureHints, "");
+  }
+
   parts.push("## Interaction & Motion", ...motionGuidance, "");
   parts.push(
     "## Visual Identity",
@@ -993,6 +1146,10 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     "",
   );
   parts.push("## Quality Bar", ...richnessGuidance, "");
+
+  if (domainContractHints.length > 0) {
+    parts.push("## Contract & Backend Hints", ...domainContractHints, "");
+  }
 
   parts.push(
     "## Imagery",
@@ -1043,6 +1200,16 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "playful", "fun", "professional", "corporate", "luxury",
     "elegant", "minimal", "dramatic", "lekfull", "energetic",
   ] as const);
+  const promptSections = extractKeywordMatches(originalPrompt, SECTION_KEYWORDS);
+  const domainProfile = inferDomainProfile(originalPrompt);
+  const domainStructureHints = buildDomainStructureHints(domainProfile);
+  const domainContractHints = buildDomainContractHints(domainProfile);
+  const promptObservations = buildPromptAssistObservations(
+    originalPrompt,
+    domainProfile,
+    promptSections,
+    promptStyles,
+  );
   const motionProfile = inferMotionProfile({
     prompt: originalPrompt,
     tone: promptTone,
@@ -1063,6 +1230,12 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "## Project Context",
     formatted || originalPrompt.trim(),
     "",
+    ...(promptObservations.length
+      ? ["## Domain Inference", ...promptObservations, ""]
+      : []),
+    ...(domainStructureHints.length
+      ? ["## Structure Hints", ...domainStructureHints, ""]
+      : []),
     "## Interaction & Motion",
     ...resolveMotionGuidance(promptTone, promptStyles, "compact", motionProfile),
     "",
@@ -1082,6 +1255,9 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "## Quality Bar",
     ...resolveQualityBarGuidance(promptTone, promptStyles, "compact"),
     "",
+    ...(domainContractHints.length
+      ? ["## Contract & Backend Hints", ...domainContractHints, ""]
+      : []),
     "## Imagery",
     imageryLine,
     "Every image must visually match the subject, not just fill the layout.",

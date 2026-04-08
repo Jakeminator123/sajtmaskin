@@ -45,6 +45,12 @@ Conservative rollout rule:
 - `preview-session-contract.md`
   The stable human-readable contract for preview/session identifiers, preview
   URLs, and the verify-lane boundary.
+- `llm-role-matrix.md`
+  Canonical human-readable matrix of LLM roles: prompt assist, Deep brief,
+  planner, generator, fixer, verifier, and deploy-assistant.
+- `orchestration-signal-contract.md`
+  Canonical signal-layer contract: prompt formatting, scaffold match, route
+  plan, capabilities, contracts, dynamic context, and post-check layers.
 - `strict/README.md`
   Explains the machine-oriented strict layer.
 - `strict/preview-session-contract.schema.json`
@@ -64,6 +70,9 @@ and `config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
 dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md) (prompt layering and STATIC_CORE live there; older prompt-tree narrative was removed with the archive — recover via `git log` on that path if needed).
 
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
+
+For signal flow and how these layers interact in init/follow-up/repair, also
+read `docs/architecture/llm-signal-flow.md`.
 
 ## Code sources of truth
 
