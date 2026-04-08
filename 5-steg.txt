@@ -236,3 +236,44 @@ Det viktigaste resultatet ar inte ett enskilt dokument, utan att:
 
 Det betyder inte att allt ar "klart for alltid", men det ar en betydligt battre grund
 for fortsatt review, cleanup och kvalitetspass.
+
+
+Observationer fran testkorning 2026-04-08 (nasta-pass-underlag)
+---------------------------------------------------------------
+
+Problem A: server-verify skapar oonskat ny version efter follow-up
+- in-place repair (commit 28e49c967) galler bara autofix/repair-route
+- server-verify som kor i bakgrunden efter done kan fortfarande trigga
+  en repair-loop som skapar en ny version (v3) nar typecheck failar
+- anvandaren far en "Verifying"-version de inte bad om
+- bor fixas: server-verify repair borde ocksa uppdatera befintlig version
+  in-place, inte skapa ny
+
+Problem B: route-/sidantalet eskalerar okontrollerat vid follow-ups
+- forsta genereringen: 2 sidor (korrekt per prompt)
+- LLM genererade 5 routes (ecommerce-scaffoldens defaults tog over)
+- efter follow-up: 8 routes
+- varje follow-up arver foregangendes route plan och LLM lar sig
+  att "fler sidor = battre", trots att anvandaren bad om nagot litet
+- bor fixas: follow-up borde respektera originalprompens sidantal
+  battre, eller aven strunta i scaffoldens defaults nar prompten ar tydlig
+
+Problem C: follow-up producerar for lite output for komplexa anringar
+- follow-up for "skapa 3D-lastbil med @react-three/fiber" producerade
+  bara 1932 output-tokens (7010 tecken kod)
+- det racker inte for en hel 3D-komponent + integration i headern
+- resultatet: komponenten genererades men mountades inte korrekt
+  (troligen pga inkonsistent export: named import av default export)
+- inga JS-fel i konsolen = tyst failure
+- bor undersoka: varfor valjer LLM sa fa tokens? ar det kontextmangd
+  (17881 input-tokens) som gor att den "sparar" pa output?
+
+Problem D: "Startar preview"-sidan visas langa stunder
+- VMens boot-sida ("Startar preview / Status: starting") visas medan
+  npm install + npm run dev kor
+- detta ar inte en version, inte v1, och ska inte forvirra
+- men for anvandaren ser det ut som att "ngt ar fel" nar det tar 30-90s
+- bor undersoka: kan boot-sidan visa progress (install %, dev ready)?
+
+Dessa problem ar alla generiska (inte engangsbeteende) och bor
+prioriteras for nasta produktkvalitetspass.
