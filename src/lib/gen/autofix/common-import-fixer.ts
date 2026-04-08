@@ -31,6 +31,63 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** First top-level binding site for a name (function, class, const, interface, …). */
+function findFirstLocalBindingDeclarationIndex(code: string, name: string): number | null {
+  const escaped = escapeRegExp(name);
+  const patterns = [
+    new RegExp(`\\bfunction\\s+${escaped}\\b`),
+    new RegExp(`\\bclass\\s+${escaped}\\b`),
+    new RegExp(`\\b(?:const|let|var)\\s+${escaped}\\b`),
+    new RegExp(`\\b(?:interface|type|enum)\\s+${escaped}\\b`),
+  ];
+  let best: number | null = null;
+  for (const re of patterns) {
+    const m = re.exec(code);
+    if (m && m.index !== undefined) {
+      if (best === null || m.index < best) best = m.index;
+    }
+  }
+  return best;
+}
+
+/** e.g. `function X({ foo: bar }` — local name is `bar`. */
+function findFirstDestructuredAliasBindingIndex(code: string, localName: string): number | null {
+  const escaped = escapeRegExp(localName);
+  const re = new RegExp(`\\b[A-Za-z_$][\\w$]*\\s*:\\s*${escaped}\\b`);
+  const m = re.exec(code);
+  return m ? m.index : null;
+}
+
+function findFirstShadowingIndex(code: string, name: string): number | null {
+  const candidates = [
+    findFirstLocalBindingDeclarationIndex(code, name),
+    findFirstDestructuredAliasBindingIndex(code, name),
+  ].filter((x): x is number => x !== null);
+  if (candidates.length === 0) return null;
+  return Math.min(...candidates);
+}
+
+/**
+ * Drop an import binding only when it truly shadows a local declaration later in the file
+ * and the imported name is not used between the end of the import and that declaration.
+ */
+function shouldDropConflictingImportBinding(
+  code: string,
+  declarations: Set<string>,
+  bindingLocal: string,
+  importStatementEnd: number,
+): boolean {
+  if (!declarations.has(bindingLocal)) return false;
+  const shadowIdx = findFirstShadowingIndex(code, bindingLocal);
+  if (shadowIdx === null) return false;
+  if (shadowIdx <= importStatementEnd) return false;
+  const gap = code.slice(importStatementEnd, shadowIdx);
+  if (new RegExp(`\\b${escapeRegExp(bindingLocal)}\\b`).test(gap)) {
+    return false;
+  }
+  return true;
+}
+
 function findLastImportIndex(lines: string[]): number {
   let last = -1;
   for (let index = 0; index < lines.length; index += 1) {
@@ -418,44 +475,83 @@ export function fixImportedDeclarationConflicts(
   }
 
   const removedBindings: string[] = [];
-  let nextCode = code;
+  type Patch = { start: number; end: number; replacement: string };
+  const patches: Patch[] = [];
 
-  nextCode = nextCode.replace(LOCAL_DEFAULT_IMPORT_LINE_RE, (full, prefix, defaultLocal, namedPart, namedSpecs, source) => {
-    const defaultConflicts = declarations.has(defaultLocal);
-    const namedSpecsParsed = parseNamedImportSpecifiersDetailed(namedSpecs ?? "");
+  for (const match of code.matchAll(LOCAL_DEFAULT_IMPORT_LINE_RE)) {
+    const full = match[0];
+    const offset = match.index ?? 0;
+    const importEnd = offset + full.length;
+    const prefix = match[1] ?? "";
+    const defaultLocal = match[2];
+    const namedPart = match[3];
+    const namedSpecs = match[4] ?? "";
+    const source = match[5];
+
+    const namedSpecsParsed = parseNamedImportSpecifiersDetailed(namedSpecs);
     const keptNamed = namedSpecsParsed.filter((spec) => {
-      const shouldDrop = declarations.has(spec.local);
-      if (shouldDrop) removedBindings.push(spec.local);
-      return !shouldDrop;
+      if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
+        return true;
+      }
+      removedBindings.push(spec.local);
+      return false;
     });
 
-    if (defaultConflicts) {
+    const defaultDrop = shouldDropConflictingImportBinding(code, declarations, defaultLocal, importEnd);
+    if (defaultDrop) {
       removedBindings.push(defaultLocal);
     }
 
-    if (defaultConflicts && keptNamed.length === 0) {
-      return "";
+    let replacement: string;
+    if (defaultDrop && keptNamed.length === 0) {
+      replacement = "";
+    } else if (defaultDrop) {
+      replacement = `${prefix}{ ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
+    } else if ((namedSpecsParsed.length > 0 || namedPart) && keptNamed.length !== namedSpecsParsed.length) {
+      replacement = `${prefix}${defaultLocal}, { ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
+    } else {
+      replacement = full;
     }
-    if (defaultConflicts) {
-      return `${prefix}{ ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
-    }
-    if ((namedSpecsParsed.length > 0 || namedPart) && keptNamed.length !== namedSpecsParsed.length) {
-      return `${prefix}${defaultLocal}, { ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
-    }
-    return full;
-  });
 
-  nextCode = nextCode.replace(LOCAL_NAMED_IMPORT_LINE_RE, (full, prefix, specifiers, source) => {
-    const namedSpecsParsed = parseNamedImportSpecifiersDetailed(specifiers ?? "");
+    if (replacement !== full) {
+      patches.push({ start: offset, end: importEnd, replacement });
+    }
+  }
+
+  for (const match of code.matchAll(LOCAL_NAMED_IMPORT_LINE_RE)) {
+    const full = match[0];
+    const offset = match.index ?? 0;
+    const importEnd = offset + full.length;
+    const prefix = match[1] ?? "";
+    const specifiers = match[2] ?? "";
+    const source = match[3];
+
+    const namedSpecsParsed = parseNamedImportSpecifiersDetailed(specifiers);
     const keptNamed = namedSpecsParsed.filter((spec) => {
-      const shouldDrop = declarations.has(spec.local);
-      if (shouldDrop) removedBindings.push(spec.local);
-      return !shouldDrop;
+      if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
+        return true;
+      }
+      removedBindings.push(spec.local);
+      return false;
     });
-    if (keptNamed.length === namedSpecsParsed.length) return full;
-    if (keptNamed.length === 0) return "";
-    return `${prefix}{ ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
-  });
+
+    if (keptNamed.length === namedSpecsParsed.length) {
+      continue;
+    }
+
+    const replacement =
+      keptNamed.length === 0
+        ? ""
+        : `${prefix}{ ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
+
+    patches.push({ start: offset, end: importEnd, replacement });
+  }
+
+  patches.sort((a, b) => b.start - a.start);
+  let nextCode = code;
+  for (const p of patches) {
+    nextCode = nextCode.slice(0, p.start) + p.replacement + nextCode.slice(p.end);
+  }
 
   return {
     code: nextCode,

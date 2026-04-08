@@ -30,6 +30,8 @@
 
 Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan** bara för att en agent ska “se” innehåll — särskilt inte `.env*`, byggartefakter eller stora dumps. För orientering: denna fil + README i respektive mapp (`archive/`, `research/`, `data/`, m.fl.) beskriver *vad* som finns. Genererade men committade filer under t.ex. `src/lib/gen/` kan vara ignorerade i index men **aktiva** i bygget — verifiera med `package.json`-scripts och importer, inte med “syns i sök”.
 
+`docs/plans/avklarat/` är **inte** uttryckligen ignorerad här (historik ska kunna indexeras i Cursor); motsvarande rad finns inte i `.gitignore` heller. `data/prompt-dumps/*` och `output/generations/` följer samma idé som `.gitignore` (dumps och generationslogg bort från index, undantag för README där det finns).
+
 ## Mentala repo-zoner (kod)
 
 | Zon | Typiska sökvägar |

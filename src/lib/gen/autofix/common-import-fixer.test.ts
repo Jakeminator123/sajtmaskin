@@ -169,6 +169,16 @@ describe("common-import-fixer", () => {
     expect(result.code).toContain('import { Mesh } from "three";');
   });
 
+  it("does not remove an import binding that is used before a later shadowing declaration", () => {
+    const code = `import { Group, Mesh } from "three";\n\nexport default function Scene() {\n  return <Group />;\n}\n\nfunction Group() { return null; }\n`;
+    const result = fixImportedDeclarationConflicts(code);
+
+    expect(result.fixed).toBe(false);
+    expect(result.removedBindings).toEqual([]);
+    expect(result.code).toContain("Group");
+    expect(result.code).toContain("Mesh");
+  });
+
   it("treats destructuring aliases as local declarations when removing import conflicts", () => {
     const code = `import { bar, baz } from "./lib";\n\nfunction Component({ foo: bar }: { foo: string }) {\n  return <div>{bar}</div>;\n}\n`;
     const result = fixImportedDeclarationConflicts(code);
