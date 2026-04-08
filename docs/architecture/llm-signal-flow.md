@@ -73,8 +73,8 @@ Om scaffold-aware retry hittar tydliga blockerare kan den föreslå en enklare s
 
 ## Vad som fungerar sämre
 
-- scaffoldval sker för tidigt på råprompten
-- keyword-lagret kan dominera innan embeddings/brief får väga in
+- scaffoldval utgår fortfarande från råprompten (brief matas inte direkt in i matchern ännu)
+- keyword-lagret kan fortfarande dominera vid mycket starka träffar; embeddings kan utmana svagare keyword-val (se merge-policy i `matcher.ts`)
 - capability/contract-lagren kan förstärka ett dåligt scaffoldval
 - follow-up kan bevara fel routes/scaffold för länge
 

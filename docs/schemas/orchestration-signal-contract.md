@@ -18,8 +18,8 @@ Det här är en **schema-/kontraktsöversikt**, inte full arkitekturtext. För f
 | Prompt formatting | sektioner, stilord, constraints, URL:er, tillgänglighetskrav | `src/lib/builder/promptAssist.ts` | rå användarprompt | formatterad prompt + snabb addendum | torftig prompt förblir för lös, för lite domänstruktur |
 | Prompt assist | bättre språk, tydligare scope, bättre instruktionstäthet | `src/lib/builder/promptAssist.ts`, `/api/ai/chat` | rå prompt + build intent | förbättrad prompt | lägger till för lite struktur eller för mycket scope |
 | Deep brief | projektnamn, pages, sections, visual identity, imagery, SEO, UI notes | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` | rå prompt | structured brief | modellen producerar bra brief men scaffoldvalet använder den inte fullt ut |
-| Scaffold keyword match | domänord för auth/ecommerce/blog/portfolio/website/app | `src/lib/gen/scaffolds/matcher.ts` | rå prompt | scaffold-id + keyword scores | fel scaffold väljs för tidigt |
-| Scaffold embedding match | semantisk likhet mot scaffold-embeddingar | `src/lib/gen/scaffolds/scaffold-search.ts` | rå prompt (med query expansion) | top-K scaffold candidates | får för lite chans när keyword redan valt icke-generisk scaffold |
+| Scaffold keyword match | domänord för auth/ecommerce/blog/portfolio/website/app | `src/lib/gen/scaffolds/matcher.ts` | rå prompt | scaffold-id + keyword scores | fel scaffold väljs för tidigt; kan stängas av med `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` (experimenter) |
+| Scaffold embedding match | semantisk likhet mot scaffold-embeddingar | `src/lib/gen/scaffolds/scaffold-search.ts`, merge i `matcher.ts` | rå prompt (med query expansion) | top-K scaffold candidates + head-to-head mot keyword | svag query-expansion, API-nyckel saknas, eller garder blockerar t.ex. `auth-pages` |
 | Route plan | explicita sidor, brief-pages, scaffold-default routes, route removals | `src/lib/gen/route-plan.ts` | prompt + brief + scaffold + generationMode | `RoutePlan` | `/om` + `/about`, felaktiga ecom-routes, route-freeze i follow-ups |
 | Capability inference | motion, 3D, charts, database, auth, app shell, forms, ecommerce, premium visuals | `src/lib/gen/capability-inference.ts` | prompt | `InferredCapabilities` | falska positiva på ecommerce/app shell/database |
 | Pre-generation contracts | persistence, auth, payment, integrations, env vars | `src/lib/gen/contract/pre-generation-contracts.ts` | prompt corpus + brief + capabilities + confirmed answers | `PreGenerationContractContext` | SQLite/Stripe triggas i onödan, booking misstolkas som backendkrav |
@@ -41,13 +41,14 @@ Briefen kan bli mycket bättre än scaffoldvalet. I nuvarande kedja används bri
 
 men scaffoldmatchningen kör fortfarande främst på råprompten.
 
-### 2. Keyword och embeddings är parallella, men inte jämbördiga
+### 2. Keyword och embeddings körs parallellt; merge-policy jämför signalerna
 
-Keyword-matchning är primär väg.
+`matchScaffoldAuto()` startar embedding-sökning direkt (samma väntan som tidigare, men keyword beräknas samtidigt på klienten) och hämtar top-K semantiska träffar.
 
-Embeddings används främst när keyword-resultatet blir generiskt (`landing-page` / `base-nextjs`).
+- **Keyword** ger ett snabbt scaffold-förslag (eller intent-baseline om `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off`).
+- **Embedding** får **utmana** även icke-generiska keyword-val när cosinuslikheden är tillräckligt hög och säkerhetsgarder (`canUseEmbeddingOverride`) passerar. Jämförelsen mot keyword-styrka skalar rå keyword-poäng mot `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (standard ~0,82 — **lägre värde** ⇒ embeddings får lättare vinna mot starka keyword-träffar).
 
-Det betyder att embeddings **inte** alltid får sista ordet.
+Det finns fortfarande en **golv-tröskel** (`EMBEDDING_MIN_SCORE` i `matcher.ts`) under vilken embedding aldrig vinner.
 
 ### 3. Capability-lagret är ett hint-lager, inte domänsanning
 

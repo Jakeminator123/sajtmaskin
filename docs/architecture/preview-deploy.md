@@ -1,6 +1,6 @@
 # Preview, VM och deploy
 
-**Senast uppdaterad:** 2026-04-05 (preview/version-lifecycle uppdaterad)
+**Senast uppdaterad:** 2026-04-08 (tier-2 gate vs VM bootstrap tydliggjord)
 
 **Terminologinot:** den relevanta tier-2-previewen just nu är **VM / `preview_host` via Fly.io**. Publika app-routes använder `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy` och `preview-hibernate`. Ordet **`sandbox`** lever fortfarande kvar i vissa interna typer, legacy Redis-nycklar och några interna wrapper-moduler, medan DB-kolumnen i `engine_versions` nu är **`preview_url`**. **Quality gate / server-verify** kör nu också via preview-host, men i en **separat verify-lane** och inte i samma workspace som live-previewn.
 
@@ -84,7 +84,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | 2 — **Runtime preview** | `preview_host` (VM) bakom appens `preview-*`-kontrakt. Kör `npm run dev`, **inte** `npm run build`; preview-sessionen återanvänds eller hibernateras via status/heartbeat/destroy/hibernate och har nu en enhetlig maxtid på ungefär 1 timme. | Enda live-preview i produkt-UI |
 | 3 — **Build-check** | lockfile-aware install (npm/pnpm) + `tsc` / `next build` / ev. `eslint` i preview-hosts verify-lane | Validering närmare produktion utan att röra live-previewn |
 
-> **Tier-2 verify-gate:** Live tier-2-preview och dess vanliga quality gate kör default bara `install` + `typecheck` (`TIER2_QUALITY_GATE_CHECKS`). `next build` hör till tier-3/deploy-kontexten och körs inte automatiskt vid tier-2 dev-preview. Background `server-verify` får däremot nu använda en separat checkprofil (`SERVER_VERIFY_QUALITY_GATE_CHECKS`) med `typecheck` + `lint`, så lint kan bli del av repair-kontexten utan att göra live-previewn tyngre. `INTERACTIVE_QUALITY_GATE_CHECKS` och `PROMOTION_QUALITY_GATE_CHECKS` finns kvar som konstanter för explicitare flöden.
+> **Tier-2: två spår — iframe vs verify-gate.** Själva **preview-sessionen** på VM kör fortfarande `npm install` + `npm run dev` så att iframen får en dev-server (`preview-session.ts`). Den **asynkrona quality-gate** som post-checks kan trigga mot preview-host verify-lanen använder däremot default bara **`typecheck`** (`TIER2_QUALITY_GATE_CHECKS` i `quality-gate-checks.ts`) — alltså inte samma lista som bootstrappen. `next build` hör till tier-3/deploy-kontexten. Background `server-verify` kan använda `SERVER_VERIFY_QUALITY_GATE_CHECKS` (`typecheck` + `lint`). `INTERACTIVE_QUALITY_GATE_CHECKS` och `PROMOTION_QUALITY_GATE_CHECKS` finns för explicitare flöden.
 
 ## ID och nycklar
 

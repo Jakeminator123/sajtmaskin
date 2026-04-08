@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./scaffold-search", () => ({
   searchScaffoldsWithDiagnostics: vi.fn(),
 }));
 
 import { searchScaffoldsWithDiagnostics } from "./scaffold-search";
+import { getScaffoldById } from "./registry";
 import { matchScaffold, matchScaffoldAuto } from "./matcher";
 
 const mockedSearchScaffoldsWithDiagnostics = vi.mocked(searchScaffoldsWithDiagnostics);
@@ -85,5 +86,88 @@ describe("matchScaffold", () => {
     expect(result.scaffold?.id).toBe("landing-page");
     expect(result.meta.selectionConfidence).toBe("low");
     expect(result.meta.semanticUnavailableReason).toBe("missing_api_key");
+  });
+
+  it("prefers embedding over a generic keyword landing pick when similarity clears the floor", async () => {
+    const portfolio = getScaffoldById("portfolio");
+    expect(portfolio).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: portfolio!, score: 0.52 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 12,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en enkel företagshemsida med tjänster, om oss och kontakt.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).toBe("portfolio");
+    expect(result.meta.selectionMethod).toBe("embedding");
+  });
+
+  it("does not let embedding pick auth-pages without auth keywords", async () => {
+    const auth = getScaffoldById("auth-pages");
+    expect(auth).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: auth!, score: 0.92 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 8,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Skapa en landningssida för vårt bageri med meny och öppettider.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).not.toBe("auth-pages");
+  });
+});
+
+describe("matchScaffold with SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off", () => {
+  beforeEach(() => {
+    mockedSearchScaffoldsWithDiagnostics.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH;
+  });
+
+  it("defaults to intent baseline and lets embeddings steer selection", async () => {
+    process.env.SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH = "off";
+    const blog = getScaffoldById("blog");
+    expect(blog).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: blog!, score: 0.6 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 10,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Det här är en webbplats med artiklar, nyhetsbrev och redaktionellt innehåll.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).toBe("blog");
+    expect(result.meta.selectionMethod).toBe("embedding");
+    expect(result.meta.keywordScores["ecommerce"]).toBe(0);
   });
 });

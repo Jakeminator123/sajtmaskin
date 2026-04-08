@@ -1,14 +1,24 @@
 /**
  * Scaffold matching — selects the best internal scaffold for a prompt.
  *
- * Uses keyword matching as primary strategy, with embedding-based
- * semantic search as fallback when keywords yield only generic defaults.
- * Only matches against the 10 internal scaffolds in registry.ts.
+ * Keyword scores and embedding similarity are both computed for auto mode:
+ * embedding search starts immediately (parallel wall-clock with sync keyword
+ * scoring), then the stronger signal wins for non-generic keyword picks.
+ * Embeddings still override generic defaults (`landing-page` / `base-nextjs`)
+ * when similarity clears the floor and safety guards pass.
+ *
+ * `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` skips keyword *selection* (defaults
+ * to intent baseline) so experiments can lean on embeddings + brief.
+ *
+ * Only matches against internal scaffolds in registry.ts.
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getScaffoldByFamily, getScaffoldById } from "./registry";
-import { searchScaffoldsWithDiagnostics } from "./scaffold-search";
+import {
+  searchScaffoldsWithDiagnostics,
+  type ScaffoldSearchResponse,
+} from "./scaffold-search";
 
 const LANDING_KEYWORDS = [
   "landing",
@@ -546,6 +556,10 @@ export function matchScaffold(
   prompt: string,
   buildIntent?: BuildIntent | null,
 ): ScaffoldManifest | null {
+  if (isScaffoldKeywordMatchDisabled()) {
+    return defaultScaffoldForIntent(buildIntent);
+  }
+
   const lower = prompt.toLowerCase();
 
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
@@ -615,6 +629,97 @@ export function matchScaffold(
 
 const EMBEDDING_MIN_SCORE = 0.35;
 
+/** Normalizes raw keyword score for the selected scaffold to ~0..1 for head-to-head vs cosine. */
+const KEYWORD_STRENGTH_CAP = 12;
+
+/**
+ * When cosine similarity is at least this fraction of normalized keyword strength,
+ * the embedding pick wins (non-generic keyword case). Lower → embeddings win more often.
+ * Override: `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (e.g. `0.75`–`1.1`).
+ */
+const DEFAULT_EMBED_VS_KEYWORD_BIAS = 0.82;
+
+/** True → `matchScaffold()` does not use keyword lists; returns intent baseline only. */
+export function isScaffoldKeywordMatchDisabled(): boolean {
+  const v = process.env.SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH?.trim().toLowerCase();
+  if (!v) return false;
+  return v === "0" || v === "false" || v === "off" || v === "disabled";
+}
+
+function readEmbedVsKeywordBias(): number {
+  const raw = process.env.SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS?.trim();
+  if (!raw) return DEFAULT_EMBED_VS_KEYWORD_BIAS;
+  const n = Number.parseFloat(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 2) return DEFAULT_EMBED_VS_KEYWORD_BIAS;
+  return n;
+}
+
+function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): ScaffoldManifest {
+  if (buildIntent === "website" || buildIntent === "template") {
+    return getScaffoldById("landing-page")!;
+  }
+  return getScaffoldByFamily("base-nextjs")!;
+}
+
+function normalizedKeywordStrength(score: number): number {
+  return Math.min(1, score / KEYWORD_STRENGTH_CAP);
+}
+
+function isGenericScaffoldId(id: string | null | undefined): boolean {
+  return !id || id === "landing-page" || id === "base-nextjs";
+}
+
+function shouldPreferEmbeddingOverKeyword(params: {
+  keywordResult: ScaffoldManifest | null;
+  keywordScores: Array<{ id: string; score: number }>;
+  embeddingScaffold: ScaffoldManifest;
+  embeddingScore: number;
+  embedVsKeywordBias: number;
+  authScore: number;
+  appScore: number;
+  dashboardScore: number;
+  buildIntent?: BuildIntent | null;
+}): boolean {
+  const {
+    keywordResult,
+    keywordScores,
+    embeddingScaffold,
+    embeddingScore,
+    embedVsKeywordBias,
+    authScore,
+    appScore,
+    dashboardScore,
+    buildIntent,
+  } = params;
+
+  if (embeddingScore < EMBEDDING_MIN_SCORE) return false;
+
+  if (
+    !canUseEmbeddingOverride({
+      embeddingResult: embeddingScaffold,
+      authScore,
+      appScore,
+      dashboardScore,
+      buildIntent,
+    })
+  ) {
+    return false;
+  }
+
+  if (keywordResult?.id === embeddingScaffold.id) {
+    return false;
+  }
+
+  const kwId = keywordResult?.id ?? null;
+  if (isGenericScaffoldId(kwId)) {
+    return true;
+  }
+
+  const kwScoreForPick = keywordScores.find((entry) => entry.id === kwId)?.score ?? 0;
+  const kwNorm = normalizedKeywordStrength(kwScoreForPick);
+  return embeddingScore >= kwNorm * embedVsKeywordBias;
+}
+
 function canUseEmbeddingOverride(params: {
   embeddingResult: ScaffoldManifest;
   authScore: number;
@@ -637,10 +742,23 @@ function canUseEmbeddingOverride(params: {
   return true;
 }
 
+const EMPTY_SEMANTIC_RESPONSE: ScaffoldSearchResponse = {
+  results: [],
+  diagnostics: {
+    attempted: false,
+    available: false,
+    failed: false,
+    unavailableReason: null,
+    errorMessage: null,
+    durationMs: null,
+  },
+};
+
 /**
  * Async scaffold matching with explicit metadata for debugging/evaluation.
- * Uses keyword matching as the primary result and optional semantic
- * embedding fallback when keyword result is a generic default.
+ * Keyword and embedding runs overlap in wall-clock time; the merged policy
+ * lets embeddings challenge non-generic keyword picks when similarity is
+ * strong enough (see `shouldPreferEmbeddingOverKeyword`).
  */
 export async function matchScaffoldAuto(
   prompt: string,
@@ -648,16 +766,29 @@ export async function matchScaffoldAuto(
   options: { useEmbeddings?: boolean } = {},
 ): Promise<ScaffoldSelectionResult> {
   const useEmbeddings = options.useEmbeddings ?? true;
-  const keywordResult = matchScaffold(prompt, buildIntent);
   const lower = prompt.toLowerCase();
-  const keywordScores = buildKeywordScores(lower);
+
+  const embeddingPromise = useEmbeddings
+    ? searchScaffoldsWithDiagnostics(prompt, 3)
+    : Promise.resolve(EMPTY_SEMANTIC_RESPONSE);
+
+  const keywordResult = matchScaffold(prompt, buildIntent);
+  const baseKeywordScores = buildKeywordScores(lower);
+  const keywordsDisabled = isScaffoldKeywordMatchDisabled();
+  const keywordScores = keywordsDisabled
+    ? baseKeywordScores.map((entry) => ({ ...entry, score: 0 }))
+    : baseKeywordScores;
+
   const keywordTopCandidates = getTopKeywordCandidates(keywordScores, keywordResult?.id ?? null);
   const maxKeywordScore = Math.max(...keywordScores.map((entry) => entry.score), 0);
-  const keywordMethod = inferKeywordSelectionMethod({
-    selectedScaffold: keywordResult,
-    maxKeywordScore,
-  });
-  const keywordMeta: ScaffoldSelectionMeta = {
+  const keywordMethod = keywordsDisabled
+    ? "default"
+    : inferKeywordSelectionMethod({
+        selectedScaffold: keywordResult,
+        maxKeywordScore,
+      });
+
+  const keywordMetaBase: ScaffoldSelectionMeta = {
     selectedScaffold: keywordResult?.id ?? null,
     selectionMethod: keywordMethod,
     selectionConfidence: inferKeywordConfidence(maxKeywordScore, keywordMethod),
@@ -672,27 +803,16 @@ export async function matchScaffoldAuto(
   if (!useEmbeddings) {
     return {
       scaffold: keywordResult,
-      meta: keywordMeta,
+      meta: keywordMetaBase,
     };
   }
 
+  const semantic = await embeddingPromise;
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   const appScore = countKeywordMatches(lower, APP_KEYWORDS);
   const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
+  const embedBias = readEmbedVsKeywordBias();
 
-  const isGenericDefault =
-    !keywordResult ||
-    keywordResult.id === "landing-page" ||
-    keywordResult.id === "base-nextjs";
-
-  if (!isGenericDefault) {
-    return {
-      scaffold: keywordResult,
-      meta: keywordMeta,
-    };
-  }
-
-  const semantic = await searchScaffoldsWithDiagnostics(prompt, 1);
   const embeddingTopResult =
     semantic.results.length > 0
       ? {
@@ -700,44 +820,54 @@ export async function matchScaffoldAuto(
           score: semantic.results[0].score,
         }
       : null;
+
   const fallbackMeta: ScaffoldSelectionMeta = {
-    ...keywordMeta,
+    ...keywordMetaBase,
     selectionConfidence: inferFallbackConfidence({
       selectedScaffold: keywordResult,
-      currentConfidence: keywordMeta.selectionConfidence,
+      currentConfidence: keywordMetaBase.selectionConfidence,
       semanticAvailable: semantic.diagnostics.available,
       semanticUnavailableReason: semantic.diagnostics.unavailableReason,
     }),
-    topCandidates: withEmbeddingCandidate(keywordMeta.topCandidates, embeddingTopResult),
+    topCandidates: withEmbeddingCandidate(keywordMetaBase.topCandidates, embeddingTopResult),
     embeddingAvailable: semantic.diagnostics.available,
     embeddingFailed: semantic.diagnostics.failed,
     embeddingTopResult,
     semanticUnavailableReason: semantic.diagnostics.unavailableReason,
   };
 
-  if (semantic.results.length > 0 && semantic.results[0].score >= EMBEDDING_MIN_SCORE) {
-    const embeddingResult = semantic.results[0].scaffold;
-    if (
-      canUseEmbeddingOverride({
-        embeddingResult,
-        authScore,
-        appScore,
-        dashboardScore,
-        buildIntent,
-      })
-    ) {
-      const embeddingConfidence: ScaffoldSelectionConfidence =
-        semantic.results[0].score >= 0.55 ? "high" : "medium";
-      return {
-        scaffold: embeddingResult,
-        meta: {
-          ...fallbackMeta,
-          selectedScaffold: embeddingResult.id,
-          selectionMethod: "embedding",
-          selectionConfidence: embeddingConfidence,
-        },
-      };
-    }
+  if (semantic.results.length === 0) {
+    return {
+      scaffold: keywordResult,
+      meta: fallbackMeta,
+    };
+  }
+
+  const top = semantic.results[0]!;
+  const preferEmbedding = shouldPreferEmbeddingOverKeyword({
+    keywordResult,
+    keywordScores,
+    embeddingScaffold: top.scaffold,
+    embeddingScore: top.score,
+    embedVsKeywordBias: embedBias,
+    authScore,
+    appScore,
+    dashboardScore,
+    buildIntent,
+  });
+
+  if (preferEmbedding) {
+    const embeddingConfidence: ScaffoldSelectionConfidence =
+      top.score >= 0.55 ? "high" : "medium";
+    return {
+      scaffold: top.scaffold,
+      meta: {
+        ...fallbackMeta,
+        selectedScaffold: top.scaffold.id,
+        selectionMethod: "embedding",
+        selectionConfidence: embeddingConfidence,
+      },
+    };
   }
 
   return {
