@@ -16,6 +16,19 @@ Källkod: `src/lib/gen/system-prompt.ts`, `src/lib/gen/orchestrate.ts`, `src/lib
 
 **Viktigt:** Den råa användartexten ska **inte** dupliceras i systemprompten som en extra "Original request"-sektion — samma innehåll skickas redan som **user**-meddelande.
 
+## Follow-up wrappers på user-turnen
+
+Vid follow-ups skickar hosten inte bara användarens råa text rakt igenom. API-lagret kan först wrappa user-turnen med rubriker från `prompt-wrapper-contract.ts`, t.ex.:
+
+- `## Continuity (from previous generation)`
+- `## Existing Project Files (reference)`
+- `## Follow-up Editing Mode`
+- `## Requested Changes`
+- `## Contract Clarification Answer`
+- `## User Reply`
+
+Syftet är att hålla edit-/follow-up-flödet deterministiskt utan att blanda in detta i systemprompten. `messageAdapter.ts` känner igen dessa wrappers och tar bort dem i UI-visningen så användaren inte får tillbaka hela transportomslaget som synlig chatttext.
+
 ## Budget och pruning (dynamisk kontext)
 
 1. Dynamisk text byggs som `##`-sektioner och splits till **block** (`splitContextIntoBudgetBlocks`).
@@ -34,5 +47,6 @@ Källkod: `src/lib/gen/system-prompt.ts`, `src/lib/gen/orchestrate.ts`, `src/lib
 
 - `data/prompt-dumps/orchestration-dynamic/` — dynamisk kontext + serialiserad `GenerationInputPackage` (inkl. pruning).
 - `data/prompt-dumps/own-engine-codegen/` — full `system` som codegen får (statiskt + dynamiskt).
+- `prompt_logs` / admin log viewer — bästa effort-logg av originalprompt, formatterad prompt, trunkerad systemprompt och viss request-meta; separat från prompt-dumps.
 
 Dashboardar ska **spegla** dessa artefakter; runtimekoden är source of truth.

@@ -41,8 +41,13 @@ Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
 ## Promptlager och träd
 
 - **Statisk kärna** + dynamisk kontext (scaffold, route plan, kontrakt, brief, tema och övrig request-specifik kontext) byggs i `system-prompt.ts` m.m.
+- **Statisk kärna är stabil produktpolicy, inte request-payload.** `config/prompt-static/*.md` ska beskriva varaktiga regler för output/runtime. Request-specifika signaler som component palette, design references, scaffold payloads, media aliases, follow-up-kontext och kontrakt ska i stället komma via den dynamiska kontexten eller via user-turn wrappers.
+- **Visible `<Thinking>` är inte del av normalkontraktet längre.** Reasoning kan fortfarande exponeras separat när `thinking` är aktiverat, men själva projektsvaret ska hållas i CodeProject-format utan synlig wrapper före filblocken.
+- **shadcn-reglerna är nu tvålagriga:** modellen ska i första hand använda projektets lokala `@/components/ui/*`, men request-specifik shadcn-/registry-/palette-kontext får utöka komponentvokabulären när hosten redan skickat sådan payload.
 - **Fan-in före modellen:** `prepareGenerationContext()` / `resolveOrchestrationBase()` bygger nu ett litet **`BuildSpec`** (`src/lib/gen/build-spec.ts`) som bär styrsignaler som `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`. Det används för att hålla scaffold-/referensbudget, follow-up-policy och previewpolicy deterministiska.
+- **`GenerationInputPackage` är kanonisk fan-in-artefakt för generationen.** Den bär bl.a. `engineSystemPrompt`, `dynamicContext`, `dynamicContextPruning`, `dynamicContextBlocks` och `lineageHash`, och skrivs till prompt-dumps för observability.
 - **Narrow follow-up policy:** när `BuildSpec` landar i `followUp + light + fast` hålls dynamisk kontext märkbart smalare: scaffold serialiseras lättare och bred KB/template-retrieval hoppas över för lokala copy/layout-ändringar.
+- **Follow-up wrappers ligger på user-turnen, inte i systemprompten.** `chat-message-stream-post.ts` använder `prompt-wrapper-contract.ts` för att prefixa follow-ups med sektioner som `## Continuity (from previous generation)`, `## Existing Project Files (reference)` och `## Follow-up Editing Mode`. `messageAdapter.ts` tar sedan bort kända wrappers i UI-visningen så användaren ser sin faktiska prompt, inte hela transportomslaget.
 - **Scaffold research i prompten:** `buildDynamicContext()` injicerar nu `qualityChecklist`, `upgradeTargets` och ett budgeterat urval av `referenceTemplates` som **Reference inspirations**. Urvalet begränsas primärt av `BuildSpec.tokenBudgets.refsTokens` (med `refsChars` som kompat-fallback).
 - **Template-library och prompten:** den kuraterade `template-library`-datan lever kvar som externa referenser / researchartefakter och används för scaffold research, validering och lokala kontrollflöden. **Nuvarande own-engine-hot-path injicerar inte `template-library`-sökning direkt i prompten på samma sätt som scaffold-kontexten gör.** Däremot kan kondenserad extern research nå prompten indirekt via scaffold research (`referenceTemplates` i `scaffold-research.generated.json`). Den direkta promptkontexten bär i övrigt scaffold-kontext, route plan, kontrakt, brief, tema och request-specifik information.
 - **Prompt tree** (alla lager och parametrar): se arkiv `prompt-tree.md` och kod: `config/prompt-static/`, `codegen-static-prompt.json`.
@@ -74,6 +79,14 @@ Prompt-dumps är **debug-/observabilityartefakter**, inte source of truth för
 runtime. Den kanoniska skrivningen ligger i `src/lib/gen/prompt-dump.ts`, och
 båda Python-panelerna läser nu samma statussemantik via
 `scripts/dashboard_shared.py`.
+
+Det finns nu tre separata observability-spår som är lätta att blanda ihop:
+
+- **Prompt-dumps på disk** under `data/prompt-dumps/` — full/dynamisk systemkontext och serialiserad `GenerationInputPackage`.
+- **Prompt logs i databasen** via `createPromptLog()` / `prompt_logs` — bästa effort-logg av originalprompt, formatterad prompt, trunkerad systemprompt, model tier, build method, thinking, m.m.; visas via admin-API och `app/log/log-viewer`.
+- **Dev/runtime-loggar** — request-/stream-/generation-event via dev-loggning och serverterminal.
+
+Det finns **ingen** samlad kanonisk `logs/`-mapp ännu som binder ihop prompt-dumps, prompt logs, evals, verifieringsresultat, modeller, tokens och slutlig scaffold/utfall i en enda körjournal. Dagens läge är i stället uppdelat mellan `data/prompt-dumps/`, databastabeller/UI för prompt logs och vanliga dev-/runtime-loggar.
 
 **Viktigt:** `config/dashboard/app.py`, `scripts/scripts_dashboard.py`,
 `SYSTEMKARTA_SAJTMASKIN.txt` och övriga docs ska **spegla** runtime-sanningen,
