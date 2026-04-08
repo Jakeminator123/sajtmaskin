@@ -29,17 +29,57 @@ const REACT_HOOKS = new Set([
 const HOOK_CALL_RE = /\b(use[A-Z]\w*)\s*\(/g;
 
 const REACT_NAMED_IMPORT_RE =
-  /import\s+\{([^}]+)\}\s+from\s+["']react["']/;
+  /import\s+(type\s+)?((?:[\w*$]+\s*,\s*)?)\{([^}]+)\}\s+from\s+["']react["'](;?)/g;
 
 const USE_CLIENT_DIRECTIVE_RE = /^["']use client["'];?\s*\n/;
 
+type ReactNamedImportMatch = {
+  full: string;
+  start: number;
+  end: number;
+  typeOnly: boolean;
+  defaultPrefix: string;
+  specifiers: string[];
+  hasSemicolon: boolean;
+};
+
+function parseNamedImportSpecifiers(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function stripTypeAndAlias(specifier: string): string {
+  return specifier
+    .replace(/^type\s+/, "")
+    .replace(/\s+as\s+\w+$/, "")
+    .trim();
+}
+
+function findReactNamedImports(code: string): ReactNamedImportMatch[] {
+  REACT_NAMED_IMPORT_RE.lastIndex = 0;
+  const matches: ReactNamedImportMatch[] = [];
+  for (const match of code.matchAll(REACT_NAMED_IMPORT_RE)) {
+    matches.push({
+      full: match[0],
+      start: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+      typeOnly: Boolean(match[1]),
+      defaultPrefix: match[2] ?? "",
+      specifiers: parseNamedImportSpecifiers(match[3] ?? ""),
+      hasSemicolon: match[4] === ";",
+    });
+  }
+  return matches;
+}
+
 function extractNamedReactImports(code: string): Set<string> {
-  const match = code.match(REACT_NAMED_IMPORT_RE);
-  if (!match) return new Set();
   return new Set(
-    match[1]
-      .split(",")
-      .map((s) => s.replace(/\s+as\s+\w+/, "").trim())
+    findReactNamedImports(code)
+      .filter((match) => !match.typeOnly)
+      .flatMap((match) => match.specifiers)
+      .map(stripTypeAndAlias)
       .filter(Boolean),
   );
 }
@@ -66,16 +106,26 @@ export function fixReactHookImports(
     return { code, fixed: false, addedHooks: [] };
   }
 
-  const existingMatch = code.match(REACT_NAMED_IMPORT_RE);
-  if (existingMatch) {
-    const currentNames = existingMatch[1]
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const merged = [...new Set([...currentNames, ...missing])].sort();
-    const newImport = `import { ${merged.join(", ")} } from "react"`;
+  const existingImport = findReactNamedImports(code).find((match) => !match.typeOnly);
+  if (existingImport) {
+    const existingValueNames = new Set(
+      existingImport.specifiers
+        .filter((specifier) => !specifier.startsWith("type "))
+        .map(stripTypeAndAlias)
+        .filter(Boolean),
+    );
+    const mergedSpecifiers = [...existingImport.specifiers];
+    for (const hook of missing) {
+      if (!existingValueNames.has(hook)) {
+        mergedSpecifiers.push(hook);
+      }
+    }
+    const newImport = `import ${existingImport.defaultPrefix}{ ${mergedSpecifiers.join(", ")} } from "react"${existingImport.hasSemicolon ? ";" : ""}`;
     return {
-      code: code.replace(existingMatch[0], newImport),
+      code:
+        code.slice(0, existingImport.start) +
+        newImport +
+        code.slice(existingImport.end),
       fixed: true,
       addedHooks: missing,
     };

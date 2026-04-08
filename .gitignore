@@ -217,4 +217,3 @@ files_envvars
 
 # OpenClaw bridge (local agent communication, never commit)
 .cursor/openclaw-bridge/
-docs/plans/avklarat/

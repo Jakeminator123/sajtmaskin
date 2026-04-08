@@ -165,8 +165,10 @@ const APP_ROUTE_PATTERNS: Array<{
   { match: /\b(login|inlogg|auth|signup|sign up|register|registr)\b/i, path: "/login", name: "Login", intent: "Provide authentication entry for the application." },
 ];
 
+// Keep removal language explicit so "utan ..." copy/layout phrasing
+// does not silently delete routes during follow-ups.
 const ROUTE_REMOVAL_VERB_RE =
-  /\b(remove|delete|drop|ta bort|plocka bort|radera|utan)\b/i;
+  /\b(remove|delete|drop|ta bort|plocka bort|radera)\b/i;
 const ROUTE_REMOVAL_CONTEXT_RE =
   /\b(page|pages|route|routes|sida|sidor|sidan|sidorna)\b|[a-zåäö]+sida(?:n|rna)?\b/i;
 const ROUTE_PATH_MENTION_RE = /\/[a-z0-9/_-]*/gi;
@@ -504,15 +506,38 @@ function routePatternToRegex(route: string): RegExp {
   return new RegExp(pattern);
 }
 
+function dynamicPrefixCoversPath(actualRoute: string, plannedPath: string): boolean {
+  const actual = normalizeRoutePath(actualRoute);
+  const planned = normalizeRoutePath(plannedPath);
+  if (actual === planned) return true;
+
+  const segments = actual.split("/").filter(Boolean);
+  const firstDynamicIndex = segments.findIndex(
+    (segment) =>
+      (segment.startsWith("[") && segment.endsWith("]")) ||
+      (segment.startsWith("[...") && segment.endsWith("]")) ||
+      (segment.startsWith("[[...") && segment.endsWith("]]")),
+  );
+  if (firstDynamicIndex < 0) return false;
+
+  const prefixSegments = segments.slice(0, firstDynamicIndex);
+  const prefixPath = prefixSegments.length > 0 ? `/${prefixSegments.join("/")}` : "/";
+  return planned === prefixPath;
+}
+
 export function findMissingPlannedRoutes(
   routePlan: RoutePlan | null | undefined,
   actualRoutes: string[],
 ): PlannedRoute[] {
   if (!routePlan || routePlan.routes.length === 0) return [];
-  const matchers = actualRoutes.map(routePatternToRegex);
+  const normalizedActualRoutes = actualRoutes.map((route) => normalizeRoutePath(route));
+  const matchers = normalizedActualRoutes.map(routePatternToRegex);
   return routePlan.routes.filter((route) => {
     if (!route.required) return false;
     const plannedPath = normalizeRoutePath(route.path);
-    return !matchers.some((matcher) => matcher.test(plannedPath));
+    return !matchers.some((matcher, index) => {
+      if (matcher.test(plannedPath)) return true;
+      return dynamicPrefixCoversPath(normalizedActualRoutes[index]!, plannedPath);
+    });
   });
 }

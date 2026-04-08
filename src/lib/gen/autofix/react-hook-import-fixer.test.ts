@@ -33,6 +33,20 @@ export default function Timer() {
     expect(result.code).toMatch(/import \{.*useState.*\} from "react"/);
   });
 
+  it("merges into a default-plus-named react import", () => {
+    const code = `import React, { useEffect } from "react";
+
+export default function Timer() {
+  const [t, setT] = useState(0);
+  useEffect(() => {}, []);
+  return <span>{t}</span>;
+}`;
+    const result = fixReactHookImports(code);
+    expect(result.fixed).toBe(true);
+    expect(result.addedHooks).toEqual(["useState"]);
+    expect(result.code).toContain('import React, { useEffect, useState } from "react";');
+  });
+
   it("adds multiple missing hooks at once", () => {
     const code = `const ref = useRef(null);
 const [v, setV] = useState(0);
@@ -100,5 +114,18 @@ const [open, setOpen] = useState(false);
     const result = fixReactHookImports(code);
     expect(result.fixed).toBe(true);
     expect(result.code.startsWith('import { useState } from "react"')).toBe(true);
+  });
+
+  it("adds a value import when only a type-only react import exists", () => {
+    const code = `import type { ReactNode } from "react";
+
+export default function Counter(): ReactNode {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(count + 1)}>{count}</button>;
+}`;
+    const result = fixReactHookImports(code);
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import type { ReactNode } from "react";');
+    expect(result.code).toContain('import { useState } from "react";');
   });
 });

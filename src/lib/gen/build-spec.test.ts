@@ -147,6 +147,22 @@ describe("deriveBuildSpec", () => {
     expect(spec.verificationPolicy).not.toBe("fast");
   });
 
+  it("does not treat route wording alone as page-addition in follow-ups", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Update the CTA route in the header and tighten the spacing.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+    });
+
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.contextPolicy).toBe("light");
+    expect(spec.verificationPolicy).toBe("fast");
+  });
+
   it("keeps redesign follow-ups at least normal context with standard verification", () => {
     const spec = deriveBuildSpec({
       prompt: "Jag vill ha en full redesign av landningssidan.",

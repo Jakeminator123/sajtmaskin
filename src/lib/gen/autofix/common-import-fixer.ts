@@ -119,8 +119,20 @@ function extractLocalDeclarations(code: string): Set<string> {
     if (singleParam) names.add(singleParam);
     if (objectKeys) {
       for (const raw of objectKeys.split(",")) {
-        const key = raw.split(":")[0]?.trim().replace(/\?.*$/, "").trim();
-        if (key) names.add(key);
+        let segment = raw.trim();
+        if (!segment) continue;
+        if (segment.startsWith("...")) {
+          const rest = segment.slice(3).trim().replace(/\?.*$/, "").trim();
+          if (rest) names.add(rest);
+          continue;
+        }
+        // Object parameter destructuring: "{ foo: bar = 1, baz }"
+        // should register local bindings "bar" and "baz" (not source key "foo").
+        const alias = segment.includes(":") ? segment.split(":")[1] : segment;
+        segment = (alias ?? segment).trim();
+        segment = segment.split("=")[0]?.trim() ?? "";
+        segment = segment.replace(/\?.*$/, "").trim();
+        if (segment) names.add(segment);
       }
     }
   }
@@ -370,9 +382,15 @@ export function fixLocalNamedImportDefaultMismatches(
     const parsed = parseNamedImportSpecifiersDetailed(namedSpecifiersRaw);
     if (parsed.length === 0) continue;
 
-    const defaultCandidate = parsed.find(
-      (spec) => spec.imported === target.defaultName && !target.named.has(spec.imported),
+    const unresolvedNamed = parsed.filter(
+      (spec) => !spec.raw.startsWith("type ") && !target.named.has(spec.imported),
     );
+    const defaultNameCandidate = target.defaultName
+      ? unresolvedNamed.find((spec) => spec.imported === target.defaultName)
+      : undefined;
+    const defaultCandidate =
+      defaultNameCandidate ??
+      (unresolvedNamed.length === 1 ? unresolvedNamed[0] : undefined);
     if (!defaultCandidate) continue;
 
     const remaining = parsed.filter((spec) => spec !== defaultCandidate);

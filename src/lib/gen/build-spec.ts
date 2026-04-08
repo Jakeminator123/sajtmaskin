@@ -112,17 +112,16 @@ const LAYOUT_PATTERNS = [
 ];
 
 const PAGE_ADDITION_PATTERNS = [
+  /\badd(?: another)?(?: new)? (?:page|route)\b/i,
+  /\bcreate(?: another)?(?: new)? (?:page|route)\b/i,
   /\bnew page\b/i,
+  /\bnew route\b/i,
   /\blägg till sida\b/i,
+  /\blägg till (?:en |en ny |ny )?(?:sida|route)\b/i,
   /\bny sida\b/i,
-  /\broute\b/i,
-  /\bpricing\b/i,
-  /\bblog\b/i,
-  /\bkontakt\b/i,
-  /\bcontact\b/i,
-  /\babout\b/i,
-  /\bservices\b/i,
-  /\bproducts\b/i,
+  /\bny route\b/i,
+  /\b(?:pricing|blog|contact|about|services|products?) page\b/i,
+  /\bkontaktsida\b/i,
 ];
 
 const INTEGRATION_PATTERNS = [

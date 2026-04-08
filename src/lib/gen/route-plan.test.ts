@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
-import { buildRoutePlan, parseRoutePlanFromUnknown } from "./route-plan";
+import {
+  buildRoutePlan,
+  findMissingPlannedRoutes,
+  parseRoutePlanFromUnknown,
+} from "./route-plan";
 
 describe("buildRoutePlan", () => {
   const websiteBase = {
@@ -154,6 +158,18 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
   });
 
+  it("does not treat generic 'utan' phrasing as route removal intent", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Gor startsidan utan bokningskansla men behall kontaktsidan.",
+      resolvedScaffold: getScaffoldById("landing-page"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/contact", "/om"],
+    });
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
+  });
+
   it("parseRoutePlanFromUnknown accepts legacy JSON with source only", () => {
     const parsed = parseRoutePlanFromUnknown({
       source: "brief",
@@ -180,5 +196,35 @@ describe("buildRoutePlan", () => {
         required: true,
       },
     ]);
+  });
+});
+
+describe("findMissingPlannedRoutes", () => {
+  it("does not warn when a dynamic route covers the planned static parent path", () => {
+    const routePlan = {
+      provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
+      siteType: "brochure" as const,
+      reason: "test",
+      routes: [
+        { path: "/blog", name: "Blog", intent: "Blog archive", required: true },
+      ],
+    };
+
+    const missing = findMissingPlannedRoutes(routePlan, ["/blog/[slug]"]);
+    expect(missing).toEqual([]);
+  });
+
+  it("keeps warning when planned route is truly missing", () => {
+    const routePlan = {
+      provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
+      siteType: "brochure" as const,
+      reason: "test",
+      routes: [
+        { path: "/pricing", name: "Pricing", intent: "Pricing details", required: true },
+      ],
+    };
+
+    const missing = findMissingPlannedRoutes(routePlan, ["/blog/[slug]"]);
+    expect(missing.map((route) => route.path)).toEqual(["/pricing"]);
   });
 });
