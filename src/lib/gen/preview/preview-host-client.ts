@@ -12,7 +12,11 @@ export function isPreviewHostDiskFullMessage(message: string | null | undefined)
 }
 
 export function describePreviewHostHttpFailure(params: {
-  endpoint: "/preview/session/start" | "/preview/session/destroy" | "/preview/verify";
+  endpoint:
+    | "/preview/session/start"
+    | "/preview/session/destroy"
+    | "/preview/session/hibernate"
+    | "/preview/verify";
   status: number;
   body: Record<string, unknown>;
 }): string {
@@ -329,7 +333,7 @@ export async function hibernatePreviewHostSession(params: {
     }
     if (!res.ok) {
       const msg = describePreviewHostHttpFailure({
-        endpoint: "/preview/session/destroy",
+        endpoint: "/preview/session/hibernate",
         status: res.status,
         body,
       });

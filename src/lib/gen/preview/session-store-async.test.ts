@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { REDIS_KEY_PREFIX } from "@/lib/config";
 
 const { fakeStore, redisStub } = vi.hoisted(() => {
   const fakeStore = new Map<string, string>();
@@ -58,5 +59,23 @@ describe("preview-session-store async + Redis", () => {
     await clearPreviewSessionAsync("c-r2");
     const entry = await getActivePreviewSessionAsync("c-r2", { now: 0 });
     expect(entry).toBeNull();
+  });
+
+  it("reads legacy sandbox-preview redis key when canonical key is missing", async () => {
+    fakeStore.set(
+      `${REDIS_KEY_PREFIX}sandbox-preview:session:c-legacy`,
+      JSON.stringify({
+        sandboxId: "legacy-sb-1",
+        sandboxUrl: "https://legacy.vercel.run",
+        versionId: "v-legacy",
+        createdAt: 1000,
+        lastUsedAt: 2000,
+      }),
+    );
+
+    const entry = await getActivePreviewSessionAsync("c-legacy", { now: 2500 });
+    expect(entry).not.toBeNull();
+    expect(entry?.sandboxId).toBe("legacy-sb-1");
+    expect(entry?.versionId).toBe("v-legacy");
   });
 });

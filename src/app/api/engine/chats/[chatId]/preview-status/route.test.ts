@@ -80,6 +80,45 @@ describe("GET preview-status (engine)", () => {
     expect(body.reason).toBe("preview_session_id_mismatch");
   });
 
+  it("returns missing + no_session when no preview session exists", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue(null);
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; reason?: string };
+    expect(body.status).toBe("missing");
+    expect(body.reason).toBe("no_session");
+  });
+
+  it("returns version_mismatch when session points to another version", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      sandboxId: "sb_server",
+      sandboxUrl: "https://preview.example",
+      versionId: "v2",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      status: string;
+      reason?: string;
+      versionId?: string | null;
+    };
+    expect(body.status).toBe("version_mismatch");
+    expect(body.reason).toBe("session_bound_to_other_version");
+    expect(body.versionId).toBe("v2");
+  });
+
   it("returns stopped + provider_not_running_or_unreachable when resume fails", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
       sandboxId: "sb_1",

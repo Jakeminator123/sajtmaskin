@@ -47,10 +47,11 @@ import { useBuilderPromptActions } from "./useBuilderPromptActions";
 import { useBuilderState } from "./useBuilderState";
 import { useBuilderVmPreview } from "./useBuilderVmPreview";
 import { usePreviewSession } from "./usePreviewSession";
-import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
-  isCompatibilityShimPreviewUrl,
-  isTier2LivePreviewUrl,
+  derivePreviewLifecycleState,
+  type PreviewLifecycleState,
+} from "@/lib/builder/preview-lifecycle";
+import {
   isShimOrMissingPreviewUrl,
   normalizePreviewUrl,
   resolveAlternatePreviewUrls,
@@ -314,6 +315,16 @@ export function useBuilderPageController() {
     previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
     setPreviewBootstrapRetryNonce: vmPreview.setPreviewBootstrapRetryNonce,
+    onRecoverFailed: ({ reason }) => {
+      setPreviewBuildError({
+        stage: "preview-recover",
+        message:
+          reason === "status_unavailable"
+            ? "Live-preview kunde inte verifieras mot servern efter flera försök."
+            : "Live-preview kunde inte återansluta efter flera försök.",
+      });
+      setPreviewPending(false);
+    },
   });
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
 
@@ -1304,16 +1315,17 @@ export function useBuilderPageController() {
     }
   }, [derived.activeVersionId, selectedVersionId, chat, currentPreviewUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId, clearedPreviewVersionId, setClearedPreviewVersionId, setCurrentPreviewUrl, setPreviewRefreshToken, setPreviewPending]);
 
-  const previewLifecycle: PreviewLifecycleState = useMemo(() => {
-    if (previewBuildError?.stage === "preview_session_disabled") return "failed";
-    if (previewSessionRecovering) return "recovering";
-    if (previewPending) return "bootstrapping";
-    if (previewBuildError) return "failed";
-    const url = normalizePreviewUrl(currentPreviewUrl);
-    if (url && isTier2LivePreviewUrl(url)) return "live";
-    if (url && !isCompatibilityShimPreviewUrl(url)) return "live";
-    return "idle";
-  }, [previewBuildError, previewSessionRecovering, previewPending, currentPreviewUrl]);
+  const previewLifecycle: PreviewLifecycleState = useMemo(
+    () =>
+      derivePreviewLifecycleState({
+        previewBuildErrorStage: previewBuildError?.stage ?? null,
+        hasPreviewBuildError: Boolean(previewBuildError),
+        previewSessionRecovering,
+        previewPending,
+        currentPreviewUrl,
+      }),
+    [previewBuildError, previewSessionRecovering, previewPending, currentPreviewUrl],
+  );
 
   // Prompt assist context fetch
   useEffect(() => {

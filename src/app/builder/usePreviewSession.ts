@@ -17,6 +17,11 @@ export type UsePreviewSessionParams = {
   previewBootstrapDoneKeysRef: MutableRefObject<Set<string>>;
   setForcedPreviewRestartKey: (key: string | null) => void;
   setPreviewBootstrapRetryNonce: Dispatch<SetStateAction<number>>;
+  onRecoverFailed?: (params: {
+    chatId: string;
+    versionId: string;
+    reason: "max_attempts" | "status_unavailable";
+  }) => void;
 };
 
 /**
@@ -34,13 +39,16 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey,
     setPreviewBootstrapRetryNonce,
+    onRecoverFailed,
   } = params;
 
   const lastPreviewRecoverAtRef = useRef(0);
   const previewRecoverAttemptsRef = useRef(0);
+  const statusUnavailableCountRef = useRef(0);
 
   useEffect(() => {
     previewRecoverAttemptsRef.current = 0;
+    statusUnavailableCountRef.current = 0;
     lastPreviewRecoverAtRef.current = 0;
   }, [chatId]);
 
@@ -59,7 +67,26 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
       versionId,
       previewSessionId: activePreviewSessionMeta?.previewSessionId ?? null,
     });
-    if (!statusPayload) return;
+    if (!statusPayload) {
+      statusUnavailableCountRef.current += 1;
+      logPreviewLifecycleTelemetry({
+        kind: "recover",
+        phase: "failed",
+        chatId,
+        versionId,
+        detail: "status_unavailable",
+      });
+      if (statusUnavailableCountRef.current >= 3) {
+        setPreviewSessionRecovering(false);
+        onRecoverFailed?.({
+          chatId,
+          versionId,
+          reason: "status_unavailable",
+        });
+      }
+      return;
+    }
+    statusUnavailableCountRef.current = 0;
 
     if (statusPayload.status === "running") {
       const serverUrl = statusPayload.previewUrl?.trim() ?? "";
@@ -89,6 +116,11 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
         detail: "max_attempts",
       });
       setPreviewSessionRecovering(false);
+      onRecoverFailed?.({
+        chatId,
+        versionId,
+        reason: "max_attempts",
+      });
       return;
     }
     previewRecoverAttemptsRef.current += 1;
@@ -117,6 +149,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey,
     setPreviewBootstrapRetryNonce,
+    onRecoverFailed,
   ]);
 
   const resetRecoverAttempts = useCallback(() => {
