@@ -412,6 +412,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           mode: "plan",
           chatId: plannerChat.id,
         });
+        devLogAppend("in-progress", {
+          type: "site.chatId",
+          chatId: plannerChat.id,
+        });
 
         const planModeResponse = createOwnEnginePlanModeResponse({
           pipelineStream,
@@ -562,6 +566,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             chatId: engineChat.id,
           });
           devLogAppend("in-progress", {
+            type: "site.chatId",
+            chatId: engineChat.id,
+          });
+          devLogAppend("in-progress", {
             type: "contracts.inferred",
             chatId: engineChat.id,
             dataMode: preGenerationContracts.contracts.dataMode,
@@ -651,6 +659,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         debugLog("engine", "Chat DB bootstrap complete", {
           durationMs: Date.now() - engineChatDbStartedAt,
           mode: "own-engine",
+          chatId: engineChat.id,
+        });
+        devLogAppend("in-progress", {
+          type: "site.chatId",
           chatId: engineChat.id,
         });
         devLogAppend("in-progress", {

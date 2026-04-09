@@ -173,18 +173,19 @@ export async function validateAndFix(
       console.warn(`[engine] Pass ${pass}: ${validation.errors.length} syntax errors, attempting LLM fixer`);
 
       onProgress?.({ pass, phase: "fixing", errorCount: validation.errors.length });
+      const fixerModel = opts.resolvedTier
+        ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
+        : undefined;
       devLogAppend("in-progress", {
         type: "syntax-validation.fixer.start",
         chatId: opts.chatId,
         pass,
         errorCount: validation.errors.length,
         errors: errorSummary.slice(0, 8),
+        fixerModel: fixerModel ?? null,
       });
 
       try {
-        const fixerModel = opts.resolvedTier
-          ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-          : undefined;
         const brokenFiles = [
           ...new Set(validation.errors.map((error) => error.file).filter(Boolean)),
         ];
@@ -245,6 +246,7 @@ export async function validateAndFix(
             errorsAfter: reValidation.errors.length,
             improved: reValidation.errors.length < validation.errors.length,
             valid: reValidation.valid,
+            fixerModel: fixerModel ?? null,
           });
 
           if (reValidation.valid) {
@@ -304,6 +306,7 @@ export async function validateAndFix(
           pass,
           errorCount: validation.errors.length,
           message: fixerError instanceof Error ? fixerError.message : "Unknown fixer error",
+          fixerModel: fixerModel ?? null,
         });
         if (Date.now() >= budgetDeadline) {
           stopForBudget(pass);

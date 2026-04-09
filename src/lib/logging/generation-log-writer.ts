@@ -195,8 +195,9 @@ function findLastBoolean(entries: StoredGenerationEntry[], key: string): boolean
 }
 
 function resolveStatus(entries: StoredGenerationEntry[]): string {
+  const hasDone = findLatestByType(entries, ["site.done", "site.message.done"]);
+  if (hasDone) return "done";
   const finalType = readString(entries.at(-1)?.data.type);
-  if (finalType === "site.done" || finalType === "site.message.done") return "done";
   if (finalType === "site.awaiting_input") return "awaiting_input";
   if (finalType === "site.empty_generation") return "empty_generation";
   const errorLike = entries.some((entry) => {
@@ -241,6 +242,194 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
       : null,
   };
 }
+
+type FaultFixRow = {
+  ts: string;
+  step: string;
+  problem: string;
+  action: string;
+  model: string;
+  outcome: string;
+};
+
+const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow | null> = {
+  "autofix.result": (e) => {
+    const fixes = Array.isArray(e.data.fixes) ? e.data.fixes.length : 0;
+    const warnings = Array.isArray(e.data.warnings) ? e.data.warnings.length : 0;
+    if (fixes === 0 && warnings === 0) return null;
+    return {
+      ts: e.ts.slice(11, 19),
+      step: "Autofix",
+      problem: `${fixes} fix(ar), ${warnings} varning(ar)`,
+      action: "Deterministisk autofix",
+      model: "-",
+      outcome: "OK",
+    };
+  },
+  "autofix.heavy_load": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: "Autofix",
+    problem: `Mycket fixar (${readNumber(e.data.fixCount) ?? "?"})`,
+    action: "Notering: instabilitet i generering",
+    model: "-",
+    outcome: "Varning",
+  }),
+  "syntax-validation.pass": (e) => {
+    const phase = readString(e.data.phase);
+    const errorCount = readNumber(e.data.errorCount);
+    if (phase === "invalid" && errorCount && errorCount > 0) {
+      return {
+        ts: e.ts.slice(11, 19),
+        step: `Syntaxvalidering (pass ${readNumber(e.data.pass) ?? "?"})`,
+        problem: `${errorCount} syntaxfel`,
+        action: "Validering flaggade fel",
+        model: "-",
+        outcome: "Fel hittade",
+      };
+    }
+    return null;
+  },
+  "syntax-validation.fixer.start": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel`,
+    action: "LLM fixer startad",
+    model: readString(e.data.fixerModel) || "-",
+    outcome: "Startad",
+  }),
+  "syntax-validation.fixer.result": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    problem: `${readNumber(e.data.errorsBefore) ?? "?"} -> ${readNumber(e.data.errorsAfter) ?? "?"} fel`,
+    action: readBoolean(e.data.improved) ? "Fixer förbättrade koden" : "Fixer kunde inte förbättra",
+    model: readString(e.data.fixerModel) || "-",
+    outcome: readBoolean(e.data.valid) ? "OK" : readBoolean(e.data.improved) ? "Delvis" : "Misslyckades",
+  }),
+  "syntax-validation.fixer.error": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    problem: readString(e.data.message) || "Okänt fel",
+    action: "Fixer kraschade",
+    model: readString(e.data.fixerModel) || "-",
+    outcome: "Krasch",
+  }),
+  "syntax-validation.fixer.noop": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel kvar`,
+    action: "Fixer returnerade ingen fix",
+    model: "-",
+    outcome: "Noop",
+  }),
+  "syntax-validation.gave-up": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: `Syntaxvalidering (pass ${readNumber(e.data.pass) ?? "?"})`,
+    problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel kvar`,
+    action: "Max pass nått — gav upp",
+    model: "-",
+    outcome: "Gav upp",
+  }),
+  "syntax-validation.early-stop": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: "Syntaxvalidering",
+    problem: readString(e.data.reason) || "tidig stop",
+    action: `Stoppade tidigt: ${readString(e.data.reason) || "-"}`,
+    model: "-",
+    outcome: "Stoppade",
+  }),
+  "syntax-validation.pipeline-error": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: "Syntaxpipeline",
+    problem: readString(e.data.message) || "Pipeline-fel",
+    action: "Pipeline kunde ej köras",
+    model: "-",
+    outcome: "Pipeline-fel",
+  }),
+  "file-repair": (e) => {
+    const fixes = Array.isArray(e.data.fixes) ? e.data.fixes.length : 0;
+    if (fixes === 0) return null;
+    return {
+      ts: e.ts.slice(11, 19),
+      step: "Filreparation (preflight)",
+      problem: `${fixes} reparation(er)`,
+      action: "Deterministisk filreparation",
+      model: "-",
+      outcome: "OK",
+    };
+  },
+  "merged-syntax.invalid": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: "Merged syntax",
+    problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel i merged projekt`,
+    action: "Merged syntax flaggade fel",
+    model: "-",
+    outcome: "Fel hittade",
+  }),
+  "merged-syntax.fixed": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: "Merged syntax fixer",
+    problem: `${readNumber(e.data.errorsBefore) ?? "?"} -> ${readNumber(e.data.errorsAfter) ?? "?"} fel`,
+    action: "Merged syntax reparation",
+    model: readString(e.data.fixerModel) || "-",
+    outcome: readNumber(e.data.errorsAfter) === 0 ? "OK" : "Delvis",
+  }),
+  "preflight.version.failed": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: "Preflight",
+    problem: `${readNumber(e.data.errorCount) ?? "?"} preflight-fel`,
+    action: "Version misslyckades i preflight",
+    model: "-",
+    outcome: "Misslyckades",
+  }),
+  "comm.error.create": (e) => ({
+    ts: e.ts.slice(11, 19),
+    step: "Kommunikation",
+    problem: readString(e.data.message) || "Kommunikationsfel",
+    action: "Fel vid skapande",
+    model: "-",
+    outcome: "Fel",
+  }),
+};
+
+function buildFaultFixIndex(entries: StoredGenerationEntry[]): string {
+  const rows: FaultFixRow[] = [];
+  for (const entry of entries) {
+    const type = readString(entry.data.type);
+    if (!type) continue;
+    const handler = FAULT_FIX_TYPES[type];
+    if (!handler) continue;
+    const row = handler(entry);
+    if (row) rows.push(row);
+  }
+
+  if (rows.length === 0) {
+    return [
+      "# Fault & Fix Index",
+      "",
+      "Inga fel, fixar eller reparationer loggade under denna körning.",
+      "",
+    ].join("\n");
+  }
+
+  const header = "| Tid | Steg | Problem | Åtgärd | Modell | Resultat |";
+  const sep = "|-----|------|---------|--------|--------|----------|";
+  const tableRows = rows.map(
+    (r) => `| ${r.ts} | ${r.step} | ${r.problem} | ${r.action} | ${r.model} | ${r.outcome} |`,
+  );
+
+  return [
+    "# Fault & Fix Index",
+    "",
+    `Totalt ${rows.length} händelse(r) under denna körning.`,
+    "",
+    header,
+    sep,
+    ...tableRows,
+    "",
+  ].join("\n");
+}
+
+const FAULT_FIX_FILE = "fault-fix-index.md";
 
 function buildHighlights(entries: StoredGenerationEntry[]): string[] {
   const lines: string[] = [];
@@ -393,6 +582,7 @@ export function writeGenerationLogEntry(params: {
     writeNdjson(timelinePath, entries);
     fs.writeFileSync(path.join(runDir, META_FILE), JSON.stringify(buildMeta(entries), null, 2) + "\n", "utf8");
     fs.writeFileSync(path.join(runDir, SUMMARY_FILE), buildSummary(runDir, entries), "utf8");
+    fs.writeFileSync(path.join(runDir, FAULT_FIX_FILE), buildFaultFixIndex(entries), "utf8");
   } catch {
     // Best-effort. Never break API routes due to generation log formatting.
   }

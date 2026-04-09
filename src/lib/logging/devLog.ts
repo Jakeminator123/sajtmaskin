@@ -229,12 +229,14 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
     case "syntax-validation.fixer.start":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
       if (readNumber(entry, "errorCount") !== null) details.push(`errors=${readNumber(entry, "errorCount")}`);
+      if (readString(entry, "fixerModel")) details.push(`model=${readString(entry, "fixerModel")}`);
       break;
     case "syntax-validation.fixer.result":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
       if (readNumber(entry, "errorsBefore") !== null) details.push(`before=${readNumber(entry, "errorsBefore")}`);
       if (readNumber(entry, "errorsAfter") !== null) details.push(`after=${readNumber(entry, "errorsAfter")}`);
       if (readBoolean(entry, "improved") !== null) details.push(`improved=${readBoolean(entry, "improved")}`);
+      if (readString(entry, "fixerModel")) details.push(`model=${readString(entry, "fixerModel")}`);
       break;
     case "syntax-validation.gave-up":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
@@ -361,6 +363,13 @@ function deriveSlugFromEntry(entry: DevLogEntry): string | null {
 function enrichEntryWithSlug(entry: DevLogEntry): DevLogEntry {
   const enriched: DevLogEntry = { ...entry };
   const chatId = readString(enriched, "chatId");
+
+  if (readString(enriched, "type") === "site.chatId" && chatId && latestSlug) {
+    rememberChatSlug(chatId, latestSlug);
+    enriched.slug = latestSlug;
+    return enriched;
+  }
+
   const explicitSlug = toSlug(
     readString(enriched, "slug") ||
       readString(enriched, "siteSlug") ||
@@ -385,11 +394,6 @@ function enrichEntryWithSlug(entry: DevLogEntry): DevLogEntry {
     if (chatId) {
       rememberChatSlug(chatId, slug);
     }
-  }
-
-  if (!slug && readString(enriched, "type") === "site.chatId" && chatId && latestSlug) {
-    rememberChatSlug(chatId, latestSlug);
-    enriched.slug = latestSlug;
   }
 
   return enriched;
