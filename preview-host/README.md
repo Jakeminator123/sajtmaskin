@@ -58,7 +58,7 @@ I praktiken betyder det:
 | Resurs | Varde |
 |--------|-------|
 | Maskin | `performance-2x` (2 CPU, 4 GB) |
-| Volume | `preview_host_data`, 10 GB, `/data` |
+| Volume | `preview_host_data`, 20 GB, `/data` |
 | Region | `arn` (Stockholm) |
 | Secret | `PREVIEW_HOST_DATA_DIR=/data` |
 | Kostnad | ca 60-70 USD/man om maskinen står på 24/7 |
