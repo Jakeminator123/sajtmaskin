@@ -405,7 +405,7 @@ class ScriptsDashboard:
             "qualityTarget = kvalitetsnivå: standard / premium / release-candidate (deriveBuildSpec i build-spec.ts; skilj från manifest qualityToOwnEngineModel)",
             "previewPolicy = previewnivå: fidelity2 / fidelity3",
             "verificationPolicy = kontrollnivå: fast / standard / strict",
-            "contextPolicy = kontextnivå: light / normal / heavy",
+            "contextPolicy = kontextnivå: light / normal / heavy (normal är standard; light används mest för tydligt små lokala follow-ups)",
             "routePlan.siteType = sidtyp: one-page / brochure / content-heavy / app-shell",
             "routePlan.provenance.primarySource = brief / prompt / scaffold (brief vinner; annars scaffold om defaults la till routes; annars prompt)",
             "routePlan.provenance.sources = ordnad lista av bidrag (t.ex. prompt → scaffold)",

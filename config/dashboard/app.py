@@ -140,7 +140,7 @@ MODEL_LABELS = {
     "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
     "openai/gpt-5.2": "OpenAI GPT-5.2",
     "openai/gpt-5-mini": "OpenAI GPT-5 mini",
-    "gpt-4o-mini": "GPT-4o mini",
+    "gpt-4o-mini": "GPT-4o mini (legacy)",
     "gpt-4.1": "GPT-4.1",
     "gpt-5-mini": "GPT-5 mini",
     "gpt-5-nano": "GPT-5 nano",
@@ -861,7 +861,9 @@ elif page == "ai_models":
         st.info(
             "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: "
             "`qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`. "
-            "En enkel website bör normalt stanna på `standard` + `medium` reasoning, medan app/ecommerce/integrationer kan eskalera till `premium` + `high`."
+            "En enkel website bör normalt stanna på `standard` + `medium` reasoning. "
+            "`contextPolicy` är nu normalt `normal` som standard, medan `light` mest används för tydligt små lokala follow-ups. "
+            "App/ecommerce/integrationer kan eskalera till `premium` + `high`."
         )
 
         st.markdown("### Byggprofiler (själva kodgeneratorn)")

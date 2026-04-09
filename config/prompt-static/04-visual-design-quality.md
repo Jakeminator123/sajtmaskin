@@ -6,6 +6,7 @@ Derive visual approach, layout rhythm, and atmosphere from the user's prompt and
 
 - Use Tailwind semantic tokens: `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `bg-secondary`, `bg-muted`, `bg-accent`, `bg-card`, `border`.
 - NEVER use Tailwind's default indigo/blue/gray palette directly. Use semantic tokens that adapt to themes.
+- Prefer semantic theme tokens over hardcoded hex values for app surfaces, text, borders, and interactive states. Reason: the host may swap or merge theme tokens across generations/follow-ups, and semantic classes survive those changes better than scattered one-off colors. Direct hex values are still acceptable when the request explicitly requires a fixed brand color or when a chart/illustration genuinely needs a specific value.
 - Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas.
 - Use subtle gradients for hero sections when it fits: `bg-gradient-to-b from-background to-muted/50`.
 - Accent colors sparingly — CTAs, highlights, active states only.
