@@ -37,6 +37,7 @@ I praktiken betyder det:
 - verify-jobb koas lugnare pa enskild VM for att undvika att flera tunga `npm install`/`tsc` kor samtidigt
 - `GET /admin/storage`, `GET /admin/sessions`, `POST /admin/cleanup` och `POST /admin/destroy-all` finns for drift och felsokning
 - sessionstiden ar nu forenklad till cirka 1 timme pa bade host och app-sida
+- cleanup stoppar nu stale runtime-processer innan utgangna sessioner, loggar och workspace-mappar tas bort
 
 ### Vad som inte fungerar annu
 
@@ -44,6 +45,7 @@ I praktiken betyder det:
 - **CSP-header**: `frame-src` i huvudappens CSP-policy listar bara `*.vercel.run` / `*.vercel.app`, inte `*.fly.dev`. Det ger report-only-varningar i konsolen (blockerar inte iframen an men bor fixas).
 - **Forsta boot ar seg** (2-5 min for riktiga Next-projekt med tunga deps som `three.js`). Workspace-caching hjalper vid andra koerningen men forsta ar fortfarande lang.
 - **Aktiv workspace-storlek**: ett levande preview-projekt kan fortfarande bli hundratals MB stort (framfor allt `node_modules` och dev-artifacts), sa diskforbrukningen sjunker forst efter cleanup eller destroy.
+- **Cleanup ar nu stop-then-delete**: preview-host forsoker stanga stale dev-processer innan sessionmetadata och workspace tas bort. Misslyckas stoppet bevaras session/logg/workspace till nasta cleanup-pass i stallet for att rensa under en levande process.
 
 ### Tier 2 / export — vanliga generiska fel (inte VM-specifika)
 
@@ -210,6 +212,7 @@ Fly-appen finns redan och kor som den aktiva tier-2-previewen. Det praktiska dri
 - Verify-jobb koas lugnare pa single-VM-host
 - Filbaserad session-store med atomisk write pa volume
 - Cleanup, destroy-all, storage-insyn och sessionsinsyn
+- Stale runtime-processer stoppas innan cleanup rensar session/workspace
 
 ### Vad som fortfarande ar bra att veta
 

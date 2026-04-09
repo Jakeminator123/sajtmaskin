@@ -707,13 +707,20 @@ function stopChildProcessTree(child) {
   });
 }
 
-async function stopRuntimeForSession(session) {
-  const tracked = runtimeChildren.get(session.sessionId);
-  if (!tracked) return;
-  runtimeChildren.delete(session.sessionId);
+async function stopTrackedRuntime(sessionId, sandboxId = null) {
+  const tracked = runtimeChildren.get(sessionId);
+  if (!tracked) return false;
+  runtimeChildren.delete(sessionId);
   tracked.ignoreExit = true;
   await stopChildProcessTree(tracked.child);
-  await appendRuntimeLog(session.sandboxId, "Runtime stopped.");
+  if (sandboxId) {
+    await appendRuntimeLog(sandboxId, "Runtime stopped.");
+  }
+  return true;
+}
+
+async function stopRuntimeForSession(session) {
+  await stopTrackedRuntime(session.sessionId, session.sandboxId);
 }
 
 async function spawnDevServer(session, workspaceDir, runtimePort) {
@@ -737,6 +744,8 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     port: runtimePort,
     ignoreExit: false,
     workspaceDir,
+    chatId,
+    sandboxId: session.sandboxId,
   };
   runtimeChildren.set(session.sessionId, tracked);
 
@@ -1031,17 +1040,72 @@ async function cleanupDirectoryEntries(dirPath, keepEntries = null) {
   return { freedEntries: freed };
 }
 
+async function stopStaleRuntimes(nowMs) {
+  const snapshot = readStoreSync();
+  const preservedSessionIds = new Set();
+  const preservedWorkspaceEntries = new Set();
+  const preservedSandboxIds = new Set();
+  let stoppedRuntimes = 0;
+
+  for (const [sessionId, tracked] of runtimeChildren.entries()) {
+    const session = snapshot.sessions[sessionId] ?? null;
+    if (session && isSessionUsable(session, nowMs)) {
+      continue;
+    }
+
+    const sandboxId =
+      (typeof session?.sandboxId === "string" && session.sandboxId.trim()) ||
+      (typeof tracked.sandboxId === "string" && tracked.sandboxId.trim()) ||
+      "";
+    try {
+      if (sandboxId) {
+        await appendRuntimeLog(
+          sandboxId,
+          "Cleanup stopping stale runtime before removing session/workspace.",
+        );
+      }
+      const stopped = await stopTrackedRuntime(sessionId, sandboxId || null);
+      if (stopped) {
+        stoppedRuntimes += 1;
+      }
+    } catch (error) {
+      preservedSessionIds.add(sessionId);
+      if (typeof tracked.chatId === "string" && tracked.chatId.trim()) {
+        preservedWorkspaceEntries.add(safeChatKey(tracked.chatId));
+      }
+      if (sandboxId) {
+        preservedSandboxIds.add(sandboxId);
+        await appendRuntimeLog(
+          sandboxId,
+          `Cleanup could not stop stale runtime: ${error instanceof Error ? error.message : "unknown error"}`,
+        ).catch(() => {});
+      }
+    }
+  }
+
+  return {
+    preservedSessionIds,
+    preservedWorkspaceEntries,
+    preservedSandboxIds,
+    stoppedRuntimes,
+  };
+}
+
 async function cleanupPreviewHostStorage() {
   const nowMs = Date.now();
-  const activeWorkspaceEntries = new Set();
-  const activeSandboxIds = new Set();
+  const staleRuntimeCleanup = await stopStaleRuntimes(nowMs);
+  const activeWorkspaceEntries = new Set(staleRuntimeCleanup.preservedWorkspaceEntries);
+  const activeSandboxIds = new Set(staleRuntimeCleanup.preservedSandboxIds);
   let removedSessions = 0;
   let removedLogs = 0;
   let removedMappings = 0;
 
   await withStoreLock((data) => {
     for (const [sessionId, session] of Object.entries(data.sessions)) {
-      if (isSessionUsable(session, nowMs)) {
+      if (
+        isSessionUsable(session, nowMs) ||
+        staleRuntimeCleanup.preservedSessionIds.has(sessionId)
+      ) {
         const chatId = getSessionChatId(session);
         if (chatId) {
           activeWorkspaceEntries.add(safeChatKey(chatId));
@@ -1095,6 +1159,8 @@ async function cleanupPreviewHostStorage() {
     removedSessions,
     removedLogs,
     removedMappings,
+    stoppedStaleRuntimes: staleRuntimeCleanup.stoppedRuntimes,
+    preservedStaleRuntimes: staleRuntimeCleanup.preservedSessionIds.size,
     preservedWorkspaceEntries: activeWorkspaceEntries.size,
   };
 }
