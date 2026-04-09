@@ -5,6 +5,10 @@ primary_region = "arn"
 [build]
   dockerfile = "Dockerfile"
 
+[[vm]]
+  memory = "4gb"
+  cpus = 2
+
 [env]
   HOST = "0.0.0.0"
   PORT = "8080"

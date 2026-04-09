@@ -12,10 +12,13 @@ type StoredGenerationEntry = {
 };
 
 const ROOT_DIR = path.join(process.cwd(), "logs", "generationslogg");
+const LEGACY_INDEX_DIR = path.join(process.cwd(), "logs", "llm-segmentts-and-index");
 const TIMELINE_FILE = "timeline.ndjson";
 const SUMMARY_FILE = "summary.md";
 const META_FILE = "meta.json";
 const LATEST_FILE = "_latest.txt";
+const FAULT_FIX_CSV_FILE = "fault-fix-index.csv";
+const GLOBAL_ERROR_LOG_CSV_FILE = "error-log.csv";
 const FALSE_VALUES = new Set(["0", "false", "off", "no"]);
 const MAX_RUN_DIRS = 3;
 const MAX_TIMELINE_ENTRIES_PER_RUN = 1_000;
@@ -77,6 +80,12 @@ function formatRunTimestamp(ts: string): string {
 function ensureRootDir(): void {
   if (!fs.existsSync(ROOT_DIR)) {
     fs.mkdirSync(ROOT_DIR, { recursive: true });
+  }
+}
+
+function ensureLegacyIndexDir(): void {
+  if (!fs.existsSync(LEGACY_INDEX_DIR)) {
+    fs.mkdirSync(LEGACY_INDEX_DIR, { recursive: true });
   }
 }
 
@@ -245,11 +254,21 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
 
 type FaultFixRow = {
   ts: string;
+  phase: string;
   step: string;
+  severity: string;
+  createdBy: string;
+  fixedBy: string;
+  modelTier: string;
   problem: string;
   action: string;
   model: string;
+  provider: string;
+  pass: string;
   outcome: string;
+  chatId: string;
+  versionId: string;
+  lineageHash: string;
 };
 
 const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow | null> = {
@@ -259,20 +278,40 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     if (fixes === 0 && warnings === 0) return null;
     return {
       ts: e.ts.slice(11, 19),
+      phase: "phase-3",
       step: "Autofix",
+      severity: "info",
+      createdBy: "deterministic-autofix",
+      fixedBy: "deterministic-autofix",
+      modelTier: "-",
       problem: `${fixes} fix(ar), ${warnings} varning(ar)`,
       action: "Deterministisk autofix",
       model: "-",
+      provider: "-",
+      pass: "-",
       outcome: "OK",
+      chatId: "-",
+      versionId: "-",
+      lineageHash: "-",
     };
   },
   "autofix.heavy_load": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: "Autofix",
+    severity: "warning",
+    createdBy: "deterministic-autofix",
+    fixedBy: "-",
+    modelTier: "-",
     problem: `Mycket fixar (${readNumber(e.data.fixCount) ?? "?"})`,
     action: "Notering: instabilitet i generering",
     model: "-",
+    provider: "-",
+    pass: "-",
     outcome: "Varning",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "syntax-validation.pass": (e) => {
     const phase = readString(e.data.phase);
@@ -280,127 +319,349 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     if (phase === "invalid" && errorCount && errorCount > 0) {
       return {
         ts: e.ts.slice(11, 19),
+        phase: "phase-3",
         step: `Syntaxvalidering (pass ${readNumber(e.data.pass) ?? "?"})`,
+        severity: "error",
+        createdBy: "syntax-validator",
+        fixedBy: "-",
+        modelTier: "-",
         problem: `${errorCount} syntaxfel`,
         action: "Validering flaggade fel",
         model: "-",
+        provider: "-",
+        pass: String(readNumber(e.data.pass) ?? "-"),
         outcome: "Fel hittade",
+        chatId: "-",
+        versionId: "-",
+        lineageHash: "-",
       };
     }
     return null;
   },
   "syntax-validation.fixer.start": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    severity: "warning",
+    createdBy: "syntax-validator",
+    fixedBy: "llm-fixer",
+    modelTier: "-",
     problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel`,
     action: "LLM fixer startad",
     model: readString(e.data.fixerModel) || "-",
+    provider: "-",
+    pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Startad",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "syntax-validation.fixer.result": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    severity: readBoolean(e.data.valid) ? "info" : readBoolean(e.data.improved) ? "warning" : "error",
+    createdBy: "syntax-validator",
+    fixedBy: "llm-fixer",
+    modelTier: "-",
     problem: `${readNumber(e.data.errorsBefore) ?? "?"} -> ${readNumber(e.data.errorsAfter) ?? "?"} fel`,
     action: readBoolean(e.data.improved) ? "Fixer förbättrade koden" : "Fixer kunde inte förbättra",
     model: readString(e.data.fixerModel) || "-",
+    provider: "-",
+    pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: readBoolean(e.data.valid) ? "OK" : readBoolean(e.data.improved) ? "Delvis" : "Misslyckades",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "syntax-validation.fixer.error": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    severity: "error",
+    createdBy: "syntax-validator",
+    fixedBy: "llm-fixer",
+    modelTier: "-",
     problem: readString(e.data.message) || "Okänt fel",
     action: "Fixer kraschade",
     model: readString(e.data.fixerModel) || "-",
+    provider: "-",
+    pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Krasch",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "syntax-validation.fixer.noop": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
+    severity: "warning",
+    createdBy: "syntax-validator",
+    fixedBy: "llm-fixer",
+    modelTier: "-",
     problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel kvar`,
     action: "Fixer returnerade ingen fix",
     model: "-",
+    provider: "-",
+    pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Noop",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "syntax-validation.gave-up": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: `Syntaxvalidering (pass ${readNumber(e.data.pass) ?? "?"})`,
+    severity: "error",
+    createdBy: "syntax-validator",
+    fixedBy: "-",
+    modelTier: "-",
     problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel kvar`,
     action: "Max pass nått — gav upp",
     model: "-",
+    provider: "-",
+    pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Gav upp",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "syntax-validation.early-stop": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: "Syntaxvalidering",
+    severity: "warning",
+    createdBy: "syntax-validator",
+    fixedBy: "-",
+    modelTier: "-",
     problem: readString(e.data.reason) || "tidig stop",
     action: `Stoppade tidigt: ${readString(e.data.reason) || "-"}`,
     model: "-",
+    provider: "-",
+    pass: "-",
     outcome: "Stoppade",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "syntax-validation.pipeline-error": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: "Syntaxpipeline",
+    severity: "error",
+    createdBy: "syntax-validator",
+    fixedBy: "-",
+    modelTier: "-",
     problem: readString(e.data.message) || "Pipeline-fel",
     action: "Pipeline kunde ej köras",
     model: "-",
+    provider: "-",
+    pass: "-",
     outcome: "Pipeline-fel",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "file-repair": (e) => {
     const fixes = Array.isArray(e.data.fixes) ? e.data.fixes.length : 0;
     if (fixes === 0) return null;
     return {
       ts: e.ts.slice(11, 19),
+      phase: "phase-3",
       step: "Filreparation (preflight)",
+      severity: "info",
+      createdBy: "preflight",
+      fixedBy: "deterministic-autofix",
+      modelTier: "-",
       problem: `${fixes} reparation(er)`,
       action: "Deterministisk filreparation",
       model: "-",
+      provider: "-",
+      pass: "-",
       outcome: "OK",
+      chatId: "-",
+      versionId: "-",
+      lineageHash: "-",
     };
   },
   "merged-syntax.invalid": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: "Merged syntax",
+    severity: "error",
+    createdBy: "preflight",
+    fixedBy: "-",
+    modelTier: "-",
     problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel i merged projekt`,
     action: "Merged syntax flaggade fel",
     model: "-",
+    provider: "-",
+    pass: "-",
     outcome: "Fel hittade",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "merged-syntax.fixed": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: "Merged syntax fixer",
+    severity: readNumber(e.data.errorsAfter) === 0 ? "info" : "warning",
+    createdBy: "preflight",
+    fixedBy: readString(e.data.fixerModel) ? "llm-fixer" : "deterministic-autofix",
+    modelTier: "-",
     problem: `${readNumber(e.data.errorsBefore) ?? "?"} -> ${readNumber(e.data.errorsAfter) ?? "?"} fel`,
     action: "Merged syntax reparation",
     model: readString(e.data.fixerModel) || "-",
+    provider: "-",
+    pass: "-",
     outcome: readNumber(e.data.errorsAfter) === 0 ? "OK" : "Delvis",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+  }),
+  "verifier-pass": (e) => ({
+    ts: e.ts.slice(11, 19),
+    phase: "phase-3",
+    step: "Verifier-pass",
+    severity:
+      (readNumber(e.data.blocking) ?? 0) > 0 ? "warning" : (readNumber(e.data.quality) ?? 0) > 0 ? "info" : "info",
+    createdBy: "verifier-pass",
+    fixedBy: "-",
+    modelTier: "-",
+    problem: `blocking=${readNumber(e.data.blocking) ?? 0}, quality=${readNumber(e.data.quality) ?? 0}`,
+    action: "Read-only kvalitetsgranskning",
+    model: "-",
+    provider: "-",
+    pass: "-",
+    outcome: (readNumber(e.data.blocking) ?? 0) > 0 ? "Signaler" : "OK",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+  }),
+  "scaffold-retry.suggested": (e) => ({
+    ts: e.ts.slice(11, 19),
+    phase: "phase-3",
+    step: "Scaffold retry",
+    severity: "warning",
+    createdBy: "preflight",
+    fixedBy: "server-repair",
+    modelTier: "-",
+    problem: readString(e.data.failureType) || "scaffold-problem",
+    action: `${readString(e.data.currentScaffoldId) || "-"} -> ${readString(e.data.suggestedScaffoldId) || "-"}`,
+    model: "-",
+    provider: "-",
+    pass: "-",
+    outcome: readString(e.data.confidence) || "föreslagen",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "preflight.version.failed": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-3",
     step: "Preflight",
+    severity: "error",
+    createdBy: "preflight",
+    fixedBy: "-",
+    modelTier: "-",
     problem: `${readNumber(e.data.errorCount) ?? "?"} preflight-fel`,
     action: "Version misslyckades i preflight",
     model: "-",
+    provider: "-",
+    pass: "-",
     outcome: "Misslyckades",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
   "comm.error.create": (e) => ({
     ts: e.ts.slice(11, 19),
+    phase: "phase-1",
     step: "Kommunikation",
+    severity: "error",
+    createdBy: "generator",
+    fixedBy: "-",
+    modelTier: "-",
     problem: readString(e.data.message) || "Kommunikationsfel",
     action: "Fel vid skapande",
     model: "-",
+    provider: "-",
+    pass: "-",
     outcome: "Fel",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
   }),
 };
 
-function buildFaultFixIndex(entries: StoredGenerationEntry[]): string {
+function findLastStringAtOrBefore(
+  entries: StoredGenerationEntry[],
+  endIndex: number,
+  key: string,
+): string | null {
+  for (let i = endIndex; i >= 0; i -= 1) {
+    const value = readString(entries[i]?.data[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function inferProvider(model: string): string {
+  const normalized = model.trim().toLowerCase();
+  if (!normalized || normalized === "-") return "-";
+  if (
+    normalized.includes("gpt") ||
+    normalized.includes("openai") ||
+    normalized.includes("o1") ||
+    normalized.includes("o3") ||
+    normalized.includes("o4")
+  ) {
+    return "OpenAI";
+  }
+  if (normalized.includes("claude") || normalized.includes("anthropic")) {
+    return "Anthropic";
+  }
+  if (normalized.includes("gemini") || normalized.includes("google")) {
+    return "Google";
+  }
+  return "-";
+}
+
+function enrichFaultFixRow(
+  row: FaultFixRow,
+  entries: StoredGenerationEntry[],
+  entryIndex: number,
+): FaultFixRow {
+  const modelTier = findLastStringAtOrBefore(entries, entryIndex, "modelId") || row.modelTier;
+  const model = row.model !== "-" ? row.model : "-";
+  return {
+    ...row,
+    modelTier: modelTier || "-",
+    provider: row.provider !== "-" ? row.provider : inferProvider(model),
+    chatId: findLastStringAtOrBefore(entries, entryIndex, "chatId") || row.chatId,
+    versionId: findLastStringAtOrBefore(entries, entryIndex, "versionId") || row.versionId,
+    lineageHash: findLastStringAtOrBefore(entries, entryIndex, "lineageHash") || row.lineageHash,
+  };
+}
+
+function collectFaultFixRows(entries: StoredGenerationEntry[]): FaultFixRow[] {
   const rows: FaultFixRow[] = [];
-  for (const entry of entries) {
+  for (const [entryIndex, entry] of entries.entries()) {
     const type = readString(entry.data.type);
     if (!type) continue;
     const handler = FAULT_FIX_TYPES[type];
     if (!handler) continue;
     const row = handler(entry);
-    if (row) rows.push(row);
+    if (row) rows.push(enrichFaultFixRow(row, entries, entryIndex));
   }
+  return rows;
+}
+
+function buildFaultFixIndex(entries: StoredGenerationEntry[]): string {
+  const rows = collectFaultFixRows(entries);
 
   if (rows.length === 0) {
     return [
@@ -411,10 +672,13 @@ function buildFaultFixIndex(entries: StoredGenerationEntry[]): string {
     ].join("\n");
   }
 
-  const header = "| Tid | Steg | Problem | Åtgärd | Modell | Resultat |";
-  const sep = "|-----|------|---------|--------|--------|----------|";
+  const header =
+    "| Tid | Fas | Steg | Severity | Skapad av | Fixad av | Modellnivå | Modell | Provider | Pass | Problem | Åtgärd | Resultat | Chat | Version | Lineage |";
+  const sep =
+    "|-----|-----|------|----------|-----------|----------|------------|--------|----------|------|---------|--------|----------|------|---------|---------|";
   const tableRows = rows.map(
-    (r) => `| ${r.ts} | ${r.step} | ${r.problem} | ${r.action} | ${r.model} | ${r.outcome} |`,
+    (r) =>
+      `| ${r.ts} | ${r.phase} | ${r.step} | ${r.severity} | ${r.createdBy} | ${r.fixedBy} | ${r.modelTier} | ${r.model} | ${r.provider} | ${r.pass} | ${r.problem} | ${r.action} | ${r.outcome} | ${r.chatId} | ${r.versionId} | ${r.lineageHash} |`,
   );
 
   return [
@@ -430,6 +694,92 @@ function buildFaultFixIndex(entries: StoredGenerationEntry[]): string {
 }
 
 const FAULT_FIX_FILE = "fault-fix-index.md";
+
+function escapeCsv(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+const FAULT_FIX_CSV_HEADER = [
+  "time",
+  "phase",
+  "step",
+  "severity",
+  "created_by",
+  "fixed_by",
+  "model_tier",
+  "model",
+  "provider",
+  "pass",
+  "problem",
+  "action",
+  "outcome",
+  "chat_id",
+  "version_id",
+  "lineage_hash",
+].join(",");
+
+function faultFixRowToCsvLine(row: FaultFixRow): string {
+  return [
+    row.ts,
+    row.phase,
+    row.step,
+    row.severity,
+    row.createdBy,
+    row.fixedBy,
+    row.modelTier,
+    row.model,
+    row.provider,
+    row.pass,
+    row.problem,
+    row.action,
+    row.outcome,
+    row.chatId,
+    row.versionId,
+    row.lineageHash,
+  ]
+    .map((cell) => escapeCsv(cell))
+    .join(",");
+}
+
+function buildFaultFixCsv(rows: FaultFixRow[]): string {
+  const lines = rows.map(faultFixRowToCsvLine);
+  return [FAULT_FIX_CSV_HEADER, ...lines].join("\n") + "\n";
+}
+
+function appendGlobalFaultFixCsv(rows: FaultFixRow[]): void {
+  ensureLegacyIndexDir();
+  const csvPath = path.join(LEGACY_INDEX_DIR, GLOBAL_ERROR_LOG_CSV_FILE);
+  const existingLines = fs.existsSync(csvPath)
+    ? fs
+        .readFileSync(csvPath, "utf8")
+        .split(/\r?\n/)
+        .map((line) => line.trimEnd())
+        .filter(Boolean)
+    : [];
+
+  const existingBody = new Set(
+    existingLines.filter((line) => line !== FAULT_FIX_CSV_HEADER),
+  );
+  const nextLines = rows
+    .map(faultFixRowToCsvLine)
+    .filter((line) => !existingBody.has(line));
+
+  if (existingLines.length === 0) {
+    fs.writeFileSync(
+      csvPath,
+      [FAULT_FIX_CSV_HEADER, ...nextLines].join("\n") + "\n",
+      "utf8",
+    );
+    return;
+  }
+
+  if (nextLines.length > 0) {
+    fs.appendFileSync(csvPath, nextLines.join("\n") + "\n", "utf8");
+  }
+}
 
 function buildHighlights(entries: StoredGenerationEntry[]): string[] {
   const lines: string[] = [];
@@ -579,10 +929,13 @@ export function writeGenerationLogEntry(params: {
     const timelinePath = path.join(runDir, TIMELINE_FILE);
     appendNdjsonLine(timelinePath, entry);
     const entries = trimRunEntries(readRunEntries(runDir));
+    const faultFixRows = collectFaultFixRows(entries);
     writeNdjson(timelinePath, entries);
     fs.writeFileSync(path.join(runDir, META_FILE), JSON.stringify(buildMeta(entries), null, 2) + "\n", "utf8");
     fs.writeFileSync(path.join(runDir, SUMMARY_FILE), buildSummary(runDir, entries), "utf8");
     fs.writeFileSync(path.join(runDir, FAULT_FIX_FILE), buildFaultFixIndex(entries), "utf8");
+    fs.writeFileSync(path.join(runDir, FAULT_FIX_CSV_FILE), buildFaultFixCsv(faultFixRows), "utf8");
+    appendGlobalFaultFixCsv(faultFixRows);
   } catch {
     // Best-effort. Never break API routes due to generation log formatting.
   }

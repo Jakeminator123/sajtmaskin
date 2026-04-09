@@ -163,6 +163,26 @@ describe("deriveBuildSpec", () => {
     expect(spec.verificationPolicy).toBe("fast");
   });
 
+  it("keeps targeted repair follow-ups at least normal context", () => {
+    const spec = deriveBuildSpec({
+      prompt: `AUTO-FIX REQUEST — TARGETED REPAIR
+
+Issues detected: typecheck failed.
+
+Persisted errors for this version:
+- [quality-gate:typecheck] app/opengraph-image.tsx(11,14): error TS2304: Cannot find name 'ImageResponse'.`,
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.contextPolicy).toBe("normal");
+  });
+
   it("keeps redesign follow-ups at least normal context with standard verification", () => {
     const spec = deriveBuildSpec({
       prompt: "Jag vill ha en full redesign av landningssidan.",

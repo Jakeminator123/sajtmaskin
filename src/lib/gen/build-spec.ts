@@ -124,6 +124,13 @@ const PAGE_ADDITION_PATTERNS = [
   /\bkontaktsida\b/i,
 ];
 
+const TARGETED_REPAIR_PATTERNS = [
+  /\bauto-fix request\b/i,
+  /\btargeted repair\b/i,
+  /\bpersisted errors for this version\b/i,
+  /\bquality gate\b/i,
+];
+
 const INTEGRATION_PATTERNS = [
   /\bintegration\b/i,
   /\bapi\b/i,
@@ -280,6 +287,7 @@ function inferVerificationPolicy(params: {
 }
 
 function inferContextPolicy(params: {
+  prompt: string;
   generationMode: BuildSpecGenerationMode;
   changeScope: BuildSpecChangeScope;
   buildIntent: BuildIntent;
@@ -287,8 +295,11 @@ function inferContextPolicy(params: {
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
 }): BuildSpecContextPolicy {
-  const { generationMode, changeScope, buildIntent, routePlan, preGenerationContracts, promptStrategyMeta } = params;
+  const { prompt, generationMode, changeScope, buildIntent, routePlan, preGenerationContracts, promptStrategyMeta } = params;
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
+    if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
+      return "normal";
+    }
     return "light";
   }
   const routePlanHeavyStructure =
@@ -464,6 +475,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     previewPolicy,
   });
   const contextPolicy = inferContextPolicy({
+    prompt,
     generationMode,
     changeScope,
     buildIntent,

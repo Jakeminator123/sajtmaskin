@@ -8,7 +8,7 @@
   },
   "pages": {
     "Översikt": {
-      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. For stegvis LLM-kedja och kvarvarande fokus: se docs/architecture/README.md och docs/plans/active/remaining-focus-after-5-step.md. Steg 4 (finalize/validering): docs/architecture/step4-post-generation.md.",
+      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För manifest vs kod som faktiskt styr modeller: vyn **LLM-faser & runtime-sanning**. Stegvis LLM-kedja: docs/architecture/README.md. Steg 4 (finalize/validering): docs/architecture/step4-post-generation.md.",
       "canonicalPaths": [
         "config/codegen-static-prompt.json",
         "config/prompt-static/",
@@ -31,6 +31,34 @@
         "docs/schemas/strict/preview-session-contract.schema.json"
       ],
       "codeReaders": []
+    },
+    "LLM-faser & runtime-sanning": {
+      "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/readme.txt, quality gate-schemat under docs/schemas/quality-gate.md, samlad CSV-logg under logs/llm-segmentts-and-index/error-log.csv och checklista inför testgenerering. Styr manifest via vyn ai_models; kodsanning listas som sökvägar.",
+      "canonicalPaths": [
+        "config/ai_models/manifest.json",
+        "src/lib/models/catalog.ts",
+        "src/lib/models/phase-routing.ts",
+        "logs/llm-segmentts-and-index/readme.txt",
+        "logs/llm-segmentts-and-index/error-log.csv",
+        "docs/schemas/quality-gate.md"
+      ],
+      "docsPaths": [
+        "docs/schemas/model-build-profiles.md",
+        "docs/schemas/llm-role-matrix.md",
+        "docs/schemas/quality-gate.md",
+        "docs/architecture/builder-generation.md",
+        "docs/architecture/step4-post-generation.md"
+      ],
+      "humanSchemaPaths": [
+        "docs/schemas/model-build-profiles.md"
+      ],
+      "codeReaders": [
+        "src/lib/ai-models/load-manifest.ts",
+        "src/lib/models/phase-routing.ts",
+        "src/lib/gen/orchestrate.ts",
+        "src/lib/providers/own-engine/generation-stream.ts",
+        "src/lib/gen/stream/finalize-version.ts"
+      ]
     },
     "Codegen static": {
       "summary": "Ordning och lista över statiska promptfragment för own-engine. Själva texterna ligger som filer under prompt-static/.",

@@ -154,7 +154,7 @@ describe("buildCompleteProject", () => {
       devDependencies: Record<string, string>;
       scripts: Record<string, string>;
     };
-    expect(pkg.engines.node).toBe(">=22.14.0 <23");
+    expect(pkg.engines.node).toBe(">=22.14.0");
     expect(pkg.dependencies.next).toBe("16.2.1");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");

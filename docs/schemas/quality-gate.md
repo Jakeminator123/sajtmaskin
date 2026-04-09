@@ -1,0 +1,167 @@
+# Quality Gate
+
+## Scope
+
+Denna sida samlar den mänskligt läsbara kontraktsbilden för Sajtmaskins
+quality gate: vilka checks som körs, var de körs, när de triggas och hur de
+kopplas till preview, `server-verify` och repair.
+
+Primära kodkällor:
+
+- `src/lib/gen/quality-gate-checks.ts`
+- `src/lib/gen/preview-quality-gate.ts`
+- `src/lib/gen/server-verify.ts`
+- `src/lib/gen/stream/post-finalize-policies.ts`
+- `src/app/api/engine/chats/[chatId]/quality-gate/route.ts`
+- `src/app/api/engine/chats/[chatId]/repair/route.ts`
+
+Närliggande docs:
+
+- `docs/schemas/preview-session-contract.md`
+- `docs/architecture/preview-deploy.md`
+- `docs/architecture/step4-post-generation.md`
+
+## Vad quality gate är
+
+Quality gate är builderns samlingsnamn för verifieringar som kräver en riktig
+Next-/Node-miljö och därför körs i preview-hostens isolerade verify-lane, inte
+i samma workspace som den live dev-preview användaren ser i iframen.
+
+Den svarar främst på frågan:
+
+- Går det här projektet att installera, typechecka, linta eller bygga enligt
+  den policy som gäller för den aktuella versionen?
+
+Quality gate är alltså inte samma sak som:
+
+- deterministic autofix
+- syntaxvalidering i finalize
+- verifier-pass (read-only LLM)
+- live-previewns `npm run dev`
+
+## Preview-lane vs verify-lane
+
+| Lane | Syfte | Typisk körning |
+|------|------|----------------|
+| Preview-lane | Ge användaren snabb live-preview | `npm install` + `npm run dev` |
+| Verify-lane | Bekräfta export-/buildbarhet och ge repair-underlag | `tsc`, ev. `eslint`, ev. `next build` |
+
+Live-previewn kan därför vara redo eller starta samtidigt som quality gate
+fortfarande kör i bakgrunden.
+
+## Checks
+
+Quality gate använder dessa check-id:n:
+
+| Check | Kommando |
+|------|----------|
+| `typecheck` | `npx tsc --noEmit` |
+| `lint` | `npx eslint . --max-warnings=0` |
+| `build` | `npx next build` |
+
+Definitioner finns i `src/lib/gen/quality-gate-checks.ts`.
+
+## Standardprofiler
+
+| Profil | Checks | Var den används |
+|--------|--------|-----------------|
+| `TIER2_QUALITY_GATE_CHECKS` | `["typecheck"]` | normal quality gate på tier-2 / default |
+| `SERVER_VERIFY_QUALITY_GATE_CHECKS` | `["typecheck", "lint"]` | asynk `server-verify` och repair re-check |
+| `PROMOTION_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | promotion-/striktare flöden |
+| `INTERACTIVE_QUALITY_GATE_CHECKS` | alla tre | explicit interaktiv route |
+
+`next build` hör alltså inte till standard live-preview- eller standard
+background-verify-flödet.
+
+## När quality gate körs
+
+### 1. Asynkt efter finalize
+
+Efter att `finalizeAndSaveVersion()` har sparat versionen kan
+`resolvePostFinalizeServerVerifyDecision()` välja att trigga
+`triggerServerVerification()`.
+
+Detta händer inte alltid. Vanliga skäl att hoppa över:
+
+- `verificationPolicy === "fast"`
+- versionen är inte eligible
+- `previewBlocked === true`
+- `verificationBlocked === true`
+- låg-risk-standardflöde utan starka signaler
+
+### 2. Explicit via route
+
+`POST /api/engine/chats/[chatId]/quality-gate`
+
+Tar en `checks`-lista. Minst en check krävs.
+
+### 3. Efter repair
+
+Både `server-verify` och den explicita `repair`-routen kan re-köra quality gate
+efter att en reparationsomgång har producerat nya filer.
+
+## Hur quality gate förhåller sig till repair
+
+Quality gate är i första hand en verifiering, men i dagens arkitektur används
+den också som exakt felkälla för repair-lanen:
+
+1. quality gate failar
+2. feloutput (`typecheck`, `lint`, `build`) samlas
+3. deterministic autofix körs igen
+4. vid behov körs targeted LLM-fixer med quality-gate-utskriften som kontext
+5. quality gate re-körs för att avgöra om versionen kan promotas
+
+Det betyder att quality gate i nuläget är både:
+
+- verifieringslager
+- källa till repair-kontext
+
+## Vad som blockeras och vad som bara varnar
+
+I preflight-/preview-kontraktet finns en viktig skillnad:
+
+- **blocking errors** kan stoppa preview eller verification
+- **non-blocking quality warnings** ska inte stoppa preview
+
+Typiska blocking-fall:
+
+- `code_structure_failure`
+- `dependency_install_failure`
+- `env_config_missing`
+
+Typiska icke-blockerande quality warnings:
+
+- SEO-signaler
+- analytics-varningar
+- vissa scaffold-/kvalitetssignaler
+
+SEO-varningar ska alltså inte tolkas som att quality gate blockerar previewn.
+
+## Relation till andra steg i pipeline
+
+Quality gate ligger efter finalize/persist och efter preview-start-handoff i den
+större builder-kedjan:
+
+```mermaid
+flowchart TD
+    codegen[CodegenStream] --> autofix[Autofix]
+    autofix --> syntax[SyntaxValidation]
+    syntax --> verifier[VerifierPass]
+    verifier --> preflight[MergeAndPreflight]
+    preflight --> persist[VersionPersist]
+    persist --> preview[PreviewStart]
+    preview --> qualityGate[QualityGate]
+    qualityGate -->|pass| promoted[PromoteVersion]
+    qualityGate -->|fail| repair[ServerRepair]
+    repair --> qualityGate
+```
+
+## Dokumentationsstatus
+
+Quality gate finns redan dokumenterad, men utspritt:
+
+- `docs/schemas/preview-session-contract.md` — verify-lane och API-kontrakt
+- `docs/architecture/preview-deploy.md` — runtimebild, tier-2 vs verify-lane
+- `docs/architecture/step4-post-generation.md` — relation till finalize och `server-verify`
+
+Den här sidan finns för att ge en enda sammanhållen ingångspunkt.

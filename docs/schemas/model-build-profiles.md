@@ -70,7 +70,7 @@ They are not the same thing as:
 | `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | OpenAI | `v0-max-fast` |
 | `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
 | `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | OpenAI | `v0-1.5-lg` |
-| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | OpenAI | `v0-gpt-5` |
+| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.3-codex-max` | OpenAI | `v0-gpt-5` |
 | `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | `v0-1.5-lg` |
 
 Important nuance:
@@ -138,7 +138,7 @@ Important current nuance:
 
 - `Skriv om` normally uses the polish lane model, but follows the Anthropic product lane when the current assist lane is Anthropic
 - deep brief is only used before the first message in a new chat
-- the dedicated `/api/ai/spec` route exists, but the normal builder path does not currently use it
+- builder `specMode` usually builds `sajtmaskin.spec.json` from `briefToSpec()` or `promptToSpec()` in the client flow; the dedicated `/api/ai/spec` route exists, but the normal builder path does not currently call it
 
 ## Prompt-assist provider strings
 
@@ -177,21 +177,26 @@ pipeline.
 `src/lib/validations/chatSchemas.ts` enforces:
 
 - `modelId` must be one of the accepted canonical or legacy build-profile IDs
-- create-chat requests default to `max`
+- create-chat requests default to `pro`
 - send-message requests may omit `modelId`
 - prompt metadata may include `promptAssistModel`, `promptAssistDeep`, and `promptAssistMode`
 
 ## Phase routing
 
-`src/lib/models/phase-routing.ts` maps each `GenerationPhase` to an `OwnModelId`:
+`src/lib/models/phase-routing.ts` maps each `GenerationPhase` to an `OwnModelId`
+using `phaseRouting.defaultByTier` in `config/ai_models/manifest.json`:
 
-- **fast** and **anthropic**: one model per tier for every phase (no downgrade).
-- **pro**, **max**, **codex**: **planner** and **generator** use the profile’s
-  primary model; **fixer**, **verifier**, and **deploy-assistant** use
-  **`gpt-4.1`** for efficiency.
+- **fast**: every phase follows `selected_build_model` (the tier’s primary model,
+  default `gpt-4.1`).
+- **pro**, **max**, **codex**: **planner**, **generator**, and **fixer** use the
+  profile’s primary model; **verifier** and **deploy-assistant** use **`gpt-4.1`**
+  for efficiency.
+- **anthropic**: **planner**, **generator**, **fixer**, and **verifier** follow the
+  tier’s primary Claude model; **deploy-assistant** uses **`gpt-4.1`** (current
+  manifest default).
 
-Env overrides on the build profile still apply to the resolved **base** model;
-auxiliary OpenAI phases stay on `gpt-4.1` unless the implementation changes.
+Env overrides on the build profile still apply to the resolved **base** model for
+phases that resolve via `selected_build_model`.
 
 ## Archived docs
 

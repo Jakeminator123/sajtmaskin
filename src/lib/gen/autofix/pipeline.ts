@@ -12,6 +12,7 @@ import {
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
+  fixNextOgImageResponseImport,
 } from "./common-import-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixLucideLinkMisuse } from "./rules/lucide-link-fixer";
@@ -221,7 +222,24 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 3e. local-symbol-import-fixer — import shared local config/data symbols when uniquely exported
+      // 3e. next-og-image-response-import-fixer — add next/og when ImageResponse is used without import
+      try {
+        const nextOgResult = fixNextOgImageResponseImport(currentCode);
+        if (nextOgResult.fixed) {
+          currentCode = nextOgResult.code;
+          allFixes.push({
+            fixer: "next-og-image-response-import-fixer",
+            description: 'Added missing `import { ImageResponse } from "next/og"`',
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] next-og-image-response-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3f. local-symbol-import-fixer — import shared local config/data symbols when uniquely exported
       try {
         const symbolResult = fixMissingLocalSymbolImports(currentCode, file.path, exportIndex);
         if (symbolResult.fixed) {
@@ -238,7 +256,7 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 3f. local-import-mismatch-fixer — reconcile local default/named import mismatches
+      // 3g. local-import-mismatch-fixer — reconcile local default/named import mismatches
       try {
         const namedToDefault = fixLocalNamedImportDefaultMismatches(
           currentCode,
@@ -275,7 +293,7 @@ async function runAutoFixSinglePass(
         );
       }
 
-      // 3g. import-declaration-conflict-fixer — drop imports that shadow local declarations
+      // 3h. import-declaration-conflict-fixer — drop imports that shadow local declarations
       try {
         const conflictResult = fixImportedDeclarationConflicts(currentCode);
         if (conflictResult.fixed) {

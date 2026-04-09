@@ -8,6 +8,7 @@ import {
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
+  fixNextOgImageResponseImport,
 } from "@/lib/gen/autofix/common-import-fixer";
 import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fixer";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
@@ -388,6 +389,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       fixes.push({
         fixer: "next-image-import-fixer",
         description: 'Added missing `import Image from "next/image"`',
+        file: file.path,
+      });
+    }
+
+    const nextOgResult = fixNextOgImageResponseImport(content);
+    if (nextOgResult.fixed) {
+      content = nextOgResult.code;
+      fixes.push({
+        fixer: "next-og-image-response-import-fixer",
+        description: 'Added missing `import { ImageResponse } from "next/og"`',
         file: file.path,
       });
     }

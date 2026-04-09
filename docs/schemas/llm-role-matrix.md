@@ -20,7 +20,7 @@ Det här dokumentet är den mänskligt läsbara översikten över **vilka modell
 | Prompt rewrite / improve | LLM | skriver om och förbättrar prompten till en bättre byggprompt | `src/lib/builder/promptAssist.ts`, `/api/ai/chat` |
 | Deep brief | LLM | bygger strukturerad site brief från användarprompten | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
 | Server auto-brief | LLM | kör Deep brief server-side när klienten inte redan skickat brief | `src/lib/api/engine/chats/create-chat-stream-post.ts`, `src/lib/builder/server-auto-brief-policy.ts` |
-| Spec-first helper | LLM eller transform | bygger spec från prompt eller brief för högre kvalitet i senare steg | `src/lib/builder/promptAssistContext.ts` |
+| Spec-first helper | Transform eller LLM-hjälproute | bygger spec från brief eller prompt för högre kvalitet i senare steg; normal builder bygger oftast spec lokalt från brief/prompt i stället för att kalla `/api/ai/spec` | `src/lib/builder/promptAssistContext.ts`, `src/app/api/ai/spec/route.ts` |
 | Planner | LLM | används i plan mode för plan-/JSON-artifact, inte sajtkod | `src/lib/own-engine/session/own-engine-plan-mode.ts` |
 | Generator | LLM | genererar själva sajtkoden/projektfilerna | `src/lib/providers/own-engine/generation-stream.ts` |
 | Syntax fixer | LLM | riktad kodreparation efter syntaxvalidering när deterministiska fixar inte räcker | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/autofix/llm-fixer.ts` |
@@ -48,6 +48,7 @@ Se:
 - `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering.
 - Prompt assist, Deep brief och spec-first ligger **utanför** phase-routingtabellen och fungerar mer som för-/pre-generation-lager.
 - Deep brief och server auto-brief bygger **samma typ av structured brief**, men startas från olika ställen i kedjan.
+- Builderns normala `specMode` använder oftast `briefToSpec()` eller `promptToSpec()` och inte den fristående `/api/ai/spec`-routen.
 
 ## När detta dokument uppdateras
 

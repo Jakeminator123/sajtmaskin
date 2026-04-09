@@ -8,11 +8,10 @@ import {
 /**
  * For OpenAI-family build profiles (pro / max / codex), **fixer** uses the same
  * model as **generator** — it runs `runLlmFixer` / syntax repair and must not
- * downgrade quality vs the main CodeProject pass (users saw weak `gpt-4.1`
- * edits next to `gpt-5.4` main + AUTO-FIX).
+ * downgrade quality vs the main CodeProject pass.
  *
- * **Verifier** and **deploy-assistant** still use a smaller model for cost/latency
- * until those phases are wired to substantive codegen. Fast tier is unchanged.
+ * **Verifier** and **deploy-assistant** now also use a strong codex-class model
+ * (gpt-5.3-codex) for all quality-line phases.  Fast tier is unchanged.
  * Anthropic profile keeps one model across phases.
  */
 const SELECTED_BUILD_MODEL_REF = "selected_build_model";
@@ -61,13 +60,6 @@ export function resolvePhaseModel(
       modelId,
       reason: phase === "fixer" ? "fixer-tier-primary" : "full-tier",
     };
-  }
-
-  if (
-    (phase === "verifier" || phase === "deploy-assistant") &&
-    modelId === "gpt-4.1"
-  ) {
-    return { phase, modelId, reason: "aux-openai-efficient" };
   }
 
   return { phase, modelId, reason: "manifest-phase-override" };

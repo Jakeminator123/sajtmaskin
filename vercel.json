@@ -26,6 +26,6 @@
     {
       "path": "/api/shadcn/registry/refresh",
       "schedule": "0 */2 * * *"
-    },
+    }
   ]
 }
