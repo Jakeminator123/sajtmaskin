@@ -57,35 +57,48 @@ type DeriveBuildSpecParams = {
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
 };
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function wholeWordPatterns(values: readonly string[]): RegExp[] {
+  return values.map((value) => new RegExp(`\\b${escapeRegex(value)}\\b`, "i"));
+}
+
+function phrasePatterns(values: readonly string[]): RegExp[] {
+  return values.map((value) => {
+    const escaped = escapeRegex(value).replace(/\\ /g, "\\s+");
+    return new RegExp(`\\b${escaped}\\b`, "i");
+  });
+}
+
 const RELEASE_CANDIDATE_PATTERNS = [
-  /\brelease candidate\b/i,
+  ...phrasePatterns(["release candidate", "ready for production", "launch"]),
   /\bdeploy[- ]ready\b/i,
-  /\bready for production\b/i,
   /\bprod(?:uction)?[- ]ready\b/i,
-  /\blaunch\b/i,
 ];
 
-const REDESIGN_PATTERNS = [
-  /\bredesign\b/i,
-  /\brebrand\b/i,
-  /\brestyle\b/i,
-  /\bstart over\b/i,
-  /\bfrom scratch\b/i,
-  /\bhelt ny riktning\b/i,
-  /\bgör om från grunden\b/i,
-];
+const REDESIGN_PATTERNS = phrasePatterns([
+  "redesign",
+  "rebrand",
+  "restyle",
+  "start over",
+  "from scratch",
+  "helt ny riktning",
+  "gör om från grunden",
+]);
 
-const COPY_PATTERNS = [
-  /\bcopy\b/i,
-  /\btext\b/i,
-  /\binnehåll\b/i,
-  /\bcontent\b/i,
-  /\bheadline\b/i,
-  /\btagline\b/i,
-  /\bseo\b/i,
-  /\bmeta\b/i,
-  /\bwording\b/i,
-];
+const COPY_PATTERNS = wholeWordPatterns([
+  "copy",
+  "text",
+  "innehåll",
+  "content",
+  "headline",
+  "tagline",
+  "seo",
+  "meta",
+  "wording",
+]);
 
 const COPY_GUARD_PATTERNS = [
   /\bbehåll(?:er)?\b.*\bdesign(?:en)?\b/i,
@@ -96,20 +109,20 @@ const COPY_GUARD_PATTERNS = [
   /\bwithout changing\b.*\blayout\b/i,
 ];
 
-const LAYOUT_PATTERNS = [
-  /\blayout\b/i,
-  /\bspacing\b/i,
-  /\bfärg\b/i,
-  /\bcolor\b/i,
-  /\bpalette\b/i,
-  /\bhero\b/i,
-  /\bfooter\b/i,
-  /\bheader\b/i,
-  /\banimation\b/i,
-  /\bmotion\b/i,
-  /\bdesign\b/i,
-  /\bvisual\b/i,
-];
+const LAYOUT_PATTERNS = wholeWordPatterns([
+  "layout",
+  "spacing",
+  "färg",
+  "color",
+  "palette",
+  "hero",
+  "footer",
+  "header",
+  "animation",
+  "motion",
+  "design",
+  "visual",
+]);
 
 const PAGE_ADDITION_PATTERNS = [
   /\badd(?: another)?(?: new)? (?:page|route)\b/i,
@@ -132,7 +145,7 @@ const TARGETED_REPAIR_PATTERNS = [
 ];
 
 const SMALL_FOLLOW_UP_HINT_PATTERNS = [
-  /\b(?:bara|endast|enbart|only|just|snabbt|liten|lite|minor|small)\b/i,
+  ...wholeWordPatterns(["bara", "endast", "enbart", "only", "just", "snabbt", "liten", "lite", "minor", "small"]),
   /\b(?:tighten|trim|justera|polera|byt bara|ändra bara|uppdatera bara)\b/i,
 ];
 
@@ -140,24 +153,24 @@ const SMALL_FOLLOW_UP_TARGET_PATTERNS = [
   /\b(?:rubrik(?:en)?|titel(?:n)?|heading|copy|text|cta|spacing|marginal|padding|color|färg|font|button|knapp|hero|footer|header|ikon|icon)\b/i,
 ];
 
-const INTEGRATION_PATTERNS = [
-  /\bintegration\b/i,
-  /\bapi\b/i,
-  /\bdatabase\b/i,
-  /\bdatabas\b/i,
-  /\bauth\b/i,
-  /\bstripe\b/i,
-  /\bsupabase\b/i,
-  /\bprisma\b/i,
-  /\bdrizzle\b/i,
-  /\bclerk\b/i,
-  /\bnextauth\b/i,
-  /\bauth0\b/i,
-  /\bopenai\b/i,
-  /\bresend\b/i,
-  /\bredis\b/i,
-  /\bupstash\b/i,
-];
+const INTEGRATION_PATTERNS = wholeWordPatterns([
+  "integration",
+  "api",
+  "database",
+  "databas",
+  "auth",
+  "stripe",
+  "supabase",
+  "prisma",
+  "drizzle",
+  "clerk",
+  "nextauth",
+  "auth0",
+  "openai",
+  "resend",
+  "redis",
+  "upstash",
+]);
 
 function includesAny(patterns: RegExp[], value: string): boolean {
   return patterns.some((pattern) => pattern.test(value));
