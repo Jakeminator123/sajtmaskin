@@ -10,6 +10,23 @@ Kort sagt: dagens badge betyder i praktiken **"den här versionen har en tier-2-
 inte **"preview-host svarar just nu"**. Frågan i det här spåret är om badgen ska fortsätta
 representera URL/status på versionsnivå, eller om den ska representera faktisk runtime-readiness.
 
+## Status
+
+**Klar.** `VersionHistory.tsx` visar nu två separata signaler:
+
+- `Preview-URL` = versionsnivå, d.v.s. att versionen har en tier-2-previewlänk
+- `VM live` / `VM stoppad` / `VM annan version` / `VM saknas` = faktisk runtime-status
+  för den valda versionen via `preview-status`
+
+Preview-livscykel speglas också till generationloggarna via `devLogAppend`
+för händelser som `preview_ready` och `preview_failed`.
+
+## Redan klart
+
+- Preview-livscykel loggas redan i generationstelemetri (`preview_ready`, `preview_failed`)
+  och går att följa via `logs/generationslogg`.
+- Preview-panelen skiljer redan på `previewPending` / `previewLifecycle` för själva iframe-ytan.
+
 ## Filer att ändra
 
 - `src/lib/db/engine-version-lifecycle.ts` — `resolveQualityTier()`

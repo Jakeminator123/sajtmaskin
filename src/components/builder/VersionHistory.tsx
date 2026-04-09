@@ -24,6 +24,7 @@ import {
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useVersions } from "@/lib/hooks/useVersions";
+import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,7 @@ type RestoreVersionResponse = {
 interface VersionHistoryProps {
   chatId: string | null;
   selectedVersionId: string | null;
+  activePreviewSessionId?: string | null;
   onVersionSelect: (versionId: string, demoUrl?: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -99,6 +101,7 @@ interface VersionHistoryProps {
 export function VersionHistory({
   chatId,
   selectedVersionId,
+  activePreviewSessionId = null,
   onVersionSelect,
   isCollapsed = false,
   onToggleCollapse,
@@ -141,6 +144,25 @@ export function VersionHistory({
     { revalidateOnFocus: false, dedupingInterval: 10000 },
   );
   const collaborationSummaries = collaborationData?.summaries ?? {};
+  const { data: selectedPreviewStatus } = useSWR<PreviewStatusApiJson | null>(
+    chatId && selectedVersionId
+      ? `${engineChatBaseUrl(chatId)}/preview-status?versionId=${encodeURIComponent(selectedVersionId)}${
+          activePreviewSessionId?.trim()
+            ? `&previewSessionId=${encodeURIComponent(activePreviewSessionId.trim())}`
+            : ""
+        }`
+      : null,
+    async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    {
+      revalidateOnFocus: false,
+      refreshInterval: 15000,
+      dedupingInterval: 5000,
+    },
+  );
 
   useEffect(() => {
     if (isInitialized) return;
@@ -561,7 +583,7 @@ export function VersionHistory({
                 : qualityTier === "tier2"
                   ? "Live-preview klar"
                   : qualityTier === "preview"
-                    ? "Preview-klar"
+                    ? "Preview-URL"
                     : null;
             const qualityTierBadgeClass =
               qualityTier === "production"
@@ -571,6 +593,34 @@ export function VersionHistory({
                   : qualityTier === "preview"
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
                     : undefined;
+            const runtimeStatusForRow =
+              isSelected && isEngineVersionRow ? selectedPreviewStatus?.status ?? null : null;
+            const runtimeBadge =
+              runtimeStatusForRow === "running"
+                ? {
+                    label: "VM live",
+                    className:
+                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+                  }
+                : runtimeStatusForRow === "stopped"
+                  ? {
+                      label: "VM stoppad",
+                      className:
+                        "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                    }
+                  : runtimeStatusForRow === "version_mismatch"
+                    ? {
+                        label: "VM annan version",
+                        className:
+                          "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+                      }
+                    : runtimeStatusForRow === "missing"
+                      ? {
+                          label: "VM saknas",
+                          className:
+                            "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+                        }
+                      : null;
             const lifecycleSummary = (() => {
               const summary =
                 typeof version.verificationSummary === "string" &&
@@ -623,6 +673,14 @@ export function VersionHistory({
                             className={cn("px-1.5 py-0 text-[10px]", qualityTierBadgeClass)}
                           >
                             {qualityTierLabel}
+                          </Badge>
+                        )}
+                        {runtimeBadge && (
+                          <Badge
+                            variant="outline"
+                            className={cn("px-1.5 py-0 text-[10px]", runtimeBadge.className)}
+                          >
+                            {runtimeBadge.label}
                           </Badge>
                         )}
                         {isPinned && (

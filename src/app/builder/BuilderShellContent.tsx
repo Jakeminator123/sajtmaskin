@@ -980,6 +980,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <VersionHistory
               chatId={vm.chatId}
               selectedVersionId={vm.activeVersionId}
+              activePreviewSessionId={vm.activePreviewSessionId}
               onVersionSelect={handleVersionSelect}
               isCollapsed={vm.isVersionPanelCollapsed}
               onToggleCollapse={vm.handleToggleVersionPanel}

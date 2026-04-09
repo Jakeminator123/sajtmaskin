@@ -72,7 +72,7 @@ describe("deriveBuildSpec", () => {
     expect(spec.tokenBudgets.scaffoldChars).toBe(20_000);
   });
 
-  it("uses light context for narrow follow-up edits", () => {
+  it("uses normal context by default for narrow follow-up edits", () => {
     const spec = deriveBuildSpec({
       prompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
       buildIntent: "website",
@@ -84,7 +84,7 @@ describe("deriveBuildSpec", () => {
     });
 
     expect(spec.changeScope).toBe("copy");
-    expect(spec.contextPolicy).toBe("light");
+    expect(spec.contextPolicy).toBe("normal");
     expect(spec.verificationPolicy).toBe("fast");
     expect(spec.forbiddenPatterns).toContain("layout_reset_for_copy_change");
     expect(spec.forbiddenPatterns).toContain("unrequested_full_redesign");
@@ -147,7 +147,7 @@ describe("deriveBuildSpec", () => {
     expect(spec.verificationPolicy).not.toBe("fast");
   });
 
-  it("does not treat route wording alone as page-addition in follow-ups", () => {
+  it("keeps explicitly small local-layout follow-ups on light context", () => {
     const spec = deriveBuildSpec({
       prompt: "Update the CTA route in the header and tighten the spacing.",
       buildIntent: "website",

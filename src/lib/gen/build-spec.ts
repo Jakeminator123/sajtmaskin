@@ -131,6 +131,15 @@ const TARGETED_REPAIR_PATTERNS = [
   /\bquality gate\b/i,
 ];
 
+const SMALL_FOLLOW_UP_HINT_PATTERNS = [
+  /\b(?:bara|endast|enbart|only|just|snabbt|liten|lite|minor|small)\b/i,
+  /\b(?:tighten|trim|justera|polera|byt bara|ändra bara|uppdatera bara)\b/i,
+];
+
+const SMALL_FOLLOW_UP_TARGET_PATTERNS = [
+  /\b(?:rubrik(?:en)?|titel(?:n)?|heading|copy|text|cta|spacing|marginal|padding|color|färg|font|button|knapp|hero|footer|header|ikon|icon)\b/i,
+];
+
 const INTEGRATION_PATTERNS = [
   /\bintegration\b/i,
   /\bapi\b/i,
@@ -300,7 +309,15 @@ function inferContextPolicy(params: {
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
       return "normal";
     }
-    return "light";
+    const trimmedPrompt = prompt.trim();
+    const isExplicitSmallFollowUp =
+      trimmedPrompt.length <= 220 &&
+      includesAny(SMALL_FOLLOW_UP_HINT_PATTERNS, trimmedPrompt) &&
+      includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt);
+    if (isExplicitSmallFollowUp) {
+      return "light";
+    }
+    return "normal";
   }
   const routePlanHeavyStructure =
     routePlan.siteType === "content-heavy" ||
