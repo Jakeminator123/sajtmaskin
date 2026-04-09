@@ -483,7 +483,7 @@ export async function POST(req: Request) {
               user?.id,
             );
 
-      const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID, false);
+      const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID);
       const chat = await chatRepo.createChat(project.id, engineModel);
       if (trimmedMessage) {
         await chatRepo.addMessage(chat.id, "user", trimmedMessage);

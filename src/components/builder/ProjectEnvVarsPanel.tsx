@@ -152,9 +152,9 @@ const TRACKING_PROVIDER_KEYS = new Set([
   "vercel-analytics",
 ]);
 
-const SYNTHETIC_V0_PROJECT_PREFIXES = ["chat:", "registry:"];
-function isSyntheticV0ProjectId(id: string): boolean {
-  return SYNTHETIC_V0_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
+const SYNTHETIC_PROJECT_PREFIXES = ["chat:", "registry:"];
+function isSyntheticProjectId(id: string): boolean {
+  return SYNTHETIC_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
 }
 
 function dedupeStrings(values: string[]): string[] {
@@ -209,10 +209,10 @@ export function ProjectEnvVarsPanel({
 
   const envVarCount = envVars.length;
   const hasRealExternalProject = Boolean(
-    externalProjectId && !isSyntheticV0ProjectId(externalProjectId),
+    externalProjectId && !isSyntheticProjectId(externalProjectId),
   );
   const hasSyntheticExternalProject = Boolean(
-    externalProjectId && isSyntheticV0ProjectId(externalProjectId),
+    externalProjectId && isSyntheticProjectId(externalProjectId),
   );
   const effectiveEnvProjectId = hasRealExternalProject
     ? externalProjectId
@@ -294,7 +294,7 @@ export function ProjectEnvVarsPanel({
   }, []);
 
   const loadMarketplaceMetadata = useCallback(async () => {
-    if (!marketplaceProjectId || isSyntheticV0ProjectId(marketplaceProjectId)) {
+    if (!marketplaceProjectId || isSyntheticProjectId(marketplaceProjectId)) {
       setStrategy(null);
       setIntegrationOptions([]);
       setMarketplaceRecords([]);

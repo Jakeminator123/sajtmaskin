@@ -239,9 +239,11 @@ export function useBuilderPromptActions({
       try {
         pendingBriefRef.current = null;
         pendingSpecRef.current = null;
+        // First freeform prompt always uses deep brief — yields better scaffold
+        // selection and fewer autofix passes. User toggle applies to later prompts.
         const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: false,
-          forceDeepBrief: promptAssistDeep,
+          forceDeepBrief: true,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
             if (specMode) {
@@ -276,7 +278,6 @@ export function useBuilderPromptActions({
       customInstructions,
       generateDynamicInstructions,
       paletteState,
-      promptAssistDeep,
       specMode,
       themeColors,
       pendingSpecRef,

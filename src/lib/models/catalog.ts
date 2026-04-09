@@ -2,7 +2,7 @@
  * Builder model catalog.
  *
  * This is the neutral source of truth for internal model tiers used across the
- * own engine, pricing, validation, and the v0 fallback adapter.
+ * own engine, pricing, and validation.
  *
  * Default concrete model IDs per tier also live in `config/ai_models/manifest.json`
  * (loaded via `@/lib/ai-models/load-manifest`); env vars still override.
@@ -14,16 +14,6 @@ import {
 } from "@/lib/ai-models/load-manifest";
 import { getBuildProfileEnvKey } from "@/lib/gen/defaults";
 
-/** Explicit v0 Platform API model IDs — only used on fallback paths. */
-export const V0_MODEL_IDS = [
-  "v0-max-fast",
-  "v0-1.5-md",
-  "v0-1.5-lg",
-  "v0-gpt-5",
-] as const;
-
-export type V0ModelId = (typeof V0_MODEL_IDS)[number];
-
 /** Internal canonical IDs for the builder's own model profiles. */
 export const CANONICAL_MODEL_IDS = ["fast", "pro", "max", "codex", "anthropic"] as const;
 
@@ -31,7 +21,7 @@ export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
 export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
 
-/** Model IDs for the default engine (when not using v0 fallback). */
+/** Concrete model IDs for the own engine. */
 export const OWN_MODEL_IDS = [
   "gpt-5.4",
   "gpt-5.3-codex",
@@ -143,19 +133,6 @@ export const QUALITY_TO_OPENAI_MODEL = getQualityToOwnEngineModels() as Record<
   OwnModelId
 >;
 
-/** Maps the canonical builder profile to the v0 Platform API model ID. */
-export function canonicalModelIdToV0ModelId(modelId: CanonicalModelId): V0ModelId {
-  const modelMap: Record<CanonicalModelId, V0ModelId> = {
-    fast: "v0-max-fast",
-    pro: "v0-1.5-md",
-    max: "v0-1.5-lg",
-    codex: "v0-gpt-5",
-    // Legacy-only fallback mapping; active builder generation does not use the v0 path.
-    anthropic: "v0-1.5-lg",
-  };
-  return modelMap[modelId];
-}
-
 /** Maps the canonical builder profile to an own-engine model ID. */
 export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnModelId {
   const tierMap: Record<CanonicalModelId, string> = {
@@ -178,8 +155,3 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
   return (tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro")) as OwnModelId;
 }
 
-/**
- * Compatibility alias while older modules still use the historical helper name.
- * Prefer `canonicalModelIdToOwnModelId()` from new code.
- */
-export const v0TierToOpenAIModel = canonicalModelIdToOwnModelId;

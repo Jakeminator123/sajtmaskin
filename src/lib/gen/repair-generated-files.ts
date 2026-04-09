@@ -37,6 +37,7 @@ const EVENT_HANDLERS_RE =
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
+const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
 const ICON_KEY_RE = /key=\{([A-Za-z_$][\w$]*)\.icon\}/g;
 const ICON_VALUE_RENDER_RE = /(\s*)\{([A-Za-z_$][\w$]*)\.icon\}(\s*)/g;
 
@@ -258,6 +259,20 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   const moduleExportIndex = buildProjectModuleExportIndex(files);
 
   const repairedFiles = files.map((file) => {
+    if (/\.css$/i.test(file.path)) {
+      let content = file.content;
+      const before = content;
+      content = content.replace(CSS_SCROLL_SMOOTH_RE, "scroll-behavior: auto");
+      if (content !== before) {
+        fixes.push({
+          fixer: "scroll-smooth-css-fixer",
+          description: "Replaced scroll-behavior: smooth with scroll-behavior: auto in CSS for preview compatibility",
+          file: file.path,
+        });
+      }
+      return content === file.content ? file : { ...file, content };
+    }
+
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) {
       return file;
     }

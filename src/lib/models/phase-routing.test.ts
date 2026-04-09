@@ -32,10 +32,11 @@ describe("resolvePhaseModel", () => {
     );
   });
 
-  it("uses full tier for planner/generator/fixer on max; verifier/deploy on gpt-5.3-codex", () => {
+  it("uses full tier for planner/generator on max; fixer/verifier/deploy on gpt-5.3-codex", () => {
     expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-5.4");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
-    expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-5.4");
+    expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("max", "fixer").reason).toBe("manifest-phase-override");
     expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("max", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
   });

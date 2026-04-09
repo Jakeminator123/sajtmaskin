@@ -126,7 +126,7 @@ async function initializeLocalTemplateProject(params: {
     throw new Error("Lokal template-zip saknas eller kunde inte lasas.");
   }
 
-  const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID, false);
+  const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID);
   const categoryId = getTemplateCategoryId(template);
   const categoryTitle = getTemplateCategoryTitle(template);
 

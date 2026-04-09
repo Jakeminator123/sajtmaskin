@@ -59,6 +59,7 @@ if not _running_under_streamlit():
         )
     )
 
+import pandas as pd
 import streamlit as st
 
 # --- repo root -----------------------------------------------------------------
@@ -678,6 +679,44 @@ elif page == "LLM-faser & runtime-sanning":
                 "Åtgärda markerade punkter innan du förväntar dig en stabil testgenerering. "
                 "Nycklar och nätverk måste ändå vara korrekta i din miljö."
             )
+
+    st.subheader("Historisk fellogg (error-log.csv)")
+    error_log_path = repo / "logs" / "llm-segmentts-and-index" / "error-log.csv"
+    if not error_log_path.is_file():
+        st.info(
+            f"Filen `{error_log_path.relative_to(repo).as_posix()}` saknas. "
+            "Den skapas automatiskt efter första generationen som loggar fel/fixar."
+        )
+    else:
+        try:
+            error_df = pd.read_csv(error_log_path, encoding="utf-8")
+        except Exception as exc:
+            st.error(f"Kunde inte läsa error-log.csv: {exc}")
+            error_df = pd.DataFrame()
+
+        if error_df.empty:
+            st.info("Filen finns men innehåller inga rader.")
+        else:
+            cols = set(error_df.columns)
+            filter_cols = [c for c in ("severity", "model", "phase") if c in cols]
+            if filter_cols:
+                filter_ui = st.columns(len(filter_cols))
+                picks: dict[str, str] = {}
+                for i, col in enumerate(filter_cols):
+                    label = {"severity": "Allvarlighetsgrad", "model": "Modell", "phase": "Fas"}.get(col, col)
+                    opts = ["Alla"] + sorted(error_df[col].dropna().unique().tolist())
+                    with filter_ui[i]:
+                        picks[col] = st.selectbox(label, opts, key=f"errlog_{col}")
+
+                filtered = error_df
+                for col, pick in picks.items():
+                    if pick != "Alla":
+                        filtered = filtered[filtered[col] == pick]
+            else:
+                filtered = error_df
+
+            st.caption(f"{len(filtered)} av {len(error_df)} rader visas.")
+            st.dataframe(filtered, use_container_width=True, hide_index=True, height=400)
 
 
 # -- Codegen static -------------------------------------------------------------

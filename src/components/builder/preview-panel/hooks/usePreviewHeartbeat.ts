@@ -70,7 +70,6 @@ export function usePreviewHeartbeat(params: {
     };
 
     const id = window.setInterval(tick, 25_000);
-    void tick();
     return () => window.clearInterval(id);
   }, [chatId, versionId, activePreviewSessionId, previewUrl, previewLifecycle, onSessionSuspect]);
 

@@ -48,6 +48,21 @@ function readBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
+function formatErrorDetails(data: Record<string, unknown>, maxItems = 3): string {
+  const errors = Array.isArray(data.errors) ? data.errors : [];
+  if (errors.length === 0) return `${readNumber(data.errorCount) ?? "?"} syntaxfel`;
+  const items = errors.slice(0, maxItems).map((err: unknown) => {
+    if (typeof err === "string") return err;
+    const e = err as Record<string, unknown>;
+    const file = readString(e.file) ?? "?";
+    const line = readNumber(e.line) ?? "?";
+    const msg = readString(e.message) ?? "?";
+    return `${file}:${line}: ${msg}`;
+  });
+  const rest = errors.length > maxItems ? ` … +${errors.length - maxItems} till` : "";
+  return items.join("; ") + rest;
+}
+
 function normalizeSlug(value: string | null | undefined): string | null {
   if (!value) return null;
   const normalized = value
@@ -325,7 +340,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
         createdBy: "syntax-validator",
         fixedBy: "-",
         modelTier: "-",
-        problem: `${errorCount} syntaxfel`,
+        problem: formatErrorDetails(e.data),
         action: "Validering flaggade fel",
         model: "-",
         provider: "-",
@@ -346,10 +361,10 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     createdBy: "syntax-validator",
     fixedBy: "llm-fixer",
     modelTier: "-",
-    problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel`,
+    problem: formatErrorDetails(e.data),
     action: "LLM fixer startad",
     model: readString(e.data.fixerModel) || "-",
-    provider: "-",
+    provider: readString(e.data.provider) || "-",
     pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Startad",
     chatId: "-",
@@ -367,7 +382,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     problem: `${readNumber(e.data.errorsBefore) ?? "?"} -> ${readNumber(e.data.errorsAfter) ?? "?"} fel`,
     action: readBoolean(e.data.improved) ? "Fixer förbättrade koden" : "Fixer kunde inte förbättra",
     model: readString(e.data.fixerModel) || "-",
-    provider: "-",
+    provider: readString(e.data.provider) || "-",
     pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: readBoolean(e.data.valid) ? "OK" : readBoolean(e.data.improved) ? "Delvis" : "Misslyckades",
     chatId: "-",
@@ -385,7 +400,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     problem: readString(e.data.message) || "Okänt fel",
     action: "Fixer kraschade",
     model: readString(e.data.fixerModel) || "-",
-    provider: "-",
+    provider: readString(e.data.provider) || "-",
     pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Krasch",
     chatId: "-",
@@ -402,8 +417,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     modelTier: "-",
     problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel kvar`,
     action: "Fixer returnerade ingen fix",
-    model: "-",
-    provider: "-",
+    model: readString(e.data.fixerModel) || "-",
+    provider: readString(e.data.provider) || "-",
     pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Noop",
     chatId: "-",
@@ -420,8 +435,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     modelTier: "-",
     problem: `${readNumber(e.data.errorCount) ?? "?"} syntaxfel kvar`,
     action: "Max pass nått — gav upp",
-    model: "-",
-    provider: "-",
+    model: readString(e.data.fixerModel) || readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
     pass: String(readNumber(e.data.pass) ?? "-"),
     outcome: "Gav upp",
     chatId: "-",
@@ -438,8 +453,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     modelTier: "-",
     problem: readString(e.data.reason) || "tidig stop",
     action: `Stoppade tidigt: ${readString(e.data.reason) || "-"}`,
-    model: "-",
-    provider: "-",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
     pass: "-",
     outcome: "Stoppade",
     chatId: "-",
@@ -456,8 +471,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     modelTier: "-",
     problem: readString(e.data.message) || "Pipeline-fel",
     action: "Pipeline kunde ej köras",
-    model: "-",
-    provider: "-",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
     pass: "-",
     outcome: "Pipeline-fel",
     chatId: "-",
@@ -515,7 +530,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     problem: `${readNumber(e.data.errorsBefore) ?? "?"} -> ${readNumber(e.data.errorsAfter) ?? "?"} fel`,
     action: "Merged syntax reparation",
     model: readString(e.data.fixerModel) || "-",
-    provider: "-",
+    provider: readString(e.data.provider) || "-",
     pass: "-",
     outcome: readNumber(e.data.errorsAfter) === 0 ? "OK" : "Delvis",
     chatId: "-",
@@ -533,8 +548,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     modelTier: "-",
     problem: `blocking=${readNumber(e.data.blocking) ?? 0}, quality=${readNumber(e.data.quality) ?? 0}`,
     action: "Read-only kvalitetsgranskning",
-    model: "-",
-    provider: "-",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
     pass: "-",
     outcome: (readNumber(e.data.blocking) ?? 0) > 0 ? "Signaler" : "OK",
     chatId: "-",
@@ -587,8 +602,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     modelTier: "-",
     problem: readString(e.data.message) || "Kommunikationsfel",
     action: "Fel vid skapande",
-    model: "-",
-    provider: "-",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
     pass: "-",
     outcome: "Fel",
     chatId: "-",

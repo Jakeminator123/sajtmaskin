@@ -197,7 +197,7 @@ export function PreviewPanelInspectorDev({
                           ? "bg-purple-800 text-purple-200"
                           : "text-zinc-500 hover:text-zinc-300",
                       )}
-                      title="AI: gpt-4o-mini analyserar koden"
+                      title="AI: gpt-5-mini analyserar koden"
                     >
                       <BrainCircuit className="h-2.5 w-2.5" />
                       AI

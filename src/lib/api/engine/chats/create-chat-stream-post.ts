@@ -528,7 +528,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           context: preGenerationContracts,
         });
 
-        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        const engineModel = resolveEngineModelId(resolvedModelTier);
         debugLog("engine", "Own engine model resolved", {
           resolvedModelTier,
           engineModel,

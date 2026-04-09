@@ -6,13 +6,13 @@ import {
 } from "@/lib/ai-models/load-manifest";
 
 /**
- * For OpenAI-family build profiles (pro / max / codex), **fixer** uses the same
- * model as **generator** — it runs `runLlmFixer` / syntax repair and must not
- * downgrade quality vs the main CodeProject pass.
+ * Phase routing resolves which model handles each generation phase per tier.
+ * `selected_build_model` means the tier's primary model; explicit IDs override.
  *
- * **Verifier** and **deploy-assistant** now also use a strong codex-class model
- * (gpt-5.3-codex) for all quality-line phases.  Fast tier is unchanged.
- * Anthropic profile keeps one model across phases.
+ * Max tier pins **fixer** to gpt-5.3-codex (better at targeted syntax repair
+ * than gpt-5.4). Verifier and deploy-assistant also use gpt-5.3-codex for all
+ * quality-line tiers. Fast tier uses one model throughout. Anthropic keeps a
+ * single model across phases except deploy-assistant.
  */
 const SELECTED_BUILD_MODEL_REF = "selected_build_model";
 

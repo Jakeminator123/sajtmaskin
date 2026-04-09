@@ -99,7 +99,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(repairPolicies.serverRepairPasses).toBeGreaterThan(0);
 
     expect(promptOrchestration.hardCaps.maxChatMessageChars.envKey).toBe(
-      "V0_MAX_PROMPT_LENGTH",
+      "SAJTMASKIN_MAX_PROMPT_LENGTH",
     );
     expect(promptOrchestration.softTargets.freeformChars.default).toBeGreaterThan(0);
     expect(promptOrchestration.phaseThresholds.defaultChars.default).toBeGreaterThan(0);
