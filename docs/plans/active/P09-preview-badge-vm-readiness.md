@@ -6,6 +6,10 @@
 (har URL / `hasTier2LivePreviewUrl`), inte på om VM:en faktiskt är uppe.
 Badgen visas även när VM:n fortfarande bootar.
 
+Kort sagt: dagens badge betyder i praktiken **"den här versionen har en tier-2-preview-URL"**,
+inte **"preview-host svarar just nu"**. Frågan i det här spåret är om badgen ska fortsätta
+representera URL/status på versionsnivå, eller om den ska representera faktisk runtime-readiness.
+
 ## Filer att ändra
 
 - `src/lib/db/engine-version-lifecycle.ts` — `resolveQualityTier()`

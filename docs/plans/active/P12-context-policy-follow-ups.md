@@ -6,6 +6,12 @@
 copy/local-layout-follow-ups, utom om prompten matchar `TARGETED_REPAIR_PATTERNS`
 (auto-fix, targeted repair, quality gate) → då "normal".
 
+`light` betyder inte sämre modell eller sämre lane. Det betyder att `BuildSpec`
+får en mindre kontextbudget (`tokenBudgetsForContextPolicy`) för scaffold,
+referenser och systemkontext när ändringen bedöms som liten och lokal.
+Syftet är att undvika att små follow-ups drar in onödigt mycket strukturmaterial
+och därmed blir dyrare eller mer benägna att "övertänka" små ändringar.
+
 ## Fråga
 
 Räcker "light" för vanliga follow-ups, eller borde "normal" vara default?
