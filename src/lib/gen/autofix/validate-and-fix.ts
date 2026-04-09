@@ -7,6 +7,7 @@ import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 
 type ValidateFixStatus = "passed" | "partial" | "failed" | "pipeline-error";
 type ValidateFixEarlyStopReason = "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
+const VALIDATOR_UNAVAILABLE_NEEDLE = "Syntax validator unavailable:";
 
 export interface ValidateFixResult {
   content: string;
@@ -89,6 +90,29 @@ export async function validateAndFix(
       });
 
       const validation = await validateGeneratedCode(currentContent);
+      const validatorUnavailableError = validation.errors.find((error) =>
+        error.message.includes(VALIDATOR_UNAVAILABLE_NEEDLE),
+      );
+      if (validatorUnavailableError) {
+        const pipelineErrorMessage = validatorUnavailableError.message;
+        devLogAppend("in-progress", {
+          type: "syntax-validation.pipeline-error",
+          chatId: opts.chatId,
+          message: pipelineErrorMessage,
+        });
+        return {
+          content: currentContent,
+          hadErrors: true,
+          fixerUsed: false,
+          fixerImproved: false,
+          errorsBefore: validation.errors.length,
+          errorsAfter: validation.errors.length,
+          passes: passCount,
+          status: "pipeline-error",
+          pipelineError: pipelineErrorMessage,
+          earlyStopReason: null,
+        };
+      }
       if (pass === 1) initialErrorCount = validation.errors.length;
 
       if (validation.valid) {

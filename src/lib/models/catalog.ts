@@ -38,7 +38,6 @@ export const OWN_MODEL_IDS = [
   "gpt-5.1-codex-max",
   "gpt-5.2",
   "gpt-4.1",
-  "gpt-4.1-mini",
   "claude-sonnet-4.6",
   "claude-opus-4.6",
 ] as const;

@@ -2,7 +2,7 @@ import { streamText } from "ai";
 
 import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
 import { getOpenAIModel } from "../models";
-import { parseCodeProject, type CodeFile } from "../parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser";
 import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
 import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
 
@@ -95,41 +95,36 @@ export async function runLlmFixer(
 
 function mergeFixedFiles(originalContent: string, fixedFiles: CodeFile[]): string {
   const originalProject = parseCodeProject(originalContent);
-  const fixedByPath = new Map(fixedFiles.map((f) => [f.path, f]));
-  let result = originalContent;
+  if (originalProject.files.length === 0) {
+    return fixedFiles.length > 0 ? serializeCodeProject(fixedFiles) : originalContent;
+  }
 
+  const fixedByPath = new Map(
+    fixedFiles
+      .map((file) => ({ ...file, path: file.path.trim() }))
+      .filter((file) => file.path.length > 0)
+      .map((file) => [file.path, file]),
+  );
+
+  const mergedFiles: CodeFile[] = [];
   for (const orig of originalProject.files) {
     const replacement = fixedByPath.get(orig.path);
-    if (!replacement || replacement.content === orig.content) continue;
-
-    const escapedPath = orig.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const fenceRe = new RegExp(
-      "(```\\w+\\s+file=\"" + escapedPath + "\"[^\\n]*\\n)" +
-        "([\\s\\S]*?)" +
-        "(\\n```)",
-    );
-    const match = result.match(fenceRe);
-    if (match) {
-      result = result.replace(fenceRe, `$1${replacement.content}$3`);
-    } else {
-      const occurrences = result.split(orig.content).length - 1;
-      if (occurrences === 1) {
-        result = result.replace(orig.content, replacement.content);
-      } else {
-        console.warn(
-          `[llm-fixer] mergeFixedFiles: skip ambiguous replace for "${orig.path}" (${occurrences} occurrences of same content)`,
-        );
-      }
+    if (!replacement) {
+      mergedFiles.push(orig);
+      continue;
     }
+    mergedFiles.push({
+      ...orig,
+      ...replacement,
+      path: orig.path,
+      language: replacement.language || orig.language,
+    });
+    fixedByPath.delete(orig.path);
   }
 
-  const originalPaths = new Set(originalProject.files.map((f) => f.path));
-  for (const fixed of fixedFiles) {
-    if (!originalPaths.has(fixed.path)) {
-      const lang = fixed.language || "tsx";
-      result += `\n\n\`\`\`${lang} file="${fixed.path}"\n${fixed.content}\n\`\`\``;
-    }
+  for (const remaining of fixedByPath.values()) {
+    mergedFiles.push(remaining);
   }
 
-  return result;
+  return serializeCodeProject(mergedFiles);
 }

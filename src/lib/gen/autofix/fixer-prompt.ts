@@ -15,7 +15,12 @@ Your job:
    - Link from "lucide-react" used as <Link href="..."> → must be: import Link from "next/link" (rename icon to LinkIcon)
    - Image from "lucide-react" used as <Image src="..." /> → must be: import Image from "next/image" (rename icon to ImageIcon)
    - Never import routing/navigation components (Link, Image, useRouter) from icon libraries
-6. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
+6. Icon component typing/rendering mistakes to avoid:
+   - If an object field stores an icon component, type it as LucideIcon (or ComponentType), not ReactNode.
+   - Do not render icon component references directly as raw values (e.g. {item.icon}).
+   - Render icon components as JSX (e.g. <item.icon className="h-5 w-5" />).
+   - Never use icon component values as React key; use stable text/id fields instead.
+7. If you truly cannot fix an error, keep the original code and add a // FIXME comment.
 
 Output: Only fenced code blocks with file="path". No explanations.`;
 

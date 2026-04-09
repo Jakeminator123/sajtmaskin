@@ -128,4 +128,33 @@ export function cn(...inputs: ClassValue[]) {
     expect(utilsFile?.content).not.toContain('import { cn } from "@/lib/utils";');
     expect(utilsFile?.content).toContain("export function cn(...inputs: ClassValue[])");
   });
+
+  it("normalizes raw icon component values to render-safe JSX and stable keys", () => {
+    const repaired = repairGeneratedFiles([
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content: `import { Trophy } from "lucide-react";
+
+const items = [{ icon: Trophy, title: "Premium" }];
+
+export default function Page() {
+  return (
+    <div>
+      {items.map((item) => (
+        <div key={item.icon}>
+          {item.icon}
+        </div>
+      ))}
+    </div>
+  );
+}
+`,
+      },
+    ]);
+
+    const page = repaired.files.find((file) => file.path === "app/page.tsx");
+    expect(page?.content).toContain('key={typeof item.icon === "string" ? item.icon : (item.title ?? item.label ?? item.name ?? "icon-item")}');
+    expect(page?.content).toContain('{typeof item.icon === "string" ? item.icon : <item.icon className="h-5 w-5" />}');
+  });
 });

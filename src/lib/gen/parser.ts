@@ -63,3 +63,23 @@ export function parseCodeProject(content: string): CodeProject {
 
   return { files };
 }
+
+function inferFenceLanguage(file: Pick<CodeFile, "path" | "language">): string {
+  if (file.language?.trim()) return file.language.trim();
+  if (file.path.endsWith(".tsx")) return "tsx";
+  if (file.path.endsWith(".ts")) return "ts";
+  if (file.path.endsWith(".jsx")) return "jsx";
+  if (file.path.endsWith(".js")) return "js";
+  if (file.path.endsWith(".css")) return "css";
+  if (file.path.endsWith(".json")) return "json";
+  return "txt";
+}
+
+export function serializeCodeProject(files: CodeFile[]): string {
+  return files
+    .map((file) => {
+      const language = inferFenceLanguage(file);
+      return `\`\`\`${language} file="${file.path}"\n${file.content}\n\`\`\``;
+    })
+    .join("\n\n");
+}

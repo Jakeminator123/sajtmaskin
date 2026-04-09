@@ -28,7 +28,14 @@ type VersionDiagnosticsLog = {
 
 type DiagnosticsSummary = {
   total: number;
+  activeTotal?: number;
+  latestPassId?: string | null;
   byLevel?: {
+    info?: number;
+    warning?: number;
+    error?: number;
+  };
+  activeByLevel?: {
     info?: number;
     warning?: number;
     error?: number;
@@ -121,32 +128,44 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
     };
   }, [open, chatId, versionId, reloadToken]);
 
+  const activeLogs = useMemo(() => {
+    if (!summary?.latestPassId) return logs;
+    return logs.filter((log) => {
+      const passId =
+        log.meta && typeof log.meta === "object"
+          ? (log.meta as Record<string, unknown>).logPassId
+          : null;
+      return passId === summary.latestPassId;
+    });
+  }, [logs, summary?.latestPassId]);
+
   const groupedLogs = useMemo(() => {
     const groups = new Map<string, VersionDiagnosticsLog[]>();
-    for (const log of logs) {
+    for (const log of activeLogs) {
       const key = typeof log.category === "string" && log.category.trim() ? log.category.trim() : "other";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(log);
     }
     return Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
-  }, [logs]);
+  }, [activeLogs]);
 
   const latestPreviewDescription = useMemo(
     () => describePreviewDiagnosticCode(summary?.latestPreviewCode ?? null),
     [summary?.latestPreviewCode],
   );
   const seoLogs = useMemo(
-    () => logs.filter((log) => log.category === "seo"),
-    [logs],
+    () => activeLogs.filter((log) => log.category === "seo"),
+    [activeLogs],
   );
 
-  const canAutoFix = logs.some((log) => log.level === "error" || log.level === "warning");
+  const canAutoFix = activeLogs.some((log) => log.level === "error" || log.level === "warning");
+  const hasHistoricalLogs = logs.length > activeLogs.length;
 
   const handleAutoFix = () => {
     if (!chatId || !versionId) return;
     const reasons = Array.from(
       new Set(
-        logs
+        activeLogs
           .filter((log) => log.level === "error" || log.level === "warning")
           .slice(0, 5)
           .map((log) => log.message.trim())
@@ -173,10 +192,10 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
         </DialogHeader>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">Loggar: {summary?.total ?? logs.length}</Badge>
-          <Badge variant="outline">Fel: {summary?.byLevel?.error ?? 0}</Badge>
-          <Badge variant="outline">Varningar: {summary?.byLevel?.warning ?? 0}</Badge>
-          <Badge variant="outline">Info: {summary?.byLevel?.info ?? 0}</Badge>
+          <Badge variant="outline">Loggar: {summary?.activeTotal ?? activeLogs.length}</Badge>
+          <Badge variant="outline">Fel: {summary?.activeByLevel?.error ?? 0}</Badge>
+          <Badge variant="outline">Varningar: {summary?.activeByLevel?.warning ?? 0}</Badge>
+          <Badge variant="outline">Info: {summary?.activeByLevel?.info ?? 0}</Badge>
           {summary?.latestPreviewCode ? (
             <Badge variant="secondary">Preview-kod: {summary.latestPreviewCode}</Badge>
           ) : null}
@@ -193,6 +212,11 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
         {seoLogs.length > 0 ? (
           <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
             SEO review: {seoLogs.length} loggpost(er) med SEO-varningar finns för den här versionen.
+          </div>
+        ) : null}
+        {hasHistoricalLogs ? (
+          <div className="rounded-md border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-sm text-sky-100">
+            Visar senaste körpasset. Historiska loggar för versionen finns kvar i databasen.
           </div>
         ) : null}
 
@@ -262,7 +286,7 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
               ))
             )}
 
-            {!isLoading && !error && logs.some((log) => log.level === "error") ? (
+            {!isLoading && !error && activeLogs.some((log) => log.level === "error") ? (
               <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-100">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />

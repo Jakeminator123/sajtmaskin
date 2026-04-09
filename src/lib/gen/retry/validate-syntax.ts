@@ -51,7 +51,13 @@ export async function validateGeneratedCode(
   if (targets.length === 0) return { valid: true, errors: [], fileErrors };
 
   const esbuild = await getEsbuild();
-  if (!esbuild) return { valid: true, errors: [], fileErrors };
+  if (!esbuild) {
+    const message =
+      "Syntax validator unavailable: esbuild could not be loaded in this runtime.";
+    errors.push({ file: "__pipeline__", line: 0, column: 0, message });
+    fileErrors.set("__pipeline__", [message]);
+    return { valid: false, errors, fileErrors };
+  }
 
   await Promise.all(
     targets.map(async (file) => {

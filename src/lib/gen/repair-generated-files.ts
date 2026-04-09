@@ -36,6 +36,8 @@ const EVENT_HANDLERS_RE =
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
+const ICON_KEY_RE = /key=\{([A-Za-z_$][\w$]*)\.icon\}/g;
+const ICON_VALUE_RENDER_RE = /(\s*)\{([A-Za-z_$][\w$]*)\.icon\}(\s*)/g;
 
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 
@@ -214,6 +216,38 @@ function fixLucideLinkImport(code: string, filePath: string): {
   };
 }
 
+function fixIconComponentValueMisuse(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+  fixes: RepairEntry[];
+} {
+  let nextCode = code;
+  let fixed = false;
+
+  nextCode = nextCode.replace(ICON_KEY_RE, (_full, itemName: string) => {
+    fixed = true;
+    return `key={typeof ${itemName}.icon === "string" ? ${itemName}.icon : (${itemName}.title ?? ${itemName}.label ?? ${itemName}.name ?? "icon-item")}`;
+  });
+
+  nextCode = nextCode.replace(ICON_VALUE_RENDER_RE, (full, prefix: string, itemName: string, suffix: string) => {
+    if (full.includes("<")) return full;
+    fixed = true;
+    return `${prefix}{typeof ${itemName}.icon === "string" ? ${itemName}.icon : <${itemName}.icon className="h-5 w-5" />}${suffix}`;
+  });
+
+  return {
+    code: nextCode,
+    fixed,
+    fixes: fixed
+      ? [{
+          fixer: "icon-component-value-fixer",
+          description: "Replaced raw icon component values with stable key/render-safe JSX usage",
+          file: filePath,
+        }]
+      : [],
+  };
+}
+
 export function repairGeneratedFiles(files: CodeFile[]): {
   files: CodeFile[];
   fixes: RepairEntry[];
@@ -308,6 +342,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
         description: "Replaced lucide-react Image with next/image",
         file: file.path,
       });
+    }
+
+    const iconComponentResult = fixIconComponentValueMisuse(content, file.path);
+    if (iconComponentResult.fixed) {
+      content = iconComponentResult.code;
+      fixes.push(...iconComponentResult.fixes);
     }
 
     const metadataConflictResult = fixMetadataClientConflict(content, file.path);

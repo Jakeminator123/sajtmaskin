@@ -123,21 +123,21 @@
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
-        "verifier": "gpt-4.1-mini",
+        "verifier": "gpt-4.1",
         "deploy-assistant": "gpt-4.1"
       },
       "max": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
-        "verifier": "gpt-4.1-mini",
+        "verifier": "gpt-4.1",
         "deploy-assistant": "gpt-4.1"
       },
       "codex": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
-        "verifier": "gpt-4.1-mini",
+        "verifier": "gpt-4.1",
         "deploy-assistant": "gpt-4.1"
       },
       "anthropic": {

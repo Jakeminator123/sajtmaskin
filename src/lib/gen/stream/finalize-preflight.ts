@@ -1,5 +1,5 @@
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
-import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import {
   extractAppRoutePathsFromFilePaths,
@@ -13,6 +13,7 @@ import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
+import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import {
   buildPreviewStartContract,
@@ -31,6 +32,7 @@ export type FinalizePreflightIssue = {
 export interface RunFinalizePreflightParams {
   chatId: string;
   model: string;
+  resolvedTier?: CanonicalModelId;
   filesJson: string;
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
@@ -53,15 +55,6 @@ function inferCodeFenceLanguage(path: string): string {
   if (path.endsWith(".css")) return "css";
   if (path.endsWith(".json")) return "json";
   return "txt";
-}
-
-function serializeFilesToCodeProject(files: CodeFile[]): string {
-  return files
-    .map(
-      (file) =>
-        `\`\`\`${file.language || inferCodeFenceLanguage(file.path)} file="${file.path}"\n${file.content}\n\`\`\``,
-    )
-    .join("\n\n");
 }
 
 /** Heuristic: main app page renders nothing meaningful (no AST — fast preflight). */
@@ -242,6 +235,7 @@ function collectOrchestrationContractIssues(
 export async function runFinalizePreflight({
   chatId,
   model: _model,
+  resolvedTier,
   filesJson,
   routePlan = null,
   orchestrationContract = null,
@@ -273,7 +267,12 @@ export async function runFinalizePreflight({
     }
 
     const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
-    let mergedProjectContent = serializeFilesToCodeProject(finalFiles);
+    let mergedProjectContent = serializeCodeProject(
+      finalFiles.map((file) => ({
+        ...file,
+        language: file.language || inferCodeFenceLanguage(file.path),
+      })),
+    );
     let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
       devLogAppend("in-progress", {
@@ -286,6 +285,7 @@ export async function runFinalizePreflight({
       const mergedFixResult = await validateAndFix(mergedProjectContent, {
         chatId,
         model: _model,
+        resolvedTier,
         fixBudgetMs: 12_000,
       });
       if (mergedFixResult.fixerUsed || mergedFixResult.fixerImproved) {

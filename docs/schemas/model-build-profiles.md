@@ -188,10 +188,10 @@ pipeline.
 - **fast** and **anthropic**: one model per tier for every phase (no downgrade).
 - **pro**, **max**, **codex**: **planner** and **generator** use the profile’s
   primary model; **fixer**, **verifier**, and **deploy-assistant** use
-  **`gpt-4.1-mini`** for efficiency.
+  **`gpt-4.1`** for efficiency.
 
 Env overrides on the build profile still apply to the resolved **base** model;
-auxiliary OpenAI phases stay on `gpt-4.1-mini` unless the implementation changes.
+auxiliary OpenAI phases stay on `gpt-4.1` unless the implementation changes.
 
 ## Archived docs
 

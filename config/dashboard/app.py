@@ -127,7 +127,6 @@ MODEL_LABELS = {
     "openai/gpt-5-mini": "OpenAI GPT-5 mini",
     "gpt-4o-mini": "GPT-4o mini",
     "gpt-4.1": "GPT-4.1",
-    "gpt-4.1-mini": "GPT-4.1 mini",
     "gpt-5-mini": "GPT-5 mini",
     "gpt-5-nano": "GPT-5 nano",
     "gpt-5.1-codex-max": "GPT-5.1 Codex Max",

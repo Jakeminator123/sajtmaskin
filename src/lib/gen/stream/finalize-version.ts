@@ -458,6 +458,7 @@ async function runFinalizeFastPath(params: {
   const preflightResult = await runFinalizePreflight({
     chatId,
     model,
+    resolvedTier,
     filesJson,
     routePlan,
     orchestrationContract,
@@ -715,7 +716,7 @@ export async function finalizeAndSaveVersion(
     preflightWarnings,
     hasVerificationBlockingPreflightErrors,
     hasPreviewBlockingPreflightErrors,
-    preflightLogs,
+    preflightLogs: rawPreflightLogs,
     preflightFailureSummary,
   } = buildFinalizePreflightLogBundle({
     chatId,
@@ -729,6 +730,17 @@ export async function finalizeAndSaveVersion(
     routePlan,
     scaffoldSelection,
   });
+  const logPassId = `${version.id}:repair-${repairPassIndex}:${Date.now()}`;
+  const withLogPassMeta = <T extends { meta?: Record<string, unknown> | null }>(log: T): T => ({
+    ...log,
+    meta: {
+      ...(log.meta ?? {}),
+      logPassId,
+      repairPassIndex,
+      lineageHash: lineageHash ?? null,
+    },
+  });
+  let preflightLogs = rawPreflightLogs.map((log) => withLogPassMeta(log));
   if (autoFixHeavyLoad) {
     preflightLogs.push({
       chatId,
@@ -743,6 +755,9 @@ export async function finalizeAndSaveVersion(
         threshold: 5,
         warningCount: autoFixWarningCount,
         dependencyCount: autoFixDependencyCount,
+        logPassId,
+        repairPassIndex,
+        lineageHash: lineageHash ?? null,
       },
     });
   }
