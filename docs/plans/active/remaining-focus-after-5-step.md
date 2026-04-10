@@ -36,6 +36,7 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
 6. **Tooling- och artifact-audit**
    - ~~terminologi-konsolidering~~ (done: kanonisk ordlista i `docs/architecture/glossary.md`, ~100 termer, namnskuggor losta)
    - ~~docs-stadning~~ (done: 68 → ~40 filer, borttagna avklarade planer/agentrapporter/handoffs/archive/contributing)
+   - ~~component uplift P14-P17~~ (done: CapabilityPack dep-injection, 8 enhancement packs, 2 nya scaffolds, shadcn-registerlyft med ~260 exports, resonerande scaffold-val med capability-boost + LLM-classifier)
    - fortsatta stada scripts/rebuild/eval/loggning/prompt-dumps
    - skilj tydligt active runtime-inputs fran observability och historik
 

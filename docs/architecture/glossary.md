@@ -173,9 +173,9 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Scaffold** | `ScaffoldManifest` | `scaffolds/types.ts` | Runtime-startpunkt: `id`, `label`, `description`, `family`, `structureProfile?`, `contentProfile?`, `siteKind?`, `complexity?`, `features?`, `promptHints?`, `tags?`, `allowedBuildIntents`, `files`, `qualityChecklist?`, `research?`. | kanonisk |
-| **Scaffold Family** | `ScaffoldFamily` | `scaffolds/types.ts` | Union av 10 scaffold-id:n. Primärnyckel i registry/matcher. | kanonisk |
-| **Scaffold Selection** | `matchScaffoldAuto()` → `ScaffoldSelectionResult` | `scaffolds/matcher.ts` | Asynkron keyword + embedding-merge med brief-kontext. | kanonisk |
-| **Scaffold Selection Meta** | `ScaffoldSelectionMeta` | `scaffolds/matcher.ts` | `selectionMethod`, `selectionConfidence`, `keywordScores`, `embeddingTopResult`, `embeddingOverrideReason`, `briefContextApplied`, `topCandidates`, `embeddingAvailable/Failed`, `semanticUnavailableReason`. | kanonisk |
+| **Scaffold Family** | `ScaffoldFamily` | `scaffolds/types.ts` | Union av 12 scaffold-id:n (inkl. `docs-knowledge`, `form-workflow`). Primärnyckel i registry/matcher. | kanonisk |
+| **Scaffold Selection** | `matchScaffoldAuto()` → `ScaffoldSelectionResult` | `scaffolds/matcher.ts` | Tre lager: keyword+capability-boost → embedding challenge → LLM-klassificerare (vid låg confidence). | kanonisk |
+| **Scaffold Selection Meta** | `ScaffoldSelectionMeta` | `scaffolds/matcher.ts` | `selectionMethod` (`keyword`/`embedding`/`llm-classify`/`manual`/`persisted`/`default`/`off`), `selectionConfidence`, `keywordScores`, `embeddingTopResult`, `embeddingOverrideReason`, `briefContextApplied`, `topCandidates`, `embeddingAvailable/Failed`, `semanticUnavailableReason`. | kanonisk |
 | **Scaffold Query Context** | `ScaffoldQueryContext`, `buildScaffoldQueryContext()` | `matcher.ts`, `orchestrate.ts` | Brief-deriverat: `briefPages`, `styleKeywords`, `domainHints`. | kanonisk |
 | **Scaffold Keyword Match** | `matchScaffold()` | `scaffolds/matcher.ts` | Synkront keyword/heuristik-steg; delsteg i auto. | kanonisk |
 | **Scaffold Mode** | `ScaffoldMode` | `scaffolds/types.ts` | `"off" \| "auto" \| "manual"`. | kanonisk |
@@ -252,6 +252,10 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Capability Map** | `inferCapabilities()` → `InferredCapabilities`, `buildCapabilityHints()` | `capability-inference.ts` | Snabb klassificering: motion, 3D, charts, auth, forms, ecommerce, etc. Hint-lager. | kanonisk |
+| **Capability Pack** | `CapabilityPack`, `resolveCapabilityPacks()`, `collectPackDeps()` | `capability-packs.ts` | Strukturerad mapping: capability-flagga → deps + shadcn-komponenter + prompt-hint. Proaktiv dep-injection. | kanonisk |
+| **Enhancement Pack** | `EnhancementPack`, `resolveEnhancementPacks()`, `buildEnhancementGuidance()` | `enhancement-packs.ts` | Modulära prompt-guidance-lager med kompositionsmönster och kodexempel per capability (form, chart, data-table, feedback, carousel, motion, 3d, command). | kanonisk |
+| **Enhancement Guidance** | `enhancementGuidance` i `OrchestrationBase` + `DynamicContextOptions` | `orchestrate.ts`, `system-prompt.ts` | Sammanfogad markdown från aktiva enhancement packs, injicerad i dynamisk kontext. | kanonisk |
+| **Scaffold LLM Classifier** | `classifyScaffoldWithLlm()` → `ScaffoldClassification` | `scaffold-llm-classifier.ts` | Fallback-klassificerare (gpt-4o-mini, 3s timeout) vid låg keyword+embedding-confidence på init. Styrs av `SAJTMASKIN_SCAFFOLD_LLM_CLASSIFY`. | kanonisk |
 | **Heavy Capabilities** | `hasHeavyCapabilities()` | `capability-inference.ts` | Flagga för capability-tunga requests (påverkar follow-up-policy). | kanonisk |
 | **Route Plan** | `buildRoutePlan()` → `RoutePlan` | `route-plan.ts` | Planerad IA/ruttlista. Brief mergeas som startpunkt. `PlannedRoute` med `path`, `name`, `intent`, `required`. `RoutePlan` med `provenance`, `siteType`, `reason`. | kanonisk |
 | **Route Plan Provenance** | `RoutePlanProvenance` | `route-plan.ts` | Källspårning: `primarySource`, `sources[]`. | kanonisk |
