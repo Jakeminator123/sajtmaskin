@@ -1,5 +1,8 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import {
+  looksDesignHeavyMessage,
+  type PromptStrategyMeta,
+} from "@/lib/builder/promptOrchestration";
 import { FEATURES } from "@/lib/config";
 import {
   hasHeavyCapabilities,
@@ -315,6 +318,35 @@ function inferVerificationPolicy(params: {
   return "standard";
 }
 
+function isExplicitSmallFollowUpPrompt(prompt: string): boolean {
+  const trimmedPrompt = prompt.trim();
+  return (
+    trimmedPrompt.length <= 220 &&
+    includesAny(SMALL_FOLLOW_UP_HINT_PATTERNS, trimmedPrompt) &&
+    includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt)
+  );
+}
+
+export function deriveFollowUpContextPolicy(params: {
+  prompt: string;
+  skipIntentClassification?: boolean;
+  followUpIntent?: "clear-redesign" | "clear-refine" | "ambiguous-redesign" | "ambiguous-followup" | "neutral";
+  capabilityHeavy: boolean;
+}): BuildSpecContextPolicy {
+  const {
+    prompt,
+    skipIntentClassification = false,
+    followUpIntent = "neutral",
+    capabilityHeavy,
+  } = params;
+  if (skipIntentClassification) return "normal";
+  if (followUpIntent === "clear-redesign") return "normal";
+  if (capabilityHeavy) return "normal";
+  if (looksDesignHeavyMessage(prompt)) return "normal";
+  if (isExplicitSmallFollowUpPrompt(prompt)) return "light";
+  return "normal";
+}
+
 function inferContextPolicy(params: {
   prompt: string;
   generationMode: BuildSpecGenerationMode;
@@ -330,16 +362,10 @@ function inferContextPolicy(params: {
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
       return "normal";
     }
-    if (capabilityHeavy) return "normal";
-    const trimmedPrompt = prompt.trim();
-    const isExplicitSmallFollowUp =
-      trimmedPrompt.length <= 220 &&
-      includesAny(SMALL_FOLLOW_UP_HINT_PATTERNS, trimmedPrompt) &&
-      includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt);
-    if (isExplicitSmallFollowUp) {
-      return "light";
-    }
-    return "normal";
+    return deriveFollowUpContextPolicy({
+      prompt,
+      capabilityHeavy,
+    });
   }
   const routePlanHeavyStructure =
     routePlan.siteType === "content-heavy" ||

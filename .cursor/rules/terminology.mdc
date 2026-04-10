@@ -35,6 +35,7 @@ Kort kärnordlista för begrepp som oftast blir fel. Håll den här filen snabb 
 - Säg `own-engine`, `preview`, `VM`, `template-library`, `scaffolds` och `builderns Mallar-tab` när det är det du menar.
 - Säg inte bara `template`, `mall` eller `sandbox` om en mer exakt term finns.
 - Hitta inte på nya interna etiketter eller produktnamn utan att först bekräfta dem.
+- Introducera inte nya svårbegripliga interna begrepp i scaffold-/LLM-flödet om ett befintligt ord redan duger; föredra konsolidering framför ny jargong.
 - Ge en kort svensk parentes första gången ett engelskt kodord riskerar att misstolkas.
 
 ## Vanliga förväxlingar

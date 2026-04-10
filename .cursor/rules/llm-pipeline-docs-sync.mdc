@@ -5,12 +5,19 @@ globs:
   - config/prompt-static/**
   - config/prompt-static/_READ_ME_FIRST.md
   - src/app/builder/builder-entry.ts
+  - src/lib/builder/defaults.ts
+  - src/lib/builder/server-auto-brief-policy.ts
+  - src/lib/builder/site-brief-generation.ts
+  - src/lib/models/catalog.ts
+  - src/lib/models/selection.ts
+  - src/lib/models/phase-routing.ts
   - src/lib/gen/orchestrate.ts
   - src/lib/gen/system-prompt.ts
   - src/lib/gen/generation-input-package.ts
   - src/lib/gen/tokens.ts
   - src/lib/gen/build-spec.ts
   - src/lib/gen/route-plan.ts
+  - src/lib/gen/capability-inference.ts
   - src/lib/gen/contract/pre-generation-contracts.ts
   - src/lib/gen/scaffolds/**
   - src/lib/gen/prompt-dump.ts
@@ -25,6 +32,8 @@ globs:
   - src/lib/gen/autofix/llm-fixer.ts
   - src/lib/gen/autofix/fixer-prompt.ts
   - src/lib/gen/autofix/validate-and-fix.ts
+  - src/lib/hooks/chat/post-checks-results.ts
+  - src/app/api/engine/chats/init/route.ts
   - src/app/api/engine/chats/*/repair/**
   - src/lib/gen/verifier-pass.ts
   - docs/architecture/step4-post-generation.md
@@ -47,6 +56,7 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 
 - **`config/prompt-static/_READ_ME_FIRST.md`** och **`config/codegen-static-prompt.json`** — när fragment läggs till, tas bort, slås ihop eller byter ansvar.
 - **`config/ai_models/_READ_ME_FIRST.md`** — när manifestets ansvar, phase-routing, tokenbudgetar eller modellbanor ändras i praktiken.
+- **`docs/schemas/model-build-profiles.md`** — build profiles, prompt-assist defaults, phase-routing och legacy-aliaser.
 - **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, generate/finalize/preview-kedjan.
 - **`docs/architecture/llm-input-blocks.md`** — faktisk LLM-input, budget/pruning eller system vs user-turn.
 - **`docs/architecture/llm-signal-flow.md`** — hur prompt assist, Deep brief, scaffold, route plan, capabilities, contracts och post-checks samspelar.

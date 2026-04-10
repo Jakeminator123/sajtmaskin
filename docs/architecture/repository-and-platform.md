@@ -26,7 +26,7 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 ## Skript och scaffolds
 
 - **NPM**-skript: se rot `package.json` och [`scripts/README.md`](../../scripts/README.md).
-- **Hjälpverktyg utanför runtime** (doc-browser, m.m.): [`tools/README.md`](../../tools/README.md).
+- Äldre helperreferenser under `tools/` (t.ex. `doc-browser`) är historiska; nuvarande repo har ingen aktiv `tools/`-mapp i trädet.
 - **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/template-library/full_template_refresh.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.

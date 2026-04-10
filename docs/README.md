@@ -34,7 +34,7 @@
 
 Everything else is deep reference, history, or architecture.
 
-**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `archive/` → [`archive/README.md`](archive/README.md) (minimi / ej kanon) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `handoffs/` → [`handoffs/README.md`](handoffs/README.md) (pekare; fulltext i git-historik) · `contributing/` → [`contributing/README.md`](contributing/README.md) · `old/` → [`old/README.md`](old/README.md) (pekare till git-historik). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
+**Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) (fyra kapitel) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `archive/` → [`archive/README.md`](archive/README.md) (minimi / ej kanon) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md) · `handoffs/` → [`handoffs/README.md`](handoffs/README.md) (pekare; fulltext i git-historik) · `contributing/` → [`contributing/README.md`](contributing/README.md). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
 
 **För agenter (orientering):** [`architecture/repo-tree.md`](architecture/repo-tree.md) → [`plans/README.md`](plans/README.md) → [`../5-steg.txt`](../5-steg.txt) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
 
@@ -89,7 +89,7 @@ Good production inputs:
 Not runtime dependencies:
 
 - Optional Cursor MCP integrations (v0/Vercel/OpenAI APIs — see `.cursor/README.md`). **Human project documentation lives in `docs/` and the repo; there is no MCP that replaces reading those files.** Lokala MCP-servrar under `tools/mcp/` finns **inte** längre; repoets egna flöden förstås via `docs/`, `.cursor/rules/` och kodbasen.
-- browser-driven doc helpers in `tools/doc-browser/` (see `tools/README.md`)
+- historical helper references under `tools/` / `doc-browser` when reading older docs or git history; there is no active `tools/` directory in the current tree
 - raw discovery under `data/external-template-pipeline/raw-discovery/current/`
 - local shallow clone cache under `data/external-template-pipeline/repo-cache/`
 - raw local `_sidor` datasets

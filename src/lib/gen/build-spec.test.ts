@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveBuildSpec } from "./build-spec";
+import { deriveBuildSpec, deriveFollowUpContextPolicy } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -51,6 +51,32 @@ const saasScaffold: ScaffoldManifest = {
 };
 
 describe("deriveBuildSpec", () => {
+  it("reuses the same small-follow-up gate for file-context and BuildSpec light policy", () => {
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Update the CTA route in the header and tighten the spacing.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: false,
+      }),
+    ).toBe("light");
+
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Lägg till en klickbar karusell med klockor och en 3D-figur som skjuter laser över hero-sektionen.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: true,
+      }),
+    ).toBe("normal");
+
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Gör om från grunden med mörk editorial stil och ny layout.",
+        followUpIntent: "clear-redesign",
+        capabilityHeavy: false,
+      }),
+    ).toBe("normal");
+  });
+
   it("keeps init generations compact and deterministic", () => {
     const spec = deriveBuildSpec({
       prompt: "Bygg en modern hemsida för ett arkitektkontor.",

@@ -106,7 +106,7 @@ Unknown IDs are rejected by the Zod request schema.
 1. The client sends `modelId` as the selected build profile, for example `max`.
 2. `canonicalizeModelId()` resolves canonical or legacy inputs.
 3. `resolveModelSelection()` normalizes the request to one canonical profile.
-4. `resolveEngineModelId(..., false)` maps that profile to the own-engine model.
+4. `resolveEngineModelId()` maps that profile to the own-engine model.
 5. `src/lib/gen/models.ts` picks the concrete provider client:
    - `gpt-*` -> OpenAI via `@ai-sdk/openai`
    - `claude-*` -> Anthropic via `@ai-sdk/anthropic`
@@ -148,20 +148,22 @@ Prompt assist accepts provider-coded model strings such as:
 - `openai/gpt-5.3-codex`
 - `anthropic/claude-sonnet-4.6`
 - `anthropic/claude-opus-4.6`
-- `v0-1.5-md`
+- `anthropic-direct/claude-sonnet-4-6`
 
 Current provider categories:
 
-- OpenAI gateway-class strings, for example `openai/*`
-- Anthropic prompt-assist strings, for example `anthropic/*` and `anthropic-direct/*`
-- v0 Model API strings, for example `v0-1.5-md`
+- manifest `gatewayClassModels`, which currently includes `openai/*` plus
+  `anthropic/*`
+- manifest `anthropicDirectModels`, which contains `anthropic-direct/*`
 
 Important current nuance:
 
+- prompt assist does **not** use the v0 Model API
 - the route names and labels still talk about `gateway`
 - some code constants still keep historical "gateway" naming for allowlists
 - the current prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/gateway-policy.ts`
-- in practice, "gateway-class" selection currently means a gateway-shaped model string plus direct provider client construction in the route implementation
+- in practice, "gateway-class" selection currently means a manifest-approved
+  model string plus direct provider client construction in the route implementation
 
 ## Thinking
 
@@ -188,12 +190,16 @@ using `phaseRouting.defaultByTier` in `config/ai_models/manifest.json`:
 
 - **fast**: every phase follows `selected_build_model` (the tier’s primary model,
   default `gpt-4.1`).
-- **pro**, **max**, **codex**: **planner**, **generator**, and **fixer** use the
-  profile’s primary model; **verifier** and **deploy-assistant** use **`gpt-4.1`**
-  for efficiency.
+- **pro**: **planner**, **generator**, and **fixer** follow
+  `selected_build_model`; **verifier** and **deploy-assistant** use
+  **`gpt-5.3-codex`**.
+- **max**: **planner** and **generator** follow `selected_build_model`;
+  **fixer**, **verifier**, and **deploy-assistant** use **`gpt-5.3-codex`**.
+- **codex**: **planner**, **generator**, and **fixer** follow
+  `selected_build_model`; **verifier** and **deploy-assistant** use
+  **`gpt-5.3-codex`**.
 - **anthropic**: **planner**, **generator**, **fixer**, and **verifier** follow the
-  tier’s primary Claude model; **deploy-assistant** uses **`gpt-4.1`** (current
-  manifest default).
+  tier’s primary Claude model; **deploy-assistant** uses **`gpt-4.1`**.
 
 Env overrides on the build profile still apply to the resolved **base** model for
 phases that resolve via `selected_build_model`.

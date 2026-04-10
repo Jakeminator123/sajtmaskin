@@ -11,6 +11,8 @@ Primary code sources:
 - `src/app/builder/useBuilderPageController.ts`
 - `src/app/builder/useBuilderEffects.ts`
 - `src/app/builder/useBuilderPromptActions.ts`
+- `src/lib/builder/defaults.ts`
+- `src/lib/builder/server-auto-brief-policy.ts`
 - `src/lib/hooks/chat/useChatMessaging.ts`
 - `src/lib/hooks/chat/useCreateChat.ts`
 - `src/app/api/template/route.ts`
@@ -154,11 +156,17 @@ entry is consumed:
 
 ## Deep Brief (UI default and server)
 
-- **UI default is off** (`DEFAULT_PROMPT_ASSIST.deep = false`). The user may
-  enable deep brief explicitly in the builder settings panel.
-- `applyDynamicInstructionsForNewChat` passes `forceDeepBrief: promptAssistDeep`
-  (the user's toggle value) instead of always forcing deep brief.
-- On `POST /api/engine/chats/stream`, when the client does **not** send `meta.brief`, the server may run the same structured Deep Brief model as `/api/ai/brief` (unless disabled via `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1` or skipped for audit/technical-preserve paths).
+- **UI default is on** (`DEFAULT_PROMPT_ASSIST.deep = true`).
+- For the first freeform create-chat prompt, `applyDynamicInstructionsForNewChat`
+  currently forces `forceDeepBrief: true` to improve the initial scaffold/context
+  pass even if the visible toggle is off.
+- After the first create-chat turn, the visible Deep Brief toggle still represents
+  the user's requested preference in UI state and request metadata.
+- On `POST /api/engine/chats/stream`, when the client does **not** send `meta.brief`,
+  the server may run the same structured Deep Brief model as `/api/ai/brief`
+  (unless disabled via `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1` or skipped by
+  `server-auto-brief-policy.ts`, for example on follow-ups, audit/technical-preserve
+  paths, or already-structured website prompts).
 - UI-driven fetch to `/api/ai/brief` remains useful for previewing/editing the brief before send; if the client attaches `meta.brief`, the server does not regenerate it.
 - Response `meta` may include `serverAutoBriefGenerated` / `serverAutoBriefModel` for telemetry.
 

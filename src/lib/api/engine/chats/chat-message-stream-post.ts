@@ -25,6 +25,7 @@ import {
 } from "@/lib/gen/contract/clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
+import { deriveFollowUpContextPolicy } from "@/lib/gen/build-spec";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildGenerationInputPackage,
@@ -242,13 +243,17 @@ export async function handleMessageStreamRequest(
         }
 
         if (previousFiles.length > 0) {
-          const capabilityHeavy = hasHeavyCapabilities(inferCapabilities(message));
+          const inferredCapabilities = inferCapabilities(message);
+          const capabilityHeavy = hasHeavyCapabilities(inferredCapabilities);
+          const followUpContextPolicy = deriveFollowUpContextPolicy({
+            prompt: message,
+            skipIntentClassification,
+            followUpIntent,
+            capabilityHeavy,
+          });
           const useLightFollowUpContext =
             FEATURES.useFollowUpLightContext &&
-            !skipIntentClassification &&
-            followUpIntent !== "clear-redesign" &&
-            !looksDesignHeavyMessage(message.trim()) &&
-            !capabilityHeavy;
+            followUpContextPolicy === "light";
           const manyFiles = previousFiles.length > 14;
           const fileCtx = buildFileContext({
             files: previousFiles,
@@ -427,6 +432,7 @@ export async function handleMessageStreamRequest(
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
             existingRoutePaths,
+            capabilities: inferredCapabilities,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,
@@ -548,6 +554,7 @@ export async function handleMessageStreamRequest(
           generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
           ignorePersistedScaffoldForMatch,
           existingRoutePaths,
+          capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

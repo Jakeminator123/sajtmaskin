@@ -93,6 +93,8 @@ export interface OrchestrationInput {
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
   /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
   existingRoutePaths?: string[];
+  /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
+  capabilities?: InferredCapabilities;
 }
 
 export interface OrchestrationBase {
@@ -192,6 +194,7 @@ export async function resolveOrchestrationBase(
     promptStrategyMeta = null,
     ignorePersistedScaffoldForMatch = false,
     existingRoutePaths = [],
+    capabilities: providedCapabilities,
   } = input;
 
   let resolvedScaffold: ScaffoldManifest | null = null;
@@ -267,7 +270,7 @@ export async function resolveOrchestrationBase(
     }
   }
 
-  const capabilities = inferCapabilities(prompt);
+  const capabilities = providedCapabilities ?? inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
   const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
   const routePlan = buildRoutePlan({

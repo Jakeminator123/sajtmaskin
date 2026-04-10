@@ -16,7 +16,6 @@
 | `e2e/` | Playwright m.m. — [`e2e/README.md`](../../e2e/README.md). |
 | `scripts/` | Node/Python-hjälp — [`scripts/README.md`](../../scripts/README.md). Innehåller även `scripts_dashboard.py`, som är pipeline-/artifactpanelen parallellt med `config/dashboard/app.py`. Undermappar: `db/`, `dev/`, `embeddings/`, `template-library/`, `v0-templates/`, `scaffolds/`, `eval/`, `deps/`, `audit/`, `env/`. |
 | `archive/` | Icke-aktiva labb m.m. — [`archive/README.md`](../../archive/README.md) (t.ex. tidigare `scripts/labs/testning_scarf/`). |
-| `tools/` | Verktyg utanför runtime (t.ex. doc-browser) — [`tools/README.md`](../../tools/README.md). |
 | `infra/` | OpenClaw m.m. — [`infra/README.md`](../../infra/README.md). |
 | `services/` | Hjälpprocesser (t.ex. inspector worker). |
 | `tests/` | Tester utanför `src/` där så är upplagt. |

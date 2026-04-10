@@ -26,6 +26,7 @@ Avsluta det aktuella arbetet i följande ordning:
 - Börja med att kontrollera `git status`, diff och senaste commit-stil.
 - Om du ser oväntade eller andras ändringar: stoppa och fråga användaren innan du fortsätter.
 - Leta efter kvarvarande gamla begrepp eller fältnamn om en migration nyss gjorts.
+- Leta efter kvarvarande halv-ersatta parallellspår inom scopet: temporära hjälpfunktioner, dubbla beslutsvägar och gammal text som beskriver den ersatta vägen.
 - Om dashboards eller docs berörs: låt dem spegla runtime-sanningen, inte definiera den.
 - Om du överväger att radera filer eller mappar:
   - verifiera först att de inte importeras, refereras i script eller docs, eller används som kompatspår
