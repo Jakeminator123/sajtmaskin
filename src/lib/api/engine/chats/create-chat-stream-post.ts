@@ -140,7 +140,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : false;
+        typeof thinking === "boolean"
+          ? thinking
+          : process.env.SAJTMASKIN_DEFAULT_THINKING === "true";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";

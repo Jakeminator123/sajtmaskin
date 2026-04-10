@@ -28,7 +28,7 @@ import {
 } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const entry = deriveBuilderEntryState(searchParams);
@@ -65,7 +65,12 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(DEFAULT_IMAGE_GENERATIONS);
-  const [enableThinking, setEnableThinking] = useState(DEFAULT_THINKING);
+  const [enableThinking, _setEnableThinking] = useState(DEFAULT_THINKING);
+  const thinkingUserSetRef = useRef(false);
+  const setEnableThinking = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    thinkingUserSetRef.current = true;
+    _setEnableThinking(v);
+  }, []);
   const [chatPrivacy, setChatPrivacy] = useState<"private" | "unlisted">("private");
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
@@ -203,6 +208,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setEnableImageGenerations,
     enableThinking,
     setEnableThinking,
+    thinkingUserSetRef,
     enableBlobMedia,
     setEnableBlobMedia,
     isImageGenerationsSupported,

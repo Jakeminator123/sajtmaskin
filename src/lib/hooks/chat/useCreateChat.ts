@@ -48,6 +48,7 @@ export function useCreateChat(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
+    thinkingUserSetRef,
     chatPrivacy,
     registryDesignSystemId,
     designThemePreset,
@@ -338,7 +339,7 @@ export function useCreateChat(
           options.attachmentPrompt,
           options.attachments,
         );
-        const thinkingForTier = enableThinking;
+        const thinkingForTier = thinkingUserSetRef?.current ? enableThinking : undefined;
         const trimmedSystemPrompt = effectiveSystemPrompt?.trim();
         const promptMeta: Record<string, unknown> = {
           promptOriginal: initialMessage,

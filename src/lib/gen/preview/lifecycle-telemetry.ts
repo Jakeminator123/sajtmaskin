@@ -2,7 +2,6 @@
  * Structured logs for preview lifecycle (heartbeat, status, recover, start outcome).
  * Query logs with prefix `[telemetry:preview-lifecycle]`.
  */
-import { devLogAppend } from "@/lib/logging/devLog";
 
 export type PreviewLifecycleTelemetryEvent =
   | {
@@ -74,8 +73,12 @@ export function logPreviewLifecycleTelemetry(event: PreviewLifecycleTelemetryEve
   if (event.kind === "heartbeat" || event.kind === "preview_status") {
     return;
   }
-  devLogAppend("latest", {
-    type: `preview-lifecycle.${event.kind}`,
-    ...event,
-  });
+  if (typeof window === "undefined") {
+    import("@/lib/logging/devLog").then(({ devLogAppend }) => {
+      devLogAppend("latest", {
+        type: `preview-lifecycle.${event.kind}`,
+        ...event,
+      });
+    }).catch(() => {});
+  }
 }

@@ -44,6 +44,7 @@ export function useSendMessage(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
+    thinkingUserSetRef,
     registryDesignSystemId,
     designThemePreset,
     systemPrompt,
@@ -216,7 +217,7 @@ export function useSendMessage(
         );
         const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
         const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
-        const thinkingForTier = enableThinking;
+        const thinkingForTier = thinkingUserSetRef?.current ? enableThinking : undefined;
         const promptMeta: Record<string, unknown> = {
           promptOriginal: messageText,
           promptFormatted: formattedMessage,

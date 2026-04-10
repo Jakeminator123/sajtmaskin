@@ -136,7 +136,10 @@ export async function handleMessageStreamRequest(
       const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
         const buildProfileId = getBuildProfileId(resolvedModelTier);
-        const resolvedThinking = typeof thinking === "boolean" ? thinking : false;
+        const resolvedThinking =
+          typeof thinking === "boolean"
+            ? thinking
+            : process.env.SAJTMASKIN_DEFAULT_THINKING === "true";
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
         const metaBuildMethod = parsedMeta.buildMethod;
@@ -432,7 +435,7 @@ export async function handleMessageStreamRequest(
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
             existingRoutePaths,
-            capabilities: inferredCapabilities,
+            capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,
