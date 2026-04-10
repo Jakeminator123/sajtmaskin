@@ -498,7 +498,6 @@ function buildPlaceholderEnvLocalBody(): string | null {
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
-  options?: { capabilityDeps?: Record<string, string> },
 ): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
@@ -508,11 +507,6 @@ export function buildCompleteProject(
     ...(uiComponents ?? []).map((component) => component.content),
   ].join("\n");
   const detected = runDepCompleter(allCode);
-  if (options?.capabilityDeps) {
-    for (const [pkg, ver] of Object.entries(options.capabilityDeps)) {
-      if (!detected.dependencies[pkg]) detected.dependencies[pkg] = ver;
-    }
-  }
 
   const mergeModelPackageJson = (file: CodeFile): CodeFile => {
     if (file.path !== "package.json") return file;
