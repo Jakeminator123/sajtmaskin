@@ -459,7 +459,7 @@ function getTopKeywordCandidates(
   if (sorted.length > 0) {
     return sorted.slice(0, 3).map((entry) => ({
       id: entry.id,
-      score: entry.score,
+      score: normalizedKeywordStrength(entry.score),
       source: "keyword",
     }));
   }
@@ -736,6 +736,14 @@ function canUseEmbeddingOverride(params: {
     (embeddingResult.id === "dashboard" || embeddingResult.id === "app-shell") &&
     appScore < 1 &&
     dashboardScore < 1
+  ) {
+    return false;
+  }
+  if (
+    buildIntent === "app" &&
+    (embeddingResult.id === "portfolio" ||
+      embeddingResult.id === "blog" ||
+      embeddingResult.id === "landing-page")
   ) {
     return false;
   }

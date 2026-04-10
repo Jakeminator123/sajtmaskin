@@ -54,16 +54,28 @@ const CRITICAL_PATH_PATTERNS = [
  */
 const CREATIVE_THEME_STRONG_MIN_LEN = 10;
 
+function escapeCreativeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesCreativeKeyword(text: string, keyword: string): boolean {
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}])${escapeCreativeRegex(keyword)}([^\\p{L}\\p{N}]|$)`,
+    "iu",
+  );
+  return pattern.test(text);
+}
+
 export function detectScaffoldMode(prompt: string, styleKeywords?: string[]): ScaffoldSerializeMode {
   const lower = prompt.toLowerCase();
-  const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => lower.includes(kw));
+  const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => matchesCreativeKeyword(lower, kw));
   const strongPromptHit = kwHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
   if (strongPromptHit || kwHits.length >= 2) return "inspirational";
 
   if (styleKeywords && styleKeywords.length > 0) {
     const styleLower = styleKeywords.map((s) => s.toLowerCase());
     const styleHits = CREATIVE_THEME_KEYWORDS.filter((kw) =>
-      styleLower.some((s) => s.includes(kw)),
+      styleLower.some((s) => matchesCreativeKeyword(s, kw)),
     );
     const strongStyleHit = styleHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
     if (strongStyleHit || styleHits.length >= 2) return "inspirational";

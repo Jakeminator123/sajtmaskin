@@ -121,6 +121,29 @@ describe("matchScaffold", () => {
     expect(result.meta.selectionMethod).toBe("embedding");
   });
 
+  it("does not let embedding pick portfolio when buildIntent is app", async () => {
+    const portfolio = getScaffoldById("portfolio");
+    expect(portfolio).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: portfolio!, score: 0.72 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 10,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en app med ett galleri för mina projekt och bilder.",
+      "app",
+    );
+
+    expect(result.scaffold?.id).not.toBe("portfolio");
+  });
+
   it("does not let embedding pick auth-pages without auth keywords", async () => {
     const auth = getScaffoldById("auth-pages");
     expect(auth).toBeTruthy();
