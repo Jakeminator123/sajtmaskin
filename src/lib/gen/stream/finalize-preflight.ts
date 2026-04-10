@@ -3,6 +3,7 @@ import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
 import { resolveCapabilityPacks, collectPackDeps } from "@/lib/gen/capability-packs";
+import { resolveEnhancementPacks, collectEnhancementDeps } from "@/lib/gen/enhancement-packs";
 import {
   extractAppRoutePathsFromFilePaths,
   findMissingPlannedRoutes,
@@ -352,9 +353,14 @@ export async function runFinalizePreflight({
     }
 
     const { collectRequiredUiComponents } = await import("@/lib/gen/project-scaffold-ui-reader");
-    const capabilityDeps = originalPrompt
-      ? collectPackDeps(resolveCapabilityPacks(inferCapabilities(originalPrompt)))
-      : undefined;
+    let capabilityDeps: Record<string, string> | undefined;
+    if (originalPrompt) {
+      const caps = inferCapabilities(originalPrompt);
+      capabilityDeps = {
+        ...collectPackDeps(resolveCapabilityPacks(caps)),
+        ...collectEnhancementDeps(resolveEnhancementPacks(caps)),
+      };
+    }
     const completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles), { capabilityDeps }),
     ).files;
