@@ -65,6 +65,15 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
   });
 
+  it("maps booking intent to /booking instead of /contact", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Skapa en bokningssida för reservationer och tider.",
+    });
+    expect(plan.routes.some((r) => r.path === "/booking")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(false);
+  });
+
   it("uses brief-based routes when brief has pages", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
@@ -79,6 +88,36 @@ describe("buildRoutePlan", () => {
     expect(plan.provenance.sources).toEqual(["brief"]);
     expect(plan.routes).toHaveLength(1);
     expect(plan.routes[0].path).toBe("/");
+  });
+
+  it("infers route paths from brief page names when path is missing", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { name: "Home", purpose: "Start" },
+          { name: "About Us", purpose: "Om oss" },
+          { name: "Contact", purpose: "Kontakt" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/about-us", "/contact"]);
+    expect(plan.provenance.primarySource).toBe("brief");
+  });
+
+  it("falls back to root for brief page without path and name", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { purpose: "Hemsida" },
+        ],
+      },
+    });
+    expect(plan.routes).toHaveLength(1);
+    expect(plan.routes[0]?.path).toBe("/");
   });
 
   it("marks route plan source as prompt when scaffold defaults do not add routes", () => {
@@ -120,6 +159,18 @@ describe("buildRoutePlan", () => {
     expect(plan.reason).toContain("Follow-up mode preserves existing App Router routes");
   });
 
+  it("follow-up does not add routes from incidental keyword matches without explicit add intent", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Ändra contact text i footern och uppdatera färgerna.",
+      resolvedScaffold: getScaffoldById("landing-page"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/om"],
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om"]);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(false);
+  });
+
   it("follow-up can still add explicitly requested new routes", () => {
     const ecommerceScaffold = getScaffoldById("ecommerce");
     expect(ecommerceScaffold).not.toBeNull();
@@ -132,6 +183,23 @@ describe("buildRoutePlan", () => {
     });
     expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
+  });
+
+  it("merges brief routes with prompt-requested additions instead of early returning brief only", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Lägg till en tydlig blog-sida.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+        ],
+      },
+      resolvedScaffold: getScaffoldById("landing-page"),
+    });
+    expect(plan.routes.some((r) => r.path === "/om")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/blog")).toBe(true);
+    expect(plan.provenance.sources).toEqual(["brief", "prompt"]);
   });
 
   it("follow-up can remove an existing route when prompt explicitly removes route path", () => {
@@ -196,6 +264,30 @@ describe("buildRoutePlan", () => {
         required: true,
       },
     ]);
+  });
+});
+
+describe("buildRoutePlan app auth mappings", () => {
+  const appBase = {
+    buildIntent: "app" as const,
+    resolvedScaffold: null,
+    brief: undefined as undefined,
+  };
+
+  it("adds /signup for signup/register prompts", () => {
+    const plan = buildRoutePlan({
+      ...appBase,
+      prompt: "Lägg till signup och registrering i appen.",
+    });
+    expect(plan.routes.some((r) => r.path === "/signup")).toBe(true);
+  });
+
+  it("adds /forgot-password for password reset prompts", () => {
+    const plan = buildRoutePlan({
+      ...appBase,
+      prompt: "Vi behöver forgot password och återställ lösenord.",
+    });
+    expect(plan.routes.some((r) => r.path === "/forgot-password")).toBe(true);
   });
 });
 

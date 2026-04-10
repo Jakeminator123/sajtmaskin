@@ -119,6 +119,57 @@ describe("matchScaffold", () => {
 
     expect(result.scaffold?.id).toBe("portfolio");
     expect(result.meta.selectionMethod).toBe("embedding");
+    expect(result.meta.embeddingOverrideReason).toBe("generic_keyword_override");
+  });
+
+  it("does not override a generic keyword pick when embedding score is below generic threshold", async () => {
+    const portfolio = getScaffoldById("portfolio");
+    expect(portfolio).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: portfolio!, score: 0.4 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 11,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en enkel företagshemsida med tjänster, om oss och kontakt.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).toBe("landing-page");
+    expect(result.meta.selectionMethod).toBe("default");
+  });
+
+  it("uses brief query context to boost scaffold keyword matching", async () => {
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 7,
+      },
+    });
+
+    const result = await matchScaffoldAuto("Bygg en hemsida", "website", {
+      queryContext: {
+        briefPages: [
+          { name: "Login", purpose: "User authentication and sign in" },
+          { name: "Signup", purpose: "Create account" },
+        ],
+      },
+    });
+
+    expect(result.scaffold?.id).toBe("auth-pages");
+    expect(result.meta.keywordScores["auth-pages"]).toBeGreaterThanOrEqual(2);
   });
 
   it("does not let embedding pick portfolio when buildIntent is app", async () => {

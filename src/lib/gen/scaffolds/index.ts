@@ -13,6 +13,7 @@ export {
 } from "./matcher";
 export type {
   ScaffoldSelectionConfidence,
+  ScaffoldQueryContext,
   ScaffoldSelectionMeta,
   ScaffoldSelectionMethod,
   ScaffoldSelectionResult,

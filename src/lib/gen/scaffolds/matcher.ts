@@ -408,11 +408,19 @@ export interface ScaffoldSelectionMeta {
   embeddingFailed: boolean;
   embeddingTopResult: { id: string; score: number } | null;
   semanticUnavailableReason: string | null;
+  embeddingOverrideReason: string | null;
+  briefContextApplied: boolean;
 }
 
 export interface ScaffoldSelectionResult {
   scaffold: ScaffoldManifest | null;
   meta: ScaffoldSelectionMeta;
+}
+
+export interface ScaffoldQueryContext {
+  briefPages?: Array<{ name?: string; path?: string; purpose?: string }>;
+  styleKeywords?: string[];
+  domainHints?: string[];
 }
 
 function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
@@ -449,6 +457,61 @@ function buildKeywordScores(promptLower: string): Array<{ id: string; score: num
     { id: "content-site", score: contentScore },
     { id: "base-nextjs", score: 0 },
   ];
+}
+
+function applyBriefKeywordBoost(
+  scores: Array<{ id: string; score: number }>,
+  context: ScaffoldQueryContext | undefined,
+): Array<{ id: string; score: number }> {
+  if (!context) return scores;
+  const briefPages = context.briefPages ?? [];
+  const styleKeywords = context.styleKeywords ?? [];
+  const domainHints = context.domainHints ?? [];
+  const combinedText = [
+    ...briefPages.map((page) => `${page.name ?? ""} ${page.path ?? ""} ${page.purpose ?? ""}`),
+    ...styleKeywords,
+    ...domainHints,
+  ]
+    .join(" ")
+    .toLowerCase();
+  if (!combinedText.trim()) return scores;
+
+  const boosts = new Map<string, number>();
+  const addBoost = (id: string, amount: number) => boosts.set(id, (boosts.get(id) ?? 0) + amount);
+
+  if (countKeywordMatches(combinedText, AUTH_KEYWORDS) > 0) addBoost("auth-pages", 2);
+  if (countKeywordMatches(combinedText, ECOMMERCE_KEYWORDS) > 0) addBoost("ecommerce", 2);
+  if (countKeywordMatches(combinedText, DASHBOARD_KEYWORDS) > 0) addBoost("dashboard", 2);
+  if (countKeywordMatches(combinedText, APP_KEYWORDS) > 0) addBoost("app-shell", 2);
+  if (countKeywordMatches(combinedText, BLOG_KEYWORDS) > 0) addBoost("blog", 2);
+  if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
+  if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
+
+  if (boosts.size === 0) return scores;
+  return scores.map((entry) => ({
+    ...entry,
+    score: entry.score + (boosts.get(entry.id) ?? 0),
+  }));
+}
+
+function buildScaffoldPrompt(prompt: string, context: ScaffoldQueryContext | undefined): string {
+  if (!context) return prompt;
+  const fragments: string[] = [];
+  if (context.briefPages && context.briefPages.length > 0) {
+    const pageSummary = context.briefPages
+      .map((page) => `${page.name ?? ""} ${page.path ?? ""} ${page.purpose ?? ""}`.trim())
+      .filter(Boolean)
+      .join(" | ");
+    if (pageSummary) fragments.push(`Brief pages: ${pageSummary}`);
+  }
+  if (context.styleKeywords && context.styleKeywords.length > 0) {
+    fragments.push(`Style keywords: ${context.styleKeywords.join(", ")}`);
+  }
+  if (context.domainHints && context.domainHints.length > 0) {
+    fragments.push(`Domain hints: ${context.domainHints.join(", ")}`);
+  }
+  if (fragments.length === 0) return prompt;
+  return `${prompt}\n\n${fragments.join("\n")}`;
 }
 
 function getTopKeywordCandidates(
@@ -628,6 +691,7 @@ export function matchScaffold(
 }
 
 const EMBEDDING_MIN_SCORE = 0.35;
+const GENERIC_EMBEDDING_MIN_SCORE = 0.45;
 
 /** Normalizes raw keyword score for the selected scaffold to ~0..1 for head-to-head vs cosine. */
 const KEYWORD_STRENGTH_CAP = 12;
@@ -669,7 +733,7 @@ function isGenericScaffoldId(id: string | null | undefined): boolean {
   return !id || id === "landing-page" || id === "base-nextjs";
 }
 
-function shouldPreferEmbeddingOverKeyword(params: {
+function getEmbeddingOverrideReason(params: {
   keywordResult: ScaffoldManifest | null;
   keywordScores: Array<{ id: string; score: number }>;
   embeddingScaffold: ScaffoldManifest;
@@ -679,7 +743,7 @@ function shouldPreferEmbeddingOverKeyword(params: {
   appScore: number;
   dashboardScore: number;
   buildIntent?: BuildIntent | null;
-}): boolean {
+}): string | null {
   const {
     keywordResult,
     keywordScores,
@@ -692,7 +756,7 @@ function shouldPreferEmbeddingOverKeyword(params: {
     buildIntent,
   } = params;
 
-  if (embeddingScore < EMBEDDING_MIN_SCORE) return false;
+  if (embeddingScore < EMBEDDING_MIN_SCORE) return null;
 
   if (
     !canUseEmbeddingOverride({
@@ -703,21 +767,24 @@ function shouldPreferEmbeddingOverKeyword(params: {
       buildIntent,
     })
   ) {
-    return false;
+    return null;
   }
 
   if (keywordResult?.id === embeddingScaffold.id) {
-    return false;
+    return null;
   }
 
   const kwId = keywordResult?.id ?? null;
   if (isGenericScaffoldId(kwId)) {
-    return true;
+    if (embeddingScore < GENERIC_EMBEDDING_MIN_SCORE) return null;
+    return "generic_keyword_override";
   }
 
   const kwScoreForPick = keywordScores.find((entry) => entry.id === kwId)?.score ?? 0;
   const kwNorm = normalizedKeywordStrength(kwScoreForPick);
-  return embeddingScore >= kwNorm * embedVsKeywordBias;
+  return embeddingScore >= kwNorm * embedVsKeywordBias
+    ? "non_generic_strength_win"
+    : null;
 }
 
 function canUseEmbeddingOverride(params: {
@@ -771,17 +838,27 @@ const EMPTY_SEMANTIC_RESPONSE: ScaffoldSearchResponse = {
 export async function matchScaffoldAuto(
   prompt: string,
   buildIntent?: BuildIntent | null,
-  options: { useEmbeddings?: boolean } = {},
+  options: { useEmbeddings?: boolean; queryContext?: ScaffoldQueryContext } = {},
 ): Promise<ScaffoldSelectionResult> {
   const useEmbeddings = options.useEmbeddings ?? true;
-  const lower = prompt.toLowerCase();
+  const scaffoldPrompt = buildScaffoldPrompt(prompt, options.queryContext);
+  const briefContextApplied = Boolean(
+    options.queryContext &&
+      ((options.queryContext.briefPages && options.queryContext.briefPages.length > 0) ||
+        (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
+        (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
+  );
+  const lower = scaffoldPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
-    ? searchScaffoldsWithDiagnostics(prompt, 3)
+    ? searchScaffoldsWithDiagnostics(scaffoldPrompt, 3)
     : Promise.resolve(EMPTY_SEMANTIC_RESPONSE);
 
-  const keywordResult = matchScaffold(prompt, buildIntent);
-  const baseKeywordScores = buildKeywordScores(lower);
+  const keywordResult = matchScaffold(scaffoldPrompt, buildIntent);
+  const baseKeywordScores = applyBriefKeywordBoost(
+    buildKeywordScores(lower),
+    options.queryContext,
+  );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
   const keywordScores = keywordsDisabled
     ? baseKeywordScores.map((entry) => ({ ...entry, score: 0 }))
@@ -806,6 +883,8 @@ export async function matchScaffoldAuto(
     embeddingFailed: false,
     embeddingTopResult: null,
     semanticUnavailableReason: null,
+    embeddingOverrideReason: null,
+    briefContextApplied,
   };
 
   if (!useEmbeddings) {
@@ -842,6 +921,8 @@ export async function matchScaffoldAuto(
     embeddingFailed: semantic.diagnostics.failed,
     embeddingTopResult,
     semanticUnavailableReason: semantic.diagnostics.unavailableReason,
+    embeddingOverrideReason: null,
+    briefContextApplied,
   };
 
   if (semantic.results.length === 0) {
@@ -852,7 +933,7 @@ export async function matchScaffoldAuto(
   }
 
   const top = semantic.results[0]!;
-  const preferEmbedding = shouldPreferEmbeddingOverKeyword({
+  const embeddingOverrideReason = getEmbeddingOverrideReason({
     keywordResult,
     keywordScores,
     embeddingScaffold: top.scaffold,
@@ -864,7 +945,7 @@ export async function matchScaffoldAuto(
     buildIntent,
   });
 
-  if (preferEmbedding) {
+  if (embeddingOverrideReason) {
     const embeddingConfidence: ScaffoldSelectionConfidence =
       top.score >= 0.55 ? "high" : "medium";
     return {
@@ -874,6 +955,7 @@ export async function matchScaffoldAuto(
         selectedScaffold: top.scaffold.id,
         selectionMethod: "embedding",
         selectionConfidence: embeddingConfidence,
+        embeddingOverrideReason,
       },
     };
   }

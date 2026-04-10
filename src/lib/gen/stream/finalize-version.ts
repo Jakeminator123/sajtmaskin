@@ -931,10 +931,24 @@ export async function finalizeAndSaveVersion(
       telemetryMeta.templateLibrarySearch = tls;
     }
 
+    const scaffoldSelectionMethod =
+      scaffoldSelection && typeof scaffoldSelection.selectionMethod === "string"
+        ? scaffoldSelection.selectionMethod
+        : null;
+    const scaffoldSelectionConfidence =
+      scaffoldSelection && typeof scaffoldSelection.selectionConfidence === "string"
+        ? scaffoldSelection.selectionConfidence
+        : null;
+    const briefInfluencedSelection =
+      scaffoldSelection?.briefContextApplied === true;
+
     const telemetryRecord = await createGenerationTelemetryRecord({
       chatId,
       versionId: version.id,
       scaffoldId: resolvedScaffold?.id ?? null,
+      scaffoldSelectionMethod,
+      scaffoldSelectionConfidence,
+      briefInfluencedSelection,
       model,
       buildIntent: buildIntent ?? null,
       retryCount: repairPassIndex,

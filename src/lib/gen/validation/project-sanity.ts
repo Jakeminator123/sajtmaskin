@@ -113,6 +113,12 @@ function firstMeaningfulLine(content: string): string {
     .find((line) => line.length > 0) ?? "";
 }
 
+function unresolvedImportSeverity(): "error" | "warning" {
+  const raw = process.env.SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS?.trim().toLowerCase();
+  if (raw === "1" || raw === "true" || raw === "on") return "warning";
+  return "error";
+}
+
 function detectSuspiciousPartialFileSnippet(content: string): string | null {
   const firstLine = firstMeaningfulLine(content);
   if (LEADING_CONTINUATION_LINE_RE.test(firstLine)) {
@@ -189,10 +195,11 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
 
       const projectPath = normalizeToProjectPath(source, file.path);
       if (!fileExists(fileMap, projectPath)) {
+        const severity = unresolvedImportSeverity();
         issues.push(
           createSanityIssue(
             file.path,
-            "warning",
+            severity,
             `Unresolved local import: ${source}`,
             "code_structure_failure",
           ),
@@ -335,6 +342,15 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
         ),
       );
     }
+  } else {
+    issues.push(
+      createSanityIssue(
+        "package.json",
+        "error",
+        "package.json is missing; dependency readiness cannot be verified",
+        "dependency_install_failure",
+      ),
+    );
   }
 
   // 7. Duplicate route detection

@@ -9,6 +9,9 @@ export type CreateTelemetryRecord = {
   versionId?: string | null;
   scaffoldId?: string | null;
   scaffoldAlternatives?: string[] | null;
+  scaffoldSelectionMethod?: string | null;
+  scaffoldSelectionConfidence?: string | null;
+  briefInfluencedSelection?: boolean;
   model: string;
   modelTier?: string | null;
   buildIntent?: string | null;
@@ -50,6 +53,9 @@ export async function createGenerationTelemetryRecord(record: CreateTelemetryRec
       versionId: record.versionId ?? null,
       scaffoldId: record.scaffoldId ?? null,
       scaffoldAlternatives: record.scaffoldAlternatives ?? null,
+      scaffoldSelectionMethod: record.scaffoldSelectionMethod ?? null,
+      scaffoldSelectionConfidence: record.scaffoldSelectionConfidence ?? null,
+      briefInfluencedSelection: record.briefInfluencedSelection ?? false,
       model: record.model,
       modelTier: record.modelTier ?? null,
       buildIntent: record.buildIntent ?? null,

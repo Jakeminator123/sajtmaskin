@@ -19,6 +19,7 @@ type ScaffoldStats = {
   feedbackPositive: number;
   preflightErrorSum: number;
   retryCount: number;
+  embeddingSelections: number;
 };
 
 const MIN_GENERATIONS = 5;
@@ -28,13 +29,23 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 let cache: { scores: Map<string, ScaffoldScore>; ts: number } | null = null;
 
 function computeCompositeScore(stats: ScaffoldStats): number {
-  const { totalGenerations, successCount, feedbackTotal, feedbackPositive, preflightErrorSum, retryCount } = stats;
+  const {
+    totalGenerations,
+    successCount,
+    feedbackTotal,
+    feedbackPositive,
+    preflightErrorSum,
+    retryCount,
+    embeddingSelections,
+  } = stats;
   const successRate = totalGenerations > 0 ? successCount / totalGenerations : 0;
+  const embeddingShare = totalGenerations > 0 ? embeddingSelections / totalGenerations : 0;
+  const methodAdjustedSuccess = successRate * (1 - 0.15 * embeddingShare);
   const feedbackScore = feedbackTotal > 0 ? feedbackPositive / feedbackTotal : 0;
   const retryRate = totalGenerations > 0 ? retryCount / totalGenerations : 0;
   const avgPreflightErrors = totalGenerations > 0 ? preflightErrorSum / totalGenerations : 0;
   const preflightTerm = 1 - Math.min(avgPreflightErrors / 10, 1);
-  return 0.4 * successRate + 0.3 * feedbackScore + 0.2 * (1 - retryRate) + 0.1 * preflightTerm;
+  return 0.4 * methodAdjustedSuccess + 0.3 * feedbackScore + 0.2 * (1 - retryRate) + 0.1 * preflightTerm;
 }
 
 function parseFeedbackRating(userFeedback: string | null): boolean | null {
@@ -61,6 +72,7 @@ export async function computeScaffoldScores(): Promise<ScaffoldScore[]> {
         userFeedback: generationTelemetry.userFeedback,
         preflightErrorCount: generationTelemetry.preflightErrorCount,
         scaffoldRetryUsed: generationTelemetry.scaffoldRetryUsed,
+        scaffoldSelectionMethod: generationTelemetry.scaffoldSelectionMethod,
       })
       .from(generationTelemetry)
       .where(
@@ -85,6 +97,7 @@ export async function computeScaffoldScores(): Promise<ScaffoldScore[]> {
           feedbackPositive: 0,
           preflightErrorSum: 0,
           retryCount: 0,
+          embeddingSelections: 0,
         };
         byScaffold.set(id, stats);
       }
@@ -98,6 +111,7 @@ export async function computeScaffoldScores(): Promise<ScaffoldScore[]> {
       }
       stats.preflightErrorSum += row.preflightErrorCount ?? 0;
       if (row.scaffoldRetryUsed === true) stats.retryCount += 1;
+      if (row.scaffoldSelectionMethod === "embedding") stats.embeddingSelections += 1;
     }
 
     const results: ScaffoldScore[] = [];
