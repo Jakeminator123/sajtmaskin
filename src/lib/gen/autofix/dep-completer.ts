@@ -80,6 +80,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "sonner": "^2",
   "vaul": "^1",
   "embla-carousel-react": "^8",
+  "embla-carousel-autoplay": "^8",
   "react-day-picker": "^9",
   "input-otp": "^1",
   "react-resizable-panels": "^4",

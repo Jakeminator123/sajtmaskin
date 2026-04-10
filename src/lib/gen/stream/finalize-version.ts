@@ -523,6 +523,7 @@ async function runFinalizeFastPath(params: {
     filesJson,
     routePlan,
     orchestrationContract,
+    originalPrompt,
   });
   filesJson = preflightResult.filesJson;
   filesJson = injectIntegrationManifestIntoFilesJson(filesJson);

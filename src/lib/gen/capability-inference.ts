@@ -157,40 +157,9 @@ export function hasHeavyCapabilities(caps: InferredCapabilities): boolean {
   );
 }
 
-/**
- * Build a short capability hint string for inclusion in the system prompt
- * dynamic context, so the model knows which libraries/patterns to use.
- */
-export function buildCapabilityHints(caps: InferredCapabilities): string | null {
-  const lines: string[] = [];
-
-  if (caps.needs3D) {
-    lines.push(
-      "- **3D/WebGL requested**: Use @react-three/fiber + @react-three/drei. Wrap Canvas in a \"use client\" component. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. For **physics / gravity**, add @react-three/rapier (Physics, RigidBody). For **GLB/GLTF**, use useGLTF from drei and put assets under public/.",
-    );
-  }
-  if (caps.needsMotion && !caps.needs3D) {
-    lines.push("- **Motion/animation requested**: Use framer-motion for entrance animations, scroll reveals, and microinteractions. Add framer-motion to deps.");
-  }
-  if (caps.needsCharts) {
-    lines.push("- **Charts/data visualization requested**: Use Recharts with shadcn ChartContainer. Provide realistic mock data (10-12 points).");
-  }
-  if (caps.needsCarousel) {
-    lines.push("- **Carousel/slider requested**: Use shadcn Carousel (wraps embla-carousel-react). Add embla-carousel-autoplay for auto-rotation.");
-  }
-  if (caps.needsPremiumVisuals) {
-    lines.push("- **Premium visual effects requested**: Use glassmorphism, gradient text, backdrop-blur, layered shadows. Go beyond standard card layouts.");
-  }
-  if (caps.needsForms) {
-    lines.push("- **Forms requested**: Use react-hook-form + zod + shadcn Form components. Always define a zod schema.");
-  }
-  if (caps.needsDatabase) {
-    lines.push("- **Database or persistence requested**: Do not assume Prisma, SQLite, Supabase, or Postgres unless the user explicitly chose one. If the provider, auth coupling, or required env vars are unclear, ask a clarifying question before generating backend code. Keep preview-safe mock data in the UI until the backend choice is confirmed.");
-  }
-  if (caps.needsAuth) {
-    lines.push("- **Auth pages requested**: Include login, register, and password reset flows. Use shadcn form components + zod validation.");
-  }
-
-  if (lines.length === 0) return null;
-  return `## Detected Capabilities\n\n${lines.join("\n")}`;
-}
+export {
+  buildCapabilityHints,
+  resolveCapabilityPacks,
+  collectPackDeps,
+  type CapabilityPack,
+} from "./capability-packs";
