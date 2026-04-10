@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { IntegrationSetupWizard } from "@/components/builder/IntegrationSetupWizard";
 import { dispatchProjectEnvVarsUpdated } from "@/lib/builder/project-env-events";
-import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/business-packs";
+import { detectBusinessWorkflowPacks, type BusinessWorkflowPack } from "@/lib/gen/packs/business-packs";
 import {
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,

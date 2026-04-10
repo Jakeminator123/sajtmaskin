@@ -317,8 +317,8 @@ Allt efter att generatorn producerat output.
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Verifier Pass** | `runVerifierPass()` → `VerifierFindings` | `verifier-pass.ts` | LLM-driven read-only granskning. | kanonisk |
-| **Verifier Pass Policy** | `resolveVerifierPassPolicy()` | `finalize-version.ts` (intern) | Bestämmer om verifier körs, baserat på BuildSpec. | kanonisk (intern) |
+| **Verifier Pass** | `runVerifierPass()` → `VerifierFindings` | `verify/verifier-pass.ts` | LLM-driven read-only granskning. | kanonisk |
+| **Verifier Pass Policy** | `resolveVerifierPassPolicy()` | `stream/finalize-version.ts` (intern) | Bestämmer om verifier körs, baserat på BuildSpec. | kanonisk (intern) |
 
 ### 3.4 Preflight och sanity
 
@@ -344,18 +344,18 @@ Allt efter att generatorn producerat output.
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Quality Gate** | `qualityGateResult` telemetri (`preflight_passed` / `preflight_failed`) | `finalize-version.ts` | Binärt pass/fail-beslut i finalize. | kanonisk |
-| **Quality Gate Checks** | `QUALITY_GATE_CHECK_VALUES`, `QualityGateCheck` | `quality-gate-checks.ts` | Vilka npm-checks som körs. | kanonisk |
-| **Quality Gate Lanes** | `INTERACTIVE_QUALITY_GATE_CHECKS`, `PROMOTION_QUALITY_GATE_CHECKS`, `TIER2_QUALITY_GATE_CHECKS`, `SERVER_VERIFY_QUALITY_GATE_CHECKS` | `quality-gate-checks.ts` | Vilka checks per lane (interaktiv, promotion, tier-2, server-verify). | kanonisk |
-| **Preview Quality Gate** | `runQualityGateChecks()`, `runQualityGateOnExportable()` | `preview-quality-gate.ts` | Preview-host verify-lane + ev. visuell QA. | kanonisk |
-| **Server Verify** | `triggerServerVerification()`, `isServerVerifyEligible()` | `server-verify.ts` | Asynkron verify + repair-loop efter finalize. | kanonisk |
-| **Server Verify Log Meta** | `buildServerVerifyQualityGateMeta()`, `buildServerRepairOutcomeMeta()` | `server-verify-log-meta.ts` | Logg/meta för server-verify. | kanonisk |
+| **Quality Gate Checks** | `QUALITY_GATE_CHECK_VALUES`, `QualityGateCheck` | `verify/quality-gate-checks.ts` | Vilka npm-checks som körs. | kanonisk |
+| **Quality Gate Lanes** | `INTERACTIVE_QUALITY_GATE_CHECKS`, `PROMOTION_QUALITY_GATE_CHECKS`, `TIER2_QUALITY_GATE_CHECKS`, `SERVER_VERIFY_QUALITY_GATE_CHECKS` | `verify/quality-gate-checks.ts` | Vilka checks per lane (interaktiv, promotion, tier-2, server-verify). | kanonisk |
+| **Preview Quality Gate** | `runQualityGateChecks()`, `runQualityGateOnExportable()` | `verify/preview-quality-gate.ts` | Preview-host verify-lane + ev. visuell QA. | kanonisk |
+| **Server Verify** | `triggerServerVerification()`, `isServerVerifyEligible()` | `verify/server-verify.ts` | Asynkron verify + repair-loop efter finalize. | kanonisk |
+| **Server Verify Log Meta** | `buildServerVerifyQualityGateMeta()`, `buildServerRepairOutcomeMeta()` | `verify/server-verify-log-meta.ts` | Logg/meta för server-verify. | kanonisk |
 | ~~PostChecksAndQualityGate~~ | — | `llm-signal-flow.md` | Sammansatt docs-term. | **döda** |
 
 ### 3.7 Eval-checks (verifieringsnära)
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Eval Checks** | `checkProjectSanity()`, `checkTier2Readiness()`, `checkSeoPublishReadiness()`, `checkVisualQuality()` | `eval/checks.ts` | Namngivna kontroller i eval-harnessen. | kanonisk |
+| **Eval Checks** | `checkProjectSanity()`, `checkTier2Readiness()`, `checkSeoPublishReadiness()`, `checkVisualQuality()` | `eval/checks.ts` | Namngivna kontroller i eval-harnessen. Visual QA i `verify/visual-qa.ts`. | kanonisk |
 
 ---
 
@@ -489,6 +489,7 @@ Allt efter att generatorn producerat output.
 | 2026-04-10 | Konsoliderad ordlista (v3): integrerat preview/VM/sandbox, produkttermer, env, legacy. Ersätter `terminology-builder-runtime.mdc` som primär källa. |
 | 2026-04-10 | Prompttyper och anropsklasser (v4): klassificering av create-chat, follow-up, plan mode, repair, etc. |
 | 2026-04-10 | Namnskuggor lösta (v5): `buildIntents` → `allowedBuildIntents`, `PlanPhase "polish"` → `"refine"`, `PromptStrategy "phase_plan_build_polish"` → `"phase_plan_build_refine"`. |
+| 2026-04-10 | gen/ omorganisation (v6): verify/, export/, packs/ undermappar. Sökvägar uppdaterade. |
 
 ## När detta dokument uppdateras
 

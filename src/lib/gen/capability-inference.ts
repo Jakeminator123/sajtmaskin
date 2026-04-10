@@ -162,4 +162,4 @@ export {
   resolveCapabilityPacks,
   collectPackDeps,
   type CapabilityPack,
-} from "./capability-packs";
+} from "./packs/capability-packs";

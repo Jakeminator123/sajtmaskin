@@ -36,7 +36,7 @@ import {
 import {
   resolveEnhancementPacks,
   buildEnhancementGuidance,
-} from "./enhancement-packs";
+} from "./packs/enhancement-packs";
 import { buildRoutePlan } from "./route-plan";
 import type { RoutePlan } from "./route-plan";
 import {

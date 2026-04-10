@@ -10,7 +10,7 @@
  * from requiredDeps — only deps that need *proactive* injection appear.
  */
 
-import type { InferredCapabilities } from "./capability-inference";
+import type { InferredCapabilities } from "../capability-inference";
 
 export interface CapabilityPack {
   capability: keyof InferredCapabilities;

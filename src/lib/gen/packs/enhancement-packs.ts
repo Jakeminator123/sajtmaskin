@@ -6,7 +6,7 @@
  * generates better code for each functional area.
  */
 
-import type { InferredCapabilities } from "./capability-inference";
+import type { InferredCapabilities } from "../capability-inference";
 
 export interface EnhancementPack {
   id: string;

@@ -1,15 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { SHADCN_COMPONENTS } from "./data/shadcn-components";
-import { KNOWN_PACKAGES } from "./autofix/dep-completer";
+import { SHADCN_COMPONENTS } from "../data/shadcn-components";
+import { KNOWN_PACKAGES } from "../autofix/dep-completer";
 import {
   CAPABILITY_PACKS,
   resolveCapabilityPacks,
   collectPackDeps,
   buildCapabilityHintsFromPacks,
 } from "./capability-packs";
-import type { InferredCapabilities } from "./capability-inference";
+import type { InferredCapabilities } from "../capability-inference";
 
 function readBaselineDeps(): Record<string, string> {
   const text = readFileSync(

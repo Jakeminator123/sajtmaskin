@@ -2,8 +2,8 @@ import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
-import { resolveCapabilityPacks, collectPackDeps } from "@/lib/gen/capability-packs";
-import { resolveEnhancementPacks, collectEnhancementDeps } from "@/lib/gen/enhancement-packs";
+import { resolveCapabilityPacks, collectPackDeps } from "@/lib/gen/packs/capability-packs";
+import { resolveEnhancementPacks, collectEnhancementDeps } from "@/lib/gen/packs/enhancement-packs";
 import {
   extractAppRoutePathsFromFilePaths,
   findMissingPlannedRoutes,
