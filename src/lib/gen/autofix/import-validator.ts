@@ -1,5 +1,9 @@
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
+import {
+  findNearestIcon,
+  parseSpecifier,
+} from "@/lib/gen/suspense/rules/lucide-icon-fix";
 import type { AutoFixEntry } from "./pipeline";
 
 const IMPORT_RE = /^import\s+\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
@@ -95,6 +99,68 @@ function fixShadcnImports(code: string): { code: string; fixes: AutoFixEntry[] }
 }
 
 /**
+ * Fix unknown lucide-react icon names in both single-line and multi-line imports.
+ * Uses the same nearest-icon resolution as the streaming lucide-icon-fix rule,
+ * but operates on the full file so it catches multi-line imports that the
+ * per-line streaming rule cannot match.
+ */
+const LUCIDE_IMPORT_MULTILINE_RE =
+  /(import\s*\{)([\s\S]*?)(\}\s*from\s*["']lucide-react["'])/g;
+
+function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const fixes: AutoFixEntry[] = [];
+
+  const fixed = code.replace(
+    LUCIDE_IMPORT_MULTILINE_RE,
+    (fullMatch, prefix: string, rawNames: string, suffix: string) => {
+      const specifiers = rawNames
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (specifiers.length === 0) return fullMatch;
+
+      let changed = false;
+      const fixedSpecs = specifiers.map((raw) => {
+        const { imported, local } = parseSpecifier(raw);
+
+        if (LUCIDE_ICONS.has(imported)) return raw;
+
+        changed = true;
+        const nearest = findNearestIcon(imported);
+
+        if (nearest === local) return nearest;
+        return `${nearest} as ${local}`;
+      });
+
+      if (!changed) return fullMatch;
+
+      const hasNewlines = rawNames.includes("\n");
+      const joined = hasNewlines
+        ? "\n  " + fixedSpecs.join(",\n  ") + ",\n"
+        : " " + fixedSpecs.join(", ") + " ";
+
+      const replacedNames = specifiers
+        .filter((raw) => {
+          const { imported } = parseSpecifier(raw);
+          return !LUCIDE_ICONS.has(imported);
+        })
+        .map((raw) => parseSpecifier(raw).imported);
+
+      fixes.push({
+        fixer: "import-validator",
+        description: `Fixed unknown lucide icon(s): ${replacedNames.join(", ")}`,
+        line: 0,
+      });
+
+      return `${prefix}${joined}${suffix}`;
+    },
+  );
+
+  return { code: fixed, fixes };
+}
+
+/**
  * Validate all imports and return warnings for unknown components/icons.
  * Does not block — only flags for logging.
  */
@@ -132,7 +198,9 @@ export function runImportValidator(code: string): {
   fixes: AutoFixEntry[];
   warnings: string[];
 } {
-  const { code: fixedCode, fixes } = fixShadcnImports(code);
-  const warnings = validateImports(fixedCode);
-  return { code: fixedCode, fixes, warnings };
+  const shadcn = fixShadcnImports(code);
+  const lucide = fixLucideImports(shadcn.code);
+  const fixes = [...shadcn.fixes, ...lucide.fixes];
+  const warnings = validateImports(lucide.code);
+  return { code: lucide.code, fixes, warnings };
 }

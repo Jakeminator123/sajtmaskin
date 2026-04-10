@@ -296,6 +296,7 @@ export function createOwnEngineGenerationStream(
           commitCredits,
           buildSpec,
           recoveredAfterStreamAbort: options?.recoveredAfterStreamAbort === true,
+          repairPassIndex: targetVersionId ? 1 : 0,
         });
       };
 

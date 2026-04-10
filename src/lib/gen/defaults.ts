@@ -45,8 +45,8 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
 //   # ── Token-gränser ────────────────────────────────────────────
-//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=82768
-//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=12288
+//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=131072
+//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=49152
 //   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=82768
 //
 // ============================================================================

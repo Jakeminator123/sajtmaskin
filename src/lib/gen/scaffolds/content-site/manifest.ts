@@ -332,7 +332,7 @@ export function SiteHeader() {
     {
       path: "components/site-footer.tsx",
       content: `import { Separator } from "@/components/ui/separator";
-import { GithubIcon, Linkedin, Mail } from "lucide-react";
+import { Globe, Link2, Mail } from "lucide-react";
 
 const footerLinks = {
   Tjänster: [
@@ -367,10 +367,10 @@ export function SiteFooter() {
             </p>
             <div className="flex gap-3">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="GitHub">
-                <GithubIcon className="h-5 w-5" />
+                <Globe className="h-5 w-5" />
               </a>
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="LinkedIn">
-                <Linkedin className="h-5 w-5" />
+                <Link2 className="h-5 w-5" />
               </a>
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="E-post">
                 <Mail className="h-5 w-5" />

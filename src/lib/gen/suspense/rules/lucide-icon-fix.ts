@@ -1,7 +1,7 @@
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import type { SuspenseRule, StreamContext } from "../transform";
 
-const FALLBACK_ICON = "Circle";
+export const FALLBACK_ICON = "Circle";
 
 /**
  * Matches `import { ... } from "lucide-react"` and validates each
@@ -28,7 +28,7 @@ for (const icon of LUCIDE_ICONS) {
  *  3. Substring containment (icon name contained in query or vice versa)
  *  4. Fallback to Circle
  */
-function findNearestIcon(name: string): string {
+export function findNearestIcon(name: string): string {
   const lower = name.toLowerCase();
 
   // 1. Case-insensitive exact
@@ -65,7 +65,7 @@ function findNearestIcon(name: string): string {
  *   "Foo"        → { imported: "Foo", local: "Foo" }
  *   "Foo as Bar" → { imported: "Foo", local: "Bar" }
  */
-function parseSpecifier(raw: string): { imported: string; local: string } {
+export function parseSpecifier(raw: string): { imported: string; local: string } {
   const parts = raw.split(/\s+as\s+/);
   if (parts.length === 2) {
     return { imported: parts[0].trim(), local: parts[1].trim() };

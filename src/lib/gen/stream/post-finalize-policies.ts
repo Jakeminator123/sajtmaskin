@@ -41,6 +41,7 @@ export function shouldTriggerPostFinalizePreview(params: {
 export function shouldTriggerPostFinalizeServerVerify(params: {
   buildSpec: BuildSpec;
   finalized: FinalizeResult;
+  repairPassIndex?: number;
 }): boolean {
   return resolvePostFinalizeServerVerifyDecision(params).run;
 }
@@ -48,9 +49,10 @@ export function shouldTriggerPostFinalizeServerVerify(params: {
 export function resolvePostFinalizeServerVerifyDecision(params: {
   buildSpec: BuildSpec;
   finalized: FinalizeResult;
+  repairPassIndex?: number;
 }): { run: boolean; reason: string } {
-  const { buildSpec, finalized } = params;
-  if (buildSpec.verificationPolicy === "fast") {
+  const { buildSpec, finalized, repairPassIndex = 0 } = params;
+  if (buildSpec.verificationPolicy === "fast" && repairPassIndex === 0) {
     return { run: false, reason: "fast_policy" };
   }
   if (!isServerVerifyEligible(finalized.version.id)) {

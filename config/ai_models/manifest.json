@@ -540,15 +540,15 @@
   "tokenBudgets": {
     "engineMaxOutputTokens": {
       "envKey": "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
-      "default": 82768,
+      "default": 131072,
       "min": 4096,
       "max": 262144
     },
     "autofixMaxOutputTokens": {
       "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-      "default": 24576,
+      "default": 49152,
       "min": 2048,
-      "max": 65536
+      "max": 131072
     },
     "assistMaxOutputTokens": {
       "envKey": "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
@@ -662,9 +662,9 @@
       ],
       "tokenBudget": {
         "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-        "default": 24576,
+        "default": 49152,
         "min": 2048,
-        "max": 65536
+        "max": 131072
       }
     },
     {

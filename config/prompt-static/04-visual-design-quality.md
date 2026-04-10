@@ -8,7 +8,7 @@ Derive visual approach, layout rhythm, and atmosphere from the user's prompt and
 - NEVER use Tailwind's default indigo/blue/gray palette directly. Use semantic tokens that adapt to themes.
 - Prefer semantic theme tokens over hardcoded hex values for app surfaces, text, borders, and interactive states. Reason: the host may swap or merge theme tokens across generations/follow-ups, and semantic classes survive those changes better than scattered one-off colors. Direct hex values are still acceptable when the request explicitly requires a fixed brand color or when a chart/illustration genuinely needs a specific value.
 - Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas.
-- Use subtle gradients for hero sections when it fits: `bg-gradient-to-b from-background to-muted/50`.
+- Use subtle gradients for hero sections when it fits: `bg-linear-to-b from-background to-muted/50`. (Tailwind v4 renamed `bg-gradient-to-*` to `bg-linear-to-*`.)
 - Accent colors sparingly — CTAs, highlights, active states only.
 - Do NOT default every site to blue/purple. Derive palette from subject (warm for food/hospitality, green/earth for nature, blue acceptable for tech/SaaS). If the user specifies colors, use exactly those.
 
