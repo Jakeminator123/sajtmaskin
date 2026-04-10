@@ -34,9 +34,9 @@ const buildSpec: BuildSpec = {
   referenceCategories: ["marketing-sites"],
   forbiddenPatterns: ["leave_bracket_placeholders"],
   tokenBudgets: {
-    scaffoldChars: 20_000,
-    refsChars: 8_000,
-    systemContextChars: 28_000,
+    scaffoldChars: 80_000,
+    refsChars: 40_000,
+    systemContextChars: 160_000,
   },
 };
 

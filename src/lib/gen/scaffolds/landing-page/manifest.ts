@@ -38,7 +38,11 @@ export const landingPageManifest: ScaffoldManifest = {
       "Use next/image with proper sizing for all hero and section images.",
       "Generate metadata with title, description, and OG tags matching the user's business.",
     ],
-    referenceTemplates: [],
+    referenceTemplates: [
+      { id: "saas-paddle-billing-subscription-starter", title: "Paddle Billing Subscription Starter", categorySlug: "saas", qualityScore: 96, strengths: ["verified Next.js codebase", "pricing and CTA patterns", "section hierarchy"] },
+      { id: "cms-next-js-waitlist-with-notion-cms", title: "Next.js Waitlist with Notion CMS", categorySlug: "cms", qualityScore: 96, strengths: ["verified Next.js codebase", "content-first landing pattern", "waitlist CTA flow"] },
+      { id: "cms-basehub-marketing-website", title: "BaseHub Marketing Website", categorySlug: "cms", qualityScore: 88, strengths: ["verified Next.js codebase", "marketing page structure", "content hierarchy"] },
+    ],
   },
   files: [
     {

@@ -16,6 +16,10 @@ export const ecommerceManifest: ScaffoldManifest = {
     "webshop",
     "storefront",
     "retail",
+    "checkout",
+    "e-handel",
+    "produkter",
+    "kundvagn",
   ],
   promptHints: [
     "Use this scaffold for online stores, product catalogs, and webshops.",
@@ -38,7 +42,11 @@ export const ecommerceManifest: ScaffoldManifest = {
       "Show related products and recently viewed items on product pages.",
       "Generate structured data (JSON-LD Product + BreadcrumbList) for category and product pages.",
     ],
-    referenceTemplates: [],
+    referenceTemplates: [
+      { id: "ecommerce-blazity-enterprise-ecommerce-starter", title: "Blazity Enterprise Ecommerce Starter", categorySlug: "ecommerce", qualityScore: 96, strengths: ["verified Next.js codebase", "product catalog patterns", "checkout flow"] },
+      { id: "ecommerce-stripe-subscription-starter", title: "Stripe Subscription Starter", categorySlug: "ecommerce", qualityScore: 96, strengths: ["verified Next.js codebase", "payment integration", "subscription billing"] },
+      { id: "ecommerce-your-next-store-commerce-with-next-js-and-stripe", title: "Your Next Store — Commerce with Stripe", categorySlug: "ecommerce", qualityScore: 96, strengths: ["verified Next.js codebase", "storefront architecture", "cart and checkout"] },
+    ],
   },
   files: [
     {

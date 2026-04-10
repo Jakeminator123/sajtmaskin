@@ -33,7 +33,11 @@ export const blogManifest: ScaffoldManifest = {
       "Add related posts, reading time, and share actions on article pages.",
       "Add newsletter CTA blocks tuned to the publication's actual niche.",
     ],
-    referenceTemplates: [],
+    referenceTemplates: [
+      { id: "blog-notion-powered-next-js-blog", title: "Notion-Powered Next.js Blog", categorySlug: "blog", qualityScore: 94, strengths: ["verified Next.js codebase", "editorial content hierarchy", "CMS integration pattern"] },
+      { id: "blog-a-next-js-14-blog-with-server-components", title: "Next.js 14 Blog with Server Components", categorySlug: "blog", qualityScore: 92, strengths: ["verified Next.js codebase", "Server Components pattern", "article layout"] },
+      { id: "blog-blog-with-agility-cms-and-next-js", title: "Blog with Agility CMS and Next.js", categorySlug: "blog", qualityScore: 92, strengths: ["verified Next.js codebase", "headless CMS pattern", "blog archive structure"] },
+    ],
   },
   files: [
     {
