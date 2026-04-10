@@ -3,7 +3,7 @@ import { put } from "@vercel/blob";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { buildExportableProject } from "@/lib/gen/build-exportable-project";
+import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 
 export const runtime = "nodejs";
 

@@ -2,7 +2,7 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import { shouldStartOwnEnginePreview } from "@/lib/gen/preview/should-start-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
-import { isServerVerifyEligible } from "@/lib/gen/server-verify";
+import { isServerVerifyEligible } from "@/lib/gen/verify/server-verify";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 
 export function getPostFinalizePreviewStartContract(

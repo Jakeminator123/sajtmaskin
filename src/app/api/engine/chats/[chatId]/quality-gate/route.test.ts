@@ -36,11 +36,11 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   promoteVersion,
 }));
 
-vi.mock("@/lib/gen/build-exportable-project", () => ({
+vi.mock("@/lib/gen/export/build-exportable-project", () => ({
   buildExportableProject,
 }));
 
-vi.mock("@/lib/gen/preview-quality-gate", () => ({
+vi.mock("@/lib/gen/verify/preview-quality-gate", () => ({
   QUALITY_GATE_COMMANDS: {
     typecheck: "npx tsc --noEmit",
     build: "npx next build",
@@ -54,7 +54,7 @@ vi.mock("@/lib/gen/preview-quality-gate", () => ({
   qualityGateAllPassed,
 }));
 
-vi.mock("@/lib/gen/server-verify-log-meta", () => ({
+vi.mock("@/lib/gen/verify/server-verify-log-meta", () => ({
   buildServerVerifyQualityGateMeta,
   compactVisualQAForQualityGateLog,
 }));

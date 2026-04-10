@@ -2,7 +2,7 @@ import JSZip from "jszip";
 
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { buildExportableProject } from "@/lib/gen/build-exportable-project";
+import { buildExportableProject } from "./build-exportable-project";
 
 /**
  * Build a ZIP of an own-engine version from `engine_versions.files_json`.

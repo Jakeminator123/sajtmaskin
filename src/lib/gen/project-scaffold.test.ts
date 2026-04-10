@@ -4,7 +4,7 @@ import {
   mergePackageJsonWithBaseline,
   mergeTsconfigWithBaseline,
 } from "./project-scaffold";
-import { buildExportableProject } from "./build-exportable-project";
+import { buildExportableProject } from "./export/build-exportable-project";
 import { runProjectSanityChecks } from "./validation/project-sanity";
 import type { CodeFile } from "./parser";
 

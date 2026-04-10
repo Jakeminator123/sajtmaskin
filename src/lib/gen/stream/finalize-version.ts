@@ -15,7 +15,7 @@ import {
   type ScaffoldRetrySuggestion,
 } from "@/lib/gen/scaffolds/scaffold-aware-retry";
 import { parseFilesFromContent } from "@/lib/gen/version-manager";
-import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verifier-pass";
+import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verify/verifier-pass";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";

@@ -1,6 +1,6 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { UiMessagePart } from "@/lib/builder/types";
-import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
+import { TIER2_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
 import { appendToolPartToMessage, integrationSignalToToolPart } from "./helpers";
 import {

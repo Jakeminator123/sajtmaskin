@@ -20,31 +20,31 @@ import {
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { buildExportableProject } from "@/lib/gen/build-exportable-project";
+import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
+import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
   qualityGateAllPassed,
   runQualityGateOnExportable,
   shouldPromoteAfterRepair,
-} from "@/lib/gen/preview-quality-gate";
+} from "./preview-quality-gate";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
-import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
-import { buildLintRepairContextLines } from "@/lib/gen/lint-output";
+import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
+import { buildLintRepairContextLines } from "./lint-output";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
   buildServerRepairOutcomeMeta,
   compactVisualQAForQualityGateLog,
   type ServerVerifyFailedOutput,
-} from "@/lib/gen/server-verify-log-meta";
+} from "./server-verify-log-meta";
 
 const inflight = new Set<string>();
 

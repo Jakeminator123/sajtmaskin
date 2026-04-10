@@ -8,11 +8,11 @@ import {
   analyzeVisualQuality,
   isVisualQAEnabled,
   type VisualQAResult,
-} from "@/lib/gen/visual-qa";
+} from "./visual-qa";
 import {
   TIER2_QUALITY_GATE_CHECKS,
   type QualityGateCheck,
-} from "@/lib/gen/quality-gate-checks";
+} from "./quality-gate-checks";
 import { runPreviewHostQualityGate } from "@/lib/gen/preview/preview-host-client";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 

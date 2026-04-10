@@ -54,7 +54,7 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages,
 }));
 
-vi.mock("@/lib/gen/verifier-pass", () => ({
+vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   isVerifierPassEnabled,
   runVerifierPass,
 }));

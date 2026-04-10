@@ -1,5 +1,5 @@
-import type { QualityGateCheckResult } from "@/lib/gen/preview-quality-gate";
-import type { VisualQAResult } from "@/lib/gen/visual-qa";
+import type { QualityGateCheckResult } from "./preview-quality-gate";
+import type { VisualQAResult } from "./visual-qa";
 
 export type ServerVerifyFailedOutput = {
   check: string;

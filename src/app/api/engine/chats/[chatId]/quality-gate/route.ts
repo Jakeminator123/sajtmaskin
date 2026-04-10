@@ -9,9 +9,9 @@ import {
   markVersionVerifying,
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
-import { buildExportableProject } from "@/lib/gen/build-exportable-project";
-import { QUALITY_GATE_CHECK_VALUES } from "@/lib/gen/quality-gate-checks";
-import type { VisualQAResult } from "@/lib/gen/visual-qa";
+import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
+import { QUALITY_GATE_CHECK_VALUES } from "@/lib/gen/verify/quality-gate-checks";
+import type { VisualQAResult } from "@/lib/gen/verify/visual-qa";
 import {
   describeQualityGateVerification,
   QUALITY_GATE_COMMANDS,
@@ -23,11 +23,11 @@ import {
   runQualityGateChecks,
   qualityGateAllPassed,
   type QualityGateCheckResult,
-} from "@/lib/gen/preview-quality-gate";
+} from "@/lib/gen/verify/preview-quality-gate";
 import {
   buildServerVerifyQualityGateMeta,
   compactVisualQAForQualityGateLog,
-} from "@/lib/gen/server-verify-log-meta";
+} from "@/lib/gen/verify/server-verify-log-meta";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;

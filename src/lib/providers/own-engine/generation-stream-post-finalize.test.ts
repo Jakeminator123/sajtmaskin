@@ -60,7 +60,7 @@ vi.mock("@/lib/gen/preview/tier2-config", () => ({
   getPreviewHostBaseUrl,
 }));
 
-vi.mock("@/lib/gen/server-verify", () => ({
+vi.mock("@/lib/gen/verify/server-verify", () => ({
   isServerVerifyEligible,
   triggerServerVerification: vi.fn(),
 }));
