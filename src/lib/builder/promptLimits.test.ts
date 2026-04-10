@@ -21,31 +21,31 @@ describe("promptLimits", () => {
   });
 
   it("respects env var overrides", async () => {
-    process.env.V0_MAX_PROMPT_LENGTH = "80000";
+    process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "80000";
     const limits = await import("./promptLimits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(80_000);
   });
 
   it("clamps values below the minimum", async () => {
-    process.env.V0_MAX_PROMPT_LENGTH = "100";
+    process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "100";
     const limits = await import("./promptLimits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(5_000);
   });
 
   it("clamps values above the maximum", async () => {
-    process.env.V0_MAX_PROMPT_LENGTH = "9999999";
+    process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "9999999";
     const limits = await import("./promptLimits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(2_000_000);
   });
 
   it("falls back to default for non-numeric env values", async () => {
-    process.env.V0_MAX_PROMPT_LENGTH = "not-a-number";
+    process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "not-a-number";
     const limits = await import("./promptLimits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(800_000);
   });
 
   it("floors floating point env values", async () => {
-    process.env.V0_MAX_PROMPT_LENGTH = "75000.9";
+    process.env.SAJTMASKIN_MAX_PROMPT_LENGTH = "75000.9";
     const limits = await import("./promptLimits");
     expect(limits.MAX_CHAT_MESSAGE_CHARS).toBe(75_000);
   });

@@ -135,6 +135,7 @@ manual_log/
 input_files_for_cursor/logg_*.txt
 DOM_dev_tols.txt
 chat_till_vanster.txt
+logg.txt
 
 # Temp/dev files
 .preprompt_history.json

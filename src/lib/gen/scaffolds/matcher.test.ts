@@ -65,6 +65,15 @@ describe("matchScaffold", () => {
     expect(matchScaffold(prompt, "website")?.id).toBe("landing-page");
   });
 
+  it("keeps website intent on content scaffolds for app-like cinematic marketing prompts", () => {
+    const prompt =
+      'Jag vill ha en hemsida som är mycket app-lik med en massa coola 3dsaker och filmisk neon-känsla för en UFO-komedi.';
+
+    const result = matchScaffold(prompt, "website");
+    expect(result?.id).not.toBe("app-shell");
+    expect(result?.id).not.toBe("dashboard");
+  });
+
   it("lowers confidence when semantic fallback is unavailable for a generic default", async () => {
     mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
       results: [],
@@ -110,6 +119,80 @@ describe("matchScaffold", () => {
 
     expect(result.scaffold?.id).toBe("portfolio");
     expect(result.meta.selectionMethod).toBe("embedding");
+    expect(result.meta.embeddingOverrideReason).toBe("generic_keyword_override");
+  });
+
+  it("does not override a generic keyword pick when embedding score is below generic threshold", async () => {
+    const portfolio = getScaffoldById("portfolio");
+    expect(portfolio).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: portfolio!, score: 0.4 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 11,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en enkel företagshemsida med tjänster, om oss och kontakt.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).toBe("landing-page");
+    expect(result.meta.selectionMethod).toBe("default");
+  });
+
+  it("uses brief query context to boost scaffold keyword matching", async () => {
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 7,
+      },
+    });
+
+    const result = await matchScaffoldAuto("Bygg en hemsida", "website", {
+      queryContext: {
+        briefPages: [
+          { name: "Login", purpose: "User authentication and sign in" },
+          { name: "Signup", purpose: "Create account" },
+        ],
+      },
+    });
+
+    expect(result.scaffold?.id).toBe("auth-pages");
+    expect(result.meta.keywordScores["auth-pages"]).toBeGreaterThanOrEqual(2);
+  });
+
+  it("does not let embedding pick portfolio when buildIntent is app", async () => {
+    const portfolio = getScaffoldById("portfolio");
+    expect(portfolio).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: portfolio!, score: 0.72 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 10,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en app med ett galleri för mina projekt och bilder.",
+      "app",
+    );
+
+    expect(result.scaffold?.id).not.toBe("portfolio");
   });
 
   it("does not let embedding pick auth-pages without auth keywords", async () => {

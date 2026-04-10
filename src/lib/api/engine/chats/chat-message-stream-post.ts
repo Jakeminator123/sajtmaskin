@@ -24,6 +24,8 @@ import {
   buildStoredContractClarificationUiPart,
 } from "@/lib/gen/contract/clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
+import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
+import { deriveFollowUpContextPolicy } from "@/lib/gen/build-spec";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildGenerationInputPackage,
@@ -134,7 +136,10 @@ export async function handleMessageStreamRequest(
       const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
         const buildProfileId = getBuildProfileId(resolvedModelTier);
-        const resolvedThinking = typeof thinking === "boolean" ? thinking : false;
+        const resolvedThinking =
+          typeof thinking === "boolean"
+            ? thinking
+            : process.env.SAJTMASKIN_DEFAULT_THINKING === "true";
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
         const metaBuildMethod = parsedMeta.buildMethod;
@@ -241,11 +246,17 @@ export async function handleMessageStreamRequest(
         }
 
         if (previousFiles.length > 0) {
+          const inferredCapabilities = inferCapabilities(message);
+          const capabilityHeavy = hasHeavyCapabilities(inferredCapabilities);
+          const followUpContextPolicy = deriveFollowUpContextPolicy({
+            prompt: message,
+            skipIntentClassification,
+            followUpIntent,
+            capabilityHeavy,
+          });
           const useLightFollowUpContext =
             FEATURES.useFollowUpLightContext &&
-            !skipIntentClassification &&
-            followUpIntent !== "clear-redesign" &&
-            !looksDesignHeavyMessage(message.trim());
+            followUpContextPolicy === "light";
           const manyFiles = previousFiles.length > 14;
           const fileCtx = buildFileContext({
             files: previousFiles,
@@ -424,6 +435,7 @@ export async function handleMessageStreamRequest(
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
             existingRoutePaths,
+            capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
             chatId,
@@ -545,6 +557,7 @@ export async function handleMessageStreamRequest(
           generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
           ignorePersistedScaffoldForMatch,
           existingRoutePaths,
+          capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -588,7 +601,7 @@ export async function handleMessageStreamRequest(
             content: m.content,
           }));
 
-        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        const engineModel = resolveEngineModelId(resolvedModelTier);
         debugLog("build", "Follow-up chat stream request", {
           chatId,
           buildProfileId,

@@ -9,6 +9,7 @@ import {
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
+  fixNextOgImageResponseImport,
 } from "./common-import-fixer";
 
 describe("common-import-fixer", () => {
@@ -77,6 +78,22 @@ describe("common-import-fixer", () => {
     const result = fixNextImageImport(code);
 
     expect(result.fixed).toBe(false);
+  });
+
+  it("adds next/og ImageResponse import when opengraph files use ImageResponse without import", () => {
+    const code = `export default function OpenGraphImage() {\n  return new ImageResponse(<div>Hej</div>, { width: 1200, height: 630 });\n}`;
+    const result = fixNextOgImageResponseImport(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { ImageResponse } from "next/og";');
+  });
+
+  it("merges ImageResponse into an existing next/og import", () => {
+    const code = `import { ImageData } from "next/og";\nexport default function OpenGraphImage() {\n  return new ImageResponse(<div>Hej</div>, { width: 1200, height: 630 });\n}`;
+    const result = fixNextOgImageResponseImport(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { ImageData, ImageResponse } from "next/og";');
   });
 
   it("rewires local default imports to named imports when the target has no default export", () => {

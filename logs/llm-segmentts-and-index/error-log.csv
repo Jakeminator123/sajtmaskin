@@ -1,0 +1,12 @@
+time,phase,step,severity,created_by,fixed_by,model_tier,model,provider,pass,problem,action,outcome,chat_id,version_id,lineage_hash
+03:45:28,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,max,-,-,-,"38 fix(ar), 3 varning(ar)",Deterministisk autofix,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+03:45:28,phase-3,Autofix,warning,deterministic-autofix,-,max,-,-,-,Mycket fixar (38),Notering: instabilitet i generering,Varning,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+03:45:37,phase-3,Verifier-pass,warning,verifier-pass,-,max,-,-,-,"blocking=2, quality=4",Read-only kvalitetsgranskning,Signaler,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+03:45:37,phase-3,Filreparation (preflight),info,preflight,deterministic-autofix,max,-,-,-,2 reparation(er),Deterministisk filreparation,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+03:56:01,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,max,-,-,-,"20 fix(ar), 2 varning(ar)",Deterministisk autofix,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+03:56:01,phase-3,Autofix,warning,deterministic-autofix,-,max,-,-,-,Mycket fixar (20),Notering: instabilitet i generering,Varning,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+03:56:02,phase-3,Filreparation (preflight),info,preflight,deterministic-autofix,max,-,-,-,2 reparation(er),Deterministisk filreparation,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+03:57:33,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,max,-,-,-,"0 fix(ar), 1 varning(ar)",Deterministisk autofix,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+04:01:26,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,max,-,-,-,"0 fix(ar), 1 varning(ar)",Deterministisk autofix,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+04:04:10,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,max,-,-,-,"1 fix(ar), 0 varning(ar)",Deterministisk autofix,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+04:04:10,phase-3,Filreparation (preflight),info,preflight,deterministic-autofix,max,-,-,-,1 reparation(er),Deterministisk filreparation,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-

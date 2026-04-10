@@ -76,7 +76,7 @@ read `docs/architecture/llm-signal-flow.md`.
 
 ## Code sources of truth
 
-Runtime truth: same core files as [`docs/README.md`](../README.md) § Source of truth (models, `chatSchemas`, `db/schema`, scaffolds, template-library). Schema-specific extras: `src/lib/gen/plan-schema.ts`, `data/external-template-pipeline/reference-library/schema.template-manifest.json`.
+Runtime truth: same core files as [`docs/README.md`](../README.md) § Source of truth (models, `chatSchemas`, `db/schema`, scaffolds, template-library). Schema-specific extras: `src/lib/gen/plan/schema.ts`, `data/external-template-pipeline/reference-library/schema.template-manifest.json`.
 
 Strict schemas are still mirrors of code-backed contracts, not replacements for
 the runtime source of truth.

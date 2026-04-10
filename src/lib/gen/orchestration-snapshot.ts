@@ -127,6 +127,9 @@ export function prependOrchestrationContinuityToFollowUp(
   if (typeof buildSpec?.previewPolicy === "string") {
     lines.push(`- Previous preview policy: ${buildSpec.previewPolicy}`);
   }
+  if (typeof buildSpec?.stylePack === "string") {
+    lines.push(`- Previous style pack: ${buildSpec.stylePack}`);
+  }
   if (lines.length === 0) return message;
   return wrapWithSection({
     heading: PROMPT_WRAPPER_HEADINGS.continuity,

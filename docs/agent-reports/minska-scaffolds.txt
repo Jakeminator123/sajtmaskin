@@ -1,0 +1,236 @@
+MINSKA SCAFFOLDS - PRAKTISK STANDPUNKT
+=====================================
+
+Kort svar
+---------
+Ja, du bor minska antalet riktiga runtime-scaffolds.
+Nej, du bor inte minska all research eller alla externa mallar till bara en per kategori.
+
+Det rationella ar:
+- fa, tydliga runtime-scaffolds
+- flera externa referenser per scaffold-familj
+- manga raa lokala zippar endast som research-pool, inte som direkt runtime-input
+
+
+1. Vad en scaffold egentligen ar
+--------------------------------
+
+En scaffold ar inte bara "struktur", men struktur ar den viktigaste delen.
+
+En bra scaffold innehaller i praktiken:
+- grundstruktur for routes och informationsarkitektur
+- filtrad och komponentuppdelning
+- designbias och UI-tyngdpunkt
+- val av shell/sektioner/navigation
+- default-forvantningar om vad sajten eller appen ska kunna gora
+
+Alltsa:
+- ja, scaffold = "hur sajten ar upplagd"
+- men ocksa "vilken typ av losning modellen bor starta fran"
+
+
+2. Hur repot ar uppdelat idag
+-----------------------------
+
+A. Runtime-scaffolds
+- `src/lib/gen/scaffolds/*`
+- Dessa 10 familjer ar det som own-engine faktiskt anvander nu:
+  - `base-nextjs`
+  - `landing-page`
+  - `saas-landing`
+  - `portfolio`
+  - `blog`
+  - `dashboard`
+  - `auth-pages`
+  - `ecommerce`
+  - `content-site`
+  - `app-shell`
+
+B. Externa Vercel-mallar / template-library
+- `e2e/vercel-templates/*`
+- `data/external-template-pipeline/*`
+- `src/lib/gen/template-library/*`
+- Detta ar research-, kuratering- och valideringssparet.
+
+C. Builderns Mallar-tab / lokala v0-mallar
+- `templates_v0/*`
+- `src/lib/templates/*`
+- Detta ar separat fran runtime-scaffolds.
+
+
+3. Min tydliga asikt: minska inte research - minska runtime-scaffolds
+---------------------------------------------------------------------
+
+Det du ska minimera ar inte antalet zippar i lagret.
+Det du ska minimera ar antalet startpunkter som own-engine maste valja mellan i het runtime.
+
+Bra malbild:
+- 8 till 12 riktiga runtime-scaffolds
+- 3 till 5 starka externa referenser per scaffold-familj
+- 30 till 80 hogsignal-zippar/repon som research-pool per stor familj
+- resten kvar som kallarkiv, inte som forstahandsunderlag
+
+Detta ligger redan ganska nara hur repot tanker idag.
+
+
+4. Ska du bara ha en bra mall per scaffold?
+-------------------------------------------
+
+Nej, inte bara en.
+
+Om du bara har en referens per scaffold-familj far du:
+- for smal smak
+- for hog risk att en enda mall styr allt visuellt
+- samre chans att hitta appiga monster, tat data-ui, auth-floden, settings, dashboard-layouts
+
+Battre modell:
+- en intern scaffold per familj
+- nagra fa kuraterade externa referenser per familj
+- fler raa zippar i bakgrunden for framtida promotion eller manuell extraktion
+
+
+5. Anvands lokala zippar for lite idag?
+---------------------------------------
+
+Ja och nej.
+
+Ja:
+- de stora lokala zippoolerna verkar idag anvandas mer som lager an som aktivt kuraterad kvalitetsbank
+- du har sannolikt mer material an vad runtime faktiskt drar nytta av
+
+Nej:
+- de bor fortfarande finnas kvar, for de ar bra som framtida promotion-kandidater
+- de bor bara inte skickas in rakt av i runtime eller prompt
+
+Min rekommendation for dina ca 150-500 lokala zippar:
+- behall dem som raa kallar
+- score:a dem
+- mark 20-40 som "appiga premium-kandidater"
+- mark 20-40 som "marketing/landing premium-kandidater"
+- mark 10-20 som "auth/dashboard/settings" kandidater
+- lat resten vara arkiv tills du behover dem
+
+
+6. Blir ni lidande av att externa referenser inte ar med mer direkt?
+--------------------------------------------------------------------
+
+Lite, men inte pa det sattet man latt tror.
+
+Ni blir inte mest lidande av att hela externa repos inte skickas in live.
+Ni blir mest lidande om:
+- runtime-scaffolden ar for tunn eller fel familj
+- researchen inte ar tillrackligt kuraterad per familj
+- appiga monster inte vinner over marketing-defaults nar intent ar app
+
+Det viktiga ar alltsa inte "mer massa in i prompten".
+Det viktiga ar "ratt kondenserad signal till ratt scaffold".
+
+
+7. Vilka externa referenser skulle vara mest vardefulla?
+--------------------------------------------------------
+
+Inte "alla". Framfor allt dessa typer:
+
+A. App-shell / dashboard
+- settings
+- billing
+- team/users
+- reports/analytics
+- dense tables
+- filter panels
+- tomlages/empty states
+
+B. Ecommerce
+- produktlistor
+- produktdetalj
+- cart/checkout
+- account/order history
+
+C. Auth / onboarding
+- login
+- signup
+- forgot password
+- invite/member flows
+
+D. Content/marketing
+- bra CMS-/docs-strukturer
+- tydliga section systems
+- mycket bra typography/content pacing
+
+Det ar alltsa inte bara "snygga mallar" du vill ha.
+Du vill ha mallar som har tydlig produktlogik och riktig interaktionsyta.
+
+
+8. Hur du far mer "appiga" sajter
+---------------------------------
+
+Om du vill att generatorn ska bli mer appig ska du styra fyra saker:
+
+A. Hogre scaffold-prioritet for app-familjer
+- `dashboard`
+- `app-shell`
+- `auth-pages`
+- `ecommerce`
+
+B. Mindre default-hero-bias
+- app-prompts ska inte falla tillbaka till marketing-landing om inte prompten verkligen ar broschyrig
+
+C. Tydligare app-signaler i research
+- references som visar shell, nav, settings, dashboards, CRUD-floden, data-tabeller, auth
+
+D. Bredare "work area"-tank
+- huvudytor med sidebar/topnav
+- fler delvyer
+- fler states: empty/loading/error/success
+- mindre "stor hero + 3 sektioner"
+
+
+9. Rationell organisationsmodell framover
+-----------------------------------------
+
+Niva 1 - Radata
+- `templates_v0/downloads/*`
+- `data/external-template-pipeline/*`
+- zippar, shallow clones, screenshots, metadata
+
+Niva 2 - Kuratering
+- scores
+- tags
+- familj
+- app-vs-marketing
+- kvalitet
+- utplockade "promotion candidates"
+
+Niva 3 - Runtime
+- sma, rena, underhallbara scaffolds
+- tydlig registry
+- fa familjer
+
+Ror inte ihop dessa tre nivaer.
+Det ar just hopblandningen som skapar mental skuld.
+
+
+10. Min raka rekommendation till dig
+------------------------------------
+
+Om malet ar en hemsidegenerator i snudd pa varldsklass utifran det ni redan har:
+
+1. Behall de 10 runtime-scaffoldfamiljerna ungefarligt som nu.
+2. Gor dem battre i stallet for att gora fler.
+3. Kuratera externa referenser mycket hardare per familj.
+4. Skapa en liten "premium app pool" av lokala zippar som du faktiskt granskar manuellt.
+5. Lat inte raa zippar eller hela referensrepon ga rakt in i prompten.
+6. For appiga resultat: prioritera app-shell-struktur, states, data-ui och auth-floden over hero/marketingmonster.
+
+
+11. Svar pa den viktigaste fragan
+---------------------------------
+
+Ska du bara ta en bra mall per scaffold?
+- Nej.
+
+Ska du ha hundratals runtime-scaffolds?
+- Absolut nej.
+
+Ska du ha hundratals referenser i bakgrunden och bara ett litet antal verkliga runtime-scaffolds?
+- Ja, det ar nastan exakt den modell jag skulle satsa pa.

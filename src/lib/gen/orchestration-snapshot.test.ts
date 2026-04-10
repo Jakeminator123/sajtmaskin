@@ -175,7 +175,7 @@ describe("MCP generation path snapshot (K-019 continuity)", () => {
 });
 
 describe("prependOrchestrationContinuityToFollowUp", () => {
-  it("prepends when snapshot has signals", () => {
+  it("prepends when snapshot has signals including stylePack", () => {
     const next = prependOrchestrationContinuityToFollowUp("Change the hero", {
       modelTier: "max",
       promptStrategy: "compress",
@@ -186,6 +186,7 @@ describe("prependOrchestrationContinuityToFollowUp", () => {
         changeScope: "local-layout",
         contextPolicy: "light",
         previewPolicy: "fidelity2",
+        stylePack: "futuristic",
       },
     });
     expect(next).toContain("Continuity");
@@ -193,6 +194,7 @@ describe("prependOrchestrationContinuityToFollowUp", () => {
     expect(next).toContain("landing_page");
     expect(next).toContain("local-layout");
     expect(next).toContain("light");
+    expect(next).toContain("futuristic");
     expect(next).toContain("Change the hero");
   });
 

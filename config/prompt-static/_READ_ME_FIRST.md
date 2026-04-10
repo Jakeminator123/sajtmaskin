@@ -25,6 +25,11 @@ If you duplicate those topics here, the model gets **conflicting or stale** inst
 3. To add a section: new file under `prompt-static/` + add its path to `fragments` in the JSON.  
 4. Re-run `npm run dev` / save — the loader uses file mtimes (no rebuild required for text changes).
 
+Follow-up / existing-project guardrails are now consolidated into
+`07-existing-files-do-not-regenerate-unless-explicit.md` plus
+`13-intent-fidelity-and-merge.md`; there is no separate `12-follow-up-messages.md`
+fragment anymore.
+
 ## Inspect generated **dynamic** prompts locally
 
 Set `SAJTMASKIN_PROMPT_DUMP=1` (or `true`) in `.env.local`, restart `npm run dev`, then trigger a build. The app writes **overwritable “latest” files** under `data/prompt-dumps/` (gitignored):

@@ -12,6 +12,10 @@ Använd den här regeln bara när uppgiften faktiskt är plattforms-, shell-, Pl
 - **PowerShell på Windows**: bash-heredocs som `<<'EOF'` fungerar inte nativt.
 - **Git commit i PowerShell**: använd `@' ... '@ | git commit -F -` eller flera `-m`; använd inte bash-syntax.
 - **PowerShell pipe -> Vercel env**: `echo 'value' | npx vercel env add ...` lägger ofta till `\n` i värdet. Föredra temp-fil + `cmd /c "type ..."`.
+- **Quoted one-liners i PowerShell**: snabba `node -e` / `python -c`-kommandon med många citattecken, `\n`, regexar eller JSON-strängar går lätt sönder i PowerShell även när kommandot hade fungerat i bash. Föredra att:
+  - använda repoets vanliga scripts/testkommandon när möjligt
+  - läsa/ändra riktiga filer i stället för att bygga långa inline-snippets
+  - hålla inline-kommandon enkla och undvika tätt nestade `"..."` + `'...'` + backslashes
 
 ## Repo- och runtimefallgropar
 

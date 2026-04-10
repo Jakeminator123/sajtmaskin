@@ -30,9 +30,6 @@ const BLOCKED_IMPORT_PREFIXES = [
   "out/",
 ] as const;
 const SKIPPED_IMPORT_FILENAMES = new Set([
-  "package-lock.json",
-  "pnpm-lock.yaml",
-  "yarn.lock",
   ".ds_store",
 ]);
 const TEXT_EXTENSIONS = new Set([
@@ -483,7 +480,7 @@ export async function POST(req: Request) {
               user?.id,
             );
 
-      const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID, false);
+      const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID);
       const chat = await chatRepo.createChat(project.id, engineModel);
       if (trimmedMessage) {
         await chatRepo.addMessage(chat.id, "user", trimmedMessage);

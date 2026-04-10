@@ -49,6 +49,29 @@ describe("generation-log writer", () => {
       slug: "retro-arcade",
     });
     devLogAppend("in-progress", {
+      type: "autofix.result",
+      chatId: "chat_1",
+      fixes: [{ fixer: "next-og-image-response-import-fixer", file: "app/opengraph-image.tsx" }],
+      warnings: [],
+      slug: "retro-arcade",
+    });
+    devLogAppend("in-progress", {
+      type: "version.created",
+      chatId: "chat_1",
+      versionId: "ver_1",
+      lineageHash: "lineage_1",
+      slug: "retro-arcade",
+    });
+    devLogAppend("in-progress", {
+      type: "syntax-validation.fixer.start",
+      chatId: "chat_1",
+      versionId: "ver_1",
+      pass: 1,
+      errorCount: 1,
+      fixerModel: "gpt-5.3-codex",
+      slug: "retro-arcade",
+    });
+    devLogAppend("in-progress", {
       type: "preflight.summary",
       chatId: "chat_1",
       versionId: "ver_1",
@@ -75,6 +98,12 @@ describe("generation-log writer", () => {
     const runDir = path.join(rootDir, latestDirName);
     const summary = fs.readFileSync(path.join(runDir, "summary.md"), "utf8");
     const timeline = fs.readFileSync(path.join(runDir, "timeline.ndjson"), "utf8");
+    const faultFix = fs.readFileSync(path.join(runDir, "fault-fix-index.md"), "utf8");
+    const faultFixCsv = fs.readFileSync(path.join(runDir, "fault-fix-index.csv"), "utf8");
+    const globalCsv = fs.readFileSync(
+      path.join(tempDir, "logs", "llm-segmentts-and-index", "error-log.csv"),
+      "utf8",
+    );
     const meta = JSON.parse(fs.readFileSync(path.join(runDir, "meta.json"), "utf8")) as {
       versionId?: string;
       status?: string;
@@ -86,6 +115,15 @@ describe("generation-log writer", () => {
     expect(summary).toContain("Promptstrategi: direct");
     expect(summary).toContain("Version: ver_1");
     expect(timeline).toContain("\"type\":\"comm.request.followup\"");
+    expect(faultFix).toContain("| Tid | Fas | Steg | Severity |");
+    expect(faultFix).toContain("chat_1");
+    expect(faultFix).toContain("ver_1");
+    expect(faultFix).toContain("OpenAI");
+    expect(faultFix).toContain("lineage_1");
+    expect(faultFixCsv).toContain("time,phase,step,severity");
+    expect(faultFixCsv).toContain("chat_1");
+    expect(globalCsv).toContain("time,phase,step,severity");
+    expect(globalCsv).toContain("chat_1");
     expect(meta.versionId).toBe("ver_1");
     expect(meta.status).toBe("done");
   });

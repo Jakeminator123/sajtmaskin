@@ -1,5 +1,6 @@
 import type { ToolSet } from "ai";
 import { generateCode as generateWithEngine, type GenerateOptions, type ReasoningEffort } from "./engine";
+import type { StreamMeta } from "./stream-format";
 
 export interface PipelineOptions {
   prompt: string;
@@ -13,6 +14,7 @@ export interface PipelineOptions {
   tools?: ToolSet;
   maxSteps?: number;
   referenceAttachments?: GenerateOptions["referenceAttachments"];
+  meta?: StreamMeta;
 }
 
 /**
@@ -22,17 +24,20 @@ export interface PipelineOptions {
 export function createGenerationPipeline(
   options: PipelineOptions,
 ): ReadableStream<Uint8Array> {
-  return generateWithEngine({
-    prompt: options.prompt,
-    systemPrompt: options.systemPrompt,
-    model: options.model,
-    chatHistory: options.chatHistory,
-    thinking: options.thinking,
-    reasoningEffort: options.reasoningEffort,
-    maxTokens: options.maxTokens,
-    abortSignal: options.abortSignal,
-    tools: options.tools,
-    maxSteps: options.maxSteps,
-    referenceAttachments: options.referenceAttachments,
-  });
+  return generateWithEngine(
+    {
+      prompt: options.prompt,
+      systemPrompt: options.systemPrompt,
+      model: options.model,
+      chatHistory: options.chatHistory,
+      thinking: options.thinking,
+      reasoningEffort: options.reasoningEffort,
+      maxTokens: options.maxTokens,
+      abortSignal: options.abortSignal,
+      tools: options.tools,
+      maxSteps: options.maxSteps,
+      referenceAttachments: options.referenceAttachments,
+    },
+    options.meta,
+  );
 }

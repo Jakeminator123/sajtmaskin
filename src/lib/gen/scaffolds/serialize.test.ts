@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serializeScaffoldForPrompt } from "./serialize";
+import { detectScaffoldMode, serializeScaffoldForPrompt } from "./serialize";
 import type { ScaffoldManifest } from "./types";
 
 function makeLongFile(label: string): string {
@@ -47,5 +47,76 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out).toContain('file="app/layout.tsx"');
     expect(out).toContain('file="app/page.tsx"');
     expect(out).not.toContain("NON_CRITICAL_PAYLOAD");
+  });
+
+  it("prioritizes route/capability-relevant files in critical scaffold selection", () => {
+    const scaffold: ScaffoldManifest = {
+      id: "test-auth-aware",
+      family: "auth-pages",
+      label: "Auth aware scaffold",
+      description: "A scaffold for relevance ranking tests.",
+      buildIntents: ["website", "app"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: makeLongFile("Layout") },
+        { path: "app/globals.css", content: ".root { color: red; }\n".repeat(150) },
+        { path: "app/page.tsx", content: makeLongFile("HomePage") },
+        { path: "components/login-form.tsx", content: makeLongFile("LoginForm") },
+        { path: "components/pricing-table.tsx", content: makeLongFile("PricingTable") },
+      ],
+    };
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 18_000,
+      contextPolicy: "light",
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "test",
+        routes: [{ path: "/login", name: "Login", intent: "auth", required: true }],
+      },
+      capabilities: {
+        needsMotion: false,
+        needs3D: false,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: true,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: true,
+        needsEcommerce: false,
+        needsCarousel: false,
+        needsPremiumVisuals: false,
+      },
+    });
+
+    expect(out).toContain('file="components/login-form.tsx"');
+  });
+});
+
+describe("detectScaffoldMode", () => {
+  it("does not trigger inspirational mode for 'workspace' containing 'space'", () => {
+    expect(detectScaffoldMode("en workspace-app för teamet")).toBe("structural");
+  });
+
+  it("does not trigger inspirational mode for Swedish 'barn' (children)", () => {
+    expect(detectScaffoldMode("en app för barn och föräldrar")).toBe("structural");
+  });
+
+  it("does not trigger from 'workspace' + 'barn' substring false positives", () => {
+    expect(detectScaffoldMode("en workspace-app för barn")).toBe("structural");
+  });
+
+  it("still triggers inspirational mode for genuine creative keywords", () => {
+    expect(detectScaffoldMode("en cyberpunk-sajt med neon och vaporwave")).toBe("inspirational");
+  });
+
+  it("triggers on a single strong keyword (>= 10 chars)", () => {
+    expect(detectScaffoldMode("jag vill ha en futuristisk sajt")).toBe("inspirational");
+  });
+
+  it("does not trigger from 'discover' containing 'disco'", () => {
+    expect(detectScaffoldMode("discover new products in our marketplace")).toBe("structural");
   });
 });

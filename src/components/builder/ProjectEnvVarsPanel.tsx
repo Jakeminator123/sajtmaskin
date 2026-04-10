@@ -152,9 +152,9 @@ const TRACKING_PROVIDER_KEYS = new Set([
   "vercel-analytics",
 ]);
 
-const SYNTHETIC_V0_PROJECT_PREFIXES = ["chat:", "registry:"];
-function isSyntheticV0ProjectId(id: string): boolean {
-  return SYNTHETIC_V0_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
+const SYNTHETIC_PROJECT_PREFIXES = ["chat:", "registry:"];
+function isSyntheticProjectId(id: string): boolean {
+  return SYNTHETIC_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
 }
 
 function dedupeStrings(values: string[]): string[] {
@@ -196,7 +196,7 @@ export function ProjectEnvVarsPanel({
   const [integrationError, setIntegrationError] = useState(false);
   const [strategy, setStrategy] = useState<MarketplaceStrategyResponse["strategy"] | null>(null);
   const [integrationOptions, setIntegrationOptions] = useState<MarketplaceIntegrationOption[]>([]);
-  const [selectedIntegration, setSelectedIntegration] = useState("neon");
+  const [selectedIntegration, setSelectedIntegration] = useState("");
   const [marketplaceRecords, setMarketplaceRecords] = useState<MarketplaceRecord[]>([]);
   const [isStartingInstall, setIsStartingInstall] = useState(false);
   const [mcpPriorities, setMcpPriorities] = useState<McpPriorityItem[]>([]);
@@ -209,10 +209,10 @@ export function ProjectEnvVarsPanel({
 
   const envVarCount = envVars.length;
   const hasRealExternalProject = Boolean(
-    externalProjectId && !isSyntheticV0ProjectId(externalProjectId),
+    externalProjectId && !isSyntheticProjectId(externalProjectId),
   );
   const hasSyntheticExternalProject = Boolean(
-    externalProjectId && isSyntheticV0ProjectId(externalProjectId),
+    externalProjectId && isSyntheticProjectId(externalProjectId),
   );
   const effectiveEnvProjectId = hasRealExternalProject
     ? externalProjectId
@@ -294,7 +294,7 @@ export function ProjectEnvVarsPanel({
   }, []);
 
   const loadMarketplaceMetadata = useCallback(async () => {
-    if (!marketplaceProjectId || isSyntheticV0ProjectId(marketplaceProjectId)) {
+    if (!marketplaceProjectId || isSyntheticProjectId(marketplaceProjectId)) {
       setStrategy(null);
       setIntegrationOptions([]);
       setMarketplaceRecords([]);
@@ -1177,8 +1177,8 @@ export function ProjectEnvVarsPanel({
                       onChange={(event) => setSelectedIntegration(event.target.value)}
                       className="border-border bg-background h-8 min-w-[160px] rounded-md border px-2 text-xs"
                     >
-                      {marketplaceOptionsInfo.options.length === 0 && integrationOptions.length === 0 && (
-                        <option value="neon">Neon Postgres</option>
+                      {marketplaceOptionsInfo.options.length === 0 && (
+                        <option value="">Välj provider när alternativ finns</option>
                       )}
                       {marketplaceOptionsInfo.options.map((option) => (
                         <option key={option.id} value={option.id}>
@@ -1190,7 +1190,7 @@ export function ProjectEnvVarsPanel({
                       size="sm"
                       variant="outline"
                       onClick={handleStartMarketplaceInstall}
-                      disabled={isStartingInstall}
+                      disabled={isStartingInstall || !selectedIntegration}
                     >
                       {isStartingInstall ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

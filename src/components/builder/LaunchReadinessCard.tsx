@@ -23,9 +23,25 @@ function openProjectEnvVarsPanel(envKeys?: string[]) {
 }
 
 function renderItem(item: ChatReadinessItem, missingEnvKeys: string[]) {
+  const isWarning = item.severity === "warning";
   return (
-    <div key={item.id} className="rounded-md border border-border/60 bg-background/40 px-2.5 py-2">
-      <div className="text-foreground text-[11px] font-medium">{item.title}</div>
+    <div
+      key={item.id}
+      className={cn(
+        "rounded-md border px-2.5 py-2",
+        isWarning
+          ? "border-border/40 bg-muted/30"
+          : "border-border/60 bg-background/40",
+      )}
+    >
+      <div
+        className={cn(
+          "text-[11px] font-medium",
+          isWarning ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        {item.title}
+      </div>
       {item.detail ? <div className="mt-0.5 text-[11px] text-muted-foreground">{item.detail}</div> : null}
       {item.action === "env" ? (
         <Button

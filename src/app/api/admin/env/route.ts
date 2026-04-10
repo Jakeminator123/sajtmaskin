@@ -54,6 +54,11 @@ const ENV_KEYS: EnvKeyDefinition[] = [
     notes: "Autofix max output token budget",
   },
   {
+    key: "SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS",
+    required: false,
+    notes: "Prompt-assist och brief max output token budget",
+  },
+  {
     key: "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
     required: false,
     notes: "Client stream safety timeout before aborting stalled generations",

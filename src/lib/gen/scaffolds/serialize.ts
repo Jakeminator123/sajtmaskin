@@ -1,6 +1,8 @@
 import type { ScaffoldManifest } from "./types";
 import { FEATURES } from "@/lib/config";
 import type { BuildSpecContextPolicy } from "../build-spec";
+import type { InferredCapabilities } from "../capability-inference";
+import type { RoutePlan } from "../route-plan";
 import { buildFileContext } from "../context/file-context-builder";
 
 const CREATIVE_THEME_KEYWORDS = [
@@ -23,6 +25,8 @@ export interface ScaffoldSerializeOptions {
   maxChars?: number;
   contextPolicy?: BuildSpecContextPolicy;
   forceFullDump?: boolean;
+  routePlan?: RoutePlan;
+  capabilities?: InferredCapabilities;
 }
 
 const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
@@ -54,16 +58,28 @@ const CRITICAL_PATH_PATTERNS = [
  */
 const CREATIVE_THEME_STRONG_MIN_LEN = 10;
 
+function escapeCreativeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesCreativeKeyword(text: string, keyword: string): boolean {
+  const pattern = new RegExp(
+    `(^|[^\\p{L}\\p{N}])${escapeCreativeRegex(keyword)}([^\\p{L}\\p{N}]|$)`,
+    "iu",
+  );
+  return pattern.test(text);
+}
+
 export function detectScaffoldMode(prompt: string, styleKeywords?: string[]): ScaffoldSerializeMode {
   const lower = prompt.toLowerCase();
-  const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => lower.includes(kw));
+  const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => matchesCreativeKeyword(lower, kw));
   const strongPromptHit = kwHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
   if (strongPromptHit || kwHits.length >= 2) return "inspirational";
 
   if (styleKeywords && styleKeywords.length > 0) {
     const styleLower = styleKeywords.map((s) => s.toLowerCase());
     const styleHits = CREATIVE_THEME_KEYWORDS.filter((kw) =>
-      styleLower.some((s) => s.includes(kw)),
+      styleLower.some((s) => matchesCreativeKeyword(s, kw)),
     );
     const strongStyleHit = styleHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
     if (strongStyleHit || styleHits.length >= 2) return "inspirational";
@@ -93,7 +109,7 @@ export function serializeScaffoldForPrompt(
 
   if (mode === "inspirational") {
     const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");
-    const criticalFiles = selectCriticalScaffoldFiles(scaffold, "light");
+    const criticalFiles = selectCriticalScaffoldFiles(scaffold, "light", options);
     const criticalBlocks = renderSelectedScaffoldFiles(
       criticalFiles,
       Math.min(maxChars, 10_000),
@@ -123,7 +139,7 @@ export function serializeScaffoldForPrompt(
     maxFilesWithContent: 0,
   });
   const fileTree = buildScaffoldFileTree(scaffold);
-  const criticalFiles = selectCriticalScaffoldFiles(scaffold, contextPolicy);
+  const criticalFiles = selectCriticalScaffoldFiles(scaffold, contextPolicy, options);
   const usedBeforeCritical =
     `## Scaffold: ${scaffold.label}\n\n${scaffold.description}${roleSplit}\n\nTreat this scaffold as a structural baseline, not a rigid template. Adapt structure, pages, and components to match what the user actually asked for. Use the file tree and critical files below as the main scaffold context. Files you omit are kept as-is.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\n**IMPORTANT — Color adaptation:** Replace the scaffold's neutral placeholder palette with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted color tokens.\n\n${ctx.summary}\n\n## Scaffold File Tree\n\n${fileTree}\n\n## Critical Scaffold Files\n\n`;
   const criticalBudget = Math.max(3_000, maxChars - usedBeforeCritical.length - hints.length);
@@ -148,14 +164,66 @@ function scoreCriticalFile(path: string): number {
   return 50;
 }
 
+function routePathToScaffoldNeedle(routePath: string): string | null {
+  const normalized = routePath.replace(/^\/+/, "").toLowerCase();
+  if (!normalized) return "page";
+  const firstSegment = normalized.split("/")[0] ?? "";
+  if (!firstSegment) return null;
+  return firstSegment;
+}
+
+function scoreRouteRelevance(
+  path: string,
+  routePlan: RoutePlan | undefined,
+): number {
+  if (!routePlan || routePlan.routes.length === 0) return 0;
+  const normalizedPath = path.replace(/\\/g, "/").toLowerCase();
+  let score = 0;
+  for (const route of routePlan.routes) {
+    const needle = routePathToScaffoldNeedle(route.path);
+    if (!needle) continue;
+    if (needle === "page" && /(^|\/)page\.tsx$/.test(normalizedPath)) {
+      score += 2;
+      continue;
+    }
+    if (normalizedPath.includes(needle)) {
+      score += 4;
+    }
+  }
+  return score;
+}
+
+function scoreCapabilityRelevance(
+  path: string,
+  capabilities: InferredCapabilities | undefined,
+): number {
+  if (!capabilities) return 0;
+  const normalizedPath = path.replace(/\\/g, "/").toLowerCase();
+  let score = 0;
+  if (capabilities.needsAuth && /(auth|login|signup|register)/.test(normalizedPath)) score += 3;
+  if (capabilities.needsEcommerce && /(product|cart|checkout|store|shop)/.test(normalizedPath)) score += 3;
+  if (capabilities.needsAppShell && /(dashboard|settings|users|reports|admin)/.test(normalizedPath)) score += 3;
+  if (capabilities.needsForms && /(contact|booking|form)/.test(normalizedPath)) score += 2;
+  return score;
+}
+
 function selectCriticalScaffoldFiles(
   scaffold: ScaffoldManifest,
   contextPolicy: BuildSpecContextPolicy,
+  options: ScaffoldSerializeOptions,
 ): typeof scaffold.files {
   const maxFiles = contextPolicy === "light" ? 3 : 4;
   return [...scaffold.files]
     .sort((a, b) => {
-      const scoreDelta = scoreCriticalFile(a.path) - scoreCriticalFile(b.path);
+      const aScore =
+        scoreCriticalFile(a.path) -
+        scoreRouteRelevance(a.path, options.routePlan) -
+        scoreCapabilityRelevance(a.path, options.capabilities);
+      const bScore =
+        scoreCriticalFile(b.path) -
+        scoreRouteRelevance(b.path, options.routePlan) -
+        scoreCapabilityRelevance(b.path, options.capabilities);
+      const scoreDelta = aScore - bScore;
       if (scoreDelta !== 0) return scoreDelta;
       return a.path.localeCompare(b.path);
     })

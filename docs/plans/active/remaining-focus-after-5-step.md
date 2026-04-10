@@ -21,7 +21,7 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
 
 3. **Follow-up-komplexitet**
    - harda previous-files/persisted-scaffold/wrapper-beteende
-   - lagg till regressionsfall for kvarvarande route-/sidinflation
+   - ~~lagg till regressionsfall for kvarvarande route-/sidinflation~~ (done: `hasExplicitAddRouteIntent` gate, brief-merge, path-inferens, booking/auth-split)
 
 4. **Preview lifecycle beyond smalt Steg 5-pass**
    - heartbeat / hibernate / destroy / recover / version rollover
@@ -30,6 +30,8 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
 5. **Verify/repair-hardening**
    - forbattra hantering av aterkommande tsc/lint/import-export-fall
    - forstark deterministiska fixar och testtackning
+   - ~~unresolved local imports som warning~~ (done: default error, env-flagga for gradvis rollout, telemetrisparing)
+   - ~~saknad package.json utan hard error~~ (done: hard error i sanity)
 
 6. **Tooling- och artifact-audit**
    - fortsatta stada scripts/rebuild/eval/loggning/prompt-dumps

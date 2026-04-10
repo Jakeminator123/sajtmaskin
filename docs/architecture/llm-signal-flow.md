@@ -55,6 +55,16 @@ Follow-ups skiljer sig från create-chat på tre sätt:
 
 Det här gör follow-upkedjan mer konservativ, men innebär också att ett fel scaffold kan leva kvar tills repair eller explicit redesign låser upp det.
 
+### Viktig nuvarande follow-up-balans
+
+Vanliga follow-ups hålls fortfarande konservativa, men capability-heavy önskemål som t.ex. karusell, 3D, större animationer eller premium-visuals ska inte lika lätt falla ner till den lättaste context-/verification-banan bara för att användaren inte skrev ordet `redesign`.
+
+Det betyder i praktiken:
+
+- små copy-/layoutändringar kan fortfarande gå i ett lättare follow-up-spår
+- capability-heavy follow-ups ska oftare stanna på minst `contextPolicy: normal`
+- capability-heavy follow-ups ska oftare undvika `verificationPolicy: fast`
+
 ## Repair
 
 Repair arbetar normalt med:
@@ -63,7 +73,11 @@ Repair arbetar normalt med:
 - persisted scaffold
 - error logs / quality gate / preflight-signaler
 
-Om scaffold-aware retry hittar tydliga blockerare kan den föreslå en enklare scaffoldpivot (t.ex. `ecommerce` -> `base-nextjs`), men detta sker sent och kostar extra pass.
+Om scaffold-aware retry hittar tydliga blockerare kan den föreslå en enklare scaffoldpivot (t.ex. `ecommerce` -> `base-nextjs`), men detta sker sent och kostar extra pass. Ren merged syntax utan import-/strukturstöd ska nu mindre aggressivt tolkas som scaffold-drift.
+
+### Viktig repair-begränsning
+
+Repair/fixer-output måste returnera **kompletta filer**, inte snippets. Runtime antar att varje `file="..."`-block är hela filen. Partial-file-output blockeras nu tidigare i finalize/preflight i stället för att sparas som preliminär version.
 
 ## Vad som fungerar bra
 

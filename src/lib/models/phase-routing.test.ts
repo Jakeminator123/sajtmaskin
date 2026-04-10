@@ -21,32 +21,34 @@ describe("resolvePhaseModel", () => {
     expect(planner.reason).toBe("fast-tier-no-downgrade");
   });
 
-  it("uses full tier for planner, generator, and fixer on pro; verifier/deploy on mini", () => {
+  it("uses full tier for planner/generator/fixer on pro; verifier/deploy on gpt-5.3-codex", () => {
     expect(resolvePhaseModel("pro", "planner").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("pro", "fixer").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("pro", "fixer").reason).toBe("fixer-tier-primary");
-    expect(resolvePhaseModel("pro", "verifier").modelId).toBe("gpt-4.1-mini");
+    expect(resolvePhaseModel("pro", "verifier").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("pro", "deploy-assistant").modelId).toBe(
-      "gpt-4.1-mini",
+      "gpt-5.3-codex",
     );
-    expect(resolvePhaseModel("pro", "verifier").reason).toBe("aux-openai-efficient");
   });
 
-  it("uses full tier for planner, generator, and fixer on max; verifier on mini", () => {
+  it("uses full tier for planner/generator on max; fixer/verifier/deploy on gpt-5.3-codex", () => {
     expect(resolvePhaseModel("max", "planner").modelId).toBe("gpt-5.4");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
-    expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-5.4");
-    expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-4.1-mini");
+    expect(resolvePhaseModel("max", "fixer").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("max", "fixer").reason).toBe("manifest-phase-override");
+    expect(resolvePhaseModel("max", "verifier").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("max", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
   });
 
-  it("uses full tier for planner, generator, and fixer on codex; verifier on mini", () => {
-    expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.1-codex-max");
+  it("uses full tier for planner/generator/fixer on codex; verifier/deploy on gpt-5.3-codex", () => {
+    expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.3-codex-max");
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
-      "gpt-5.1-codex-max",
+      "gpt-5.3-codex-max",
     );
-    expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-5.1-codex-max");
-    expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-4.1-mini");
+    expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-5.3-codex-max");
+    expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("codex", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
   });
 
   it("uses Claude Sonnet across all phases in anthropic tier", () => {
@@ -66,7 +68,7 @@ describe("resolvePhaseModel", () => {
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
-      "gpt-5.1-codex-max",
+      "gpt-5.3-codex-max",
     );
     expect(resolvePhaseModel("anthropic", "generator").modelId).toBe(
       "claude-sonnet-4.6",
@@ -92,21 +94,21 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary.generator).toBe("gpt-4.1");
   });
 
-  it("splits pro tier: planner/generator/fixer vs verifier/deploy mini", () => {
+  it("splits pro tier: all phases use gpt-5.3-codex", () => {
     const summary = getPhaseRoutingSummary("pro");
     expect(summary.planner).toBe("gpt-5.3-codex");
     expect(summary.generator).toBe("gpt-5.3-codex");
     expect(summary.fixer).toBe("gpt-5.3-codex");
-    expect(summary.verifier).toBe("gpt-4.1-mini");
-    expect(summary["deploy-assistant"]).toBe("gpt-4.1-mini");
+    expect(summary.verifier).toBe("gpt-5.3-codex");
+    expect(summary["deploy-assistant"]).toBe("gpt-5.3-codex");
   });
 
-  it("uses Claude across all phases in anthropic tier", () => {
+  it("uses Claude for core phases; deploy-assistant stays gpt-4.1 (manifest)", () => {
     const summary = getPhaseRoutingSummary("anthropic");
     expect(summary.planner).toBe("claude-sonnet-4.6");
     expect(summary.generator).toBe("claude-sonnet-4.6");
     expect(summary.fixer).toBe("claude-sonnet-4.6");
     expect(summary.verifier).toBe("claude-sonnet-4.6");
-    expect(summary["deploy-assistant"]).toBe("claude-sonnet-4.6");
+    expect(summary["deploy-assistant"]).toBe("gpt-4.1");
   });
 });

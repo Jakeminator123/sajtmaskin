@@ -89,7 +89,7 @@ export async function generateOwnEngineSiteFromPrompt(
     requestedModelId: params.modelId ?? null,
     fallbackTier: DEFAULT_MODEL_ID,
   });
-  const engineModel = resolveEngineModelId(modelSelection.modelTier, false);
+  const engineModel = resolveEngineModelId(modelSelection.modelTier);
 
   const orchestrationInput = {
     prompt,

@@ -3,6 +3,7 @@ import { formatSSEEvent } from "@/lib/streaming";
 import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/route-helpers";
 import {
   EmptyGenerationError,
+  PartialFileOutputError,
   type FinalizeResult,
 } from "@/lib/gen/stream/finalize-version";
 import type { BuildSpec } from "@/lib/gen/build-spec";
@@ -187,6 +188,58 @@ export function createOwnEngineGenerationStream(
         });
       };
 
+      const handlePartialFileOutput = async (error: PartialFileOutputError) => {
+        const toolCalls = Array.from(toolCallNames);
+        const reason = "partial_file_output";
+        warnLog("engine", "Partial file output detected before persist", {
+          chatId: error.chatId,
+          scaffold: error.scaffoldId,
+          issues: error.issues,
+          toolCalls,
+        });
+
+        didSendDone = true;
+        emitProgress("generation", {
+          phase: "partial-file-output",
+          reason,
+          issueCount: error.issues.length,
+        });
+
+        safeEnqueue(
+          enc.encode(
+            formatSSEEvent("error", {
+              message:
+                "Genereringen stoppades innan sparning eftersom minst en fil såg ut som en delsnutt i stället för en komplett fil.",
+            }),
+          ),
+        );
+        safeEnqueue(
+          enc.encode(
+            formatSSEEvent("done", {
+              chatId,
+              versionId: null,
+              messageId: null,
+              ...previewUrlField(null),
+              awaitingInput: false,
+              toolCalls,
+              reason,
+            }),
+          ),
+        );
+
+        devLogAppend("in-progress", {
+          type: "site.partial_file_output",
+          chatId,
+          reason,
+          issues: error.issues,
+          toolCalls,
+          message:
+            "Genereringen stoppades innan version skapades eftersom en eller flera filer såg ut som partiel snippet-output.",
+        });
+        devLogFinalizeSite();
+        await commitCredits();
+      };
+
       safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
       safeEnqueue(enc.encode(formatSSEEvent("meta", meta)));
       emitProgress("generation", { phase: "start" });
@@ -335,6 +388,7 @@ export function createOwnEngineGenerationStream(
                   finalizeParams: buildFinalizeParams(accumulatedContent, doneData),
                   emptyGenerationReason: "done_empty_output",
                   handleEmptyGeneration,
+                  handlePartialFileOutput,
                 });
                 if (!finalized) break;
 
@@ -409,6 +463,7 @@ export function createOwnEngineGenerationStream(
                 }),
                 emptyGenerationReason: "buffer_flush_empty_output",
                 handleEmptyGeneration,
+                handlePartialFileOutput,
               });
               if (!bufFinalized) break;
 
@@ -430,6 +485,7 @@ export function createOwnEngineGenerationStream(
                 }),
                 emptyGenerationReason: "fallback_flush_empty_output",
                 handleEmptyGeneration,
+                handlePartialFileOutput,
               });
               if (fallbackFinalized) {
                 await chatRepo

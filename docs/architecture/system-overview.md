@@ -32,7 +32,7 @@ Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bak
 | fast | `gpt-4.1` | Snabba ändringar |
 | pro | `gpt-5.3-codex` | Balanserad kod |
 | max | `gpt-5.4` | Tyngre reasoning |
-| codex | `gpt-5.1-codex-max` | Kod med xhigh reasoning |
+| codex | `gpt-5.3-codex-max` | Kod med xhigh reasoning |
 
 Canonical tabell och manifest: [`docs/schemas/model-build-profiles.md`](../schemas/model-build-profiles.md), `config/ai_models/manifest.json`.
 

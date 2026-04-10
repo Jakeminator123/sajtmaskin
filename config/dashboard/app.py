@@ -7,6 +7,8 @@ Kör från repo-root (PowerShell, UTF-8):
   $env:PYTHONUTF8 = "1"
   python -m pip install -r requirements.txt
   python app.py
+  # Valfritt: python app.py -- --server.port 8502
+  # Efter start: http://127.0.0.1:8501/?nav=llm  → vyn «LLM-faser & runtime-sanning»
 
 Samma som: streamlit run app.py  (eller python -X utf8 -m streamlit run app.py)
 """
@@ -57,6 +59,7 @@ if not _running_under_streamlit():
         )
     )
 
+import pandas as pd
 import streamlit as st
 
 # --- repo root -----------------------------------------------------------------
@@ -113,6 +116,18 @@ def normalize_nonempty_lines(value: str) -> list[str]:
     return [line.strip() for line in value.splitlines() if line.strip()]
 
 
+def parse_ts_default_model_id(catalog_path: Path) -> str | None:
+    """Läser DEFAULT_MODEL_ID från src/lib/models/catalog.ts (bästa koll på UI-default)."""
+    if not catalog_path.is_file():
+        return None
+    text = catalog_path.read_text(encoding="utf-8")
+    m = re.search(
+        r"export const DEFAULT_MODEL_ID(?::\s*[^\s=]+)?\s*=\s*\"([^\"]+)\"",
+        text,
+    )
+    return m.group(1).strip() if m else None
+
+
 def find_workload(manifest: dict[str, Any], workload_id: str) -> dict[str, Any] | None:
     for workload in manifest.get("workloads") or []:
         if isinstance(workload, dict) and workload.get("id") == workload_id:
@@ -125,12 +140,11 @@ MODEL_LABELS = {
     "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
     "openai/gpt-5.2": "OpenAI GPT-5.2",
     "openai/gpt-5-mini": "OpenAI GPT-5 mini",
-    "gpt-4o-mini": "GPT-4o mini",
+    "gpt-4o-mini": "GPT-4o mini (legacy)",
     "gpt-4.1": "GPT-4.1",
-    "gpt-4.1-mini": "GPT-4.1 mini",
     "gpt-5-mini": "GPT-5 mini",
     "gpt-5-nano": "GPT-5 nano",
-    "gpt-5.1-codex-max": "GPT-5.1 Codex Max",
+    "gpt-5.3-codex-max": "GPT-5.3 Codex Max",
     "text-embedding-3-small": "OpenAI text-embedding-3-small",
     "whisper-1": "OpenAI Whisper-1",
     "claude-sonnet-4.6": "Claude Sonnet 4.6",
@@ -390,6 +404,7 @@ domain_map = load_domain_map()
 
 NAV_PAGES = (
     "Översikt",
+    "LLM-faser & runtime-sanning",
     "Codegen static",
     "prompt-static",
     "ai_models",
@@ -402,9 +417,47 @@ NAV_PAGES = (
     "Cursor-agenter",
 )
 
+NAV_QUERY_ALIASES: dict[str, str] = {
+    "llm": "LLM-faser & runtime-sanning",
+}
+
+
+def dashboard_page_from_nav_query() -> str | None:
+    """`?nav=llm` öppnar LLM-fas-vyn (bokmärke / länk efter start)."""
+    try:
+        raw = st.query_params.get("nav")
+        if raw is None:
+            return None
+        if isinstance(raw, list):
+            s = (raw[0] or "").strip() if raw else ""
+        else:
+            s = str(raw).strip()
+        if not s:
+            return None
+        mapped = NAV_QUERY_ALIASES.get(s, s)
+        return mapped if mapped in NAV_PAGES else None
+    except Exception:
+        return None
+
+
+if "dashboard_nav" not in st.session_state:
+    st.session_state.dashboard_nav = dashboard_page_from_nav_query() or NAV_PAGES[0]
+
 with st.sidebar:
     st.subheader("Navigation")
-    page = st.radio("Vy", NAV_PAGES, label_visibility="collapsed")
+    _nav_ix = (
+        NAV_PAGES.index(st.session_state.dashboard_nav)
+        if st.session_state.dashboard_nav in NAV_PAGES
+        else 0
+    )
+    page = st.radio(
+        "Vy",
+        NAV_PAGES,
+        index=_nav_ix,
+        label_visibility="collapsed",
+        key="dashboard_nav_radio",
+    )
+    st.session_state.dashboard_nav = page
     st.caption(
         "`config/` · `config/dashboard/` (Streamlit) · `docs/` · sist: **Cursor-agenter** → `.cursor/` + docs"
     )
@@ -492,6 +545,179 @@ if page == "Översikt":
             st.success("Alla `fragments` i codegen-static-prompt.json pekar på befintliga filer.")
     except Exception as e:
         st.warning(f"Kunde inte validera codegen JSON: {e}")
+
+
+# -- LLM-faser & runtime-sanning ------------------------------------------------
+
+elif page == "LLM-faser & runtime-sanning":
+    st.header("LLM-faser & runtime-sanning")
+    render_where_panel("LLM-faser & runtime-sanning", domain_map)
+
+    st.info(
+        "**Var sanningen lever:** `config/ai_models/manifest.json` är navet för standardmodeller och workloads "
+        "(miljövariabler överstyr). `src/lib/models/catalog.ts`, `phase-routing.ts` och orchestrering i "
+        "`orchestrate.ts` / own-engine avgör vad som faktiskt körs. Denna vy visar manifest + inläst "
+        "`DEFAULT_MODEL_ID` från katalogen så du slipper gissa. Finalize blockerar nu också känd "
+        "partial-file-output före versionssave, så vissa fel ska synas tidigare än preview-/quality-gate-lagret."
+    )
+
+    man_path = config_dir / "ai_models" / "manifest.json"
+    catalog_path = repo / "src" / "lib" / "models" / "catalog.ts"
+    llm_readme = repo / "logs" / "llm-segmentts-and-index" / "readme.txt"
+    manifest: dict[str, Any] = read_json(man_path) if man_path.is_file() else {}
+    default_tier = parse_ts_default_model_id(catalog_path)
+
+    st.caption(
+        "Direktlänk till denna vy efter start: `http://127.0.0.1:8501/?nav=llm` (justera port om du satt annan)."
+    )
+
+    k1, k2, k3 = st.columns(3)
+    with k1:
+        st.metric("DEFAULT_MODEL_ID (catalog.ts)", default_tier or "—")
+    with k2:
+        st.metric("manifest", "OK" if man_path.is_file() else "saknas")
+    with k3:
+        st.metric("Fas-readme", "finns" if llm_readme.is_file() else "saknas")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("buildProfiles.defaults (manifest)")
+        if man_path.is_file():
+            bp = build_profile_defaults(manifest)
+            st.dataframe(
+                [
+                    {"profil": tier, "standardmodell": human_model_label(bp.get(tier, ""))}
+                    for tier in BUILD_PROFILE_ORDER
+                ],
+                width="stretch",
+                hide_index=True,
+            )
+        else:
+            st.error(f"Saknar `{man_path.relative_to(repo)}`.")
+
+    with c2:
+        st.subheader("phaseRouting.defaultByTier (manifest)")
+        if man_path.is_file():
+            routing = phase_routing_defaults(manifest)
+            phase_keys = (
+                "planner",
+                "generator",
+                "fixer",
+                "verifier",
+                "deploy-assistant",
+            )
+            pr_rows: list[dict[str, str]] = []
+            for tier in BUILD_PROFILE_ORDER:
+                row: dict[str, str] = {"profil": tier}
+                for ph in phase_keys:
+                    row[ph] = routing.get(tier, {}).get(ph, "—")
+                pr_rows.append(row)
+            st.dataframe(pr_rows, width="stretch", hide_index=True)
+            st.caption(
+                "`selected_build_model` betyder: följ användarens valda byggprofil → `buildProfiles.defaults`."
+            )
+        else:
+            st.error("Saknar manifest.")
+
+    st.subheader("Resolverad modell per fas (som Workloads-vyn)")
+    if man_path.is_file():
+        fx = summarize_tier_models(resolve_phase_models_for_dashboard(manifest, "fixer"))
+        vf = summarize_tier_models(resolve_phase_models_for_dashboard(manifest, "verifier"))
+        st.markdown(
+            f"- **fixer** (syntax/LLM-fix m.m.): {fx}\n"
+            f"- **verifier** (läspass): {vf}"
+        )
+    else:
+        st.warning("Inget manifest att visa resolvering för.")
+
+    st.subheader("Fasindelning & Fault and Fix Index (repo-text)")
+    if llm_readme.is_file():
+        st.code(read_text(llm_readme), language=None)
+    else:
+        st.warning(
+            f"Saknar `{llm_readme.relative_to(repo)}` — lägg dit din faslista eller kopiera mall från dokumentationen."
+        )
+
+    st.subheader("Källfiler som styr kedjan (urval)")
+    st.markdown(
+        """
+- `config/ai_models/manifest.json` — standardmodeller, workloads, budgets, timeouts  
+- `src/lib/models/phase-routing.ts` — fas → modell per tier  
+- `src/lib/models/catalog.ts` — kanoniska byggprofiler, `DEFAULT_MODEL_ID`  
+- `src/lib/gen/orchestrate.ts` — orkestrering och kontext  
+- `src/lib/providers/own-engine/generation-stream.ts` — codegen-ström  
+- `src/lib/gen/stream/finalize-version.ts` — finalize efter stream  
+- `logs/generationslogg/*/timeline.ndjson` — tidslinje per körning (om loggning är påslagen)  
+        """
+    )
+
+    with st.expander("Checklista: inför testgenerering (lokal dev)", expanded=True):
+        checks: list[tuple[str, bool]] = []
+        checks.append(("manifest.json finns", man_path.is_file()))
+        codegen_ok = False
+        try:
+            cg_path = config_dir / "codegen-static-prompt.json"
+            cg = read_json(cg_path)
+            frags = cg.get("fragments") or []
+            missing = [f for f in frags if not (config_dir / f).is_file()]
+            codegen_ok = len(missing) == 0
+            checks.append(("codegen-static: alla fragmentfiler finns", codegen_ok))
+        except Exception:
+            checks.append(("codegen-static går att läsa och validera", False))
+        checks.append(("catalog.ts: DEFAULT_MODEL_ID kunde läsas", default_tier is not None))
+        env_local = repo / ".env.local"
+        checks.append((".env.local finns (API-nycklar m.m., lokalt)", env_local.is_file()))
+
+        for label, ok in checks:
+            st.write(("✅ " if ok else "❌ ") + label)
+
+        if all(ok for _, ok in checks):
+            st.success(
+                "Grundkrav ser OK ut. Starta appen (t.ex. Next.js dev-server) och kör en generation i builder."
+            )
+        else:
+            st.warning(
+                "Åtgärda markerade punkter innan du förväntar dig en stabil testgenerering. "
+                "Nycklar och nätverk måste ändå vara korrekta i din miljö."
+            )
+
+    st.subheader("Historisk fellogg (error-log.csv)")
+    error_log_path = repo / "logs" / "llm-segmentts-and-index" / "error-log.csv"
+    if not error_log_path.is_file():
+        st.info(
+            f"Filen `{error_log_path.relative_to(repo).as_posix()}` saknas. "
+            "Den skapas automatiskt efter första generationen som loggar fel/fixar."
+        )
+    else:
+        try:
+            error_df = pd.read_csv(error_log_path, encoding="utf-8")
+        except Exception as exc:
+            st.error(f"Kunde inte läsa error-log.csv: {exc}")
+            error_df = pd.DataFrame()
+
+        if error_df.empty:
+            st.info("Filen finns men innehåller inga rader.")
+        else:
+            cols = set(error_df.columns)
+            filter_cols = [c for c in ("severity", "model", "phase") if c in cols]
+            if filter_cols:
+                filter_ui = st.columns(len(filter_cols))
+                picks: dict[str, str] = {}
+                for i, col in enumerate(filter_cols):
+                    label = {"severity": "Allvarlighetsgrad", "model": "Modell", "phase": "Fas"}.get(col, col)
+                    opts = ["Alla"] + sorted(error_df[col].dropna().unique().tolist())
+                    with filter_ui[i]:
+                        picks[col] = st.selectbox(label, opts, key=f"errlog_{col}")
+
+                filtered = error_df
+                for col, pick in picks.items():
+                    if pick != "Alla":
+                        filtered = filtered[filtered[col] == pick]
+            else:
+                filtered = error_df
+
+            st.caption(f"{len(filtered)} av {len(error_df)} rader visas.")
+            st.dataframe(filtered, use_container_width=True, hide_index=True, height=400)
 
 
 # -- Codegen static -------------------------------------------------------------
@@ -636,7 +862,9 @@ elif page == "ai_models":
         st.info(
             "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: "
             "`qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`. "
-            "En enkel website bör normalt stanna på `standard` + `medium` reasoning, medan app/ecommerce/integrationer kan eskalera till `premium` + `high`."
+            "En enkel website bör normalt stanna på `standard` + `medium` reasoning. "
+            "`contextPolicy` är nu normalt `normal` som standard, medan `light` mest används för tydligt små lokala follow-ups. "
+            "App/ecommerce/integrationer kan eskalera till `premium` + `high`."
         )
 
         st.markdown("### Byggprofiler (själva kodgeneratorn)")
@@ -1455,12 +1683,15 @@ elif page == "Runtime scaffolds":
 
     st.info(
         "Denna vy listar manifest per scaffold-mapp; kanonisk källa är runtime-registret under `src/lib/gen/scaffolds/`. "
-        "I `resolveOrchestrationBase` (`orchestrate.ts`) väljs scaffold (manual / persisted / auto), "
-        "sedan `buildRoutePlan` (RoutePlan.provenance: primarySource + sources), `inferPreGenerationContracts`, `deriveBuildSpec`, "
-        "därefter serialisering via `serialize.ts` "
-        "(traits som `structure_profile` m.m., filträd, kritiska filer — budget styrs av `BuildSpec`). "
-        "Auto-läge: keyword-match primärt; scaffold-embeddings när träff saknas eller valet blir generiskt (`landing-page` / `base-nextjs`). "
-        "Follow-up-redesign kan låsa upp persisted scaffold i auto-läge utan ny scaffold-pin (`shouldIgnorePersistedScaffoldForMatch`). "
+        "I `resolveOrchestrationBase` (`orchestrate.ts`) väljs scaffold (manual / persisted / auto). "
+        "Auto-läge: keyword-match primärt; brief-context (pages, styleKeywords, domainHints) boostar keyword-scores; "
+        "scaffold-embeddings utmanar generiska val vid cosine ≥ 0.45 (non-generic: score ≥ kwNorm × bias). "
+        "`buildRoutePlan` mergear brief-routes med prompt-patterns och scaffold-defaults (brief är startpunkt, inte override). "
+        "Follow-up gater prompt-patterns bakom `hasExplicitAddRouteIntent`. "
+        "Serialisering via `serialize.ts` viktar kritiska filer mot routePlan + capabilities, inte bara statisk path-ranking. "
+        "Telemetri: `scaffoldSelectionMethod`, `scaffoldSelectionConfidence`, `briefInfluencedSelection` i `generation_telemetry`. "
+        "Sanity: unresolved local imports = error (env-flagga `SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS` för rollout). "
+        "Komponentbibliotekspolicy: `docs/architecture/component-library-policy.md`. "
         "Builderns Mallar-tab och external-template-pipelinen är separata lager. "
         "Detta är observability/översikt; runtimekoden vinner alltid vid konflikt. "
         "För rebuild/status/embeddings-artifacts: `scripts/scripts_dashboard.py`."
@@ -1558,15 +1789,16 @@ elif page == "Preview och versioner":
             "Övriga kategorier har egna payloadfiler. Om status är `disabled` ska befintliga payloadfiler läsas som stale-risk, inte som färska dumps."
         )
 
-    st.info(
-        "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
-        "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
-        "`done` kan bära `previewPending` + `previewUrlHint` medan VM-preview fortfarande bootar; "
-        "`previewUrlHint` är en boot-hint, inte en färdig live-URL. "
-        "chat-/versions-API håller `previewUrl` null tills previewn faktiskt är redo. "
-        "`legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. "
-        "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
-    )
+        st.info(
+            "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
+            "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
+            "`done` kan bära `previewPending` + `previewUrlHint` medan VM-preview fortfarande bootar; "
+            "`previewUrlHint` är en boot-hint, inte en färdig live-URL. "
+            "chat-/versions-API håller `previewUrl` null tills previewn faktiskt är redo. "
+            "`legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. "
+            "Vissa strukturella fel, t.ex. partial-file-output från repair/fixer, stoppas nu före versionssave och ska därför läsas som tidiga finalize-fel i stället för sena preview-/quality-gate-fel. "
+            "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
+        )
 
 
 # -- env-policy -----------------------------------------------------------------

@@ -35,7 +35,7 @@ package-lock.json
 #di-d.txt
 
 # --- Data & prompt-dumpar (samma som .gitignore: dumps bort, README kan indexeras) ---
-data/prompt-dumps/*
+#data/prompt-dumps/*
 !data/prompt-dumps/README.md
 
 archive/scripts-labs-testning_scarf/output/
@@ -80,7 +80,7 @@ src/lib/gen/scaffolds/scaffold-research.generated.json
 #.vercel/
 
 # --- Loggar & skrot i roten ---
-logs/*
+#logs/*
 !logs/generationslogg/
 !logs/generationslogg/_latest.txt
 !logs/generationslogg/**/summary.md

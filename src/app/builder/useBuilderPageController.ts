@@ -1176,6 +1176,9 @@ export function useBuilderPageController() {
     if (!chatId || !isChatError) return;
     console.warn("[Builder] Chat not found or error loading chat:", chatId);
     toast.error("Chatten kunde inte hittas. Skapar ny session...");
+    // Prevent a brief URL/state race where chatIdParam gets re-applied
+    // before `router.replace("/builder")` has cleared query params.
+    setIsIntentionalReset(true);
     try {
       localStorage.removeItem("sajtmaskin:lastChatId");
     } catch {
@@ -1187,7 +1190,7 @@ export function useBuilderPageController() {
     setCurrentPreviewUrl(null);
     setMessages([]);
     router.replace("/builder");
-  }, [chatId, isChatError, router, setChatId, setCurrentPreviewUrl, setMessages, pendingBriefRef, pendingSpecRef]);
+  }, [chatId, isChatError, router, setChatId, setCurrentPreviewUrl, setMessages, pendingBriefRef, pendingSpecRef, setIsIntentionalReset]);
 
   // External project id sync
   useEffect(() => {

@@ -64,7 +64,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
     value: "codex",
     label: "Kod Max",
     description:
-      "Separat tung kodmodell (gpt-5.1-codex-max). Använd när du uttryckligen vill codex-varianten — vardagsläge för stark modell är «Tanker» ovan.",
+      "Separat tung kodmodell (gpt-5.3-codex-max). Använd när du uttryckligen vill codex-varianten — vardagsläge för stark modell är «Tanker» ovan.",
   },
   {
     value: "anthropic",

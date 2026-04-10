@@ -141,7 +141,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : false;
+        typeof thinking === "boolean"
+          ? thinking
+          : process.env.SAJTMASKIN_DEFAULT_THINKING === "true";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
@@ -413,6 +415,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           mode: "plan",
           chatId: plannerChat.id,
         });
+        devLogAppend("in-progress", {
+          type: "site.chatId",
+          chatId: plannerChat.id,
+        });
 
         const planModeResponse = createOwnEnginePlanModeResponse({
           pipelineStream,
@@ -525,7 +531,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           context: preGenerationContracts,
         });
 
-        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        const engineModel = resolveEngineModelId(resolvedModelTier);
         debugLog("engine", "Own engine model resolved", {
           resolvedModelTier,
           engineModel,
@@ -560,6 +566,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - contractGateDbStartedAt,
             mode: "pre-generation-contract-gate",
+            chatId: engineChat.id,
+          });
+          devLogAppend("in-progress", {
+            type: "site.chatId",
             chatId: engineChat.id,
           });
           devLogAppend("in-progress", {
@@ -652,6 +662,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         debugLog("engine", "Chat DB bootstrap complete", {
           durationMs: Date.now() - engineChatDbStartedAt,
           mode: "own-engine",
+          chatId: engineChat.id,
+        });
+        devLogAppend("in-progress", {
+          type: "site.chatId",
           chatId: engineChat.id,
         });
         devLogAppend("in-progress", {

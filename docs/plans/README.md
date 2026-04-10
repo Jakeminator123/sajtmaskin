@@ -14,6 +14,15 @@ Nuvarande orientering:
 - **Kvarvarande fokus / nasta pass:** [`active/remaining-focus-after-5-step.md`](active/remaining-focus-after-5-step.md)
 - **Steg 4-djupkarta:** [`../architecture/step4-post-generation.md`](../architecture/step4-post-generation.md)
 
+### Component uplift (P14–P16)
+
+Sammankopplat spar for capability-driven komponentinjektion, enhancement packs och nya scaffolds.
+
+- **Oversikt och rationale:** [`active/component-uplift-overview.md`](active/component-uplift-overview.md)
+- **P14 — Capability → dep-injektion:** [`active/P14-capability-dep-injection.md`](active/P14-capability-dep-injection.md) (hog prio)
+- **P15 — Enhancement packs:** [`active/P15-enhancement-packs.md`](active/P15-enhancement-packs.md) (medel-hog, beror pa P14)
+- **P16 — Nya scaffold-shells:** [`active/P16-missing-scaffold-shells.md`](active/P16-missing-scaffold-shells.md) (medel)
+
 När ett nytt riktigt arbetsspår startar:
 
 - skapa en ny smal fil under **`docs/plans/active/`**

@@ -7,6 +7,7 @@ import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
 
 type ValidateFixStatus = "passed" | "partial" | "failed" | "pipeline-error";
 type ValidateFixEarlyStopReason = "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
+const VALIDATOR_UNAVAILABLE_NEEDLE = "Syntax validator unavailable:";
 
 export interface ValidateFixResult {
   content: string;
@@ -89,6 +90,29 @@ export async function validateAndFix(
       });
 
       const validation = await validateGeneratedCode(currentContent);
+      const validatorUnavailableError = validation.errors.find((error) =>
+        error.message.includes(VALIDATOR_UNAVAILABLE_NEEDLE),
+      );
+      if (validatorUnavailableError) {
+        const pipelineErrorMessage = validatorUnavailableError.message;
+        devLogAppend("in-progress", {
+          type: "syntax-validation.pipeline-error",
+          chatId: opts.chatId,
+          message: pipelineErrorMessage,
+        });
+        return {
+          content: currentContent,
+          hadErrors: true,
+          fixerUsed: false,
+          fixerImproved: false,
+          errorsBefore: validation.errors.length,
+          errorsAfter: validation.errors.length,
+          passes: passCount,
+          status: "pipeline-error",
+          pipelineError: pipelineErrorMessage,
+          earlyStopReason: null,
+        };
+      }
       if (pass === 1) initialErrorCount = validation.errors.length;
 
       if (validation.valid) {
@@ -149,18 +173,19 @@ export async function validateAndFix(
       console.warn(`[engine] Pass ${pass}: ${validation.errors.length} syntax errors, attempting LLM fixer`);
 
       onProgress?.({ pass, phase: "fixing", errorCount: validation.errors.length });
+      const fixerModel = opts.resolvedTier
+        ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
+        : undefined;
       devLogAppend("in-progress", {
         type: "syntax-validation.fixer.start",
         chatId: opts.chatId,
         pass,
         errorCount: validation.errors.length,
         errors: errorSummary.slice(0, 8),
+        fixerModel: fixerModel ?? null,
       });
 
       try {
-        const fixerModel = opts.resolvedTier
-          ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
-          : undefined;
         const brokenFiles = [
           ...new Set(validation.errors.map((error) => error.file).filter(Boolean)),
         ];
@@ -221,6 +246,7 @@ export async function validateAndFix(
             errorsAfter: reValidation.errors.length,
             improved: reValidation.errors.length < validation.errors.length,
             valid: reValidation.valid,
+            fixerModel: fixerModel ?? null,
           });
 
           if (reValidation.valid) {
@@ -280,6 +306,7 @@ export async function validateAndFix(
           pass,
           errorCount: validation.errors.length,
           message: fixerError instanceof Error ? fixerError.message : "Unknown fixer error",
+          fixerModel: fixerModel ?? null,
         });
         if (Date.now() >= budgetDeadline) {
           stopForBudget(pass);

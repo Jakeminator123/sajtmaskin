@@ -5,13 +5,17 @@ primary_region = "arn"
 [build]
   dockerfile = "Dockerfile"
 
+[[vm]]
+  memory = "8gb"
+  cpus = 4
+
 [env]
   HOST = "0.0.0.0"
   PORT = "8080"
   PREVIEW_BASE_URL = "https://vm-fly-jakem.fly.dev"
-  PREVIEW_SESSION_TTL_MS = "3600000"
+  PREVIEW_SESSION_TTL_MS = "7200000"
   PREVIEW_HOST_DATA_DIR = "/data"
-  PREVIEW_HOST_RUNTIME_READY_MAX_MS = "300000"
+  PREVIEW_HOST_RUNTIME_READY_MAX_MS = "600000"
 
 [[mounts]]
   source = "preview_host_data"

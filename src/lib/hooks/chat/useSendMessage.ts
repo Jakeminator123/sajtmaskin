@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { formatPrompt } from "@/lib/builder/promptAssist";
-import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/models/catalog";
+import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
@@ -44,6 +44,7 @@ export function useSendMessage(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
+    thinkingUserSetRef,
     registryDesignSystemId,
     designThemePreset,
     systemPrompt,
@@ -91,7 +92,7 @@ export function useSendMessage(
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
-      const engineModel = v0TierToOpenAIModel(canonicalTier);
+      const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
 
       debugLog("AI", "Send message requested", {
@@ -217,7 +218,7 @@ export function useSendMessage(
         );
         const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
         const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
-        const thinkingForTier = enableThinking;
+        const thinkingForTier = thinkingUserSetRef?.current ? enableThinking : undefined;
         const promptMeta: Record<string, unknown> = {
           promptOriginal: messageText,
           promptFormatted: formattedMessage,

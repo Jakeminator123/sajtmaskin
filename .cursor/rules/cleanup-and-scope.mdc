@@ -12,6 +12,7 @@ När användaren ber om att **städa**, **ta bort**, **flytta** eller göra en t
 - Radera duplicat, död kod och historiskt brus hellre än att skapa nya arkivnivåer.
 - Skapa inte nya docs för att förklara gamla docs.
 - Fixa brutna importer, länkar, script- eller env-referenser i samma svep.
+- Rensa löpande bort halv-ersatta parallellspår inom samma scope när det är säkert: temporära hjälpfunktioner, dubbla heuristiker eller missvisande docs som annars lämnar två nästan-sanningar kvar.
 - Tolkad "städning" är inte fria händer till bred omorganisation.
 
 ## Gör så här

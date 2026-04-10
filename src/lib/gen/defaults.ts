@@ -38,7 +38,7 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //   SAJTMASKIN_MODEL_FAST=gpt-4.1
 //   SAJTMASKIN_MODEL_PRO=gpt-5.3-codex
 //   SAJTMASKIN_MODEL_MAX=gpt-5.4
-//   SAJTMASKIN_MODEL_CODEX=gpt-5.1-codex-max
+//   SAJTMASKIN_MODEL_CODEX=gpt-5.3-codex-max
 //
 //   # ── Prompt Assist / Brief (provider/model, se config/ai_models) ─
 //   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.4
@@ -139,7 +139,7 @@ export const MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES =
 export const SERVER_REPAIR_MAX_PASSES = repairPolicies.serverRepairPasses;
 
 export const PROJECT_ANALYZE_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("project_analyze") ?? "gpt-4o-mini";
+  getWorkloadDefaultModelFromManifest("project_analyze") ?? "gpt-5-mini";
 
 export const AUDIT_STRUCTURED_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("audit_structured") ?? "openai/gpt-5.2";
@@ -155,7 +155,7 @@ export const ANALYZE_PRESENTATION_FALLBACK_MODELS =
   getWorkloadFallbackModelsFromManifest("analyze_presentation");
 
 export const INSPECTOR_AI_MATCH_DEFAULT_MODEL =
-  getWorkloadDefaultModelFromManifest("inspector_ai_match") ?? "gpt-4o-mini";
+  getWorkloadDefaultModelFromManifest("inspector_ai_match") ?? "gpt-5-mini";
 
 /** Re-export for callers that resolve env keys dynamically (e.g. catalog). */
 export function getBuildProfileEnvKey(profile: BuildProfileId): string {

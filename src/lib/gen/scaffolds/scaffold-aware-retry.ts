@@ -84,9 +84,20 @@ function classifyFailureType(
     return "missing-core-files";
   }
 
-  if (
+  const hasImportDriftSignal =
     issueText.includes("unresolved local import") ||
     issueText.includes("preview-only stripped import leaked") ||
+    issueText.includes("imported third-party package") ||
+    issueText.includes("missing a default export");
+  const hasMergedSyntaxOnlySignal =
+    issueText.includes("merged syntax error") && !hasImportDriftSignal;
+
+  if (hasMergedSyntaxOnlySignal) {
+    return "blocking-preflight";
+  }
+
+  if (
+    hasImportDriftSignal ||
     issueText.includes("merged syntax error")
   ) {
     return "scaffold-import-drift";

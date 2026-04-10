@@ -1,11 +1,9 @@
 import {
   canonicalizeModelId,
   canonicalModelIdToOwnModelId,
-  canonicalModelIdToV0ModelId,
   DEFAULT_MODEL_ID,
   type CanonicalModelId,
   type OwnModelId,
-  type V0ModelId,
 } from "@/lib/models/catalog";
 import { warnLog } from "@/lib/utils/debug";
 
@@ -45,8 +43,6 @@ export function resolveModelSelection(params: {
  */
 export function resolveEngineModelId(
   resolvedTier: CanonicalModelId,
-  useV0Fallback: boolean,
-): V0ModelId | OwnModelId {
-  if (useV0Fallback) return canonicalModelIdToV0ModelId(resolvedTier);
+): OwnModelId {
   return canonicalModelIdToOwnModelId(resolvedTier);
 }

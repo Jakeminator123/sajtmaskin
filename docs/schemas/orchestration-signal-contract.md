@@ -17,42 +17,39 @@ Det här är en **schema-/kontraktsöversikt**, inte full arkitekturtext. För f
 |---|---|---|---|---|---|
 | Prompt formatting | sektioner, stilord, constraints, URL:er, tillgänglighetskrav | `src/lib/builder/promptAssist.ts` | rå användarprompt | formatterad prompt + snabb addendum | torftig prompt förblir för lös, för lite domänstruktur |
 | Prompt assist | bättre språk, tydligare scope, bättre instruktionstäthet | `src/lib/builder/promptAssist.ts`, `/api/ai/chat` | rå prompt + build intent | förbättrad prompt | lägger till för lite struktur eller för mycket scope |
-| Deep brief | projektnamn, pages, sections, visual identity, imagery, SEO, UI notes | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` | rå prompt | structured brief | modellen producerar bra brief men scaffoldvalet använder den inte fullt ut |
-| Scaffold keyword match | domänord för auth/ecommerce/blog/portfolio/website/app | `src/lib/gen/scaffolds/matcher.ts` | rå prompt | scaffold-id + keyword scores | fel scaffold väljs för tidigt; kan stängas av med `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` (experimenter) |
-| Scaffold embedding match | semantisk likhet mot scaffold-embeddingar | `src/lib/gen/scaffolds/scaffold-search.ts`, merge i `matcher.ts` | rå prompt (med query expansion) | top-K scaffold candidates + head-to-head mot keyword | svag query-expansion, API-nyckel saknas, eller garder blockerar t.ex. `auth-pages` |
-| Route plan | explicita sidor, brief-pages, scaffold-default routes, route removals | `src/lib/gen/route-plan.ts` | prompt + brief + scaffold + generationMode | `RoutePlan` | `/om` + `/about`, felaktiga ecom-routes, route-freeze i follow-ups |
+| Deep brief | projektnamn, pages, sections, visual identity, imagery, SEO, UI notes | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` | rå prompt | structured brief | briefen påverkar nu scaffoldval via `ScaffoldQueryContext` (pages, styleKeywords, domainHints) |
+| Scaffold keyword match | domänord för auth/ecommerce/blog/portfolio/website/app + brief-boost | `src/lib/gen/scaffolds/matcher.ts` | rå prompt + brief-context | scaffold-id + keyword scores | brief-pages boostar keyword-scores (+2 per matchande domän); kan stängas av med `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` |
+| Scaffold embedding match | semantisk likhet mot scaffold-embeddingar | `src/lib/gen/scaffolds/scaffold-search.ts`, merge i `matcher.ts` | berikad prompt (rå + brief-fragment) | top-K scaffold candidates + head-to-head mot keyword | generic override kräver cosine ≥ 0.45; non-generic: ≥ kwNorm × bias; `embeddingOverrideReason` loggas |
+| Route plan | brief-routes (startpunkt) + gated prompt-patterns + scaffold-defaults + follow-up freeze | `src/lib/gen/route-plan.ts` | prompt + brief + scaffold + generationMode | `RoutePlan` | brief mergeas (ingen early-return); follow-up gatar patterns bakom `hasExplicitAddRouteIntent`; booking → `/booking`, auth → `/signup` + `/forgot-password` + `/login` |
 | Capability inference | motion, 3D, charts, database, auth, app shell, forms, ecommerce, premium visuals | `src/lib/gen/capability-inference.ts` | prompt | `InferredCapabilities` | falska positiva på ecommerce/app shell/database |
 | Pre-generation contracts | persistence, auth, payment, integrations, env vars | `src/lib/gen/contract/pre-generation-contracts.ts` | prompt corpus + brief + capabilities + confirmed answers | `PreGenerationContractContext` | SQLite/Stripe triggas i onödan, booking misstolkas som backendkrav |
-| BuildSpec | change scope, quality tier, preview/verifier/context policy, token budgets | `src/lib/gen/build-spec.ts` | prompt + route plan + contracts + scaffold + mode | `BuildSpec` | för tung verify/context på enkla fall, för lätt på svåra |
+| BuildSpec | change scope, quality tier, preview/verifier/context policy, token budgets | `src/lib/gen/build-spec.ts` | prompt + route plan + contracts + scaffold + mode | `BuildSpec` | för tung verify/context på enkla fall, för lätt på svåra; `normal` är nu standard för vanliga follow-ups medan `light` mest används för tydligt små lokala ändringar |
 | Dynamic context assembly | scaffold context, route plan, contracts, brief, theme, imagery, capability hints | `src/lib/gen/system-prompt.ts` | orchestration inputs | dynamic system prompt + pruning metadata | rätt signaler finns men kommer för sent för scaffoldvalet |
 | Post-check analysis | SEO, analytics, editorial packs, workflows, route mismatch, sanity errors | `src/lib/hooks/chat/post-checks-analysis.ts` | genererade filer + preflight/version context | strukturerade findings | bra site men fel readiness-/warning-semantik |
 
 ## Viktiga observationer
 
-### 1. Deep brief och scaffold lever inte på samma nivå
+### 1. Deep brief påverkar scaffoldval och route-plan
 
-Briefen kan bli mycket bättre än scaffoldvalet. I nuvarande kedja används briefen starkt för:
-
-- pages
-- sections
-- visual direction
-- imagery
-- SEO
-
-men scaffoldmatchningen kör fortfarande främst på råprompten.
+Briefen matar nu in i scaffoldmatchningen via `ScaffoldQueryContext` (pages, styleKeywords, domainHints → keyword-boost + berikad embedding-prompt). Route-planen mergear brief-routes som startpunkt, inte override. Se `docs/architecture/component-library-policy.md` för komponentbibliotekspolicy.
 
 ### 2. Keyword och embeddings körs parallellt; merge-policy jämför signalerna
 
-`matchScaffoldAuto()` startar embedding-sökning direkt (samma väntan som tidigare, men keyword beräknas samtidigt på klienten) och hämtar top-K semantiska träffar.
+`matchScaffoldAuto()` startar embedding-sökning direkt och beräknar keyword-signalen parallellt i samma server-side orkestreringspass; resultatet mergeas sedan innan scaffoldvalet bestäms.
 
 - **Keyword** ger ett snabbt scaffold-förslag (eller intent-baseline om `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off`).
 - **Embedding** får **utmana** även icke-generiska keyword-val när cosinuslikheden är tillräckligt hög och säkerhetsgarder (`canUseEmbeddingOverride`) passerar. Jämförelsen mot keyword-styrka skalar rå keyword-poäng mot `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (standard ~0,82 — **lägre värde** ⇒ embeddings får lättare vinna mot starka keyword-träffar).
 
-Det finns fortfarande en **golv-tröskel** (`EMBEDDING_MIN_SCORE` i `matcher.ts`) under vilken embedding aldrig vinner.
+Det finns en **golv-tröskel** (`EMBEDDING_MIN_SCORE` = 0.35 i `matcher.ts`) under vilken embedding aldrig vinner. För generiska keyword-val (landing-page / base-nextjs) krävs `GENERIC_EMBEDDING_MIN_SCORE` = 0.45. Override-anledningen loggas som `embeddingOverrideReason` i scaffold-meta.
 
 ### 3. Capability-lagret är ett hint-lager, inte domänsanning
 
 `capability-inference.ts` är snabbt och användbart, men grunt. Det bör inte ensam få skapa starka backend-/betalningskontrakt.
+
+Capability-lagret används nu också som en follow-up-signal:
+
+- capability-heavy önskemål (t.ex. 3D, karusell, större visuella effekter) kan hindra att follow-upen degraderas till den allra lättaste context-/verification-banan
+- det gör inte capability inference till ett nytt primärt sanningslager, men minskar risken att ambitiösa visual/product-ändringar feltolkas som små lokala tweaks
 
 ### 4. Contract-lagret är flernivåigt
 
@@ -84,5 +81,5 @@ Uppdatera dokumentet när:
 
 - ett nytt signallager tillkommer
 - ett lager byter ansvar eller input/output
-- briefen börjar påverka scaffoldval direkt
 - capability-/contract-/route-planlogiken ändras materiellt
+- sanity-severity-policy ändras (unresolved imports, saknad package.json)

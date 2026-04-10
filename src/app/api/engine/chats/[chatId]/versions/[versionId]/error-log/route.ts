@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
-import { readPreviewDiagnosticMeta } from "@/lib/gen/preview/diagnostics";
 import {
   createEngineVersionErrorLog,
   createEngineVersionErrorLogs,
   getEngineVersionErrorLogs,
 } from "@/lib/db/services/version-errors";
+import { buildErrorLogSummary } from "./summary";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
 
@@ -15,51 +15,6 @@ type ErrorLogPayload = {
   message: string;
   meta?: Record<string, unknown> | null;
 };
-
-type ErrorLogRow = {
-  level: string;
-  category?: string | null;
-  message: string;
-  meta?: unknown;
-};
-
-function buildErrorLogSummary(logs: ErrorLogRow[]) {
-  const byLevel = { info: 0, warning: 0, error: 0 };
-  const byCategory: Record<string, number> = {};
-
-  for (const log of logs) {
-    const level =
-      log.level === "error" || log.level === "warning" || log.level === "info"
-        ? log.level
-        : "info";
-    byLevel[level] += 1;
-    const category = typeof log.category === "string" && log.category.trim()
-      ? log.category.trim()
-      : "uncategorized";
-    byCategory[category] = (byCategory[category] ?? 0) + 1;
-  }
-
-  const latestRender =
-    logs.find((log) => log.category === "render-telemetry" || log.category === "preview") ?? null;
-  const latestRenderMeta = readPreviewDiagnosticMeta(latestRender?.meta);
-
-  return {
-    total: logs.length,
-    byLevel,
-    byCategory,
-    latestPreflight:
-      logs.find((log) => typeof log.category === "string" && log.category.startsWith("preflight:")) ?? null,
-    latestQualityGate:
-      logs.find(
-        (log) =>
-          typeof log.category === "string" &&
-          (log.category === "preflight:quality-gate" || log.category.startsWith("quality-gate:")),
-      ) ?? null,
-    latestRender,
-    latestPreviewCode: latestRenderMeta.previewCode,
-    latestPreviewStage: latestRenderMeta.previewStage,
-  };
-}
 
 export async function POST(request: Request, ctx: RouteParams) {
   try {

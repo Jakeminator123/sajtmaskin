@@ -129,6 +129,43 @@ interface FinalizeFastPathResult {
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 
+function buildSyntaxFailureLog(params: {
+  chatId: string;
+  versionId: string;
+  syntaxResult: FinalizeSyntaxResult;
+  logPassId: string;
+  repairPassIndex: number;
+  lineageHash?: string | null;
+}) {
+  const { chatId, versionId, syntaxResult, logPassId, repairPassIndex, lineageHash } = params;
+  if (syntaxResult.status === "passed") return null;
+
+  const message =
+    syntaxResult.status === "pipeline-error"
+      ? "Syntax validation pipeline failed before preflight could trust the generated files."
+      : "Syntax validation left blocking errors before preflight/preview.";
+
+  return {
+    chatId,
+    versionId,
+    level: "error" as const,
+    category: "syntax",
+    message,
+    meta: {
+      syntaxStatus: syntaxResult.status,
+      errorsBefore: syntaxResult.errorsBefore,
+      errorsAfter: syntaxResult.errorsAfter,
+      fixerUsed: syntaxResult.fixerUsed,
+      fixerImproved: syntaxResult.fixerImproved,
+      pipelineError: syntaxResult.pipelineError,
+      earlyStopReason: syntaxResult.earlyStopReason,
+      logPassId,
+      repairPassIndex,
+      lineageHash: lineageHash ?? null,
+    },
+  };
+}
+
 function createFinalizeStepTelemetry(
   startedAtMs: number,
   status: FinalizeStepStatus,
@@ -210,6 +247,30 @@ export class EmptyGenerationError extends Error {
     this.chatId = chatId;
     this.scaffoldId = scaffoldId;
   }
+}
+
+export class PartialFileOutputError extends Error {
+  readonly chatId: string;
+  readonly scaffoldId: string | null;
+  readonly issues: string[];
+
+  constructor(chatId: string, scaffoldId: string | null, issues: string[]) {
+    super("Generation produced partial file output");
+    this.name = "PartialFileOutputError";
+    this.chatId = chatId;
+    this.scaffoldId = scaffoldId;
+    this.issues = issues;
+  }
+}
+
+function isPartialFileOutputIssue(issue: FinalizePreflightIssue): boolean {
+  const message = issue.message.toLowerCase();
+  return (
+    message.includes("partial repair snippet") ||
+    message.includes("file excerpt instead of a complete file") ||
+    message.includes("overlapping import statements") ||
+    message.includes("nested import inside an unfinished import block")
+  );
 }
 
 function resolveFinalizePathPolicy(params: {
@@ -458,6 +519,7 @@ async function runFinalizeFastPath(params: {
   const preflightResult = await runFinalizePreflight({
     chatId,
     model,
+    resolvedTier,
     filesJson,
     routePlan,
     orchestrationContract,
@@ -468,6 +530,23 @@ async function runFinalizeFastPath(params: {
   const preflightFileCount = preflightResult.preflightFileCount;
   const preflightIssues = preflightResult.preflightIssues;
   const previewBlockingReason = preflightResult.previewBlockingReason;
+  const partialFileIssues = preflightIssues
+    .filter(isPartialFileOutputIssue)
+    .map((issue) => `${issue.file}: ${issue.message}`);
+
+  if (partialFileIssues.length > 0) {
+    devLogAppend("in-progress", {
+      type: "project-sanity.error",
+      chatId,
+      message: "Generation produced partial file output before persist.",
+      issues: partialFileIssues,
+    });
+    throw new PartialFileOutputError(
+      chatId,
+      resolvedScaffold?.id ?? null,
+      partialFileIssues,
+    );
+  }
 
   let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
   if (resolvedScaffold && originalPrompt && buildIntent) {
@@ -715,7 +794,7 @@ export async function finalizeAndSaveVersion(
     preflightWarnings,
     hasVerificationBlockingPreflightErrors,
     hasPreviewBlockingPreflightErrors,
-    preflightLogs,
+    preflightLogs: rawPreflightLogs,
     preflightFailureSummary,
   } = buildFinalizePreflightLogBundle({
     chatId,
@@ -729,6 +808,28 @@ export async function finalizeAndSaveVersion(
     routePlan,
     scaffoldSelection,
   });
+  const logPassId = `${version.id}:repair-${repairPassIndex}:${Date.now()}`;
+  const withLogPassMeta = <T extends { meta?: Record<string, unknown> | null }>(log: T): T => ({
+    ...log,
+    meta: {
+      ...(log.meta ?? {}),
+      logPassId,
+      repairPassIndex,
+      lineageHash: lineageHash ?? null,
+    },
+  });
+  let preflightLogs = rawPreflightLogs.map((log) => withLogPassMeta(log));
+  const syntaxFailureLog = buildSyntaxFailureLog({
+    chatId,
+    versionId: version.id,
+    syntaxResult,
+    logPassId,
+    repairPassIndex,
+    lineageHash,
+  });
+  if (syntaxFailureLog) {
+    preflightLogs.unshift(syntaxFailureLog);
+  }
   if (autoFixHeavyLoad) {
     preflightLogs.push({
       chatId,
@@ -743,6 +844,9 @@ export async function finalizeAndSaveVersion(
         threshold: 5,
         warningCount: autoFixWarningCount,
         dependencyCount: autoFixDependencyCount,
+        logPassId,
+        repairPassIndex,
+        lineageHash: lineageHash ?? null,
       },
     });
   }
@@ -805,6 +909,7 @@ export async function finalizeAndSaveVersion(
         verificationBlocked: hasVerificationBlockingPreflightErrors,
         issueCount: preflightIssues.length,
         previewFileCount: finalizedFilesForPreview.length,
+        unresolvedImportFallbackUsed: preflightResult.unresolvedImportFallbackUsed,
       },
     };
     if (buildSpec) {
@@ -827,10 +932,24 @@ export async function finalizeAndSaveVersion(
       telemetryMeta.templateLibrarySearch = tls;
     }
 
+    const scaffoldSelectionMethod =
+      scaffoldSelection && typeof scaffoldSelection.selectionMethod === "string"
+        ? scaffoldSelection.selectionMethod
+        : null;
+    const scaffoldSelectionConfidence =
+      scaffoldSelection && typeof scaffoldSelection.selectionConfidence === "string"
+        ? scaffoldSelection.selectionConfidence
+        : null;
+    const briefInfluencedSelection =
+      scaffoldSelection?.briefContextApplied === true;
+
     const telemetryRecord = await createGenerationTelemetryRecord({
       chatId,
       versionId: version.id,
       scaffoldId: resolvedScaffold?.id ?? null,
+      scaffoldSelectionMethod,
+      scaffoldSelectionConfidence,
+      briefInfluencedSelection,
       model,
       buildIntent: buildIntent ?? null,
       retryCount: repairPassIndex,

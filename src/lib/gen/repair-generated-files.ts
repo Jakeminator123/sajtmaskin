@@ -8,6 +8,7 @@ import {
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
   fixNextImageImport,
+  fixNextOgImageResponseImport,
 } from "@/lib/gen/autofix/common-import-fixer";
 import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fixer";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
@@ -36,6 +37,9 @@ const EVENT_HANDLERS_RE =
 const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
 const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
+const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
+const ICON_KEY_RE = /key=\{([A-Za-z_$][\w$]*)\.icon\}/g;
+const ICON_VALUE_RENDER_RE = /(\s*)\{([A-Za-z_$][\w$]*)\.icon\}(\s*)/g;
 
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 
@@ -214,6 +218,38 @@ function fixLucideLinkImport(code: string, filePath: string): {
   };
 }
 
+function fixIconComponentValueMisuse(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+  fixes: RepairEntry[];
+} {
+  let nextCode = code;
+  let fixed = false;
+
+  nextCode = nextCode.replace(ICON_KEY_RE, (_full, itemName: string) => {
+    fixed = true;
+    return `key={typeof ${itemName}.icon === "string" ? ${itemName}.icon : (${itemName}.title ?? ${itemName}.label ?? ${itemName}.name ?? "icon-item")}`;
+  });
+
+  nextCode = nextCode.replace(ICON_VALUE_RENDER_RE, (full, prefix: string, itemName: string, suffix: string) => {
+    if (full.includes("<")) return full;
+    fixed = true;
+    return `${prefix}{typeof ${itemName}.icon === "string" ? ${itemName}.icon : <${itemName}.icon className="h-5 w-5" />}${suffix}`;
+  });
+
+  return {
+    code: nextCode,
+    fixed,
+    fixes: fixed
+      ? [{
+          fixer: "icon-component-value-fixer",
+          description: "Replaced raw icon component values with stable key/render-safe JSX usage",
+          file: filePath,
+        }]
+      : [],
+  };
+}
+
 export function repairGeneratedFiles(files: CodeFile[]): {
   files: CodeFile[];
   fixes: RepairEntry[];
@@ -223,6 +259,20 @@ export function repairGeneratedFiles(files: CodeFile[]): {
   const moduleExportIndex = buildProjectModuleExportIndex(files);
 
   const repairedFiles = files.map((file) => {
+    if (/\.css$/i.test(file.path)) {
+      let content = file.content;
+      const before = content;
+      content = content.replace(CSS_SCROLL_SMOOTH_RE, "scroll-behavior: auto");
+      if (content !== before) {
+        fixes.push({
+          fixer: "scroll-smooth-css-fixer",
+          description: "Replaced scroll-behavior: smooth with scroll-behavior: auto in CSS for preview compatibility",
+          file: file.path,
+        });
+      }
+      return content === file.content ? file : { ...file, content };
+    }
+
     if (!/\.(tsx?|jsx?)$/i.test(file.path)) {
       return file;
     }
@@ -310,6 +360,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       });
     }
 
+    const iconComponentResult = fixIconComponentValueMisuse(content, file.path);
+    if (iconComponentResult.fixed) {
+      content = iconComponentResult.code;
+      fixes.push(...iconComponentResult.fixes);
+    }
+
     const metadataConflictResult = fixMetadataClientConflict(content, file.path);
     if (metadataConflictResult.fixed) {
       content = metadataConflictResult.code;
@@ -348,6 +404,16 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       fixes.push({
         fixer: "next-image-import-fixer",
         description: 'Added missing `import Image from "next/image"`',
+        file: file.path,
+      });
+    }
+
+    const nextOgResult = fixNextOgImageResponseImport(content);
+    if (nextOgResult.fixed) {
+      content = nextOgResult.code;
+      fixes.push({
+        fixer: "next-og-image-response-import-fixer",
+        description: 'Added missing `import { ImageResponse } from "next/og"`',
         file: file.path,
       });
     }

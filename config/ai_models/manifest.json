@@ -123,22 +123,22 @@
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
-        "verifier": "gpt-4.1-mini",
-        "deploy-assistant": "gpt-4.1"
+        "verifier": "gpt-5.3-codex",
+        "deploy-assistant": "gpt-5.3-codex"
       },
       "max": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "selected_build_model",
-        "verifier": "gpt-4.1-mini",
-        "deploy-assistant": "gpt-4.1"
+        "fixer": "gpt-5.3-codex",
+        "verifier": "gpt-5.3-codex",
+        "deploy-assistant": "gpt-5.3-codex"
       },
       "codex": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
         "fixer": "selected_build_model",
-        "verifier": "gpt-4.1-mini",
-        "deploy-assistant": "gpt-4.1"
+        "verifier": "gpt-5.3-codex",
+        "deploy-assistant": "gpt-5.3-codex"
       },
       "anthropic": {
         "planner": "selected_build_model",
@@ -159,13 +159,13 @@
   "promptOrchestration": {
     "hardCaps": {
       "maxChatMessageChars": {
-        "envKey": "V0_MAX_PROMPT_LENGTH",
+        "envKey": "SAJTMASKIN_MAX_PROMPT_LENGTH",
         "default": 800000,
         "min": 5000,
         "max": 2000000
       },
       "warnChatMessageChars": {
-        "envKey": "V0_WARN_PROMPT_LENGTH",
+        "envKey": "SAJTMASKIN_WARN_PROMPT_LENGTH",
         "default": 500000,
         "min": 1000,
         "max": 2000000
@@ -269,21 +269,21 @@
   "postGenerationPasses": {
     "verifierMaxOutputTokens": {
       "envKey": "SAJTMASKIN_VERIFIER_MAX_OUTPUT_TOKENS",
-      "default": 8192,
+      "default": 32000,
       "min": 1024,
-      "max": 32000
+      "max": 64000
     },
     "verifierTimeoutMs": {
       "envKey": "SAJTMASKIN_VERIFIER_TIMEOUT_MS",
-      "default": 60000,
+      "default": 120000,
       "min": 10000,
-      "max": 180000
+      "max": 300000
     },
     "verifierSnippetCharsPerFile": {
       "envKey": "SAJTMASKIN_VERIFIER_SNIPPET_CHARS_PER_FILE",
-      "default": 14000,
+      "default": 40000,
       "min": 3000,
-      "max": 60000
+      "max": 120000
     }
   },
   "preGenerationContracts": {
@@ -546,7 +546,7 @@
     },
     "autofixMaxOutputTokens": {
       "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-      "default": 12288,
+      "default": 24576,
       "min": 2048,
       "max": 65536
     },
@@ -662,7 +662,7 @@
       ],
       "tokenBudget": {
         "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-        "default": 12288,
+        "default": 24576,
         "min": 2048,
         "max": 65536
       }
@@ -807,7 +807,7 @@
       "authEnv": [
         "OPENAI_API_KEY"
       ],
-      "defaultModel": "gpt-4o-mini"
+      "defaultModel": "gpt-5-mini"
     },
     {
       "id": "text_analyze",
@@ -870,7 +870,7 @@
       ],
       "defaultModel": "openai/gpt-5-mini",
       "fallbackModels": [
-        "gpt-4o-mini"
+        "gpt-5-mini"
       ]
     },
     {
@@ -898,7 +898,7 @@
       "authEnv": [
         "OPENAI_API_KEY"
       ],
-      "defaultModel": "gpt-4o-mini"
+      "defaultModel": "gpt-5-mini"
     }
   ]
 }

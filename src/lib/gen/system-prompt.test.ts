@@ -202,6 +202,39 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("## Generation Profile");
     });
 
+    it("surfaces capability hints as a separate top-level block", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "followUp",
+        buildSpec: {
+          ...lightFollowUpSpec,
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        capabilityHints: "## Detected Capabilities\n\n- **Carousel/slider requested**: Use shadcn Carousel.\n- **3D/WebGL requested**: Use @react-three/fiber.",
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("## Detected Capabilities");
+      expect(context).toContain("## Scaffold");
+      expect(context.indexOf("## Detected Capabilities")).toBeLessThan(
+        context.indexOf("## Scaffold"),
+      );
+    });
+
+    it("describes follow-up work as editing the current project state", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "followUp",
+        buildSpec: lightFollowUpSpec,
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("current project state");
+      expect(context).toContain("previous generations");
+      expect(context).not.toContain("established in the initial generation");
+    });
+
     it("returns pruning metadata and block trace when systemContextTokens is tight", async () => {
       const { context, pruning, blocks } = await buildDynamicContext({
         intent: "website",

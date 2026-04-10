@@ -89,7 +89,7 @@ function minimalOrchestrationBase(): OrchestrationBase {
       needsPremiumVisuals: false,
     },
     buildSpec,
-    scaffoldAndCapability: "",
+    capabilityHints: undefined,
   };
 }
 

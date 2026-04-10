@@ -1,13 +1,23 @@
 ---
 description: Synka bara direkt berörda LLM-flödesdocs och dashboardkartor
 globs:
+  - config/codegen-static-prompt.json
+  - config/prompt-static/**
+  - config/prompt-static/_READ_ME_FIRST.md
   - src/app/builder/builder-entry.ts
+  - src/lib/builder/defaults.ts
+  - src/lib/builder/server-auto-brief-policy.ts
+  - src/lib/builder/site-brief-generation.ts
+  - src/lib/models/catalog.ts
+  - src/lib/models/selection.ts
+  - src/lib/models/phase-routing.ts
   - src/lib/gen/orchestrate.ts
   - src/lib/gen/system-prompt.ts
   - src/lib/gen/generation-input-package.ts
   - src/lib/gen/tokens.ts
   - src/lib/gen/build-spec.ts
   - src/lib/gen/route-plan.ts
+  - src/lib/gen/capability-inference.ts
   - src/lib/gen/contract/pre-generation-contracts.ts
   - src/lib/gen/scaffolds/**
   - src/lib/gen/prompt-dump.ts
@@ -22,10 +32,20 @@ globs:
   - src/lib/gen/autofix/llm-fixer.ts
   - src/lib/gen/autofix/fixer-prompt.ts
   - src/lib/gen/autofix/validate-and-fix.ts
+  - src/lib/hooks/chat/post-checks-results.ts
+  - src/app/api/engine/chats/init/route.ts
   - src/app/api/engine/chats/*/repair/**
   - src/lib/gen/verifier-pass.ts
   - docs/architecture/step4-post-generation.md
   - config/ai_models/manifest.json
+  - config/ai_models/manifest.schema.json
+  - config/ai_models/_READ_ME_FIRST.md
+  - config/dashboard/app.py
+  - config/dashboard/domain-map.json
+  - scripts/dashboard_shared.py
+  - scripts/scripts_dashboard.py
+  - scripts/scaffolds/scaffold_cli.py
+  - scripts/rebuild_artifacts.py
 ---
 
 # LLM-pipeline docs sync
@@ -34,6 +54,9 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 
 ## Uppdatera alltid när respektive yta faktiskt ändras
 
+- **`config/prompt-static/_READ_ME_FIRST.md`** och **`config/codegen-static-prompt.json`** — när fragment läggs till, tas bort, slås ihop eller byter ansvar.
+- **`config/ai_models/_READ_ME_FIRST.md`** — när manifestets ansvar, phase-routing, tokenbudgetar eller modellbanor ändras i praktiken.
+- **`docs/schemas/model-build-profiles.md`** — build profiles, prompt-assist defaults, phase-routing och legacy-aliaser.
 - **`docs/architecture/builder-generation.md`** — ingress, prompt/context-steg, generate/finalize/preview-kedjan.
 - **`docs/architecture/llm-input-blocks.md`** — faktisk LLM-input, budget/pruning eller system vs user-turn.
 - **`docs/architecture/llm-signal-flow.md`** — hur prompt assist, Deep brief, scaffold, route plan, capabilities, contracts och post-checks samspelar.
@@ -43,14 +66,17 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 - **`docs/schemas/llm-role-matrix.md`** — LLM-roller, modellsteg och ansvar.
 - **`docs/schemas/orchestration-signal-contract.md`** — signallager, inputs, outputs, risker och sanningsfiler.
 - **`docs/architecture/README.md`** och **`docs/plans/active/remaining-focus-after-5-step.md`** — när stegordning, restlista eller tvärgående LLM-kedjefokus ändras.
+- **Relevanta filer i `docs/schemas/`** — när kontrakt, semantik eller begrepp ändras. Scheman ska spegla faktisk runtime-sanning, inte bara gamla antaganden.
 
 ## Uppdatera vid behov
 
 - **`5-steg.txt`** eller annan etablerad slutöversikt — när ett större stegspår stängs och den sammanfattande risk-/slutbilden ändras.
 - **`docs/architecture/preview-deploy.md`** — när preview-kedjan eller tier-2-beteendet ändras.
 - **`docs/plans/README.md`** — när planstrukturen eller statusnavet ändras.
-- **`config/dashboard/domain-map.json`**, **`config/dashboard/app.py`** och **`scripts/scripts_dashboard.py`** — när dashboardscope, canonical paths eller paneltexter ändras.
+- **`config/dashboard/domain-map.json`**, **`config/dashboard/app.py`**, **`scripts/dashboard_shared.py`** och **`scripts/scripts_dashboard.py`** — när dashboardscope, canonical paths, paneltexter eller delad statuslogik ändras.
+- **`scripts/scaffolds/scaffold_cli.py`** och **`scripts/rebuild_artifacts.py`** — när rebuild-/artifactpanelen annars skulle beskriva gammal runtime-sanning eller gammal artifact-ansvarsfördelning.
 - **`docs/architecture/repository-and-platform.md`** eller **`config/README.md`** — när repo-paths, dashboardansvar eller delad helper-logik ändras.
+- **`manifest.schema.json`** — när `manifest.json` ändrar struktur eller kontrakt. Vid rena värdeändringar behövs normalt inte schemasync, men kontrollera alltid om formen faktiskt ändrades.
 
 ## Principer
 
@@ -59,6 +85,7 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 - Uppdatera bara de kanoniska filer som faktiskt berörs; gör inte ett brett docs-pass av rutin.
 - **`config/dashboard/app.py`** är konfigurations-/översiktspanel; **`scripts/scripts_dashboard.py`** är pipeline-/artifactpanel.
 - Delad dashboardlogik ska, när det är rimligt, centraliseras i **`scripts/dashboard_shared.py`** i stället för att dupliceras.
+- Om LLM-kedjan, promptfragment, manifestbanor, preview/version materialization eller artifact-ansvar flyttas: kontrollera uttryckligen om `docs/`, `docs/schemas/`, `config/dashboard/` och de relevanta `scripts/*.py`-ytorna fortfarande säger samma sak som koden.
 - Använd samma terminologi som `.cursor/rules/terminology.mdc`.
 - Ändra aldrig docs utan att ha verifierat mot koden att beskrivningen stämmer.
 - Undvik generisk CI/CD-terminologi om den blir missvisande för repoet; säg hellre `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization` och `verify` när det är det som faktiskt händer.

@@ -72,6 +72,11 @@ export function createOwnEnginePipelineAndGenerationStream(
     chatHistory: input.pipeline.chatHistory,
     referenceAttachments: input.pipeline.referenceAttachments,
     maxTokens: input.pipeline.maxTokens,
+    meta: {
+      chatId: input.chatId,
+      versionId: input.targetVersionId ?? undefined,
+      modelId: input.engineModel,
+    },
   });
   return createOwnEngineGenerationStream({
     chatId: input.chatId,

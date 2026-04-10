@@ -40,6 +40,32 @@ describe("validateAndFix", () => {
     expect(result.passes).toBe(0);
   });
 
+  it("returns pipeline-error when syntax validator is unavailable", async () => {
+    validateGeneratedCode.mockResolvedValueOnce({
+      valid: false,
+      errors: [
+        {
+          file: "__pipeline__",
+          line: 0,
+          column: 0,
+          message: "Syntax validator unavailable: esbuild could not be loaded in this runtime.",
+        },
+      ],
+    });
+
+    const result = await validateAndFix(
+      "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main/>}\n```",
+      {
+        chatId: "chat_unavailable",
+        model: "gpt-5.4",
+      },
+    );
+
+    expect(result.status).toBe("pipeline-error");
+    expect(result.pipelineError).toContain("Syntax validator unavailable");
+    expect(runLlmFixer).not.toHaveBeenCalled();
+  });
+
   it("retries with partial fixer output and still accepts improved revalidation", async () => {
     validateGeneratedCode
       .mockResolvedValueOnce({

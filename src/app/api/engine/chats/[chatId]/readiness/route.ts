@@ -250,8 +250,7 @@ async function buildEngineReadiness(
     warnings.push(buildPreviewWarning(latestPreviewSignal.message, previewMeta.previewCode));
   }
   const latestSeoWarning = errorLogs.find((log) => log.category === "seo");
-  if (latestSeoWarning) {
-    if (hasCriticalSeoIssues(latestSeoWarning.meta)) {
+  if (latestSeoWarning && hasCriticalSeoIssues(latestSeoWarning.meta)) {
       blockers.push({
         id: "seo-critical",
         title: "Versionen saknar kritisk SEO-metadata.",
@@ -259,9 +258,6 @@ async function buildEngineReadiness(
         severity: "blocker",
         action: "seo",
       });
-    } else {
-      warnings.push(buildSeoWarning(latestSeoWarning.message));
-    }
   }
 
   return buildChatReadiness({

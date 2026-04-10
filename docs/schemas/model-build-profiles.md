@@ -70,7 +70,7 @@ They are not the same thing as:
 | `fast` | `Snabb` | `SAJTMASKIN_MODEL_FAST` | `gpt-4.1` | OpenAI | `v0-max-fast` |
 | `pro` | `Lagom` | `SAJTMASKIN_MODEL_PRO` | `gpt-5.3-codex` | OpenAI | `v0-1.5-md` |
 | `max` | `Tanker` | `SAJTMASKIN_MODEL_MAX` | `gpt-5.4` | OpenAI | `v0-1.5-lg` |
-| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.1-codex-max` | OpenAI | `v0-gpt-5` |
+| `codex` | `Kod Max` | `SAJTMASKIN_MODEL_CODEX` | `gpt-5.3-codex-max` | OpenAI | `v0-gpt-5` |
 | `anthropic` | `Anthropic` | `SAJTMASKIN_MODEL_ANTHROPIC` | `claude-sonnet-4.6` | Anthropic | `v0-1.5-lg` |
 
 Important nuance:
@@ -106,7 +106,7 @@ Unknown IDs are rejected by the Zod request schema.
 1. The client sends `modelId` as the selected build profile, for example `max`.
 2. `canonicalizeModelId()` resolves canonical or legacy inputs.
 3. `resolveModelSelection()` normalizes the request to one canonical profile.
-4. `resolveEngineModelId(..., false)` maps that profile to the own-engine model.
+4. `resolveEngineModelId()` maps that profile to the own-engine model.
 5. `src/lib/gen/models.ts` picks the concrete provider client:
    - `gpt-*` -> OpenAI via `@ai-sdk/openai`
    - `claude-*` -> Anthropic via `@ai-sdk/anthropic`
@@ -138,7 +138,7 @@ Important current nuance:
 
 - `Skriv om` normally uses the polish lane model, but follows the Anthropic product lane when the current assist lane is Anthropic
 - deep brief is only used before the first message in a new chat
-- the dedicated `/api/ai/spec` route exists, but the normal builder path does not currently use it
+- builder `specMode` usually builds `sajtmaskin.spec.json` from `briefToSpec()` or `promptToSpec()` in the client flow; the dedicated `/api/ai/spec` route exists, but the normal builder path does not currently call it
 
 ## Prompt-assist provider strings
 
@@ -148,20 +148,22 @@ Prompt assist accepts provider-coded model strings such as:
 - `openai/gpt-5.3-codex`
 - `anthropic/claude-sonnet-4.6`
 - `anthropic/claude-opus-4.6`
-- `v0-1.5-md`
+- `anthropic-direct/claude-sonnet-4-6`
 
 Current provider categories:
 
-- OpenAI gateway-class strings, for example `openai/*`
-- Anthropic prompt-assist strings, for example `anthropic/*` and `anthropic-direct/*`
-- v0 Model API strings, for example `v0-1.5-md`
+- manifest `gatewayClassModels`, which currently includes `openai/*` plus
+  `anthropic/*`
+- manifest `anthropicDirectModels`, which contains `anthropic-direct/*`
 
 Important current nuance:
 
+- prompt assist does **not** use the v0 Model API
 - the route names and labels still talk about `gateway`
 - some code constants still keep historical "gateway" naming for allowlists
 - the current prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/gateway-policy.ts`
-- in practice, "gateway-class" selection currently means a gateway-shaped model string plus direct provider client construction in the route implementation
+- in practice, "gateway-class" selection currently means a manifest-approved
+  model string plus direct provider client construction in the route implementation
 
 ## Thinking
 
@@ -177,21 +179,30 @@ pipeline.
 `src/lib/validations/chatSchemas.ts` enforces:
 
 - `modelId` must be one of the accepted canonical or legacy build-profile IDs
-- create-chat requests default to `max`
+- create-chat requests default to `pro`
 - send-message requests may omit `modelId`
 - prompt metadata may include `promptAssistModel`, `promptAssistDeep`, and `promptAssistMode`
 
 ## Phase routing
 
-`src/lib/models/phase-routing.ts` maps each `GenerationPhase` to an `OwnModelId`:
+`src/lib/models/phase-routing.ts` maps each `GenerationPhase` to an `OwnModelId`
+using `phaseRouting.defaultByTier` in `config/ai_models/manifest.json`:
 
-- **fast** and **anthropic**: one model per tier for every phase (no downgrade).
-- **pro**, **max**, **codex**: **planner** and **generator** use the profile’s
-  primary model; **fixer**, **verifier**, and **deploy-assistant** use
-  **`gpt-4.1-mini`** for efficiency.
+- **fast**: every phase follows `selected_build_model` (the tier’s primary model,
+  default `gpt-4.1`).
+- **pro**: **planner**, **generator**, and **fixer** follow
+  `selected_build_model`; **verifier** and **deploy-assistant** use
+  **`gpt-5.3-codex`**.
+- **max**: **planner** and **generator** follow `selected_build_model`;
+  **fixer**, **verifier**, and **deploy-assistant** use **`gpt-5.3-codex`**.
+- **codex**: **planner**, **generator**, and **fixer** follow
+  `selected_build_model`; **verifier** and **deploy-assistant** use
+  **`gpt-5.3-codex`**.
+- **anthropic**: **planner**, **generator**, **fixer**, and **verifier** follow the
+  tier’s primary Claude model; **deploy-assistant** uses **`gpt-4.1`**.
 
-Env overrides on the build profile still apply to the resolved **base** model;
-auxiliary OpenAI phases stay on `gpt-4.1-mini` unless the implementation changes.
+Env overrides on the build profile still apply to the resolved **base** model for
+phases that resolve via `selected_build_model`.
 
 ## Archived docs
 

@@ -1688,21 +1688,22 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             />
           </div>
           <div
-              className={cn(
-                "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
-                vm.isVersionPanelCollapsed ? "w-10" : "w-80",
-              )}
-            >
-              <VersionHistory
-                chatId={vm.chatId}
-                selectedVersionId={vm.activeVersionId}
-                onVersionSelect={handleVersionSelect}
-                isCollapsed={vm.isVersionPanelCollapsed}
-                onToggleCollapse={vm.handleToggleVersionPanel}
-                versions={vm.effectiveVersionsList}
-                mutateVersions={vm.mutateVersions}
-              />
-            </div>
+            className={cn(
+              "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
+              vm.isVersionPanelCollapsed ? "w-10" : "w-80",
+            )}
+          >
+            <VersionHistory
+              chatId={vm.chatId}
+              selectedVersionId={vm.activeVersionId}
+              activePreviewSessionId={vm.activePreviewSessionId}
+              onVersionSelect={handleVersionSelect}
+              isCollapsed={vm.isVersionPanelCollapsed}
+              onToggleCollapse={vm.handleToggleVersionPanel}
+              versions={vm.effectiveVersionsList}
+              mutateVersions={vm.mutateVersions}
+            />
+          </div>
         </div>
       </div>
 

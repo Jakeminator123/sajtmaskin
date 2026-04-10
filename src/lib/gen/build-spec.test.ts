@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveBuildSpec } from "./build-spec";
+import { deriveBuildSpec, deriveFollowUpContextPolicy } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -51,6 +51,32 @@ const saasScaffold: ScaffoldManifest = {
 };
 
 describe("deriveBuildSpec", () => {
+  it("reuses the same small-follow-up gate for file-context and BuildSpec light policy", () => {
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Update the CTA route in the header and tighten the spacing.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: false,
+      }),
+    ).toBe("light");
+
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Lägg till en klickbar karusell med klockor och en 3D-figur som skjuter laser över hero-sektionen.",
+        followUpIntent: "clear-refine",
+        capabilityHeavy: true,
+      }),
+    ).toBe("normal");
+
+    expect(
+      deriveFollowUpContextPolicy({
+        prompt: "Gör om från grunden med mörk editorial stil och ny layout.",
+        followUpIntent: "clear-redesign",
+        capabilityHeavy: false,
+      }),
+    ).toBe("normal");
+  });
+
   it("keeps init generations compact and deterministic", () => {
     const spec = deriveBuildSpec({
       prompt: "Bygg en modern hemsida för ett arkitektkontor.",
@@ -72,7 +98,7 @@ describe("deriveBuildSpec", () => {
     expect(spec.tokenBudgets.scaffoldChars).toBe(20_000);
   });
 
-  it("uses light context for narrow follow-up edits", () => {
+  it("uses normal context by default for narrow follow-up edits", () => {
     const spec = deriveBuildSpec({
       prompt: "Förbättra copy och SEO i hero-sektionen men behåll designen.",
       buildIntent: "website",
@@ -84,7 +110,7 @@ describe("deriveBuildSpec", () => {
     });
 
     expect(spec.changeScope).toBe("copy");
-    expect(spec.contextPolicy).toBe("light");
+    expect(spec.contextPolicy).toBe("normal");
     expect(spec.verificationPolicy).toBe("fast");
     expect(spec.forbiddenPatterns).toContain("layout_reset_for_copy_change");
     expect(spec.forbiddenPatterns).toContain("unrequested_full_redesign");
@@ -147,7 +173,7 @@ describe("deriveBuildSpec", () => {
     expect(spec.verificationPolicy).not.toBe("fast");
   });
 
-  it("does not treat route wording alone as page-addition in follow-ups", () => {
+  it("keeps explicitly small local-layout follow-ups on light context", () => {
     const spec = deriveBuildSpec({
       prompt: "Update the CTA route in the header and tighten the spacing.",
       buildIntent: "website",
@@ -161,6 +187,55 @@ describe("deriveBuildSpec", () => {
     expect(spec.changeScope).toBe("local-layout");
     expect(spec.contextPolicy).toBe("light");
     expect(spec.verificationPolicy).toBe("fast");
+  });
+
+  it("keeps targeted repair follow-ups at least normal context", () => {
+    const spec = deriveBuildSpec({
+      prompt: `AUTO-FIX REQUEST — TARGETED REPAIR
+
+Issues detected: typecheck failed.
+
+Persisted errors for this version:
+- [quality-gate:typecheck] app/opengraph-image.tsx(11,14): error TS2304: Cannot find name 'ImageResponse'.`,
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.contextPolicy).toBe("normal");
+  });
+
+  it("keeps capability-heavy visual follow-ups off the light/fast path", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Lägg till en klickbar karusell med klockor och en 3D-figur som skjuter laser över hero-sektionen.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+      capabilities: {
+        needsMotion: true,
+        needs3D: true,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: true,
+        needsPremiumVisuals: false,
+      },
+    });
+
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.verificationPolicy).toBe("standard");
   });
 
   it("keeps redesign follow-ups at least normal context with standard verification", () => {

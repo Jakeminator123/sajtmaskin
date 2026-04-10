@@ -16,6 +16,8 @@ const REACT_IMPORT_RE = /import\s+\{([^}]+)\}\s+from\s+["']react["'];?/;
 const USE_CLIENT_DIRECTIVE_RE = /^["']use client["'];?\s*\n/;
 const NEXT_IMAGE_IMPORT_RE = /import\s+Image\s+from\s+["']next\/image["'];?/;
 const IMAGE_USAGE_RE = /<Image\b[^>]*\b(?:src|fill)\b/;
+const NEXT_OG_IMAGE_RESPONSE_IMPORT_RE = /import\s+\{([^}]*)\bImageResponse\b([^}]*)\}\s+from\s+["']next\/og["'];?/;
+const IMAGE_RESPONSE_USAGE_RE = /\bnew\s+ImageResponse\s*\(/;
 const LOCAL_DECL_RE =
   /\b(?:const|let|var|function|class|interface|type|enum)\s+([A-Za-z_$][\w$]*)\b/g;
 const FUNCTION_PARAM_RE =
@@ -627,5 +629,25 @@ export function fixNextImageImport(
   }
 
   const nextCode = insertImportAfterDirectives(code, 'import Image from "next/image";');
+  return { code: nextCode, fixed: nextCode !== code, added: nextCode !== code };
+}
+
+export function fixNextOgImageResponseImport(
+  code: string,
+): { code: string; fixed: boolean; added: boolean } {
+  if (!IMAGE_RESPONSE_USAGE_RE.test(code)) {
+    return { code, fixed: false, added: false };
+  }
+  if (NEXT_OG_IMAGE_RESPONSE_IMPORT_RE.test(code)) {
+    return { code, fixed: false, added: false };
+  }
+  if (extractImportedNames(code).has("ImageResponse")) {
+    return { code, fixed: false, added: false };
+  }
+  if (extractLocalDeclarations(code).has("ImageResponse")) {
+    return { code, fixed: false, added: false };
+  }
+
+  const nextCode = addNamedImport(code, "next/og", ["ImageResponse"]);
   return { code: nextCode, fixed: nextCode !== code, added: nextCode !== code };
 }
