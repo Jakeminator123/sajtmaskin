@@ -190,16 +190,6 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
     "Allow auth, billing, and dashboard subflows to be layered in later.",
     "Primary layout should feel like a real product workspace, not a simple landing page with a sidebar.",
   ],
-  "docs-knowledge": [
-    "Sidebar navigation should reflect the content hierarchy and stay usable on mobile.",
-    "Breadcrumbs should trace the path from root to current page.",
-    "Content sections should use Accordion/Collapsible for long reference material.",
-  ],
-  "form-workflow": [
-    "Multi-step navigation should show clear progress and allow going back.",
-    "Form validation should display inline errors.",
-    "The confirmation page should summarize what was submitted.",
-  ],
 };
 
 const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
@@ -213,8 +203,6 @@ const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
   ecommerce: ["Stronger product and checkout patterns", "Clearer storefront information architecture"],
   "content-site": ["Broader reusable section coverage", "More believable content-first defaults"],
   "app-shell": ["Deeper app navigation patterns", "More settings, account, and workspace affordances"],
-  "docs-knowledge": ["Full-text search with Command palette", "Version selector for multi-version docs"],
-  "form-workflow": ["Conditional fields based on previous answers", "File upload step for document intake"],
 };
 
 function ensureDir(target: string): void {

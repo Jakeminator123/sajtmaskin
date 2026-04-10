@@ -54,7 +54,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@hookform/resolvers": "^5",
   "@reduxjs/toolkit": "^2",
   "react-redux": "^9",
-  "lucide-react": "^1",
+  "lucide-react": "^0.563",
   "canvas-confetti": "^1.9",
   "radix-ui": "^1",
   "cmdk": "^1",

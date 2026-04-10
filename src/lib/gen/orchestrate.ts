@@ -33,10 +33,6 @@ import {
   buildCapabilityHints,
   type InferredCapabilities,
 } from "./capability-inference";
-import {
-  resolveEnhancementPacks,
-  buildEnhancementGuidance,
-} from "./packs/enhancement-packs";
 import { buildRoutePlan } from "./route-plan";
 import type { RoutePlan } from "./route-plan";
 import {
@@ -108,7 +104,6 @@ export interface OrchestrationBase {
   orchestrationContract: OrchestrationContract;
   scaffoldContext: string | undefined;
   capabilityHints: string | undefined;
-  enhancementGuidance: string | undefined;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
@@ -320,7 +315,6 @@ export async function resolveOrchestrationBase(
   }
 
   const capabilityHints = buildCapabilityHints(capabilities);
-  const enhancementGuidance = buildEnhancementGuidance(resolveEnhancementPacks(capabilities));
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent,
@@ -375,7 +369,6 @@ export async function resolveOrchestrationBase(
     orchestrationContract,
     scaffoldContext,
     capabilityHints: capabilityHints || undefined,
-    enhancementGuidance: enhancementGuidance || undefined,
     routePlan,
     preGenerationContracts,
     capabilities,
@@ -412,7 +405,6 @@ export async function finalizeOrchestrationPrompts(
     imageGenerations,
     scaffoldContext: base.scaffoldContext,
     capabilityHints: base.capabilityHints,
-    enhancementGuidance: base.enhancementGuidance,
     resolvedScaffold: base.resolvedScaffold,
     routePlan: base.routePlan,
     preGenerationContracts: base.preGenerationContracts,

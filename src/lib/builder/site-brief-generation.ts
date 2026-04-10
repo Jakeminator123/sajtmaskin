@@ -133,106 +133,73 @@ const siteBriefSchema = z.object({
 
 const simplifiedBriefSchema = z.object({
   projectTitle: z.string(),
-  brandName: z.string().default(""),
+  brandName: z.string().optional().default(""),
   oneSentencePitch: z.string(),
-  targetAudience: z.string().default("General audience"),
-  primaryCallToAction: z.string().default("Get Started"),
-  toneAndVoice: z.array(z.string()).default([]),
+  targetAudience: z.string().optional().default("General audience"),
+  primaryCallToAction: z.string().optional().default("Get Started"),
+  toneAndVoice: z.array(z.string()).optional().default([]),
   pages: z
     .array(
       z.object({
         name: z.string(),
         path: z.string(),
-        purpose: z.string().default(""),
+        purpose: z.string().optional().default(""),
         sections: z
           .array(
             z.object({
               type: z.string(),
               heading: z.string(),
-              bullets: z.array(z.string()).default([]),
+              bullets: z.array(z.string()).optional().default([]),
             }),
           )
+          .optional()
           .default([]),
       }),
     )
+    .optional()
     .default([]),
   visualDirection: z
     .object({
-      styleKeywords: z.array(z.string()).default([]),
+      styleKeywords: z.array(z.string()).optional().default([]),
       colorPalette: z
         .object({
-          primary: z.string().default("#3b82f6"),
-          secondary: z.string().default("#6366f1"),
-          accent: z.string().default("#f59e0b"),
-          background: z.string().default("#0a0a0a"),
-          text: z.string().default("#ffffff"),
+          primary: z.string().optional().default("#3b82f6"),
+          secondary: z.string().optional().default("#6366f1"),
+          accent: z.string().optional().default("#f59e0b"),
+          background: z.string().optional().default("#0a0a0a"),
+          text: z.string().optional().default("#ffffff"),
         })
-        .default({
-          primary: "#3b82f6",
-          secondary: "#6366f1",
-          accent: "#f59e0b",
-          background: "#0a0a0a",
-          text: "#ffffff",
-        }),
+        .optional(),
       typography: z
         .object({
-          headings: z.string().default("Inter"),
-          body: z.string().default("Inter"),
+          headings: z.string().optional().default("Inter"),
+          body: z.string().optional().default("Inter"),
         })
-        .default({
-          headings: "Inter",
-          body: "Inter",
-        }),
+        .optional(),
     })
-    .default({
-      styleKeywords: [],
-      colorPalette: {
-        primary: "#3b82f6",
-        secondary: "#6366f1",
-        accent: "#f59e0b",
-        background: "#0a0a0a",
-        text: "#ffffff",
-      },
-      typography: {
-        headings: "Inter",
-        body: "Inter",
-      },
-    }),
+    .optional(),
   imagery: z
     .object({
-      needsImages: z.boolean().default(true),
-      styleKeywords: z.array(z.string()).default([]),
-      suggestedSubjects: z.array(z.string()).default([]),
-      altTextRules: z.array(z.string()).default([]),
+      needsImages: z.boolean().optional().default(true),
+      styleKeywords: z.array(z.string()).optional().default([]),
+      suggestedSubjects: z.array(z.string()).optional().default([]),
+      altTextRules: z.array(z.string()).optional().default([]),
     })
-    .default({
-      needsImages: true,
-      styleKeywords: [],
-      suggestedSubjects: [],
-      altTextRules: [],
-    }),
+    .optional(),
   uiNotes: z
     .object({
-      components: z.array(z.string()).default([]),
-      interactions: z.array(z.string()).default([]),
-      accessibility: z.array(z.string()).default([]),
+      components: z.array(z.string()).optional().default([]),
+      interactions: z.array(z.string()).optional().default([]),
+      accessibility: z.array(z.string()).optional().default([]),
     })
-    .default({
-      components: [],
-      interactions: [],
-      accessibility: [],
-    }),
+    .optional(),
   seo: z
     .object({
-      titleTemplate: z.string().default("{page} | Site"),
-      metaDescription: z.string().default(""),
-      keywords: z.array(z.string()).default([]),
+      titleTemplate: z.string().optional().default("{page} | Site"),
+      metaDescription: z.string().optional().default(""),
+      keywords: z.array(z.string()).optional().default([]),
     })
-    .default({
-      titleTemplate: "{page} | Site",
-      metaDescription: "",
-      keywords: [],
-    }),
+    .optional(),
 });
 
 type SiteTypeRule = { hint: string; keywords: string[] };

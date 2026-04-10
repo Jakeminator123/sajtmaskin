@@ -8,9 +8,7 @@ export type ScaffoldFamily =
   | "blog"
   | "dashboard"
   | "auth-pages"
-  | "ecommerce"
-  | "docs-knowledge"
-  | "form-workflow"
+  | "ecommerce";
 export type ScaffoldMode = "off" | "auto" | "manual";
 
 export type ScaffoldSiteKind = "marketing" | "app" | "commerce" | "editorial";
