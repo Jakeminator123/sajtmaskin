@@ -105,7 +105,7 @@ function fixShadcnImports(code: string): { code: string; fixes: AutoFixEntry[] }
  * per-line streaming rule cannot match.
  */
 const LUCIDE_IMPORT_MULTILINE_RE =
-  /(import\s*\{)([\s\S]*?)(\}\s*from\s*["']lucide-react["'])/g;
+  /(import\s*\{)([^}]*?)(\}\s*from\s*["']lucide-react["'])/g;
 
 function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] } {
   const fixes: AutoFixEntry[] = [];

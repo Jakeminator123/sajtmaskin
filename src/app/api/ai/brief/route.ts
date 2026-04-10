@@ -39,18 +39,7 @@ export async function POST(req: Request) {
         return NextResponse.json(validationError.body, { status: validationError.status });
       }
 
-      debugLog("AI", "Brief HTTP request received (/api/ai/brief)", {
-        source: briefSource,
-        provider: logProvider,
-        transport: "direct_provider_api",
-        sdk: "ai",
-        requestStage: "http_request",
-        model: normalizedModel,
-        promptLength: prompt.length,
-        temperature: typeof temperature === "number" ? temperature : null,
-        imageGenerations,
-        maxTokens,
-      });
+      debugLog("brief", `start ${normalizedModel} (${prompt.length} chars, images=${imageGenerations})`);
 
       try {
         const { brief, usedSimplified, provider: briefProvider } = await generateSiteBriefObject({

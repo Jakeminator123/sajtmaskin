@@ -15,15 +15,28 @@ import { join } from "node:path";
  * dynamic `join(process.cwd(), ...)` as overly broad file patterns.
  */
 
-const CWD = process.cwd();
-const MANIFEST_PATH = join(CWD, "config", "codegen-static-prompt.json");
-const CONFIG_DIR = join(CWD, "config");
+let _cwd: string | null = null;
+function getCwd(): string {
+  if (!_cwd) _cwd = process.cwd();
+  return _cwd;
+}
 
-const MONOLITH_CANDIDATES = [
-  join(CWD, "config", "systemprompt.md"),
-  join(CWD, "src", "config", "systemprompt"),
-  join(CWD, "scripts", "systemprompt"),
-] as const;
+function getManifestPath(): string {
+  return join(getCwd(), "config", "codegen-static-prompt.json");
+}
+
+function getConfigDir(): string {
+  return join(getCwd(), "config");
+}
+
+function getMonolithCandidates(): readonly string[] {
+  const cwd = getCwd();
+  return [
+    join(cwd, "config", "systemprompt.md"),
+    join(cwd, "src", "config", "systemprompt"),
+    join(cwd, "scripts", "systemprompt"),
+  ];
+}
 
 type ManifestJson = {
   fragmentSeparator?: string;
@@ -38,11 +51,11 @@ function safeConfigFragmentPath(rel: string): string | null {
   if (!normalized || normalized.includes("..") || normalized.startsWith("/")) {
     return null;
   }
-  return join(CONFIG_DIR, ...normalized.split("/"));
+  return join(getConfigDir(), ...normalized.split("/"));
 }
 
 function manifestCacheKey(fragmentRels: string[]): string {
-  const parts: string[] = [String(statSync(MANIFEST_PATH).mtimeMs)];
+  const parts: string[] = [String(statSync(getManifestPath()).mtimeMs)];
   for (const rel of fragmentRels) {
     const fp = safeConfigFragmentPath(rel);
     if (fp === null) {
@@ -59,13 +72,14 @@ function manifestCacheKey(fragmentRels: string[]): string {
 }
 
 function tryLoadFromManifest(): string | null {
-  if (!existsSync(MANIFEST_PATH)) return null;
+  const manifestPath = getManifestPath();
+  if (!existsSync(manifestPath)) return null;
 
   let parsed: ManifestJson;
   try {
-    parsed = JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as ManifestJson;
+    parsed = JSON.parse(readFileSync(manifestPath, "utf8")) as ManifestJson;
   } catch {
-    throw new Error(`[sajtmaskin] Invalid JSON: ${MANIFEST_PATH}`);
+    throw new Error(`[sajtmaskin] Invalid JSON: ${manifestPath}`);
   }
 
   const fr = parsed.fragments;
@@ -107,7 +121,7 @@ function tryLoadFromManifest(): string | null {
 }
 
 function tryLoadMonolith(): string | null {
-  for (const candidate of MONOLITH_CANDIDATES) {
+  for (const candidate of getMonolithCandidates()) {
     if (existsSync(candidate) && statSync(candidate).isFile()) {
       const st = statSync(candidate);
       const key = `mono|${candidate}|${st.mtimeMs}`;
@@ -136,7 +150,7 @@ export function getStaticCoreFromWorkspace(): string {
     return fromMono;
   }
 
-  const tried = [MANIFEST_PATH, ...MONOLITH_CANDIDATES].join(", ");
+  const tried = [getManifestPath(), ...getMonolithCandidates()].join(", ");
   throw new Error(
     `[sajtmaskin] Missing static system prompt. Expected config/codegen-static-prompt.json + fragments, or a monolithic config/systemprompt.md. Tried: ${tried}`,
   );

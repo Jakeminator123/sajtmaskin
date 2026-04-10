@@ -40,10 +40,11 @@ except ImportError:
     sys.exit(1)
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-ENV_LOCAL = SCRIPT_DIR / ".env.local"
-ENV_PROD = SCRIPT_DIR / ".env.production"
-ENV_POLICY_FILE = SCRIPT_DIR / "config" / "env-policy.json"
-ENV_TS_FILE = SCRIPT_DIR / "src" / "lib" / "env.ts"
+REPO_ROOT = SCRIPT_DIR.parents[1]
+ENV_LOCAL = REPO_ROOT / ".env.local"
+ENV_PROD = REPO_ROOT / ".env.production"
+ENV_POLICY_FILE = REPO_ROOT / "config" / "env-policy.json"
+ENV_TS_FILE = REPO_ROOT / "src" / "lib" / "env.ts"
 
 VERCEL_API_BASE = "https://api.vercel.com"
 V0_API_BASE = "https://api.v0.dev/v1"

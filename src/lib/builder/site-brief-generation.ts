@@ -410,18 +410,7 @@ export async function generateSiteBriefObject(
   const userPrompt = buildBriefUserPrompt(prompt, imageGenerations);
   const briefSource = normalizeBriefLogSource(source);
 
-  debugLog("AI", "Brief model call started (same request, direct provider)", {
-    source: briefSource,
-    provider: logProvider,
-    transport: "direct_provider_api",
-    sdk: "ai",
-    requestStage: "model_call",
-    model: normalizedModel,
-    promptLength: prompt.length,
-    temperature: typeof temperature === "number" ? temperature : null,
-    imageGenerations,
-    maxTokens,
-  });
+  debugLog("brief", `model_call ${normalizedModel} provider=${logProvider} maxTokens=${maxTokens}`);
   devLogAppend("latest", {
     type: "assist.brief.request",
     source: briefSource,
@@ -560,6 +549,12 @@ export async function generateSiteBriefObject(
     schema: usedSimplified ? "simplified" : "full",
     projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
     pages,
+  });
+  devLogAppend("in-progress", {
+    type: "brief.full",
+    provider: "openai",
+    model: normalizedModel,
+    brief: briefObject,
   });
   return {
     brief: briefObject,

@@ -4,6 +4,7 @@ import {
   type BuilderStreamEventName,
 } from "@/lib/gen/stream/builder-stream-contract";
 import { formatSSEEvent } from "@/lib/streaming";
+import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
 
 export interface StreamMeta {
@@ -175,6 +176,7 @@ export function createCodeGenSSEStream(
       let emittedReasoningWait = false;
       let emittedOutputWait = false;
       let sawContentEvent = false;
+      let reasoningHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
       const enqueue = <TEvent extends BuilderStreamEventName>(
         streamEvent: BuilderStreamEvent<TEvent>,
       ) => {
@@ -357,6 +359,12 @@ export function createCodeGenSSEStream(
                     phase: "reasoning",
                   }),
                 );
+                if (reasoningHeartbeatTimer === null) {
+                  reasoningHeartbeatTimer = setInterval(() => {
+                    const elapsed = Math.round((Date.now() - (firstReasoningTokenAt ?? streamStartedAt)) / 1000);
+                    debugLog("engine", `thinking... ${elapsed}s`);
+                  }, 15_000);
+                }
               }
               break;
             }
@@ -376,13 +384,25 @@ export function createCodeGenSSEStream(
 
             case "reasoning-end": {
               ensureGenerationStarted();
+              if (reasoningHeartbeatTimer !== null) {
+                clearInterval(reasoningHeartbeatTimer);
+                reasoningHeartbeatTimer = null;
+              }
               break;
             }
 
             case "text-start": {
               ensureGenerationStarted();
+              if (reasoningHeartbeatTimer !== null) {
+                clearInterval(reasoningHeartbeatTimer);
+                reasoningHeartbeatTimer = null;
+              }
               if (firstContentTokenAt === null) {
                 firstContentTokenAt = Date.now();
+                if (firstReasoningTokenAt !== null) {
+                  const reasoningSec = Math.round((firstContentTokenAt - firstReasoningTokenAt) / 1000);
+                  debugLog("engine", `reasoning done (${reasoningSec}s), streaming output...`);
+                }
               }
               if (!emittedOutputWait) {
                 emittedOutputWait = true;
@@ -476,6 +496,16 @@ export function createCodeGenSSEStream(
 
         const usage = await result.usage;
         const streamTiming = summarizeStream("done", usage);
+        devLogAppend("in-progress", {
+          type: "stream.summary",
+          chatId: meta?.chatId ?? null,
+          model: typeof meta?.modelId === "string" ? meta.modelId : null,
+          reasoningMs: streamTiming.reasoningMs,
+          outputMs: streamTiming.outputMs,
+          durationMs: streamTiming.durationMs,
+          inputTokens: usage?.inputTokens ?? null,
+          outputTokens: usage?.outputTokens ?? null,
+        });
         enqueue(
           createBuilderStreamEvent("progress", {
             step: "generation",
@@ -492,6 +522,10 @@ export function createCodeGenSSEStream(
           }),
         );
       } catch (err) {
+        if (reasoningHeartbeatTimer !== null) {
+          clearInterval(reasoningHeartbeatTimer);
+          reasoningHeartbeatTimer = null;
+        }
         summarizeStream("error");
         try {
           enqueue(

@@ -12,7 +12,7 @@ import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-l
  *
  * `_template_refs/` is a third, separate concept: research material only.
  */
-const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0";
+const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
 
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
