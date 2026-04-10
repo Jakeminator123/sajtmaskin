@@ -12,7 +12,7 @@ import {
   ORCHESTRATION_SOFT_TARGET_WIZARD_CHARS,
 } from "@/lib/builder/promptLimits";
 
-export type PromptStrategy = "direct" | "summarize" | "phase_plan_build_polish" | "preserved";
+export type PromptStrategy = "direct" | "summarize" | "phase_plan_build_refine" | "preserved";
 export type PromptType =
   | "audit"
   | "wizard"
@@ -448,7 +448,7 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     strategy = "direct";
     reason = "within_budget";
   } else if (forcePhase || isComplex) {
-    strategy = "phase_plan_build_polish";
+    strategy = "phase_plan_build_refine";
     reason = forcePhase ? "force_phase_threshold" : "high_complexity";
     phaseHints = [...PHASE_HINTS];
     const innerCap = maxCharsForPhasedInnerBody(hardCap, promptType);
@@ -467,7 +467,7 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
   }
 
   if (optimizedMessage.length > hardCap && !forceDirect) {
-    if (strategy === "phase_plan_build_polish") {
+    if (strategy === "phase_plan_build_refine") {
       const innerCap = maxCharsForPhasedInnerBody(hardCap, promptType);
       const inner = buildSectionAwareHandoff(normalizedMessage, innerCap);
       optimizedMessage = buildPhasedMessage(inner, promptType);

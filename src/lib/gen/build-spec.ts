@@ -373,7 +373,7 @@ function inferContextPolicy(params: {
     (routePlan.provenance.primarySource === "scaffold" && routePlan.routes.length >= 3);
 
   if (
-    promptStrategyMeta?.strategy === "phase_plan_build_polish" ||
+    promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
     promptStrategyMeta?.strategy === "preserved" ||
     buildIntent === "app" ||
     routePlan.routes.length > 4 ||

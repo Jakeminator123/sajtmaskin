@@ -73,7 +73,7 @@ Uppdatera i samma leverans:
 - `docs/architecture/step4-post-generation.md` (denna fil)
 - `5-steg.txt` (samlad slutbild och kvarvarande problemomraden)
 - `.cursor/rules/terminology.mdc`
-- `.cursor/rules/terminology-builder-runtime.mdc`
+- `docs/architecture/glossary.md` (fas 3: repair, quality gate, finalize)
 - `docs/plans/active/remaining-focus-after-5-step.md`
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)

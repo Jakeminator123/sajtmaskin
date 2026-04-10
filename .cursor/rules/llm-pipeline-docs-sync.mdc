@@ -86,6 +86,8 @@ När du ändrar builder-entry, scaffoldval, route plan, LLM-input, prompt-dumps,
 - **`config/dashboard/app.py`** är konfigurations-/översiktspanel; **`scripts/scripts_dashboard.py`** är pipeline-/artifactpanel.
 - Delad dashboardlogik ska, när det är rimligt, centraliseras i **`scripts/dashboard_shared.py`** i stället för att dupliceras.
 - Om LLM-kedjan, promptfragment, manifestbanor, preview/version materialization eller artifact-ansvar flyttas: kontrollera uttryckligen om `docs/`, `docs/schemas/`, `config/dashboard/` och de relevanta `scripts/*.py`-ytorna fortfarande säger samma sak som koden.
-- Använd samma terminologi som `.cursor/rules/terminology.mdc`.
+- Använd samma terminologi som `.cursor/rules/terminology.mdc` och `docs/architecture/glossary.md`.
+- Om du introducerar ett nytt begrepp eller döper om ett befintligt: uppdatera `docs/architecture/glossary.md` i samma leverans.
+- Kontrollera glossaryns § Namnskuggor innan du använder tvetydiga ord som `brief`, `contracts`, `reference`, `polish` eller `scaffold`.
 - Ändra aldrig docs utan att ha verifierat mot koden att beskrivningen stämmer.
 - Undvik generisk CI/CD-terminologi om den blir missvisande för repoet; säg hellre `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization` och `verify` när det är det som faktiskt händer.

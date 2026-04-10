@@ -6,7 +6,7 @@ export const contentSiteManifest: ScaffoldManifest = {
   label: "Content Site",
   description:
     "Content-first website with hero, features, testimonials, and footer. Great for landing pages, portfolios, and blogs.",
-  buildIntents: ["website", "template"],
+  allowedBuildIntents: ["website", "template"],
   tags: [
     "landing",
     "brand-site",

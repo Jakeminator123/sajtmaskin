@@ -6,7 +6,7 @@ export const blogManifest: ScaffoldManifest = {
   label: "Blog",
   description:
     "Content-first blog starter with article list, post layout, author, featured posts, and reading-friendly typography.",
-  buildIntents: ["website", "template"],
+  allowedBuildIntents: ["website", "template"],
   tags: [
     "blog",
     "article",

@@ -6,7 +6,7 @@ export const authPagesManifest: ScaffoldManifest = {
   label: "Auth Pages",
   description:
     "Login, signup, and forgot-password pages with form layout, validation-ready structure, and minimal branding.",
-  buildIntents: ["website", "app", "template"],
+  allowedBuildIntents: ["website", "app", "template"],
   tags: [
     "auth",
     "login",

@@ -51,7 +51,7 @@ export interface ScaffoldManifest {
   siteKind?: ScaffoldSiteKind;
   complexity?: ScaffoldComplexity;
   features?: string[];
-  buildIntents: Array<"website" | "app" | "template">;
+  allowedBuildIntents: Array<"website" | "app" | "template">;
   tags: string[];
   promptHints: string[];
   files: ScaffoldFile[];

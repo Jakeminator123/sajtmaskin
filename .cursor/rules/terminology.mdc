@@ -5,73 +5,57 @@ alwaysApply: true
 
 # Terminology
 
-Kort kärnordlista för begrepp som oftast blir fel. Håll den här filen snabb att läsa. För repo-karta och research-flöde: `docs/architecture/repository-and-platform.md` och `docs/architecture/repo-tree.md`. För builder-/runtimefördjupning: `terminology-builder-runtime.mdc`.
+Snabb referens för de vanligaste förväxlingarna. **Full ordlista med alla begrepp, livscykelstatus, namnskuggor och legacy-termer:** `docs/architecture/glossary.md`.
 
-## Kort ordlista
+## Grundregel (obligatorisk för alla agenter)
 
-| Term | Betyder | Källa / plats | Blanda inte ihop med |
-|------|---------|---------------|----------------------|
-| **`v0-mallar`** | builderns användarvända Mallar-tab / mallkatalog | `templates_v0/*` -> `src/lib/templates/*` | `template-library`, scaffolds, Vercel-mallar |
-| **Vercel-mallar / externa referenser** | extern research från Vercel Templates | `e2e/vercel-templates/*` -> `data/external-template-pipeline/*` | `v0-mallar`, scaffolds |
-| **`template-library`** | kuraterad referensartefakt byggd från externa referenser | `src/lib/gen/template-library/*` | `v0-mallar`, scaffolds |
-| **scaffolds** | interna runtime-startpunkter för own-engine | `src/lib/gen/scaffolds/*` | `template-library`, Vercel-mallar |
-| **own-engine** | den enda aktiva codegen-vägen | `src/lib/gen/*`, `src/lib/providers/own-engine/*` | OpenClaw, gammal v0-runtime |
-| **preview** | det användaren ser i buildern | UI, preview-routes | `sandbox` som generell term |
-| **VM / `preview_host`** | primär tier-2-live-preview | preview-host / Fly.io-kedjan | legacy `sandbox*`-namn |
-| **OpenClaw / Sajtagenten** | separat assistent-/agentyta | `src/components/openclaw/*`, `/api/openclaw/*` | builderns LLM-flöde |
-| **`appProjectId`** | användarprojektets riktiga projekt-id | `projects.id`, builder-state | `chatId`, `VERCEL_PROJECT_ID` |
-| **`chatId`** | own-engine-chattens id; preview-lanen följer detta | `engine_chats.id`, preview-host path | `appProjectId` |
+- Kod är alltid source of truth.
+- **Håll nere nya begrepp.** Introducera inte nya termer om ett befintligt ord redan duger. Kontrollera `docs/architecture/glossary.md` INNAN du namnger något nytt.
+- Om du ändå introducerar en ny term: **registrera den i glossaryn** med status, fas och kodreferens — i samma leverans.
+- Om du döper om eller ger en befintlig term ny betydelse: **uppdatera glossaryn** — i samma leverans.
+- Kontrollera glossaryns § Namnskuggor innan du använder tvetydiga ord som `brief`, `contracts`, `reference`, `scaffold`, `polish`, `context` eller `policy`.
+- Föredra konsolidering framför ny jargong. Repot strävar aktivt efter färre och tydligare begrepp.
 
-## `v0` betyder tre olika saker
+## Snabb förväxlingstabell
 
-1. API-versionering i Sajtmaskins egna compat-routes under `/api/v0/`.
-2. Naming debt i äldre symboler och payload-nycklar.
-3. Builderns Mallar-tab / `v0-mallar`.
+| Säg | Inte |
+|-----|------|
+| `own-engine` | generatorn, v0-motorn |
+| `preview` / `VM` / `preview_host` | sandbox (utom legacy-kontrakt) |
+| `template-library` | mallar (om du menar den kuraterade katalogen) |
+| `scaffolds` | mallar, templates (om du menar runtime-startpunkter) |
+| `builderns Mallar-tab` / `v0-mallar` | template-library, scaffolds |
+| `appProjectId` | chatId, VERCEL_PROJECT_ID |
+| `Deep Brief` | brief, StructuredBrief, PromptAssist |
+| `Prompt Rewrite` / `Prompt Polish` | Prompt Assist (som paraply) |
+| `Contract Plan` | Orchestration Contract (annat koncept) |
+| `previewUrl` (publikt) | demoUrl (legacy naming debt) |
+
+## `v0` — tre betydelser
+
+1. API-versionering under `/api/v0/`.
+2. Naming debt i äldre symboler.
+3. Builderns Mallar-tab.
 
 `v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime.
 
-## Namnge det som faktiskt händer
+## Builder model lanes
 
-- Säg `own-engine`, `preview`, `VM`, `template-library`, `scaffolds` och `builderns Mallar-tab` när det är det du menar.
-- Säg inte bara `template`, `mall` eller `sandbox` om en mer exakt term finns.
-- Hitta inte på nya interna etiketter eller produktnamn utan att först bekräfta dem.
-- Introducera inte nya svårbegripliga interna begrepp i scaffold-/LLM-flödet om ett befintligt ord redan duger; föredra konsolidering framför ny jargong.
-- Ge en kort svensk parentes första gången ett engelskt kodord riskerar att misstolkas.
+- **Byggmodell** = Build Profile (codegen).
+- **Förbättra** = Prompt Rewrite.
+- **Skriv om** = Prompt Polish.
+- **Thinking** = reasoning-flagga, inte en lane.
 
-## Vanliga förväxlingar
+## Steg 4 (kort)
 
-- `template-library` är inte samma sak som builderns `v0-mallar`.
-- Scaffolds är inte samma sak som `template-library`.
-- Preview / VM är inte samma sak som `sandbox`, utom när legacy-kontrakt uttryckligen använder `sandbox*`-namn.
-- OpenClaw / Sajtagenten är inte samma sak som builderns LLM-flöde.
-- `appProjectId` är inte samma sak som `chatId`; preview-host-pathen följer `chatId`.
+Steg 4 = post-stream: Finalize → Repair → Verifier Pass → Preflight → Quality Gate → sparad version. Detaljer i glossaryn (fas 3).
 
 ## Env
 
 - Skilj på repoets `.env*` och användarens genererade sajts `.env*`.
-- För namn och policy: `src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md`.
-- För djupare env-, preview- och finalize-termer: `terminology-builder-runtime.mdc`.
-
-## Builder model lanes
-
-- `Byggmodell` = build lane / build profile.
-- `Förbättra` = prompt-assist lane.
-- `Skriv om` = polish lane.
-- `Thinking` = separat flagga, inte en lane.
-
-## Fidelity
-
-- `fidelity2` = normal tier-2 live-preview via VM / `preview_host`.
-- `fidelity3` = striktare/buildbar lane där `next build` ingår i quality gate.
-
-## Steg 4
-
-- Steg 4 = post-stream: finalize, validate/repair, verifier-pass, preflight och sparad version.
-- Preview-start hör till Steg 5 även om SSE fortsätter efter `done`.
-- Djupare finalize-/repairtermer finns i `terminology-builder-runtime.mdc` och `docs/architecture/step4-post-generation.md`.
+- Policy: `src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md`.
 
 ## När filen uppdateras
 
-- Lägg bara till termer här när samma förväxling återkommer.
-- Håll filen kort; flytta smalare builder-/runtimeord till `terminology-builder-runtime.mdc` eller vanliga docs.
-- Kod och kanoniska docs vinner över gamla förklaringar.
+- Bara vid nya återkommande förväxlingar.
+- Håll kort; detaljer hör hemma i glossaryn.

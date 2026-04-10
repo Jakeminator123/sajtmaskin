@@ -132,7 +132,7 @@ function mergeFiles(baseScaffold: ScaffoldManifest, promotedFiles: ScaffoldFile[
 }
 
 function deriveBuildIntents(entry: TemplateLibraryEntry, baseScaffold: ScaffoldManifest): BuildIntent[] {
-  const intents = new Set<BuildIntent>(baseScaffold.buildIntents);
+  const intents = new Set<BuildIntent>(baseScaffold.allowedBuildIntents);
   if (
     entry.signals.dashboard ||
     entry.signals.auth ||
@@ -208,7 +208,7 @@ function serializeManifest(variableName: string, manifest: ScaffoldManifest): st
     `  family: ${JSON.stringify(manifest.family as string)},`,
     `  label: ${JSON.stringify(manifest.label)},`,
     `  description: ${JSON.stringify(manifest.description)},`,
-    `  buildIntents: ${JSON.stringify(manifest.buildIntents)},`,
+    `  allowedBuildIntents: ${JSON.stringify(manifest.allowedBuildIntents)},`,
     `  tags: ${JSON.stringify(manifest.tags)},`,
     `  promptHints: ${JSON.stringify(manifest.promptHints)},`,
     "  files: [",
@@ -267,7 +267,7 @@ function buildPromotedManifest(options: Options): {
     description:
       entry.description.trim() ||
       `${entry.title} promoted from the external reference library into a runtime scaffold.`,
-    buildIntents: deriveBuildIntents(entry, baseScaffold),
+    allowedBuildIntents: deriveBuildIntents(entry, baseScaffold),
     tags: deriveTags(entry, baseScaffold),
     promptHints: derivePromptHints(entry, baseScaffold),
     files: mergedFiles,

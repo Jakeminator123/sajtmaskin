@@ -26,7 +26,7 @@ export interface ScaffoldEmbeddingsFile {
 
 function buildEmbeddingText(scaffold: ScaffoldManifest): string {
   const locale = SCAFFOLD_EMBEDDING_LOCALE[scaffold.family];
-  const intents = buildIntentBilingual(scaffold.buildIntents);
+  const intents = buildIntentBilingual(scaffold.allowedBuildIntents);
   const filePaths = scaffold.files.map((f) => f.path).join(", ");
   return [
     `Scaffold (en): ${scaffold.label}`,

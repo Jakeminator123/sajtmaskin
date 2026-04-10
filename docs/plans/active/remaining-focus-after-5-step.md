@@ -34,6 +34,8 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
    - ~~saknad package.json utan hard error~~ (done: hard error i sanity)
 
 6. **Tooling- och artifact-audit**
+   - ~~terminologi-konsolidering~~ (done: kanonisk ordlista i `docs/architecture/glossary.md`, ~100 termer, namnskuggor losta)
+   - ~~docs-stadning~~ (done: 68 → ~40 filer, borttagna avklarade planer/agentrapporter/handoffs/archive/contributing)
    - fortsatta stada scripts/rebuild/eval/loggning/prompt-dumps
    - skilj tydligt active runtime-inputs fran observability och historik
 

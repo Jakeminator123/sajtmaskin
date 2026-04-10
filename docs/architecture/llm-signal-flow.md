@@ -11,24 +11,26 @@ För matrisen över LLM-roller/modeller: se `docs/schemas/llm-role-matrix.md`.
 
 ```mermaid
 flowchart TD
-  userPrompt["UserPrompt"] --> promptAssist["PromptAssistOrDeepBrief"]
-  promptAssist --> scaffoldMatch["ScaffoldMatchKeywordPlusEmbedding"]
-  promptAssist --> brief["StructuredBrief"]
-  scaffoldMatch --> routePlan["RoutePlan"]
+  userPrompt["Raw Prompt"] --> promptRewrite["Prompt Rewrite / Deep Brief"]
+  promptRewrite --> scaffoldMatch["Scaffold Selection"]
+  promptRewrite --> brief["Deep Brief"]
+  brief --> scaffoldMatch
+  scaffoldMatch --> routePlan["Route Plan"]
   brief --> routePlan
-  promptAssist --> capability["CapabilityInference"]
-  capability --> contracts["PreGenerationContracts"]
+  promptRewrite --> capability["Capability Map"]
+  capability --> contracts["Contract Plan"]
   brief --> contracts
-  scaffoldMatch --> buildSpec["BuildSpec"]
+  scaffoldMatch --> buildSpec["Build Policy"]
   routePlan --> buildSpec
   contracts --> buildSpec
-  brief --> dynamicContext["DynamicContextAssembly"]
+  brief --> dynamicContext["Dynamic Context"]
   scaffoldMatch --> dynamicContext
   routePlan --> dynamicContext
   contracts --> dynamicContext
   capability --> dynamicContext
-  dynamicContext --> generator["OwnEngineGenerator"]
-  generator --> postChecks["PostChecksAndQualityGate"]
+  dynamicContext --> generator["Generation"]
+  generator --> postChecks["Post-Checks"]
+  postChecks --> qualityGate["Quality Gate"]
 ```
 
 ## Create-chat (`init`)
@@ -41,9 +43,9 @@ flowchart TD
 6. Generatorn kör.
 7. Finalize, post-checks, preview-start och quality gate sker efteråt.
 
-### Viktig nuvarande begränsning
+### Brief → Scaffold
 
-Deep brief förbättrar prompten och dynamic context, men **scaffoldvalet använder ännu inte briefen direkt**. Det är därför ett fel scaffold kan väljas först, även om briefen i sig är bra.
+Deep brief matas nu in i scaffoldmatchningen via `ScaffoldQueryContext` (`briefPages`, `styleKeywords`, `domainHints` → keyword-boost + berikad embedding-prompt). Det minskar risken att ett fel scaffold väljs, men keyword-lagret kan fortfarande dominera vid mycket starka träffar.
 
 ## Follow-up
 
@@ -87,8 +89,7 @@ Repair/fixer-output måste returnera **kompletta filer**, inte snippets. Runtime
 
 ## Vad som fungerar sämre
 
-- scaffoldval utgår fortfarande från råprompten (brief matas inte direkt in i matchern ännu)
-- keyword-lagret kan fortfarande dominera vid mycket starka träffar; embeddings kan utmana svagare keyword-val (se merge-policy i `matcher.ts`)
+- scaffoldval använder nu brief via `ScaffoldQueryContext`, men keyword-lagret kan fortfarande dominera vid starka träffar; embeddings kan utmana svagare keyword-val (se merge-policy i `matcher.ts`)
 - capability/contract-lagren kan förstärka ett dåligt scaffoldval
 - follow-up kan bevara fel routes/scaffold för länge
 

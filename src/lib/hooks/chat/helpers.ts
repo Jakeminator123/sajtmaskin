@@ -858,7 +858,7 @@ function formatPromptStrategyReason(reason: string): string {
 
 function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
   const strategyLabel =
-    meta.strategy === "phase_plan_build_polish"
+    meta.strategy === "phase_plan_build_refine"
       ? "fasad (Plan -> Build -> Polish)"
       : meta.strategy === "summarize"
         ? "sammanfattad"

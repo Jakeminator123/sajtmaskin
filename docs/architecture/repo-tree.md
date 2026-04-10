@@ -9,7 +9,7 @@
 | `src/` | Next.js App Router, API-routes, UI, domänlogik. Egen motor: `src/lib/gen/`. |
 | `config/` | Kanonisk konfiguration (promptfragment, `ai_models`, `env-policy`, m.m.) — [`config/README.md`](../../config/README.md). |
 | `config/dashboard/` | Valfri **Streamlit**-GUI (`app.py`) för att redigera/överblicka samma material — **importeras inte** av Next.js. Detta är konfigurations-/översiktspanelen. Karta: [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json). |
-| `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. `docs/handoffs/` håller bara en pekare — se [`handoffs/README.md`](../handoffs/README.md). |
+| `docs/` | Mänsklig dokumentation; ingång [`docs/README.md`](../README.md). Kanonisk arkitektur i `docs/architecture/`, backlog i `docs/plans/active/`. |
 | `research/` | Icke-runtime: äldre research/experiment och eventuella kvarvarande lokala arkiv. Den kanoniska external-template-pipelinen ligger inte här längre. |
 | `data/` | Lokal **persistent lagring** för appen (default `DATA_DIR` / uploads / ev. sqlite) plus kanonisk external-template-pipeline under `data/external-template-pipeline/`. Se [`docs/ENV.md`](../ENV.md). Ofta gitignorerad innehållsmässigt. |
 | `logs/` | Lokal loggutdata (oftast tom i git, ignorerad). `logs/generationslogg/` behaller de 3 senaste korningarna; `summary.md` kan valfritt unignoras i `.cursorignore` for agentlasning utan att indexera hela loggtradet. |
@@ -61,4 +61,4 @@ Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan**
 
 - **Mappar, pipelines, integrationer:** [repository-and-platform.md](./repository-and-platform.md)
 - **Config-detaljer per vy:** [`config/dashboard/domain-map.json`](../../config/dashboard/domain-map.json)
-- **Arbetsflöden (agenter):** [`docs/contributing/agent-workflows.md`](../contributing/agent-workflows.md)
+- **Arbetsflöden (agenter):** [`.cursor/README.md`](../../.cursor/README.md) § Flera agenter

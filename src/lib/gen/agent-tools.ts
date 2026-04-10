@@ -120,7 +120,7 @@ export const emitPlanArtifact = tool({
         id: z.string(),
         title: z.string(),
         description: z.string(),
-        phase: z.enum(["build", "polish", "verify"]),
+        phase: z.enum(["build", "refine", "verify"]),
       }),
     ),
     blockers: z

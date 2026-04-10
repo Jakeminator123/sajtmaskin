@@ -6,7 +6,7 @@ export const portfolioManifest: ScaffoldManifest = {
   label: "Portfolio",
   description:
     "Personal portfolio starter with intro, selected work, writing, credibility, and contact sections.",
-  buildIntents: ["website", "template"],
+  allowedBuildIntents: ["website", "template"],
   tags: [
     "portfolio",
     "personal",

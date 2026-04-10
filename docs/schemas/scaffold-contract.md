@@ -70,7 +70,7 @@ The plan may draw routes from:
 - `family`
 - `label`
 - `description`
-- `buildIntents`
+- `allowedBuildIntents`
 - `tags`
 - `promptHints`
 - `files`
