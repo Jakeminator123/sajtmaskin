@@ -6,7 +6,7 @@ export const appShellManifest: ScaffoldManifest = {
   label: "App Shell",
   description:
     "Operational app shell with sidebar navigation, workspace summaries, queue tables, and execution-focused content areas.",
-  buildIntents: ["app"],
+  allowedBuildIntents: ["app"],
   tags: ["app-shell", "workspace", "operations", "crm", "saas", "backoffice", "admin"],
   promptHints: [
     "Use this scaffold for operational apps, internal tools, and workflow-oriented SaaS backoffices.",

@@ -69,7 +69,7 @@ NavigationMenu, Collapsible, CollapsibleContent, CollapsibleTrigger, Accordion, 
   siteKind: "editorial",
   complexity: "medium",
   features: ["sidebar-nav", "search", "breadcrumbs", "collapsible-sections"],
-  buildIntents: ["website"],
+  allowedBuildIntents: ["website"],
   tags: ["docs", "documentation", "knowledge-base", "help-center", "changelog", "api-docs", "wiki"],
 }
 ```
@@ -118,7 +118,7 @@ Form, FormField, FormItem, FormLabel, FormControl, FormMessage, Input, Textarea,
   siteKind: "marketing",
   complexity: "medium",
   features: ["multi-step-form", "validation", "calendar-picker", "confirmation-page"],
-  buildIntents: ["website"],
+  allowedBuildIntents: ["website"],
   tags: ["booking", "form", "survey", "quiz", "calculator", "application", "intake", "multi-step", "wizard"],
 }
 ```

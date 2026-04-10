@@ -1,6 +1,6 @@
 # Arkitektur — översikt
 
-**Senast strukturerad om:** 2026-03-27 (fyra huvuddokument; utförligt arkiv under `docs/architecture/archive/` finns **inte** — återfinns vid behov med `git log` / `git show` på historiska sökvägar).
+**Senast strukturerad om:** 2026-04-10. Arkiv: git-historik.
 
 **Vad det här är:** en **ingångs**-sammanfattning i vanlig markdown — inte en tjänst, MCP-server eller “hub” i teknisk mening. Den här mappen beskriver **hur Sajtmaskin är uppbyggt** (egen motor, builder, preview, integrationer, repo). Produktordlista för agenter: [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc). Nav i hela `docs/`: [`docs/README.md`](../README.md).
 

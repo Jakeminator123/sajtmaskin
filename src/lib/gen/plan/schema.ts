@@ -5,7 +5,23 @@
  * instead of code.  The executor then runs the plan in phases.
  */
 
-export type PlanPhase = "plan" | "build" | "polish" | "verify" | "done";
+export type PlanPhase = "plan" | "build" | "refine" | "verify" | "done";
+
+/** @deprecated Use "refine" — kept for backward compat with stored artifacts. */
+export type PlanPhaseLegacy = PlanPhase | "polish";
+
+function coercePlanPhase(value: string): PlanPhase | null {
+  if (value === "polish") return "refine";
+  if (
+    value === "plan" ||
+    value === "build" ||
+    value === "refine" ||
+    value === "verify" ||
+    value === "done"
+  )
+    return value;
+  return null;
+}
 
 export type PlanStepStatus = "pending" | "active" | "done" | "skipped";
 
@@ -253,14 +269,7 @@ export function normalizePlanArtifact(value: unknown): PlanArtifact | null {
       const title = asString(item.title);
       const description = asString(item.description);
       const phaseValue = asString(item.phase);
-      const phase =
-        phaseValue === "plan" ||
-        phaseValue === "build" ||
-        phaseValue === "polish" ||
-        phaseValue === "verify" ||
-        phaseValue === "done"
-          ? (phaseValue as PlanPhase)
-          : null;
+      const phase = coercePlanPhase(phaseValue);
       if (!title || !description || !phase) continue;
       steps.push({
         id: asString(item.id) || `step-${index + 1}`,
@@ -320,14 +329,7 @@ export function normalizePlanArtifact(value: unknown): PlanArtifact | null {
         .filter((item): item is PlanPage => Boolean(item))
     : [];
   const currentPhaseValue = asString(value.currentPhase);
-  const currentPhase =
-    currentPhaseValue === "plan" ||
-    currentPhaseValue === "build" ||
-    currentPhaseValue === "polish" ||
-    currentPhaseValue === "verify" ||
-    currentPhaseValue === "done"
-      ? currentPhaseValue
-      : "plan";
+  const currentPhase = coercePlanPhase(currentPhaseValue) ?? "plan";
 
   return {
     id: asString(value.id) || `plan-${Date.now()}`,

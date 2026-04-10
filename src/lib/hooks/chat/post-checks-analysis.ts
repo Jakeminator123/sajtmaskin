@@ -3,7 +3,7 @@ import { extractAppRoutePathsFromFilePaths, findMissingPlannedRoutes, type Plann
 import {
   detectBusinessWorkflowPacks,
   type BusinessWorkflowPack,
-} from "@/lib/gen/business-packs";
+} from "@/lib/gen/packs/business-packs";
 import {
   runProjectSanityChecks,
   type SanityIssue,

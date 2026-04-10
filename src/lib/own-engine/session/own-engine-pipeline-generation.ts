@@ -55,11 +55,11 @@ export function createOwnEnginePipelineAndGenerationStream(
 ): ReadableStream<Uint8Array> {
   const tools = getAgentTools();
   const effortByQuality: Record<string, ReasoningEffort> = {
-    standard: "medium",
+    standard: "high",
     premium: "high",
     "release-candidate": "high",
   };
-  const reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "medium";
+  const reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "high";
   const pipelineStream = createGenerationPipeline({
     prompt: input.pipeline.prompt,
     systemPrompt: input.pipeline.systemPrompt,

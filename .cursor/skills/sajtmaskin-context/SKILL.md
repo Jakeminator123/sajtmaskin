@@ -9,9 +9,10 @@ Use this skill to stay aligned with Sajtmaskin's domain language and canonical d
 
 ## Read first
 
-1. `.cursor/rules/terminology.mdc` - canonical product/code terminology
-2. `docs/README.md` - canonical doc navigation
-3. `docs/plans/README.md` and `5-steg.txt` - current status, final summary, and decisions
+1. `docs/architecture/glossary.md` - canonical glossary (all terms, lifecycle, name shadows)
+2. `.cursor/rules/terminology.mdc` - quick confusion table
+3. `docs/README.md` - canonical doc navigation
+4. `docs/plans/README.md` and `5-steg.txt` - current status, final summary, and decisions
 
 ## Core guardrails
 

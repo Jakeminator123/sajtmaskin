@@ -34,7 +34,7 @@ Return a single JSON object (no markdown fences) matching this schema:
       "id": "step-1",
       "title": "Short title",
       "description": "What will be built in this step",
-      "phase": "build" | "polish" | "verify"
+      "phase": "build" | "refine" | "verify"
     }
   ],
   "blockers": [

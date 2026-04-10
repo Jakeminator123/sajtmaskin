@@ -165,6 +165,7 @@ export interface DynamicContextOptions {
   mediaCatalog?: MediaCatalogItem[];
   scaffoldContext?: string;
   capabilityHints?: string;
+  enhancementGuidance?: string;
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
@@ -319,6 +320,7 @@ export async function buildDynamicContext(
     mediaCatalog,
     scaffoldContext,
     capabilityHints,
+    enhancementGuidance,
     resolvedScaffold,
     routePlan,
     preGenerationContracts,
@@ -382,6 +384,10 @@ export async function buildDynamicContext(
 
   if (capabilityHints?.trim()) {
     parts.push(capabilityHints.trim(), "");
+  }
+
+  if (enhancementGuidance?.trim()) {
+    parts.push(enhancementGuidance.trim(), "");
   }
 
   // ── Scaffold ───────────────────────────────────────────────────────────

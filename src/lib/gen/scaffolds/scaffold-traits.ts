@@ -83,6 +83,20 @@ const TRAITS_BY_SCAFFOLD_ID: Record<string, ScaffoldTraits> = {
     contentProfile: "workspace-tools",
     features: ["auth", "sidebar-layout", "settings", "dash-widgets"],
   },
+  "docs-knowledge": {
+    siteKind: "editorial",
+    complexity: "medium",
+    structureProfile: "multi-page-docs",
+    contentProfile: "technical-reference",
+    features: ["sidebar-nav", "search", "breadcrumbs", "collapsible-sections"],
+  },
+  "form-workflow": {
+    siteKind: "marketing",
+    complexity: "medium",
+    structureProfile: "form-centric",
+    contentProfile: "service-intake",
+    features: ["multi-step-form", "validation", "calendar-picker", "confirmation-page"],
+  },
 };
 
 export function applyScaffoldTraits(scaffold: ScaffoldManifest): ScaffoldManifest {

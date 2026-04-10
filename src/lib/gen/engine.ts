@@ -51,7 +51,7 @@ export function generateCode(
     model: modelId,
     chatHistory,
     thinking,
-    reasoningEffort = "medium",
+    reasoningEffort = "high",
     maxTokens,
     abortSignal,
     tools,

@@ -36,7 +36,7 @@ const PACKAGE_JSON = `{
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "tailwind-merge": "3.3.0",
-    "lucide-react": "0.513.0",
+    "lucide-react": "1.8.0",
     "next-themes": "0.4.6",
     "sonner": "2.0.7",
     "recharts": "2.15.4",
@@ -53,22 +53,7 @@ const PACKAGE_JSON = `{
     "three": "0.176.0",
     "@react-three/fiber": "9.1.2",
     "@react-three/drei": "10.7.7",
-    "date-fns": "4.1.0",
-    "@radix-ui/react-dialog": "1.1.15",
-    "@radix-ui/react-dropdown-menu": "2.1.15",
-    "@radix-ui/react-tabs": "1.1.12",
-    "@radix-ui/react-tooltip": "1.2.8",
-    "@radix-ui/react-accordion": "1.2.8",
-    "@radix-ui/react-collapsible": "1.1.12",
-    "@radix-ui/react-select": "2.2.6",
-    "@radix-ui/react-switch": "1.2.6",
-    "@radix-ui/react-checkbox": "1.3.3",
-    "@radix-ui/react-label": "2.1.6",
-    "@radix-ui/react-scroll-area": "1.2.9",
-    "@radix-ui/react-separator": "1.1.6",
-    "@radix-ui/react-slot": "1.2.0",
-    "@radix-ui/react-avatar": "1.1.8",
-    "@radix-ui/react-popover": "1.1.15"
+    "date-fns": "4.1.0"
   },
   "devDependencies": {
     "eslint": "9.39.2",
@@ -514,6 +499,7 @@ function buildPlaceholderEnvLocalBody(): string | null {
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
+  options?: { capabilityDeps?: Record<string, string> },
 ): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
@@ -523,6 +509,11 @@ export function buildCompleteProject(
     ...(uiComponents ?? []).map((component) => component.content),
   ].join("\n");
   const detected = runDepCompleter(allCode);
+  if (options?.capabilityDeps) {
+    for (const [pkg, ver] of Object.entries(options.capabilityDeps)) {
+      if (!detected.dependencies[pkg]) detected.dependencies[pkg] = ver;
+    }
+  }
 
   const mergeModelPackageJson = (file: CodeFile): CodeFile => {
     if (file.path !== "package.json") return file;

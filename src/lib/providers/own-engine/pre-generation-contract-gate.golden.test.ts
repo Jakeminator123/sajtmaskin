@@ -74,7 +74,7 @@ const scaffold: ScaffoldManifest = {
   family: "saas-landing",
   label: "SaaS",
   description: "d",
-  buildIntents: ["website"],
+  allowedBuildIntents: ["website"],
   tags: [],
   promptHints: [],
   files: [],

@@ -418,7 +418,7 @@ export function validateBriefModelForHttp(
 }
 
 /**
- * Generate structured brief (same shape as `meta.brief` / system prompt expects).
+ * Generate Deep Brief (same shape as `meta.brief` / system prompt expects).
  * Caller must validate model/keys first (HTTP) or use `tryGenerateServerAutoBrief`.
  */
 export async function generateSiteBriefObject(

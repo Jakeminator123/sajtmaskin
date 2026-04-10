@@ -16,7 +16,7 @@ import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-p
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User-turn text that shaped orchestration/system assembly for this run. */
   userPrompt: string;
-  /** Structured brief (deep brief) when available. */
+  /** Deep Brief when available. */
   brief: Record<string, unknown> | null;
   /** Scaffold selection mode used for this generation. */
   scaffoldMode: "auto" | "manual" | "off";

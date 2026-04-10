@@ -1,6 +1,9 @@
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
+import { inferCapabilities } from "@/lib/gen/capability-inference";
+import { resolveCapabilityPacks, collectPackDeps } from "@/lib/gen/packs/capability-packs";
+import { resolveEnhancementPacks, collectEnhancementDeps } from "@/lib/gen/packs/enhancement-packs";
 import {
   extractAppRoutePathsFromFilePaths,
   findMissingPlannedRoutes,
@@ -36,6 +39,7 @@ export interface RunFinalizePreflightParams {
   filesJson: string;
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
+  originalPrompt?: string;
 }
 
 export interface RunFinalizePreflightResult {
@@ -240,6 +244,7 @@ export async function runFinalizePreflight({
   filesJson,
   routePlan = null,
   orchestrationContract = null,
+  originalPrompt,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   let nextFilesJson = filesJson;
   let preflightIssues: FinalizePreflightIssue[] = [];
@@ -348,8 +353,16 @@ export async function runFinalizePreflight({
     }
 
     const { collectRequiredUiComponents } = await import("@/lib/gen/project-scaffold-ui-reader");
+    let capabilityDeps: Record<string, string> | undefined;
+    if (originalPrompt) {
+      const caps = inferCapabilities(originalPrompt);
+      capabilityDeps = {
+        ...collectPackDeps(resolveCapabilityPacks(caps)),
+        ...collectEnhancementDeps(resolveEnhancementPacks(caps)),
+      };
+    }
     const completeProjectFiles = repairGeneratedFiles(
-      buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles)),
+      buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles), { capabilityDeps }),
     ).files;
     preflightFileCount = completeProjectFiles.length;
     preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));

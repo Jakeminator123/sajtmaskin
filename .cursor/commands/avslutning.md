@@ -10,16 +10,18 @@ Avsluta det aktuella arbetet i följande ordning:
 2. Städa inom **berört scope**:
    - ta bort tydligt död/duplicerad kod eller missvisande text
    - rensa inte brett "legacy" utan verifierad ersättning
-3. Synka dokumentation och orienteringsfiler om runtime-sanningen ändrats:
+3. **Terminologidisciplin:**
+   - Kontrollera att inga nya begrepp introducerats utan registrering i `docs/architecture/glossary.md`.
+   - Kontrollera glossaryns § Namnskuggor om du använt tvetydiga ord.
+   - Om du döpt om eller lagt till termer: uppdatera glossaryn i samma leverans.
+4. Synka dokumentation om runtime-sanningen ändrats:
    - relevanta schemas/docs
    - `config/dashboard/app.py`
-   - `scripts/scripts_dashboard.py`
    - `docs/plans/active/remaining-focus-after-5-step.md`
    - `5-steg.txt` (vid större slutbildsändring)
-   - `.cursor/rules/terminology.mdc`
-   - håll fast vid ord som passar repoet bättre än generisk CI/CD: `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization`, `verify`
-4. Verifiera med riktade tester/lints/typecheck efter behov.
-5. Commit:a och pusha när användaren uttryckligen vill avsluta/ship:a arbetet.
+   - håll fast vid ord som passar repoet: `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization`, `verify`
+5. Verifiera med riktade tester/lints/typecheck efter behov.
+6. Commit:a och pusha när användaren uttryckligen vill avsluta/ship:a arbetet.
 
 ## Obligatorisk rutin
 

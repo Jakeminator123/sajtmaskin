@@ -2,7 +2,7 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import { shouldStartOwnEnginePreview } from "@/lib/gen/preview/should-start-preview";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 import type { PreviewStartContract } from "@/lib/gen/stream/preflight-contract";
-import { isServerVerifyEligible } from "@/lib/gen/server-verify";
+import { isServerVerifyEligible } from "@/lib/gen/verify/server-verify";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 
 export function getPostFinalizePreviewStartContract(
@@ -41,6 +41,7 @@ export function shouldTriggerPostFinalizePreview(params: {
 export function shouldTriggerPostFinalizeServerVerify(params: {
   buildSpec: BuildSpec;
   finalized: FinalizeResult;
+  repairPassIndex?: number;
 }): boolean {
   return resolvePostFinalizeServerVerifyDecision(params).run;
 }
@@ -48,9 +49,10 @@ export function shouldTriggerPostFinalizeServerVerify(params: {
 export function resolvePostFinalizeServerVerifyDecision(params: {
   buildSpec: BuildSpec;
   finalized: FinalizeResult;
+  repairPassIndex?: number;
 }): { run: boolean; reason: string } {
-  const { buildSpec, finalized } = params;
-  if (buildSpec.verificationPolicy === "fast") {
+  const { buildSpec, finalized, repairPassIndex = 0 } = params;
+  if (buildSpec.verificationPolicy === "fast" && repairPassIndex === 0) {
     return { run: false, reason: "fast_policy" };
   }
   if (!isServerVerifyEligible(finalized.version.id)) {

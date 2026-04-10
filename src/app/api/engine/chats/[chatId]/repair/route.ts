@@ -11,12 +11,12 @@ import {
   promoteVersion,
   getChat,
 } from "@/lib/db/chat-repository-pg";
-import { buildExportableProject } from "@/lib/gen/build-exportable-project";
+import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
-} from "@/lib/gen/preview-quality-gate";
-import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/quality-gate-checks";
+} from "@/lib/gen/verify/preview-quality-gate";
+import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
@@ -24,14 +24,14 @@ import type { CodeFile } from "@/lib/gen/parser";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
-import { resolveServerRepairEarlyStopReason } from "@/lib/gen/server-repair-policy";
-import { buildLintRepairContextLines } from "@/lib/gen/lint-output";
+import { resolveServerRepairEarlyStopReason } from "@/lib/gen/verify/server-repair-policy";
+import { buildLintRepairContextLines } from "@/lib/gen/verify/lint-output";
 import {
   buildServerRepairOutcomeMeta,
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
   compactVisualQAForQualityGateLog,
-} from "@/lib/gen/server-verify-log-meta";
+} from "@/lib/gen/verify/server-verify-log-meta";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;

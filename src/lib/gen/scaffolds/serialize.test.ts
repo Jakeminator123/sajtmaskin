@@ -22,7 +22,7 @@ describe("serializeScaffoldForPrompt", () => {
       family: "landing-page",
       label: "Test scaffold",
       description: "A scaffold used for prompt-budget tests.",
-      buildIntents: ["website"],
+      allowedBuildIntents: ["website"],
       tags: [],
       promptHints: [],
       files: [
@@ -55,7 +55,7 @@ describe("serializeScaffoldForPrompt", () => {
       family: "auth-pages",
       label: "Auth aware scaffold",
       description: "A scaffold for relevance ranking tests.",
-      buildIntents: ["website", "app"],
+      allowedBuildIntents: ["website", "app"],
       tags: [],
       promptHints: [],
       files: [

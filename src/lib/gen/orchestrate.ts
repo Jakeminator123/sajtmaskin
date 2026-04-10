@@ -33,6 +33,10 @@ import {
   buildCapabilityHints,
   type InferredCapabilities,
 } from "./capability-inference";
+import {
+  resolveEnhancementPacks,
+  buildEnhancementGuidance,
+} from "./packs/enhancement-packs";
 import { buildRoutePlan } from "./route-plan";
 import type { RoutePlan } from "./route-plan";
 import {
@@ -104,6 +108,7 @@ export interface OrchestrationBase {
   orchestrationContract: OrchestrationContract;
   scaffoldContext: string | undefined;
   capabilityHints: string | undefined;
+  enhancementGuidance: string | undefined;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
@@ -246,6 +251,9 @@ export async function resolveOrchestrationBase(
     briefContextApplied: false,
   };
 
+  const capabilities = providedCapabilities ?? inferCapabilities(prompt);
+  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
@@ -276,6 +284,9 @@ export async function resolveOrchestrationBase(
     const autoSelection = await matchScaffoldAuto(prompt, buildIntent, {
       useEmbeddings: embeddingScaffoldMatch,
       queryContext: scaffoldQueryContext,
+      capabilities,
+      generationMode: resolvedMode,
+      brief,
     });
     resolvedScaffold = autoSelection.scaffold;
     scaffoldSelection = autoSelection.meta;
@@ -308,9 +319,8 @@ export async function resolveOrchestrationBase(
     }
   }
 
-  const capabilities = providedCapabilities ?? inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
-  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+  const enhancementGuidance = buildEnhancementGuidance(resolveEnhancementPacks(capabilities));
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent,
@@ -365,6 +375,7 @@ export async function resolveOrchestrationBase(
     orchestrationContract,
     scaffoldContext,
     capabilityHints: capabilityHints || undefined,
+    enhancementGuidance: enhancementGuidance || undefined,
     routePlan,
     preGenerationContracts,
     capabilities,
@@ -401,6 +412,7 @@ export async function finalizeOrchestrationPrompts(
     imageGenerations,
     scaffoldContext: base.scaffoldContext,
     capabilityHints: base.capabilityHints,
+    enhancementGuidance: base.enhancementGuidance,
     resolvedScaffold: base.resolvedScaffold,
     routePlan: base.routePlan,
     preGenerationContracts: base.preGenerationContracts,

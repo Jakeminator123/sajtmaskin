@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderArchive, GithubIcon, Loader2, Lock, Upload, X } from "lucide-react";
+import { FolderArchive, GitBranch, Loader2, Lock, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ENGINE_CHATS_API_PREFIX } from "@/lib/api/engine-chats-path";
@@ -178,7 +178,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            <GithubIcon className="h-4 w-4" />
+            <GitBranch className="h-4 w-4" />
             GitHub
           </button>
           <button

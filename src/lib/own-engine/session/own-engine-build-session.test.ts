@@ -90,6 +90,7 @@ function minimalOrchestrationBase(): OrchestrationBase {
     },
     buildSpec,
     capabilityHints: undefined,
+    enhancementGuidance: undefined,
   };
 }
 

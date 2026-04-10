@@ -45,8 +45,8 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
 //   # ── Token-gränser ────────────────────────────────────────────
-//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=82768
-//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=12288
+//   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS=131072
+//   SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS=49152
 //   SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS=82768
 //
 // ============================================================================
@@ -57,7 +57,7 @@ export const ASSIST_MODEL = readStringEnv(pa.envKeys.assist, pa.defaults.assist)
 /** Prompt polish model for "Skriv om" */
 export const POLISH_MODEL = readStringEnv(pa.envKeys.polish, pa.defaults.polish);
 
-/** Structured brief model for `/api/ai/brief` when the caller does not override it. */
+/** Deep Brief model for `/api/ai/brief` when the caller does not override it. */
 export const BRIEF_MODEL = readStringEnv(
   briefingEnvKeys.requestModel,
   briefing.requestModel,

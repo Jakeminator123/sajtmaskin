@@ -12,7 +12,7 @@ import {
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { triggerServerVerification } from "@/lib/gen/server-verify";
+import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
@@ -55,6 +55,8 @@ export async function runOwnEngineStreamPostFinalize(params: {
   buildSpec: BuildSpec;
   /** Stream ended without a normal `done` event; prefer parsing raw accumulated SSE text for preview files. */
   recoveredAfterStreamAbort?: boolean;
+  /** 0 = first generation, 1+ = quality-gate-triggered repair pass. */
+  repairPassIndex?: number;
 }): Promise<void> {
   const {
     sse: { enc, safeEnqueue },
@@ -66,6 +68,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     commitCredits,
     buildSpec,
     recoveredAfterStreamAbort = false,
+    repairPassIndex = 0,
   } = params;
 
   const newDetected = getUnsignaledDetectedIntegrations(
@@ -301,6 +304,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   const serverVerifyDecision = resolvePostFinalizeServerVerifyDecision({
     buildSpec,
     finalized,
+    repairPassIndex,
   });
   devLogAppend("in-progress", {
     type: "server-verify.policy",

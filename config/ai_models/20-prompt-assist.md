@@ -8,7 +8,7 @@ Prompt assist använder **`provider/model`**-format, t.ex.:
 - `anthropic/claude-sonnet-4.6`
 - `anthropic-direct/claude-opus-4-6` (direktlista med API-format i suffix)
 
-Tillåtna värden är hårdkodade i [`src/lib/builder/promptAssist.ts`](../../src/lib/builder/promptAssist.ts) **och** dupliceras i **`manifest.json` → `promptAssist.allowed`** för dokumentation och parity-test.
+Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** via `getPromptAssistAllowedFromManifest()` i [`src/lib/builder/promptAssist.ts`](../../src/lib/builder/promptAssist.ts). Paritet säkerställs av `manifest-parity.test.ts`.
 
 ## Varför står det fortfarande “gateway” i koden?
 

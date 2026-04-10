@@ -10,3 +10,9 @@ time,phase,step,severity,created_by,fixed_by,model_tier,model,provider,pass,prob
 04:01:26,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,max,-,-,-,"0 fix(ar), 1 varning(ar)",Deterministisk autofix,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
 04:04:10,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,max,-,-,-,"1 fix(ar), 0 varning(ar)",Deterministisk autofix,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
 04:04:10,phase-3,Filreparation (preflight),info,preflight,deterministic-autofix,max,-,-,-,1 reparation(er),Deterministisk filreparation,OK,ad952951-a1fb-477f-8015-0cc8f7b9713d,-,-
+13:58:20,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,pro,-,-,-,"15 fix(ar), 0 varning(ar)",Deterministisk autofix,OK,da28a0f1-58e5-4020-9bf2-c5ed61146a1c,-,-
+13:58:20,phase-3,Autofix,warning,deterministic-autofix,-,pro,-,-,-,Mycket fixar (15),Notering: instabilitet i generering,Varning,da28a0f1-58e5-4020-9bf2-c5ed61146a1c,-,-
+13:58:28,phase-3,Verifier-pass,warning,verifier-pass,-,pro,-,-,-,"blocking=1, quality=4",Read-only kvalitetsgranskning,Signaler,da28a0f1-58e5-4020-9bf2-c5ed61146a1c,-,-
+13:58:28,phase-3,Filreparation (preflight),info,preflight,deterministic-autofix,pro,-,-,-,1 reparation(er),Deterministisk filreparation,OK,da28a0f1-58e5-4020-9bf2-c5ed61146a1c,-,-
+14:55:19,phase-3,Verifier-pass,warning,verifier-pass,-,max,-,-,-,"blocking=5, quality=3",Read-only kvalitetsgranskning,Signaler,ac0785dd-7e79-4387-bb8e-9a254b725150,-,-
+14:55:19,phase-3,Filreparation (preflight),info,preflight,deterministic-autofix,max,-,-,-,4 reparation(er),Deterministisk filreparation,OK,ac0785dd-7e79-4387-bb8e-9a254b725150,-,-

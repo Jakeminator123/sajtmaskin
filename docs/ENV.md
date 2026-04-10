@@ -2,7 +2,7 @@
 
 **Den här filen är inte “source of truth”.** Den ska bara hjälpa människor att snabbt förstå *vad som krävs*, *vad som är valfritt*, och *var sanningen finns i kod*.
 
-**Viktigt:** `.env.local` i **repo-roten** gäller **Sajtmaskin-appen**. En **annan** `.env.local` finns i **användarens genererade Next-projekt** (sandbox / export) — se avsnitt *Genererade användarsajter*, [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc) och [`.cursor/rules/terminology-builder-runtime.mdc`](../.cursor/rules/terminology-builder-runtime.mdc). Rotens `.env*` är ofta gitignorerad **och** borttagen från Cursor-index (`.cursorignore`); agenter ser dem inte om du inte öppnar dem explicit.
+**Viktigt:** `.env.local` i **repo-roten** gäller **Sajtmaskin-appen**. En **annan** `.env.local` finns i **användarens genererade Next-projekt** (sandbox / export) — se avsnitt *Genererade användarsajter*, [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc) och [`docs/architecture/glossary.md`](architecture/glossary.md) (§ Env-lager). Rotens `.env*` är ofta gitignorerad **och** borttagen från Cursor-index (`.cursorignore`); agenter ser dem inte om du inte öppnar dem explicit.
 
 | Källa | Roll |
 |--------|------|
@@ -14,7 +14,7 @@
 
 - Preview / sandbox / credentials: [`architecture/preview-deploy.md`](./architecture/preview-deploy.md)
 - Modeller / assist / builder-generering: [`architecture/builder-generation.md`](./architecture/builder-generation.md), `src/lib/models/catalog.ts`
-- Historisk nyckeljämförelse (utan hemligheter): [`development/env-comparison-notes.md`](./development/env-comparison-notes.md)
+- Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik (`docs/development/env-comparison-notes.md`)
 
 ---
 

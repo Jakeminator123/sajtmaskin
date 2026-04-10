@@ -2,7 +2,7 @@ import type { CodeFile } from "../parser";
 import { validateGeneratedCode } from "../retry/validate-syntax";
 import { runProjectSanityChecks } from "../validation/project-sanity";
 import type { SeoPreflightIssue } from "../validation/seo-preflight";
-import { analyzeVisualQuality } from "../visual-qa";
+import { analyzeVisualQuality } from "../verify/visual-qa";
 
 export interface CheckResult {
   name: string;

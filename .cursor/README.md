@@ -14,45 +14,38 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 
 ## Projektregler (`.cursor/rules/*.mdc`)
 
-Fyra kärnregler är tänkta att vara alltid på. `platform-quirks.mdc` är medvetet svagare och ska bara laddas när uppgiften faktiskt är plattforms- eller shell-känslig. `terminology-builder-runtime.mdc` är en sekundär fördjupningsregel för builder/preview/finalize. I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
-
 | Regel | Syfte (kort) |
 |--------|----------------|
-| [terminology.mdc](rules/terminology.mdc) | Kärntermer och vanliga förväxlingar |
-| [terminology-builder-runtime.mdc](rules/terminology-builder-runtime.mdc) | Sekundär builder-/preview-/finalize-ordlista |
+| [terminology.mdc](rules/terminology.mdc) | Snabb förväxlingstabell; pekar till glossaryn |
 | [session-git-docs.mdc](rules/session-git-docs.mdc) | Git-hygien, parallellt arbete, docs/plans-livscykel |
 | [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
+| [llm-pipeline-docs-sync.mdc](rules/llm-pipeline-docs-sync.mdc) | Synka kod ↔ docs vid LLM-pipeline-ändringar |
 | [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
+
+I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
+
+## Terminologi
+
+**Kanonisk ordlista:** [`docs/architecture/glossary.md`](../docs/architecture/glossary.md) — alla ~100 begrepp med livscykelstatus, namnskuggor, fasindelning.
+
+**Snabb förväxlingstabell:** [rules/terminology.mdc](rules/terminology.mdc) — kort version med de vanligaste felen.
+
+I chat: `@terminology` eller `@.cursor/rules/terminology.mdc`.
 
 ## Slash-kommandon (`.cursor/commands/*.md`)
 
-Repo-lokala slash-kommandon kan ligga i `.cursor/commands/` och visas när du skriver `/` i Cursor-chatten.
+- `/avslutning` = städning inom scope, docs-/schema-/dashboard-sync, verifiering och därefter commit + push.
+- `/slut` = stäng ett helt arbetsspår: review-fixar, konsolidera kördokument, slutöversikt, verifiera och ship:a.
 
-- `/avslutning` = städning inom scope, docs-/schema-/dashboard-sync, verifiering och därefter commit + push när användarens begäran faktiskt är en avslutning/ship.
-- `/slut` = stäng ett helt arbetsspår: ta in review-fixar, konsolidera kördokument, skriv slutöversikt, verifiera och därefter ship:a.
+## Flera agenter / parallellt arbete
 
-## Terminologidokument (produkt- och kodnamn)
-
-**Fil:** [rules/terminology.mdc](rules/terminology.mdc)
-
-**Så hittar du den i Cursor:**
-
-1. **Projektfilträdet:** öppna `.cursor/rules/terminology.mdc`.
-2. **Cursor Settings → Rules / Project rules:** regeln kan laddas som kärnregel för produkttermer.
-3. I chat kan du skriva **`@terminology`** eller **`@.cursor/rules/terminology.mdc`** för att bifoga filen.
-
-**Sekundär fördjupning:** [rules/terminology-builder-runtime.mdc](rules/terminology-builder-runtime.mdc) för builder-/preview-/finalize-termer.
-
-För **mappar och research-flöde** utöver själva ordlistan, se `docs/architecture/repository-and-platform.md` och `docs/README.md` § Terminology. **Dokumentationspolicy:** `docs/architecture/documentation-lifecycle.md`.
-
-**Samlad slutstatus for avslutat 5-stegsspar:** `5-steg.txt`.
-
-För **Djup brief vs större arbets­paket**, **runtime vs MCP** och **scaffold/dossier/artifact** i en sida: `docs/contributing/agent-workflows.md`.
+- Jobba i huvudcheckouten på `master` med en git-root per fönster.
+- Separera commits: docs, tooling och kod i egna commits.
+- Verifiera före push: `npm run typecheck` + `npx vitest run`.
+- **Konfliktzoner** (stäm av om två spår rör dessa samtidigt): `src/lib/gen/*`, `src/lib/providers/own-engine/*`, `src/lib/hooks/chat/*`, `src/lib/env.ts`, `src/lib/config.ts`, kanoniska arkitekturdocs.
 
 ## MCP (`mcp.json`)
 
-Valfria **plattforms-MCP** (v0, Vercel, OpenAI-docs; ev. `openclaw-docs` på användarnivå). **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen; repoets egen motor förstås via koden, inte via en separat routing-regel.
+Valfria **plattforms-MCP** (v0, Vercel, OpenAI-docs; ev. `openclaw-docs` på användarnivå). **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen.
 
 **GitHub:** `.cursor/mcp.json` är **ignorerad**; kopiera `.cursor/mcp.json.example` → `.cursor/mcp.json`.
-
-**OBS:** builderns **Mallar** (`src/lib/templates/`) är *inte* samma som runtime **`template-library`** eller runtime **scaffolds** — se `terminology.mdc`.

@@ -6,7 +6,7 @@ export const dashboardManifest: ScaffoldManifest = {
   label: "Dashboard",
   description:
     "Analytics and overview dashboard with sidebar, stats cards, data tables, and chart placeholders. For admin panels, analytics, and SaaS apps.",
-  buildIntents: ["app"],
+  allowedBuildIntents: ["app"],
   tags: [
     "dashboard",
     "analytics",

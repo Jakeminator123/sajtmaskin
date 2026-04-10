@@ -14,7 +14,7 @@ import {
   Clock,
   Download,
   ExternalLink,
-  GithubIcon,
+  GitBranch,
   Loader2,
   MessageSquare,
   Pin,
@@ -471,7 +471,7 @@ export function VersionHistory({
           {isAuthenticated ? (
             hasGitHub ? (
               <Badge variant="secondary" className="gap-1">
-                <GithubIcon className="h-3 w-3" />
+                <GitBranch className="h-3 w-3" />
                 GitHub kopplat{user?.github_username ? ` • @${user.github_username}` : ""}
               </Badge>
             ) : (
@@ -483,7 +483,7 @@ export function VersionHistory({
                 }
                 className="h-7 px-2 text-xs"
               >
-                <GithubIcon className="h-3 w-3" />
+                <GitBranch className="h-3 w-3" />
                 Koppla GitHub
               </Button>
             )
@@ -849,7 +849,7 @@ export function VersionHistory({
                       {isExportingGitHub ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <GithubIcon className="h-3 w-3" />
+                        <GitBranch className="h-3 w-3" />
                       )}
                     </Button>
                     {canPin && (

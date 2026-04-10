@@ -44,7 +44,7 @@ const saasScaffold: ScaffoldManifest = {
   family: "saas-landing",
   label: "SaaS",
   description: "SaaS landing scaffold",
-  buildIntents: ["website", "app"],
+  allowedBuildIntents: ["website", "app"],
   tags: [],
   promptHints: [],
   files: [],
@@ -146,7 +146,7 @@ describe("deriveBuildSpec", () => {
         unresolvedDecisions: [],
         confirmedAnswers: [],
       },
-      promptStrategyMeta: { strategy: "phase_plan_build_polish", promptType: "freeform" },
+      promptStrategyMeta: { strategy: "phase_plan_build_refine", promptType: "freeform" },
     });
 
     expect(spec.qualityTarget).toBe("release-candidate");

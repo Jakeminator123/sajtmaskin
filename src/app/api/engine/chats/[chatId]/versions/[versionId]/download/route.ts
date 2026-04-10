@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { buildExportableProject } from "@/lib/gen/build-exportable-project";
+import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 
 export async function GET(
   req: Request,

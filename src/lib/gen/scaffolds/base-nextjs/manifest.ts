@@ -6,7 +6,7 @@ export const baseNextjsManifest: ScaffoldManifest = {
   label: "Base Next.js",
   description:
     "Minimal Next.js starter with Tailwind, App Router, and dark theme.",
-  buildIntents: ["website", "template"],
+  allowedBuildIntents: ["website", "template"],
   tags: ["starter", "minimal", "nextjs"],
   promptHints: [
     "Keep it simple. This is a minimal base — add sections as needed.",
