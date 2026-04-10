@@ -32,11 +32,13 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
    - forstark deterministiska fixar och testtackning
    - ~~unresolved local imports som warning~~ (done: default error, env-flagga for gradvis rollout, telemetrisparing)
    - ~~saknad package.json utan hard error~~ (done: hard error i sanity)
+   - ~~radix-ui monorepo-migration~~ (done: scaffold rensad fran individuella @radix-ui/react-*, dep-completer → "radix-ui": "^1", streaming-regel + autofix for gamla imports, Slot namespace-fix, detectMissingImports for saknade JSX-imports, LLM-prompt uppdaterad)
+   - ~~lucide-react v1 i scaffold~~ (**reverted** i restore `1f4e86956`: tillbaka till ^0.563.0, brand-ikoner aterstallda, dep-completer → "^0.563")
 
 6. **Tooling- och artifact-audit**
    - ~~terminologi-konsolidering~~ (done: kanonisk ordlista i `docs/architecture/glossary.md`, ~100 termer, namnskuggor losta)
    - ~~docs-stadning~~ (done: 68 → ~40 filer, borttagna avklarade planer/agentrapporter/handoffs/archive/contributing)
-   - ~~component uplift P14-P17~~ (done: CapabilityPack dep-injection, 8 enhancement packs, 2 nya scaffolds, shadcn-registerlyft med ~260 exports, resonerande scaffold-val med capability-boost + LLM-classifier)
+   - ~~component uplift P14-P17~~ (**reverted** i restore `1f4e86956`: capability-packs, enhancement-packs, LLM-classifier, docs-knowledge/form-workflow borttagna. Orsakade kvalitetsregression — generationer blev for lika, fler importfel, tunnare art direction. `buildCapabilityHints()` kvar direkt i `capability-inference.ts`.)
    - fortsatta stada scripts/rebuild/eval/loggning/prompt-dumps
    - skilj tydligt active runtime-inputs fran observability och historik
 

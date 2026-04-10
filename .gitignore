@@ -216,5 +216,11 @@ STOR_MIGRATION
 .env*.local
 files_envvars
 
+# Temp analysis files (not part of codebase)
+VISUAL-DESIGN-PROMPT-BRA-*.txt
+SCARFOLDS_ALTERNATIV/
+historik_agenter.txt
+UTLÅTANDE_DEEP_BREEF.txt
+
 # OpenClaw bridge (local agent communication, never commit)
 .cursor/openclaw-bridge/

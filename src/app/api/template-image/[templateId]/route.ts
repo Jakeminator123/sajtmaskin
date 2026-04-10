@@ -1,12 +1,15 @@
 import { access, readFile } from "node:fs/promises";
-import { resolve, extname, join } from "node:path";
+import { extname, join } from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import { getTemplateById } from "@/lib/templates/template-data";
 
-const TEMPLATE_IMAGES_ROOT = resolve(
-  process.cwd(),
-  "templates_v0/downloads/template-images",
-);
+let _templateImagesRoot: string | null = null;
+function getTemplateImagesRoot(): string {
+  if (!_templateImagesRoot) {
+    _templateImagesRoot = join(process.cwd(), "templates_v0", "downloads", "template-images");
+  }
+  return _templateImagesRoot;
+}
 
 const MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -40,7 +43,7 @@ async function findFirstImage(
       : `${templateId}.jpg`;
   const ext = extname(imageFilename).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
-  const base = join(TEMPLATE_IMAGES_ROOT, template.category, templateId);
+  const base = join(getTemplateImagesRoot(), template.category, templateId);
 
   for (const subdir of ["listing", "detail"]) {
     const fullPath = join(base, subdir, imageFilename);

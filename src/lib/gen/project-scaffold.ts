@@ -12,7 +12,7 @@ import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-l
  *
  * `_template_refs/` is a third, separate concept: research material only.
  */
-const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0";
+const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
 
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
@@ -499,7 +499,6 @@ function buildPlaceholderEnvLocalBody(): string | null {
 export function buildCompleteProject(
   generatedFiles: CodeFile[],
   uiComponents?: Array<{ filename: string; content: string }>,
-  options?: { capabilityDeps?: Record<string, string> },
 ): CodeFile[] {
   const result: CodeFile[] = [];
   const generatedPaths = new Set(generatedFiles.map((f) => f.path));
@@ -509,11 +508,6 @@ export function buildCompleteProject(
     ...(uiComponents ?? []).map((component) => component.content),
   ].join("\n");
   const detected = runDepCompleter(allCode);
-  if (options?.capabilityDeps) {
-    for (const [pkg, ver] of Object.entries(options.capabilityDeps)) {
-      if (!detected.dependencies[pkg]) detected.dependencies[pkg] = ver;
-    }
-  }
 
   const mergeModelPackageJson = (file: CodeFile): CodeFile => {
     if (file.path !== "package.json") return file;

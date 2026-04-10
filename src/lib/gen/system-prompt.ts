@@ -40,7 +40,7 @@ import {
   estimateTokens,
   type PromptBudgetBlock,
 } from "./tokens";
-import { searchTemplateLibrary } from "./template-library/search";
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
@@ -165,7 +165,6 @@ export interface DynamicContextOptions {
   mediaCatalog?: MediaCatalogItem[];
   scaffoldContext?: string;
   capabilityHints?: string;
-  enhancementGuidance?: string;
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
@@ -320,7 +319,6 @@ export async function buildDynamicContext(
     mediaCatalog,
     scaffoldContext,
     capabilityHints,
-    enhancementGuidance,
     resolvedScaffold,
     routePlan,
     preGenerationContracts,
@@ -384,10 +382,6 @@ export async function buildDynamicContext(
 
   if (capabilityHints?.trim()) {
     parts.push(capabilityHints.trim(), "");
-  }
-
-  if (enhancementGuidance?.trim()) {
-    parts.push(enhancementGuidance.trim(), "");
   }
 
   // ── Scaffold ───────────────────────────────────────────────────────────
@@ -466,34 +460,6 @@ export async function buildDynamicContext(
       parts.push("", "- Only one route is planned. If the prompt describes additional pages or sections that should be separate routes, create them as real App Router page files.");
     }
     parts.push("");
-  }
-
-  // ── Template Library References ──────────────────────────────────────
-  if (originalPrompt && !isFollowUp) {
-    const templateRefsBudget = buildSpec?.tokenBudgets.refsTokens
-      ? Math.min(buildSpec.tokenBudgets.refsTokens, 2000)
-      : 2000;
-    try {
-      const templateResults = await searchTemplateLibrary(originalPrompt, 3);
-      if (templateResults.length > 0) {
-        const refLines: string[] = ["## Template References", ""];
-        let usedTokens = 0;
-        for (const result of templateResults) {
-          const guidance = result.runtimeGuidance?.trim();
-          if (!guidance) continue;
-          const line = `### ${result.entry.title}\n${guidance}`;
-          const lineTokens = estimateTokens(line);
-          if (usedTokens + lineTokens > templateRefsBudget && refLines.length > 2) break;
-          refLines.push(line, "");
-          usedTokens += lineTokens;
-        }
-        if (refLines.length > 2) {
-          parts.push(...refLines);
-        }
-      }
-    } catch {
-      // Silent degradation — template library search is optional
-    }
   }
 
   if (preGenerationContracts) {

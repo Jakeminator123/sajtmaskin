@@ -237,6 +237,10 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
   const latestRequest = findLatestByType(entries, ["comm.request.followup", "comm.request.create"]);
   const done = findLatestByType(entries, ["site.done", "site.message.done"]);
   const preflight = findLatestByType(entries, ["preflight.summary"]);
+  const streamSummary = findLatestByType(entries, ["stream.summary"]);
+  const partialOutput = findLatestByType(entries, ["site.partial_file_output"]);
+  const emptyGen = findLatestByType(entries, ["site.empty_generation"]);
+  const persistBlocker = partialOutput ?? emptyGen;
 
   return {
     status: resolveStatus(entries),
@@ -249,12 +253,31 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
     modelId: findLastString(entries, "modelId"),
     thinking: findLastBoolean(entries, "thinking"),
     imageGenerations: findLastBoolean(entries, "imageGenerations"),
-    promptStrategy: readString(latestRequest?.data.promptStrategy),
-    promptType: readString(latestRequest?.data.promptType),
+    promptStrategy: readString(latestRequest?.data.promptStrategy) ?? findLastString(entries, "promptStrategy"),
+    promptType: readString(latestRequest?.data.promptType) ?? findLastString(entries, "promptType"),
     buildIntent: findLastString(entries, "buildIntent"),
     buildMethod: findLastString(entries, "buildMethod"),
     durationMs: readNumber(done?.data.durationMs),
     previewUrl: readString(done?.data.previewUrl),
+    streamTiming: streamSummary
+      ? {
+          reasoningMs: readNumber(streamSummary.data.reasoningMs),
+          outputMs: readNumber(streamSummary.data.outputMs),
+          durationMs: readNumber(streamSummary.data.durationMs),
+        }
+      : null,
+    tokenUsage: streamSummary
+      ? {
+          inputTokens: readNumber(streamSummary.data.inputTokens),
+          outputTokens: readNumber(streamSummary.data.outputTokens),
+        }
+      : null,
+    persistBlockedReason: persistBlocker
+      ? readString(persistBlocker.data.reason) ?? readString(persistBlocker.data.type)
+      : null,
+    persistBlockingFiles: persistBlocker && Array.isArray(persistBlocker.data.issues)
+      ? (persistBlocker.data.issues as string[]).slice(0, 5)
+      : null,
     preflight: preflight
       ? {
           filesChecked: readNumber(preflight.data.filesChecked),
@@ -866,10 +889,19 @@ function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
     `- Build intent: ${readString(meta.buildIntent) || "-"}`,
     `- Build method: ${readString(meta.buildMethod) || "-"}`,
     "",
+    "## Stream",
+    "",
+    `- Reasoning ms: ${String((meta.streamTiming as { reasoningMs?: number } | null)?.reasoningMs ?? "-")}`,
+    `- Output ms: ${String((meta.streamTiming as { outputMs?: number } | null)?.outputMs ?? "-")}`,
+    `- Stream duration ms: ${String((meta.streamTiming as { durationMs?: number } | null)?.durationMs ?? "-")}`,
+    `- Input tokens: ${String((meta.tokenUsage as { inputTokens?: number } | null)?.inputTokens ?? "-")}`,
+    `- Output tokens: ${String((meta.tokenUsage as { outputTokens?: number } | null)?.outputTokens ?? "-")}`,
+    "",
     "## Resultat",
     "",
     `- Duration ms: ${String(meta.durationMs ?? "-")}`,
     `- Preview URL: ${readString(meta.previewUrl) || "-"}`,
+    `- Persist blocked: ${readString(meta.persistBlockedReason) || "-"}`,
     `- Preflight errors: ${String((meta.preflight as { errorCount?: number } | null)?.errorCount ?? "-")}`,
     `- Preflight warnings: ${String((meta.preflight as { warningCount?: number } | null)?.warningCount ?? "-")}`,
     `- Preview blocked: ${String((meta.preflight as { previewBlocked?: boolean } | null)?.previewBlocked ?? "-")}`,

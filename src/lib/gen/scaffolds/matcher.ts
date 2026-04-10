@@ -20,8 +20,6 @@ import {
   searchScaffoldsWithDiagnostics,
   type ScaffoldSearchResponse,
 } from "./scaffold-search";
-import { classifyScaffoldWithLlm } from "./scaffold-llm-classifier";
-
 const LANDING_KEYWORDS = [
   "landing",
   "landningssida",
@@ -269,193 +267,6 @@ const ECOMMERCE_KEYWORDS = [
   "kosmetik",
 ];
 
-const RESTAURANT_KEYWORDS = [
-  "restaurang",
-  "restaurant",
-  "café",
-  "cafe",
-  "kafé",
-  "meny",
-  "menu",
-  "catering",
-  "pizzeria",
-  "sushi",
-  "bar",
-  "bistro",
-  "brasserie",
-  "food truck",
-  "matställe",
-  "lunch",
-  "middag",
-  "à la carte",
-  "boka bord",
-  "reservation",
-  "kök",
-  "krog",
-  "pub",
-  "gastropub",
-];
-
-const SALON_KEYWORDS = [
-  "frisör",
-  "frisörsalong",
-  "salong",
-  "salon",
-  "hår",
-  "klippning",
-  "färgning",
-  "barber",
-  "barbershop",
-  "spa",
-  "naglar",
-  "manikyr",
-  "pedikyr",
-  "skönhet",
-  "beauty",
-  "hudvård",
-  "ansiktsbehandling",
-  "makeup",
-  "boka tid",
-  "styling",
-  "fransar",
-  "bryn",
-  "massör",
-  "massage",
-];
-
-const TRADESMAN_KEYWORDS = [
-  "hantverkare",
-  "bygga",
-  "byggare",
-  "byggfirma",
-  "byggföretag",
-  "snickare",
-  "snickeri",
-  "målare",
-  "målarfirma",
-  "elektriker",
-  "el",
-  "elinstallation",
-  "rörmokare",
-  "VVS",
-  "rörläggare",
-  "takläggare",
-  "takläggning",
-  "plåtslagare",
-  "renovering",
-  "renovera",
-  "markarbete",
-  "golvläggare",
-  "golvläggning",
-  "kakel",
-  "badrumsrenovering",
-  "köksrenovering",
-  "fasad",
-  "isolering",
-  "offert",
-  "kostnadsfri offert",
-];
-
-const PROFESSIONAL_KEYWORDS = [
-  "advokat",
-  "advokatbyrå",
-  "advokatfirma",
-  "jurist",
-  "juridik",
-  "revisor",
-  "revision",
-  "redovisning",
-  "redovisningsbyrå",
-  "bokföring",
-  "konsult",
-  "konsultfirma",
-  "konsultbolag",
-  "rådgivare",
-  "rådgivning",
-  "arkitekt",
-  "arkitektbyrå",
-  "mäklare",
-  "fastighetsmäklare",
-  "tandläkare",
-  "tandvård",
-  "läkare",
-  "psykolog",
-  "terapeut",
-  "veterinär",
-  "klinik",
-];
-
-const LOCAL_RETAIL_KEYWORDS = [
-  "butik",
-  "affär",
-  "blomsterhandel",
-  "florist",
-  "bageri",
-  "konditori",
-  "bokhandel",
-  "leksaker",
-  "present",
-  "presentbutik",
-  "inredningsbutik",
-  "djuraffär",
-  "optiker",
-  "secondhand",
-  "vintage",
-  "antik",
-  "antikvariat",
-  "sportaffär",
-  "cykelaffär",
-  "loppis",
-];
-
-const DOCS_KEYWORDS = [
-  "docs",
-  "documentation",
-  "dokumentation",
-  "knowledge base",
-  "kunskapsbas",
-  "help center",
-  "hjälpcenter",
-  "changelog",
-  "release notes",
-  "api docs",
-  "api reference",
-  "wiki",
-  "manual",
-  "handbok",
-  "guide",
-  "faq-site",
-  "support portal",
-  "supportportal",
-  "hjälpsida",
-  "referens",
-];
-
-const FORM_WORKFLOW_KEYWORDS = [
-  "booking",
-  "boka",
-  "bokning",
-  "survey",
-  "enkät",
-  "undersökning",
-  "quiz",
-  "frågesport",
-  "calculator",
-  "kalkylator",
-  "multi-step",
-  "wizard",
-  "intake",
-  "ansökan",
-  "application form",
-  "questionnaire",
-  "frågeformulär",
-  "appointment",
-  "tidsbokning",
-  "registration form",
-  "anmälan",
-  "stegvis",
-];
-
 const CONTENT_KEYWORDS = [
   "company",
   "business",
@@ -697,7 +508,6 @@ export type ScaffoldSelectionMethod =
   | "persisted"
   | "keyword"
   | "embedding"
-  | "llm-classify"
   | "default";
 
 export type ScaffoldSelectionConfidence = "high" | "medium" | "low";
@@ -752,16 +562,11 @@ function buildKeywordScores(
     ecommerceScore = 0;
   }
 
-  const docsScore = countKeywordMatches(promptLower, DOCS_KEYWORDS);
-  const formWorkflowScore = countKeywordMatches(promptLower, FORM_WORKFLOW_KEYWORDS);
-
   const scores = [
     { id: "auth-pages", score: authScore },
     { id: "ecommerce", score: ecommerceScore },
     { id: "dashboard", score: dashboardScore },
     { id: "app-shell", score: appScore },
-    { id: "docs-knowledge", score: docsScore },
-    { id: "form-workflow", score: formWorkflowScore },
     { id: "saas-landing", score: saasScore },
     { id: "portfolio", score: portfolioScore },
     { id: "landing-page", score: landingScore },
@@ -775,7 +580,6 @@ function buildKeywordScores(
       const entry = scores.find((s) => s.id === id);
       if (entry) entry.score += amount;
     };
-    if (capabilities.needsForms) boost("form-workflow", 3);
     if (capabilities.needsDataUI) boost("dashboard", 2);
     if (capabilities.needsCharts) boost("dashboard", 2);
     if (capabilities.needsAppShell) boost("app-shell", 2);
@@ -813,8 +617,6 @@ function applyBriefKeywordBoost(
   if (countKeywordMatches(combinedText, BLOG_KEYWORDS) > 0) addBoost("blog", 2);
   if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
   if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
-  if (countKeywordMatches(combinedText, DOCS_KEYWORDS) > 0) addBoost("docs-knowledge", 2);
-  if (countKeywordMatches(combinedText, FORM_WORKFLOW_KEYWORDS) > 0) addBoost("form-workflow", 2);
 
   if (boosts.size === 0) return scores;
   return scores.map((entry) => ({
@@ -994,34 +796,7 @@ export function matchScaffold(
     return getScaffoldByFamily("app-shell");
   }
 
-  // Industry-specific scaffolds (check first — they are the most specific)
-  const restaurantScore = countKeywordMatches(lower, RESTAURANT_KEYWORDS);
-  const salonScore = countKeywordMatches(lower, SALON_KEYWORDS);
-  const tradesmanScore = countKeywordMatches(lower, TRADESMAN_KEYWORDS);
-  const professionalScore = countKeywordMatches(lower, PROFESSIONAL_KEYWORDS);
-  const localRetailScore = countKeywordMatches(lower, LOCAL_RETAIL_KEYWORDS);
 
-  const bestIndustry = pickBestScaffold([
-    { id: "restaurant", score: restaurantScore },
-    { id: "salon", score: salonScore },
-    { id: "tradesman", score: tradesmanScore },
-    { id: "professional", score: professionalScore },
-    { id: "local-retail", score: localRetailScore },
-  ]);
-
-  if (bestIndustry) {
-    return bestIndustry;
-  }
-
-  const docsScore = countKeywordMatches(lower, DOCS_KEYWORDS);
-  if (docsScore >= MIN_SCORE) {
-    return getScaffoldByFamily("docs-knowledge");
-  }
-
-  const formWorkflowScore = countKeywordMatches(lower, FORM_WORKFLOW_KEYWORDS);
-  if (formWorkflowScore >= MIN_SCORE) {
-    return getScaffoldByFamily("form-workflow");
-  }
 
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
   const portfolioScore =
@@ -1332,37 +1107,6 @@ export async function matchScaffoldAuto(
         embeddingOverrideReason,
       },
     };
-  }
-
-  if (
-    fallbackMeta.selectionConfidence === "low" &&
-    options.generationMode === "init" &&
-    options.capabilities
-  ) {
-    try {
-      const llmResult = await classifyScaffoldWithLlm({
-        prompt,
-        brief: options.brief ?? null,
-        capabilities: options.capabilities,
-        buildIntent: buildIntent ?? "website",
-      });
-      if (llmResult && llmResult.confidence !== "low") {
-        const classified = getScaffoldById(llmResult.scaffoldId);
-        if (classified) {
-          return {
-            scaffold: classified,
-            meta: {
-              ...fallbackMeta,
-              selectedScaffold: classified.id,
-              selectionMethod: "llm-classify",
-              selectionConfidence: llmResult.confidence === "high" ? "high" : "medium",
-            },
-          };
-        }
-      }
-    } catch {
-      /* LLM classify is best-effort; fall through to keyword result */
-    }
   }
 
   return {

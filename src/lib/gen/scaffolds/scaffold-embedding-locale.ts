@@ -160,36 +160,6 @@ export const SCAFFOLD_EMBEDDING_LOCALE: Record<ScaffoldFamily, ScaffoldEmbedding
       "kontrollpanel",
     ],
   },
-  "docs-knowledge": {
-    labelSv: "Dokumentation / Kunskapsbas",
-    descriptionSv:
-      "Dokumentationssida med sidonavigering, breadcrumbs, hopfällbara sektioner och sökfält — hjälpcenter, API-docs, wiki.",
-    keywordsSv: [
-      "dokumentation",
-      "kunskapsbas",
-      "hjälpcenter",
-      "changelog",
-      "wiki",
-      "handbok",
-      "guide",
-      "api-referens",
-    ],
-  },
-  "form-workflow": {
-    labelSv: "Formulär / Bokning",
-    descriptionSv:
-      "Stegvis formulär med bokning, ansökan, bekräftelsesida och kalenderväljare — bokningssystem, enkäter, quiz.",
-    keywordsSv: [
-      "bokning",
-      "formulär",
-      "enkät",
-      "quiz",
-      "kalkylator",
-      "ansökan",
-      "tidsbokning",
-      "stegvis",
-    ],
-  },
 };
 
 export function buildIntentBilingual(

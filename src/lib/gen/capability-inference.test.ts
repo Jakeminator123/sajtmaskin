@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   inferCapabilities,
   buildCapabilityHints,
-  resolveCapabilityPacks,
 } from "./capability-inference";
 
 describe("inferCapabilities", () => {
@@ -67,18 +66,3 @@ describe("buildCapabilityHints (pack-based)", () => {
   });
 });
 
-describe("resolveCapabilityPacks", () => {
-  it("returns matching packs for active capabilities", () => {
-    const caps = inferCapabilities("dashboard with data table sorting, filtering and a chart");
-    const packs = resolveCapabilityPacks(caps);
-    const ids = packs.map((p) => p.capability);
-    expect(ids).toContain("needsAppShell");
-    expect(ids).toContain("needsDataUI");
-    expect(ids).toContain("needsCharts");
-  });
-
-  it("returns empty array when no capabilities match", () => {
-    const caps = inferCapabilities("en enkel hemsida");
-    expect(resolveCapabilityPacks(caps)).toHaveLength(0);
-  });
-});
