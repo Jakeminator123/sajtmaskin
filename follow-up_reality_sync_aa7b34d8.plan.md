@@ -5,11 +5,11 @@ todos:
   - id: consolidate-ambition-level
     content: Samla "hur stor är den här follow-upen?" till ett enda tidigt beslut i stället för fyra separata heuristiker
     status: pending
-  - id: improve-multiturn-memory
-    content: Ge snapshot/continuity mer strukturerad information mellan turer så att turn 3-6 inte tappar projektets form
-    status: pending
   - id: simplify-decision-surface
     content: Minska antalet ställen som avgör context budget, verification level och file-context storlek
+    status: pending
+  - id: improve-multiturn-memory
+    content: Ge snapshot/continuity mer strukturerad information mellan turer så att turn 3-6 inte tappar projektets form
     status: pending
   - id: docs-reflect-reality
     content: Håll docs i synk med faktisk runtime utan att lägga på nya förklaringslager
@@ -19,49 +19,57 @@ isProject: false
 
 # Follow-Up Reality Sync
 
-## Nuläge efter första passet
+## Vad som redan gjorts (commit `trassel`, 90d22ab8f)
 
-Första passet (denna chatt) gjorde:
+Ändringarna var konservativa och lade inte till nya begrepp. Allt typecheck-rent, 61+ tester gröna.
 
-1. **Statisk prompt:** slog ihop fragment, förtydligade export-regler, färgregler och lockfile-awareness. Konservativt och rimligt.
-2. **Capability-signaler i follow-up:** lade till `hasDemandingFollowUpCapabilities` så att karusell/3D/premium-visuals inte fastnar i light/fast-spåret. Löser ett verkligt problem men lade till nya funktioner och kodstigar snarare än att förenkla.
-3. **Capability-hints som eget block:** separerade från scaffold i dynamisk kontext. Förtydligar vad modellen ser men ändrade `OrchestrationBase`-interfacet.
-4. **Snapshot-baserad kontinuitet:** capability-flaggor och `stylePack` följer med i continuity-blocket. Bra signal men ytterligare rörliga delar.
-5. **Docs-sync:** synkade `builder-generation.md`, `llm-input-blocks.md`, `llm-signal-flow.md`, `orchestration-signal-contract.md` och `src/lib/gen/README.md` mot verkligheten.
-6. **Tester:** 60 riktade tester passerar, typecheck rent.
+### Bra ändringar som bör behållas
+- **Capability-hints som eget block** i dynamisk kontext (var inbakat i scaffold; nu synligt separat)
+- **`hasHeavyCapabilities(caps)`** — enda ny funktion (14 rader). Används i `BuildSpec` och file-context-beslutet för att hindra att karusell/3D/premium-visuals klassas som pyttesmå tweaks
+- **`BuildSpec` tar emot capabilities som parameter** från `orchestrate.ts` i stället för att köra `inferCapabilities` internt — renare dataflöde, ingen dubbel körning
+- **Follow-up-text** i systemprompten ändrad till "current project state" i stället för "initial generation" — bättre för turn 3–6
+- **`stylePack`** och **`capabilityHints`** i continuity/snapshot — bär mer signal mellan turer
+- **Docs synkade** i `builder-generation.md`, `llm-input-blocks.md`, `llm-signal-flow.md`, `orchestration-signal-contract.md`, `src/lib/gen/README.md`
+- **Gamla `scaffoldAndCapability`** städat bort ur alla testfiler
 
-### Vad som fortfarande saknas
+### Saker som togs bort under förenklingspasset
+Sex exporterade hjälpfunktioner som lades till och sedan togs bort igen i samma chatt:
+`hasDemandingFollowUpCapabilities`, `summarizeCapabilities`, `extractSnapshotCapabilities`, `hasDemandingSnapshotCapabilities`, `DEMANDING_FOLLOW_UP_CAPABILITIES`, `CAPABILITY_LABELS`. Ersattes av den enda `hasHeavyCapabilities`.
 
-Det övergripande problemet kvarstår: follow-up-kedjan har fortfarande flera separata beslutspunkter som inte pratar med varandra.
+## Vad som fortfarande behöver göras
 
-Idag bestäms "hur stor är den här follow-upen?" av:
-- `classifyFollowUpIntent` i `follow-up-clarification.ts`
-- `looksDesignHeavyMessage` i `promptOrchestration.ts`
-- `hasDemandingFollowUpCapabilities` (nytt från detta pass)
-- `hasDemandingSnapshotCapabilities` (nytt från detta pass)
-- `inferChangeScope` + `inferContextPolicy` + `inferVerificationPolicy` i `build-spec.ts`
-- `useLightFollowUpContext` i `chat-message-stream-post.ts`
+### Problemet
+"Hur stor är den här follow-upen?" bestäms idag av fyra separata ställen som inte pratar med varandra:
 
-Det här är sex olika ställen som alla bidrar till samma fråga. Varje tillägg av en ny signal (som vi just gjorde) gör det svårare att förstå helheten.
+1. `classifyFollowUpIntent()` i `follow-up-clarification.ts` — regex-baserad intent (clear-refine / clear-redesign / ambiguous)
+2. `looksDesignHeavyMessage()` i `promptOrchestration.ts` — räknar generiska design-markörer (>= 3 träffar)
+3. `hasHeavyCapabilities()` i `capability-inference.ts` — specifika capability-flaggor (3D, karusell, charts etc.)
+4. `inferChangeScope()` + `inferContextPolicy()` + `inferVerificationPolicy()` i `build-spec.ts` — heuristiker som bestämmer BuildSpec-fälten
 
-## Verklig förenkling (nästa pass)
+Dessutom sätter `chat-message-stream-post.ts` ihop resultatet av 1–3 till en `useLightFollowUpContext`-boolean som styr file-context-storlek, men den boolean:en och BuildSpec-fälten bestäms oberoende av varandra.
 
-### Princip
-En follow-up borde få en tydlig **ambitionsnivå** tidigt, och sedan borde den nivån styra allt: context budget, verification, file-context storlek och finalize-path. Inte fyra separata heuristiker som var och en gör sin bedömning.
+### Princip för förenkling
+En follow-up borde få en tydlig ambitionsnivå tidigt. Den nivån borde sedan styra allt nedströms: context budget, verification, file-context storlek och finalize-path. Inte fyra parallella bedömare.
 
 ### Konkret riktning
-1. **Ett enda ambitionsbeslut före orkestrering.** Samla intent-klassificering, capability-signal, design-heavy-check och snapshot-signaler till en funktion som returnerar en tydlig nivå (t.ex. "minor-edit", "visual-upgrade", "structural-change", "redesign"). Denna nivå matar sedan `BuildSpec`.
-2. **`BuildSpec` tar hela ansvaret.** Alla nedströms beslut (context budget, verification, file-context, finalize-path) borde utgå från `BuildSpec`-fälten, inte från parallella heuristiker i `chat-message-stream-post.ts`.
-3. **Snapshot bär strukturerad ambitionsnivå.** I stället för lösa fält som `modelTier` och `scaffoldId` borde snapshoten bära den nivå som senast gällde, plus capabilities, så att turn 3-6 inte behöver gissa.
-4. **Minska, inte öka, antalet exporterade hjälpfunktioner.** `looksDesignHeavyMessage`, `hasDemandingFollowUpCapabilities`, `hasDemandingSnapshotCapabilities` och `classifyFollowUpIntent` borde gå mot att bli interna detaljer bakom ett gemensamt beslut, inte fyra publika signaler som alla konsumenter måste orkestrera själva.
+1. **Ett enda ambitionsbeslut före orkestrering.** Samla intent-klassificering, capability-signal och design-heavy-check till en funktion som returnerar en tydlig nivå. Den nivån matar sedan `BuildSpec`.
+2. **`BuildSpec` tar hela ansvaret nedströms.** `chat-message-stream-post.ts` borde kunna använda `buildSpec.contextPolicy` för att avgöra file-context-storlek i stället för att bygga sin egen parallella logik.
+3. **Snapshot bär ambitionsnivå.** I stället för lösa fält borde snapshoten bära den nivå som senast gällde, så att turn 3–6 inte behöver gissa.
+4. **Färre publika signaler.** `looksDesignHeavyMessage`, `hasHeavyCapabilities` och `classifyFollowUpIntent` borde gå mot att bli interna detaljer bakom det gemensamma beslutet, inte tre separata exporterade funktioner.
 
-### Filer att förenkla
-- `src/lib/api/engine/chats/chat-message-stream-post.ts` — ska inte behöva fem villkor för att välja file-context-storlek
-- `src/lib/gen/build-spec.ts` — borde ta emot capability-signaler som input i stället för att köra `inferCapabilities` internt
-- `src/lib/providers/own-engine/follow-up-clarification.ts` — borde vara en konsument av ambitionsnivå, inte en parallell bedömare
-- `src/lib/builder/promptOrchestration.ts` — `looksDesignHeavyMessage` borde vara en intern detalj, inte en publik export
+### Viktigaste filerna att förenkla
+- `src/lib/api/engine/chats/chat-message-stream-post.ts` — file-context-beslutet (fem villkor idag)
+- `src/lib/gen/build-spec.ts` — redan bättre efter detta pass men fortfarande parallellt med intent-klassificering
+- `src/lib/providers/own-engine/follow-up-clarification.ts` — borde vara konsument av ambitionsnivå, inte parallell bedömare
+- `src/lib/builder/promptOrchestration.ts` — `looksDesignHeavyMessage` borde inte behöva vara publik
+
+### Temporal utmaning
+File-context wrappas in i user-turnen **före** BuildSpec beräknas. Det gör det svårt att låta BuildSpec styra file-context-storlek direkt. Möjliga vägar:
+- Beräkna en "pre-BuildSpec ambitionsnivå" tidigt som både file-context och BuildSpec sedan använder
+- Eller flytta file-context-beslutet till efter orchestration base (kräver att user-turn-wrappning sker senare)
 
 ### Skyddskrav
-- Init/freetext-flödet ska inte bli långsammare eller mer komplext
+- Init/freetext-flödet (80% av användningen) får inte bli långsammare eller mer komplext
 - Befintliga tester ska fortsätta passera
 - Docs ska synkas i samma pass som kodändringar
+- Inga nya begrepp eller abstraktionslager
