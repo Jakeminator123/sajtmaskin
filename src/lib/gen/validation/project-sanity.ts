@@ -11,6 +11,7 @@ export interface SanityIssue {
 export interface SanityResult {
   issues: SanityIssue[];
   valid: boolean;
+  unresolvedImportFallbackUsed: boolean;
 }
 
 const IMPORT_RE = /import\s+(?:(?:type\s+)?(?:\{[^}]*\}|[\w$]+)(?:\s*,\s*(?:\{[^}]*\}|[\w$]+))*\s+from\s+)?['"]([^'"]+)['"]/g;
@@ -166,6 +167,8 @@ function collectImportedPackages(files: CodeFile[]): Map<string, Set<string>> {
  * Catches issues that per-file autofix cannot see.
  */
 export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
+  const importSeverity = unresolvedImportSeverity();
+  const importFallbackUsed = importSeverity === "warning";
   const fileMap = new Map<string, CodeFile>();
   for (const f of files) fileMap.set(f.path, f);
 
@@ -195,11 +198,10 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
 
       const projectPath = normalizeToProjectPath(source, file.path);
       if (!fileExists(fileMap, projectPath)) {
-        const severity = unresolvedImportSeverity();
         issues.push(
           createSanityIssue(
             file.path,
-            severity,
+            importSeverity,
             `Unresolved local import: ${source}`,
             "code_structure_failure",
           ),
@@ -376,6 +378,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
   return {
     issues,
     valid: issues.filter((i) => i.severity === "error").length === 0,
+    unresolvedImportFallbackUsed: importFallbackUsed,
   };
 }
 

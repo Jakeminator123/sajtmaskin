@@ -45,6 +45,7 @@ export interface RunFinalizePreflightResult {
   preflightIssues: FinalizePreflightIssue[];
   previewBlockingReason: string | null;
   previewStart: PreviewStartContract;
+  unresolvedImportFallbackUsed: boolean;
 }
 
 function inferCodeFenceLanguage(path: string): string {
@@ -245,6 +246,7 @@ export async function runFinalizePreflight({
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
+  let unresolvedImportFallbackUsed = false;
   let previewStart = buildPreviewStartContract({
     issues: [],
     finalizedPreviewFileCount: 0,
@@ -352,6 +354,9 @@ export async function runFinalizePreflight({
     preflightFileCount = completeProjectFiles.length;
     preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));
     const sanity = runProjectSanityChecks(completeProjectFiles);
+    if (sanity.unresolvedImportFallbackUsed) {
+      unresolvedImportFallbackUsed = true;
+    }
     preflightIssues = [
       ...preflightIssues,
       ...sanity.issues.map((issue) => createIssue(issue.file, issue.severity, issue.message, issue.category)),
@@ -456,5 +461,6 @@ export async function runFinalizePreflight({
     preflightIssues,
     previewBlockingReason,
     previewStart,
+    unresolvedImportFallbackUsed,
   };
 }

@@ -909,6 +909,7 @@ export async function finalizeAndSaveVersion(
         verificationBlocked: hasVerificationBlockingPreflightErrors,
         issueCount: preflightIssues.length,
         previewFileCount: finalizedFilesForPreview.length,
+        unresolvedImportFallbackUsed: preflightResult.unresolvedImportFallbackUsed,
       },
     };
     if (buildSpec) {

@@ -1,0 +1,46 @@
+# Component library policy
+
+How scaffolds, UI component libraries, and capability-gated dependencies interact in the generation pipeline.
+
+## Ownership split
+
+| Layer | Owns | Examples |
+|---|---|---|
+| **Scaffolds** | App structure, routes, base layout, core files | `app/layout.tsx`, `app/page.tsx`, route pages, `globals.css`, `package.json` |
+| **shadcn/ui** | On-demand UI widgets via registry | carousel, chart, sheet/drawer, tabs, datatable, sidebar, calendar, toast, command, form fields |
+| **Capability-gated deps** | Heavy libraries injected only when prompt signals require them | `framer-motion`, `@react-three/fiber`, `@react-three/drei`, `recharts` |
+
+## shadcn/ui as primary component source
+
+shadcn is the default source for UI components that go beyond what scaffolds provide. It is not a replacement for scaffolds but a composable layer on top.
+
+Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `datatable` should be sourced from shadcn registry when the prompt or capabilities indicate they are needed.
+
+`@/components/ui/` imports are already whitelisted in `project-sanity.ts` and do not trigger unresolved-import errors.
+
+## Capability-gated dependencies
+
+`capability-inference.ts` detects prompt signals and sets boolean flags. These flags currently drive prompt hints via `buildCapabilityHints()`. The policy for each:
+
+| Capability flag | Library | Gate policy |
+|---|---|---|
+| `needsMotion` | `framer-motion` (Motion for React) | Install only when prompt clearly requires reveal animations, scroll motion, drag/gesture, or micro-interactions. Not default. |
+| `needs3D` | `@react-three/fiber` + `@react-three/drei` | Strong feature gate. Only when explicit 3D signal (WebGL, Three.js, 3D model, particle). Bundle risk warning in hints. |
+| `needsCharts` | `recharts` (via shadcn `ChartContainer`) | Install when chart/graph/analytics signal is present. |
+| `needsCarousel` | `embla-carousel-react` (via shadcn `Carousel`) | Install when carousel/slider/gallery signal is present. |
+| `needsForms` | `react-hook-form` + `zod` (via shadcn `Form`) | Install when form/booking/contact-form signal is present. |
+
+## Libraries evaluated but not default
+
+| Library | Status | Rationale |
+|---|---|---|
+| **DaisyUI** | Evaluate as optional mode | Adds a parallel styling paradigm (CSS component classes + 35 themes). Not compatible with current `@theme inline` strategy without migration. Good for prototyping or alternative style tracks. |
+| **Flowbite** | Inspiration/fallback only | Overlaps heavily with shadcn. Not first choice given existing shadcn/radix/tailwind stack. |
+
+## Unresolved import severity
+
+Unresolved local imports default to **error** severity in `project-sanity.ts`. During rollout, `SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS=true` downgrades them to warnings. Usage of this fallback is tracked in telemetry (`preflight.unresolvedImportFallbackUsed`) to measure how often it fires before locking to strict permanently.
+
+## Missing package.json
+
+A missing `package.json` is treated as a hard **error** in sanity checks. Without it, dependency readiness cannot be verified and the project cannot be installed or built.
