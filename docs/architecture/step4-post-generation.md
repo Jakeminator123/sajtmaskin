@@ -1,6 +1,6 @@
 # Steg 4 — generera (codegen), finalisera och validera (post-stream)
 
-**Senast uppdaterad:** 2026-04-08
+**Senast uppdaterad:** 2026-04-10
 
 Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna. Detta motsvarar **Steg 4** i 5-stegskartan. **Steg 5** (preview/materialisering, tier-2, uppföljning) börjar **efter** denna kedja — även om SSE kan fortsätta med `preview-ready` m.m.
 
@@ -26,8 +26,9 @@ Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine
 4. **`materialize_images`** — **endast om «deep path»** (`runDeepPath === true` i `resolveFinalizePathPolicy`). Ersätter placeholder-bilder m.m. Vid fel: **non-fatal**, logg och fortsätt.
 5. **`verifier`** — **endast om deep path** *och* `resolveVerifierPassPolicy` säger ja (BuildSpec, feature flag, inte repair-pass > 0). Read-only LLM; fel här är **non-fatal** (hoppar över).
 6. **`parse_merge_preflight`** — parse JSON-filer från innehåll, `mergeGeneratedProjectFiles`, `runFinalizePreflight`, `injectIntegrationManifestIntoFilesJson`, scaffold-retry-förslag.
-7. **Persist** — `addAssistantMessageAndCreateDraftVersion` (transaktion: assistant + utkastversion med `files_json`).
-8. **Efter persist (best-effort)** — preflight-loggar, generation telemetry, `logGeneration`, ev. `failVersionVerification` om **verification-blocking** preflight-fel.
+7. **Fail-fast strukturgrind** — om preflight/sanity hittar tecken på **partial-file-output** (t.ex. avhuggen filstart, överlappande importblock eller annan snippet-lik repair-output) kastas nu `PartialFileOutputError` och **ingen version sparas alls**.
+8. **Persist** — `addAssistantMessageAndCreateDraftVersion` (transaktion: assistant + utkastversion med `files_json`).
+9. **Efter persist (best-effort)** — preflight-loggar, generation telemetry, `logGeneration`, ev. `failVersionVerification` om **verification-blocking** preflight-fel.
 
 SSE `progress.step` ska använda fas-**id** från `OwnEnginePostStreamPhaseId` (t.ex. `validate_syntax`), inte äldre alias.
 
@@ -48,7 +49,7 @@ Telemetry använder etiketterna `fast+deep` respektive `fast-only` (se `devLogAp
 
 | Typ | Exempel | Blockerar sparad version? |
 |-----|---------|---------------------------|
-| **Blocking (preflight / verification)** | Tom generation (`EmptyGenerationError`), eller preflight-fel som senare markerar verification-blocking | Ja — finalize kan kasta direkt eller version kan markeras failed i eftersteget (se `failVersionVerification`) |
+| **Blocking (preflight / verification)** | Tom generation (`EmptyGenerationError`), **partial-file-output** (`PartialFileOutputError`) eller preflight-fel som senare markerar verification-blocking | Ja — finalize kan kasta direkt eller version kan markeras failed i eftersteget (se `failVersionVerification`) |
 | **Kvalitetssignal** | Verifier-pass `blocking`/`quality`-fynd (loggas) | Nej — finalize fortsätter; fynd i telemetry |
 | **Observability** | `createGenerationTelemetryRecord`, `devLogAppend`, preflight-loggar | Nej |
 | **Non-fatal fel** | Bildmaterialisering misslyckas, verifier-pass kastar | Nej — logg/warn, fortsätt |
@@ -63,7 +64,7 @@ Telemetry använder etiketterna `fast+deep` respektive `fast-only` (se `devLogAp
 | Verifier-pass i finalize | `triggerServerVerification` — typecheck/repair på export lane |
 | `previewBlockingReason` från preflight (signal) | Faktisk preview-URL, sandbox/legacy fält |
 
-Bygg **inte** mental modell där `previewUrl: null` i finalize-resultat betyder att Steg 4 «misslyckats» — own-engine sätter ofta `previewUrl: null` och för tier-2 **efter** `done` (se `builder-generation.md`).
+Bygg **inte** mental modell där `previewUrl: null` i finalize-resultat betyder att Steg 4 «misslyckats» — own-engine sätter ofta `previewUrl: null` och för tier-2 **efter** `done` (se `builder-generation.md`). Undantag: om finalize kastar `EmptyGenerationError` eller `PartialFileOutputError` uteblir versionpersist helt och buildern får i stället `done` utan `versionId`.
 
 ## Synkchecklista när denna runtime ändras
 

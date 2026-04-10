@@ -226,6 +226,7 @@ function isBlockingAutoFixLog(log: PersistedVersionLog): boolean {
     category === "render-telemetry" ||
     category === "css" ||
     category === "react" ||
+    category === "syntax" ||
     category === "routes" ||
     category === "quality-gate" ||
     category === "preflight:issues" ||

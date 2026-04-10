@@ -36,6 +36,7 @@ const RULES: CapabilityRule[] = [
     key: "needs3D",
     patterns: [
       /\b(3d|three\.?js|webgl|canvas|mesh|orb|sphere|particle|three-fiber|@react-three|drei|scene|3d-?model)\b/i,
+      /\b3d[a-zåäö-]+\b/i,
       /\b(rotat.*3d|tilt|perspect.*card|floating.*object)\b/i,
       /\b(rapier|cannon|physics|gravitation|gravity|rigidbody|collider|gltf|glb|usegltf)\b/i,
     ],
@@ -62,6 +63,8 @@ const RULES: CapabilityRule[] = [
     key: "needsAppShell",
     patterns: [
       /\b(dashboard|admin.?panel|sidebar|crm|backoffice|settings.?page|user.?manage|instrumentpanel|kontrollpanel|workspace|portal)\b/i,
+      /\b(app-?lik|appkänsla|app-känsla|app-?aktig|app shell|app-lik)\b/i,
+      /\b(gränssnitt|interface|undersökningsgränssnitt|kontrollrum|control room)\b/i,
     ],
   },
   {
@@ -93,6 +96,7 @@ const RULES: CapabilityRule[] = [
     patterns: [
       /\b(premium|luxury|glassmorphism|glass|neon|glow|gradient.?text|blur|frosted|modern.*design|sleek|elegant|sophisticated|futuristisk|exklusiv)\b/i,
       /\b(dark.?mode.*hero|spotlight|cinematic|atmospheric|immersive)\b/i,
+      /\b(filmisk|filmiskt|cinematisk|cinematiskt|arkiv.?x|x-files|ufo|paranormal)\b/i,
     ],
   },
 ];

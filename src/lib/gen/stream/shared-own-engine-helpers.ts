@@ -5,6 +5,7 @@ import {
 
 import {
   EmptyGenerationError,
+  PartialFileOutputError,
   finalizeAndSaveVersion,
   type FinalizeParams,
   type FinalizeResult,
@@ -59,18 +60,26 @@ export interface FinalizeOrHandleEmptyGenerationParams {
     reason: string,
     error: EmptyGenerationError,
   ) => Promise<void>;
+  handlePartialFileOutput: (
+    error: PartialFileOutputError,
+  ) => Promise<void>;
 }
 
 export async function finalizeOrHandleEmptyGeneration({
   finalizeParams,
   emptyGenerationReason,
   handleEmptyGeneration,
+  handlePartialFileOutput,
 }: FinalizeOrHandleEmptyGenerationParams): Promise<FinalizeResult | null> {
   try {
     return await finalizeAndSaveVersion(finalizeParams);
   } catch (error) {
     if (error instanceof EmptyGenerationError) {
       await handleEmptyGeneration(emptyGenerationReason, error);
+      return null;
+    }
+    if (error instanceof PartialFileOutputError) {
+      await handlePartialFileOutput(error);
       return null;
     }
     throw error;

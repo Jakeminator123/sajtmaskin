@@ -65,6 +65,15 @@ describe("matchScaffold", () => {
     expect(matchScaffold(prompt, "website")?.id).toBe("landing-page");
   });
 
+  it("keeps website intent on content scaffolds for app-like cinematic marketing prompts", () => {
+    const prompt =
+      'Jag vill ha en hemsida som är mycket app-lik med en massa coola 3dsaker och filmisk neon-känsla för en UFO-komedi.';
+
+    const result = matchScaffold(prompt, "website");
+    expect(result?.id).not.toBe("app-shell");
+    expect(result?.id).not.toBe("dashboard");
+  });
+
   it("lowers confidence when semantic fallback is unavailable for a generic default", async () => {
     mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
       results: [],

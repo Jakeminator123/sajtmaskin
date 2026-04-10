@@ -557,7 +557,8 @@ elif page == "LLM-faser & runtime-sanning":
         "**Var sanningen lever:** `config/ai_models/manifest.json` är navet för standardmodeller och workloads "
         "(miljövariabler överstyr). `src/lib/models/catalog.ts`, `phase-routing.ts` och orchestrering i "
         "`orchestrate.ts` / own-engine avgör vad som faktiskt körs. Denna vy visar manifest + inläst "
-        "`DEFAULT_MODEL_ID` från katalogen så du slipper gissa."
+        "`DEFAULT_MODEL_ID` från katalogen så du slipper gissa. Finalize blockerar nu också känd "
+        "partial-file-output före versionssave, så vissa fel ska synas tidigare än preview-/quality-gate-lagret."
     )
 
     man_path = config_dir / "ai_models" / "manifest.json"
@@ -1785,15 +1786,16 @@ elif page == "Preview och versioner":
             "Övriga kategorier har egna payloadfiler. Om status är `disabled` ska befintliga payloadfiler läsas som stale-risk, inte som färska dumps."
         )
 
-    st.info(
-        "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
-        "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
-        "`done` kan bära `previewPending` + `previewUrlHint` medan VM-preview fortfarande bootar; "
-        "`previewUrlHint` är en boot-hint, inte en färdig live-URL. "
-        "chat-/versions-API håller `previewUrl` null tills previewn faktiskt är redo. "
-        "`legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. "
-        "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
-    )
+        st.info(
+            "Det här spåret handlar om `engine_versions`, `server-verify`, `repair`, "
+            "`preview-ready`/VM-preview, `preview-session`/`preview-status` och hur buildern växlar mellan versioner. "
+            "`done` kan bära `previewPending` + `previewUrlHint` medan VM-preview fortfarande bootar; "
+            "`previewUrlHint` är en boot-hint, inte en färdig live-URL. "
+            "chat-/versions-API håller `previewUrl` null tills previewn faktiskt är redo. "
+            "`legacyShimPreviewUrl` är shim/fallback, inte primär tier-2-preview. "
+            "Vissa strukturella fel, t.ex. partial-file-output från repair/fixer, stoppas nu före versionssave och ska därför läsas som tidiga finalize-fel i stället för sena preview-/quality-gate-fel. "
+            "Om en version ser 'stuck' ut: kontrollera först versionsraden, sedan preview-status och sist logs."
+        )
 
 
 # -- env-policy -----------------------------------------------------------------

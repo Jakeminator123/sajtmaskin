@@ -224,6 +224,7 @@ function resolveStatus(entries: StoredGenerationEntry[]): string {
   const finalType = readString(entries.at(-1)?.data.type);
   if (finalType === "site.awaiting_input") return "awaiting_input";
   if (finalType === "site.empty_generation") return "empty_generation";
+  if (finalType === "site.partial_file_output") return "error_signal";
   const errorLike = entries.some((entry) => {
     const type = readString(entry.data.type) || "";
     return type.includes("error") || type.includes("failed") || type.includes("gave-up");
@@ -808,6 +809,7 @@ function buildHighlights(entries: StoredGenerationEntry[]): string[] {
       type === "syntax-validation.gave-up" ||
       type === "preflight.version.failed" ||
       type === "site.empty_generation" ||
+      type === "site.partial_file_output" ||
       type === "site.awaiting_input"
     ) {
       const message = readString(entry.data.message) || readString(entry.data.reason) || type;

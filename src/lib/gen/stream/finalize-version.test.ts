@@ -158,10 +158,15 @@ describe("finalizeAndSaveVersion", () => {
     });
     validateAndFix.mockResolvedValue({
       content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      hadErrors: false,
       fixerUsed: false,
       fixerImproved: false,
-      errorsBefore: [],
-      errorsAfter: [],
+      errorsBefore: 0,
+      errorsAfter: 0,
+      passes: 1,
+      status: "passed",
+      pipelineError: null,
+      earlyStopReason: null,
     });
     expandUrls.mockImplementation((value: string) => value);
     materializeImages.mockResolvedValue({
@@ -520,6 +525,78 @@ describe("finalizeAndSaveVersion", () => {
         }),
       ]),
     );
+  });
+
+  it("persists a dedicated syntax diagnostic when validation still has blocking errors", async () => {
+    validateAndFix.mockResolvedValueOnce({
+      content:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      hadErrors: true,
+      fixerUsed: false,
+      fixerImproved: false,
+      errorsBefore: 3,
+      errorsAfter: 2,
+      passes: 1,
+      status: "failed",
+      pipelineError: null,
+      earlyStopReason: "no_improvement",
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "syntax",
+          level: "error",
+          meta: expect.objectContaining({
+            syntaxStatus: "failed",
+            errorsBefore: 3,
+            errorsAfter: 2,
+            earlyStopReason: "no_improvement",
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it("fails before persist when preflight detects partial file output", async () => {
+    runProjectSanityChecks.mockReturnValueOnce({
+      valid: false,
+      issues: [
+        {
+          file: "components/trailer-dialog.tsx",
+          severity: "error",
+          message:
+            "File starts with overlapping import statements that look like a partial repair snippet. This usually means a repair/generation step returned a file excerpt instead of a complete file.",
+          category: "code_structure_failure",
+        },
+      ],
+    });
+
+    await expect(
+      finalizeAndSaveVersion({
+        accumulatedContent:
+          '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      }),
+    ).rejects.toMatchObject({
+      name: "PartialFileOutputError",
+    });
+
+    expect(addAssistantMessageAndCreateDraftVersion).not.toHaveBeenCalled();
   });
 
   it("skips deep-path image materialization and verifier for light follow-up finalize", async () => {

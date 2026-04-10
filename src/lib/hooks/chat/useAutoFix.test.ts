@@ -51,6 +51,30 @@ describe("summarizeVersionLogsForAutoFix", () => {
     expect(diagnostics.some((entry) => entry.includes("Preview rendered successfully"))).toBe(false);
     expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(false);
   });
+
+  it("treats syntax diagnostics as blocking autofix context", () => {
+    const diagnostics = summarizeVersionLogsForAutoFix([
+      {
+        level: "error",
+        category: "syntax",
+        message: "Syntax validation left blocking errors before preflight/preview.",
+        meta: {
+          syntaxStatus: "failed",
+          errorsBefore: 3,
+          errorsAfter: 2,
+          earlyStopReason: "no_improvement",
+        },
+      },
+      {
+        level: "warning",
+        category: "seo",
+        message: "SEO review hittade 1 launch-varning(ar).",
+      },
+    ]);
+
+    expect(diagnostics).toContain("[syntax] Syntax validation left blocking errors before preflight/preview.");
+    expect(diagnostics.some((entry) => entry.startsWith("[seo]"))).toBe(false);
+  });
 });
 
 describe("useAutoFix", () => {

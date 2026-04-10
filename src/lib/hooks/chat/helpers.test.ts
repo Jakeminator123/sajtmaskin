@@ -117,4 +117,16 @@ describe("buildAutoFixPrompt", () => {
     expect(prompt).toContain("- Verify finished: 2026-04-03T12:00:03.200Z");
     expect(prompt).toContain("## build output (exit 1, 1800ms)");
   });
+
+  it("requires full-file repair output instead of snippets", () => {
+    const prompt = buildAutoFixPrompt({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      reasons: ["syntax failed"],
+    });
+
+    expect(prompt).toContain("every returned file MUST be complete from first line to last line");
+    expect(prompt).toContain("NEVER return snippets, diff hunks, partial import sections, or excerpted fragments");
+    expect(prompt).toContain('Every `file="..."` block is a complete file, not a partial snippet.');
+  });
 });

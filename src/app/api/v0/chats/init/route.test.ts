@@ -6,11 +6,13 @@ const saveProjectData = vi.hoisted(() => vi.fn());
 const createChat = vi.hoisted(() => vi.fn());
 const addMessage = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
+const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const getCurrentUser = vi.hoisted(() => vi.fn());
 const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
+const startPreviewSession = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   createProject,
@@ -21,6 +23,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   createChat,
   addMessage,
   createDraftVersion,
+  updateVersionPreviewUrl,
   getChat,
 }));
 
@@ -40,6 +43,10 @@ vi.mock("@/lib/tenant", () => ({
   resolveAppProjectIdForRequest,
 }));
 
+vi.mock("@/lib/gen/preview/preview-session", () => ({
+  startPreviewSession,
+}));
+
 vi.mock("@/lib/models/selection", () => ({
   resolveEngineModelId: () => "gpt-5.4",
 }));
@@ -57,15 +64,28 @@ describe("POST /api/v0/chats/init", () => {
     createChat.mockReset();
     addMessage.mockReset();
     createDraftVersion.mockReset();
+    updateVersionPreviewUrl.mockReset();
     getChat.mockReset();
     getCurrentUser.mockReset();
     prepareCredits.mockReset();
     commitCredits.mockReset();
     resolveAppProjectIdForRequest.mockReset();
+    startPreviewSession.mockReset();
 
     getCurrentUser.mockResolvedValue(null);
     prepareCredits.mockResolvedValue({ ok: true, commit: commitCredits });
     resolveAppProjectIdForRequest.mockResolvedValue(null);
+    startPreviewSession.mockResolvedValue({
+      ok: true,
+      result: {
+        sandboxUrl: "https://example-preview.test/?chatId=chat_import",
+        sandboxId: "sandbox_import",
+        sandboxPreviewMode: "dev_only",
+        fidelityTier: 2,
+        startOutcome: "recreated",
+        tier2Meta: { tier2Provider: "preview_host" },
+      },
+    });
     createProject.mockResolvedValue({ id: "proj_import" });
     createChat.mockResolvedValue({ id: "chat_import" });
     addMessage
@@ -79,6 +99,7 @@ describe("POST /api/v0/chats/init", () => {
     const zip = new JSZip();
     zip.file("repo-root/src/app/page.tsx", 'export default function Page() { return <div>Hej</div>; }');
     zip.file("repo-root/package.json", '{ "name": "demo" }');
+    zip.file("repo-root/pnpm-lock.yaml", "lockfileVersion: '9.0'");
     const buffer = await zip.generateAsync({ type: "nodebuffer" });
 
     const response = await POST(
@@ -112,7 +133,7 @@ describe("POST /api/v0/chats/init", () => {
     expect(createDraftVersion).toHaveBeenCalledWith(
       "chat_import",
       "msg_assistant",
-      expect.stringContaining('"path":"src/app/page.tsx"'),
+      expect.stringContaining('"path":"pnpm-lock.yaml"'),
     );
     expect(saveProjectData).toHaveBeenCalled();
     expect(commitCredits).toHaveBeenCalled();

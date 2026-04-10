@@ -17,6 +17,10 @@ const IMPORT_RE = /import\s+(?:(?:type\s+)?(?:\{[^}]*\}|[\w$]+)(?:\s*,\s*(?:\{[^
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
 const THIRD_PARTY_SOURCE_RE = /import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/g;
+const NESTED_IMPORT_IN_IMPORT_BLOCK_RE = /(^|\n)\s*import\s*\{\s*\n\s*import\s+/m;
+const DOUBLE_IMPORT_PREFIX_RE = /^\s*import\s*\{\s*\n\s*import\s+/m;
+const MALFORMED_INLINE_NAMED_IMPORT_RE = /^\s*import\s+\{[^}\n]*\bfrom\s+["'][^"']+["'];?\s*$/m;
+const LEADING_CONTINUATION_LINE_RE = /^[A-Za-z_$][\w$]*\s*,\s*$/;
 
 const FONT_USAGE_RE = /\b(Inter|Geist|Geist_Mono|Roboto|Open_Sans|Lato|Montserrat|Poppins|Raleway|Nunito)\s*\(/;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
@@ -102,6 +106,30 @@ function isBuiltinPackage(pkg: string): boolean {
   return false;
 }
 
+function firstMeaningfulLine(content: string): string {
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0) ?? "";
+}
+
+function detectSuspiciousPartialFileSnippet(content: string): string | null {
+  const firstLine = firstMeaningfulLine(content);
+  if (LEADING_CONTINUATION_LINE_RE.test(firstLine)) {
+    return "File starts with what looks like a continuation line, not a complete file.";
+  }
+  if (NESTED_IMPORT_IN_IMPORT_BLOCK_RE.test(content)) {
+    return "File contains a nested import inside an unfinished import block.";
+  }
+  if (DOUBLE_IMPORT_PREFIX_RE.test(content)) {
+    return "File starts with overlapping import statements that look like a partial repair snippet.";
+  }
+  if (MALFORMED_INLINE_NAMED_IMPORT_RE.test(content)) {
+    return "File contains a malformed named import that looks like a partial repair snippet.";
+  }
+  return null;
+}
+
 function collectImportedPackages(files: CodeFile[]): Map<string, Set<string>> {
   const imported = new Map<string, Set<string>>();
   for (const file of files) {
@@ -140,6 +168,18 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
 
   for (const file of files) {
     if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
+
+    const suspiciousPartialSnippet = detectSuspiciousPartialFileSnippet(file.content);
+    if (suspiciousPartialSnippet) {
+      issues.push(
+        createSanityIssue(
+          file.path,
+          "error",
+          `${suspiciousPartialSnippet} This usually means a repair/generation step returned a file excerpt instead of a complete file.`,
+          "code_structure_failure",
+        ),
+      );
+    }
 
     // 1. Unresolved local imports
     for (const match of file.content.matchAll(IMPORT_RE)) {

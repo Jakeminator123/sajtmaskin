@@ -16,6 +16,22 @@ const MockEmptyGenerationError = vi.hoisted(
       }
     },
 );
+const MockPartialFileOutputError = vi.hoisted(
+  () =>
+    class PartialFileOutputError extends Error {
+      readonly chatId: string;
+      readonly scaffoldId: string | null;
+      readonly issues: string[];
+
+      constructor(chatId: string, scaffoldId: string | null, issues: string[]) {
+        super("Generation produced partial file output");
+        this.name = "PartialFileOutputError";
+        this.chatId = chatId;
+        this.scaffoldId = scaffoldId;
+        this.issues = issues;
+      }
+    },
+);
 
 vi.mock("@/lib/gen/detect-integrations", () => ({
   detectIntegrations,
@@ -24,6 +40,7 @@ vi.mock("@/lib/gen/detect-integrations", () => ({
 vi.mock("./finalize-version", () => ({
   finalizeAndSaveVersion,
   EmptyGenerationError: MockEmptyGenerationError,
+  PartialFileOutputError: MockPartialFileOutputError,
 }));
 
 import {
@@ -33,7 +50,7 @@ import {
   getUnsignaledDetectedIntegrations,
   looksLikeIncompleteJson,
 } from "./shared-own-engine-helpers";
-import { EmptyGenerationError } from "./finalize-version";
+import { EmptyGenerationError, PartialFileOutputError } from "./finalize-version";
 
 describe("shared-own-engine-helpers", () => {
   beforeEach(() => {
@@ -89,6 +106,7 @@ describe("shared-own-engine-helpers", () => {
       },
       emptyGenerationReason: "empty",
       handleEmptyGeneration: vi.fn(),
+      handlePartialFileOutput: vi.fn(),
     });
 
     expect(result).toEqual({ version: { id: "ver_1" } });
@@ -111,12 +129,39 @@ describe("shared-own-engine-helpers", () => {
       },
       emptyGenerationReason: "done_empty_output",
       handleEmptyGeneration,
+      handlePartialFileOutput: vi.fn(),
     });
 
     expect(result).toBeNull();
     expect(handleEmptyGeneration).toHaveBeenCalledWith(
       "done_empty_output",
       expect.any(EmptyGenerationError),
+    );
+  });
+
+  it("handles PartialFileOutputError via callback and returns null", async () => {
+    const handlePartialFileOutput = vi.fn().mockResolvedValue(undefined);
+    finalizeAndSaveVersion.mockRejectedValue(
+      new PartialFileOutputError("chat_1", null, ["app/page.tsx: partial snippet"]),
+    );
+
+    const result = await finalizeOrHandleEmptyGeneration({
+      finalizeParams: {
+        accumulatedContent: "content",
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: 0,
+      },
+      emptyGenerationReason: "done_empty_output",
+      handleEmptyGeneration: vi.fn(),
+      handlePartialFileOutput,
+    });
+
+    expect(result).toBeNull();
+    expect(handlePartialFileOutput).toHaveBeenCalledWith(
+      expect.any(PartialFileOutputError),
     );
   });
 });

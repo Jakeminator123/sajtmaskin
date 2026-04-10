@@ -497,10 +497,19 @@ export function buildPostCheckArtifacts(params: {
         ? "tier2"
         : "preview";
 
+  const preflightOnlyFailures = qualityGateFailures.filter((failure) =>
+    failure === "preflight_preview_blocked" ||
+    failure === "missing_preview_url" ||
+    failure === "preview_waiting_for_vm" ||
+    failure === "dependency_install_failure" ||
+    failure === "env_config_missing",
+  );
   steps.push(
     qualityGatePassed
       ? "Quality gate: PASS (changes + preview + stream quality)."
-      : `Quality gate: FAIL (${qualityGateFailures.join(" | ")}).`,
+      : autoFixQueued && preflightOnlyFailures.length === qualityGateFailures.length
+        ? `Preflight blocker: ${qualityGateFailures.join(" | ")}. Quality gate kördes inte ännu.`
+        : `Quality gate: FAIL (${qualityGateFailures.join(" | ")}).`,
   );
 
   const regressionMatrix = [

@@ -83,6 +83,60 @@ function buildArtifacts(params: {
 }
 
 describe("post-checks-results", () => {
+  it("describes preflight blockers without pretending quality gate already ran", () => {
+    const artifacts = buildPostCheckArtifacts({
+      currentFileCount: 2,
+      versionId: "ver_test",
+      changes: null,
+      warnings: [],
+      preflight: {
+        previewBlocked: true,
+        verificationBlocked: true,
+        previewBlockingReason: "Generated files still contain blocking syntax errors.",
+        previewStart: {
+          canStartPreview: false,
+          primaryPreviewTarget: "none",
+          shimBlocked: false,
+          requiresEnvConfig: false,
+          hasCriticalInstallRisk: false,
+          hasCriticalCodeFailure: true,
+          compatibilityPreviewAllowed: false,
+          issueCounts: {
+            code_structure_failure: 2,
+            dependency_install_failure: 0,
+            env_config_missing: 0,
+            shim_preview_failure: 0,
+            non_blocking_quality_warning: 0,
+          },
+          blockingCategories: ["code_structure_failure"],
+        },
+      },
+      previousVersionId: null,
+      streamQuality: undefined,
+      missingRoutes: [],
+      missingPlannedRoutes: [],
+      lucideLinkMisuse: [],
+      suspiciousUseCalls: [],
+      designTokens: null,
+      seoReview: emptySeoReview,
+      analyticsReview: emptyAnalyticsReview,
+      editorialReview: { packs: [], signals: { hasBlogCollection: false, hasContactFlow: false } },
+      businessWorkflowReview: {
+        packs: [],
+        signals: { hasLeadCapture: false, hasBookingFlow: false, hasCrmSync: false },
+      },
+      sanityIssues: [],
+      sanityErrors: [],
+      sanityWarnings: [],
+      imageValidation: null,
+      resolvedDemoUrl: null,
+    });
+
+    expect(artifacts.output.steps).toContain(
+      "Preflight blocker: preflight_preview_blocked. Quality gate kördes inte ännu.",
+    );
+  });
+
   it("keeps scaffold retry and planned routes as warnings when preview already exists", () => {
     const artifacts = buildPostCheckArtifacts({
       currentFileCount: 4,

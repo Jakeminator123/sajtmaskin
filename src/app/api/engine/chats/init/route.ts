@@ -30,9 +30,6 @@ const BLOCKED_IMPORT_PREFIXES = [
   "out/",
 ] as const;
 const SKIPPED_IMPORT_FILENAMES = new Set([
-  "package-lock.json",
-  "pnpm-lock.yaml",
-  "yarn.lock",
   ".ds_store",
 ]);
 const TEXT_EXTENSIONS = new Set([

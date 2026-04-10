@@ -1110,8 +1110,9 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "1. Make the smallest change that fixes the listed issues.",
     "2. Do NOT change layout, naming, styling, or architecture unless required by the fix.",
     "3. You MAY add a missing dependency import or install if the error requires it.",
-    "4. Return ONLY the changed files with minimal edits.",
+    "4. Return ONLY the changed files with minimal edits, but every returned file MUST be complete from first line to last line.",
     "5. NEVER ask the user questions, request confirmation, or wait for input. Fix immediately and silently.",
+    "6. NEVER return snippets, diff hunks, partial import sections, or excerpted fragments of a file.",
     "",
     "Acceptance criteria (the fix MUST pass all):",
     "- TypeScript typecheck (tsc --noEmit) passes.",
@@ -1119,6 +1120,7 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "- Preview/demo URL loads without errors.",
     "- All internal links resolve to existing routes.",
     "- No broken images or invalid React use() calls.",
+    '- Every `file="..."` block is a complete file, not a partial snippet.',
   ];
 
   if (currentVersionErrors.length > 0) {
