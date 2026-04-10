@@ -14,11 +14,13 @@
  */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { getScaffoldByFamily, getScaffoldById } from "./registry";
 import {
   searchScaffoldsWithDiagnostics,
   type ScaffoldSearchResponse,
 } from "./scaffold-search";
+import { classifyScaffoldWithLlm } from "./scaffold-llm-classifier";
 
 const LANDING_KEYWORDS = [
   "landing",
@@ -442,6 +444,7 @@ export type ScaffoldSelectionMethod =
   | "persisted"
   | "keyword"
   | "embedding"
+  | "llm-classify"
   | "default";
 
 export type ScaffoldSelectionConfidence = "high" | "medium" | "low";
@@ -475,7 +478,10 @@ function sortScoresDesc<T extends { score: number }>(scores: T[]): T[] {
   return [...scores].sort((a, b) => b.score - a.score);
 }
 
-function buildKeywordScores(promptLower: string): Array<{ id: string; score: number }> {
+function buildKeywordScores(
+  promptLower: string,
+  capabilities?: InferredCapabilities,
+): Array<{ id: string; score: number }> {
   const authScore = countKeywordMatches(promptLower, AUTH_KEYWORDS);
   let ecommerceScore = countKeywordMatches(promptLower, ECOMMERCE_KEYWORDS);
   const dashboardScore = countKeywordMatches(promptLower, DASHBOARD_KEYWORDS);
@@ -496,7 +502,7 @@ function buildKeywordScores(promptLower: string): Array<{ id: string; score: num
   const docsScore = countKeywordMatches(promptLower, DOCS_KEYWORDS);
   const formWorkflowScore = countKeywordMatches(promptLower, FORM_WORKFLOW_KEYWORDS);
 
-  return [
+  const scores = [
     { id: "auth-pages", score: authScore },
     { id: "ecommerce", score: ecommerceScore },
     { id: "dashboard", score: dashboardScore },
@@ -510,6 +516,21 @@ function buildKeywordScores(promptLower: string): Array<{ id: string; score: num
     { id: "content-site", score: contentScore },
     { id: "base-nextjs", score: 0 },
   ];
+
+  if (capabilities) {
+    const boost = (id: string, amount: number) => {
+      const entry = scores.find((s) => s.id === id);
+      if (entry) entry.score += amount;
+    };
+    if (capabilities.needsForms) boost("form-workflow", 3);
+    if (capabilities.needsDataUI) boost("dashboard", 2);
+    if (capabilities.needsCharts) boost("dashboard", 2);
+    if (capabilities.needsAppShell) boost("app-shell", 2);
+    if (capabilities.needsAuth) boost("auth-pages", 2);
+    if (capabilities.needsEcommerce) boost("ecommerce", 2);
+  }
+
+  return scores;
 }
 
 function applyBriefKeywordBoost(
@@ -903,7 +924,13 @@ const EMPTY_SEMANTIC_RESPONSE: ScaffoldSearchResponse = {
 export async function matchScaffoldAuto(
   prompt: string,
   buildIntent?: BuildIntent | null,
-  options: { useEmbeddings?: boolean; queryContext?: ScaffoldQueryContext } = {},
+  options: {
+    useEmbeddings?: boolean;
+    queryContext?: ScaffoldQueryContext;
+    capabilities?: InferredCapabilities;
+    generationMode?: "init" | "followUp";
+    brief?: Record<string, unknown> | null;
+  } = {},
 ): Promise<ScaffoldSelectionResult> {
   const useEmbeddings = options.useEmbeddings ?? true;
   const scaffoldPrompt = buildScaffoldPrompt(prompt, options.queryContext);
@@ -921,7 +948,7 @@ export async function matchScaffoldAuto(
 
   const keywordResult = matchScaffold(scaffoldPrompt, buildIntent);
   const baseKeywordScores = applyBriefKeywordBoost(
-    buildKeywordScores(lower),
+    buildKeywordScores(lower, options.capabilities),
     options.queryContext,
   );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
@@ -1023,6 +1050,37 @@ export async function matchScaffoldAuto(
         embeddingOverrideReason,
       },
     };
+  }
+
+  if (
+    fallbackMeta.selectionConfidence === "low" &&
+    options.generationMode === "init" &&
+    options.capabilities
+  ) {
+    try {
+      const llmResult = await classifyScaffoldWithLlm({
+        prompt,
+        brief: options.brief ?? null,
+        capabilities: options.capabilities,
+        buildIntent: buildIntent ?? "website",
+      });
+      if (llmResult && llmResult.confidence !== "low") {
+        const classified = getScaffoldById(llmResult.scaffoldId);
+        if (classified) {
+          return {
+            scaffold: classified,
+            meta: {
+              ...fallbackMeta,
+              selectedScaffold: classified.id,
+              selectionMethod: "llm-classify",
+              selectionConfidence: llmResult.confidence === "high" ? "high" : "medium",
+            },
+          };
+        }
+      }
+    } catch {
+      /* LLM classify is best-effort; fall through to keyword result */
+    }
   }
 
   return {

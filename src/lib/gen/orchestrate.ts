@@ -251,6 +251,9 @@ export async function resolveOrchestrationBase(
     briefContextApplied: false,
   };
 
+  const capabilities = providedCapabilities ?? inferCapabilities(prompt);
+  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
+
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
@@ -281,6 +284,9 @@ export async function resolveOrchestrationBase(
     const autoSelection = await matchScaffoldAuto(prompt, buildIntent, {
       useEmbeddings: embeddingScaffoldMatch,
       queryContext: scaffoldQueryContext,
+      capabilities,
+      generationMode: resolvedMode,
+      brief,
     });
     resolvedScaffold = autoSelection.scaffold;
     scaffoldSelection = autoSelection.meta;
@@ -313,10 +319,8 @@ export async function resolveOrchestrationBase(
     }
   }
 
-  const capabilities = providedCapabilities ?? inferCapabilities(prompt);
   const capabilityHints = buildCapabilityHints(capabilities);
   const enhancementGuidance = buildEnhancementGuidance(resolveEnhancementPacks(capabilities));
-  const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent,
