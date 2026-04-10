@@ -13,8 +13,9 @@ Stäng arbetet i följande ordning:
    - vad som faktiskt förbättrades
    - vad som fortfarande är svagare än idealet
    - vad som medvetet inte rensades eller migrerades nu
-5. Synka dashboards, ordlistor, mindmap och centrala docs om de påverkas.
-6. Kör riktad verifiering och därefter commit + push när användaren uttryckligen vill stänga/ship:a spåret.
+5. **Terminologidisciplin:** kontrollera att inga nya begrepp finns utan registrering i `docs/architecture/glossary.md`. Uppdatera glossaryn om termer ändrats.
+6. Synka dashboards, ordlistor och centrala docs om de påverkas.
+7. Kör riktad verifiering och därefter commit + push när användaren uttryckligen vill stänga/ship:a spåret.
 
 ## Extra regler för `/slut`
 
