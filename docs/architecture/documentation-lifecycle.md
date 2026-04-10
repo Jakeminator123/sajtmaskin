@@ -19,7 +19,7 @@ Osäkra utkast: ligga som `*.md` under `active/` tills de flyttas eller ersätts
 
 | Område | Här hör | Hit hör inte |
 |--------|---------|--------------|
-| `docs/architecture/` | Kanoniska översikter (fyra huvuddokument + denna fil) | Tillfälliga scratch |
+| `docs/architecture/` | Kanoniska översikter + glossary + denna fil | Tillfälliga scratch |
 | `docs/schemas/` | Stabila schema-beskrivningar för människor + `strict/` för maskinorienterade kontrakt (sanning i kod) | Osäkra utkast |
 | `docs/plans/active/` | Planer som driver implementation | Färdiga planer → `avklarat/` eller git-historik |
 | ~~`docs/handoffs/`~~ | Borttagen. Handoffs sker i chatten. Historik i git. | — |
