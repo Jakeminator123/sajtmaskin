@@ -32,6 +32,8 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
    - forstark deterministiska fixar och testtackning
    - ~~unresolved local imports som warning~~ (done: default error, env-flagga for gradvis rollout, telemetrisparing)
    - ~~saknad package.json utan hard error~~ (done: hard error i sanity)
+   - ~~radix-ui monorepo-migration~~ (done: scaffold rensad fran individuella @radix-ui/react-*, dep-completer → "radix-ui": "^1", streaming-regel + autofix for gamla imports, Slot namespace-fix, detectMissingImports for saknade JSX-imports, LLM-prompt uppdaterad)
+   - ~~lucide-react v1 i scaffold~~ (done: 0.513.0 → 1.8.0 i scaffold baseline, dep-completer → "^1", prompt varnar for borttagna brand-ikoner)
 
 6. **Tooling- och artifact-audit**
    - ~~terminologi-konsolidering~~ (done: kanonisk ordlista i `docs/architecture/glossary.md`, ~100 termer, namnskuggor losta)
