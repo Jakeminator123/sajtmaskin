@@ -134,14 +134,91 @@ Trots att koden genererades korrekt syntes inte 3D-burken i preview. Trolig orsa
 
 Systemet visar en fungerande **retry-loop**: quality gate → LLM repair → re-gate → slutligen PASS. Det tog ~4 minuter totalt men resulterade i en godkänd version utan manuell intervention. Den höjda `fixBudgetMs` (120s) var avgörande — fixern fick 67s, vilket hade abortats vid gamla 20s-gränsen.
 
-## Filer som ändrades
+## Pipeline Stabilization (session 2)
+
+Uppföljningssession med fokus på timing, tokenbudgetar, modellval och återkommande syntaxfel.
+
+### Timing-analys
+
+Från `stream.summary`-events i loggarna:
+
+| Generering | Typ | Reasoning | Output | Stream totalt |
+|---|---|---|---|---|
+| 316a0eab (init, misslyckad) | create | 403s (6.7min) | 207s (3.4min) | 611s (10.2min) |
+| a278dfb9 försök 1 (init, misslyckad) | create | 288s (4.8min) | 213s (3.5min) | 503s (8.4min) |
+| a278dfb9 försök 2 (init, lyckad) | create | 211s (3.5min) | 189s (3.2min) | 402s (6.7min) |
+| Follow-up liten edit | followup | 7s | 30s | 38s |
+| Follow-up 3D burk | followup | 156s (2.6min) | 46s | 204s (3.4min) |
+| Follow-up liten fix | followup | 4s | 19s | 25s |
+
+**"20 minuterna" = två misslyckade försök (~10+8.5 min streaming) + post-stream validation/fixer-loopar.**
+
+### 4. reasoningEffort: high → medium för standard (PRESTANDA)
+
+**Symptom:** GPT-5.4 reasoning tar 3-7 minuter innan första output syns.
+
+**Orsak:** `reasoningEffort` var `"high"` för alla kvalitetsnivåer, inklusive `standard`.
+
+**Fix:** `own-engine-pipeline-generation.ts`:
+- `standard: "medium"` (sänker reasoning ~40%)
+- `premium: "high"` och `release-candidate: "high"` oförändrade
+- Follow-up med `copy`/`local-layout` scope capped till `"medium"` oavsett kvalitetsnivå
+
+### 5. Deterministisk autofix körs nu före syntax-validering (PIPELINE)
+
+**Symptom:** `fixNestedImportBlocks()` kördes inte på merged content i `finalize-preflight.ts`.
+
+**Fix:** `validate-and-fix.ts` kör nu `runAutoFix()` som första steg före syntax-validering. Alla deterministiska fixar (inklusive nested imports) appliceras på content innan esbuild-validering.
+
+### 6. Ny deterministisk fix: duplicate default export (AUTOFIX)
+
+**Symptom:** `Multiple exports with the same name "default"` — LLM fixer tog 16-20s per förekomst.
+
+**Fix:** Ny `fixDuplicateDefaultExport()` i `import-validator.ts`. Hittar multipla `export default`-satser och behåller bara den sista. Körs i pipeline efter `fixNestedImportBlocks`.
+
+### 7. Import Rules + Known Pitfalls i systemprompt (PREVENTION)
+
+**Orsak:** 20-42 deterministiska fixar per generering — modellen genererar konsekvent fel import-syntax.
+
+**Fix:** Två nya required-sektioner i `system-prompt.ts`:
+- **Import Rules** (prio 94): regler för import-syntax, shadcn-paths, lucide-ikoner, en `export default` per fil
+- **Known Pitfalls** (prio 93): package.json krav, version pinning, `useReducedMotion` boolean-coercing, duplicate identifier-undvikande
+
+### 8. Rättstorlekade tokenbudgetar (BALANS)
+
+**Orsak:** Budgetarna höjdes 5-7x i session 1 (8 750→50 000 normal). Den stora input-kontexten förlänger GPT-5.4:s reasoning.
+
+**Fix:** Sänkt till `actual + 30% headroom` med prioritetsreglerna intakta:
+- Light: 25 000→15 000 tokens
+- Normal: 50 000→30 000 tokens
+- Heavy: 75 000→50 000 tokens
+- `DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS`: 50 000→30 000
+- `DEFAULT_REFS_BUDGET_TOKENS`: 12 500→7 500
+
+### 9. Path-normalisering i loggar (WINDOWS)
+
+**Symptom:** Backslash-paths i felmeddelanden och loggar på Windows.
+
+**Fix:** Ny `toPosixPath()` i `path-utils.ts`, applicerad i `static-core-loader.ts` och `file-logger.ts`.
+
+### 10. SSE stream-synk (UNDERSÖKT, EJ BUGG)
+
+**Observation:** Streamen känns fördröjd, som om den väntar på chatId/versionId.
+
+**Analys:** Servern kör tung orkestrering (prompt-build, DB-writes, scaffold-val) **innan** SSE-svaret börjar streama. `chatId` och `meta` är garanterat de första SSE-events. `versionId` kommer först i `done`-eventet efter finalize. `SuspenseLineProcessor` buffrar dessutom content tills en newline anländer, vilket kan fördröja synliga tokens. Ingen bugg — förväntat beteende.
+
+## Filer som ändrades (sammanslaget session 1 + 2)
 
 ### Produktionskod
-- `src/lib/gen/build-spec.ts` — höjda budgetar
-- `src/lib/gen/system-prompt.ts` — höjda budgetar + prioritetsregler
-- `src/lib/gen/autofix/validate-and-fix.ts` — fixBudgetMs 20s→120s
+- `src/lib/gen/build-spec.ts` — höjda budgetar (session 1) → rättstorlekade (session 2)
+- `src/lib/gen/system-prompt.ts` — prioritetsregler + Import Rules + Known Pitfalls
+- `src/lib/gen/autofix/validate-and-fix.ts` — fixBudgetMs 20s→120s + runAutoFix före validering
 - `src/lib/gen/stream/finalize-preflight.ts` — fixBudgetMs 12s→90s
-- `src/lib/gen/autofix/import-validator.ts` — ny `fixNestedImportBlocks()`
+- `src/lib/gen/autofix/import-validator.ts` — `fixNestedImportBlocks()` + `fixDuplicateDefaultExport()`
+- `src/lib/own-engine/session/own-engine-pipeline-generation.ts` — reasoningEffort-tuning
+- `src/lib/gen/static-core-loader.ts` — path-normalisering i felmeddelanden
+- `src/lib/logging/file-logger.ts` — path-normalisering vid log-rotation
+- `src/lib/utils/path-utils.ts` — ny `toPosixPath()`
 
 ### Tester
 - `src/lib/gen/autofix/nested-import-fix.test.ts` (ny)

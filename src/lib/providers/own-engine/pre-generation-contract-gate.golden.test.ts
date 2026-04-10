@@ -108,9 +108,9 @@ const buildSpec: BuildSpec = {
   referenceCategories: ["saas", "marketing-sites", "backend"],
   forbiddenPatterns: ["leave_bracket_placeholders", "compat_preview_primary"],
   tokenBudgets: {
-    scaffoldChars: 120_000,
-    refsChars: 60_000,
-    systemContextChars: 240_000,
+    scaffoldChars: 80_000,
+    refsChars: 40_000,
+    systemContextChars: 160_000,
   },
 };
 

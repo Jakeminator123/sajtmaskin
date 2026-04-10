@@ -390,23 +390,14 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
   switch (contextPolicy) {
     case "light":
       return {
-        scaffoldTokens: 18_750,
-        refsTokens: 6_250,
-        systemContextTokens: 25_000,
-        scaffoldChars: 60_000,
-        refsChars: 20_000,
-        systemContextChars: 80_000,
+        scaffoldTokens: 11_250,
+        refsTokens: 3_750,
+        systemContextTokens: 15_000,
+        scaffoldChars: 36_000,
+        refsChars: 12_000,
+        systemContextChars: 48_000,
       };
     case "heavy":
-      return {
-        scaffoldTokens: 37_500,
-        refsTokens: 18_750,
-        systemContextTokens: 75_000,
-        scaffoldChars: 120_000,
-        refsChars: 60_000,
-        systemContextChars: 240_000,
-      };
-    default:
       return {
         scaffoldTokens: 25_000,
         refsTokens: 12_500,
@@ -414,6 +405,15 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
         scaffoldChars: 80_000,
         refsChars: 40_000,
         systemContextChars: 160_000,
+      };
+    default:
+      return {
+        scaffoldTokens: 15_000,
+        refsTokens: 7_500,
+        systemContextTokens: 30_000,
+        scaffoldChars: 48_000,
+        refsChars: 24_000,
+        systemContextChars: 96_000,
       };
   }
 }

@@ -54,7 +54,11 @@ export async function validateAndFix(
   try {
     const { validateGeneratedCode } = await import("../retry/validate-syntax");
 
-    let currentContent = content;
+    const preFixResult = await runAutoFix(content, {
+      chatId: opts.chatId,
+      model: opts.model,
+    });
+    let currentContent = preFixResult.fixedContent;
     let initialErrorCount = 0;
     let bestContent = content;
     let bestErrorCount = Infinity;

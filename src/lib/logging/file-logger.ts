@@ -15,6 +15,7 @@
 
 import fs from "fs";
 import path from "path";
+import { toPosixPath } from "@/lib/utils/path-utils";
 
 // Check if logging is enabled via environment
 const LOG_ENABLED = process.env.SAJTMASKIN_LOG === "true";
@@ -112,7 +113,7 @@ function checkAndRotateLog(): void {
         const archivePath = LOG_PATH.replace(".log", `-${Date.now()}.log.old`);
         fs.renameSync(LOG_PATH, archivePath);
         pruneOldRotatedLogs();
-        console.info(`[FileLogger] Rotated log to ${archivePath}`);
+        console.info(`[FileLogger] Rotated log to ${toPosixPath(archivePath)}`);
       }
     }
   } catch {

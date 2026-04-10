@@ -12,6 +12,14 @@
 import path from "path";
 
 /**
+ * Normalize a native OS path to forward slashes for consistent log output.
+ * No-op on POSIX; replaces `\` with `/` on Windows.
+ */
+export function toPosixPath(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
+/**
  * Sanitize a project file path to prevent directory traversal attacks.
  *
  * @param p - The raw file path from user input or AI response

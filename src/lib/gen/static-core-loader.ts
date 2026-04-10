@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { toPosixPath } from "@/lib/utils/path-utils";
 
 /**
  * Own-engine static system prompt.
@@ -106,7 +107,7 @@ function tryLoadFromManifest(): string | null {
     try {
       raw = readFileSync(fp, "utf8");
     } catch {
-      throw new Error(`[sajtmaskin] Manifest fragment missing: ${rel} → ${fp}`);
+      throw new Error(`[sajtmaskin] Manifest fragment missing: ${rel} → ${toPosixPath(fp)}`);
     }
     chunks.push(raw.replace(/^\uFEFF/, "").trimEnd());
   }
@@ -130,7 +131,7 @@ function tryLoadMonolith(): string | null {
       }
       const raw = readFileSync(candidate, "utf8").replace(/^\uFEFF/, "");
       if (!raw.trim()) {
-        throw new Error(`[sajtmaskin] Static system prompt file is empty: ${candidate}`);
+        throw new Error(`[sajtmaskin] Static system prompt file is empty: ${toPosixPath(candidate)}`);
       }
       cache = { key, content: raw };
       return raw;
@@ -150,7 +151,7 @@ export function getStaticCoreFromWorkspace(): string {
     return fromMono;
   }
 
-  const tried = [getManifestPath(), ...getMonolithCandidates()].join(", ");
+  const tried = [getManifestPath(), ...getMonolithCandidates()].map(toPosixPath).join(", ");
   throw new Error(
     `[sajtmaskin] Missing static system prompt. Expected config/codegen-static-prompt.json + fragments, or a monolithic config/systemprompt.md. Tried: ${tried}`,
   );

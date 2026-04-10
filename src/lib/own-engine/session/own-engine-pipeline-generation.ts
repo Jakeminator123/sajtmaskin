@@ -55,11 +55,17 @@ export function createOwnEnginePipelineAndGenerationStream(
 ): ReadableStream<Uint8Array> {
   const tools = getAgentTools();
   const effortByQuality: Record<string, ReasoningEffort> = {
-    standard: "high",
+    standard: "medium",
     premium: "high",
     "release-candidate": "high",
   };
-  const reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "high";
+  let reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "high";
+  const isLightFollowUp =
+    input.buildSpec.generationMode === "followUp" &&
+    (input.buildSpec.changeScope === "copy" || input.buildSpec.changeScope === "local-layout");
+  if (isLightFollowUp && reasoningEffort === "high") {
+    reasoningEffort = "medium";
+  }
   const pipelineStream = createGenerationPipeline({
     prompt: input.pipeline.prompt,
     systemPrompt: input.pipeline.systemPrompt,

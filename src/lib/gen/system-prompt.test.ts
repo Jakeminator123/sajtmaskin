@@ -16,9 +16,9 @@ const lightFollowUpSpec: BuildSpec = {
   referenceCategories: ["marketing-sites"],
   forbiddenPatterns: ["leave_bracket_placeholders"],
   tokenBudgets: {
-    scaffoldChars: 60_000,
-    refsChars: 20_000,
-    systemContextChars: 80_000,
+    scaffoldChars: 36_000,
+    refsChars: 12_000,
+    systemContextChars: 48_000,
   },
 };
 
