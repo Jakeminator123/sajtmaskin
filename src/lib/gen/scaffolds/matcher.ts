@@ -249,6 +249,54 @@ const ECOMMERCE_KEYWORDS = [
   "storefront",
 ];
 
+const DOCS_KEYWORDS = [
+  "docs",
+  "documentation",
+  "dokumentation",
+  "knowledge base",
+  "kunskapsbas",
+  "help center",
+  "hjälpcenter",
+  "changelog",
+  "release notes",
+  "api docs",
+  "api reference",
+  "wiki",
+  "manual",
+  "handbok",
+  "guide",
+  "faq-site",
+  "support portal",
+  "supportportal",
+  "hjälpsida",
+  "referens",
+];
+
+const FORM_WORKFLOW_KEYWORDS = [
+  "booking",
+  "boka",
+  "bokning",
+  "survey",
+  "enkät",
+  "undersökning",
+  "quiz",
+  "frågesport",
+  "calculator",
+  "kalkylator",
+  "multi-step",
+  "wizard",
+  "intake",
+  "ansökan",
+  "application form",
+  "questionnaire",
+  "frågeformulär",
+  "appointment",
+  "tidsbokning",
+  "registration form",
+  "anmälan",
+  "stegvis",
+];
+
 const CONTENT_KEYWORDS = [
   "content",
   "innehåll",
@@ -445,11 +493,16 @@ function buildKeywordScores(promptLower: string): Array<{ id: string; score: num
     ecommerceScore = 0;
   }
 
+  const docsScore = countKeywordMatches(promptLower, DOCS_KEYWORDS);
+  const formWorkflowScore = countKeywordMatches(promptLower, FORM_WORKFLOW_KEYWORDS);
+
   return [
     { id: "auth-pages", score: authScore },
     { id: "ecommerce", score: ecommerceScore },
     { id: "dashboard", score: dashboardScore },
     { id: "app-shell", score: appScore },
+    { id: "docs-knowledge", score: docsScore },
+    { id: "form-workflow", score: formWorkflowScore },
     { id: "saas-landing", score: saasScore },
     { id: "portfolio", score: portfolioScore },
     { id: "landing-page", score: landingScore },
@@ -486,6 +539,8 @@ function applyBriefKeywordBoost(
   if (countKeywordMatches(combinedText, BLOG_KEYWORDS) > 0) addBoost("blog", 2);
   if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
   if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
+  if (countKeywordMatches(combinedText, DOCS_KEYWORDS) > 0) addBoost("docs-knowledge", 2);
+  if (countKeywordMatches(combinedText, FORM_WORKFLOW_KEYWORDS) > 0) addBoost("form-workflow", 2);
 
   if (boosts.size === 0) return scores;
   return scores.map((entry) => ({
@@ -658,6 +713,16 @@ export function matchScaffold(
       return getScaffoldByFamily("dashboard");
     }
     return getScaffoldByFamily("app-shell");
+  }
+
+  const docsScore = countKeywordMatches(lower, DOCS_KEYWORDS);
+  if (docsScore >= MIN_SCORE) {
+    return getScaffoldByFamily("docs-knowledge");
+  }
+
+  const formWorkflowScore = countKeywordMatches(lower, FORM_WORKFLOW_KEYWORDS);
+  if (formWorkflowScore >= MIN_SCORE) {
+    return getScaffoldByFamily("form-workflow");
   }
 
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
