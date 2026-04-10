@@ -142,6 +142,22 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
 }
 
 /**
+ * True when any capability flag indicates a non-trivial UI/product feature.
+ * Used to prevent capability-heavy follow-ups from being treated as tiny tweaks.
+ */
+export function hasHeavyCapabilities(caps: InferredCapabilities): boolean {
+  return (
+    caps.needs3D ||
+    caps.needsCarousel ||
+    caps.needsCharts ||
+    caps.needsPremiumVisuals ||
+    caps.needsAppShell ||
+    caps.needsDataUI ||
+    caps.needsEcommerce
+  );
+}
+
+/**
  * Build a short capability hint string for inclusion in the system prompt
  * dynamic context, so the model knows which libraries/patterns to use.
  */

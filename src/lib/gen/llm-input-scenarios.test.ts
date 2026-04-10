@@ -114,6 +114,27 @@ describe("LLM input scenarios (dynamic context)", () => {
     expect(context).toContain("## Generation Profile");
   });
 
+  it("follow-up with capability hints surfaces a dedicated capabilities block", async () => {
+    const { context } = await buildDynamicContext({
+      intent: "website",
+      generationMode: "followUp",
+      buildSpec: baseSpec({
+        generationMode: "followUp",
+        changeScope: "local-layout",
+        contextPolicy: "normal",
+        verificationPolicy: "standard",
+      }),
+      capabilityHints:
+        "## Detected Capabilities\n\n- **Carousel/slider requested**: Use shadcn Carousel.\n- **3D/WebGL requested**: Use @react-three/fiber.",
+      scaffoldContext: "scaffold",
+    });
+
+    expect(context).toContain("## Detected Capabilities");
+    expect(context.indexOf("## Detected Capabilities")).toBeLessThan(
+      context.indexOf("## Scaffold"),
+    );
+  });
+
   it("redesign scope: bredare ändring signaleras via BuildSpec (changeScope redesign)", async () => {
     const { context } = await buildDynamicContext({
       intent: "website",

@@ -163,6 +163,7 @@ export interface DynamicContextOptions {
   imageGenerations?: boolean;
   mediaCatalog?: MediaCatalogItem[];
   scaffoldContext?: string;
+  capabilityHints?: string;
   resolvedScaffold?: ScaffoldManifest | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
@@ -316,6 +317,7 @@ export async function buildDynamicContext(
     imageGenerations: _imageGenerations = false,
     mediaCatalog,
     scaffoldContext,
+    capabilityHints,
     resolvedScaffold,
     routePlan,
     preGenerationContracts,
@@ -336,7 +338,7 @@ export async function buildDynamicContext(
     parts.push(
       "## Generation Mode: Follow-Up",
       "",
-      "You are editing/refining an existing generation. The scaffold, brief, and route plan below were established in the initial generation. Apply only the user's requested changes.",
+      "You are editing/refining the current project state from previous generations. Treat the scaffold, brief, route plan, and continuity signals below as the latest known implementation context. Apply only the user's requested changes unless they clearly ask for a redesign.",
       "",
     );
   }
@@ -375,6 +377,10 @@ export async function buildDynamicContext(
     }
     profileLines.push("");
     parts.push(...profileLines);
+  }
+
+  if (capabilityHints?.trim()) {
+    parts.push(capabilityHints.trim(), "");
   }
 
   // ── Scaffold ───────────────────────────────────────────────────────────

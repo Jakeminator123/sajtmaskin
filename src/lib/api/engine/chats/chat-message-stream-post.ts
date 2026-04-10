@@ -24,6 +24,7 @@ import {
   buildStoredContractClarificationUiPart,
 } from "@/lib/gen/contract/clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
+import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildGenerationInputPackage,
@@ -241,11 +242,13 @@ export async function handleMessageStreamRequest(
         }
 
         if (previousFiles.length > 0) {
+          const capabilityHeavy = hasHeavyCapabilities(inferCapabilities(message));
           const useLightFollowUpContext =
             FEATURES.useFollowUpLightContext &&
             !skipIntentClassification &&
             followUpIntent !== "clear-redesign" &&
-            !looksDesignHeavyMessage(message.trim());
+            !looksDesignHeavyMessage(message.trim()) &&
+            !capabilityHeavy;
           const manyFiles = previousFiles.length > 14;
           const fileCtx = buildFileContext({
             files: previousFiles,

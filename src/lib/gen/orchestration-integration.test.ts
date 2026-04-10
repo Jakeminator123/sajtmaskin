@@ -166,4 +166,29 @@ describe("orchestration integration (matchScaffold → deriveBuildSpec)", () => 
     expect(matched?.id).toBe("landing-page");
     assertBuildSpecFromChain(prompt, buildIntent, matched!);
   });
+
+  it("keeps ordinary freeform website prompts on the standard path", () => {
+    const prompt = "Bygg en snygg hemsida för ett lokalt företag med hero, CTA och några sektioner.";
+    const buildIntent: BuildIntent = "website";
+    const matched = matchScaffold(prompt, buildIntent);
+    const routePlan = buildRoutePlan({
+      prompt,
+      buildIntent,
+      brief: null,
+      resolvedScaffold: matched,
+    });
+    const spec = deriveBuildSpec({
+      prompt,
+      buildIntent,
+      generationMode: "init",
+      resolvedScaffold: matched,
+      routePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.verificationPolicy).toBe("standard");
+    expect(spec.previewPolicy).toBe("fidelity2");
+  });
 });

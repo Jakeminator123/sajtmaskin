@@ -334,7 +334,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
           tokenBudgets: { scaffoldChars: 12000, refsChars: 4000, systemContextChars: 18000 },
         },
         scaffoldContext: undefined,
-        scaffoldAndCapability: "",
+        capabilityHints: undefined,
         capabilities: {
           needsMotion: false,
           needs3D: false,
@@ -488,7 +488,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         forbiddenPatterns: ["leave_bracket_placeholders"],
         tokenBudgets: { scaffoldChars: 12000, refsChars: 4000, systemContextChars: 18000 },
       },
-      scaffoldAndCapability: "",
+      capabilityHints: undefined,
     });
     finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
@@ -707,6 +707,27 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
     );
     expect(buildGenerationInputPackage).toHaveBeenCalledTimes(1);
     expect(writeOrchestrationDynamicDump).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the richer follow-up file context for capability-heavy visual edits", async () => {
+    await POST(
+      new Request("https://example.com/api/v0/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Lägg till en klickbar karusell med klockor och en 3D-figur som skjuter laser över hero-sektionen.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(buildFileContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxChars: 140_000,
+        includeContents: true,
+        maxFilesWithContent: 8,
+      }),
+    );
   });
 
   it("ignores persisted scaffold lock for clear-redesign follow-ups in auto mode", async () => {

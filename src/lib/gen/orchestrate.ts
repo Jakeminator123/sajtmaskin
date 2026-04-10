@@ -100,12 +100,11 @@ export interface OrchestrationBase {
   scaffoldSelection?: ScaffoldSelectionMeta;
   orchestrationContract: OrchestrationContract;
   scaffoldContext: string | undefined;
+  capabilityHints: string | undefined;
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
   buildSpec: BuildSpec;
-  /** Combined scaffold + capability hints string for dynamic context */
-  scaffoldAndCapability: string;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -120,7 +119,6 @@ export function buildGenerationInputPackage(
   input: OrchestrationInput,
   finalized: FinalizedOrchestrationContext,
 ): GenerationInputPackage {
-  const capabilityHints = base.scaffoldAndCapability;
   const lineageHash = computeLineageHash({
     userPrompt: input.prompt,
     brief: input.brief,
@@ -129,7 +127,7 @@ export function buildGenerationInputPackage(
     routePlan: base.routePlan,
     preGenerationContracts: base.preGenerationContracts,
     buildSpec: base.buildSpec,
-    capabilityHints,
+    capabilityHints: base.capabilityHints,
   });
 
   return {
@@ -295,6 +293,7 @@ export async function resolveOrchestrationBase(
     routePlan,
     preGenerationContracts,
     promptStrategyMeta,
+    capabilities,
   });
   const orchestrationContract = buildOrchestrationContract({
     resolvedScaffold,
@@ -317,20 +316,16 @@ export async function resolveOrchestrationBase(
     });
   }
 
-  const scaffoldAndCapability = [scaffoldContext, capabilityHints]
-    .filter(Boolean)
-    .join("\n\n");
-
   return {
     resolvedScaffold,
     scaffoldSelection,
     orchestrationContract,
     scaffoldContext,
+    capabilityHints: capabilityHints || undefined,
     routePlan,
     preGenerationContracts,
     capabilities,
     buildSpec,
-    scaffoldAndCapability,
   };
 }
 
@@ -361,7 +356,8 @@ export async function finalizeOrchestrationPrompts(
     brief: brief as DynamicContextOptions["brief"],
     themeOverride: themeColors,
     imageGenerations,
-    scaffoldContext: base.scaffoldAndCapability || undefined,
+    scaffoldContext: base.scaffoldContext,
+    capabilityHints: base.capabilityHints,
     resolvedScaffold: base.resolvedScaffold,
     routePlan: base.routePlan,
     preGenerationContracts: base.preGenerationContracts,

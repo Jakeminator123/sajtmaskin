@@ -9,7 +9,7 @@ Källkod: `src/lib/gen/system-prompt.ts`, `src/lib/gen/orchestrate.ts`, `src/lib
 | Del | Innehåll | Var det byggs |
 |-----|-----------|----------------|
 | **System (statisk kärna)** | `config/codegen-static-prompt.json` + `config/prompt-static/*.md` via `getStaticCoreFromWorkspace()` | `static-core-loader.ts` |
-| **System (dynamisk kontext)** | Request-specifik kontext: intent, BuildSpec/Generation Profile, scaffold + capability hints, route plan, kontrakt, brief, tema, m.m. | `buildDynamicContext()` |
+| **System (dynamisk kontext)** | Request-specifik kontext: intent, BuildSpec/Generation Profile, capability hints, scaffold, route plan, kontrakt, brief, tema, m.m. | `buildDynamicContext()` |
 | **Separator** | `SYSTEM_PROMPT_SEPARATOR` mellan statiskt och dynamiskt | `system-prompt.ts` |
 | **Användarens senaste tur** | Nuvarande prompt (ev. URL-komprimerad) | API-lager → pipeline `prompt` |
 | **Chatthistorik** | Tidigare user/assistant-meddelanden | Hämtas från chat-repo, skickas separat från system |
@@ -37,6 +37,16 @@ Syftet är att hålla edit-/follow-up-flödet deterministiskt utan att blanda in
 4. **Obligatoriska** block (`required`) kan trunkeras till minimum i stället för att slängas helt.
 5. Resultatet av pruning exponeras som `DynamicContextPruning` på `buildDynamicContext()` och i `GenerationInputPackage.dynamicContextPruning` (prompt-dump `meta.json` + `generation-input-package.json`).
 6. Varje dynamiskt block exponeras också strukturerat i `GenerationInputPackage.dynamicContextBlocks` med titel, prioritet, required-flagga, tokenestimat och om blocket faktiskt behölls efter budgetering.
+
+## Capability hints
+
+Capability inference sker i `capability-inference.ts` före systempromptbygget. När prompten tydligt signalerar t.ex. 3D, karusell, motion eller premium visuals byggs ett eget `## Detected Capabilities`-block och injiceras i den dynamiska systemkontexten.
+
+Det blocket är ett **hint-lager** för generatorn:
+
+- det utökar inte användarens råa prompt
+- det ersätter inte route plan / contracts / brief
+- det ska hjälpa follow-ups att inte feltolkas som små lokala tweaks när den faktiska ändringen är capability-heavy
 
 ## Teckenfält vs tokenbudget i `BuildSpec`
 

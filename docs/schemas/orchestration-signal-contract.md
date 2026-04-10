@@ -43,7 +43,7 @@ men scaffoldmatchningen kör fortfarande främst på råprompten.
 
 ### 2. Keyword och embeddings körs parallellt; merge-policy jämför signalerna
 
-`matchScaffoldAuto()` startar embedding-sökning direkt (samma väntan som tidigare, men keyword beräknas samtidigt på klienten) och hämtar top-K semantiska träffar.
+`matchScaffoldAuto()` startar embedding-sökning direkt och beräknar keyword-signalen parallellt i samma server-side orkestreringspass; resultatet mergeas sedan innan scaffoldvalet bestäms.
 
 - **Keyword** ger ett snabbt scaffold-förslag (eller intent-baseline om `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off`).
 - **Embedding** får **utmana** även icke-generiska keyword-val när cosinuslikheden är tillräckligt hög och säkerhetsgarder (`canUseEmbeddingOverride`) passerar. Jämförelsen mot keyword-styrka skalar rå keyword-poäng mot `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (standard ~0,82 — **lägre värde** ⇒ embeddings får lättare vinna mot starka keyword-träffar).
@@ -53,6 +53,11 @@ Det finns fortfarande en **golv-tröskel** (`EMBEDDING_MIN_SCORE` i `matcher.ts`
 ### 3. Capability-lagret är ett hint-lager, inte domänsanning
 
 `capability-inference.ts` är snabbt och användbart, men grunt. Det bör inte ensam få skapa starka backend-/betalningskontrakt.
+
+Capability-lagret används nu också som en follow-up-signal:
+
+- capability-heavy önskemål (t.ex. 3D, karusell, större visuella effekter) kan hindra att follow-upen degraderas till den allra lättaste context-/verification-banan
+- det gör inte capability inference till ett nytt primärt sanningslager, men minskar risken att ambitiösa visual/product-ändringar feltolkas som små lokala tweaks
 
 ### 4. Contract-lagret är flernivåigt
 

@@ -20,12 +20,13 @@ Builder/API prompt
            │
            ├─ resolveOrchestrationBase()
            │    ├─ scaffold selection (manual / persisted / auto)
-           │    ├─ route plan + pre-generation contracts
+           │    ├─ capability inference + route plan + pre-generation contracts
            │    └─ BuildSpec / token budgets / policy
            │
            └─ finalizeOrchestrationPrompts()
                 └─ buildDynamicContext()  (system-prompt.ts)
-                     ├─ scaffold context (+ capability hints via orchestrate)
+                     ├─ capability hints
+                     ├─ scaffold context
                      ├─ route plan + pre-generation contracts
                      ├─ brief / visual identity / design references
                      ├─ token budget + block pruning → `DynamicContextPruning`

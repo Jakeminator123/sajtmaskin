@@ -183,6 +183,35 @@ Persisted errors for this version:
     expect(spec.contextPolicy).toBe("normal");
   });
 
+  it("keeps capability-heavy visual follow-ups off the light/fast path", () => {
+    const spec = deriveBuildSpec({
+      prompt: "Lägg till en klickbar karusell med klockor och en 3D-figur som skjuter laser över hero-sektionen.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: saasScaffold,
+      routePlan: marketingRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "followup_general" },
+      capabilities: {
+        needsMotion: true,
+        needs3D: true,
+        needsCharts: false,
+        needsDatabase: false,
+        needsAuth: false,
+        needsAppShell: false,
+        needsDataUI: false,
+        needsForms: false,
+        needsEcommerce: false,
+        needsCarousel: true,
+        needsPremiumVisuals: false,
+      },
+    });
+
+    expect(spec.changeScope).toBe("local-layout");
+    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.verificationPolicy).toBe("standard");
+  });
+
   it("keeps redesign follow-ups at least normal context with standard verification", () => {
     const spec = deriveBuildSpec({
       prompt: "Jag vill ha en full redesign av landningssidan.",

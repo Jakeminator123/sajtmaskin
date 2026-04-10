@@ -1,6 +1,10 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import { FEATURES } from "@/lib/config";
+import {
+  hasHeavyCapabilities,
+  type InferredCapabilities,
+} from "./capability-inference";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldFamily, ScaffoldManifest } from "./scaffolds/types";
@@ -55,6 +59,7 @@ type DeriveBuildSpecParams = {
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  capabilities?: InferredCapabilities | null;
 };
 
 function escapeRegex(value: string): string {
@@ -299,9 +304,11 @@ function inferVerificationPolicy(params: {
   generationMode: BuildSpecGenerationMode;
   changeScope: BuildSpecChangeScope;
   previewPolicy: BuildSpecPreviewPolicy;
+  capabilityHeavy: boolean;
 }): BuildSpecVerificationPolicy {
-  const { generationMode, changeScope, previewPolicy } = params;
+  const { generationMode, changeScope, previewPolicy, capabilityHeavy } = params;
   if (previewPolicy === "fidelity3") return "strict";
+  if (generationMode === "followUp" && capabilityHeavy) return "standard";
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
     return "fast";
   }
@@ -316,12 +323,14 @@ function inferContextPolicy(params: {
   routePlan: RoutePlan;
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
+  capabilityHeavy: boolean;
 }): BuildSpecContextPolicy {
-  const { prompt, generationMode, changeScope, buildIntent, routePlan, preGenerationContracts, promptStrategyMeta } = params;
+  const { prompt, generationMode, changeScope, buildIntent, routePlan, preGenerationContracts, promptStrategyMeta, capabilityHeavy } = params;
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
       return "normal";
     }
+    if (capabilityHeavy) return "normal";
     const trimmedPrompt = prompt.trim();
     const isExplicitSmallFollowUp =
       trimmedPrompt.length <= 220 &&
@@ -477,7 +486,10 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     routePlan,
     preGenerationContracts,
     promptStrategyMeta = null,
+    capabilities = null,
   } = params;
+
+  const capabilityHeavy = capabilities ? hasHeavyCapabilities(capabilities) : false;
 
   const changeScope = inferChangeScope({
     prompt,
@@ -503,6 +515,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     generationMode,
     changeScope,
     previewPolicy,
+    capabilityHeavy,
   });
   const contextPolicy = inferContextPolicy({
     prompt,
@@ -512,6 +525,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     routePlan,
     preGenerationContracts,
     promptStrategyMeta,
+    capabilityHeavy,
   });
 
   return {

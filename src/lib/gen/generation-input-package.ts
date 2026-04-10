@@ -42,20 +42,20 @@ export function computeLineageHash(pkg: {
   brief: unknown;
   scaffoldMode: string;
   scaffoldContext: string | undefined;
+  capabilityHints?: string | undefined;
   routePlan: unknown;
   preGenerationContracts: unknown;
   buildSpec?: BuildSpec | null;
-  capabilityHints: string;
 }): string {
   const h = createHash("sha256");
   h.update(pkg.userPrompt);
   h.update(JSON.stringify(pkg.brief ?? null));
   h.update(pkg.scaffoldMode);
   h.update(pkg.scaffoldContext ?? "");
+  h.update(pkg.capabilityHints ?? "");
   h.update(JSON.stringify(pkg.routePlan ?? null));
   h.update(JSON.stringify(pkg.preGenerationContracts ?? null));
   h.update(JSON.stringify(pkg.buildSpec ?? null));
-  h.update(pkg.capabilityHints);
   return h.digest("hex");
 }
 
@@ -79,7 +79,7 @@ export function serializePackageForDump(
     routePlan: pkg.routePlan,
     orchestrationContract: pkg.orchestrationContract,
     contracts: pkg.preGenerationContracts,
-    capabilityHints: pkg.scaffoldAndCapability,
+    capabilityHints: pkg.capabilityHints ?? null,
     engineSystemPromptLength: pkg.engineSystemPrompt.length,
     dynamicContextLength: pkg.dynamicContext.length,
     dynamicContextPruning: pkg.dynamicContextPruning,

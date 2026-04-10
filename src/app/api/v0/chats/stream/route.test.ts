@@ -372,7 +372,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
           tokenBudgets: { scaffoldChars: 20000, refsChars: 8000, systemContextChars: 28000 },
         },
         scaffoldContext: undefined,
-        scaffoldAndCapability: "",
+        capabilityHints: undefined,
         capabilities: {
           needsMotion: false,
           needs3D: false,
@@ -471,7 +471,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         tokenBudgets: { scaffoldChars: 20000, refsChars: 8000, systemContextChars: 28000 },
       },
       scaffoldContext: undefined,
-      scaffoldAndCapability: "",
+      capabilityHints: undefined,
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
       dynamicContextPruning: {
@@ -530,7 +530,7 @@ describe("POST /api/v0/chats/stream own-engine route", () => {
         forbiddenPatterns: ["leave_bracket_placeholders"],
         tokenBudgets: { scaffoldChars: 20000, refsChars: 8000, systemContextChars: 28000 },
       },
-      scaffoldAndCapability: "",
+      capabilityHints: undefined,
     });
     finalizeOrchestrationPrompts.mockResolvedValue({
       engineSystemPrompt: "SYSTEM",
