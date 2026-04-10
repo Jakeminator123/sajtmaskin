@@ -8,13 +8,18 @@ export const contentSiteManifest: ScaffoldManifest = {
     "Content-first website with hero, features, testimonials, and footer. Great for landing pages, portfolios, and blogs.",
   allowedBuildIntents: ["website", "template"],
   tags: [
-    "landing",
+    "content-site",
     "brand-site",
-    "marketing",
-    "content",
+    "multi-page",
+    "information",
+    "about",
+    "team",
+    "features",
     "company",
     "agency",
     "service",
+    "foretagssida",
+    "informationssida",
   ],
   promptHints: [
     "This scaffold has a hero, features grid, testimonials, and footer.",
@@ -35,7 +40,11 @@ export const contentSiteManifest: ScaffoldManifest = {
       "Add stronger CTA ladders (primary + secondary actions) across long pages.",
       "Add trust-signal modules (logos, results, testimonials) tied to business context.",
     ],
-    referenceTemplates: [],
+    referenceTemplates: [
+      { id: "cms-next-js-waitlist-with-notion-cms", title: "Next.js Waitlist with Notion CMS", categorySlug: "cms", qualityScore: 96, strengths: ["verified Next.js codebase", "content-first hierarchy", "section composition"] },
+      { id: "cms-basehub-marketing-website", title: "BaseHub Marketing Website", categorySlug: "cms", qualityScore: 88, strengths: ["verified Next.js codebase", "marketing page structure", "content blocks"] },
+      { id: "cms-next-js-starter-for-wordpress-headless-cms", title: "Next.js Starter for WordPress Headless CMS", categorySlug: "cms", qualityScore: 88, strengths: ["verified Next.js codebase", "headless CMS pattern", "content rendering"] },
+    ],
   },
   files: [
     {

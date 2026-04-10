@@ -38,7 +38,11 @@ export const saasLandingManifest: ScaffoldManifest = {
       "Include comparison table for pricing tiers on larger screens.",
       "Generate structured data (JSON-LD SoftwareApplication) for SEO.",
     ],
-    referenceTemplates: [],
+    referenceTemplates: [
+      { id: "saas-paddle-billing-subscription-starter", title: "Paddle Billing Subscription Starter", categorySlug: "saas", qualityScore: 96, strengths: ["verified Next.js codebase", "pricing and billing structure", "auth flow reference"] },
+      { id: "saas-router-so-headless-forms-and-lead-routing", title: "Router.so Headless Forms", categorySlug: "saas", qualityScore: 96, strengths: ["verified Next.js codebase", "lead capture patterns", "form-driven SaaS flow"] },
+      { id: "saas-update-starter-subscriptions-and-auth-for-saas", title: "Update Starter — Subscriptions and Auth", categorySlug: "saas", qualityScore: 96, strengths: ["verified Next.js codebase", "subscription flow", "auth integration"] },
+    ],
   },
   files: [
     {
@@ -95,7 +99,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="sv">
       <body className={inter.variable}>
         <MarketingHeader />
         <main>{children}</main>

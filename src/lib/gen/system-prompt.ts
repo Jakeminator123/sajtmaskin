@@ -185,8 +185,8 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
 
-const DEFAULT_REFS_BUDGET_TOKENS = 2_500;
-const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 8_750;
+const DEFAULT_REFS_BUDGET_TOKENS = 12_500;
+const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 50_000;
 
 const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   match: RegExp;
@@ -205,7 +205,15 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
+  { match: /^critical scaffold files$/i, priority: 86, required: true },
+  { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
+  { match: /^coding direction$/i, priority: 76 },
+  { match: /^interaction.+motion$/i, priority: 68 },
+  { match: /^quality bar$/i, priority: 74 },
+  { match: /^component palette$/i, priority: 72 },
+  { match: /^spec file$/i, priority: 78 },
+  { match: /^current project files$/i, priority: 80 },
   { match: /^imagery/i, priority: 66 },
   { match: /^seo$/i, priority: 62 },
 ];

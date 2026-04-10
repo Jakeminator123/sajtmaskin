@@ -33,7 +33,11 @@ export const portfolioManifest: ScaffoldManifest = {
       "Add service boundaries and availability messaging that keeps the personal voice.",
       "Add social proof blocks (selected clients, recognitions, testimonials) without turning corporate.",
     ],
-    referenceTemplates: [],
+    referenceTemplates: [
+      { id: "portfolio-magic-portfolio-for-next-js", title: "Magic Portfolio for Next.js", categorySlug: "portfolio", qualityScore: 92, strengths: ["verified Next.js codebase", "editorial content hierarchy", "project showcase patterns"] },
+      { id: "portfolio-next-js-portfolio-with-pageview-counter", title: "Next.js Portfolio with Pageview Counter", categorySlug: "portfolio", qualityScore: 92, strengths: ["verified Next.js codebase", "analytics integration", "personal brand layout"] },
+      { id: "portfolio-nim-minimalist-personal-site", title: "Nim — Minimalist Personal Site", categorySlug: "portfolio", qualityScore: 92, strengths: ["verified Next.js codebase", "minimalist design approach", "personal voice layout"] },
+    ],
   },
   files: [
     {
@@ -89,7 +93,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="sv">
       <body className={inter.variable}>
         <main>{children}</main>
         <SiteFooter />

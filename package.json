@@ -6,7 +6,7 @@
     "node": ">=22.14.0 <23"
   },
   "volta": {
-    "node": "22.14.0"
+    "node": "22.22.2"
   },
   "scripts": {
     "predev": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/refresh-token.mjs && node scripts/db/db-init.mjs",

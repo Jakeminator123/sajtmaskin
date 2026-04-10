@@ -48,7 +48,7 @@ export async function validateAndFix(
   },
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;
-  const fixBudgetMs = Math.max(1_000, opts.fixBudgetMs ?? 20_000);
+  const fixBudgetMs = Math.max(1_000, opts.fixBudgetMs ?? 120_000);
   const budgetDeadline = Date.now() + fixBudgetMs;
 
   try {

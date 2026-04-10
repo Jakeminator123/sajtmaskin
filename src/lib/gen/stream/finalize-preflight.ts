@@ -291,7 +291,7 @@ export async function runFinalizePreflight({
         chatId,
         model: _model,
         resolvedTier,
-        fixBudgetMs: 12_000,
+        fixBudgetMs: 90_000,
       });
       if (mergedFixResult.fixerUsed || mergedFixResult.fixerImproved) {
         devLogAppend("in-progress", {

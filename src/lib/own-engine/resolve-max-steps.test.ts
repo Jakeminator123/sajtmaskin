@@ -14,7 +14,7 @@ function spec(partial: Partial<BuildSpec> & Pick<BuildSpec, "changeScope" | "con
     verificationPolicy: "fast",
     referenceCategories: [],
     forbiddenPatterns: [],
-    tokenBudgets: { scaffoldChars: 12_000, refsChars: 4_000, systemContextChars: 18_000 },
+    tokenBudgets: { scaffoldChars: 60_000, refsChars: 20_000, systemContextChars: 80_000 },
     ...partial,
   };
 }
