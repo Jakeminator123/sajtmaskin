@@ -159,7 +159,7 @@ export function previewRunbookLinesForCode(code: string | null | undefined): str
       ];
     case "preview_transport_error":
       return [
-        "Iframe kunde inte ladda URL:en (nätverk eller ogiltig preview-URL). Kontrollera att versionen har demoUrl och att servern svarar.",
+        "Iframe kunde inte ladda URL:en (nätverk eller ogiltig preview-URL). Kontrollera att versionen har en preview-URL och att servern svarar.",
         docHint,
       ];
     case "preview_waiting_for_vm":

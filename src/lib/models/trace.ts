@@ -236,7 +236,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       key: "deep-brief",
       label: "Deep brief",
       route: "/api/ai/brief",
-      purpose: "Structured brief generation before the first build.",
+      purpose: "Deep Brief generation before the first build.",
       active: promptAssistDeepActive,
     },
     {

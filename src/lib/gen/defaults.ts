@@ -57,7 +57,7 @@ export const ASSIST_MODEL = readStringEnv(pa.envKeys.assist, pa.defaults.assist)
 /** Prompt polish model for "Skriv om" */
 export const POLISH_MODEL = readStringEnv(pa.envKeys.polish, pa.defaults.polish);
 
-/** Structured brief model for `/api/ai/brief` when the caller does not override it. */
+/** Deep Brief model for `/api/ai/brief` when the caller does not override it. */
 export const BRIEF_MODEL = readStringEnv(
   briefingEnvKeys.requestModel,
   briefing.requestModel,
