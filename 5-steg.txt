@@ -1,0 +1,305 @@
+5-STEGSGENOMGANG AV LLM-FLODET
+==============================
+
+Syfte
+-----
+Detta dokument summerar den stegvisa genomgangen av builderns LLM-flode i fem delar.
+Målet har varit att:
+
+- fa en repo-ratt karta over hur flodet faktiskt fungerar
+- minska naming debt och begreppsforvirring
+- synka docs, dashboards och ordlistor med runtime-sanningen
+- hitta buggrisker och regressionsrisker i kedjan
+- stanga glapp mellan build, finalize och preview
+
+
+Steg 1 - Builder entry / prompt in / forsta klassning
+-----------------------------------------------------
+Fokus:
+- hur /builder normaliserar ingressen
+- vilka id:n och query-parametrar som betyder vad
+- vad som ar forberedelse och vad som faktiskt nar modellen
+
+Vi ville svara pa:
+- vad ar input i buildern innan modellen kallas?
+- vad ar source of truth for ingressen?
+- hur halls `appProjectId`, `chatId`, `templateId`, `entryKind` och gamla compatfalt isar?
+
+Resultat:
+- tydligare mental modell for ingressen
+- minskad risk att blanda ihop prompt, template-init och restore
+- tydligare avgransning mot gamla v0-/compatfalt
+
+
+Steg 2 - Scaffold, route plan, BuildSpec, contracts
+---------------------------------------------------
+Fokus:
+- scaffoldval
+- route plan
+- BuildSpec
+- pre-generation contracts
+
+Vi ville svara pa:
+- vilken scaffold valjs och varfor?
+- hur spåras route-strukturens kalla?
+- hur styr BuildSpec context, preview, verify och quality?
+- hur kopplas integrationer och kontrakt in fore codegen?
+
+Resultat:
+- klarare skillnad mellan scaffolds, `v0-mallar` och `template-library`
+- `RoutePlan.provenance` med `primarySource` + `sources[]`
+- tydligare BuildSpec-driven orkestrering
+- bättre docs/dashboards kring scaffold- och kontraktssanning
+
+
+Steg 3 - Faktisk LLM-input
+--------------------------
+Fokus:
+- vad modellen faktiskt far
+- statisk prompt vs dynamisk kontext vs user-turn
+- budget, pruning och observability
+
+Vi ville svara pa:
+- vad fick modellen exakt?
+- varfor fick modellen det?
+- vad kapades?
+
+Resultat:
+- dubbel "original request"-kontext togs bort ur systemprompten
+- `DynamicContextPruning` exponerar budget/kapning tydligare
+- `GenerationInputPackage` och prompt-dumps blev mer konsekventa
+- verkliga scenariotester lades till for faktisk LLM-input
+
+
+Steg 4 - Codegen, finalize, validate, verifier
+----------------------------------------------
+Fokus:
+- vad som hander efter streamad codegen
+- syntax, repair, verifier-pass, preflight och sparad version
+
+Vi ville svara pa:
+- vilken ar den faktiska stegordningen efter stream?
+- vad ar blocking vs kvalitetssignal vs observability?
+- nar kor fast-only vs fast+deep?
+- var slutar Steg 4 och var borjar preview?
+
+Resultat:
+- tydligare finalize-kontrakt
+- verifier-pass och server-verify skildes tydligare åt
+- dashboards, ordlista och step-4-docs beskriver nu kedjan bättre
+- Step 4-hotspots ar sammanfattade i detta dokument och i
+  `docs/architecture/step4-post-generation.md`
+
+
+Steg 5 - Preview handoff / session / status
+-------------------------------------------
+Fokus:
+- gransen efter `done`
+- `previewPending`
+- `previewUrlHint`
+- `preview-ready` / `build-error`
+- `preview-session` / `preview-status`
+- shim/fallback vs primar VM-preview
+
+Vi ville svara pa:
+- betyder `done` att preview ar live? (nej)
+- ar `previewUrlHint` en riktig preview-URL? (nej)
+- nar blir preview kanonisk? (pa `preview-ready` eller via explicita status/session-rutter)
+
+Resultat:
+- `done` betyder nu tydligt "version sparad"
+- `previewUrlHint` ar bara boot-hint
+- sync-fallback och SSE-klient ligger narmare varandra i semantik
+- route-tester finns nu for `preview-session` och `preview-status`
+- shared preview-state-resolution minskar drift mellan create-sync och message-sync
+
+
+Tvargaende leveranser under alla steg
+-------------------------------------
+- `docs/architecture/README.md` och tillhorande arkitekturdokument har hallits ajour som kanonisk stegkarta
+- `docs/plans/active/remaining-focus-after-5-step.md` bär kvarvarande fokus i stallet for parallella rotfiler
+- `.cursor/rules/terminology.mdc` + `.cursor/rules/terminology-builder-runtime.mdc`
+  har skarpts for produkt- och runtimebegrepp
+- `config/dashboard/app.py` och `scripts/scripts_dashboard.py` har uppdaterats for
+  att spegla faktisk runtime i stallet for gamla mentala modeller
+- prompt-dumps behandlas nu tydligare som observability, inte source of truth
+- dynamisk promptkontext kan nu foljas blockvis i fan-in-artefakten
+  (`dynamicContextBlocks`) med titel, prioritet, tokenestimat och kept/dropped-status
+- `env`-lagret halls isar mellan:
+  - repoets app-env
+  - preview-host/VM-env
+  - anvandarens genererade projekts env
+
+
+Verifiering som gjorts i detta spar
+-----------------------------------
+- riktade tester for faktisk LLM-input
+- riktade finalize-/post-finalize-tester
+- riktade preview-handoff-tester
+- route-tester for:
+  - create-sync / message-sync fallback
+  - `preview-session`
+  - `preview-status`
+- upprepade typecheck-pass
+- lints pa andrade filer efter storre editeringar
+
+Eval, scaffolds, artifacts och loggning
+---------------------------------------
+- scaffolds-sparet ar fortsatt aktivt och relevant; det ar inte dod kod
+- generated artifacts som `scaffold-research.generated.json` och
+  `scaffold-embeddings.json` ar viktiga men medvetet cursorignorade for att minska brus
+- `template-library` ar fortsatt viktigt for research/validering/tooling, men ar inte
+  samma sak som direkt prompt-injektion i hot path
+- `scripts/rebuild_artifacts.py` ar fortfarande ett aktivt rebuild-skript, men ar en
+  naturlig kandidat for senare dead-path/dead-tooling-audit
+- prompt-dumps och `GENERATIONSLOGG` ar nyttiga for observability, men ska inte lasas
+  som om de vore kanonisk systemsanning
+
+
+Det som fortfarande ar svagare an idealet
+-----------------------------------------
+- naming debt runt `/api/v0/`
+- naming debt runt `sandbox` i kontrakt, typer och DB-falt
+- follow-up-flodet ar fortfarande mer komplext an init-flodet
+- `template-library` / extern pipeline ar fortfarande tung att forsta
+- bredare preview lifecycle efter Steg 5-smalpasset ar inte genomlyst fullt ut
+- logging / rebuild / eval / artifacts kan fortfarande innehalla halvlevande tooling
+
+
+Saker vi medvetet inte tog bort i detta spar
+--------------------------------------------
+- `/api/v0/`-compatlagret
+- bred `sandbox`-rename i DB/Redis/payloads
+- `legacyShimPreviewUrl`
+- bred rensning av `template-library` / extern pipeline
+- bred dead-code-rensning utan separat migrerings- eller auditpass
+
+
+Rekommenderade nasta pass
+-------------------------
+1. Extern review pa den nuvarande helheten.
+2. Ett riktat pass for:
+   - `/api/v0/` compat
+   - `sandbox` naming debt
+   - full preview lifecycle (`heartbeat`, `hibernate`, `destroy`, version rollover)
+3. En separat dead-path / dead-tooling-audit for:
+   - `scripts/`
+   - rebuild/eval/loggning
+   - generated artifacts och deras lasa-/skriva-kedjor
+
+
+Extra leveranser efter 5-stegssparets avslut (2026-04-08)
+-----------------------------------------------------------
+
+Repair in-place (annan agent, commit 28e49c967):
+- server-verify och repair uppdaterar nu v1 in-place istallet for att skapa v2
+- ny DB-funktion addAssistantMessageAndUpdateExistingVersion
+- repair-route timeout okad till 300s
+
+Animation-safety (commit 329c30e9b):
+- systemprompt-regel 18: LLM far inte goma sidkritiskt innehall bakom opacity:0
+  utan CSS-fallback (forhindrar "tom sida" nar framer-motion inte laddar)
+
+Turbopack broad-pattern (commit e1767421e):
+- framer-motion uppdaterad till 12.38.0 i scaffold-baseline (loser typ-resolution pa VM)
+- template-image-route refactorad till katalog-lookup istallet for dir-scan
+- static-core-loader och ui-reader: cachad CWD for att minska breda filmonster
+
+Kvarstående Turbopack-varningar (12 st, kosmetiska):
+- orsakas av att Turbopack statiskt analyserar process.cwd() + readFile/access
+  i App Routes som en bred filmonster-matchning
+- paverkar inte runtime, build-korrekthet eller generering
+- kan bara elimineras helt genom att flytta filsystemslogik utanfor App Router
+  eller vanta pa forbattrad Turbopack-analys
+- template-image-routen serverar bara lokal-lagrade galleri-thumbnails fran
+  templates_v0/downloads/; har ingen koppling till LLM-kedjan, VMen eller genereringen
+
+Kvarstående VM/preview-problem (inte kodbuggar):
+- framer-motion-baserade Reveal-wrappers med initial opacity:0 kunde gora
+  hela sidan osynlig om biblioteket inte laddade korrekt pa VMen;
+  systemprompt-regeln forhindrar nu att LLM genererar detta monster
+- Fly VM hyper-fel (connection closed) ar infrastruktur, inte appkod
+- DB-pool MaxClientsInSessionMode vid npm run dev med manga parallella
+  processer — losning: starta om dev-servern
+
+
+Slutbedomning
+-------------
+5-stegssparet har gjort kedjan tydligare, mer repo-ratt och mer testad.
+
+Det viktigaste resultatet ar inte ett enskilt dokument, utan att:
+- runtime-koden och docs nu ligger narmare varandra
+- begreppen ar mindre sammanblandade
+- preview-handoff ar mer robust
+- dashboards och ordlistor speglar verkligheten battre
+- systempromptens regler ar nu skarpta mot osynligt innehall
+- framer-motion baseline ar uppdaterad
+- repair uppdaterar v1 in-place istallet for att skapa forvirrande v2
+
+Det betyder inte att allt ar "klart for alltid", men det ar en betydligt battre grund
+for fortsatt review, cleanup och kvalitetspass.
+
+
+Observationer fran testkorning 2026-04-08 (nasta-pass-underlag)
+---------------------------------------------------------------
+
+Problem A: server-verify skapar oonskat ny version efter follow-up
+- in-place repair (commit 28e49c967) galler bara autofix/repair-route
+- server-verify som kor i bakgrunden efter done kan fortfarande trigga
+  en repair-loop som skapar en ny version (v3) nar typecheck failar
+- anvandaren far en "Verifying"-version de inte bad om
+- bor fixas: server-verify repair borde ocksa uppdatera befintlig version
+  in-place, inte skapa ny
+
+Problem B: route-/sidantalet eskalerar okontrollerat vid follow-ups
+- forsta genereringen: 2 sidor (korrekt per prompt)
+- LLM genererade 5 routes (ecommerce-scaffoldens defaults tog over)
+- efter follow-up: 8 routes
+- varje follow-up arver foregangendes route plan och LLM lar sig
+  att "fler sidor = battre", trots att anvandaren bad om nagot litet
+- bor fixas: follow-up borde respektera originalprompens sidantal
+  battre, eller aven strunta i scaffoldens defaults nar prompten ar tydlig
+
+Problem C: follow-up producerar for lite output for komplexa anringar
+- follow-up for "skapa 3D-lastbil med @react-three/fiber" producerade
+  bara 1932 output-tokens (7010 tecken kod)
+- det racker inte for en hel 3D-komponent + integration i headern
+- resultatet: komponenten genererades men mountades inte korrekt
+  (troligen pga inkonsistent export: named import av default export)
+- inga JS-fel i konsolen = tyst failure
+- bor undersoka: varfor valjer LLM sa fa tokens? ar det kontextmangd
+  (17881 input-tokens) som gor att den "sparar" pa output?
+
+Problem D: "Startar preview"-sidan visas langa stunder
+- VMens boot-sida ("Startar preview / Status: starting") visas medan
+  npm install + npm run dev kor
+- detta ar inte en version, inte v1, och ska inte forvirra
+- men for anvandaren ser det ut som att "ngt ar fel" nar det tar 30-90s
+- bor undersoka: kan boot-sidan visa progress (install %, dev ready)?
+
+Problem E: LLM genererar inkonsistenta exports och duplicate identifiers
+- typecheck-loggen visar tre konkreta fel i header-truck-3d.tsx:
+  1. Duplicate identifier 'Group' (importerade fran 'three' OCH deklarerade lokalt)
+  2. site-header.tsx importerade { HeaderTruck3D } (named) men filen har export default (default)
+  3. tsc foreslor sjalv ratten: 'import HeaderTruck3D from ...' istallet for '{ HeaderTruck3D }'
+- repair-loopen (deterministisk + LLM) forsokte fixa men gav "no_improvement" / "0 errors remain"
+  trots att typecheck fortfarande failade — det tyder pa att repairens syntaxparser
+  inte ser samma fel som tsc (den ser 0 parsfel men tsc ser typfel)
+- detta ar ett generiskt monster: LLM genererar kod, syntaxparser sager "ok",
+  men tsc hittar typfel som repair inte kan losa
+- bor fixas: lagg till en autofix-regel som upptacker named import av default export,
+  och en som upptacker duplicate identifier-importer
+
+Problem F: route plan eskalerar fran 2 → 6 → 7 → 8 sidor over follow-ups
+- v1 prompt: "En hemsida for en ehandel" → orkestreringsloggen byggde 6 routes
+  (/, /products, /dashboard, /categories, /pricing, /work) trots att prompten
+  inte namnde nagra specifika sidor
+- v2 follow-up: orkestreringsloggen visar routeCount: 6 → 7
+- v3 follow-up: routeCount: 7, route plan inkluderar nu /om, /pricing, /work,
+  /products, /cart, /checkout, /dashboard, /categories
+- anvandaren bad aldrig om 8 sidor
+- rotorsak: buildRoutePlan infererar routes fran promptkontext + scaffold defaults
+  och varje follow-up arver foregangendes routes utan att nagonsin minska
+
+Dessa problem ar alla generiska (inte engangsbeteende) och bor
+prioriteras for nasta produktkvalitetspass.
