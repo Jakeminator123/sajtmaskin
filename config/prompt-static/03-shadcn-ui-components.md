@@ -21,3 +21,11 @@ Common imports (always available):
 - `{ Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"`
 
 The utility function `cn()` is available: `import { cn } from "@/lib/utils"`.
+
+## Radix UI Primitives
+
+When building custom shadcn-style components that wrap Radix UI primitives:
+- Import from the unified `radix-ui` package — NEVER from individual `@radix-ui/react-*` packages.
+- For all primitives: `import { Dialog as DialogPrimitive } from "radix-ui"` then use `DialogPrimitive.Root`, `DialogPrimitive.Content`, etc.
+- **Slot is a namespace, not a direct component.** `import { Slot as SlotPrimitive } from "radix-ui"` then use `SlotPrimitive.Slot` — NEVER use bare `Slot` as a JSX element from `"radix-ui"`.
+- NEVER `import * as X from "@radix-ui/react-*"` — that is the old pattern.

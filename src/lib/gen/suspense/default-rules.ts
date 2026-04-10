@@ -11,6 +11,7 @@ import { imageSrcFix } from "./rules/image-src-fix";
 import { forbiddenImportStrip } from "./rules/forbidden-import-strip";
 import { jsxAttributeFix } from "./rules/jsx-attribute-fix";
 import { relativeImportFix } from "./rules/relative-import-fix";
+import { radixImportFix } from "./rules/radix-import-fix";
 
 /**
  * Build a fresh rule set. Called per-stream so stateful rules
@@ -20,6 +21,7 @@ export function createDefaultRules(): SuspenseRule[] {
   return [
     shadcnImportFix,
     lucideIconFix,
+    radixImportFix,
     urlAliasExpand,
     typeAnnotationFix,
     tailwindClassFix,

@@ -54,6 +54,7 @@ export const PREVIEW_BUILTIN_SOURCES = new Set([
 
 export function isPreviewBuiltinImportSource(source: string): boolean {
   if (PREVIEW_BUILTIN_SOURCES.has(source)) return true;
+  if (source === "radix-ui") return true;
   if (source.startsWith("@radix-ui/")) return true;
   if (source.startsWith("date-fns/")) return true;
   return isRuntimeProvidedImport(source);

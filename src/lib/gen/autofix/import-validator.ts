@@ -160,6 +160,299 @@ function fixLucideImports(code: string): { code: string; fixes: AutoFixEntry[] }
   return { code: fixed, fixes };
 }
 
+// ---------------------------------------------------------------------------
+// Radix UI: @radix-ui/react-* → "radix-ui" monorepo imports
+// ---------------------------------------------------------------------------
+
+const PACKAGE_TO_RADIX_EXPORT: Record<string, string> = {
+  "@radix-ui/react-slot": "Slot",
+  "@radix-ui/react-dialog": "Dialog",
+  "@radix-ui/react-dropdown-menu": "DropdownMenu",
+  "@radix-ui/react-tabs": "Tabs",
+  "@radix-ui/react-tooltip": "Tooltip",
+  "@radix-ui/react-accordion": "Accordion",
+  "@radix-ui/react-collapsible": "Collapsible",
+  "@radix-ui/react-select": "Select",
+  "@radix-ui/react-switch": "Switch",
+  "@radix-ui/react-checkbox": "Checkbox",
+  "@radix-ui/react-label": "Label",
+  "@radix-ui/react-scroll-area": "ScrollArea",
+  "@radix-ui/react-separator": "Separator",
+  "@radix-ui/react-avatar": "Avatar",
+  "@radix-ui/react-popover": "Popover",
+  "@radix-ui/react-progress": "Progress",
+  "@radix-ui/react-slider": "Slider",
+  "@radix-ui/react-toggle": "Toggle",
+  "@radix-ui/react-toggle-group": "ToggleGroup",
+  "@radix-ui/react-hover-card": "HoverCard",
+  "@radix-ui/react-navigation-menu": "NavigationMenu",
+  "@radix-ui/react-radio-group": "RadioGroup",
+  "@radix-ui/react-context-menu": "ContextMenu",
+  "@radix-ui/react-menubar": "Menubar",
+  "@radix-ui/react-alert-dialog": "AlertDialog",
+  "@radix-ui/react-aspect-ratio": "AspectRatio",
+};
+
+const OLD_RADIX_NAMESPACE_RE =
+  /^(\s*)import\s+\*\s+as\s+(\w+)\s+from\s+["'](@radix-ui\/react-[\w-]+)["']\s*;?\s*$/;
+
+const OLD_RADIX_NAMED_RE =
+  /^(\s*)import\s+\{([^}]+)\}\s+from\s+["'](@radix-ui\/react-[\w-]+)["']\s*;?\s*$/;
+
+function fixRadixImports(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const fixes: AutoFixEntry[] = [];
+  const lines = code.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    const nsMatch = line.match(OLD_RADIX_NAMESPACE_RE);
+    if (nsMatch) {
+      const [, indent, alias, pkg] = nsMatch;
+      const exportName = PACKAGE_TO_RADIX_EXPORT[pkg];
+      if (exportName) {
+        lines[i] = `${indent}import { ${exportName} as ${alias} } from "radix-ui"`;
+        fixes.push({
+          fixer: "import-validator",
+          description: `Converted namespace import from "${pkg}" to unified "radix-ui"`,
+          line: i + 1,
+        });
+      }
+      continue;
+    }
+
+    const namedMatch = line.match(OLD_RADIX_NAMED_RE);
+    if (namedMatch) {
+      const [, indent, rawNames, pkg] = namedMatch;
+      const exportName = PACKAGE_TO_RADIX_EXPORT[pkg];
+      if (exportName) {
+        const names = rawNames.trim();
+        lines[i] = `${indent}import { ${names} } from "radix-ui"`;
+        fixes.push({
+          fixer: "import-validator",
+          description: `Converted named import from "${pkg}" to unified "radix-ui"`,
+          line: i + 1,
+        });
+      }
+    }
+  }
+
+  return { code: lines.join("\n"), fixes };
+}
+
+// ---------------------------------------------------------------------------
+// Slot namespace fix: bare `Slot` from "radix-ui" → `SlotPrimitive.Slot`
+// ---------------------------------------------------------------------------
+
+function fixRadixSlotUsage(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const fixes: AutoFixEntry[] = [];
+
+  const slotImportRe = /^(\s*)import\s+\{\s*Slot\s*\}\s+from\s+["']radix-ui["']/m;
+  const match = code.match(slotImportRe);
+  if (!match) return { code, fixes };
+
+  const usesSlotDot = /SlotPrimitive\./.test(code);
+  if (usesSlotDot) return { code, fixes };
+
+  const usedAsBareJsx = /<Slot[\s/>]/.test(code) || /\?\s*Slot\s*:/.test(code);
+  if (!usedAsBareJsx) return { code, fixes };
+
+  let fixed = code.replace(slotImportRe, "$1import { Slot as SlotPrimitive } from \"radix-ui\"");
+  fixed = fixed.replace(/\basChild\s*\?\s*Slot\s*:/g, "asChild ? SlotPrimitive.Slot :");
+  fixed = fixed.replace(/<Slot(\s)/g, "<SlotPrimitive.Slot$1");
+  fixed = fixed.replace(/<Slot>/g, "<SlotPrimitive.Slot>");
+  fixed = fixed.replace(/<\/Slot>/g, "</SlotPrimitive.Slot>");
+
+  if (fixed !== code) {
+    fixes.push({
+      fixer: "import-validator",
+      description: "Fixed bare Slot usage from radix-ui namespace to SlotPrimitive.Slot",
+      line: 0,
+    });
+  }
+
+  return { code: fixed, fixes };
+}
+
+// ---------------------------------------------------------------------------
+// Missing import detection: scan JSX for unimported components
+// ---------------------------------------------------------------------------
+
+const NEXT_AUTO_IMPORTS: Record<string, string> = {
+  Link: 'import Link from "next/link"',
+  Image: 'import Image from "next/image"',
+  Metadata: 'import type { Metadata } from "next"',
+};
+
+const REACT_HOOKS: Record<string, true> = {
+  useState: true,
+  useEffect: true,
+  useRef: true,
+  useCallback: true,
+  useMemo: true,
+  useContext: true,
+  useReducer: true,
+  useId: true,
+  useTransition: true,
+  useDeferredValue: true,
+  useImperativeHandle: true,
+  useLayoutEffect: true,
+  useSyncExternalStore: true,
+  useInsertionEffect: true,
+};
+
+function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const fixes: AutoFixEntry[] = [];
+  const lines = code.split("\n");
+
+  const importedNames = new Set<string>();
+  const importLines: string[] = [];
+  for (const line of lines) {
+    const defaultMatch = line.match(/^\s*import\s+(\w+)\s+from\s+/);
+    if (defaultMatch) importedNames.add(defaultMatch[1]);
+
+    const namedMatch = line.match(/^\s*import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+/);
+    if (namedMatch) {
+      for (const spec of namedMatch[1].split(",")) {
+        const asMatch = spec.trim().match(/(\w+)\s+as\s+(\w+)/);
+        importedNames.add(asMatch ? asMatch[2] : spec.trim());
+      }
+    }
+  }
+
+  const jsxTagRe = /<([A-Z][A-Za-z0-9]*)\b/g;
+  const jsxTags = new Set<string>();
+  for (const m of code.matchAll(jsxTagRe)) {
+    jsxTags.add(m[1]);
+  }
+
+  const typeUsageRe = /:\s*(Metadata)\b/g;
+  for (const m of code.matchAll(typeUsageRe)) {
+    jsxTags.add(m[1]);
+  }
+
+  const hookUsageRe = /\b(use[A-Z]\w*)\s*[<(]/g;
+  const missingHooks = new Set<string>();
+  for (const m of code.matchAll(hookUsageRe)) {
+    const name = m[1];
+    if (REACT_HOOKS[name] && !importedNames.has(name)) {
+      missingHooks.add(name);
+    }
+  }
+
+  const newImports: string[] = [];
+
+  for (const tag of jsxTags) {
+    if (importedNames.has(tag)) continue;
+
+    if (NEXT_AUTO_IMPORTS[tag]) {
+      newImports.push(NEXT_AUTO_IMPORTS[tag]);
+      fixes.push({
+        fixer: "import-validator",
+        description: `Added missing import for ${tag}`,
+        line: 0,
+      });
+      continue;
+    }
+
+    const shadcnSubpath = SHADCN_COMPONENTS[tag];
+    if (shadcnSubpath) {
+      const existing = lines.findIndex(
+        (l) => l.includes(`from "@/components/ui/${shadcnSubpath}"`) || l.includes(`from '@/components/ui/${shadcnSubpath}'`),
+      );
+      if (existing >= 0) {
+        const line = lines[existing];
+        const braceMatch = line.match(/^(\s*import\s+\{)([^}]*)(\}\s+from\s+.+)$/);
+        if (braceMatch && !braceMatch[2].includes(tag)) {
+          lines[existing] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, ${tag} ${braceMatch[3]}`;
+          fixes.push({
+            fixer: "import-validator",
+            description: `Added missing ${tag} to existing import from ui/${shadcnSubpath}`,
+            line: existing + 1,
+          });
+        }
+      } else {
+        newImports.push(`import { ${tag} } from "@/components/ui/${shadcnSubpath}"`);
+        fixes.push({
+          fixer: "import-validator",
+          description: `Added missing shadcn import for ${tag}`,
+          line: 0,
+        });
+      }
+      continue;
+    }
+
+    if (LUCIDE_ICONS.has(tag)) {
+      const existing = lines.findIndex(
+        (l) => l.includes('from "lucide-react"') || l.includes("from 'lucide-react'"),
+      );
+      if (existing >= 0) {
+        const line = lines[existing];
+        const braceMatch = line.match(/^(\s*import\s+(?:type\s+)?\{)([^}]*)(\}\s+from\s+.+)$/);
+        if (braceMatch && !braceMatch[2].includes(tag)) {
+          lines[existing] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, ${tag} ${braceMatch[3]}`;
+          fixes.push({
+            fixer: "import-validator",
+            description: `Added missing lucide icon ${tag} to existing import`,
+            line: existing + 1,
+          });
+        }
+      } else {
+        newImports.push(`import { ${tag} } from "lucide-react"`);
+        fixes.push({
+          fixer: "import-validator",
+          description: `Added missing lucide import for ${tag}`,
+          line: 0,
+        });
+      }
+    }
+  }
+
+  if (missingHooks.size > 0) {
+    const hookNames = [...missingHooks].sort();
+    const existingReact = lines.findIndex(
+      (l) => /from\s+["']react["']/.test(l) && /import\s+\{/.test(l),
+    );
+    if (existingReact >= 0) {
+      const line = lines[existingReact];
+      const braceMatch = line.match(/^(\s*import\s+\{)([^}]*)(\}\s+from\s+["']react["'].*)$/);
+      if (braceMatch) {
+        const alreadyImported = braceMatch[2].split(",").map((s) => s.trim());
+        const toAdd = hookNames.filter((h) => !alreadyImported.includes(h));
+        if (toAdd.length > 0) {
+          lines[existingReact] = `${braceMatch[1]}${braceMatch[2].trimEnd()}, ${toAdd.join(", ")} ${braceMatch[3]}`;
+          fixes.push({
+            fixer: "import-validator",
+            description: `Added missing React hooks: ${toAdd.join(", ")}`,
+            line: existingReact + 1,
+          });
+        }
+      }
+    } else {
+      newImports.push(`import { ${hookNames.join(", ")} } from "react"`);
+      fixes.push({
+        fixer: "import-validator",
+        description: `Added missing React hooks: ${hookNames.join(", ")}`,
+        line: 0,
+      });
+    }
+  }
+
+  if (newImports.length > 0) {
+    let insertIdx = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^\s*import\s/.test(lines[i]) || /^\s*["']use /.test(lines[i])) {
+        insertIdx = i + 1;
+      } else if (insertIdx > 0) {
+        break;
+      }
+    }
+    lines.splice(insertIdx, 0, ...newImports);
+  }
+
+  return { code: lines.join("\n"), fixes };
+}
+
 /**
  * Validate all imports and return warnings for unknown components/icons.
  * Does not block — only flags for logging.
@@ -200,7 +493,10 @@ export function runImportValidator(code: string): {
 } {
   const shadcn = fixShadcnImports(code);
   const lucide = fixLucideImports(shadcn.code);
-  const fixes = [...shadcn.fixes, ...lucide.fixes];
-  const warnings = validateImports(lucide.code);
-  return { code: lucide.code, fixes, warnings };
+  const radix = fixRadixImports(lucide.code);
+  const slot = fixRadixSlotUsage(radix.code);
+  const missing = detectMissingImports(slot.code);
+  const fixes = [...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes];
+  const warnings = validateImports(missing.code);
+  return { code: missing.code, fixes, warnings };
 }
