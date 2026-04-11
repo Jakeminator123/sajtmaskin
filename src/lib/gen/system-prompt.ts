@@ -340,6 +340,7 @@ export type BuildDynamicContextResult = {
   context: string;
   pruning: DynamicContextPruning;
   blocks: DynamicContextBlockTrace[];
+  styleDirectionId: string | null;
 };
 
 /**
@@ -820,6 +821,7 @@ export async function buildDynamicContext(
       keptBlockKeys: budgeted.keptKeys,
     },
     blocks: blockTrace,
+    styleDirectionId: styleDirection.id,
   };
 }
 

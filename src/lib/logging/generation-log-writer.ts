@@ -308,22 +308,39 @@ type FaultFixRow = {
   chatId: string;
   versionId: string;
   lineageHash: string;
+  scaffoldId: string;
+  scaffoldFamily: string;
+  serializeMode: string;
+  styleDirection: string;
+  file: string;
+  fixer: string;
+  resolved: string;
 };
 
-const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow | null> = {
+const EMPTY_CONTEXT_COLS: Pick<FaultFixRow, "scaffoldId" | "scaffoldFamily" | "serializeMode" | "styleDirection" | "file" | "fixer" | "resolved"> = {
+  scaffoldId: "-",
+  scaffoldFamily: "-",
+  serializeMode: "-",
+  styleDirection: "-",
+  file: "-",
+  fixer: "-",
+  resolved: "-",
+};
+
+const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow | FaultFixRow[] | null> = {
   "autofix.result": (e) => {
-    const fixes = Array.isArray(e.data.fixes) ? e.data.fixes.length : 0;
+    const fixEntries = Array.isArray(e.data.fixes) ? (e.data.fixes as Array<{ fixer?: string; description?: string; file?: string }>) : [];
     const warnings = Array.isArray(e.data.warnings) ? e.data.warnings.length : 0;
-    if (fixes === 0 && warnings === 0) return null;
-    return {
+    if (fixEntries.length === 0 && warnings === 0) return null;
+    const rows: FaultFixRow[] = fixEntries.map((fix) => ({
       ts: e.ts.slice(11, 19),
       phase: "phase-3",
-      step: "Autofix",
+      step: `Autofix: ${readString(fix.fixer) || "unknown"}`,
       severity: "info",
       createdBy: "deterministic-autofix",
       fixedBy: "deterministic-autofix",
       modelTier: "-",
-      problem: `${fixes} fix(ar), ${warnings} varning(ar)`,
+      problem: readString(fix.description) || "autofix",
       action: "Deterministisk autofix",
       model: "-",
       provider: "-",
@@ -332,7 +349,33 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
       chatId: "-",
       versionId: "-",
       lineageHash: "-",
-    };
+      ...EMPTY_CONTEXT_COLS,
+      file: readString(fix.file) || "-",
+      fixer: readString(fix.fixer) || "-",
+      resolved: "true",
+    }));
+    if (rows.length > 0) {
+      rows.push({
+        ts: e.ts.slice(11, 19),
+        phase: "phase-3",
+        step: "Autofix",
+        severity: "info",
+        createdBy: "deterministic-autofix",
+        fixedBy: "deterministic-autofix",
+        modelTier: "-",
+        problem: `${fixEntries.length} fix(ar), ${warnings} varning(ar)`,
+        action: "Deterministisk autofix (sammanfattning)",
+        model: "-",
+        provider: "-",
+        pass: "-",
+        outcome: "OK",
+        chatId: "-",
+        versionId: "-",
+        lineageHash: "-",
+        ...EMPTY_CONTEXT_COLS,
+      });
+    }
+    return rows;
   },
   "autofix.heavy_load": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -351,6 +394,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
   }),
   "syntax-validation.pass": (e) => {
     const phase = readString(e.data.phase);
@@ -373,6 +417,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
         chatId: "-",
         versionId: "-",
         lineageHash: "-",
+        ...EMPTY_CONTEXT_COLS,
+        resolved: "false",
       };
     }
     return null;
@@ -394,6 +440,9 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    fixer: "llm-fixer",
+    resolved: "false",
   }),
   "syntax-validation.fixer.result": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -412,6 +461,9 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    fixer: "llm-fixer",
+    resolved: (readNumber(e.data.errorsAfter) ?? 1) === 0 ? "true" : "false",
   }),
   "syntax-validation.fixer.error": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -430,6 +482,9 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    fixer: "llm-fixer",
+    resolved: "false",
   }),
   "syntax-validation.fixer.noop": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -448,6 +503,9 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    fixer: "llm-fixer",
+    resolved: "false",
   }),
   "syntax-validation.gave-up": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -466,6 +524,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
   }),
   "syntax-validation.early-stop": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -484,6 +544,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
   }),
   "syntax-validation.pipeline-error": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -502,6 +564,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
   }),
   "file-repair": (e) => {
     const fixes = Array.isArray(e.data.fixes) ? e.data.fixes.length : 0;
@@ -523,6 +587,9 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
       chatId: "-",
       versionId: "-",
       lineageHash: "-",
+      ...EMPTY_CONTEXT_COLS,
+      fixer: "deterministic-autofix",
+      resolved: "true",
     };
   },
   "merged-syntax.invalid": (e) => ({
@@ -542,6 +609,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
   }),
   "merged-syntax.fixed": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -560,26 +629,51 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    fixer: readString(e.data.fixerModel) ? "llm-fixer" : "deterministic-autofix",
+    resolved: (readNumber(e.data.errorsAfter) ?? 1) === 0 ? "true" : "false",
   }),
-  "verifier-pass": (e) => ({
-    ts: e.ts.slice(11, 19),
-    phase: "phase-3",
-    step: "Verifier-pass",
-    severity:
-      (readNumber(e.data.blocking) ?? 0) > 0 ? "warning" : (readNumber(e.data.quality) ?? 0) > 0 ? "info" : "info",
-    createdBy: "verifier-pass",
-    fixedBy: "-",
-    modelTier: "-",
-    problem: `blocking=${readNumber(e.data.blocking) ?? 0}, quality=${readNumber(e.data.quality) ?? 0}`,
-    action: "Read-only kvalitetsgranskning",
-    model: readString(e.data.model) || "-",
-    provider: readString(e.data.provider) || "-",
-    pass: "-",
-    outcome: (readNumber(e.data.blocking) ?? 0) > 0 ? "Signaler" : "OK",
-    chatId: "-",
-    versionId: "-",
-    lineageHash: "-",
-  }),
+  "verifier-pass": (e) => {
+    const blockingFindings = Array.isArray(e.data.blockingFindings) ? (e.data.blockingFindings as Array<{ id?: string; detail?: string }>) : [];
+    const qualityFindings = Array.isArray(e.data.qualityFindings) ? (e.data.qualityFindings as Array<{ id?: string; detail?: string }>) : [];
+    const blockingCount = readNumber(e.data.blocking) ?? blockingFindings.length;
+    const qualityCount = readNumber(e.data.quality) ?? qualityFindings.length;
+    const summaryRow: FaultFixRow = {
+      ts: e.ts.slice(11, 19),
+      phase: "phase-3",
+      step: "Verifier-pass",
+      severity: blockingCount > 0 ? "warning" : qualityCount > 0 ? "info" : "info",
+      createdBy: "verifier-pass",
+      fixedBy: "-",
+      modelTier: "-",
+      problem: `blocking=${blockingCount}, quality=${qualityCount}`,
+      action: "Read-only kvalitetsgranskning",
+      model: readString(e.data.model) || "-",
+      provider: readString(e.data.provider) || "-",
+      pass: "-",
+      outcome: blockingCount > 0 ? "Signaler" : "OK",
+      chatId: "-",
+      versionId: "-",
+      lineageHash: "-",
+      ...EMPTY_CONTEXT_COLS,
+      resolved: "false",
+    };
+    const findingRows: FaultFixRow[] = blockingFindings.slice(0, 5).map((f) => ({
+      ...summaryRow,
+      step: `Verifier: ${readString(f.id) || "finding"}`,
+      severity: "warning",
+      problem: readString(f.detail) || readString(f.id) || "blocking finding",
+      action: "Blockerande kvalitetssignal",
+    }));
+    const qualityRows: FaultFixRow[] = qualityFindings.slice(0, 5).map((f) => ({
+      ...summaryRow,
+      step: `Verifier: ${readString(f.id) || "finding"}`,
+      severity: "info",
+      problem: readString(f.detail) || readString(f.id) || "quality finding",
+      action: "Kvalitetssignal",
+    }));
+    return [summaryRow, ...findingRows, ...qualityRows];
+  },
   "scaffold-retry.suggested": (e) => ({
     ts: e.ts.slice(11, 19),
     phase: "phase-3",
@@ -597,6 +691,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    scaffoldId: readString(e.data.currentScaffoldId) || "-",
   }),
   "preflight.version.failed": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -615,6 +711,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
   }),
   "comm.error.create": (e) => ({
     ts: e.ts.slice(11, 19),
@@ -633,6 +731,8 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     chatId: "-",
     versionId: "-",
     lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
   }),
 };
 
@@ -683,6 +783,10 @@ function enrichFaultFixRow(
     chatId: findLastStringAtOrBefore(entries, entryIndex, "chatId") || row.chatId,
     versionId: findLastStringAtOrBefore(entries, entryIndex, "versionId") || row.versionId,
     lineageHash: findLastStringAtOrBefore(entries, entryIndex, "lineageHash") || row.lineageHash,
+    scaffoldId: row.scaffoldId !== "-" ? row.scaffoldId : (findLastStringAtOrBefore(entries, entryIndex, "scaffoldId") || "-"),
+    scaffoldFamily: row.scaffoldFamily !== "-" ? row.scaffoldFamily : (findLastStringAtOrBefore(entries, entryIndex, "scaffoldFamily") || "-"),
+    serializeMode: row.serializeMode !== "-" ? row.serializeMode : (findLastStringAtOrBefore(entries, entryIndex, "serializeMode") || "-"),
+    styleDirection: row.styleDirection !== "-" ? row.styleDirection : (findLastStringAtOrBefore(entries, entryIndex, "styleDirection") || "-"),
   };
 }
 
@@ -693,8 +797,12 @@ function collectFaultFixRows(entries: StoredGenerationEntry[]): FaultFixRow[] {
     if (!type) continue;
     const handler = FAULT_FIX_TYPES[type];
     if (!handler) continue;
-    const row = handler(entry);
-    if (row) rows.push(enrichFaultFixRow(row, entries, entryIndex));
+    const result = handler(entry);
+    if (!result) continue;
+    const batch = Array.isArray(result) ? result : [result];
+    for (const row of batch) {
+      rows.push(enrichFaultFixRow(row, entries, entryIndex));
+    }
   }
   return rows;
 }
@@ -758,6 +866,13 @@ const FAULT_FIX_CSV_HEADER = [
   "chat_id",
   "version_id",
   "lineage_hash",
+  "scaffold_id",
+  "scaffold_family",
+  "serialize_mode",
+  "style_direction",
+  "file",
+  "fixer",
+  "resolved",
 ].join(",");
 
 function faultFixRowToCsvLine(row: FaultFixRow): string {
@@ -778,6 +893,13 @@ function faultFixRowToCsvLine(row: FaultFixRow): string {
     row.chatId,
     row.versionId,
     row.lineageHash,
+    row.scaffoldId,
+    row.scaffoldFamily,
+    row.serializeMode,
+    row.styleDirection,
+    row.file,
+    row.fixer,
+    row.resolved,
   ]
     .map((cell) => escapeCsv(cell))
     .join(",");

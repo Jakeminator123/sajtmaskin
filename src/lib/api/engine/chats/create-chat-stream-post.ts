@@ -517,7 +517,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          scaffoldFamily: orchestrationBase.resolvedScaffold?.family ?? null,
+          serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
+        });
+        devLogAppend("in-progress", {
+          type: "orchestration.resolved",
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          scaffoldFamily: orchestrationBase.resolvedScaffold?.family ?? null,
+          serializeMode: orchestrationBase.serializeMode,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
         });
         const {
           resolvedScaffold,
@@ -635,7 +645,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           routeCount: orchestrationBase.routePlan.routes.length,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          styleDirection: finalized.styleDirectionId,
         });
+        if (finalized.styleDirectionId) {
+          devLogAppend("in-progress", {
+            type: "orchestration.styleDirection",
+            styleDirection: finalized.styleDirectionId,
+          });
+        }
         const generationInputPackage = buildGenerationInputPackage(
           orchestrationBase,
           orchestrationInput,

@@ -11,6 +11,7 @@ type StyleDirectionPreset = {
 };
 
 export type StyleDirection = {
+  id: string;
   layoutApproach: string;
   sectionRhythm: string;
   signatureMotif: string;
@@ -209,6 +210,7 @@ export function pickStyleDirection(input: StyleDirectionInput): StyleDirection {
 
   if (input.generationMode === "followUp") {
     return {
+      id: chosen.id,
       layoutApproach: chosen.layoutApproach,
       sectionRhythm: chosen.sectionRhythm,
       signatureMotif: chosen.signatureMotif,
@@ -217,6 +219,7 @@ export function pickStyleDirection(input: StyleDirectionInput): StyleDirection {
   }
 
   return {
+    id: chosen.id,
     layoutApproach: chosen.layoutApproach,
     sectionRhythm: chosen.sectionRhythm,
     signatureMotif: chosen.signatureMotif,

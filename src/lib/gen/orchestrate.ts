@@ -109,6 +109,7 @@ export interface OrchestrationBase {
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
   buildSpec: BuildSpec;
+  serializeMode: "inspirational" | "structural" | null;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -116,6 +117,7 @@ export interface FinalizedOrchestrationContext {
   dynamicContext: string;
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
+  styleDirectionId: string | null;
 }
 
 function buildScaffoldQueryContext(
@@ -347,15 +349,16 @@ export async function resolveOrchestrationBase(
     buildSpec,
   });
   let scaffoldContext: string | undefined;
+  let resolvedSerializeMode: "inspirational" | "structural" | null = null;
   if (resolvedScaffold) {
-    const serializeMode =
+    resolvedSerializeMode =
       resolvedMode === "followUp" || buildSpec.contextPolicy === "heavy"
         ? "structural"
         : "inspirational";
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
-    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode, {
+    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
       maxChars: scaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
       routePlan,
@@ -373,6 +376,7 @@ export async function resolveOrchestrationBase(
     preGenerationContracts,
     capabilities,
     buildSpec,
+    serializeMode: resolvedSerializeMode,
   };
 }
 
@@ -425,6 +429,7 @@ export async function finalizeOrchestrationPrompts(
     dynamicContext: dynamic.context,
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
+    styleDirectionId: dynamic.styleDirectionId,
   };
 }
 

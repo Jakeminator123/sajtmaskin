@@ -567,7 +567,18 @@ export async function handleMessageStreamRequest(
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          scaffoldFamily: orchestrationBase.resolvedScaffold?.family ?? null,
+          serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
+        });
+        devLogAppend("in-progress", {
+          type: "orchestration.resolved",
+          chatId,
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          scaffoldFamily: orchestrationBase.resolvedScaffold?.family ?? null,
+          serializeMode: orchestrationBase.serializeMode,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
         });
         const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
         const contractClarification = buildContractClarificationQuestion({
@@ -703,7 +714,15 @@ export async function handleMessageStreamRequest(
           routeCount: orchestrationBase.routePlan.routes.length,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          styleDirection: finalized.styleDirectionId,
         });
+        if (finalized.styleDirectionId) {
+          devLogAppend("in-progress", {
+            type: "orchestration.styleDirection",
+            chatId,
+            styleDirection: finalized.styleDirectionId,
+          });
+        }
         const generationInputPackage = buildGenerationInputPackage(
           orchestrationBase,
           orchestrationInput,
