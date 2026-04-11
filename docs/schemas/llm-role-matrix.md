@@ -23,7 +23,7 @@ Det här dokumentet är den mänskligt läsbara översikten över **vilka modell
 | Spec-first helper | Transform eller LLM-hjälproute | bygger spec från brief eller prompt för högre kvalitet i senare steg; normal builder bygger oftast spec lokalt från brief/prompt i stället för att kalla `/api/ai/spec` | `src/lib/builder/promptAssistContext.ts`, `src/app/api/ai/spec/route.ts` |
 | Planner | LLM | används i plan mode för plan-/JSON-artifact, inte sajtkod | `src/lib/own-engine/session/own-engine-plan-mode.ts` |
 | Generator | LLM | genererar själva sajtkoden/projektfilerna | `src/lib/providers/own-engine/generation-stream.ts` |
-| Syntax fixer | LLM | riktad kodreparation efter syntaxvalidering när deterministiska fixar inte räcker | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/autofix/llm-fixer.ts` |
+| LLM-fix (syntax fixer) | LLM | riktad kodreparation efter syntaxvalidering när mekaniska fixar inte räcker | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/autofix/llm-fixer.ts` |
 | Verifier | LLM | read-only verifiering/quality findings efter syntax och innan/under finalize | `src/lib/gen/verifier-pass.ts`, `src/lib/models/phase-routing.ts` |
 | Deploy assistant | LLM-roll | hjälpfas i phase routing för deploy-/auxiliary-steg | `src/lib/models/phase-routing.ts` |
 

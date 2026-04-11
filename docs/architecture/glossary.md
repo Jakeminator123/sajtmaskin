@@ -300,15 +300,26 @@ Allt efter att generatorn producerat output.
 
 ### 3.1 Autofix och repair
 
+Fas 3 använder två kategorier av fixar:
+
+| Kategori | Kanonisk term | Betydelse |
+|---|---|---|
+| **Mekanisk fix** | `category: "mechanical"` i `FixEntry` | Deterministisk regex/AST-baserad fix. Gratis, snabb, 100 % reproducerbar. Körs alltid — både på initial codegen-output och efter varje LLM-fix-pass. |
+| **LLM-fix** | `category: "llm"` i `FixEntry` | Modelldrivet reparationsanrop. Dyrt, långsamt, icke-deterministiskt. Eskaleras till bara när mekaniska fixar inte räcker. |
+
+Äldre synonymer ("deterministisk autofix", "fixer", "repair") ska inte introduceras i ny kod — använd ovan termer.
+
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Autofix** | `runAutoFix()` → `AutoFixResult` | `autofix/pipeline.ts` | Deterministisk autofix-pipeline (imports, JSX, fonts, lucide, metadata, etc.). | kanonisk |
-| **Validate and Fix** | `validateAndFix()` → `ValidateFixResult` | `autofix/validate-and-fix.ts` | Syntaxvalidering + progressiv fix-loop. | kanonisk |
-| **LLM Fixer** | `runLlmFixer()` → `FixerResult` | `autofix/llm-fixer.ts` | LLM-driven reparation; används av server-verify. | kanonisk |
+| **Fix Entry** | `FixEntry`, `FixCategory` | `autofix/types.ts` | Kanonisk typ för alla fixar (mekaniska och LLM). | kanonisk |
+| **Autofix** | `runAutoFix()` → `AutoFixResult` | `autofix/pipeline.ts` | Mekanisk fix-pipeline (imports, JSX, fonts, lucide, metadata, scroll-smooth, icon-value, basePath, etc.). | kanonisk |
+| **Validate and Fix** | `validateAndFix()` → `ValidateFixResult` | `autofix/validate-and-fix.ts` | Syntaxvalidering + progressiv mekanisk→LLM→mekanisk fix-loop. | kanonisk |
+| **LLM Fixer** | `runLlmFixer()` → `FixerResult` | `autofix/llm-fixer.ts` | LLM-fix; används av validate-and-fix och server-verify. | kanonisk |
 | **Fixer Prompt** | `FIXER_SYSTEM_PROMPT`, `buildFixerUserPrompt()` | `autofix/fixer-prompt.ts` | System- och user-promptar för LLM-fixern. | kanonisk |
-| **Repair Generated Files** | `repairGeneratedFiles()` | `autofix/repair-generated-files.ts` | Reparation/normalisering av genererad filuppsättning. | kanonisk |
+| **Repair Generated Files** | `repairGeneratedFiles()` | `autofix/repair-generated-files.ts` | Tunn wrapper som kör samma mekaniska fixar på `CodeFile[]` (preflight-ingång). | kanonisk |
 | **Autofix Events** | `AUTO_FIX_EVENT_NAME`, `dispatchAutoFixEvent()` | `auto-fix-events.ts` | DOM-events för autofix i UI. | kanonisk |
 | **Autofix Hook** | `useAutoFix()` | `useAutoFix.ts` | Client-side autofix-hook. | kanonisk |
+| ~~deterministisk autofix~~ | — | — | Äldre synonym för "mekanisk fix". | alias |
 
 ### 3.2 Finalize-pipeline
 

@@ -34,7 +34,7 @@ Den svarar främst på frågan:
 
 Quality gate är alltså inte samma sak som:
 
-- deterministic autofix
+- mekaniska fixar (deterministisk autofix)
 - syntaxvalidering i finalize
 - verifier-pass (read-only LLM)
 - live-previewns `npm run dev`
@@ -107,8 +107,8 @@ den också som exakt felkälla för repair-lanen:
 
 1. quality gate failar
 2. feloutput (`typecheck`, `lint`, `build`) samlas
-3. deterministic autofix körs igen
-4. vid behov körs targeted LLM-fixer med quality-gate-utskriften som kontext
+3. mekaniska fixar körs igen
+4. vid behov körs LLM-fix med quality-gate-utskriften som kontext
 5. quality gate re-körs för att avgöra om versionen kan promotas
 
 Det betyder att quality gate i nuläget är både:
@@ -144,8 +144,8 @@ större builder-kedjan:
 
 ```mermaid
 flowchart TD
-    codegen[CodegenStream] --> autofix[Autofix]
-    autofix --> syntax[SyntaxValidation]
+    codegen[CodegenStream] --> mechfix["Mekaniska fixar"]
+    mechfix --> syntax[SyntaxValidation]
     syntax --> verifier[VerifierPass]
     verifier --> preflight[MergeAndPreflight]
     preflight --> persist[VersionPersist]

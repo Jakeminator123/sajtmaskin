@@ -18,11 +18,20 @@ vi.mock("../retry/validate-syntax", () => ({
 
 import { validateAndFix } from "./validate-and-fix";
 
+const emptyAutoFixResult = {
+  fixedContent: "",
+  fixes: [],
+  warnings: [],
+  dependencies: {},
+};
+
 describe("validateAndFix", () => {
   beforeEach(() => {
     runLlmFixer.mockReset();
     runAutoFix.mockReset();
     validateGeneratedCode.mockReset();
+
+    runAutoFix.mockResolvedValue(emptyAutoFixResult);
   });
 
   it("returns explicit pipeline-error status when validation pipeline throws", async () => {
@@ -38,6 +47,9 @@ describe("validateAndFix", () => {
     expect(result.pipelineError).toContain("validator crashed");
     expect(result.earlyStopReason).toBeNull();
     expect(result.passes).toBe(0);
+    expect(result.mechanicalFixCount).toBe(0);
+    expect(result.llmFixCount).toBe(0);
+    expect(result.residualPatterns).toEqual([]);
   });
 
   it("returns pipeline-error when syntax validator is unavailable", async () => {
@@ -64,6 +76,8 @@ describe("validateAndFix", () => {
     expect(result.status).toBe("pipeline-error");
     expect(result.pipelineError).toContain("Syntax validator unavailable");
     expect(runLlmFixer).not.toHaveBeenCalled();
+    expect(result.mechanicalFixCount).toBe(0);
+    expect(result.llmFixCount).toBe(0);
   });
 
   it("retries with partial fixer output and still accepts improved revalidation", async () => {
@@ -90,13 +104,15 @@ describe("validateAndFix", () => {
       durationMs: 42,
     });
 
-    runAutoFix.mockResolvedValueOnce({
-      fixedContent:
-        "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main/>}\n```",
-      fixes: [],
-      warnings: [],
-      dependencies: {},
-    });
+    runAutoFix
+      .mockResolvedValueOnce(emptyAutoFixResult)
+      .mockResolvedValueOnce({
+        fixedContent:
+          "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main/>}\n```",
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      });
 
     const result = await validateAndFix(
       "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <div>broken</div>\n```",
@@ -113,10 +129,11 @@ describe("validateAndFix", () => {
         requiredFiles: ["app/page.tsx", "app/layout.tsx"],
       }),
     );
-    expect(runAutoFix).toHaveBeenCalledTimes(1);
+    expect(runAutoFix).toHaveBeenCalledTimes(2);
     expect(result.status).toBe("passed");
     expect(result.fixerUsed).toBe(true);
     expect(result.pipelineError).toBeNull();
+    expect(result.llmFixCount).toBe(1);
   });
 
   it("stops early when the fixer returns no changed output", async () => {
@@ -148,6 +165,8 @@ describe("validateAndFix", () => {
     expect(result.earlyStopReason).toBe("fixer_noop");
     expect(result.passes).toBe(1);
     expect(result.errorsAfter).toBe(1);
+    expect(result.mechanicalFixCount).toBe(0);
+    expect(result.llmFixCount).toBe(0);
   });
 
   it("stops early when a fixer pass does not reduce error count", async () => {
@@ -171,13 +190,15 @@ describe("validateAndFix", () => {
       durationMs: 35,
     });
 
-    runAutoFix.mockResolvedValueOnce({
-      fixedContent:
-        "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main>still broken</main>\n```",
-      fixes: [],
-      warnings: [],
-      dependencies: {},
-    });
+    runAutoFix
+      .mockResolvedValueOnce(emptyAutoFixResult)
+      .mockResolvedValueOnce({
+        fixedContent:
+          "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <main>still broken</main>\n```",
+        fixes: [],
+        warnings: [],
+        dependencies: {},
+      });
 
     const result = await validateAndFix(
       "```tsx file=\"app/page.tsx\"\nexport default function Page(){return <div>broken</div>\n```",
@@ -194,5 +215,6 @@ describe("validateAndFix", () => {
     expect(result.fixerImproved).toBe(false);
     expect(result.earlyStopReason).toBe("no_improvement");
     expect(result.errorsAfter).toBe(1);
+    expect(result.residualPatterns.length).toBeGreaterThanOrEqual(0);
   });
 });

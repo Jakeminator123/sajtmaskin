@@ -25,12 +25,14 @@ alwaysApply: true
 | `Prompt Rewrite` / `Prompt Polish` | "Prompt Assist" som paraply |
 | `Contract Plan` | Orchestration Contract |
 | `previewUrl` | demoUrl (legacy) |
+| `mekanisk fix` | "deterministisk autofix", "repair" (blandat) |
+| `LLM-fix` | "fixer", "syntax fixer" (blandat) |
 
 **`v0`:** (1) `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
 
 **Builder-lanes:** Byggmodell = Build Profile · Förbättra = Prompt Rewrite · Skriv om = Prompt Polish · Thinking = reasoning-flagga, inte lane.
 
-**Steg 4:** Finalize → Repair → Verifier → Preflight → Quality Gate → sparad version (detalj: glossary fas 3).
+**Steg 4 (fas 3):** Mekaniska fixar → Validering → LLM-fix (vid behov) → Mekaniska fixar → Verifier → Preflight → Quality Gate → sparad version. Typer: `FixEntry` med `category: "mechanical" | "llm"` i `autofix/types.ts`.
 
 **Env:** repo-`.env*` vs genererad sajts `.env*` — policy `env.ts`, `env-policy.json`, `docs/ENV.md`, `repo-env-indexing.mdc`.
 

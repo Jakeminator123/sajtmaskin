@@ -24,6 +24,7 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "comm.integration_signals",
   "engine.integration_signals",
   "autofix.result",
+  "autofix.mechanical-residual",
   "syntax-validation.pass",
   "syntax-validation.fixer.start",
   "syntax-validation.fixer.result",
@@ -220,6 +221,10 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
       if (countArray(entry, "warnings") !== null) details.push(`warnings=${countArray(entry, "warnings")}`);
       if (countArray(entry, "dependencies") !== null) details.push(`deps=${countArray(entry, "dependencies")}`);
+      break;
+    case "autofix.mechanical-residual":
+      if (readNumber(entry, "mechanicalFixCount") !== null) details.push(`mechanical=${readNumber(entry, "mechanicalFixCount")}`);
+      if (readNumber(entry, "residualErrorCount") !== null) details.push(`residual=${readNumber(entry, "residualErrorCount")}`);
       break;
     case "syntax-validation.pass":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);

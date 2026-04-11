@@ -354,25 +354,27 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
       fixer: readString(fix.fixer) || "-",
       resolved: "true",
     }));
-    rows.push({
-      ts: e.ts.slice(11, 19),
-      phase: "phase-3",
-      step: "Autofix",
-      severity: warnings > 0 && fixEntries.length === 0 ? "warning" : "info",
-      createdBy: "deterministic-autofix",
-      fixedBy: "deterministic-autofix",
-      modelTier: "-",
-      problem: `${fixEntries.length} fix(ar), ${warnings} varning(ar)`,
-      action: "Deterministisk autofix (sammanfattning)",
-      model: "-",
-      provider: "-",
-      pass: "-",
-      outcome: "OK",
-      chatId: "-",
-      versionId: "-",
-      lineageHash: "-",
-      ...EMPTY_CONTEXT_COLS,
-    });
+    if (rows.length > 0) {
+      rows.push({
+        ts: e.ts.slice(11, 19),
+        phase: "phase-3",
+        step: "Autofix",
+        severity: "info",
+        createdBy: "deterministic-autofix",
+        fixedBy: "deterministic-autofix",
+        modelTier: "-",
+        problem: `${fixEntries.length} fix(ar), ${warnings} varning(ar)`,
+        action: "Deterministisk autofix (sammanfattning)",
+        model: "-",
+        provider: "-",
+        pass: "-",
+        outcome: "OK",
+        chatId: "-",
+        versionId: "-",
+        lineageHash: "-",
+        ...EMPTY_CONTEXT_COLS,
+      });
+    }
     return rows;
   },
   "autofix.heavy_load": (e) => ({
@@ -565,6 +567,38 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     ...EMPTY_CONTEXT_COLS,
     resolved: "false",
   }),
+  "autofix.mechanical-residual": (e) => {
+    const residualCount = readNumber(e.data.residualErrorCount);
+    if (!residualCount || residualCount === 0) return null;
+    const residualErrors = Array.isArray(e.data.residualErrors) ? e.data.residualErrors : [];
+    const topPatterns = residualErrors
+      .slice(0, 5)
+      .map((err: unknown) => {
+        const r = err as Record<string, unknown>;
+        return readString(r.pattern) || readString(r.message) || "?";
+      })
+      .join("; ");
+    return {
+      ts: e.ts.slice(11, 19),
+      phase: "phase-3",
+      step: "Mekanisk residual",
+      severity: "warning",
+      createdBy: "mechanical-autofix",
+      fixedBy: "-",
+      modelTier: "-",
+      problem: `${residualCount} fel kvar efter ${readNumber(e.data.mechanicalFixCount) ?? 0} mekaniska fixar: ${topPatterns}`,
+      action: "Mekaniska fixar räckte inte — eskaleras till LLM-fix",
+      model: "-",
+      provider: "-",
+      pass: "-",
+      outcome: "Residual",
+      chatId: "-",
+      versionId: "-",
+      lineageHash: "-",
+      ...EMPTY_CONTEXT_COLS,
+      resolved: "false",
+    };
+  },
   "file-repair": (e) => {
     const fixes = Array.isArray(e.data.fixes) ? e.data.fixes.length : 0;
     if (fixes === 0) return null;
