@@ -142,8 +142,9 @@ export function buildUserPromptContent(
   attachments?: RequestAttachment[],
 ): UserPromptContent {
   const list = attachments ?? [];
+  const trimmed = prompt.trimEnd();
   const descriptorBlock = formatNonImageAttachmentDescriptors(list);
-  const textPrompt = descriptorBlock ? `${prompt.trimEnd()}\n\n${descriptorBlock}` : prompt;
+  const textPrompt = descriptorBlock ? `${trimmed}\n\n${descriptorBlock}` : trimmed;
 
   const visualAttachments = getVisualReferenceAttachments(list);
   if (visualAttachments.length === 0) return textPrompt;
