@@ -67,3 +67,7 @@ time,phase,step,severity,created_by,fixed_by,model_tier,model,provider,pass,prob
 23:02:34,phase-3,Syntaxvalidering (pass 1),error,syntax-validator,-,max,-,-,1,"components/vanse-jar-canvas.tsx:156: Multiple exports with the same name ""default""",Validering flaggade fel,Fel hittade,a278dfb9-c9f0-4c86-b892-1addce7d5dd5,-,-
 23:02:34,phase-3,LLM Fixer (pass 1),warning,syntax-validator,llm-fixer,max,gpt-5.3-codex,OpenAI,1,"components/vanse-jar-canvas.tsx:156:7 Multiple exports with the same name ""default""",LLM fixer startad,Startad,a278dfb9-c9f0-4c86-b892-1addce7d5dd5,-,-
 23:02:50,phase-3,LLM Fixer (pass 1),info,syntax-validator,llm-fixer,max,gpt-5.3-codex,OpenAI,1,1 -> 0 fel,Fixer förbättrade koden,OK,a278dfb9-c9f0-4c86-b892-1addce7d5dd5,-,-
+10:10:47,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,pro,-,-,-,"25 fix(ar), 0 varning(ar)",Deterministisk autofix,OK,21acdda1-09c7-4649-917b-f4695e628173,-,-
+10:10:47,phase-3,Autofix,warning,deterministic-autofix,-,pro,-,-,-,Mycket fixar (25),Notering: instabilitet i generering,Varning,21acdda1-09c7-4649-917b-f4695e628173,-,-
+10:10:54,phase-3,Verifier-pass,warning,verifier-pass,-,pro,-,-,-,"blocking=3, quality=5",Read-only kvalitetsgranskning,Signaler,21acdda1-09c7-4649-917b-f4695e628173,-,-
+10:31:42,phase-3,Autofix,info,deterministic-autofix,deterministic-autofix,pro,-,-,-,"3 fix(ar), 0 varning(ar)",Deterministisk autofix,OK,21acdda1-09c7-4649-917b-f4695e628173,-,-
