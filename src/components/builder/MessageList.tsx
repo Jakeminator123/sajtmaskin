@@ -58,13 +58,9 @@ interface MessageListProps {
   quickReplyDisabled?: boolean;
 }
 
-function hasGenerationContent(text: string, isStreaming: boolean): boolean {
+function hasGenerationContent(text: string): boolean {
   if (!text) return false;
-  return (
-    text.includes('file="') ||
-    text.includes("```") ||
-    (Boolean(isStreaming) && text.length > 400)
-  );
+  return text.includes('file="') || text.includes("```");
 }
 
 const MessageListComponent = ({
@@ -120,7 +116,7 @@ const MessageListComponent = ({
         .filter((p): p is Extract<MessagePart, { type: "text" }> => p.type === "text")
         .map((p) => p.text)
         .join("");
-      if (hasGenerationContent(text, Boolean(m.isStreaming))) last = i;
+      if (hasGenerationContent(text)) last = i;
     }
     return last;
   }, [messages]);
@@ -322,9 +318,7 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   textContent ? (
-                    (textContent.includes('file="') ||
-                      textContent.includes("```") ||
-                      (Boolean(message.isStreaming) && textContent.length > 400)) ? (
+                    hasGenerationContent(textContent) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
                       <MessageResponse>
@@ -364,7 +358,7 @@ const MessageListComponent = ({
                   message.role === "assistant" &&
                   messageIndex === lastGenMessageIndex &&
                   !message.isStreaming &&
-                  hasGenerationContent(textContent, false) && (
+                  hasGenerationContent(textContent) && (
                     <VersionFeedback
                       chatId={chatId}
                       versionId={versionId}
@@ -457,7 +451,11 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);
 
   if (!shouldCollapse) {
-    return <p className="text-sm whitespace-pre-wrap text-white">{content}</p>;
+    return (
+      <MessageResponse>
+        <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+      </MessageResponse>
+    );
   }
 
   // Extract summary line (first line before ---)
@@ -469,7 +467,9 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   if (isExpanded) {
     return (
       <div className="space-y-2">
-        <p className="text-sm whitespace-pre-wrap text-white">{content}</p>
+        <MessageResponse>
+          <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+        </MessageResponse>
         <button
           onClick={() => setIsExpanded(false)}
           className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
@@ -483,7 +483,9 @@ function CollapsibleUserMessage({ content }: { content: string }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm whitespace-pre-wrap text-white">{summary}</p>
+      <MessageResponse>
+        <Streamdown plugins={{ code: streamdownCode }}>{summary}</Streamdown>
+      </MessageResponse>
       <button
         onClick={() => setIsExpanded(true)}
         className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"

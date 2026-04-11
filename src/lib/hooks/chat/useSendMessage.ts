@@ -44,8 +44,6 @@ export function useSendMessage(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
-    thinkingUserSetRef,
-    registryDesignSystemId,
     designThemePreset,
     systemPrompt,
     promptAssistModel,
@@ -217,7 +215,7 @@ export function useSendMessage(
         );
         const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
         const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
-        const thinkingForTier = thinkingUserSetRef?.current ? enableThinking : undefined;
+        const thinkingForTier = enableThinking;
         const promptMeta: Record<string, unknown> = {
           promptOriginal: messageText,
           promptFormatted: formattedMessage,
@@ -270,7 +268,6 @@ export function useSendMessage(
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
         };
-        if (registryDesignSystemId) requestBody.designSystemId = registryDesignSystemId;
         const trimmedSystem = systemPrompt?.trim();
         const shouldSendSystem =
           Boolean(trimmedSystem) && trimmedSystem !== lastSentSystemPromptRef.current;
@@ -408,7 +405,6 @@ export function useSendMessage(
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      registryDesignSystemId,
       designThemePreset,
       systemPrompt,
       setMessages,

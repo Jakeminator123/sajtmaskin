@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { getAllScaffolds } from "@/lib/gen/scaffolds";
+import { useSearchParams } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +88,6 @@ export function BuilderHeader(props: {
   onEnableImageGenerationsChange: (v: boolean) => void;
   enableThinking: boolean;
   onEnableThinkingChange: (v: boolean) => void;
-  isThinkingSupported: boolean;
   isImageGenerationsSupported: boolean;
   isMediaEnabled: boolean;
   chatPrivacy: "private" | "unlisted";
@@ -147,7 +147,6 @@ export function BuilderHeader(props: {
     onEnableImageGenerationsChange,
     enableThinking,
     onEnableThinkingChange,
-    isThinkingSupported,
     isImageGenerationsSupported,
     isMediaEnabled,
     chatPrivacy,
@@ -225,6 +224,8 @@ export function BuilderHeader(props: {
     window.requestAnimationFrame(action);
   }, []);
   const { isAuthenticated, logout } = useAuth();
+  const searchParams = useSearchParams();
+  const showDebugViewToggle = searchParams.get("debug") === "1";
   useEffect(() => {
     setHasMounted(true);
   }, []);
@@ -471,13 +472,10 @@ export function BuilderHeader(props: {
                     <DropdownMenuCheckboxItem
                       checked={enableThinking}
                       onCheckedChange={onEnableThinkingChange}
-                      disabled={isBusy || !isThinkingSupported}
+                      disabled={isBusy}
                     >
                       <Wand2 className="mr-2 h-4 w-4" />
                       Resonemang
-                      {!isThinkingSupported && (
-                        <span className="text-muted-foreground ml-2 text-xs">(ej tillgängligt)</span>
-                      )}
                     </DropdownMenuCheckboxItem>
                   </div>
                 </TooltipTrigger>
@@ -624,15 +622,19 @@ export function BuilderHeader(props: {
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Chattvy</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={showStructuredChat}
-              onCheckedChange={onShowStructuredChatChange}
-              disabled={isBusy}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Felsökningsvy (verktygsblock)
-            </DropdownMenuCheckboxItem>
+            {showDebugViewToggle && (
+              <>
+                <DropdownMenuLabel>Chattvy</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={showStructuredChat}
+                  onCheckedChange={onShowStructuredChatChange}
+                  disabled={isBusy}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Felsökningsvy (verktygsblock)
+                </DropdownMenuCheckboxItem>
+              </>
+            )}
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">

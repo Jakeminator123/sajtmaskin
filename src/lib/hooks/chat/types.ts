@@ -208,10 +208,7 @@ export type ChatMessagingParams = {
   enableImageGenerations: boolean;
   enableImageMaterialization?: boolean;
   enableThinking: boolean;
-  thinkingUserSetRef?: MutableRefObject<boolean>;
   chatPrivacy?: "private" | "unlisted";
-  /** Registry / external design system id (request `designSystemId`). */
-  registryDesignSystemId?: string;
   /** Internal Sajtmaskin theme preset used to derive theme colors. */
   designThemePreset?: DesignTheme;
   systemPrompt?: string;

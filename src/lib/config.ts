@@ -376,8 +376,6 @@ export const FEATURES = {
   useAuditWebSearch:
     Boolean(SECRETS.openaiApiKey) && env.AUDIT_WEB_SEARCH === "true",
 
-  useOpenClawSurface: OPENCLAW.surfaceEnabled,
-
   // Required for asset materialization and shared preview flows
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;

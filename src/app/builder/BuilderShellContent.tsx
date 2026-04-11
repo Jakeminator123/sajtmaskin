@@ -715,7 +715,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onEnableImageGenerationsChange={vm.setEnableImageGenerations}
         enableThinking={vm.enableThinking}
         onEnableThinkingChange={vm.setEnableThinking}
-        isThinkingSupported={vm.isThinkingSupported}
         isImageGenerationsSupported={vm.isImageGenerationsSupported}
         isMediaEnabled={vm.isMediaEnabled}
         chatPrivacy={vm.chatPrivacy}

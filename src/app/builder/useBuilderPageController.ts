@@ -53,7 +53,6 @@ import {
 } from "@/lib/builder/preview-lifecycle";
 import {
   isShimOrMissingPreviewUrl,
-  normalizePreviewUrl,
   resolveAlternatePreviewUrls,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
@@ -80,7 +79,7 @@ export function useBuilderPageController() {
   const {
     appProjectId, applyInstructionsOnce, buildIntentParam, buildMethod,
     buildMethodParam, chatId, chatIdParam, currentPreviewUrl, customInstructions,
-    designTheme, designSystemId, enableBlobMedia, enableImageGenerations, enableThinking,
+    designTheme, enableBlobMedia, enableImageGenerations, enableThinking,
     entry, entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
     projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
     selectedVersionId, serverProjectChatId, serverProjectDemoUrl,
@@ -90,7 +89,7 @@ export function useBuilderPageController() {
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
     setCurrentPreviewUrl, setCurrentPageCode, setCustomInstructions,
-    setDesignTheme, setDesignSystemId, setEnableBlobMedia,
+    setDesignTheme, setEnableBlobMedia,
     setEnableImageGenerations, setEnableThinking, setEntryIntentActive,
     setExistingUiComponents,
     setIsImageGenerationsSupported, setIsIntentionalReset, setIsMediaEnabled,
@@ -349,7 +348,6 @@ export function useBuilderPageController() {
       enableImageMaterialization: derived.mediaEnabled,
       enableThinking: state.effectiveThinking,
       chatPrivacy: state.chatPrivacy,
-      registryDesignSystemId: state.designSystemId || undefined,
       designThemePreset: state.designTheme,
       systemPrompt: state.customInstructions,
       promptAssistModel: state.promptAssistModel,
@@ -534,7 +532,7 @@ export function useBuilderPageController() {
           ? ((error as { status?: number }).status ?? null)
           : null;
         if (status === 404) {
-          console.warn("[Builder] Prompt handoff missing:", error);
+          debugLog("builder", "Prompt handoff missing", error);
           toast.error("Prompten hittades inte eller har redan använts.");
           setResolvedPrompt(null);
           setEntryIntentActive(false);
@@ -542,7 +540,7 @@ export function useBuilderPageController() {
           shouldClearPromptId = true;
           return;
         }
-        console.warn("[Builder] Prompt handoff fetch failed:", error);
+        debugLog("builder", "Prompt handoff fetch failed", error);
         toast.error("Kunde inte hämta prompten just nu. Försök igen.");
         retryTimer = window.setTimeout(() => {
           if (!isActive) return;
@@ -670,33 +668,23 @@ export function useBuilderPageController() {
         if (!res.ok || !isActive) return;
         const data = (await res.json()) as {
           chatId?: string | null;
-          v0ChatId?: string | null;
-          internalChatId?: string | null;
         };
-        const v0ChatId =
-          typeof data.v0ChatId === "string" && data.v0ChatId.trim().length > 0
-            ? data.v0ChatId
+        const restoredChatId =
+          typeof data.chatId === "string" && data.chatId.trim().length > 0
+            ? data.chatId
             : null;
 
-        if (v0ChatId && isActive) {
-          setChatId(v0ChatId);
+        if (restoredChatId && isActive) {
+          setChatId(restoredChatId);
           const params = new URLSearchParams(searchParams.toString());
           params.set("project", projectParam!);
-          params.set("chatId", v0ChatId);
+          params.set("chatId", restoredChatId);
           router.replace(`/builder?${params.toString()}`);
-          return;
-        }
-
-        if (data.internalChatId && isActive) {
-          console.warn(
-            "[Builder] Skipped project chat restore because v0ChatId was missing",
-            data.internalChatId,
-          );
         }
       } catch (error) {
         if (!isActive) return;
         if (error instanceof Error && error.name === "AbortError") return;
-        console.warn("[Builder] Failed to load project chat:", error);
+        debugLog("builder", "Failed to load project chat", error);
       }
     };
 
@@ -775,26 +763,6 @@ export function useBuilderPageController() {
     }
   }, [designTheme]);
 
-  // External v0 design system ID localStorage sync
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem("sajtmaskin:designSystemId");
-      if (stored) setDesignSystemId(stored);
-    } catch {
-      /* ignore */
-    }
-  }, [setDesignSystemId]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sajtmaskin:designSystemId", designSystemId);
-    } catch {
-      /* ignore */
-    }
-  }, [designSystemId]);
-
   // AppProjectId localStorage persist
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -844,7 +812,7 @@ export function useBuilderPageController() {
           router.replace(`/builder?${params.toString()}`);
         })
         .catch((error) => {
-          console.warn("[Builder] Auto project create failed:", error);
+          debugLog("builder", "Auto project create failed", error);
           autoProjectInitRef.current = false;
           const status = (error as { status?: number })?.status;
           if (status === 401 || status === 403) {
@@ -925,7 +893,7 @@ export function useBuilderPageController() {
         setServerProjectPreviewOverrideVersionId(previewOverride.versionId);
       })
       .catch((error) => {
-        console.warn("[Builder] Failed to load project name:", error);
+        debugLog("builder", "Failed to load project name", error);
         if (error instanceof Error && error.message.toLowerCase().includes("project not found")) {
           if (typeof window !== "undefined") {
             const params = new URLSearchParams(window.location.search);
@@ -953,7 +921,7 @@ export function useBuilderPageController() {
     saveProjectData(appProjectId, {
       meta: { palette: paletteState },
     }).catch((error) => {
-      console.warn("[Builder] Failed to persist palette state:", error);
+      debugLog("builder", "Failed to persist palette state", error);
     });
   }, [appProjectId, paletteState, paletteLoadedRef, lastPaletteSavedRef]);
 
@@ -1064,14 +1032,14 @@ export function useBuilderPageController() {
       try {
         const flags = await fetchHealthFeatures(controller.signal);
         if (!flags) return;
-        const { blobEnabled, imageGenerationsEnabled, v0PlatformConfigured, reasons } = flags;
+        const { blobEnabled, imageGenerationsEnabled, reasons } = flags;
         if (!isActive) return;
         setIsMediaEnabled(blobEnabled);
         setIsImageGenerationsSupported(imageGenerationsEnabled);
         if (!imageGenerationsEnabled) setEnableImageGenerations(false);
         if (!imageGenerationsEnabled && !featureWarnedRef.current.imageGen) {
           featureWarnedRef.current.imageGen = true;
-          const reason = reasons?.imageGenerations || reasons?.v0 || "AI-konfiguration saknas";
+          const reason = reasons?.imageGenerations || "AI-konfiguration saknas";
           toast.error(`Bildgenerering är avstängd: ${reason}`);
         }
         if (imageGenerationsEnabled && !blobEnabled && !featureWarnedRef.current.blob) {
@@ -1082,7 +1050,6 @@ export function useBuilderPageController() {
         debugLog("AI", "Builder feature flags resolved", {
           imageGenerationsEnabled,
           blobEnabled,
-          v0PlatformConfigured,
         });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
@@ -1127,7 +1094,7 @@ export function useBuilderPageController() {
                 : "GitHub-anslutning misslyckades";
       toast.error(message);
       if (githubErrorReason === "unsafe_return") {
-        console.warn("[GitHub OAuth] Unsafe return URL sanitized");
+        debugLog("builder", "GitHub OAuth unsafe return URL sanitized");
       }
     }
 
@@ -1173,7 +1140,7 @@ export function useBuilderPageController() {
   // Chat not found
   useEffect(() => {
     if (!chatId || !isChatError) return;
-    console.warn("[Builder] Chat not found or error loading chat:", chatId);
+    debugLog("builder", "Chat not found or error loading chat", chatId);
     toast.error("Chatten kunde inte hittas. Skapar ny session...");
     // Prevent a brief URL/state race where chatIdParam gets re-applied
     // before `router.replace("/builder")` has cleared query params.
@@ -1471,14 +1438,12 @@ export function useBuilderPageController() {
     enableThinking: state.enableThinking,
     chatPrivacy: state.chatPrivacy,
     setChatPrivacy: state.setChatPrivacy,
-    isThinkingSupported: state.isThinkingSupported,
     isImageGenerationsSupported: state.isImageGenerationsSupported,
     isMediaEnabled: state.isMediaEnabled,
     enableBlobMedia: state.enableBlobMedia,
     showStructuredChat: state.showStructuredChat,
     tipsEnabled,
     designTheme: state.designTheme,
-    designSystemId: state.designSystemId,
     scaffoldMode: state.scaffoldMode,
     scaffoldId: state.scaffoldId,
     isImportModalOpen: state.isImportModalOpen,
@@ -1531,7 +1496,6 @@ export function useBuilderPageController() {
     setShowStructuredChat: state.setShowStructuredChat,
     setTipsEnabled,
     setDesignTheme: state.setDesignTheme,
-    setDesignSystemId: state.setDesignSystemId,
     setScaffoldMode: state.setScaffoldMode,
     setScaffoldId: state.setScaffoldId,
     setIsImportModalOpen: state.setIsImportModalOpen,

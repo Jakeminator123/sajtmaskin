@@ -9,6 +9,7 @@ import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction 
 import { toast } from "sonner";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
+import { debugLog } from "@/lib/utils/debug";
 
 type Args = {
   selectedVersionIdRef: MutableRefObject<string | null>;
@@ -139,7 +140,7 @@ export function useBuilderDeployActions({
           },
         );
       } catch (error) {
-        console.warn("[Builder] Failed to persist version error logs:", error);
+        debugLog("builder", "Failed to persist version error logs", error);
       }
     },
     [],
@@ -291,7 +292,7 @@ export function useBuilderDeployActions({
         const updated = await updateProject(appProjectId, { name: nextName.trim() });
         setAppProjectName(updated.name);
       } catch (error) {
-        console.warn("[Builder] Failed to update project name:", error);
+        debugLog("builder", "Failed to update project name", error);
         toast.error("Kunde inte uppdatera projektnamn.");
       } finally {
         setIsDeployNameSaving(false);
@@ -390,10 +391,10 @@ export function useBuilderDeployActions({
               files: [{ name: "sajtmaskin.spec.json", content: specContent, locked: true }],
             }),
           }).catch((err) => {
-            console.warn("[Spec] Failed to push spec file:", err);
+            debugLog("builder", "Failed to push spec file", err);
           });
         } catch (err) {
-          console.warn("[Spec] Failed to serialize spec:", err);
+          debugLog("builder", "Failed to serialize spec", err);
           pendingSpecRef.current = null;
         }
       }
@@ -437,7 +438,7 @@ export function useBuilderDeployActions({
             }
           })
           .catch((err) => {
-            console.warn("[CSS Validation] Failed:", err);
+            debugLog("builder", "CSS validation failed", err);
             void persistVersionErrorLogs(completedChatId, versionId, [
               {
                 level: "error",
@@ -480,7 +481,7 @@ export function useBuilderDeployActions({
             }
           })
           .catch((err) => {
-            console.warn("[Unicode Normalize] Failed:", err);
+            debugLog("builder", "Unicode normalization failed", err);
             void persistVersionErrorLogs(completedChatId, versionId, [
               {
                 level: "warning",
@@ -504,7 +505,7 @@ export function useBuilderDeployActions({
           chatId: data.chatId,
           ...(persistedPreview ? { previewUrl: persistedPreview } : {}),
         }).catch((error) => {
-          console.warn("[Builder] Failed to save project chat mapping:", error);
+          debugLog("builder", "Failed to save project chat mapping", error);
         });
       }
     },
@@ -531,10 +532,9 @@ export function useBuilderDeployActions({
     const res = await fetch("/api/health", { signal });
     if (!res.ok) return null;
     const data = (await res.json().catch(() => null)) as {
-      features?: { vercelBlob?: boolean; v0?: boolean; imageGenerations?: boolean };
+      features?: { vercelBlob?: boolean; imageGenerations?: boolean };
       featureReasons?: {
         vercelBlob?: string | null;
-        v0?: string | null;
         imageGenerations?: string | null;
       };
     } | null;
@@ -542,8 +542,6 @@ export function useBuilderDeployActions({
       blobEnabled: Boolean(data?.features?.vercelBlob),
       /** Own-engine: OPENAI_API_KEY — prompt image-generation instructions. */
       imageGenerationsEnabled: Boolean(data?.features?.imageGenerations),
-      /** @deprecated V0 Platform key no longer used for codegen; kept for compat. */
-      v0PlatformConfigured: Boolean(data?.features?.v0),
       reasons: data?.featureReasons ?? {},
     };
   }, []);
