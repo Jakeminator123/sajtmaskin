@@ -117,7 +117,7 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error) {
           console.error("[AuthStore] Failed to fetch user:", error);
-          set({ user: null, isLoading: false, isInitialized: true });
+          set({ user: null, guest: null, isLoading: false, isInitialized: true });
         }
       },
     }),
