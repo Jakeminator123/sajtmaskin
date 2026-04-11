@@ -363,6 +363,17 @@ Allt efter att generatorn producerat output.
 |---|---|---|---|---|
 | **Eval Checks** | `checkProjectSanity()`, `checkTier2Readiness()`, `checkSeoPublishReadiness()`, `checkVisualQuality()` | `eval/checks.ts` | Namngivna kontroller i eval-harnessen. Visual QA i `verify/visual-qa.ts`. | kanonisk |
 
+### 3.8 Loggning och telemetri (Fault & Fix)
+
+| Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
+|---|---|---|---|---|
+| **Fault & Fix Index** | `FaultFixRow`, `FAULT_FIX_TYPES`, `collectFaultFixRows()` | `logging/generation-log-writer.ts` | Per-generering fel/fix-rader. Skrivs per run-katalog (`fault-fix-index.md`, `.csv`) och globalt (`error-log.csv`). | kanonisk |
+| **Global Error Log** | `appendGlobalFaultFixCsv()`, `logs/llm-segmentts-and-index/error-log.csv` | `logging/generation-log-writer.ts` | Append-only CSV med alla fel/fixar. Kolumner: time, phase, step, severity, scaffold_id, scaffold_family, serialize_mode, style_direction, file, fixer, resolved, m.fl. | kanonisk |
+| **Generation Run** | `logs/generationslogg/<YYYYMMDD-HHMMSS-slug>/` | `logging/generation-log-writer.ts` | Per-körning-katalog: `timeline.ndjson`, `summary.md`, `meta.json`, `fault-fix-index.md/.csv`. | kanonisk |
+| **DevLog Append** | `devLogAppend()`, `appendRollingLine()` | `logging/devLog.ts` | Gemensam ingångspunkt för loggning. Matar tre sinks: dev-log-filer, generationslogg/timeline, och global CSV. | kanonisk |
+| **Timeline** | `timeline.ndjson`, `StoredGenerationEntry` | `logging/generation-log-writer.ts` | NDJSON-logg per generering. Källa för fault-fix-index och CSV. | kanonisk |
+| **Enrich Fault Fix Row** | `enrichFaultFixRow()` | `logging/generation-log-writer.ts` | Backfyller chatId, versionId, scaffoldId, serializeMode, styleDirection från tidigare timeline-poster. | kanonisk |
+
 ---
 
 ## Sammanfattning: termer att döda eller fasa ut
@@ -486,16 +497,37 @@ Allt efter att generatorn producerat output.
 
 ---
 
+## Domän → mappstruktur
+
+Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra var nya filer hör hemma.
+
+| Domän | Primär plats | Hör inte i |
+|-------|-------------|------------|
+| Orchestration (scaffold + route + contracts + BuildSpec) | `gen/` rot (`orchestrate.ts` som hub) | `gen/stream/` |
+| Prompt assembly (system prompt, dynamic context, tokens) | `gen/` rot (`system-prompt.ts` som hub) | `gen/plan/` |
+| Spec/planning (BuildSpec, route plan, capabilities) | `gen/` rot | — |
+| Autofix och repair | `gen/autofix/` | `gen/` rot (flytta `repair-generated-files.ts` hit) |
+| Finalize-pipeline | `gen/stream/` | `gen/` rot |
+| Preview | `gen/preview/` | `gen/` rot |
+| Scaffold-data och matching | `gen/scaffolds/` | `gen/` rot |
+| Verifiering och quality gate | `gen/verify/` | `gen/` rot |
+| Env/config | `lib/` rot (`env.ts`, `config.ts`) | — |
+| Deploy och Vercel API | `lib/deploy/` + `lib/vercel/` | `lib/` rot |
+| Projekt-CRUD och env-vars | `lib/` rot (ev. framtida `lib/projects/`) | — |
+| Säkerhet (SSRF, rate limit, bot) | `lib/` rot (ev. framtida `lib/security/`) | — |
+| Audit/scraping | `lib/` rot (ev. framtida `lib/audit/`) | — |
+
 ## Versionering
 
 | Datum | Ändring |
 |-------|---------|
 | 2026-04-10 | Initial ordlista (v1). |
 | 2026-04-10 | Utökad ordlista (v2): +80 termer, scaffold/dossier/research, namnskuggor. |
-| 2026-04-10 | Konsoliderad ordlista (v3): integrerat preview/VM/sandbox, produkttermer, env, legacy. Ersätter `terminology-builder-runtime.mdc` som primär källa. |
+| 2026-04-10 | Konsoliderad ordlista (v3): integrerat preview/VM/sandbox, produkttermer, env, legacy. |
 | 2026-04-10 | Prompttyper och anropsklasser (v4): klassificering av create-chat, follow-up, plan mode, repair, etc. |
 | 2026-04-10 | Namnskuggor lösta (v5): `buildIntents` → `allowedBuildIntents`, `PlanPhase "polish"` → `"refine"`, `PromptStrategy "phase_plan_build_polish"` → `"phase_plan_build_refine"`. |
 | 2026-04-10 | gen/ omorganisation (v6): verify/, export/, packs/ undermappar. Sökvägar uppdaterade. |
+| 2026-04-11 | Loggning och telemetri (v7): +6 termer (Fault & Fix Index, Global Error Log, Generation Run, DevLog Append, Timeline, Enrich Fault Fix Row). Utökat CSV-schema med scaffold_id, serialize_mode, style_direction, file, fixer, resolved. |
 
 ## När detta dokument uppdateras
 

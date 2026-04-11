@@ -354,27 +354,25 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
       fixer: readString(fix.fixer) || "-",
       resolved: "true",
     }));
-    if (rows.length > 0) {
-      rows.push({
-        ts: e.ts.slice(11, 19),
-        phase: "phase-3",
-        step: "Autofix",
-        severity: "info",
-        createdBy: "deterministic-autofix",
-        fixedBy: "deterministic-autofix",
-        modelTier: "-",
-        problem: `${fixEntries.length} fix(ar), ${warnings} varning(ar)`,
-        action: "Deterministisk autofix (sammanfattning)",
-        model: "-",
-        provider: "-",
-        pass: "-",
-        outcome: "OK",
-        chatId: "-",
-        versionId: "-",
-        lineageHash: "-",
-        ...EMPTY_CONTEXT_COLS,
-      });
-    }
+    rows.push({
+      ts: e.ts.slice(11, 19),
+      phase: "phase-3",
+      step: "Autofix",
+      severity: warnings > 0 && fixEntries.length === 0 ? "warning" : "info",
+      createdBy: "deterministic-autofix",
+      fixedBy: "deterministic-autofix",
+      modelTier: "-",
+      problem: `${fixEntries.length} fix(ar), ${warnings} varning(ar)`,
+      action: "Deterministisk autofix (sammanfattning)",
+      model: "-",
+      provider: "-",
+      pass: "-",
+      outcome: "OK",
+      chatId: "-",
+      versionId: "-",
+      lineageHash: "-",
+      ...EMPTY_CONTEXT_COLS,
+    });
     return rows;
   },
   "autofix.heavy_load": (e) => ({
