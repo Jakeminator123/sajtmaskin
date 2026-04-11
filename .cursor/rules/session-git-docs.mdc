@@ -29,6 +29,12 @@ alwaysApply: true
 - Full dokumentationspolicy: `docs/architecture/documentation-lifecycle.md`
 - Env- och ignore-policy: `repo-env-indexing.mdc`
 
+## Självsanering
+
+- Rensa tomma kataloger, döda pekare och inaktuella tabellrader i samma svep som den ändring som gör dem överflödiga.
+- Ersätt gammal text — lägg inte ett nytt lager bredvid.
+- Om en docs-fil inte längre speglar koden: uppdatera eller ta bort. Lämna inte "nästan-sanningar" kvar.
+
 ## Guiding principles
 
 - En sanning, ett ställe.

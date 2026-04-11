@@ -14,7 +14,7 @@
 
 - Preview / sandbox / credentials: [`architecture/preview-deploy.md`](./architecture/preview-deploy.md)
 - Modeller / assist / builder-generering: [`architecture/builder-generation.md`](./architecture/builder-generation.md), `src/lib/models/catalog.ts`
-- Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik (`docs/development/env-comparison-notes.md`)
+- Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik
 
 ---
 

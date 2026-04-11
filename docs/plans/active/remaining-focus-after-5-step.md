@@ -30,6 +30,7 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
 5. **Verify/repair-hardening**
    - forbattra hantering av aterkommande tsc/lint/import-export-fall
    - forstark deterministiska fixar och testtackning
+   - ~~fault-fix-logg utokad~~ (done: per-fix-rader, scaffold/style context, resolved-kolumn, verifier findings, warning-only-fix)
    - ~~unresolved local imports som warning~~ (done: default error, env-flagga for gradvis rollout, telemetrisparing)
    - ~~saknad package.json utan hard error~~ (done: hard error i sanity)
    - ~~radix-ui monorepo-migration~~ (done: scaffold rensad fran individuella @radix-ui/react-*, dep-completer → "radix-ui": "^1", streaming-regel + autofix for gamla imports, Slot namespace-fix, detectMissingImports for saknade JSX-imports, LLM-prompt uppdaterad)
@@ -39,7 +40,8 @@ Detta ar den aktiva restlistan efter avslutat 5-stegsspar.
    - ~~terminologi-konsolidering~~ (done: kanonisk ordlista i `docs/architecture/glossary.md`, ~100 termer, namnskuggor losta)
    - ~~docs-stadning~~ (done: 68 → ~40 filer, borttagna avklarade planer/agentrapporter/handoffs/archive/contributing)
    - ~~component uplift P14-P17~~ (**reverted** i restore `1f4e86956`: capability-packs, enhancement-packs, LLM-classifier, docs-knowledge/form-workflow borttagna. Orsakade kvalitetsregression — generationer blev for lika, fler importfel, tunnare art direction. `buildCapabilityHints()` kvar direkt i `capability-inference.ts`.)
-   - fortsatta stada scripts/rebuild/eval/loggning/prompt-dumps
+   - ~~loggning/observability forbattrad~~ (done: enriched fault-fix CSV, per-fix rows, serializeMode/styleDirection i timeline, builder console.warn → debugLog)
+   - fortsatta stada scripts/rebuild/eval/prompt-dumps
    - skilj tydligt active runtime-inputs fran observability och historik
 
 7. **Template-library / extern pipeline**

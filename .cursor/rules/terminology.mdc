@@ -16,6 +16,13 @@ Snabb referens för de vanligaste förväxlingarna. **Full ordlista med alla beg
 - Kontrollera glossaryns § Namnskuggor innan du använder tvetydiga ord som `brief`, `contracts`, `reference`, `scaffold`, `polish`, `context` eller `policy`.
 - Föredra konsolidering framför ny jargong. Repot strävar aktivt efter färre och tydligare begrepp.
 
+## Gate innan ny fil, typ eller export
+
+1. Finns redan en kanonisk term i glossaryn? → Använd den.
+2. Är ordvalet tvetydigt enligt § Namnskuggor? → Välj tydligare namn.
+3. Finns en befintlig undermapp som passar? → Lägg filen där (se `file-structure-conventions.mdc`).
+4. Om du ändå skapar nytt: registrera i glossaryn i samma leverans.
+
 ## Snabb förväxlingstabell
 
 | Säg | Inte |

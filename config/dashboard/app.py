@@ -699,12 +699,12 @@ elif page == "LLM-faser & runtime-sanning":
             st.info("Filen finns men innehåller inga rader.")
         else:
             cols = set(error_df.columns)
-            filter_cols = [c for c in ("severity", "model", "phase") if c in cols]
+            filter_cols = [c for c in ("severity", "model", "phase", "scaffold_id", "fixer", "resolved") if c in cols]
             if filter_cols:
                 filter_ui = st.columns(len(filter_cols))
                 picks: dict[str, str] = {}
                 for i, col in enumerate(filter_cols):
-                    label = {"severity": "Allvarlighetsgrad", "model": "Modell", "phase": "Fas"}.get(col, col)
+                    label = {"severity": "Allvarlighetsgrad", "model": "Modell", "phase": "Fas", "scaffold_id": "Scaffold", "fixer": "Fixer", "resolved": "Löst"}.get(col, col)
                     opts = ["Alla"] + sorted(error_df[col].dropna().unique().tolist())
                     with filter_ui[i]:
                         picks[col] = st.selectbox(label, opts, key=f"errlog_{col}")
