@@ -1,29 +1,14 @@
 ---
-description: Filnamn, mappstruktur och placeringskonventioner
+description: Filnamn och mappstruktur under src/lib
 alwaysApply: false
 globs:
   - src/lib/**
-  - src/lib/gen/**
 ---
 
 # File structure conventions
 
-Regler för filnamn och mapporganisation under `src/lib/`.
+**Namngivning:** kebab-case för nya filer. Undvik ord från glossaryns § Namnskuggor i filnamn om de krockar med befintlig mapp (t.ex. `scaffold` vs `scaffolds/`). Namn ska beskriva *vad filen gör*, inte bara domän.
 
-## Namngivning
+**Placering:** kolla undermappar först; ny undermapp om ≥3 relaterade filer annars skulle ligga löst i roten. Rotfil som mest importerar från en undermapp → överväg flytt dit.
 
-- **kebab-case** för alla nya filer: `route-plan.ts`, inte `routePlan.ts`.
-- Undvik ord från glossaryns § Namnskuggor i filnamn om de skapar förväxling med en befintlig mapp eller domän (t.ex. `scaffold` i filnamn vs `scaffolds/`-mappen).
-- Filnamn ska beskriva vad filen gör, inte bara domänen den tillhör. `route-helpers.ts` som egentligen handlar om SSE-parsning bör heta `sse-parser.ts` eller liknande.
-
-## Placering
-
-- Kontrollera befintliga undermappar innan du lägger en ny fil i roten. Om en rimlig undermapp finns, lägg filen där.
-- Skapa ny undermapp när ≥3 filer med gemensamt ansvar annars skulle ligga löst i roten.
-- Om en rotfil importerar huvudsakligen från en undermapp, överväg att flytta den dit.
-
-## Konsolidering vid flytt
-
-- Döp om camelCase-filer till kebab-case i samma svep vid flytt.
-- Uppdatera importer, test-filer och docs-referenser i samma leverans.
-- Kör `npm run typecheck` efter flytt.
+**Vid flytt:** kebab-case-rename i samma svep; uppdatera importer, tester, docs; `npm run typecheck`.

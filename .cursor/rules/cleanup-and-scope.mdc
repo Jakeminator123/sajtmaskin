@@ -5,29 +5,14 @@ alwaysApply: true
 
 # Cleanup and scope
 
-När användaren ber om att **städa**, **ta bort**, **flytta** eller göra en tydligt riktad refaktor ska agenten **utföra jobbet**, inte bara lista vad som borde göras.
+Vid **städa**, **ta bort**, **flytta** eller tydlig refaktor: **utför**, inte bara lista.
 
-## Grundprincip
+- Radera duplicat och död kod; skapa inte nya arkivlager eller docs som förklarar gamla docs.
+- Fixa importer, länkar och env-referenser i samma svep. Rensa halv-ersatta parallellspår när det är säkert.
+- Städning ≠ fri omorganisation — smalna scope vid vag begäran eller stor risk.
 
-- Radera duplicat, död kod och historiskt brus hellre än att skapa nya arkivnivåer.
-- Skapa inte nya docs för att förklara gamla docs.
-- Fixa brutna importer, länkar, script- eller env-referenser i samma svep.
-- Rensa löpande bort halv-ersatta parallellspår inom samma scope när det är säkert: temporära hjälpfunktioner, dubbla heuristiker eller missvisande docs som annars lämnar två nästan-sanningar kvar.
-- Tolkad "städning" är inte fria händer till bred omorganisation.
+**Steg:** spåra beroenden → utför inom scope → uppdatera referenser → `npm run typecheck` (+ relevant test) eller vid ren docs: länk/referenskoll.
 
-## Gör så här
+**Inte:** radera stora kluster utan verifiering; secrets eller runtime-kritiska delar utan scope; stage:a andras filer (`session-git-docs.mdc`).
 
-1. Om användaren är vag eller om städningen kan bli bred/destruktiv: smalna först av till närmaste rimliga scope.
-2. Spåra beroenden: importer, dynamiska strängar, script, CI och docs-länkar.
-3. Utför borttagning, flytt eller refaktor inom begärt scope.
-4. Uppdatera referenser som annars blir fel.
-5. Verifiera med `npm run typecheck` plus relevant test-, build- eller områdesspecifikt kommando för det som ändrats. Vid ren docs-städning räcker målgranskad länk- och referenskoll.
-
-## Fortfarande försiktighet
-
-- Radera inte större kluster förrän du verifierat att de faktiskt är oimporterade, orefererade eller uttryckligen ersatta.
-- Radera inte secrets, `.env*`-innehåll eller produktionsdata.
-- Ta inte bort uppenbart runtime-kritiska delar utan uttryckligt scope eller verifierad ersättning.
-- Stage:a inte andras filer; följ `session-git-docs.mdc` om parallellt arbete syns.
-
-Den här regeln överstyr bara en försiktig "minsta möjliga diff"-tolkning när användaren faktiskt vill ha städning eller tydlig refaktor.
+Överstyr försiktig "minimal diff" när användaren uttryckligen vill städa.
