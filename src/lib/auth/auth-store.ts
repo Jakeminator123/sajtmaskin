@@ -82,6 +82,13 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true });
           const response = await fetch("/api/auth/me");
+          if (
+            !response.ok ||
+            !response.headers.get("content-type")?.includes("application/json")
+          ) {
+            set({ user: null, guest: null, isLoading: false, isInitialized: true });
+            return;
+          }
           const data = await response.json();
 
           if (data.success) {
