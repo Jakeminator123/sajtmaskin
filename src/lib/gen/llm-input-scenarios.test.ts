@@ -114,7 +114,7 @@ describe("LLM input scenarios (dynamic context)", () => {
     expect(context).toContain("## Generation Profile");
   });
 
-  it("follow-up with capability hints surfaces a dedicated capabilities block", async () => {
+  it("follow-up with capability hints surfaces the toolkit capability section", async () => {
     const { context } = await buildDynamicContext({
       intent: "website",
       generationMode: "followUp",
@@ -129,9 +129,11 @@ describe("LLM input scenarios (dynamic context)", () => {
       scaffoldContext: "scaffold",
     });
 
-    expect(context).toContain("## Detected Capabilities");
-    expect(context.indexOf("## Detected Capabilities")).toBeLessThan(
-      context.indexOf("## Scaffold"),
+    expect(context).toContain("## Your Toolkit");
+    expect(context).toContain("- Capability-driven additions for this request:");
+    expect(context).toContain("**Carousel/slider requested**: Use shadcn Carousel.");
+    expect(context.indexOf("## Scaffold")).toBeLessThan(
+      context.indexOf("## Your Toolkit"),
     );
   });
 

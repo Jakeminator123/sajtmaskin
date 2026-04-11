@@ -202,7 +202,7 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("## Generation Profile");
     });
 
-    it("surfaces capability hints as a separate top-level block", async () => {
+    it("surfaces capability hints inside the toolkit block", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
         generationMode: "followUp",
@@ -215,10 +215,11 @@ describe("buildDynamicContext", () => {
         scaffoldContext: "Scaffold context",
       });
 
-      expect(context).toContain("## Detected Capabilities");
-      expect(context).toContain("## Scaffold");
-      expect(context.indexOf("## Detected Capabilities")).toBeLessThan(
-        context.indexOf("## Scaffold"),
+      expect(context).toContain("## Your Toolkit");
+      expect(context).toContain("- Capability-driven additions for this request:");
+      expect(context).toContain("**Carousel/slider requested**: Use shadcn Carousel.");
+      expect(context.indexOf("## Scaffold")).toBeLessThan(
+        context.indexOf("## Your Toolkit"),
       );
     });
 

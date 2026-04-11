@@ -27,11 +27,13 @@
  */
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
+import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
+import { SHADCN_COMPONENTS } from "./data/shadcn-components";
+import { pickStyleDirection } from "./data/style-directions";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
@@ -175,6 +177,8 @@ export interface DynamicContextOptions {
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
+  /** Per-session seed (chatId or similar) to vary style direction across sessions with identical prompts. */
+  sessionSeed?: string;
 }
 
 function str(v: unknown): string {
@@ -183,6 +187,29 @@ function str(v: unknown): string {
 
 function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
+}
+
+function extractCapabilityHintLines(capabilityHints?: string): string[] {
+  if (!capabilityHints?.trim()) return [];
+  return capabilityHints
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
+}
+
+function buildShadcnToolkitSummary(): string {
+  const groups = new Map<string, string[]>();
+  for (const [componentName, importPath] of Object.entries(SHADCN_COMPONENTS)) {
+    const existing = groups.get(importPath);
+    if (existing) {
+      existing.push(componentName);
+    } else {
+      groups.set(importPath, [componentName]);
+    }
+  }
+
+  const allPaths = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+  return `  - ${allPaths.length} component groups available via \`@/components/ui/{name}\`: ${allPaths.join(", ")}`;
 }
 
 const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
@@ -197,8 +224,10 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
+  { match: /^style direction \(this generation\)$/i, priority: 91 },
   { match: /^scaffold$/i, priority: 90, required: true },
   { match: /^route plan$/i, priority: 90, required: true },
+  { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
@@ -337,9 +366,11 @@ export async function buildDynamicContext(
     customInstructions,
     generationMode,
     buildSpec,
+    sessionSeed,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
+  const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
 
   const parts: string[] = [];
 
@@ -389,6 +420,32 @@ export async function buildDynamicContext(
     parts.push(...profileLines);
   }
 
+  const styleDirection = pickStyleDirection({
+    prompt: [
+      str(brief?.oneSentencePitch),
+      str(brief?.tagline),
+      strList(brief?.mustHave).join(" "),
+      strList(brief?.toneAndVoice).join(" "),
+      styleKeywords.join(" "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || guidance.rules.join(" "),
+    scaffoldFamily: resolvedScaffold?.family ?? null,
+    styleKeywords,
+    generationMode,
+    sessionSeed,
+  });
+  parts.push(
+    "## Style Direction (this generation)",
+    "",
+    `- **Layout approach:** ${styleDirection.layoutApproach}`,
+    `- **Section rhythm:** ${styleDirection.sectionRhythm}`,
+    `- **Signature motif:** ${styleDirection.signatureMotif}`,
+    `- **Font mood:** ${styleDirection.fontMood}`,
+    "",
+  );
+
   // ── Import Rules (prevent recurring syntax errors) ───────────────────
   parts.push(
     "## Import Rules",
@@ -413,10 +470,6 @@ export async function buildDynamicContext(
     "- Every React component file that uses JSX must have exactly one default export. Do not forget it and do not duplicate it.",
     "",
   );
-
-  if (capabilityHints?.trim()) {
-    parts.push(capabilityHints.trim(), "");
-  }
 
   // ── Scaffold ───────────────────────────────────────────────────────────
   if (scaffoldContext) {
@@ -468,6 +521,31 @@ export async function buildDynamicContext(
       parts.push("");
     }
   }
+
+  const capabilityLines = extractCapabilityHintLines(capabilityHints);
+  const paletteSelections = componentPalette?.selections ?? [];
+  const paletteLines = paletteSelections.slice(0, 12).map((selection) => {
+    const tags = selection.tags?.length ? ` (${selection.tags.slice(0, 3).join(", ")})` : "";
+    return `  - ${selection.label} [${selection.source}]${tags}`;
+  });
+  const toolkitLines: string[] = [
+    "## Your Toolkit",
+    "",
+    "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
+    "",
+    "- shadcn/ui (import from `@/components/ui/{name}`):",
+    buildShadcnToolkitSummary(),
+  ];
+  if (capabilityLines.length > 0) {
+    toolkitLines.push("", "- Capability-driven additions for this request:");
+    toolkitLines.push(...capabilityLines.map((line) => `  - ${line.slice(2)}`));
+  }
+  if (paletteLines.length > 0) {
+    toolkitLines.push("", "- Curated component palette from builder context:");
+    toolkitLines.push(...paletteLines);
+  }
+  toolkitLines.push("");
+  parts.push(...toolkitLines);
 
   if (routePlan && routePlan.routes.length > 0) {
     parts.push(
@@ -607,10 +685,8 @@ export async function buildDynamicContext(
   // ── Visual Identity ─────────────────────────────────────────────────────
   const hasTheme = themeOverride && (themeOverride.primary || themeOverride.secondary || themeOverride.accent);
   const briefPalette = brief?.visualDirection?.colorPalette;
-  const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
   const typography = brief?.visualDirection?.typography;
   const themePresetLabel = str(designThemePreset);
-  const paletteInstruction = buildPaletteInstruction(componentPalette);
 
   if (themePresetLabel || hasTheme || briefPalette || styleKeywords.length > 0 || typography) {
     parts.push("## Visual Identity", "");
@@ -638,10 +714,6 @@ export async function buildDynamicContext(
     }
 
     parts.push("");
-  }
-
-  if (paletteInstruction) {
-    parts.push(paletteInstruction, "");
   }
 
   if (designReferences && designReferences.length > 0) {

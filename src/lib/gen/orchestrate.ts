@@ -18,7 +18,6 @@ import {
 } from "./scaffolds";
 import {
   serializeScaffoldForPrompt,
-  detectScaffoldMode,
 } from "./scaffolds/serialize";
 import {
   buildDynamicContext,
@@ -96,6 +95,8 @@ export interface OrchestrationInput {
   existingRoutePaths?: string[];
   /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
   capabilities?: InferredCapabilities;
+  /** Per-session seed (e.g. chatId) to vary style direction across sessions with identical prompts. */
+  sessionSeed?: string;
 }
 
 export interface OrchestrationBase {
@@ -347,11 +348,10 @@ export async function resolveOrchestrationBase(
   });
   let scaffoldContext: string | undefined;
   if (resolvedScaffold) {
-    const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
-      ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
-          ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
-      : undefined;
-    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
+    const serializeMode =
+      resolvedMode === "followUp" || buildSpec.contextPolicy === "heavy"
+        ? "structural"
+        : "inspirational";
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
@@ -414,6 +414,7 @@ export async function finalizeOrchestrationPrompts(
     buildSpec: base.buildSpec,
     customInstructions,
     generationMode: resolvedMode,
+    sessionSeed: input.sessionSeed,
   };
 
   const dynamic = await buildDynamicContext(dynamicOpts);

@@ -393,7 +393,7 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
         scaffoldTokens: 11_250,
         refsTokens: 3_750,
         systemContextTokens: 15_000,
-        scaffoldChars: 36_000,
+        scaffoldChars: 20_000,
         refsChars: 12_000,
         systemContextChars: 48_000,
       };
@@ -402,7 +402,7 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
         scaffoldTokens: 25_000,
         refsTokens: 12_500,
         systemContextTokens: 50_000,
-        scaffoldChars: 80_000,
+        scaffoldChars: 48_000,
         refsChars: 40_000,
         systemContextChars: 160_000,
       };
@@ -411,7 +411,7 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
         scaffoldTokens: 15_000,
         refsTokens: 7_500,
         systemContextTokens: 30_000,
-        scaffoldChars: 48_000,
+        scaffoldChars: 28_000,
         refsChars: 24_000,
         systemContextChars: 96_000,
       };

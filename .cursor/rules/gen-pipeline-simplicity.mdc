@@ -1,0 +1,25 @@
+---
+description: Keep generation quality high with simpler, direct prompt orchestration
+alwaysApply: false
+globs:
+  - src/lib/gen/**
+  - config/prompt-static/**
+---
+
+# Generation pipeline simplicity
+
+When improving own-engine generation quality, prefer fewer moving parts and stronger first-pass generation quality.
+
+## Core principles
+
+- Fewer layers beat more layers. If a fix can live in static prompt content or one deterministic data file, do not add another orchestration stage.
+- The LLM is the builder, not a scaffold filler. Scaffolds should provide structure and safety, not pre-written identity.
+- One-shot quality beats repair loops. Prevent recurring errors in system prompt guidance before adding more autofix logic.
+- Keep widget/library safety centralized and explicit. Safe additions should be reflected consistently across capability inference, dependency completion, and toolkit guidance.
+- Measure before adding complexity. If a repair rule rarely fires, prefer removing it and strengthening prompt-time instructions.
+
+## Practical guardrails
+
+- Prefer deterministic transforms over extra LLM repair passes.
+- Keep dynamic context focused: prioritize high-signal blocks, trim repetitive boilerplate.
+- Avoid introducing overlapping terminology; register new runtime terms in `docs/architecture/glossary.md` in the same change.

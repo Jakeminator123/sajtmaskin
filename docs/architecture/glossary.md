@@ -164,6 +164,8 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Orchestration Base** | `OrchestrationBase`, `resolveOrchestrationBase()` | `orchestrate.ts` | Löst scaffold + route plan + contracts + BuildSpec (utan full static core). | kanonisk |
 | **Finalized Orchestration** | `FinalizedOrchestrationContext`, `finalizeOrchestrationPrompts()` | `orchestrate.ts` | Dynamic context + `engineSystemPrompt` färdiga. | kanonisk |
 | **Generation Context** | `prepareGenerationContext()` | `orchestrate.ts` | End-to-end: base → finalize → `GenerationInputPackage` + prompt dump. | kanonisk |
+| **Style Direction (this generation)** | `pickStyleDirection()` + promptblocket `"## Style Direction (this generation)"` | `data/style-directions.ts`, `system-prompt.ts` | Deterministiskt variationsspår per request: layout, rytm, motiv, fontmood. | kanonisk |
+| **Your Toolkit** | promptblocket `"## Your Toolkit"` | `system-prompt.ts`, `data/shadcn-components.ts`, `capability-inference.ts` | Samlad verktygsyta för modellen: säkra shadcn-importer + capability-hints + ev. component palette. | kanonisk |
 | **Orchestration Contract** | `OrchestrationContract`, `buildOrchestrationContract()` | `orchestration-contract.ts` | Samlad kontraktsyta: scaffold-ruttkontrakt (`ScaffoldRouteContract`) + valideringsförväntningar (`GenerationValidateContract`). Bindemedel, inte primär domänmodell. | kanonisk |
 | **Orchestration Snapshot** | `buildPersistedOrchestrationSnapshot()`, `mergePersistedOrchestrationSnapshots()` | `orchestration-snapshot.ts` | K-019 persisterad snapshot för follow-up-kontinuitet. | kanonisk |
 | **Pre-generation Contract Gate** | `createPreGenerationContractGateReadableStream()` | `pre-generation-contract-gate.ts` | SSE-gate innan static core betalas. | kanonisk |
@@ -180,7 +182,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Scaffold Keyword Match** | `matchScaffold()` | `scaffolds/matcher.ts` | Synkront keyword/heuristik-steg; delsteg i auto. | kanonisk |
 | **Scaffold Mode** | `ScaffoldMode` | `scaffolds/types.ts` | `"off" \| "auto" \| "manual"`. | kanonisk |
 | **Scaffold Prompt Context** | `serializeScaffoldForPrompt()` | `scaffolds/serialize.ts` | Budgeterad textserialisering för systemprompt. | kanonisk |
-| **Scaffold Serialize Mode** | `ScaffoldSerializeMode`, `detectScaffoldMode()` | `scaffolds/serialize.ts` | `"structural" \| "inspirational"`. Creative-theme → inspirational. | kanonisk |
+| **Scaffold Serialize Mode** | `ScaffoldSerializeMode` | `scaffolds/serialize.ts`, `orchestrate.ts` | `"structural" \| "inspirational"`. Init kör inspirational som default; follow-up/heavy policy kör structural. | kanonisk |
 | **Persisted Scaffold** | `persistedScaffoldId` i `OrchestrationInput` | `orchestrate.ts` | Senast sparade scaffold-id; återanvänds i follow-up om inte redesign låser upp. | kanonisk |
 
 ### 2.3 Scaffold — data, traits, research
