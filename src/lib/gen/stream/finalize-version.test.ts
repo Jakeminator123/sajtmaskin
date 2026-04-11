@@ -64,11 +64,11 @@ vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewUrl,
 }));
 
-vi.mock("@/lib/gen/repair-generated-files", () => ({
+vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
   repairGeneratedFiles,
 }));
 
-vi.mock("@/lib/gen/project-scaffold", () => ({
+vi.mock("@/lib/gen/export/project-scaffold", () => ({
   buildCompleteProject,
 }));
 

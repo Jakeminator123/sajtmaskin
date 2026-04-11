@@ -10,7 +10,7 @@ function extractLeadingMajor(versionSpec: string): number | null {
 }
 
 function readBaselinePackageVersion(packageName: string): string {
-  const projectScaffoldPath = resolve(process.cwd(), "src/lib/gen/project-scaffold.ts");
+  const projectScaffoldPath = resolve(process.cwd(), "src/lib/gen/export/project-scaffold.ts");
   const text = readFileSync(projectScaffoldPath, "utf8");
   const packageJsonMatch = text.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
   if (!packageJsonMatch) {
@@ -41,7 +41,7 @@ describe("dep-completer", () => {
   });
 
   it("keeps ALL overlapping KNOWN_PACKAGES majors aligned with scaffold baseline", () => {
-    const scaffoldPath = resolve(process.cwd(), "src/lib/gen/project-scaffold.ts");
+    const scaffoldPath = resolve(process.cwd(), "src/lib/gen/export/project-scaffold.ts");
     const text = readFileSync(scaffoldPath, "utf8");
     const m = text.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
     expect(m).not.toBeNull();

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import nodePath from "node:path";
-import type { CodeFile } from "./parser";
+import type { CodeFile } from "../parser";
 
 const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
 

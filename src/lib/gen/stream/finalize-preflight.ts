@@ -1,6 +1,6 @@
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { buildCompleteProject } from "@/lib/gen/project-scaffold";
+import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
 
 import {
   extractAppRoutePathsFromFilePaths,
@@ -9,7 +9,7 @@ import {
   type PlannedRoute,
   type RoutePlan,
 } from "@/lib/gen/route-plan";
-import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
@@ -350,7 +350,7 @@ export async function runFinalizePreflight({
       });
     }
 
-    const { collectRequiredUiComponents } = await import("@/lib/gen/project-scaffold-ui-reader");
+    const { collectRequiredUiComponents } = await import("@/lib/gen/export/project-scaffold-ui-reader");
     const completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles)),
     ).files;

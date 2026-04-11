@@ -49,28 +49,39 @@ This module is the canonical generation path (own-engine). If you need the
 actual scaffold/template lookup behavior, read `scaffolds/README.md` and
 `template-library/README.md` before opening the generated JSON blobs.
 
+## Phase Model
+
+Files in `gen/` follow the LLM pipeline's three phases:
+
+- **Phase 2 (orchestration + generation):** Root files — orchestrate, scaffold, route plan, contracts, BuildSpec, system prompt, engine, streaming. Subdirs: `scaffolds/`, `contract/`, `context/`, `data/`, `plan/`, `template-library/`, `packs/`, `security/`.
+- **Phase 3 (post-generation):** Autofix, repair, verify, quality gate, preview, export, finalize. Subdirs: `autofix/`, `stream/`, `verify/`, `validation/`, `post-process/`, `export/`, `preview/`, `suspense/`, `retry/`.
+- **Phase 1 (pre-orchestration):** Prompt processing, brief, intent, model selection. Lives in `src/lib/builder/`, not here.
+
 ## Key Files
 
-| File | Role |
-|------|------|
-| `orchestrate.ts` | Canonical fan-in for scaffold selection, route planning, contract inference, BuildSpec derivation, and prompt assembly inputs. |
-| `system-prompt.ts` | Builds dynamic prompt context (scaffold, route plan, contracts, brief, theme/design signals) and composes the final engine system prompt. |
-| `scaffolds/` | Runtime scaffold manifests, matcher/search/serialize logic, and generated scaffold research/embeddings. |
-| `template-library/` | Curated external-template artifacts plus validation/tooling helpers; current own-engine prompt does not inject template-library retrieval. |
-| `stream/finalize-version.ts` | Shared post-stream pipeline: autofix, deep-path steps, parse/merge/preflight, persistence, telemetry, and scaffold-retry suggestions. |
-| `generation-input-package.ts` | `GenerationInputPackage` type, `computeLineageHash()`, and dump serialization. |
-| `server-verify.ts` | Server-side verify+repair loop triggered after finalize, with early stop on fixer noop / no improvement. |
-| `engine.ts` | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
-| `stream-format.ts` | Converts AI SDK stream to SSE events (`meta`, `thinking`, `content`, `done`, `error`). |
-| `url-compress.ts` | Compresses long URLs to aliases before LLM (saves tokens), expands after. |
-| `suspense/` | TransformStream rules that fix code during streaming (shadcn imports, Lucide icons, URL expansion). |
-| `autofix/` | Post-generation fixers: import validation, JSX check, dep completer. |
-| `parser.ts` | Parses fenced code blocks from streamed content. |
-| `preview/` | Preview runtime modules. `preview/index.ts` exposes `buildPreviewHtml()` and `buildPreviewUrl()`, while sibling files split resolution, CSS, transpilation, script assembly, and shims. |
-| `project-scaffold.ts` | Scaffold merge for exported/previewed projects: baseline package.json, tsconfig, boilerplate files. `buildCompleteProject()` accepts optional pre-resolved UI components. |
-| `project-scaffold-ui-reader.ts` | Reads `@/components/ui/*` sources from the host repo via `fs.readFileSync`. Separated to keep dynamic filesystem reads out of Turbopack's static App Route bundle analysis. Loaded via `await import()` by callers. |
-| `build-exportable-project.ts` | Canonical wrapper: scaffold merge + UI resolution + repair. **`buildExportableProject()` is async** (dynamic import of the UI reader). All callers must `await`. |
-| `version-manager.ts` | Creates versions from content, parses files. |
+| File | Phase | Role |
+|------|-------|------|
+| `orchestrate.ts` | 2 | Canonical fan-in: scaffold selection, route planning, contract inference, BuildSpec, prompt assembly. |
+| `system-prompt.ts` | 2 | Builds dynamic prompt context and composes the final engine system prompt. |
+| `engine.ts` | 2 | Core generation via `streamText()` + `createCodeGenSSEStream()`. |
+| `generation-input-package.ts` | 2 | `GenerationInputPackage` type, `computeLineageHash()`, dump serialization. |
+| `build-spec.ts` | 2 | Derives `BuildSpec` (policy, budgets, quality targets) from all inputs. |
+| `route-plan.ts` | 2 | Builds and normalizes route plans from brief/prompt/scaffold. |
+| `capability-inference.ts` | 2 | Regex-based prompt capability classification. |
+| `parser.ts` | 2–3 | Parses fenced code blocks from streamed content. Used across phases. |
+| `version-manager.ts` | 2–3 | DB version accessors, file parsing, merge. Used across phases. |
+| `url-compress.ts` | 2 | Compresses long URLs to aliases before LLM, expands after. |
+| `scaffolds/` | 2 | Runtime scaffold manifests, matcher/search/serialize, research/embeddings. |
+| `template-library/` | 2 | Curated external-template artifacts + validation/tooling. |
+| `stream/finalize-version.ts` | 3 | Shared post-stream pipeline: autofix, parse/merge/preflight, persistence. |
+| `stream/stream-format.ts` | 2–3 | Converts AI SDK stream to SSE events. |
+| `stream/sse-parser.ts` | 2–3 | SSE buffer parser + suspense line processor (f.d. `route-helpers.ts`). |
+| `autofix/` | 3 | Post-generation fixers: imports, JSX, deps, repair. |
+| `autofix/repair-generated-files.ts` | 3 | Deterministic repairs (imports, hooks, Lucide, metadata). |
+| `verify/` | 3 | Verifier pass, quality gate, server-verify loop. |
+| `preview/` | 3 | Preview runtime: HTML build, transpile, CSS, shims. |
+| `export/project-scaffold.ts` | 3 | Project skeleton for export/preview: baseline package.json, tsconfig, boilerplate. |
+| `export/build-exportable-project.ts` | 3 | Canonical wrapper: scaffold merge + UI resolution + repair. |
 
 ## Generated Artifacts And Indexing
 

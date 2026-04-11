@@ -1,8 +1,8 @@
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import { createGenerationPipeline } from "@/lib/gen/generation-pipeline";
+import { createGenerationPipeline } from "@/lib/gen/engine";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
-import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/route-helpers";
+import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/stream/sse-parser";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { resolveOrchestrationBase, finalizeOrchestrationPrompts } from "@/lib/gen/orchestrate";
 import { getAgentTools } from "@/lib/gen/agent-tools";

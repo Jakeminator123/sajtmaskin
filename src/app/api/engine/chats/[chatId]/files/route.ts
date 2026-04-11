@@ -14,7 +14,7 @@ import {
   getLatestVersion as getLatestEngineVersion,
   updateVersionFiles,
 } from "@/lib/db/chat-repository-pg";
-import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import {
   resolveProjectEnv,
   resolveEnvRequirementsFromVersionFiles,

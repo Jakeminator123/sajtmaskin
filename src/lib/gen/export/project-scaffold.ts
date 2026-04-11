@@ -1,6 +1,6 @@
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
-import { runDepCompleter } from "./autofix/dep-completer";
-import type { CodeFile } from "./parser";
+import { runDepCompleter } from "../autofix/dep-completer";
+import type { CodeFile } from "../parser";
 import { loadPlaceholderRecord, formatDotenvBody } from "@/lib/gen/preview/env-local";
 
 /**

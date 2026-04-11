@@ -1,4 +1,4 @@
-import { isRuntimeProvidedImport } from "../runtime-imports";
+import { isRuntimeProvidedImport } from "../autofix/runtime-imports";
 
 export const PAGE_CANDIDATES = [
   "app/page.tsx",

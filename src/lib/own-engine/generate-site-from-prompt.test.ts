@@ -17,7 +17,7 @@ const createEngineVersionErrorLogsMock = vi.hoisted(() => vi.fn());
 const startPreviewSessionMock = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrlMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/gen/generation-pipeline", () => ({
+vi.mock("@/lib/gen/engine", () => ({
   createGenerationPipeline: createGenerationPipelineMock,
 }));
 

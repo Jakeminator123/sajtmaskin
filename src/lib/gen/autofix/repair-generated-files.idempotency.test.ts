@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { repairGeneratedFiles } from "./repair-generated-files";
-import type { CodeFile } from "./parser";
+import type { CodeFile } from "../parser";
 
 function stableStringify(files: CodeFile[]): string {
   return JSON.stringify(

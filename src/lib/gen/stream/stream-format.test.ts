@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseSSEBuffer } from "./route-helpers";
+import { parseSSEBuffer } from "./sse-parser";
 import { createCodeGenSSEStream } from "./stream-format";
 
 type StreamPart = {

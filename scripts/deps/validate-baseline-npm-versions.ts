@@ -20,7 +20,7 @@ function readBaselineFromProjectScaffold(): {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 } {
-  const file = path.join(process.cwd(), "src/lib/gen/project-scaffold.ts");
+  const file = path.join(process.cwd(), "src/lib/gen/export/project-scaffold.ts");
   const text = fs.readFileSync(file, "utf8");
   const m = text.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
   if (!m) {

@@ -141,7 +141,7 @@ vi.mock("@/lib/models/catalog", () => ({
   isCanonicalModelId: () => false,
 }));
 
-vi.mock("@/lib/gen/generation-pipeline", () => ({
+vi.mock("@/lib/gen/engine", () => ({
   shouldUseExplicitBuilderFallback: () => false,
   shouldUseV0Fallback: () => false,
   createGenerationPipeline,
@@ -197,7 +197,7 @@ vi.mock("@/lib/gen/request-metadata", () => ({
   summarizeDesignReferences: () => [],
 }));
 
-vi.mock("@/lib/gen/route-helpers", () => {
+vi.mock("@/lib/gen/stream/sse-parser", () => {
   class SuspenseLineProcessor {
     process(text: string) {
       return text;

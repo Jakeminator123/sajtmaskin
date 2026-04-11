@@ -4,9 +4,9 @@ import {
   mergePackageJsonWithBaseline,
   mergeTsconfigWithBaseline,
 } from "./project-scaffold";
-import { buildExportableProject } from "./export/build-exportable-project";
-import { runProjectSanityChecks } from "./validation/project-sanity";
-import type { CodeFile } from "./parser";
+import { buildExportableProject } from "./build-exportable-project";
+import { runProjectSanityChecks } from "../validation/project-sanity";
+import type { CodeFile } from "../parser";
 
 describe("mergePackageJsonWithBaseline", () => {
   it("fills scripts and devDependencies when the model omits them", () => {

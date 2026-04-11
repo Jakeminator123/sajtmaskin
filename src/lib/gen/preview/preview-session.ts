@@ -13,8 +13,8 @@ import {
 } from "@/lib/gen/preview/session-store";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
-import { buildCompleteProject } from "../project-scaffold";
-import { repairGeneratedFiles } from "../repair-generated-files";
+import { buildCompleteProject } from "../export/project-scaffold";
+import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 
 type RuntimeFile = {
   name: string;
@@ -182,7 +182,7 @@ async function runStartPreviewSession(
     }
   }
 
-  const { collectRequiredUiComponents } = await import("@/lib/gen/project-scaffold-ui-reader");
+  const { collectRequiredUiComponents } = await import("@/lib/gen/export/project-scaffold-ui-reader");
   const projectFiles = buildCompleteProject(
     filesForProject,
     collectRequiredUiComponents(filesForProject),

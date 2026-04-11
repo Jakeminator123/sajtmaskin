@@ -4,7 +4,7 @@
 
 - **Intern nyckel `max`** (i kod och `manifest.json`) är **inte** engelska «Max» i UI. I buildern heter den **`Tanker`** och mappar standard till **`gpt-5.4`** (`buildProfiles.defaults.max`).
 - **`codex`** är en **egen** byggprofil (standardmodell `gpt-5.3-codex-max` enligt manifest) — alltså inte samma som `max`. Använd sparsamt när du uttryckligen vill tunga kodmodeller; vardagsläge för stark resonemangsmodell är `max` / GPT-5.4.
-- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar `thinking: true` som standard från chat-strömmen. För **OpenAI**-modeller sätts `providerOptions.openai.reasoningEffort: "high"` när `thinking` är på, så resonemang kan streamas som `thinking`-händelser via [`stream-format.ts`](../../src/lib/gen/stream-format.ts). **Anthropic**-grenen sätter inte samma OpenAI-specifika `reasoningEffort`, men SSE-pipelinen kan fortfarande mappa modellens resonemang beroende på SDK-stöd.
+- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar `thinking: true` som standard från chat-strömmen. För **OpenAI**-modeller sätts `providerOptions.openai.reasoningEffort: "high"` när `thinking` är på, så resonemang kan streamas som `thinking`-händelser via [`stream-format.ts`](../../src/lib/gen/stream/stream-format.ts). **Anthropic**-grenen sätter inte samma OpenAI-specifika `reasoningEffort`, men SSE-pipelinen kan fortfarande mappa modellens resonemang beroende på SDK-stöd.
 
 ## Flöde
 

@@ -283,7 +283,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Generation Package** | `GenerationInputPackage`, `buildGenerationInputPackage()` | `generation-input-package.ts` | Kanonisk fan-in: `engineSystemPrompt`, `dynamicContext`, `dynamicContextPruning`, `dynamicContextBlocks`, `lineageHash`. | kanonisk |
-| **Generation Pipeline** | `createGenerationPipeline()` | `generation-pipeline.ts` | Wrapper runt `generateCode()` + SSE. | kanonisk |
+| **Generation Pipeline** | `createGenerationPipeline()` | `engine.ts` | Convenience wrapper runt `generateCode()`. | kanonisk |
 | **Code Generation** | `generateCode()` | `engine.ts` | Kärnan: anropar LLM med systemprompt + user turn. | kanonisk |
 | **Own-Engine Stream** | `createOwnEngineGenerationStream()` | `generation-stream.ts` | Own-engine SSE-adapter + finalize-hook. | kanonisk |
 | **Builder Stream Events** | `BuilderStreamEventMap`, `createBuilderStreamEvent()` | `builder-stream-contract.ts` | Typade SSE-eventnamn för builder-UI. | kanonisk |
@@ -306,7 +306,7 @@ Allt efter att generatorn producerat output.
 | **Validate and Fix** | `validateAndFix()` → `ValidateFixResult` | `autofix/validate-and-fix.ts` | Syntaxvalidering + progressiv fix-loop. | kanonisk |
 | **LLM Fixer** | `runLlmFixer()` → `FixerResult` | `autofix/llm-fixer.ts` | LLM-driven reparation; används av server-verify. | kanonisk |
 | **Fixer Prompt** | `FIXER_SYSTEM_PROMPT`, `buildFixerUserPrompt()` | `autofix/fixer-prompt.ts` | System- och user-promptar för LLM-fixern. | kanonisk |
-| **Repair Generated Files** | `repairGeneratedFiles()` | `repair-generated-files.ts` | Reparation/normalisering av genererad filuppsättning. | kanonisk |
+| **Repair Generated Files** | `repairGeneratedFiles()` | `autofix/repair-generated-files.ts` | Reparation/normalisering av genererad filuppsättning. | kanonisk |
 | **Autofix Events** | `AUTO_FIX_EVENT_NAME`, `dispatchAutoFixEvent()` | `auto-fix-events.ts` | DOM-events för autofix i UI. | kanonisk |
 | **Autofix Hook** | `useAutoFix()` | `useAutoFix.ts` | Client-side autofix-hook. | kanonisk |
 
@@ -501,21 +501,20 @@ Allt efter att generatorn producerat output.
 
 Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra var nya filer hör hemma.
 
-| Domän | Primär plats | Hör inte i |
-|-------|-------------|------------|
-| Orchestration (scaffold + route + contracts + BuildSpec) | `gen/` rot (`orchestrate.ts` som hub) | `gen/stream/` |
-| Prompt assembly (system prompt, dynamic context, tokens) | `gen/` rot (`system-prompt.ts` som hub) | `gen/plan/` |
-| Spec/planning (BuildSpec, route plan, capabilities) | `gen/` rot | — |
-| Autofix och repair | `gen/autofix/` | `gen/` rot (flytta `repair-generated-files.ts` hit) |
-| Finalize-pipeline | `gen/stream/` | `gen/` rot |
-| Preview | `gen/preview/` | `gen/` rot |
-| Scaffold-data och matching | `gen/scaffolds/` | `gen/` rot |
-| Verifiering och quality gate | `gen/verify/` | `gen/` rot |
-| Env/config | `lib/` rot (`env.ts`, `config.ts`) | — |
-| Deploy och Vercel API | `lib/deploy/` + `lib/vercel/` | `lib/` rot |
-| Projekt-CRUD och env-vars | `lib/` rot (ev. framtida `lib/projects/`) | — |
-| Säkerhet (SSRF, rate limit, bot) | `lib/` rot (ev. framtida `lib/security/`) | — |
-| Audit/scraping | `lib/` rot (ev. framtida `lib/audit/`) | — |
+| Domän | Fas | Primär plats |
+|-------|-----|-------------|
+| Orchestration (scaffold + route + contracts + BuildSpec) | 2 | `gen/` rot (`orchestrate.ts` hub) |
+| Prompt assembly (system prompt, dynamic context, tokens) | 2 | `gen/` rot (`system-prompt.ts` hub) |
+| Spec/planning (BuildSpec, route plan, capabilities) | 2 | `gen/` rot |
+| Scaffold-data och matching | 2 | `gen/scaffolds/` |
+| SSE wire-format och parsning | 2–3 | `gen/stream/` (`stream-format.ts`, `sse-parser.ts`) |
+| Autofix och repair | 3 | `gen/autofix/` (inkl. `repair-generated-files.ts`, `runtime-imports.ts`) |
+| Finalize-pipeline | 3 | `gen/stream/` (`finalize-version.ts` m.fl.) |
+| Verifiering och quality gate | 3 | `gen/verify/` (inkl. `post-generation-config.ts`) |
+| Preview | 3 | `gen/preview/` |
+| Export/projektskelett | 3 | `gen/export/` (`project-scaffold.ts`, `project-scaffold-ui-reader.ts`) |
+| Env/config | — | `lib/` rot (`env.ts`, `config.ts`) |
+| Deploy och Vercel API | — | `lib/deploy/` + `lib/vercel/` |
 
 ## Versionering
 

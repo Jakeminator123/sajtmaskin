@@ -37,7 +37,7 @@ vi.mock("drizzle-orm", () => ({
   or: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/generation-pipeline", () => ({
+vi.mock("@/lib/gen/engine", () => ({
   shouldUseV0Fallback,
 }));
 
@@ -64,7 +64,7 @@ vi.mock("@/lib/providers/errors/normalize-provider-error", () => ({
   }),
 }));
 
-vi.mock("@/lib/gen/repair-generated-files", () => ({
+vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
   repairGeneratedFiles: (files: unknown) => ({
     files,
     fixes: [],
