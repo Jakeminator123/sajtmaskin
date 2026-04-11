@@ -115,7 +115,7 @@
         "status": {
           "type": "string",
           "required": true,
-          "enum": ["running", "stopped", "missing", "version_mismatch"]
+          "enum": ["running", "starting", "stopped", "missing", "version_mismatch"]
         },
         "previewSessionId": { "type": ["string", "null"], "required": true },
         "previewUrl": { "type": ["string", "null"], "required": true },

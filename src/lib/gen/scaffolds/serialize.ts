@@ -110,12 +110,15 @@ export function serializeScaffoldForPrompt(
   if (mode === "inspirational") {
     const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");
     const criticalFiles = selectCriticalScaffoldFiles(scaffold, "light", options);
-    const criticalBlocks = renderSelectedScaffoldFiles(
-      criticalFiles,
-      Math.min(maxChars, 10_000),
+    const layoutAndStyleFiles = criticalFiles.filter(
+      (f) => !f.path.endsWith("/page.tsx") && !f.path.endsWith("\\page.tsx"),
+    );
+    const layoutBlocks = renderSelectedScaffoldFiles(
+      layoutAndStyleFiles,
+      Math.min(maxChars, 4_000),
     );
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nUse the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** to match the user's request. You are not bound by the scaffold's existing layout, component patterns, or number of pages. Add, remove, or rearrange pages and sections freely.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nUse the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** to match the user's request. You are not bound by the scaffold's existing section order, number of sections, or layout patterns. **Invent a unique page flow** that fits the user's specific business — a restaurant site should NOT look like a SaaS landing or a consultant portfolio. Vary section types, grid layouts, visual rhythm, and content hierarchy to genuinely reflect the domain.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Layout & Theme Files (adapt these, don't ignore)\n\n${layoutBlocks}\n\n**Page structure (app/page.tsx):** Do NOT copy a generic hero → cards → testimonials → CTA pattern. Instead, choose sections that genuinely serve this specific business. For example: a restaurant might lead with an atmosphere image + reservation CTA, then menu highlights, then location/hours. A creative studio might open with a bold project showcase grid. Let the user's domain drive the section choices.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
   }
 
   if (!FEATURES.useLightweightScaffoldSerialization || options.forceFullDump) {

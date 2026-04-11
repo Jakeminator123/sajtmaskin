@@ -435,7 +435,7 @@ Fas 3 använder två kategorier av fixar:
 | **preview** | Det användaren ser i buildern. | kanonisk |
 | **VM / `preview_host`** | Primär tier-2-live-preview via Fly.io. Riktningen framåt. | kanonisk |
 | **`preview-session`** | Kanonisk bootstrap-route för tier-2-preview; startar eller återanvänder preview. | kanonisk |
-| **`preview-status`** | Recover-/statusroute: `running`, `stopped`, `missing`, `version_mismatch`. | kanonisk |
+| **`preview-status`** | Recover-/statusroute: `running`, `starting`, `stopped`, `missing`, `version_mismatch`. `starting` = boot grace period (90s). | kanonisk |
 | **`startOutcome`** | Hur session löstes: `reused_url`, `resumed`, `recreated`. | kanonisk |
 | **`previewPending`** | Finalize klar, preview väntas. | kanonisk |
 | **`previewUrlHint`** | Temporär VM-hint medan preview bootar; inte slutlig `previewUrl`. | kanonisk |

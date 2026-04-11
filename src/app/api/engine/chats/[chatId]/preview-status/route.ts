@@ -12,8 +12,14 @@ import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
+const BOOT_GRACE_MS = 90_000;
+
 function sessionSoftExpiryAt(entry: PreviewSessionEntry, now: number): number {
   return Math.min(entry.createdAt + PREVIEW_SESSION_HARD_CAP_MS, entry.lastUsedAt + PREVIEW_SESSION_IDLE_MS);
+}
+
+function isWithinBootGrace(entry: PreviewSessionEntry, now: number): boolean {
+  return now - entry.createdAt < BOOT_GRACE_MS;
 }
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -112,19 +118,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
       const resumed = await tryResumeTier2Runtime(session);
       if (!resumed) {
+        const booting = isWithinBootGrace(session, now);
+        const status = booting ? "starting" : "stopped";
+        const reason = booting ? "boot_grace_period" : "provider_not_running_or_unreachable";
         const body: PreviewStatusApiJson = {
           ok: true,
-          status: "stopped",
+          status,
           previewSessionId: session.sandboxId,
           previewUrl: session.sandboxUrl,
           versionId: sessionVid,
           sessionExpiresAt: sessionSoftExpiryAt(session, now),
-          reason: "provider_not_running_or_unreachable",
+          reason,
         };
         logPreviewLifecycleTelemetry({
           kind: "preview_status",
           chatId,
-          status: "stopped",
+          status,
           versionId,
           sandboxId: session.sandboxId,
         });

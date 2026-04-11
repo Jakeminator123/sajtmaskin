@@ -88,6 +88,16 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     }
     statusUnavailableCountRef.current = 0;
 
+    if (statusPayload.status === "starting") {
+      logPreviewLifecycleTelemetry({
+        kind: "preview_status",
+        chatId,
+        versionId,
+        status: "starting",
+      });
+      return;
+    }
+
     if (statusPayload.status === "running") {
       const serverUrl = statusPayload.previewUrl?.trim() ?? "";
       if (serverUrl) {

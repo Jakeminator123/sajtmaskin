@@ -140,6 +140,11 @@ Stable contract types:
 - `PreviewHibernateApiJson`
 - `PreviewDestroyApiJson`
 
+`PreviewStatusApiJson.status` enum: `running | starting | stopped | missing | version_mismatch`.
+
+`starting` is returned during the 90-second boot grace period after session creation
+when the preview-host VM has not yet responded to status checks.
+
 `PreviewStatusApiJson.reason` (when present) uses these stable values:
 
 - `preview_session_not_configured`
@@ -147,6 +152,7 @@ Stable contract types:
 - `session_bound_to_other_version`
 - `preview_session_id_mismatch`
 - `provider_not_running_or_unreachable`
+- `boot_grace_period`
 
 ## Preview-host contracts
 

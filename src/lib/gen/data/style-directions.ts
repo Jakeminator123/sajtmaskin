@@ -88,7 +88,7 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
     signatureMotif: "warm surface tints, rounded containers, and soft shadow depth",
     fontMood: "friendly rounded sans headings with humanist body text",
     families: ["landing-page", "content-site"],
-    keywords: ["friendly", "warm", "community", "local", "cafe", "bakery", "restaurant"],
+    keywords: ["friendly", "warm", "community", "local", "cafe", "bakery", "restaurant", "restaurang", "kafé", "bageri", "mat", "food", "catering", "bistro", "konditori"],
   },
   {
     id: "bold_brutalist",
@@ -177,11 +177,11 @@ function scorePreset(
 ): number {
   let score = 0;
   if (scaffoldFamily && preset.families?.includes(scaffoldFamily)) {
-    score += 5;
+    score += 2;
   }
   for (const keyword of preset.keywords ?? []) {
     if (promptLower.includes(keyword) || styleKeywordsLower.some((v) => v.includes(keyword))) {
-      score += 2;
+      score += 3;
     }
   }
   return score;

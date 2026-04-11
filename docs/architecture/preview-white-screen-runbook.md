@@ -29,9 +29,10 @@
 3. **Preview-host:** Next-appen kraschar eller visar tom sida.
    - **Bekräfta:** Öppna **samma** `previewUrl` / iframe-URL i ny flik; läs Next/overlay-fel.
 
-### B. Toast / röd overlay efter ~10 s: "Previewn laddade inte klart innan timeout"
+### B. Toast / röd overlay efter ~45 s: "Previewn laddade inte klart innan timeout"
 
 - **Kod:** `preview_ready_timeout` (`describePreviewDiagnosticCode` i `preview-diagnostics.ts`).
+- **Timeout:** `PREVIEW_READY_TIMEOUT_MS = 45_000` i `usePreviewIframe.ts` (höjd från 10s → 45s för att ge VM-boot tid).
 - **Vanlig orsak:** Ingen render i `#root` inom tid — ofta CDN blockerad, eller runtime-fel utan synlig text.
 
 ### C. "Preview-fel" med röd text *inuti* iframe

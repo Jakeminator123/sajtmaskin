@@ -26,11 +26,12 @@ export type PreviewStatusReason =
   | "no_session"
   | "session_bound_to_other_version"
   | "preview_session_id_mismatch"
-  | "provider_not_running_or_unreachable";
+  | "provider_not_running_or_unreachable"
+  | "boot_grace_period";
 
 export type PreviewStatusApiJson = {
   ok: boolean;
-  status: "running" | "stopped" | "missing" | "version_mismatch";
+  status: "running" | "stopped" | "starting" | "missing" | "version_mismatch";
   previewSessionId: string | null;
   previewUrl: string | null;
   versionId: string | null;
