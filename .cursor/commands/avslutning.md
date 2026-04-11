@@ -17,7 +17,6 @@ Avsluta det aktuella arbetet i följande ordning:
 4. Synka dokumentation om runtime-sanningen ändrats:
    - relevanta schemas/docs
    - `config/dashboard/app.py`
-   - `docs/plans/active/remaining-focus-after-5-step.md`
    - `5-steg.txt` (vid större slutbildsändring)
    - håll fast vid ord som passar repoet: `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization`, `verify`
 5. Verifiera med riktade tester/lints/typecheck efter behov.

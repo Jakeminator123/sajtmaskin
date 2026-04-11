@@ -71,7 +71,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Tester | Bl.a. `httpStatusForPreviewSessionFailure`, bootstrap-retry, preview-gate, repair-idempotens | `*.test.ts` under `src/lib/gen`, `src/lib/builder` |
 | Vitest / config-mock | `route.test.ts` mockar `REDIS_KEY_PREFIX` m.m. när `redis.ts` laddas | `src/app/api/v0/chats/stream/route.test.ts` |
 
-**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se problemområdena i [`../../5-steg.txt`](../../5-steg.txt) och [`../plans/active/remaining-focus-after-5-step.md`](../plans/active/remaining-focus-after-5-step.md).
+**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se [`../../5-steg.txt`](../../5-steg.txt).
 
 **Vit / tom preview:** operativ runbook + checklista — [`preview-white-screen-runbook.md`](./preview-white-screen-runbook.md). Kort hjälptext visas i byggarens iframe-overlay (`previewRunbookLinesForCode` i `preview-diagnostics.ts`).
 

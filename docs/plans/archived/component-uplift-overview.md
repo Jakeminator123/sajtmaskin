@@ -86,7 +86,6 @@ P16: nya scaffold-shells (docs-knowledge, form-workflow)
 
 - [`docs/architecture/component-library-policy.md`](../../architecture/component-library-policy.md) — ägarmodell scaffolds vs shadcn vs capability-gated deps
 - [`docs/schemas/orchestration-signal-contract.md`](../../schemas/orchestration-signal-contract.md) — hur signaler flödar genom pipelinen
-- [`docs/plans/active/remaining-focus-after-5-step.md`](remaining-focus-after-5-step.md) — övrig restlista
 - `src/lib/gen/capability-inference.ts` — capability-detektion
 - `src/lib/gen/data/shadcn-components.ts` — shadcn-registrykarta
 - `src/lib/gen/project-scaffold.ts` — baseline deps

@@ -74,7 +74,6 @@ Uppdatera i samma leverans:
 - `5-steg.txt` (samlad slutbild och kvarvarande problemomraden)
 - `.cursor/rules/terminology.mdc`
 - `docs/architecture/glossary.md` (fas 3: repair, quality gate, finalize)
-- `docs/plans/active/remaining-focus-after-5-step.md`
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)
 - Vid manifeständringar: `config/dashboard/app.py` (repair/verifier/timeouts), ev. `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
