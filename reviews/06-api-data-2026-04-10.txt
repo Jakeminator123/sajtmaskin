@@ -1,0 +1,50 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — API ROUTES & DATA LAYER
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+Engine chat surface is centralized under /api/engine/chats with shared handlers. v0/chats is thin compat. Gaps: cron auth when CRON_SECRET unset, some AI routes without rate limiting, inconsistent error shapes, and missing Postgres indexes.
+
+## Findings
+
+### 1. Cron endpoints world-accessible if CRON_SECRET unset [SEVERITY: critical]
+File(s): src/app/api/cron/templates/embeddings/route.ts
+Issue: isAuthorized returns true when CRON_SECRET is missing.
+Suggestion: Fail closed (401) in production when secret unset.
+
+### 2. Some AI routes lack withRateLimit [SEVERITY: warning]
+File(s): src/app/api/ai/intake-summary/route.ts, src/app/api/ai/suggest-pages/route.ts
+Issue: These call createDirectModel without rate limiting.
+Suggestion: Wrap with withRateLimit and dedicated bucket.
+
+### 3. Rate-limit keys fall back to default [SEVERITY: warning]
+File(s): src/lib/rateLimit.ts, src/app/api/ai/classify-intent/route.ts
+Issue: ai:classify-intent and ai:spec not in RATE_LIMITS, using permissive default.
+Suggestion: Add explicit entries.
+
+### 4. N+1 pattern for project list [SEVERITY: warning]
+File(s): src/app/api/projects/route.ts
+Issue: getAllProjectsForOwner then Promise.all(getProjectData per project).
+Suggestion: Batch query with IN clause or join.
+
+### 5. Missing Postgres indexes on hot columns [SEVERITY: warning]
+File(s): src/lib/db/schema.ts
+Issue: No declared indexes on engine_chats.project_id, engine_messages.chat_id, app_projects ownership columns.
+Suggestion: Add btree indexes; validate with EXPLAIN.
+
+### 6. Inconsistent error response shapes [SEVERITY: info]
+File(s): Various routes
+Issue: Mix of {error}, {error, details}, {success: false, error}, {error, retryAfter}.
+Suggestion: Introduce standard error helper for new routes.
+
+## Quick wins
+- Add withRateLimit to AI routes without it
+- Add explicit RATE_LIMITS entries for classify-intent and spec
+- Fail closed on cron when CRON_SECRET unset
+- Add DB indexes for hot filter columns
+
+## Larger refactors
+- Standardize API error JSON across routes
+- Batch getProjectData for project list
+- Enforce Redis requirement in production for rate limiting

@@ -128,34 +128,34 @@ const WEBSITE_ROUTE_PATTERNS: Array<{
 }> = [
   {
     match: /\bom\s+oss\b/i,
-    path: "/om",
+    path: "/om-oss",
     name: "Om oss",
-    intent: "Build trust and explain the company or creator (Swedish sites: use /om).",
+    intent: "Build trust and explain the company or creator. File: app/om-oss/page.tsx",
   },
   {
     match: /\b(about|company|story)\b/i,
-    path: "/about",
-    name: "About",
-    intent: "Build trust and explain the company or creator.",
+    path: "/om-oss",
+    name: "Om oss",
+    intent: "Build trust and explain the company or creator. Swedish slug: /om-oss. File: app/om-oss/page.tsx",
   },
   {
     match: /\b(booking\s+page|bookings?\s+page|bokningssida|bokningssidan|bookings?|booking|boka|reservation|reserve)\b/i,
-    path: "/booking",
-    name: "Booking",
-    intent: "Provide a dedicated booking/reservation flow.",
+    path: "/boka",
+    name: "Boka",
+    intent: "Provide a dedicated booking/reservation flow. File: app/boka/page.tsx",
   },
-  { match: /\b(services?\s+page|tjänste?r?\s*sida|our services|våra tjänster)\b/i, path: "/services", name: "Services", intent: "Explain offers, packages, or capabilities." },
-  { match: /\b(pricing|price|pris|priser|billing)\b/i, path: "/pricing", name: "Pricing", intent: "Show pricing, plans, or billing details." },
-  { match: /\b(contact|kontakta|kontakt|kontaktsida|kontaktsidan)\b/i, path: "/contact", name: "Contact", intent: "Capture leads or contact requests." },
-  { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blog", name: "Blog", intent: "Publish articles, updates, or editorial content." },
-  { match: /\b(docs|documentation|kunskapsbank|guide|guides)\b/i, path: "/docs", name: "Docs", intent: "Provide structured documentation or help content." },
-  { match: /\b(support|help center|faq|kundservice)\b/i, path: "/support", name: "Support", intent: "Answer common questions and support flows." },
-  { match: /\b(portfolio|case study|case studies|work|projekt)\b/i, path: "/work", name: "Work", intent: "Show portfolio pieces, projects, or case studies." },
-  { match: /\b(team\s+page|employees|staff\s+page|medarbetare\s*sida|our team|vårt team)\b/i, path: "/team", name: "Team", intent: "Introduce people behind the company or product." },
-  { match: /\b(testimonial|reviews|recensioner|omdömen)\b/i, path: "/testimonials", name: "Testimonials", intent: "Show social proof and customer outcomes." },
-  { match: /\b(shop|store|butik|products|product|catalog|katalog)\b/i, path: "/products", name: "Products", intent: "Show product catalog or product overview." },
-  { match: /\b(cart|varukorg)\b/i, path: "/cart", name: "Cart", intent: "Show selected products before checkout." },
-  { match: /\b(checkout|kassa)\b/i, path: "/checkout", name: "Checkout", intent: "Complete the purchase flow." },
+  { match: /\b(services?\s+page|tjänste?r?\s*sida|our services|våra tjänster)\b/i, path: "/tjanster", name: "Tjänster", intent: "Explain offers, packages, or capabilities. File: app/tjanster/page.tsx" },
+  { match: /\b(pricing|price|pris|priser|billing)\b/i, path: "/priser", name: "Priser", intent: "Show pricing, plans, or billing details. File: app/priser/page.tsx" },
+  { match: /\b(contact|kontakta|kontakt|kontaktsida|kontaktsidan)\b/i, path: "/kontakt", name: "Kontakt", intent: "Capture leads or contact requests. File: app/kontakt/page.tsx" },
+  { match: /\b(blog|blogg|articles?|newsletter)\b/i, path: "/blogg", name: "Blogg", intent: "Publish articles, updates, or editorial content. File: app/blogg/page.tsx" },
+  { match: /\b(docs|documentation|kunskapsbank|guide|guides)\b/i, path: "/docs", name: "Docs", intent: "Provide structured documentation or help content. File: app/docs/page.tsx" },
+  { match: /\b(support|help center|faq|kundservice)\b/i, path: "/support", name: "Support", intent: "Answer common questions and support flows. File: app/support/page.tsx" },
+  { match: /\b(portfolio|case study|case studies|work|projekt)\b/i, path: "/projekt", name: "Projekt", intent: "Show portfolio pieces, projects, or case studies. File: app/projekt/page.tsx" },
+  { match: /\b(team\s+page|employees|staff\s+page|medarbetare\s*sida|our team|vårt team)\b/i, path: "/teamet", name: "Teamet", intent: "Introduce people behind the company or product. File: app/teamet/page.tsx" },
+  { match: /\b(testimonial|reviews|recensioner|omdömen)\b/i, path: "/omdomen", name: "Omdömen", intent: "Show social proof and customer outcomes. File: app/omdomen/page.tsx" },
+  { match: /\b(shop|store|butik|products|product|catalog|katalog)\b/i, path: "/produkter", name: "Produkter", intent: "Show product catalog or product overview. File: app/produkter/page.tsx" },
+  { match: /\b(cart|varukorg)\b/i, path: "/varukorg", name: "Varukorg", intent: "Show selected products before checkout. File: app/varukorg/page.tsx" },
+  { match: /\b(checkout|kassa)\b/i, path: "/kassa", name: "Kassa", intent: "Complete the purchase flow. File: app/kassa/page.tsx" },
 ];
 
 const APP_ROUTE_PATTERNS: Array<{
@@ -259,8 +259,8 @@ function collectExplicitRouteRemovals(
 const EXPLICIT_ADD_ROUTE_PATTERNS = [
   /\b(?:add|create|make)\b[\s\S]{0,32}\b(?:new\s+)?(?:page|route)\b/i,
   /\b(?:new\s+)(?:page|route)\b/i,
-  /\b(?:lägg till|skapa)\b[\s\S]{0,32}\b(?:en\s+ny\s+|ny\s+)?(?:sida|route)\b/i,
-  /\b(?:ny\s+)(?:sida|route)\b/i,
+  /\b(?:lägg till|skapa)\b[\s\S]{0,32}\b(?:en\s+ny\s+|ny\s+)?(?:\w*sida|route)\b/i,
+  /\b(?:ny\s+)(?:\w*sida|route)\b/i,
 ];
 
 function hasExplicitAddRouteIntent(prompt: string): boolean {
@@ -322,23 +322,23 @@ function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: Scaff
   switch (resolvedScaffold?.family) {
     case "blog":
       pushRoute(routes, {
-        path: "/blog",
-        name: "Blog",
-        intent: "Keep an editorial route for articles and archives.",
+        path: "/blogg",
+        name: "Blogg",
+        intent: "Keep an editorial route for articles and archives. File: app/blogg/page.tsx",
         required: buildIntent !== "app",
       });
       break;
     case "ecommerce":
       pushRoute(routes, {
-        path: "/products",
-        name: "Products",
-        intent: "Keep a storefront route for the product catalog.",
+        path: "/produkter",
+        name: "Produkter",
+        intent: "Keep a storefront route for the product catalog. File: app/produkter/page.tsx",
         required: true,
       });
       pushRoute(routes, {
-        path: "/cart",
-        name: "Cart",
-        intent: "Keep a cart route for purchase flow continuity.",
+        path: "/varukorg",
+        name: "Varukorg",
+        intent: "Keep a cart route for purchase flow continuity. File: app/varukorg/page.tsx",
         required: false,
       });
       break;

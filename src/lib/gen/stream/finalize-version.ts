@@ -179,12 +179,12 @@ function createFinalizeStepTelemetry(
 }
 
 function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number {
-  if (!buildSpec) return 4;
+  if (!buildSpec) return 20;
   if (
     buildSpec.previewPolicy === "fidelity3" ||
     buildSpec.qualityTarget === "release-candidate"
   ) {
-    return 6;
+    return 25;
   }
   if (
     buildSpec.qualityTarget !== "standard" ||
@@ -192,9 +192,9 @@ function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number 
     buildSpec.contextPolicy === "heavy" ||
     buildSpec.changeScope === "integration"
   ) {
-    return 5;
+    return 22;
   }
-  return 4;
+  return 20;
 }
 
 function resolveVerifierPassPolicy(params: {

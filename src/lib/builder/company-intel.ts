@@ -186,14 +186,35 @@ async function lookupViaBraveSearch(
   return parseAllabolagPage(await companyRes.text(), companyName);
 }
 
+function namesResemble(a: string, b: string): boolean {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\s*(ab|hb|kb|ek\.?\s*för\.?|handelsbolag|aktiebolag)\s*/gi, "")
+      .replace(/[^a-zåäö0-9]/g, "")
+      .trim();
+  const na = norm(a);
+  const nb = norm(b);
+  if (!na || !nb) return false;
+  return na.includes(nb) || nb.includes(na);
+}
+
 async function lookupAllabolag(
   companyName: string,
 ): Promise<CompanyLookupResult> {
   try {
-    return await lookupViaCheerio(companyName);
+    const result = await lookupViaCheerio(companyName);
+    if (result.found && result.companyName && !namesResemble(result.companyName, companyName)) {
+      return { found: false, source: "none" };
+    }
+    return result;
   } catch {
     try {
-      return await lookupViaBraveSearch(companyName);
+      const result = await lookupViaBraveSearch(companyName);
+      if (result.found && result.companyName && !namesResemble(result.companyName, companyName)) {
+        return { found: false, source: "none" };
+      }
+      return result;
     } catch {
       return { found: false, source: "none" };
     }
@@ -332,27 +353,41 @@ export interface CollectCompanyIntelOptions {
   documentTexts?: string[];
 }
 
+/**
+ * Extracts a likely company name from a page title by stripping common
+ * suffixes like " | Startsida", " - Hem", " – Välkommen" etc.
+ */
+function extractCompanyNameFromTitle(title: string): string {
+  if (!title) return "";
+  let clean = title
+    .replace(/\s*[|–—-]\s*(Startsida|Hem|Välkommen|Home|Start|Framsida).*$/i, "")
+    .replace(/\s*[|–—-]\s*$/, "")
+    .trim();
+  if (clean.length > 60) clean = clean.slice(0, 60);
+  return clean;
+}
+
 export async function collectCompanyIntel(
   opts: CollectCompanyIntelOptions,
 ): Promise<CompanyIntelResult> {
   const { url, documentTexts } = opts;
-  const companyName =
-    opts.companyName || extractCompanyNameFromUrl(url);
 
-  const [scrapeResult, braveResults, registryResult] =
+  const scrapeResult = await scrapeWebsite(url).catch(() => null);
+  const scraped = scrapeResult ? websiteContentToScraped(scrapeResult) : null;
+
+  const companyName =
+    opts.companyName ||
+    (scraped?.title ? extractCompanyNameFromTitle(scraped.title) : "") ||
+    extractCompanyNameFromUrl(url);
+
+  const [braveResults, registryResult] =
     await Promise.allSettled([
-      scrapeWebsite(url),
       braveWebSearch(
         `"${companyName}" site:linkedin.com OR site:instagram.com OR nyheter`,
         10,
       ),
       companyName ? lookupAllabolag(companyName) : Promise.resolve(null),
     ]);
-
-  const scraped =
-    scrapeResult.status === "fulfilled"
-      ? websiteContentToScraped(scrapeResult.value)
-      : null;
 
   const braveHits =
     braveResults.status === "fulfilled" ? braveResults.value : [];

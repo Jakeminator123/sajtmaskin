@@ -1,0 +1,49 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — SCAFFOLD & MATCHER
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+The registry, types, scaffold-embedding-locale.ts, and scaffold-hint.ts label maps are largely coherent with the 17-family model, but semantic search is only as complete as scaffold-embeddings.json (parity tests explicitly allow missing rows). Keyword matching uses strict Unicode word boundaries, which systematically under-matches Swedish compounds and definite forms, so industry scaffolds and tests that assume older landing-page defaults may disagree with the current content-site-first website fallback.
+
+## Findings
+
+### 1. Embedding index incomplete vs registry [SEVERITY: warning]
+File(s): src/lib/gen/scaffolds/scaffold-embeddings.json, scaffold-embeddings-parity.test.ts, scaffold-search.ts
+Issue: scaffold-search.ts scores only scaffold IDs present in the loaded JSON. Parity test warns on missing IDs but does not fail; any family not embedded never appears in semantic results.
+Suggestion: Regenerate embeddings for all registered scaffolds and tighten parity test to fail on missing IDs when CI has a stable key.
+
+### 2. Swedish morphology vs countKeywordMatches [SEVERITY: warning]
+File(s): src/lib/gen/scaffolds/matcher.ts
+Issue: Matching uses strict word boundaries. Inflected or compound forms often score zero (e.g. "restaurangen" vs "restaurang", "konsultbolag" vs "konsult").
+Suggestion: Add stem-like aliases, normalize common Swedish suffixes, or use substring scoring for curated domain roots; add regression tests.
+
+### 3. Unit tests vs content-site default [SEVERITY: warning]
+File(s): src/lib/gen/scaffolds/matcher.test.ts
+Issue: Tests still expect landing-page for generic company/consult prompts but matchScaffold now returns content-site.
+Suggestion: Re-run tests and update expectations to match current logic.
+
+### 4. Variant selection untested [SEVERITY: info]
+File(s): src/lib/gen/scaffolds/matcher.ts (selectVariant)
+Issue: No describe("selectVariant") in matcher.test.ts. Edge cases: no variants, all scores 0, ties.
+Suggestion: Add unit tests for content-site variants and tie-breaking.
+
+### 5. Unused hint API exports [SEVERITY: info]
+File(s): src/lib/builder/scaffold-hint.ts
+Issue: resolveScaffoldHint and resolveScaffoldHintFromIds have no in-repo callers; only resolveScaffoldHintFromLabels is used.
+Suggestion: Remove dead exports or wire superFamily into matcher logic.
+
+### 6. applyBriefKeywordBoost omits industry families [SEVERITY: info]
+File(s): src/lib/gen/scaffolds/matcher.ts
+Issue: Brief-derived boosts cover auth, ecommerce, dashboard etc. but not restaurant/salon/tradesman/professional/local-retail.
+Suggestion: Extend boosts or verify end-to-end behavior.
+
+## Quick wins
+- Regenerate scaffold-embeddings.json for all 17 families
+- Update matcher.test.ts expectations for content-site default
+- Add selectVariant tests
+
+## Larger refactors
+- Morphology-aware Swedish token normalization
+- Unify keyword lists to reduce drift and double-counting
+- Decide whether superFamily should affect matchScaffoldAuto

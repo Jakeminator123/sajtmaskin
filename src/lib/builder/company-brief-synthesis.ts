@@ -207,8 +207,8 @@ VIKTIGA REGLER:
 1. Sektionernas "suggestedContent" ska vara FAKTISK text — inte instruktioner. Skriv riktiga rubriker, riktiga brödtexter, riktiga tjänstebeskrivningar baserat på den information du har.
 2. Om en logo hittats (bilder i scrape), ange "hasLogo": true och instruera att BARA visa logon i header, INTE skriva företagsnamnet som text bredvid.
 3. Skriv på SVENSKA om inte annat framgår av materialet.
-4. Var säljande men sanningsenlig — hitta inte på tjänster eller produkter som inte framgår av materialet.
-5. Om information saknas för en sektion, skriv generisk men passande text för branschen.
+4. ABSOLUT FÖRBJUDET att hitta på: företagsnamn, adresser, telefonnummer, e-postadresser, org.nr, VD-namn, omsättningssiffror, antal anställda, eller kundcitat. Använd ENBART data som finns i den insamlade informationen ovan.
+5. Om en uppgift saknas (t.ex. telefonnummer), skriv INTE ett påhittat nummer — utelämna den uppgiften eller skriv "[Telefonnummer]" som platshållare.
 6. Inkludera bara sidor som behövs, men VARJE sida ska ha MINST 3-4 sektioner med verkligt innehåll.
 
 REGLER FÖR INNEHÅLLSDENSITET (KRITISKT):
@@ -222,10 +222,13 @@ REGLER FÖR SMART INNEHÅLLSPLACERING:
 12. Hero: ETT starkt budskap + CTA. Använd oneSentencePitch som utgångspunkt.
 13. Om oss: Omskriven, professionell text (5-8 meningar) baserat på skrapad info + bolagsdata. INTE kopierad rakt av.
 14. Tjänster/Produkter: Strukturerat med individuella kort/bullets. Varje tjänst ska ha namn + 1-2 meningars beskrivning. MINST 3 tjänster.
-15. Kontakt: Komplett med adress, telefon, e-post. Inkludera Google Maps-hint om stad finns.
-16. Socialt bevis / omdömen: Inkludera ALLTID en sektion för detta. Om inga riktiga citat finns, skriv trovärdiga exempel.
-17. Footer: Alltid inkludera kontaktinfo + sociala medialänkar.
-18. Navigation: Enkel, flat navigation. Max 5-6 menypunkter. Skapa INTE sidor som bara har en hero — det ger döda ytor.
+15. Kontakt: Använd ENBART kontaktuppgifter som finns i den insamlade datan. Skriv INTE påhittade telefonnummer eller adresser. Om uppgifter saknas, använd platshållare: "[Telefonnummer]", "[E-post]", "[Adress]".
+16. Socialt bevis / omdömen: Om riktiga kundcitat finns i materialet, använd dem. Om inga finns, utelämna sektionen eller skriv "Kundrecensioner kommer snart" — hitta INTE PÅ citat.
+17. Footer: Inkludera kontaktinfo + sociala medialänkar som faktiskt hittats.
+18. Navigation: Enkel, flat navigation. Max 5-6 menypunkter.
+
+VALIDERING AV FÖRETAGSNAMN (KRITISKT):
+19. "brandName" MÅSTE vara det exakta företagsnamnet som framgår av den insamlade informationen. Gissa INTE — om inget tydligt namn hittas, använd domännamnet som det ser ut.
 
 Returnera BARA JSON-objektet, inget annat.`);
 

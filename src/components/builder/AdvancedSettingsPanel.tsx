@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MODEL_TIER_OPTIONS, getDefaultCustomInstructions, isDefaultCustomInstructions } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
@@ -46,14 +46,16 @@ function FieldHint({ field }: { field: string }) {
   const hint = FIELD_HINTS[field];
   if (!hint) return null;
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <HelpCircle className="h-3 w-3 shrink-0 cursor-help text-muted-foreground/40 transition-colors hover:text-muted-foreground" />
-      </TooltipTrigger>
-      <TooltipContent side="right" className="max-w-[200px] text-xs">
-        {hint}
-      </TooltipContent>
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="h-3 w-3 shrink-0 cursor-help text-muted-foreground/40 transition-colors hover:text-muted-foreground" />
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[200px] text-xs">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

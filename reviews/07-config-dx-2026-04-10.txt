@@ -1,0 +1,50 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — CONFIG, ENV & DX
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+Env policy and Zod serverSchema are supplemented by extraKnownKeys and runtime-only keys, but several paths are inconsistent: manage_env.py uses wrong filesystem roots, committed .env.example is absent, and prompt-static README conflicts with manifest.
+
+## Findings
+
+### 1. manage_env.py resolves repo paths incorrectly [SEVERITY: critical]
+File(s): scripts/env/manage_env.py
+Issue: SCRIPT_DIR is scripts/env/ but config paths are built relative to it instead of repo root. load_policy() returns empty when file missing.
+Suggestion: Resolve REPO_ROOT as two parents up; add sanity check.
+
+### 2. No committed .env.example at repo root [SEVERITY: warning]
+File(s): .gitignore
+Issue: No .env.example found. New contributors have no template.
+Suggestion: Add repo-root .env.example with commented keys (no secrets).
+
+### 3. prompt-static README contradicts manifest [SEVERITY: warning]
+File(s): config/prompt-static/_READ_ME_FIRST.md, config/codegen-static-prompt.json
+Issue: README says no separate 12-follow-up-messages.md exists, but manifest includes it.
+Suggestion: Update README to match reality.
+
+### 4. env-policy gaps vs serverSchema [SEVERITY: warning]
+File(s): config/env-policy.json, src/lib/env.ts
+Issue: Builder inspector flags and dev-only flags missing from env-policy.json.
+Suggestion: Extend policy for audit consistency.
+
+### 5. serverSchema is not all env reads [SEVERITY: info]
+File(s): docs/ENV.md, src/lib/env.ts
+Issue: Many orchestration keys use process.env directly without Zod validation.
+Suggestion: Document two tiers: startup-validated vs runtime-read.
+
+### 6. No Prettier or env audit in CI [SEVERITY: info]
+File(s): .github/workflows/ci.yml
+Issue: CI runs typecheck, lint, test, build but not format:check or env audit.
+Suggestion: Add format:check; run env audit in release workflow.
+
+## Quick wins
+- Fix REPO_ROOT in manage_env.py
+- Update _READ_ME_FIRST.md to match fragment 12
+- Add missing flags to env-policy.json
+- Add minimal .env.example
+
+## Larger refactors
+- Reconcile Zod-validated env vs manifest-driven process.env
+- Trim v0-related branches in manage_env.py
+- Optional: Prettier in CI, separate tsconfig for e2e

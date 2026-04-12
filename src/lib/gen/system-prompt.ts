@@ -40,6 +40,7 @@ import {
   estimateTokens,
   type PromptBudgetBlock,
 } from "./tokens";
+import type { TemplateReferenceContext } from "./template-reference-types";
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -176,6 +177,7 @@ export interface DynamicContextOptions {
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
+  templateReferences?: TemplateReferenceContext[];
 }
 
 function str(v: unknown): string {
@@ -186,8 +188,86 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
 
-const DEFAULT_REFS_BUDGET_TOKENS = 12_500;
-const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 50_000;
+const DEFAULT_REFS_BUDGET_TOKENS = 3_750;
+const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 30_000;
+
+function dedup(items: string[]): string[] {
+  return Array.from(new Set(items.map((s) => s.trim()).filter(Boolean)));
+}
+
+function renderTemplateReferenceModules(
+  refs: TemplateReferenceContext[],
+  budgetTokens: number,
+): string[] {
+  if (refs.length === 0) return [];
+
+  const parts: string[] = [
+    "## Template Reference Modules",
+    "",
+    "Use the following real-world template patterns as building blocks. " +
+      "Adapt them to match the user's brand, content, and scaffold structure. " +
+      "Do NOT copy verbatim — rewrite component names, styles, and content to fit the project.",
+    "",
+  ];
+
+  const allStyleRules = dedup(refs.flatMap((r) => r.guidance.styleRules));
+  const allSections = dedup(refs.flatMap((r) => r.guidance.sectionInventory));
+  const allAvoid = dedup(refs.flatMap((r) => r.guidance.avoidPatterns));
+  const allRubric = dedup(refs.flatMap((r) => r.guidance.worldClassRubric));
+
+  parts.push(`### Design Guidelines (from ${refs.length} matched templates)`, "");
+
+  if (allStyleRules.length > 0) {
+    parts.push("**Style rules:**");
+    parts.push(...allStyleRules.slice(0, 6).map((r) => `- ${r}`));
+    parts.push("");
+  }
+  if (allSections.length > 0) {
+    parts.push("**Section patterns to include:**");
+    parts.push(...allSections.slice(0, 8).map((s) => `- ${s}`));
+    parts.push("");
+  }
+  if (allAvoid.length > 0) {
+    parts.push("**Patterns to avoid:**");
+    parts.push(...allAvoid.slice(0, 5).map((a) => `- ${a}`));
+    parts.push("");
+  }
+  if (allRubric.length > 0) {
+    parts.push("**Quality rubric:**");
+    parts.push(...allRubric.slice(0, 5).map((r) => `- ${r}`));
+    parts.push("");
+  }
+
+  let usedTokens = estimateTokens(parts.join("\n"));
+  const codeRefBudget = Math.max(0, budgetTokens - usedTokens);
+  if (codeRefBudget < 200) return parts;
+
+  let codeTokensUsed = 0;
+  const topRefs = refs.slice(0, 3);
+
+  for (const ref of topRefs) {
+    if (ref.codeExcerpts.length === 0) continue;
+    if (codeTokensUsed >= codeRefBudget) break;
+
+    const headerLine = `### Code Reference: ${ref.title} (score ${ref.qualityScore})`;
+    const headerTokens = estimateTokens(headerLine);
+    if (codeTokensUsed + headerTokens >= codeRefBudget) break;
+
+    parts.push(headerLine, "");
+    codeTokensUsed += headerTokens;
+
+    for (const excerpt of ref.codeExcerpts) {
+      const block = `\`\`\`tsx\n// ${excerpt.path}\n${excerpt.excerpt}\n\`\`\``;
+      const blockTokens = estimateTokens(block);
+      if (codeTokensUsed + blockTokens > codeRefBudget && codeTokensUsed > 0) break;
+
+      parts.push(block, "");
+      codeTokensUsed += blockTokens;
+    }
+  }
+
+  return parts;
+}
 
 const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   match: RegExp;
@@ -203,8 +283,9 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
-  { match: /^media catalog$/i, priority: 80 },
-  { match: /^visual identity$/i, priority: 78 },
+  { match: /^template reference modules$/i, priority: 80 },
+  { match: /^media catalog$/i, priority: 78 },
+  { match: /^visual identity$/i, priority: 76 },
   { match: /^design references$/i, priority: 72 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
@@ -215,6 +296,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^component palette$/i, priority: 72 },
   { match: /^spec file$/i, priority: 78 },
   { match: /^current project files$/i, priority: 80 },
+  { match: /^import rules$/i, priority: 85, required: true },
+  { match: /^known pitfalls$/i, priority: 84, required: true },
   { match: /^imagery/i, priority: 66 },
   { match: /^seo$/i, priority: 62 },
 ];
@@ -336,6 +419,7 @@ export async function buildDynamicContext(
     customInstructions,
     generationMode,
     buildSpec,
+    templateReferences,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -443,6 +527,75 @@ export async function buildDynamicContext(
     }
   }
 
+  // ── Template Reference Modules ───────────────────────────────────────
+  if (templateReferences && templateReferences.length > 0 && !isFollowUp) {
+    const refsBudget = Math.max(
+      450,
+      buildSpec?.tokenBudgets.refsTokens ?? DEFAULT_REFS_BUDGET_TOKENS,
+    );
+    const templateParts = renderTemplateReferenceModules(templateReferences, refsBudget);
+    if (templateParts.length > 0) {
+      parts.push(...templateParts);
+    }
+  }
+
+  // ── Import Rules ───────────────────────────────────────────────────────
+  if (!isFollowUp) {
+    parts.push(
+      "## Import Rules",
+      "",
+      "- Always use `@/components/ui/<component>` for shadcn imports (e.g. `@/components/ui/button`, `@/components/ui/card`).",
+      "- Never nest an `import` statement inside an unclosed `import { ... }` block. Each import must be a complete, self-contained statement.",
+      "- Never emit more than one `export default` in a single file.",
+      "- Use exact lucide-react icon names from the installed palette (e.g. `ChevronRight`, not `ChevronRightIcon`).",
+      "- Always close import specifier blocks before starting a new import: `import { A } from \"a\"; import { B } from \"b\";`",
+      "",
+    );
+  }
+
+  // ── Known Pitfalls ─────────────────────────────────────────────────────
+  if (!isFollowUp) {
+    parts.push(
+      "## Known Pitfalls",
+      "",
+      "NEVER do this (nested/broken import):",
+      "```",
+      "import {",
+      "  useState,",
+      "  useEffect,",
+      "import { Button } from \"@/components/ui/button\"",
+      "```",
+      "ALWAYS do this (each import complete):",
+      "```",
+      "import { useState, useEffect } from \"react\";",
+      "import { Button } from \"@/components/ui/button\";",
+      "```",
+      "",
+      "NEVER: two `export default` in the same file.",
+      "ALWAYS: one `export default` per file, at the bottom.",
+      "",
+      "ALWAYS: include a `package.json` with correct dependency versions.",
+      "",
+      "## CRITICAL: No Placeholder Content",
+      "",
+      "NEVER output bracket placeholders like `[Rubrik]`, `[Kort beskrivning]`, `[Fördel 1]`, `[CTA]`, `[Företagsnamn]`.",
+      "NEVER output generic labels like \"Feature 1\", \"Service 1\", \"Category 1\", \"Benefit 1\".",
+      "NEVER output wireframe-style content. Every heading, paragraph, button, and card must contain REAL, SPECIFIC content.",
+      "",
+      "The user has provided business details in their message. USE THEM:",
+      "- Company name → in header, footer, hero, metadata, contact page",
+      "- Services/products → in service cards, feature sections, pricing",
+      "- Contact info (phone, email, address) → in footer and contact page",
+      "- USPs/strengths → in hero subtext, about page, trust section",
+      "- Testimonials → in social proof section with real quotes",
+      "",
+      "If specific details are missing, INVENT realistic Swedish content that fits the business type.",
+      "A CBD skincare brand should have ingredient descriptions, skin care routines, product benefits.",
+      "A restaurant should have dish names, prices, opening hours. NEVER use brackets or generic labels.",
+      "",
+    );
+  }
+
   if (routePlan && routePlan.routes.length > 0) {
     parts.push(
       "## Route Plan",
@@ -461,8 +614,27 @@ export async function buildDynamicContext(
     if (routePlan.routes.length > 1) {
       parts.push(
         "",
-        "- CRITICAL: Create a real `app/<slug>/page.tsx` file for EVERY route listed above. Do not collapse them into one page.",
-        "- Navigation `<Link href>` values MUST exactly match the route plan paths above. Never invent different slugs.",
+        "### MANDATORY — Multi-Page File Generation",
+        "",
+        "You MUST create a separate `app/<slug>/page.tsx` file for **every** route listed above.",
+        "This is the single most important rule for multi-page sites. A missing page file = a 404 error for the user.",
+        "",
+        "Checklist (verify before finishing):",
+      );
+      for (const route of routePlan.routes.slice(0, 10)) {
+        if (route.path === "/") {
+          parts.push(`  - [ ] \`app/page.tsx\` exists (Home)`);
+        } else {
+          const slug = route.path.replace(/^\//, "");
+          parts.push(`  - [ ] \`app/${slug}/page.tsx\` exists (${route.name})`);
+        }
+      }
+      parts.push(
+        "",
+        "- Navigation `<Link href>` values MUST exactly match the route plan paths above.",
+        "- NEVER add a nav link to a page you did not create a file for.",
+        "- NEVER collapse multiple pages into one single-page layout with anchor links unless explicitly asked.",
+        "- Each page should have real, meaningful Swedish content — not just a heading and one line.",
       );
     } else {
       parts.push("", "- Only one route is planned. If the prompt describes additional pages or sections that should be separate routes, create them as real App Router page files.");
@@ -620,12 +792,15 @@ export async function buildDynamicContext(
   }
 
   if (designReferences && designReferences.length > 0) {
+    const hasContentImages = designReferences.some((r) => r.note?.includes("CONTENT IMAGE") || r.note?.includes("EXACT URL"));
     parts.push(
-      "## Design References",
+      "## Design References & User Images",
       "",
-      "- Use attached design references as visual direction, not as an excuse to produce a flat screenshot clone.",
-      "- Read references in this order: (1) structure and hierarchy, (2) spacing rhythm and alignment, (3) component vocabulary, (4) finishing details such as texture, glow, shadows, and gradients.",
-      "- Preserve the strongest layout ideas from the references, but still produce clean React/Tailwind code with reusable sections and accessible markup.",
+      "- If a reference is marked as a CONTENT IMAGE or includes an EXACT URL, you MUST use that URL directly in an `<img src=\"...\">` tag. Do NOT replace it with a placeholder like `/placeholder.svg`.",
+      "- For style/composition references: extract visual direction (layout, spacing, color, typography) but do not produce a flat clone.",
+      hasContentImages
+        ? "- CRITICAL: User-uploaded images with URLs must appear in the generated site using their exact URLs."
+        : "- Read references in this order: (1) structure and hierarchy, (2) spacing rhythm, (3) component vocabulary, (4) finishing details.",
     );
     for (const reference of designReferences.slice(0, 6)) {
       const note = reference.note ? ` — ${reference.note}` : "";

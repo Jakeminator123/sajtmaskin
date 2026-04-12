@@ -1,0 +1,50 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — BUILDER UI & STATE
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+Builder state is centralized in useBuilderState and composed in useBuilderPageController into an enormous view model. Architecture is coherent but surface area and re-render coupling are high. IntakeWizard skip path bypasses validation, and FloatingChatBox has an effect loop.
+
+## Findings
+
+### 1. Monolithic view model causes full-shell re-renders [SEVERITY: warning]
+File(s): src/app/builder/useBuilderPageController.ts, page.tsx, BuilderShellContent.tsx
+Issue: Controller returns 40+ fields; page.tsx spreads entire object as props. Any identity change forces full shell reconciliation.
+Suggestion: Split into focused contexts (ChatContext, PreviewContext, DeployContext).
+
+### 2. useBuilderState mixes unrelated domains [SEVERITY: warning]
+File(s): src/app/builder/useBuilderState.ts
+Issue: One hook owns URL params, chat, preview, deploy, scaffold, design, model tier, and multiple refs.
+Suggestion: Extract cohesive slices: useBuilderEntryState, useBuilderPreviewSessionState, etc.
+
+### 3. IntakeWizard skip bypasses validation [SEVERITY: warning]
+File(s): src/components/builder/IntakeWizard.tsx
+Issue: "Hoppa over" calls goNext without checking canContinue. Users can skip required steps.
+Suggestion: Only show skip on explicitly optional steps, or validate on final submit.
+
+### 4. IntakeWizard accessibility gaps [SEVERITY: warning]
+File(s): src/components/builder/IntakeWizard.tsx
+Issue: Portal overlay lacks role=dialog, aria-modal, focus trap, and aria-pressed on chip buttons.
+Suggestion: Add dialog semantics and focus management.
+
+### 5. FloatingChatBox effect runs every render [SEVERITY: warning]
+File(s): src/components/builder/FloatingChatBox.tsx
+Issue: Effect has no dependency array, causing forced re-renders until position initializes.
+Suggestion: Use useLayoutEffect with proper deps or mount-only.
+
+### 6. cancelActiveGeneration not wired in main chrome [SEVERITY: info]
+File(s): src/app/builder/useBuilderPageController.ts, BuilderShellContent.tsx
+Issue: VM exposes cancel but shell does not reference it. Users may lack visible cancel.
+Suggestion: Wire to header or remove from VM surface.
+
+## Quick wins
+- Fix FloatingChatBox effect dependency
+- Add role=dialog + aria-modal to wizard portal
+- Change skip to respect canContinue or mark steps optional
+- Toast on MessageList quick-reply failure
+
+## Larger refactors
+- Split useBuilderState into domain hooks
+- Split BuilderViewModel into context providers
+- Virtualize MessageList for long transcripts

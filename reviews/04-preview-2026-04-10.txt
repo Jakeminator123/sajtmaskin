@@ -1,0 +1,38 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — PREVIEW & DEPLOY
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+Tier-2 preview centers on startPreviewSession via Fly, with Redis-backed session reuse, explicit destroy on user clear, and client bootstrap/recovery. Legacy shim remains for old URLs. Gaps: heartbeat doesn't validate VM health, preview-status doesn't clear stale sessions, and live SSE done handling misses sandboxPending.
+
+## Findings
+
+### 1. Heartbeat extends TTL without proving VM is alive [SEVERITY: warning]
+File(s): src/app/api/engine/chats/[chatId]/preview-heartbeat/route.ts
+Issue: POST only checks Redis session, not actual Fly VM health. Dead VM gets refreshed TTL.
+Suggestion: Reconcile heartbeat with lightweight host ping.
+
+### 2. preview-status does not clear stale sessions [SEVERITY: warning]
+File(s): src/app/api/engine/chats/[chatId]/preview-status/route.ts
+Issue: Reports stopped but does not clear local+Redis session on confirmed unreachable.
+Suggestion: Clear session on permanent failure.
+
+### 3. Live stream done ignores legacy sandboxPending [SEVERITY: warning]
+File(s): src/lib/hooks/chat/stream-handlers.ts
+Issue: Live handler only reads previewPending, not sandboxPending. Sync path reads both.
+Suggestion: OR sandboxPending into setPreviewPending for parity.
+
+### 4. No automatic destroy on browser exit [SEVERITY: warning]
+File(s): src/components/builder/preview-panel/hooks/usePreviewHeartbeat.ts
+Issue: pagehide calls hibernate, not destroy. Relies on Fly/Redis TTL for cleanup.
+Suggestion: Document as policy; consider destroy on pagehide for cost control.
+
+## Quick wins
+- OR sandboxPending into stream handler done case
+- Clear session on confirmed unreachable in preview-status
+- Remove unused shimUrl: null from AlternatePreviewUrls
+
+## Larger refactors
+- Unify sandbox naming to preview/VM across Redis, types, DB
+- Single session health subsystem (heartbeat + status + destroy)

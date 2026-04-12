@@ -638,6 +638,28 @@ function validateImports(code: string): string[] {
   return warnings;
 }
 
+function fixDuplicateDefaultExport(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const lines = code.split("\n");
+  const defaultExportIndices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^export\s+default\s/.test(lines[i].trim())) {
+      defaultExportIndices.push(i);
+    }
+  }
+  if (defaultExportIndices.length <= 1) return { code, fixes: [] };
+
+  const toRemove = new Set(defaultExportIndices.slice(0, -1));
+  const filtered = lines.filter((_, i) => !toRemove.has(i));
+  return {
+    code: filtered.join("\n"),
+    fixes: [{
+      type: "import-validator" as const,
+      file: "",
+      description: `Removed ${toRemove.size} duplicate 'export default' (kept last)`,
+    }],
+  };
+}
+
 export function runImportValidator(code: string): {
   code: string;
   fixes: AutoFixEntry[];
@@ -648,8 +670,9 @@ export function runImportValidator(code: string): {
   const lucide = fixLucideImports(shadcn.code);
   const radix = fixRadixImports(lucide.code);
   const slot = fixRadixSlotUsage(radix.code);
-  const missing = detectMissingImports(slot.code);
-  const fixes = [...nested.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes];
+  const dupExport = fixDuplicateDefaultExport(slot.code);
+  const missing = detectMissingImports(dupExport.code);
+  const fixes = [...nested.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...dupExport.fixes, ...missing.fixes];
   const warnings = validateImports(missing.code);
   return { code: missing.code, fixes, warnings };
 }

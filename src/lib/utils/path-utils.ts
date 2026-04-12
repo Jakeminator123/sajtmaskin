@@ -12,6 +12,14 @@
 import path from "path";
 
 /**
+ * Normalize a file path to forward slashes for consistent log output
+ * across Windows and Unix.
+ */
+export function toPosixLog(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
+/**
  * Sanitize a project file path to prevent directory traversal attacks.
  *
  * @param p - The raw file path from user input or AI response

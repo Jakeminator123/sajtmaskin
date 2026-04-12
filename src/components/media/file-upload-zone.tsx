@@ -507,6 +507,7 @@ export function filesToPromptText(files: UploadedFile[]): string {
     return "";
   }
 
+  const logoPattern = /\b(logo|logotyp|logga|varumärke|brand)\b/i;
   const lines = successFiles.map((file, index) => {
     const purpose = file.purpose ? ` (${file.purpose})` : "";
     const label = file.mimeType.startsWith("image/")
@@ -514,22 +515,30 @@ export function filesToPromptText(files: UploadedFile[]): string {
       : file.mimeType === "application/pdf"
         ? "PDF"
         : "Fil";
-    // URL should already be a full public URL from Vercel Blob
-    // Only add base URL as fallback for legacy local URLs
     const fullUrl = file.url.startsWith("http")
       ? file.url
       : `${typeof window !== "undefined" ? window.location.origin : ""}${file.url}`;
-    return `- ${label} ${index + 1}${purpose}: ${fullUrl}`;
+    const isLogo = logoPattern.test(file.purpose || "") || logoPattern.test(file.filename || "");
+    const placement = isLogo
+      ? " → LOGOTYP: Placera i header (navbar), footer och kontaktsidan. Använd denna EXAKTA URL."
+      : "";
+    return `- ${label} ${index + 1}${purpose}: ${fullUrl}${placement}`;
   });
 
+  const hasLogo = successFiles.some(
+    (f) => logoPattern.test(f.purpose || "") || logoPattern.test(f.filename || ""),
+  );
   const hasNonImages = successFiles.some((file) => !file.mimeType.startsWith("image/"));
   const usageHint = hasNonImages
     ? 'Använd bild-URLs i <img src="...">. PDF: använd som referens för innehåll.'
-    : 'Använd dessa EXAKTA URLs i <img src="..."> taggar.';
+    : 'Använd dessa EXAKTA URLs i <img src="..."> taggar. ERSÄTT INTE med placeholder-bilder.';
+  const logoHint = hasLogo
+    ? "\nLOGOTYP-REGEL: Filer markerade som logotyp MÅSTE visas i site header/navbar, footer och på kontaktsidan. Använd den exakta URL:en i en <img> tagg med lämplig storlek (t.ex. h-8 till h-12 i headern)."
+    : "";
 
   return `\n\nVIKTIGT: Använd följande uppladdade filer i designen (publika URLs som fungerar i preview):\n${lines.join(
     "\n",
-  )}\n\n${usageHint}`;
+  )}\n\n${usageHint}${logoHint}`;
 }
 
 /**

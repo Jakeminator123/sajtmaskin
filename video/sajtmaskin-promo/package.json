@@ -1,0 +1,20 @@
+{
+  "name": "sajtmaskin-promo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx remotion studio",
+    "render": "npx remotion render SajtmaskinPromo out/sajtmaskin-promo.mp4",
+    "render:hero": "npx remotion render SajtmaskinHeroLoop out/sajtmaskin-hero-loop.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "latest",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

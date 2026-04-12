@@ -60,6 +60,13 @@ Choose the layout approach that best serves the site's subject and atmosphere. T
 - Icons next to text should be consistently sized (`h-5 w-5`) and colored (`text-primary` or `text-muted-foreground`).
 - Use subtle atmosphere when it fits: grain overlays, masked gradients, glass blur, glows, spotlight vignettes, or soft noise. Keep it cohesive with the site's subject, not as decoration for its own sake.
 
+## Text Overflow Prevention
+
+- ALWAYS use `overflow-hidden` or `overflow-x-hidden` on card containers and fixed-width elements.
+- Long text: use `truncate` (single line), `line-clamp-2`/`line-clamp-3` (multi-line), or `break-words` to prevent text from exceeding container boundaries.
+- Badge and tag text: always `truncate` or `max-w-[...]` to prevent breaking layouts.
+- Test your mental model: if a container has a fixed width, ensure no child text can overflow it.
+
 ## Layout Variety
 
 Every generated page must feel visually unique. The site's subject matter should drive layout decisions — not a fixed formula.

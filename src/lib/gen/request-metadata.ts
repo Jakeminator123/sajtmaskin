@@ -187,10 +187,30 @@ export function summarizeDesignReferences(
       };
     }
 
+    const isLogo = /\b(logo|logotyp|logga|brand|varumärke)\b/i.test(
+      `${attachment.purpose || ""} ${attachment.filename || ""}`,
+    );
+
+    if (isLogo) {
+      return {
+        kind: "image",
+        label: filename,
+        note: `LOGO — Place this image in the site header/navbar, footer, and contact page using <img src="${attachment.url}">. Size it appropriately (h-8 to h-12 in header). Do NOT replace with text or placeholder.`,
+      };
+    }
+
+    if (attachment.purpose === "user-placement") {
+      return {
+        kind: "image",
+        label: filename,
+        note: `CONTENT IMAGE — The user uploaded this image to be placed directly on the generated website. Use the EXACT URL (${attachment.url}) in an <img> tag. Do NOT replace it with a placeholder.`,
+      };
+    }
+
     return {
       kind: "image",
       label: filename,
-      note: "Use it as a visual reference for composition, style, or UI treatment when relevant.",
+      note: `User-uploaded image. If it looks like a company photo, product image, or logo, use its EXACT URL (${attachment.url}) in <img> tags on the site. Otherwise treat as a visual reference.`,
     };
   });
 }

@@ -1,0 +1,44 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — ORCHESTRATION & PROMPT CHAIN
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+Orchestration correctly fans in scaffold serialization, BuildSpec-driven budgets, and dynamic context, with variant hints appended after scaffold serialization. Main risks: fragment duplication around follow-up rules, dynamic-context pruning that can drop brief must-haves, and variant text bypassing the scaffold char cap.
+
+## Findings
+
+### 1. _READ_ME_FIRST.md contradicts codegen-static-prompt.json [SEVERITY: warning]
+File(s): config/prompt-static/_READ_ME_FIRST.md, config/codegen-static-prompt.json
+Issue: README says there is no separate 12-follow-up-messages.md, but the manifest still lists it.
+Suggestion: Update README or remove the fragment from the manifest.
+
+### 2. Duplicate follow-up instructions (07 vs 12) [SEVERITY: info]
+File(s): config/prompt-static/07-existing-files-do-not-regenerate-unless-explicit.md, config/prompt-static/12-follow-up-messages.md
+Issue: Follow-up bullets in 07 largely repeat 12 verbatim, wasting static prompt token budget.
+Suggestion: Keep one canonical block and replace the other with a cross-reference.
+
+### 3. Variant hints can exceed scaffold char budget [SEVERITY: warning]
+File(s): src/lib/gen/orchestrate.ts
+Issue: serializeScaffoldForPrompt is constrained by scaffoldBudgetChars, but variant lines are appended after serialization.
+Suggestion: Reserve headroom inside the serialize call when variants exist, or run a final trim.
+
+### 4. Must Have / Avoid not marked required in pruning [SEVERITY: warning]
+File(s): src/lib/gen/system-prompt.ts
+Issue: CONTEXT_BLOCK_PRIORITY_RULES does not match Must Have and Avoid headings, so they get priority 60 and required: false. Under budget pressure they can be dropped.
+Suggestion: Add priority rules for these headings with required: true.
+
+### 5. resolveOrchestrationBase edge cases [SEVERITY: warning]
+File(s): src/lib/gen/orchestrate.ts
+Issue: scaffoldMode=manual without scaffoldId falls through to auto, possibly surprising. Invalid manual scaffoldId yields null without alternate branch.
+Suggestion: Document or guard manual-without-id as error.
+
+## Quick wins
+- Fix _READ_ME_FIRST.md to match manifest
+- Add priority rules for Must Have / Avoid dynamic headings
+- Trim duplicate follow-up copy between 07 and 12
+
+## Larger refactors
+- Unify variant + scaffold serialization under a single budget
+- Revisit 4000 char minimum vs light BuildSpec policy
+- Split capability/enhancement into explicit ## blocks

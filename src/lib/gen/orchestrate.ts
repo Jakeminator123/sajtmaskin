@@ -52,6 +52,10 @@ import {
 } from "./generation-input-package";
 import { deriveBuildSpec, type BuildSpec } from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
+import { searchTemplateLibrary, selectTemplateReferenceFiles } from "./template-library/search";
+import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
+export type { TemplateReferenceContext } from "./template-reference-types";
+import type { TemplateReferenceContext } from "./template-reference-types";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -108,6 +112,7 @@ export interface OrchestrationBase {
   preGenerationContracts: PreGenerationContractContext;
   capabilities: InferredCapabilities;
   buildSpec: BuildSpec;
+  templateReferences?: TemplateReferenceContext[];
 }
 
 export interface FinalizedOrchestrationContext {
@@ -204,6 +209,61 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
     },
   );
+}
+
+const TEMPLATE_REF_MAX_FILES = 4;
+const TEMPLATE_REF_MAX_EXCERPT_CHARS = 4_000;
+const TEMPLATE_REF_MAX_TOTAL_CHARS = 8_000;
+const TEMPLATE_REF_TOP_K = 5;
+
+async function resolveTemplateReferences(
+  prompt: string,
+  resolvedScaffold: ScaffoldManifest | null,
+  brief: Record<string, unknown> | null,
+): Promise<TemplateReferenceContext[]> {
+  try {
+    const queryParts = [prompt];
+    if (brief) {
+      const businessType = (brief as { businessType?: unknown }).businessType;
+      if (typeof businessType === "string" && businessType.trim()) {
+        queryParts.push(businessType.trim());
+      }
+      const industry = (brief as { industry?: unknown }).industry;
+      if (typeof industry === "string" && industry.trim()) {
+        queryParts.push(industry.trim());
+      }
+    }
+    if (resolvedScaffold) {
+      queryParts.push(resolvedScaffold.label, resolvedScaffold.description);
+    }
+    const enrichedQuery = queryParts.join(" — ");
+
+    const results = await searchTemplateLibrary(enrichedQuery, TEMPLATE_REF_TOP_K);
+    if (results.length === 0) return [];
+
+    const scaffoldFamily = resolvedScaffold?.family ?? null;
+    let filtered = scaffoldFamily
+      ? results.filter((r) => r.entry.recommendedScaffoldFamilies.includes(scaffoldFamily))
+      : [];
+    if (filtered.length === 0) filtered = results;
+
+    return filtered.map((result) => ({
+      templateId: result.entry.id,
+      title: result.entry.title,
+      categorySlug: result.entry.categorySlug,
+      qualityScore: result.entry.qualityScore,
+      searchScore: result.score,
+      guidance: deriveTemplateRuntimeGuidance(result.entry),
+      codeExcerpts: selectTemplateReferenceFiles(result.entry, {
+        maxFiles: TEMPLATE_REF_MAX_FILES,
+        maxExcerptChars: TEMPLATE_REF_MAX_EXCERPT_CHARS,
+        maxTotalChars: TEMPLATE_REF_MAX_TOTAL_CHARS,
+      }).map((f) => ({ path: f.path, reason: f.reason, excerpt: f.excerpt })),
+    }));
+  } catch (err) {
+    console.warn("[orchestrate] template reference search failed, degrading gracefully", err);
+    return [];
+  }
 }
 
 /**
@@ -315,6 +375,12 @@ export async function resolveOrchestrationBase(
   }
 
   const capabilityHints = buildCapabilityHints(capabilities);
+
+  const templateReferencesPromise =
+    resolvedMode === "init"
+      ? resolveTemplateReferences(prompt, resolvedScaffold, brief)
+      : Promise.resolve([]);
+
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent,
@@ -363,6 +429,8 @@ export async function resolveOrchestrationBase(
     });
   }
 
+  const templateReferences = await templateReferencesPromise;
+
   return {
     resolvedScaffold,
     scaffoldSelection,
@@ -373,6 +441,7 @@ export async function resolveOrchestrationBase(
     preGenerationContracts,
     capabilities,
     buildSpec,
+    templateReferences: templateReferences.length > 0 ? templateReferences : undefined,
   };
 }
 
@@ -414,6 +483,7 @@ export async function finalizeOrchestrationPrompts(
     buildSpec: base.buildSpec,
     customInstructions,
     generationMode: resolvedMode,
+    templateReferences: base.templateReferences,
   };
 
   const dynamic = await buildDynamicContext(dynamicOpts);

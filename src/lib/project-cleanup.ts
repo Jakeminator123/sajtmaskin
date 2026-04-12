@@ -40,12 +40,9 @@ const CLEANUP_CONFIG = {
   // Days before hard-deleting soft-deleted projects
   HARD_DELETE_AFTER_SOFT_DELETE_DAYS: 30,
 
-  // Max projects per anonymous session (prevent abuse)
-  MAX_ANONYMOUS_PROJECTS_PER_SESSION: 20,
+  MAX_ANONYMOUS_PROJECTS_PER_SESSION: 999,
 
-  // Max projects per authenticated user (free tier)
-  // NOTE: User requested max 8 for "personal templates/started projects"
-  MAX_USER_PROJECTS_FREE: 8,
+  MAX_USER_PROJECTS_FREE: 999,
 
   // Max projects per authenticated user (paid)
   MAX_USER_PROJECTS_PAID: 100,
@@ -221,7 +218,7 @@ export async function canCreateProject(
     if (current >= limit) {
       return {
         allowed: false,
-        reason: "Gästkonton kan skapa max 3 projekt. Logga in för att spara fler!",
+        reason: `Gästkonton kan skapa max ${limit} projekt. Logga in för att spara fler!`,
         limit,
         current,
       };

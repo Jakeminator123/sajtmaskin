@@ -4,13 +4,14 @@ import {
   isGenerationLogEnabled,
   writeGenerationLogEntry,
 } from "./generation-log-writer";
+import { toPosixLog } from "@/lib/utils/path-utils";
 
 type DevLogTarget = "in-progress" | "latest";
 type DevLogEntry = Record<string, unknown>;
 
-const ROOT_LOG_DIR = path.join(process.cwd(), "logs");
-const ROOT_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local.log");
-const ROOT_DOC_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt");
+const ROOT_LOG_DIR = toPosixLog(path.join(process.cwd(), "logs"));
+const ROOT_LOG_PATH = toPosixLog(path.join(ROOT_LOG_DIR, "sajtmaskin-local.log"));
+const ROOT_DOC_LOG_PATH = toPosixLog(path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt"));
 const MAX_LOG_CHARS = 1000;
 const DEFAULT_DOC_MAX_WORDS = 10_000;
 const MAX_DOC_MAX_WORDS = 20_000;

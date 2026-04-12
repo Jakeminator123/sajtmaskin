@@ -1,0 +1,55 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — TESTS, QUALITY & GAPS
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+Vitest coverage is strongest around scaffold keyword/embedding matching, BuildSpec derivation, and stream handlers. However variant selection and scaffold-hint logic are untested, orchestrate.ts lacks direct unit tests, and Playwright E2E does not cover the main builder journey.
+
+## Findings
+
+### 1. No Playwright coverage for wizard to preview flow [SEVERITY: critical]
+File(s): e2e/
+Issue: E2E only has deploy precheck and template scraping. No spec drives intake wizard through generation to preview.
+Suggestion: Add focused Playwright spec for builder flow.
+
+### 2. Variant selection untested [SEVERITY: critical]
+File(s): src/lib/gen/scaffolds/matcher.ts, matcher.test.ts
+Issue: selectVariant and applyVariantSelection have no test cases. Edge cases unverified.
+Suggestion: Add tests with manifests including variants; assert meta fields.
+
+### 3. scaffold-hint module has no tests [SEVERITY: warning]
+File(s): src/lib/builder/scaffold-hint.ts
+Issue: No test file references this module.
+Suggestion: Unit-test hint construction and integration with matcher.
+
+### 4. orchestrate.ts lacks direct unit tests [SEVERITY: warning]
+File(s): src/lib/gen/orchestrate.ts
+Issue: Core functions are mocked in route tests, not tested directly.
+Suggestion: Add integration tests with fixed inputs.
+
+### 5. API route test coverage is narrow [SEVERITY: warning]
+File(s): src/app/api/
+Issue: ~22 route.test.ts files vs ~170 route.ts files.
+Suggestion: Prioritize auth boundaries and new AI routes.
+
+### 6. Parity test loosened [SEVERITY: warning]
+File(s): src/lib/gen/scaffolds/scaffold-embeddings-parity.test.ts
+Issue: Missing embeddings only warn, not fail.
+Suggestion: Use expect(missing).toEqual([]) in CI.
+
+### 7. OpenClaw Playwright config points at missing tests [SEVERITY: info]
+File(s): playwright.openclaw.config.ts
+Issue: testDir ./tests/openclaw has no matching files.
+Suggestion: Restore specs or remove script.
+
+## Quick wins
+- Add selectVariant tests in matcher.test.ts
+- Add scaffold-hint.test.ts
+- Tighten embeddings parity test in CI
+- Fix or remove empty openclaw test config
+
+## Larger refactors
+- Full Playwright journey: landing to wizard to generation to preview
+- Systematic API route test matrix
+- Direct orchestrate.ts integration tests with frozen fixtures

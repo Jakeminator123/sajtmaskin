@@ -7,6 +7,7 @@ import {
 } from "@/components/builder/ChatInterface";
 import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/components/builder/BuilderMessageTooling";
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
+import { IntakeWizard, type IntakeWizardResult, type WizardScrapeData } from "@/components/builder/IntakeWizard";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
@@ -265,10 +266,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         mediaInfos && mediaInfos.length > 0 ? mediaInfos : null,
         companyBriefRef.current,
       );
+      const brief = companyBriefRef.current;
       void wrappedRequestCreateChat(prompt, {
         ...pending.options,
         skipDynamicInstructions: true,
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
+        ...(brief ? { meta: { brief, promptAssistDeep: true } } : {}),
       });
     },
     [vm.selectedTemplateIds, wrappedRequestCreateChat],
@@ -293,6 +296,137 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     uploadedMediaRef.current = null;
     executeStarterGeneration();
   }, [executeStarterGeneration]);
+
+  const handleIntakeWizardComplete = useCallback(
+    (result: IntakeWizardResult) => {
+      setShowIntakeWizard(false);
+
+      const userMessages: ChatMessage[] = result.fieldMessages.map((fm, i) => ({
+        id: `wizard-${fm.field}-${Date.now()}-${i}`,
+        role: "user" as const,
+        content: fm.text,
+      }));
+      vm.setMessages((prev) => [...prev, ...userMessages]);
+
+      const allMessages = [...vm.messages, ...userMessages];
+      triggerStarterGeneration(allMessages);
+    },
+    [vm.messages, vm.setMessages, triggerStarterGeneration],
+  );
+
+  const handleIntakeWizardScrape = useCallback(
+    async (url: string, companyName?: string): Promise<WizardScrapeData | null> => {
+      try {
+        const res = await fetch("/api/builder/company-intel", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, synthesize: true, ...(companyName ? { companyName } : {}) }),
+        });
+        const json = await res.json();
+        if (!json.success || !json.data) return null;
+        const intel = json.data.intel;
+        const brief = json.data.brief as Record<string, unknown> | null;
+        if (brief) {
+          companyBriefRef.current = brief;
+        }
+        const sc = intel?.scrapedContent;
+        const reg = intel?.registryInfo;
+
+        scrapeDataRef.current = {
+          title: sc?.title ?? "",
+          description: sc?.description ?? "",
+          headings: sc?.headings ?? [],
+          wordCount: sc?.wordCount ?? 0,
+          hasImages: (sc?.images ?? 0) > 0,
+          textSummary: sc?.text?.slice(0, 500) ?? "",
+        };
+
+        const socialUrls = (intel?.socialSnippets as Array<{ url?: string }> | undefined)
+          ?.map((s) => s.url)
+          .filter((u): u is string => Boolean(u)) ?? [];
+
+        const colorPalette = (brief?.visualDirection as { colorPalette?: Record<string, string> } | undefined)?.colorPalette;
+        const brandColors = colorPalette
+          ? Object.values(colorPalette).filter((c) => typeof c === "string" && c.startsWith("#"))
+          : [];
+
+        const toneArr = brief?.toneAndVoice as string[] | undefined;
+
+        const servicesFromBrief: string[] = [];
+        const testimonialsFromBrief: string[] = [];
+        const teamFromBrief: Array<{ name: string; role?: string }> = [];
+        type BriefSection = { type?: string; heading?: string; suggestedContent?: string; bullets?: string[] };
+        const pagesArr = brief?.pages as Array<{ sections?: BriefSection[] }> | undefined;
+        if (pagesArr) {
+          for (const page of pagesArr) {
+            for (const sec of page.sections ?? []) {
+              if (sec.type === "services" && sec.bullets?.length) {
+                servicesFromBrief.push(...sec.bullets.map((b) => b.split(":")[0].trim()));
+              }
+              if (sec.type === "testimonials" && sec.bullets?.length) {
+                testimonialsFromBrief.push(...sec.bullets);
+              }
+              if (sec.type === "team" && sec.bullets?.length) {
+                for (const b of sec.bullets) {
+                  const dashMatch = b.match(/^(.+?)\s*[—–-]\s*(.+)/);
+                  if (dashMatch) teamFromBrief.push({ name: dashMatch[1].trim(), role: dashMatch[2].trim() });
+                  else teamFromBrief.push({ name: b.trim() });
+                }
+              }
+            }
+          }
+        }
+
+        const phoneFromMeta = sc?.meta?.phone as string | undefined;
+        const emailFromMeta = sc?.meta?.email as string | undefined;
+
+        const phoneFromText = !phoneFromMeta && sc?.text
+          ? sc.text.match(/(?:Tel|Telefon|Ring)[:\s]*([0-9\s\-+()]{7,})/i)?.[1]?.trim()
+          : undefined;
+        const emailFromText = !emailFromMeta && sc?.text
+          ? sc.text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
+          : undefined;
+
+        const openingHoursFromText = sc?.text
+          ? sc.text.match(/(?:Öppettider|Öppet|Opening hours)[:\s]*([^\n]{5,80})/i)?.[1]?.trim()
+          : undefined;
+
+        const uspFromBrief: string[] = [];
+        if (brief?.targetAudience) uspFromBrief.push(`Målgrupp: ${brief.targetAudience}`);
+        if (brief?.oneSentencePitch) uspFromBrief.push(brief.oneSentencePitch as string);
+
+        const result: WizardScrapeData = {
+          title: (brief?.brandName as string) || reg?.companyName || sc?.title || undefined,
+          metaDescription: (brief?.oneSentencePitch as string) || sc?.description || undefined,
+          orgNr: reg?.orgNr || undefined,
+          address: reg?.address ? `${reg.address}${reg.city ? `, ${reg.city}` : ""}` : undefined,
+          industries: reg?.industries ?? undefined,
+          employees: reg?.employees ?? undefined,
+          phone: phoneFromMeta || phoneFromText || undefined,
+          email: emailFromMeta || emailFromText || undefined,
+          socialLinks: socialUrls.length > 0 ? socialUrls : undefined,
+          brandColors: brandColors.length > 0 ? brandColors : undefined,
+          openingHours: openingHoursFromText || undefined,
+          tagline: (brief?.tagline as string) || undefined,
+          logoUrl: sc?.meta?.["og:image"] || undefined,
+          callToAction: (brief?.primaryCallToAction as string) || undefined,
+          services: servicesFromBrief.length > 0 ? servicesFromBrief : undefined,
+          uniqueSellingPoints: uspFromBrief.length > 0 ? uspFromBrief : undefined,
+          testimonials: testimonialsFromBrief.length > 0 ? testimonialsFromBrief : undefined,
+          teamMembers: teamFromBrief.length > 0 ? teamFromBrief : undefined,
+        };
+
+        if (toneArr?.length) {
+          result.tone = toneArr.join(", ");
+        }
+
+        return result;
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
 
   const displayMessages = vm.messages;
 
@@ -326,6 +460,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     return getCurrentQuestionField(vm.messages);
   }, [needsAnalysisState, vm.messages]);
 
+  const POST_GEN_SUGGESTIONS = [
+    "Lägg till en ny undersida med relevant innehåll.",
+    "Byt färgpalett till något mer modernt och professionellt.",
+    "Lägg till mer detaljerat innehåll och längre texter på alla sidor.",
+    "Byt ut platshållarbilderna mot mer relevanta och professionella bilder.",
+    "Förbättra call-to-action-knapparna för bättre konvertering.",
+  ];
+
+  const hasLivePreview = Boolean(
+    vm.chatId && vm.currentPreviewUrl && !vm.previewPending && vm.previewLifecycle === "live",
+  );
+
   const currentAnswerSuggestions = useMemo(() => {
     if (currentField) {
       const brief = companyBriefRef.current;
@@ -345,15 +491,21 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
     if (!vm.chatId) return undefined;
     const advisorMsg = vm.messages.find((m) => m.id.startsWith("advisor-") && m.uiParts?.length);
-    if (!advisorMsg) return undefined;
-    const part = advisorMsg.uiParts?.find(
-      (p) => p.kind === "advisor-follow-up" && (p.output as Record<string, unknown>)?.suggestedPrompts,
-    );
-    if (!part) return undefined;
-    const prompts = (part.output as Record<string, string[]>).suggestedPrompts;
-    const labels = (part.output as Record<string, string[]>).options;
-    return labels.map((label, i) => prompts[i] ?? label);
-  }, [currentField, vm.chatId, vm.messages]);
+    if (advisorMsg) {
+      const part = advisorMsg.uiParts?.find(
+        (p) => p.kind === "advisor-follow-up" && (p.output as Record<string, unknown>)?.suggestedPrompts,
+      );
+      if (part) {
+        const prompts = (part.output as Record<string, string[]>).suggestedPrompts;
+        const labels = (part.output as Record<string, string[]>).options;
+        return labels.map((label, i) => prompts[i] ?? label);
+      }
+    }
+    if (hasLivePreview && !vm.isAnyStreaming) {
+      return POST_GEN_SUGGESTIONS;
+    }
+    return undefined;
+  }, [currentField, vm.chatId, vm.messages, hasLivePreview, vm.isAnyStreaming]);
 
   const { isHelpStreaming, sendHelpMessage } = useBuilderHelpChat();
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt || isHelpStreaming;
@@ -473,6 +625,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const templatePickerMessagesRef = useRef<ChatMessage[] | null>(null);
   const templatePickerTriggeredRef = useRef(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showIntakeWizard, setShowIntakeWizard] = useState(!vm.chatId);
+  useEffect(() => {
+    if (vm.chatId) setShowIntakeWizard(false);
+  }, [vm.chatId]);
   const pendingGenerationRef = useRef<{
     messages: ChatMessage[];
     options?: Record<string, unknown>;
@@ -1158,13 +1314,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     async (message: string, options?: Record<string, unknown>) => {
       const intent = await classifyIntent(message);
       if (intent === "help") {
-        await sendHelpMessage(message, vm.setMessages);
+        await sendHelpMessage(message, vm.setMessages, vm.messages);
         return;
       }
 
       await vm.sendMessage(message, options);
     },
-    [sendHelpMessage, vm.sendMessage, vm.setMessages],
+    [sendHelpMessage, vm.sendMessage, vm.setMessages, vm.messages],
   );
 
   const smartCreateChat = useCallback(
@@ -1285,7 +1441,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       }
       const intent = await classifyIntent(message);
       if (intent === "help") {
-        await sendHelpMessage(message, vm.setMessages);
+        await sendHelpMessage(message, vm.setMessages, vm.messages);
         return false;
       }
       return wrappedRequestCreateChat(message, options);
@@ -1567,6 +1723,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           <ImageUploadPopup
             onConfirm={handleImageUploadConfirm}
             onSkip={handleImageUploadSkip}
+          />
+        )}
+
+        {showIntakeWizard && !vm.chatId && (
+          <IntakeWizard
+            onComplete={handleIntakeWizardComplete}
+            onScrapeUrl={handleIntakeWizardScrape}
+            initialPrompt={vm.initialPrompt ?? undefined}
           />
         )}
 

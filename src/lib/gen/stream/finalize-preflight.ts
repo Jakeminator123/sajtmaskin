@@ -11,6 +11,7 @@ import {
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
+import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -278,6 +279,17 @@ export async function runFinalizePreflight({
         language: file.language || inferCodeFenceLanguage(file.path),
       })),
     );
+
+    const preValidationAutofix = await runAutoFix(mergedProjectContent, { chatId, model: _model });
+    if (preValidationAutofix.fixedContent !== mergedProjectContent) {
+      mergedProjectContent = preValidationAutofix.fixedContent;
+      const reFixedProject = parseCodeProject(mergedProjectContent);
+      if (reFixedProject.files.length > 0) {
+        finalFiles = reFixedProject.files;
+        nextFilesJson = JSON.stringify(finalFiles);
+      }
+    }
+
     let mergedSyntax = await validateGeneratedCode(mergedProjectContent);
     if (!mergedSyntax.valid) {
       devLogAppend("in-progress", {

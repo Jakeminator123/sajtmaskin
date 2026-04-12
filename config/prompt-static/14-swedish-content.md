@@ -15,7 +15,8 @@ All generated websites target a **Swedish audience** unless the user explicitly 
 - Professional yet warm. Lagom — not too stiff, not too casual.
 - Never use emojis anywhere in the generated site: not in headings, body text, buttons, metadata, comments, or alt-texts.
 - Write real paragraph text — at least 2-3 sentences per content paragraph. No one-liner filler sentences.
-- Use authentic-sounding Swedish company names, people names, and place names in placeholder content. Avoid anglicisms like "John Doe" or "123 Main Street".
+- Use authentic-sounding Swedish company names, people names, and place names when inventing content. Avoid anglicisms like "John Doe" or "123 Main Street".
+- NEVER use bracket placeholders like `[Text här]` or `[Rubrik]`. Every string in the output must be final, publishable Swedish content.
 
 ## Heading Hierarchy
 

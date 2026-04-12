@@ -585,6 +585,27 @@ function extractLocation(userMessages: string[]): string | null {
   return null;
 }
 
+const WIZARD_FIELD_LABELS: Record<string, string> = {
+  businessDetails: "Företagsuppgifter",
+  brandIdentity: "Varumärke och stil",
+  servicesProducts: "Tjänster och erbjudande",
+  categorySpecific: "Branschspecifik information",
+};
+
+function extractWizardSections(messages: ChatMessage[]): string[] {
+  const sections: string[] = [];
+  const wizardMessages = messages.filter((m) => m.id?.startsWith("wizard-"));
+  for (const msg of wizardMessages) {
+    const fieldMatch = msg.id?.match(/^wizard-(\w+)-/);
+    if (!fieldMatch) continue;
+    const field = fieldMatch[1];
+    const label = WIZARD_FIELD_LABELS[field];
+    if (!label) continue;
+    sections.push("", `## ${label}`, ...msg.content.split("\n").map((l) => `- ${l}`));
+  }
+  return sections;
+}
+
 export function buildNeedsAnalysisPrompt(
   messages: ChatMessage[],
   scrapeData?: ScrapeResult | null,
@@ -598,6 +619,8 @@ export function buildNeedsAnalysisPrompt(
     const evidence = getEvidenceForField(field, userMessages, rawUserMessages);
     return `- ${FIELD_LABELS[field]}: ${evidence ?? "Inte tydligt uttryckt"}`;
   });
+
+  const wizardSections = extractWizardSections(messages);
 
   const templateSection =
     selectedTemplates && selectedTemplates.length > 0
@@ -754,6 +777,7 @@ export function buildNeedsAnalysisPrompt(
     ...templateSection,
     ...scrapedSection,
     ...companyBriefSection,
+    ...wizardSections,
     ...mediaSection,
     "",
     "## Användarens egna formuleringar",

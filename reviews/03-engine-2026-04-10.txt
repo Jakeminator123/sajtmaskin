@@ -1,0 +1,43 @@
+═══════════════════════════════════════════════════
+  SAJTMASKIN CODE REVIEW — GENERATION ENGINE & STREAMING
+  Date: 2026-04-10
+═══════════════════════════════════════════════════
+
+## Summary
+Own-engine streaming is a pipeline ReadableStream reader wrapped in a second SSE ReadableStream, with finalize (autofix, url expand, validate/fix, merge, preflight, persist) and post-finalize preview/verify. Autofix is bounded by manifest-driven pass limits. A few lifecycle edge cases and unused helpers deserve attention.
+
+## Findings
+
+### 1. AbortSignal stops reading but does not cancel upstream pipeline [SEVERITY: warning]
+File(s): src/lib/providers/own-engine/generation-stream.ts
+Issue: Main loop breaks on abortSignal.aborted but does not call pipelineReader.cancel(). Upstream generation may continue.
+Suggestion: Cancel the pipeline reader when abortSignal fires.
+
+### 2. Finalize throws can be followed by fallback finalize in finally [SEVERITY: warning]
+File(s): src/lib/providers/own-engine/generation-stream.ts
+Issue: If finalizeAndSaveVersion throws, the finally block may execute fallback finalize with partial content, potentially duplicating work.
+Suggestion: Skip fallback finalize on failure after semantic done; use an explicit flag.
+
+### 3. Plan-mode: unhandled rejection if persistence fails [SEVERITY: warning]
+File(s): src/lib/gen/stream/plan-mode-stream.ts
+Issue: persistAssistantSummary is awaited without inner try/catch. If it throws, client sees broken stream.
+Suggestion: Catch, emit error event, still emit terminal done.
+
+### 4. Dead exports in shared-own-engine-helpers.ts [SEVERITY: info]
+File(s): src/lib/gen/stream/shared-own-engine-helpers.ts
+Issue: appendPreview, looksLikeIncompleteJson, extractToolNames only used in tests, not production.
+Suggestion: Move to test utilities or remove.
+
+### 5. Non-stream generate path maxSteps divergence [SEVERITY: info]
+File(s): src/lib/own-engine/generate-site-from-prompt.ts
+Issue: maxSteps: 4 is fixed here vs resolveOwnEngineMaxSteps in pipeline wrapper.
+Suggestion: Align maxSteps for consistency.
+
+## Quick wins
+- Cancel pipeline reader on abortSignal
+- Remove test-only exports from shared helpers
+- Wrap persistAssistantSummary in plan-mode-stream.ts
+
+## Larger refactors
+- Unify non-stream generate path with shared pipeline wrapper
+- Clarify verificationBlocked vs preview gating vs pre-generation contracts

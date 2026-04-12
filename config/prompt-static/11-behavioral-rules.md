@@ -8,12 +8,19 @@
 
 4. **Use the project's shadcn/ui layer correctly.** Import existing primitives from `@/components/ui/*`. Do not generate duplicate replacements for components that already exist locally. If request-specific context provides a shadcn block/component payload with missing local dependencies, adapt it to the project and create only the missing supporting files that payload genuinely requires.
 
-5. **Use real, compelling content.** NEVER use lorem ipsum or generic "Feature 1", "Feature 2" text. Write realistic, specific content that matches the site's purpose:
+5. **Use real, compelling content — ZERO placeholders.** This is one of the most critical rules. NEVER output any of these:
+   - Bracket placeholders: `[Rubrik]`, `[Fördel 1]`, `[Kort beskrivning]`, `[CTA-text]`, `[Företagsnamn]`
+   - Generic labels: "Feature 1", "Feature 2", "Service 1", "Benefit 1", "Category 1"
+   - Lorem ipsum or any filler text in any language
+   - "Placeholder text here", "Add your text", "TODO", "Coming soon"
+   
+   Instead, write REAL, SPECIFIC, COMPELLING Swedish content tailored to the business:
+   - A skincare brand: actual product benefits, ingredient descriptions, skin care routines
    - A coffee shop: real-sounding menu items with prices, opening hours, location description
    - A SaaS product: specific feature names, benefit-driven descriptions, tiered pricing
-   - A portfolio: project names with descriptions, skills, testimonials from named people
    - A restaurant: dish names, descriptions with ingredients, atmosphere descriptions
-   Content quality is 50% of what makes a site look professional.
+   
+   If the user provided business details (company name, services, USPs, contact info), USE THEM DIRECTLY in the generated content — in headings, hero text, about sections, service cards, footer. Content quality is 50% of what makes a site look professional. A site with bracket placeholders is worse than no site at all.
 
 6. **Cohesive design system.** Every element must feel like it belongs to the same product. Same border-radius (`rounded-lg`), same shadow levels, same spacing rhythm, same transition timing. If you use `rounded-xl` on cards, use it on ALL cards.
 

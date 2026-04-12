@@ -101,6 +101,7 @@ export function useBuilderHelpChat() {
     async (
       text: string,
       setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+      currentMessages?: ChatMessage[],
     ) => {
       const trimmed = text.trim();
       if (!trimmed || isHelpStreaming) return;
@@ -125,11 +126,19 @@ export function useBuilderHelpChat() {
       setIsHelpStreaming(true);
       abortRef.current = new AbortController();
 
+      const helpHistory = (currentMessages ?? [])
+        .filter((m) => m.isHelpMessage && !m.isStreaming && m.content)
+        .slice(-10)
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content.slice(0, 4_000) }));
+
       try {
         const res = await fetch("/api/openclaw/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: [{ role: "user", content: trimmed }], context: null }),
+          body: JSON.stringify({
+            messages: [...helpHistory, { role: "user", content: trimmed }],
+            context: collectSiteContext(),
+          }),
           signal: abortRef.current.signal,
         });
         await streamOpenClawToMessages(res, assistantId, setMessages);

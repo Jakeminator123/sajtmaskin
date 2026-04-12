@@ -1,23 +1,10 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
-import { ArrowRight, Mic, X, Play, Sparkles } from "lucide-react"
+import { Mic, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
 import type { ChatAreaProps, LandingController } from "@/components/landing-v2/use-landing-controller"
-
-const VIMEO_VIDEO_ID = "1179929585"
-
-const QUICK_SUGGESTIONS = [
-  "Frisörsalong med bokning",
-  "Restaurang med meny",
-  "IT-konsult",
-  "Webshop för kläder",
-  "Yogastudio",
-  "Advokatbyrå",
-  "Takläggare",
-  "Portfolio för fotograf",
-]
 
 export type LandingHeroProps = Pick<
   LandingController,
@@ -51,7 +38,7 @@ export function LandingHero({
   startBuild,
 }: LandingHeroProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const [isDemoPlaying, setIsDemoPlaying] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim()
@@ -67,14 +54,6 @@ export function LandingHero({
       }
     },
     [handleSend],
-  )
-
-  const handleSuggestionClick = useCallback(
-    (text: string) => {
-      if (isSubmitting) return
-      void startBuild(null, text)
-    },
-    [isSubmitting, startBuild],
   )
 
   const handleVoiceTranscript = useCallback(
@@ -106,10 +85,10 @@ export function LandingHero({
         </p>
       </div>
 
-      <div className="flex w-full max-w-[520px] flex-col items-stretch gap-6 xl:max-w-5xl xl:flex-row xl:items-start xl:gap-10">
+      <div className="flex w-full max-w-[520px] flex-col items-stretch gap-6 xl:max-w-5xl xl:flex-row xl:items-stretch xl:gap-10">
 
         {/* Left: Input area */}
-        <div className="w-full xl:flex-1 animate-fade-up" style={{ animationDelay: "0.15s" }}>
+        <div className="flex w-full flex-col xl:flex-1 animate-fade-up" style={{ animationDelay: "0.15s" }}>
 
           {showVoiceRecorder && !isAuditMode && (
             <div className="mb-3 rounded-2xl border border-border/30 bg-secondary/50 px-4 py-3 animate-in slide-in-from-bottom-2 fade-in duration-300">
@@ -134,9 +113,9 @@ export function LandingHero({
             </div>
           )}
 
-          <div className="rounded-2xl border border-border/40 bg-card shadow-lg overflow-hidden transition-shadow focus-within:shadow-xl focus-within:border-primary/30">
+          <div className="flex flex-1 flex-col rounded-2xl border border-border/40 bg-card shadow-lg overflow-hidden transition-shadow focus-within:shadow-xl focus-within:border-primary/30">
             {isAuditMode ? (
-              <div className="p-4">
+              <div className="flex flex-1 flex-col justify-center p-6">
                 <input
                   data-openclaw-text-target="landing.audit.url"
                   data-openclaw-text-label="Audit-URL"
@@ -149,9 +128,9 @@ export function LandingHero({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") { e.preventDefault(); submitPrimaryInput() }
                   }}
-                  className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 text-base py-2"
+                  className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 text-lg py-2"
                 />
-                <div className="flex items-center justify-end pt-2 border-t border-border/10">
+                <div className="flex items-center justify-end pt-4 mt-4 border-t border-border/10">
                   <Button
                     size="sm"
                     className="rounded-full bg-primary hover:bg-primary/90 text-white px-5"
@@ -160,12 +139,12 @@ export function LandingHero({
                     onClick={() => submitPrimaryInput()}
                   >
                     Analysera
-                    <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                    <Sparkles className="ml-1.5 h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="p-4">
+              <div className="flex flex-1 flex-col p-6">
                 <textarea
                   ref={inputRef}
                   data-openclaw-text-target="landing.freeform.primary"
@@ -174,10 +153,10 @@ export function LandingHero({
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  rows={2}
-                  className="w-full resize-none bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/40 text-base leading-relaxed"
+                  rows={5}
+                  className="w-full flex-1 resize-none bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/40 text-base leading-relaxed"
                 />
-                <div className="flex items-center justify-between pt-3 border-t border-border/10">
+                <div className="flex items-center justify-between pt-4 mt-auto border-t border-border/10">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -210,60 +189,28 @@ export function LandingHero({
             )}
           </div>
 
-          {!isAuditMode && (
-            <div className="mt-4 flex flex-wrap gap-2 animate-fade-up" style={{ animationDelay: "0.3s" }}>
-              {QUICK_SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleSuggestionClick(s)}
-                  disabled={isSubmitting}
-                  className="rounded-full border border-border/40 bg-background px-3.5 py-1.5 text-sm text-muted-foreground transition-all hover:border-primary/30 hover:bg-primary/5 hover:text-foreground disabled:opacity-40"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-
           {expandedContent && (
-            <div className="mt-8 w-full animate-fade-up">
+            <div className="mt-6 w-full animate-fade-up">
               {expandedContent}
             </div>
           )}
         </div>
 
-        {/* Right: Demo video */}
+        {/* Right: Promo video */}
         <div
           className="w-full xl:flex-1 animate-fade-up"
           style={{ animationDelay: "0.3s" }}
         >
-          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-border/20 shadow-xl xl:rounded-3xl xl:aspect-auto xl:h-[420px]">
-            {isDemoPlaying ? (
-              <iframe
-                src={`https://player.vimeo.com/video/${VIMEO_VIDEO_ID}?autoplay=1&title=0&byline=0&portrait=0&transparent=1&background=0`}
-                className="absolute inset-0 h-full w-full"
-                allow="autoplay; fullscreen"
-                allowFullScreen
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsDemoPlaying(true)}
-                className="group absolute inset-0 flex cursor-pointer items-center justify-center"
-                aria-label="Spela demo"
-              >
-                <img
-                  src={`https://vumbnail.com/${VIMEO_VIDEO_ID}.jpg`}
-                  alt="Demo av Sajtmaskin"
-                  className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/15 transition-colors duration-300 group-hover:bg-black/5" />
-                <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/90 shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:bg-white xl:h-16 xl:w-16">
-                  <Play className="ml-1 h-5 w-5 fill-[hsl(var(--brand-navy))] text-[hsl(var(--brand-navy))] xl:h-6 xl:w-6" />
-                </div>
-              </button>
-            )}
+          <div className="relative h-full overflow-hidden rounded-2xl border border-border/20 shadow-xl xl:rounded-3xl">
+            <video
+              ref={videoRef}
+              src="/video/sajtmaskin-promo.mp4"
+              muted
+              playsInline
+              autoPlay
+              loop
+              className="h-full w-full object-cover"
+            />
           </div>
         </div>
 
