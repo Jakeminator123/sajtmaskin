@@ -32,11 +32,15 @@ A runtime scaffold is **not** just a thin label file.
 
 Each scaffold manifest contains:
 
-- metadata (`id`, `family`, `label`, `description`, `tags`, `promptHints`)
+- metadata (`id`, `label`, `description`, `tags`, `promptHints`)
 - runtime traits (`structureProfile`, `contentProfile`, `siteKind`, `complexity`, `features`)
 - actual starter files in `files[]`
 - optional `qualityChecklist`
 - optional `research` (`upgradeTargets`, `referenceTemplates`)
+
+Legacy stored plan payloads may still surface `scaffold.family` as a
+backward-compatible alias of `scaffold.id`, but runtime `ScaffoldManifest`
+does not contain a `family` field.
 
 The LLM does not receive the entire repo. Instead, runtime serializes a
 scaffold into:
@@ -67,9 +71,13 @@ The plan may draw routes from:
 `ScaffoldManifest` currently includes:
 
 - `id`
-- `family`
 - `label`
 - `description`
+- optional `structureProfile`
+- optional `contentProfile`
+- optional `siteKind`
+- optional `complexity`
+- optional `features`
 - `allowedBuildIntents`
 - `tags`
 - `promptHints`
@@ -92,9 +100,9 @@ Supporting subtypes:
   - `qualityScore`
   - `strengths`
 
-## Current families
+## Current scaffold ids
 
-Current `ScaffoldFamily` values:
+Current `ScaffoldId` values:
 
 - `base-nextjs`
 - `content-site`
@@ -107,8 +115,10 @@ Current `ScaffoldFamily` values:
 - `auth-pages`
 - `ecommerce`
 
-`family` is scaffoldens runtime-bucket, i.e. the canonical scaffold family used
-for registry lookup, matching, embeddings, and telemetry.
+`id` is scaffoldens kanoniska runtime-identifierare and is used for registry
+lookup, matching, embeddings, and telemetry. `ScaffoldFamily`/`family` is
+legacy terminology kept only where older docs or stored plan artifacts still
+need compatibility.
 
 ## Validation rules
 

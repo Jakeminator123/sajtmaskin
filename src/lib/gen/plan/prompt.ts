@@ -68,8 +68,8 @@ Return a single JSON object (no markdown fences) matching this schema:
     ]
   },
   "scaffold": {
+    "id": "landing-page" | "content-site" | "app-shell" | "...",
     "label": "Kort svensk etikett",
-    "family": "landing-page" | "content-site" | "app-shell" | "...",
     "reason": "Varför detta är rätt startpunkt"
   },
   "templateRecommendations": [
@@ -123,6 +123,7 @@ Return a single JSON object (no markdown fences) matching this schema:
    - verify: final review, fix remaining issues
 
 7. Include a scaffold recommendation in "scaffold" whenever you can infer the right project shape.
+   Use the runtime scaffold id field for the identifier; do not invent a separate family field.
    If you are unsure, explain the uncertainty in "reason" and add a blocker when it is critical.
 
 8. Optional "templateRecommendations" should only be added when a gallery/template suggestion would genuinely help the user review the direction before build.

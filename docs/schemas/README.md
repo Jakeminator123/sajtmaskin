@@ -33,7 +33,7 @@ Conservative rollout rule:
   The canonical builder entry contract for `buildMethod`, `buildIntent`,
   `appProjectId`, prompt handoff, and the v0-driven template exception path.
 - `scaffold-contract.md`
-  The runtime scaffold manifest contract, scaffold family meaning, and what scaffold context actually reaches the model.
+  The runtime scaffold manifest contract, canonical `ScaffoldId` usage, and what scaffold context actually reaches the model.
 - `integrations-and-data.md`
   The most important data, validation, and template-library schema surfaces.
 - `external-template-pipeline-contract.md`
