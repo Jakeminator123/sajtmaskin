@@ -1,6 +1,5 @@
 export type {
   ScaffoldComplexity,
-  ScaffoldFamily,
   ScaffoldFile,
   ScaffoldId,
   ScaffoldManifest,
