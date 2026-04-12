@@ -5,6 +5,11 @@ export const blogManifest: ScaffoldManifest = {
   label: "Blog",
   description:
     "Content-first blog starter with article list, post layout, author, featured posts, and reading-friendly typography.",
+  siteKind: "editorial",
+  complexity: "medium",
+  structureProfile: "editorial-hub",
+  contentProfile: "long-form-content",
+  features: ["article-list", "taxonomy", "author-bio"],
   allowedBuildIntents: ["website", "template"],
   tags: [
     "blog",

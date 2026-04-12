@@ -5,6 +5,11 @@ export const appShellManifest: ScaffoldManifest = {
   label: "App Shell",
   description:
     "Operational app shell with sidebar navigation, workspace summaries, queue tables, and execution-focused content areas.",
+  siteKind: "app",
+  complexity: "medium",
+  structureProfile: "application-shell",
+  contentProfile: "workspace-tools",
+  features: ["auth", "sidebar-layout", "settings", "dash-widgets"],
   allowedBuildIntents: ["app"],
   tags: ["app-shell", "workspace", "operations", "crm", "saas", "backoffice", "admin", "portal", "internal-tool", "sidebar", "kontrollpanel", "verktyg"],
   promptHints: [

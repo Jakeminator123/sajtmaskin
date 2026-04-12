@@ -5,6 +5,11 @@ export const dashboardManifest: ScaffoldManifest = {
   label: "Dashboard",
   description:
     "Analytics and overview dashboard with sidebar, stats cards, data tables, and chart placeholders. For admin panels, analytics, and SaaS apps.",
+  siteKind: "app",
+  complexity: "advanced",
+  structureProfile: "dashboard-app",
+  contentProfile: "operations-analytics",
+  features: ["auth", "navigation-shell", "tables", "charts"],
   allowedBuildIntents: ["app"],
   tags: [
     "dashboard",

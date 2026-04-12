@@ -15,6 +15,8 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | `detectScaffoldMode()` borttagen | Var död kod — aldrig anropad i production. |
 | `scripts/template-library/sync-v0-templates.mjs` borttagen | Duplikat av `scripts/v0-templates/`. |
 | `scripts/dev/db-debug.mjs` borttagen | Hårdkodade stale IDn. |
+| `scaffold-traits.ts` borttagen | Traits konsoliderade direkt i varje manifest.ts. |
+| Merge-pipeline förenklad | `applyScaffoldTraits()` borttagen — 2 steg istället för 3. |
 
 ---
 
@@ -32,7 +34,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | Family ≈ scaffold id (1:1 idag) | `registry.ts` — en manifest per family |
 | Dossiers/template-library är buildtime, inte runtime | `registry.ts` kommentar + `template-library/README.md` |
 | Matchning: keyword först → embedding kan ta över | `matchScaffoldAuto()` i `matcher.ts` |
-| Scaffold-traits-tabellen är korrekt | `scaffold-traits.ts` matchar exakt |
+| Scaffold traits konsoliderade i manifests | Traits (siteKind etc.) definieras direkt i varje manifest.ts |
 | 4 axlar (intent, entry, selection, serialize) är korrekta | Bekräftat i kod |
 
 ### Vad som är felaktigt eller missvisande
@@ -53,7 +55,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | `BuildSpec` och contextPolicy | `build-spec.ts` | Styr token-budgetar, scaffold-chars, quality target, om contextPolicy=heavy → structural. |
 | `OrchestrationContract` | `orchestration-contract.ts` | Binder scaffold → routes → valideringsförväntningar. Kärnan i "vad ska genereras och kontrolleras". |
 | `persistedScaffoldId` | `orchestrate.ts` | Follow-up återanvänder scaffold från init. Ignoreras bara vid `ignorePersistedScaffoldForMatch`. |
-| Research/SEO merge-pipeline | `registry.ts` → `scaffold-research` → `scaffold-traits` → `seo-defaults` | Varje manifest går genom 3 merge-steg innan den hamnar i `ALL_SCAFFOLDS`. |
+| Research/SEO merge-pipeline | `registry.ts` → `scaffold-research` → `seo-defaults` | Varje manifest går genom 2 merge-steg (traits definieras direkt i manifest). |
 | `RoutePlan` provenance | `route-plan.ts` | Brief-routes > scaffold-routes > prompt-routes. Provenance spårar primärkälla. |
 | Scaffold-aware retry | `scaffold-aware-retry.ts` | Om generation misslyckas kan systemet föreslå scaffold-pivot. |
 | Prompt Orchestration ≠ Scaffold Selection | `promptOrchestration.ts` vs `orchestrate.ts` | `orchestratePromptMessage()` hanterar bara prompttext (budget, strategi). Scaffold-val sker i `resolveOrchestrationBase()`. Dessa är separata steg. |
@@ -350,17 +352,16 @@ Varje scaffold går igenom 3 steg innan den hamnar i `ALL_SCAFFOLDS`:
 
 ```
 base manifest (per scaffold-mapp, t.ex. blog/manifest.ts)
+  innehåller: id, label, description, siteKind, complexity,
+  structureProfile, contentProfile, features, allowedBuildIntents,
+  tags, promptHints, files, qualityChecklist, research
         │
         ▼
 1. scaffold-research merge
    └─ scaffold-research.generated.json → upgradeTargets, referenceTemplates, qualityChecklist
         │
         ▼
-2. applyScaffoldTraits()
-   └─ scaffold-traits.ts → siteKind, complexity, structureProfile, contentProfile, features
-        │
-        ▼
-3. applyScaffoldSeoDefaults()
+2. applyScaffoldSeoDefaults()
    └─ seo-defaults.ts → SEO-metadata i manifest-filer
         │
         ▼

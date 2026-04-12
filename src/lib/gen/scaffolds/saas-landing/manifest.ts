@@ -5,6 +5,11 @@ export const saasLandingManifest: ScaffoldManifest = {
   label: "SaaS Landing",
   description:
     "Product-led marketing starter with feature narrative, dashboard preview, pricing, FAQ, and conversion-ready sections.",
+  siteKind: "marketing",
+  complexity: "medium",
+  structureProfile: "multi-section-marketing",
+  contentProfile: "saas-growth",
+  features: ["pricing", "feature-grid", "comparison", "cta"],
   allowedBuildIntents: ["website", "template"],
   tags: [
     "saas",

@@ -5,6 +5,11 @@ export const landingPageManifest: ScaffoldManifest = {
   label: "Landing Page",
   description:
     "Polished one-page or multi-section layout for local businesses, service companies, and product launches.",
+  siteKind: "marketing",
+  complexity: "medium",
+  structureProfile: "one-page-marketing",
+  contentProfile: "service-business",
+  features: ["hero", "trust-signals", "cta"],
   allowedBuildIntents: ["website", "template"],
   tags: [
     "landing",

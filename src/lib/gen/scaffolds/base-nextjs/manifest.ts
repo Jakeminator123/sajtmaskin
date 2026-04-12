@@ -5,6 +5,11 @@ export const baseNextjsManifest: ScaffoldManifest = {
   label: "Base Next.js",
   description:
     "Minimal Next.js starter with Tailwind, App Router, and dark theme.",
+  siteKind: "marketing",
+  complexity: "simple",
+  structureProfile: "starter-nextjs",
+  contentProfile: "generic",
+  features: ["routing-basics", "seo-metadata", "component-ready"],
   allowedBuildIntents: ["website", "template"],
   tags: ["starter", "minimal", "nextjs", "tailwind", "shadcn", "clean", "boilerplate", "grundmall"],
   promptHints: [

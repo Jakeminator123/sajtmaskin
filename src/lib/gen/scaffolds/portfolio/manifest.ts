@@ -5,6 +5,11 @@ export const portfolioManifest: ScaffoldManifest = {
   label: "Portfolio",
   description:
     "Personal portfolio starter with intro, selected work, writing, credibility, and contact sections.",
+  siteKind: "editorial",
+  complexity: "medium",
+  structureProfile: "showcase-site",
+  contentProfile: "creator-portfolio",
+  features: ["gallery", "project-cases", "contact-cta"],
   allowedBuildIntents: ["website", "template"],
   tags: [
     "portfolio",

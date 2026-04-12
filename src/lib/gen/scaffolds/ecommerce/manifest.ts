@@ -5,6 +5,11 @@ export const ecommerceManifest: ScaffoldManifest = {
   label: "E-handel",
   description:
     "Storefront starter with product grid, category filtering, product detail page, cart drawer, and checkout-ready layout.",
+  siteKind: "commerce",
+  complexity: "advanced",
+  structureProfile: "commerce-storefront",
+  contentProfile: "product-catalog",
+  features: ["product-grid", "cart", "checkout", "product-detail"],
   allowedBuildIntents: ["website", "template"],
   tags: [
     "ecommerce",

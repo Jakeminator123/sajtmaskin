@@ -49,7 +49,6 @@ import pandas as pd
 # Paths
 # ---------------------------------------------------------------------------
 SCAFFOLDS_DIR = REPO_ROOT / "src" / "lib" / "gen" / "scaffolds"
-TRAITS_FILE = SCAFFOLDS_DIR / "scaffold-traits.ts"
 RESEARCH_JSON = SCAFFOLDS_DIR / "scaffold-research.generated.json"
 EMBEDDINGS_JSON = SCAFFOLDS_DIR / "scaffold-embeddings.json"
 CATALOG_JSON = REPO_ROOT / "data" / "external-template-pipeline" / "reference-library" / "catalog.json"
@@ -119,6 +118,15 @@ def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
     file_count = text.count('path: "')
     result["file_count"] = file_count
 
+    for key in ("siteKind", "complexity", "structureProfile", "contentProfile"):
+        m = re.search(rf'{key}:\s*"([^"]+)"', text)
+        if m:
+            result[key] = m.group(1)
+
+    if "features:" in text:
+        feat_block = text.split("features:")[1].split("],")[0]
+        result["features"] = re.findall(r'"([^"]+)"', feat_block)
+
     return result
 
 
@@ -131,25 +139,6 @@ def get_all_manifests() -> list[dict[str, Any]]:
             if parsed:
                 manifests.append(parsed)
     return manifests
-
-
-def parse_traits() -> dict[str, dict]:
-    """Parse scaffold-traits.ts to extract per-id traits."""
-    if not TRAITS_FILE.exists():
-        return {}
-    text = TRAITS_FILE.read_text(encoding="utf-8")
-    result = {}
-    blocks = re.findall(r'"([^"]+)":\s*\{([^}]+)\}', text)
-    for scaffold_id, body in blocks:
-        traits: dict[str, Any] = {}
-        for key in ("siteKind", "complexity", "structureProfile", "contentProfile"):
-            m = re.search(rf'{key}:\s*"([^"]+)"', body)
-            if m:
-                traits[key] = m.group(1)
-        features = re.findall(r'"([^"]+)"', body.split("features:")[1]) if "features:" in body else []
-        traits["features"] = features
-        result[scaffold_id] = traits
-    return result
 
 
 def run_scaffold_cli(cmd: str, extra_args: list[str] | None = None) -> str:
@@ -183,7 +172,6 @@ if page == "Scaffolds":
     st.header("Runtime Scaffolds")
 
     manifests = get_all_manifests()
-    traits = parse_traits()
 
     research_data = read_json(RESEARCH_JSON)
     has_embeddings = EMBEDDINGS_JSON.exists()
@@ -196,15 +184,14 @@ if page == "Scaffolds":
     rows = []
     for m in manifests:
         sid = m.get("id", "?")
-        t = traits.get(sid, {})
         rows.append({
             "id": sid,
             "label": m.get("label", ""),
-            "siteKind": t.get("siteKind", ""),
-            "complexity": t.get("complexity", ""),
-            "structureProfile": t.get("structureProfile", ""),
-            "contentProfile": t.get("contentProfile", ""),
-            "features": ", ".join(t.get("features", [])),
+            "siteKind": m.get("siteKind", ""),
+            "complexity": m.get("complexity", ""),
+            "structureProfile": m.get("structureProfile", ""),
+            "contentProfile": m.get("contentProfile", ""),
+            "features": ", ".join(m.get("features", [])),
             "intents": ", ".join(m.get("allowedBuildIntents", [])),
             "files": m.get("file_count", 0),
             "tags": len(m.get("tags", [])),
@@ -220,7 +207,6 @@ if page == "Scaffolds":
     selected_id = st.selectbox("Välj scaffold", [m.get("id", "") for m in manifests])
     if selected_id:
         sel_manifest = next((m for m in manifests if m.get("id") == selected_id), None)
-        sel_traits = traits.get(selected_id, {})
 
         if sel_manifest:
             col_a, col_b = st.columns(2)
@@ -236,7 +222,7 @@ if page == "Scaffolds":
                 })
             with col_b:
                 st.markdown("**Traits**")
-                st.json(sel_traits)
+                st.json({k: sel_manifest.get(k) for k in ("siteKind", "complexity", "structureProfile", "contentProfile", "features") if sel_manifest.get(k)})
 
             if research_data and isinstance(research_data, dict):
                 scaffolds_research = research_data.get("scaffolds", {})
@@ -419,13 +405,12 @@ elif page == "Mental modell":
     st.divider()
     st.subheader("Snabbfakta")
     manifests = get_all_manifests()
-    traits = parse_traits()
 
     st.markdown(f"- **Antal scaffolds:** {len(manifests)}")
     st.markdown(f"- **Scaffold-IDs:** {', '.join(m.get('id', '?') for m in manifests)}")
 
-    site_kinds = set(t.get("siteKind", "?") for t in traits.values())
+    site_kinds = set(m.get("siteKind", "?") for m in manifests if m.get("siteKind"))
     st.markdown(f"- **Site kinds:** {', '.join(sorted(site_kinds))}")
 
-    complexities = set(t.get("complexity", "?") for t in traits.values())
+    complexities = set(m.get("complexity", "?") for m in manifests if m.get("complexity"))
     st.markdown(f"- **Complexities:** {', '.join(sorted(complexities))}")

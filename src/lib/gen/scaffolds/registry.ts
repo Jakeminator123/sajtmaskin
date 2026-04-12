@@ -20,7 +20,6 @@ import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 import { applyScaffoldSeoDefaults } from "./seo-defaults";
-import { applyScaffoldTraits } from "./scaffold-traits";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   baseNextjsManifest,
@@ -66,7 +65,7 @@ const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => {
       research: mergeScaffoldResearch(scaffold.research, overrides.research),
     };
   })();
-  return applyScaffoldSeoDefaults(applyScaffoldTraits(withResearchOverrides));
+  return applyScaffoldSeoDefaults(withResearchOverrides);
 });
 
 export function getScaffoldById(id: string): ScaffoldManifest | null {
