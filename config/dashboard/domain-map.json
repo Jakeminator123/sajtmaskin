@@ -21,7 +21,6 @@
         "docs/architecture/repository-and-platform.md",
         "config/dashboard/domain-map.json",
         "docs/architecture/README.md",
-        "docs/plans/active/remaining-focus-after-5-step.md",
         "docs/architecture/step4-post-generation.md"
       ],
       "humanSchemaPaths": [
@@ -101,8 +100,7 @@
         "docs/architecture/builder-generation.md",
         "docs/architecture/llm-input-blocks.md",
         "docs/architecture/step4-post-generation.md",
-        "5-steg.txt",
-        "docs/plans/active/remaining-focus-after-5-step.md"
+        "5-steg.txt"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -189,8 +187,7 @@
       ],
       "docsPaths": [
         "docs/architecture/preview-deploy.md",
-        "5-steg.txt",
-        "docs/plans/active/remaining-focus-after-5-step.md"
+        "5-steg.txt"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"

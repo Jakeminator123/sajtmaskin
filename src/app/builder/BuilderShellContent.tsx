@@ -1500,7 +1500,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onEnableImageGenerationsChange={vm.setEnableImageGenerations}
         enableThinking={vm.enableThinking}
         onEnableThinkingChange={vm.setEnableThinking}
-        isThinkingSupported={vm.isThinkingSupported}
         isImageGenerationsSupported={vm.isImageGenerationsSupported}
         isMediaEnabled={vm.isMediaEnabled}
         chatPrivacy={vm.chatPrivacy}
@@ -1520,7 +1519,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onOpenImport={() => {
           vm.setIsImportModalOpen(true);
         }}
-        onOpenSandbox={() => {}}
         onDeployProduction={vm.handleOpenDeployDialog}
         onDomainSearch={() => {
           if (vm.lastDeployVercelProjectId) {
@@ -1532,6 +1530,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onGoHome={vm.handleGoHome}
         onNewChat={vm.resetToNewChat}
         onSaveProject={vm.handleSaveProject}
+        onCancelGeneration={() => {}}
         isDeploying={vm.isDeploying}
         isCreatingChat={vm.isCreatingChat || vm.isTemplateLoading}
         isAnyStreaming={vm.isAnyStreaming}
@@ -1621,9 +1620,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onQuickReply={handleQuickReply}
               onApproveBuildPlan={handleApproveBuildPlan}
               quickReplyDisabled={isBusy}
-              onSuggestionSend={(text) => smartCreateChat(text)}
-              hasInitialPrompt={Boolean(vm.initialPrompt)}
-              isGenerating={isBusy}
             />
             <TipCard
               open={tipPanelOpen && vm.tipsEnabled}

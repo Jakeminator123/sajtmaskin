@@ -1,4 +1,4 @@
-import type { ScaffoldFamily } from "./types";
+import type { ScaffoldId } from "./types";
 
 /**
  * Swedish mirrors for scaffold semantic search. Embeddings include both EN (manifest)
@@ -11,7 +11,7 @@ export type ScaffoldEmbeddingLocale = {
   keywordsSv: string[];
 };
 
-export const SCAFFOLD_EMBEDDING_LOCALE: Record<ScaffoldFamily, ScaffoldEmbeddingLocale> = {
+export const SCAFFOLD_EMBEDDING_LOCALE: Record<ScaffoldId, ScaffoldEmbeddingLocale> = {
   "base-nextjs": {
     labelSv: "Bas Next.js",
     descriptionSv:

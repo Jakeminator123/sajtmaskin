@@ -38,7 +38,7 @@ function makeEntry(
     noiseLines: [],
     strengths: ["verified Next.js codebase"],
     weaknesses: [],
-    recommendedScaffoldFamilies: ["saas-landing"],
+    recommendedScaffoldIds: ["saas-landing"],
     signals: {
       auth: false,
       dashboard: false,

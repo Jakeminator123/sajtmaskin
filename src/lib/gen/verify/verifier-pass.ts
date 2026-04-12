@@ -6,7 +6,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { getOpenAIModel } from "@/lib/gen/models";
-import { resolvePostGenerationVerifierConfig } from "@/lib/gen/post-generation-config";
+import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 

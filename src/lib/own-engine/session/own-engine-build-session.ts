@@ -111,7 +111,6 @@ export type OwnEngineGenerationStreamMetaInput = {
   metaBriefApplied: boolean;
   customInstructionsLength: number;
   scaffoldId: string | null;
-  scaffoldFamily: string | null;
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -134,7 +133,6 @@ export function buildOwnEngineGenerationStreamMeta(
     thinking: input.resolvedThinking,
     imageGenerations: input.resolvedImageGenerations,
     scaffoldId: input.scaffoldId,
-    scaffoldFamily: input.scaffoldFamily,
     scaffoldSelection: orch.scaffoldSelection ?? null,
     capabilities: orch.capabilities,
     contractDataMode: orch.preGenerationContracts.contracts.dataMode,

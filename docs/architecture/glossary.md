@@ -164,6 +164,8 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Orchestration Base** | `OrchestrationBase`, `resolveOrchestrationBase()` | `orchestrate.ts` | Löst scaffold + route plan + contracts + BuildSpec (utan full static core). | kanonisk |
 | **Finalized Orchestration** | `FinalizedOrchestrationContext`, `finalizeOrchestrationPrompts()` | `orchestrate.ts` | Dynamic context + `engineSystemPrompt` färdiga. | kanonisk |
 | **Generation Context** | `prepareGenerationContext()` | `orchestrate.ts` | End-to-end: base → finalize → `GenerationInputPackage` + prompt dump. | kanonisk |
+| **Style Direction (this generation)** | `pickStyleDirection()` + promptblocket `"## Style Direction (this generation)"` | `data/style-directions.ts`, `system-prompt.ts` | Deterministiskt variationsspår per request: layout, rytm, motiv, fontmood. | kanonisk |
+| **Your Toolkit** | promptblocket `"## Your Toolkit"` | `system-prompt.ts`, `data/shadcn-components.ts`, `capability-inference.ts` | Samlad verktygsyta för modellen: säkra shadcn-importer + capability-hints + ev. component palette. | kanonisk |
 | **Orchestration Contract** | `OrchestrationContract`, `buildOrchestrationContract()` | `orchestration-contract.ts` | Samlad kontraktsyta: scaffold-ruttkontrakt (`ScaffoldRouteContract`) + valideringsförväntningar (`GenerationValidateContract`). Bindemedel, inte primär domänmodell. | kanonisk |
 | **Orchestration Snapshot** | `buildPersistedOrchestrationSnapshot()`, `mergePersistedOrchestrationSnapshots()` | `orchestration-snapshot.ts` | K-019 persisterad snapshot för follow-up-kontinuitet. | kanonisk |
 | **Pre-generation Contract Gate** | `createPreGenerationContractGateReadableStream()` | `pre-generation-contract-gate.ts` | SSE-gate innan static core betalas. | kanonisk |
@@ -172,15 +174,15 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Scaffold** | `ScaffoldManifest` | `scaffolds/types.ts` | Runtime-startpunkt: `id`, `label`, `description`, `family`, `structureProfile?`, `contentProfile?`, `siteKind?`, `complexity?`, `features?`, `promptHints?`, `tags?`, `allowedBuildIntents`, `files`, `qualityChecklist?`, `research?`. | kanonisk |
-| **Scaffold Family** | `ScaffoldFamily` | `scaffolds/types.ts` | Union av 10 scaffold-id:n. Primärnyckel i registry/matcher. | kanonisk |
+| **Scaffold** | `ScaffoldManifest` | `scaffolds/types.ts` | Runtime-startpunkt: `id` (typat som `ScaffoldId`, inte `string`), `label`, `description`, `structureProfile?`, `contentProfile?`, `siteKind?`, `complexity?`, `features?`, `promptHints?`, `tags?`, `allowedBuildIntents`, `files`, `qualityChecklist?`, `research?`. Fältet `family` är borttaget — använd `id`. | kanonisk |
+| **Scaffold Family** | `ScaffoldFamily` (deprecated, use ScaffoldId) | `scaffolds/types.ts` | Collapsed into `ScaffoldId`. The `ScaffoldFamily` type is a deprecated alias for `ScaffoldId`. The `family` field was removed from `ScaffoldManifest` — use `id` instead. Tidigare: union av scaffold-id; primärnyckel i registry/matcher är nu `ScaffoldId` via `id`. | **legacy** |
 | **Scaffold Selection** | `matchScaffoldAuto()` → `ScaffoldSelectionResult` | `scaffolds/matcher.ts` | Två lager: keyword+capability-boost → embedding challenge. | kanonisk |
 | **Scaffold Selection Meta** | `ScaffoldSelectionMeta` | `scaffolds/matcher.ts` | `selectionMethod` (`keyword`/`embedding`/`manual`/`persisted`/`default`/`off`), `selectionConfidence`, `keywordScores`, `embeddingTopResult`, `embeddingOverrideReason`, `briefContextApplied`, `topCandidates`, `embeddingAvailable/Failed`, `semanticUnavailableReason`. | kanonisk |
 | **Scaffold Query Context** | `ScaffoldQueryContext`, `buildScaffoldQueryContext()` | `matcher.ts`, `orchestrate.ts` | Brief-deriverat: `briefPages`, `styleKeywords`, `domainHints`. | kanonisk |
 | **Scaffold Keyword Match** | `matchScaffold()` | `scaffolds/matcher.ts` | Synkront keyword/heuristik-steg; delsteg i auto. | kanonisk |
 | **Scaffold Mode** | `ScaffoldMode` | `scaffolds/types.ts` | `"off" \| "auto" \| "manual"`. | kanonisk |
 | **Scaffold Prompt Context** | `serializeScaffoldForPrompt()` | `scaffolds/serialize.ts` | Budgeterad textserialisering för systemprompt. | kanonisk |
-| **Scaffold Serialize Mode** | `ScaffoldSerializeMode`, `detectScaffoldMode()` | `scaffolds/serialize.ts` | `"structural" \| "inspirational"`. Creative-theme → inspirational. | kanonisk |
+| **Scaffold Serialize Mode** | `ScaffoldSerializeMode` | `scaffolds/serialize.ts`, `orchestrate.ts` | `"structural" \| "inspirational"`. Init kör inspirational som default; follow-up/heavy policy kör structural. | kanonisk |
 | **Persisted Scaffold** | `persistedScaffoldId` i `OrchestrationInput` | `orchestrate.ts` | Senast sparade scaffold-id; återanvänds i follow-up om inte redesign låser upp. | kanonisk |
 
 ### 2.3 Scaffold — data, traits, research
@@ -203,7 +205,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Scaffold Embeddings** | `ScaffoldEmbeddingsFile`, `ScaffoldEmbeddingEntry` | `scaffold-embeddings-core.ts` | Förgenererade vektorer i `scaffold-embeddings.json`. | kanonisk |
-| **Scaffold Embedding Locale** | `ScaffoldEmbeddingLocale`, `SCAFFOLD_EMBEDDING_LOCALE` | `scaffold-embedding-locale.ts` | Tvåspråkiga (SV/EN) labels/beskrivningar/nyckelord per family. | kanonisk |
+| **Scaffold Embedding Locale** | `ScaffoldEmbeddingLocale`, `SCAFFOLD_EMBEDDING_LOCALE` | `scaffold-embedding-locale.ts` | Tvåspråkiga (SV/EN) labels/beskrivningar/nyckelord per scaffold (`ScaffoldId`). | kanonisk |
 | **Scaffold Search** | `searchScaffolds()`, `searchScaffoldsWithDiagnostics()` | `scaffold-search.ts` | Cosine-similarity ranking av scaffolds. | kanonisk |
 | ~~Semantic Matching~~ (informellt) | — | docs | Informellt namn för embedding-banan. | **legacy** — säg "scaffold embedding search" |
 
@@ -281,7 +283,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Generation Package** | `GenerationInputPackage`, `buildGenerationInputPackage()` | `generation-input-package.ts` | Kanonisk fan-in: `engineSystemPrompt`, `dynamicContext`, `dynamicContextPruning`, `dynamicContextBlocks`, `lineageHash`. | kanonisk |
-| **Generation Pipeline** | `createGenerationPipeline()` | `generation-pipeline.ts` | Wrapper runt `generateCode()` + SSE. | kanonisk |
+| **Generation Pipeline** | `createGenerationPipeline()` | `engine.ts` | Convenience wrapper runt `generateCode()`. | kanonisk |
 | **Code Generation** | `generateCode()` | `engine.ts` | Kärnan: anropar LLM med systemprompt + user turn. | kanonisk |
 | **Own-Engine Stream** | `createOwnEngineGenerationStream()` | `generation-stream.ts` | Own-engine SSE-adapter + finalize-hook. | kanonisk |
 | **Builder Stream Events** | `BuilderStreamEventMap`, `createBuilderStreamEvent()` | `builder-stream-contract.ts` | Typade SSE-eventnamn för builder-UI. | kanonisk |
@@ -298,15 +300,26 @@ Allt efter att generatorn producerat output.
 
 ### 3.1 Autofix och repair
 
+Fas 3 använder två kategorier av fixar:
+
+| Kategori | Kanonisk term | Betydelse |
+|---|---|---|
+| **Mekanisk fix** | `category: "mechanical"` i `FixEntry` | Deterministisk regex/AST-baserad fix. Gratis, snabb, 100 % reproducerbar. Körs alltid — både på initial codegen-output och efter varje LLM-fix-pass. |
+| **LLM-fix** | `category: "llm"` i `FixEntry` | Modelldrivet reparationsanrop. Dyrt, långsamt, icke-deterministiskt. Eskaleras till bara när mekaniska fixar inte räcker. |
+
+Äldre synonymer ("deterministisk autofix", "fixer", "repair") ska inte introduceras i ny kod — använd ovan termer.
+
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Autofix** | `runAutoFix()` → `AutoFixResult` | `autofix/pipeline.ts` | Deterministisk autofix-pipeline (imports, JSX, fonts, lucide, metadata, etc.). | kanonisk |
-| **Validate and Fix** | `validateAndFix()` → `ValidateFixResult` | `autofix/validate-and-fix.ts` | Syntaxvalidering + progressiv fix-loop. | kanonisk |
-| **LLM Fixer** | `runLlmFixer()` → `FixerResult` | `autofix/llm-fixer.ts` | LLM-driven reparation; används av server-verify. | kanonisk |
+| **Fix Entry** | `FixEntry`, `FixCategory` | `autofix/types.ts` | Kanonisk typ för alla fixar (mekaniska och LLM). | kanonisk |
+| **Autofix** | `runAutoFix()` → `AutoFixResult` | `autofix/pipeline.ts` | Mekanisk fix-pipeline (imports, JSX, fonts, lucide, metadata, scroll-smooth, icon-value, basePath, etc.). | kanonisk |
+| **Validate and Fix** | `validateAndFix()` → `ValidateFixResult` | `autofix/validate-and-fix.ts` | Syntaxvalidering + progressiv mekanisk→LLM→mekanisk fix-loop. | kanonisk |
+| **LLM Fixer** | `runLlmFixer()` → `FixerResult` | `autofix/llm-fixer.ts` | LLM-fix; används av validate-and-fix och server-verify. | kanonisk |
 | **Fixer Prompt** | `FIXER_SYSTEM_PROMPT`, `buildFixerUserPrompt()` | `autofix/fixer-prompt.ts` | System- och user-promptar för LLM-fixern. | kanonisk |
-| **Repair Generated Files** | `repairGeneratedFiles()` | `repair-generated-files.ts` | Reparation/normalisering av genererad filuppsättning. | kanonisk |
+| **Repair Generated Files** | `repairGeneratedFiles()` | `autofix/repair-generated-files.ts` | Tunn wrapper som kör samma mekaniska fixar på `CodeFile[]` (preflight-ingång). | kanonisk |
 | **Autofix Events** | `AUTO_FIX_EVENT_NAME`, `dispatchAutoFixEvent()` | `auto-fix-events.ts` | DOM-events för autofix i UI. | kanonisk |
 | **Autofix Hook** | `useAutoFix()` | `useAutoFix.ts` | Client-side autofix-hook. | kanonisk |
+| ~~deterministisk autofix~~ | — | — | Äldre synonym för "mekanisk fix". | alias |
 
 ### 3.2 Finalize-pipeline
 
@@ -361,6 +374,17 @@ Allt efter att generatorn producerat output.
 |---|---|---|---|---|
 | **Eval Checks** | `checkProjectSanity()`, `checkTier2Readiness()`, `checkSeoPublishReadiness()`, `checkVisualQuality()` | `eval/checks.ts` | Namngivna kontroller i eval-harnessen. Visual QA i `verify/visual-qa.ts`. | kanonisk |
 
+### 3.8 Loggning och telemetri (Fault & Fix)
+
+| Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
+|---|---|---|---|---|
+| **Fault & Fix Index** | `FaultFixRow`, `FAULT_FIX_TYPES`, `collectFaultFixRows()` | `logging/generation-log-writer.ts` | Per-generering fel/fix-rader. Skrivs per run-katalog (`fault-fix-index.md`, `.csv`) och globalt (`error-log.csv`). | kanonisk |
+| **Global Error Log** | `appendGlobalFaultFixCsv()`, `logs/llm-segmentts-and-index/error-log.csv` | `logging/generation-log-writer.ts` | Append-only CSV med alla fel/fixar. Kolumner: time, phase, step, severity, scaffold_id, `scaffold_family` (deprecated, use ScaffoldId), serialize_mode, style_direction, file, fixer, resolved, m.fl. | kanonisk |
+| **Generation Run** | `logs/generationslogg/<YYYYMMDD-HHMMSS-slug>/` | `logging/generation-log-writer.ts` | Per-körning-katalog: `timeline.ndjson`, `summary.md`, `meta.json`, `fault-fix-index.md/.csv`. | kanonisk |
+| **DevLog Append** | `devLogAppend()`, `appendRollingLine()` | `logging/devLog.ts` | Gemensam ingångspunkt för loggning. Matar tre sinks: dev-log-filer, generationslogg/timeline, och global CSV. | kanonisk |
+| **Timeline** | `timeline.ndjson`, `StoredGenerationEntry` | `logging/generation-log-writer.ts` | NDJSON-logg per generering. Källa för fault-fix-index och CSV. | kanonisk |
+| **Enrich Fault Fix Row** | `enrichFaultFixRow()` | `logging/generation-log-writer.ts` | Backfyller chatId, versionId, scaffoldId, serializeMode, styleDirection från tidigare timeline-poster. | kanonisk |
+
 ---
 
 ## Sammanfattning: termer att döda eller fasa ut
@@ -411,7 +435,7 @@ Allt efter att generatorn producerat output.
 | **preview** | Det användaren ser i buildern. | kanonisk |
 | **VM / `preview_host`** | Primär tier-2-live-preview via Fly.io. Riktningen framåt. | kanonisk |
 | **`preview-session`** | Kanonisk bootstrap-route för tier-2-preview; startar eller återanvänder preview. | kanonisk |
-| **`preview-status`** | Recover-/statusroute: `running`, `stopped`, `missing`, `version_mismatch`. | kanonisk |
+| **`preview-status`** | Recover-/statusroute: `running`, `starting`, `stopped`, `missing`, `version_mismatch`. `starting` = boot grace period (90s). | kanonisk |
 | **`startOutcome`** | Hur session löstes: `reused_url`, `resumed`, `recreated`. | kanonisk |
 | **`previewPending`** | Finalize klar, preview väntas. | kanonisk |
 | **`previewUrlHint`** | Temporär VM-hint medan preview bootar; inte slutlig `previewUrl`. | kanonisk |
@@ -484,16 +508,36 @@ Allt efter att generatorn producerat output.
 
 ---
 
+## Domän → mappstruktur
+
+Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra var nya filer hör hemma.
+
+| Domän | Fas | Primär plats |
+|-------|-----|-------------|
+| Orchestration (scaffold + route + contracts + BuildSpec) | 2 | `gen/` rot (`orchestrate.ts` hub) |
+| Prompt assembly (system prompt, dynamic context, tokens) | 2 | `gen/` rot (`system-prompt.ts` hub) |
+| Spec/planning (BuildSpec, route plan, capabilities) | 2 | `gen/` rot |
+| Scaffold-data och matching | 2 | `gen/scaffolds/` |
+| SSE wire-format och parsning | 2–3 | `gen/stream/` (`stream-format.ts`, `sse-parser.ts`) |
+| Autofix och repair | 3 | `gen/autofix/` (inkl. `repair-generated-files.ts`, `runtime-imports.ts`) |
+| Finalize-pipeline | 3 | `gen/stream/` (`finalize-version.ts` m.fl.) |
+| Verifiering och quality gate | 3 | `gen/verify/` (inkl. `post-generation-config.ts`) |
+| Preview | 3 | `gen/preview/` |
+| Export/projektskelett | 3 | `gen/export/` (`project-scaffold.ts`, `project-scaffold-ui-reader.ts`) |
+| Env/config | — | `lib/` rot (`env.ts`, `config.ts`) |
+| Deploy och Vercel API | — | `lib/deploy/` + `lib/vercel/` |
+
 ## Versionering
 
 | Datum | Ändring |
 |-------|---------|
 | 2026-04-10 | Initial ordlista (v1). |
 | 2026-04-10 | Utökad ordlista (v2): +80 termer, scaffold/dossier/research, namnskuggor. |
-| 2026-04-10 | Konsoliderad ordlista (v3): integrerat preview/VM/sandbox, produkttermer, env, legacy. Ersätter `terminology-builder-runtime.mdc` som primär källa. |
+| 2026-04-10 | Konsoliderad ordlista (v3): integrerat preview/VM/sandbox, produkttermer, env, legacy. |
 | 2026-04-10 | Prompttyper och anropsklasser (v4): klassificering av create-chat, follow-up, plan mode, repair, etc. |
 | 2026-04-10 | Namnskuggor lösta (v5): `buildIntents` → `allowedBuildIntents`, `PlanPhase "polish"` → `"refine"`, `PromptStrategy "phase_plan_build_polish"` → `"phase_plan_build_refine"`. |
 | 2026-04-10 | gen/ omorganisation (v6): verify/, export/, packs/ undermappar. Sökvägar uppdaterade. |
+| 2026-04-11 | Loggning och telemetri (v7): +6 termer (Fault & Fix Index, Global Error Log, Generation Run, DevLog Append, Timeline, Enrich Fault Fix Row). Utökat CSV-schema med scaffold_id, serialize_mode, style_direction, file, fixer, resolved. |
 
 ## När detta dokument uppdateras
 

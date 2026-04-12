@@ -71,11 +71,11 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Tester | Bl.a. `httpStatusForPreviewSessionFailure`, bootstrap-retry, preview-gate, repair-idempotens | `*.test.ts` under `src/lib/gen`, `src/lib/builder` |
 | Vitest / config-mock | `route.test.ts` mockar `REDIS_KEY_PREFIX` m.m. när `redis.ts` laddas | `src/app/api/v0/chats/stream/route.test.ts` |
 
-**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se problemområdena i [`../../5-steg.txt`](../../5-steg.txt) och [`../plans/active/remaining-focus-after-5-step.md`](../plans/active/remaining-focus-after-5-step.md).
+**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se [`../../5-steg.txt`](../../5-steg.txt).
 
 **Vit / tom preview:** operativ runbook + checklista — [`preview-white-screen-runbook.md`](./preview-white-screen-runbook.md). Kort hjälptext visas i byggarens iframe-overlay (`previewRunbookLinesForCode` i `preview-diagnostics.ts`).
 
-**Zip-export och lokal utveckling:** `GET .../versions/{versionId}/download` kör `buildCompleteProject` i [`project-scaffold.ts`](../../src/lib/gen/project-scaffold.ts). Modellens `package.json` **merge:as** med baseline (så `scripts` som `dev`/`build` och devDependencies som TypeScript/Tailwind inte försvinner), och om `.env.local` saknas läggs en **placeholder-fil** till (samma nycklar som i preview-env, från `config/ai_models/` placeholders).
+**Zip-export och lokal utveckling:** `GET .../versions/{versionId}/download` kör `buildCompleteProject` i [`project-scaffold.ts`](../../src/lib/gen/export/project-scaffold.ts). Modellens `package.json` **merge:as** med baseline (så `scripts` som `dev`/`build` och devDependencies som TypeScript/Tailwind inte försvinner), och om `.env.local` saknas läggs en **placeholder-fil** till (samma nycklar som i preview-env, från `config/ai_models/` placeholders).
 
 ## Begrepp
 
@@ -121,7 +121,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 - **`POST /api/engine/chats/[chatId]/preview-destroy`** (v0-route finns som compat): builderns "Rensa preview" använder nu den här vägen för att aktivt stänga preview-host/Fly-sessionen, rensa session-store och nolla `engine_versions.preview_url` för versionen.
 - **Sessionstid:** appens preview-session-store och hostens session-TTL är nu båda satta till cirka **1 timme**. Det är den förenklade sanningen för hur länge en preview maximalt ska leva utan ny start/update-cykel.
 - **Klient:** `PreviewPanel` pingar heartbeat ca var 25s (synlig flik) när livscykel är `live`; `previewSessionId` hålls i builder-state från lyckad `preview-session` och SSE `preview-ready`.
-- **Recover:** Misstanke från iframe (t.ex. transportfel, ready-timeout) → status-GET; om inte `running` → tvingad `preview-session` med `forceRestart`, debounce och maxförsök (se `useBuilderPageController`).
+- **Recover:** Misstanke från iframe (t.ex. transportfel, ready-timeout 45s) → status-GET; om `starting` (boot grace 90s) → vänta utan recovery; om inte `running` eller `starting` → tvingad `preview-session` med `forceRestart`, debounce och maxförsök (se `usePreviewSession`).
 - **Livscykel-UI:** `PreviewLifecycleState` i `src/lib/builder/preview-lifecycle.ts` — `idle` \| `bootstrapping` \| `live` \| `recovering` \| `failed`.
 - **Telemetri:** loggprefix **`[telemetry:preview-lifecycle]`** och eventnamn beskriver nu preview-start/-status/-ready/-failed med tid från engine-start. Tier-2-event bär `tier2Provider: "preview_host"`.
 - **Repair / versionsbyte:** Om SSE `done` sätter **`onlySelectVersionIfWasLatest`: true** uppdateras vald version i byggaren **endast** om användaren redan var på föregående server-«latest» (annars behålls manuellt vald äldre version). Normal egen generering skickar inte flaggan — standard är att följa streamens `versionId`. När användaren **manuellt väljer en äldre version** utan egen live-preview ska buildern nu hellre visa tom-/bootstrapping-state för just den versionen än att tyst falla tillbaka till senaste versionens preview.

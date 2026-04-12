@@ -68,7 +68,7 @@ function emptyClassification(): TemplateLibraryEntry["classification"] {
   };
 }
 
-function inferLegacyFamilies(candidate: LegacyCandidate): TemplateLibraryEntry["recommendedScaffoldFamilies"] {
+function inferLegacyFamilies(candidate: LegacyCandidate): TemplateLibraryEntry["recommendedScaffoldIds"] {
   const text = `${candidate.slug ?? ""} ${candidate.name ?? ""} ${candidate.description ?? ""}`.toLowerCase();
   if (/\b(auth|login|signup|password)\b/.test(text)) return ["auth-pages"];
   if (/\b(ecommerce|shop|store|checkout|product)\b/.test(text)) return ["ecommerce"];
@@ -98,7 +98,7 @@ function normalizeLegacyCandidates(rawCandidates: LegacyCandidate[]): TemplateLi
     const title = candidate.name?.trim() || candidate.slug?.trim() || "Legacy Candidate";
     const id = slugify(candidate.slug?.trim() || title);
     const description = candidate.description?.trim() || "";
-    const recommendedScaffoldFamilies = inferLegacyFamilies(candidate);
+    const recommendedScaffoldIds = inferLegacyFamilies(candidate);
     const qualityScore = legacyQualityScore(candidate);
     return {
       id,
@@ -117,9 +117,9 @@ function normalizeLegacyCandidates(rawCandidates: LegacyCandidate[]): TemplateLi
       stackTags: [],
       usefulLines: [],
       noiseLines: [],
-      strengths: recommendedScaffoldFamilies.map((family) => `${family} alignment`),
+      strengths: recommendedScaffoldIds.map((family) => `${family} alignment`),
       weaknesses: qualityScore < 60 ? ["Legacy candidate without curated dossier"] : [],
-      recommendedScaffoldFamilies,
+      recommendedScaffoldIds,
       signals: emptySignals(),
       classification: emptyClassification(),
       summary: description || `${title} imported from legacy scaffold candidate list.`,

@@ -27,11 +27,13 @@
  */
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { buildPaletteInstruction, type PaletteState } from "@/lib/builder/palette";
+import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
+import { SHADCN_COMPONENTS } from "./data/shadcn-components";
+import { pickStyleDirection } from "./data/style-directions";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import { getStaticCoreFromWorkspace } from "./static-core-loader";
@@ -178,6 +180,8 @@ export interface DynamicContextOptions {
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
   templateReferences?: TemplateReferenceContext[];
+  /** Per-session seed (chatId or similar) to vary style direction across sessions with identical prompts. */
+  sessionSeed?: string;
 }
 
 function str(v: unknown): string {
@@ -187,9 +191,6 @@ function str(v: unknown): string {
 function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
-
-const DEFAULT_REFS_BUDGET_TOKENS = 3_750;
-const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 30_000;
 
 function dedup(items: string[]): string[] {
   return Array.from(new Set(items.map((s) => s.trim()).filter(Boolean)));
@@ -269,6 +270,32 @@ function renderTemplateReferenceModules(
   return parts;
 }
 
+function extractCapabilityHintLines(capabilityHints?: string): string[] {
+  if (!capabilityHints?.trim()) return [];
+  return capabilityHints
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
+}
+
+function buildShadcnToolkitSummary(): string {
+  const groups = new Map<string, string[]>();
+  for (const [componentName, importPath] of Object.entries(SHADCN_COMPONENTS)) {
+    const existing = groups.get(importPath);
+    if (existing) {
+      existing.push(componentName);
+    } else {
+      groups.set(importPath, [componentName]);
+    }
+  }
+
+  const allPaths = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+  return `  - ${allPaths.length} component groups available via \`@/components/ui/{name}\`: ${allPaths.join(", ")}`;
+}
+
+const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
+const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 30_000;
+
 const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   match: RegExp;
   priority: number;
@@ -278,8 +305,10 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
+  { match: /^style direction \(this generation\)$/i, priority: 91 },
   { match: /^scaffold$/i, priority: 90, required: true },
   { match: /^route plan$/i, priority: 90, required: true },
+  { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
@@ -300,6 +329,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^known pitfalls$/i, priority: 84, required: true },
   { match: /^imagery/i, priority: 66 },
   { match: /^seo$/i, priority: 62 },
+  { match: /^import rules$/i, priority: 94, required: true },
+  { match: /^known pitfalls$/i, priority: 93, required: true },
 ];
 
 function normalizeContextBlockKey(title: string, index: number): string {
@@ -393,6 +424,7 @@ export type BuildDynamicContextResult = {
   context: string;
   pruning: DynamicContextPruning;
   blocks: DynamicContextBlockTrace[];
+  styleDirectionId: string | null;
 };
 
 /**
@@ -420,9 +452,11 @@ export async function buildDynamicContext(
     generationMode,
     buildSpec,
     templateReferences,
+    sessionSeed,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
+  const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
 
   const parts: string[] = [];
 
@@ -472,9 +506,56 @@ export async function buildDynamicContext(
     parts.push(...profileLines);
   }
 
-  if (capabilityHints?.trim()) {
-    parts.push(capabilityHints.trim(), "");
-  }
+  const styleDirection = pickStyleDirection({
+    prompt: [
+      str(brief?.oneSentencePitch),
+      str(brief?.tagline),
+      strList(brief?.mustHave).join(" "),
+      strList(brief?.toneAndVoice).join(" "),
+      styleKeywords.join(" "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || guidance.rules.join(" "),
+    scaffoldId: resolvedScaffold?.id ?? null,
+    styleKeywords,
+    generationMode,
+    sessionSeed,
+  });
+  parts.push(
+    "## Style Direction (this generation)",
+    "",
+    `- **Layout approach:** ${styleDirection.layoutApproach}`,
+    `- **Section rhythm:** ${styleDirection.sectionRhythm}`,
+    `- **Signature motif:** ${styleDirection.signatureMotif}`,
+    `- **Font mood:** ${styleDirection.fontMood}`,
+    "",
+  );
+
+  // ── Import Rules (prevent recurring syntax errors) ───────────────────
+  parts.push(
+    "## Import Rules",
+    "",
+    "Follow these rules strictly to produce valid ES module syntax:",
+    "- Every `import { ... }` block MUST close with `} from \"module\";` on the same statement. Never start a new `import` inside an unclosed `import { ... }` block.",
+    "- Each file may have at most ONE `export default`. Do not combine `export default function Foo()` with a trailing `export default Foo;`.",
+    "- shadcn/ui components: always use `@/components/ui/<component>` paths (e.g. `import { Button } from \"@/components/ui/button\"`).",
+    "- lucide-react icons: use the exact PascalCase export name (e.g. `ArrowRight`, not `ArrowRightIcon`).",
+    "- Always include a `package.json` with pinned dependency versions for all third-party libraries used.",
+    "",
+  );
+
+  parts.push(
+    "## Known Pitfalls",
+    "",
+    "Avoid these recurring generation errors:",
+    "- `package.json` MUST exist and list every third-party dependency used in the project. Omitting it causes install failures.",
+    "- Pin dependency versions to a specific major range (e.g. `\"framer-motion\": \"^12\"`, `\"three\": \"^0.183\"`). Never use `\"*\"` or `\"latest\"`.",
+    "- `useReducedMotion()` from framer-motion returns `boolean | null`. Always coerce to boolean before passing to props typed as `boolean` (e.g. `Boolean(useReducedMotion())`).",
+    "- When importing both a type and a value with the same name (e.g. `Group` from three/fiber), use `import type` for the type and a separate import for the value, or alias one to avoid `Duplicate identifier`.",
+    "- Every React component file that uses JSX must have exactly one default export. Do not forget it and do not duplicate it.",
+    "",
+  );
 
   // ── Scaffold ───────────────────────────────────────────────────────────
   if (scaffoldContext) {
@@ -595,6 +676,32 @@ export async function buildDynamicContext(
       "",
     );
   }
+
+  // ── Toolkit (from master — shadcn summary, capabilities, palette) ────
+  const capabilityLines = extractCapabilityHintLines(capabilityHints);
+  const paletteSelections = componentPalette?.selections ?? [];
+  const paletteLines = paletteSelections.slice(0, 12).map((selection) => {
+    const tags = selection.tags?.length ? ` (${selection.tags.slice(0, 3).join(", ")})` : "";
+    return `  - ${selection.label} [${selection.source}]${tags}`;
+  });
+  const toolkitLines: string[] = [
+    "## Your Toolkit",
+    "",
+    "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
+    "",
+    "- shadcn/ui (import from `@/components/ui/{name}`):",
+    buildShadcnToolkitSummary(),
+  ];
+  if (capabilityLines.length > 0) {
+    toolkitLines.push("", "- Capability-driven additions for this request:");
+    toolkitLines.push(...capabilityLines.map((line) => `  - ${line.slice(2)}`));
+  }
+  if (paletteLines.length > 0) {
+    toolkitLines.push("", "- Curated component palette from builder context:");
+    toolkitLines.push(...paletteLines);
+  }
+  toolkitLines.push("");
+  parts.push(...toolkitLines);
 
   if (routePlan && routePlan.routes.length > 0) {
     parts.push(
@@ -754,10 +861,8 @@ export async function buildDynamicContext(
   // ── Visual Identity ─────────────────────────────────────────────────────
   const hasTheme = themeOverride && (themeOverride.primary || themeOverride.secondary || themeOverride.accent);
   const briefPalette = brief?.visualDirection?.colorPalette;
-  const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
   const typography = brief?.visualDirection?.typography;
   const themePresetLabel = str(designThemePreset);
-  const paletteInstruction = buildPaletteInstruction(componentPalette);
 
   if (themePresetLabel || hasTheme || briefPalette || styleKeywords.length > 0 || typography) {
     parts.push("## Visual Identity", "");
@@ -785,10 +890,6 @@ export async function buildDynamicContext(
     }
 
     parts.push("");
-  }
-
-  if (paletteInstruction) {
-    parts.push(paletteInstruction, "");
   }
 
   if (designReferences && designReferences.length > 0) {
@@ -898,6 +999,7 @@ export async function buildDynamicContext(
       keptBlockKeys: budgeted.keptKeys,
     },
     blocks: blockTrace,
+    styleDirectionId: styleDirection.id,
   };
 }
 

@@ -7,8 +7,7 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { CodeFile } from "@/lib/gen/parser";
-import type { PipelineOptions } from "@/lib/gen/generation-pipeline";
-import { createGenerationPipeline } from "@/lib/gen/generation-pipeline";
+import { createGenerationPipeline, type PipelineOptions } from "@/lib/gen/engine";
 import type { ReasoningEffort } from "@/lib/gen/engine";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
@@ -59,15 +58,12 @@ export function createOwnEnginePipelineAndGenerationStream(
     premium: "high",
     "release-candidate": "high",
   };
-  let reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "medium";
-
-  if (input.buildSpec.generationMode === "followUp") {
-    const scope = input.buildSpec.changeScope;
-    if (scope === "copy" || scope === "local-layout") {
-      reasoningEffort = "medium";
-    } else if (scope === "redesign" || scope === "integration") {
-      reasoningEffort = "high";
-    }
+  let reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "high";
+  const isLightFollowUp =
+    input.buildSpec.generationMode === "followUp" &&
+    (input.buildSpec.changeScope === "copy" || input.buildSpec.changeScope === "local-layout");
+  if (isLightFollowUp && reasoningEffort === "high") {
+    reasoningEffort = "medium";
   }
   const pipelineStream = createGenerationPipeline({
     prompt: input.pipeline.prompt,

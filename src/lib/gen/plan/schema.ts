@@ -85,6 +85,7 @@ export type PlanContracts = {
 
 export type PlanScaffoldChoice = {
   id?: string;
+  /** @deprecated Legacy alias from older stored plan artifacts; prefer `id`. */
   family?: string;
   label: string;
   reason?: string;
@@ -223,6 +224,7 @@ function normalizeScaffold(value: unknown): PlanScaffoldChoice | null {
   if (!isRecord(value)) return null;
   const label = asString(value.label);
   if (!label) return null;
+  const id = asString(value.id) || asString(value.family) || undefined;
   const sourceValue = asString(value.source);
   const source =
     sourceValue === "planner" ||
@@ -232,7 +234,7 @@ function normalizeScaffold(value: unknown): PlanScaffoldChoice | null {
       ? sourceValue
       : undefined;
   return {
-    id: asString(value.id) || undefined,
+    id,
     family: asString(value.family) || undefined,
     label,
     reason: asString(value.reason) || undefined,
@@ -420,7 +422,9 @@ export function serializePlanForPrompt(plan: PlanArtifact): string {
     lines.push("", "### Scaffold");
     lines.push(
       `- ${normalizedPlan.scaffold.label}` +
-        (normalizedPlan.scaffold.family ? ` [${normalizedPlan.scaffold.family}]` : "") +
+        (normalizedPlan.scaffold.id
+          ? ` [${normalizedPlan.scaffold.id}]`
+          : "") +
         (normalizedPlan.scaffold.reason ? ` — ${normalizedPlan.scaffold.reason}` : ""),
     );
   }

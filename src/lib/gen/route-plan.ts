@@ -319,7 +319,7 @@ function applyPromptPatterns(
 }
 
 function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: ScaffoldManifest | null, routes: PlannedRoute[]) {
-  switch (resolvedScaffold?.family) {
+  switch (resolvedScaffold?.id) {
     case "blog":
       pushRoute(routes, {
         path: "/blogg",

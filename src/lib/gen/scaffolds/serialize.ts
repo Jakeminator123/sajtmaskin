@@ -5,20 +5,6 @@ import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
 import { buildFileContext } from "../context/file-context-builder";
 
-const CREATIVE_THEME_KEYWORDS = [
-  "retro", "vintage", "western", "cowboy", "vilda västern", "steampunk",
-  "cyberpunk", "futuristic", "futuristisk", "neon", "grunge", "gothic",
-  "art deco", "art nouveau", "brutalist", "brutalistisk", "psychedelic",
-  "vaporwave", "synthwave", "pixel", "8-bit", "glitch", "noir", "film noir",
-  "comic", "manga", "anime", "fantasy", "medieval", "medeltida", "pirate",
-  "space", "rymd", "underwater", "tropical", "tropisk", "arctic", "arktisk",
-  "jungle", "djungel", "djungeln", "vietnam", "desert", "öken", "industrial",
-  "industriell", "warehouse", "saloon", "barn", "rustic", "rustik", "bohemian",
-  "boho", "hippie", "punk", "rave", "disco", "70-tal", "70-talet", "80-tal",
-  "80-talet", "90-tal", "90-talet", "y2k", "militär", "kamouflage", "krig",
-  "taktisk",
-];
-
 export type ScaffoldSerializeMode = "structural" | "inspirational";
 
 export interface ScaffoldSerializeOptions {
@@ -52,41 +38,6 @@ const CRITICAL_PATH_PATTERNS = [
   /^src\/components\//,
 ];
 
-/**
- * Detect whether the prompt describes a creative/unique theme that should
- * use inspirational (lightweight) scaffold injection instead of full files.
- */
-const CREATIVE_THEME_STRONG_MIN_LEN = 10;
-
-function escapeCreativeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function matchesCreativeKeyword(text: string, keyword: string): boolean {
-  const pattern = new RegExp(
-    `(^|[^\\p{L}\\p{N}])${escapeCreativeRegex(keyword)}([^\\p{L}\\p{N}]|$)`,
-    "iu",
-  );
-  return pattern.test(text);
-}
-
-export function detectScaffoldMode(prompt: string, styleKeywords?: string[]): ScaffoldSerializeMode {
-  const lower = prompt.toLowerCase();
-  const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => matchesCreativeKeyword(lower, kw));
-  const strongPromptHit = kwHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
-  if (strongPromptHit || kwHits.length >= 2) return "inspirational";
-
-  if (styleKeywords && styleKeywords.length > 0) {
-    const styleLower = styleKeywords.map((s) => s.toLowerCase());
-    const styleHits = CREATIVE_THEME_KEYWORDS.filter((kw) =>
-      styleLower.some((s) => matchesCreativeKeyword(s, kw)),
-    );
-    const strongStyleHit = styleHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
-    if (strongStyleHit || styleHits.length >= 2) return "inspirational";
-  }
-  return "structural";
-}
-
 export function serializeScaffoldForPrompt(
   scaffold: ScaffoldManifest,
   mode: ScaffoldSerializeMode = "structural",
@@ -110,12 +61,15 @@ export function serializeScaffoldForPrompt(
   if (mode === "inspirational") {
     const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");
     const criticalFiles = selectCriticalScaffoldFiles(scaffold, "light", options);
-    const criticalBlocks = renderSelectedScaffoldFiles(
-      criticalFiles,
-      Math.min(maxChars, 10_000),
+    const layoutAndStyleFiles = criticalFiles.filter(
+      (f) => !f.path.endsWith("/page.tsx") && !f.path.endsWith("\\page.tsx"),
+    );
+    const layoutBlocks = renderSelectedScaffoldFiles(
+      layoutAndStyleFiles,
+      Math.min(maxChars, 4_000),
     );
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Critical Structure Files (adapt these, don't ignore)\n\n${criticalBlocks}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nUse the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** to match the user's request. You are not bound by the scaffold's existing section order, number of sections, or layout patterns. **Invent a unique page flow** that fits the user's specific business — a restaurant site should NOT look like a SaaS landing or a consultant portfolio. Vary section types, grid layouts, visual rhythm, and content hierarchy to genuinely reflect the domain.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Layout & Theme Files (adapt these, don't ignore)\n\n${layoutBlocks}\n\n**Page structure (app/page.tsx):** Do NOT copy a generic hero → cards → testimonials → CTA pattern. Instead, choose sections that genuinely serve this specific business. For example: a restaurant might lead with an atmosphere image + reservation CTA, then menu highlights, then location/hours. A creative studio might open with a bold project showcase grid. Let the user's domain drive the section choices.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
   }
 
   if (!FEATURES.useLightweightScaffoldSerialization || options.forceFullDump) {

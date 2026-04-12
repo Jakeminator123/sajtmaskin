@@ -1,61 +1,42 @@
 ---
-description: Kärntermer och vanliga förväxlingar i repoet
+description: Kärntermer och förväxlingar — pekar till glossary
 alwaysApply: true
 ---
 
 # Terminology
 
-Snabb referens för de vanligaste förväxlingarna. **Full ordlista med alla begrepp, livscykelstatus, namnskuggor och legacy-termer:** `docs/architecture/glossary.md`.
+**Kanonisk ordlista:** `docs/architecture/glossary.md` (livscykel, namnskuggor, legacy).
 
-## Grundregel (obligatorisk för alla agenter)
+**Grundregel:** kod är source of truth. Nya begrepp bara om befintlig term inte räcker — kolla glossaryn först. Ny/omdöpt term → uppdatera glossaryn samma leverans. § Namnskuggor innan `brief`, `contracts`, `reference`, `scaffold`, `polish`, `context`, `policy`. Konsolidera hellre än ny jargong.
 
-- Kod är alltid source of truth.
-- **Håll nere nya begrepp.** Introducera inte nya termer om ett befintligt ord redan duger. Kontrollera `docs/architecture/glossary.md` INNAN du namnger något nytt.
-- Om du ändå introducerar en ny term: **registrera den i glossaryn** med status, fas och kodreferens — i samma leverans.
-- Om du döper om eller ger en befintlig term ny betydelse: **uppdatera glossaryn** — i samma leverans.
-- Kontrollera glossaryns § Namnskuggor innan du använder tvetydiga ord som `brief`, `contracts`, `reference`, `scaffold`, `polish`, `context` eller `policy`.
-- Föredra konsolidering framför ny jargong. Repot strävar aktivt efter färre och tydligare begrepp.
+**Gate (fil/typ/export):** (1) Finns kanonisk term? (2) Tvetydigt ord? (3) Rimlig undermapp? → `file-structure-conventions.mdc`. (4) Nytt → glossaryn.
 
-## Snabb förväxlingstabell
+## Snabb tabell
 
 | Säg | Inte |
 |-----|------|
 | `own-engine` | generatorn, v0-motorn |
-| `preview` / `VM` / `preview_host` | sandbox (utom legacy-kontrakt) |
-| `template-library` | mallar (om du menar den kuraterade katalogen) |
-| `scaffolds` | mallar, templates (om du menar runtime-startpunkter) |
+| `preview` / `VM` / `preview_host` | sandbox (utom legacy) |
+| `template-library` | "mallar" om du menar katalogen |
+| `scaffolds` | mallar/templates (om runtime-startpunkter) |
+| `scaffoldId` / `ScaffoldId` | `ScaffoldFamily`, `family` (legacy alias) |
 | `builderns Mallar-tab` / `v0-mallar` | template-library, scaffolds |
 | `appProjectId` | chatId, VERCEL_PROJECT_ID |
-| `Deep Brief` | brief, StructuredBrief, PromptAssist |
-| `Prompt Rewrite` / `Prompt Polish` | Prompt Assist (som paraply) |
-| `Contract Plan` | Orchestration Contract (annat koncept) |
-| `previewUrl` (publikt) | demoUrl (legacy naming debt) |
+| `Deep Brief` | brief, StructuredBrief, PromptAssist-paraply |
+| `Prompt Rewrite` / `Prompt Polish` | "Prompt Assist" som paraply |
+| `Contract Plan` | Orchestration Contract |
+| `previewUrl` | demoUrl (legacy) |
+| `mekanisk fix` | "deterministisk autofix", "repair" (blandat) |
+| `LLM-fix` | "fixer", "syntax fixer" (blandat) |
 
-## `v0` — tre betydelser
+**`v0`:** (1) `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
 
-1. API-versionering under `/api/v0/`.
-2. Naming debt i äldre symboler.
-3. Builderns Mallar-tab.
+**Scaffold:** Kanonisk identifierare är `ScaffoldId` / manifestfältet `id` — inte `ScaffoldFamily` eller `family`. `detectScaffoldMode()` togs bort (död kod).
 
-`v0-sdk`, `src/lib/v0/` och `V0_API_KEY` är borttagna ur runtime.
+**Builder-lanes:** Byggmodell = Build Profile · Förbättra = Prompt Rewrite · Skriv om = Prompt Polish · Thinking = reasoning-flagga, inte lane.
 
-## Builder model lanes
+**Steg 4 (fas 3):** Mekaniska fixar → Validering → LLM-fix (vid behov) → Mekaniska fixar → Verifier → Preflight → Quality Gate → sparad version. Typer: `FixEntry` med `category: "mechanical" | "llm"` i `autofix/types.ts`.
 
-- **Byggmodell** = Build Profile (codegen).
-- **Förbättra** = Prompt Rewrite.
-- **Skriv om** = Prompt Polish.
-- **Thinking** = reasoning-flagga, inte en lane.
+**Env:** repo-`.env*` vs genererad sajts `.env*` — policy `env.ts`, `env-policy.json`, `docs/ENV.md`, `repo-env-indexing.mdc`.
 
-## Steg 4 (kort)
-
-Steg 4 = post-stream: Finalize → Repair → Verifier Pass → Preflight → Quality Gate → sparad version. Detaljer i glossaryn (fas 3).
-
-## Env
-
-- Skilj på repoets `.env*` och användarens genererade sajts `.env*`.
-- Policy: `src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md`.
-
-## När filen uppdateras
-
-- Bara vid nya återkommande förväxlingar.
-- Håll kort; detaljer hör hemma i glossaryn.
+Uppdatera denna fil bara vid nya återkommande förväxlingar; håll kort.

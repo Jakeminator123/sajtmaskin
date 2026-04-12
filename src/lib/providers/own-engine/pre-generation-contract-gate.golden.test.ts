@@ -70,8 +70,7 @@ const clarification: ContractClarificationQuestion = {
 };
 
 const scaffold: ScaffoldManifest = {
-  id: "sc_1",
-  family: "saas-landing",
+  id: "saas-landing",
   label: "SaaS",
   description: "d",
   allowedBuildIntents: ["website"],
@@ -98,7 +97,7 @@ const buildSpec: BuildSpec = {
   buildIntent: "website",
   generationMode: "followUp",
   changeScope: "integration",
-  scaffoldFamily: "saas-landing",
+  scaffoldId: "saas-landing",
   routePlanSummary: "prompt:brochure:/,/pricing",
   stylePack: "saas",
   qualityTarget: "premium",
@@ -108,9 +107,9 @@ const buildSpec: BuildSpec = {
   referenceCategories: ["saas", "marketing-sites", "backend"],
   forbiddenPatterns: ["leave_bracket_placeholders", "compat_preview_primary"],
   tokenBudgets: {
-    scaffoldChars: 120_000,
-    refsChars: 60_000,
-    systemContextChars: 240_000,
+    scaffoldChars: 80_000,
+    refsChars: 40_000,
+    systemContextChars: 160_000,
   },
 };
 
@@ -162,8 +161,7 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
     expect(meta.scaffoldLabel).toBeUndefined();
     expect(meta.capabilities).toBeUndefined();
     expect(meta.contractDataMode).toBe("persisted");
-    expect(meta.scaffoldId).toBe("sc_1");
-    expect(meta.scaffoldFamily).toBe("saas-landing");
+    expect(meta.scaffoldId).toBe("saas-landing");
     expect(meta.buildSpec).toEqual(buildSpec);
 
     const toolCall = events[2]?.data as { toolName?: string; toolCallId?: string };

@@ -4,7 +4,7 @@ import {
   type BuilderStreamEvent,
   type BuilderToolCallPayload,
 } from "@/lib/gen/stream/builder-stream-contract";
-import { parseSSEBuffer } from "@/lib/gen/route-helpers";
+import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 
 type ToolCallRecord = Record<string, unknown>;

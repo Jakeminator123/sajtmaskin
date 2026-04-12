@@ -41,7 +41,7 @@ function guessModuleForSpecifiers(specifiers: string[]): string | null {
     if (specifiers.some((s) => known.includes(s))) return mod;
   }
   if (specifiers.every((s) => LUCIDE_ICONS.has(s))) return "lucide-react";
-  if (specifiers.every((s) => SHADCN_COMPONENTS.has(s))) return null;
+  if (specifiers.every((s) => s in SHADCN_COMPONENTS)) return null;
   return null;
 }
 
@@ -638,24 +638,33 @@ function validateImports(code: string): string[] {
   return warnings;
 }
 
+/**
+ * Remove duplicate `export default` statements, keeping only the last one.
+ * GPT-5.x sometimes emits both `export default function Foo()` and a trailing
+ * `export default Foo;` in the same file.
+ */
 function fixDuplicateDefaultExport(code: string): { code: string; fixes: AutoFixEntry[] } {
+  const EXPORT_DEFAULT_RE = /^export\s+default\b/;
   const lines = code.split("\n");
-  const defaultExportIndices: number[] = [];
+  const defaultExportLines: number[] = [];
+
   for (let i = 0; i < lines.length; i++) {
-    if (/^export\s+default\s/.test(lines[i].trim())) {
-      defaultExportIndices.push(i);
+    if (EXPORT_DEFAULT_RE.test(lines[i].trim())) {
+      defaultExportLines.push(i);
     }
   }
-  if (defaultExportIndices.length <= 1) return { code, fixes: [] };
 
-  const toRemove = new Set(defaultExportIndices.slice(0, -1));
-  const filtered = lines.filter((_, i) => !toRemove.has(i));
+  if (defaultExportLines.length <= 1) {
+    return { code, fixes: [] };
+  }
+
+  const linesToRemove = new Set(defaultExportLines.slice(0, -1));
+  const kept = lines.filter((_, i) => !linesToRemove.has(i));
   return {
-    code: filtered.join("\n"),
+    code: kept.join("\n"),
     fixes: [{
-      type: "import-validator" as const,
-      file: "",
-      description: `Removed ${toRemove.size} duplicate 'export default' (kept last)`,
+      fixer: "duplicate-default-export-fixer",
+      description: `Removed ${linesToRemove.size} duplicate export default statement(s)`,
     }],
   };
 }
@@ -666,13 +675,13 @@ export function runImportValidator(code: string): {
   warnings: string[];
 } {
   const nested = fixNestedImportBlocks(code);
-  const shadcn = fixShadcnImports(nested.code);
+  const dupExport = fixDuplicateDefaultExport(nested.code);
+  const shadcn = fixShadcnImports(dupExport.code);
   const lucide = fixLucideImports(shadcn.code);
   const radix = fixRadixImports(lucide.code);
   const slot = fixRadixSlotUsage(radix.code);
-  const dupExport = fixDuplicateDefaultExport(slot.code);
-  const missing = detectMissingImports(dupExport.code);
-  const fixes = [...nested.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...dupExport.fixes, ...missing.fixes];
+  const missing = detectMissingImports(slot.code);
+  const fixes = [...nested.fixes, ...dupExport.fixes, ...shadcn.fixes, ...lucide.fixes, ...radix.fixes, ...slot.fixes, ...missing.fixes];
   const warnings = validateImports(missing.code);
   return { code: missing.code, fixes, warnings };
 }

@@ -8,7 +8,7 @@ const getLatestVersion = vi.hoisted(() => vi.fn());
 const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const getScaffoldById = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/gen/generation-pipeline", () => ({
+vi.mock("@/lib/gen/engine", () => ({
   shouldUseV0Fallback,
 }));
 

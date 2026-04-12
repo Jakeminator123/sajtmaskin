@@ -48,9 +48,7 @@ export function useCreateChat(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
-    thinkingUserSetRef,
     chatPrivacy,
-    registryDesignSystemId,
     designThemePreset,
     systemPrompt,
     promptAssistModel,
@@ -340,7 +338,7 @@ export function useCreateChat(
           options.attachmentPrompt,
           options.attachments,
         );
-        const thinkingForTier = thinkingUserSetRef?.current ? enableThinking : undefined;
+        const thinkingForTier = enableThinking;
         const trimmedSystemPrompt = effectiveSystemPrompt?.trim();
         const promptMeta: Record<string, unknown> = {
           promptOriginal: initialMessage,
@@ -389,7 +387,6 @@ export function useCreateChat(
           chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };
-        if (registryDesignSystemId) requestBody.designSystemId = registryDesignSystemId;
         if (linkedProjectId) requestBody.projectId = linkedProjectId;
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
@@ -538,7 +535,6 @@ export function useCreateChat(
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      registryDesignSystemId,
       designThemePreset,
       systemPrompt,
       setMessages,

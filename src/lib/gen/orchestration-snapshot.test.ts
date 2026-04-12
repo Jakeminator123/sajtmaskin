@@ -74,12 +74,11 @@ describe("MCP generation path snapshot (K-019 continuity)", () => {
       thinking: true,
       imageGenerations: true,
       scaffoldId: "scaffold_landing",
-      scaffoldFamily: "landing-page",
       buildSpec: {
         buildIntent: "website",
         generationMode: "init",
         changeScope: "redesign",
-        scaffoldFamily: "landing-page",
+        scaffoldId: "landing-page",
         qualityTarget: "standard",
         previewPolicy: "fidelity2",
         verificationPolicy: "standard",
@@ -90,7 +89,6 @@ describe("MCP generation path snapshot (K-019 continuity)", () => {
     const sanitized = sanitizeOrchestrationSnapshotForStorage(mcpStreamMeta);
     expect(sanitized.modelTier).toBe("max");
     expect(sanitized.scaffoldId).toBe("scaffold_landing");
-    expect(sanitized.scaffoldFamily).toBe("landing-page");
     expect((sanitized.buildSpec as Record<string, unknown>)?.previewPolicy).toBe("fidelity2");
     expect((sanitized.buildSpec as Record<string, unknown>)?.contextPolicy).toBe("normal");
   });
@@ -103,7 +101,6 @@ describe("MCP generation path snapshot (K-019 continuity)", () => {
       thinking: true,
       imageGenerations: false,
       scaffoldId: "scaffold_blog",
-      scaffoldFamily: "blog",
       buildSpec: {
         generationMode: "init",
         changeScope: "redesign",
@@ -143,7 +140,7 @@ describe("MCP generation path snapshot (K-019 continuity)", () => {
         previewPolicy: "fidelity2",
         verificationPolicy: "standard",
         qualityTarget: "standard",
-        scaffoldFamily: "blog",
+        scaffoldId: "blog",
       },
       lastVersionId: "ver_mcp_1",
     };
@@ -170,7 +167,7 @@ describe("MCP generation path snapshot (K-019 continuity)", () => {
     expect(bs.contextPolicy).toBe("light");
     expect(bs.previewPolicy).toBe("fidelity2");
     expect(bs.verificationPolicy).toBe("standard");
-    expect(bs.scaffoldFamily).toBe("blog");
+    expect(bs.scaffoldId).toBe("blog");
   });
 });
 

@@ -5,7 +5,7 @@ import { buildPlannerSystemPrompt } from "@/lib/gen/plan/prompt";
 import {
   createGenerationPipeline,
   type PipelineOptions,
-} from "@/lib/gen/generation-pipeline";
+} from "@/lib/gen/engine";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "@/lib/gen/prompt-dump";
 import { resolvePhaseModel } from "@/lib/models/phase-routing";

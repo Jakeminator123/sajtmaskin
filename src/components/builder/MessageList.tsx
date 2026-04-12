@@ -45,34 +45,8 @@ import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
-import { ScrapeProgressBar } from "@/components/builder/ScrapeProgressBar";
-import { Bot, ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-const PROACTIVE_QUESTION = "Vad för typ av sajt vill du bygga? Berätta lite om ditt företag eller din idé så skapar vi något tillsammans.";
-
-function useTypewriter(text: string, speed = 30, delay = 1000) {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    setDisplayed("");
-    setDone(false);
-    let i = 0;
-    const startTimer = setTimeout(() => {
-      const interval = setInterval(() => {
-        i++;
-        setDisplayed(text.slice(0, i));
-        if (i >= text.length) {
-          clearInterval(interval);
-          setDone(true);
-        }
-      }, speed);
-      return () => clearInterval(interval);
-    }, delay);
-    return () => clearTimeout(startTimer);
-  }, [text, speed, delay]);
-  return { displayed, done };
-}
+import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 interface MessageListProps {
   chatId: string | null;
@@ -82,20 +56,11 @@ interface MessageListProps {
   onQuickReply?: (text: string, options?: { planMode?: boolean }) => Promise<void> | void;
   onApproveBuildPlan?: (plan: Record<string, unknown>) => Promise<void> | void;
   quickReplyDisabled?: boolean;
-  onSuggestionSend?: (text: string) => void;
-  hideAgentLog?: boolean;
-  hideTooling?: boolean;
-  hasInitialPrompt?: boolean;
-  isGenerating?: boolean;
 }
 
-function hasGenerationContent(text: string, isStreaming: boolean): boolean {
+function hasGenerationContent(text: string): boolean {
   if (!text) return false;
-  return (
-    text.includes('file="') ||
-    text.includes("```") ||
-    (Boolean(isStreaming) && text.length > 400)
-  );
+  return text.includes('file="') || text.includes("```");
 }
 
 const MessageListComponent = ({
@@ -104,39 +69,14 @@ const MessageListComponent = ({
   messages: externalMessages = [],
   showStructuredParts = false,
   onQuickReply,
-  onSuggestionSend,
   onApproveBuildPlan,
   quickReplyDisabled = false,
-  hideAgentLog = false,
-  hideTooling = false,
-  hasInitialPrompt = false,
-  isGenerating = false,
 }: MessageListProps) => {
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
   const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
-  const [showNudge, setShowNudge] = useState(false);
   const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
   const lastAutoOpenedEnvRequirementRef = useRef<string | null>(null);
-  const hasNoMessages = externalMessages.length === 0;
-  const isNewEmptyChat = !chatId && hasNoMessages && !isGenerating;
-  const greetingText = isNewEmptyChat
-    ? PROACTIVE_QUESTION
-    : "";
-  const { displayed: typedQuestion, done: typingDone } = useTypewriter(
-    isNewEmptyChat ? greetingText : "",
-    25,
-    1000,
-  );
-
-  useEffect(() => {
-    setShowNudge(false);
-    if (externalMessages.length === 0) return;
-    const last = externalMessages[externalMessages.length - 1];
-    if (last.role !== "assistant" || last.isStreaming) return;
-    const timer = setTimeout(() => setShowNudge(true), 5000);
-    return () => clearTimeout(timer);
-  }, [externalMessages]);
 
   const sendQuickReply = async (
     messageId: string,
@@ -176,14 +116,14 @@ const MessageListComponent = ({
         .filter((p): p is Extract<MessagePart, { type: "text" }> => p.type === "text")
         .map((p) => p.text)
         .join("");
-      if (hasGenerationContent(text, Boolean(m.isStreaming))) last = i;
+      if (hasGenerationContent(text)) last = i;
     }
     return last;
   }, [messages]);
 
   useEffect(() => {
     const pendingKey = pendingReply?.key ?? null;
-    if (!pendingKey || hideTooling) {
+    if (!pendingKey) {
       setIsReplyDialogOpen(false);
       lastAutoOpenedReplyKeyRef.current = null;
       return;
@@ -191,7 +131,7 @@ const MessageListComponent = ({
     if (lastAutoOpenedReplyKeyRef.current === pendingKey) return;
     lastAutoOpenedReplyKeyRef.current = pendingKey;
     setIsReplyDialogOpen(true);
-  }, [pendingReply?.key, hideTooling]);
+  }, [pendingReply?.key]);
 
   useEffect(() => {
     const requirement = latestEnvRequirement;
@@ -214,25 +154,20 @@ const MessageListComponent = ({
     }
   };
 
-  if (hasNoMessages) {
-    if (!isNewEmptyChat) {
-      return <div className="flex h-full flex-col items-center justify-center px-4" />;
-    }
+  if (!chatId && messages.length === 0) {
     return (
-      <div className="flex h-full flex-col gap-4 px-4 pt-6">
-        {typedQuestion && (
-          <div className="flex gap-2.5">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary shadow-sm">
-              <Bot className="h-4 w-4" />
-            </span>
-            <div className="rounded-2xl rounded-tl-md border border-border/30 bg-muted/60 px-4 py-3 shadow-sm">
-              <p className="text-sm text-foreground leading-relaxed">
-                {typedQuestion}
-                {!typingDone && <span className="ml-0.5 inline-block w-[2px] h-4 bg-foreground/60 animate-pulse align-text-bottom" />}
-              </p>
-            </div>
-          </div>
-        )}
+      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+        <MessageSquare className="mb-3 h-10 w-10" />
+        <p className="text-sm" suppressHydrationWarning>Ingen chat vald ännu</p>
+      </div>
+    );
+  }
+
+  if (messages.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+        <MessageSquare className="mb-3 h-10 w-10" />
+        <p className="text-sm" suppressHydrationWarning>Inga meddelanden ännu</p>
       </div>
     );
   }
@@ -287,13 +222,7 @@ const MessageListComponent = ({
 
           return (
             <Message key={message.id} from={message.role}>
-              <MessageContent role={message.role}>
-                {message.role === "assistant" && message.isHelpMessage && (
-                  <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-primary/60 uppercase">
-                    <Bot className="h-3 w-3" />
-                    Sajtagenten
-                  </div>
-                )}
+              <MessageContent>
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
                     <ReasoningTrigger />
@@ -301,7 +230,7 @@ const MessageListComponent = ({
                   </Reasoning>
                 )}
 
-                {!hideTooling && showStructuredParts &&
+                {showStructuredParts &&
                   message.role === "assistant" && (
                     <StructuredToolParts
                       messageId={message.id}
@@ -316,12 +245,11 @@ const MessageListComponent = ({
                     />
                   )}
 
-                {!hideTooling && !hideAgentLog &&
-                  !showStructuredParts &&
+                {!showStructuredParts &&
                   message.role === "assistant" &&
                   agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
 
-                {!hideTooling && !showStructuredParts &&
+                {!showStructuredParts &&
                   message.role === "assistant" &&
                   compactToolParts.length > 0 && (
                     <CompactToolParts
@@ -371,7 +299,7 @@ const MessageListComponent = ({
                       {part.plan.actions && part.plan.actions.length > 0 && (
                         <PlanFooter>
                           <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
-                            Planerade åtgärder
+                            Plan actions
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {part.plan.actions.map((action) => (
@@ -388,42 +316,10 @@ const MessageListComponent = ({
                     </Plan>
                   ))}
 
-                {(() => {
-                  const origMsg = externalMessages[messageIndex];
-                  const scrapeUiPart = origMsg?.uiParts?.find(
-                    (p) => p.kind === "scrape-progress",
-                  );
-                  if (scrapeUiPart) {
-                    const rawState = String(scrapeUiPart.state ?? "loading");
-                    const scrapeStatus: "loading" | "done" | "error" =
-                      rawState === "done" ? "done" : rawState === "error" ? "error" : "loading";
-                    const output = scrapeUiPart.output as Record<string, unknown> | undefined;
-                    return (
-                      <>
-                        <ScrapeProgressBar
-                          status={scrapeStatus}
-                          url={output?.url as string | undefined}
-                          title={output?.title as string | undefined}
-                        />
-                        {textContent && (
-                          <MessageResponse>
-                            <Streamdown plugins={{ code: streamdownCode }}>
-                              {textContent}
-                            </Streamdown>
-                          </MessageResponse>
-                        )}
-                      </>
-                    );
-                  }
-                  return null;
-                })()}
-
-                {!externalMessages[messageIndex]?.uiParts?.some((p) => p.kind === "scrape-progress") && (message.role === "assistant" ? (
+                {message.role === "assistant" ? (
                   textContent ? (
-                    (textContent.includes('file="') ||
-                      textContent.includes("```") ||
-                      (Boolean(message.isStreaming) && textContent.length > 400)) ? (
-                      <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} simplified={hideTooling} />
+                    hasGenerationContent(textContent) ? (
+                      <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
                       <MessageResponse>
                         <Streamdown
@@ -436,11 +332,11 @@ const MessageListComponent = ({
                       </MessageResponse>
                     )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts && !hasVisibleTooling ? (
-                    <span className="text-sm text-muted-foreground">Ansluter...</span>
+                    <span className="text-sm text-gray-500">Startar own-engine-ström...</span>
                   ) : null
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
-                ))}
+                )}
 
                 {showStructuredParts && message.role === "assistant" && sources.length > 0 && (
                   <Sources>
@@ -462,11 +358,11 @@ const MessageListComponent = ({
                   message.role === "assistant" &&
                   messageIndex === lastGenMessageIndex &&
                   !message.isStreaming &&
-                  hasGenerationContent(textContent, false) && (
+                  hasGenerationContent(textContent) && (
                     <VersionFeedback
                       chatId={chatId}
                       versionId={versionId}
-                      className="mt-2 pt-2 border-t border-border"
+                      className="mt-2 pt-2 border-t border-zinc-700/50"
                     />
                   )}
               </MessageContent>
@@ -477,31 +373,17 @@ const MessageListComponent = ({
         <ConversationScrollButton />
       </Conversation>
 
-      {showNudge && onSuggestionSend && (
-        <div className="flex justify-center px-4 pb-2 animate-fade-up">
-          <button
-            type="button"
-            onClick={() => {
-              onSuggestionSend("Vad vill du ändra?");
-              setShowNudge(false);
-            }}
-            className="rounded-full border border-border/40 bg-card/60 px-4 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-          >
-            Vad vill du ändra?
-          </button>
-        </div>
-      )}
-
-      {pendingReply && !hideTooling && (
+      {pendingReply && (
         <>
           <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-semibold text-primary">
-                  Svar krävs
+                <DialogTitle className="font-semibold text-amber-300">
+                  Svar krävs för att fortsätta
                 </DialogTitle>
                 <DialogDescription>
-                  Buildern väntar på ditt val.
+                  Buildern väntar på ditt svar innan nästa steg kan fortsätta. Det kan gälla till
+                  exempel integrationer, innehåll, designval eller planblockerare.
                 </DialogDescription>
               </DialogHeader>
 
@@ -539,7 +421,7 @@ const MessageListComponent = ({
           {!isReplyDialogOpen && (
             <Button
               type="button"
-              className="fixed bottom-6 right-6 z-40 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="fixed bottom-6 right-6 z-40 bg-amber-500 text-black hover:bg-amber-400"
               onClick={() => setIsReplyDialogOpen(true)}
             >
               Svar krävs
@@ -569,7 +451,11 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);
 
   if (!shouldCollapse) {
-    return <p className="text-sm whitespace-pre-wrap">{content}</p>;
+    return (
+      <MessageResponse>
+        <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+      </MessageResponse>
+    );
   }
 
   // Extract summary line (first line before ---)
@@ -581,10 +467,12 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   if (isExpanded) {
     return (
       <div className="space-y-2">
-        <p className="text-sm whitespace-pre-wrap">{content}</p>
+        <MessageResponse>
+          <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+        </MessageResponse>
         <button
           onClick={() => setIsExpanded(false)}
-          className="flex items-center gap-1 text-xs opacity-70 hover:opacity-100"
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
         >
           <ChevronUp className="h-3 w-3" />
           Dölj detaljer
@@ -595,7 +483,9 @@ function CollapsibleUserMessage({ content }: { content: string }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm whitespace-pre-wrap">{summary}</p>
+      <MessageResponse>
+        <Streamdown plugins={{ code: streamdownCode }}>{summary}</Streamdown>
+      </MessageResponse>
       <button
         onClick={() => setIsExpanded(true)}
         className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"

@@ -17,32 +17,31 @@ import {
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixLucideLinkMisuse } from "./rules/lucide-link-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
+import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import {
   fixCnImportConflict,
   fixMissingMetadataImport,
   fixMissingMetadataRouteImport,
   fixMissingCnImport,
 } from "./rules/metadata-import-fixer";
+import { fixFontImport } from "./rules/font-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
 import { runSecurityChecks } from "../security/run-security-checks";
 import { DETERMINISTIC_AUTOFIX_MAX_PASSES } from "../defaults";
+import type { FixEntry } from "./types";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export interface AutoFixEntry {
-  fixer: string;
-  description: string;
-  file?: string;
-  line?: number;
-}
+/** @deprecated Use `FixEntry` from `./types` for new code. */
+export type AutoFixEntry = Omit<FixEntry, "category">;
 
 export interface AutoFixResult {
   fixedContent: string;
-  fixes: AutoFixEntry[];
+  fixes: FixEntry[];
   warnings: string[];
   dependencies: Record<string, string>;
 }
@@ -56,30 +55,191 @@ export interface AutoFixContext {
 // Pipeline
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Regex constants shared with repair-generated-files.ts (consolidated here)
+// ---------------------------------------------------------------------------
+
+const USE_CLIENT_DIRECTIVE_RE = /^["']use client["'];?\s*\n/;
+const STATIC_METADATA_EXPORT_RE =
+  /export\s+const\s+metadata(?:\s*:\s*Metadata)?\s*=\s*\{[\s\S]*?\n\};?\s*/m;
+const GENERATE_METADATA_EXPORT_RE = /\bexport\s+(?:async\s+)?function\s+generateMetadata\b/;
+const CLIENT_HOOKS_RE =
+  /\b(useState|useEffect|useCallback|useMemo|useRef|useContext|useReducer|useTransition|useOptimistic|useRouter|useSearchParams|usePathname|useParams|useSelectedLayoutSegment|useSelectedLayoutSegments|useFormStatus|useActionState)\b/;
+const EVENT_HANDLERS_RE =
+  /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
+const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
+const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
+const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
+const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
+const ICON_KEY_RE = /key=\{([A-Za-z_$][\w$]*)\.icon\}/g;
+const ICON_VALUE_RENDER_RE = /(\s*)\{([A-Za-z_$][\w$]*)\.icon\}(\s*)/g;
+const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
+
+// ---------------------------------------------------------------------------
+// Helpers for fixers consolidated from repair-generated-files.ts
+// ---------------------------------------------------------------------------
+
+function hasUseClientDirective(code: string): boolean {
+  return USE_CLIENT_DIRECTIVE_RE.test(code);
+}
+
+function hasMetadataExport(code: string): boolean {
+  return STATIC_METADATA_EXPORT_RE.test(code) || GENERATE_METADATA_EXPORT_RE.test(code);
+}
+
+function needsUseClient(code: string): boolean {
+  return (
+    CLIENT_HOOKS_RE.test(code) ||
+    EVENT_HANDLERS_RE.test(code) ||
+    BROWSER_APIS_RE.test(code) ||
+    FRAMER_MOTION_IMPORT_RE.test(code)
+  );
+}
+
+function stripUseClientDirective(code: string): string {
+  return code.replace(USE_CLIENT_DIRECTIVE_RE, "");
+}
+
+function stripMetadataImport(code: string): string {
+  return code.replace(
+    /import\s+(type\s+)?\{([^}]*)\}\s+from\s+["']next["'];?\s*\n?/g,
+    (full, typePrefix: string | undefined, specifiers: string) => {
+      const remaining = specifiers
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .filter((part) => part !== "Metadata" && part !== "type Metadata");
+      if (remaining.length === 0) return "";
+      const prefix = typePrefix ?? "";
+      return `import ${prefix}{ ${remaining.join(", ")} } from "next";\n`;
+    },
+  );
+}
+
+export function fixMetadataClientConflict(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+  fixes: FixEntry[];
+} {
+  if (!hasUseClientDirective(code) || !hasMetadataExport(code)) {
+    return { code, fixed: false, fixes: [] };
+  }
+
+  if (!needsUseClient(code)) {
+    const nextCode = stripUseClientDirective(code);
+    return {
+      code: nextCode,
+      fixed: nextCode !== code,
+      fixes: nextCode !== code
+        ? [{
+            fixer: "metadata-client-conflict-fixer",
+            category: "mechanical",
+            description: 'Removed unnecessary "use client" directive from metadata file',
+            file: filePath,
+          }]
+        : [],
+    };
+  }
+
+  const withoutStaticMetadata = code.replace(STATIC_METADATA_EXPORT_RE, "");
+  if (withoutStaticMetadata !== code) {
+    const cleaned = stripMetadataImport(withoutStaticMetadata);
+    return {
+      code: cleaned,
+      fixed: true,
+      fixes: [{
+        fixer: "metadata-client-conflict-fixer",
+        category: "mechanical",
+        description: "Removed static metadata export from client component to keep App Router valid",
+        file: filePath,
+      }],
+    };
+  }
+
+  return { code, fixed: false, fixes: [] };
+}
+
+export function fixIconComponentValueMisuse(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+  fixes: FixEntry[];
+} {
+  let nextCode = code;
+  let fixed = false;
+
+  nextCode = nextCode.replace(ICON_KEY_RE, (_full, itemName: string) => {
+    fixed = true;
+    return `key={typeof ${itemName}.icon === "string" ? ${itemName}.icon : (${itemName}.title ?? ${itemName}.label ?? ${itemName}.name ?? "icon-item")}`;
+  });
+
+  nextCode = nextCode.replace(ICON_VALUE_RENDER_RE, (full, prefix: string, itemName: string, suffix: string) => {
+    if (full.includes("<")) return full;
+    fixed = true;
+    return `${prefix}{typeof ${itemName}.icon === "string" ? ${itemName}.icon : <${itemName}.icon className="h-5 w-5" />}${suffix}`;
+  });
+
+  return {
+    code: nextCode,
+    fixed,
+    fixes: fixed
+      ? [{
+          fixer: "icon-component-value-fixer",
+          category: "mechanical",
+          description: "Replaced raw icon component values with stable key/render-safe JSX usage",
+          file: filePath,
+        }]
+      : [],
+  };
+}
+
+export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+} {
+  if (!NEXT_CONFIG_FILE_RE.test(filePath.replace(/\\/g, "/"))) {
+    return { code, fixed: false };
+  }
+  if (code.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) {
+    return { code, fixed: false };
+  }
+  if (/\bbasePath\s*:/.test(code)) {
+    return { code, fixed: false };
+  }
+  const re = /(const\s+nextConfig\s*(?::\s*NextConfig\s*)?=\s*\{)/;
+  if (!re.test(code)) {
+    return { code, fixed: false };
+  }
+  const nextCode = code.replace(
+    re,
+    `$1\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() }\n    : {}),`,
+  );
+  return { code: nextCode, fixed: nextCode !== code };
+}
+
 /**
- * Run all post-generation fixers sequentially on accumulated content.
- *
- * The content is expected to be in CodeProject format (fenced code blocks with
- * `file="..."` attributes). Each file is processed independently.
+ * Run all mechanical (deterministic) fixers sequentially on accumulated content.
  *
  * Fixer order:
- *  1.  use-client-fixer   — prepend "use client" when client APIs detected
- *  2.  import-validator   — fix shadcn import paths
- *  3.  react-import-fixer — add missing `import React` + hooks + types
- *  3b. next-image / local-symbol import fixers
- *  4a. metadata-import-fixer — Metadata type import
- *  4b. metadata-route / cn-conflict / cn-import fixers
- *  4d. lucide-image-fixer — lucide Image → next/image
- *  4e. lucide-link-fixer  — lucide Link → next/link
- *  4f. tailwind-font-arbitrary-fixer
- *  5.  syntax-validator   — esbuild transform check (async)
- *  6.  jsx-checker        — tag matching + missing imports/exports
- *  7.  dep-completer      — collect third-party dependencies
- *  7b. dep-merge          — merge collected deps into package.json
- *  8.  security checks    — sanitize suspicious payloads
- *
- * Note: font import repair is owned by `repairGeneratedFiles()` so deterministic
- * font fixes run in one canonical place.
+ *  1.   use-client-fixer   — prepend "use client" when client APIs detected
+ *  2.   import-validator   — fix shadcn import paths
+ *  3.   react-import-fixer — add missing `import React` + hooks + types
+ *  3b.  next-image / local-symbol import fixers
+ *  4a.  metadata-import-fixer — Metadata type import
+ *  4b.  metadata-route / cn-conflict / cn-import fixers
+ *  4d.  lucide-image-fixer — lucide Image → next/image
+ *  4e.  lucide-link-fixer  — lucide Link → next/link (with icon-alias)
+ *  4f.  tailwind-font-arbitrary-fixer
+ *  4g.  font-import-fixer  — layout font imports
+ *  4h.  metadata-client-conflict-fixer — "use client" vs static metadata
+ *  4i.  icon-component-value-fixer — icon key/render safety
+ *  4j.  as-const-boolean-keys — TS inference for nav arrays
+ *  4k.  scroll-smooth fixers — CSS + HTML preview compat
+ *  4l.  tier2-preview-basepath — next.config basePath injection
+ *  5.   syntax-validator   — esbuild transform check (async)
+ *  6.   jsx-checker        — tag matching + missing imports/exports
+ *  7.   dep-completer      — collect third-party dependencies
+ *  7b.  dep-merge          — merge collected deps into package.json
+ *  8.   security checks    — sanitize suspicious payloads
  *
  * The full `runAutoFix()` wrapper may execute multiple deterministic passes
  * (see `repairPolicies.deterministicAutofixPasses` in `config/ai_models/manifest.json`)
@@ -92,7 +252,7 @@ async function runAutoFixSinglePass(
   content: string,
   _context?: AutoFixContext,
 ): Promise<AutoFixResult> {
-  const allFixes: AutoFixEntry[] = [];
+  const allFixes: FixEntry[] = [];
   const allWarnings: string[] = [];
   let allDependencies: Record<string, string> = {};
 
@@ -126,6 +286,7 @@ async function runAutoFixSinglePass(
           currentCode = ucResult.code;
           allFixes.push({
             fixer: "use-client-fixer",
+            category: "mechanical",
             description: 'Prepended "use client" directive',
             file: file.path,
           });
@@ -143,7 +304,7 @@ async function runAutoFixSinglePass(
         const importResult = runImportValidator(currentCode);
         currentCode = importResult.code;
         for (const fix of importResult.fixes) {
-          allFixes.push({ ...fix, file: file.path });
+          allFixes.push({ ...fix, category: "mechanical", file: file.path });
         }
         for (const w of importResult.warnings) {
           allWarnings.push(`[${file.path}] ${w}`);
@@ -161,6 +322,7 @@ async function runAutoFixSinglePass(
           currentCode = riResult.code;
           allFixes.push({
             fixer: "react-import-fixer",
+            category: "mechanical",
             description: "Added missing React import",
             file: file.path,
           });
@@ -178,6 +340,7 @@ async function runAutoFixSinglePass(
           currentCode = hookResult.code;
           allFixes.push({
             fixer: "react-hook-import-fixer",
+            category: "mechanical",
             description: `Added missing React hook imports: ${hookResult.addedHooks.join(", ")}`,
             file: file.path,
           });
@@ -195,6 +358,7 @@ async function runAutoFixSinglePass(
           currentCode = reactTypeResult.code;
           allFixes.push({
             fixer: "react-type-import-fixer",
+            category: "mechanical",
             description: `Added missing React type imports: ${reactTypeResult.addedTypes.join(", ")}`,
             file: file.path,
           });
@@ -212,6 +376,7 @@ async function runAutoFixSinglePass(
           currentCode = nextImageResult.code;
           allFixes.push({
             fixer: "next-image-import-fixer",
+            category: "mechanical",
             description: 'Added missing `import Image from "next/image"`',
             file: file.path,
           });
@@ -229,6 +394,7 @@ async function runAutoFixSinglePass(
           currentCode = nextOgResult.code;
           allFixes.push({
             fixer: "next-og-image-response-import-fixer",
+            category: "mechanical",
             description: 'Added missing `import { ImageResponse } from "next/og"`',
             file: file.path,
           });
@@ -246,6 +412,7 @@ async function runAutoFixSinglePass(
           currentCode = symbolResult.code;
           allFixes.push({
             fixer: "local-symbol-import-fixer",
+            category: "mechanical",
             description: `Added missing local symbol imports: ${symbolResult.addedSymbols.join(", ")}`,
             file: file.path,
           });
@@ -268,6 +435,7 @@ async function runAutoFixSinglePass(
           currentCode = namedToDefault.code;
           allFixes.push({
             fixer: "local-named-import-default-fixer",
+            category: "mechanical",
             description: `Rewired local named imports to default imports: ${namedToDefault.rewiredImports.join(", ")}`,
             file: file.path,
           });
@@ -283,6 +451,7 @@ async function runAutoFixSinglePass(
           currentCode = defaultToNamed.code;
           allFixes.push({
             fixer: "local-default-import-fixer",
+            category: "mechanical",
             description: `Rewired local default imports to named imports: ${defaultToNamed.rewiredImports.join(", ")}`,
             file: file.path,
           });
@@ -300,6 +469,7 @@ async function runAutoFixSinglePass(
           currentCode = conflictResult.code;
           allFixes.push({
             fixer: "import-declaration-conflict-fixer",
+            category: "mechanical",
             description: `Removed conflicting import bindings: ${conflictResult.removedBindings.join(", ")}`,
             file: file.path,
           });
@@ -317,6 +487,7 @@ async function runAutoFixSinglePass(
           currentCode = metaResult.code;
           allFixes.push({
             fixer: "metadata-import-fixer",
+            category: "mechanical",
             description: "Added missing Metadata type import from next",
             file: file.path,
           });
@@ -334,6 +505,7 @@ async function runAutoFixSinglePass(
           currentCode = mrResult.code;
           allFixes.push({
             fixer: "metadata-route-import-fixer",
+            category: "mechanical",
             description: "Added missing MetadataRoute type import from next",
             file: file.path,
           });
@@ -351,6 +523,7 @@ async function runAutoFixSinglePass(
           currentCode = cnConflictResult.code;
           allFixes.push({
             fixer: "cn-import-conflict-fixer",
+            category: "mechanical",
             description: "Removed conflicting local cn import from @/lib/utils",
             file: file.path,
           });
@@ -360,6 +533,7 @@ async function runAutoFixSinglePass(
           currentCode = cnResult.code;
           allFixes.push({
             fixer: "cn-import-fixer",
+            category: "mechanical",
             description: "Added missing cn import from @/lib/utils",
             file: file.path,
           });
@@ -377,6 +551,7 @@ async function runAutoFixSinglePass(
           currentCode = imgResult.code;
           allFixes.push({
             fixer: "lucide-image-fixer",
+            category: "mechanical",
             description: "Replaced lucide-react Image with next/image",
             file: file.path,
           });
@@ -394,6 +569,7 @@ async function runAutoFixSinglePass(
           currentCode = linkResult.code;
           allFixes.push({
             fixer: "lucide-link-fixer",
+            category: "mechanical",
             description: "Replaced lucide-react Link with next/link",
             file: file.path,
           });
@@ -411,6 +587,7 @@ async function runAutoFixSinglePass(
           currentCode = fontResult.code;
           allFixes.push({
             fixer: "tailwind-font-arbitrary-fixer",
+            category: "mechanical",
             description: `Replaced ${fontResult.count} Tailwind font-[family-name:...] class(es) with inline style`,
             file: file.path,
           });
@@ -419,6 +596,95 @@ async function runAutoFixSinglePass(
         allWarnings.push(
           `[${file.path}] tailwind-font-arbitrary-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
+      }
+
+      // 4g. font-import-fixer — layout font imports
+      if (file.path.match(/(^|\/).*layout\.(tsx|jsx)$/i)) {
+        try {
+          const fontResult2 = fixFontImport(currentCode, file.path);
+          if (fontResult2.fixed) {
+            currentCode = fontResult2.code;
+            for (const fix of fontResult2.fixes) {
+              allFixes.push({
+                fixer: fix.fixer,
+                category: "mechanical",
+                description: fix.description,
+                file: fix.file ?? file.path,
+              });
+            }
+          }
+        } catch (err) {
+          allWarnings.push(
+            `[${file.path}] font-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+
+      // 4h. metadata-client-conflict-fixer
+      try {
+        const metaClientResult = fixMetadataClientConflict(currentCode, file.path);
+        if (metaClientResult.fixed) {
+          currentCode = metaClientResult.code;
+          allFixes.push(...metaClientResult.fixes);
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] metadata-client-conflict-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4i. icon-component-value-fixer
+      try {
+        const iconResult = fixIconComponentValueMisuse(currentCode, file.path);
+        if (iconResult.fixed) {
+          currentCode = iconResult.code;
+          allFixes.push(...iconResult.fixes);
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] icon-component-value-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4j. as-const-boolean-keys
+      try {
+        const asConstResult = fixAsConstBooleanKeys(currentCode, file.path);
+        if (asConstResult.fixed) {
+          currentCode = asConstResult.code;
+          for (const fix of asConstResult.fixes) {
+            allFixes.push({ ...fix, category: "mechanical" });
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] as-const-boolean-keys threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4k. scroll-smooth HTML fixer
+      if (HTML_SCROLL_SMOOTH_RE.test(currentCode)) {
+        try {
+          const before = currentCode;
+          currentCode = currentCode.replace(
+            HTML_SCROLL_SMOOTH_RE,
+            (_, pre: string, post: string) => {
+              const cleaned = `${pre}${post}`.replace(/\s{2,}/g, " ").replace(/"\s+"/, '"');
+              return cleaned.replace(/<html\b/, '<html data-scroll-behavior="smooth"');
+            },
+          );
+          if (currentCode !== before) {
+            allFixes.push({
+              fixer: "scroll-smooth-html-fixer",
+              category: "mechanical",
+              description: 'Replaced scroll-smooth className with data-scroll-behavior="smooth" on <html> for Next.js 16 compatibility',
+              file: file.path,
+            });
+          }
+        } catch (err) {
+          allWarnings.push(
+            `[${file.path}] scroll-smooth-html-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
 
       // 5. syntax-validator (async, dynamically imported to avoid Turbopack bundling esbuild)
@@ -443,7 +709,7 @@ async function runAutoFixSinglePass(
         const jsxResult = runJsxChecker(currentCode);
         currentCode = jsxResult.code;
         for (const fix of jsxResult.fixes) {
-          allFixes.push({ ...fix, file: file.path });
+          allFixes.push({ ...fix, category: "mechanical", file: file.path });
         }
         for (const w of jsxResult.warnings) {
           allWarnings.push(`[${file.path}] ${w}`);
@@ -458,7 +724,7 @@ async function runAutoFixSinglePass(
       try {
         const depResult = runDepCompleter(currentCode);
         for (const fix of depResult.fixes) {
-          allFixes.push({ ...fix, file: file.path });
+          allFixes.push({ ...fix, category: "mechanical", file: file.path });
         }
         for (const w of depResult.warnings) {
           allWarnings.push(`[${file.path}] ${w}`);
@@ -468,6 +734,40 @@ async function runAutoFixSinglePass(
         allWarnings.push(
           `[${file.path}] dep-completer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
+      }
+    }
+
+    // 4l. tier2-preview-basepath — next.config basePath injection (runs on config files)
+    if (NEXT_CONFIG_FILE_RE.test(file.path.replace(/\\/g, "/"))) {
+      try {
+        const basePathResult = ensureTier2PreviewBasePathInNextConfig(currentCode, file.path);
+        if (basePathResult.fixed) {
+          currentCode = basePathResult.code;
+          allFixes.push({
+            fixer: "tier2-preview-basepath-next-config",
+            category: "mechanical",
+            description: "Injected conditional basePath from SAJTMASKIN_PREVIEW_BASE_PATH for preview-host URLs",
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] tier2-preview-basepath threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // 4k-css. scroll-smooth CSS fixer (for .css files)
+    if (/\.css$/i.test(file.path) && CSS_SCROLL_SMOOTH_RE.test(currentCode)) {
+      const before = currentCode;
+      currentCode = currentCode.replace(CSS_SCROLL_SMOOTH_RE, "scroll-behavior: auto");
+      if (currentCode !== before) {
+        allFixes.push({
+          fixer: "scroll-smooth-css-fixer",
+          category: "mechanical",
+          description: "Replaced scroll-behavior: smooth with scroll-behavior: auto in CSS for preview compatibility",
+          file: file.path,
+        });
       }
     }
 
@@ -496,6 +796,7 @@ async function runAutoFixSinglePass(
           };
           allFixes.push({
             fixer: "dep-completer",
+            category: "mechanical",
             description: `Pinned ${merged} missing ${merged === 1 ? "dependency" : "dependencies"} in package.json`,
             file: "package.json",
           });
@@ -537,7 +838,7 @@ export async function runAutoFix(
   context?: AutoFixContext,
 ): Promise<AutoFixResult> {
   let currentContent = content;
-  const allFixes: AutoFixEntry[] = [];
+  const allFixes: FixEntry[] = [];
   const warningSet = new Set<string>();
   let allDependencies: Record<string, string> = {};
 

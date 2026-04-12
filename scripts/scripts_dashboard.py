@@ -413,7 +413,7 @@ class ScriptsDashboard:
             "routePlan.siteType = sidtyp: one-page / brochure / content-heavy / app-shell",
             "routePlan.provenance.primarySource = brief / prompt / scaffold (brief vinner; annars scaffold om defaults la till routes; annars prompt)",
             "routePlan.provenance.sources = ordnad lista av bidrag (t.ex. prompt → scaffold)",
-            "scaffoldFamily = vald runtime-scaffold-bucket",
+            "scaffoldId = vald runtime-scaffold",
             "",
             "Repo-ratt stegordning före codegen-stream (orchestrate.ts):",
             "resolveOrchestrationBase: scaffold → buildRoutePlan → inferPreGenerationContracts → deriveBuildSpec → buildOrchestrationContract → serializeScaffoldForPrompt;",
@@ -435,7 +435,7 @@ class ScriptsDashboard:
             "- BuildSpec sätts i orchestrate.ts under orkestreringen, före promptbygget",
             "- contextPolicy styr tokenbudgetar och scaffold-serialisering",
             "- routePlan och contracts styr vilka sidor och integrationer som ska med",
-            "- scaffoldFamily påverkar scaffold-kontext och referenskategorier",
+            "- scaffoldId påverkar scaffold-kontext och referenskategorier",
             "- dashboarden beskriver runtime, men runtimekoden är alltid source of truth",
         ]
         label = ttk.Label(frame, text="\n".join(lines), justify=tk.LEFT)

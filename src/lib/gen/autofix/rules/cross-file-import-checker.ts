@@ -1,5 +1,5 @@
 import type { CodeFile } from "@/lib/gen/parser";
-import { isRuntimeProvidedImport } from "@/lib/gen/runtime-imports";
+import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
 
 interface CrossFileImportFix {
   sourceFile: string;

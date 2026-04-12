@@ -15,11 +15,11 @@
 
 import fs from "fs";
 import path from "path";
-import { toPosixLog } from "@/lib/utils/path-utils";
+import { toPosixPath } from "@/lib/utils/path-utils";
 
 // Check if logging is enabled via environment
 const LOG_ENABLED = process.env.SAJTMASKIN_LOG === "true";
-const LOG_PATH = toPosixLog(path.join(process.cwd(), "logs", "sajtmaskin.log"));
+const LOG_PATH = path.join(process.cwd(), "logs", "sajtmaskin.log");
 
 // Max log file size (5MB) - will be cleared when exceeded
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
@@ -113,7 +113,7 @@ function checkAndRotateLog(): void {
         const archivePath = LOG_PATH.replace(".log", `-${Date.now()}.log.old`);
         fs.renameSync(LOG_PATH, archivePath);
         pruneOldRotatedLogs();
-        console.info(`[FileLogger] Rotated log to ${archivePath}`);
+        console.info(`[FileLogger] Rotated log to ${toPosixPath(archivePath)}`);
       }
     }
   } catch {

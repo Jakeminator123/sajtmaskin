@@ -1,4 +1,4 @@
-export type ScaffoldFamily =
+export type ScaffoldId =
   | "base-nextjs"
   | "content-site"
   | "app-shell"
@@ -9,6 +9,7 @@ export type ScaffoldFamily =
   | "dashboard"
   | "auth-pages"
   | "ecommerce";
+
 export type ScaffoldMode = "off" | "auto" | "manual";
 
 export type ScaffoldSiteKind = "marketing" | "app" | "commerce" | "editorial";
@@ -33,8 +34,7 @@ export interface ScaffoldResearchMetadata {
 }
 
 export interface ScaffoldManifest {
-  id: string;
-  family: ScaffoldFamily;
+  id: ScaffoldId;
   label: string;
   description: string;
   /**

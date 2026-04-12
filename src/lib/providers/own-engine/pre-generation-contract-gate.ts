@@ -46,7 +46,6 @@ export function createPreGenerationContractGateReadableStream(
     thinking: p.resolvedThinking,
     imageGenerations: p.resolvedImageGenerations,
     scaffoldId: p.resolvedScaffold?.id ?? null,
-    scaffoldFamily: p.resolvedScaffold?.family ?? null,
     contractDataMode: p.preGenerationContracts.contracts.dataMode,
     contractDatabaseProvider: p.preGenerationContracts.contracts.databaseProvider ?? null,
     contractAuthProvider: p.preGenerationContracts.contracts.authProvider ?? null,

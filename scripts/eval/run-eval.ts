@@ -33,7 +33,7 @@ const REPO_FILES = {
     "src/lib/providers/own-engine/generation-stream-post-finalize.ts",
   orchestrate: "src/lib/gen/orchestrate.ts",
   generateSite: "src/lib/mcp/generate-site.ts",
-  generationPipeline: "src/lib/gen/generation-pipeline.ts",
+  generationPipeline: "src/lib/gen/engine.ts",
   packageJson: "package.json",
 } as const;
 

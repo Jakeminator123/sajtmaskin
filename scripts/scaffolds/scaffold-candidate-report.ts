@@ -18,7 +18,7 @@ export interface ScaffoldCandidateRecord {
   summary: string;
   templateUrl: string;
   demoUrl: string | null;
-  recommendedScaffoldFamilies: string[];
+  recommendedScaffoldIds: string[];
   strengths: string[];
   weaknesses: string[];
   representativeFiles: Array<{
@@ -58,7 +58,7 @@ function computeRelevanceScore(entry: TemplateLibraryEntry): number {
   if (entry.repo.hasAppDir || entry.repo.hasSrcAppDir) score += 2;
   score += Math.min(6, entry.selectedFiles.length * 1.5);
   score += Math.min(4, entry.strengths.length);
-  score += Math.min(3, entry.recommendedScaffoldFamilies.length);
+  score += Math.min(3, entry.recommendedScaffoldIds.length);
   if (entry.repo.isMonorepo) score -= 6;
   score -= Math.min(12, entry.weaknesses.length * 3);
   return clamp(score, 0, 100);
@@ -92,7 +92,7 @@ function buildCandidateRecord(entry: TemplateLibraryEntry): ScaffoldCandidateRec
     summary: entry.summary,
     templateUrl: entry.templateUrl,
     demoUrl: entry.demoUrl,
-    recommendedScaffoldFamilies: entry.recommendedScaffoldFamilies,
+    recommendedScaffoldIds: entry.recommendedScaffoldIds,
     strengths: entry.strengths.slice(0, 4),
     weaknesses: entry.weaknesses.slice(0, 4),
     representativeFiles: entry.selectedFiles.slice(0, 4).map((file) => ({

@@ -18,7 +18,6 @@ import {
 } from "./scaffolds";
 import {
   serializeScaffoldForPrompt,
-  detectScaffoldMode,
 } from "./scaffolds/serialize";
 import {
   buildDynamicContext,
@@ -100,6 +99,8 @@ export interface OrchestrationInput {
   existingRoutePaths?: string[];
   /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
   capabilities?: InferredCapabilities;
+  /** Per-session seed (e.g. chatId) to vary style direction across sessions with identical prompts. */
+  sessionSeed?: string;
 }
 
 export interface OrchestrationBase {
@@ -113,6 +114,7 @@ export interface OrchestrationBase {
   capabilities: InferredCapabilities;
   buildSpec: BuildSpec;
   templateReferences?: TemplateReferenceContext[];
+  serializeMode: "inspirational" | "structural" | null;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -120,6 +122,7 @@ export interface FinalizedOrchestrationContext {
   dynamicContext: string;
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
+  styleDirectionId: string | null;
 }
 
 function buildScaffoldQueryContext(
@@ -199,7 +202,6 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       lineageHash: pkg.lineageHash,
       buildIntent: pkg.buildSpec.buildIntent,
       scaffoldId: pkg.resolvedScaffold?.id ?? null,
-      scaffoldFamily: pkg.resolvedScaffold?.family ?? null,
       buildSpecChangeScope: pkg.buildSpec.changeScope,
       buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
       buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,
@@ -241,9 +243,9 @@ async function resolveTemplateReferences(
     const results = await searchTemplateLibrary(enrichedQuery, TEMPLATE_REF_TOP_K);
     if (results.length === 0) return [];
 
-    const scaffoldFamily = resolvedScaffold?.family ?? null;
-    let filtered = scaffoldFamily
-      ? results.filter((r) => r.entry.recommendedScaffoldFamilies.includes(scaffoldFamily))
+    const scaffoldId = resolvedScaffold?.id ?? null;
+    let filtered = scaffoldId
+      ? results.filter((r) => r.entry.recommendedScaffoldIds.includes(scaffoldId))
       : [];
     if (filtered.length === 0) filtered = results;
 
@@ -412,16 +414,16 @@ export async function resolveOrchestrationBase(
     buildSpec,
   });
   let scaffoldContext: string | undefined;
+  let resolvedSerializeMode: "inspirational" | "structural" | null = null;
   if (resolvedScaffold) {
-    const briefStyleKeywords = Array.isArray((brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords)
-      ? ((brief as { visualDirection?: { styleKeywords?: unknown[] } }).visualDirection?.styleKeywords
-          ?.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0) ?? [])
-      : undefined;
-    const serializeMode = detectScaffoldMode(prompt, briefStyleKeywords);
+    resolvedSerializeMode =
+      resolvedMode === "followUp" || buildSpec.contextPolicy === "heavy"
+        ? "structural"
+        : "inspirational";
     const scaffoldBudgetChars =
       buildSpec.tokenBudgets.scaffoldChars ??
       estimateCharsForTokens(buildSpec.tokenBudgets.scaffoldTokens ?? 6_250);
-    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, serializeMode, {
+    scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold, resolvedSerializeMode, {
       maxChars: scaffoldBudgetChars,
       contextPolicy: buildSpec.contextPolicy,
       routePlan,
@@ -442,6 +444,7 @@ export async function resolveOrchestrationBase(
     capabilities,
     buildSpec,
     templateReferences: templateReferences.length > 0 ? templateReferences : undefined,
+    serializeMode: resolvedSerializeMode,
   };
 }
 
@@ -484,6 +487,7 @@ export async function finalizeOrchestrationPrompts(
     customInstructions,
     generationMode: resolvedMode,
     templateReferences: base.templateReferences,
+    sessionSeed: input.sessionSeed,
   };
 
   const dynamic = await buildDynamicContext(dynamicOpts);
@@ -494,6 +498,7 @@ export async function finalizeOrchestrationPrompts(
     dynamicContext: dynamic.context,
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
+    styleDirectionId: dynamic.styleDirectionId,
   };
 }
 

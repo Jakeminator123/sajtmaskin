@@ -11,6 +11,8 @@ For each file path, **your generated content wins** over the scaffold copy of th
 
 ### Flexible (prompt-driven)
 Replace neutral scaffold palette with a vivid one from the prompt. Change page count, routes, components, layout, copy, and imagery to match the user. For strong creative directions, treat the scaffold as structure only.
+If the scaffold has fewer sections or pages than the prompt implies, add what is needed. Example: scaffold has 3 sections but the prompt clearly needs 5 -> build 5.
+If the scaffold uses one layout pattern but the prompt asks for another, follow the prompt. Example: scaffold has card grids but the prompt asks for a timeline -> build a timeline.
 
 ### Creative prompts
 If the user's request describes a unique visual identity (retro, futuristic, western, cyberpunk, vintage, neon, etc.), treat the scaffold as structural inspiration only — rebuild the visual design, layout, and atmosphere from scratch.

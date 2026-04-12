@@ -73,7 +73,6 @@ export function serializePackageForDump(
     brief: pkg.brief,
     scaffoldMode: pkg.scaffoldMode,
     scaffoldId: pkg.resolvedScaffold?.id ?? null,
-    scaffoldFamily: pkg.resolvedScaffold?.family ?? null,
     scaffoldSelection: pkg.scaffoldSelection ?? null,
     buildSpec: pkg.buildSpec,
     routePlan: pkg.routePlan,

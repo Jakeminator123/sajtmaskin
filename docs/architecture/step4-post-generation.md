@@ -20,9 +20,9 @@ Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine
 
 ## Faktisk stegordning i `finalizeAndSaveVersion`
 
-1. **`autofix`** — `runAutoFix()` på ackumulerat stream-innehåll (kan stängas av med `runAutofix: false`). Deterministiska fixar (imports, struktur m.m.).
+1. **`autofix`** — `runAutoFix()` på ackumulerat stream-innehåll (kan stängas av med `runAutofix: false`). Kör alla **mekaniska fixar** (imports, struktur, lucide, metadata, scroll-smooth, icon-value, basePath m.m.). Typer: `FixEntry` med `category: "mechanical"` från `autofix/types.ts`.
 2. **`url_expand`** — `expandUrls()` med `urlMap` från orkestrering.
-3. **`validate_syntax`** — `validateAndFix()`: syntax-/typecheck-orienterad validering via repoets validate/fix-kedja, loopar deterministiska pass och **LLM-fixer** vid behov. Uppdaterar `contentForVersion`.
+3. **`validate_syntax`** — `validateAndFix()`: syntaxvalidering + progressiv mekanisk→**LLM-fix**→mekanisk fix-loop. Loggar `autofix.mechanical-residual` (vilka fel som överlevde mekaniska fixar) före LLM-eskalering. Returnerar `mechanicalFixCount`, `llmFixCount`, `residualPatterns`.
 4. **`materialize_images`** — **endast om «deep path»** (`runDeepPath === true` i `resolveFinalizePathPolicy`). Ersätter placeholder-bilder m.m. Vid fel: **non-fatal**, logg och fortsätt.
 5. **`verifier`** — **endast om deep path** *och* `resolveVerifierPassPolicy` säger ja (BuildSpec, feature flag, inte repair-pass > 0). Read-only LLM; fel här är **non-fatal** (hoppar över).
 6. **`parse_merge_preflight`** — parse JSON-filer från innehåll, `mergeGeneratedProjectFiles`, `runFinalizePreflight`, `injectIntegrationManifestIntoFilesJson`, scaffold-retry-förslag.
@@ -74,7 +74,6 @@ Uppdatera i samma leverans:
 - `5-steg.txt` (samlad slutbild och kvarvarande problemomraden)
 - `.cursor/rules/terminology.mdc`
 - `docs/architecture/glossary.md` (fas 3: repair, quality gate, finalize)
-- `docs/plans/active/remaining-focus-after-5-step.md`
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)
 - Vid manifeständringar: `config/dashboard/app.py` (repair/verifier/timeouts), ev. `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`

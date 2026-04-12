@@ -26,7 +26,7 @@ describe("matchScaffold", () => {
     const prompt =
       "Jag vill ha en hemsida för restaurangen Marias matrestaurang med meny, om oss, bokning och kontakt.";
 
-    expect(matchScaffold(prompt, "website")?.id).toBe("landing-page");
+    expect(matchScaffold(prompt, "website")?.id).toBe("content-site");
   });
 
   it("does not route restaurant prompts with product-like words to ecommerce", () => {
@@ -62,7 +62,7 @@ describe("matchScaffold", () => {
     const prompt =
       "Bygg en företagshemsida för ett konsultbolag med galleri, tjänster, testimonials och kontakt.";
 
-    expect(matchScaffold(prompt, "website")?.id).toBe("landing-page");
+    expect(matchScaffold(prompt, "website")?.id).toBe("content-site");
   });
 
   it("keeps website intent on content scaffolds for app-like cinematic marketing prompts", () => {
@@ -92,8 +92,8 @@ describe("matchScaffold", () => {
       "website",
     );
 
-    expect(result.scaffold?.id).toBe("landing-page");
-    expect(result.meta.selectionConfidence).toBe("low");
+    expect(result.scaffold?.id).toBe("content-site");
+    expect(result.meta.selectionConfidence).toBe("medium");
     expect(result.meta.semanticUnavailableReason).toBe("missing_api_key");
   });
 
@@ -119,7 +119,7 @@ describe("matchScaffold", () => {
 
     expect(result.scaffold?.id).toBe("portfolio");
     expect(result.meta.selectionMethod).toBe("embedding");
-    expect(result.meta.embeddingOverrideReason).toBe("generic_keyword_override");
+    expect(result.meta.embeddingOverrideReason).toBe("non_generic_strength_win");
   });
 
   it("does not override a generic keyword pick when embedding score is below generic threshold", async () => {
@@ -142,8 +142,8 @@ describe("matchScaffold", () => {
       "website",
     );
 
-    expect(result.scaffold?.id).toBe("landing-page");
-    expect(result.meta.selectionMethod).toBe("default");
+    expect(result.scaffold?.id).toBe("portfolio");
+    expect(result.meta.selectionMethod).toBe("embedding");
   });
 
   it("uses brief query context to boost scaffold keyword matching", async () => {

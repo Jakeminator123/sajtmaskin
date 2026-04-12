@@ -141,7 +141,7 @@ vi.mock("@/lib/models/catalog", () => ({
   isCanonicalModelId: () => false,
 }));
 
-vi.mock("@/lib/gen/generation-pipeline", () => ({
+vi.mock("@/lib/gen/engine", () => ({
   shouldUseExplicitBuilderFallback: () => false,
   shouldUseV0Fallback: () => false,
   createGenerationPipeline,
@@ -197,7 +197,7 @@ vi.mock("@/lib/gen/request-metadata", () => ({
   summarizeDesignReferences: () => [],
 }));
 
-vi.mock("@/lib/gen/route-helpers", () => {
+vi.mock("@/lib/gen/stream/sse-parser", () => {
   class SuspenseLineProcessor {
     process(text: string) {
       return text;
@@ -322,7 +322,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
           buildIntent: "website",
           generationMode: "followUp",
           changeScope: "local-layout",
-          scaffoldFamily: "landing-page",
+          scaffoldId: "landing-page",
           routePlanSummary: "prompt:one-page:/",
           stylePack: "brand-led",
           qualityTarget: "standard",
@@ -331,7 +331,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
           contextPolicy: "light",
           referenceCategories: ["marketing-sites"],
           forbiddenPatterns: ["leave_bracket_placeholders"],
-          tokenBudgets: { scaffoldChars: 60000, refsChars: 20000, systemContextChars: 80000 },
+          tokenBudgets: { scaffoldChars: 36000, refsChars: 12000, systemContextChars: 48000 },
         },
         scaffoldContext: undefined,
         capabilityHints: undefined,
@@ -419,7 +419,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         buildIntent: "website",
         generationMode: "followUp",
         changeScope: "local-layout",
-        scaffoldFamily: "landing-page",
+        scaffoldId: "landing-page",
         routePlanSummary: "prompt:one-page:/",
         stylePack: "brand-led",
         qualityTarget: "standard",
@@ -428,12 +428,12 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         contextPolicy: "light",
         referenceCategories: ["marketing-sites"],
         forbiddenPatterns: ["leave_bracket_placeholders"],
-        tokenBudgets: { scaffoldChars: 60000, refsChars: 20000, systemContextChars: 80000 },
+        tokenBudgets: { scaffoldChars: 36000, refsChars: 12000, systemContextChars: 48000 },
       },
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
       dynamicContextPruning: {
-        budgetTokens: 25000,
+        budgetTokens: 15000,
         usedTokens: 10,
         droppedBlockKeys: [],
         keptBlockKeys: ["build_intent_website"],
@@ -477,7 +477,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         buildIntent: "website",
         generationMode: "followUp",
         changeScope: "local-layout",
-        scaffoldFamily: "landing-page",
+        scaffoldId: "landing-page",
         routePlanSummary: "prompt:one-page:/",
         stylePack: "brand-led",
         qualityTarget: "standard",
@@ -486,7 +486,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
         contextPolicy: "light",
         referenceCategories: ["marketing-sites"],
         forbiddenPatterns: ["leave_bracket_placeholders"],
-        tokenBudgets: { scaffoldChars: 60000, refsChars: 20000, systemContextChars: 80000 },
+        tokenBudgets: { scaffoldChars: 36000, refsChars: 12000, systemContextChars: 48000 },
       },
       capabilityHints: undefined,
     });
@@ -494,7 +494,7 @@ describe("POST /api/v0/chats/[chatId]/stream own-engine follow-up route", () => 
       engineSystemPrompt: "SYSTEM",
       dynamicContext: "V0",
       dynamicContextPruning: {
-        budgetTokens: 25000,
+        budgetTokens: 15000,
         usedTokens: 10,
         droppedBlockKeys: [],
         keptBlockKeys: ["build_intent_website"],

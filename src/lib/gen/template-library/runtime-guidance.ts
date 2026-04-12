@@ -68,42 +68,42 @@ export function deriveTemplateRuntimeGuidance(
     worldClassRubric.push("Final output should feel custom and production-grade, not like a renamed starter.");
   }
 
-  if (entry.signals.dashboard || hasSiteForm(entry, "dashboard") || entry.recommendedScaffoldFamilies.includes("dashboard")) {
+  if (entry.signals.dashboard || hasSiteForm(entry, "dashboard") || entry.recommendedScaffoldIds.includes("dashboard")) {
     styleRules.push("Preserve clear information density with persistent navigation and scannable panels.");
     sectionInventory.push("overview metrics", "filters or controls", "table or chart area");
     avoidPatterns.push("Avoid turning dashboard references into generic marketing landing pages.");
     worldClassRubric.push("Dense UI must still feel legible, fast, and trustworthy.");
   }
 
-  if (entry.signals.pricing || hasUseCase(entry, "saas") || entry.recommendedScaffoldFamilies.includes("saas-landing")) {
+  if (entry.signals.pricing || hasUseCase(entry, "saas") || entry.recommendedScaffoldIds.includes("saas-landing")) {
     styleRules.push("Use clear value hierarchy, product proof, and pricing rhythm before deep detail.");
     sectionInventory.push("hero", "product proof", "pricing", "FAQ or objections");
     avoidPatterns.push("Avoid weak CTA hierarchy or pricing without surrounding trust signals.");
     worldClassRubric.push("Commercial sections should feel conversion-ready without looking template-generic.");
   }
 
-  if (entry.signals.ecommerce || hasSiteForm(entry, "storefront") || entry.recommendedScaffoldFamilies.includes("ecommerce")) {
+  if (entry.signals.ecommerce || hasSiteForm(entry, "storefront") || entry.recommendedScaffoldIds.includes("ecommerce")) {
     styleRules.push("Keep storefront hierarchy explicit: browse, compare, and purchase should feel obvious.");
     sectionInventory.push("catalog grid", "product detail", "cart or checkout direction");
     avoidPatterns.push("Avoid hiding product information behind vague marketing copy.");
     worldClassRubric.push("Commerce flows should feel trustworthy, concrete, and price-legible.");
   }
 
-  if (entry.signals.blog || hasSiteForm(entry, "editorial-site") || entry.recommendedScaffoldFamilies.includes("blog")) {
+  if (entry.signals.blog || hasSiteForm(entry, "editorial-site") || entry.recommendedScaffoldIds.includes("blog")) {
     styleRules.push("Favor editorial readability, spacing rhythm, and content hierarchy over card spam.");
     sectionInventory.push("article hero", "archive list", "author or credibility block");
     avoidPatterns.push("Avoid collapsing editorial references into generic feature-card marketing.");
     worldClassRubric.push("Reading flow should feel deliberate on both desktop and mobile.");
   }
 
-  if (entry.signals.portfolio || hasSiteForm(entry, "portfolio") || entry.recommendedScaffoldFamilies.includes("portfolio")) {
+  if (entry.signals.portfolio || hasSiteForm(entry, "portfolio") || entry.recommendedScaffoldIds.includes("portfolio")) {
     styleRules.push("Let the work itself dominate through imagery, spacing, and case-study framing.");
     sectionInventory.push("project showcase", "case study detail", "bio or credibility block");
     avoidPatterns.push("Avoid burying the portfolio behind excessive product-marketing sections.");
     worldClassRubric.push("Visual presentation should feel curated rather than theme-default.");
   }
 
-  if (entry.signals.auth || hasSiteForm(entry, "auth-flow") || hasTechnicalPattern(entry, "auth") || entry.recommendedScaffoldFamilies.includes("auth-pages")) {
+  if (entry.signals.auth || hasSiteForm(entry, "auth-flow") || hasTechnicalPattern(entry, "auth") || entry.recommendedScaffoldIds.includes("auth-pages")) {
     styleRules.push("Keep each auth screen single-purpose, calm, and trustworthy.");
     sectionInventory.push("login", "signup", "recovery");
     avoidPatterns.push("Avoid mixing auth flows with unrelated landing-page sections.");
@@ -115,7 +115,7 @@ export function deriveTemplateRuntimeGuidance(
     entry.signals.cms ||
     hasSiteForm(entry, "documentation-site") ||
     hasSiteForm(entry, "content-site") ||
-    entry.recommendedScaffoldFamilies.includes("content-site")
+    entry.recommendedScaffoldIds.includes("content-site")
   ) {
     styleRules.push("Prioritize content scanning, navigation clarity, and readable documentation rhythm.");
     sectionInventory.push("navigation", "content blocks", "supporting sidebar or related links");

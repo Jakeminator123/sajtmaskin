@@ -66,7 +66,7 @@ function assertBuildSpecFromChain(
   });
 
   expect(spec.generationMode).toBe("init");
-  expect(spec.scaffoldFamily).toBe(matched.family);
+  expect(spec.scaffoldId).toBe(matched.id);
   expect(spec.stylePack.trim().length).toBeGreaterThan(0);
   expect(spec.tokenBudgets.scaffoldChars).toBeGreaterThan(0);
   expect(spec.tokenBudgets.refsChars).toBeGreaterThan(0);
@@ -106,7 +106,7 @@ describe("orchestration integration (matchScaffold → deriveBuildSpec)", () => 
       preGenerationContracts: emptyContracts,
     });
     expect(spec.generationMode).toBe("init");
-    expect(spec.scaffoldFamily).toBe("saas-landing");
+    expect(spec.scaffoldId).toBe("saas-landing");
     expect(spec.previewPolicy).toBe("fidelity2");
   });
 

@@ -2,12 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, X } from "lucide-react";
+import { ArrowRight, X, Plus, Palette, Type, ImageIcon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SUGGESTIONS, type Suggestion } from "./PostGenerationAdvisor";
+
+export interface NextStepSuggestion {
+  id: string;
+  icon: "page" | "style" | "content" | "image" | "feature";
+  label: string;
+  description?: string;
+  prompt: string;
+}
+
+const ICON_MAP = {
+  page: Plus,
+  style: Palette,
+  content: Type,
+  image: ImageIcon,
+  feature: Sparkles,
+} as const;
+
+const SUGGESTIONS: NextStepSuggestion[] = [
+  { id: "add-page", icon: "page", label: "Lägg till en sida", description: "Skapa en ny undersida", prompt: "Lägg till en ny undersida med relevant innehåll." },
+  { id: "change-colors", icon: "style", label: "Ändra färgschema", description: "Uppdatera färgpaletten", prompt: "Byt färgpalett till något mer modernt och professionellt." },
+  { id: "more-content", icon: "content", label: "Mer innehåll", description: "Utöka text och innehåll", prompt: "Lägg till mer detaljerat innehåll och längre texter på alla sidor." },
+  { id: "add-images", icon: "image", label: "Fler bilder", description: "Lägg till fler bilder", prompt: "Lägg till fler relevanta bilder på alla sidor." },
+  { id: "add-feature", icon: "feature", label: "Ny funktion", description: "Lägg till interaktivitet", prompt: "Lägg till en interaktiv funktion som kontaktformulär eller bokningssystem." },
+];
 
 interface NextStepPickerPopupProps {
-  onSelect: (suggestion: Suggestion) => void;
+  onSelect: (suggestion: NextStepSuggestion) => void;
   onClose: () => void;
 }
 
@@ -40,7 +63,7 @@ export function NextStepPickerPopup({ onSelect, onClose }: NextStepPickerPopupPr
         <div className="px-6 py-4">
           <div className="space-y-1.5">
             {SUGGESTIONS.map((s) => {
-              const Icon = s.icon;
+              const Icon = ICON_MAP[s.icon];
               return (
                 <button
                   key={s.id}
@@ -56,7 +79,7 @@ export function NextStepPickerPopup({ onSelect, onClose }: NextStepPickerPopupPr
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{s.label}</p>
-                    <p className="text-xs text-muted-foreground">{s.description}</p>
+                    {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
                   </div>
                   <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30 transition-colors group-hover:text-primary" />
                 </button>

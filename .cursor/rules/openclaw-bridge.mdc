@@ -1,5 +1,5 @@
 ---
-description: Opt-in-regel för OpenClaw bridge och inbox/outbox-flödet
+description: OpenClaw bridge — inbox/outbox (opt-in)
 globs:
   - .cursor/openclaw-bridge/**
 alwaysApply: false
@@ -7,22 +7,8 @@ alwaysApply: false
 
 # OpenClaw Bridge
 
-An autonomous OpenClaw agent can write task suggestions to `.cursor/openclaw-bridge/inbox.jsonl`.
+OpenClaw kan skriva förslag till `.cursor/openclaw-bridge/inbox.jsonl`. **Använd regeln bara** när uppgiften rör bridge-filer eller användaren nämner bridge/inbox/outbox/goal/agentförslag. Läs inte inbox rutinmässigt vid start.
 
-## När den här regeln ska användas
+**Pending:** summera rader med `"status":"pending"`. Kör **en** task efter uttryckligt OK. **Efter:** append resultat till `outbox.jsonl` — **ändra aldrig** `inbox.jsonl`. Ingen autoexekvering.
 
-- Använd den här regeln bara när uppgiften faktiskt rör bridge-filerna eller när användaren uttryckligen nämner `bridge`, `inbox`, `outbox`, `goal.md` eller agentförslag.
-- Läs **inte** bridge-filer rutinmässigt vid sessionsstart.
-- Låt inte bridge-förslag konkurrera med användarens direkta uppgift.
-
-## Hur pending-tasks hanteras
-
-- Läs `.cursor/openclaw-bridge/inbox.jsonl` och summera rader där `"status":"pending"`.
-- Kör bara en bridge-task efter uttryckligt användargodkännande.
-- Efter slutförd task: append:a en resultatrad i `.cursor/openclaw-bridge/outbox.jsonl`.
-- Modifiera aldrig `inbox.jsonl`; skriv bara till `outbox.jsonl`.
-- Autoexekvera aldrig bridge-tasks.
-
-## Goal document
-
-`.cursor/openclaw-bridge/goal.md` får läsas när du behöver förstå prioritering eller riktning, men den är inte en starkare sanningskälla än användarens aktuella instruktion.
+`goal.md` får läsas för riktning; svagare källa än användarens aktuella instruktion.

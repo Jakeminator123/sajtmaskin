@@ -567,7 +567,16 @@ export async function handleMessageStreamRequest(
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
+        });
+        devLogAppend("in-progress", {
+          type: "orchestration.resolved",
+          chatId,
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          serializeMode: orchestrationBase.serializeMode,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
         });
         const { resolvedScaffold, routePlan, preGenerationContracts } = orchestrationBase;
         const contractClarification = buildContractClarificationQuestion({
@@ -622,6 +631,16 @@ export async function handleMessageStreamRequest(
           engineModel,
           fallback: false,
         });
+        devLogStartGeneration({
+          message: optimizedMessage,
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          projectId: engineChat.project_id ?? undefined,
+          slug: metaBuildMethod || metaBuildIntent || undefined,
+          chatId,
+          generationKind: "followup",
+        });
         devLogAppend("in-progress", {
           type: "comm.request.followup",
           chatId,
@@ -645,16 +664,6 @@ export async function handleMessageStreamRequest(
           imageGenerations: resolvedImageGenerations,
           followUpIntent,
           baseVersionId: metaEngineBaseVersionId,
-        });
-        devLogStartGeneration({
-          message: optimizedMessage,
-          modelId: resolvedModelId,
-          thinking: resolvedThinking,
-          imageGenerations: resolvedImageGenerations,
-          projectId: engineChat.project_id ?? undefined,
-          slug: metaBuildMethod || metaBuildIntent || undefined,
-          chatId,
-          generationKind: "followup",
         });
         if (contractClarification) {
           const assistantQuestion = await chatRepo.addMessage(
@@ -703,7 +712,15 @@ export async function handleMessageStreamRequest(
           routeCount: orchestrationBase.routePlan.routes.length,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          styleDirection: finalized.styleDirectionId,
         });
+        if (finalized.styleDirectionId) {
+          devLogAppend("in-progress", {
+            type: "orchestration.styleDirection",
+            chatId,
+            styleDirection: finalized.styleDirectionId,
+          });
+        }
         const generationInputPackage = buildGenerationInputPackage(
           orchestrationBase,
           orchestrationInput,
@@ -750,7 +767,6 @@ export async function handleMessageStreamRequest(
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
-            scaffoldFamily: resolvedScaffold?.family ?? null,
           }),
           engineModel,
           optimizedMessage,

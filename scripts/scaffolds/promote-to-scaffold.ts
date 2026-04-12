@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getScaffoldById } from "../../src/lib/gen/scaffolds/registry";
-import type { ScaffoldFile, ScaffoldManifest } from "../../src/lib/gen/scaffolds/types";
+import type { ScaffoldFile, ScaffoldId, ScaffoldManifest } from "../../src/lib/gen/scaffolds/types";
 import type { TemplateLibraryEntry } from "../../src/lib/gen/template-library/types";
 import {
   REFERENCE_LIBRARY_ROOT,
@@ -19,7 +19,6 @@ type BuildIntent = "website" | "app" | "template";
 interface Options {
   dossier: string;
   scaffoldId: string;
-  scaffoldFamily: string;
   label: string | null;
   baseScaffoldId: string | null;
   dryRun: boolean;
@@ -30,12 +29,11 @@ function parseArgs(): Options {
   const positional = args.find((arg) => !arg.startsWith("--"));
   if (!positional) {
     throw new Error(
-      "Usage: npx tsx scripts/scaffolds/promote-to-scaffold.ts <dossier-id|manifest-path> [--id=new-id] [--family=new-family] [--base=existing-scaffold] [--label=\"Label\"] [--dry-run]",
+      "Usage: npx tsx scripts/scaffolds/promote-to-scaffold.ts <dossier-id|manifest-path> [--id=new-id] [--base=existing-scaffold] [--label=\"Label\"] [--dry-run]",
     );
   }
 
   const explicitId = args.find((arg) => arg.startsWith("--id="))?.slice("--id=".length);
-  const explicitFamily = args.find((arg) => arg.startsWith("--family="))?.slice("--family=".length);
   const explicitBase = args.find((arg) => arg.startsWith("--base="))?.slice("--base=".length) ?? null;
   const explicitLabel = args.find((arg) => arg.startsWith("--label="))?.slice("--label=".length) ?? null;
 
@@ -43,7 +41,6 @@ function parseArgs(): Options {
   return {
     dossier: positional,
     scaffoldId,
-    scaffoldFamily: slugify(explicitFamily ?? scaffoldId),
     label: explicitLabel,
     baseScaffoldId: explicitBase ? slugify(explicitBase) : null,
     dryRun: args.includes("--dry-run"),
@@ -67,8 +64,8 @@ function chooseBaseScaffold(entry: TemplateLibraryEntry, explicitBase: string | 
     return scaffold;
   }
 
-  for (const family of entry.recommendedScaffoldFamilies) {
-    const scaffold = getScaffoldById(family);
+  for (const candidateId of entry.recommendedScaffoldIds) {
+    const scaffold = getScaffoldById(candidateId);
     if (scaffold) return scaffold;
   }
 
@@ -160,7 +157,7 @@ function deriveTags(entry: TemplateLibraryEntry, baseScaffold: ScaffoldManifest)
   const rawTags = [
     ...baseScaffold.tags,
     entry.categorySlug,
-    ...entry.recommendedScaffoldFamilies,
+    ...entry.recommendedScaffoldIds,
     ...entry.stackTags.map((tag) => slugify(tag)),
     ...entry.strengths.map((tag) => slugify(tag)),
   ];
@@ -205,7 +202,6 @@ function serializeManifest(variableName: string, manifest: ScaffoldManifest): st
     "",
     `export const ${variableName}: ScaffoldManifest = {`,
     `  id: ${JSON.stringify(manifest.id)},`,
-    `  family: ${JSON.stringify(manifest.family as string)},`,
     `  label: ${JSON.stringify(manifest.label)},`,
     `  description: ${JSON.stringify(manifest.description)},`,
     `  allowedBuildIntents: ${JSON.stringify(manifest.allowedBuildIntents)},`,
@@ -219,11 +215,11 @@ function serializeManifest(variableName: string, manifest: ScaffoldManifest): st
   ].join("\n");
 }
 
-function ensureFamilyUnionEntry(typesSource: string, family: string): string {
-  if (typesSource.includes(`| "${family}"`)) return typesSource;
+function ensureIdUnionEntry(typesSource: string, scaffoldId: string): string {
+  if (typesSource.includes(`| "${scaffoldId}"`)) return typesSource;
   return typesSource.replace(
-    /export type ScaffoldFamily =\n([\s\S]*?);/,
-    (match) => match.replace(/;$/, `\n  | "${family}";`),
+    /export type ScaffoldId =\n([\s\S]*?);/,
+    (match) => match.replace(/;$/, `\n  | "${scaffoldId}";`),
   );
 }
 
@@ -261,8 +257,7 @@ function buildPromotedManifest(options: Options): {
   const mergedFiles = mergeFiles(baseScaffold, promotedFiles);
 
   const scaffold: ScaffoldManifest = {
-    id: options.scaffoldId,
-    family: options.scaffoldFamily as ScaffoldManifest["family"],
+    id: options.scaffoldId as ScaffoldId,
     label: options.label?.trim() || humanizeLabel(options.scaffoldId),
     description:
       entry.description.trim() ||
@@ -278,7 +273,7 @@ function buildPromotedManifest(options: Options): {
   const targetManifestPath = path.join(targetDir, "manifest.ts");
   const manifestSource = serializeManifest(variableName, scaffold);
 
-  const typesSource = ensureFamilyUnionEntry(fs.readFileSync(TYPES_PATH, "utf-8"), options.scaffoldFamily);
+  const typesSource = ensureIdUnionEntry(fs.readFileSync(TYPES_PATH, "utf-8"), options.scaffoldId);
   const registrySource = ensureRegistryEntry(
     fs.readFileSync(REGISTRY_PATH, "utf-8"),
     options.scaffoldId,

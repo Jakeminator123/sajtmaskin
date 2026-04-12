@@ -1,6 +1,6 @@
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
-import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/route-helpers";
+import { parseSSEBuffer, SuspenseLineProcessor } from "@/lib/gen/stream/sse-parser";
 import {
   EmptyGenerationError,
   PartialFileOutputError,

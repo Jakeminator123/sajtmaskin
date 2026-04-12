@@ -24,7 +24,7 @@ const buildSpec: BuildSpec = {
   buildIntent: "website",
   generationMode: "init",
   changeScope: "redesign",
-  scaffoldFamily: null,
+  scaffoldId: null,
   routePlanSummary: "prompt:one-page:/",
   stylePack: "brand-led",
   qualityTarget: "standard",
@@ -34,9 +34,9 @@ const buildSpec: BuildSpec = {
   referenceCategories: ["marketing-sites"],
   forbiddenPatterns: ["leave_bracket_placeholders"],
   tokenBudgets: {
-    scaffoldChars: 80_000,
-    refsChars: 40_000,
-    systemContextChars: 160_000,
+    scaffoldChars: 48_000,
+    refsChars: 24_000,
+    systemContextChars: 96_000,
   },
 };
 
@@ -46,7 +46,6 @@ function minimalOrchestrationBase(): OrchestrationBase {
     orchestrationContract: {
       scaffoldToRoute: {
         scaffoldId: null,
-        scaffoldFamily: null,
         routeSource: "prompt",
         plannedRoutes: [],
         requiredRoutePaths: [],
@@ -89,6 +88,7 @@ function minimalOrchestrationBase(): OrchestrationBase {
       needsPremiumVisuals: false,
     },
     buildSpec,
+    serializeMode: null,
     capabilityHints: undefined,
   };
 }
@@ -107,7 +107,6 @@ const common = {
   metaBriefApplied: false,
   customInstructionsLength: 0,
   scaffoldId: "sc1",
-  scaffoldFamily: "fam",
 };
 
 const minimalClarification = {

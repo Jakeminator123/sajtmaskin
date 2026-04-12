@@ -50,6 +50,7 @@
     "artifacts:rebuild:with-eval": "python scripts/rebuild_artifacts.py --with-eval --with-typecheck",
     "artifacts:rebuild:full:with-eval": "python scripts/rebuild_artifacts.py --refresh-scrape --with-eval --with-typecheck",
     "scripts:dashboard": "python scripts/scripts_dashboard.py",
+    "backoffice": "python sajtmaskin_backoffice.py",
     "inspector:start": "node services/inspector-worker/server.mjs",
     "inspector:install": "cd services/inspector-worker && npm install && npx playwright install chromium",
     "inspector:health": "curl -sf http://localhost:3310/health || echo UNHEALTHY",

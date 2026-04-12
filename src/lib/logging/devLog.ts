@@ -4,14 +4,13 @@ import {
   isGenerationLogEnabled,
   writeGenerationLogEntry,
 } from "./generation-log-writer";
-import { toPosixLog } from "@/lib/utils/path-utils";
 
 type DevLogTarget = "in-progress" | "latest";
 type DevLogEntry = Record<string, unknown>;
 
-const ROOT_LOG_DIR = toPosixLog(path.join(process.cwd(), "logs"));
-const ROOT_LOG_PATH = toPosixLog(path.join(ROOT_LOG_DIR, "sajtmaskin-local.log"));
-const ROOT_DOC_LOG_PATH = toPosixLog(path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt"));
+const ROOT_LOG_DIR = path.join(process.cwd(), "logs");
+const ROOT_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local.log");
+const ROOT_DOC_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt");
 const MAX_LOG_CHARS = 1000;
 const DEFAULT_DOC_MAX_WORDS = 10_000;
 const MAX_DOC_MAX_WORDS = 20_000;
@@ -25,6 +24,7 @@ const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "comm.integration_signals",
   "engine.integration_signals",
   "autofix.result",
+  "autofix.mechanical-residual",
   "syntax-validation.pass",
   "syntax-validation.fixer.start",
   "syntax-validation.fixer.result",
@@ -132,8 +132,11 @@ function ensureRootLogFiles(): void {
     if (!fs.existsSync(ROOT_DOC_LOG_PATH)) {
       fs.writeFileSync(ROOT_DOC_LOG_PATH, "", "utf8");
     }
-  } catch {
-    // Best-effort. Never break API routes due to dev logging.
+  } catch (err) {
+    console.warn(
+      "[sajtmaskin-dev] ensureRootLogFiles failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 
@@ -221,6 +224,10 @@ function buildConsoleSummary(entry: DevLogEntry, target: DevLogTarget): string |
       if (countArray(entry, "fixes") !== null) details.push(`fixes=${countArray(entry, "fixes")}`);
       if (countArray(entry, "warnings") !== null) details.push(`warnings=${countArray(entry, "warnings")}`);
       if (countArray(entry, "dependencies") !== null) details.push(`deps=${countArray(entry, "dependencies")}`);
+      break;
+    case "autofix.mechanical-residual":
+      if (readNumber(entry, "mechanicalFixCount") !== null) details.push(`mechanical=${readNumber(entry, "mechanicalFixCount")}`);
+      if (readNumber(entry, "residualErrorCount") !== null) details.push(`residual=${readNumber(entry, "residualErrorCount")}`);
       break;
     case "syntax-validation.pass":
       if (readNumber(entry, "pass") !== null) details.push(`pass=${readNumber(entry, "pass")}`);
@@ -446,8 +453,11 @@ function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
           ? (docSanitized as Record<string, unknown>)
           : { value: docSanitized },
     });
-  } catch {
-    // Best-effort. Never break API routes due to dev logging.
+  } catch (err) {
+    console.warn(
+      "[sajtmaskin-dev] appendRollingLine failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 

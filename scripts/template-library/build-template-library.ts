@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getScaffoldFamilies } from "../../src/lib/gen/scaffolds";
-import type { ScaffoldFamily } from "../../src/lib/gen/scaffolds/types";
+import { getScaffoldIds } from "../../src/lib/gen/scaffolds";
+import type { ScaffoldId } from "../../src/lib/gen/scaffolds/types";
 import {
   deriveTemplateRuntimeGuidance,
   isStarterOrBoilerplateReference,
@@ -94,7 +94,7 @@ const USEFUL_LINE_STOPWORDS = new Set([
   "och", "att", "det", "den", "som", "med", "har", "kan", "för", "till",
   "template", "starter", "templates",
 ]);
-const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldFamilies());
+const KNOWN_SCAFFOLD_IDS = new Set(getScaffoldIds());
 const TITLE_BLOCKLIST_PATTERNS = [
   "Express on Bun",
   "Hono on Bun",
@@ -139,7 +139,7 @@ const SKIP_DIRS = new Set([
   ".vercel",
 ]);
 
-const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
+const SCAFFOLD_CHECKLISTS: Record<ScaffoldId, string[]> = {
   "base-nextjs": [
     "Keep a minimal App Router structure with layout, page, and globals.css.",
     "Preserve @theme inline tokens and stable path aliases.",
@@ -192,7 +192,7 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
   ],
 };
 
-const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
+const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldId, string[]> = {
   "base-nextjs": ["Cleaner starter structure", "Better default docs and env hints"],
   "landing-page": ["Stronger hero and CTA rhythm", "More realistic section hierarchy"],
   "saas-landing": ["Better pricing and product proof", "More convincing product preview patterns"],
@@ -570,7 +570,7 @@ function deriveClassification(
   entry: RawTemplateRecord,
   signals: TemplateLibrarySignals,
   repoInfo: TemplateLibraryRepoInfo,
-  recommendedScaffoldFamilies: ScaffoldFamily[],
+  recommendedScaffoldIds: ScaffoldId[],
   selectedFiles: TemplateLibrarySelectedFile[],
 ): TemplateLibraryClassification {
   const businessText = [
@@ -723,12 +723,12 @@ function deriveWeaknesses(
   return weaknesses;
 }
 
-function recommendScaffoldFamilies(
+function recommendScaffoldIds(
   categorySlug: string,
   signals: TemplateLibrarySignals,
-): ScaffoldFamily[] {
-  const scores = new Map<ScaffoldFamily, number>();
-  const add = (family: ScaffoldFamily, score: number) => {
+): ScaffoldId[] {
+  const scores = new Map<ScaffoldId, number>();
+  const add = (family: ScaffoldId, score: number) => {
     scores.set(family, (scores.get(family) ?? 0) + score);
   };
 
@@ -787,7 +787,7 @@ function scoreEntry(
   selectedFiles: TemplateLibrarySelectedFile[],
   strengths: string[],
   weaknesses: string[],
-  recommendedScaffoldFamilies: ScaffoldFamily[],
+  recommendedScaffoldIds: ScaffoldId[],
 ): number {
   let score = 15;
   if (!rawRepoVerdict) score += 10;
@@ -798,7 +798,7 @@ function scoreEntry(
   if (selectedFiles.length >= 4) score += 10;
   else score += selectedFiles.length * 2;
   score += Math.min(10, strengths.length * 2);
-  score += Math.min(8, recommendedScaffoldFamilies.length * 2);
+  score += Math.min(8, recommendedScaffoldIds.length * 2);
   score -= Math.min(30, weaknesses.length * 6);
   if (repoInfo.isMonorepo) score -= 8;
   return Math.max(0, Math.min(100, score));
@@ -920,13 +920,13 @@ function buildEntry(
   };
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
-  const recommendedScaffoldFamilies = recommendScaffoldFamilies(canonicalCategorySlug, signals);
+  const recommendedScaffoldIds = recommendScaffoldIds(canonicalCategorySlug, signals);
   const classification = deriveClassification(
     canonicalCategorySlug,
     template,
     signals,
     repoInfo,
-    recommendedScaffoldFamilies,
+    recommendedScaffoldIds,
     selectedFiles,
   );
   const weaknesses = deriveWeaknesses(
@@ -944,7 +944,7 @@ function buildEntry(
     selectedFiles,
     strengths,
     weaknesses,
-    recommendedScaffoldFamilies,
+    recommendedScaffoldIds,
   );
   const verdict = decideVerdict(
     repoUrl.verdict,
@@ -973,7 +973,7 @@ function buildEntry(
     noiseLines,
     strengths,
     weaknesses,
-    recommendedScaffoldFamilies,
+    recommendedScaffoldIds,
     signals,
     classification,
     summary: `${template.title} is a ${canonicalCategoryName} reference with ${strengths.slice(0, 3).join(", ") || "limited verified signals"}. Site form: ${classification.siteFormTags.join(", ")}. Verdict: ${verdict}.`,
@@ -1079,7 +1079,7 @@ function writeTemplateLibraryDocs(catalog: TemplateLibraryCatalogFile, outputRoo
   lines.push("", "## Curated entries", "");
   for (const entry of catalog.entries.filter((item) => item.verdict === "valid" && item.qualityScore >= 45)) {
     lines.push(
-      `- **${entry.title}** (${entry.verdict}, score ${entry.qualityScore}) -> ${entry.recommendedScaffoldFamilies.join(", ")}`,
+      `- **${entry.title}** (${entry.verdict}, score ${entry.qualityScore}) -> ${entry.recommendedScaffoldIds.join(", ")}`,
     );
 
     const dossierDir = path.join(dossierRoot, entry.id);
@@ -1092,7 +1092,7 @@ function writeTemplateLibraryDocs(catalog: TemplateLibraryCatalogFile, outputRoo
       `- Category: ${entry.categoryName} (${entry.categorySlug})`,
       `- Verdict: ${entry.verdict}`,
       `- Quality score: ${entry.qualityScore}`,
-      `- Scaffold families: ${entry.recommendedScaffoldFamilies.join(", ")}`,
+      `- Scaffold families: ${entry.recommendedScaffoldIds.join(", ")}`,
       `- Repo: ${entry.repo.normalizedUrl ?? entry.repo.url ?? "missing"}`,
       `- Demo: ${entry.demoUrl ?? "missing"}`,
       "",
@@ -1126,14 +1126,14 @@ function writeTemplateLibraryDocs(catalog: TemplateLibraryCatalogFile, outputRoo
   writeJson(path.join(outputRoot, "catalog.json"), catalog);
   writeJson(path.join(outputRoot, "schema.template-manifest.json"), {
     type: "object",
-    required: ["id", "title", "categorySlug", "verdict", "qualityScore", "recommendedScaffoldFamilies", "summary"],
+    required: ["id", "title", "categorySlug", "verdict", "qualityScore", "recommendedScaffoldIds", "summary"],
     properties: {
       id: { type: "string" },
       title: { type: "string" },
       categorySlug: { type: "string" },
       verdict: { type: "string" },
       qualityScore: { type: "number" },
-      recommendedScaffoldFamilies: {
+      recommendedScaffoldIds: {
         type: "array",
         items: { type: "string" },
       },
@@ -1151,8 +1151,8 @@ function pickBaseNextjsReferences(entries: TemplateLibraryEntry[]): TemplateLibr
       if (/\bstarter\b/i.test(entry.title)) score += 4;
       if (/\bboilerplate\b/i.test(entry.title)) score -= 8;
       if (entry.repo.hasAppDir || entry.repo.hasSrcAppDir) score += 8;
-      if (entry.recommendedScaffoldFamilies.includes("landing-page")) score += 4;
-      if (entry.recommendedScaffoldFamilies.includes("content-site")) score += 4;
+      if (entry.recommendedScaffoldIds.includes("landing-page")) score += 4;
+      if (entry.recommendedScaffoldIds.includes("content-site")) score += 4;
       if (!entry.signals.auth && !entry.signals.dashboard && !entry.signals.ecommerce) score += 6;
       return { entry, score };
     })
@@ -1164,7 +1164,7 @@ function pickBaseNextjsReferences(entries: TemplateLibraryEntry[]): TemplateLibr
 function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
   const grouped = new Map<string, TemplateLibraryEntry[]>();
   for (const entry of entries.filter((item) => item.verdict === "valid")) {
-    for (const family of entry.recommendedScaffoldFamilies) {
+    for (const family of entry.recommendedScaffoldIds) {
       if (!grouped.has(family)) grouped.set(family, []);
       grouped.get(family)?.push(entry);
     }
@@ -1172,9 +1172,9 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 
   const scaffolds: Record<string, { qualityChecklist: string[]; research: { upgradeTargets: string[]; referenceTemplates: Array<{ id: string; title: string; categorySlug: string; qualityScore: number; strengths: string[]; }>; }; }> = {};
   const families = Array.from(new Set([
-    ...(Object.keys(SCAFFOLD_CHECKLISTS) as ScaffoldFamily[]),
-    ...(Object.keys(SCAFFOLD_UPGRADE_TARGETS) as ScaffoldFamily[]),
-    ...(Array.from(grouped.keys()) as ScaffoldFamily[]),
+    ...(Object.keys(SCAFFOLD_CHECKLISTS) as ScaffoldId[]),
+    ...(Object.keys(SCAFFOLD_UPGRADE_TARGETS) as ScaffoldId[]),
+    ...(Array.from(grouped.keys()) as ScaffoldId[]),
   ]));
 
   for (const family of families) {
@@ -1222,10 +1222,10 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 
 function validateTemplateLibraryEntries(entries: TemplateLibraryEntry[]): void {
   for (const entry of entries) {
-    for (const family of entry.recommendedScaffoldFamilies) {
-      if (!KNOWN_SCAFFOLD_FAMILIES.has(family)) {
+    for (const family of entry.recommendedScaffoldIds) {
+      if (!KNOWN_SCAFFOLD_IDS.has(family)) {
         throw new Error(
-          `[template-library] ${entry.id} references unknown scaffold family "${family}"`,
+          `[template-library] ${entry.id} references unknown scaffold id "${family}"`,
         );
       }
     }
@@ -1238,7 +1238,7 @@ function validateScaffoldResearchAgainstCatalog(
 ): void {
   const entryIds = new Set(entries.map((entry) => entry.id));
   for (const [family, payload] of Object.entries(scaffoldResearch.scaffolds)) {
-    if (!KNOWN_SCAFFOLD_FAMILIES.has(family as ScaffoldFamily)) {
+    if (!KNOWN_SCAFFOLD_IDS.has(family as ScaffoldId)) {
       throw new Error(
         `[template-library] scaffold research generated unknown family "${family}"`,
       );
@@ -1246,7 +1246,7 @@ function validateScaffoldResearchAgainstCatalog(
     for (const reference of payload.research.referenceTemplates) {
       if (!entryIds.has(reference.id)) {
         throw new Error(
-          `[template-library] scaffold family "${family}" references missing template id "${reference.id}"`,
+          `[template-library] scaffold "${family}" references missing template id "${reference.id}"`,
         );
       }
     }

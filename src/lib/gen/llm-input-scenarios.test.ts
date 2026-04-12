@@ -11,7 +11,7 @@ function baseSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
     buildIntent: "website",
     generationMode: "init",
     changeScope: "redesign",
-    scaffoldFamily: "landing-page",
+    scaffoldId: "landing-page",
     routePlanSummary: "prompt:one-page:/",
     stylePack: "brand-led",
     qualityTarget: "standard",
@@ -21,10 +21,10 @@ function baseSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
     referenceCategories: ["marketing-sites"],
     forbiddenPatterns: [],
     tokenBudgets: {
-      scaffoldChars: 80_000,
-      refsChars: 40_000,
-      systemContextChars: 160_000,
-      systemContextTokens: 50_000,
+      scaffoldChars: 48_000,
+      refsChars: 24_000,
+      systemContextChars: 96_000,
+      systemContextTokens: 30_000,
     },
     ...overrides,
   };
@@ -102,10 +102,10 @@ describe("LLM input scenarios (dynamic context)", () => {
         contextPolicy: "light",
         verificationPolicy: "fast",
         tokenBudgets: {
-          scaffoldChars: 60_000,
-          refsChars: 20_000,
-          systemContextChars: 80_000,
-          systemContextTokens: 25_000,
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+          systemContextTokens: 15_000,
         },
       }),
       scaffoldContext: "scaffold",
@@ -114,7 +114,7 @@ describe("LLM input scenarios (dynamic context)", () => {
     expect(context).toContain("## Generation Profile");
   });
 
-  it("follow-up with capability hints surfaces a dedicated capabilities block", async () => {
+  it("follow-up with capability hints surfaces the toolkit capability section", async () => {
     const { context } = await buildDynamicContext({
       intent: "website",
       generationMode: "followUp",
@@ -129,9 +129,11 @@ describe("LLM input scenarios (dynamic context)", () => {
       scaffoldContext: "scaffold",
     });
 
-    expect(context).toContain("## Detected Capabilities");
-    expect(context.indexOf("## Detected Capabilities")).toBeLessThan(
-      context.indexOf("## Scaffold"),
+    expect(context).toContain("## Your Toolkit");
+    expect(context).toContain("- Capability-driven additions for this request:");
+    expect(context).toContain("**Carousel/slider requested**: Use shadcn Carousel.");
+    expect(context.indexOf("## Scaffold")).toBeLessThan(
+      context.indexOf("## Your Toolkit"),
     );
   });
 

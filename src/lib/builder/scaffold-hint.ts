@@ -1,10 +1,10 @@
-import type { ScaffoldFamily } from "@/lib/gen/scaffolds/types";
+import type { ScaffoldId } from "@/lib/gen/scaffolds/types";
 
 export type ScaffoldSuperFamily = "website" | "app";
 
 export interface ScaffoldHint {
   superFamily: ScaffoldSuperFamily;
-  suggestedFamily?: ScaffoldFamily;
+  suggestedFamily?: ScaffoldId;
 }
 
 const LABEL_TO_SCAFFOLD_HINT: Record<string, ScaffoldHint> = {

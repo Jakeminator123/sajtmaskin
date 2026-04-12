@@ -7,7 +7,7 @@
  * _template_refs/) is reference material for new internal scaffolds.
  * They are NOT used at runtime and have no connection to this registry.
  */
-import type { ScaffoldManifest, ScaffoldFamily } from "./types";
+import type { ScaffoldManifest, ScaffoldId } from "./types";
 import { baseNextjsManifest } from "./base-nextjs/manifest";
 import { contentSiteManifest } from "./content-site/manifest";
 import { appShellManifest } from "./app-shell/manifest";
@@ -20,7 +20,6 @@ import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 import { applyScaffoldSeoDefaults } from "./seo-defaults";
-import { applyScaffoldTraits } from "./scaffold-traits";
 
 const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   baseNextjsManifest,
@@ -66,21 +65,17 @@ const ALL_SCAFFOLDS: ScaffoldManifest[] = BASE_SCAFFOLDS.map((scaffold) => {
       research: mergeScaffoldResearch(scaffold.research, overrides.research),
     };
   })();
-  return applyScaffoldSeoDefaults(applyScaffoldTraits(withResearchOverrides));
+  return applyScaffoldSeoDefaults(withResearchOverrides);
 });
 
 export function getScaffoldById(id: string): ScaffoldManifest | null {
   return ALL_SCAFFOLDS.find((s) => s.id === id) ?? null;
 }
 
-export function getScaffoldByFamily(family: ScaffoldFamily): ScaffoldManifest | null {
-  return ALL_SCAFFOLDS.find((s) => s.family === family) ?? null;
-}
-
 export function getAllScaffolds(): ScaffoldManifest[] {
   return ALL_SCAFFOLDS;
 }
 
-export function getScaffoldFamilies(): ScaffoldFamily[] {
-  return [...new Set(ALL_SCAFFOLDS.map((s) => s.family))];
+export function getScaffoldIds(): ScaffoldId[] {
+  return [...new Set(ALL_SCAFFOLDS.map((s) => s.id))];
 }

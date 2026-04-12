@@ -26,7 +26,6 @@ export interface ScaffoldRetrySuggestion {
   currentScaffoldLabel: string;
   suggestedScaffoldId: string;
   suggestedScaffoldLabel: string;
-  suggestedScaffoldFamily: string;
   failureType: ScaffoldRetryFailureType;
   reason: string;
   source: "heuristic" | "keyword" | "embedding";
@@ -245,7 +244,6 @@ export async function inferScaffoldRetrySuggestion({
       currentScaffoldLabel: resolvedScaffold.label,
       suggestedScaffoldId: heuristicCandidate.id,
       suggestedScaffoldLabel: heuristicCandidate.label,
-      suggestedScaffoldFamily: heuristicCandidate.family,
       failureType,
       reason: buildFailureReason(failureType, resolvedScaffold, heuristicCandidate),
       source: "heuristic",
@@ -265,7 +263,6 @@ export async function inferScaffoldRetrySuggestion({
       currentScaffoldLabel: resolvedScaffold.label,
       suggestedScaffoldId: keywordCandidate.id,
       suggestedScaffoldLabel: keywordCandidate.label,
-      suggestedScaffoldFamily: keywordCandidate.family,
       failureType,
       reason: buildFailureReason(failureType, resolvedScaffold, keywordCandidate),
       source: "keyword",
@@ -284,7 +281,6 @@ export async function inferScaffoldRetrySuggestion({
         currentScaffoldLabel: resolvedScaffold.label,
         suggestedScaffoldId: semanticCandidate.id,
         suggestedScaffoldLabel: semanticCandidate.label,
-        suggestedScaffoldFamily: semanticCandidate.family,
         failureType,
         reason: buildFailureReason(failureType, resolvedScaffold, semanticCandidate),
         source: "embedding",

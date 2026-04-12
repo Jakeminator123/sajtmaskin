@@ -300,6 +300,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         promptStrategy: strategyMeta.strategy,
         promptType: strategyMeta.promptType,
       });
+      devLogStartNewSite({
+        message: optimizedMessage,
+        modelId: resolvedModelId,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
+        projectId,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
+      });
       devLogAppend("in-progress", {
         type: "comm.request.create",
         modelId: resolvedModelId,
@@ -322,22 +330,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
       });
-
       debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
         promptAssistModel: parsedMeta.promptAssistModel,
         promptAssistDeep: parsedMeta.promptAssistDeep,
         promptAssistMode: parsedMeta.promptAssistMode,
         promptStrategy: strategyMeta.strategy,
         promptType: strategyMeta.promptType,
-      });
-
-      devLogStartNewSite({
-        message: optimizedMessage,
-        modelId: resolvedModelId,
-        thinking: resolvedThinking,
-        imageGenerations: resolvedImageGenerations,
-        projectId,
-        slug: metaBuildMethod || metaBuildIntent || undefined,
       });
 
       // ── Plan Mode Path ────────────────────────────────────────────────
@@ -518,7 +516,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
+        });
+        devLogAppend("in-progress", {
+          type: "orchestration.resolved",
+          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+          serializeMode: orchestrationBase.serializeMode,
+          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
         });
         const {
           resolvedScaffold,
@@ -636,7 +642,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           routeCount: orchestrationBase.routePlan.routes.length,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          styleDirection: finalized.styleDirectionId,
         });
+        if (finalized.styleDirectionId) {
+          devLogAppend("in-progress", {
+            type: "orchestration.styleDirection",
+            styleDirection: finalized.styleDirectionId,
+          });
+        }
         const generationInputPackage = buildGenerationInputPackage(
           orchestrationBase,
           orchestrationInput,
@@ -720,7 +733,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
-            scaffoldFamily: resolvedScaffold?.family ?? null,
           }),
           engineModel,
           optimizedMessage,

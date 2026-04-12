@@ -82,6 +82,13 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ isLoading: true });
           const response = await fetch("/api/auth/me");
+          if (
+            !response.ok ||
+            !response.headers.get("content-type")?.includes("application/json")
+          ) {
+            set({ user: null, guest: null, isLoading: false, isInitialized: true });
+            return;
+          }
           const data = await response.json();
 
           if (data.success) {
@@ -110,7 +117,7 @@ export const useAuthStore = create<AuthState>()(
           }
         } catch (error) {
           console.error("[AuthStore] Failed to fetch user:", error);
-          set({ user: null, isLoading: false, isInitialized: true });
+          set({ user: null, guest: null, isLoading: false, isInitialized: true });
         }
       },
     }),

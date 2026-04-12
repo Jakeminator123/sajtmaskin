@@ -6,7 +6,7 @@ function spec(partial: Partial<BuildSpec> & Pick<BuildSpec, "changeScope" | "con
   return {
     buildIntent: "website",
     generationMode: "followUp",
-    scaffoldFamily: "landing-page",
+    scaffoldId: "landing-page",
     routePlanSummary: "prompt:one-page:/",
     stylePack: "brand-led",
     qualityTarget: "standard",
@@ -14,7 +14,7 @@ function spec(partial: Partial<BuildSpec> & Pick<BuildSpec, "changeScope" | "con
     verificationPolicy: "fast",
     referenceCategories: [],
     forbiddenPatterns: [],
-    tokenBudgets: { scaffoldChars: 60_000, refsChars: 20_000, systemContextChars: 80_000 },
+    tokenBudgets: { scaffoldChars: 36_000, refsChars: 12_000, systemContextChars: 48_000 },
     ...partial,
   };
 }

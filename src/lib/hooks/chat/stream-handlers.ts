@@ -349,7 +349,6 @@ export async function handleSseStream(
               promptAssistDeep: ctx.promptAssistDeep ?? null,
               promptAssistMode: ctx.promptAssistMode ?? null,
               scaffoldId: typeof meta.scaffoldId === "string" ? meta.scaffoldId : null,
-              scaffoldFamily: typeof meta.scaffoldFamily === "string" ? meta.scaffoldFamily : null,
               scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,
               capabilities: meta.capabilities && typeof meta.capabilities === "object" ? meta.capabilities as Record<string, boolean> : null,
               contractDataMode:

@@ -6,8 +6,9 @@ import {
   buildUserPromptContent,
   type RequestAttachment,
 } from "./request-metadata";
-import { createCodeGenSSEStream, type StreamMeta } from "./stream-format";
+import { createCodeGenSSEStream, type StreamMeta } from "./stream/stream-format";
 
+export type { StreamMeta };
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
 
 export interface GenerateOptions {
@@ -92,4 +93,40 @@ export function generateCode(
     meta,
     abortController: internalAbortController ?? undefined,
   });
+}
+
+export interface PipelineOptions {
+  prompt: string;
+  systemPrompt: string;
+  model?: string;
+  chatHistory?: GenerateOptions["chatHistory"];
+  thinking?: boolean;
+  reasoningEffort?: ReasoningEffort;
+  maxTokens?: number;
+  abortSignal?: AbortSignal;
+  tools?: ToolSet;
+  maxSteps?: number;
+  referenceAttachments?: GenerateOptions["referenceAttachments"];
+  meta?: StreamMeta;
+}
+
+export function createGenerationPipeline(
+  options: PipelineOptions,
+): ReadableStream<Uint8Array> {
+  return generateCode(
+    {
+      prompt: options.prompt,
+      systemPrompt: options.systemPrompt,
+      model: options.model,
+      chatHistory: options.chatHistory,
+      thinking: options.thinking,
+      reasoningEffort: options.reasoningEffort,
+      maxTokens: options.maxTokens,
+      abortSignal: options.abortSignal,
+      tools: options.tools,
+      maxSteps: options.maxSteps,
+      referenceAttachments: options.referenceAttachments,
+    },
+    options.meta,
+  );
 }

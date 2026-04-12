@@ -152,7 +152,6 @@ describe("post-checks-results", () => {
           currentScaffoldLabel: "E-handel",
           suggestedScaffoldId: "saas-landing",
           suggestedScaffoldLabel: "SaaS Landing",
-          suggestedScaffoldFamily: "saas-landing",
           failureType: "blocking-preflight",
           reason: "Preflight-blockeringen tyder på att E-handel kan vara en svag scaffold-fit.",
           source: "heuristic",

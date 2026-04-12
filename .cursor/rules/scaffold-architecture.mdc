@@ -1,0 +1,155 @@
+---
+description: Scaffold-systemets arkitektur och flöde — obligatorisk kontext för alla scaffold-, orchestrering-, och genererings-uppgifter
+globs: ["src/lib/gen/scaffolds/**", "src/lib/gen/orchestrate.ts", "src/lib/gen/system-prompt.ts", "src/lib/gen/build-spec.ts", "src/lib/builder/**", "sajtmaskin_backoffice.py", "scripts/scaffolds/**"]
+alwaysApply: false
+---
+
+# Scaffold-systemet — Arkitektur och flöde
+
+## Grundprincip
+
+Sajtmaskin använder 10 scaffolds som startpunkter för kodgenerering. En scaffold är en uppsättning TSX/CSS-filer + metadata som styr hur LLM:en producerar en webbplats. Scaffolds väljs automatiskt baserat på användarens prompt.
+
+## De 10 scaffolds
+
+| ID | Typ | Vercel Use Case |
+|----|-----|-----------------|
+| `base-nextjs` | marketing/simple | Starter |
+| `landing-page` | marketing/medium | Marketing Sites |
+| `saas-landing` | marketing/medium | SaaS |
+| `portfolio` | editorial/medium | Portfolio |
+| `blog` | editorial/medium | Blog |
+| `dashboard` | app/advanced | Admin Dashboard |
+| `auth-pages` | app/simple | Authentication |
+| `ecommerce` | commerce/advanced | Ecommerce |
+| `content-site` | marketing/medium | Marketing Sites / CMS |
+| `app-shell` | app/medium | SaaS / Multi-Tenant |
+
+## Filstruktur per scaffold
+
+```
+src/lib/gen/scaffolds/<id>/
+  manifest.ts          # Metadata: id, label, tags, hints, intents, etc.
+  files/               # Riktiga TSX/CSS-filer (laddas av loadScaffoldFiles)
+    app/page.tsx
+    app/layout.tsx
+    app/globals.css
+    components/*.tsx
+```
+
+## Flöde: Prompt → Genererad kod
+
+```
+ANVÄNDARENS PROMPT
+  │
+  ├─ 1. PromptOrchestration → PromptType + PromptStrategy
+  │      Klassificerar prompten, budgeterar, trimmar.
+  │      Typer: freeform | wizard | template | audit | followup_*
+  │      Strategi: direct | summarize | phase_plan_build_refine | preserved
+  │
+  ├─ 2. Deep Brief (valfri, server-auto-brief)
+  │      Strukturerat objekt: pages[], visualDirection, SEO, toneAndVoice
+  │      Downstream: matar scaffold-matchning, route plan, dynamic context
+  │
+  ├─ 3. Scaffold-val (orchestrate.ts → matcher.ts)
+  │      ScaffoldMode: off | auto | manual
+  │      ├─ Keyword-matchning (synkron, 9 nyckelordslistor)
+  │      ├─ Embedding-matchning (parallell, cosine similarity)
+  │      └─ Merge-policy + safety guards → ScaffoldId
+  │
+  ├─ 4. Capability-inferens (capability-inference.ts)
+  │      Auth, ecommerce, forms, charts, 3D, motion
+  │      → boostar matchning + prioriterar filer i serialisering
+  │
+  ├─ 5. Route Plan (route-plan.ts)
+  │      Provenance: brief > scaffold > prompt
+  │      Output: routes[], siteType, primarySource
+  │
+  ├─ 6. Pre-generation Contracts (pre-generation-contracts.ts)
+  │      Auth, payment, database, env vars, integrations
+  │
+  ├─ 7. BuildSpec (build-spec.ts)
+  │      ContextPolicy: light | normal | heavy
+  │      QualityTarget, PreviewPolicy, VerificationPolicy
+  │      Token-budgetar: scaffoldChars, scaffoldTokens, refsTokens
+  │
+  ├─ 8. Scaffold-serialisering (serialize.ts) → ScaffoldSerializeMode
+  │      inspirational (init): filträd + utvalda filer, fri design
+  │      structural (follow-up/heavy): fullständig baseline
+  │      Budgeteras mot maxChars, pruneas mot contextPolicy
+  │
+  ├─ 9. Dynamic Context + System Prompt (system-prompt.ts)
+  │      Static Core (config/prompt-static/*.md)
+  │      + Dynamic Context (prioriterad + prunad):
+  │        - Scaffold context (serialiserade filer)
+  │        - Scaffold Research Priorities (checklist + upgrade targets + reference templates)
+  │        - Route plan, contracts, brief, style direction, toolkit
+  │
+  └─10. LLM-generering → CodeFile[] → Autofix → Preview
+```
+
+## Hur externa Vercel template-referenser når LLM:en
+
+Extern forskning (från ~97 kuraterade Vercel templates) injiceras vid buildtime, INTE runtime:
+
+```
+vercel.com/templates (skrapad data)
+  │
+  ├─ scripts/template-library/build-template-library.ts
+  │    Bygger catalog.json + scaffold-research.generated.json
+  │
+  ├─ scaffold-research.generated.json (per scaffold)
+  │    ├─ qualityChecklist: ["Keep hero above fold", ...]
+  │    ├─ upgradeTargets: ["Add pricing comparison table", ...]
+  │    └─ referenceTemplates: [{ title, categorySlug, qualityScore, strengths }]
+  │
+  ├─ registry.ts (vid server-start)
+  │    Mergar research-overrides in i varje ScaffoldManifest
+  │    referenceTemplates: override ersätter base om non-empty
+  │    qualityChecklist: union-merge (dedup)
+  │    upgradeTargets: union-merge (dedup)
+  │
+  └─ system-prompt.ts → "## Scaffold Research Priorities"
+       LLM:en ser (max 5 refs, budgeterat):
+       "Reference inspirations from curated templates:
+         - Precedent Starter (authentication, score 94): auth flow, App Router
+         - Commerce Starter (ecommerce, score 91): product grid, cart"
+```
+
+Notera: `serialize.ts` skickar INTE research till LLM:en — bara filer och metadata.
+Research-blocket (`## Scaffold Research Priorities`) skickas separat av `buildDynamicContext`.
+
+## Vad LLM:en faktiskt ser (för en ecommerce-prompt)
+
+1. **## Scaffold** — Filträd + utvalda filer (layout.tsx, globals.css, page.tsx) med placeholder-innehåll
+2. **## Scaffold Research Priorities** — Quality checklist + upgrade targets + reference template-sammanfattningar
+3. **## Route Plan** — Planerade sidor (/, /products, /product/[id], etc.)
+4. **## Style Direction** — Deterministisk visuell stil (layout, typografi, motif)
+5. **## Your Toolkit** — shadcn-komponenter + capability-hints
+
+## Token-kostnad
+
+Scaffold-kontexten är typiskt 5-15% av systempromten. Budgeteras via BuildSpec:
+- scaffoldChars: ~8000-12000 tecken
+- refsTokens: ~450 tokens för reference templates
+- Prunas vid tokenbrist (lägst prioritet: research priorities, priority 70)
+
+## Backoffice (sajtmaskin_backoffice.py)
+
+| Sida | Funktion |
+|------|----------|
+| Scaffolds | Visa + redigera tags, hints, checklist, intents per scaffold |
+| Research & Dossiers | Kuraterade Vercel templates + research overrides |
+| Pipeline | Kör scaffold/template pipeline (import → verify) |
+| Eval | Scaffold-matchningens accuracy |
+| Orchestration Map | Alla beslutspunkter parsade ur TS-koden |
+| Mental modell | schema.md rendering + snabbfakta |
+
+## Regler för agenter
+
+1. Scaffold-filer bor under `scaffolds/<id>/files/` — redigera dem direkt
+2. Manifest metadata bor i `scaffolds/<id>/manifest.ts` — redigera via backoffice eller direkt
+3. Kör ALLTID `npx tsc --noEmit` efter scaffold-ändringar
+4. Verifiera filantal: `getAllScaffolds().map(s => s.files.length)`
+5. Ändra ALDRIG `serialize.ts`, `registry.ts`, `seo-defaults.ts` utan att förstå merge-pipeline
+6. External research styrs via `npm run template-library:build`, inte manuellt

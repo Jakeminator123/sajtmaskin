@@ -1,6 +1,6 @@
 import type { CodeFile } from "../parser";
-import { buildCompleteProject } from "../project-scaffold";
-import { repairGeneratedFiles } from "../repair-generated-files";
+import { buildCompleteProject } from "./project-scaffold";
+import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 
 /**
  * Canonical pipeline for building the complete, repaired Next.js project
@@ -13,7 +13,7 @@ import { repairGeneratedFiles } from "../repair-generated-files";
  * its `fs.readFileSync` calls out of Turbopack's static bundle analysis.
  */
 export async function buildExportableProject(generatedFiles: CodeFile[]): Promise<CodeFile[]> {
-  const { collectRequiredUiComponents } = await import("../project-scaffold-ui-reader");
+  const { collectRequiredUiComponents } = await import("./project-scaffold-ui-reader");
   const uiComponents = collectRequiredUiComponents(generatedFiles);
   return repairGeneratedFiles(buildCompleteProject(generatedFiles, uiComponents)).files;
 }

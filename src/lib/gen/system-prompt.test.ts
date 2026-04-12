@@ -6,7 +6,7 @@ const lightFollowUpSpec: BuildSpec = {
   buildIntent: "website",
   generationMode: "followUp",
   changeScope: "copy",
-  scaffoldFamily: "landing-page",
+  scaffoldId: "landing-page",
   routePlanSummary: "prompt:one-page:/",
   stylePack: "brand-led",
   qualityTarget: "standard",
@@ -16,9 +16,9 @@ const lightFollowUpSpec: BuildSpec = {
   referenceCategories: ["marketing-sites"],
   forbiddenPatterns: ["leave_bracket_placeholders"],
   tokenBudgets: {
-    scaffoldChars: 60_000,
-    refsChars: 20_000,
-    systemContextChars: 80_000,
+    scaffoldChars: 36_000,
+    refsChars: 12_000,
+    systemContextChars: 48_000,
   },
 };
 
@@ -202,7 +202,7 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("## Generation Profile");
     });
 
-    it("surfaces capability hints as a separate top-level block", async () => {
+    it("surfaces capability hints inside the toolkit block", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
         generationMode: "followUp",
@@ -215,10 +215,11 @@ describe("buildDynamicContext", () => {
         scaffoldContext: "Scaffold context",
       });
 
-      expect(context).toContain("## Detected Capabilities");
-      expect(context).toContain("## Scaffold");
-      expect(context.indexOf("## Detected Capabilities")).toBeLessThan(
-        context.indexOf("## Scaffold"),
+      expect(context).toContain("## Your Toolkit");
+      expect(context).toContain("- Capability-driven additions for this request:");
+      expect(context).toContain("**Carousel/slider requested**: Use shadcn Carousel.");
+      expect(context.indexOf("## Scaffold")).toBeLessThan(
+        context.indexOf("## Your Toolkit"),
       );
     });
 

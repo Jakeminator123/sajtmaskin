@@ -741,10 +741,7 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   }
   if (info.scaffoldId) {
     const label = info.scaffoldLabel || info.scaffoldId;
-    const family = info.scaffoldFamily && info.scaffoldFamily !== info.scaffoldId
-      ? ` (${info.scaffoldFamily})`
-      : "";
-    steps.push(`Scaffold: ${label}${family}`);
+    steps.push(`Scaffold: ${label}`);
   }
   if (info.capabilities && typeof info.capabilities === "object") {
     const active = Object.entries(info.capabilities)

@@ -28,7 +28,7 @@ import {
 } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const entry = deriveBuilderEntryState(searchParams);
@@ -65,22 +65,13 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(DEFAULT_IMAGE_GENERATIONS);
-  const [enableThinking, _setEnableThinking] = useState(DEFAULT_THINKING);
-  const thinkingUserSetRef = useRef(false);
-  const setEnableThinking = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
-    thinkingUserSetRef.current = true;
-    _setEnableThinking(v);
-  }, []);
+  const [enableThinking, setEnableThinking] = useState(DEFAULT_THINKING);
   const [chatPrivacy, setChatPrivacy] = useState<"private" | "unlisted">("private");
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   // Internal Sajtmaskin brand/theme preset used by the own engine.
   const [designTheme, setDesignTheme] = useState<DesignTheme>(DEFAULT_DESIGN_THEME);
-  // External v0 registry-backed design system id. Separate from `designTheme`.
-  // @deprecated — v0-only concept with no UI setter. Kept for backward compat
-  // during soft-deprecation. Will be removed when v0-fallback is fully retired.
-  const [designSystemId, setDesignSystemId] = useState("");
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);
   const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
@@ -152,8 +143,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     });
   }, [scaffoldMode]);
 
-  const isThinkingSupported = true;
-  const effectiveThinking = enableThinking && isThinkingSupported;
+  const effectiveThinking = enableThinking;
+  const isThinkingSupported = selectedModelTier !== "fast";
   const resolvedBuildIntent = useMemo(
     () => resolveBuildIntentForMethod(buildMethod, buildIntent),
     [buildMethod, buildIntent],
@@ -210,7 +201,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setEnableImageGenerations,
     enableThinking,
     setEnableThinking,
-    thinkingUserSetRef,
     enableBlobMedia,
     setEnableBlobMedia,
     isImageGenerationsSupported,
@@ -219,8 +209,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setIsMediaEnabled,
     designTheme,
     setDesignTheme,
-    designSystemId,
-    setDesignSystemId,
     specMode,
     pendingSpecRef,
     pendingBriefRef,

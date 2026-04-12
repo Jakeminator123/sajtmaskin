@@ -1,36 +1,14 @@
 ---
-description: Stage bara ditt arbete; håll docs kanoniska och korta
+description: Git stage, docs kanoniska, självsanering
 alwaysApply: true
 ---
 
 # Session, git, and docs
 
-## Git hygiene
+**Git:** stage bara aktuell uppgift; ingen bred formattering eller sidofixar utan scope. Parallellt arbete / oväntade diffar → smalna scope, fråga. Commit/push när användaren ber. Stor städ-PR (>~40 filer): nämn `git rev-parse HEAD` i PR-beskrivning.
 
-- Vid **massradering** eller mycket bred städ-PR (t.ex. >~40 filer / hel epik-svep): nämn `git rev-parse HEAD` i PR-beskrivningen som referens, så större cleanup-pass blir spårbara även om äldre planfiler bara finns i git-historik.
-- Stage och commit:a bara filer som hör till den aktuella uppgiften.
-- Dra inte in bred formattering, opportunistiska sidofixar eller annat diffbrus i samma stage om det inte faktiskt hör till scopet.
-- Om delade filer redan har oväntade diffar eller parallellt arbete syns: smalna av scope, läs om och fråga innan du skriver över något tvetydigt.
-- Commit eller push bara när användaren faktiskt ber om det.
+**Docs:** uppdatera när beteende, yta, struktur, terminologi eller status **faktiskt** ändrats — **ersätt** gammal text, lägg inte lager ovanpå. Ta bort obsolete. Inga nya process-/handoff-filer utan verkligt nytt scope. **Självsanering:** tomma kataloger, döda länkar/pekare och inaktuella tabellrader i samma svep som ändringen som gör dem överflödiga. Uppdatera eller ta bort docs som inte längre speglar kod.
 
-## Docs hygiene
+**Var:** `docs/architecture/` · `docs/schemas/` · `docs/plans/active/` · policy: `documentation-lifecycle.md` · env/index: `repo-env-indexing.mdc`
 
-- Uppdatera docs bara när beteende, publik yta, struktur, terminologi eller verklig arbetsstatus har ändrats.
-- Uppdatera den kanoniska filen i samma vända; lämna inte parallell och gammal text kvar.
-- Ta bort obsolete text hellre än att lägga till ett nytt lager förklaring.
-- Skapa inte nya processfiler, handoffs eller meta-dokument om scope inte verkligen är nytt.
-- Återuppliva inte gamla loggar eller arkiv som aktiv sanningskälla.
-
-## Canonical places
-
-- System och struktur: `docs/architecture/`
-- Stabil mänsklig schemaförklaring: `docs/schemas/`
-- Aktiv backlog och planer: `docs/plans/active/`
-- Full dokumentationspolicy: `docs/architecture/documentation-lifecycle.md`
-- Env- och ignore-policy: `repo-env-indexing.mdc`
-
-## Guiding principles
-
-- En sanning, ett ställe.
-- Ta bort > lägg till när text blivit inaktuell.
-- Om beteendet inte ändrats, rör inte docs.
+**Princip:** en sanning, ett ställe. Ta bort > lägg till när inaktuellt. Om beteendet inte ändrats — rör inte docs.

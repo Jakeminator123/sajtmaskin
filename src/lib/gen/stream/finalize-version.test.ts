@@ -64,11 +64,11 @@ vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewUrl,
 }));
 
-vi.mock("@/lib/gen/repair-generated-files", () => ({
+vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
   repairGeneratedFiles,
 }));
 
-vi.mock("@/lib/gen/project-scaffold", () => ({
+vi.mock("@/lib/gen/export/project-scaffold", () => ({
   buildCompleteProject,
 }));
 
@@ -406,22 +406,25 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(result.previewUrl).toBeNull();
-    expect(result.preflight.previewBlocked).toBe(false);
-    expect(result.preflight.verificationBlocked).toBe(false);
+    expect(result.preflight.previewBlocked).toBe(true);
+    expect(result.preflight.verificationBlocked).toBe(true);
     expect(result.preflight.previewBlockingReason).toBe(
       "Automatic preflight could not build a renderable own-engine preview entrypoint.",
     );
-    expect(result.preflight.primaryPreviewTarget).toBe("preview");
+    expect(result.preflight.primaryPreviewTarget).toBe("none");
     expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
       { prompt: undefined, completion: undefined },
       expect.any(Number),
-      true,
-      undefined,
+      false,
+      "Automatic preflight found preview-blocking issues.",
     );
-    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver_1",
+      "Automatic preflight found preview-blocking issues.",
+    );
   });
 
   it("uses previousFiles as the merge base for follow-up generations", async () => {
@@ -505,22 +508,22 @@ describe("finalizeAndSaveVersion", () => {
         expect.objectContaining({
           category: "preflight:summary",
           meta: expect.objectContaining({
-            previewBlocked: false,
-            verificationBlocked: false,
+            previewBlocked: true,
+            verificationBlocked: true,
             previewStart: expect.objectContaining({
-              canStartPreview: true,
-              primaryPreviewTarget: "preview",
+              canStartPreview: false,
+              primaryPreviewTarget: "none",
             }),
           }),
         }),
         expect.objectContaining({
           category: "preview",
-          level: "warning",
+          level: "error",
           meta: expect.objectContaining({
-            previewCode: "compatibility_shim_blocked",
-            previewBlocked: false,
-            verificationBlocked: false,
-            primaryPreviewTarget: "preview",
+            previewCode: "preflight_preview_blocked",
+            previewBlocked: true,
+            verificationBlocked: true,
+            primaryPreviewTarget: "none",
           }),
         }),
       ]),
@@ -612,7 +615,7 @@ describe("finalizeAndSaveVersion", () => {
         buildIntent: "website",
         generationMode: "followUp",
         changeScope: "copy",
-        scaffoldFamily: null,
+        scaffoldId: null,
         routePlanSummary: "prompt:one-page:/",
         stylePack: "brand-led",
         qualityTarget: "standard",
@@ -622,9 +625,9 @@ describe("finalizeAndSaveVersion", () => {
         referenceCategories: ["marketing-sites"],
         forbiddenPatterns: ["leave_bracket_placeholders"],
         tokenBudgets: {
-          scaffoldChars: 60_000,
-          refsChars: 20_000,
-          systemContextChars: 80_000,
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
         },
       },
       resolvedScaffold: null,
@@ -646,7 +649,7 @@ describe("finalizeAndSaveVersion", () => {
     });
     expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        qualityGateResult: "preflight_passed",
+        qualityGateResult: "preflight_failed",
         retryCount: 0,
         meta: expect.objectContaining({
           finalizePath: "fast-only",
@@ -664,8 +667,8 @@ describe("finalizeAndSaveVersion", () => {
             warningCount: 0,
           }),
           preflight: expect.objectContaining({
-            previewBlocked: false,
-            verificationBlocked: false,
+            previewBlocked: true,
+            verificationBlocked: true,
           }),
         }),
       }),
@@ -684,7 +687,7 @@ describe("finalizeAndSaveVersion", () => {
           buildIntent: "website",
           generationMode: "init",
           changeScope: "redesign",
-          scaffoldFamily: null,
+          scaffoldId: null,
           routePlanSummary: "prompt:one-page:/",
           stylePack: "brand-led",
           qualityTarget: "premium",
@@ -694,9 +697,9 @@ describe("finalizeAndSaveVersion", () => {
           referenceCategories: ["marketing-sites"],
           forbiddenPatterns: ["leave_bracket_placeholders"],
           tokenBudgets: {
-            scaffoldChars: 60_000,
-            refsChars: 20_000,
-            systemContextChars: 80_000,
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
           },
         },
         resolvedScaffold: null,
@@ -706,7 +709,7 @@ describe("finalizeAndSaveVersion", () => {
 
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({
-          qualityGateResult: "preflight_passed",
+          qualityGateResult: "preflight_failed",
           meta: expect.objectContaining({
             buildSpec: expect.objectContaining({
               qualityTarget: "premium",
@@ -749,7 +752,7 @@ describe("finalizeAndSaveVersion", () => {
           buildIntent: "website",
           generationMode: "init",
           changeScope: "redesign",
-          scaffoldFamily: null,
+          scaffoldId: null,
           routePlanSummary: "prompt:one-page:/",
           stylePack: "brand-led",
           qualityTarget: "standard",
@@ -759,9 +762,9 @@ describe("finalizeAndSaveVersion", () => {
           referenceCategories: ["marketing-sites"],
           forbiddenPatterns: ["leave_bracket_placeholders"],
           tokenBudgets: {
-            scaffoldChars: 60_000,
-            refsChars: 20_000,
-            systemContextChars: 80_000,
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
           },
         },
         resolvedScaffold: null,
@@ -798,7 +801,7 @@ describe("finalizeAndSaveVersion", () => {
           buildIntent: "website",
           generationMode: "followUp",
           changeScope: "copy",
-          scaffoldFamily: null,
+          scaffoldId: null,
           routePlanSummary: "prompt:one-page:/",
           stylePack: "brand-led",
           qualityTarget: "standard",
@@ -808,9 +811,9 @@ describe("finalizeAndSaveVersion", () => {
           referenceCategories: ["marketing-sites"],
           forbiddenPatterns: ["leave_bracket_placeholders"],
           tokenBudgets: {
-            scaffoldChars: 60_000,
-            refsChars: 20_000,
-            systemContextChars: 80_000,
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
           },
         },
         resolvedScaffold: null,

@@ -146,12 +146,12 @@ export function UiElementPickerPreview({
                 <div className="mt-1 text-amber-100/70">{error}</div>
                 {legacyAvailable === true && (
                   <div className="mt-2 text-amber-100/70">
-                    Finns i legacy-registret (v3). Det kan saknas v4-styling.
+                    Komponenten finns i registret men kan sakna nyare v4-styling.
                   </div>
                 )}
                 {legacyAvailable === false && (
                   <div className="mt-2 text-amber-100/60">
-                    Hittas inte i legacy-registret heller.
+                    Hittas inte i registret heller.
                   </div>
                 )}
                 <Button variant="outline" size="sm" onClick={onReload} className="mt-2 h-7">

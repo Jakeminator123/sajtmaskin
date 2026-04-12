@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseSSEBuffer } from "@/lib/gen/route-helpers";
+import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
 
 describe("emitOwnEngineToolCallSse", () => {

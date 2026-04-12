@@ -203,7 +203,7 @@ export function AdvancedSettingsPanel(props: AdvancedSettingsPanelProps) {
               {hasCustomInstructions && (
                 <button
                   type="button"
-                  onClick={() => onCustomInstructionsChange(getDefaultCustomInstructions())}
+                  onClick={() => onCustomInstructionsChange(getDefaultCustomInstructions(scaffoldMode))}
                   className="text-[10px] text-muted-foreground/50 hover:text-foreground"
                 >
                   Återställ

@@ -1,5 +1,6 @@
 "use client";
 
+import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { isGatewayAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { getAllScaffolds } from "@/lib/gen/scaffolds";
+import { useSearchParams } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,9 +36,12 @@ import {
 } from "@/components/ui/dialog";
 import {
   Bot,
+  ChevronDown,
   Download,
   FolderGit2,
+  HelpCircle,
   Image as ImageIcon,
+  Layers,
   Loader2,
   Link2,
   LogOut,
@@ -47,20 +52,18 @@ import {
   Globe,
   Rocket,
   Save,
+  Settings2,
   Wand2,
   Wrench,
-  TerminalSquare,
+  X,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { HelpCircle } from "lucide-react";
-import Image from "next/image";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 export function BuilderHeader(props: {
-  onHelpClick?: () => void;
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
   onApplyAnthropicComparePreset: () => void;
@@ -85,7 +88,6 @@ export function BuilderHeader(props: {
   onEnableImageGenerationsChange: (v: boolean) => void;
   enableThinking: boolean;
   onEnableThinkingChange: (v: boolean) => void;
-  isThinkingSupported: boolean;
   isImageGenerationsSupported: boolean;
   isMediaEnabled: boolean;
   chatPrivacy: "private" | "unlisted";
@@ -106,12 +108,12 @@ export function BuilderHeader(props: {
   activeVersionId: string | null;
 
   onOpenImport: () => void;
-  onOpenSandbox: () => void;
   onDeployProduction: () => void;
   onDomainSearch: () => void;
   onGoHome: () => void;
   onNewChat: () => void;
   onSaveProject: () => void;
+  onCancelGeneration: () => void;
 
   isDeploying: boolean;
   isCreatingChat: boolean;
@@ -145,8 +147,8 @@ export function BuilderHeader(props: {
     onEnableImageGenerationsChange,
     enableThinking,
     onEnableThinkingChange,
-    isThinkingSupported,
     isImageGenerationsSupported,
+    isMediaEnabled,
     chatPrivacy,
     onChatPrivacyChange,
     enableBlobMedia,
@@ -162,12 +164,12 @@ export function BuilderHeader(props: {
     chatId,
     activeVersionId,
     onOpenImport,
-    onOpenSandbox,
     onDeployProduction,
     onDomainSearch,
     onGoHome,
     onNewChat,
     onSaveProject,
+    onCancelGeneration,
     isDeploying,
     isCreatingChat,
     isAnyStreaming,
@@ -180,7 +182,6 @@ export function BuilderHeader(props: {
     deployDisabledReason,
   } = props;
 
-  const onHelpClick = props.onHelpClick;
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
   const modelButtonLabel = currentModel?.label || "AI";
@@ -195,6 +196,7 @@ export function BuilderHeader(props: {
     Boolean(promptAssistModel) &&
     !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
@@ -211,6 +213,9 @@ export function BuilderHeader(props: {
   const assistProviderLabel = isAssistOff
     ? "Av"
     : `${assistProviderName}: ${assistModelLabel}`;
+  const assistStatusSummary = isAssistOff
+    ? "Förbättra: av"
+    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (djup brief)" : ""}`;
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -219,6 +224,11 @@ export function BuilderHeader(props: {
     window.requestAnimationFrame(action);
   }, []);
   const { isAuthenticated, logout } = useAuth();
+  const searchParams = useSearchParams();
+  const showDebugViewToggle = searchParams.get("debug") === "1";
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
   const handleLogout = useCallback(() => {
     logout();
     runDeferredAction(onGoHome);
@@ -230,81 +240,64 @@ export function BuilderHeader(props: {
         <button
           type="button"
           onClick={onGoHome}
-          className="flex items-center transition-opacity hover:opacity-80"
+          className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
           aria-label="Gå till startsidan"
           title="Till startsidan"
         >
-          <Image
-            src="/images/sajtmaskin-logo.png"
-            alt="Sajtmaskin"
-            width={148}
-            height={56}
-            className="h-7 w-auto object-contain"
-            priority
-          />
+          Sajtmaskin
         </button>
+        {hasMounted && isAuthenticated && (
+          <Button variant="ghost" size="sm" onClick={handleLogout} title="Logga ut">
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Logga ut</span>
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
-        {/* ── Primary action: Publicera ── */}
-        {deploymentStatus === "building" ? (
-          <Button size="sm" variant="outline" disabled>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="hidden sm:inline">Bygger...</span>
-          </Button>
-        ) : deploymentStatus === "ready" && deploymentUrl ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-primary/40 text-primary"
-            onClick={() => window.open(deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`, "_blank")}
-          >
-            <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline">Publicerad</span>
-          </Button>
-        ) : (
+        <DropdownMenu>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span tabIndex={0}>
-                  <Button
-                    size="sm"
-                    className={canDeploy && !isBusy && !isDeploying ? "animate-subtle-pulse" : ""}
-                    onClick={() =>
-                      runDeferredAction(() => {
-                        void onDeployProduction();
-                      })
-                    }
-                    disabled={!canDeploy || isBusy || isDeploying}
-                  >
-                    {isDeploying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Rocket className="h-4 w-4" />
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isBusy}>
+                    <Bot className="h-4 w-4" />
+                    <span className="hidden max-w-[220px] truncate sm:inline">
+                      Modell: {modelButtonLabel}
+                    </span>
+                    {promptAssistDeep && isGatewayProvider && !isAssistOff && (
+                      <Wand2 className="text-primary h-3 w-3" />
                     )}
-                    <span className="hidden sm:inline">Publicera</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
-                </span>
+                </DropdownMenuTrigger>
               </TooltipTrigger>
-              {!canDeploy && deployDisabledReason ? (
-                <TooltipContent side="bottom" className="max-w-sm text-xs">
-                  <p>{deployDisabledReason}</p>
-                </TooltipContent>
-              ) : null}
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Byggmodell: {modelButtonLabel}</p>
+                <p>{assistStatusSummary}</p>
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        )}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isBusy} aria-label="Meny">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 max-h-[80vh] overflow-y-auto">
-            {/* ── Generera ── */}
-            <DropdownMenuLabel>Generera</DropdownMenuLabel>
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Modell: {modelButtonLabel}</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <span>Byggmodell</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
+                      <HelpCircle className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <p className="text-xs">
+                      Byggprofiler: Snabb, Lagom, Tanker, Kod Max och Anthropic. Varje profil väljer en
+                      konkret modell i den egna motorn. Förbättra nedan är separat och används till
+                      promptförbättring, mallval och designbrief innan första bygget.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={selectedModelTier}
               onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
@@ -313,10 +306,36 @@ export function BuilderHeader(props: {
                 <DropdownMenuRadioItem key={option.value} value={option.value}>
                   <span className="font-medium">{option.label}</span>
                   <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
+                  {option.hint && (
+                    <span className="text-primary ml-1 text-xs">({option.hint})</span>
+                  )}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground mt-1">Brief: {assistProviderLabel}</DropdownMenuLabel>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <span>Promptverktyg</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
+                      <HelpCircle className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <p className="text-xs">
+                      Styr den tyngre förbättringen: djup brief, mallhjälp, designbrief och dynamiska
+                      instruktioner före första bygget. Knappen «Förbättra» gör en starkare omskrivning
+                      före build, medan «Skriv om» är den lätta polish-/copy-varianten för texten i
+                      inmatningsrutan. Snabbknapparna följer Anthropic-spåret när Claude är vald för
+                      jämförelse. För ren Anthropic-jämförelse: välj Anthropic som byggprofil och Claude
+                      under Förbättra, eller använd snabbknapparna nedan.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={promptAssistModel}
               onValueChange={(v) => onPromptAssistModelChange(v)}
@@ -340,14 +359,34 @@ export function BuilderHeader(props: {
                 </DropdownMenuRadioItem>
               )}
             </DropdownMenuRadioGroup>
-            <DropdownMenuCheckboxItem
-              checked={promptAssistDeep}
-              onCheckedChange={onPromptAssistDeepChange}
-              disabled={isDeepBriefDisabled}
-            >
-              <Wand2 className="mr-2 h-4 w-4" />
-              Djup brief
-            </DropdownMenuCheckboxItem>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={promptAssistDeep}
+                      onCheckedChange={onPromptAssistDeepChange}
+                      disabled={isDeepBriefDisabled}
+                    >
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Djup brief
+                      {!canUseDeepBrief && (
+                        <span className="text-muted-foreground ml-2 text-xs">(endast ny chat)</span>
+                      )}
+                      <HelpCircle className="text-muted-foreground ml-1 h-3 w-3" />
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    AI skapar först en detaljerad brief som sedan används för en bättre prompt. Tar
+                    längre tid men ger mer genomtänkta resultat. Gäller bara första prompten i en ny
+                    chat. Stöds för de gateway-modeller som listas här, inklusive Claude-alternativ.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={isBusy}
               onSelect={(event) => {
@@ -358,36 +397,30 @@ export function BuilderHeader(props: {
               <Bot className="mr-2 h-4 w-4" />
               Anthropic-jämförelse
             </DropdownMenuItem>
-            <DropdownMenuCheckboxItem
-              checked={enableThinking}
-              onCheckedChange={onEnableThinkingChange}
-              disabled={isBusy || !isThinkingSupported}
-            >
-              <Wand2 className="mr-2 h-4 w-4" />
-              Resonemang
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={enableImageGenerations}
-              onCheckedChange={onEnableImageGenerationsChange}
-              disabled={!isImageGenerationsSupported || isBusy}
-            >
-              <ImageIcon className="mr-2 h-4 w-4" />
-              AI-bilder
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={enableAutofix}
-              onCheckedChange={onEnableAutofixChange}
-              disabled={isBusy}
-            >
-              <Wrench className="mr-2 h-4 w-4" />
-              Autofix
-            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-            <DropdownMenuSeparator />
-
-            {/* ── Struktur ── */}
-            <DropdownMenuLabel>Struktur</DropdownMenuLabel>
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Mall: {scaffoldButtonLabel}</DropdownMenuLabel>
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isBusy}>
+                    <Layers className="h-4 w-4" />
+                    <span className="hidden max-w-[180px] truncate sm:inline">
+                      Mall: {scaffoldButtonLabel}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Hemsidemall — startpunkt för genererad kod</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Hemsidemall</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
               onValueChange={(v) => {
@@ -404,120 +437,375 @@ export function BuilderHeader(props: {
               <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
               <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                Välj själv
+              </DropdownMenuLabel>
               {getAllScaffolds().map((scaffold) => (
                 <DropdownMenuRadioItem
                   key={scaffold.id}
                   value={`manual:${scaffold.id}`}
                 >
                   <span className="font-medium">{scaffold.label}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">{scaffold.description}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">
+                    {scaffold.description}
+                  </span>
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); setIsInstructionsOpen(true); }}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Instruktioner{hasCustomInstructions ? " (aktiv)" : ""}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); onToggleFigmaInput(); }}>
-              <Link2 className="mr-2 h-4 w-4" />
-              {isFigmaInputOpen ? "Dölj Figma-länk" : "Figma-länk"}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onOpenImport); }}>
-              <FolderGit2 className="mr-2 h-4 w-4" />
-              Importera
-            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={isBusy}>
+              <Settings2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Inställningar</span>
+              <ChevronDown className="h-3 w-3 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Generering</DropdownMenuLabel>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableThinking}
+                      onCheckedChange={onEnableThinkingChange}
+                      disabled={isBusy}
+                    >
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Resonemang
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableImageGenerations}
+                      onCheckedChange={onEnableImageGenerationsChange}
+                      disabled={!isImageGenerationsSupported || isBusy}
+                    >
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      AI-bilder
+                      {!isImageGenerationsSupported && (
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          (ej tillgängligt)
+                        </span>
+                      )}
+                      {isImageGenerationsSupported && !isMediaEnabled && (
+                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
+                      )}
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Slå på för att be AI om bilder. Om Blob saknas kan bilder saknas i förhandsvisningen.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableBlobMedia}
+                      onCheckedChange={onEnableBlobMediaChange}
+                      disabled={isBusy}
+                    >
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      Blob-bilder
+                      {!isMediaEnabled && (
+                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
+                      )}
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Kopierar externa bildadresser till Vercel Blob vid publicering. Stäng av om du vill
+                    behålla externa länkar som de är.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableAutofix}
+                      onCheckedChange={onEnableAutofixChange}
+                      disabled={isBusy}
+                    >
+                      <Wrench className="mr-2 h-4 w-4" />
+                      Åtgärda fel automatiskt
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    När kvalitetskontrollen eller förhandsvisningen misslyckas skickas automatiskt en
+                    reparationsprompt. Stäng av om du vill styra allt manuellt. Parametrarna ?autofix och
+                    ?noautofix i URL:en åsidosätter tillfälligt.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={chatPrivacy === "unlisted"}
+                      onCheckedChange={(checked) =>
+                        onChatPrivacyChange(checked ? "unlisted" : "private")
+                      }
+                      disabled={isBusy}
+                    >
+                      <Globe className="mr-2 h-4 w-4" />
+                      Publik preview
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Gör demosidan nåbar via länk (olistad). Krävs för inspektionsläget eftersom
+                    servern måste kunna läsa förhandsvisningen.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             <DropdownMenuSeparator />
-
-            {/* ── Publicera ── */}
-            <DropdownMenuLabel>Publicera</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={enableBlobMedia}
-              onCheckedChange={onEnableBlobMediaChange}
-              disabled={isBusy}
-            >
-              <ImageIcon className="mr-2 h-4 w-4" />
-              Blob-bilder
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={chatPrivacy === "unlisted"}
-              onCheckedChange={(checked) => onChatPrivacyChange(checked ? "unlisted" : "private")}
-              disabled={isBusy}
-            >
-              <Globe className="mr-2 h-4 w-4" />
-              Publik preview
-            </DropdownMenuCheckboxItem>
-            <DropdownMenuItem disabled={!canManageDomain || isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onDomainSearch); }}>
-              <Globe className="mr-2 h-4 w-4" />
-              Domän
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onOpenSandbox); }}>
-              <TerminalSquare className="mr-2 h-4 w-4" />
-              Sandbox
-            </DropdownMenuItem>
+            <DropdownMenuLabel>Inmatning</DropdownMenuLabel>
             <DropdownMenuItem
-              disabled={!chatId || !activeVersionId || isBusy}
-              onSelect={(e) => {
-                e.preventDefault();
-                if (chatId && activeVersionId) {
-                  window.open(
-                    `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
-                    "_blank",
-                  );
-                }
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                onToggleFigmaInput();
               }}
             >
-              <Download className="mr-2 h-4 w-4" />
-              Ladda ner ZIP
+              <Link2 className="mr-2 h-4 w-4" />
+              {isFigmaInputOpen ? "Dölj Figma-länk" : "Visa Figma-länk"}
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
-
-            {/* ── Övrigt ── */}
-            <DropdownMenuCheckboxItem
-              checked={showStructuredChat}
-              onCheckedChange={onShowStructuredChatChange}
+            <DropdownMenuLabel>Instruktioner</DropdownMenuLabel>
+            <DropdownMenuItem
               disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                setIsInstructionsOpen(true);
+              }}
             >
               <MessageSquare className="mr-2 h-4 w-4" />
-              Felsökningsvy
-            </DropdownMenuCheckboxItem>
+              Egna instruktioner
+              {hasCustomInstructions && (
+                <span className="text-muted-foreground ml-2 text-xs">Aktiv</span>
+              )}
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+            {showDebugViewToggle && (
+              <>
+                <DropdownMenuLabel>Chattvy</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={showStructuredChat}
+                  onCheckedChange={onShowStructuredChatChange}
+                  disabled={isBusy}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Felsökningsvy (verktygsblock)
+                </DropdownMenuCheckboxItem>
+              </>
+            )}
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+              Tips · 2 credits per hämtning
+            </DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={tipsEnabled}
               onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
               disabled={isBusy}
             >
               <Lightbulb className="mr-2 h-4 w-4" />
-              Tips efter AI-svar
+              Visa tips efter AI-svar
             </DropdownMenuCheckboxItem>
-            <DropdownMenuItem disabled={isBusy} onSelect={(e) => { e.preventDefault(); runDeferredAction(onNewChat); }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Ny chat
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isBusy}
+                    aria-label="Fler åtgärder: import, runtime och nedladdning"
+                    title="Importera, starta runtime eller ladda ner ZIP"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="hidden sm:inline">Mer</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Importera från GitHub eller ZIP, eller ladda ner projektet som ZIP</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuLabel>Importera och exportera</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                runDeferredAction(onOpenImport);
+              }}
+            >
+              <FolderGit2 className="mr-2 h-4 w-4" />
+              Importera (GitHub eller ZIP)
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={!canSaveProject || isBusy || isSavingProject} onSelect={(e) => { e.preventDefault(); runDeferredAction(() => { void onSaveProject(); }); }}>
-              <Save className="mr-2 h-4 w-4" />
-              Spara
+            <DropdownMenuItem
+              disabled={!chatId || !activeVersionId || isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                if (chatId && activeVersionId) {
+                  window.open(
+                    `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
+                    "_blank",
+                  );
+                }
+              }}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Ladda ner som ZIP
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {onHelpClick && (
+        {isBusy ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runDeferredAction(onCancelGeneration)}
+            title="Avbryt pågående generering"
+          >
+            <X className="h-4 w-4" />
+            <span className="hidden sm:inline">Avbryt</span>
+          </Button>
+        ) : null}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => runDeferredAction(onNewChat)}
+          disabled={isBusy}
+          title="Starta en ny chat (nuvarande finns kvar i historiken)"
+        >
+          {isCreatingChat ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">Ny chat</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            runDeferredAction(() => {
+              void onSaveProject();
+            })
+          }
+          disabled={!canSaveProject || isBusy || isSavingProject}
+          title="Spara projekt"
+        >
+          {isSavingProject ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">Spara</span>
+        </Button>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => runDeferredAction(onDomainSearch)}
+          disabled={!canManageDomain || isBusy}
+          title="Sök & köp domän"
+        >
+          <Globe className="h-4 w-4" />
+          <span className="hidden sm:inline">Domän</span>
+        </Button>
+
+        {deploymentStatus === "building" ? (
+          <Button size="sm" variant="outline" disabled>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="hidden sm:inline">Bygger...</span>
+          </Button>
+        ) : deploymentStatus === "ready" && deploymentUrl ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-green-500 text-green-600"
+            onClick={() => window.open(deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`, "_blank")}
+          >
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">Publicerad</span>
+          </Button>
+        ) : (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onHelpClick} aria-label="Hjälp">
-                  <HelpCircle className="h-4 w-4" />
-                </Button>
+                <span tabIndex={0}>
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      runDeferredAction(() => {
+                        void onDeployProduction();
+                      })
+                    }
+                    disabled={!canDeploy || isBusy || isDeploying}
+                  >
+                    {isDeploying ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Rocket className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">Publicera</span>
+                  </Button>
+                </span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">Visa guide</TooltipContent>
+              {!canDeploy && deployDisabledReason ? (
+                <TooltipContent side="bottom" className="max-w-sm text-xs">
+                  <p>{deployDisabledReason}</p>
+                </TooltipContent>
+              ) : null}
             </Tooltip>
           </TooltipProvider>
-        )}
-
-        {isAuthenticated && (
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout} title="Logga ut" aria-label="Logga ut">
-            <LogOut className="h-4 w-4" />
-          </Button>
         )}
       </div>
 

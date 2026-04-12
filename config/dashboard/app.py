@@ -699,12 +699,12 @@ elif page == "LLM-faser & runtime-sanning":
             st.info("Filen finns men innehåller inga rader.")
         else:
             cols = set(error_df.columns)
-            filter_cols = [c for c in ("severity", "model", "phase") if c in cols]
+            filter_cols = [c for c in ("severity", "model", "phase", "scaffold_id", "fixer", "resolved") if c in cols]
             if filter_cols:
                 filter_ui = st.columns(len(filter_cols))
                 picks: dict[str, str] = {}
                 for i, col in enumerate(filter_cols):
-                    label = {"severity": "Allvarlighetsgrad", "model": "Modell", "phase": "Fas"}.get(col, col)
+                    label = {"severity": "Allvarlighetsgrad", "model": "Modell", "phase": "Fas", "scaffold_id": "Scaffold", "fixer": "Fixer", "resolved": "Löst"}.get(col, col)
                     opts = ["Alla"] + sorted(error_df[col].dropna().unique().tolist())
                     with filter_ui[i]:
                         picks[col] = st.selectbox(label, opts, key=f"errlog_{col}")
@@ -853,10 +853,10 @@ elif page == "ai_models":
             f"2. Därefter går den in i **själva byggmodellen** ({human_model_label(build_profiles.get('max', ''))} när profilen är `max`).\n"
             f"3. Om du väljer **planläge** används planner-fasen ({planner.get('notes') or 'styrs av phase routing'}).\n"
             f"4. Efter syntax körs **verifier** ({verifier.get('notes') or 'styrs av phase routing'}).\n"
-            f"5. Om kvaliteten fortfarande faller kan **fixer/repair** försöka laga fel — både i explicit repair-route och i background verify."
+            f"5. Om kvaliteten fortfarande faller kan **LLM-fix / repair** försöka laga fel — både i explicit repair-route och i background verify."
         )
         st.caption(
-            "Begrepp: `planner` = tänk/plan före kod, `generator` = bygger sajten, `fixer` = försöker laga syntax/kvalitetsfel, "
+            "Begrepp: `planner` = tänk/plan före kod, `generator` = bygger sajten, mekanisk fix = deterministisk regex/AST-fix, LLM-fix = modelldriven reparation, "
             "`verifier` = efterkontroll i bakgrunden."
         )
         st.info(
@@ -1428,7 +1428,7 @@ elif page == "ai_models":
 
         st.markdown("### Repair-pass")
         deterministic_passes = st.number_input(
-            "Deterministiska autofix-pass före LLM",
+            "Mekaniska fix-pass före LLM",
             value=int(rp.get("deterministicAutofixPasses", 2)),
             min_value=1,
             max_value=10,

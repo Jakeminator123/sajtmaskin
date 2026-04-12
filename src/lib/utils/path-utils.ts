@@ -12,10 +12,10 @@
 import path from "path";
 
 /**
- * Normalize a file path to forward slashes for consistent log output
- * across Windows and Unix.
+ * Normalize a native OS path to forward slashes for consistent log output.
+ * No-op on POSIX; replaces `\` with `/` on Windows.
  */
-export function toPosixLog(p: string): string {
+export function toPosixPath(p: string): string {
   return p.replace(/\\/g, "/");
 }
 

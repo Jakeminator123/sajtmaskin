@@ -574,7 +574,7 @@ export function VersionHistory({
                 : { hasDemoUrl: Boolean(version.demoUrl) },
             );
             const listPreviewUrl =
-              (sandboxNorm && isTier2LivePreviewUrl(sandboxNorm) ? sandboxNorm : null) ??
+              (tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm) ? tier2PreviewNorm : null) ??
               normalizePreviewUrl(version.legacyShimPreviewUrl) ??
               normalizePreviewUrl(version.demoUrl);
             const qualityTierLabel =
@@ -602,25 +602,31 @@ export function VersionHistory({
                     className:
                       "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
                   }
-                : runtimeStatusForRow === "stopped"
+                : runtimeStatusForRow === "starting"
                   ? {
-                      label: "VM stoppad",
+                      label: "VM startar",
                       className:
-                        "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+                        "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
                     }
-                  : runtimeStatusForRow === "version_mismatch"
+                  : runtimeStatusForRow === "stopped"
                     ? {
-                        label: "VM annan version",
+                        label: "VM stoppad",
                         className:
-                          "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+                          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
                       }
-                    : runtimeStatusForRow === "missing"
+                    : runtimeStatusForRow === "version_mismatch"
                       ? {
-                          label: "VM saknas",
+                          label: "VM annan version",
                           className:
-                            "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+                            "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300",
                         }
-                      : null;
+                      : runtimeStatusForRow === "missing"
+                        ? {
+                            label: "VM saknas",
+                            className:
+                              "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
+                          }
+                        : null;
             const lifecycleSummary = (() => {
               const summary =
                 typeof version.verificationSummary === "string" &&

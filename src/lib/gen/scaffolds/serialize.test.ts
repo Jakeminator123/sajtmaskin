@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectScaffoldMode, serializeScaffoldForPrompt } from "./serialize";
+import { serializeScaffoldForPrompt } from "./serialize";
 import type { ScaffoldManifest } from "./types";
 
 function makeLongFile(label: string): string {
@@ -18,8 +18,7 @@ function makeLongFile(label: string): string {
 describe("serializeScaffoldForPrompt", () => {
   it("keeps structural mode within a predictable budget", () => {
     const scaffold: ScaffoldManifest = {
-      id: "test-scaffold",
-      family: "landing-page",
+      id: "landing-page",
       label: "Test scaffold",
       description: "A scaffold used for prompt-budget tests.",
       allowedBuildIntents: ["website"],
@@ -51,8 +50,7 @@ describe("serializeScaffoldForPrompt", () => {
 
   it("prioritizes route/capability-relevant files in critical scaffold selection", () => {
     const scaffold: ScaffoldManifest = {
-      id: "test-auth-aware",
-      family: "auth-pages",
+      id: "auth-pages",
       label: "Auth aware scaffold",
       description: "A scaffold for relevance ranking tests.",
       allowedBuildIntents: ["website", "app"],
@@ -92,31 +90,5 @@ describe("serializeScaffoldForPrompt", () => {
     });
 
     expect(out).toContain('file="components/login-form.tsx"');
-  });
-});
-
-describe("detectScaffoldMode", () => {
-  it("does not trigger inspirational mode for 'workspace' containing 'space'", () => {
-    expect(detectScaffoldMode("en workspace-app för teamet")).toBe("structural");
-  });
-
-  it("does not trigger inspirational mode for Swedish 'barn' (children)", () => {
-    expect(detectScaffoldMode("en app för barn och föräldrar")).toBe("structural");
-  });
-
-  it("does not trigger from 'workspace' + 'barn' substring false positives", () => {
-    expect(detectScaffoldMode("en workspace-app för barn")).toBe("structural");
-  });
-
-  it("still triggers inspirational mode for genuine creative keywords", () => {
-    expect(detectScaffoldMode("en cyberpunk-sajt med neon och vaporwave")).toBe("inspirational");
-  });
-
-  it("triggers on a single strong keyword (>= 10 chars)", () => {
-    expect(detectScaffoldMode("jag vill ha en futuristisk sajt")).toBe("inspirational");
-  });
-
-  it("does not trigger from 'discover' containing 'disco'", () => {
-    expect(detectScaffoldMode("discover new products in our marketplace")).toBe("structural");
   });
 });

@@ -206,6 +206,7 @@ export function ProjectEnvVarsPanel({
   const [isLoadingDetectedIntegrations, setIsLoadingDetectedIntegrations] = useState(false);
   const [detectedIntegrationsError, setDetectedIntegrationsError] = useState<string | null>(null);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const envVarCount = envVars.length;
   const hasRealExternalProject = Boolean(
@@ -1228,92 +1229,112 @@ export function ProjectEnvVarsPanel({
                   Kunde inte hämta serverstatus för felsökningspanelen.
                 </div>
               )}
-
-              <details className="border-border group mt-2 rounded-md border p-2">
-                <summary className="cursor-pointer list-none text-left text-xs font-medium text-gray-200 marker:content-none [&::-webkit-details-marker]:hidden">
-                  <span className="inline-flex items-center gap-2">
-                    Felsökning: Sajtmaskin-server &amp; MCP
-                    <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[9px] text-slate-200">
-                      valfritt
-                    </span>
-                    <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-open:rotate-180" />
-                  </span>
-                </summary>
-                <div className="text-muted-foreground mt-2 text-[11px]">
-                  Här visas hur Sajtmaskin-appens backend är konfigurerad (t.ex. appens Postgres, OpenAI).
-                  Det är inte samma sak som databaser eller API:er i <em>din</em> genererade sajt — öppna bara
-                  om du felsöker själva plattformen. Samma sektion samlar MCP-prioritering för utvecklingsverktyg.
-                </div>
-                {integrationStatus && (
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="text-foreground text-xs font-medium">Plattformens status</div>
-                      <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-200">
-                        verifierad
+              {!showDiagnostics ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-2 h-7 text-[11px]"
+                  onClick={() => setShowDiagnostics(true)}
+                >
+                  Visa felsökning (Sajtmaskin-server & MCP)
+                </Button>
+              ) : (
+                <details className="border-border group mt-2 rounded-md border p-2" open>
+                  <summary className="cursor-pointer list-none text-left text-xs font-medium text-gray-200 marker:content-none [&::-webkit-details-marker]:hidden">
+                    <span className="inline-flex items-center gap-2">
+                      Felsökning: Sajtmaskin-server &amp; MCP
+                      <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[9px] text-slate-200">
+                        valfritt
                       </span>
-                    </div>
-                    {integrationStatus.items.map((item) => {
-                      const stateLabel = item.enabled
-                        ? "OK"
-                        : item.required
-                          ? "Saknas"
-                          : "Valfri";
-                      const stateColor = item.enabled
-                        ? "text-green-400"
-                        : item.required
-                          ? "text-red-400"
-                          : "text-yellow-400";
-                      return (
-                        <div key={item.id} className="border-border rounded-md border p-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-gray-200">{item.label}</span>
-                            <span className={stateColor}>{stateLabel}</span>
-                          </div>
-                          <div className="text-muted-foreground mt-0.5">{item.affects}</div>
-                          {!item.enabled && item.requiredEnv.length > 0 && (
-                            <div className="text-muted-foreground mt-0.5">
-                              Saknas: {item.requiredEnv.join(", ")}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                      <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform group-open:rotate-180" />
+                    </span>
+                  </summary>
+                  <div className="mt-2 flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => setShowDiagnostics(false)}
+                    >
+                      Dölj felsökning
+                    </Button>
                   </div>
-                )}
+                  <div className="text-muted-foreground mt-2 text-[11px]">
+                    Här visas hur Sajtmaskin-appens backend är konfigurerad (t.ex. appens Postgres, OpenAI).
+                    Det är inte samma sak som databaser eller API:er i <em>din</em> genererade sajt — öppna bara
+                    om du felsöker själva plattformen. Samma sektion samlar MCP-prioritering för utvecklingsverktyg.
+                  </div>
+                  {integrationStatus && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="text-foreground text-xs font-medium">Plattformens status</div>
+                        <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-200">
+                          verifierad
+                        </span>
+                      </div>
+                      {integrationStatus.items.map((item) => {
+                        const stateLabel = item.enabled
+                          ? "OK"
+                          : item.required
+                            ? "Saknas"
+                            : "Valfri";
+                        const stateColor = item.enabled
+                          ? "text-green-400"
+                          : item.required
+                            ? "text-red-400"
+                            : "text-yellow-400";
+                        return (
+                          <div key={item.id} className="border-border rounded-md border p-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-gray-200">{item.label}</span>
+                              <span className={stateColor}>{stateLabel}</span>
+                            </div>
+                            <div className="text-muted-foreground mt-0.5">{item.affects}</div>
+                            {!item.enabled && item.requiredEnv.length > 0 && (
+                              <div className="text-muted-foreground mt-0.5">
+                                Saknas: {item.requiredEnv.join(", ")}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
-                {mcpPriorities.length > 0 && (
-                  <div className="border-border mt-2 rounded-md border border-dashed p-2">
-                    <div className="text-foreground text-xs font-medium">MCP-prioritering</div>
-                    <div className="mt-1 space-y-1">
-                      {mcpPriorities.slice(0, 5).map((item) => (
-                        <div
-                          key={item.id}
-                          className="border-border flex flex-col gap-0.5 rounded-md border px-2 py-1"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-foreground text-[11px]">
-                              Fas {item.phase}: {item.label}
-                            </span>
-                            <span
-                              className={cn(
-                                "text-[10px]",
-                                item.readiness === "ready" ? "text-emerald-300" : "text-amber-300",
-                              )}
-                            >
-                              {item.readiness === "ready" ? "redo" : "saknar miljövariabler"}
-                            </span>
-                          </div>
-                          {item.missingEnv && item.missingEnv.length > 0 && (
-                            <div className="text-muted-foreground text-[10px]">
-                              Saknas: {item.missingEnv.join(", ")}
+                  {mcpPriorities.length > 0 && (
+                    <div className="border-border mt-2 rounded-md border border-dashed p-2">
+                      <div className="text-foreground text-xs font-medium">MCP-prioritering</div>
+                      <div className="mt-1 space-y-1">
+                        {mcpPriorities.slice(0, 5).map((item) => (
+                          <div
+                            key={item.id}
+                            className="border-border flex flex-col gap-0.5 rounded-md border px-2 py-1"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-foreground text-[11px]">
+                                Fas {item.phase}: {item.label}
+                              </span>
+                              <span
+                                className={cn(
+                                  "text-[10px]",
+                                  item.readiness === "ready" ? "text-emerald-300" : "text-amber-300",
+                                )}
+                              >
+                                {item.readiness === "ready" ? "redo" : "saknar miljövariabler"}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      ))}
+                            {item.missingEnv && item.missingEnv.length > 0 && (
+                              <div className="text-muted-foreground text-[10px]">
+                                Saknas: {item.missingEnv.join(", ")}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </details>
+                  )}
+                </details>
+              )}
                 </>
               )}
             </div>

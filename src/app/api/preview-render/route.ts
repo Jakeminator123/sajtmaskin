@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
-import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
 import { getChat, getVersionById } from "@/lib/db/chat-repository-pg";
 import type { PreviewDiagnosticCode } from "@/lib/gen/preview/diagnostics";
 

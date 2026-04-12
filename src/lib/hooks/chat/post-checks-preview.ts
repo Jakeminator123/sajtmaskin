@@ -127,7 +127,7 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
     typeof scaffoldRetryData.currentScaffoldLabel === "string" &&
     typeof scaffoldRetryData.suggestedScaffoldId === "string" &&
     typeof scaffoldRetryData.suggestedScaffoldLabel === "string" &&
-    typeof scaffoldRetryData.suggestedScaffoldFamily === "string" &&
+    typeof scaffoldRetryData.suggestedScaffoldId === "string" &&
     typeof scaffoldRetryData.failureType === "string" &&
     typeof scaffoldRetryData.reason === "string" &&
     (scaffoldRetryData.source === "heuristic" ||
@@ -139,7 +139,6 @@ export function readPreviewPreflight(data: unknown): PreviewPreflightState | nul
           currentScaffoldLabel: scaffoldRetryData.currentScaffoldLabel,
           suggestedScaffoldId: scaffoldRetryData.suggestedScaffoldId,
           suggestedScaffoldLabel: scaffoldRetryData.suggestedScaffoldLabel,
-          suggestedScaffoldFamily: scaffoldRetryData.suggestedScaffoldFamily,
           failureType: scaffoldRetryData.failureType,
           reason: scaffoldRetryData.reason,
           source: scaffoldRetryData.source as "heuristic" | "keyword" | "embedding",

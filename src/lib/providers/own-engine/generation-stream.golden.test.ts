@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { parseSSEBuffer } from "@/lib/gen/route-helpers";
+import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 
@@ -141,7 +141,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         buildIntent: "website",
         generationMode: "init",
         changeScope: "redesign",
-        scaffoldFamily: null,
+        scaffoldId: null,
         routePlanSummary: "prompt:one-page:/",
         stylePack: "brand-led",
         qualityTarget: "standard",
@@ -151,9 +151,9 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         referenceCategories: ["marketing-sites"],
         forbiddenPatterns: ["leave_bracket_placeholders"],
         tokenBudgets: {
-          scaffoldChars: 80_000,
-          refsChars: 40_000,
-          systemContextChars: 160_000,
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
         },
       },
       routePlan: null,

@@ -108,7 +108,7 @@ Not runtime dependencies:
 | Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) |
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Plans (all buckets) | `docs/plans/README.md` |
-| Plan / agent handoff (historik) | Borttagen — git-historik (`docs/handoffs/`). Handoffs sker i chatten. |
+| Plan / agent handoff (historik) | Borttagen — git-historik. Handoffs sker i chatten. |
 | Samlad 5-stegsstatus | [`5-steg.txt`](../5-steg.txt) |
 | Storstädning / äldre större pass | `docs/plans/avklarat/README.md` eller git-historik |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |

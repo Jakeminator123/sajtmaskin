@@ -1,0 +1,17 @@
+---
+description: Färre lager, bättre första pass i own-engine
+alwaysApply: false
+globs:
+  - src/lib/gen/**
+  - config/prompt-static/**
+---
+
+# Generation pipeline simplicity
+
+Färre rörliga delar, starkare första pass. Statisk prompt eller en deterministisk datafil slår en ny orkestreringssteg.
+
+- LLM bygger — scaffolds ger struktur/säkerhet, inte färdig identitet.
+- Återkommande fel: stärk systemprompt först; autofix/repair-regler som sällan träffar → ta bort eller ersätt med prompt.
+- Capability inference, dep-completer och toolkit ska vara konsekventa för samma "säkra" tillägg.
+- Deterministiska transformar före extra LLM-repair. Trimma dynamisk kontext (högsignal, mindre boilerplate).
+- Nya runtime-termer → registrera i `docs/architecture/glossary.md` samma ändring (`terminology.mdc`).

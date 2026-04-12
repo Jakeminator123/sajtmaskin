@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { debugLog } from "@/lib/utils/debug";
 
 export type TemplateSwitchDialogState =
   | null
@@ -268,7 +269,7 @@ export function useBuilderPromptActions({
         pendingInstructionsOnceRef.current = false;
         return combined;
       } catch (error) {
-        console.warn("[Builder] Dynamic instructions failed:", error);
+        debugLog("builder", "Dynamic instructions failed", error);
         return null;
       } finally {
         setIsPreparingPrompt(false);

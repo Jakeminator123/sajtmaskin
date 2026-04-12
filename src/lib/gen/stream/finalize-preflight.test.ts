@@ -18,11 +18,11 @@ vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewHtml,
 }));
 
-vi.mock("@/lib/gen/project-scaffold", () => ({
+vi.mock("@/lib/gen/export/project-scaffold", () => ({
   buildCompleteProject,
 }));
 
-vi.mock("@/lib/gen/repair-generated-files", () => ({
+vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
   repairGeneratedFiles,
 }));
 

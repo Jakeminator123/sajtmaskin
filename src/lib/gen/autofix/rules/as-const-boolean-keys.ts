@@ -12,7 +12,9 @@ const AS_CONST_ARRAY_NAMES =
 const BOOLEAN_LITERAL_KEY_RE =
   /\b([A-Za-z_$][\w$]*)\s*:\s*(?:true|false)(?:\s+as\s+const)?\b/g;
 
-type RepairEntry = { fixer: string; description: string; file: string };
+import type { FixEntry } from "../types";
+
+type RepairEntry = Omit<FixEntry, "category"> & { file: string };
 
 /** Match `]` that closes the `[` at `openIdx` (handles `{ }`, nested `[]`, strings). */
 function scanMatchingArrayClose(code: string, openIdx: number): number {

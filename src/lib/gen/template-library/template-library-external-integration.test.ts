@@ -5,7 +5,7 @@
  * If entries.length === 0, run hydrate + build + embeddings (see scripts/README.md).
  */
 import { describe, expect, it } from "vitest";
-import { getScaffoldFamilies } from "@/lib/gen/scaffolds";
+import { getScaffoldIds } from "@/lib/gen/scaffolds";
 import {
   getTemplateLibraryCatalog,
   getTemplateLibraryEntries,
@@ -31,7 +31,7 @@ try {
 const entries = getTemplateLibraryEntries();
 const catalogIds = new Set(entries.map((e) => e.id));
 const embeddingIds = new Set((embeddingsJson.embeddings ?? []).map((e) => e.id));
-const knownScaffoldFamilies = new Set(getScaffoldFamilies());
+const knownScaffoldFamilies = new Set(getScaffoldIds());
 
 describe("template-library external templates (local generated catalog)", () => {
   it("has at least one curated entry (rebuild pipeline if zero)", () => {
@@ -56,7 +56,7 @@ describe("template-library external templates (local generated catalog)", () => 
       expect(e.title?.trim().length).toBeGreaterThan(0);
       expect(e.categoryName?.trim().length).toBeGreaterThan(0);
       expect(e.summary?.trim().length).toBeGreaterThan(0);
-      expect(e.recommendedScaffoldFamilies?.length).toBeGreaterThan(0);
+      expect(e.recommendedScaffoldIds?.length).toBeGreaterThan(0);
       expect(e.classification?.useCaseTags?.length ?? 0).toBeGreaterThan(0);
       expect(e.classification?.siteFormTags?.length ?? 0).toBeGreaterThan(0);
       expect(Array.isArray(e.classification?.technicalPatternTags)).toBe(true);
@@ -71,7 +71,7 @@ describe("template-library external templates (local generated catalog)", () => 
 
   it("only references known runtime scaffold families", () => {
     for (const entry of entries) {
-      for (const family of entry.recommendedScaffoldFamilies) {
+      for (const family of entry.recommendedScaffoldIds) {
         expect(knownScaffoldFamilies.has(family), `unknown scaffold family ${family} on ${entry.id}`).toBe(true);
       }
     }

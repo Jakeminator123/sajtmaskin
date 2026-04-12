@@ -4,12 +4,12 @@ Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) 
 
 ## What Lives Here
 
-This directory holds the 10 runtime scaffold families:
+This directory holds the 10 runtime scaffolds:
 
 `base-nextjs`, `landing-page`, `saas-landing`, `portfolio`, `blog`,
 `dashboard`, `auth-pages`, `ecommerce`, `content-site`, `app-shell`.
 
-Each family directory contains a `manifest.ts` plus template files. Those
+Each scaffold directory contains a `manifest.ts` plus template files. Those
 manifests are imported only through `registry.ts`; callers should not wire
 individual scaffold folders into generation flows directly.
 
@@ -30,7 +30,7 @@ when generating code.
 | File | What it does |
 |------|-------------|
 | `registry.ts` | Imports the 10 manifests and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
-| `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. `family` is scaffoldens runtime bucket, dvs scaffold family. |
+| `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. `id` is scaffoldens kanoniska runtime-nyckel; äldre docs kan fortfarande nämna `family` som legacy-alias. |
 | `matcher.ts` | Primary keyword-based scaffold matching. `matchScaffoldAuto()` uses keyword matching first and only uses embeddings when the keyword result is missing or too generic. |
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns the resolved scaffold into prompt context. |
 | `scaffold-search.ts` | Embedding-based `searchScaffolds()`; expands SV<->EN query hints before cosine ranking. |
