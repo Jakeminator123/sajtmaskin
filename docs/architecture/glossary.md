@@ -113,7 +113,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Build Intent** | `BuildIntent` | `build-intent.ts` | `"template" \| "website" \| "app"`. Vad användaren vill bygga. | kanonisk |
+| **Build Intent** | `BuildIntent` | `build-intent.ts` | `"template" \| "website" \| "app"`. Vad användaren vill bygga. `resolveBuildIntentWithScaffold()` koersar till `app` vid manuellt val av app-scaffold (`dashboard`, `app-shell`). | kanonisk |
 | **Build Method** | `BuildMethod`, `normalizeBuildMethod()` | `build-intent.ts` | `wizard`, `category`, `audit`, `freeform`, `kostnadsfri`. Hur entry skedde. | kanonisk |
 | **Landing Entry Mode** | `LandingEntryMode`, `isTemplateEntryMode()` | `build-intent.ts` | Landningssidans entry-klassificering. | kanonisk |
 | **Generation Mode** | `BuildSpecGenerationMode` | `build-spec.ts` | `"init" \| "followUp"`. Återanvänds på `OrchestrationInput`, `DynamicContextOptions`, `buildRoutePlan`. | kanonisk |
@@ -538,6 +538,7 @@ Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra v
 | 2026-04-10 | Namnskuggor lösta (v5): `buildIntents` → `allowedBuildIntents`, `PlanPhase "polish"` → `"refine"`, `PromptStrategy "phase_plan_build_polish"` → `"phase_plan_build_refine"`. |
 | 2026-04-10 | gen/ omorganisation (v6): verify/, export/, packs/ undermappar. Sökvägar uppdaterade. |
 | 2026-04-11 | Loggning och telemetri (v7): +6 termer (Fault & Fix Index, Global Error Log, Generation Run, DevLog Append, Timeline, Enrich Fault Fix Row). Utökat CSV-schema med scaffold_id, serialize_mode, style_direction, file, fixer, resolved. |
+| 2026-04-12 | Intent drift fix (v8): `resolveBuildIntentWithScaffold()` och `isAppScaffold()` tillagda i `build-intent.ts`. Manuellt val av `dashboard`/`app-shell` koersar `buildIntent` till `app`. Server-side guard i `create-chat-stream-post.ts` och `chat-message-stream-post.ts`. `family`-fältet borttaget från plan-review och docs uppdaterade. |
 
 ## När detta dokument uppdateras
 

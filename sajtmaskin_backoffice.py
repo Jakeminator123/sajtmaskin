@@ -571,6 +571,9 @@ ANVA\u0308NDARENS PROMPT
   \u2502      \u251c\u2500 Embedding-matchning (parallell, cosine)
   \u2502      \u2514\u2500 Merge-policy + safety guards
   \u2502
+  \u251c\u2500 3b. Intent-koersning (manuellt app-scaffold \u2192 buildIntent=app)
+  \u2502      isAppScaffold() + resolveBuildIntentWithScaffold()
+  \u2502
   \u251c\u2500 4. Capability-inferens (auth, ecommerce, forms, 3D, motion...)
   \u2502
   \u251c\u2500 5. Route Plan (brief > scaffold > prompt)
