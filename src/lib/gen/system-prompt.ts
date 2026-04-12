@@ -189,6 +189,8 @@ export interface DynamicContextOptions {
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary style direction across sessions with identical prompts. */
   sessionSeed?: string;
+  /** Pre-rendered scaffold-anchored template-library guidance (init only, opt-in). */
+  templateGuidance?: string;
 }
 
 function str(v: unknown): string {
@@ -378,6 +380,7 @@ export async function buildDynamicContext(
     generationMode,
     buildSpec,
     sessionSeed,
+    templateGuidance,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -511,7 +514,7 @@ export async function buildDynamicContext(
       refsUsedTokens += lineTokens;
     }
 
-    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0) {
+    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0 || templateGuidance) {
       parts.push(
         "## Scaffold Research Priorities",
         "",
@@ -528,6 +531,9 @@ export async function buildDynamicContext(
       if (referenceLines.length > 0) {
         parts.push("", "- Reference inspirations from curated templates:");
         parts.push(...referenceLines);
+      }
+      if (templateGuidance) {
+        parts.push("", templateGuidance);
       }
       parts.push("");
     }

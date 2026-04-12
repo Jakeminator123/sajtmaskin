@@ -51,6 +51,20 @@ import {
 } from "./generation-input-package";
 import { deriveBuildSpec, type BuildSpec } from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
+import { FEATURES } from "@/lib/config";
+import { getTemplateLibraryEntryById } from "./template-library/catalog";
+import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
+import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
+
+export interface TemplateGuidanceMeta {
+  enabled: boolean;
+  templateIds: string[];
+  guidanceEntries: Array<{
+    id: string;
+    title: string;
+    guidance: TemplateLibraryRuntimeGuidance;
+  }>;
+}
 
 export interface OrchestrationInput {
   prompt: string;
@@ -118,6 +132,7 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   styleDirectionId: string | null;
+  templateGuidanceMeta: TemplateGuidanceMeta;
 }
 
 function buildScaffoldQueryContext(
@@ -179,6 +194,7 @@ export function buildGenerationInputPackage(
     dynamicContextPruning: finalized.dynamicContextPruning,
     dynamicContextBlocks: finalized.dynamicContextBlocks,
     lineageHash,
+    templateGuidanceMeta: finalized.templateGuidanceMeta,
   };
 }
 
@@ -204,6 +220,8 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
       dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
       dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
+      templateGuidanceEnabled: pkg.templateGuidanceMeta?.enabled ?? false,
+      templateGuidanceIds: pkg.templateGuidanceMeta?.templateIds ?? [],
     },
   );
 }
@@ -380,6 +398,63 @@ export async function resolveOrchestrationBase(
 }
 
 /**
+ * Resolve scaffold-anchored template-library runtime guidance for init generations.
+ * Returns guidance from the top 1–2 referenceTemplates on the resolved scaffold,
+ * using only the compact runtimeGuidance (no selectedFiles excerpts).
+ */
+function resolveTemplateGuidance(
+  resolvedScaffold: ScaffoldManifest | null,
+  generationMode: "init" | "followUp",
+): TemplateGuidanceMeta {
+  const empty: TemplateGuidanceMeta = { enabled: false, templateIds: [], guidanceEntries: [] };
+  if (!FEATURES.useRuntimeTemplateGuidance) return empty;
+  if (generationMode !== "init") return empty;
+  if (!resolvedScaffold?.research?.referenceTemplates?.length) return empty;
+
+  const refs = resolvedScaffold.research.referenceTemplates.slice(0, 2);
+  const entries: TemplateGuidanceMeta["guidanceEntries"] = [];
+
+  for (const ref of refs) {
+    const entry = getTemplateLibraryEntryById(ref.id);
+    if (!entry) continue;
+    entries.push({
+      id: entry.id,
+      title: entry.title,
+      guidance: deriveTemplateRuntimeGuidance(entry),
+    });
+  }
+
+  return {
+    enabled: entries.length > 0,
+    templateIds: entries.map((e) => e.id),
+    guidanceEntries: entries,
+  };
+}
+
+function formatTemplateGuidanceForPrompt(meta: TemplateGuidanceMeta): string | undefined {
+  if (!meta.enabled || meta.guidanceEntries.length === 0) return undefined;
+
+  const lines: string[] = [];
+  lines.push("- External template guidance (adapt to the scaffold and user request, do not copy verbatim):");
+  for (const entry of meta.guidanceEntries) {
+    const g = entry.guidance;
+    if (g.styleRules.length > 0) {
+      lines.push(`  - **${entry.title}** style: ${g.styleRules.slice(0, 2).join("; ")}`);
+    }
+    if (g.sectionInventory.length > 0) {
+      lines.push(`  - Sections: ${g.sectionInventory.slice(0, 3).join(", ")}`);
+    }
+    if (g.avoidPatterns.length > 0) {
+      lines.push(`  - Avoid: ${g.avoidPatterns.slice(0, 2).join("; ")}`);
+    }
+    if (g.worldClassRubric.length > 0) {
+      lines.push(`  - Quality: ${g.worldClassRubric.slice(0, 2).join("; ")}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
  * Build full system prompt from a resolved orchestration base.
  */
 export async function finalizeOrchestrationPrompts(
@@ -401,6 +476,9 @@ export async function finalizeOrchestrationPrompts(
 
   const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
 
+  const templateGuidanceMeta = resolveTemplateGuidance(base.resolvedScaffold, resolvedMode);
+  const templateGuidanceText = formatTemplateGuidanceForPrompt(templateGuidanceMeta);
+
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,
     brief: brief as DynamicContextOptions["brief"],
@@ -418,6 +496,7 @@ export async function finalizeOrchestrationPrompts(
     customInstructions,
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
+    templateGuidance: templateGuidanceText,
   };
 
   const dynamic = await buildDynamicContext(dynamicOpts);
@@ -429,6 +508,7 @@ export async function finalizeOrchestrationPrompts(
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
     styleDirectionId: dynamic.styleDirectionId,
+    templateGuidanceMeta,
   };
 }
 

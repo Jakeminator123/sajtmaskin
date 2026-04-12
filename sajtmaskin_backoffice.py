@@ -56,6 +56,8 @@ TEMPLATE_LIB_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "te
 EVAL_LATEST = REPO_ROOT / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json"
 SCHEMA_MD = REPO_ROOT / "docs" / "architecture" / "scaffold-schema.md"
 SCAFFOLD_CLI = REPO_ROOT / "scripts" / "scaffolds" / "scaffold_cli.py"
+ENV_LOCAL = REPO_ROOT / ".env.local"
+MANAGE_ENV_SCRIPT = REPO_ROOT / "scripts" / "env" / "manage_env.py"
 
 ORCH_TS_SOURCES = {
     "ScaffoldId / ScaffoldMode": SCAFFOLDS_DIR / "types.ts",
@@ -77,6 +79,43 @@ NAV_PAGES = (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _load_manage_env_helpers():
+    """Import parse_env_file / set_in_env_file from scripts/env/manage_env.py."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("manage_env", str(MANAGE_ENV_SCRIPT))
+    if spec is None or spec.loader is None:
+        return None, None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return None, None
+    return getattr(mod, "parse_env_file", None), getattr(mod, "set_in_env_file", None)
+
+
+_parse_env_file, _set_in_env_file = _load_manage_env_helpers()
+
+
+def read_env_flag(key: str) -> bool:
+    """Read a boolean flag from .env.local (true/1 = on)."""
+    if _parse_env_file is None:
+        return False
+    env_data = _parse_env_file(ENV_LOCAL)
+    val = env_data.get(key, "").strip().lower()
+    return val in ("true", "1")
+
+
+def write_env_flag(key: str, enabled: bool) -> bool:
+    """Write a boolean flag to .env.local. Returns True on success."""
+    if _set_in_env_file is None:
+        return False
+    try:
+        _set_in_env_file(ENV_LOCAL, key, "true" if enabled else "false")
+        return True
+    except Exception:
+        return False
+
 
 def read_json(path: Path) -> Any:
     if not path.exists():
@@ -357,6 +396,27 @@ if page == "Scaffolds":
 # ===== PAGE: Research & Dossiers =====
 elif page == "Research & Dossiers":
     st.header("Research & Dossiers")
+
+    # ── Runtime Template Guidance toggle ─────────────────────────────────
+    st.subheader("Runtime Template Guidance")
+    _TG_KEY = "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE"
+    _tg_current = read_env_flag(_TG_KEY)
+    _tg_new = st.toggle(
+        "Aktivera scaffold-ankrad template guidance (init only)",
+        value=_tg_current,
+        key="tg_toggle",
+        help=f"Styr env-flaggan `{_TG_KEY}` i `.env.local`. När på injiceras kompakt runtimeGuidance "
+             "från scaffoldens referenceTemplates i första genereringen.",
+    )
+    if _tg_new != _tg_current:
+        if write_env_flag(_TG_KEY, _tg_new):
+            st.success(f"`{_TG_KEY}` satt till `{'true' if _tg_new else 'false'}` i `.env.local`.")
+            st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
+        else:
+            st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
+    else:
+        st.caption(f"Nuvarande: `{_TG_KEY}={'true' if _tg_current else 'false'}`")
+    st.divider()
 
     catalog = read_json(CATALOG_JSON)
     template_lib = read_json(TEMPLATE_LIB_JSON)

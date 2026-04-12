@@ -26,6 +26,7 @@
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
+    "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
     "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
@@ -155,6 +156,7 @@
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
+    "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_MAX_AI_BRIEF_PROMPT_CHARS",
     "SAJTMASKIN_MAX_AI_CHAT_MESSAGE_CHARS",
@@ -274,6 +276,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Feature flag for budgeted scaffold serialization instead of broad scaffold file dumps."
+    },
+    {
+      "key": "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "When true/1, inject scaffold-anchored template-library runtimeGuidance into init generations. Default off."
     },
     {
       "key": "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",

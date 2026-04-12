@@ -156,6 +156,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT: z.string().optional(),
   SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
+  /** When "true"/"1", inject scaffold-anchored template-library runtimeGuidance into init generations. */
+  SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
