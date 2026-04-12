@@ -269,5 +269,64 @@ describe("buildDynamicContext", () => {
       expect(blocks.some((block) => block.title === "Build Intent: Website")).toBe(true);
       expect(blocks.some((block) => block.kept)).toBe(true);
     });
+
+    it("brief-derived content appears only once as Project Context, not also as Custom Instructions", async () => {
+      const brief = {
+        projectTitle: "Veterinärkliniken Hund & Katt",
+        brandName: "Hund & Katt",
+        oneSentencePitch: "Professionell djurvård i Malmö.",
+        targetAudience: "Djurägare i södra Sverige",
+        toneAndVoice: ["varm", "professionell"],
+        pages: [
+          { name: "Hem", path: "/", purpose: "Landningssida", sections: [{ type: "hero", heading: "Välkommen" }] },
+        ],
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Project Context");
+      expect(context).toContain("Hund & Katt");
+      const projectContextCount = context.split("## Project Context").length - 1;
+      expect(projectContextCount).toBe(1);
+    });
+
+    it("custom instructions from user appear separately and do not duplicate brief content", async () => {
+      const brief = {
+        projectTitle: "TestSite",
+        brandName: "TestBrand",
+      };
+      const userInstructions = "Always use Swedish copy. Prefer dark theme.";
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        customInstructions: userInstructions,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Custom Instructions (from the user)");
+      expect(context).toContain(userInstructions);
+      expect(context).toContain("## Project Context");
+      expect(context).toContain("TestBrand");
+      const customIdx = context.indexOf("## Custom Instructions (from the user)");
+      const projectIdx = context.indexOf("## Project Context");
+      expect(customIdx).toBeLessThan(projectIdx);
+    });
   });
 });

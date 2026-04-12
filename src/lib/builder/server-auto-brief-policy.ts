@@ -23,26 +23,10 @@ const STRUCTURED_WEBSITE_HINTS = [
   "färg",
 ] as const;
 
-const SIMPLE_WEBSITE_HINTS = [
-  "hemsida",
-  "webbplats",
-  "website",
-  "sajt",
-  "landing",
-  "landningssida",
-  "homepage",
-] as const;
-
 function looksStructuredWebsitePrompt(prompt: string): boolean {
   const normalized = prompt.toLowerCase();
   const hintHits = STRUCTURED_WEBSITE_HINTS.filter((token) => normalized.includes(token)).length;
   return normalized.length >= 120 && hintHits >= 2;
-}
-
-function looksSimpleWebsitePrompt(prompt: string): boolean {
-  const normalized = prompt.toLowerCase().trim();
-  if (normalized.length === 0 || normalized.length > 220) return false;
-  return SIMPLE_WEBSITE_HINTS.some((token) => normalized.includes(token));
 }
 
 /**
@@ -75,9 +59,6 @@ export function shouldRunServerAutoBrief(params: {
   }
   if (params.buildIntent === "website") {
     if (looksStructuredWebsitePrompt(params.prompt)) {
-      return false;
-    }
-    if (params.promptType === "freeform" && looksSimpleWebsitePrompt(params.prompt)) {
       return false;
     }
   }

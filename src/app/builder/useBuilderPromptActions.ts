@@ -240,9 +240,10 @@ export function useBuilderPromptActions({
       try {
         pendingBriefRef.current = null;
         pendingSpecRef.current = null;
-        // First freeform prompt always uses deep brief — yields better scaffold
-        // selection and fewer autofix passes. User toggle applies to later prompts.
-        const addendum = await generateDynamicInstructions(trimmed, {
+        // Generate Deep Brief for init — the brief object is sent via meta.brief
+        // and consumed by the server's buildDynamicContext(). We no longer merge
+        // brief-derived prose into customInstructions to avoid double representation.
+        await generateDynamicInstructions(trimmed, {
           forceShallow: false,
           forceDeepBrief: true,
           onBrief: (brief) => {
@@ -260,9 +261,7 @@ export function useBuilderPromptActions({
         const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
         const paletteHint = buildPaletteInstruction(paletteState);
         const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
-        const combined = addendum.trim()
-          ? `${baseInstructions}\n\n${addendum}${paletteSuffix}${specSuffix}`.trim()
-          : `${baseInstructions}${paletteSuffix}${specSuffix}`.trim();
+        const combined = `${baseInstructions}${paletteSuffix}${specSuffix}`.trim();
         setCustomInstructions(combined);
         pendingInstructionsRef.current = combined;
         pendingInstructionsOnceRef.current = false;
@@ -293,13 +292,13 @@ export function useBuilderPromptActions({
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
       setEntryIntentActive(false);
-      const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
+      const userInstructions = await applyDynamicInstructionsForNewChat(message);
       // Dynamic path sets pendingInstructionsRef synchronously to `combined`; captureInstructionSnapshot
       // would overwrite it with stale `customInstructions` from the previous render (setState is async).
-      if (dynamicInstructions == null) {
+      if (userInstructions == null) {
         captureInstructionSnapshot();
       }
-      const systemOverride = dynamicInstructions?.trim() ? dynamicInstructions.trim() : undefined;
+      const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
       await createNewChat(message, options, systemOverride);
       return true;
     },

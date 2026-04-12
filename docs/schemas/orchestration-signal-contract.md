@@ -17,7 +17,7 @@ Det här är en **schema-/kontraktsöversikt**, inte full arkitekturtext. För f
 |---|---|---|---|---|---|
 | Prompt formatting | sektioner, stilord, constraints, URL:er, tillgänglighetskrav | `src/lib/builder/promptAssist.ts` | rå användarprompt | formatterad prompt + snabb addendum | torftig prompt förblir för lös, för lite domänstruktur |
 | Prompt assist | bättre språk, tydligare scope, bättre instruktionstäthet | `src/lib/builder/promptAssist.ts`, `/api/ai/chat` | rå prompt + build intent | förbättrad prompt | lägger till för lite struktur eller för mycket scope |
-| Deep brief | projektnamn, pages, sections, visual identity, imagery, SEO, UI notes | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` | rå prompt | structured brief | briefen påverkar nu scaffoldval via `ScaffoldQueryContext` (pages, styleKeywords, domainHints) |
+| Deep brief | projektnamn, pages, sections, visual identity, imagery, SEO, UI notes | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` | rå prompt | structured brief | Kanonisk semantisk expansion för init. Brief-objektet via `meta.brief` konsumeras av `buildDynamicContext()`; brief-deriverad prose dubbleras inte i `customInstructions`. Server Auto-Brief körs som fallback för underspecificerade init-prompts. Follow-ups skickar inte brief. |
 | Scaffold keyword match | domänord för auth/ecommerce/blog/portfolio/website/app + brief-boost | `src/lib/gen/scaffolds/matcher.ts` | rå prompt + brief-context | scaffold-id + keyword scores | brief-pages boostar keyword-scores (+2 per matchande domän); kan stängas av med `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` |
 | Scaffold embedding match | semantisk likhet mot scaffold-embeddingar | `src/lib/gen/scaffolds/scaffold-search.ts`, merge i `matcher.ts` | berikad prompt (rå + brief-fragment) | top-K scaffold candidates + head-to-head mot keyword | generic override kräver cosine ≥ 0.45; non-generic: ≥ kwNorm × bias; `embeddingOverrideReason` loggas |
 | Route plan | brief-routes (startpunkt) + gated prompt-patterns + scaffold-defaults + follow-up freeze | `src/lib/gen/route-plan.ts` | prompt + brief + scaffold + generationMode | `RoutePlan` | brief mergeas (ingen early-return); follow-up gatar patterns bakom `hasExplicitAddRouteIntent`; booking → `/booking`, auth → `/signup` + `/forgot-password` + `/login` |
@@ -31,7 +31,9 @@ Det här är en **schema-/kontraktsöversikt**, inte full arkitekturtext. För f
 
 ### 1. Deep brief påverkar scaffoldval och route-plan
 
-Briefen matar nu in i scaffoldmatchningen via `ScaffoldQueryContext` (pages, styleKeywords, domainHints → keyword-boost + berikad embedding-prompt). Route-planen mergear brief-routes som startpunkt, inte override. Se `docs/architecture/component-library-policy.md` för komponentbibliotekspolicy.
+Briefen är den **kanoniska semantiska expansionen** för init. Brief-objektet skickas via `meta.brief` och konsumeras av `buildDynamicContext()`. Brief-deriverad prose sammanfogas inte längre med `customInstructions` — `customInstructions` bär enbart användarens egna instruktioner. Server Auto-Brief (`shouldRunServerAutoBrief`) körs som fallback för underspecificerade init-prompts (inklusive korta vaga website-prompts); skip kvarstår för audit, technical, follow-up och redan tydligt strukturerade prompts. **Follow-ups skickar inte `meta.brief`** — de förlitar sig på persisted scaffold, orchestration snapshot och tidigare filer.
+
+Briefen matar in i scaffoldmatchningen via `ScaffoldQueryContext` (pages, styleKeywords, domainHints → keyword-boost + berikad embedding-prompt). Route-planen mergear brief-routes som startpunkt, inte override. Se `docs/architecture/component-library-policy.md` för komponentbibliotekspolicy.
 
 ### 2. Keyword och embeddings körs parallellt; merge-policy jämför signalerna
 

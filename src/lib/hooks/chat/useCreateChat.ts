@@ -519,6 +519,10 @@ export function useCreateChat(
         clearCreateChatLock();
         createChatInFlightRef.current = false;
         setIsCreatingChat(false);
+        // Brief was consumed by init — clear so follow-ups don't re-send it.
+        if (pendingBriefRef?.current) {
+          pendingBriefRef.current = null;
+        }
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );

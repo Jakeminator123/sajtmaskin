@@ -98,8 +98,8 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Deep Brief** | `siteBriefSchema`, `generateSiteBriefObject()` | `site-brief-generation.ts` | LLM-genererad strukturerad sajtbrief: `projectTitle`, `brandName`, `oneSentencePitch`, `targetAudience`, `primaryCallToAction`, `toneAndVoice`, `pages[]`, `visualDirection`, `imagery`, `uiNotes`, `seo`. | kanonisk |
-| **Server Auto-Brief** | `tryGenerateServerAutoBrief()`, `shouldRunServerAutoBrief()` | `site-brief-generation.ts`, `server-auto-brief-policy.ts` | Server-side auto-brief på create-chat-banan. | kanonisk |
+| **Deep Brief** | `siteBriefSchema`, `generateSiteBriefObject()` | `site-brief-generation.ts` | LLM-genererad strukturerad sajtbrief: `projectTitle`, `brandName`, `oneSentencePitch`, `targetAudience`, `primaryCallToAction`, `toneAndVoice`, `pages[]`, `visualDirection`, `imagery`, `uiNotes`, `seo`. Kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte i `customInstructions`. Follow-ups skickar inte brief. | kanonisk |
+| **Server Auto-Brief** | `tryGenerateServerAutoBrief()`, `shouldRunServerAutoBrief()` | `site-brief-generation.ts`, `server-auto-brief-policy.ts` | Server-side auto-brief som fallback för underspecificerade init-prompts (inklusive korta website-prompts). Hoppas över för audit, technical, follow-up och redan strukturerade prompts. | kanonisk |
 | **Brief** (interface) | `Brief` | `system-prompt.ts` | Runtime-representation av deep brief med typade fält. | alias (av Deep Brief) |
 | **Brief from Prompt** | `buildPromptFromBrief()` | `promptAssist.ts` | Bygger kodgenereringsprompt från briefobjekt. Obs: använder lokal `type Brief = any`, inte det typade interfacet. | kanonisk |
 | **Dynamic Instruction Addendum** | `buildDynamicInstructionAddendumFromBrief()`, `buildDynamicInstructionAddendumFromPrompt()` | `promptAssist.ts` | Markdown-addendum för brief resp. rå prompt. | kanonisk |
@@ -539,6 +539,7 @@ Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra v
 | 2026-04-10 | gen/ omorganisation (v6): verify/, export/, packs/ undermappar. Sökvägar uppdaterade. |
 | 2026-04-11 | Loggning och telemetri (v7): +6 termer (Fault & Fix Index, Global Error Log, Generation Run, DevLog Append, Timeline, Enrich Fault Fix Row). Utökat CSV-schema med scaffold_id, serialize_mode, style_direction, file, fixer, resolved. |
 | 2026-04-12 | Intent drift fix (v8): `resolveBuildIntentWithScaffold()` och `isAppScaffold()` tillagda i `build-intent.ts`. Manuellt val av `dashboard`/`app-shell` koersar `buildIntent` till `app`. Server-side guard i `create-chat-stream-post.ts` och `chat-message-stream-post.ts`. `family`-fältet borttaget från plan-review och docs uppdaterade. |
+| 2026-04-13 | Phase 1 consolidation (v9): Deep Brief kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte längre i `customInstructions`. `pendingBriefRef` rensas efter create-chat; follow-ups skickar inte `meta.brief`. Server Auto-Brief körs nu för korta underspecificerade website-prompts (`looksSimpleWebsitePrompt`-skip borttagen). Follow-up handler ignorerar klientbrief. |
 
 ## När detta dokument uppdateras
 

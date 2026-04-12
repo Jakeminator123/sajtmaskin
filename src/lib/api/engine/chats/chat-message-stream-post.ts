@@ -154,7 +154,10 @@ export async function handleMessageStreamRequest(
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
         const metaThemeColors = parsedMeta.themeColors;
-        const metaBrief = parsedMeta.brief;
+        // Follow-ups should not carry the init brief — the server relies on
+        // persisted scaffold, orchestration snapshot, and previous files instead.
+        // Ignore any stale client brief on this path.
+        const metaBrief: Record<string, unknown> | null = null;
         const metaDesignThemePreset = parsedMeta.designThemePreset;
         const metaPalette = parsedMeta.palette;
         const metaPromptAssistModel = parsedMeta.promptAssistModel;

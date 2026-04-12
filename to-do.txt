@@ -6,6 +6,14 @@ Uppdaterad: 2026-04-13
 LÖST
 ═══════════════════════════════════════════════════════════════
 
+[x] Fas 1 konsolidering: Deep Brief kanonisk för init
+    Brief-deriverad prose dubbleras inte längre i customInstructions.
+    pendingBriefRef rensas efter create-chat; follow-ups skickar inte
+    meta.brief. Server Auto-Brief körs nu för korta underspecificerade
+    website-prompts (looksSimpleWebsitePrompt-skip borttagen). Follow-up
+    handler ignorerar klientbrief (server-side guard).
+    Verifierat: 86 tester gröna, tsc --noEmit rent, 5 nya tester.
+
 [x] Turbopack node:fs-läckage i builder/page.tsx
     Rotorsak: lifecycle-telemetry.ts → dynamic import("@/lib/logging/devLog") →
     node:fs. Turbopack följde dynamiska importer in i klient-chunken.
