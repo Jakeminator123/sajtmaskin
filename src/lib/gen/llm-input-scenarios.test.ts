@@ -11,7 +11,7 @@ function baseSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
     buildIntent: "website",
     generationMode: "init",
     changeScope: "redesign",
-    scaffoldFamily: "landing-page",
+    scaffoldId: "landing-page",
     routePlanSummary: "prompt:one-page:/",
     stylePack: "brand-led",
     qualityTarget: "standard",

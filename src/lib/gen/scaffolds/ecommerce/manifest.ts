@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const ecommerceManifest: ScaffoldManifest = {
   id: "ecommerce",
-  family: "ecommerce",
   label: "E-handel",
   description:
     "Storefront starter with product grid, category filtering, product detail page, cart drawer, and checkout-ready layout.",

@@ -1,0 +1,1788 @@
+"...      "use_case_badges": [
+        "Portfolio",
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Vercel Speed Insights / Web Analytics",
+        "https://portfolio-blog-starter.vercel.app",
+        "One-Click Deploy",
+        "Deploy the example using",
+        "Vercel",
+        "Clone and Deploy",
+        "pnpm",
+        "https://github.com/vercel/examples/tree/main/solutions/blog blog",
+        "Deploy it to the cloud with",
+        "vercel/examples",
+        "Next.js blog application with Auth0 and Upstash"
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": true,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "portfolio",
+      "category_name": "Portfolio",
+      "template_url": "https://vercel.com/templates/portfolio/nextjs-portfolio-pageview-counter",
+      "title": "Next.js Portfolio with Pageview Counter",
+      "description": "Portfolio site with pageview counter, built with Next.js 13 App Router, Contentlayer, and Upstash Redis.",
+      "repo_url": "https://github.com/chronark/chronark.com",
+      "demo_url": "https://chronark.com/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Portfolio",
+        "Blog"
+      ],
+      "database_badges": [
+        "Upstash"
+      ],
+      "auth_badges": [],
+      "important_lines": [
+        "Portfolio site with pageview counter, built with Next.js 13 App Router, Contentlayer, and Upstash Redis.",
+        "and deployed to",
+        "Vercel",
+        "Running Locally",
+        ".env",
+        ".env.example",
+        "Then install dependencies and run the development server:",
+        "pnpm",
+        "install",
+        "Please remove all of my personal information (projects, images, etc.) before deploying your own version of this site.",
+        "Database"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "portfolio",
+      "category_name": "Portfolio",
+      "template_url": "https://vercel.com/templates/portfolio/nim-minimalist-personal-site",
+      "title": "Nim: Minimalist Personal Site",
+      "description": "A minimalist personal website template built with Next.js 15, React 19, Tailwind CSS v4, and Motion-Primitives.",
+      "repo_url": "https://github.com/ibelick/nim",
+      "demo_url": "https://nim.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js, React",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Portfolio",
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "https://nim-fawn.vercel.app",
+        "Features",
+        "Getting Started",
+        "For detailed setup instructions, refer to the",
+        "Installation Guide",
+        "npm",
+        "install",
+        "http://localhost:3000",
+        "Deployment",
+        "You can deploy your site to any hosting platform that supports Next.js. For the easiest deployment experience, consider using Vercel:"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "portfolio",
+      "category_name": "Portfolio",
+      "template_url": "https://vercel.com/templates/portfolio/once-ui-design-for-nextjs",
+      "title": "Once UI Design Starter for Next.js",
+      "description": "UI library for building apps with world-class design. Customize your brand in minutes and copy-paste components from the interactive docs.",
+      "repo_url": "https://github.com/once-ui-system/core",
+      "demo_url": "https://demo.nextjs-starter.com/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Portfolio",
+        "Starter"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Features",
+        "package and our recommended setup.",
+        ": Use our SEO components to simplify meta and schema setup.",
+        "(PRO): Copy-paste pre-designed blocks and deploy fully-functional sites with lightning speed.",
+        "and get featured on our site!",
+        "Deploy to Vercel",
+        "An application that converts text inputs into structured objects and streams the expense as it’s being processed using the Vercel AI SDK.",
+        "This is an official starter Turborepo with a single Storybook documentation site, a shared UI component library, and three local packages."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "portfolio",
+      "category_name": "Portfolio",
+      "template_url": "https://vercel.com/templates/cms/payload-website-starter",
+      "title": "Payload Website Starter",
+      "description": "A production-ready website built with Payload, the only Next.js-native CMS.",
+      "repo_url": "https://github.com/payloadcms/payload",
+      "demo_url": "https://payload-vercel-website-demo.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [],
+      "database_badges": [
+        "Postgres",
+        "Neon"
+      ],
+      "auth_badges": [
+        "Access Control",
+        "Layout Builder",
+        "Draft Preview",
+        "Live Preview",
+        "On-demand Revalidation",
+        "SEO"
+      ],
+      "important_lines": [
+        "You can deploy to Vercel, using Neon and Vercel Blob Storage with one click:",
+        "A content publishing platform with a fully featured publication workflow",
+        "Core features:",
+        "Pre-configured Payload Config",
+        "Authentication",
+        "Quick start – Deploying to Vercel",
+        "Click the 'Deploy' button to spin up this template directly into Vercel hosting. It will first prompt you save this template into your own Github repo so that you own the code and can make any changes you want to it. You will be prompted to set up the required services and secrets. Once the app is built and deployed, you can visit your site using the generated URL.",
+        "Set up the following services and secrets and then once the app has been built and deployed you will be able to visit your site at the generated URL.",
+        "of your app URL, create an admin user and then click the 'Seed the database' button in the dashboard to add content into your app.",
+        "This project uses the following services integrated into Vercel which you will need to click \"Add\" and \"Connect\" for:",
+        "Neon Database - Postgres-based cloud database used to host your data",
+        "Vercel Blob Storage - object storage used to host your files such as images and videos",
+        "The connection variables will automatically be setup for you on Vercel when these services are connected.",
+        "CRON_SECRET - used for running cron on Vercel",
+        "Quick Start - local setup",
+        "To spin up this template locally, follow these steps:",
+        "After you click the",
+        "cd my-project && cp .env.example .env",
+        "to copy the example environment variables. You'll need to add the",
+        "POSTGRES_URL",
+        "BLOB_READ_WRITE_TOKEN",
+        "from your Vercel project to your",
+        ".env",
+        "if you want to use Vercel Blob and the Neon database that was created for you."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "portfolio",
+      "category_name": "Portfolio",
+      "template_url": "https://vercel.com/templates/portfolio/portfolio-starter-kit",
+      "title": "Portfolio Starter Kit",
+      "description": "Easily create a portfolio with Next.js and Markdown.",
+      "repo_url": "https://github.com/vercel/examples",
+      "demo_url": "https://portfolio-blog-starter.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Portfolio",
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Vercel Speed Insights / Web Analytics",
+        "https://portfolio-blog-starter.vercel.app",
+        "One-Click Deploy",
+        "Deploy the example using",
+        "Vercel",
+        "Clone and Deploy",
+        "pnpm",
+        "https://github.com/vercel/examples/tree/main/solutions/blog blog",
+        "Deploy it to the cloud with",
+        "vercel/examples",
+        "Next.js blog application with Auth0 and Upstash"
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": true,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "portfolio",
+      "category_name": "Portfolio",
+      "template_url": "https://vercel.com/templates/portfolio/professional-card-astro",
+      "title": "Professional Card Astro",
+      "description": "Make your presence stand out on your path to success!",
+      "repo_url": "https://github.com/alcarazbrian/professional-card-astro",
+      "demo_url": "https://personal-card-astro.netlify.app/",
+      "framework_match": false,
+      "framework_reason": "Primär stack: Astro (inte Next.js-lane)",
+      "stack_tags": [
+        "Astro"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Portfolio"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "src/",
+        "src/pages/index.astro",
+        "src/layouts",
+        "src/styles",
+        "Getting Started with Your Template",
+        "Follow these steps to initialize and deploy your template using Astro and Netlify.",
+        "Make sure you have the following installed on your machine:",
+        "npm",
+        "(installed globally)",
+        "Installation",
+        "https://github.com/alcarazbrian/professional-card-astro.git",
+        "Install Dependencies",
+        "install",
+        "Running the Project Locally",
+        "http://localhost:4321",
+        "Deploying to Netlify",
+        "Ensure your project is built by running:",
+        "folder from your project directory into the Netlify Drop area. This will upload and deploy your site.",
+        "npm install",
+        "Installs dependencies",
+        "npm run dev",
+        "Starts local dev server at",
+        "localhost:4321",
+        "npm run build"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    }
+  ],
+  "cms": [
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/basehub-marketing-website",
+      "title": "BaseHub Marketing Website",
+      "description": "A sleek, modern, and fully customizable website template for your next marketing website.",
+      "repo_url": "https://github.com/basehub-ai/marketing-website-template",
+      "demo_url": "https://nextjs-marketing-website.basehub.com/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "BaseHub",
+        "Tailwind CSS",
+        "One Click Deployment"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Starter"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Fully featured marketing website.",
+        "🔸 Requires just a BaseHub account and a deployment platform—no other service",
+        "One Click Deployment",
+        "You can deploy this anywhere. Vercel works nicely and with one click.",
+        "Local Development",
+        "Install dependencies",
+        "pnpm",
+        ".env.local",
+        "# .env.local",
+        "A modern, full-featured theme for a business or startup marketing site."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/blog-agility-cms-nextjs",
+      "title": "Blog with Agility CMS and Next.js",
+      "description": "Jumpstart your app development process with our pre-built solutions. Browse our list of Agility CMS themes, starters and templates.",
+      "repo_url": "https://github.com/agility/agilitycms-nextjs-starter",
+      "demo_url": null,
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "✨ Features",
+        "- Webhook-triggered cache invalidation",
+        "Multi-Locale Ready",
+        "Deployment",
+        "npm or yarn package manager",
+        "Installation",
+        "Install dependencies",
+        "npm",
+        "install",
+        "yarn",
+        "Configure environment variables",
+        ".env.local.example .env.local",
+        "Get your API keys from Agility CMS",
+        "Settings > API Keys",
+        "Live API Key",
+        "Preview API Key",
+        "(for webhooks)",
+        ".env.local",
+        "AGILITY_LOCALES=en-us",
+        "http://localhost:3000",
+        "│ ├── revalidate/ # Webhook for cache invalidation",
+        "│ │ ├── FeaturedPost.tsx # Featured post display",
+        "│ └── (IPost, IAuthor, ICategory, etc.)",
+        "├── .env.local.example # Environment template"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/personalization-builder-io",
+      "title": "Builder.io Personalization Starter",
+      "description": "Learn how to use Builder.io to personalize your Next.js pages.",
+      "repo_url": "https://github.com/BuilderIO/nextjs-edge-personalization-ab-testing",
+      "demo_url": "https://nextjs-edge-personalization-demo.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Starter"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "View an in depth overview of Builder.io + Vercel Edge Functions",
+        "Then, you can visually create and edit pages, sections, and data on your site with Builder.io's visual editor, dragging and dropping with your React components and publish unlimited variations to your site without any code or deploys needed:",
+        "Run Locally",
+        "yarn",
+        ", from your account settings copy your Public API Key and paste it into",
+        "http://localhost:3000",
+        "Configure personalization attributes",
+        "and click on the pencil next to",
+        "via browsing history (could alternatively be set upon add to cart or other actions).",
+        ": be sure you are running your dev server on",
+        "by running",
+        "yarn dev",
+        "At the top of the editor, you can configure which audiences should see this page variant, and publish.",
+        "Deploy to Netlify",
+        "Deploy to Vercel",
+        "deploy it to Vercel",
+        ". Be sure to use the following configuration:",
+        "cd .. && yarn build",
+        "Once you deploy to vercel, you can update your Preview URL to use the live URL so now others on your team can create content on your new site with Builder.io.",
+        "https://my-site.vercel.app",
+        "is where we configure Builder.io custom components and settings.",
+        "is where we create and configure the edge middleware for personalizing pages.",
+        "By A/B testing at the edge, you'll reduce CLS from client-loaded experiments and improve your site's performance with smaller JS bundles."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/ecommerce/builderio-shopify-commerce-headless",
+      "title": "Builder.io Shopify Commerce",
+      "description": "Builder.io starter for Headless Shopify stores.",
+      "repo_url": "https://github.com/BuilderIO/nextjs-shopify",
+      "demo_url": "https://headless.builders/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Ecommerce"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Goals and Features",
+        "Getting Started",
+        "6. Configure the project to talk to Shopify",
+        "7. Up and Running!",
+        "This guide will assume that you have the following software installed:",
+        "npm",
+        "A Next.js app, ready to deploy to a hosting provider of your choice",
+        "Click \"Account\" from the left hand sidebar",
+        "Click the edit icon for the \"Private keys\" row",
+        "git clone https://github.com/BuilderIO/nextjs-shopify.git",
+        "npm install --global \"@builder.io/cli\"",
+        "includes a public API key for your newly minted Builder.io space.",
+        "public API Key: 012345abcdef0123456789abcdef0123",
+        "Copy the public API key (\"012345abcdef0123456789abcdef0123\" in the example above) for the next step.",
+        "This starter project uses dotenv files to configure environment variables.",
+        ".env.development",
+        ".env.production",
+        "BUILDER_PUBLIC_KEY",
+        "You can ignore the other variables for now, we'll set them later.",
+        "in the configuration tab and choose all the following permissions:",
+        "tab, click",
+        "install",
+        "http://localhost:3000",
+        "and change the site url to your localhost"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cdn/bulk-redirects-via-a-cms",
+      "title": "Bulk Redirects via a CMS",
+      "description": "Learn how to create redirects via Contentful, synced at build time to Vercel’s CDN using vercel.ts",
+      "repo_url": "https://github.com/vercel/examples",
+      "demo_url": "https://cms-bulk-redirects.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "CDN"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Learn how to create redirects via Contentful, synced at build time to Vercel’s CDN using vercel.ts",
+        "Contentful CMS bulk redirects (vercel.ts) example",
+        "vercel.ts",
+        "https://cms-bulk-redirects.vercel.app",
+        "One-Click Deploy",
+        "Deploy the example using",
+        "Vercel",
+        "Clone and Deploy",
+        "npm",
+        "Yarn",
+        "pnpm",
+        "https://github.com/vercel/examples/tree/main/cdn/cms-bulk-redirects",
+        "Environment variables",
+        "CONTENTFUL_SPACE_ID",
+        "CONTENTFUL_ACCESS_TOKEN",
+        "for local runs. When the environment variables are present,",
+        "entries from Contentful, transforms them into Vercel bulk redirect objects, and writes",
+        "to that file. Vercel publishes the redirects without touching Next.js routing, middleware, or edge functions.",
+        "vercel/examples"
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": true,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/sanity-template-nextjs-clean",
+      "title": "Clean Next.js + Sanity App",
+      "description": "A clean Next.js template with a native authoring experience",
+      "repo_url": "https://github.com/sanity-io/sanity-template-nextjs-clean",
+      "demo_url": "https://template-nextjs-clean.sanity.build/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "A clean Next.js template with a native authoring experience",
+        "– an open-source React application that connects to your Sanity project’s hosted dataset. The Studio is configured locally and can then be deployed for content collaboration.",
+        "Features",
+        "https://template-nextjs-clean.sanity.dev",
+        "Getting Started",
+        "Installing the template",
+        "Already deployed with Vercel?",
+        "If you've already deployed using the",
+        "Sanity + Vercel Integration",
+        "one-click Vercel button",
+        "Vercel deployment instructions",
+        "to set up your local environment and deploy Sanity Studio.",
+        "1. Initialize template with Sanity CLI",
+        "Run the command in your Terminal to initialize this template on your local computer.",
+        "npm",
+        "having issues with the CLI",
+        "2. Run Studio and Next.js app locally",
+        ", and start the development servers by running the following command",
+        "Open the Next.js app running locally in your browser on",
+        "http://localhost:3000",
+        "Open the Studio running locally in your browser on",
+        "http://localhost:3333",
+        ". You should now see a screen prompting you to log in to the Studio. Use the same service (Google, GitHub, or email) that you used when you logged in to the CLI.",
+        "From the Studio, click \"+ Create\" and select the"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/cms-kit-sanity",
+      "title": "CMS-Kit: Sanity + Next.js 15 Visual Site Builder",
+      "description": "A production-ready boilerplate for Sanity on Next.js, making Headless CMS-based development accessible, comfortable, and fast.",
+      "repo_url": "https://github.com/focusreactive/cms-kit",
+      "demo_url": "https://turbo-cms-kit-sanity.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind",
+        "radix-ui"
+      ],
+      "use_case_badges": [],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Features",
+        "Flexible theming system using CSS variables",
+        "Automated setup:",
+        "One-command initialization script that handles CMS platform integration, account linking, and Vercel deployment",
+        "Payload (self-hosted, requires PostgreSQL)",
+        "Getting Started",
+        "Make sure your Github account is linked to Vercel account. You can do it",
+        "Make sure pnpm package manages is",
+        "installed",
+        "Create Github repository, create Sanity project, deploy to Vercel",
+        "Clone project locally",
+        "Navigate to your Github account and clone project repository locally.",
+        "Install dependencies",
+        "pnpm",
+        "install",
+        "Pull required ENV variables",
+        "Execute following command to pull ENV variables from Vercel and replace some of the with local development values",
+        "vercel",
+        "env",
+        ".env.local apps/sanity/",
+        "Run project locally",
+        "Create a new repository using this template by clicking the \"Use this template\" button at the top of the repository page.",
+        "Install dependencies using pnpm:",
+        "Navigate to the Storyblok CLI directory:"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/ecommerce/ecommerce-crystalize-remix",
+      "title": "Ecommerce Template with Crystallize and Remix",
+      "description": "A fully-featured eCommerce boilerplate built using Remix and Crystallize with performance in mind.",
+      "repo_url": "https://github.com/CrystallizeAPI/furniture-remix",
+      "demo_url": "https://furniture.superfast.store/",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Remix",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Ecommerce"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "A fully-featured eCommerce boilerplate built using Remix and Crystallize with performance in mind.",
+        "Installation",
+        "npx @crystallize/cli-next@latest",
+        "install",
+        "And you got your project running thanks to :",
+        "npm",
+        "This will start the Docker network, starting Mailcatch and Redis.",
+        ".env",
+        "Custom Local domain and HTTPS",
+        "we recomend to have local domain",
+        "Add local domains",
+        "127.0.0.1 SUPERFASTPROJECTIDENTIFIER.superfast.local",
+        "You only ever need to do this once for all Superfast stores you might set up",
+        "brew install dnsmasq",
+        "echo \"address=/superfast.local/127.0.0.1\" >> /opt/homebrew/etc/dnsmasq.conf",
+        "sudo mkdir -p /etc/resolver && echo \"nameserver 127.0.0.1\" > /etc/resolver/local",
+        "https://furniture.superfast.local",
+        "http://localhost:3022",
+        "http://localhost:3021",
+        "Redis: tcp://localhost:3023",
+        "Note: to connect to Redis:",
+        "docker run --rm --net=host -it redis redis-cli -h 127.0.0.1 -p 3023"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/gpp-starter",
+      "title": "Glide Publishing Platform - Next.js Starter",
+      "description": "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.",
+      "repo_url": "https://github.com/GlideCMS/nextjs-demo-public",
+      "demo_url": "https://vercel.gpp.io/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "CSS-in-JSX"
+      ],
+      "css_tags": [
+        "css-in-jsx"
+      ],
+      "use_case_badges": [
+        "Starter"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.",
+        "Bootstrap app helps you to build responsive and mobile-friendly websites and applications, and achieve many tasks out of the box including complete dynamic routing, API tool kits, client-side rendering and much more. It also eases customisations and extending current functionalities.",
+        "Application Setup",
+        "In order to use our Bootstrap application you will need to obtain your environment API details from your GPP representative. Your introductory screen when deploying via Vercel will display welcome message with some useful links and other information which can be useful for start.",
+        "Next step would be to edit environment variables in Vercel settings where you need to add two mandatory and one optional variable:",
+        "CONNECT_API_URL",
+        "CONNECT_API_KEY",
+        "MEDIA_BASE_PATH",
+        "PREGENERATE_PATHS",
+        "After you successfully deploy the application, you should able to see a message confirming that your application is configured correctly, and you can then proceed with Glide configuration. This message will remain until you create and publish your first page in Glide.",
+        "Note that with app deployment you will get some generic components which you can use directly in your CMS app configuration or you can use/extend them in your custom functionalities and components."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/isr-blog-nextjs-wordpress",
+      "title": "ISR Blog with Next.js and WordPress",
+      "description": "An Incremental Static Regeneration Blog Example Using Next.js and WordPress",
+      "repo_url": "https://github.com/vercel/next.js",
+      "demo_url": "https://next-blog-wordpress.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "A Feature Rich App Router WordPress Example",
+        "Key features:",
+        ": This page is used for dynamic 404 handling - adjust the database id to match your decired WordPress page, and make sure the WordPress slug is \"not-found\", your 404 page will then be editable from your CMS.",
+        ": Automatic type generation for your WordPress installation",
+        ": Seamless Preview / Draft Preview support, using authentication through WPGraphQL JWT Authentication and Next.js Draft Mode",
+        "Deploy your own",
+        "npm",
+        "Yarn",
+        "pnpm",
+        "Bun",
+        "npx create-next-app",
+        "bunx create-next-app",
+        "Deploy it to the cloud with",
+        "Vercel",
+        "Configuration",
+        "https://localhost:3000",
+        "Install and activate following plugins:",
+        "WPGraphQL JWT Authentication",
+        "Do first-time install of Redirection. Recommended to enable monitor of changes",
+        "Configure Yoast SEO with:",
+        "before installing Yoast, it will ask you to run optimize SEO data after changing permalinks, do so",
+        "define('HEADLESS_SECRET', 'INSERT_RANDOM_SECRET_KEY');",
+        "define('HEADLESS_URL', 'INSERT_LOCAL_DEVELOPMENT_URL'); // http://localhost:3000 for local development",
+        "define('GRAPHQL_JWT_AUTH_SECRET_KEY', 'INSERT_RANDOM_SECRET_KEY');"
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": true,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/strapi",
+      "title": "LaunchPad: Next.js × Strapi Starter",
+      "description": "Deliver your web content at warp speed with Strapi on Next.js.",
+      "repo_url": "https://github.com/strapi/LaunchPad",
+      "demo_url": null,
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog",
+        "SaaS"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "A Next.js client that's primed and ready to fetch the content from Strapi faster than you can say \"blast off!\"",
+        "Strap yourself in! You can get started with this project on your local machine by following the instructions below, or you can",
+        "Yarn",
+        "as your package manager (this project uses Yarn internally for its scripts)",
+        "Don't have Yarn installed?",
+        "Or install it globally via npm:",
+        "npm",
+        "install",
+        "1. Clone and Install",
+        "To infinity and beyond! Clone the repo and install root dependencies:",
+        "2. Setup",
+        "Run the setup script to install dependencies in both projects (Strapi and Next.js) and copy the environment files:",
+        "setup",
+        "http://localhost:1337/admin",
+        "http://localhost:3000",
+        "Features Overview ✨",
+        ": Role-Based Access Control is a feature available in the Administration Panel settings that let your team members have access rights only to the information they need.",
+        ": Internationalization (i18n) lets you create many content versions, also called locales, in different languages and for different countries.",
+        "The Strapi application contains a postinstall script that will regenerate an uuid for the project in order to get some anonymous usage information concerning this demo. You can disable it by removing the uuid inside the",
+        "next-wp is a Next.js application for Headless WordPress. Includes functions for fetching posts, categories, tags, pages, and featured media."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/nextjs-blog-draft-mode",
+      "title": "Next.js Blog with Draft Mode",
+      "description": "Static blog with Preview Mode, built with Next.js and Contentful.",
+      "repo_url": "https://github.com/vercel/next.js",
+      "demo_url": "https://next-blog-contentful.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "feature using",
+        "https://app-router-contentful.vercel.app/",
+        "Deploy your own",
+        "Using the Deploy Button below, you'll deploy the Next.js project as well as connect it to your Contentful space using the Vercel Contentful Integration.",
+        "npm",
+        "Yarn",
+        "pnpm",
+        "npx create-next-app",
+        "Configuration",
+        "For this example you need to create a content model that defines an author and a post content type.",
+        "You can create these two by running a script or by doing it manually",
+        "This project includes a setup script which you can use to set up the content model expected by the source code.",
+        "and create a new token by clicking",
+        ", you will only use it to set up your space and can delete it afterwards.",
+        "npx cross-env CONTENTFUL_SPACE_ID=YOUR_SPACE_ID CONTENTFUL_MANAGEMENT_TOKEN=XXX npm run setup",
+        "This command will create the needed content structures and set up your Contentful space ready to use. The output should look as follows:",
+        "> cms-contentful@1.0.0 setup /Users/stefan.judis/Projects/next.js/examples/cms-contentful",
+        "> node ./contentful/setup.js $CONTENTFUL_SPACE_ID $CONTENTFUL_MANAGEMENT_TOKEN",
+        "│ Locales │ 1 │",
+        "│ Webhooks │ 0 │",
+        "✔ Initialize client (1s)",
+        "Author",
+        "After setting up the content model (either manually or by running",
+        "npm run setup"
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": true,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/NextJS-starter-buttercms",
+      "title": "Next.JS ButterCMS Starter Project",
+      "description": "A fully-functional, drop-in proof-of-concept Next.js app, fully integrated with your ButterCMS account",
+      "repo_url": "https://github.com/ButterCMS/nextjs-starter-buttercms",
+      "demo_url": "https://nextjs-starter-buttercms.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "Starter"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "https://nextjs-starter-buttercms.vercel.app/",
+        "A copy of this starter project can be easily and quickly deployed to Vercel or Heroku with the click of a button.",
+        "1) Installation",
+        "First, install the dependencies by cloning the repo and running one of the following commands, depending on your current setup:",
+        "npm",
+        "install",
+        "# or yarn install",
+        "To fetch your ButterCMS content, add your API token as an environment variable.",
+        "'NEXT_PUBLIC_BUTTER_CMS_API_KEY=<Your API Token>'",
+        ".env",
+        "3) Run the local server",
+        "To view the app in a browser, you'll need to run the local development server:",
+        "# or yarn dev",
+        "http://localhost:3000",
+        "4) Deploy",
+        "Deploy your Butterized proof of concept app and spread your love of Butter, to either",
+        "Vercel, the creators of Next.js, or to Heroku. With the click of a button, you'll create a copy of our starter project in your Git provider account, instantly deploy it, and institute a full content workflow connected to your ButterCMS account. Smooth.",
+        "Your starter project is automatically configured to show draft changes saved in your Butter account when run locally or deployed to a hosting provider. To disable this behavior, set the following value in your .env file: PREVIEW=false."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/nextjs-wordpress-headless-cms",
+      "title": "Next.js Starter for WordPress Headless CMS",
+      "description": "next-wp is a Next.js application for Headless WordPress. Includes functions for fetching posts, categories, tags, pages, and featured media.",
+      "repo_url": "https://github.com/9d8dev/next-wp",
+      "demo_url": "https://wp.9d8.dev/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "next-wp is a Next.js application for Headless WordPress. Includes functions for fetching posts, categories, tags, pages, and featured media.",
+        "Environment Variables",
+        "Features",
+        "Deployment",
+        "Vercel",
+        "Local Development",
+        "# Install dependencies",
+        "pnpm",
+        "install",
+        "# Set up environment variables",
+        ".env.example .env.local",
+        "# Edit .env.local with your WordPress URL and credentials",
+        "Your site is now running at",
+        "http://localhost:3000",
+        "8.0 or later (recommended) or npm/yarn",
+        ".env.local",
+        "WORDPRESS_URL",
+        "WORDPRESS_HOSTNAME",
+        "WORDPRESS_WEBHOOK_SECRET",
+        "- Posts, pages, authors, categories, and tags",
+        "│ │ └── revalidate/ # Cache revalidation webhook",
+        "│ │ ├── authors/ # Author archive",
+        "├── menu.config.ts # Navigation configuration",
+        "└── vitest.config.ts # Test configuration"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/next-js-waitlist-with-notion-cms",
+      "title": "Next.js Waitlist with Notion CMS",
+      "description": "A simple Next.js waitlist template with Notion as a CMS, Upstash Redis for rate limiting, and Resend for sending emails via custom domain.",
+      "repo_url": "https://github.com/lakshaybhushan/nextjs-notion-waitlist-template",
+      "demo_url": "https://nextjs-notion-waitlist.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [],
+      "database_badges": [
+        "Upstash"
+      ],
+      "auth_badges": [],
+      "important_lines": [
+        "A simple Next.js waitlist template with Notion as a CMS, Upstash Redis for rate limiting, and Resend for sending emails via custom domain.",
+        "This is a template repository for creating a waitlist using Next.js 14, Notion as a CMS, Upstash Redis for rate limiting and Resend for sending emails with a custom domain.",
+        "https://nextjs-notion-waitlist.vercel.app",
+        "Sample Database",
+        "Features",
+        "Upstash Redis",
+        ": Use Upstash Redis to rate limit the number of signups in a given time period.",
+        "Vercel",
+        ": Deploy the app to Vercel with a single click.",
+        "However, You can extend it to use Notion for other types of content as well. Using Notion as a CMS is a great way to manage content without having to build a backend or a database. You can use Notion's API to fetch data from your Notion workspace and display it on your website.",
+        "Assuming that you have a Notion account and a workspace, you can create a new database in your workspace and add the following columns:",
+        "SECRET",
+        "Now you need to get the ID of the database you created. You can get it from the URL of the database. It will look something like this:",
+        "https://www.notion.so/{DATABASE_ID}?v={NUMBERS}",
+        "DATABASE_ID",
+        "It's fairly simple to get started with Upstash Redis. You can sign up for a free account and create a new Redis database. You will get a",
+        "that you can use to interact with the Redis database.",
+        "You need to sign up for a Resend account if not already. Then you need to add your domain and verify the DNS records. Once you have done that, you can generate an API key from the Resend dashboard which you will need to send emails.",
+        "Deploy to Vercel",
+        ": Click the button below to deploy this template to Vercel with a single click.",
+        "The above button will create a new Vercel project and clone this repository into your GitHub account. You will need to provide the following environment variables:",
+        "NOTION_SECRET",
+        "NOTION_DB",
+        ": The ID of the Notion database you want to use."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/notion-blog",
+      "title": "Notion-backed Next.js Blog",
+      "description": "A Next.js site using new SSG support with a Notion backed blog",
+      "repo_url": "https://github.com/ijjk/notion-blog",
+      "demo_url": "https://notion-blog.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "CSS Modules"
+      ],
+      "css_tags": [
+        "tailwind",
+        "css-modules"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        ": This example uses the experimental SSG hooks only available in the Next.js canary branch! The APIs used within this example will change over time. Since it is using a private API and experimental features, use at your own risk as these things could change at any moment.",
+        "Live Example hosted on Vercel",
+        "https://notion-blog.vercel.app/",
+        "Getting Started",
+        "To view the steps to setup Notion to work with this example view the post at",
+        "https://notion-blog.vercel.app/blog/my-first-post",
+        "Deploy Your Own",
+        "Deploy your own Notion blog with Vercel.",
+        "git clone https://github.com/ijjk/notion-blog.git",
+        "Configure project with",
+        "NOTION_TOKEN",
+        "BLOG_INDEX_ID",
+        "as environment variables in",
+        "Do final deployment with",
+        "Note: if redeploying with",
+        "locally and you haven't made any changes to the application's source and only edited in Notion you will need use",
+        "Using the Pre-Configured Script",
+        "Install dependencies",
+        "cd notion-blog && yarn",
+        "Authors",
+        "https://www.notion.so/Blog-S5qv1QbUzM1wxm3H3SZRQkupi7XjXTul",
+        "In Notion click new on the table to add a new row",
+        "Fill in the Page name, slug, Date, and Authors",
+        "Running Locally"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/optimizely-saas-cms-next-js-15",
+      "title": "Optimizely SaaS CMS + Next.js 15",
+      "description": "A comprehensive starter template for building modern websites with Optimizely SaaS CMS and Next.js 15 App Router.",
+      "repo_url": "https://github.com/szymonuryga/Optimizely-SaaS-CMS-Next.js-15",
+      "demo_url": "https://optimizely-saas-cms-next.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Starter"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "https://opti-masterclass.vercel.app",
+        "Features",
+        "via webhooks for real-time content updates",
+        "file in the root folder, which contains all initial content for Optimizely SaaS CMS. You can import this file into your Optimizely instance to get started with pre-configured content.",
+        "Getting Started",
+        "Optimizely Content Graph API key",
+        "Setup Instructions",
+        "Install dependencies:",
+        "npm install",
+        "Set up environment variables:",
+        ".env",
+        "file in the root directory with the following variables:",
+        "NEXT_PUBLIC_CMS_URL=\"https://app-{your-data}.cms.optimizely.com\"",
+        "npm run gen-types",
+        "npm run dev",
+        "http://localhost:3000",
+        "Project Setup",
+        "- Basic setup instructions",
+        "- Implementing cache revalidation with webhooks",
+        "- Implementing localization",
+        "Environment Variables",
+        "OPTIMIZELY_API_URL",
+        "https://cg.optimizely.com/content/v2",
+        "OPTIMIZELY_SINGLE_KEY"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/payload-website-starter",
+      "title": "Payload Website Starter",
+      "description": "A production-ready website built with Payload, the only Next.js-native CMS.",
+      "repo_url": "https://github.com/payloadcms/payload",
+      "demo_url": "https://payload-vercel-website-demo.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [],
+      "database_badges": [
+        "Postgres",
+        "Neon"
+      ],
+      "auth_badges": [
+        "Access Control",
+        "Layout Builder",
+        "Draft Preview",
+        "Live Preview",
+        "On-demand Revalidation",
+        "SEO"
+      ],
+      "important_lines": [
+        "You can deploy to Vercel, using Neon and Vercel Blob Storage with one click:",
+        "A content publishing platform with a fully featured publication workflow",
+        "Core features:",
+        "Pre-configured Payload Config",
+        "Authentication",
+        "Quick start – Deploying to Vercel",
+        "Click the 'Deploy' button to spin up this template directly into Vercel hosting. It will first prompt you save this template into your own Github repo so that you own the code and can make any changes you want to it. You will be prompted to set up the required services and secrets. Once the app is built and deployed, you can visit your site using the generated URL.",
+        "Set up the following services and secrets and then once the app has been built and deployed you will be able to visit your site at the generated URL.",
+        "of your app URL, create an admin user and then click the 'Seed the database' button in the dashboard to add content into your app.",
+        "This project uses the following services integrated into Vercel which you will need to click \"Add\" and \"Connect\" for:",
+        "Neon Database - Postgres-based cloud database used to host your data",
+        "Vercel Blob Storage - object storage used to host your files such as images and videos",
+        "The connection variables will automatically be setup for you on Vercel when these services are connected.",
+        "CRON_SECRET - used for running cron on Vercel",
+        "Quick Start - local setup",
+        "To spin up this template locally, follow these steps:",
+        "After you click the",
+        "cd my-project && cp .env.example .env",
+        "to copy the example environment variables. You'll need to add the",
+        "POSTGRES_URL",
+        "BLOB_READ_WRITE_TOKEN",
+        "from your Vercel project to your",
+        ".env",
+        "if you want to use Vercel Blob and the Neon database that was created for you."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/prismic-blog",
+      "title": "Prismic Blog",
+      "description": "A simple CMS-backed blog powered by Prismic.",
+      "repo_url": "https://github.com/prismicio-community/nextjs-starter-prismic-blog",
+      "demo_url": null,
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        ". Get it up and running in minutes. Modify and adapt it to your liking; it's all yours!",
+        "npx degit prismicio-community/nextjs-starter-prismic-blog your-project-name",
+        "npx @slicemachine/init@latest",
+        "npm",
+        "http://www.apache.org/licenses/LICENSE-2.0"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/sanity-next-js-personal-website",
+      "title": "Sanity + Next.js Personal Website",
+      "description": "A personal website built with Next.js and Sanity featuring visual editing, live previews, real-time collaboration, and editable projects.",
+      "repo_url": "https://github.com/sanity-io/template-nextjs-personal-website",
+      "demo_url": "https://nextjs-personal-website.sanity.dev/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "A Next.js Personal Website with a Native Authoring Experience",
+        "to handle its content. It comes with a native Sanity Studio that offers features like real-time collaboration and visual editing with live updates using",
+        "Features",
+        "A native and customizable authoring environment, accessible on",
+        "Getting Started",
+        "Step 1. Initialize template with Sanity CLI",
+        "Step 2. Run app locally in development mode",
+        "Deploying your application and inviting editors",
+        "Step 1. Deploy Next.js app to Vercel",
+        "sanity.cli.ts",
+        "Config file for Sanity CLI",
+        "Where the advanced Sanity Studio customization is setup",
+        "/sanity/lib/client.ts",
+        "Configuration for the Sanity Content Lake client",
+        "Installing the template",
+        "We will take a look at installing this template with the Sanity CLI, running locally, and lastly deploying to Vercel. If you'd rather start by deploying to Vercel, please instead reference the instructions in",
+        "vercel-installation-instructions.md",
+        "1. Initialize template with Sanity CLI",
+        "Run the command in your Terminal to initialize this template on your local computer.",
+        "having issues with the CLI",
+        "npm",
+        "2. Run app locally in development mode",
+        ", and start the development servers by running the following command",
+        "Open the Next.js app running locally in your browser on"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/serverless-wordpress",
+      "title": "ServerlessWP",
+      "description": "Host your WordPress site on serverless — more affordable and more performant when optimized with edge caching.",
+      "repo_url": "https://github.com/mitchmac/serverlesswp-node",
+      "demo_url": "https://serverlesswp.com/",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Other"
+      ],
+      "css_tags": [],
+      "use_case_badges": [],
+      "database_badges": [
+        "database name you created",
+        "database user to access the database",
+        "database user's password",
+        "HOST",
+        "address to access the database"
+      ],
+      "auth_badges": [],
+      "important_lines": [
+        "WordPress hosting on Vercel, Netlify, or AWS Lambda.",
+        "ServerlessWP puts PHP & WordPress in serverless functions. Deploy this repository to give it a try.",
+        "Quick Deploy",
+        "Try ServerlessWP nearly instantly on Vercel with a temporary SQLite database (database expires after a few days)",
+        "Or click one of the options below to deploy your serverless WordPress site with your database of choice:",
+        "Vercel",
+        "⎇ automatic branch deploy config",
+        "npm install && serverless deploy",
+        "Vercel, Netlify, & AWS have free tiers",
+        "Deploy ServerlessWP",
+        "1. Deploy this repository to Vercel, Netlify, or AWS.",
+        "2. Setup a database.",
+        "You'll need to create a database for your site's content.",
+        "provides a cloud database with a generous free tier.",
+        "Wouldn't it be great to skip hosting a database?",
+        "3. Update the environment variables.",
+        "After creating your database you'll need to update environment variables for your project with the credentials. The WordPress config file",
+        "is automatically configured to use these values to connect to the database.",
+        "Update the environment variables in Vercel/Netlify:",
+        "DATABASE",
+        "database name you created",
+        "USERNAME",
+        "database user to access the database",
+        "PASSWORD"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/blog/stablo-blog",
+      "title": "Stablo – Minimal Blog Template",
+      "description": "Stablo is a JAMStack Blog template built with Next.js, Tailwind CSS & Sanity CMS by Web3Templates. It comes with a free & pro version.",
+      "repo_url": "https://github.com/web3templates/stablo",
+      "demo_url": "https://stablo-template.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Installation ↓",
+        "Features",
+        "Feature",
+        "Author Pages",
+        "Deploy for free",
+        "Click the above button for one-click clone & deploy for this template. Read",
+        "Installation",
+        "Step 1: Deploy to Vercel",
+        "Use the Deploy Button below. It will let you deploy the starter using Vercel as well as connect it to your Sanity Studio using the Sanity Vercel Integration.",
+        "The above deploy will automatically configure the following:",
+        "Install Sanity Integration in Vercel",
+        "Deploy Frontend to Vercel",
+        "Alternatively, you can deploy to other services such as Netlify or Cloudflare Pages or AWS Amplify.",
+        "Step 2: Set up the project locally.",
+        "Once you have deployed the website, it will look like empty or not configured properly. This is expected. We need to do few more steps to make it as seen on the demo.",
+        "First, clone the github repository vercel created into your local machine. Use the following command structure. Make sure the terminal is on the right folder before executing this command.",
+        "Once cloned, run the following command from the project's root directory. This will link your vercel project.",
+        "npx vercel",
+        ".env",
+        "variables to your local system.",
+        "env",
+        ".env.local",
+        ".env.local.example",
+        "npm"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cdn/update-redirects-in-realtime",
+      "title": "Update Redirects in Realtime",
+      "description": "Learn how to update redirects served by Vercel when redirects change in the CMS without redeploying.",
+      "repo_url": "https://github.com/vercel/examples",
+      "demo_url": "https://cms-webhook-update-redirects.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "CDN"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Learn how to update redirects served by Vercel when redirects change in the CMS without redeploying.",
+        "Update Vercel redirects on CMS changes",
+        "This example shows how to respond to CMS webhook events to update redirects served on Vercel.",
+        "https://cms-webhook-update-redirects.vercel.app",
+        "One-Click Deploy",
+        "Deploy the example using",
+        "Vercel",
+        "Clone and Deploy",
+        "npm",
+        "Yarn",
+        "pnpm",
+        "https://github.com/vercel/examples/tree/main/cdn/cms-webhook-update-redirects",
+        "Environment variables",
+        "VERCEL_TEAM_ID",
+        "– Vercel team ID to update redirects for",
+        "VERCEL_PROJECT_ID",
+        "– Vercel project ID to update redirects for",
+        "VERCEL_BEARER_TOKEN",
+        "- Vercel access token for this team",
+        "The Vercel project runs in production as normal. It can optionally use",
+        "example to load some redirects at deployment time.",
+        "When a redirect is updated on the CMS, a webhook handler receives a request with the updated redirect. That code uses the",
+        "Vercel SDK",
+        "to modify the redirects served by Vercel. This can happen without a new deployment."
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": true,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/virtual-event/virtual-event-starter-kit",
+      "title": "Virtual Event Starter Kit",
+      "description": "Jumpstart your virtual event and scale to any size with Next.js and Vercel.",
+      "repo_url": "https://github.com/vercel/virtual-event-starter-kit",
+      "demo_url": "https://demo.vercel.events/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "CSS Modules"
+      ],
+      "css_tags": [
+        "css-modules"
+      ],
+      "use_case_badges": [
+        "Virtual Event"
+      ],
+      "database_badges": [
+        "1234",
+        "."
+      ],
+      "auth_badges": [
+        "First, create a",
+        "GitHub OAuth application",
+        "to use for authentication.",
+        "Set",
+        "Authorization Callback URL",
+        "as"
+      ],
+      "important_lines": [
+        "Jumpstart your virtual event and scale to any size with Next.js and Vercel.",
+        ", which had almost 40,000 live attendees. It includes the following features:",
+        "Each stage can be configured as -",
+        "Running a conference is difficult – you have to",
+        "Deployment:",
+        "Vercel",
+        "Authentication:",
+        "GitHub OAuth",
+        "Database:",
+        "Redis",
+        "The virtual events starter kit now has added support for organising truly LIVE virtual events. You can quickly setup a live stage and invite speakers to interact with viewers. Live audio-video opens up a ton of possibilities with respect to what you can do with this template. You can use it for:",
+        "Clone and Deploy",
+        "When you click on the \"Deploy\" button above, you’ll be asked to install the",
+        "integration. It lets you sign up or log in to 100ms and DatoCMS, and connects your DatoCMS and 100ms account to vercel. In a single integration, you will be able to deploy a fully working template that contains all the elements of the virtual events starter kit.",
+        "Running Locally",
+        "Before this setup make sure to deploy the project using 100ms + DatoCMS integration to speed up the setup process.",
+        "After the project is deployed on Vercel, you can find",
+        "DATOCMS_READ_ONLY_API_TOKEN",
+        "NEXT_PUBLIC_HMS_TOKEN_ENDPOINT",
+        "already setup in the environment-variables section in project settings. The integration also sets up the",
+        "First, to set local environment variables you can either use Vercel CLI",
+        "vercel env pull",
+        ".env.local.example .env.local",
+        "Then install the package and run the development server:"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "cms",
+      "category_name": "CMS",
+      "template_url": "https://vercel.com/templates/cms/wix-cms",
+      "title": "Wix CMS: Next.js CMS starter",
+      "description": "Next.js template with create-next-app, using Wix Headless for managing content via Wix CMS",
+      "repo_url": "https://github.com/wix/wix-cms-nextjs-template",
+      "demo_url": "https://vercel.cms-demo.wix.dev/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Starter"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Local Development",
+        "Authorize the template with",
+        "quick start deployment",
+        "creating an OAuth app",
+        "Set up environment variables to consume Wix Headless APIs:",
+        "In the template's root folder, create a file for the local environment variables:",
+        ".env.template .env.local.",
+        ".env.local",
+        "file, paste the OAuth app client ID after",
+        "NEXT_PUBLIC_WIX_CLIENT_ID=",
+        "yarn",
+        "npm",
+        "http://localhost:3000",
+        "app/page.tsx",
+        "Deployment",
+        "You can deploy this repository using any platform which supports Next.js Version 13 and",
+        "The repository requires a single environment variable:",
+        "NEXT_PUBLIC_WIX_CLIENT_ID",
+        ", which should contain a client ID authorizing access to a Wix project's data.",
+        ": Learn about Next.js features and APIs.",
+        "Additionally, this template uses the following libraries and features:",
+        "Wix client SDK",
+        "for step-by-step instructions on how to configure Wix as your headless Booking solution using Next.js on Vercel."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    }
+  ],
+  "backend": [
+    {
+      "category_slug": "backend",
+      "category_name": "Backend",
+      "template_url": "https://vercel.com/templates/ai/ai-sdk-slackbot",
+      "title": "AI SDK Slackbot",
+      "description": "An open-source AI Slackbot.",
+      "repo_url": "https://github.com/vercel-labs/ai-sdk-slackbot",
+      "demo_url": "https://github.com/vercel-labs/ai-sdk-slackbot",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Other"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "AI",
+        "Backend"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "AI SDK by Vercel",
+        "Features",
+        "18+ installed",
+        "OpenAI API key",
+        "Exa API key",
+        "Vercel",
+        ") to deploy the bot",
+        "Setup",
+        "1. Install Dependencies",
+        "npm",
+        "install",
+        "pnpm",
+        "https://api.slack.com/apps",
+        "and click \"Create New App\"",
+        "3. Configure Slack App Settings",
+        "Under \"App Credentials\", note down your \"Signing Secret\". This will be an environment variable",
+        "SLACK_SIGNING_SECRET",
+        "Go to \"OAuth & Permissions\"",
+        "Install the app to your workspace and note down the \"Bot User OAuth Token\" for the environment variable",
+        "SLACK_BOT_TOKEN",
+        "your deployment URL: (e.g.",
+        "https://your-app.vercel.app/api/events",
+        "or, for local development, use the tunnel URL from the",
+        "Local Development"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "backend",
+      "category_name": "Backend",
+      "template_url": "https://vercel.com/templates/ai/ai-sdk-with-flask",
+      "title": "AI SDK with Flask",
+      "description": "Use Flask and AI SDK on Vercel with Serverless Functions using the Python Runtime.",
+      "repo_url": "https://github.com/vercel-labs/ai-sdk-flask",
+      "demo_url": "https://ai-sdk-preview-flask.vercel.app/api/generate?prompt=%22why%20is%20the%20sky%20blue?%22",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Python",
+        "Flask"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "AI",
+        "Backend"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Use Flask and AI SDK on Vercel with Serverless Functions using the Python Runtime.",
+        "Flask + Vercel",
+        "This example shows how to use Flask and AI SDK on Vercel with Serverless Functions using the",
+        "https://ai-sdk-preview-flask.vercel.app/api/generate?prompt=\"hey",
+        "This example uses the Web Server Gateway Interface (WSGI) with Flask to handle requests on Vercel with Serverless Functions.",
+        "Running Locally",
+        "npm",
+        "vercel",
+        "venv .venv",
+        ".venv/bin/activate",
+        "# or alternatively pip install flask gunicorn",
+        "http://localhost:3000",
+        "vercel-labs/ai-sdk-flask",
+        "AI SDK streaming chat completions from a FastAPI Python Vercel Function."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "backend",
+      "category_name": "Backend",
+      "template_url": "https://vercel.com/templates/backend/django-hello-world",
+      "title": "Django Hello World",
+      "description": "Use Django 4 on Vercel with Serverless Functions using the Python Runtime.",
+      "repo_url": "https://github.com/vercel/examples",
+      "demo_url": "https://django-template.vercel.app/",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Python"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "Starter",
+        "Backend"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Use Django 4 on Vercel with Serverless Functions using the Python Runtime.",
+        "Django + Vercel",
+        "This example shows how to use Django on Vercel with Serverless Functions using the",
+        "https://django-template.vercel.app/",
+        "Vercel detects Django's",
+        "and uses that to find the WSGI entrypoint and the configuration for static files.",
+        "Running Locally",
+        "http://localhost:8000",
+        "One-Click Deploy",
+        "Deploy the example using",
+        "Vercel",
+        "vercel/examples",
+        "Use Python on Vercel with Serverless Functions using the Python Runtime.",
+        "Use Flask 3 on Vercel with Serverless Functions using the Python Runtime."
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": false,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "backend",
+      "category_name": "Backend",
+      "template_url": "https://vercel.com/templates/backend/elysia-on-vercel",
+      "title": "Elysia on Vercel",
+      "description": "Deploying an API on Vercel with Elysia.",
+      "repo_url": "https://github.com/vercel/vercel",
+      "demo_url": "https://elysia-vercel-example-demo.vercel.app/",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Other"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "Starter",
+        "Backend"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Elysia on Vercel",
+        "Deploying an API on Vercel with Elysia.",
+        "bun i",
+        "open http://localhost:3000/",
+        "vc deploy",
+        "vercel/vercel",
+        "Use Flask 3 on Vercel with Serverless Functions using the Python Runtime.",
+        "Use Django 4 on Vercel with Serverless Functions using the Python Runtime.",
+        "Use Node.js with Vercel Serverless Functions."
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": false,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "backend",
+      "category_name": "Backend",
+      "template_url": "https://vercel.com/templates/ai/express-ai-sdk",
+      "title": "Express + AI SDK",
+      "description": "Using AI SDK in an Express app.",
+      "repo_url": "https://github.com/vercel/ai",
+      "demo_url": "https://express-ai-sdk-demo.vercel.app/",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Other"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "AI",
+        "Backend"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Create .env file with the following content (and more settings, depending on the providers you want to use):",
+        "OPENAI_API_KEY",
+        "pnpm",
+        "install",
+        "POST http://localhost:8080",
+        "POST http://localhost:8080/custom-data-parts",
+        "http://localhost:8080/chat",
+        "vercel/ai",
+        "Express.js on Vercel",
+        "Simple Express.js + Vercel example that serves html content, JSON data and simulates an API route."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo"
+    },
+    {
+      "category_slug": "backend",
+      "category_name": "Backend",
+      "template_url": "https://vercel.com/templates/backend/express-on-bun",
+      "title": "Express on Bun",
+      "description": "Deploy Express backends using the Bun runtime.",
+      "repo_url": "https://github.com/vercel/examples",
+      "demo_url": "https://example-express-bun.vercel.app/",
+      "framework_match": false,
+      "framework_reason": "Ingen tydlig Next.js/React för denna lane (strikt läge)",
+      "stack_tags": [
+        "Express"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "Backend"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Express on Bun",
+        "Deploy Express backends using the Bun runtime.",
+        "https://example-express-bun.vercel.app/",
+        "Vercel CLI",
+        "installed globally",
+        "To develop locally:",
+        "bun",
+        "install",
+        "http://localhost:3000",
+        "To build locally:",
+        "To deploy:",
+        "vc deploy",
+        "vercel/examples"
+      ],
+      "is_monorepo_example": true,
+      "is_tutorial_template": false,
+      "artifact_tier": "monorepo-examples"
+    },
+    {
+      "category_slug": "backend",
+      "category_name": "Backend",..."

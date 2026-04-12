@@ -6,7 +6,7 @@ const lightFollowUpSpec: BuildSpec = {
   buildIntent: "website",
   generationMode: "followUp",
   changeScope: "copy",
-  scaffoldFamily: "landing-page",
+  scaffoldId: "landing-page",
   routePlanSummary: "prompt:one-page:/",
   stylePack: "brand-led",
   qualityTarget: "standard",

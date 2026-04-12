@@ -1,0 +1,50 @@
+Din typ av begrepp			Vad det egentligen verkar vara i koden		Exempel
+Vad användaren vill bygga		Build Intent					app, website, template
+Hur användaren kom in / skrev prompten	Build Method / Prompt Type			freeform, wizard, category
+Hur scaffolden skickas in i prompten	Scaffold Serialize Mode				structural, inspirational
+Vilken startstruktur som väljs		Scaffold / Scaffold Family			app-shell, blog, ecommerce
+
+
+Din scaffold-lista jämfört med vad koden säger
+
+Du skrev ungefär:
+
+app-shell
+saas-landing
+portfolio
+blog
+content-site
+auth-pages
+ecommerce
+landingpage
+
+Men i koden är den riktiga runtime-listan:
+
+Scaffold	Finns?	Kommentar
+app-shell	Ja	app/workspace-shell
+saas-landing	Ja	SaaS-marknadssida
+portfolio	Ja	showcase/creator
+blog	Ja	editorial/content
+content-site	Ja	content marketing / brand story
+auth-pages	Ja	login/signup/reset
+ecommerce	Ja	butik/storefront
+landing-page	Ja	vanlig one-page marketing
+dashboard	Ja	analytics/admin/data UI
+base-nextjs	Ja	fallback / generisk bas
+
+
+Vad varje scaffold verkar vara tänkt att göra
+
+Utifrån scaffold-traits.ts:
+
+Scaffold	Site kind	Complexity	Strukturroll	Innehållsroll	Typiska features
+base-nextjs	marketing	simple	starter-nextjs	generic	routing-basics, seo-metadata
+landing-page	marketing	medium	one-page-marketing	service-business	hero, trust-signals, cta
+saas-landing	marketing	medium	multi-section-marketing	saas-growth	pricing, feature-grid, comparison
+portfolio	editorial	medium	showcase-site	creator-portfolio	gallery, project-cases
+blog	editorial	medium	editorial-hub	long-form-content	article-list, taxonomy
+dashboard	app	advanced	dashboard-app	operations-analytics	auth, navigation-shell, tables, charts
+auth-pages	app	simple	auth-surface	authentication	login, signup, password-reset
+ecommerce	commerce	advanced	commerce-storefront	product-catalog	product-grid, cart, checkout
+content-site	marketing	medium	content-marketing-site	brand-storytelling	hero, feature-sections, testimonials
+app-shell	app	medium	application-shell	workspace-tools	auth, sidebar-layout, settings

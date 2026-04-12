@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const blogManifest: ScaffoldManifest = {
   id: "blog",
-  family: "blog",
   label: "Blog",
   description:
     "Content-first blog starter with article list, post layout, author, featured posts, and reading-friendly typography.",

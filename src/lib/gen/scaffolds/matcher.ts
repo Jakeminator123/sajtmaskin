@@ -15,7 +15,7 @@
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
-import { getScaffoldByFamily, getScaffoldById } from "./registry";
+import { getScaffoldById } from "./registry";
 import {
   searchScaffoldsWithDiagnostics,
   type ScaffoldSearchResponse,
@@ -645,7 +645,7 @@ export function matchScaffold(
 
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   if (authScore >= MIN_SCORE) {
-    return getScaffoldByFamily("auth-pages");
+    return getScaffoldById("auth-pages");
   }
 
   const ecommerceScore = countKeywordMatches(lower, ECOMMERCE_KEYWORDS);
@@ -656,7 +656,7 @@ export function matchScaffold(
       // Domain is hospitality/service — weak ecommerce signals (e.g. "produkt", "meny")
       // are false positives. Fall through to landing-page/content-site matching.
     } else {
-      return getScaffoldByFamily("ecommerce");
+      return getScaffoldById("ecommerce");
     }
   }
 
@@ -664,18 +664,18 @@ export function matchScaffold(
     const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
     const appScore = countKeywordMatches(lower, APP_KEYWORDS);
     if (dashboardScore >= MIN_SCORE && dashboardScore >= appScore) {
-      return getScaffoldByFamily("dashboard");
+      return getScaffoldById("dashboard");
     }
-    return getScaffoldByFamily("app-shell");
+    return getScaffoldById("app-shell");
   }
 
   const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
   const appScore = countKeywordMatches(lower, APP_KEYWORDS);
   if (appScore >= MIN_SCORE || dashboardScore >= MIN_SCORE) {
     if (dashboardScore >= appScore) {
-      return getScaffoldByFamily("dashboard");
+      return getScaffoldById("dashboard");
     }
-    return getScaffoldByFamily("app-shell");
+    return getScaffoldById("app-shell");
   }
 
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
@@ -698,14 +698,14 @@ export function matchScaffold(
 
   const contentScore = countKeywordMatches(lower, CONTENT_KEYWORDS);
   if (contentScore >= MIN_SCORE) {
-    return getScaffoldByFamily("content-site");
+    return getScaffoldById("content-site");
   }
 
   if (buildIntent === "website" || buildIntent === "template") {
     return getScaffoldById("landing-page");
   }
 
-  return getScaffoldByFamily("base-nextjs");
+  return getScaffoldById("base-nextjs");
 }
 
 const EMBEDDING_MIN_SCORE = 0.35;
@@ -740,7 +740,7 @@ function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): ScaffoldMan
   if (buildIntent === "website" || buildIntent === "template") {
     return getScaffoldById("landing-page")!;
   }
-  return getScaffoldByFamily("base-nextjs")!;
+  return getScaffoldById("base-nextjs")!;
 }
 
 function normalizedKeywordStrength(score: number): number {

@@ -24,7 +24,7 @@ const buildSpec: BuildSpec = {
   buildIntent: "website",
   generationMode: "init",
   changeScope: "redesign",
-  scaffoldFamily: null,
+  scaffoldId: null,
   routePlanSummary: "prompt:one-page:/",
   stylePack: "brand-led",
   qualityTarget: "standard",
@@ -46,7 +46,6 @@ function minimalOrchestrationBase(): OrchestrationBase {
     orchestrationContract: {
       scaffoldToRoute: {
         scaffoldId: null,
-        scaffoldFamily: null,
         routeSource: "prompt",
         plannedRoutes: [],
         requiredRoutePaths: [],
@@ -89,6 +88,7 @@ function minimalOrchestrationBase(): OrchestrationBase {
       needsPremiumVisuals: false,
     },
     buildSpec,
+    serializeMode: null,
     capabilityHints: undefined,
   };
 }

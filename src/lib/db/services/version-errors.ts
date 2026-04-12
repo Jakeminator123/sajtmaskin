@@ -42,7 +42,7 @@ function buildEngineScaffoldContext(scaffoldId: string | null): EngineScaffoldCo
   const manifest = getScaffoldById(scaffoldId);
   return {
     scaffoldId,
-    scaffoldFamily: manifest?.family ?? null,
+    scaffoldFamily: manifest?.id ?? null,
     scaffoldLabel: manifest?.label ?? null,
     persistedOn: "engine_chat",
   };

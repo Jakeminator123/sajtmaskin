@@ -5,20 +5,6 @@ import type { InferredCapabilities } from "../capability-inference";
 import type { RoutePlan } from "../route-plan";
 import { buildFileContext } from "../context/file-context-builder";
 
-const CREATIVE_THEME_KEYWORDS = [
-  "retro", "vintage", "western", "cowboy", "vilda västern", "steampunk",
-  "cyberpunk", "futuristic", "futuristisk", "neon", "grunge", "gothic",
-  "art deco", "art nouveau", "brutalist", "brutalistisk", "psychedelic",
-  "vaporwave", "synthwave", "pixel", "8-bit", "glitch", "noir", "film noir",
-  "comic", "manga", "anime", "fantasy", "medieval", "medeltida", "pirate",
-  "space", "rymd", "underwater", "tropical", "tropisk", "arctic", "arktisk",
-  "jungle", "djungel", "djungeln", "vietnam", "desert", "öken", "industrial",
-  "industriell", "warehouse", "saloon", "barn", "rustic", "rustik", "bohemian",
-  "boho", "hippie", "punk", "rave", "disco", "70-tal", "70-talet", "80-tal",
-  "80-talet", "90-tal", "90-talet", "y2k", "militär", "kamouflage", "krig",
-  "taktisk",
-];
-
 export type ScaffoldSerializeMode = "structural" | "inspirational";
 
 export interface ScaffoldSerializeOptions {
@@ -51,41 +37,6 @@ const CRITICAL_PATH_PATTERNS = [
   /^components\//,
   /^src\/components\//,
 ];
-
-/**
- * Detect whether the prompt describes a creative/unique theme that should
- * use inspirational (lightweight) scaffold injection instead of full files.
- */
-const CREATIVE_THEME_STRONG_MIN_LEN = 10;
-
-function escapeCreativeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function matchesCreativeKeyword(text: string, keyword: string): boolean {
-  const pattern = new RegExp(
-    `(^|[^\\p{L}\\p{N}])${escapeCreativeRegex(keyword)}([^\\p{L}\\p{N}]|$)`,
-    "iu",
-  );
-  return pattern.test(text);
-}
-
-export function detectScaffoldMode(prompt: string, styleKeywords?: string[]): ScaffoldSerializeMode {
-  const lower = prompt.toLowerCase();
-  const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => matchesCreativeKeyword(lower, kw));
-  const strongPromptHit = kwHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
-  if (strongPromptHit || kwHits.length >= 2) return "inspirational";
-
-  if (styleKeywords && styleKeywords.length > 0) {
-    const styleLower = styleKeywords.map((s) => s.toLowerCase());
-    const styleHits = CREATIVE_THEME_KEYWORDS.filter((kw) =>
-      styleLower.some((s) => matchesCreativeKeyword(s, kw)),
-    );
-    const strongStyleHit = styleHits.some((kw) => kw.length >= CREATIVE_THEME_STRONG_MIN_LEN);
-    if (strongStyleHit || styleHits.length >= 2) return "inspirational";
-  }
-  return "structural";
-}
 
 export function serializeScaffoldForPrompt(
   scaffold: ScaffoldManifest,

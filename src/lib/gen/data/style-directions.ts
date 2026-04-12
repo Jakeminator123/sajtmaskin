@@ -1,4 +1,4 @@
-import type { ScaffoldFamily } from "../scaffolds/types";
+import type { ScaffoldId } from "../scaffolds/types";
 
 type StyleDirectionPreset = {
   id: string;
@@ -6,7 +6,7 @@ type StyleDirectionPreset = {
   sectionRhythm: string;
   signatureMotif: string;
   fontMood: string;
-  families?: ScaffoldFamily[];
+  families?: ScaffoldId[];
   keywords?: string[];
 };
 
@@ -20,7 +20,7 @@ export type StyleDirection = {
 
 export interface StyleDirectionInput {
   prompt: string;
-  scaffoldFamily?: ScaffoldFamily | null;
+  scaffoldFamily?: ScaffoldId | null;
   styleKeywords?: string[];
   generationMode?: "init" | "followUp";
   /** Optional per-session seed (e.g. chatId, timestamp) to vary output for identical prompts. */
@@ -173,7 +173,7 @@ function scorePreset(
   preset: StyleDirectionPreset,
   promptLower: string,
   styleKeywordsLower: string[],
-  scaffoldFamily?: ScaffoldFamily | null,
+  scaffoldFamily?: ScaffoldId | null,
 ): number {
   let score = 0;
   if (scaffoldFamily && preset.families?.includes(scaffoldFamily)) {

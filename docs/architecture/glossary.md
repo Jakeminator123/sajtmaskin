@@ -174,8 +174,8 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Scaffold** | `ScaffoldManifest` | `scaffolds/types.ts` | Runtime-startpunkt: `id`, `label`, `description`, `family`, `structureProfile?`, `contentProfile?`, `siteKind?`, `complexity?`, `features?`, `promptHints?`, `tags?`, `allowedBuildIntents`, `files`, `qualityChecklist?`, `research?`. | kanonisk |
-| **Scaffold Family** | `ScaffoldFamily` | `scaffolds/types.ts` | Union av 10 scaffold-id:n. Primärnyckel i registry/matcher. | kanonisk |
+| **Scaffold** | `ScaffoldManifest` | `scaffolds/types.ts` | Runtime-startpunkt: `id` (typat som `ScaffoldId`, inte `string`), `label`, `description`, `structureProfile?`, `contentProfile?`, `siteKind?`, `complexity?`, `features?`, `promptHints?`, `tags?`, `allowedBuildIntents`, `files`, `qualityChecklist?`, `research?`. Fältet `family` är borttaget — använd `id`. | kanonisk |
+| **Scaffold Family** | `ScaffoldFamily` (deprecated, use ScaffoldId) | `scaffolds/types.ts` | Collapsed into `ScaffoldId`. The `ScaffoldFamily` type is a deprecated alias for `ScaffoldId`. The `family` field was removed from `ScaffoldManifest` — use `id` instead. Tidigare: union av scaffold-id; primärnyckel i registry/matcher är nu `ScaffoldId` via `id`. | **legacy** |
 | **Scaffold Selection** | `matchScaffoldAuto()` → `ScaffoldSelectionResult` | `scaffolds/matcher.ts` | Två lager: keyword+capability-boost → embedding challenge. | kanonisk |
 | **Scaffold Selection Meta** | `ScaffoldSelectionMeta` | `scaffolds/matcher.ts` | `selectionMethod` (`keyword`/`embedding`/`manual`/`persisted`/`default`/`off`), `selectionConfidence`, `keywordScores`, `embeddingTopResult`, `embeddingOverrideReason`, `briefContextApplied`, `topCandidates`, `embeddingAvailable/Failed`, `semanticUnavailableReason`. | kanonisk |
 | **Scaffold Query Context** | `ScaffoldQueryContext`, `buildScaffoldQueryContext()` | `matcher.ts`, `orchestrate.ts` | Brief-deriverat: `briefPages`, `styleKeywords`, `domainHints`. | kanonisk |
@@ -205,7 +205,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Scaffold Embeddings** | `ScaffoldEmbeddingsFile`, `ScaffoldEmbeddingEntry` | `scaffold-embeddings-core.ts` | Förgenererade vektorer i `scaffold-embeddings.json`. | kanonisk |
-| **Scaffold Embedding Locale** | `ScaffoldEmbeddingLocale`, `SCAFFOLD_EMBEDDING_LOCALE` | `scaffold-embedding-locale.ts` | Tvåspråkiga (SV/EN) labels/beskrivningar/nyckelord per family. | kanonisk |
+| **Scaffold Embedding Locale** | `ScaffoldEmbeddingLocale`, `SCAFFOLD_EMBEDDING_LOCALE` | `scaffold-embedding-locale.ts` | Tvåspråkiga (SV/EN) labels/beskrivningar/nyckelord per scaffold (`ScaffoldId`). | kanonisk |
 | **Scaffold Search** | `searchScaffolds()`, `searchScaffoldsWithDiagnostics()` | `scaffold-search.ts` | Cosine-similarity ranking av scaffolds. | kanonisk |
 | ~~Semantic Matching~~ (informellt) | — | docs | Informellt namn för embedding-banan. | **legacy** — säg "scaffold embedding search" |
 
@@ -379,7 +379,7 @@ Fas 3 använder två kategorier av fixar:
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Fault & Fix Index** | `FaultFixRow`, `FAULT_FIX_TYPES`, `collectFaultFixRows()` | `logging/generation-log-writer.ts` | Per-generering fel/fix-rader. Skrivs per run-katalog (`fault-fix-index.md`, `.csv`) och globalt (`error-log.csv`). | kanonisk |
-| **Global Error Log** | `appendGlobalFaultFixCsv()`, `logs/llm-segmentts-and-index/error-log.csv` | `logging/generation-log-writer.ts` | Append-only CSV med alla fel/fixar. Kolumner: time, phase, step, severity, scaffold_id, scaffold_family, serialize_mode, style_direction, file, fixer, resolved, m.fl. | kanonisk |
+| **Global Error Log** | `appendGlobalFaultFixCsv()`, `logs/llm-segmentts-and-index/error-log.csv` | `logging/generation-log-writer.ts` | Append-only CSV med alla fel/fixar. Kolumner: time, phase, step, severity, scaffold_id, `scaffold_family` (deprecated, use ScaffoldId), serialize_mode, style_direction, file, fixer, resolved, m.fl. | kanonisk |
 | **Generation Run** | `logs/generationslogg/<YYYYMMDD-HHMMSS-slug>/` | `logging/generation-log-writer.ts` | Per-körning-katalog: `timeline.ndjson`, `summary.md`, `meta.json`, `fault-fix-index.md/.csv`. | kanonisk |
 | **DevLog Append** | `devLogAppend()`, `appendRollingLine()` | `logging/devLog.ts` | Gemensam ingångspunkt för loggning. Matar tre sinks: dev-log-filer, generationslogg/timeline, och global CSV. | kanonisk |
 | **Timeline** | `timeline.ndjson`, `StoredGenerationEntry` | `logging/generation-log-writer.ts` | NDJSON-logg per generering. Källa för fault-fix-index och CSV. | kanonisk |

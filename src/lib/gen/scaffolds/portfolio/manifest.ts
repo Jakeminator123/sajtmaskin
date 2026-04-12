@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const portfolioManifest: ScaffoldManifest = {
   id: "portfolio",
-  family: "portfolio",
   label: "Portfolio",
   description:
     "Personal portfolio starter with intro, selected work, writing, credibility, and contact sections.",

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getScaffoldFamilies } from "../../src/lib/gen/scaffolds";
-import type { ScaffoldFamily } from "../../src/lib/gen/scaffolds/types";
+import { getScaffoldIds } from "../../src/lib/gen/scaffolds";
+import type { ScaffoldId } from "../../src/lib/gen/scaffolds/types";
 import {
   deriveTemplateRuntimeGuidance,
   isStarterOrBoilerplateReference,
@@ -94,7 +94,7 @@ const USEFUL_LINE_STOPWORDS = new Set([
   "och", "att", "det", "den", "som", "med", "har", "kan", "för", "till",
   "template", "starter", "templates",
 ]);
-const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldFamilies());
+const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldIds());
 const TITLE_BLOCKLIST_PATTERNS = [
   "Express on Bun",
   "Hono on Bun",
@@ -139,7 +139,7 @@ const SKIP_DIRS = new Set([
   ".vercel",
 ]);
 
-const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
+const SCAFFOLD_CHECKLISTS: Record<ScaffoldId, string[]> = {
   "base-nextjs": [
     "Keep a minimal App Router structure with layout, page, and globals.css.",
     "Preserve @theme inline tokens and stable path aliases.",
@@ -192,7 +192,7 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldFamily, string[]> = {
   ],
 };
 
-const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldFamily, string[]> = {
+const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldId, string[]> = {
   "base-nextjs": ["Cleaner starter structure", "Better default docs and env hints"],
   "landing-page": ["Stronger hero and CTA rhythm", "More realistic section hierarchy"],
   "saas-landing": ["Better pricing and product proof", "More convincing product preview patterns"],
@@ -570,7 +570,7 @@ function deriveClassification(
   entry: RawTemplateRecord,
   signals: TemplateLibrarySignals,
   repoInfo: TemplateLibraryRepoInfo,
-  recommendedScaffoldFamilies: ScaffoldFamily[],
+  recommendedScaffoldFamilies: ScaffoldId[],
   selectedFiles: TemplateLibrarySelectedFile[],
 ): TemplateLibraryClassification {
   const businessText = [
@@ -726,9 +726,9 @@ function deriveWeaknesses(
 function recommendScaffoldFamilies(
   categorySlug: string,
   signals: TemplateLibrarySignals,
-): ScaffoldFamily[] {
-  const scores = new Map<ScaffoldFamily, number>();
-  const add = (family: ScaffoldFamily, score: number) => {
+): ScaffoldId[] {
+  const scores = new Map<ScaffoldId, number>();
+  const add = (family: ScaffoldId, score: number) => {
     scores.set(family, (scores.get(family) ?? 0) + score);
   };
 
@@ -787,7 +787,7 @@ function scoreEntry(
   selectedFiles: TemplateLibrarySelectedFile[],
   strengths: string[],
   weaknesses: string[],
-  recommendedScaffoldFamilies: ScaffoldFamily[],
+  recommendedScaffoldFamilies: ScaffoldId[],
 ): number {
   let score = 15;
   if (!rawRepoVerdict) score += 10;
@@ -1172,9 +1172,9 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 
   const scaffolds: Record<string, { qualityChecklist: string[]; research: { upgradeTargets: string[]; referenceTemplates: Array<{ id: string; title: string; categorySlug: string; qualityScore: number; strengths: string[]; }>; }; }> = {};
   const families = Array.from(new Set([
-    ...(Object.keys(SCAFFOLD_CHECKLISTS) as ScaffoldFamily[]),
-    ...(Object.keys(SCAFFOLD_UPGRADE_TARGETS) as ScaffoldFamily[]),
-    ...(Array.from(grouped.keys()) as ScaffoldFamily[]),
+    ...(Object.keys(SCAFFOLD_CHECKLISTS) as ScaffoldId[]),
+    ...(Object.keys(SCAFFOLD_UPGRADE_TARGETS) as ScaffoldId[]),
+    ...(Array.from(grouped.keys()) as ScaffoldId[]),
   ]));
 
   for (const family of families) {
@@ -1238,7 +1238,7 @@ function validateScaffoldResearchAgainstCatalog(
 ): void {
   const entryIds = new Set(entries.map((entry) => entry.id));
   for (const [family, payload] of Object.entries(scaffoldResearch.scaffolds)) {
-    if (!KNOWN_SCAFFOLD_FAMILIES.has(family as ScaffoldFamily)) {
+    if (!KNOWN_SCAFFOLD_FAMILIES.has(family as ScaffoldId)) {
       throw new Error(
         `[template-library] scaffold research generated unknown family "${family}"`,
       );

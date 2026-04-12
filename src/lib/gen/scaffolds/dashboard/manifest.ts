@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const dashboardManifest: ScaffoldManifest = {
   id: "dashboard",
-  family: "dashboard",
   label: "Dashboard",
   description:
     "Analytics and overview dashboard with sidebar, stats cards, data tables, and chart placeholders. For admin panels, analytics, and SaaS apps.",

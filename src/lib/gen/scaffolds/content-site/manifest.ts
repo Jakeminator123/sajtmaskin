@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const contentSiteManifest: ScaffoldManifest = {
   id: "content-site",
-  family: "content-site",
   label: "Content Site",
   description:
     "Content-first website with hero, features, testimonials, and footer. Great for landing pages, portfolios, and blogs.",

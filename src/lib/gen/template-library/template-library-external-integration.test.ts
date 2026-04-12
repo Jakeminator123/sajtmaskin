@@ -5,7 +5,7 @@
  * If entries.length === 0, run hydrate + build + embeddings (see scripts/README.md).
  */
 import { describe, expect, it } from "vitest";
-import { getScaffoldFamilies } from "@/lib/gen/scaffolds";
+import { getScaffoldIds } from "@/lib/gen/scaffolds";
 import {
   getTemplateLibraryCatalog,
   getTemplateLibraryEntries,
@@ -31,7 +31,7 @@ try {
 const entries = getTemplateLibraryEntries();
 const catalogIds = new Set(entries.map((e) => e.id));
 const embeddingIds = new Set((embeddingsJson.embeddings ?? []).map((e) => e.id));
-const knownScaffoldFamilies = new Set(getScaffoldFamilies());
+const knownScaffoldFamilies = new Set(getScaffoldIds());
 
 describe("template-library external templates (local generated catalog)", () => {
   it("has at least one curated entry (rebuild pipeline if zero)", () => {

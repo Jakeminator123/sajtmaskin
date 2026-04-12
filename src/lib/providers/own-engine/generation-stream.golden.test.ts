@@ -141,7 +141,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         buildIntent: "website",
         generationMode: "init",
         changeScope: "redesign",
-        scaffoldFamily: null,
+        scaffoldId: null,
         routePlanSummary: "prompt:one-page:/",
         stylePack: "brand-led",
         qualityTarget: "standard",

@@ -41,7 +41,6 @@ const multiPageWebsiteRoutePlan: RoutePlan = {
 
 const saasScaffold: ScaffoldManifest = {
   id: "saas-landing",
-  family: "saas-landing",
   label: "SaaS",
   description: "SaaS landing scaffold",
   allowedBuildIntents: ["website", "app"],

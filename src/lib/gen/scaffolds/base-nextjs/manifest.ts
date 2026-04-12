@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const baseNextjsManifest: ScaffoldManifest = {
   id: "base-nextjs",
-  family: "base-nextjs",
   label: "Base Next.js",
   description:
     "Minimal Next.js starter with Tailwind, App Router, and dark theme.",

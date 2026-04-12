@@ -432,7 +432,7 @@ export async function buildDynamicContext(
       .filter(Boolean)
       .join(" ")
       .trim() || guidance.rules.join(" "),
-    scaffoldFamily: resolvedScaffold?.family ?? null,
+    scaffoldFamily: resolvedScaffold?.id ?? null,
     styleKeywords,
     generationMode,
     sessionSeed,

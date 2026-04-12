@@ -10,7 +10,7 @@ import {
 } from "./capability-inference";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
-import type { ScaffoldFamily, ScaffoldManifest } from "./scaffolds/types";
+import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
 
 export type BuildSpecGenerationMode = "init" | "followUp";
 export type BuildSpecChangeScope =
@@ -42,7 +42,7 @@ export interface BuildSpec {
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
   changeScope: BuildSpecChangeScope;
-  scaffoldFamily: ScaffoldFamily | null;
+  scaffoldId: ScaffoldId | null;
   routePlanSummary: string;
   stylePack: string;
   qualityTarget: BuildSpecQualityTarget;
@@ -206,9 +206,9 @@ function inferStylePack(
   if (/\bplayful\b/i.test(promptLower)) return "playful";
   if (/\bretro\b|\bvintage\b/i.test(promptLower)) return "retro";
   if (/\bfuturistic\b|\bcyberpunk\b/i.test(promptLower)) return "futuristic";
-  if (resolvedScaffold?.family === "blog") return "editorial";
-  if (resolvedScaffold?.family === "ecommerce") return "commerce";
-  if (resolvedScaffold?.family === "saas-landing") return "saas";
+  if (resolvedScaffold?.id === "blog") return "editorial";
+  if (resolvedScaffold?.id === "ecommerce") return "commerce";
+  if (resolvedScaffold?.id === "saas-landing") return "saas";
   if (buildIntent === "app") return "app-product";
   if (changeScope === "copy") return "current-site";
   return "brand-led";
@@ -266,11 +266,11 @@ function inferQualityTarget(params: {
   const { prompt, buildIntent, resolvedScaffold, routePlan, preGenerationContracts } = params;
   if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "release-candidate";
 
-  const advancedScaffoldFamily =
-    resolvedScaffold?.family === "dashboard" ||
-    resolvedScaffold?.family === "ecommerce" ||
-    resolvedScaffold?.family === "app-shell" ||
-    resolvedScaffold?.family === "saas-landing";
+  const advancedScaffoldId =
+    resolvedScaffold?.id === "dashboard" ||
+    resolvedScaffold?.id === "ecommerce" ||
+    resolvedScaffold?.id === "app-shell" ||
+    resolvedScaffold?.id === "saas-landing";
   const routeCount = routePlan.routes.length;
   const premiumSignals =
     buildIntent === "app" ||
@@ -279,7 +279,7 @@ function inferQualityTarget(params: {
     (routePlan.provenance.primarySource === "scaffold" && routeCount >= 3) ||
     preGenerationContracts.contracts.integrations.length > 0 ||
     preGenerationContracts.contracts.dataMode === "persisted" ||
-    advancedScaffoldFamily;
+    advancedScaffoldId;
 
   return premiumSignals ? "premium" : "standard";
 }
@@ -425,7 +425,7 @@ function deriveReferenceCategories(
 ): string[] {
   const categories = new Set<string>();
 
-  switch (resolvedScaffold?.family) {
+  switch (resolvedScaffold?.id) {
     case "base-nextjs":
       categories.add("starter");
       break;
@@ -558,7 +558,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     buildIntent,
     generationMode,
     changeScope,
-    scaffoldFamily: resolvedScaffold?.family ?? null,
+    scaffoldId: resolvedScaffold?.id ?? null,
     routePlanSummary: buildRoutePlanSummary(routePlan),
     stylePack: inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope),
     qualityTarget,

@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const saasLandingManifest: ScaffoldManifest = {
   id: "saas-landing",
-  family: "saas-landing",
   label: "SaaS Landing",
   description:
     "Product-led marketing starter with feature narrative, dashboard preview, pricing, FAQ, and conversion-ready sections.",

@@ -1,0 +1,132 @@
+{
+  "id": "authentication-precedent-next-js-starter",
+  "slug": "authentication-precedent-next-js-starter",
+  "title": "Precedent – Next.js Starter",
+  "categorySlug": "authentication",
+  "categoryName": "Authentication",
+  "templateUrl": "https://vercel.com/templates/authentication/precedent",
+  "demoUrl": "https://precedent.vercel.app/",
+  "description": "A collection of components, hooks, and utilities built on Next.js, Typescript, Tailwind, Radix, Framer Motion, Prisma, and PostgreSQL.",
+  "frameworkReason": "Next.js",
+  "frameworkMatch": true,
+  "verdict": "valid",
+  "qualityScore": 94,
+  "repo": {
+    "url": "https://github.com/steven-tey/precedent",
+    "normalizedUrl": "https://github.com/steven-tey/precedent",
+    "subpath": null,
+    "clonePath": "data/external-template-pipeline/repo-cache/steven-tey-precedent",
+    "packageManager": "pnpm",
+    "hasNext": true,
+    "hasReact": true,
+    "isMonorepo": false,
+    "hasAppDir": true,
+    "hasSrcAppDir": false
+  },
+  "stackTags": [
+    "Next.js",
+    "Tailwind",
+    "Radix UI"
+  ],
+  "usefulLines": [
+    "A collection of components, hooks, and utilities built on Next.js, Typescript, Tailwind, Radix, Framer Motion, Prisma, and PostgreSQL.",
+    "Vercel Analytics",
+    "Authentication",
+    "Next.js Postgres Auth Starter with Drizzle",
+    "Email/pass login with NextAuth.js, Drizzle, and Postgres."
+  ],
+  "noiseLines": [],
+  "strengths": [
+    "verified Next.js codebase",
+    "App Router structure",
+    "auth flow reference",
+    "dashboard shell patterns"
+  ],
+  "weaknesses": [],
+  "recommendedScaffoldFamilies": [
+    "auth-pages",
+    "dashboard",
+    "app-shell"
+  ],
+  "signals": {
+    "auth": true,
+    "dashboard": true,
+    "pricing": false,
+    "blog": false,
+    "portfolio": false,
+    "ecommerce": false,
+    "docs": false,
+    "ai": false,
+    "multiTenant": false,
+    "cms": false
+  },
+  "classification": {
+    "useCaseTags": [
+      "authentication"
+    ],
+    "siteFormTags": [
+      "auth-flow"
+    ],
+    "technicalPatternTags": [
+      "app-router",
+      "auth",
+      "database"
+    ]
+  },
+  "summary": "Precedent – Next.js Starter is a Authentication reference with verified Next.js codebase, App Router structure, auth flow reference. Site form: auth-flow. Verdict: valid.",
+  "selectedFiles": [
+    {
+      "path": "package.json",
+      "reason": "Dependency and script verification",
+      "excerpt": "{\n  \"name\": \"precedent\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"format:write\": \"prettier --write \\\"**/*.{css,js,json,jsx,ts,tsx}\\\"\",\n    \"format\": \"prettier \\\"**/*.{css,js,json,jsx,ts,tsx}\\\"\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\"\n  },\n  \"dependencies\": {\n    \"@clerk/nextjs\": \"^5.6.2\",\n    \"@radix-ui/react-dialog\": \"^1.0.5\",\n    \"@radix-ui/react-popover\": \"^1.0.7\",\n    \"@radix-ui/react-tooltip\": \"^1.0.7\",\n    \"@types/node\": \"18.11.18\",\n    \"@types/react\": \"18.2.24\",\n    \"@types/react-dom\": \"18.2.8\",\n    \"@vercel/analytics\": \"^0.1.11\",\n    \"@vercel/og\": \"^0.0.26\",\n    \"classnames\": \"^2.3.2\",\n    \"clsx\": \"^2.0.0\",\n    \"eslint\": \"8.31.0\",\n    \"eslint-config-next\": \"13.1.1\",\n    \"focus-trap-react\": \"^10.2.2\",\n    \"framer-motion\": \"^8.5.5\",\n    \"lucide-react\": \"0.105.0-alpha.4\",\n    \"ms\": \"^2.1.3\",\n    \"next\": \"14.3.0-canary.57\",\n    \"react\": \"18.3.1\",\n    \"react-dom\": \"18.3.1\",\n    \"react-markdown\": \"^8.0.7\",\n    \"tailwind-merge\": \"^1.14.0\",\n    \"typescript\": \"5.2.2\",\n    \"use-debounce\": \"^9.0.4\",\n    \"vaul\": \"^0.6.8\"\n  },\n  \"devDependencies\": {\n    \"@tailwindcss/forms\": \"^0.5.6\",\n    \"@tailwindcss/line-clamp\": \"^0.4.4\",\n    \"@tailwindcss/typography\": \"^0.5.10\",\n    \"@types/ms\": \"^0.7.32\",\n    \"autoprefixer\": \"^10.4.16\",\n    \"concurrently\": \"^7.6.0\",\n    \"postcss\": \"^8.4.31\",\n    \"prettier\": \"^2.8.8\",\n    \"prettier-plugin-tailwindcss\": \"^0.2.8\",\n    \"tailwindcss\": \"^3.3.3\"\n  },\n  \"packageManager\": \"pnpm@9.3.0+sha512.ee7b93e0c2bd11409c6424f92b866f31d3ea1bef5fbe47d3c7500cdc3c9668833d2e55681ad66df5b640c61fa9dc25d546efa54d76d7f8bf54b13614ac293631\"\n}"
+    },
+    {
+      "path": "app/layout.tsx",
+      "reason": "Layout and navigation reference",
+      "excerpt": "import \"./globals.css\";\nimport cx from \"classnames\";\nimport { sfPro, inter } from \"./fonts\";\nimport Footer from \"@/components/layout/footer\";\nimport { Suspense } from \"react\";\nimport { Analytics as VercelAnalytics } from \"@vercel/analytics/react\";\nimport Navbar from \"@/components/layout/navbar\";\nimport { ClerkProvider } from \"@clerk/nextjs\";\n\nexport const metadata = {\n  title: \"Precedent - Building blocks for your Next.js project\",\n  description:\n    \"Precedent is the all-in-one solution for your Next.js project. It includes a design system, authentication, analytics, and more.\",\n  metadataBase: new URL(\"https://precedent.dev\"),\n};\n\nexport default async function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return (\n    <ClerkProvider>\n      <html lang=\"en\">\n        <body className={cx(sfPro.variable, inter.variable)}>\n          <div className=\"fixed h-screen w-full bg-gradient-to-br from-indigo-50 via-white to-cyan-100\" />\n          <Suspense fallback=\"...\">\n            <Navbar />\n          </Suspense>\n          <main className=\"flex min-h-screen w-full flex-col items-center justify-center py-32\">\n            {children}\n          </main>\n          <Footer />\n          <VercelAnalytics />\n        </body>\n      </html>\n    </ClerkProvider>\n  );\n}"
+    },
+    {
+      "path": "app/page.tsx",
+      "reason": "Useful structural reference",
+      "excerpt": "import Card from \"@/components/home/card\";\nimport { DEPLOY_URL } from \"@/lib/constants\";\nimport { Github, Twitter } from \"@/components/shared/icons\";\nimport WebVitals from \"@/components/home/web-vitals\";\nimport ComponentGrid from \"@/components/home/component-grid\";\nimport Image from \"next/image\";\nimport { nFormatter } from \"@/lib/utils\";\n\nexport default async function Home() {\n  const { stargazers_count: stars } = await fetch(\n    \"https://api.github.com/repos/steven-tey/precedent\",\n    {\n      ...(process.env.GITHUB_OAUTH_TOKEN && {\n        headers: {\n          Authorization: `Bearer ${process.env.GITHUB_OAUTH_TOKEN}`,\n          \"Content-Type\": \"application/json\",\n        },\n      }),\n      // data will revalidate every 24 hours\n      next: { revalidate: 86400 },\n    },\n  )\n    .then((res) => res.json())\n    .catch((e) => console.log(e));\n\n  return (\n    <>\n      <div className=\"z-10 w-full max-w-xl px-5 xl:px-0\">\n        <a\n          href=\"https://twitter.com/steventey/status/1613928948915920896\"\n          target=\"_blank\"\n          rel=\"noreferrer\"\n          className=\"mx-auto mb-5 flex max-w-fit animate-fade-up items-center justify-center space-x-2 overflow-hidden rounded-full bg-blue-100 px-7 py-2 transition-colors hover:bg-blue-200\"\n        >\n          <Twitter className=\"h-5 w-5 text-[#1d9bf0]\" />\n          <p className=\"text-sm font-semibold text-[#1d9bf0]\">\n            Introducing Precedent\n          </p>\n        </a>\n        <h1\n          className=\"animate-fade-up bg-gradient-to-br from-black to-stone-500 bg-clip-text text-center font-display text-4xl font-bold tracking-[-0.02em] text-transparent opacity-0 drop-shadow-sm [text-wrap:balance] md:text-7xl md:leading-[5rem]\"\n          style={{ animationDelay: \"0.15s\", animationFillMode: \"forwards\" }}\n        >\n          Building blocks for your Next project\n        </h1>\n        <p\n          className=\"mt-6 animate-fade-up text-center text-gray-500 opacity-0 [text-wrap:balance] md:text-xl\"\n          style={{ animationDelay: \"0.25s\", animationFillMode: \"forwards\" }}\n        >\n          An opinionated collection of components, hooks, and utilities for your\n          Next.js project.\n        </p>\n        <div\n          className=\"mx-auto mt-6 flex animate-fade-up items-center justify-center space-x-5 opacity-0\"\n          style={{ animationDelay: \"0.3s\"\n\n// ... truncated"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Useful structural reference",
+      "excerpt": "### These env vars are for authentication to work.\n### To start building, create a Clerk application at https://dashboard.clerk.com/apps/new\nNEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=\nCLERK_SECRET_KEY=\nNEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/\nNEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/"
+    },
+    {
+      "path": "README.md",
+      "reason": "Setup and architecture context",
+      "excerpt": "<a href=\"https://precedent.dev\">\n  <img alt=\"Precedent – Building blocks for your Next project\" src=\"https://precedent.dev/opengraph-image\" />\n  <h1 align=\"center\">Precedent</h1>\n</a>\n\n<p align=\"center\">\n  Building blocks for your Next project\n</p>\n\n<p align=\"center\">\n  <a href=\"https://twitter.com/steventey\">\n    <img src=\"https://img.shields.io/twitter/follow/steventey?style=flat&label=steventey&logo=twitter&color=0bf&logoColor=fff\" alt=\"Steven Tey Twitter follower count\" />\n  </a>\n  <a href=\"https://github.com/steven-tey/precedent\">\n    <img src=\"https://img.shields.io/github/stars/steven-tey/precedent?label=steven-tey%2Fprecedent\" alt=\"Precedent repo star count\" />\n  </a>\n</p>\n\n<p align=\"center\">\n  <a href=\"#introduction\"><strong>Introduction</strong></a> ·\n  <a href=\"#one-click-deploy\"><strong>One-click Deploy</strong></a> ·\n  <a href=\"#tech-stack--features\"><strong>Tech Stack + Features</strong></a> ·\n  <a href=\"#author\"><strong>Author</strong></a>\n</p>\n<br/>\n\n## Introduction\n\nPrecedent is an opinionated collection of components, hooks, and utilities for your Next.js project.\n\n## One-click Deploy\n\nYou can deploy this template to Vercel with the button below:\n\n[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsteven-tey%2Fprecedent&project-name=precedent&repository-name=precedent&demo-title=Precedent&demo-description=An%20opinionated%20collection%20of%20components%2C%20hooks%2C%20and%20utilities%20for%20your%20Next%20project.&demo-url=https%3A%2F%2Fprecedent.dev&demo-image=https%3A%2F%2Fprecedent.dev%2Fopengraph-image&env=NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,CLERK_SECRET_KEY&envDescription=Create%20a%20Clerk%20application%20to%20get%20these%20variables%3A&envLink=https%3A%2F%2Fdashboard.clerk.com%2Fapps%2Fnew)\n\nYou can also clone & create this repo locally with the following command:\n\n```bash\nnpx create-next-app precedent --example \"https://github.com/steven-tey/precedent\"\n```\n\nThen, install the dependencies with your package manager of choice:\n\n```bash\nnpm i\nyarn\npnpm i\n```\n\n## Tech Stack + Features\n\nhttps://github.com/user-attachments/assets/aef3c099-e371-43bf-b426-f5ba73185a7c\n\n### Frameworks\n\n- [Next.js](https://nextjs.org/) – React framework for building performant apps with the best developer experience\n- [Clerk](https://go\n\n// ... truncated"
+    }
+  ],
+  "runtimeGuidance": {
+    "styleRules": [
+      "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+      "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+      "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+      "Preserve clear information density with persistent navigation and scannable panels."
+    ],
+    "sectionInventory": [
+      "primary entry section",
+      "supporting content section",
+      "overview metrics",
+      "filters or controls",
+      "table or chart area"
+    ],
+    "avoidPatterns": [
+      "Do not paste large reference code blocks verbatim into the generated site.",
+      "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+      "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+      "Avoid turning dashboard references into generic marketing landing pages."
+    ],
+    "worldClassRubric": [
+      "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+      "Reusable sections with believable content, not generic lorem-style filler.",
+      "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+      "Final output should feel custom and production-grade, not like a renamed starter.",
+      "Dense UI must still feel legible, fast, and trustworthy."
+    ]
+  }
+}

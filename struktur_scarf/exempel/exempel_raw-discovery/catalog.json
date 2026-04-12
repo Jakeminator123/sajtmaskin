@@ -1,0 +1,392 @@
+"...Stripe.",
+        "⚡ Features",
+        "— Stripe billing with checkout, portals, trials, and failed payment recovery",
+        "Authentication",
+        "— Supabase auth with Update-powered extensions (e.g., magic links, redirects)",
+        "— App Router, Middleware, Client, and Server usage supported",
+        "nextjs-supabase-stripe-update.vercel.app",
+        "🚀 Deploy to Vercel",
+        "Click the button below to instantly deploy the template and set up Update and Supabase:",
+        "🛠️ Local Setup",
+        "clone https://github.com/updatedotdev/nextjs-supabase-stripe-update.git",
+        "nextjs-supabase-stripe-update",
+        "2. Install dependencies",
+        "npm",
+        "install",
+        "pnpm",
+        "3. Configure environment variables",
+        ".env.local",
+        ".env.example .env.local",
+        "Supabase project settings",
+        "NEXT_PUBLIC_UPDATE_PUBLIC_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "saas",
+      "category_name": "SaaS",
+      "template_url": "https://vercel.com/templates/saas/visactor-nextjs-template",
+      "title": "VisActor Next.js Template",
+      "description": "A modern dashboard with VisActor charts, dark mode, and data visualization for seamless analytics.",
+      "repo_url": "https://github.com/mengxi-ream/visactor-next-template",
+      "demo_url": "https://visactor-next-template.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "SaaS",
+        "Admin Dashboard"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Features",
+        "- Built on the latest Next.js features and best practices",
+        "You can deploy this template to Vercel by clicking the button above, or clone this repository and run it locally.",
+        "Install dependencies",
+        "pnpm",
+        "install",
+        "http://localhost:3000",
+        "src/",
+        "# Configuration files",
+        "LICENSE",
+        "Vercel",
+        "- For the incredible deployment platform",
+        "Next.js application pre-configured with Pino logger."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "saas",
+      "category_name": "SaaS",
+      "template_url": "https://vercel.com/templates/saas/waitly",
+      "title": "Waitly",
+      "description": "Launch a product waitlist fast using Next.js 15, Notion CMS, Upstash Redis, and Resend for email.",
+      "repo_url": "https://github.com/Idee8/waitly",
+      "demo_url": "https://waitly.idee8.agency/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "SaaS"
+      ],
+      "database_badges": [
+        "Upstash",
+        "Redis"
+      ],
+      "auth_badges": [],
+      "important_lines": [
+        "Launch a product waitlist fast using Next.js 15, Notion CMS, Upstash Redis, and Resend for email.",
+        "Deploy to Vercel",
+        "Core Features",
+        ": Built with the latest features of the leading React framework for performance and developer experience.",
+        ": Seamlessly manage your waitlist entries directly within a Notion database.",
+        "Upstash Redis",
+        ": Implement robust rate limiting for signups using serverless Redis.",
+        "One-Click Vercel Deploy",
+        ": Manage your waitlist data in a familiar Notion database.",
+        ": Utilize Notion's collaborative features if working with a team.",
+        "Before you can run this project, you'll need to configure a few external services:",
+        "1. Upstash Redis",
+        "Upstash provides serverless Redis. This template uses it for rate limiting signups.",
+        "Create a new Redis database.",
+        "From the database details page, note down the",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "Generate an API key from the \"API Keys\" section. This will be your",
+        "RESEND_API_KEY",
+        "RESEND_FROM_EMAIL",
+        "Your waitlist data will be stored in a Notion database.",
+        "Database - Full page",
+        "Add the following properties (columns) to your database:",
+        ") (select the same database as the relation target)"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "saas",
+      "category_name": "SaaS",
+      "template_url": "https://vercel.com/templates/ecommerce/whop-template",
+      "title": "Whop SaaS Template",
+      "description": "A simple way to sell access to your Next.js App, built with the Whop SDK",
+      "repo_url": "https://github.com/whopio/next-template",
+      "demo_url": "https://next-template-whop.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "CSS Modules"
+      ],
+      "css_tags": [
+        "css-modules"
+      ],
+      "use_case_badges": [
+        "Ecommerce",
+        "SaaS"
+      ],
+      "database_badges": [],
+      "auth_badges": [
+        "Whop Auth"
+      ],
+      "important_lines": [
+        "Getting Started",
+        "First, set the required environment variables:",
+        "NEXT_PUBLIC_WHOP_CLIENT_ID=\"WHOP CLIENT ID\"",
+        "WHOP_CLIENT_SECRET=\"WHOP CLIENT SECRET\"",
+        "WHOP_API_KEY=\"WHOP API KEY\"",
+        "NEXTAUTH_URL=\"http://localhost:3000\"",
+        "NEXTAUTH_SECRET=\"NEXTAUTH SECRET\"",
+        "NEXT_PUBLIC_RECOMMENDED_PLAN_ID=\"PLAN ID\"",
+        "NEXT_PUBLIC_REQUIRED_PRODUCT=\"PRODUCT ID\"",
+        "Many of the environment variables can be found",
+        "Run locally",
+        "Then, install node modules:",
+        "pnpm",
+        "http://localhost:3000",
+        "app/app/ssr/page.tsx",
+        "app/app/ssr/product-gated/layout.tsx",
+        "app/app/ssr/product-gated/page.tsx",
+        "is product-gated without any extra setup as its parent",
+        "app/app/ssg/product-gated/page.tsx",
+        "and then uses that to check if the authorised used owns a certain product.",
+        "- learn about Whop API features and how to use the SDK.",
+        "- learn about Next.js features and API.",
+        "Authentication",
+        "Auth"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "saas",
+      "category_name": "SaaS",
+      "template_url": "https://vercel.com/templates/saas/xata-search",
+      "title": "Xata: Typo-Tolerant Full-Text Search",
+      "description": "Next.js and React Server Components template with Xata powered full-text search.",
+      "repo_url": "https://github.com/xataio/xmdb",
+      "demo_url": "https://xmdb.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js, React",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "SaaS"
+      ],
+      "database_badges": [
+        "Xata"
+      ],
+      "auth_badges": [],
+      "important_lines": [
+        "Features ⚡️",
+        "Xata Client",
+        "vercel/OG",
+        "Environment Setup 🧱",
+        "To have your own local instance of this app, you will need 2 API keys, and your deployment URL.",
+        "XATA_API_TOKEN",
+        "VERCEL_URL",
+        ": popullated by Vercel, on your local environment it’s your local server url (",
+        "https://localhost:3000",
+        ".env.local",
+        ".env.template",
+        "command with some default configuration:",
+        "pnpm",
+        "Database Seed 🌱",
+        "Run Locally 🧑‍✈️",
+        "Once you project is linked and database has data, you can start the development server.",
+        "localhost:3000",
+        "Database",
+        "Template for building your own custom ChatGPT style doc search powered by Next.js, OpenAI, and Supabase.",
+        "Ecommerce store template built with Next.js App Router, Medusa and TailwindCSS, with features like Algolia search and Stripe checkout."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "blog",
+      "category_name": "Blog",
+      "template_url": "https://vercel.com/templates/blog/14-blog-server-components",
+      "title": "A Next.js 14 Blog with Server Components",
+      "description": "A blog template with Next.js 14 App Router, Wisp, Tailwind CSS, Shadcn and Dark Mode.",
+      "repo_url": "https://github.com/Wisp-CMS/nextjs-blog-cms-wisp",
+      "demo_url": "https://nextjs-blog-cms-wisp.vercel.app/",
+      "framework_match": true,
+      "framework_reason": "Next.js",
+      "stack_tags": [
+        "Next.js",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "Featured Links",
+        "Feature Walkthrough",
+        "Probably the most feature-rich Next.js blog template out there that is easily configurable and customizable. It's perfect as an upgrade from blogs using Jekyll, Hugo, Gatsby, Contentlayer, or ContentCollections.",
+        "Wisp is a modern CMS for adding blogs to websites. It features an intuitive, medium-like editorial experience so that you can focus on writing instead of getting distracted by markdown.",
+        "Features",
+        "Part 1: Running the Next JS blog (15 min)",
+        "Part 3: Deploying Your Next.js Blog (15 min)",
+        "First, install the dependencies:",
+        "npm",
+        "IMPORTANT",
+        "into the install command. Make sure that Vercel's install command is set to use",
+        "npm i --legacy-peer-deps",
+        ".env.example",
+        ".env",
+        ".env.example .env",
+        "NEXT_PUBLIC_BLOG_ID",
+        "http://localhost:3000",
+        "Next.js blog application with Auth0 and Upstash"
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "blog",
+      "category_name": "Blog",
+      "template_url": "https://vercel.com/templates/blog/alpine",
+      "title": "Alpine",
+      "description": "A minimalist blog theme, powered by Nuxt & Markdown.",
+      "repo_url": "https://github.com/nuxt-themes/alpine",
+      "demo_url": "https://alpine.nuxt.space/",
+      "framework_match": false,
+      "framework_reason": "Primär stack: Nuxt (inte Next.js-lane)",
+      "stack_tags": [
+        "Nuxt",
+        "Pinceau"
+      ],
+      "css_tags": [],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "npx nuxi init",
+        "Setup",
+        "Install dependencies:",
+        "pnpm",
+        "install",
+        "Can be deployed to Vercel Functions, Netlify Functions, AWS, and most Node-compatible environments.",
+        "The HTML files will be generated in the .output/public directory and ready to be deployed to any static compatible hosting.",
+        "You might want to preview the result of your build locally, to do so, run the following command:",
+        "A kitchen sink template to demonstrate how to use Nuxt 3 features on Vercel."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "blog",
+      "category_name": "Blog",
+      "template_url": "https://vercel.com/templates/blog/astro-blog",
+      "title": "Astro Blog",
+      "description": "An ultra-minimal personal site & blog built with Astro.",
+      "repo_url": "https://github.com/withastro/astro",
+      "demo_url": "https://astro-template-blog.vercel.app/",
+      "framework_match": false,
+      "framework_reason": "Primär stack: Astro (inte Next.js-lane)",
+      "stack_tags": [
+        "Astro"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"
+      ],
+      "database_badges": [],
+      "auth_badges": [],
+      "important_lines": [
+        "npm",
+        "Features:",
+        "src/pages/",
+        "src/components/",
+        "src/content/",
+        "src/content/blog/",
+        "npm install",
+        "Installs dependencies",
+        "npm run dev",
+        "Starts local dev server at",
+        "localhost:4321",
+        "npm run build",
+        "npm run preview",
+        "Preview your build locally, before deploying",
+        "npm run astro ...",
+        "Run CLI commands like",
+        "npm run astro -- --help",
+        "Get help using the Astro CLI",
+        "The official 'Getting Started' template for Astro."
+      ],
+      "is_monorepo_example": false,
+      "is_tutorial_template": false,
+      "artifact_tier": "full-repo",
+      "discovery_source": "legacy-summary",
+      "image_url": null
+    },
+    {
+      "category_slug": "blog",
+      "category_name": "Blog",
+      "template_url": "https://vercel.com/templates/blog/astro-micro",
+      "title": "Astro Micro",
+      "description": "Accessible blog with search, comments, and zero frameworks.",
+      "repo_url": "https://github.com/trevortylerlee/astro-micro",
+      "demo_url": "https://astro-micro.vercel.app/",
+      "framework_match": false,
+      "framework_reason": "Primär stack: Astro (inte Next.js-lane)",
+      "stack_tags": [
+        "Other",
+        "Tailwind"
+      ],
+      "css_tags": [
+        "tailwind"
+      ],
+      "use_case_badges": [
+        "Blog"..."

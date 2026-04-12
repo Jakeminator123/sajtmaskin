@@ -25,13 +25,13 @@ export interface ScaffoldEmbeddingsFile {
 }
 
 function buildEmbeddingText(scaffold: ScaffoldManifest): string {
-  const locale = SCAFFOLD_EMBEDDING_LOCALE[scaffold.family];
+  const locale = SCAFFOLD_EMBEDDING_LOCALE[scaffold.id];
   const intents = buildIntentBilingual(scaffold.allowedBuildIntents);
   const filePaths = scaffold.files.map((f) => f.path).join(", ");
   return [
     `Scaffold (en): ${scaffold.label}`,
     `Scaffold (sv): ${locale.labelSv}`,
-    `Family / familj: ${scaffold.family}`,
+    `Scaffold id: ${scaffold.id}`,
     `Description (en): ${scaffold.description}`,
     `Beskrivning (sv): ${locale.descriptionSv}`,
     `Tags (en): ${scaffold.tags.join(", ")}`,

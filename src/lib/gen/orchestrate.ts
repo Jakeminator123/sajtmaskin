@@ -197,7 +197,6 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       lineageHash: pkg.lineageHash,
       buildIntent: pkg.buildSpec.buildIntent,
       scaffoldId: pkg.resolvedScaffold?.id ?? null,
-      scaffoldFamily: pkg.resolvedScaffold?.family ?? null,
       buildSpecChangeScope: pkg.buildSpec.changeScope,
       buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
       buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,

@@ -70,8 +70,7 @@ const clarification: ContractClarificationQuestion = {
 };
 
 const scaffold: ScaffoldManifest = {
-  id: "sc_1",
-  family: "saas-landing",
+  id: "saas-landing",
   label: "SaaS",
   description: "d",
   allowedBuildIntents: ["website"],
@@ -98,7 +97,7 @@ const buildSpec: BuildSpec = {
   buildIntent: "website",
   generationMode: "followUp",
   changeScope: "integration",
-  scaffoldFamily: "saas-landing",
+  scaffoldId: "saas-landing",
   routePlanSummary: "prompt:brochure:/,/pricing",
   stylePack: "saas",
   qualityTarget: "premium",
@@ -162,7 +161,7 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
     expect(meta.scaffoldLabel).toBeUndefined();
     expect(meta.capabilities).toBeUndefined();
     expect(meta.contractDataMode).toBe("persisted");
-    expect(meta.scaffoldId).toBe("sc_1");
+    expect(meta.scaffoldId).toBe("saas-landing");
     expect(meta.scaffoldFamily).toBe("saas-landing");
     expect(meta.buildSpec).toEqual(buildSpec);
 

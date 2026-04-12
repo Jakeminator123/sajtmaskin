@@ -226,7 +226,9 @@ export function BuildPlanCard({ rawPlan, onApproveBuild, approveDisabled = false
           <div className="rounded-md border border-border/60 bg-background/40 p-2.5 text-xs">
             <div className="text-sm font-medium text-foreground">{plan.scaffold.label}</div>
             <div className="mt-1 flex flex-wrap gap-2">
-              {plan.scaffold.family ? <Badge variant="outline">{plan.scaffold.family}</Badge> : null}
+              {plan.scaffold.family || plan.scaffold.id ? (
+                <Badge variant="outline">{plan.scaffold.family ?? plan.scaffold.id}</Badge>
+              ) : null}
               {plan.scaffold.source ? <Badge variant="secondary">{plan.scaffold.source}</Badge> : null}
             </div>
             {plan.scaffold.reason ? (

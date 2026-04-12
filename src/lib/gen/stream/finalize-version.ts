@@ -404,7 +404,6 @@ async function runFinalizeFastPath(params: {
       status: syntaxResult.status,
       pipelineError: syntaxResult.pipelineError,
       scaffoldId: params.resolvedScaffold?.id ?? null,
-      scaffoldFamily: params.resolvedScaffold?.family ?? null,
       resolvedTier: params.resolvedTier ?? null,
     });
   }
@@ -475,7 +474,6 @@ async function runFinalizeFastPath(params: {
         blockingFindings: findings.blocking.slice(0, 5),
         qualityFindings: findings.quality.slice(0, 5),
         scaffoldId: params.resolvedScaffold?.id ?? null,
-        scaffoldFamily: params.resolvedScaffold?.family ?? null,
         resolvedTier: params.resolvedTier ?? null,
       });
       onProgress?.("verifier", {
@@ -688,7 +686,6 @@ export async function finalizeAndSaveVersion(
           warnings: autoFixResult.warnings.slice(0, 20),
           dependencies: autoFixResult.dependencies,
           scaffoldId: params.resolvedScaffold?.id ?? null,
-          scaffoldFamily: params.resolvedScaffold?.family ?? null,
           resolvedTier: params.resolvedTier ?? null,
         });
       }
@@ -701,7 +698,6 @@ export async function finalizeAndSaveVersion(
           warning:
             "Deterministic autofix had to repair many issues. This usually indicates instability earlier in generation.",
           scaffoldId: params.resolvedScaffold?.id ?? null,
-          scaffoldFamily: params.resolvedScaffold?.family ?? null,
         });
       }
       onProgress?.("autofix", {
@@ -934,7 +930,7 @@ export async function finalizeAndSaveVersion(
         previewPolicy: buildSpec.previewPolicy,
         verificationPolicy: buildSpec.verificationPolicy,
         contextPolicy: buildSpec.contextPolicy,
-        scaffoldFamily: buildSpec.scaffoldFamily,
+        scaffoldId: buildSpec.scaffoldId,
         stylePack: buildSpec.stylePack,
       };
     }

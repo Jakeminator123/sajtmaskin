@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const appShellManifest: ScaffoldManifest = {
   id: "app-shell",
-  family: "app-shell",
   label: "App Shell",
   description:
     "Operational app shell with sidebar navigation, workspace summaries, queue tables, and execution-focused content areas.",

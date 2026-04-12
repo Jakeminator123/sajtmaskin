@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import scaffoldEmbeddings from "./scaffold-embeddings.json";
 import { getAllScaffolds } from "./registry";
+import type { ScaffoldId } from "./types";
 
 describe("scaffold-embeddings.json", () => {
   it("has exactly one embedding per registered scaffold id", () => {
@@ -13,7 +14,7 @@ describe("scaffold-embeddings.json", () => {
       expect(embedded.has(id), `missing embedding for ${id}`).toBe(true);
     }
     for (const id of embedded) {
-      expect(registered.has(id), `orphan embedding id ${id}`).toBe(true);
+      expect(registered.has(id as ScaffoldId), `orphan embedding id ${id}`).toBe(true);
     }
   });
 });

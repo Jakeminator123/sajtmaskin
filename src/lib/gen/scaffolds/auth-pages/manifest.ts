@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const authPagesManifest: ScaffoldManifest = {
   id: "auth-pages",
-  family: "auth-pages",
   label: "Auth Pages",
   description:
     "Login, signup, and forgot-password pages with form layout, validation-ready structure, and minimal branding.",

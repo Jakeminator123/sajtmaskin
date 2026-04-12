@@ -47,7 +47,7 @@ export function enrichPlanArtifactForReview(
         : {};
     nextPlan.scaffold = {
       id: resolvedScaffold.id,
-      family: resolvedScaffold.family,
+      family: resolvedScaffold.id,
       label:
         (typeof existingScaffold.label === "string" && existingScaffold.label) ||
         resolvedScaffold.label,

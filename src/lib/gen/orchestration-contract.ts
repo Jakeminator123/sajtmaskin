@@ -4,7 +4,6 @@ import type { ScaffoldManifest } from "./scaffolds/types";
 
 export interface ScaffoldRouteContract {
   scaffoldId: string | null;
-  scaffoldFamily: string | null;
   routeSource: RoutePlanSource;
   plannedRoutes: Array<{
     path: string;
@@ -39,7 +38,6 @@ export function buildOrchestrationContract(params: {
   return {
     scaffoldToRoute: {
       scaffoldId: resolvedScaffold?.id ?? null,
-      scaffoldFamily: resolvedScaffold?.family ?? null,
       routeSource: routePlan.provenance.primarySource,
       plannedRoutes: routePlan.routes.map((route) => ({
         path: route.path,

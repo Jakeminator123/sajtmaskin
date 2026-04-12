@@ -420,7 +420,9 @@ export function serializePlanForPrompt(plan: PlanArtifact): string {
     lines.push("", "### Scaffold");
     lines.push(
       `- ${normalizedPlan.scaffold.label}` +
-        (normalizedPlan.scaffold.family ? ` [${normalizedPlan.scaffold.family}]` : "") +
+        (normalizedPlan.scaffold.id || normalizedPlan.scaffold.family
+          ? ` [${normalizedPlan.scaffold.id ?? normalizedPlan.scaffold.family}]`
+          : "") +
         (normalizedPlan.scaffold.reason ? ` — ${normalizedPlan.scaffold.reason}` : ""),
     );
   }

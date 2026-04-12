@@ -237,7 +237,7 @@ export async function generateOwnEngineSiteFromPrompt(
       thinking,
       imageGenerations,
       scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-      scaffoldFamily: orchestrationBase.resolvedScaffold?.family ?? null,
+      scaffoldFamily: orchestrationBase.resolvedScaffold?.id ?? null,
       buildSpec: orchestrationBase.buildSpec,
     },
   });

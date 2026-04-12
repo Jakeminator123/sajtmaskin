@@ -2,7 +2,6 @@ import type { ScaffoldManifest } from "../types";
 
 export const landingPageManifest: ScaffoldManifest = {
   id: "landing-page",
-  family: "landing-page",
   label: "Landing Page",
   description:
     "Polished one-page or multi-section layout for local businesses, service companies, and product launches.",
