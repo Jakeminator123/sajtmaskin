@@ -57,11 +57,20 @@ EVAL_LATEST = REPO_ROOT / "data" / "scaffold-eval" / "reports" / "scaffold-selec
 SCHEMA_MD = REPO_ROOT / "struktur_scarf" / "schema.md"
 SCAFFOLD_CLI = REPO_ROOT / "scripts" / "scaffolds" / "scaffold_cli.py"
 
+ORCH_TS_SOURCES = {
+    "ScaffoldId / ScaffoldMode": SCAFFOLDS_DIR / "types.ts",
+    "BuildIntent / BuildMethod": REPO_ROOT / "src" / "lib" / "builder" / "build-intent.ts",
+    "PromptType / PromptStrategy": REPO_ROOT / "src" / "lib" / "builder" / "promptOrchestration.ts",
+    "SerializeMode": SCAFFOLDS_DIR / "serialize.ts",
+    "BuildSpec policies": REPO_ROOT / "src" / "lib" / "gen" / "build-spec.ts",
+}
+
 NAV_PAGES = (
     "Scaffolds",
     "Research & Dossiers",
     "Pipeline",
     "Eval",
+    "Orchestration Map",
     "Mental modell",
 )
 
@@ -139,6 +148,15 @@ def get_all_manifests() -> list[dict[str, Any]]:
             if parsed:
                 manifests.append(parsed)
     return manifests
+
+
+def extract_ts_union_values(text: str, type_name: str) -> list[str] | None:
+    """Extract string literal values from a TS union type like: type Foo = "a" | "b" | "c";"""
+    pattern = rf'(?:export\s+)?type\s+{re.escape(type_name)}\s*=\s*([\s\S]*?);'
+    m = re.search(pattern, text)
+    if not m:
+        return None
+    return re.findall(r'"([^"]+)"', m.group(1))
 
 
 def run_scaffold_cli(cmd: str, extra_args: list[str] | None = None) -> str:
@@ -475,6 +493,122 @@ elif page == "Eval":
             output = run_scaffold_cli("eval")
         st.code(output[-3000:] if len(output) > 3000 else output)
         st.rerun()
+
+
+# ===== PAGE: Orchestration Map =====
+elif page == "Orchestration Map":
+    st.header("Orchestration Map")
+    st.caption("Statisk referenskarta parsad direkt ur TS-koden. Visar vilka beslutspunkter systemet har och vilka v\u00e4rden som \u00e4r m\u00f6jliga.")
+
+    type_defs: list[dict[str, Any]] = []
+
+    def _load_union(file_key: str, type_name: str, description: str) -> None:
+        path = ORCH_TS_SOURCES.get(file_key)
+        if not path or not path.exists():
+            type_defs.append({"type": type_name, "values": ["(fil saknas)"], "source": str(path or "?"), "description": description})
+            return
+        text = path.read_text(encoding="utf-8")
+        vals = extract_ts_union_values(text, type_name)
+        if vals:
+            type_defs.append({"type": type_name, "values": vals, "source": path.name, "description": description})
+
+    _load_union("BuildIntent / BuildMethod", "BuildIntent", "Vad ska byggas?")
+    _load_union("BuildIntent / BuildMethod", "BuildMethod", "Hur kom requesten in?")
+    _load_union("PromptType / PromptStrategy", "PromptType", "Klassificerad prompttyp")
+    _load_union("PromptType / PromptStrategy", "PromptStrategy", "Prompt-budget/trunkerings-strategi")
+    _load_union("ScaffoldId / ScaffoldMode", "ScaffoldId", "Vilken scaffold (10 st)")
+    _load_union("ScaffoldId / ScaffoldMode", "ScaffoldMode", "Hur scaffolden v\u00e4ljs")
+    _load_union("ScaffoldId / ScaffoldMode", "ScaffoldSiteKind", "Scaffold site-kategori")
+    _load_union("ScaffoldId / ScaffoldMode", "ScaffoldComplexity", "Scaffold komplexitetsniv\u00e5")
+
+    serialize_path = ORCH_TS_SOURCES.get("SerializeMode")
+    if serialize_path and serialize_path.exists():
+        ser_text = serialize_path.read_text(encoding="utf-8")
+        ser_vals = extract_ts_union_values(ser_text, "ScaffoldSerializeMode")
+        if ser_vals:
+            type_defs.append({"type": "ScaffoldSerializeMode", "values": ser_vals, "source": serialize_path.name, "description": "Hur mycket scaffolden styr prompten"})
+
+    build_spec_path = ORCH_TS_SOURCES.get("BuildSpec policies")
+    if build_spec_path and build_spec_path.exists():
+        bs_text = build_spec_path.read_text(encoding="utf-8")
+        for bs_type, bs_desc in [
+            ("BuildSpecContextPolicy", "Tokenbudget-niv\u00e5 f\u00f6r scaffold"),
+            ("BuildSpecQualityTarget", "Quality gate-niv\u00e5"),
+            ("BuildSpecPreviewPolicy", "Preview-typ"),
+            ("BuildSpecVerificationPolicy", "Verifieringsniv\u00e5"),
+        ]:
+            bs_vals = extract_ts_union_values(bs_text, bs_type)
+            if bs_vals:
+                type_defs.append({"type": bs_type, "values": bs_vals, "source": build_spec_path.name, "description": bs_desc})
+
+    st.subheader("Beslutspunkter (fr\u00e5n TS-typer)")
+    for td in type_defs:
+        st.markdown(f"**{td['type']}** \u2014 {td['description']}")
+        st.code("  |  ".join(td["values"]), language=None)
+        st.caption(f"K\u00e4lla: {td['source']}")
+
+    st.divider()
+    st.subheader("Fl\u00f6de: Prompt \u2192 Genererad kod")
+    st.markdown("""
+```
+ANVA\u0308NDARENS PROMPT
+  \u2502
+  \u251c\u2500 1. PromptOrchestration \u2192 PromptType + PromptStrategy
+  \u2502      (klassificerar, budgeterar, trimmar)
+  \u2502
+  \u251c\u2500 2. Deep Brief (valfri)
+  \u2502      (strukturerat objekt: sidor, visuell riktning, SEO)
+  \u2502
+  \u251c\u2500 3. Scaffold-val \u2192 ScaffoldId
+  \u2502      \u251c\u2500 ScaffoldMode: off / auto / manual
+  \u2502      \u251c\u2500 Keyword-matchning (synkron, 9 listor)
+  \u2502      \u251c\u2500 Embedding-matchning (parallell, cosine)
+  \u2502      \u2514\u2500 Merge-policy + safety guards
+  \u2502
+  \u251c\u2500 4. Capability-inferens (auth, ecommerce, forms, 3D, motion...)
+  \u2502
+  \u251c\u2500 5. Route Plan (brief > scaffold > prompt)
+  \u2502
+  \u251c\u2500 6. Pre-generation Contracts (auth, payment, db, env vars)
+  \u2502
+  \u251c\u2500 7. BuildSpec \u2192 ContextPolicy + QualityTarget + PreviewPolicy
+  \u2502
+  \u251c\u2500 8. Scaffold-serialisering \u2192 ScaffoldSerializeMode
+  \u2502      (inspirational vid init, structural vid follow-up/heavy)
+  \u2502
+  \u251c\u2500 9. Dynamic Context + System Prompt
+  \u2502      (scaffold + routes + contracts + brief + style direction)
+  \u2502
+  \u2514\u250010. LLM-generering \u2192 CodeFile[] \u2192 Autofix \u2192 Preview
+```
+""")
+
+    st.divider()
+    st.subheader("Scaffold \u2194 Vercel Use Case")
+    manifests = get_all_manifests()
+    vercel_map = {
+        "landing-page": "Marketing Sites",
+        "saas-landing": "SaaS",
+        "portfolio": "Portfolio",
+        "blog": "Blog",
+        "ecommerce": "Ecommerce",
+        "dashboard": "Admin Dashboard",
+        "auth-pages": "Authentication",
+        "app-shell": "SaaS / Multi-Tenant",
+        "content-site": "Marketing Sites / CMS",
+        "base-nextjs": "Starter",
+    }
+    map_rows = []
+    for m in manifests:
+        sid = m.get("id", "?")
+        map_rows.append({
+            "Scaffold": sid,
+            "Vercel Use Case": vercel_map.get(sid, "?"),
+            "siteKind": m.get("siteKind", ""),
+            "complexity": m.get("complexity", ""),
+            "intents": ", ".join(m.get("allowedBuildIntents", [])),
+        })
+    st.dataframe(pd.DataFrame(map_rows), width="stretch", hide_index=True)
 
 
 # ===== PAGE: Mental modell =====
