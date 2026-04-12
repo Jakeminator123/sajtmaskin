@@ -48,6 +48,7 @@ import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { createCommitCreditsOnce } from "./credits-handler";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { isAppScaffold } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context/file-context-builder";
 import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
 import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
@@ -410,12 +411,15 @@ export async function handleMessageStreamRequest(
         if (metaPlanMode) {
           await chatRepo.addMessage(engineChat.id, "user", message);
 
-          const planEngineIntent: BuildIntent =
+          let planEngineIntent: BuildIntent =
             metaBuildIntent === "template" ||
             metaBuildIntent === "website" ||
             metaBuildIntent === "app"
               ? (metaBuildIntent as BuildIntent)
               : "website";
+          if (planEngineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+            planEngineIntent = "app";
+          }
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
@@ -530,12 +534,15 @@ export async function handleMessageStreamRequest(
 
         const promptForLlm = optimizedMessage;
 
-        const engineIntent: BuildIntent =
+        let engineIntent: BuildIntent =
           metaBuildIntent === "template" ||
           metaBuildIntent === "website" ||
           metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+          engineIntent = "app";
+        }
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
         const orchestrationInput = {
           prompt: optimizedMessage,

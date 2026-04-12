@@ -182,7 +182,7 @@ async function runStartPreviewSession(
     }
   }
 
-  const { collectRequiredUiComponents } = await import("@/lib/gen/export/project-scaffold-ui-reader");
+  const { collectRequiredUiComponents } = require("@/lib/gen/export/project-scaffold-ui-reader") as typeof import("@/lib/gen/export/project-scaffold-ui-reader");
   const projectFiles = buildCompleteProject(
     filesForProject,
     collectRequiredUiComponents(filesForProject),

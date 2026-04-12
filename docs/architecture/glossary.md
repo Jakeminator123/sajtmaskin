@@ -189,7 +189,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Scaffold Traits** | `ScaffoldTraits` (intern), `applyScaffoldTraits()` | `scaffold-traits.ts` | Per-scaffold trait-bundle: `siteKind`, `complexity`, `structureProfile`, `contentProfile`, `features`. Mergeas in i manifest. | kanonisk |
+| **Scaffold Traits** | _(borttagen)_ | _(var `scaffold-traits.ts`)_ | Per-scaffold trait-bundle (`siteKind`, `complexity`, `structureProfile`, `contentProfile`, `features`) definieras nu direkt i varje `manifest.ts`. `applyScaffoldTraits()` borttagen. | borttagen |
 | **Scaffold Research** | `ScaffoldResearchMetadata` | `scaffolds/types.ts` | `upgradeTargets`, `referenceTemplates`. | kanonisk |
 | **Scaffold Research File** | `ScaffoldResearchFile`, `getScaffoldResearchOverrides()` | `scaffold-research.ts` | Genererad fil `scaffold-research.generated.json`. Override per scaffold. | kanonisk |
 | **Scaffold Research Priorities** (prompt) | `"## Scaffold Research Priorities"` | `system-prompt.ts` | Promptblock som kombinerar `qualityChecklist` + `upgradeTargets` + referensrader. | kanonisk |

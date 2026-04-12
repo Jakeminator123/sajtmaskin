@@ -36,7 +36,6 @@ import { SHADCN_COMPONENTS } from "./data/shadcn-components";
 import { pickStyleDirection } from "./data/style-directions";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
-import { getStaticCoreFromWorkspace } from "./static-core-loader";
 import {
   buildBudgetedSystemPrompt,
   estimateTokens,
@@ -45,7 +44,18 @@ import {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
+// Loaded via require() to keep node:fs out of Turbopack's static analysis
+// while remaining available at server runtime.
 // ═══════════════════════════════════════════════════════════════════════════
+
+let _cachedStaticCore: string | null = null;
+function loadStaticCoreSync(): string {
+  if (_cachedStaticCore !== null) return _cachedStaticCore;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getStaticCoreFromWorkspace } = require("./static-core-loader") as typeof import("./static-core-loader");
+  _cachedStaticCore = getStaticCoreFromWorkspace();
+  return _cachedStaticCore;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DYNAMIC CONTEXT — varies per request
@@ -876,12 +886,12 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     generationMode: options.generationMode,
   });
 
-  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
+  return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
 }
 
 /** Compose static codegen core + dynamic context without re-running retrieval. */
 export function composeEngineSystemPrompt(dynamicContextText: string): string {
-  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContextText}`;
+  return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContextText}`;
 }
 
 /**

@@ -618,4 +618,4 @@ Fristående Streamlit-app: `sajtmaskin_backoffice.py` i repo-roten.
 | **Research & Dossiers** | catalog.json-vy (kuraterade templates med scores + scaffoldIds). Template-library status. Scaffold-research overrides per scaffold. |
 | **Pipeline** | Status-panel + knappar för varje steg (import, hydrate, build, embeddings, eval, verify, all). Live output. Artifact-status. |
 | **Eval** | Senaste eval-rapport: accuracy, per-scaffold, per-case tabell. Knapp: kör ny eval. |
-| **Mental modell** | Renderar `struktur_scarf/schema.md` + snabbfakta (antal scaffolds, IDs, site kinds, complexities). |
+| **Mental modell** | Renderar `docs/architecture/scaffold-schema.md` + snabbfakta (antal scaffolds, IDs, site kinds, complexities). |

@@ -56,10 +56,14 @@ public/images/
 
 # --- Canonical external-template pipeline (tung lokal data) ---
 data/external-template-pipeline/scrape-cache/**
-data/external-template-pipeline/raw-discovery/**
 data/external-template-pipeline/repo-cache/**
-data/external-template-pipeline/reference-library/**
+data/external-template-pipeline/raw-discovery/current/catalog.json
+data/external-template-pipeline/raw-discovery/current/summary.json
+data/external-template-pipeline/repo-cache/**
+data/external-template-pipeline/reference-library/catalog.json
 data/external-template-pipeline/reports/**
+data/external-template-pipeline/reference-library/dossiers/*/selected_files/**
+data/external-template-pipeline/reference-library/dossiers/*/manifest.json
 
 # --- Genererade artefakter (stora lokala JSON / embeddings) ---
 src/lib/gen/scaffolds/scaffold-embeddings.json

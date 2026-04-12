@@ -350,7 +350,7 @@ export async function runFinalizePreflight({
       });
     }
 
-    const { collectRequiredUiComponents } = await import("@/lib/gen/export/project-scaffold-ui-reader");
+    const { collectRequiredUiComponents } = require("@/lib/gen/export/project-scaffold-ui-reader") as typeof import("@/lib/gen/export/project-scaffold-ui-reader");
     const completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles)),
     ).files;

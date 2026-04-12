@@ -143,7 +143,7 @@ async function evaluatePrompt(
 
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
-  const { collectRequiredUiComponents } = await import("@/lib/gen/export/project-scaffold-ui-reader");
+  const { collectRequiredUiComponents } = require("@/lib/gen/export/project-scaffold-ui-reader") as typeof import("@/lib/gen/export/project-scaffold-ui-reader");
   const completeProjectFiles = buildCompleteProject(
     project.files,
     collectRequiredUiComponents(project.files),

@@ -54,7 +54,7 @@ EMBEDDINGS_JSON = SCAFFOLDS_DIR / "scaffold-embeddings.json"
 CATALOG_JSON = REPO_ROOT / "data" / "external-template-pipeline" / "reference-library" / "catalog.json"
 TEMPLATE_LIB_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
 EVAL_LATEST = REPO_ROOT / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json"
-SCHEMA_MD = REPO_ROOT / "struktur_scarf" / "schema.md"
+SCHEMA_MD = REPO_ROOT / "docs" / "architecture" / "scaffold-schema.md"
 SCAFFOLD_CLI = REPO_ROOT / "scripts" / "scaffolds" / "scaffold_cli.py"
 
 ORCH_TS_SOURCES = {
@@ -108,11 +108,21 @@ def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
     if m:
         result["description"] = m.group(1)[:120]
 
-    intents = re.findall(r'"(website|app|template)"', text.split("allowedBuildIntents")[1] if "allowedBuildIntents" in text else "")
+    intents_block = ""
+    if "allowedBuildIntents" in text:
+        m_intents = re.search(r'allowedBuildIntents:\s*\[(.*?)\]', text, re.DOTALL)
+        if m_intents:
+            intents_block = m_intents.group(1)
+    intents = re.findall(r'"(website|app|template)"', intents_block)
     if intents:
         result["allowedBuildIntents"] = intents
 
-    tags = re.findall(r'"([^"]+)"', text.split("tags:")[1].split("],")[0]) if "tags:" in text else []
+    tags_block = ""
+    if "tags:" in text:
+        m_tags = re.search(r'tags:\s*\[(.*?)\]', text, re.DOTALL)
+        if m_tags:
+            tags_block = m_tags.group(1)
+    tags = re.findall(r'"([^"]+)"', tags_block)
     result["tags"] = tags[:10]
 
     hints = text.count("promptHints")
@@ -124,7 +134,8 @@ def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
     research = "research:" in text
     result["has_research"] = research
 
-    file_count = text.count('path: "')
+    files_dir = manifest_path.parent / "files"
+    file_count = sum(1 for _ in files_dir.rglob("*") if _.is_file()) if files_dir.is_dir() else 0
     result["file_count"] = file_count
 
     for key in ("siteKind", "complexity", "structureProfile", "contentProfile"):
@@ -133,8 +144,9 @@ def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
             result[key] = m.group(1)
 
     if "features:" in text:
-        feat_block = text.split("features:")[1].split("],")[0]
-        result["features"] = re.findall(r'"([^"]+)"', feat_block)
+        m_feat = re.search(r'features:\s*\[(.*?)\]', text, re.DOTALL)
+        if m_feat:
+            result["features"] = re.findall(r'"([^"]+)"', m_feat.group(1))
 
     return result
 
@@ -265,8 +277,11 @@ if page == "Scaffolds":
                     return []
                 return re.findall(r'"([^"]*)"', m.group(1))
 
+            def _escape_ts_string(s: str) -> str:
+                return s.replace("\\", "\\\\").replace('"', '\\"')
+
             def _write_ts_string_array(text: str, field: str, values: list[str]) -> str:
-                items = ", ".join(f'"{v}"' for v in values)
+                items = ", ".join(f'"{_escape_ts_string(v)}"' for v in values)
                 pattern = rf'({field}:\s*)\[.*?\]'
                 return re.sub(pattern, rf'\g<1>[{items}]', text, count=1, flags=re.DOTALL)
 
@@ -281,7 +296,7 @@ if page == "Scaffolds":
                 if not values:
                     pattern = rf'({field}:\s*)\[.*?\]'
                     return re.sub(pattern, rf'\g<1>[]', text, count=1, flags=re.DOTALL)
-                items = "\n".join(f'    "{v}",' for v in values)
+                items = "\n".join(f'    "{_escape_ts_string(v)}",' for v in values)
                 pattern = rf'({field}:\s*)\[.*?\]'
                 return re.sub(pattern, rf'\g<1>[\n{items}\n  ]', text, count=1, flags=re.DOTALL)
 
@@ -455,36 +470,27 @@ elif page == "Eval":
         results = eval_data.get("results", [])
         summary = eval_data.get("summary", {})
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total cases", summary.get("totalCases", len(results)))
-        col2.metric("Correct", summary.get("correct", "?"))
-        col3.metric("Accuracy", f"{summary.get('accuracy', 0):.0%}" if isinstance(summary.get("accuracy"), (int, float)) else "?")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total cases", summary.get("total", len(results)))
+        col2.metric("Keyword Top-1", f"{summary.get('keywordTop1Accuracy', 0):.1f}%" if isinstance(summary.get("keywordTop1Accuracy"), (int, float)) else "?")
+        col3.metric("Semantic Top-1", f"{summary.get('semanticTop1Accuracy', 0):.1f}%" if isinstance(summary.get("semanticTop1Accuracy"), (int, float)) else "?")
+        col4.metric("Semantic Top-3", f"{summary.get('semanticTop3Accuracy', 0):.1f}%" if isinstance(summary.get("semanticTop3Accuracy"), (int, float)) else "?")
 
         if results:
             eval_rows = []
             for r in results:
                 eval_rows.append({
-                    "prompt": r.get("prompt", "")[:80],
+                    "id": r.get("id", ""),
                     "expected": r.get("expected", ""),
-                    "actual": r.get("actual", ""),
-                    "correct": r.get("correct", False),
-                    "method": r.get("method", ""),
-                    "confidence": r.get("confidence", ""),
+                    "keyword": r.get("keywordTop1", ""),
+                    "semantic": r.get("semanticTop1", ""),
+                    "kw_ok": r.get("keywordTop1Correct", False),
+                    "sem_ok": r.get("semanticTop1Correct", False),
+                    "method": r.get("semanticMethod", ""),
+                    "confidence": r.get("semanticConfidence", ""),
                 })
             st.dataframe(pd.DataFrame(eval_rows), width="stretch", hide_index=True)
 
-        per_scaffold = summary.get("perScaffold", {})
-        if per_scaffold:
-            st.subheader("Per scaffold")
-            ps_rows = []
-            for sid, data in sorted(per_scaffold.items()):
-                ps_rows.append({
-                    "scaffold": sid,
-                    "total": data.get("total", 0),
-                    "correct": data.get("correct", 0),
-                    "accuracy": f"{data.get('accuracy', 0):.0%}" if isinstance(data.get("accuracy"), (int, float)) else "?",
-                })
-            st.dataframe(pd.DataFrame(ps_rows), width="stretch", hide_index=True)
     else:
         st.info("Ingen eval-rapport hittades. Kör `npm run scaffolds:eval` eller tryck nedan.")
 

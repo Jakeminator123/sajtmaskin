@@ -4,7 +4,7 @@ import type { ShadcnBlockSelection } from "@/components/builder/UiElementPicker"
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteSelection, PaletteState } from "@/lib/builder/palette";
 import type { BuildMethod } from "@/lib/builder/build-intent";
-import type { ScaffoldMode } from "@/lib/gen/scaffolds";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
 import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";

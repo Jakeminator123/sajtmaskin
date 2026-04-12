@@ -13,7 +13,7 @@ import { repairGeneratedFiles } from "../autofix/repair-generated-files";
  * its `fs.readFileSync` calls out of Turbopack's static bundle analysis.
  */
 export async function buildExportableProject(generatedFiles: CodeFile[]): Promise<CodeFile[]> {
-  const { collectRequiredUiComponents } = await import("./project-scaffold-ui-reader");
+  const { collectRequiredUiComponents } = require("./project-scaffold-ui-reader") as typeof import("./project-scaffold-ui-reader");
   const uiComponents = collectRequiredUiComponents(generatedFiles);
   return repairGeneratedFiles(buildCompleteProject(generatedFiles, uiComponents)).files;
 }

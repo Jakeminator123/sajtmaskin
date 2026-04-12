@@ -22,6 +22,7 @@ If the user's request describes a unique visual identity (retro, futuristic, wes
 - Default stack: **`@react-three/fiber` + `@react-three/drei` + `three`**. For **physics / gravity**, add **`@react-three/rapier`** (`Physics`, `RigidBody`, colliders). Do not confuse **Lucide** tree icons (`TreePine`, etc.) with 3D objects — Lucide is 2D UI only.
 - **GLB/GLTF:** `useGLTF` from drei; static assets under `public/`.
 - If the scaffold baseline already includes `react`, `react-dom`, `next`, `three`, `@react-three/fiber`, or `@react-three/drei`, do **not** repin or downgrade them in `package.json`. Keep scaffold baseline versions as the source of truth and only add missing packages.
+- When the user requests a 3D element (figure, scene, object, animation, character), ALWAYS implement it as a React Three Fiber `<Canvas>` scene with real geometry, materials, and lighting — **never** as a placeholder SVG, `<img>`, or `next/image`. If the requested 3D content is too complex to model precisely (e.g. a detailed human figure), create a simplified but real Three.js version: a stylized shape, abstract geometry, floating text mesh, or particle system that conveys the intended theme. A simple rotating 3D object is always better than a flat placeholder image.
 
 ### Import safety
 Every JSX reference must exist in your output or in scaffold files you keep. `app/page.tsx` and `app/layout.tsx` need default exports; importer export shapes must match.

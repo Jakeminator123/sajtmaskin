@@ -58,3 +58,16 @@ export interface ScaffoldManifest {
   qualityChecklist?: string[];
   research?: ScaffoldResearchMetadata;
 }
+
+export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<{ id: ScaffoldId; label: string; description: string }> = [
+  { id: "base-nextjs", label: "Base Next.js", description: "Minimal Next.js starter with Tailwind, App Router, and dark theme." },
+  { id: "landing-page", label: "Landing Page", description: "Marketing landing page with hero, services, testimonials, and CTA." },
+  { id: "saas-landing", label: "SaaS Landing", description: "SaaS marketing site with pricing tiers, features, and trial CTA." },
+  { id: "portfolio", label: "Portfolio", description: "Creative portfolio with project gallery, case studies, and contact." },
+  { id: "blog", label: "Blog", description: "Editorial blog with article list, categories, and author pages." },
+  { id: "dashboard", label: "Dashboard", description: "Analytics dashboard with charts, KPI cards, and data tables." },
+  { id: "auth-pages", label: "Auth Pages", description: "Authentication pages: sign in, sign up, and password reset." },
+  { id: "ecommerce", label: "E-handel", description: "E-commerce storefront with product grid, cart, and checkout." },
+  { id: "content-site", label: "Content Site", description: "Multi-section content site with hero, features, and testimonials." },
+  { id: "app-shell", label: "App Shell", description: "Application shell with sidebar, settings, and workspace layout." },
+] as const;

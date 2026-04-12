@@ -140,7 +140,7 @@ function scoreRouteRelevance(
       score += 2;
       continue;
     }
-    if (normalizedPath.includes(needle)) {
+    if (normalizedPath.includes(`/${needle}/`) || normalizedPath.includes(`/${needle}.`) || normalizedPath.endsWith(`/${needle}`)) {
       score += 4;
     }
   }
@@ -199,11 +199,13 @@ function renderSelectedScaffoldFiles(
     const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
     if (usedChars + block.length > maxChars) {
       const remaining = Math.max(0, maxChars - usedChars - 200);
-      if (remaining > 200 && usedChars === 0) {
+      if (remaining > 200) {
         const truncated = file.content.slice(0, remaining);
         blocks.push(`\`\`\`${inferLang(file.path)} file="${file.path}"\n${truncated}\n// ... truncated\n\`\`\``);
-      } else if (blocks.length > 0) {
-        blocks.push(`_Additional critical scaffold files omitted for prompt budget: ${files.length - blocks.length}_`);
+      }
+      const omitted = files.length - blocks.length;
+      if (omitted > 0) {
+        blocks.push(`_${omitted} additional critical scaffold file${omitted > 1 ? "s" : ""} omitted for prompt budget_`);
       }
       break;
     }
@@ -226,7 +228,10 @@ function renderScaffoldFiles(scaffold: ScaffoldManifest, maxChars = 140_000): st
         blocks.push(`\`\`\`${inferLang(file.path)} file="${file.path}"\n${truncated}\n// ... truncated\n\`\`\``);
         usedChars = maxChars;
       }
-      blocks.push(`_Additional scaffold files omitted for length: ${scaffold.files.length - blocks.length}_`);
+      const omitted = scaffold.files.length - blocks.length;
+      if (omitted > 0) {
+        blocks.push(`_${omitted} additional scaffold file${omitted > 1 ? "s" : ""} omitted for length_`);
+      }
       break;
     }
 

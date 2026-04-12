@@ -166,7 +166,7 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
 
   if (caps.needs3D) {
     lines.push(
-      '- **3D/WebGL requested**: Use @react-three/fiber + @react-three/drei. Wrap Canvas in a "use client" component. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. For **physics / gravity**, add @react-three/rapier (Physics, RigidBody). For **GLB/GLTF**, use useGLTF from drei and put assets under public/.',
+      '- **3D/WebGL detected**: You MUST implement 3D elements using @react-three/fiber code — NEVER as placeholder SVGs or static images. Create a real `<Canvas>` scene with meshes, lighting, and camera. Wrap the Canvas component in `"use client"`. Add three, @react-three/fiber, @react-three/drei to deps. Use **lucide-react** only for 2D UI icons (e.g. TreePine) — not for WebGL meshes. For **physics / gravity**, add @react-three/rapier (Physics, RigidBody). For **GLB/GLTF**, use useGLTF from drei and put assets under public/. If the requested 3D content is too complex, create a simplified but real Three.js version (rotating shape, abstract geometry, or particle system with the requested theme) rather than falling back to an image.',
     );
   }
   if (caps.needsMotion && !caps.needs3D) {

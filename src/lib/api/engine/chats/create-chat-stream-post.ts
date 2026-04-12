@@ -53,6 +53,7 @@ import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { isAppScaffold } from "@/lib/builder/build-intent";
 import {
   buildOwnEngineGenerationStreamMeta,
   buildPreGenerationContractGateParams,
@@ -340,10 +341,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       // ── Plan Mode Path ────────────────────────────────────────────────
       if (metaPlanMode) {
         const planModel = resolvePlanModePlannerModelId(resolvedModelTier);
-        const engineIntent: BuildIntent =
+        let engineIntent: BuildIntent =
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+          engineIntent = "app";
+        }
         const planOrchestrationStartedAt = Date.now();
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
@@ -482,10 +486,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
       // ── Own Engine Path ───────────────────────────────────────────────
       {
-        const engineIntent: BuildIntent =
+        let engineIntent: BuildIntent =
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+          engineIntent = "app";
+        }
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
         const metaThemeColors = parsedMeta.themeColors;

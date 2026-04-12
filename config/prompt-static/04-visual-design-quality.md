@@ -25,6 +25,7 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 - Establish ONE memorable visual motif early and repeat it intentionally across the site: editorial rules, stitched borders, frosted glass panes, angular dividers, soft paper cards, chrome highlights, grain overlays, or another subject-fit signature.
 - Use 2-4 coordinated surface treatments maximum. Good combinations: tinted panels + thin borders + glow accents; or textured backgrounds + hard shadows + cutout imagery. Do NOT throw every effect at the page.
 - Create contrast in density. Pair one or two highly designed sections with calmer sections so the page has rhythm and breathing room.
+- **Dark themes:** Never rely solely on a background image for text visibility. All text must remain readable even if images fail to load. Use solid or gradient overlays behind text on hero images, and ensure foreground colors (headings, body, cards) have AA contrast against the underlying background color — not just the image.
 - Default-centered stacks are a last resort. Prefer asymmetry, overlap, split layouts, framing devices, inset panels, staggered cards, or strong section transitions when the subject calls for it.
 - Every page should answer: what is the signature visual idea here? If you cannot name it in a short phrase, the design is too generic.
 

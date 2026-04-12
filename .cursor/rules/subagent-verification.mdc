@@ -7,7 +7,7 @@ alwaysApply: false
 
 Billiga/snabba subagenter (fast model) kan introducera duplikat-fält, felaktiga nyckelnamn, eller brutna imports. Kör alltid dessa steg efter subagent-ändringar:
 
-1. `npx tsc --noEmit` — 0 fel krävs (exkl. `struktur_scarf/`)
+1. `npx tsc --noEmit` — 0 fel krävs
 2. Greppning efter duplikat-nycklar: `rg "scaffoldId.*\n.*scaffoldId" --glob "*.ts" -U` (byt ut nyckelnamn efter behov)
 3. Vid scaffold-ändringar: verifiera `getAllScaffolds().map(s => s.files.length)` ger rätt antal
 4. Commit aldrig utan att typecheck passerar
