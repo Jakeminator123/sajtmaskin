@@ -91,7 +91,7 @@ function keywordScore(query: string, entry: TemplateLibraryEntry): number {
     entry.classification.siteFormTags.join(" "),
     entry.classification.technicalPatternTags.join(" "),
     entry.strengths.join(" "),
-    entry.recommendedScaffoldFamilies.join(" "),
+    entry.recommendedScaffoldIds.join(" "),
   ].join(" "));
 
   let score = 0;

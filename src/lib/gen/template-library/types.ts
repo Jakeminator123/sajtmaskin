@@ -1,4 +1,4 @@
-import type { ScaffoldFamily } from "@/lib/gen/scaffolds/types";
+import type { ScaffoldId } from "@/lib/gen/scaffolds/types";
 
 export type TemplateLibraryVerdict =
   | "valid"
@@ -73,7 +73,7 @@ export interface TemplateLibraryEntry {
   noiseLines: string[];
   strengths: string[];
   weaknesses: string[];
-  recommendedScaffoldFamilies: ScaffoldFamily[];
+  recommendedScaffoldIds: ScaffoldId[];
   signals: TemplateLibrarySignals;
   classification: TemplateLibraryClassification;
   summary: string;

@@ -258,7 +258,7 @@ elif page == "Research & Dossiers":
                 "title": e.get("title", ""),
                 "category": e.get("categorySlug", ""),
                 "score": e.get("qualityScore", 0),
-                "scaffoldIds": ", ".join(e.get("recommendedScaffoldFamilies", e.get("recommendedScaffoldIds", []))),
+                "scaffoldIds": ", ".join(e.get("recommendedScaffoldIds", [])),
                 "verdict": e.get("verdict", ""),
             })
         if cat_rows:

@@ -67,7 +67,7 @@ function chooseBaseScaffold(entry: TemplateLibraryEntry, explicitBase: string | 
     return scaffold;
   }
 
-  for (const family of entry.recommendedScaffoldFamilies) {
+  for (const family of entry.recommendedScaffoldIds) {
     const scaffold = getScaffoldById(family);
     if (scaffold) return scaffold;
   }
@@ -160,7 +160,7 @@ function deriveTags(entry: TemplateLibraryEntry, baseScaffold: ScaffoldManifest)
   const rawTags = [
     ...baseScaffold.tags,
     entry.categorySlug,
-    ...entry.recommendedScaffoldFamilies,
+    ...entry.recommendedScaffoldIds,
     ...entry.stackTags.map((tag) => slugify(tag)),
     ...entry.strengths.map((tag) => slugify(tag)),
   ];

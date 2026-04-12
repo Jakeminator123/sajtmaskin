@@ -56,7 +56,7 @@ describe("template-library external templates (local generated catalog)", () => 
       expect(e.title?.trim().length).toBeGreaterThan(0);
       expect(e.categoryName?.trim().length).toBeGreaterThan(0);
       expect(e.summary?.trim().length).toBeGreaterThan(0);
-      expect(e.recommendedScaffoldFamilies?.length).toBeGreaterThan(0);
+      expect(e.recommendedScaffoldIds?.length).toBeGreaterThan(0);
       expect(e.classification?.useCaseTags?.length ?? 0).toBeGreaterThan(0);
       expect(e.classification?.siteFormTags?.length ?? 0).toBeGreaterThan(0);
       expect(Array.isArray(e.classification?.technicalPatternTags)).toBe(true);
@@ -71,7 +71,7 @@ describe("template-library external templates (local generated catalog)", () => 
 
   it("only references known runtime scaffold families", () => {
     for (const entry of entries) {
-      for (const family of entry.recommendedScaffoldFamilies) {
+      for (const family of entry.recommendedScaffoldIds) {
         expect(knownScaffoldFamilies.has(family), `unknown scaffold family ${family} on ${entry.id}`).toBe(true);
       }
     }

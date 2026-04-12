@@ -417,13 +417,13 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `registry.ts` | `getScaffoldByFamily()` — primary lookup | Ja — byt till `getScaffoldById()` |
 | `matcher.ts` | 14 anrop till `getScaffoldByFamily("...")` | Ja — varje anrop kan bli `getScaffoldById()` |
 | `build-spec.ts` | `scaffoldFamily: ScaffoldFamily \| null` fält | Ja — byt till `scaffoldId` |
-| `template-library/types.ts` | `recommendedScaffoldFamilies: ScaffoldFamily[]` | **Nej** — en dossier kan rekommendera flera families |
+| `template-library/types.ts` | `recommendedScaffoldIds: ScaffoldId[]` | **Nej** — en dossier kan rekommendera flera scaffold-id:n |
 | `scaffold-embedding-locale.ts` | Nycklar per family | Ja — byt till id |
 | `scaffold-aware-retry.ts` | Retry per family | Ja — byt till id |
 | `style-directions.ts` | Style per scaffold | Ja |
 | `diagnostics.ts` | Telemetri | Ja |
 | `orchestration-contract.ts` | `scaffoldFamily` i contract | Ja — byt till id |
-| Dossier-manifests (catalog.json) | `recommendedScaffoldFamilies[]` | **Nej** — extern mapping |
+| Dossier-manifests (catalog.json) | `recommendedScaffoldIds[]` | **Nej** — extern mapping |
 
 ### Rekommendation: KOLLAPSA, inte ta bort
 
@@ -437,10 +437,10 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 3. **Byt alla `getScaffoldByFamily()`-anrop till `getScaffoldById()`** (14 st i matcher.ts)
 
-4. **Behåll `recommendedScaffoldFamilies` i dossier-typer** — byt namn till `recommendedScaffoldIds`
+4. **Byt namn** `recommendedScaffoldFamilies` → **`recommendedScaffoldIds`** i template-library-typer och genererad katalog
 
 **Varför inte helt ta bort?**
-- `recommendedScaffoldFamilies` i template-library-typer och dossier-manifests (97 kuraterade) pekar på families. En extern template mappar till *flera* (t.ex. `["ecommerce", "dashboard", "app-shell"]`)
+- `recommendedScaffoldIds` i template-library-typer och dossier-manifests (97 kuraterade) pekar på families. En extern template mappar till *flera* (t.ex. `["ecommerce", "dashboard", "app-shell"]`)
 - Om du framtida vill ha varianter (ecommerce-minimal, ecommerce-full) behövs ett grupperingskoncept
 - Men just nu orsakar den separata typen + fältet bara förvirring
 

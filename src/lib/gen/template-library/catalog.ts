@@ -48,9 +48,18 @@ function sanitizeCatalogPath(value: string | null | undefined): string | null {
   return normalized.replace(/^\.\//, "");
 }
 
-function sanitizeEntry(entry: TemplateLibraryEntry): TemplateLibraryEntry {
+/** Generated JSON may lag behind type renames; accept legacy key until the next catalog rebuild. */
+type TemplateLibraryEntryJson = TemplateLibraryEntry & {
+  recommendedScaffoldFamilies?: TemplateLibraryEntry["recommendedScaffoldIds"];
+};
+
+function sanitizeEntry(entry: TemplateLibraryEntryJson): TemplateLibraryEntry {
+  const recommendedScaffoldIds =
+    entry.recommendedScaffoldIds ?? entry.recommendedScaffoldFamilies ?? [];
+  const { recommendedScaffoldFamilies: _legacyFamilies, ...rest } = entry;
   return {
-    ...entry,
+    ...rest,
+    recommendedScaffoldIds,
     repo: {
       ...entry.repo,
       clonePath: sanitizeCatalogPath(entry.repo.clonePath),
