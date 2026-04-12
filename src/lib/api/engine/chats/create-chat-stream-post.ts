@@ -299,6 +299,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         promptStrategy: strategyMeta.strategy,
         promptType: strategyMeta.promptType,
       });
+      devLogStartNewSite({
+        message: optimizedMessage,
+        modelId: resolvedModelId,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
+        projectId,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
+      });
       devLogAppend("in-progress", {
         type: "comm.request.create",
         modelId: resolvedModelId,
@@ -321,22 +329,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
       });
-
       debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
         promptAssistModel: parsedMeta.promptAssistModel,
         promptAssistDeep: parsedMeta.promptAssistDeep,
         promptAssistMode: parsedMeta.promptAssistMode,
         promptStrategy: strategyMeta.strategy,
         promptType: strategyMeta.promptType,
-      });
-
-      devLogStartNewSite({
-        message: optimizedMessage,
-        modelId: resolvedModelId,
-        thinking: resolvedThinking,
-        imageGenerations: resolvedImageGenerations,
-        projectId,
-        slug: metaBuildMethod || metaBuildIntent || undefined,
       });
 
       // ── Plan Mode Path ────────────────────────────────────────────────

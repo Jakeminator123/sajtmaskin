@@ -9,12 +9,12 @@ import { Loader2 } from "lucide-react";
  */
 
 const FACTS = [
-  { company: "Max Ventures", fact: "Investerar och utvecklar innovativa företag inom olika branscher" },
-  { company: "Bilen&Jag", fact: "Svensk plattform som förenklar köp och ägande av bil" },
-  { company: "Prometheus", fact: "Internationellt ledande AI-företag inom poker" },
-  { company: "DG97", fact: "Kontorshotellet på Drottninggatan" },
-  { company: "1753 Scincare", fact: "Hudvårdsmärke med fokus på naturliga ingredienser" },
-  { company: "Raymond Media", fact: "Producerar digitalt innehåll för ledande varumärken" },
+  { company: "Sajtmaskin", fact: "Genererar Next.js-sajter med AI — från prompt till live-preview" },
+  { company: "Scaffold-system", fact: "Väljer automatiskt rätt sidstruktur baserat på din beskrivning" },
+  { company: "Quality Gate", fact: "Varje genererad sajt genomgår syntax-validering och visuell QA" },
+  { company: "Live Preview", fact: "Din sajt körs i en riktig VM med Next.js — inte bara en statisk bild" },
+  { company: "Autofix", fact: "Mekaniska och LLM-drivna fixar rättar vanliga kodfel automatiskt" },
+  { company: "Post-check", fact: "SEO, analytics och tillgänglighet granskas efter varje generering" },
 ];
 
 export function ThinkingOverlay({ isVisible }: { isVisible: boolean }) {

@@ -633,6 +633,16 @@ export async function handleMessageStreamRequest(
           engineModel,
           fallback: false,
         });
+        devLogStartGeneration({
+          message: optimizedMessage,
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          projectId: engineChat.project_id ?? undefined,
+          slug: metaBuildMethod || metaBuildIntent || undefined,
+          chatId,
+          generationKind: "followup",
+        });
         devLogAppend("in-progress", {
           type: "comm.request.followup",
           chatId,
@@ -656,16 +666,6 @@ export async function handleMessageStreamRequest(
           imageGenerations: resolvedImageGenerations,
           followUpIntent,
           baseVersionId: metaEngineBaseVersionId,
-        });
-        devLogStartGeneration({
-          message: optimizedMessage,
-          modelId: resolvedModelId,
-          thinking: resolvedThinking,
-          imageGenerations: resolvedImageGenerations,
-          projectId: engineChat.project_id ?? undefined,
-          slug: metaBuildMethod || metaBuildIntent || undefined,
-          chatId,
-          generationKind: "followup",
         });
         if (contractClarification) {
           const assistantQuestion = await chatRepo.addMessage(

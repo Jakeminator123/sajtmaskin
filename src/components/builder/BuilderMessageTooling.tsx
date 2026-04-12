@@ -19,6 +19,15 @@ import {
 } from "@/components/ui/collapsible";
 import { useState } from "react";
 import type { ToolUIPart } from "ai";
+import {
+  PostCheckPanel,
+  ReviewBlock,
+  ActionStrip,
+  QualityGatePanel,
+  ServerRepairPanel,
+  formatDurationMsShort,
+  formatUtcClock,
+} from "./review-panels";
 
 type ToolPart = Extract<MessagePart, { type: "tool" }>;
 
@@ -263,28 +272,7 @@ export function StructuredToolParts({
           hasInput,
           hasOutput,
         };
-        const postCheckSummary =
-          toolType === "tool-post-check" ? getPostCheckSummary(tool.output) : null;
-        const seoReviewSummary =
-          toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
-        const seoActionPrompt =
-          toolType === "tool-post-check" ? getSeoActionPrompt(tool.output) : null;
-        const analyticsReviewSummary =
-          toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
-        const analyticsActionPrompt =
-          toolType === "tool-post-check" ? getAnalyticsActionPrompt(tool.output) : null;
-        const editorialReviewSummary =
-          toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
-        const editorialActionPrompt =
-          toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
-        const businessWorkflowSummary =
-          toolType === "tool-post-check" ? getBusinessWorkflowSummary(tool.output) : null;
-        const businessWorkflowActionPrompt =
-          toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
-        const qualityGateSummary =
-          toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
-        const serverRepairSummary =
-          toolType === "tool-quality-gate" ? getServerRepairSummary(tool.output) : null;
+        const summaries = extractToolSummaries(toolType, tool.output);
         const toolHasData = hasToolData(tool as ToolUIPart);
 
         return (
@@ -328,415 +316,144 @@ export function StructuredToolParts({
                 output={tool.output}
                 errorText={typeof tool.errorText === "string" ? tool.errorText : undefined}
               />
-              {postCheckSummary && (
-                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-                    Post-check-sammanfattning
-                  </div>
-                  <div className="text-muted-foreground space-y-1">
-                    {postCheckSummary.files !== null && <div>Filer: {postCheckSummary.files}</div>}
-                    {postCheckSummary.added !== null &&
-                      postCheckSummary.modified !== null &&
-                      postCheckSummary.removed !== null && (
-                        <div>
-                          Ändringar: +{postCheckSummary.added} ~{postCheckSummary.modified} -
-                          {postCheckSummary.removed}
-                        </div>
-                      )}
-                    {postCheckSummary.warnings !== null && (
-                      <div>Varningar: {postCheckSummary.warnings}</div>
-                    )}
-                    {postCheckSummary.autoFixQueued ? (
-                      <div className="text-amber-300">Status: autofix är köad efter post-check</div>
-                    ) : postCheckSummary.qualityGatePending ? (
-                      <div className="text-cyan-300">Status: quality gate körs fortfarande</div>
-                    ) : postCheckSummary.provisional ? (
-                      <div className="text-amber-300">
-                        Status: preliminär version medan verifieringen slutförs
-                      </div>
-                    ) : null}
-                    {postCheckSummary.previousVersionId && (
-                      <div>Föregående version: {postCheckSummary.previousVersionId}</div>
-                    )}
-                    {postCheckSummary.demoUrl && (
-                      <a
-                        className="text-primary inline-flex items-center gap-1"
-                        href={postCheckSummary.demoUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        Öppna preview-länk
-                      </a>
-                    )}
-                  </div>
-                </div>
+              {summaries.postCheck && <PostCheckPanel {...summaries.postCheck} />}
+              {summaries.seo ? (
+                <ReviewBlock
+                  variant="full"
+                  title="SEO review"
+                  passed={summaries.seo.passed}
+                  passedLabel="SEO-baseline ser bra ut."
+                  failedLabel={`${summaries.seo.issueCount} SEO-varning(ar) hittades.`}
+                  details={[
+                    `Canonical: ${summaries.seo.canonical ? "ja" : "nej"}`,
+                    `OG image-strategi: ${summaries.seo.ogImage ? "ja" : "nej"}`,
+                    ...(summaries.seo.homeH1Count !== null ? [`Startsidans h1-count: ${summaries.seo.homeH1Count}`] : []),
+                  ]}
+                  issues={summaries.seo.topIssues}
+                  tips={summaries.seo.suggestedPrompts}
+                />
+              ) : null}
+              {summaries.seoAction && (
+                <ActionStrip
+                  variant="full"
+                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  color="cyan"
+                  title="Snabb SEO-fix"
+                  question={summaries.seoAction.question}
+                  options={summaries.seoAction.options}
+                  labels={summaries.seoAction.labels}
+                  keyPrefix="seo"
+                  messageId={messageId}
+                  pendingQuickReplyKey={pendingQuickReplyKey}
+                  onQuickReply={onQuickReply}
+                  quickReplyDisabled={quickReplyDisabled}
+                  formatButtonLabel={(option, idx, total) => idx === total - 1 ? "Annat" : `Fixa ${summaries.seoAction!.labels[idx] ?? option}`}
+                />
               )}
-              {seoReviewSummary ? (
-                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-                    SEO review
-                  </div>
-                  <div className="space-y-1 text-muted-foreground">
-                    <div className={seoReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
-                      {seoReviewSummary.passed
-                        ? "SEO-baseline ser bra ut."
-                        : `${seoReviewSummary.issueCount} SEO-varning(ar) hittades.`}
-                    </div>
-                    <div>Canonical: {seoReviewSummary.canonical ? "ja" : "nej"}</div>
-                    <div>OG image-strategi: {seoReviewSummary.ogImage ? "ja" : "nej"}</div>
-                    {seoReviewSummary.homeH1Count !== null ? (
-                      <div>Startsidans h1-count: {seoReviewSummary.homeH1Count}</div>
-                    ) : null}
-                    {seoReviewSummary.topIssues.length > 0 ? (
-                      <ul className="mt-1 space-y-1">
-                        {seoReviewSummary.topIssues.slice(0, 4).map((issue) => (
-                          <li key={issue}>- {issue}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {seoReviewSummary.suggestedPrompts.length > 0 ? (
-                      <ul className="mt-1 space-y-1">
-                        {seoReviewSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
-                          <li key={prompt}>- {prompt}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                </div>
+              {summaries.analytics ? (
+                <ReviewBlock
+                  variant="full"
+                  title="Analytics review"
+                  passed={summaries.analytics.passed}
+                  passedLabel="Tracking-baseline ser rimlig ut."
+                  failedLabel={`${summaries.analytics.issueCount} tracking-varning(ar) hittades.`}
+                  details={[
+                    `Tracker hittad: ${summaries.analytics.trackerDetected ? "ja" : "nej"}`,
+                    ...(summaries.analytics.trackerProviders.length > 0 ? [`Providers: ${summaries.analytics.trackerProviders.join(", ")}`] : []),
+                    `Konverteringsytor: ${summaries.analytics.conversionSurfaceCount} • events: ${summaries.analytics.conversionEventCount}`,
+                  ]}
+                  issues={summaries.analytics.topIssues}
+                  tips={summaries.analytics.suggestedPrompts}
+                  maxIssues={3}
+                />
               ) : null}
-              {!pendingReply && !hasUserAfterCurrentMessage && seoActionPrompt && onQuickReply ? (
-                <div className="mb-3 rounded-md border border-cyan-500/50 bg-cyan-500/10 p-3 text-xs">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-cyan-200">
-                    Snabb SEO-fix
-                  </p>
-                  <p className="text-foreground text-sm font-semibold">
-                    {seoActionPrompt.question}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {seoActionPrompt.options.map((option, optionIndex) => {
-                      const replyKey = `${messageId}:seo:${optionIndex}:${option}`;
-                      const isPending = pendingQuickReplyKey === replyKey;
-                      const label = seoActionPrompt.labels[optionIndex] ?? option;
-                      return (
-                        <Button
-                          key={replyKey}
-                          size="sm"
-                          variant="secondary"
-                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
-                          onClick={() =>
-                            void onQuickReply(messageId, optionIndex, option)
-                          }
-                        >
-                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                          {optionIndex === seoActionPrompt.options.length - 1
-                            ? "Annat"
-                            : `Fixa ${label}`}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-              {analyticsReviewSummary ? (
-                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-                    Analytics review
-                  </div>
-                  <div className="space-y-1 text-muted-foreground">
-                    <div className={analyticsReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
-                      {analyticsReviewSummary.passed
-                        ? "Tracking-baseline ser rimlig ut."
-                        : `${analyticsReviewSummary.issueCount} tracking-varning(ar) hittades.`}
-                    </div>
-                    <div>Tracker hittad: {analyticsReviewSummary.trackerDetected ? "ja" : "nej"}</div>
-                    {analyticsReviewSummary.trackerProviders.length > 0 ? (
-                      <div>Providers: {analyticsReviewSummary.trackerProviders.join(", ")}</div>
-                    ) : null}
-                    <div>
-                      Konverteringsytor: {analyticsReviewSummary.conversionSurfaceCount} • events:{" "}
-                      {analyticsReviewSummary.conversionEventCount}
-                    </div>
-                    {analyticsReviewSummary.topIssues.length > 0 ? (
-                      <ul className="mt-1 space-y-1">
-                        {analyticsReviewSummary.topIssues.slice(0, 3).map((issue) => (
-                          <li key={issue}>- {issue}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {analyticsReviewSummary.suggestedPrompts.length > 0 ? (
-                      <ul className="mt-1 space-y-1">
-                        {analyticsReviewSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
-                          <li key={prompt}>- {prompt}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-              {!pendingReply && !hasUserAfterCurrentMessage && analyticsActionPrompt && onQuickReply ? (
-                <div className="mb-3 rounded-md border border-violet-500/50 bg-violet-500/10 p-3 text-xs">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-violet-200">
-                    Snabb tracking-fix
-                  </p>
-                  <p className="text-foreground text-sm font-semibold">
-                    {analyticsActionPrompt.question}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {analyticsActionPrompt.options.map((option, optionIndex) => {
-                      const replyKey = `${messageId}:analytics:${optionIndex}:${option}`;
-                      const isPending = pendingQuickReplyKey === replyKey;
-                      const label = analyticsActionPrompt.labels[optionIndex] ?? option;
-                      return (
-                        <Button
-                          key={replyKey}
-                          size="sm"
-                          variant="secondary"
-                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
-                          onClick={() =>
-                            void onQuickReply(messageId, optionIndex, option)
-                          }
-                        >
-                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                          {optionIndex === analyticsActionPrompt.options.length - 1
-                            ? "Annat"
-                            : `Fixa ${label}`}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-              {editorialReviewSummary ? (
-                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-                    Editorial inventory
-                  </div>
-                  <div className="space-y-1 text-muted-foreground">
-                    <div className="text-emerald-300">
-                      {editorialReviewSummary.packCount} redigerbara innehållspack hittades.
-                    </div>
-                    {editorialReviewSummary.labels.length > 0 ? (
-                      <div>Packs: {editorialReviewSummary.labels.join(", ")}</div>
-                    ) : null}
-                    <div>
-                      Blogg/content: {editorialReviewSummary.hasBlogCollection ? "ja" : "nej"} •
-                      kontaktflöde: {editorialReviewSummary.hasContactFlow ? "ja" : "nej"}
-                    </div>
-                    {editorialReviewSummary.suggestedPrompts.length > 0 ? (
-                      <ul className="mt-1 space-y-1">
-                        {editorialReviewSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
-                          <li key={prompt}>- {prompt}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-              {businessWorkflowSummary ? (
-                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-                    Business workflows
-                  </div>
-                  <div className="space-y-1 text-muted-foreground">
-                    <div className="text-emerald-300">
-                      {businessWorkflowSummary.packCount} affärspack hittades.
-                    </div>
-                    {businessWorkflowSummary.labels.length > 0 ? (
-                      <div>Packs: {businessWorkflowSummary.labels.join(", ")}</div>
-                    ) : null}
-                    {businessWorkflowSummary.recommendedIntegrations.length > 0 ? (
-                      <div>
-                        Rekommenderade integrationer: {businessWorkflowSummary.recommendedIntegrations.join(", ")}
-                      </div>
-                    ) : null}
-                    <div>
-                      Lead capture: {businessWorkflowSummary.hasLeadCapture ? "ja" : "nej"} • booking:{" "}
-                      {businessWorkflowSummary.hasBookingFlow ? "ja" : "nej"} • CRM:{" "}
-                      {businessWorkflowSummary.hasCrmSync ? "ja" : "nej"}
-                    </div>
-                    {businessWorkflowSummary.suggestedPrompts.length > 0 ? (
-                      <ul className="mt-1 space-y-1">
-                        {businessWorkflowSummary.suggestedPrompts.slice(0, 3).map((prompt) => (
-                          <li key={prompt}>- {prompt}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-              {!pendingReply && !hasUserAfterCurrentMessage && editorialActionPrompt && onQuickReply ? (
-                <div className="mb-3 rounded-md border border-sky-500/50 bg-sky-500/10 p-3 text-xs">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-sky-200">
-                    Snabb redigering
-                  </p>
-                  <p className="text-foreground text-sm font-semibold">
-                    {editorialActionPrompt.question}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {editorialActionPrompt.options.map((option, optionIndex) => {
-                      const replyKey = `${messageId}:editorial:${optionIndex}:${option}`;
-                      const isPending = pendingQuickReplyKey === replyKey;
-                      return (
-                        <Button
-                          key={replyKey}
-                          size="sm"
-                          variant="secondary"
-                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
-                          onClick={() =>
-                            void onQuickReply(messageId, optionIndex, option)
-                          }
-                        >
-                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                          {optionIndex === editorialActionPrompt.options.length - 1
-                            ? "Annat"
-                            : `Redigera ${option.split(" ").slice(1, 3).join(" ") || option}`}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-              {!pendingReply && !hasUserAfterCurrentMessage && businessWorkflowActionPrompt && onQuickReply ? (
-                <div className="mb-3 rounded-md border border-emerald-500/50 bg-emerald-500/10 p-3 text-xs">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                    Snabb konfigurering
-                  </p>
-                  <p className="text-foreground text-sm font-semibold">
-                    {businessWorkflowActionPrompt.question}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {businessWorkflowActionPrompt.options.map((option, optionIndex) => {
-                      const replyKey = `${messageId}:business:${optionIndex}:${option}`;
-                      const isPending = pendingQuickReplyKey === replyKey;
-                      const label = businessWorkflowActionPrompt.labels[optionIndex] ?? option;
-                      return (
-                        <Button
-                          key={replyKey}
-                          size="sm"
-                          variant="secondary"
-                          disabled={quickReplyDisabled || pendingQuickReplyKey !== null}
-                          onClick={() =>
-                            void onQuickReply(messageId, optionIndex, option)
-                          }
-                        >
-                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                          {optionIndex === businessWorkflowActionPrompt.options.length - 1
-                            ? "Annat"
-                            : `Konfigurera ${label}`}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-              {qualityGateSummary && (
-                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-                    Quality gate
-                  </div>
-                  {qualityGateSummary.skipped ? (
-                    <div className="text-muted-foreground">
-                      Hoppades över
-                      {qualityGateSummary.reason ? `: ${qualityGateSummary.reason}` : ""}
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <div className={qualityGateSummary.passed ? "text-emerald-400" : "text-rose-400"}>
-                        {qualityGateSummary.passed ? "PASS" : "FAIL"}
-                      </div>
-                      {qualityGateSummary.checks.map((check) => {
-                        const checkDuration = formatDurationMsShort(check.durationMs);
-                        return (
-                          <div
-                            key={check.check}
-                            className="text-muted-foreground flex items-center gap-1.5"
-                          >
-                            <span className={check.passed ? "text-emerald-400" : "text-rose-400"}>
-                              {check.passed ? "\u2713" : "\u2717"}
-                            </span>
-                            <span>{check.check}</span>
-                            {checkDuration && (
-                              <span className="text-muted-foreground/50 text-[10px]">
-                                {checkDuration}
-                              </span>
-                            )}
-                            {!check.passed && check.output && (
-                              <span
-                                className="ml-1 max-w-[280px] truncate text-[10px] text-rose-400/70"
-                                title={check.output}
-                              >
-                                {check.output.split("\n")[0]?.slice(0, 80)}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {(() => {
-                        const totalDuration = formatDurationMsShort(
-                          qualityGateSummary.verifyLaneDurationMs,
-                        );
-                        return totalDuration ? (
-                          <div className="text-muted-foreground/50 text-[10px]">
-                            Total: {totalDuration}
-                          </div>
-                        ) : null;
-                      })()}
-                      {(() => {
-                        const startedAt = formatUtcClock(qualityGateSummary.jobStartedAt);
-                        const finishedAt = formatUtcClock(qualityGateSummary.jobFinishedAt);
-                        const labels = [
-                          startedAt ? `Start: ${startedAt}` : null,
-                          finishedAt ? `Slut: ${finishedAt}` : null,
-                        ].filter((value): value is string => Boolean(value));
-                        return labels.length > 0 ? (
-                          <div className="text-muted-foreground/50 text-[10px]">
-                            {labels.join(" • ")}
-                          </div>
-                        ) : null;
-                      })()}
-                      {qualityGateSummary.firstFailureCheck && (
-                        <div className="text-amber-300/80 text-[10px]">
-                          First failure: {qualityGateSummary.firstFailureCheck}
-                        </div>
-                      )}
-                      {qualityGateSummary.visualQA && (
-                        <div className="text-muted-foreground/80 text-[10px]">
-                          Visual QA: {qualityGateSummary.visualQA.overallScore}/100{" "}
-                          {qualityGateSummary.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+              {summaries.analyticsAction && (
+                <ActionStrip
+                  variant="full"
+                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  color="violet"
+                  title="Snabb tracking-fix"
+                  question={summaries.analyticsAction.question}
+                  options={summaries.analyticsAction.options}
+                  labels={summaries.analyticsAction.labels}
+                  keyPrefix="analytics"
+                  messageId={messageId}
+                  pendingQuickReplyKey={pendingQuickReplyKey}
+                  onQuickReply={onQuickReply}
+                  quickReplyDisabled={quickReplyDisabled}
+                  formatButtonLabel={(option, idx, total) => idx === total - 1 ? "Annat" : `Fixa ${summaries.analyticsAction!.labels[idx] ?? option}`}
+                />
               )}
-              {serverRepairSummary && (
-                <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-                  <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
-                    Server repair
-                  </div>
-                  <div className="space-y-1 text-muted-foreground">
-                    <div className={serverRepairSummary.repaired ? "text-emerald-300" : "text-amber-300"}>
-                      {serverRepairSummary.repaired
-                        ? "Reparation lyckades"
-                        : "Reparationsförsök slutfört utan full fix"}
-                    </div>
-                    {serverRepairSummary.status ? <div>Status: {serverRepairSummary.status}</div> : null}
-                    {serverRepairSummary.method ? <div>Metod: {serverRepairSummary.method}</div> : null}
-                    {serverRepairSummary.reason ? <div>Orsak: {serverRepairSummary.reason}</div> : null}
-                    {serverRepairSummary.remainingErrors !== null ? (
-                      <div>Kvarvarande fel: {serverRepairSummary.remainingErrors}</div>
-                    ) : null}
-                    {serverRepairSummary.improvedSyntax !== null ? (
-                      <div>Syntax förbättrades: {serverRepairSummary.improvedSyntax ? "ja" : "nej"}</div>
-                    ) : null}
-                    {serverRepairSummary.earlyStopReason ? (
-                      <div>Stopporsak: {serverRepairSummary.earlyStopReason}</div>
-                    ) : null}
-                    {serverRepairSummary.newVersionId ? (
-                      <div>Ny version: {serverRepairSummary.newVersionId}</div>
-                    ) : null}
-                  </div>
-                </div>
+              {summaries.editorial ? (
+                <ReviewBlock
+                  variant="full"
+                  title="Editorial inventory"
+                  passed={true}
+                  passedLabel={`${summaries.editorial.packCount} redigerbara innehållspack hittades.`}
+                  failedLabel=""
+                  details={[
+                    ...(summaries.editorial.labels.length > 0 ? [`Packs: ${summaries.editorial.labels.join(", ")}`] : []),
+                    `Blogg/content: ${summaries.editorial.hasBlogCollection ? "ja" : "nej"} • kontaktflöde: ${summaries.editorial.hasContactFlow ? "ja" : "nej"}`,
+                  ]}
+                  issues={[]}
+                  tips={summaries.editorial.suggestedPrompts}
+                />
+              ) : null}
+              {summaries.business ? (
+                <ReviewBlock
+                  variant="full"
+                  title="Business workflows"
+                  passed={true}
+                  passedLabel={`${summaries.business.packCount} affärspack hittades.`}
+                  failedLabel=""
+                  details={[
+                    ...(summaries.business.labels.length > 0 ? [`Packs: ${summaries.business.labels.join(", ")}`] : []),
+                    ...(summaries.business.recommendedIntegrations.length > 0 ? [`Rekommenderade integrationer: ${summaries.business.recommendedIntegrations.join(", ")}`] : []),
+                    `Lead capture: ${summaries.business.hasLeadCapture ? "ja" : "nej"} • booking: ${summaries.business.hasBookingFlow ? "ja" : "nej"} • CRM: ${summaries.business.hasCrmSync ? "ja" : "nej"}`,
+                  ]}
+                  issues={[]}
+                  tips={summaries.business.suggestedPrompts}
+                />
+              ) : null}
+              {summaries.editorialAction && (
+                <ActionStrip
+                  variant="full"
+                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  color="sky"
+                  title="Snabb redigering"
+                  question={summaries.editorialAction.question}
+                  options={summaries.editorialAction.options}
+                  labels={summaries.editorialAction.options}
+                  keyPrefix="editorial"
+                  messageId={messageId}
+                  pendingQuickReplyKey={pendingQuickReplyKey}
+                  onQuickReply={onQuickReply}
+                  quickReplyDisabled={quickReplyDisabled}
+                  formatButtonLabel={(option, idx, total) => idx === total - 1 ? "Annat" : `Redigera ${option.split(" ").slice(1, 3).join(" ") || option}`}
+                />
+              )}
+              {summaries.businessAction && (
+                <ActionStrip
+                  variant="full"
+                  show={!pendingReply && !hasUserAfterCurrentMessage && Boolean(onQuickReply)}
+                  color="emerald"
+                  title="Snabb konfigurering"
+                  question={summaries.businessAction.question}
+                  options={summaries.businessAction.options}
+                  labels={summaries.businessAction.labels}
+                  keyPrefix="business"
+                  messageId={messageId}
+                  pendingQuickReplyKey={pendingQuickReplyKey}
+                  onQuickReply={onQuickReply}
+                  quickReplyDisabled={quickReplyDisabled}
+                  formatButtonLabel={(option, idx, total) => idx === total - 1 ? "Annat" : `Konfigurera ${summaries.businessAction!.labels[idx] ?? option}`}
+                />
+              )}
+              {summaries.qualityGate && (
+                <QualityGatePanel variant="full" {...summaries.qualityGate} />
+              )}
+              {summaries.serverRepair && (
+                <ServerRepairPanel variant="full" {...summaries.serverRepair} />
               )}
               {!hasInput && !hasOutput && !hasErrorText && (
                 <div className="text-muted-foreground p-4 text-xs">
@@ -799,26 +516,7 @@ export function CompactToolParts({
         const { toolType, toolTitle } = resolveToolLabels(tool);
         const integrationSummary = getToolIntegrationSummary(tool);
         const integrationCard = getIntegrationCardData(tool);
-        const seoReviewSummary =
-          toolType === "tool-post-check" ? getSeoReviewSummary(tool.output) : null;
-        const seoActionPrompt =
-          toolType === "tool-post-check" ? getSeoActionPrompt(tool.output) : null;
-        const analyticsReviewSummary =
-          toolType === "tool-post-check" ? getAnalyticsReviewSummary(tool.output) : null;
-        const analyticsActionPrompt =
-          toolType === "tool-post-check" ? getAnalyticsActionPrompt(tool.output) : null;
-        const editorialReviewSummary =
-          toolType === "tool-post-check" ? getEditorialReviewSummary(tool.output) : null;
-        const editorialActionPrompt =
-          toolType === "tool-post-check" ? getEditorialActionPrompt(tool.output) : null;
-        const businessWorkflowSummary =
-          toolType === "tool-post-check" ? getBusinessWorkflowSummary(tool.output) : null;
-        const businessWorkflowActionPrompt =
-          toolType === "tool-post-check" ? getBusinessWorkflowActionPrompt(tool.output) : null;
-        const qualityGateSummary =
-          toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
-        const serverRepairSummary =
-          toolType === "tool-quality-gate" ? getServerRepairSummary(tool.output) : null;
+        const summaries = extractToolSummaries(toolType, tool.output);
         const qualityGateErrorText =
           toolType === "tool-quality-gate" &&
           typeof tool.errorText === "string" &&
@@ -926,238 +624,74 @@ export function CompactToolParts({
                     eller Integrationspanelen.
                   </p>
                 )}
-                {seoReviewSummary ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className={seoReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
-                      {seoReviewSummary.passed
-                        ? "SEO-baseline OK"
-                        : `${seoReviewSummary.issueCount} SEO-varning(ar)`}
-                    </p>
-                    <p className="text-muted-foreground mt-1">
-                      Canonical: {seoReviewSummary.canonical ? "ja" : "nej"} • OG image:{" "}
-                      {seoReviewSummary.ogImage ? "ja" : "nej"}
-                    </p>
-                    {seoReviewSummary.topIssues.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        {seoReviewSummary.topIssues[0]}
-                      </p>
-                    ) : null}
-                    {seoReviewSummary.suggestedPrompts.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Tips: {seoReviewSummary.suggestedPrompts[0]}
-                      </p>
-                    ) : null}
-                  </div>
+                {summaries.seo ? (
+                  <ReviewBlock
+                    variant="compact"
+                    title="SEO"
+                    passed={summaries.seo.passed}
+                    passedLabel="SEO-baseline OK"
+                    failedLabel={`${summaries.seo.issueCount} SEO-varning(ar)`}
+                    details={[`Canonical: ${summaries.seo.canonical ? "ja" : "nej"} • OG image: ${summaries.seo.ogImage ? "ja" : "nej"}`]}
+                    issues={summaries.seo.topIssues}
+                    tips={summaries.seo.suggestedPrompts}
+                  />
                 ) : null}
-                {seoActionPrompt ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className="text-cyan-300">{seoActionPrompt.question}</p>
-                    {seoActionPrompt.labels.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Förslag: {seoActionPrompt.labels.slice(0, 2).join(" • ")}
-                      </p>
-                    ) : null}
-                  </div>
+                {summaries.seoAction && (
+                  <ActionStrip variant="compact" show color="cyan" title="" question={summaries.seoAction.question} options={summaries.seoAction.options} labels={summaries.seoAction.labels} keyPrefix="seo" messageId={messageId} pendingQuickReplyKey={pendingQuickReplyKey} />
+                )}
+                {summaries.analytics ? (
+                  <ReviewBlock
+                    variant="compact"
+                    title="Analytics"
+                    passed={summaries.analytics.passed}
+                    passedLabel="Analytics-baseline OK"
+                    failedLabel={`${summaries.analytics.issueCount} analytics-varning(ar)`}
+                    details={[`Tracker: ${summaries.analytics.trackerDetected ? "ja" : "nej"} • events: ${summaries.analytics.conversionEventCount}`]}
+                    issues={summaries.analytics.topIssues}
+                    tips={summaries.analytics.suggestedPrompts}
+                  />
                 ) : null}
-                {analyticsReviewSummary ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className={analyticsReviewSummary.passed ? "text-emerald-300" : "text-amber-300"}>
-                      {analyticsReviewSummary.passed
-                        ? "Analytics-baseline OK"
-                        : `${analyticsReviewSummary.issueCount} analytics-varning(ar)`}
-                    </p>
-                    <p className="text-muted-foreground mt-1">
-                      Tracker: {analyticsReviewSummary.trackerDetected ? "ja" : "nej"} • events:{" "}
-                      {analyticsReviewSummary.conversionEventCount}
-                    </p>
-                    {analyticsReviewSummary.topIssues.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        {analyticsReviewSummary.topIssues[0]}
-                      </p>
-                    ) : null}
-                    {analyticsReviewSummary.suggestedPrompts.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Tips: {analyticsReviewSummary.suggestedPrompts[0]}
-                      </p>
-                    ) : null}
-                  </div>
+                {summaries.analyticsAction && (
+                  <ActionStrip variant="compact" show color="violet" title="" question={summaries.analyticsAction.question} options={summaries.analyticsAction.options} labels={summaries.analyticsAction.labels} keyPrefix="analytics" messageId={messageId} pendingQuickReplyKey={pendingQuickReplyKey} />
+                )}
+                {summaries.editorial ? (
+                  <ReviewBlock
+                    variant="compact"
+                    title="Editorial"
+                    passed={true}
+                    passedLabel={`Editorial packs: ${summaries.editorial.labels.join(", ")}`}
+                    failedLabel=""
+                    details={[]}
+                    issues={[]}
+                    tips={summaries.editorial.suggestedPrompts}
+                  />
                 ) : null}
-                {analyticsActionPrompt ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className="text-violet-300">{analyticsActionPrompt.question}</p>
-                    {analyticsActionPrompt.labels.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Förslag: {analyticsActionPrompt.labels.slice(0, 2).join(" • ")}
-                      </p>
-                    ) : null}
-                  </div>
+                {summaries.editorialAction && (
+                  <ActionStrip variant="compact" show color="sky" title="" question={summaries.editorialAction.question} options={summaries.editorialAction.options} labels={summaries.editorialAction.options} keyPrefix="editorial" messageId={messageId} pendingQuickReplyKey={pendingQuickReplyKey} />
+                )}
+                {summaries.business ? (
+                  <ReviewBlock
+                    variant="compact"
+                    title="Business"
+                    passed={true}
+                    passedLabel={`Business packs: ${summaries.business.labels.join(", ")}`}
+                    failedLabel=""
+                    details={[
+                      ...(summaries.business.recommendedIntegrations.length > 0 ? [`Rekommenderat: ${summaries.business.recommendedIntegrations.join(", ")}`] : []),
+                    ]}
+                    issues={[]}
+                    tips={summaries.business.suggestedPrompts}
+                  />
                 ) : null}
-                {editorialReviewSummary ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className="text-emerald-300">
-                      Editorial packs: {editorialReviewSummary.labels.join(", ")}
-                    </p>
-                    {editorialReviewSummary.suggestedPrompts.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Tips: {editorialReviewSummary.suggestedPrompts[0]}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {editorialActionPrompt ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className="text-sky-300">{editorialActionPrompt.question}</p>
-                    {editorialActionPrompt.options.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Förslag: {editorialActionPrompt.options.slice(0, 2).join(" • ")}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {businessWorkflowSummary ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className="text-emerald-300">
-                      Business packs: {businessWorkflowSummary.labels.join(", ")}
-                    </p>
-                    {businessWorkflowSummary.recommendedIntegrations.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Rekommenderat: {businessWorkflowSummary.recommendedIntegrations.join(", ")}
-                      </p>
-                    ) : null}
-                    {businessWorkflowSummary.suggestedPrompts.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Tips: {businessWorkflowSummary.suggestedPrompts[0]}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {businessWorkflowActionPrompt ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className="text-emerald-300">{businessWorkflowActionPrompt.question}</p>
-                    {businessWorkflowActionPrompt.labels.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        Förslag: {businessWorkflowActionPrompt.labels.slice(0, 2).join(" • ")}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {qualityGateSummary?.skipped ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className="text-amber-300">Verify: hoppades över</p>
-                    {qualityGateSummary.reason ? (
-                      <p className="text-muted-foreground mt-1">{qualityGateSummary.reason}</p>
-                    ) : null}
-                  </div>
-                ) : qualityGateErrorText ? (
-                  <div className="mt-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-2 text-xs">
-                    <p className="text-rose-300">Verify: fel</p>
-                    <p className="text-muted-foreground mt-1">{qualityGateErrorText}</p>
-                  </div>
-                ) : qualityGateSummary ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    {(() => {
-                      const firstFailedOutput = qualityGateSummary.checks
-                        .find((check) => !check.passed && check.output.trim())
-                        ?.output.split("\n")[0]
-                        ?.slice(0, 120);
-                      return (
-                        <>
-                    <p className={qualityGateSummary.passed ? "text-emerald-300" : "text-rose-300"}>
-                      Verify: {qualityGateSummary.passed ? "PASS" : "FAIL"}
-                    </p>
-                    {qualityGateSummary.checks.length > 0 ? (
-                      <p className="text-muted-foreground mt-1">
-                        {qualityGateSummary.checks
-                          .map((check) => {
-                            const duration = formatDurationMsShort(check.durationMs);
-                            return `${check.check}${duration ? ` (${duration})` : ""}`;
-                          })
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {firstFailedOutput ? (
-                      <p className="text-muted-foreground mt-1">Detalj: {firstFailedOutput}</p>
-                    ) : null}
-                    {(qualityGateSummary.verifyLaneDurationMs !== null ||
-                      qualityGateSummary.firstFailureCheck) && (
-                      <p className="text-muted-foreground mt-1">
-                        {[
-                          qualityGateSummary.verifyLaneDurationMs !== null
-                            ? `Total: ${formatDurationMsShort(qualityGateSummary.verifyLaneDurationMs)}`
-                            : null,
-                          qualityGateSummary.firstFailureCheck
-                            ? `First failure: ${qualityGateSummary.firstFailureCheck}`
-                            : null,
-                        ]
-                          .filter((value): value is string => Boolean(value))
-                          .join(" • ")}
-                      </p>
-                    )}
-                    {(qualityGateSummary.jobStartedAt || qualityGateSummary.jobFinishedAt) && (
-                      <p className="text-muted-foreground mt-1">
-                        {[
-                          qualityGateSummary.jobStartedAt
-                            ? `Start: ${formatUtcClock(qualityGateSummary.jobStartedAt)}`
-                            : null,
-                          qualityGateSummary.jobFinishedAt
-                            ? `Slut: ${formatUtcClock(qualityGateSummary.jobFinishedAt)}`
-                            : null,
-                        ]
-                          .filter((value): value is string => Boolean(value))
-                          .join(" • ")}
-                      </p>
-                    )}
-                    {qualityGateSummary.visualQA ? (
-                      <p className="text-muted-foreground mt-1">
-                        Visual QA: {qualityGateSummary.visualQA.overallScore}/100{" "}
-                        {qualityGateSummary.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}
-                      </p>
-                    ) : null}
-                        </>
-                      );
-                    })()}
-                  </div>
-                ) : null}
-                {serverRepairSummary ? (
-                  <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                    <p className={serverRepairSummary.repaired ? "text-emerald-300" : "text-amber-300"}>
-                      Repair: {serverRepairSummary.repaired ? "lyckades" : "ej fullständig"}
-                    </p>
-                    {serverRepairSummary.status ? (
-                      <p className="text-muted-foreground mt-1">Status: {serverRepairSummary.status}</p>
-                    ) : null}
-                    {serverRepairSummary.method ? (
-                      <p className="text-muted-foreground mt-1">Metod: {serverRepairSummary.method}</p>
-                    ) : null}
-                    {serverRepairSummary.reason ? (
-                      <p className="text-muted-foreground mt-1">Orsak: {serverRepairSummary.reason}</p>
-                    ) : null}
-                    {(serverRepairSummary.remainingErrors !== null ||
-                      serverRepairSummary.improvedSyntax !== null ||
-                      serverRepairSummary.earlyStopReason) ? (
-                      <p className="text-muted-foreground mt-1">
-                        {[
-                          serverRepairSummary.remainingErrors !== null
-                            ? `Kvarvarande fel: ${serverRepairSummary.remainingErrors}`
-                            : null,
-                          serverRepairSummary.improvedSyntax !== null
-                            ? `Syntax förbättrades: ${serverRepairSummary.improvedSyntax ? "ja" : "nej"}`
-                            : null,
-                          serverRepairSummary.earlyStopReason
-                            ? `Stopporsak: ${serverRepairSummary.earlyStopReason}`
-                            : null,
-                        ]
-                          .filter((value): value is string => Boolean(value))
-                          .join(" • ")}
-                      </p>
-                    ) : null}
-                    {serverRepairSummary.newVersionId ? (
-                      <p className="text-muted-foreground mt-1">
-                        Ny version: {serverRepairSummary.newVersionId}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
+                {summaries.businessAction && (
+                  <ActionStrip variant="compact" show color="emerald" title="" question={summaries.businessAction.question} options={summaries.businessAction.options} labels={summaries.businessAction.labels} keyPrefix="business" messageId={messageId} pendingQuickReplyKey={pendingQuickReplyKey} />
+                )}
+                {summaries.qualityGate && (
+                  <QualityGatePanel variant="compact" {...summaries.qualityGate} errorText={qualityGateErrorText} />
+                )}
+                {summaries.serverRepair && (
+                  <ServerRepairPanel variant="compact" {...summaries.serverRepair} />
+                )}
               </>
             )}
             <div className="mt-2 flex flex-wrap gap-2">
@@ -1867,23 +1401,6 @@ function getToolStateLabel(state: ToolUIPart["state"]) {
   }
 }
 
-function formatDurationMsShort(durationMs: number | null | undefined): string | null {
-  if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs < 0) {
-    return null;
-  }
-  if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
-  const seconds = durationMs / 1000;
-  return `${seconds >= 10 ? Math.round(seconds) : seconds.toFixed(1).replace(/\.0$/, "")}s`;
-}
-
-function formatUtcClock(timestamp: string | null | undefined): string | null {
-  if (typeof timestamp !== "string" || !timestamp.trim()) return null;
-  const value = timestamp.trim();
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return `${parsed.toISOString().slice(11, 19)}Z`;
-}
-
 function openIntegrationsPanel() {
   window.dispatchEvent(new CustomEvent("integrations-panel-open"));
 }
@@ -1935,29 +1452,31 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
   return hasAnyValue ? summaryData : null;
 }
 
-function getSeoReviewSummary(output: unknown): SeoReviewSummary | null {
+function parseNestedSummary(output: unknown, key: string): Record<string, unknown> | null {
   if (!output || typeof output !== "object") return null;
   const obj = output as Record<string, unknown>;
-  const summary =
-    obj.seoSummary && typeof obj.seoSummary === "object"
-      ? (obj.seoSummary as Record<string, unknown>)
-      : null;
+  const nested = obj[key];
+  if (!nested || typeof nested !== "object") return null;
+  return nested as Record<string, unknown>;
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
+}
+
+function readFiniteNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function getSeoReviewSummary(output: unknown): SeoReviewSummary | null {
+  const summary = parseNestedSummary(output, "seoSummary");
   if (!summary) return null;
   return {
     passed: Boolean(summary.passed),
-    issueCount:
-      typeof summary.issueCount === "number" && Number.isFinite(summary.issueCount)
-        ? summary.issueCount
-        : 0,
-    topIssues: Array.isArray(summary.topIssues)
-      ? summary.topIssues.map((issue) => String(issue)).filter(Boolean)
-      : [],
-    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
-      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
-      : [],
-    suggestedLabels: Array.isArray(summary.suggestedLabels)
-      ? summary.suggestedLabels.map((label) => String(label)).filter(Boolean)
-      : [],
+    issueCount: readFiniteNumber(summary.issueCount),
+    topIssues: readStringArray(summary.topIssues),
+    suggestedPrompts: readStringArray(summary.suggestedPrompts),
+    suggestedLabels: readStringArray(summary.suggestedLabels),
     canonical: Boolean(summary.canonical),
     ogImage: Boolean(summary.ogImage),
     homeH1Count:
@@ -1967,155 +1486,105 @@ function getSeoReviewSummary(output: unknown): SeoReviewSummary | null {
   };
 }
 
-function getSeoActionPrompt(output: unknown): SeoActionPrompt | null {
-  const summary = getSeoReviewSummary(output);
-  if (!summary) return null;
-  if (summary.suggestedPrompts.length === 0) return null;
-  const labels =
-    summary.suggestedLabels.length > 0
-      ? summary.suggestedLabels.slice(0, 3)
-      : summary.suggestedPrompts.slice(0, 3).map(() => "SEO");
-
-  return {
-    question: "Vilken SEO-del vill du förbättra härnäst?",
-    options: [...summary.suggestedPrompts.slice(0, 3), "Annat"],
-    labels: [...labels, "Annat"],
-  };
-}
-
 function getAnalyticsReviewSummary(output: unknown): AnalyticsReviewSummary | null {
-  if (!output || typeof output !== "object") return null;
-  const obj = output as Record<string, unknown>;
-  const summary =
-    obj.analyticsSummary && typeof obj.analyticsSummary === "object"
-      ? (obj.analyticsSummary as Record<string, unknown>)
-      : null;
+  const summary = parseNestedSummary(output, "analyticsSummary");
   if (!summary) return null;
   return {
     passed: Boolean(summary.passed),
-    issueCount:
-      typeof summary.issueCount === "number" && Number.isFinite(summary.issueCount)
-        ? summary.issueCount
-        : 0,
-    topIssues: Array.isArray(summary.topIssues)
-      ? summary.topIssues.map((issue) => String(issue)).filter(Boolean)
-      : [],
-    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
-      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
-      : [],
-    suggestedLabels: Array.isArray(summary.suggestedLabels)
-      ? summary.suggestedLabels.map((label) => String(label)).filter(Boolean)
-      : [],
+    issueCount: readFiniteNumber(summary.issueCount),
+    topIssues: readStringArray(summary.topIssues),
+    suggestedPrompts: readStringArray(summary.suggestedPrompts),
+    suggestedLabels: readStringArray(summary.suggestedLabels),
     trackerDetected: Boolean(summary.trackerDetected),
-    trackerProviders: Array.isArray(summary.trackerProviders)
-      ? summary.trackerProviders.map((provider) => String(provider)).filter(Boolean)
-      : [],
-    conversionSurfaceCount:
-      typeof summary.conversionSurfaceCount === "number" && Number.isFinite(summary.conversionSurfaceCount)
-        ? summary.conversionSurfaceCount
-        : 0,
-    conversionEventCount:
-      typeof summary.conversionEventCount === "number" && Number.isFinite(summary.conversionEventCount)
-        ? summary.conversionEventCount
-        : 0,
-  };
-}
-
-function getAnalyticsActionPrompt(output: unknown): AnalyticsActionPrompt | null {
-  const summary = getAnalyticsReviewSummary(output);
-  if (!summary) return null;
-  if (summary.suggestedPrompts.length === 0) return null;
-  const labels =
-    summary.suggestedLabels.length > 0
-      ? summary.suggestedLabels.slice(0, 3)
-      : summary.suggestedPrompts.slice(0, 3).map(() => "tracking");
-
-  return {
-    question: "Vilken tracking-del vill du förbättra härnäst?",
-    options: [...summary.suggestedPrompts.slice(0, 3), "Annat"],
-    labels: [...labels, "Annat"],
+    trackerProviders: readStringArray(summary.trackerProviders),
+    conversionSurfaceCount: readFiniteNumber(summary.conversionSurfaceCount),
+    conversionEventCount: readFiniteNumber(summary.conversionEventCount),
   };
 }
 
 function getEditorialReviewSummary(output: unknown): EditorialReviewSummary | null {
-  if (!output || typeof output !== "object") return null;
-  const obj = output as Record<string, unknown>;
-  const summary =
-    obj.editorialSummary && typeof obj.editorialSummary === "object"
-      ? (obj.editorialSummary as Record<string, unknown>)
-      : null;
+  const summary = parseNestedSummary(output, "editorialSummary");
   if (!summary) return null;
   return {
-    packCount:
-      typeof summary.packCount === "number" && Number.isFinite(summary.packCount)
-        ? summary.packCount
-        : 0,
-    labels: Array.isArray(summary.labels)
-      ? summary.labels.map((label) => String(label)).filter(Boolean)
-      : [],
-    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
-      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
-      : [],
+    packCount: readFiniteNumber(summary.packCount),
+    labels: readStringArray(summary.labels),
+    suggestedPrompts: readStringArray(summary.suggestedPrompts),
     hasBlogCollection: Boolean(summary.hasBlogCollection),
     hasContactFlow: Boolean(summary.hasContactFlow),
   };
 }
 
-function getEditorialActionPrompt(output: unknown): EditorialActionPrompt | null {
-  if (!output || typeof output !== "object") return null;
-  const obj = output as Record<string, unknown>;
-  const summary =
-    obj.editorialSummary && typeof obj.editorialSummary === "object"
-      ? (obj.editorialSummary as Record<string, unknown>)
-      : null;
-  if (!summary) return null;
-  const prompts = Array.isArray(summary.suggestedPrompts)
-    ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
-    : [];
-  if (prompts.length === 0) return null;
-  return {
-    question: "Vilken innehållsdel vill du redigera härnäst?",
-    options: [...prompts.slice(0, 3), "Annat"],
-  };
-}
-
 function getBusinessWorkflowSummary(output: unknown): BusinessWorkflowSummary | null {
-  if (!output || typeof output !== "object") return null;
-  const obj = output as Record<string, unknown>;
-  const summary =
-    obj.businessWorkflowSummary && typeof obj.businessWorkflowSummary === "object"
-      ? (obj.businessWorkflowSummary as Record<string, unknown>)
-      : null;
+  const summary = parseNestedSummary(output, "businessWorkflowSummary");
   if (!summary) return null;
   return {
-    packCount:
-      typeof summary.packCount === "number" && Number.isFinite(summary.packCount)
-        ? summary.packCount
-        : 0,
-    labels: Array.isArray(summary.labels)
-      ? summary.labels.map((label) => String(label)).filter(Boolean)
-      : [],
-    suggestedPrompts: Array.isArray(summary.suggestedPrompts)
-      ? summary.suggestedPrompts.map((prompt) => String(prompt)).filter(Boolean)
-      : [],
-    recommendedIntegrations: Array.isArray(summary.recommendedIntegrations)
-      ? summary.recommendedIntegrations.map((label) => String(label)).filter(Boolean)
-      : [],
+    packCount: readFiniteNumber(summary.packCount),
+    labels: readStringArray(summary.labels),
+    suggestedPrompts: readStringArray(summary.suggestedPrompts),
+    recommendedIntegrations: readStringArray(summary.recommendedIntegrations),
     hasLeadCapture: Boolean(summary.hasLeadCapture),
     hasBookingFlow: Boolean(summary.hasBookingFlow),
     hasCrmSync: Boolean(summary.hasCrmSync),
   };
 }
 
-function getBusinessWorkflowActionPrompt(output: unknown): BusinessWorkflowActionPrompt | null {
-  const summary = getBusinessWorkflowSummary(output);
+type ActionPromptConfig = {
+  question: string;
+  defaultLabel: string;
+};
+
+function buildActionPrompt(
+  suggestedPrompts: string[],
+  suggestedLabels: string[] | undefined,
+  config: ActionPromptConfig,
+): { question: string; options: string[]; labels: string[] } | null {
+  if (suggestedPrompts.length === 0) return null;
+  const prompts = suggestedPrompts.slice(0, 3);
+  const labels = suggestedLabels && suggestedLabels.length > 0
+    ? suggestedLabels.slice(0, 3)
+    : prompts.map(() => config.defaultLabel);
+  return {
+    question: config.question,
+    options: [...prompts, "Annat"],
+    labels: [...labels, "Annat"],
+  };
+}
+
+function getSeoActionPrompt(output: unknown): SeoActionPrompt | null {
+  const summary = getSeoReviewSummary(output);
+  if (!summary) return null;
+  return buildActionPrompt(summary.suggestedPrompts, summary.suggestedLabels, {
+    question: "Vilken SEO-del vill du förbättra härnäst?",
+    defaultLabel: "SEO",
+  });
+}
+
+function getAnalyticsActionPrompt(output: unknown): AnalyticsActionPrompt | null {
+  const summary = getAnalyticsReviewSummary(output);
+  if (!summary) return null;
+  return buildActionPrompt(summary.suggestedPrompts, summary.suggestedLabels, {
+    question: "Vilken tracking-del vill du förbättra härnäst?",
+    defaultLabel: "tracking",
+  });
+}
+
+function getEditorialActionPrompt(output: unknown): EditorialActionPrompt | null {
+  const summary = getEditorialReviewSummary(output);
   if (!summary) return null;
   if (summary.suggestedPrompts.length === 0) return null;
   return {
-    question: "Vilket affärsflöde vill du konfigurera härnäst?",
+    question: "Vilken innehållsdel vill du redigera härnäst?",
     options: [...summary.suggestedPrompts.slice(0, 3), "Annat"],
-    labels: [...summary.labels.slice(0, 3), "Annat"],
   };
+}
+
+function getBusinessWorkflowActionPrompt(output: unknown): BusinessWorkflowActionPrompt | null {
+  const summary = getBusinessWorkflowSummary(output);
+  if (!summary) return null;
+  return buildActionPrompt(summary.suggestedPrompts, summary.labels, {
+    question: "Vilket affärsflöde vill du konfigurera härnäst?",
+    defaultLabel: "workflow",
+  });
 }
 
 function getQualityGateSummary(output: unknown): QualityGateSummary | null {
@@ -2201,5 +1670,23 @@ function getServerRepairSummary(output: unknown): ServerRepairSummary | null {
       typeof obj.earlyStopReason === "string" && obj.earlyStopReason.trim()
         ? obj.earlyStopReason.trim()
         : null,
+  };
+}
+
+function extractToolSummaries(toolType: string, output: unknown) {
+  const isPostCheck = toolType === "tool-post-check";
+  const isQualityGate = toolType === "tool-quality-gate";
+  return {
+    postCheck: isPostCheck ? getPostCheckSummary(output) : null,
+    seo: isPostCheck ? getSeoReviewSummary(output) : null,
+    seoAction: isPostCheck ? getSeoActionPrompt(output) : null,
+    analytics: isPostCheck ? getAnalyticsReviewSummary(output) : null,
+    analyticsAction: isPostCheck ? getAnalyticsActionPrompt(output) : null,
+    editorial: isPostCheck ? getEditorialReviewSummary(output) : null,
+    editorialAction: isPostCheck ? getEditorialActionPrompt(output) : null,
+    business: isPostCheck ? getBusinessWorkflowSummary(output) : null,
+    businessAction: isPostCheck ? getBusinessWorkflowActionPrompt(output) : null,
+    qualityGate: isQualityGate ? getQualityGateSummary(output) : null,
+    serverRepair: isQualityGate ? getServerRepairSummary(output) : null,
   };
 }

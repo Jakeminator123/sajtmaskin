@@ -116,8 +116,11 @@ function pruneOldRunDirs(): void {
     for (const name of toRemove) {
       fs.rmSync(path.join(ROOT_DIR, name), { recursive: true, force: true });
     }
-  } catch {
-    // Best-effort cleanup.
+  } catch (err) {
+    console.warn(
+      "[generationslogg] pruneOldRunDirs failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 
@@ -1072,6 +1075,20 @@ function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
   ].join("\n");
 }
 
+function resolveLatestRunDirFromDisk(): string | null {
+  try {
+    const latestPath = path.join(ROOT_DIR, LATEST_FILE);
+    if (!fs.existsSync(latestPath)) return null;
+    const latestName = fs.readFileSync(latestPath, "utf8").trim();
+    if (!latestName) return null;
+    const latestDir = path.join(ROOT_DIR, latestName);
+    if (!fs.existsSync(latestDir)) return null;
+    return latestDir;
+  } catch {
+    return null;
+  }
+}
+
 function resolveRunDir(entry: StoredGenerationEntry): string | null {
   const type = readString(entry.data.type);
   const slug = normalizeSlug(entry.slug || readString(entry.data.slug));
@@ -1106,6 +1123,18 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
     }
   }
 
+  // Fallback: recover from HMR / process restart by reading _latest.txt.
+  // In dev there is typically one active generation, so the latest dir is correct.
+  const fallbackDir = resolveLatestRunDirFromDisk();
+  if (fallbackDir) {
+    if (slug) runDirBySlug.set(slug, fallbackDir);
+    if (chatId) runDirByChatId.set(chatId, fallbackDir);
+    return fallbackDir;
+  }
+
+  console.warn(
+    `[generationslogg] resolveRunDir: could not resolve run dir for event type=${type ?? "?"} slug=${slug ?? "?"} chatId=${chatId?.slice(0, 8) ?? "?"}`,
+  );
   return null;
 }
 
@@ -1139,7 +1168,10 @@ export function writeGenerationLogEntry(params: {
     fs.writeFileSync(path.join(runDir, FAULT_FIX_FILE), buildFaultFixIndex(entries), "utf8");
     fs.writeFileSync(path.join(runDir, FAULT_FIX_CSV_FILE), buildFaultFixCsv(faultFixRows), "utf8");
     appendGlobalFaultFixCsv(faultFixRows);
-  } catch {
-    // Best-effort. Never break API routes due to generation log formatting.
+  } catch (err) {
+    console.warn(
+      "[generationslogg] writeGenerationLogEntry failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }

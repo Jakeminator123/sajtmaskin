@@ -132,8 +132,11 @@ function ensureRootLogFiles(): void {
     if (!fs.existsSync(ROOT_DOC_LOG_PATH)) {
       fs.writeFileSync(ROOT_DOC_LOG_PATH, "", "utf8");
     }
-  } catch {
-    // Best-effort. Never break API routes due to dev logging.
+  } catch (err) {
+    console.warn(
+      "[sajtmaskin-dev] ensureRootLogFiles failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 
@@ -450,8 +453,11 @@ function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
           ? (docSanitized as Record<string, unknown>)
           : { value: docSanitized },
     });
-  } catch {
-    // Best-effort. Never break API routes due to dev logging.
+  } catch (err) {
+    console.warn(
+      "[sajtmaskin-dev] appendRollingLine failed:",
+      err instanceof Error ? err.message : err,
+    );
   }
 }
 
