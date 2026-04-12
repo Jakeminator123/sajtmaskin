@@ -152,6 +152,14 @@ const TARGETED_REPAIR_PATTERNS = [
   /\bquality gate\b/i,
 ];
 
+const IMAGE_FOLLOWUP_ESCAPE_PATTERNS = [
+  /\b(?:bild(?:en|er|erna)?|image(?:s|ry)?|foto(?:n)?|photo(?:s)?)\b/i,
+  /\bplaceholder(?:s|\.svg)?\b/i,
+  /\b(?:ai[- ]?bild|ai[- ]?image|generera bild|generate image)\b/i,
+  /\b(?:byt|ersätt|replace|swap).{0,20}(?:bild|image|hero[- ]?bild|hero[- ]?image|placeholder)\b/i,
+  /\b(?:materialisera|materialize)\b/i,
+];
+
 const SMALL_FOLLOW_UP_HINT_PATTERNS = [
   ...wholeWordPatterns(["bara", "endast", "enbart", "only", "just", "snabbt", "liten", "lite", "minor", "small"]),
   /\b(?:tighten|trim|justera|polera|byt bara|ändra bara|uppdatera bara)\b/i,
@@ -320,8 +328,9 @@ function inferVerificationPolicy(params: {
 
 function isExplicitSmallFollowUpPrompt(prompt: string): boolean {
   const trimmedPrompt = prompt.trim();
+  if (trimmedPrompt.length > 220) return false;
+  if (includesAny(IMAGE_FOLLOWUP_ESCAPE_PATTERNS, trimmedPrompt)) return false;
   return (
-    trimmedPrompt.length <= 220 &&
     includesAny(SMALL_FOLLOW_UP_HINT_PATTERNS, trimmedPrompt) &&
     includesAny(SMALL_FOLLOW_UP_TARGET_PATTERNS, trimmedPrompt)
   );

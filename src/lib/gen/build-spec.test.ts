@@ -76,6 +76,20 @@ describe("deriveBuildSpec", () => {
     ).toBe("normal");
   });
 
+  it("does not downgrade image/placeholder follow-ups to light context", () => {
+    for (const prompt of [
+      "Byt bara hero-bilden till en AI-bild.",
+      "Only replace the placeholder images.",
+      "Ersätt bara placeholders med riktiga bilder.",
+      "Just swap the hero image for a new photo.",
+      "Byt bara ut bilden i hero-sektionen.",
+    ]) {
+      expect(
+        deriveFollowUpContextPolicy({ prompt, capabilityHeavy: false }),
+      ).toBe("normal");
+    }
+  });
+
   it("keeps init generations compact and deterministic", () => {
     const spec = deriveBuildSpec({
       prompt: "Bygg en modern hemsida för ett arkitektkontor.",

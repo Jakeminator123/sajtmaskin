@@ -1,6 +1,7 @@
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
+import { collectRequiredUiComponents } from "@/lib/gen/export/build-exportable-project";
 
 import {
   extractAppRoutePathsFromFilePaths,
@@ -350,7 +351,6 @@ export async function runFinalizePreflight({
       });
     }
 
-    const { collectRequiredUiComponents } = require("@/lib/gen/export/project-scaffold-ui-reader") as typeof import("@/lib/gen/export/project-scaffold-ui-reader");
     const completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles)),
     ).files;

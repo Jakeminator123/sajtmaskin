@@ -50,6 +50,10 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages: vi.fn(),
 }));
 
+vi.mock("@/lib/gen/export/build-exportable-project", () => ({
+  collectRequiredUiComponents: vi.fn().mockReturnValue([]),
+}));
+
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
 }));

@@ -400,9 +400,9 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Problem | Detalj |
 |---------|--------|
-| Template-library search exporterad men oanvänd | `searchTemplateLibrary()` injiceras inte i system-prompt. |
+| Template-library search exporterad men oanvänd | `searchTemplateLibrary()` injiceras inte i system-prompt. Intentionellt inaktiv — infrastruktur redo för framtida koppling. |
 | `PromptType` i kod ≠ glossary | Koden har `wizard \| freeform \| template \| audit \| followup_*`. Glossary nämner även `app` och `technical` som docs-only flavorer. |
-| Scaffold inline-filer | Manifest-filer innehåller hela TSX/CSS som strängar — kan inte lintas. |
+| ~~Scaffold inline-filer~~ | **Löst.** Scaffold-filer extraherade till disk under `scaffolds/<id>/files/`. Manifest-filer refererar filer via `loadScaffoldFiles()`. |
 
 ---
 

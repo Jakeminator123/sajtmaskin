@@ -52,7 +52,8 @@ export const requestEnvVar = tool({
   description:
     "Signal that the generated code requires a specific environment variable the user must set. " +
     "Use for custom keys not covered by suggestIntegration. Do not call for optional nice-to-haves " +
-    "on simple brochure/landing pages; prefer mocks or client-only behavior when non-blocking.",
+    "on simple brochure/landing pages; prefer mocks or client-only behavior when non-blocking. " +
+    "IMPORTANT: Always generate the full site code in the same response. Never return only tool calls without code.",
   inputSchema: z.object({
     key: z
       .string()

@@ -605,8 +605,10 @@ export function useBuilderPageController() {
   // Route entries without an explicit chatId must not inherit stale chat state
   // from the previous builder session. This is especially important when we
   // arrive via prompt handoff (`promptId`) or a fresh project URL.
+  // Skip this reset if a create-chat request is in flight (chatId will arrive via SSE).
   useEffect(() => {
     if (chatIdParam) return;
+    if (isCreatingChat) return;
 
     const routeRepresentsFreshBuilderEntry =
       entry.entryKind === "prompt-handoff" ||
@@ -639,6 +641,7 @@ export function useBuilderPageController() {
     projectParam,
     entry.entryKind,
     chatId,
+    isCreatingChat,
     promptId,
     promptParam,
     pendingBriefRef,

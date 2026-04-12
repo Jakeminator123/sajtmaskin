@@ -72,6 +72,10 @@ vi.mock("@/lib/gen/export/project-scaffold", () => ({
   buildCompleteProject,
 }));
 
+vi.mock("@/lib/gen/export/build-exportable-project", () => ({
+  collectRequiredUiComponents: vi.fn().mockReturnValue([]),
+}));
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
   updateChatOrchestrationSnapshot,
