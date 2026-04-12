@@ -29,7 +29,6 @@ Skapad: 2026-04-12. Kontext: hela sessionen som gjort commit 1/X–3/X + fixar.
 
 ### Borttagna filer
 - `src/lib/gen/scaffolds/scaffold-traits.ts` (100 rader)
-- `scripts/template-library/sync-v0-templates.mjs` (763 rader, duplikat)
 - `scripts/dev/db-debug.mjs` (117 rader, stale)
 
 ### Omdöpta fält
@@ -49,16 +48,8 @@ Skapad: 2026-04-12. Kontext: hela sessionen som gjort commit 1/X–3/X + fixar.
 
 ### PRIORITET HÖG
 
-**1. `scaffoldFamily` i SSE/logg-metadata (~20 filer)**
-Fältnamnet `scaffoldFamily` används fortfarande i runtime-objekt som skickas till klient via SSE-events och loggas till CSV/DB. Det är INTE typ-namn (typecheck passerar) utan strängar i objekt-literals.
-
-Filer att söka i: `git grep scaffoldFamily -- '*.ts' | grep -v types.ts | grep -v schema.md`
-
-Kräver samordnad migration:
-- Backend: byt fältnamn i alla SSE-events och logg-writers
-- Frontend: byt mottagande kod (sök `scaffoldFamily` i `src/lib/hooks/chat/`, `src/components/builder/`)
-- DB: kolumnen `scaffold_family` i `engine_versions` (om den finns)
-- Logg-CSV: kolumnnamn i error-log.csv
+~~**1. `scaffoldFamily` i SSE/logg-metadata (~20 filer)**~~
+**GENOMFÖRT** (commit TBD). Alla `scaffoldFamily` runtime-fält migrerade till `scaffoldId`. CSV-kolumnen `scaffold_family` borttagen från fault-fix-loggen. DB-kolumnen `scaffold_family` i `engine_versions` behålls tills vidare (bakåtkompatibilitet). `ScaffoldFamily` type-alias borttaget.
 
 **2. Verifiera `scaffold_cli.py` output-format**
 Bekräfta att pipeline:n (`npm run template-library:build`) genererar `recommendedScaffoldIds` (inte `recommendedScaffoldFamilies`) i output-JSON. Legacy-shim finns i `src/lib/gen/template-library/catalog.ts` som mappar gamla nyckelnamn.
@@ -80,8 +71,8 @@ Storlek: ~60–80 filer att extrahera, 1 loader att bygga.
 **5. Ta bort `struktur_scarf/exempel/`**
 ~20 000 filer, embedded git-repos. Orsakar git-varningar. Bara exempel — riktiga filer finns i `data/external-template-pipeline/`. OBS: embedded git-repos i `skrapade_fran_chad/` kräver `git rm --cached -r` innan vanlig delete.
 
-**6. Ta bort deprecated `ScaffoldFamily` alias**
-`src/lib/gen/scaffolds/types.ts` rad 13–14. Kan tas bort när alla runtime-fältnamn är migrerade.
+~~**6. Ta bort deprecated `ScaffoldFamily` alias**~~
+**GENOMFÖRT**. `src/lib/gen/scaffolds/types.ts` — aliaset borttaget.
 
 **7. Skapa cursor-regel för subagent-verifiering**
 Billiga subagenter (fast model) introducerade duplikat-fält. Lägg till regel i `.cursor/rules/` som kräver typecheck efter subagent-ändringar.

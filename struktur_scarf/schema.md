@@ -13,7 +13,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | `getScaffoldByFamily()` borta | Alla anropare bytta till `getScaffoldById()`. |
 | `getScaffoldFamilies()` → `getScaffoldIds()` | Returnerar `ScaffoldId[]`. |
 | `detectScaffoldMode()` borttagen | Var död kod — aldrig anropad i production. |
-| `scripts/template-library/sync-v0-templates.mjs` borttagen | Duplikat av `scripts/v0-templates/`. |
+| `scripts/template-library/sync-v0-templates.mjs` borttagen | **Återställd** — var inte en duplikat utan implementationen som `v0-templates/sync-v0-templates.mjs` delegerar till. |
 | `scripts/dev/db-debug.mjs` borttagen | Hårdkodade stale IDn. |
 | `scaffold-traits.ts` borttagen | Traits konsoliderade direkt i varje manifest.ts. |
 | Merge-pipeline förenklad | `applyScaffoldTraits()` borttagen — 2 steg istället för 3. |
@@ -239,7 +239,6 @@ Binder ihop scaffold + routes + validering:
 OrchestrationContract
 ├── scaffoldToRoute
 │   ├── scaffoldId
-│   ├── scaffoldFamily
 │   ├── routeSource (brief | scaffold | prompt)
 │   ├── plannedRoutes[] (path, name, required)
 │   └── requiredRoutePaths[]
@@ -415,14 +414,14 @@ Dimension 5: VAD BERIKAR scaffolden?
 |-----|----------------|-------------------------------|
 | `types.ts` | Definierar union-typen (10 strängliteraler) | Ja — härled från registry |
 | `registry.ts` | `getScaffoldByFamily()` — primary lookup | Ja — byt till `getScaffoldById()` |
-| `matcher.ts` | 14 anrop till `getScaffoldByFamily("...")` | Ja — varje anrop kan bli `getScaffoldById()` |
-| `build-spec.ts` | `scaffoldFamily: ScaffoldFamily \| null` fält | Ja — byt till `scaffoldId` |
+| `matcher.ts` | 14 anrop — alla använder `getScaffoldById()` | Genomfört |
+| `build-spec.ts` | `scaffoldId: ScaffoldId \| null` fält | Genomfört |
 | `template-library/types.ts` | `recommendedScaffoldIds: ScaffoldId[]` | **Nej** — en dossier kan rekommendera flera scaffold-id:n |
 | `scaffold-embedding-locale.ts` | Nycklar per family | Ja — byt till id |
 | `scaffold-aware-retry.ts` | Retry per family | Ja — byt till id |
 | `style-directions.ts` | Style per scaffold | Ja |
 | `diagnostics.ts` | Telemetri | Ja |
-| `orchestration-contract.ts` | `scaffoldFamily` i contract | Ja — byt till id |
+| `orchestration-contract.ts` | `scaffoldId` i contract | Genomfört |
 | Dossier-manifests (catalog.json) | `recommendedScaffoldIds[]` | **Nej** — extern mapping |
 
 ### Rekommendation: KOLLAPSA, inte ta bort
@@ -482,7 +481,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `scripts/template-library/hydrate-template-library-cache.ts` | `npm run template-library:hydrate-cache` | Klonar repos från discovery → repo-cache |
 | `scripts/template-library/hamta_sidor_branch_emil.py` | (kallas av full_template_refresh) | Vercel templates HTTP-scraper |
 | `scripts/template-library/verify-discovered-summary.ts` | `npm run template-library:verify-summary` | Validerar scrape-data |
-| `scripts/template-library/sync-v0-templates.mjs` | — | **Trolig duplikat** av `scripts/v0-templates/sync-v0-templates.mjs` |
+| `scripts/template-library/sync-v0-templates.mjs` | `npm run templates:sync` | Kanonisk v0 template-sync — anropas via trampolin i `v0-templates/` |
 
 ### Embeddings (aktiv)
 
@@ -513,7 +512,6 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Fil | Varför borttagen |
 |-----|-----------------|
-| `scripts/template-library/sync-v0-templates.mjs` | Duplikat av `scripts/v0-templates/sync-v0-templates.mjs` |
 | `scripts/dev/db-debug.mjs` | Hårdkodade IDs som ruttnar — ad-hoc debug |
 | `detectScaffoldMode()` i serialize.ts | Aldrig anropad i production — död kod |
 
@@ -594,7 +592,6 @@ Dimension 5: VAD BERIKAR scaffolden?
 | Kollapsa `ScaffoldFamily` → härledd typ från scaffold-ids | Låg | -1 underhållen union, -1 fält |
 | Byt `getScaffoldByFamily()` → `getScaffoldById()` i matcher (14 st) | Låg | Tydligare intent |
 | Ta bort eller koppla in `detectScaffoldMode()` | Låg | -1 död export |
-| Ta bort `scripts/template-library/sync-v0-templates.mjs` (duplikat) | Låg | -1 förvirrande fil |
 | Ta bort `scripts/dev/db-debug.mjs` (hårdkodade IDn) | Låg | -1 stale fil |
 
 ### Nivå 3 — Strukturell förbättring (större arbete)

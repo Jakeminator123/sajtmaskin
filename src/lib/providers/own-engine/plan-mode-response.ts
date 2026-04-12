@@ -73,7 +73,6 @@ export function createOwnEnginePlanModeResponse(params: {
       thinking,
       planMode: true,
       scaffoldId: resolvedScaffold?.id ?? null,
-      scaffoldFamily: resolvedScaffold?.id ?? null,
       promptStrategy: promptStrategyMeta.strategy ?? null,
       promptType: promptStrategyMeta.promptType ?? null,
       promptBudgetTarget: promptStrategyMeta.budgetTarget ?? null,

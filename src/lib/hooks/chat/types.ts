@@ -143,7 +143,6 @@ export type ModelInfoData = {
   promptAssistDeep?: boolean | null;
   promptAssistMode?: "polish" | "rewrite" | null;
   scaffoldId?: string | null;
-  scaffoldFamily?: string | null;
   scaffoldLabel?: string | null;
   capabilities?: Record<string, boolean> | null;
   contractDataMode?: string | null;

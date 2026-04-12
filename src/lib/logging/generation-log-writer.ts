@@ -312,7 +312,6 @@ type FaultFixRow = {
   versionId: string;
   lineageHash: string;
   scaffoldId: string;
-  scaffoldFamily: string;
   serializeMode: string;
   styleDirection: string;
   file: string;
@@ -320,9 +319,8 @@ type FaultFixRow = {
   resolved: string;
 };
 
-const EMPTY_CONTEXT_COLS: Pick<FaultFixRow, "scaffoldId" | "scaffoldFamily" | "serializeMode" | "styleDirection" | "file" | "fixer" | "resolved"> = {
+const EMPTY_CONTEXT_COLS: Pick<FaultFixRow, "scaffoldId" | "serializeMode" | "styleDirection" | "file" | "fixer" | "resolved"> = {
   scaffoldId: "-",
-  scaffoldFamily: "-",
   serializeMode: "-",
   styleDirection: "-",
   file: "-",
@@ -819,7 +817,6 @@ function enrichFaultFixRow(
     versionId: findLastStringAtOrBefore(entries, entryIndex, "versionId") || row.versionId,
     lineageHash: findLastStringAtOrBefore(entries, entryIndex, "lineageHash") || row.lineageHash,
     scaffoldId: row.scaffoldId !== "-" ? row.scaffoldId : (findLastStringAtOrBefore(entries, entryIndex, "scaffoldId") || "-"),
-    scaffoldFamily: row.scaffoldFamily !== "-" ? row.scaffoldFamily : (findLastStringAtOrBefore(entries, entryIndex, "scaffoldFamily") || "-"),
     serializeMode: row.serializeMode !== "-" ? row.serializeMode : (findLastStringAtOrBefore(entries, entryIndex, "serializeMode") || "-"),
     styleDirection: row.styleDirection !== "-" ? row.styleDirection : (findLastStringAtOrBefore(entries, entryIndex, "styleDirection") || "-"),
   };
@@ -902,7 +899,6 @@ const FAULT_FIX_CSV_HEADER = [
   "version_id",
   "lineage_hash",
   "scaffold_id",
-  "scaffold_family",
   "serialize_mode",
   "style_direction",
   "file",
@@ -929,7 +925,6 @@ function faultFixRowToCsvLine(row: FaultFixRow): string {
     row.versionId,
     row.lineageHash,
     row.scaffoldId,
-    row.scaffoldFamily,
     row.serializeMode,
     row.styleDirection,
     row.file,

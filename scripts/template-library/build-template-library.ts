@@ -94,7 +94,7 @@ const USEFUL_LINE_STOPWORDS = new Set([
   "och", "att", "det", "den", "som", "med", "har", "kan", "för", "till",
   "template", "starter", "templates",
 ]);
-const KNOWN_SCAFFOLD_FAMILIES = new Set(getScaffoldIds());
+const KNOWN_SCAFFOLD_IDS = new Set(getScaffoldIds());
 const TITLE_BLOCKLIST_PATTERNS = [
   "Express on Bun",
   "Hono on Bun",
@@ -723,7 +723,7 @@ function deriveWeaknesses(
   return weaknesses;
 }
 
-function recommendScaffoldFamilies(
+function recommendScaffoldIds(
   categorySlug: string,
   signals: TemplateLibrarySignals,
 ): ScaffoldId[] {
@@ -920,7 +920,7 @@ function buildEntry(
   };
   const signals = detectSignals(template, selectedFiles);
   const strengths = deriveStrengths(signals, repoInfo);
-  const recommendedScaffoldIds = recommendScaffoldFamilies(canonicalCategorySlug, signals);
+  const recommendedScaffoldIds = recommendScaffoldIds(canonicalCategorySlug, signals);
   const classification = deriveClassification(
     canonicalCategorySlug,
     template,
@@ -1223,9 +1223,9 @@ function buildScaffoldResearch(entries: TemplateLibraryEntry[]) {
 function validateTemplateLibraryEntries(entries: TemplateLibraryEntry[]): void {
   for (const entry of entries) {
     for (const family of entry.recommendedScaffoldIds) {
-      if (!KNOWN_SCAFFOLD_FAMILIES.has(family)) {
+      if (!KNOWN_SCAFFOLD_IDS.has(family)) {
         throw new Error(
-          `[template-library] ${entry.id} references unknown scaffold family "${family}"`,
+          `[template-library] ${entry.id} references unknown scaffold id "${family}"`,
         );
       }
     }
@@ -1238,7 +1238,7 @@ function validateScaffoldResearchAgainstCatalog(
 ): void {
   const entryIds = new Set(entries.map((entry) => entry.id));
   for (const [family, payload] of Object.entries(scaffoldResearch.scaffolds)) {
-    if (!KNOWN_SCAFFOLD_FAMILIES.has(family as ScaffoldId)) {
+    if (!KNOWN_SCAFFOLD_IDS.has(family as ScaffoldId)) {
       throw new Error(
         `[template-library] scaffold research generated unknown family "${family}"`,
       );
@@ -1246,7 +1246,7 @@ function validateScaffoldResearchAgainstCatalog(
     for (const reference of payload.research.referenceTemplates) {
       if (!entryIds.has(reference.id)) {
         throw new Error(
-          `[template-library] scaffold family "${family}" references missing template id "${reference.id}"`,
+          `[template-library] scaffold "${family}" references missing template id "${reference.id}"`,
         );
       }
     }

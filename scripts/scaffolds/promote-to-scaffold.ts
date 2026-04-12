@@ -19,7 +19,6 @@ type BuildIntent = "website" | "app" | "template";
 interface Options {
   dossier: string;
   scaffoldId: string;
-  scaffoldFamily: string;
   label: string | null;
   baseScaffoldId: string | null;
   dryRun: boolean;
@@ -30,12 +29,11 @@ function parseArgs(): Options {
   const positional = args.find((arg) => !arg.startsWith("--"));
   if (!positional) {
     throw new Error(
-      "Usage: npx tsx scripts/scaffolds/promote-to-scaffold.ts <dossier-id|manifest-path> [--id=new-id] [--family=new-family] [--base=existing-scaffold] [--label=\"Label\"] [--dry-run]",
+      "Usage: npx tsx scripts/scaffolds/promote-to-scaffold.ts <dossier-id|manifest-path> [--id=new-id] [--base=existing-scaffold] [--label=\"Label\"] [--dry-run]",
     );
   }
 
   const explicitId = args.find((arg) => arg.startsWith("--id="))?.slice("--id=".length);
-  const explicitFamily = args.find((arg) => arg.startsWith("--family="))?.slice("--family=".length);
   const explicitBase = args.find((arg) => arg.startsWith("--base="))?.slice("--base=".length) ?? null;
   const explicitLabel = args.find((arg) => arg.startsWith("--label="))?.slice("--label=".length) ?? null;
 
@@ -43,7 +41,6 @@ function parseArgs(): Options {
   return {
     dossier: positional,
     scaffoldId,
-    scaffoldFamily: slugify(explicitFamily ?? scaffoldId),
     label: explicitLabel,
     baseScaffoldId: explicitBase ? slugify(explicitBase) : null,
     dryRun: args.includes("--dry-run"),
@@ -67,8 +64,8 @@ function chooseBaseScaffold(entry: TemplateLibraryEntry, explicitBase: string | 
     return scaffold;
   }
 
-  for (const family of entry.recommendedScaffoldIds) {
-    const scaffold = getScaffoldById(family);
+  for (const candidateId of entry.recommendedScaffoldIds) {
+    const scaffold = getScaffoldById(candidateId);
     if (scaffold) return scaffold;
   }
 

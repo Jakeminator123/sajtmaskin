@@ -26,7 +26,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           title: chat.title,
           model: chat.model,
           scaffoldId: chat.scaffold_id,
-          scaffoldFamily: resolvedScaffold?.id ?? null,
           scaffoldLabel: resolvedScaffold?.label ?? null,
           ...previewUrlField(null),
           legacyShimPreviewUrl: null,

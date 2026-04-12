@@ -107,7 +107,6 @@ const common = {
   metaBriefApplied: false,
   customInstructionsLength: 0,
   scaffoldId: "sc1",
-  scaffoldFamily: "fam",
 };
 
 const minimalClarification = {

@@ -10,9 +10,6 @@ export type ScaffoldId =
   | "auth-pages"
   | "ecommerce";
 
-/** @deprecated Use ScaffoldId instead. */
-export type ScaffoldFamily = ScaffoldId;
-
 export type ScaffoldMode = "off" | "auto" | "manual";
 
 export type ScaffoldSiteKind = "marketing" | "app" | "commerce" | "editorial";

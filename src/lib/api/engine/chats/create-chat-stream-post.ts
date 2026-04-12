@@ -515,14 +515,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-          scaffoldFamily: orchestrationBase.resolvedScaffold?.id ?? null,
           serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
         });
         devLogAppend("in-progress", {
           type: "orchestration.resolved",
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-          scaffoldFamily: orchestrationBase.resolvedScaffold?.id ?? null,
           serializeMode: orchestrationBase.serializeMode,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
@@ -734,7 +732,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
-            scaffoldFamily: resolvedScaffold?.id ?? null,
           }),
           engineModel,
           optimizedMessage,

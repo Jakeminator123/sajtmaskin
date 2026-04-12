@@ -567,7 +567,6 @@ export async function handleMessageStreamRequest(
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-          scaffoldFamily: orchestrationBase.resolvedScaffold?.id ?? null,
           serializeMode: orchestrationBase.serializeMode,
           routeCount: orchestrationBase.routePlan.routes.length,
         });
@@ -575,7 +574,6 @@ export async function handleMessageStreamRequest(
           type: "orchestration.resolved",
           chatId,
           scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-          scaffoldFamily: orchestrationBase.resolvedScaffold?.id ?? null,
           serializeMode: orchestrationBase.serializeMode,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
@@ -769,7 +767,6 @@ export async function handleMessageStreamRequest(
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
-            scaffoldFamily: resolvedScaffold?.id ?? null,
           }),
           engineModel,
           optimizedMessage,

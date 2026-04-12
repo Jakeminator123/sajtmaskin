@@ -20,7 +20,7 @@ export type StyleDirection = {
 
 export interface StyleDirectionInput {
   prompt: string;
-  scaffoldFamily?: ScaffoldId | null;
+  scaffoldId?: ScaffoldId | null;
   styleKeywords?: string[];
   generationMode?: "init" | "followUp";
   /** Optional per-session seed (e.g. chatId, timestamp) to vary output for identical prompts. */
@@ -173,10 +173,10 @@ function scorePreset(
   preset: StyleDirectionPreset,
   promptLower: string,
   styleKeywordsLower: string[],
-  scaffoldFamily?: ScaffoldId | null,
+  scaffoldId?: ScaffoldId | null,
 ): number {
   let score = 0;
-  if (scaffoldFamily && preset.families?.includes(scaffoldFamily)) {
+  if (scaffoldId && preset.families?.includes(scaffoldId)) {
     score += 2;
   }
   for (const keyword of preset.keywords ?? []) {
@@ -194,14 +194,14 @@ export function pickStyleDirection(input: StyleDirectionInput): StyleDirection {
   const ranked = STYLE_DIRECTION_PRESETS
     .map((preset) => ({
       preset,
-      score: scorePreset(preset, promptLower, styleKeywordsLower, input.scaffoldFamily),
+      score: scorePreset(preset, promptLower, styleKeywordsLower, input.scaffoldId),
     }))
     .sort((a, b) => b.score - a.score || a.preset.id.localeCompare(b.preset.id));
 
   const topCandidates = ranked.slice(0, 3);
   const seedKey = [
     input.prompt.trim().toLowerCase().slice(0, 200),
-    input.scaffoldFamily ?? "none",
+    input.scaffoldId ?? "none",
     input.generationMode ?? "init",
     input.sessionSeed ?? "",
   ].join("::");

@@ -18,7 +18,6 @@ type VersionErrorLogPayload = {
 
 type EngineScaffoldContext = {
   scaffoldId: string;
-  scaffoldFamily: string | null;
   scaffoldLabel: string | null;
   persistedOn: "engine_chat";
 };
@@ -42,7 +41,6 @@ function buildEngineScaffoldContext(scaffoldId: string | null): EngineScaffoldCo
   const manifest = getScaffoldById(scaffoldId);
   return {
     scaffoldId,
-    scaffoldFamily: manifest?.id ?? null,
     scaffoldLabel: manifest?.label ?? null,
     persistedOn: "engine_chat",
   };

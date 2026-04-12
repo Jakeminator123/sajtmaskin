@@ -162,7 +162,6 @@ describe("createPreGenerationContractGateReadableStream (golden SSE)", () => {
     expect(meta.capabilities).toBeUndefined();
     expect(meta.contractDataMode).toBe("persisted");
     expect(meta.scaffoldId).toBe("saas-landing");
-    expect(meta.scaffoldFamily).toBe("saas-landing");
     expect(meta.buildSpec).toEqual(buildSpec);
 
     const toolCall = events[2]?.data as { toolName?: string; toolCallId?: string };
