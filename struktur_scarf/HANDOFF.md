@@ -1,6 +1,44 @@
 # Scaffold-omstrukturering — Överlämning
 
-Skapad: 2026-04-12. Kontext: hela sessionen som gjort commit 1/X–3/X + fixar.
+Skapad: 2026-04-12. Uppdaterad: 2026-04-12 (session 2).
+
+---
+
+## Session 2 — Genomfört (8 commits, pushade till master)
+
+| Commit | Beskrivning |
+|--------|-------------|
+| `638b4df1b` | scaffoldFamily runtime-migration (~21 TS-filer) + scripts-audit |
+| `03bdb493f` | Extrahera 65 inline-filer till disk + loadScaffoldFiles loader |
+| `84432d8f7` | Backoffice CRUD (tags, hints, checklist, intents) + cursor-regel |
+| `e43d34b51` | HANDOFF.md uppdaterad med genomförda punkter |
+| `bd51680fc` | Orchestration Map-sida i backoffice |
+| `b64217741` | Scaffold-arkitektur cursor-regel + SKILL.md uppdaterad |
+
+### Vad som ändrades
+
+**scaffoldFamily-bort:** Alla `scaffoldFamily` runtime-fält -> `scaffoldId` i SSE, logg, hooks, providers, tester. `ScaffoldFamily` typ-alias borttaget. CSV-kolumn borttagen. DB-kolumn `scaffold_family` behålls (bakåtkompatibilitet).
+
+**Inline-filer extraherade:** 65 filer från 10 manifest.ts -> riktiga filer under `scaffolds/<id>/files/`. Loader `loadScaffoldFiles()` läser från disk. Manifests krympta till ~40-55 rader. `tsconfig.json` exkluderar `scaffolds/*/files` från typecheck.
+
+**Backoffice CRUD:** `sajtmaskin_backoffice.py` har nu redigering av tags, promptHints, qualityChecklist, allowedBuildIntents via regex-parsning + skrivning till manifest.ts.
+
+**Orchestration Map:** Ny sida i backoffice som parsar TS-uniontyper direkt ur källkoden och visar alla beslutspunkter + flödesdiagram + Vercel Use Case-mappning.
+
+**Scripts-audit:** Återställde felaktigt borttagen `sync-v0-templates.mjs`. Döpte om `recommendScaffoldFamilies` -> `recommendScaffoldIds`, `KNOWN_SCAFFOLD_FAMILIES` -> `KNOWN_SCAFFOLD_IDS` i build-script.
+
+**Dokumentation:** `.cursor/rules/scaffold-architecture.mdc` med komplett flödesdiagram, extern research-path, token-budgetering, agent-regler. `.cursor/skills/sajtmaskin-context/SKILL.md` uppdaterad. `.cursor/rules/subagent-verification.mdc` tillagd.
+
+---
+
+## Verifierat vid avslut
+
+- TypeScript: 0 fel
+- Scaffold-laddning: alla 10 scaffolds, alla filer har innehåll
+- scaffoldFamily/ScaffoldFamily: 0 förekomster i TS/TSX/PY
+- Git: rent working tree, pushat till master
+
+---
 
 ---
 
@@ -118,3 +156,26 @@ Exemplen i `struktur_scarf/exempel/` är KOPIOR/UTDRAG och kan tas bort.
 | `struktur_scarf/exempel/skrapade_fran_chad/` | 2 klonadeRrepos (embedded git) | NEJ |
 
 Scaffold-systemet bygger ENBART på `data/external-template-pipeline/` via `scripts/scaffolds/scaffold_cli.py`.
+
+---
+
+## Framtida arbete (ej påbörjat)
+
+| Område | Beskrivning | Komplexitet |
+|--------|-------------|-------------|
+| Automatisk baseline-uppdatering | CI-jobb eller script som testar senaste next/tailwind/shadcn mot preview-miljön och uppdaterar pinnade versioner | Medel |
+| Scaffold-specifik toolkit-lista | `## Your Toolkit` anpassad per scaffold (dashboard -> Table, Chart; landing -> Hero, CTA) | Låg-medel |
+| Komponentpool per scaffold | Utöka scaffolds med valfria sektioner/komponenter som LLM:en kan plocka från | Stor |
+| Konsolidera dashboards | Slå ihop scripts_dashboard.py + config/dashboard/app.py in i sajtmaskin_backoffice.py | Medel |
+| Nya scaffolds | AI-chat, docs-site, realtime-app (Vercels sida har kategorier vi saknar) | Medel per scaffold |
+| config/ai_models audit | Verifiera att manifest.json och build profiles är aktuella och optimerade | Låg |
+
+## Viktig kontext för nästa agent
+
+- Läs `.cursor/rules/scaffold-architecture.mdc` FÖRST — komplett flödesdiagram
+- Backoffice: `python sajtmaskin_backoffice.py` (Streamlit, 6 sidor)
+- Scaffold-filer: redigera direkt under `scaffolds/<id>/files/`
+- Manifest-metadata: redigera via backoffice Scaffolds-sida eller direkt i `manifest.ts`
+- Typecheck: `npx tsc --noEmit` (0 fel förväntas exkl. `struktur_scarf/`)
+- Scaffold-verifiering: `npx tsx -e "import { getAllScaffolds } from './src/lib/gen/scaffolds/registry'; getAllScaffolds().forEach(s => console.log(s.id, s.files.length))"`
+
