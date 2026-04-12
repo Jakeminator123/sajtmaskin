@@ -75,12 +75,12 @@ export async function POST(req: NextRequest) {
     const allScaffolds = getAllScaffolds();
     const matchedFull = allScaffolds.find((s) => s.id === scaffold.id);
     if (matchedFull?.files) {
-      const pageFiles = Object.keys(matchedFull.files).filter(
-        (f) => f.startsWith("src/app/") && f.endsWith("/page.tsx") && !f.includes("api/"),
-      );
+      const pageFiles = matchedFull.files
+        .map((f) => f.path)
+        .filter((p) => p.match(/^(src\/)?app\//) && p.endsWith("/page.tsx") && !p.includes("api/"));
       for (const f of pageFiles) {
-        const pageName = f.replace("src/app/", "").replace("/page.tsx", "");
-        if (pageName && pageName !== "(marketing)") {
+        const pageName = f.replace(/^(src\/)?app\//, "").replace("/page.tsx", "");
+        if (pageName && pageName !== "(marketing)" && pageName !== "") {
           suggestedPages.push(pageName.charAt(0).toUpperCase() + pageName.slice(1));
         }
       }
