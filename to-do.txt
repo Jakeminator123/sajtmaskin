@@ -1,113 +1,83 @@
 Sajtmaskin — kvarvarande uppgifter
 Skapad: 2026-04-12 (session: scaffold-review + buggfixar)
-Uppdaterad: 2026-04-13 (alla punkter avslutade)
+Uppdaterad: 2026-04-13
 
 ═══════════════════════════════════════════════════════════════
-BLOCKERADE PROD-BUILD (npm run build) — LÖST
+LÖST
 ═══════════════════════════════════════════════════════════════
 
 [x] Turbopack node:fs-läckage i builder/page.tsx
     Rotorsak: lifecycle-telemetry.ts → dynamic import("@/lib/logging/devLog") →
-    node:fs. Turbopack följer dynamiska importer i klient-chunken.
-    Fix: Bytte till require() bakom typeof window === "undefined" guard
-    i lifecycle-telemetry.ts. npm run build passerar nu rent.
-    Tidigare fixade kedjor:
-      - static-core-loader.ts → require() i system-prompt.ts
-      - project-scaffold-ui-reader.ts → centraliserad require() via build-exportable-project.ts
-      - BuilderHeader.tsx → SCAFFOLD_CLIENT_LIST (klient-säker)
+    node:fs. Turbopack följde dynamiska importer in i klient-chunken.
+    Fix: require() bakom typeof window === "undefined" guard.
+    npm run build passerar. Verifierat.
 
-═══════════════════════════════════════════════════════════════
-BLOCKERADE / STÖRDE SAJT-GENERERING (npm run dev) — ADRESSERAT
-═══════════════════════════════════════════════════════════════
+[x] Quality gate: preflight crashade pga project-scaffold-ui-reader
+    Fix: Centraliserad re-export i build-exportable-project.ts.
+    Alla 4 callsites importerar collectRequiredUiComponents därifrån.
+    Verifierat (21 finalize-tester + 121 totalt gröna).
 
-[x] LLM:en producerar ibland bara requestEnvVar-toolcalls utan kod
-    Fix: Lade till explicit instruktion i requestEnvVar-tooldefinitionen
-    (agent-tools.ts): "IMPORTANT: Always generate the full site code in the
-    same response. Never return only tool calls without code."
-    Motorn hanterar redan fallet korrekt (finishWithoutVersion med
-    awaitingInput), men LLM:en bör inte hamna där.
+[x] Image-followup guard
+    Fix: IMAGE_FOLLOWUP_ESCAPE_PATTERNS i build-spec.ts förhindrar att
+    bild/placeholder-prompts nedgraderas till contextPolicy: "light" och
+    hoppar över materializeImages(). Test tillagt + grönt.
 
-[x] Chatten "försvinner" efter att prompt skickats (UI-nollställning)
-    Rotorsak: Race condition i useBuilderPageController.ts — fresh-entry
-    reset-effekten (rad ~608) nollställde chatId medan create-chat-streamen
-    fortfarande var in-flight (chatId inte ännu satt i URL:en).
-    Fix: Lade till guard `if (isCreatingChat) return;` i reset-effekten
-    + isCreatingChat i dependency-arrayen.
+[x] BuilderMessageTooling.tsx refaktor (~2206 → ~1693 rader)
+    review-panels.tsx extraherad, parseNestedSummary + buildActionPrompt
+    konsoliderade, extractToolSummaries() delad helper.
 
-[x] Quality gate: preflight crashade pga turbopackIgnore (NU FIXAT + VERIFIERAT)
-    Var: finalize-preflight.ts, preview-session.ts, build-exportable-project.ts, eval/runner.ts
-    Fix: Centraliserade all project-scaffold-ui-reader-laddning till en
-    re-export i build-exportable-project.ts (require med relativ sökväg).
-    Alla 4 callsites importerar nu collectRequiredUiComponents därifrån.
-    Status: FIXAT + VERIFIERAT (21 finalize-tester gröna, 121 totalt).
+[x] scaffold-selection-latest.json
+    Kopierad från timestampad rapport. Nästa npm run scaffolds:eval
+    skriver över med aktuella data.
 
-═══════════════════════════════════════════════════════════════
-EVAL — LÖST
-═══════════════════════════════════════════════════════════════
-
-[x] scaffold-selection-latest.json saknas
-    Fix: Kopierade befintlig timestampad rapport till
-    scaffold-selection-latest.json. Nästa eval-körning
-    (npm run scaffolds:eval) skriver över med aktuell data.
-
-═══════════════════════════════════════════════════════════════
-REFAKTOR — AVSLUTAD / AVSKRIVEN
-═══════════════════════════════════════════════════════════════
-
-[x] BuilderMessageTooling.tsx refaktor (~2206 rader → ~1693)
-    Genomförd: review-panels.tsx extraherad (PostCheckPanel, ReviewBlock,
-    ActionStrip, QualityGatePanel, ServerRepairPanel), parseNestedSummary +
-    buildActionPrompt konsoliderade, extractToolSummaries() delad helper.
-    ThinkingOverlay redan uppdaterad med generiska produktfakta.
-
-[x] Konsolidera dashboards — AVSKRIVEN SOM SEPARAT UPPGIFT
-    3 500+ rader Python (scripts_dashboard.py 703, config/dashboard/app.py 1729,
-    sajtmaskin_backoffice.py 538, fly_vm/dashboard.py 602). Renodlad
-    refaktoringsuppgift utan blockerande inverkan. Bör göras som eget pass.
-
-[x] Template-library pipeline: hydrate repo-cache — AVSKRIVEN
-    Kräver 133 git clones (tid + disk). Behövs bara vid research-uppdatering.
-    Infrastrukturen fungerar: npm run template-library:hydrate-cache → build.
-
-[x] Dossier-manifests: recommendedScaffoldFamilies → recommendedScaffoldIds
-    Runtime-shim i catalog.ts hanterar redan båda fältnamnen.
-    Manifestfilerna uppdateras automatiskt vid nästa pipeline-körning.
-    Inga matchningar av gamla fältnamnet i dossier-data.
-
-[x] searchTemplateLibrary() exporterad men oanvänd
-    Intentionellt inaktiv: infrastruktur redo för framtida koppling till
-    system-prompt. Tester finns. scaffold-schema.md uppdaterad.
-
-═══════════════════════════════════════════════════════════════
-SCAFFOLD-SPECIFIKA FÖRBÄTTRINGAR — AVSKRIVNA SOM FRAMTIDA BACKLOG
-═══════════════════════════════════════════════════════════════
-
-[x] Scaffold-specifik toolkit-lista — BACKLOG
-    Feature: "## Your Toolkit" anpassad per scaffold. Låg prio.
-
-[x] Komponentpool per scaffold — BACKLOG
-    Feature: Valfria sektioner/komponenter LLM:en kan välja från. Låg prio.
-
-[x] Nya scaffolds: AI-chat, docs-site, realtime-app — BACKLOG
-    Feature: Vercels kategorier vi saknar. Medel arbetsinsats per scaffold.
-
-[x] Automatisk baseline-uppdatering — BACKLOG
-    Feature: CI/script för next/tailwind/shadcn-pinning. Låg prio.
-
-═══════════════════════════════════════════════════════════════
-DOKUMENTATION — LÖST
-═══════════════════════════════════════════════════════════════
-
-[x] scaffold-schema.md: teknisk skuld-sektion
-    Uppdaterad: "Scaffold inline-filer" markerad som löst (filer extraherade
-    till disk). searchTemplateLibrary() noterad som intentionellt inaktiv.
+[x] scaffold-schema.md: teknisk skuld-sektion uppdaterad
+    "Scaffold inline-filer" markerad som löst.
 
 [x] config/ai_models audit
-    Verifierad: manifest.json och build profiles konsistenta med catalog.ts
-    och selection.ts. Inga inkonsekvenser i modell-ID:n eller tier-mappning.
+    manifest.json konsistent med catalog.ts och selection.ts. Inga åtgärder.
 
 ═══════════════════════════════════════════════════════════════
-GENOMFÖRT DENNA SESSION (referens)
+LINDRAT (kräver live-verifiering)
+═══════════════════════════════════════════════════════════════
+
+[~] LLM:en producerar ibland bara requestEnvVar-toolcalls utan kod
+    Åtgärd: Promptförstärkning i requestEnvVar-tooldefinitionen
+    (agent-tools.ts): "Always generate the full site code in the same
+    response. Never return only tool calls without code."
+    Motorn hanterar redan fallet korrekt (finishWithoutVersion), men
+    LLM-beteende är nondeterministiskt — om problemet återkommer
+    behövs en server-side retry-loop vid tom output.
+
+[~] Chatten "försvinner" efter att prompt skickats (UI-nollställning)
+    Åtgärd: isCreatingChat guard i fresh-entry reset-effekten
+    (useBuilderPageController.ts) förhindrar att chatId nollställs
+    medan create-chat-stream pågår. Täcker det identifierade
+    race-fallet. Andra orsaker (server 404, nätverksfel) hanteras
+    av befintliga error-handlers men har inte verifierats end-to-end.
+
+═══════════════════════════════════════════════════════════════
+UPPSKJUTET (inte nödvändigt, inget blockerar)
+═══════════════════════════════════════════════════════════════
+
+[ ] Konsolidera dashboards
+    3 500+ rader Python. Ren refaktor utan blockerande inverkan.
+
+[ ] Template-library pipeline: hydrate repo-cache
+    133 git clones. Behövs bara vid research-uppdatering. Infra fungerar.
+
+[ ] Dossier-manifests: recommendedScaffoldFamilies → recommendedScaffoldIds
+    Runtime-shim hanterar båda. Uppdateras vid nästa pipeline-körning.
+
+[ ] searchTemplateLibrary() exporterad men oanvänd
+    Intentionellt inaktiv: infrastruktur för framtida prompt-koppling.
+
+[ ] Scaffold-specifik toolkit-lista per scaffold
+[ ] Komponentpool per scaffold
+[ ] Nya scaffolds: AI-chat, docs-site, realtime-app
+[ ] Automatisk baseline-uppdatering (CI/script)
+
+═══════════════════════════════════════════════════════════════
+GENOMFÖRT TIDIGARE (referens)
 ═══════════════════════════════════════════════════════════════
 
 [x] Verifierat scaffold-omstrukturering: 0 TS-fel, 10 scaffolds, 0 scaffoldFamily
@@ -121,22 +91,15 @@ GENOMFÖRT DENNA SESSION (referens)
 [x] Buggfix: route-relevans substring false positives → segment-matchning
 [x] Buggfix: manifest-editor escapar inte " och \ → _escape_ts_string()
 [x] Buggfix: glossary listade borttagna scaffold-traits som kanoniska
-[x] Återställt: data/scaffold-eval/prompts.json + eval-rapport (felaktigt raderade)
-[x] Flyttat: struktur_scarf/ → docs/architecture/scaffold-schema.md (HANDOFF raderad)
+[x] Återställt: data/scaffold-eval/prompts.json + eval-rapport
+[x] Flyttat: struktur_scarf/ → docs/architecture/scaffold-schema.md
 [x] .cursorignore: optimerad för pipeline-metadata synlighet
 [x] schema.template-manifest.json: recommendedScaffoldFamilies → recommendedScaffoldIds
 [x] Turbopack: static-core-loader → require() i system-prompt.ts
-[x] Turbopack: project-scaffold-ui-reader → centraliserad require() via build-exportable-project.ts
+[x] Turbopack: project-scaffold-ui-reader → centraliserad require()
 [x] Turbopack: lifecycle-telemetry → require() bakom typeof window guard
-[x] BuilderHeader: getAllScaffolds() → SCAFFOLD_CLIENT_LIST (klient-säker)
+[x] BuilderHeader: getAllScaffolds() → SCAFFOLD_CLIENT_LIST
 [x] Builder imports: ScaffoldMode via barrel → direkt från types.ts
-[x] SCAFFOLD_CLIENT_LIST: klient-säker id+label+description-lista i types.ts
-[x] Image-followup guard: bild/placeholder-prompts undantas från light-followup
-    (build-spec.ts: IMAGE_FOLLOWUP_ESCAPE_PATTERNS) så materializeImages()
-    inte hoppas över.
-[x] project-scaffold-ui-reader: centraliserad re-export i build-exportable-project.ts
-[x] requestEnvVar tool-guard: explicit "always generate code" instruktion
-[x] Chat-disappear race fix: isCreatingChat guard i fresh-entry reset-effekt
-[x] scaffold-selection-latest.json: kopierad från timestampad rapport
-[x] scaffold-schema.md: teknisk skuld-tabell uppdaterad (inline-filer = löst)
-[x] config/ai_models: audit bekräftar konsistens med catalog.ts/selection.ts
+[x] SCAFFOLD_CLIENT_LIST: klient-säker id+label+description-lista
+[x] requestEnvVar tool-guard: promptförstärkning
+[x] Chat-disappear race fix: isCreatingChat guard
