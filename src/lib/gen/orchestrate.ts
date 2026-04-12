@@ -398,23 +398,74 @@ export async function resolveOrchestrationBase(
 }
 
 /**
+ * Lightweight prompt-aware scoring for scaffold referenceTemplates.
+ * Uses keyword overlap with prompt + brief + buildSpec signals to pick
+ * the most relevant 1–2 refs instead of blindly taking the first ones.
+ */
+function scoreReferenceRelevance(
+  ref: { id: string; title: string; categorySlug: string; qualityScore: number; strengths: string[] },
+  prompt: string,
+  brief: Record<string, unknown> | null | undefined,
+  referenceCategories: string[],
+): number {
+  let score = 0;
+  const promptLower = prompt.toLowerCase();
+
+  if (referenceCategories.includes(ref.categorySlug)) score += 5;
+
+  const haystack = [ref.title, ...ref.strengths].join(" ").toLowerCase();
+  const promptTokens = promptLower
+    .split(/\s+/)
+    .filter((t) => t.length > 3)
+    .slice(0, 20);
+  for (const token of promptTokens) {
+    if (haystack.includes(token)) score += 1;
+  }
+
+  if (brief) {
+    const briefText = [
+      typeof brief.oneSentencePitch === "string" ? brief.oneSentencePitch : "",
+      typeof brief.targetAudience === "string" ? brief.targetAudience : "",
+      typeof brief.primaryCallToAction === "string" ? brief.primaryCallToAction : "",
+    ].join(" ").toLowerCase();
+    const briefTokens = briefText.split(/\s+/).filter((t) => t.length > 3).slice(0, 15);
+    for (const token of briefTokens) {
+      if (haystack.includes(token)) score += 1.5;
+    }
+  }
+
+  score += ref.qualityScore / 100;
+
+  return score;
+}
+
+/**
  * Resolve scaffold-anchored template-library runtime guidance for init generations.
- * Returns guidance from the top 1–2 referenceTemplates on the resolved scaffold,
- * using only the compact runtimeGuidance (no selectedFiles excerpts).
+ * Reranks the scaffold's referenceTemplates by prompt/brief/buildSpec relevance
+ * and picks the top 1–2 entries, using only compact runtimeGuidance.
  */
 function resolveTemplateGuidance(
   resolvedScaffold: ScaffoldManifest | null,
   generationMode: "init" | "followUp",
+  prompt?: string,
+  brief?: Record<string, unknown> | null,
+  referenceCategories?: string[],
 ): TemplateGuidanceMeta {
   const empty: TemplateGuidanceMeta = { enabled: false, templateIds: [], guidanceEntries: [] };
   if (!FEATURES.useRuntimeTemplateGuidance) return empty;
   if (generationMode !== "init") return empty;
   if (!resolvedScaffold?.research?.referenceTemplates?.length) return empty;
 
-  const refs = resolvedScaffold.research.referenceTemplates.slice(0, 2);
-  const entries: TemplateGuidanceMeta["guidanceEntries"] = [];
+  const allRefs = resolvedScaffold.research.referenceTemplates;
+  const scored = allRefs.map((ref) => ({
+    ref,
+    score: scoreReferenceRelevance(ref, prompt ?? "", brief, referenceCategories ?? []),
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  const topRefs = scored.slice(0, 2);
 
-  for (const ref of refs) {
+  const entries: TemplateGuidanceMeta["guidanceEntries"] = [];
+  for (const { ref } of topRefs) {
     const entry = getTemplateLibraryEntryById(ref.id);
     if (!entry) continue;
     entries.push({
@@ -476,7 +527,13 @@ export async function finalizeOrchestrationPrompts(
 
   const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
 
-  const templateGuidanceMeta = resolveTemplateGuidance(base.resolvedScaffold, resolvedMode);
+  const templateGuidanceMeta = resolveTemplateGuidance(
+    base.resolvedScaffold,
+    resolvedMode,
+    prompt,
+    brief,
+    base.buildSpec.referenceCategories,
+  );
   const templateGuidanceText = formatTemplateGuidanceForPrompt(templateGuidanceMeta);
 
   const dynamicOpts: DynamicContextOptions = {

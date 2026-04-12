@@ -76,8 +76,9 @@ UPPSKJUTET (inte nödvändigt, inget blockerar)
 [ ] Dossier-manifests: recommendedScaffoldFamilies → recommendedScaffoldIds
     Runtime-shim hanterar båda. Uppdateras vid nästa pipeline-körning.
 
-[ ] searchTemplateLibrary() exporterad men oanvänd
-    Intentionellt inaktiv: infrastruktur för framtida prompt-koppling.
+[~] searchTemplateLibrary() exporterad men oanvänd i runtime
+    Global search förblir inaktiv. Scaffold-ankrad guidance via resolveTemplateGuidance()
+    är nu opt-in (SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE). Se scaffold-schema.md.
 
 [ ] Scaffold-specifik toolkit-lista per scaffold
 [ ] Komponentpool per scaffold

@@ -88,7 +88,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 17 | Kodgenerering | `generateCode()` | `engine.ts` | Ja | LLM-anrop med systemprompt + user turn |
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
-| 20 | Template-library runtime | `searchTemplateLibrary()` | `template-library/search.ts` | **Inte aktiv** | Exporterad men inte injicerad i system-prompt |
+| 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Opt-in** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Init only. `searchTemplateLibrary()` ej använd i runtime. |
 
 ---
 
@@ -400,7 +400,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Problem | Detalj |
 |---------|--------|
-| Template-library search exporterad men oanvänd | `searchTemplateLibrary()` injiceras inte i system-prompt. Intentionellt inaktiv — infrastruktur redo för framtida koppling. |
+| Template-library scaffold-anchored guidance (opt-in) | `resolveTemplateGuidance()` i `orchestrate.ts` injicerar runtimeGuidance i `## Scaffold Research Priorities` när `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true`. Global `searchTemplateLibrary()` förblir oanvänd i runtime. |
 | `PromptType` i kod ≠ glossary | Koden har `wizard \| freeform \| template \| audit \| followup_*`. Glossary nämner även `app` och `technical` som docs-only flavorer. |
 | ~~Scaffold inline-filer~~ | **Löst.** Scaffold-filer extraherade till disk under `scaffolds/<id>/files/`. Manifest-filer refererar filer via `loadScaffoldFiles()`. |
 
@@ -599,7 +599,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | Åtgärd | Risk | Påverkan |
 |--------|------|----------|
 | Flytta scaffold-filer ur inline-strängar → riktiga filer under `files/` | Medel | Linting, diffbar, redigerbar |
-| Koppla in `searchTemplateLibrary()` i runtime ELLER ta bort export | Medel | Rensar oanvänd feature |
+| Ta bort `searchTemplateLibrary()`-export om den förblir oanvänd i runtime | Låg | Rensar oanvänd feature |
 | Skapa `data/prompt-dumps/README.md` | Låg | Dokumenterar debug-verktyg |
 
 ---

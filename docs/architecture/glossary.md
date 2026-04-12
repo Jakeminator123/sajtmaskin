@@ -232,6 +232,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Template-Library Signals** | `TemplateLibrarySignals` | `template-library/types.ts` | Boolean feature-flaggor från repo. | kanonisk |
 | **Template-Library Classification** | `TemplateLibraryClassification` | `template-library/types.ts` | `useCaseTags`, `siteFormTags`, `technicalPatternTags`. | kanonisk |
 | **Template-Library Runtime Guidance** | `TemplateLibraryRuntimeGuidance`, `deriveTemplateRuntimeGuidance()` | `template-library/runtime-guidance.ts` | Stilregler, sektionsinventering, rubrik. | kanonisk |
+| **Template Guidance Meta** | `TemplateGuidanceMeta`, `resolveTemplateGuidance()` | `orchestrate.ts` | Scaffold-ankrad runtime-metadata: vilka template-IDs som valdes, guidance-entries. Opt-in via `FEATURES.useRuntimeTemplateGuidance`. | kanonisk |
 | **Template-Library Search** | `searchTemplateLibrary()`, `searchTemplateLibraryWithDiagnostics()` | `template-library/search.ts` | Embedding + keyword-sökning i extern katalog. | kanonisk |
 | **Template-Library Embeddings** | `TemplateLibraryEmbeddingsFile`, `generateTemplateLibraryEmbeddings()` | `template-library/embeddings-core.ts` | Vektorer, parallell struktur med scaffold embeddings. | kanonisk |
 
