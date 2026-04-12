@@ -214,7 +214,7 @@ if page == "Scaffolds":
         })
 
     df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
     st.subheader("Scaffold-detaljer")
     selected_id = st.selectbox("Välj scaffold", [m.get("id", "") for m in manifests])
@@ -276,7 +276,7 @@ elif page == "Research & Dossiers":
                 "verdict": e.get("verdict", ""),
             })
         if cat_rows:
-            st.dataframe(pd.DataFrame(cat_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(cat_rows), width="stretch", hide_index=True)
     else:
         col1.metric("Catalog", "saknas")
         st.info("catalog.json hittades inte. Kör pipeline: `npm run template-library:build`")
@@ -382,7 +382,7 @@ elif page == "Eval":
                     "method": r.get("method", ""),
                     "confidence": r.get("confidence", ""),
                 })
-            st.dataframe(pd.DataFrame(eval_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(eval_rows), width="stretch", hide_index=True)
 
         per_scaffold = summary.get("perScaffold", {})
         if per_scaffold:
@@ -395,7 +395,7 @@ elif page == "Eval":
                     "correct": data.get("correct", 0),
                     "accuracy": f"{data.get('accuracy', 0):.0%}" if isinstance(data.get("accuracy"), (int, float)) else "?",
                 })
-            st.dataframe(pd.DataFrame(ps_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(ps_rows), width="stretch", hide_index=True)
     else:
         st.info("Ingen eval-rapport hittades. Kör `npm run scaffolds:eval` eller tryck nedan.")
 

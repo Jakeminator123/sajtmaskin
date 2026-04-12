@@ -41,7 +41,7 @@ function guessModuleForSpecifiers(specifiers: string[]): string | null {
     if (specifiers.some((s) => known.includes(s))) return mod;
   }
   if (specifiers.every((s) => LUCIDE_ICONS.has(s))) return "lucide-react";
-  if (specifiers.every((s) => SHADCN_COMPONENTS.has(s))) return null;
+  if (specifiers.every((s) => s in SHADCN_COMPONENTS)) return null;
   return null;
 }
 
