@@ -49,7 +49,7 @@ Skapad: 2026-04-12. Kontext: hela sessionen som gjort commit 1/X–3/X + fixar.
 ### PRIORITET HÖG
 
 ~~**1. `scaffoldFamily` i SSE/logg-metadata (~20 filer)**~~
-**GENOMFÖRT** (commit TBD). Alla `scaffoldFamily` runtime-fält migrerade till `scaffoldId`. CSV-kolumnen `scaffold_family` borttagen från fault-fix-loggen. DB-kolumnen `scaffold_family` i `engine_versions` behålls tills vidare (bakåtkompatibilitet). `ScaffoldFamily` type-alias borttaget.
+**GENOMFÖRT** (`638b4df1b`). Alla `scaffoldFamily` runtime-fält migrerade till `scaffoldId`. CSV-kolumnen `scaffold_family` borttagen från fault-fix-loggen. DB-kolumnen `scaffold_family` i `engine_versions` behålls tills vidare (bakåtkompatibilitet). `ScaffoldFamily` type-alias borttaget.
 
 **2. Verifiera `scaffold_cli.py` output-format**
 Bekräfta att pipeline:n (`npm run template-library:build`) genererar `recommendedScaffoldIds` (inte `recommendedScaffoldFamilies`) i output-JSON. Legacy-shim finns i `src/lib/gen/template-library/catalog.ts` som mappar gamla nyckelnamn.
@@ -58,18 +58,16 @@ Kör: `npm run template-library:build` och inspektera `src/lib/gen/template-libr
 
 ### PRIORITET MEDEL
 
-**3. Flytta inline TSX/CSS till riktiga filer**
-Varje `manifest.ts` (~10 st) har ~400 rader strängade kodfiler i `files: [{ path: "...", content: "..." }]`. Extrahera till riktiga filer under `scaffolds/<id>/files/`. Bygg loader som läser dem vid startup.
+~~**3. Flytta inline TSX/CSS till riktiga filer**~~
+**GENOMFÖRT** (`03bdb493f`). 65 filer extraherade till `scaffolds/<id>/files/`. Loader i `load-scaffold-files.ts`. Manifests krympta till ~40-55 rader.
 
-Storlek: ~60–80 filer att extrahera, 1 loader att bygga.
-
-**4. CRUD-redigering i backoffice**
-`sajtmaskin_backoffice.py` Scaffolds-sida är read-only. Lägg till redigering av tags, promptHints, qualityChecklist, allowedBuildIntents via regex-parsning av manifest.ts.
+~~**4. CRUD-redigering i backoffice**~~
+**GENOMFÖRT** (`84432d8f7`). `sajtmaskin_backoffice.py` har nu redigering av tags, promptHints, qualityChecklist, allowedBuildIntents.
 
 ### PRIORITET LÅG
 
-**5. Ta bort `struktur_scarf/exempel/`**
-~20 000 filer, embedded git-repos. Orsakar git-varningar. Bara exempel — riktiga filer finns i `data/external-template-pipeline/`. OBS: embedded git-repos i `skrapade_fran_chad/` kräver `git rm --cached -r` innan vanlig delete.
+~~**5. Ta bort `struktur_scarf/exempel/`**~~
+**GENOMFÖRT.** Mappen borttagen.
 
 ~~**6. Ta bort deprecated `ScaffoldFamily` alias**~~
 **GENOMFÖRT**. `src/lib/gen/scaffolds/types.ts` — aliaset borttaget.
