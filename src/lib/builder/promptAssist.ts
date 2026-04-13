@@ -164,6 +164,9 @@ const MOTION_STATIC_STYLE_KEYWORDS = [
   "quiet",
 ] as const;
 
+// Build intent guidance for prompt-assist paths (rewrite, polish, addendum).
+// Canonical source for codegen is BUILD_INTENT_GUIDANCE in system-prompt.ts.
+// Keep these in sync — the summaries here feed the assist system prompts.
 const BUILD_INTENT_GUIDANCE: Record<
   BuildIntent,
   { summary: string; instructionLines: string[] }

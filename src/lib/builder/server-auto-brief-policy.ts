@@ -1,5 +1,9 @@
 import type { PromptType } from "@/lib/builder/promptOrchestration";
 
+// Structured website detection for auto-brief policy.
+// Related heuristics exist in promptAssist.ts (isStructuredPrompt — heading detection)
+// and promptOrchestration.ts (analyzeComplexity — budget/strategy). They serve
+// different purposes; do not unify without verifying all three thresholds.
 const STRUCTURED_WEBSITE_HINTS = [
   "hero",
   "sektion",

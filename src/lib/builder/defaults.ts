@@ -201,14 +201,24 @@ const CORE_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - ARIA labels where needed
 - Dialogs must include DialogTitle + DialogDescription (sr-only ok)
 - Keyboard navigation support
-- Focus-visible rings on interactive elements`;
+- Focus-visible rings on interactive elements
+
+## Component & Styling Principles
+- Treat theme tokens as source of truth. Do not drift into ad-hoc colors if a theme is selected.
+- Reuse existing shadcn/ui primitives before adding new components.
+- Prefer token-driven styling in globals.css over one-off inline styles.
+- Import icons from lucide-react.`;
 
 /**
  * Extended instructions — visual design, layout, motion, images.
  * Only useful when NO scaffold is active, since scaffolds (and the engine's
  * STATIC_CORE) already provide comprehensive design guidance.
  */
-const EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
+/**
+ * Legacy extended instructions — kept only so `isDefaultInstructions()` still
+ * recognises previously saved values.  Not injected into new chats.
+ */
+const LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
 - Treat theme tokens as source of truth. Do not drift into ad-hoc colors if a theme is selected.
 - Build in this order: small reusable components -> section blocks -> full page composition.
 - Reuse existing UI primitives/components before adding new ones.
@@ -282,11 +292,15 @@ const EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
  * - scaffold "off" → CORE + EXTENDED (full guidance for v0 fallback or
  *   scaffoldless generation).
  */
-export function getDefaultCustomInstructions(scaffoldMode: ScaffoldMode): string {
-  if (scaffoldMode === "auto" || scaffoldMode === "manual") {
-    return CORE_CUSTOM_INSTRUCTIONS;
-  }
-  return `${CORE_CUSTOM_INSTRUCTIONS}\n\n${EXTENDED_CUSTOM_INSTRUCTIONS}`;
+/**
+ * Returns the default Custom Instructions.
+ *
+ * Visual design, layout, motion and images are covered by the engine's
+ * static core (config/prompt-static/) and brief-driven dynamic context —
+ * custom instructions only carry tech stack, shadcn setup and a11y basics.
+ */
+export function getDefaultCustomInstructions(_scaffoldMode: ScaffoldMode): string {
+  return CORE_CUSTOM_INSTRUCTIONS;
 }
 
 /**
@@ -295,7 +309,7 @@ export function getDefaultCustomInstructions(scaffoldMode: ScaffoldMode): string
  */
 const ALL_DEFAULTS = new Set([
   CORE_CUSTOM_INSTRUCTIONS.trim(),
-  `${CORE_CUSTOM_INSTRUCTIONS}\n\n${EXTENDED_CUSTOM_INSTRUCTIONS}`.trim(),
+  `${CORE_CUSTOM_INSTRUCTIONS}\n\n${LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS}`.trim(),
 ]);
 
 export function isDefaultCustomInstructions(value: string): boolean {
