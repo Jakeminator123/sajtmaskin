@@ -328,6 +328,58 @@ describe("buildDynamicContext", () => {
       const projectIdx = context.indexOf("## Project Context");
       expect(customIdx).toBeLessThan(projectIdx);
     });
+
+    it("omits Pages & Sections when brief pages have no section detail (Route Plan covers paths)", async () => {
+      const brief = {
+        projectTitle: "MyShop",
+        pages: [
+          { name: "Home", path: "/", purpose: "Landing page" },
+          { name: "About", path: "/about", purpose: "Company info" },
+        ],
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Project Context");
+      expect(context).not.toContain("## Pages & Sections");
+    });
+
+    it("includes Pages & Sections only for pages that have section-level detail", async () => {
+      const brief = {
+        projectTitle: "MyShop",
+        pages: [
+          { name: "Home", path: "/", purpose: "Landing", sections: [{ type: "hero", heading: "Welcome" }] },
+          { name: "About", path: "/about", purpose: "Company info" },
+        ],
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Pages & Sections");
+      expect(context).toContain("Home");
+      expect(context).toContain("hero");
+      expect(context).not.toContain("About");
+    });
   });
 
   describe("template guidance injection", () => {

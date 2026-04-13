@@ -233,7 +233,7 @@ export async function runPostGenerationChecks(params: {
         demoUrl: artifacts.finalDemoUrl,
         previewBlockingReason: artifacts.previewBlockingReason,
         provisional: artifacts.provisionalVersion,
-        qualityGatePending: artifacts.qualityGatePending,
+        verifyPending: artifacts.verifyPending,
         autoFixQueued: artifacts.autoFixQueued,
         qualityTier: artifacts.qualityTier,
         warningReasons: artifacts.warningReasons,
@@ -241,7 +241,7 @@ export async function runPostGenerationChecks(params: {
     );
 
     if (artifacts.autoFixReasons.length === 0) {
-      void runPreviewQualityGate({
+      void runTier2VerifyLane({
         chatId,
         versionId,
         assistantMessageId,
@@ -256,7 +256,7 @@ export async function runPostGenerationChecks(params: {
         state: "output-available",
         output: {
           skipped: true,
-          reason: "Skippad eftersom autofix redan har köats från post-check.",
+          reason: "Autofix köad från post-check — verify-lane körs efter fix.",
           autoFixQueued: true,
         },
       } as UiMessagePart);
@@ -317,7 +317,7 @@ function formatUtcClock(timestamp: string | null | undefined): string | null {
   return `${parsed.toISOString().slice(11, 19)}Z`;
 }
 
-async function runPreviewQualityGate(params: {
+async function runTier2VerifyLane(params: {
   chatId: string;
   versionId: string;
   assistantMessageId: string;

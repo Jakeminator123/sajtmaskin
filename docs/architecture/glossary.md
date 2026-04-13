@@ -353,11 +353,17 @@ Fas 3 använder två kategorier av fixar:
 |---|---|---|---|---|
 | **Post-Checks** | `runPostGenerationChecks()` | `post-checks.ts` | Client-side post-genererings-orkestrering. | kanonisk |
 | **Post-Check Baseline** | `buildPostCheckBaseline()` → `PostCheckBaseline` | `post-checks-analysis.ts` | Djupanalys: routes, SEO, analytics, editorial, business workflows, sanity. | kanonisk |
-| **Post-Check Artifacts** | `buildPostCheckArtifacts()` → `PostCheckArtifacts` | `post-checks-results.ts` | Paketerade artefakter för UI/loggar. | kanonisk |
+| **Post-Check Artifacts** | `buildPostCheckArtifacts()` → `PostCheckArtifacts` | `post-checks-results.ts` | Paketerade artefakter för UI/loggar. Heuristisk readiness-bedömning (`readinessFailures`, `readinessPassed`, `verifyPending`). | kanonisk |
 | **Post-Check Summary** | `buildPostCheckSummary()`, `appendPostCheckSummaryToMessage()` | `post-checks-summary.ts` | Användarsiktlig sammanfattning. | kanonisk |
 | **Post-Check Preview** | `readPreviewPreflight()`, `getPreviewUnavailableQualityGateFailure()` | `post-checks-preview.ts` | Preview-preflight + quality-gate-felhantering i UI. | kanonisk |
 
-### 3.6 Quality gate
+### 3.6 Verify lanes (quality gate)
+
+Tre distinkta lanes — inte samma gate:
+
+1. **Tier-2 verify lane** (`TIER2_QUALITY_GATE_CHECKS`): Körs på preview-host via klientens `runTier2VerifyLane` i `post-checks.ts`. Blockerar live-preview. Idag: typecheck.
+2. **Background server verify** (`SERVER_VERIFY_QUALITY_GATE_CHECKS`): Fire-and-forget efter finalize via `triggerServerVerification`. Promotar eller falear version i DB; blockerar inte SSE. Idag: typecheck + lint.
+3. **Promotion / interactive** (`PROMOTION_QUALITY_GATE_CHECKS`, `INTERACTIVE_QUALITY_GATE_CHECKS`): Deploy-nivå eller manuell verifiering. Striktast: typecheck + build (+ lint för interaktiv).
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
@@ -365,6 +371,7 @@ Fas 3 använder två kategorier av fixar:
 | **Quality Gate Checks** | `QUALITY_GATE_CHECK_VALUES`, `QualityGateCheck` | `verify/quality-gate-checks.ts` | Vilka npm-checks som körs. | kanonisk |
 | **Quality Gate Lanes** | `INTERACTIVE_QUALITY_GATE_CHECKS`, `PROMOTION_QUALITY_GATE_CHECKS`, `TIER2_QUALITY_GATE_CHECKS`, `SERVER_VERIFY_QUALITY_GATE_CHECKS` | `verify/quality-gate-checks.ts` | Vilka checks per lane (interaktiv, promotion, tier-2, server-verify). | kanonisk |
 | **Preview Quality Gate** | `runQualityGateChecks()`, `runQualityGateOnExportable()` | `verify/preview-quality-gate.ts` | Preview-host verify-lane + ev. visuell QA. | kanonisk |
+| **Tier-2 Verify Lane** | `runTier2VerifyLane()` (intern) | `post-checks.ts` | Klientorkestrering av tier-2 verify → env-signal → server repair → autofix fallback. | kanonisk |
 | **Server Verify** | `triggerServerVerification()`, `isServerVerifyEligible()` | `verify/server-verify.ts` | Asynkron verify + repair-loop efter finalize. | kanonisk |
 | **Server Verify Log Meta** | `buildServerVerifyQualityGateMeta()`, `buildServerRepairOutcomeMeta()` | `verify/server-verify-log-meta.ts` | Logg/meta för server-verify. | kanonisk |
 | ~~PostChecksAndQualityGate~~ | — | `llm-signal-flow.md` | Sammansatt docs-term. | **döda** |
@@ -541,6 +548,7 @@ Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra v
 | 2026-04-11 | Loggning och telemetri (v7): +6 termer (Fault & Fix Index, Global Error Log, Generation Run, DevLog Append, Timeline, Enrich Fault Fix Row). Utökat CSV-schema med scaffold_id, serialize_mode, style_direction, file, fixer, resolved. |
 | 2026-04-12 | Intent drift fix (v8): `resolveBuildIntentWithScaffold()` och `isAppScaffold()` tillagda i `build-intent.ts`. Manuellt val av `dashboard`/`app-shell` koersar `buildIntent` till `app`. Server-side guard i `create-chat-stream-post.ts` och `chat-message-stream-post.ts`. `family`-fältet borttaget från plan-review och docs uppdaterade. |
 | 2026-04-13 | Phase 1 consolidation (v9): Deep Brief kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte längre i `customInstructions`. `pendingBriefRef` rensas efter create-chat; follow-ups skickar inte `meta.brief`. Server Auto-Brief körs nu för korta underspecificerade website-prompts (`looksSimpleWebsitePrompt`-skip borttagen). Follow-up handler ignorerar klientbrief. |
+| 2026-04-13 | Phase 2/3 consolidation (v10): Dynamic Context: `Pages & Sections` emitteras bara vid sektionsdetalj; `Visual Identity` `styleKeywords`-rad borttagen (täcks av `Style Direction`). Klientflöde: `runPreviewQualityGate` → `runTier2VerifyLane`; heuristiska readiness-fält omdöpta (`readinessFailures`, `readinessPassed`, `verifyPending`) för att skilja från den riktiga verify-lanen; tre verify-lanes dokumenterade i `quality-gate-checks.ts`. |
 
 ## När detta dokument uppdateras
 

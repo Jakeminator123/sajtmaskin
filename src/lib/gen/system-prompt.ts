@@ -667,11 +667,15 @@ export async function buildDynamicContext(
 
     parts.push(...ctxLines);
 
-    // Pages & sections
+    // Pages & Sections — only when the brief carries section-level detail
+    // that goes beyond what Route Plan already provides (path + name + intent).
     const pages = Array.isArray(brief.pages) ? brief.pages : [];
-    if (pages.length > 0) {
+    const pagesWithSections = pages.filter(
+      (p) => Array.isArray(p?.sections) && p.sections.length > 0,
+    );
+    if (pagesWithSections.length > 0) {
       parts.push("## Pages & Sections", "");
-      for (const p of pages.slice(0, 10)) {
+      for (const p of pagesWithSections.slice(0, 10)) {
         const name = str(p?.name) || "Page";
         const path = str(p?.path) || "/";
         const purpose = str(p?.purpose);
@@ -705,15 +709,11 @@ export async function buildDynamicContext(
   const typography = brief?.visualDirection?.typography;
   const themePresetLabel = str(designThemePreset);
 
-  if (themePresetLabel || hasTheme || briefPalette || styleKeywords.length > 0 || typography) {
+  if (themePresetLabel || hasTheme || briefPalette || typography) {
     parts.push("## Visual Identity", "");
 
     if (themePresetLabel) {
       parts.push(`- **Internal theme preset:** ${themePresetLabel}`);
-    }
-
-    if (styleKeywords.length > 0) {
-      parts.push(`- **Style:** ${styleKeywords.join(", ")}`);
     }
 
     if (hasTheme) {
