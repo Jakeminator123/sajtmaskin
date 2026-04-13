@@ -527,6 +527,7 @@ async function runFinalizeFastPath(params: {
     model,
     resolvedTier,
     filesJson,
+    buildSpec,
     routePlan,
     orchestrationContract,
     originalPrompt,

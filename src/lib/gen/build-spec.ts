@@ -38,6 +38,13 @@ export interface BuildSpecTokenBudgets {
   systemContextChars: number;
 }
 
+export interface RouteRealizationPolicy {
+  mode: "full" | "primary-full-with-shells";
+  primaryRoutePath: string;
+  fullRoutePaths: string[];
+  shellRoutePaths: string[];
+}
+
 export interface BuildSpec {
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
@@ -52,6 +59,7 @@ export interface BuildSpec {
   referenceCategories: string[];
   forbiddenPatterns: string[];
   tokenBudgets: BuildSpecTokenBudgets;
+  routeRealization?: RouteRealizationPolicy;
 }
 
 type DeriveBuildSpecParams = {
@@ -198,6 +206,61 @@ function buildRoutePlanSummary(routePlan: RoutePlan): string {
     .map((route) => route.path)
     .join(",");
   return `${routePlan.provenance.primarySource}:${routePlan.siteType}:${routes || "/"}`;
+}
+
+function choosePrimaryRoutePath(params: {
+  buildIntent: BuildIntent;
+  routePlan: RoutePlan;
+  prompt: string;
+}): string {
+  const { buildIntent, routePlan, prompt } = params;
+  const normalizedPrompt = prompt.toLowerCase();
+  const routePaths = routePlan.routes.map((route) => route.path);
+  const rootRoute = routePlan.routes.find((route) => route.path === "/");
+  const dashboardLikePath = routePlan.routes.find((route) =>
+    ["/dashboard", "/app", "/workspace"].includes(route.path),
+  )?.path;
+
+  if (buildIntent === "app") {
+    if (/\b(dashboard|instrumentpanel|workspace|app shell)\b/i.test(normalizedPrompt)) {
+      return dashboardLikePath ?? rootRoute?.path ?? routePaths[0] ?? "/";
+    }
+    return rootRoute?.path ?? dashboardLikePath ?? routePaths[0] ?? "/";
+  }
+
+  if (rootRoute) return rootRoute.path;
+  return routePaths[0] ?? "/";
+}
+
+function deriveRouteRealizationPolicy(params: {
+  generationMode: BuildSpecGenerationMode;
+  buildIntent: BuildIntent;
+  prompt: string;
+  routePlan: RoutePlan;
+}): RouteRealizationPolicy {
+  const { generationMode, buildIntent, prompt, routePlan } = params;
+  const allRoutePaths = routePlan.routes.map((route) => route.path);
+  const primaryRoutePath = choosePrimaryRoutePath({ buildIntent, routePlan, prompt });
+
+  if (
+    generationMode !== "init" ||
+    !FEATURES.deferExtraRoutesOnInit ||
+    allRoutePaths.length <= 1
+  ) {
+    return {
+      mode: "full",
+      primaryRoutePath,
+      fullRoutePaths: allRoutePaths,
+      shellRoutePaths: [],
+    };
+  }
+
+  return {
+    mode: "primary-full-with-shells",
+    primaryRoutePath,
+    fullRoutePaths: [primaryRoutePath],
+    shellRoutePaths: allRoutePaths.filter((path) => path !== primaryRoutePath),
+  };
 }
 
 function inferStylePack(
@@ -586,5 +649,11 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
       previewPolicy,
     }),
     tokenBudgets: tokenBudgetsForContextPolicy(contextPolicy),
+    routeRealization: deriveRouteRealizationPolicy({
+      generationMode,
+      buildIntent,
+      prompt,
+      routePlan,
+    }),
   };
 }

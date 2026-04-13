@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { deriveBuildSpec, deriveFollowUpContextPolicy } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
@@ -109,6 +109,12 @@ describe("deriveBuildSpec", () => {
     expect(spec.contextPolicy).toBe("normal");
     expect(spec.tokenBudgets.scaffoldTokens).toBe(15_000);
     expect(spec.tokenBudgets.scaffoldChars).toBe(28_000);
+    expect(spec.routeRealization).toEqual({
+      mode: "full",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/"],
+      shellRoutePaths: [],
+    });
   });
 
   it("uses normal context by default for narrow follow-up edits", () => {
@@ -315,6 +321,37 @@ Persisted errors for this version:
     expect(spec.changeScope).toBe("page-addition");
     expect(spec.qualityTarget).toBe("standard");
     expect(spec.contextPolicy).toBe("normal");
+  });
+
+  it("can defer extra init routes behind feature flag while preserving the full plan", async () => {
+    const original = process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
+    vi.resetModules();
+    const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
+
+    const spec = deriveBuildSpecWithFlag({
+      prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: multiPageWebsiteRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.routeRealization).toEqual({
+      mode: "primary-full-with-shells",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/"],
+      shellRoutePaths: ["/om-oss", "/produkter"],
+    });
+
+    if (original === undefined) {
+      delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    } else {
+      process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+    }
+    vi.resetModules();
   });
 
   it("maps tokenBudgets to contextPolicy levels (light, normal, heavy)", () => {

@@ -7,6 +7,7 @@ import {
   extractAppRoutePathsFromFilePaths,
   findMissingPlannedRoutes,
   getRoutePlanPrimarySource,
+  normalizeRoutePath,
   type PlannedRoute,
   type RoutePlan,
 } from "@/lib/gen/route-plan";
@@ -17,6 +18,7 @@ import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import {
   buildPreviewStartContract,
   resolvePreflightIssueCategory,
@@ -58,6 +60,7 @@ export interface RunFinalizePreflightParams {
   model: string;
   resolvedTier?: CanonicalModelId;
   filesJson: string;
+  buildSpec?: BuildSpec | null;
   routePlan?: RoutePlan | null;
   orchestrationContract?: OrchestrationContract | null;
   originalPrompt?: string;
@@ -225,6 +228,169 @@ function buildContractBackedRoutePlan(
   };
 }
 
+function normalizeRouteSegment(segment: string): string {
+  if (!segment) return "";
+  if (segment.startsWith("[[...") && segment.endsWith("]]")) return segment;
+  if (segment.startsWith("[...") && segment.endsWith("]")) return segment;
+  if (segment.startsWith("[") && segment.endsWith("]")) return segment;
+  return segment.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || segment;
+}
+
+function routePathToPageFilePath(path: string): string {
+  const normalized = normalizeRoutePath(path);
+  if (normalized === "/") return "app/page.tsx";
+  const segments = normalized
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => normalizeRouteSegment(segment));
+  return `app/${segments.join("/")}/page.tsx`;
+}
+
+function routePathToHrefExample(path: string): string {
+  return normalizeRoutePath(path).replace(/\[([^\]]+)\]/g, "$1");
+}
+
+function buildShellPageTitle(route: PlannedRoute): string {
+  const trimmedName = route.name.trim();
+  if (trimmedName) return trimmedName;
+  if (route.path === "/") return "Home";
+  const label = route.path
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => segment.replace(/\[|\]/g, "").replace(/[-_]/g, " "))
+    .join(" ")
+    .trim();
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Page";
+}
+
+function buildShellPageContent(route: PlannedRoute): string {
+  const title = buildShellPageTitle(route);
+  const hrefExample = routePathToHrefExample(route.path);
+  const purpose = route.intent.trim();
+  const isDynamic = /\[[^\]]+\]/.test(route.path);
+  const pathNote =
+    route.path === hrefExample
+      ? `Path: ${route.path}`
+      : `Route pattern: ${route.path} (preview example: ${hrefExample})`;
+
+  return `import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+
+export default function ${title.replace(/[^a-zA-Z0-9]/g, "") || "PlannedPage"}Page() {
+  return (
+    <main className="mx-auto flex min-h-[70vh] w-full max-w-5xl flex-col justify-center px-6 py-20">
+      <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-5">
+          <Badge variant="secondary">Planned route${isDynamic ? " shell" : ""}</Badge>
+          <div className="space-y-3">
+            <h1 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+              ${title}
+            </h1>
+            <p className="max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+              This page exists intentionally in the initial build so navigation and preview stay coherent while the primary route gets most of the implementation budget first.
+            </p>
+          </div>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>${pathNote}</p>
+            <p>${purpose}</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild>
+              <Link href="/">
+                Go to primary page <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="${hrefExample}">
+                Keep refining this route later
+              </Link>
+            </Button>
+          </div>
+        </div>
+        <Card className="border-dashed">
+          <CardContent className="space-y-4 p-6">
+            <div>
+              <p className="text-sm font-medium">What this page is planned to become</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                ${purpose}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Why it is lightweight right now</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                The initial generation is focusing quality, polish, and stability on the primary route first. This shell keeps IA, links, and metadata surface intact without pretending to be unfinished by mistake.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
+  );
+}
+`;
+}
+
+function ensureDeferredRouteShells(params: {
+  files: CodeFile[];
+  routePlan: RoutePlan | null | undefined;
+  buildSpec: BuildSpec | null | undefined;
+}): { files: CodeFile[]; addedPaths: string[] } {
+  const { files, routePlan, buildSpec } = params;
+  if (!routePlan || !buildSpec) return { files, addedPaths: [] };
+  const realization = buildSpec.routeRealization ?? {
+    mode: "full" as const,
+    primaryRoutePath: routePlan.routes.find((route) => route.required)?.path ?? routePlan.routes[0]?.path ?? "/",
+    fullRoutePaths: routePlan.routes.map((route) => route.path),
+    shellRoutePaths: [],
+  };
+  if (
+    buildSpec.generationMode !== "init" ||
+    realization.mode !== "primary-full-with-shells" ||
+    realization.shellRoutePaths.length === 0
+  ) {
+    return { files, addedPaths: [] };
+  }
+
+  const nextFiles = [...files];
+  const addedPaths: string[] = [];
+
+  for (const shellPath of realization.shellRoutePaths) {
+    const route = routePlan.routes.find((candidate) => normalizeRoutePath(candidate.path) === shellPath);
+    if (!route) continue;
+    const pagePath = routePathToPageFilePath(shellPath);
+    const candidatePagePaths = [pagePath, `src/${pagePath}`].map((candidate) => normPath(candidate));
+    const shellContent = buildShellPageContent(route);
+    let replacedExisting = false;
+
+    for (let index = 0; index < nextFiles.length; index += 1) {
+      const normalizedExistingPath = normPath(nextFiles[index]!.path);
+      if (!candidatePagePaths.includes(normalizedExistingPath)) continue;
+      nextFiles[index] = {
+        ...nextFiles[index]!,
+        content: shellContent,
+        language: "tsx",
+      };
+      replacedExisting = true;
+    }
+
+    if (!replacedExisting) {
+      nextFiles.push({
+        path: pagePath,
+        content: shellContent,
+        language: "tsx",
+      });
+    }
+    addedPaths.push(shellPath);
+  }
+
+  if (addedPaths.length === 0) return { files, addedPaths: [] };
+  return { files: nextFiles, addedPaths };
+}
+
 function collectOrchestrationContractIssues(
   orchestrationContract: OrchestrationContract | null | undefined,
   files: CodeFile[],
@@ -263,6 +429,7 @@ export async function runFinalizePreflight({
   model: _model,
   resolvedTier,
   filesJson,
+  buildSpec = null,
   routePlan = null,
   orchestrationContract = null,
   originalPrompt,
@@ -282,6 +449,17 @@ export async function runFinalizePreflight({
     let finalFiles = (
       JSON.parse(nextFilesJson) as Array<{ path: string; content: string; language?: string }>
     ).map((file) => ({ ...file, language: file.language || "tsx" }));
+
+    const shellFill = ensureDeferredRouteShells({ files: finalFiles, routePlan, buildSpec });
+    finalFiles = shellFill.files;
+    if (shellFill.addedPaths.length > 0) {
+      nextFilesJson = JSON.stringify(finalFiles);
+      devLogAppend("in-progress", {
+        type: "route-shells.added",
+        chatId,
+        paths: shellFill.addedPaths,
+      });
+    }
 
     const repairResult = repairGeneratedFiles(finalFiles);
     finalFiles = repairResult.files;
@@ -352,9 +530,8 @@ export async function runFinalizePreflight({
       }
     }
 
-    finalizedFilesForPreview = finalFiles;
     try {
-      const previewHtml = buildPreviewHtml(finalizedFilesForPreview);
+      const previewHtml = buildPreviewHtml(finalFiles);
       if (!previewHtml) {
         previewBlockingReason =
           "Automatic preflight could not build a renderable own-engine preview entrypoint.";
@@ -374,6 +551,15 @@ export async function runFinalizePreflight({
     }
 
     const cleanedFiles = removeLiteralRouteDuplicates(finalFiles);
+    if (cleanedFiles.length !== finalFiles.length) {
+      finalFiles = cleanedFiles;
+      nextFilesJson = JSON.stringify(finalFiles);
+      devLogAppend("in-progress", {
+        type: "route-literal-duplicates.removed",
+        chatId,
+      });
+    }
+    finalizedFilesForPreview = finalFiles;
     const completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(cleanedFiles, collectRequiredUiComponents(cleanedFiles)),
     ).files;

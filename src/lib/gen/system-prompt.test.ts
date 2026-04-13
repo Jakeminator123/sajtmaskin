@@ -20,6 +20,12 @@ const lightFollowUpSpec: BuildSpec = {
     refsChars: 12_000,
     systemContextChars: 48_000,
   },
+  routeRealization: {
+    mode: "full",
+    primaryRoutePath: "/",
+    fullRoutePaths: ["/"],
+    shellRoutePaths: [],
+  },
 };
 
 describe("buildDynamicContext", () => {
@@ -186,6 +192,45 @@ describe("buildDynamicContext", () => {
       const routePlanIdx = context.indexOf("## Route Plan");
       expect(buildIntentIdx).toBeLessThan(profileIdx);
       expect(profileIdx).toBeLessThan(routePlanIdx);
+    });
+
+    it("describes init shell policy when route realization defers extra routes", async () => {
+      const routePlan = {
+        provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
+        siteType: "brochure" as const,
+        reason: "Multiple pages planned from prompt",
+        routes: [
+          { path: "/", name: "Home", intent: "Primary landing page", required: true },
+          { path: "/about", name: "About", intent: "Company story", required: false },
+          { path: "/contact", name: "Contact", intent: "Lead capture", required: false },
+        ],
+      };
+
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        routePlan,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "page-addition",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+          routeRealization: {
+            mode: "primary-full-with-shells",
+            primaryRoutePath: "/",
+            fullRoutePaths: ["/"],
+            shellRoutePaths: ["/about", "/contact"],
+          },
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("**Primary route:** `/`");
+      expect(context).toContain("Fully realize only `/` in this generation");
+      expect(context).toContain("`/about` — About [shell now]");
+      expect(context).toContain("`/contact` — Contact [shell now]");
+      expect(context).toContain("For shell routes, create valid App Router pages that look intentional");
     });
 
     it("follow-up keeps mode and profile without retrieval sections", async () => {

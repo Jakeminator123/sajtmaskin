@@ -74,6 +74,19 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/contact")).toBe(false);
   });
 
+  it("normalizes colon-style dynamic brief paths into App Router segment syntax", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { path: "/produkt/:slug", name: "Produkt", purpose: "Produktdetalj" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/produkt/[slug]"]);
+  });
+
   it("uses brief-based routes when brief has pages", () => {
     const plan = buildRoutePlan({
       ...websiteBase,

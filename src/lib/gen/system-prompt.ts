@@ -541,6 +541,10 @@ export async function buildDynamicContext(
   parts.push(...toolkitLines);
 
   if (routePlan && routePlan.routes.length > 0) {
+    const routeRealization = buildSpec?.routeRealization ?? null;
+    const routeMode = routeRealization?.mode ?? "full";
+    const shellRoutes = routeRealization?.shellRoutePaths ?? [];
+    const fullRoutes = routeRealization?.fullRoutePaths ?? routePlan.routes.map((route) => route.path);
     parts.push(
       "## Route Plan",
       "",
@@ -550,12 +554,46 @@ export async function buildDynamicContext(
       `- **Why:** ${routePlan.reason}`,
       "",
     );
+    if (routeRealization) {
+      parts.push(`- **Primary route:** \`${routeRealization.primaryRoutePath}\``);
+      if (routeMode === "primary-full-with-shells") {
+        parts.push(
+          `- **Init realization policy:** Fully realize only \`${routeRealization.primaryRoutePath}\` in this generation. Planned extras should start as intentional shell pages.`,
+        );
+        parts.push(
+          `- **Full routes now:** ${fullRoutes.map((path) => `\`${path}\``).join(", ")}`,
+        );
+        parts.push(
+          `- **Shell routes now:** ${shellRoutes.map((path) => `\`${path}\``).join(", ")}`,
+        );
+      } else {
+        parts.push(
+          `- **Init realization policy:** Fully realize all planned routes in this generation when they are in scope.`,
+        );
+      }
+      parts.push("");
+    }
     for (const route of routePlan.routes.slice(0, 10)) {
+      const routeModeLabel =
+        routeMode === "primary-full-with-shells"
+          ? route.path === routeRealization?.primaryRoutePath
+            ? " [full now]"
+            : shellRoutes.includes(route.path)
+              ? " [shell now]"
+              : ""
+          : "";
       parts.push(
-        `- \`${route.path}\` — ${route.name}: ${route.intent}${route.required ? " (must exist)" : ""}`,
+        `- \`${route.path}\` — ${route.name}${routeModeLabel}: ${route.intent}${route.required ? " (must exist)" : ""}`,
       );
     }
-    if (routePlan.routes.length > 1) {
+    if (routeMode === "primary-full-with-shells") {
+      parts.push(
+        "",
+        "- For shell routes, create valid App Router pages that look intentional: include page title, route purpose, a short explanation of what the page will become, and a clear CTA or note that the page can be expanded next.",
+        "- Shell routes must not look broken, empty, or like a failed generation. They should be lightweight, coherent, and safe to preview.",
+        "- Keep most design and implementation budget on the primary route. Extra planned routes should preserve IA, navigation, metadata, and internal linking without demanding full implementation yet.",
+      );
+    } else if (routePlan.routes.length > 1) {
       parts.push(
         "",
         "- Do not collapse this into a single long landing page. Create real App Router page files for the required routes unless the user explicitly asks to simplify.",

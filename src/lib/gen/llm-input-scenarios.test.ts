@@ -26,6 +26,12 @@ function baseSpec(overrides: Partial<BuildSpec> = {}): BuildSpec {
       systemContextChars: 96_000,
       systemContextTokens: 30_000,
     },
+    routeRealization: {
+      mode: "full",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/"],
+      shellRoutePaths: [],
+    },
     ...overrides,
   };
 }

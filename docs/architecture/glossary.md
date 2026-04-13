@@ -261,7 +261,8 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Route Plan Provenance** | `RoutePlanProvenance` | `route-plan.ts` | Källspårning: `primarySource`, `sources[]`. | kanonisk |
 | **Contract Plan** | `inferPreGenerationContracts()` → `PreGenerationContractContext` | `pre-generation-contracts.ts` | Auth, payment, database, env vars, integrations. `contracts`, `unresolvedDecisions`, `confirmedAnswers`. | kanonisk |
 | **Confirmed Contract Answers** | `collectConfirmedContractAnswers()` | `contract/answer-context.ts` | Återbygger bekräftade svar från chatten. | kanonisk |
-| **Build Policy** | `deriveBuildSpec()` → `BuildSpec` | `build-spec.ts` | Körpolicy: `changeScope`, `qualityTarget`, `previewPolicy`, `verificationPolicy`, `contextPolicy`, `referenceCategories`, `forbiddenPatterns`, `tokenBudgets`. | kanonisk |
+| **Build Policy** | `deriveBuildSpec()` → `BuildSpec` | `build-spec.ts` | Körpolicy: `changeScope`, `qualityTarget`, `previewPolicy`, `verificationPolicy`, `contextPolicy`, `referenceCategories`, `forbiddenPatterns`, `tokenBudgets`, `routeRealization`. | kanonisk |
+| **Route Realization** | `BuildSpec.routeRealization` | `build-spec.ts` | Litet policylager ovanpå Route Plan: skiljer planerade routes från vilka routes som ska realiseras fullt i just denna generation. Init kan vara `full` eller `primary-full-with-shells`. | kanonisk |
 | **Token Budgets** | `BuildSpecTokenBudgets` | `build-spec.ts` | `scaffoldTokens`, `scaffoldChars`, etc. | kanonisk |
 
 ### 2.10 System prompt och dynamic context

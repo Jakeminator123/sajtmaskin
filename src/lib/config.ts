@@ -351,6 +351,9 @@ export const FEATURES = {
   useRuntimeTemplateGuidance:
     env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "true" ||
     env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "1",
+  deferExtraRoutesOnInit:
+    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "true" ||
+    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "1",
   strictGeneratedArtifacts:
     env.NODE_ENV !== "test" &&
     env.SAJTMASKIN_STRICT_GENERATED_ARTIFACTS !== "false",

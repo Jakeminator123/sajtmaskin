@@ -185,12 +185,21 @@ function asString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function normalizeRoutePath(value: string): string {
+export function normalizeRoutePath(value: string): string {
   if (!value) return "/";
   const trimmed = value.trim();
   if (trimmed === "/") return "/";
   const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  return withLeadingSlash.replace(/\/{2,}/g, "/").replace(/\/$/, "") || "/";
+  const normalizedSegments = withLeadingSlash
+    .replace(/\/{2,}/g, "/")
+    .split("/")
+    .map((segment) => {
+      if (!segment.startsWith(":")) return segment;
+      const paramName = segment.slice(1).trim();
+      return paramName ? `[${paramName}]` : segment;
+    })
+    .join("/");
+  return normalizedSegments.replace(/\/$/, "") || "/";
 }
 
 function inferPathFromPageName(name: string): string {
