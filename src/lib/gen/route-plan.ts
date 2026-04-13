@@ -288,7 +288,10 @@ function buildRoutesFromBrief(
     const inferredPath = inferPathFromPageName(asString(page?.name));
     const path = normalizeRoutePath(explicitPath || inferredPath || "/");
     const name = asString(page?.name) || (path === "/" ? "Home" : "Page");
-    const intent = asString(page?.purpose) || `Implement the ${name} page as planned in the brief.`;
+    const purpose = asString(page?.purpose);
+    const intent = purpose
+      ? `Route purpose: ${purpose}`
+      : `Implement the ${name} route.`;
     pushRoute(routes, {
       path,
       name,

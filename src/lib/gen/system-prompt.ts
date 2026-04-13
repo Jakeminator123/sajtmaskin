@@ -749,9 +749,15 @@ export async function buildDynamicContext(
   }
 
   // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
+  // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
+  // (those already feed Style Direction). Keep only concrete image subjects/notes.
   if (brief?.imagery) {
+    const visualKwSet = new Set(styleKeywords.map((k) => k.toLowerCase()));
+    const imgStyleKw = strList(brief.imagery.styleKeywords).filter(
+      (k) => !visualKwSet.has(k.toLowerCase()),
+    );
     const imgNotes = [
-      ...strList(brief.imagery.styleKeywords),
+      ...imgStyleKw,
       ...strList(brief.imagery.suggestedSubjects),
       ...strList(brief.imagery.styleNotes),
     ].filter(Boolean);

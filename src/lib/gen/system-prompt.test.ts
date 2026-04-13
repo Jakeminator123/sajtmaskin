@@ -380,6 +380,38 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("hero");
       expect(context).not.toContain("About");
     });
+
+    it("deduplicates imagery styleKeywords that already appear in visualDirection", async () => {
+      const brief = {
+        projectTitle: "StyleTest",
+        visualDirection: {
+          styleKeywords: ["minimalist", "bold"],
+        },
+        imagery: {
+          styleKeywords: ["minimalist", "cinematic"],
+          suggestedSubjects: ["mountain landscape"],
+        },
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Imagery (from brief)");
+      expect(context).toContain("cinematic");
+      expect(context).toContain("mountain landscape");
+      const imagerySection = context.slice(context.indexOf("## Imagery"));
+      const minimalistInImagery = (imagerySection.match(/minimalist/g) || []).length;
+      expect(minimalistInImagery).toBe(0);
+    });
   });
 
   describe("template guidance injection", () => {
