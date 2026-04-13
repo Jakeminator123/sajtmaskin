@@ -28,7 +28,9 @@ Tracked separately so phase 2/3 scope stays narrow.
 
 **Repro:** Generate a multi-route ecommerce app and check for unresolved imports in typecheck output.
 
-## 3. Literal + dynamic route conflict
+## 3. Literal + dynamic route conflict — ADDRESSED
+
+**Status:** Detection added in `project-sanity.ts` (section 8) and auto-removal in `finalize-preflight.ts` (`removeLiteralRouteDuplicates`). Commit `267abe74f`.
 
 **Symptom:** Both `/products/page.tsx` and `/products/[slug]/page.tsx` are generated, causing Next.js build failure.
 

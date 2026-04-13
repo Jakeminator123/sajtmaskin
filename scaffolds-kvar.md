@@ -5,7 +5,9 @@ Commits hittills:
 - `0985b8ae1` scaffolds 2/3 — v1.5: prompt-aware reranking, e2e-bevistester, registry-kommentar, glossary
 - `396102aca` scaffolds 3/3 — Next.js version bump (16.2.1→16.2.3), testrapport
 - `3610203fc` fix: phase 2/3 consolidation (annan agent) — trim prompt overlap, linearize client flow
-- `<denna commit>` fix: generation gaps — template guidance persist, route dedup, env encryption graceful, image debug
+- `817df08dd` fix: phase 2/3 round 2 (annan agent) — imagery dedup, route intent clarity, verify-lane split
+- `267abe74f` fix: generation gaps — template guidance persist, route dedup, env encryption graceful, image debug
+- `4919edc49` cleanup: move static rules to prompt-static, rename legacy symbols, prune glossary (annan agent)
 
 ## Åtgärdat i denna commit
 
