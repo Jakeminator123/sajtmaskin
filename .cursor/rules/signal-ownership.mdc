@@ -5,7 +5,6 @@ globs:
   - src/lib/gen/**
   - src/lib/hooks/usePromptRewrite.ts
   - src/lib/hooks/useInitBrief.ts
-  - src/lib/hooks/usePromptAssist.ts
   - src/lib/hooks/chat/useCreateChat.ts
   - config/domain-rules.json
   - config/prompt-static/**

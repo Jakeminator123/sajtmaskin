@@ -16,10 +16,9 @@ Detta dokument är handoff för nästa agent efter fas-1-konsolideringen.
   - `src/lib/builder/domain-inference.ts` är canonical runtime-kod.
   - `config/domain-rules.json` är den editerbara regeldatan (SV+EN).
   - `src/lib/builder/prompt-heuristics.ts` är delad ordlistekälla för structured-prompt-heuristiker.
-- `usePromptAssist`-hooken uppdelad i tre fokuserade hooks:
+- Tidigare `usePromptAssist` uppdelad i två hooks (facade-filen borttagen senare):
   - `src/lib/hooks/usePromptRewrite.ts` — manuella "Förbättra"/"Skriv om" (`maybeEnhanceInitialPrompt`, anropar `/api/ai/chat`).
   - `src/lib/hooks/useInitBrief.ts` — init-brief + fallback-addendum (`generateDynamicInstructions`, anropar `/api/ai/brief`).
-  - `src/lib/hooks/usePromptAssist.ts` behållen som deprecated re-export-facade.
   - Delade typer i `prompt-assist-types.ts`, delade utilities i `prompt-assist-utils.ts`.
   - `useBuilderPageController.ts` importerar de nya hooks direkt.
   - `useBuilderPromptActions.ts` Args-typ uppdaterad till `PromptRewriteOptions` / `InitBriefOptions`.
