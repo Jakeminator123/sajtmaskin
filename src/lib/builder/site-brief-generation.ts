@@ -129,6 +129,16 @@ const siteBriefSchema = z.object({
     metaDescription: z.string().describe("One concise meta description"),
     keywords: z.array(z.string()).min(3).max(30),
   }),
+  mustHave: z
+    .array(z.string())
+    .min(0)
+    .max(10)
+    .describe("Hard requirements the user explicitly stated or that are critical for the site type"),
+  avoid: z
+    .array(z.string())
+    .min(0)
+    .max(8)
+    .describe("Things to explicitly avoid based on user request or domain conventions"),
 });
 
 const simplifiedBriefSchema = z.object({
@@ -200,6 +210,8 @@ const simplifiedBriefSchema = z.object({
       keywords: z.array(z.string()).optional().default([]),
     })
     .optional(),
+  mustHave: z.array(z.string()).optional().default([]),
+  avoid: z.array(z.string()).optional().default([]),
 });
 
 type SiteTypeRule = { hint: string; keywords: string[] };

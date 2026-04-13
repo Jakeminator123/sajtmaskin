@@ -82,7 +82,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Raw Prompt** | `prompt` i `OrchestrationInput` | `orchestrate.ts` | Användarens obearbetade prompttext. | kanonisk |
-| **Prompt Formatting** | `formatPrompt()` | `promptAssist.ts` | Mekanisk strukturering till MÅL, STIL, CONSTRAINTS, ASSETS, TILLGÄNGLIGHET. | kanonisk |
+| **Prompt Formatting** | `formatPrompt()` | `promptAssist.ts` | Mekanisk strukturering till MÅL, STIL, CONSTRAINTS, ASSETS, TILLGÄNGLIGHET. **Fallback** — körs bara när Deep Brief inte är aktiv (assist off eller brief-generering misslyckades). När brief finns skickas rå user-text. | kanonisk (fallback) |
 | **Prompt Rewrite** | `buildRewriteSystemPrompt()` | `promptAssist.ts` | LLM-driven förbättring (lane: Förbättra). | kanonisk |
 | **Prompt Polish** | `buildPolishSystemPrompt()` | `promptAssist.ts` | Lätt copy-editor (lane: Skriv om). | kanonisk |
 | **Prompt Orchestration** | `orchestratePromptMessage()` | `promptOrchestration.ts` | Strategi-/budget-/trunkerings-gate; väljer `PromptStrategy`. | kanonisk |
@@ -98,11 +98,11 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Deep Brief** | `siteBriefSchema`, `generateSiteBriefObject()` | `site-brief-generation.ts` | LLM-genererad strukturerad sajtbrief: `projectTitle`, `brandName`, `oneSentencePitch`, `targetAudience`, `primaryCallToAction`, `toneAndVoice`, `pages[]`, `visualDirection`, `imagery`, `uiNotes`, `seo`. Kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte i `customInstructions`. Follow-ups skickar inte brief. | kanonisk |
+| **Deep Brief** | `siteBriefSchema`, `generateSiteBriefObject()` | `site-brief-generation.ts` | LLM-genererad strukturerad sajtbrief: `projectTitle`, `brandName`, `oneSentencePitch`, `targetAudience`, `primaryCallToAction`, `toneAndVoice`, `pages[]`, `visualDirection`, `imagery`, `uiNotes`, `seo`, `mustHave`, `avoid`. Kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte i `customInstructions`. Follow-ups skickar inte brief. Init skickar rå user-text (ej `formatPrompt()`-wrppad) när brief finns. | kanonisk |
 | **Server Auto-Brief** | `tryGenerateServerAutoBrief()`, `shouldRunServerAutoBrief()` | `site-brief-generation.ts`, `server-auto-brief-policy.ts` | Server-side auto-brief som fallback för underspecificerade init-prompts (inklusive korta website-prompts). Hoppas över för audit, technical, follow-up och redan strukturerade prompts. | kanonisk |
 | **Brief** (interface) | `Brief` | `system-prompt.ts` | Runtime-representation av deep brief med typade fält. | alias (av Deep Brief) |
 | **Brief from Prompt** | `buildPromptFromBrief()` | `promptAssist.ts` | Bygger kodgenereringsprompt från briefobjekt. Obs: använder lokal `type Brief = any`, inte det typade interfacet. | kanonisk |
-| **Dynamic Instruction Addendum** | `buildDynamicInstructionAddendumFromBrief()`, `buildDynamicInstructionAddendumFromPrompt()` | `promptAssist.ts` | Markdown-addendum för brief resp. rå prompt. | kanonisk |
+| **Dynamic Instruction Addendum** | `buildDynamicInstructionAddendumFromBrief()`, `buildDynamicInstructionAddendumFromPrompt()` | `promptAssist.ts` | Markdown-addendum för brief resp. rå prompt. Init-pathen skippar addendum-beräkning (`skipAddendum: true`) — bara brief-objektet via `onBrief` används. Addendum byggs bara för non-init paths (prompt assist UI). | kanonisk |
 | **WebsiteSpec** | `WebsiteSpec`, `websiteSpecSchema`, `processPromptWithSpec()` | `promptAssistContext.ts` | Spec-first: LLM-genererat strukturerat spec-objekt via zod. | kanonisk |
 | **SajtmaskinSpec** | `SajtmaskinSpec`, `briefToSpec()`, `promptToSpec()` | `promptAssistContext.ts` | Persisterad spec-fil (`sajtmaskin.spec.json`-format). | kanonisk |
 | **Prompt Corpus** | `getPromptCorpus()` | `pre-generation-contracts.ts` | Sammanslagen textmassa av prompt + brief-fält; intern för contracts-inferens. | kanonisk (intern) |
@@ -547,6 +547,7 @@ Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra v
 | 2026-04-12 | Intent drift fix (v8): `resolveBuildIntentWithScaffold()` och `isAppScaffold()` tillagda i `build-intent.ts`. Manuellt val av `dashboard`/`app-shell` koersar `buildIntent` till `app`. Server-side guard i `create-chat-stream-post.ts` och `chat-message-stream-post.ts`. `family`-fältet borttaget från plan-review och docs uppdaterade. |
 | 2026-04-13 | Phase 1 consolidation (v9): Deep Brief kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte längre i `customInstructions`. `pendingBriefRef` rensas efter create-chat; follow-ups skickar inte `meta.brief`. Server Auto-Brief körs nu för korta underspecificerade website-prompts (`looksSimpleWebsitePrompt`-skip borttagen). Follow-up handler ignorerar klientbrief. |
 | 2026-04-13 | Phase 2/3 consolidation (v10): Dynamic Context: `Pages & Sections` emitteras bara vid sektionsdetalj; `Visual Identity` `styleKeywords`-rad borttagen (täcks av `Style Direction`). Klientflöde: `runPreviewQualityGate` → `runTier2VerifyLane`; heuristiska readiness-fält omdöpta (`readinessFailures`, `readinessPassed`, `verifyPending`) för att skilja från den riktiga verify-lanen; tre verify-lanes dokumenterade i `quality-gate-checks.ts`. |
+| 2026-04-13 | Phase 1 cleanup (v11): `formatPrompt()` körs bara som fallback när brief saknas — init skickar rå user-text. `skipAddendum` stoppar onödig addendum-beräkning i init. `mustHave`/`avoid` tillagda i `siteBriefSchema`/`simplifiedBriefSchema` så `buildDynamicContext` konsumenter inte är döda. `uiNotes` emitteras nu som `## UX & UI Notes` i dynamic context. |
 
 ## När detta dokument uppdateras
 

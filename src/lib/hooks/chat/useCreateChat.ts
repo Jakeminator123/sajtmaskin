@@ -326,11 +326,19 @@ export function useCreateChat(
       let requestBody: Record<string, unknown> | null = null;
 
       try {
-        const formattedMessage = formatPrompt(initialMessage);
+        // When Deep Brief is active the brief object carries all semantic
+        // expansion (pages, tone, visual direction, etc.) via meta.brief →
+        // buildDynamicContext().  The raw user text is the best user-message
+        // for the generator — no mechanical MÅL/CONSTRAINTS wrapper needed.
+        // Fall back to formatPrompt() only when brief is absent (assist off
+        // or brief generation failed).
+        const hasBrief = Boolean(pendingBriefRef?.current);
+        const formattedMessage = hasBrief ? initialMessage : formatPrompt(initialMessage);
         debugLog("AI", "Prompt formatting result", {
           originalLength: initialMessage.length,
           finalLength: formattedMessage.length,
           changed: formattedMessage.trim() !== initialMessage.trim(),
+          briefActive: hasBrief,
         });
         const finalMessage = appendAttachmentPrompt(
           formattedMessage,

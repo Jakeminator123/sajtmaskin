@@ -45,24 +45,24 @@ Se:
 
 ## Prompt-assist-kedjan i detalj
 
-Tre separata lager bearbetar prompten **före** kodgenerering. De ska inte blandas ihop:
+Två lager bearbetar prompten **före** kodgenerering:
 
 | Lager | Vad det gör | Var output hamnar | Kodfiler |
 |-------|-------------|-------------------|----------|
-| **`formatPrompt()`** | Enkel client-side formatter som wrappar text i `MÅL / CONSTRAINTS / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. | User-meddelandet i streamen (`message`-fältet). | `src/lib/builder/promptAssist.ts` (~rad 760) |
-| **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kallas "Djup Breef" i UI. | `meta.brief` → systemprompten via `buildDynamicContext()`. Genererar ~15–20k tecken dynamisk kontext. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
-| **`buildDynamicInstructionAddendumFromBrief()`** | Tar briefens JSON och bygger rik markdown med `## Pages & Sections`, `## Visual Identity`, `## Interaction & Motion`, `## Domain Inference`, `## Quality Bar`, `## Imagery` m.fl. | Injiceras i `customInstructions` → systemprompten. | `src/lib/builder/promptAssist.ts` (~rad 1007) |
+| **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init. | `meta.brief` → systemprompten via `buildDynamicContext()`. Genererar ~15–20k tecken dynamisk kontext. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
+| **`formatPrompt()`** *(fallback)* | Enkel client-side formatter som wrappar text i `MÅL / CONSTRAINTS / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. Körs **bara** när Deep Brief inte är aktiv (assist off eller brief-generering misslyckades). | User-meddelandet i streamen (`message`-fältet). | `src/lib/builder/promptAssist.ts` (~rad 760) |
 
 Flödet vid freeform create-chat:
 
 1. Användaren skriver prompt (t.ex. 400 tecken)
-2. `formatPrompt()` wrappar i MÅL/CONSTRAINTS → user-message (~1000 tecken)
-3. `/api/ai/brief` producerar strukturerad JSON (deep brief, ~28s)
-4. `buildDynamicInstructionAddendumFromBrief()` expanderar JSON → rik kontext (~17k tecken)
-5. Kontexten injiceras i **systemprompten** (dynamisk del), inte i user-meddelandet
-6. Kodgeneratorn ser: statisk kärna (23k) + dynamisk kontext (17k) + user-message (~1k)
+2. `/api/ai/brief` producerar strukturerad JSON (deep brief, ~28s)
+3. Brief-objektet skickas via `meta.brief` till servern
+4. Serverns `buildDynamicContext(brief)` bygger rik dynamisk kontext (~17k tecken)
+5. Kontexten injiceras i **systemprompten** (dynamisk del)
+6. Användarens **råa prompttext** skickas som user-message (ingen MÅL/CONSTRAINTS-wrappning)
+7. Kodgeneratorn ser: statisk kärna (23k) + dynamisk kontext (17k) + rå user-message
 
-**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) körs istället `buildDynamicInstructionAddendumFromPrompt()` som gör en enklare expansion baserad på keyword-analys av prompten. Den producerar kontext men utan sidstruktur, sektioner eller visuell riktning.
+**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) körs `formatPrompt()` som fallback och `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion.
 
 ## Viktiga noter
 

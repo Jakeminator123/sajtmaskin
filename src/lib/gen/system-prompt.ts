@@ -605,6 +605,11 @@ export async function buildDynamicContext(
         "- Keep shell code lightweight, coherent, and safe to preview. They should preserve navigation, metadata surface, and internal linking without pretending to be fully implemented.",
         "- Keep most design and implementation budget on the primary route. Extra planned routes should preserve IA, navigation, metadata, and internal linking without demanding full implementation yet.",
       );
+      if (isFollowUp) {
+        parts.push(
+          "- **Shell preservation rule (follow-up):** These shell routes already exist as intentional placeholders. Do NOT replace, expand, redesign, or regenerate them unless the user explicitly asks to build out that specific page. If your change does not target a shell route, omit it from your response entirely so it is kept as-is.",
+        );
+      }
     } else if (routePlan.routes.length > 1) {
       parts.push(
         "",
@@ -726,6 +731,23 @@ export async function buildDynamicContext(
     }
     if (avoid.length > 0) {
       parts.push("## Avoid", "", ...avoid.map((a) => `- ${a}`), "");
+    }
+
+    // UX & UI notes from brief
+    const uiComponents = strList(brief.uiNotes?.components).slice(0, 16);
+    const uiInteractions = strList(brief.uiNotes?.interactions).slice(0, 16);
+    const uiAccessibility = strList(brief.uiNotes?.accessibility).slice(0, 16);
+    if (uiComponents.length > 0 || uiInteractions.length > 0 || uiAccessibility.length > 0) {
+      parts.push("## UX & UI Notes", "");
+      if (uiComponents.length > 0) {
+        parts.push("**Components:**", ...uiComponents.map((c) => `- ${c}`), "");
+      }
+      if (uiInteractions.length > 0) {
+        parts.push("**Interactions:**", ...uiInteractions.map((i) => `- ${i}`), "");
+      }
+      if (uiAccessibility.length > 0) {
+        parts.push("**Accessibility:**", ...uiAccessibility.map((a) => `- ${a}`), "");
+      }
     }
   }
 

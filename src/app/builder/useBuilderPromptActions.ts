@@ -79,6 +79,7 @@ type Args = {
     options?: {
       forceShallow?: boolean;
       forceDeepBrief?: boolean;
+      skipAddendum?: boolean;
       onBrief?: (brief: Record<string, unknown>) => void;
     },
   ) => Promise<string>;
@@ -246,6 +247,7 @@ export function useBuilderPromptActions({
         await generateDynamicInstructions(trimmed, {
           forceShallow: false,
           forceDeepBrief: true,
+          skipAddendum: true,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
             if (specMode) {

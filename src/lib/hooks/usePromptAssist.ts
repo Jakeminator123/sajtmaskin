@@ -49,10 +49,12 @@ const BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS = "dynamic_instructions";
 
 type PromptAssistMode = "rewrite" | "polish";
 
-type PromptAssistOptions = {
+export type PromptAssistOptions = {
   forceShallow?: boolean;
   /** First-chat path: always run structured brief (OpenAI brief path + ASSIST_MODEL if assist tier is non–OpenAI-class). */
   forceDeepBrief?: boolean;
+  /** When true the brief object is fetched but the expensive addendum string is not built. Use for init where only `onBrief` matters. */
+  skipAddendum?: boolean;
   mode?: PromptAssistMode;
   forceEnglish?: boolean;
   modelOverride?: string;
@@ -499,6 +501,16 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           } catch {
             // non-critical
           }
+        }
+
+        if (options.skipAddendum) {
+          debugLog("AI", "Dynamic instructions completed (brief only, addendum skipped)", {
+            durationMs: Date.now() - startedAt,
+          });
+          toast.success("Brief klar — own-engine kan starta.", {
+            id: "sajtmaskin:dynamic-instructions",
+          });
+          return "";
         }
 
         const addendum = buildDynamicInstructionAddendumFromBrief({

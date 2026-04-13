@@ -652,8 +652,10 @@ ANVÄNDARENS PROMPT
   ├─ 1. PromptOrchestration → PromptType + PromptStrategy
   │      (klassificerar, budgeterar, trimmar)
   │
-  ├─ 2. Deep Brief (valfri)
-  │      (strukturerat objekt: sidor, visuell riktning, SEO)
+  ├─ 2. Deep Brief (kanonisk för init)
+  │      (strukturerat objekt: sidor, visuell riktning, SEO,
+  │       mustHave, avoid, uiNotes — rå user-text som message)
+  │      (formatPrompt() enbart fallback när brief saknas)
   │
   ├─ 3. Scaffold-val → ScaffoldId
   │      ├─ ScaffoldMode: off / auto / manual
@@ -673,6 +675,7 @@ ANVÄNDARENS PROMPT
   ├─ 8. Dynamic Context (rollbaserade block, token-prunade):
   │      Project Context · Route Plan · Pages & Sections (vid sektionsdetalj)
   │      Style Direction · Visual Identity · Contracts · Toolkit
+  │      Must Have / Avoid · UX & UI Notes
   │
   ├─ 9. LLM-generering → CodeFile[]
   │
