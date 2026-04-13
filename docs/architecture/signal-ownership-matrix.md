@@ -1,4 +1,4 @@
-# Phase 1 Ownership Matrix
+# Signal Ownership Matrix
 
 Varje signal i init-pipelinen ska ha exakt **en canonical source**. Konsumenter läser därifrån — de uppfinner inte om samma svar.
 

@@ -14,7 +14,7 @@ globs:
 
 # Signal ownership
 
-Ägarmatris: `docs/architecture/phase-1-ownership.md`.
+Ägarmatris: `docs/architecture/signal-ownership-matrix.md`.
 
 ## Gate
 
