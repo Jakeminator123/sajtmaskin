@@ -104,6 +104,23 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "katex": "^0.16",
 };
 
+/**
+ * Scoped package prefixes where any sub-package maps to the same version.
+ * E.g. `@radix-ui/react-dialog`, `@radix-ui/react-hover-card` etc. all resolve to `^1`.
+ */
+const SCOPED_PACKAGE_PREFIXES: Record<string, string> = {
+  "@radix-ui/react-": "^1",
+};
+
+export function resolveKnownVersion(pkg: string): string | undefined {
+  const direct = KNOWN_PACKAGES[pkg];
+  if (direct) return direct;
+  for (const [prefix, version] of Object.entries(SCOPED_PACKAGE_PREFIXES)) {
+    if (pkg.startsWith(prefix)) return version;
+  }
+  return undefined;
+}
+
 function normalizePackageName(source: string): string {
   if (source.startsWith("@")) {
     const parts = source.split("/");
@@ -145,7 +162,7 @@ export function runDepCompleter(code: string): {
 
     if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) continue;
 
-    const knownVersion = KNOWN_PACKAGES[pkg];
+    const knownVersion = resolveKnownVersion(pkg);
     if (knownVersion) {
       dependencies[pkg] = knownVersion;
     } else {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { KNOWN_PACKAGES, runDepCompleter } from "./dep-completer";
+import { KNOWN_PACKAGES, resolveKnownVersion, runDepCompleter } from "./dep-completer";
 
 function extractLeadingMajor(versionSpec: string): number | null {
   const match = versionSpec.match(/\d+/);
@@ -90,7 +90,7 @@ describe("dep-completer", () => {
     expect(result.dependencies["react-redux"]).toBe(KNOWN_PACKAGES["react-redux"]);
     expect(result.dependencies["canvas-confetti"]).toBe(KNOWN_PACKAGES["canvas-confetti"]);
     expect(result.dependencies["@radix-ui/react-hover-card"]).toBe(
-      KNOWN_PACKAGES["@radix-ui/react-hover-card"],
+      resolveKnownVersion("@radix-ui/react-hover-card"),
     );
   });
 
