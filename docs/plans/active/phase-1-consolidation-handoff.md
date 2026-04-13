@@ -28,7 +28,7 @@ Detta dokument är handoff för nästa agent efter fas-1-konsolideringen.
 
 - `MOTION_GUIDANCE` / `VISUAL_IDENTITY_GUIDANCE` / `QUALITY_BAR_GUIDANCE` i `promptAssist.ts`.
   - Används i fallback/addendum-paths (non-init), inte i primär init-path.
-- `SECTION_KEYWORDS` / `STYLE_KEYWORDS` i `promptAssist.ts`.
+- `SECTION_KEYWORDS` / `STYLE_KEYWORDS` i `prompt-heuristics.ts` (laddas från `config/prompt-heuristic-tokens.json`).
   - Syfte: keyword-extraktion för fallback-formattering/addendum, inte policy-hitcount.
 - `BUILD_INTENT_GUIDANCE` finns i två lager:
   - `system-prompt.ts` = canonical för codegen.

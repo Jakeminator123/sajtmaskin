@@ -17,7 +17,7 @@ Tre **lanes** + flaggor (detalj + mermaid i arkiv: `builder-model-routing-and-tr
 
 **Anthropic-jämförelse** — preset som linjerar build + produktlane mot Anthropic.
 
-Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `src/lib/models/catalog.ts`, `selection.ts`, samt **`src/lib/api/engine/chats/`** (kanonisk stream-handlers) med tunna **`/api/v0/chats/...`-compat**-routes.
+Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptRewrite.ts`, `useInitBrief.ts`, `src/lib/models/catalog.ts`, `selection.ts`, samt **`src/lib/api/engine/chats/`** (kanonisk stream-handlers) med tunna **`/api/v0/chats/...`-compat**-routes.
 
 ## OpenClaw / Sajtagenten ligger bredvid
 
@@ -59,7 +59,7 @@ Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
 ## Nuvarande kodflöde
 
 1. **Prompt in** via Builder (kanonisk väg) eller direkt mot own-engine API-routes.
-2. **Före-build prompt-verktyg (valfritt):** "Skriv om" (polish) eller "Förbättra" (rewrite) via `/api/ai/chat` + guardrails i `usePromptAssist.ts`. Redigerar text i realtid utan att skicka iväg.
+2. **Före-build prompt-verktyg (valfritt):** "Skriv om" (polish) eller "Förbättra" (rewrite) via `/api/ai/chat` + guardrails i `usePromptRewrite.ts`. Redigerar text i realtid utan att skicka iväg.
 3. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via Deep Brief (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`). **Briefen genereras alltid från originalprompt** — inte den orkestrerade/summarerade versionen. Auto-brief körs nu även för korta underspecificerade website-prompts; skip kvarstår för follow-ups, audit, tekniska prompts och **redan strukturerade website-prompts** där användaren redan specificerat flera sektioner/styrsignaler. Brief-deriverad prose dubbleras **inte** i `customInstructions`; brief-objektet via `meta.brief` är den kanoniska semantiska signalen.
 4. **Spec-first chain (valfritt, `specMode=true`):** Om briefen finns konverteras den till en `WebsiteSpec` via `briefToSpec()` i `promptAssistContext.ts`, annars via `promptToSpec()`. Specfilen bifogas som strukturerad kontext till systemprompten.
 5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` orkestrerar generationen: väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
