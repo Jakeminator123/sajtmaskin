@@ -236,4 +236,60 @@ describe("POST /api/template", () => {
     );
     expect(commitCredits).toHaveBeenCalled();
   });
+
+  it("succeeds with previewUrl: null when preview-host is unavailable", async () => {
+    getLocalV0TemplateSourceById.mockResolvedValue({
+      templateId: "tmpl_1",
+      archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+      sourceSlugs: ["ai"],
+      sourceLabelsSv: ["AI"],
+      categoryLabel: "AI",
+      timestamp: "2026-04-05T12:00:00Z",
+    });
+    loadLocalV0TemplateFiles.mockResolvedValue({
+      source: {
+        templateId: "tmpl_1",
+        archivePath: "C:\\templates_v0\\downloads\\AI\\tmpl_1\\repo.zip",
+        sourceSlugs: ["ai"],
+        sourceLabelsSv: ["AI"],
+        categoryLabel: "AI",
+        timestamp: "2026-04-05T12:00:00Z",
+      },
+      files: [
+        {
+          path: "app/page.tsx",
+          content: "export default function Page() { return <div>Repo</div>; }",
+          language: "tsx",
+        },
+      ],
+    });
+    startPreviewSession.mockResolvedValue({
+      ok: false,
+      error: {
+        stage: "preview-start",
+        message: "SAJTMASKIN_PREVIEW_HOST_BASE_URL must be set for tier-2 live preview.",
+      },
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: "tmpl_1", quality: "standard" }),
+      }) as never,
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json).toMatchObject({
+      success: true,
+      chatId: "chat_import",
+      projectId: "proj_new",
+      versionId: "ver_import",
+      previewUrl: null,
+    });
+    expect(chatRepoCreateDraftVersion).toHaveBeenCalled();
+    expect(chatRepoUpdateVersionPreviewUrl).not.toHaveBeenCalled();
+    expect(commitCredits).toHaveBeenCalled();
+  });
 });
