@@ -502,10 +502,7 @@ Persisted errors for this version:
     process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
     vi.resetModules();
     const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
     const spec = deriveBuildSpecWithFlag({
       prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
       buildIntent: "website",
@@ -514,30 +511,20 @@ Persisted errors for this version:
       resolvedScaffold: null,
       routePlan: multiPageWebsiteRoutePlan,
       preGenerationContracts: emptyContracts,
-<<<<<<< Updated upstream
-    });
-=======
-      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
     });
 
->>>>>>> Stashed changes
     expect(spec.routeRealization).toEqual({
       mode: "primary-full-with-shells",
       primaryRoutePath: "/",
       fullRoutePaths: ["/"],
       shellRoutePaths: ["/om-oss", "/produkter"],
     });
-<<<<<<< Updated upstream
-    if (original === undefined) delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
-    else process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
-=======
 
     if (original === undefined) {
       delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
     } else {
       process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
     }
->>>>>>> Stashed changes
     vi.resetModules();
   });
 
@@ -546,10 +533,7 @@ Persisted errors for this version:
     process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
     vi.resetModules();
     const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
     const spec = deriveBuildSpecWithFlag({
       prompt: "Ändra färgen på headern till mörkblå.",
       buildIntent: "website",
@@ -559,12 +543,6 @@ Persisted errors for this version:
       preGenerationContracts: emptyContracts,
       existingShellRoutePaths: ["/om-oss", "/produkter"],
     });
-<<<<<<< Updated upstream
-    expect(spec.routeRealization?.mode).toBe("primary-full-with-shells");
-    expect(spec.routeRealization?.shellRoutePaths).toEqual(["/om-oss", "/produkter"]);
-    if (original === undefined) delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
-    else process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
-=======
 
     expect(spec.routeRealization?.mode).toBe("primary-full-with-shells");
     expect(spec.routeRealization?.shellRoutePaths).toEqual(["/om-oss", "/produkter"]);
@@ -574,7 +552,6 @@ Persisted errors for this version:
     } else {
       process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
     }
->>>>>>> Stashed changes
     vi.resetModules();
   });
 
@@ -583,10 +560,7 @@ Persisted errors for this version:
     process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
     vi.resetModules();
     const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
     const spec = deriveBuildSpecWithFlag({
       prompt: "Bygg ut om oss-sidan med teammedlemmar och historia.",
       buildIntent: "website",
@@ -596,12 +570,6 @@ Persisted errors for this version:
       preGenerationContracts: emptyContracts,
       existingShellRoutePaths: ["/om-oss", "/produkter"],
     });
-<<<<<<< Updated upstream
-    expect(spec.routeRealization?.shellRoutePaths).toEqual(["/produkter"]);
-    expect(spec.routeRealization?.fullRoutePaths).toContain("/om-oss");
-    if (original === undefined) delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
-    else process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
-=======
 
     expect(spec.routeRealization?.shellRoutePaths).toEqual(["/produkter"]);
     expect(spec.routeRealization?.fullRoutePaths).toContain("/om-oss");
@@ -611,7 +579,6 @@ Persisted errors for this version:
     } else {
       process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
     }
->>>>>>> Stashed changes
     vi.resetModules();
   });
 });
@@ -619,9 +586,6 @@ Persisted errors for this version:
 describe("isShellPageContent", () => {
   it("detects standard shell page content", async () => {
     const { isShellPageContent } = await import("./build-spec");
-<<<<<<< Updated upstream
-    const shellContent = 'import Link from "next/link";\nexport default function OmOssPage() {\n  return (\n    <main className="min-h-[70vh] bg-[oklch(0.58_0.22_262)] text-white">\n      <Badge>Förberedd sida</Badge>\n      <p>Varför sidan är enkel just nu</p>\n      <Link href="/om-oss">Skapa sida</Link>\n    </main>\n  );\n}';
-=======
     const shellContent = `import Link from "next/link";
 export default function OmOssPage() {
   return (
@@ -632,15 +596,11 @@ export default function OmOssPage() {
     </main>
   );
 }`;
->>>>>>> Stashed changes
     expect(isShellPageContent(shellContent)).toBe(true);
   });
 
   it("rejects full page content", async () => {
     const { isShellPageContent } = await import("./build-spec");
-<<<<<<< Updated upstream
-    expect(isShellPageContent('"use client";\nimport Image from "next/image";\nexport default function OmOssPage() {\n  return (<main className="min-h-screen bg-white"><h1>Om oss</h1></main>);\n}')).toBe(false);
-=======
     const fullContent = `"use client";
 import Image from "next/image";
 export default function OmOssPage() {
@@ -652,14 +612,10 @@ export default function OmOssPage() {
   );
 }`;
     expect(isShellPageContent(fullContent)).toBe(false);
->>>>>>> Stashed changes
   });
 
   it("detects shell even if one marker was reformatted away", async () => {
     const { isShellPageContent } = await import("./build-spec");
-<<<<<<< Updated upstream
-    expect(isShellPageContent('export default function Page() {\n  return (<main className="bg-[oklch(0.58_0.22_262)]">\n    <p>Varför sidan är enkel just nu</p></main>);\n}')).toBe(true);
-=======
     const partialShell = `export default function Page() {
   return (
     <main className="bg-[oklch(0.58_0.22_262)]">
@@ -668,7 +624,6 @@ export default function OmOssPage() {
   );
 }`;
     expect(isShellPageContent(partialShell)).toBe(true);
->>>>>>> Stashed changes
   });
 
   it("rejects empty or very large content", async () => {
