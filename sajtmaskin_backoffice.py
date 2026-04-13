@@ -418,6 +418,32 @@ elif page == "Research & Dossiers":
         st.caption(f"Nuvarande: `{_TG_KEY}={'true' if _tg_current else 'false'}`")
     st.divider()
 
+    # ── Deferred extra init routes toggle ────────────────────────────────
+    st.subheader("Deferred Extra Init Routes")
+    _DEFER_KEY = "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT"
+    _defer_current = read_env_flag(_DEFER_KEY)
+    _defer_new = st.toggle(
+        "Aktivera plan-many/build-one för init-generering",
+        value=_defer_current,
+        key="defer_extra_init_routes_toggle",
+        help=(
+            f"Styr env-flaggan `{_DEFER_KEY}` i `.env.local`. När på får init-genereringar "
+            "planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor "
+            "blir då shell-sidor med tydlig 'Skapa sida'-yta."
+        ),
+    )
+    if _defer_new != _defer_current:
+        if write_env_flag(_DEFER_KEY, _defer_new):
+            st.success(
+                f"`{_DEFER_KEY}` satt till `{'true' if _defer_new else 'false'}` i `.env.local`."
+            )
+            st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
+        else:
+            st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
+    else:
+        st.caption(f"Nuvarande: `{_DEFER_KEY}={'true' if _defer_current else 'false'}`")
+    st.divider()
+
     catalog = read_json(CATALOG_JSON)
     template_lib = read_json(TEMPLATE_LIB_JSON)
 

@@ -263,6 +263,21 @@ function deriveRouteRealizationPolicy(params: {
   };
 }
 
+function effectiveInitRouteCount(params: {
+  generationMode: BuildSpecGenerationMode;
+  routePlan: RoutePlan;
+  routeRealization: RouteRealizationPolicy;
+}): number {
+  const { generationMode, routePlan, routeRealization } = params;
+  if (
+    generationMode === "init" &&
+    routeRealization.mode === "primary-full-with-shells"
+  ) {
+    return routeRealization.fullRoutePaths.length;
+  }
+  return routePlan.routes.length;
+}
+
 function inferStylePack(
   prompt: string,
   buildIntent: BuildIntent,
@@ -330,11 +345,21 @@ function inferChangeScope(params: {
 function inferQualityTarget(params: {
   prompt: string;
   buildIntent: BuildIntent;
+  generationMode: BuildSpecGenerationMode;
   resolvedScaffold: ScaffoldManifest | null;
   routePlan: RoutePlan;
+  routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
 }): BuildSpecQualityTarget {
-  const { prompt, buildIntent, resolvedScaffold, routePlan, preGenerationContracts } = params;
+  const {
+    prompt,
+    buildIntent,
+    generationMode,
+    resolvedScaffold,
+    routePlan,
+    routeRealization,
+    preGenerationContracts,
+  } = params;
   if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "release-candidate";
 
   const advancedScaffoldId =
@@ -342,7 +367,11 @@ function inferQualityTarget(params: {
     resolvedScaffold?.id === "ecommerce" ||
     resolvedScaffold?.id === "app-shell" ||
     resolvedScaffold?.id === "saas-landing";
-  const routeCount = routePlan.routes.length;
+  const routeCount = effectiveInitRouteCount({
+    generationMode,
+    routePlan,
+    routeRealization,
+  });
   const premiumSignals =
     buildIntent === "app" ||
     routeCount > 4 ||
@@ -357,16 +386,31 @@ function inferQualityTarget(params: {
 
 function inferPreviewPolicy(params: {
   prompt: string;
+  generationMode: BuildSpecGenerationMode;
   qualityTarget: BuildSpecQualityTarget;
   routePlan: RoutePlan;
+  routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
   buildIntent: BuildIntent;
 }): BuildSpecPreviewPolicy {
-  const { prompt, qualityTarget, routePlan, preGenerationContracts, buildIntent } = params;
+  const {
+    prompt,
+    generationMode,
+    qualityTarget,
+    routePlan,
+    routeRealization,
+    preGenerationContracts,
+    buildIntent,
+  } = params;
+  const routeCount = effectiveInitRouteCount({
+    generationMode,
+    routePlan,
+    routeRealization,
+  });
   if (qualityTarget === "release-candidate") return "fidelity3";
   if (
     buildIntent === "app" &&
-    (preGenerationContracts.contracts.integrations.length > 1 || routePlan.routes.length > 4)
+    (preGenerationContracts.contracts.integrations.length > 1 || routeCount > 4)
   ) {
     return "fidelity3";
   }
@@ -425,11 +469,22 @@ function inferContextPolicy(params: {
   changeScope: BuildSpecChangeScope;
   buildIntent: BuildIntent;
   routePlan: RoutePlan;
+  routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
   capabilityHeavy: boolean;
 }): BuildSpecContextPolicy {
-  const { prompt, generationMode, changeScope, buildIntent, routePlan, preGenerationContracts, promptStrategyMeta, capabilityHeavy } = params;
+  const {
+    prompt,
+    generationMode,
+    changeScope,
+    buildIntent,
+    routePlan,
+    routeRealization,
+    preGenerationContracts,
+    promptStrategyMeta,
+    capabilityHeavy,
+  } = params;
   if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
     if (includesAny(TARGETED_REPAIR_PATTERNS, prompt)) {
       return "normal";
@@ -440,15 +495,31 @@ function inferContextPolicy(params: {
     });
   }
   const routePlanHeavyStructure =
-    routePlan.siteType === "content-heavy" ||
     routePlan.siteType === "app-shell" ||
-    (routePlan.provenance.primarySource === "scaffold" && routePlan.routes.length >= 3);
+    (routePlan.siteType === "content-heavy" &&
+      effectiveInitRouteCount({
+        generationMode,
+        routePlan,
+        routeRealization,
+      }) > 1) ||
+    (routePlan.provenance.primarySource === "scaffold" &&
+      effectiveInitRouteCount({
+        generationMode,
+        routePlan,
+        routeRealization,
+      }) >= 3);
+
+  const routeCount = effectiveInitRouteCount({
+    generationMode,
+    routePlan,
+    routeRealization,
+  });
 
   if (
     promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
     promptStrategyMeta?.strategy === "preserved" ||
     buildIntent === "app" ||
-    routePlan.routes.length > 4 ||
+    routeCount > 4 ||
     routePlanHeavyStructure ||
     preGenerationContracts.contracts.integrations.length > 0 ||
     preGenerationContracts.contracts.dataMode === "persisted"
@@ -588,6 +659,12 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
   } = params;
 
   const capabilityHeavy = capabilities ? hasHeavyCapabilities(capabilities) : false;
+  const routeRealization = deriveRouteRealizationPolicy({
+    generationMode,
+    buildIntent,
+    prompt,
+    routePlan,
+  });
 
   const changeScope = inferChangeScope({
     prompt,
@@ -598,14 +675,18 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
   const qualityTarget = inferQualityTarget({
     prompt,
     buildIntent,
+    generationMode,
     resolvedScaffold,
     routePlan,
+    routeRealization,
     preGenerationContracts,
   });
   const previewPolicy = inferPreviewPolicy({
     prompt,
+    generationMode,
     qualityTarget,
     routePlan,
+    routeRealization,
     preGenerationContracts,
     buildIntent,
   });
@@ -621,6 +702,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     changeScope,
     buildIntent,
     routePlan,
+    routeRealization,
     preGenerationContracts,
     promptStrategyMeta,
     capabilityHeavy,
@@ -649,11 +731,6 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
       previewPolicy,
     }),
     tokenBudgets: tokenBudgetsForContextPolicy(contextPolicy),
-    routeRealization: deriveRouteRealizationPolicy({
-      generationMode,
-      buildIntent,
-      prompt,
-      routePlan,
-    }),
+    routeRealization,
   };
 }

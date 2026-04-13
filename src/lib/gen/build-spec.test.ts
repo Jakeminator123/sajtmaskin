@@ -345,6 +345,9 @@ Persisted errors for this version:
       fullRoutePaths: ["/"],
       shellRoutePaths: ["/om-oss", "/produkter"],
     });
+    expect(spec.qualityTarget).toBe("standard");
+    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.previewPolicy).toBe("fidelity2");
 
     if (original === undefined) {
       delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;

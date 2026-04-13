@@ -592,7 +592,7 @@ type ServerRepairResult = {
   newVersionId?: string | null;
   remainingErrors?: number;
   improvedSyntax?: boolean;
-  earlyStopReason?: "fixer_noop" | "no_improvement" | null;
+  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
   status?: "completed" | "skipped" | "request_failed";
   reason?: string | null;
 };
