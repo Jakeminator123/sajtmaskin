@@ -24,6 +24,28 @@ import {
   type PreviewStartContract,
 } from "./preflight-contract";
 
+/**
+ * Remove literal route files when a dynamic-segment counterpart exists.
+ * E.g. `app/product/id/page.tsx` is removed if `app/product/[id]/page.tsx` exists.
+ */
+function removeLiteralRouteDuplicates(files: CodeFile[]): CodeFile[] {
+  const appPaths = new Set(files.map((f) => f.path.replace(/\\/g, "/")));
+  const toRemove = new Set<string>();
+
+  for (const filePath of appPaths) {
+    const match = filePath.match(/^((?:src\/)?app\/.+)\/(\w+)\/(page|layout)\.(tsx|jsx|ts|js)$/);
+    if (!match) continue;
+    const [, parentPath, segment, fileType, ext] = match;
+    const dynamicPath = `${parentPath}/[${segment}]/${fileType}.${ext}`;
+    if (appPaths.has(dynamicPath)) {
+      toRemove.add(filePath);
+    }
+  }
+
+  if (toRemove.size === 0) return files;
+  return files.filter((f) => !toRemove.has(f.path.replace(/\\/g, "/")));
+}
+
 export type FinalizePreflightIssue = {
   file: string;
   severity: "error" | "warning";
@@ -351,8 +373,9 @@ export async function runFinalizePreflight({
       });
     }
 
+    const cleanedFiles = removeLiteralRouteDuplicates(finalFiles);
     const completeProjectFiles = repairGeneratedFiles(
-      buildCompleteProject(finalFiles, collectRequiredUiComponents(finalFiles)),
+      buildCompleteProject(cleanedFiles, collectRequiredUiComponents(cleanedFiles)),
     ).files;
     preflightFileCount = completeProjectFiles.length;
     preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));

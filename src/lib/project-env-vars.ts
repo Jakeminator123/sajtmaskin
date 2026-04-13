@@ -143,16 +143,17 @@ export async function upsertStoredProjectEnvVars(
     const key = normalizeEnvKey(item.key);
     const previous = byKey.get(key);
     const shouldEncrypt = item.sensitive ?? previous?.sensitive ?? true;
-    if (shouldEncrypt && !hasEnvVarEncryptionKey()) {
-      throw new Error(
-        "ENV_VAR_ENCRYPTION_KEY must be configured before saving sensitive project env vars.",
+    const canEncrypt = shouldEncrypt && hasEnvVarEncryptionKey();
+    if (shouldEncrypt && !canEncrypt) {
+      console.warn(
+        `[project-env-vars] ENV_VAR_ENCRYPTION_KEY not configured; storing "${key}" as plaintext.`,
       );
     }
     byKey.set(key, {
       id: previous?.id ?? crypto.randomUUID(),
       key,
-      value: shouldEncrypt ? encryptValue(item.value) : item.value,
-      sensitive: shouldEncrypt,
+      value: canEncrypt ? encryptValue(item.value) : item.value,
+      sensitive: canEncrypt,
       createdAt: previous?.createdAt ?? now,
       updatedAt: now,
     });

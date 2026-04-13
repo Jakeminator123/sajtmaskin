@@ -111,6 +111,12 @@ export interface OrchestrationInput {
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary style direction across sessions with identical prompts. */
   sessionSeed?: string;
+  /**
+   * True when this is the first real code generation in a chat that already has a
+   * persistedScaffoldId (e.g. after a contract gate turn). Allows init-only features
+   * like template guidance to activate even though generationMode resolves to "followUp".
+   */
+  isFirstCodeGeneration?: boolean;
 }
 
 export interface OrchestrationBase {
@@ -443,6 +449,9 @@ function scoreReferenceRelevance(
  * Resolve scaffold-anchored template-library runtime guidance for init generations.
  * Reranks the scaffold's referenceTemplates by prompt/brief/buildSpec relevance
  * and picks the top 1–2 entries, using only compact runtimeGuidance.
+ *
+ * Also activates when the chat has a persistedScaffoldId but no previous files
+ * (first real code generation after a contract gate turn).
  */
 function resolveTemplateGuidance(
   resolvedScaffold: ScaffoldManifest | null,
@@ -450,10 +459,12 @@ function resolveTemplateGuidance(
   prompt?: string,
   brief?: Record<string, unknown> | null,
   referenceCategories?: string[],
+  isFirstCodeGeneration?: boolean,
 ): TemplateGuidanceMeta {
   const empty: TemplateGuidanceMeta = { enabled: false, templateIds: [], guidanceEntries: [] };
   if (!FEATURES.useRuntimeTemplateGuidance) return empty;
-  if (generationMode !== "init") return empty;
+  const effectiveInit = generationMode === "init" || (generationMode === "followUp" && isFirstCodeGeneration);
+  if (!effectiveInit) return empty;
   if (!resolvedScaffold?.research?.referenceTemplates?.length) return empty;
 
   const allRefs = resolvedScaffold.research.referenceTemplates;
@@ -533,6 +544,7 @@ export async function finalizeOrchestrationPrompts(
     prompt,
     brief,
     base.buildSpec.referenceCategories,
+    input.isFirstCodeGeneration,
   );
   const templateGuidanceText = formatTemplateGuidanceForPrompt(templateGuidanceMeta);
 
