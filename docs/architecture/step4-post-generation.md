@@ -56,6 +56,13 @@ Telemetry använder etiketterna `fast+deep` respektive `fast-only` (se `devLogAp
 
 **`server-verify`:** körs **asynkront** efter finalize/handoff till preview (se `server-verify.ts` och `resolvePostFinalizeServerVerifyDecision()` i `post-finalize-policies.ts`); **blockerar inte** SSE `done`. Den hoppas över för t.ex. `verificationPolicy === "fast"`, icke-eligible versioner, `previewBlocked`, `verificationBlocked` eller låg-risk-standardflöden. Det är **Steg 4-nära** men **inte** samma synkrona pipeline som `finalizeAndSaveVersion`.
 
+## Fault/fix-loggning och overhead-ytor
+
+- `devLog.ts` skriver full ISO-tid till körloggarna; `generation-log-writer.ts` bygger därifrån `fault-fix-index.md`, `fault-fix-index.csv` och den globala `logs/llm-segmentts-and-index/error-log.csv`.
+- `error-log.csv` är den sammanhållna fault/fix-loggen för mekaniska fixar, LLM-fixar och relevanta pipeline-/verify-signaler. `time` ska tolkas som full tidsstämpel, inte bara klockslag.
+- `config/dashboard/app.py` och `sajtmaskin_backoffice.py` ska spegla samma runtime-sanning via `config/dashboard/shared_overhead.py`, inte genom att reimplementera eller importera varandras app-entrypoints.
+- Versionskolumnen `files_json` förblir medvetet den \"slanka\" fil-listan efter merge/preflight. `package.json`, `tsconfig.json`, `next.config.ts` och annan baseline läggs i stället till via `buildCompleteProject(...)` för preview/export. Saknad `package.json` i DB betyder därför inte automatiskt att preview-projektet är ofullständigt.
+
 ## Steg 4 vs Steg 5 (gräns)
 
 | Steg 4 | Steg 5 (grannlager) |
@@ -75,6 +82,6 @@ Uppdatera i samma leverans:
 - `docs/architecture/glossary.md` (fas 3: repair, quality gate, finalize)
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)
-- Vid manifeständringar: `config/dashboard/app.py` (repair/verifier/timeouts), ev. `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
+- Vid manifest-/overheadändringar: `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `config/dashboard/shared_overhead.py`, ev. `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
 
 Se även: `docs/architecture/llm-input-blocks.md` (Steg 3), `docs/architecture/preview-deploy.md` (Steg 5).

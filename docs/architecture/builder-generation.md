@@ -93,8 +93,8 @@ Det finns nu tre separata observability-spår som är lätta att blanda ihop:
 
 Det finns **ingen** samlad kanonisk `logs/`-mapp ännu som binder ihop prompt-dumps, prompt logs, evals, verifieringsresultat, modeller, tokens och slutlig scaffold/utfall i en enda körjournal. Dagens läge är i stället uppdelat mellan `data/prompt-dumps/`, databastabeller/UI för prompt logs och vanliga dev-/runtime-loggar.
 
-**Viktigt:** `config/dashboard/app.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
-inte leda den. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
+**Viktigt:** `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
+inte leda den. Delad overheadlogik ska ligga i `config/dashboard/shared_overhead.py`, inte dupliceras mellan apparna. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
 
 Kategorier:
 

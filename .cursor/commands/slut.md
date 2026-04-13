@@ -15,6 +15,7 @@ Stäng arbetet i följande ordning:
    - vad som medvetet inte rensades eller migrerades nu
 5. **Terminologidisciplin:** kontrollera att inga nya begrepp finns utan registrering i `docs/architecture/glossary.md`. Uppdatera glossaryn om termer ändrats.
 6. Synka dashboards, ordlistor och centrala docs om de påverkas.
+   - När `config/dashboard/app.py` eller `sajtmaskin_backoffice.py` ändras ska även delad helperlogik i `config/dashboard/shared_overhead.py` och relevanta docs spegla samma sanning.
 7. Kör riktad verifiering och därefter commit + push när användaren uttryckligen vill stänga/ship:a spåret.
 
 ## Extra regler för `/slut`

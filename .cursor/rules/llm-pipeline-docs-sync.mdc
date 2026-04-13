@@ -1,6 +1,7 @@
 ---
 description: Synka LLM-flödesändringar med kanoniska docs och dashboard
 globs:
+  - sajtmaskin_backoffice.py
   - config/codegen-static-prompt.json
   - config/prompt-static/**
   - config/ai_models/**
@@ -45,10 +46,10 @@ globs:
 
 ## Vid behov
 
-`preview-deploy.md`; `docs/plans/README.md`; `repository-and-platform.md` / `config/README.md`; `manifest.schema.json` om **formen** ändras; dashboard: `domain-map.json`, `config/dashboard/app.py` (översikt), `scripts/scripts_dashboard.py` (pipeline) — delad logik i `scripts/dashboard_shared.py`.
+`preview-deploy.md`; `docs/plans/README.md`; `repository-and-platform.md` / `config/README.md`; `manifest.schema.json` om **formen** ändras; dashboard: `domain-map.json`, `config/dashboard/app.py` (översikt), `sajtmaskin_backoffice.py` (overhead/admin), `scripts/scripts_dashboard.py` (pipeline) — delad logik i `scripts/dashboard_shared.py` och `config/dashboard/shared_overhead.py`.
 
 ## Principer
 
-Uppdatera bara det som faktiskt bröts; inget brett docs-pass av vana. `app.py` = config/översikt; `scripts_dashboard.py` = pipeline/artifacts.
+Uppdatera bara det som faktiskt bröts; inget brett docs-pass av vana. `app.py` = config/översikt; `sajtmaskin_backoffice.py` = overhead/admin; `scripts_dashboard.py` = pipeline/artifacts. Overhead-ytorna ska spegla runtime-sanningen via delade helpers, inte duplicerad logik.
 
 Terminologi: `terminology.mdc` + `docs/architecture/glossary.md`; tvetydiga ord → § Namnskuggor. Verifiera mot kod innan du skriver om docs. Föredra repo-specifika termer (`orchestrate`, `finalize`, `preview materialization`, `verify`) framför generisk CI/CD-jargong.

@@ -498,6 +498,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `scripts/scripts_dashboard.py` | `npm run scripts:dashboard` | **Tkinter** pipeline-panel: kör npm-steg + visar artifact-parity |
 | `scripts/dashboard_shared.py` | (importeras) | Prompt-dump-status, delad med config-dashboarden |
 | `config/dashboard/app.py` | `config/dashboard/run.ps1` | **Streamlit** config-dashboard med dedikerad "Runtime scaffolds"-sida |
+| `sajtmaskin_backoffice.py` | `npm run backoffice` | **Streamlit** overheadpanel för scaffolds, pipeline, eval och Autofix/Kvalitet |
 
 ### Övriga aktiva
 
@@ -618,4 +619,7 @@ Fristående Streamlit-app: `sajtmaskin_backoffice.py` i repo-roten.
 | **Research & Dossiers** | catalog.json-vy (kuraterade templates med scores + scaffoldIds). Template-library status. Scaffold-research overrides per scaffold. |
 | **Pipeline** | Status-panel + knappar för varje steg (import, hydrate, build, embeddings, eval, verify, all). Live output. Artifact-status. |
 | **Eval** | Senaste eval-rapport: accuracy, per-scaffold, per-case tabell. Knapp: kör ny eval. |
+| **Autofix & Kvalitet** | Pipelineöversikt, fault/fix-statistik från `error-log.csv`, runtime-gränser för LLM-autofix och centrala repair/token/verifier-kontroller från `config/ai_models/manifest.json`. |
 | **Mental modell** | Renderar `docs/architecture/scaffold-schema.md` + snabbfakta (antal scaffolds, IDs, site kinds, complexities). |
+
+Backoffice och config-dashboard ska dela helperlogik via `config/dashboard/shared_overhead.py` när de läser/skriver manifest- eller fault/fix-relaterade data.

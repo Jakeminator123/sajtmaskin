@@ -162,11 +162,25 @@ function collectImportedPackages(files: CodeFile[]): Map<string, Set<string>> {
   return imported;
 }
 
+export interface ProjectSanityOptions {
+  /**
+   * When true, the scaffold baseline is known to provide a valid package.json
+   * at preview/export time via `buildCompleteProject`.  Missing package.json in
+   * the raw persisted file list is therefore expected and should not be flagged
+   * as an error.  Third-party dependency checks are also skipped because the
+   * baseline merges detected deps automatically.
+   */
+  scaffoldBaselineCoversPackageJson?: boolean;
+}
+
 /**
  * Post-merge sanity checks on the full generated file set.
  * Catches issues that per-file autofix cannot see.
  */
-export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
+export function runProjectSanityChecks(
+  files: CodeFile[],
+  options?: ProjectSanityOptions,
+): SanityResult {
   const importSeverity = unresolvedImportSeverity();
   const importFallbackUsed = importSeverity === "warning";
   const fileMap = new Map<string, CodeFile>();
@@ -345,6 +359,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
 
   // 6. Known bad peer-dependency pairs in package.json
   const pkgFile = fileMap.get("package.json") ?? fileMap.get("src/package.json");
+  const scaffoldCovers = Boolean(options?.scaffoldBaselineCoversPackageJson);
   if (pkgFile) {
     try {
       const pkgJson = JSON.parse(pkgFile.content) as {
@@ -361,17 +376,19 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
         ...Object.keys(pkgJson.optionalDependencies ?? {}),
       ]);
 
-      for (const [pkg, importers] of importedPackages.entries()) {
-        if (declaredPackages.has(pkg)) continue;
-        const importerPreview = [...importers].slice(0, 3).join(", ");
-        issues.push(
-          createSanityIssue(
-            "package.json",
-            "error",
-            `Imported third-party package "${pkg}" is used in code but not pinned in package.json (${importerPreview})`,
-            "dependency_install_failure",
-          ),
-        );
+      if (!scaffoldCovers) {
+        for (const [pkg, importers] of importedPackages.entries()) {
+          if (declaredPackages.has(pkg)) continue;
+          const importerPreview = [...importers].slice(0, 3).join(", ");
+          issues.push(
+            createSanityIssue(
+              "package.json",
+              "error",
+              `Imported third-party package "${pkg}" is used in code but not pinned in package.json (${importerPreview})`,
+              "dependency_install_failure",
+            ),
+          );
+        }
       }
 
       checkKnownBadPeers(deps, issues);
@@ -385,7 +402,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
         ),
       );
     }
-  } else {
+  } else if (!scaffoldCovers) {
     issues.push(
       createSanityIssue(
         "package.json",

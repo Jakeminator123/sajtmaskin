@@ -26,6 +26,9 @@ if hasattr(sys.stdout, "reconfigure"):
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 REPO_ROOT = Path(__file__).resolve().parent
+DASHBOARD_DIR = REPO_ROOT / "config" / "dashboard"
+if str(DASHBOARD_DIR) not in sys.path:
+    sys.path.insert(0, str(DASHBOARD_DIR))
 
 
 def _running_under_streamlit() -> bool:
@@ -44,6 +47,14 @@ if not _running_under_streamlit():
 
 import streamlit as st
 import pandas as pd
+from shared_overhead import (
+    human_model_label,
+    load_fault_fix_csv,
+    phase_routing_defaults,
+    read_autofix_runtime_config,
+    read_json,
+    write_json,
+)
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -58,6 +69,9 @@ SCHEMA_MD = REPO_ROOT / "docs" / "architecture" / "scaffold-schema.md"
 SCAFFOLD_CLI = REPO_ROOT / "scripts" / "scaffolds" / "scaffold_cli.py"
 ENV_LOCAL = REPO_ROOT / ".env.local"
 MANAGE_ENV_SCRIPT = REPO_ROOT / "scripts" / "env" / "manage_env.py"
+MANIFEST_JSON = REPO_ROOT / "config" / "ai_models" / "manifest.json"
+ERROR_LOG_CSV = REPO_ROOT / "logs" / "llm-segmentts-and-index" / "error-log.csv"
+AUTOFIX_HOOK_TS = REPO_ROOT / "src" / "lib" / "hooks" / "chat" / "useAutoFix.ts"
 
 ORCH_TS_SOURCES = {
     "ScaffoldId / ScaffoldMode": SCAFFOLDS_DIR / "types.ts",
@@ -73,6 +87,7 @@ NAV_PAGES = (
     "Pipeline",
     "Eval",
     "Orchestration Map",
+    "Autofix & Kvalitet",
     "Mental modell",
 )
 
@@ -115,15 +130,6 @@ def write_env_flag(key: str, enabled: bool) -> bool:
         return True
     except Exception:
         return False
-
-
-def read_json(path: Path) -> Any:
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
 
 
 def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
@@ -224,6 +230,7 @@ def run_scaffold_cli(cmd: str, extra_args: list[str] | None = None) -> str:
         return "Timeout after 300s"
     except Exception as e:
         return f"Error: {e}"
+
 
 
 # ---------------------------------------------------------------------------
@@ -781,6 +788,305 @@ ANVÄNDARENS PROMPT
         })
     st.dataframe(pd.DataFrame(map_rows), width="stretch", hide_index=True)
 
+
+# ===== PAGE: Autofix & Kvalitet =====
+elif page == "Autofix & Kvalitet":
+    st.header("Autofix & Kvalitet")
+    st.caption(
+        "Central överblick för mekaniska fixar, LLM-fixar och kvalitetspass. "
+        "Den här sidan speglar samma `config/ai_models/manifest.json` som config-dashboarden använder."
+    )
+
+    manifest = read_json(MANIFEST_JSON) if MANIFEST_JSON.exists() else None
+    runtime_cfg = read_autofix_runtime_config(AUTOFIX_HOOK_TS)
+
+    st.subheader("Pipeline-översikt")
+    st.markdown("""
+```
+LLM-generering
+     |
+[Mekanisk autofix]  ← repairPolicies.deterministicAutofixPasses
+     |
+[Syntax validate/fix]  ← repairPolicies.syntaxFixPasses
+     |
+[Bildmaterialisering]
+     |
+[Preflight]  ← server, före DB-sparning
+     |
+=== SPARAS I DATABAS ===
+     |
+[Post-checks]  ← klient, efter DB-sparning
+     |                  (kan trigga LLM autofix)
+[Quality gate] ← VM, npx tsc --noEmit
+     |                  (kan trigga server repair → LLM autofix)
+```
+""")
+    st.caption(
+        "Preflight kan stoppa leverans före databasen. Post-checks och quality gate körs efter att versionen "
+        "har sparats, men quality gate hoppas över om post-checks redan har köat autofix."
+    )
+
+    st.divider()
+    st.subheader("Runtime-gränser för LLM-autofix")
+    rc1, rc2 = st.columns(2)
+    rc1.metric(
+        "Max autofix per chatt",
+        runtime_cfg.get("maxAutofixPerChat")
+        if runtime_cfg.get("maxAutofixPerChat") is not None
+        else "okänd",
+    )
+    rc2.metric(
+        "Max försök per orsak",
+        runtime_cfg.get("maxAttemptsPerReason")
+        if runtime_cfg.get("maxAttemptsPerReason") is not None
+        else "okänd",
+    )
+    soft_only = runtime_cfg.get("softOnlyReasons") or []
+    if soft_only:
+        st.caption("Soft-only-orsaker som aldrig triggar LLM-autofix av sig själva:")
+        st.code(" | ".join(soft_only), language=None)
+
+    st.divider()
+    st.subheader("Fix-statistik från error-log.csv")
+    if not ERROR_LOG_CSV.is_file():
+        st.info(
+            f"Filen `{ERROR_LOG_CSV.relative_to(REPO_ROOT).as_posix()}` saknas. "
+            "Den skapas när generationloggning är aktiv och fixar/fel börjar loggas."
+        )
+    else:
+        error_df, error_log_message = load_fault_fix_csv(ERROR_LOG_CSV)
+        if error_log_message:
+            st.error(error_log_message)
+
+        if error_df.empty:
+            st.info("CSV-filen finns men innehåller inga rader ännu.")
+        else:
+            created_by = (
+                error_df["created_by"]
+                if "created_by" in error_df.columns
+                else pd.Series("", index=error_df.index)
+            )
+            fixed_by = (
+                error_df["fixed_by"]
+                if "fixed_by" in error_df.columns
+                else pd.Series("", index=error_df.index)
+            )
+            scaffold_col = (
+                error_df["scaffold_id"]
+                if "scaffold_id" in error_df.columns
+                else pd.Series("-", index=error_df.index)
+            )
+
+            autofix_mask = fixed_by.isin(["deterministic-autofix", "llm-fixer"]) | created_by.isin(
+                ["deterministic-autofix", "syntax-validator"]
+            )
+            fix_df = error_df[autofix_mask].copy()
+            fix_df["created_by"] = created_by[autofix_mask].values
+            fix_df["fixed_by"] = fixed_by[autofix_mask].values
+            if "scaffold_id" not in fix_df.columns:
+                fix_df["scaffold_id"] = scaffold_col[autofix_mask].values
+
+            if fix_df.empty:
+                st.info("Inga autofix-/repair-rader hittades i CSV-loggen ännu.")
+            else:
+                fix_df["fix_kind"] = fix_df["fixed_by"].apply(
+                    lambda value: "LLM" if str(value) == "llm-fixer" else "Mekanisk"
+                )
+                scaffold_opts = ["Alla"] + sorted(
+                    str(value)
+                    for value in scaffold_col.dropna().unique().tolist()
+                    if str(value).strip() and str(value).strip() != "-"
+                )
+                selected_scaffold = st.selectbox(
+                    "Filtrera på scaffold",
+                    scaffold_opts,
+                    key="autofix_stats_scaffold",
+                )
+                if selected_scaffold != "Alla" and "scaffold_id" in fix_df.columns:
+                    fix_df = fix_df[fix_df["scaffold_id"] == selected_scaffold]
+
+                fixer_series = (
+                    fix_df["fixer"]
+                    if "fixer" in fix_df.columns
+                    else pd.Series("-", index=fix_df.index)
+                )
+                fixer_df = fix_df[fixer_series.fillna("-") != "-"].copy()
+
+                s1, s2, s3, s4 = st.columns(4)
+                s1.metric("Fix-rader", len(fix_df))
+                s2.metric("Mekaniska", int((fix_df["fix_kind"] == "Mekanisk").sum()))
+                s3.metric("LLM-fixar", int((fix_df["fix_kind"] == "LLM").sum()))
+                s4.metric(
+                    "Unika fixers",
+                    int(fixer_df["fixer"].nunique()) if not fixer_df.empty else 0,
+                )
+
+                if not fixer_df.empty:
+                    st.markdown("### Vanligaste fixers")
+                    top_fixers = (
+                        fixer_df.groupby(["fix_kind", "fixer"])
+                        .size()
+                        .reset_index(name="antal")
+                        .sort_values(["antal", "fixer"], ascending=[False, True])
+                    )
+                    st.dataframe(top_fixers.head(25), width="stretch", hide_index=True)
+
+                if "scaffold_id" in fix_df.columns:
+                    scaffold_fix_df = fix_df[fix_df["scaffold_id"].fillna("-") != "-"].copy()
+                    if not scaffold_fix_df.empty:
+                        st.markdown("### Fixer per scaffold")
+                        by_scaffold = (
+                            scaffold_fix_df.groupby(["scaffold_id", "fix_kind"])
+                            .size()
+                            .unstack(fill_value=0)
+                            .reset_index()
+                            .sort_values("scaffold_id")
+                        )
+                        st.dataframe(by_scaffold, width="stretch", hide_index=True)
+
+                st.markdown("### Senaste fixrader")
+                recent_cols = [
+                    col
+                    for col in [
+                        "time",
+                        "scaffold_id",
+                        "fix_kind",
+                        "fixer",
+                        "problem",
+                        "chat_id",
+                        "version_id",
+                        "file",
+                    ]
+                    if col in fix_df.columns
+                ]
+                if recent_cols:
+                    st.dataframe(
+                        fix_df[recent_cols].tail(50).iloc[::-1],
+                        width="stretch",
+                        hide_index=True,
+                    )
+                    st.caption(
+                        "CSV-loggen lagrar nu full ISO-tid i kolumnen `time`. Vyn visar senaste rader "
+                        "och kan senare utökas med riktiga dag/vecka-trender."
+                    )
+
+    st.divider()
+    st.subheader("Centrala styrningar (manifest.json)")
+    if not isinstance(manifest, dict):
+        st.error(
+            f"Kunde inte läsa `{MANIFEST_JSON.relative_to(REPO_ROOT).as_posix()}`."
+        )
+    else:
+        rp = manifest.setdefault("repairPolicies", {})
+        tb = manifest.setdefault("tokenBudgets", {})
+        pgp = manifest.setdefault("postGenerationPasses", {})
+        routing = phase_routing_defaults(manifest)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Mekaniska pass", int(rp.get("deterministicAutofixPasses", 2)))
+        c2.metric("Syntax-pass", int(rp.get("syntaxFixPasses", 3)))
+        c3.metric("Server repair-pass", int(rp.get("serverRepairPasses", 2)))
+        c4.metric("Manual repair-pass", int(rp.get("manualRepairRouteLlmPasses", 2)))
+
+        left, right = st.columns(2)
+
+        with left:
+            st.markdown("### Repair-pass")
+            deterministic_passes = st.number_input(
+                "Mekaniska fix-pass före LLM",
+                value=int(rp.get("deterministicAutofixPasses", 2)),
+                min_value=1,
+                max_value=10,
+                step=1,
+                key="bo_repair_deterministic",
+            )
+            syntax_passes = st.number_input(
+                "Syntax-fix-pass efter generering",
+                value=int(rp.get("syntaxFixPasses", 3)),
+                min_value=1,
+                max_value=10,
+                step=1,
+                key="bo_repair_syntax",
+            )
+            manual_passes = st.number_input(
+                "Manuell repair-route: max LLM-pass",
+                value=int(rp.get("manualRepairRouteLlmPasses", 2)),
+                min_value=1,
+                max_value=10,
+                step=1,
+                key="bo_repair_manual",
+            )
+            server_passes = st.number_input(
+                "Background server verify: max repair-pass",
+                value=int(rp.get("serverRepairPasses", 2)),
+                min_value=1,
+                max_value=10,
+                step=1,
+                key="bo_repair_server",
+            )
+
+        with right:
+            st.markdown("### Tokenbudgetar")
+            engine_tokens = st.number_input(
+                "Build/generator max output tokens",
+                value=int((tb.get("engineMaxOutputTokens") or {}).get("default", 82768)),
+                step=1024,
+                key="bo_tb_engine",
+            )
+            autofix_tokens = st.number_input(
+                "Autofix / fixer max output tokens",
+                value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 12288)),
+                step=512,
+                key="bo_tb_autofix",
+            )
+            verifier_tokens = st.number_input(
+                "Verifier max output tokens",
+                value=int((pgp.get("verifierMaxOutputTokens") or {}).get("default", 8192)),
+                step=256,
+                key="bo_pgp_verifier_tokens",
+            )
+            verifier_snippet = st.number_input(
+                "Verifier: snippet-tecken per fil",
+                value=int((pgp.get("verifierSnippetCharsPerFile") or {}).get("default", 14000)),
+                step=500,
+                key="bo_pgp_verifier_snippet",
+            )
+
+        st.markdown("### Phase routing (read-only)")
+        routing_rows = []
+        for tier, values in routing.items():
+            if not isinstance(values, dict):
+                continue
+            routing_rows.append({
+                "tier": tier,
+                "planner": human_model_label(values.get("planner", "")),
+                "generator": human_model_label(values.get("generator", "")),
+                "fixer": human_model_label(values.get("fixer", "")),
+                "verifier": human_model_label(values.get("verifier", "")),
+                "deploy-assistant": human_model_label(values.get("deploy-assistant", "")),
+            })
+        if routing_rows:
+            st.dataframe(pd.DataFrame(routing_rows), width="stretch", hide_index=True)
+            st.caption(
+                "Fixer/verifier-modellerna visas här för överblick. Full fas-routing redigeras fortfarande bäst i "
+                "`config/dashboard/app.py`."
+            )
+
+        if st.button("Spara Autofix & Kvalitet", type="primary"):
+            tb.setdefault("engineMaxOutputTokens", {})["default"] = int(engine_tokens)
+            tb.setdefault("autofixMaxOutputTokens", {})["default"] = int(autofix_tokens)
+            pgp.setdefault("verifierMaxOutputTokens", {})["default"] = int(verifier_tokens)
+            pgp.setdefault("verifierSnippetCharsPerFile", {})["default"] = int(verifier_snippet)
+            rp["deterministicAutofixPasses"] = int(deterministic_passes)
+            rp["syntaxFixPasses"] = int(syntax_passes)
+            rp["manualRepairRouteLlmPasses"] = int(manual_passes)
+            rp["serverRepairPasses"] = int(server_passes)
+            try:
+                write_json(MANIFEST_JSON, manifest)
+                st.success("Sparade Autofix & Kvalitet-inställningar till config/ai_models/manifest.json.")
+                st.rerun()
+            except Exception:
+                st.error("Kunde inte spara manifest.json.")
 
 # ===== PAGE: Mental modell =====
 elif page == "Mental modell":

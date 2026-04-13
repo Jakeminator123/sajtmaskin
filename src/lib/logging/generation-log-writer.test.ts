@@ -51,6 +51,9 @@ describe("generation-log writer", () => {
     devLogAppend("in-progress", {
       type: "autofix.result",
       chatId: "chat_1",
+      versionId: "ver_autofix",
+      scaffoldId: "landing-page",
+      resolvedTier: "pro",
       fixes: [{ fixer: "next-og-image-response-import-fixer", file: "app/opengraph-image.tsx" }],
       warnings: [],
       slug: "retro-arcade",
@@ -181,8 +184,13 @@ describe("generation-log writer", () => {
     expect(faultFix).toContain("lineage_1");
     expect(faultFixCsv).toContain("time,phase,step,severity");
     expect(faultFixCsv).toContain("chat_1");
+    expect(faultFixCsv).toContain("landing-page");
+    expect(faultFixCsv).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(faultFixCsv).toContain("Background verify");
     expect(globalCsv).toContain("time,phase,step,severity");
     expect(globalCsv).toContain("chat_1");
+    expect(globalCsv).toContain("landing-page");
+    expect(globalCsv).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     expect(meta.versionId).toBe("ver_1");
     expect(meta.status).toBe("done");
   });

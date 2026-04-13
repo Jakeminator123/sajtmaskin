@@ -76,8 +76,9 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 ## Övrigt
 
 - **Config dashboard (Streamlit)**: `config/dashboard/app.py` är konfigurations- och översiktspanel för `config/*`, vissa docs/rules, runtime-scaffolds, template-pipelineöversikt och prompt-dump-status. Det är inte en egen runtime-källa.
+- **Backoffice (Streamlit)**: `sajtmaskin_backoffice.py` är overhead-/operatörspanel för scaffolds, pipeline, eval samt Autofix/Kvalitet. Den ska spegla samma manifest-/fault-fix-sanning som config-dashboarden, inte implementera en separat modell av kedjan.
 - **Scriptpanel (Tkinter)**: `scripts/scripts_dashboard.py` är pipeline-/artifactpanel för rebuild, embeddings, scaffolds, externa referenser, parity och prompt-dump-status.
-- **Delad dashboardlogik**: `scripts/dashboard_shared.py` bär gemensam statuslogik för prompt-dumps så att panelerna inte driver isär i kategorier, filnamn eller statusord.
+- **Delad dashboardlogik**: `scripts/dashboard_shared.py` bär gemensam statuslogik för prompt-dumps så att panelerna inte driver isär i kategorier, filnamn eller statusord. `config/dashboard/shared_overhead.py` bär gemensam helperlogik för manifest, autofix-/quality-inställningar och fault/fix-loggning mellan Streamlit-ytorna.
 - **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
 - **Cursor slash-kommandon**: repo-lokala kommandon kan ligga i `.cursor/commands/` och användas via `/...` i Cursor-chatten, t.ex. `/avslutning` för slutstädning/sync/verify/ship.
 - **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.

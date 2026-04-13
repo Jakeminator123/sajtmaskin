@@ -648,6 +648,7 @@ export function buildPostCheckBaseline(params: {
       content: file.content ?? "",
       language: inferFileLanguage(file.name),
     })),
+    { scaffoldBaselineCoversPackageJson: true },
   );
   const sanityIssues = sanity.issues;
   const sanityErrors = sanityIssues.filter((issue) => issue.severity === "error");

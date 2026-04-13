@@ -29,6 +29,7 @@ Avsluta det aktuella arbetet i följande ordning:
 - Leta efter kvarvarande gamla begrepp eller fältnamn om en migration nyss gjorts.
 - Leta efter kvarvarande halv-ersatta parallellspår inom scopet: temporära hjälpfunktioner, dubbla beslutsvägar och gammal text som beskriver den ersatta vägen.
 - Om dashboards eller docs berörs: låt dem spegla runtime-sanningen, inte definiera den.
+- Om `config/dashboard/app.py` eller `sajtmaskin_backoffice.py` berörs: synka även eventuell delad helperlogik (`config/dashboard/shared_overhead.py`) så att ytorna inte driver isär.
 - Om admin-/backofficeyta, env-policy eller driftflöden berörs: kontrollera om `sajtmaskin_backoffice.py` också behöver uppdateras för att spegla samma runtime-sanning.
 - Om du överväger att radera filer eller mappar:
   - verifiera först att de inte importeras, refereras i script eller docs, eller används som kompatspår
