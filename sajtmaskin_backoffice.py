@@ -449,14 +449,14 @@ elif page == "Research & Dossiers":
     )
     st.divider()
 
-    # ── Domain rules (config/domain-rules.json) ─────────────────────
+    # ── Domain rules (config/domain-rules.json) — editable ────────
     st.subheader("Domänregler (domain-inference)")
     domain_rules_path = REPO_ROOT / "config" / "domain-rules.json"
     domain_rules = read_json(domain_rules_path)
     if domain_rules and isinstance(domain_rules, list):
         st.caption(
-            f"{len(domain_rules)} domäner. Redigera `config/domain-rules.json` direkt — "
-            "runtime bygger regex från keywords_sv + keywords_en per domän."
+            f"{len(domain_rules)} domäner. Runtime bygger regex från keywords_sv + keywords_en per domän. "
+            "Ändra i tabellen och klicka Spara. Dev-server behöver startas om."
         )
         dr_rows = []
         for rule in domain_rules:
@@ -466,9 +466,49 @@ elif page == "Research & Dossiers":
                 "keywords_sv": ", ".join(rule.get("keywords_sv", [])),
                 "keywords_en": ", ".join(rule.get("keywords_en", [])),
             })
-        st.dataframe(dr_rows, use_container_width=True)
+        edited_domains = st.data_editor(dr_rows, use_container_width=True, num_rows="dynamic", key="domain_editor")
+        if st.button("Spara domänregler", key="save_domain_rules"):
+            out = []
+            for row in edited_domains:
+                out.append({
+                    "domain": row.get("domain", "").strip(),
+                    "briefHint": row.get("briefHint", "").strip(),
+                    "keywords_sv": [k.strip() for k in row.get("keywords_sv", "").split(",") if k.strip()],
+                    "keywords_en": [k.strip() for k in row.get("keywords_en", "").split(",") if k.strip()],
+                })
+            out = [r for r in out if r["domain"]]
+            domain_rules_path.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            st.success(f"Sparade {len(out)} domänregler till `config/domain-rules.json`.")
     else:
         st.warning("Kunde inte läsa `config/domain-rules.json`.")
+    st.divider()
+
+    # ── Prompt heuristic tokens (config/prompt-heuristic-tokens.json) — editable ──
+    st.subheader("Prompt-heuristik tokenlistor")
+    heuristic_path = REPO_ROOT / "config" / "prompt-heuristic-tokens.json"
+    heuristic_data = read_json(heuristic_path)
+    if heuristic_data and isinstance(heuristic_data, dict):
+        st.caption(
+            f"{len(heuristic_data)} kategorier. Styr vilka nyckelord som matchar i promptanalys. "
+            "Ändra tokens och klicka Spara. Dev-server behöver startas om."
+        )
+        for cat_key, cat_val in heuristic_data.items():
+            desc = cat_val.get("description", "")
+            tokens = cat_val.get("tokens", [])
+            with st.expander(f"**{cat_key}** ({len(tokens)} tokens) — {desc}"):
+                new_tokens = st.text_area(
+                    f"Tokens ({cat_key})",
+                    value=", ".join(tokens),
+                    key=f"heuristic_{cat_key}",
+                    height=80,
+                )
+                if st.button(f"Spara {cat_key}", key=f"save_heuristic_{cat_key}"):
+                    parsed = [t.strip() for t in new_tokens.split(",") if t.strip()]
+                    heuristic_data[cat_key]["tokens"] = parsed
+                    heuristic_path.write_text(json.dumps(heuristic_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+                    st.success(f"Sparade {len(parsed)} tokens för `{cat_key}`.")
+    else:
+        st.warning("Kunde inte läsa `config/prompt-heuristic-tokens.json`.")
     st.divider()
 
     catalog = read_json(CATALOG_JSON)

@@ -1,0 +1,30 @@
+{
+  "structure": {
+    "description": "Site-structure tokens (pages, sections, IA). Used for: auto-brief skip, formatPrompt, complexity scoring.",
+    "tokens": ["hero", "sektion", "section", "kontakt", "contact", "om oss", "about", "cta", "faq", "pricing", "gallery", "footer", "navbar", "navigation", "sidebar", "dashboard", "header"]
+  },
+  "design": {
+    "description": "Design/visual tokens. Used for: design-heavy detection, complexity scoring.",
+    "tokens": ["figma", "layout", "typography", "font", "palette", "color", "färg", "spacing", "animation", "motion", "designsystem", "landing page", "visual", "gradient", "bakgrund", "dark mode"]
+  },
+  "content": {
+    "description": "Content/domain tokens for structured-prompt checks.",
+    "tokens": ["produktkatalog", "product catalog", "catalog", "shop", "ehandel", "e-handel"]
+  },
+  "scope": {
+    "description": "Section/scope markers for prompt complexity analysis.",
+    "tokens": ["mal", "goal", "constraint", "requirements", "design direction", "scope", "problem", "forbattring", "improvement", "audit"]
+  },
+  "requirements": {
+    "description": "Requirement-intent markers for constraint detection.",
+    "tokens": ["must", "ska", "behover", "need to", "required", "krav", "obligatorisk"]
+  },
+  "sections": {
+    "description": "Section-type keywords for formatPrompt / addendum extraction.",
+    "tokens": ["hero", "features", "pricing", "faq", "testimonials", "contact", "about", "footer", "cta", "gallery", "services", "team", "blog", "navbar"]
+  },
+  "styles": {
+    "description": "Style/tone keywords for formatPrompt / addendum extraction.",
+    "tokens": ["minimal", "modern", "clean", "bold", "playful", "professional", "luxury", "dark", "light", "retro", "corporate", "soft", "elegant", "futuristic"]
+  }
+}
