@@ -107,6 +107,8 @@ export interface OrchestrationInput {
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
   /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
   existingRoutePaths?: string[];
+  /** Route paths whose existing content is a deferred shell page (auto-detected from file content). */
+  existingShellRoutePaths?: string[];
   /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary style direction across sessions with identical prompts. */
@@ -254,6 +256,7 @@ export async function resolveOrchestrationBase(
     promptStrategyMeta = null,
     ignorePersistedScaffoldForMatch = false,
     existingRoutePaths = [],
+    existingShellRoutePaths = [],
     capabilities: providedCapabilities,
   } = input;
 
@@ -365,6 +368,8 @@ export async function resolveOrchestrationBase(
     preGenerationContracts,
     promptStrategyMeta,
     capabilities,
+    isFirstCodeGeneration: input.isFirstCodeGeneration,
+    existingShellRoutePaths,
   });
   const orchestrationContract = buildOrchestrationContract({
     resolvedScaffold,

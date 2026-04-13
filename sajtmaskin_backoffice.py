@@ -444,7 +444,8 @@ elif page == "Research & Dossiers":
         st.caption(f"Nuvarande: `{_DEFER_KEY}={'true' if _defer_current else 'false'}`")
     st.info(
         "Rekommenderad kombination: ha både runtime template guidance och deferred extra init routes på samtidigt. "
-        "Då kan init ha en grand plan för flera routes, men lägga största delen av budgeten på primärrouten medan extrasidor blir shells."
+        "Då kan init ha en grand plan för flera routes, men lägga största delen av budgeten på primärrouten medan extrasidor blir shells. "
+        "Shells bevaras automatiskt i follow-ups om inte användaren explicit ber om att bygga ut dem."
     )
     st.divider()
 

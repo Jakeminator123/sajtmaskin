@@ -25,7 +25,7 @@ import {
 } from "@/lib/gen/contract/clarification";
 import { collectConfirmedContractAnswers } from "@/lib/gen/contract/answer-context";
 import { hasHeavyCapabilities, inferCapabilities } from "@/lib/gen/capability-inference";
-import { deriveFollowUpContextPolicy } from "@/lib/gen/build-spec";
+import { deriveFollowUpContextPolicy, isShellPageContent } from "@/lib/gen/build-spec";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildGenerationInputPackage,
@@ -213,6 +213,15 @@ export async function handleMessageStreamRequest(
         const existingRoutePaths =
           previousFiles.length > 0
             ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
+            : [];
+
+        const existingShellRoutePaths =
+          previousFiles.length > 0
+            ? extractAppRoutePathsFromFilePaths(
+                previousFiles
+                  .filter((file) => isShellPageContent(file.content ?? ""))
+                  .map((file) => file.path),
+              )
             : [];
 
         const skipIntentClassification =
@@ -444,6 +453,7 @@ export async function handleMessageStreamRequest(
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
             existingRoutePaths,
+            existingShellRoutePaths,
             capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
           });
           debugLog("orchestration", "Follow-up plan orchestration prepared", {
@@ -570,6 +580,7 @@ export async function handleMessageStreamRequest(
           isFirstCodeGeneration: previousFiles.length === 0 && Boolean(persistedScaffoldId),
           ignorePersistedScaffoldForMatch,
           existingRoutePaths,
+          existingShellRoutePaths,
           capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
         };
         const orchestrationStartedAt = Date.now();

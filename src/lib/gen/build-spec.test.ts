@@ -496,4 +496,184 @@ Persisted errors for this version:
     expect(localLayout.changeScope).toBe("local-layout");
     expect(localLayout.forbiddenPatterns).toContain("unrequested_full_redesign");
   });
+
+  it("treats isFirstCodeGeneration as effective init for route realization", async () => {
+    const original = process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
+    vi.resetModules();
+    const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
+    const spec = deriveBuildSpecWithFlag({
+      prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      isFirstCodeGeneration: true,
+      resolvedScaffold: null,
+      routePlan: multiPageWebsiteRoutePlan,
+      preGenerationContracts: emptyContracts,
+<<<<<<< Updated upstream
+    });
+=======
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+>>>>>>> Stashed changes
+    expect(spec.routeRealization).toEqual({
+      mode: "primary-full-with-shells",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/"],
+      shellRoutePaths: ["/om-oss", "/produkter"],
+    });
+<<<<<<< Updated upstream
+    if (original === undefined) delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    else process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+=======
+
+    if (original === undefined) {
+      delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    } else {
+      process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+    }
+>>>>>>> Stashed changes
+    vi.resetModules();
+  });
+
+  it("preserves existing shell routes on unrelated follow-up prompts", async () => {
+    const original = process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
+    vi.resetModules();
+    const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
+    const spec = deriveBuildSpecWithFlag({
+      prompt: "Ändra färgen på headern till mörkblå.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: null,
+      routePlan: multiPageWebsiteRoutePlan,
+      preGenerationContracts: emptyContracts,
+      existingShellRoutePaths: ["/om-oss", "/produkter"],
+    });
+<<<<<<< Updated upstream
+    expect(spec.routeRealization?.mode).toBe("primary-full-with-shells");
+    expect(spec.routeRealization?.shellRoutePaths).toEqual(["/om-oss", "/produkter"]);
+    if (original === undefined) delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    else process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+=======
+
+    expect(spec.routeRealization?.mode).toBe("primary-full-with-shells");
+    expect(spec.routeRealization?.shellRoutePaths).toEqual(["/om-oss", "/produkter"]);
+
+    if (original === undefined) {
+      delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    } else {
+      process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+    }
+>>>>>>> Stashed changes
+    vi.resetModules();
+  });
+
+  it("expands a specific shell route when user explicitly asks to build it out", async () => {
+    const original = process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
+    vi.resetModules();
+    const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
+    const spec = deriveBuildSpecWithFlag({
+      prompt: "Bygg ut om oss-sidan med teammedlemmar och historia.",
+      buildIntent: "website",
+      generationMode: "followUp",
+      resolvedScaffold: null,
+      routePlan: multiPageWebsiteRoutePlan,
+      preGenerationContracts: emptyContracts,
+      existingShellRoutePaths: ["/om-oss", "/produkter"],
+    });
+<<<<<<< Updated upstream
+    expect(spec.routeRealization?.shellRoutePaths).toEqual(["/produkter"]);
+    expect(spec.routeRealization?.fullRoutePaths).toContain("/om-oss");
+    if (original === undefined) delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    else process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+=======
+
+    expect(spec.routeRealization?.shellRoutePaths).toEqual(["/produkter"]);
+    expect(spec.routeRealization?.fullRoutePaths).toContain("/om-oss");
+
+    if (original === undefined) {
+      delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    } else {
+      process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+    }
+>>>>>>> Stashed changes
+    vi.resetModules();
+  });
+});
+
+describe("isShellPageContent", () => {
+  it("detects standard shell page content", async () => {
+    const { isShellPageContent } = await import("./build-spec");
+<<<<<<< Updated upstream
+    const shellContent = 'import Link from "next/link";\nexport default function OmOssPage() {\n  return (\n    <main className="min-h-[70vh] bg-[oklch(0.58_0.22_262)] text-white">\n      <Badge>Förberedd sida</Badge>\n      <p>Varför sidan är enkel just nu</p>\n      <Link href="/om-oss">Skapa sida</Link>\n    </main>\n  );\n}';
+=======
+    const shellContent = `import Link from "next/link";
+export default function OmOssPage() {
+  return (
+    <main className="min-h-[70vh] bg-[oklch(0.58_0.22_262)] text-white">
+      <Badge>Förberedd sida</Badge>
+      <p>Varför sidan är enkel just nu</p>
+      <Link href="/om-oss">Skapa sida</Link>
+    </main>
+  );
+}`;
+>>>>>>> Stashed changes
+    expect(isShellPageContent(shellContent)).toBe(true);
+  });
+
+  it("rejects full page content", async () => {
+    const { isShellPageContent } = await import("./build-spec");
+<<<<<<< Updated upstream
+    expect(isShellPageContent('"use client";\nimport Image from "next/image";\nexport default function OmOssPage() {\n  return (<main className="min-h-screen bg-white"><h1>Om oss</h1></main>);\n}')).toBe(false);
+=======
+    const fullContent = `"use client";
+import Image from "next/image";
+export default function OmOssPage() {
+  return (
+    <main className="min-h-screen bg-white">
+      <h1>Om oss</h1>
+      <p>Vi grundades 2020.</p>
+    </main>
+  );
+}`;
+    expect(isShellPageContent(fullContent)).toBe(false);
+>>>>>>> Stashed changes
+  });
+
+  it("detects shell even if one marker was reformatted away", async () => {
+    const { isShellPageContent } = await import("./build-spec");
+<<<<<<< Updated upstream
+    expect(isShellPageContent('export default function Page() {\n  return (<main className="bg-[oklch(0.58_0.22_262)]">\n    <p>Varför sidan är enkel just nu</p></main>);\n}')).toBe(true);
+=======
+    const partialShell = `export default function Page() {
+  return (
+    <main className="bg-[oklch(0.58_0.22_262)]">
+      <p>Varför sidan är enkel just nu</p>
+    </main>
+  );
+}`;
+    expect(isShellPageContent(partialShell)).toBe(true);
+>>>>>>> Stashed changes
+  });
+
+  it("rejects empty or very large content", async () => {
+    const { isShellPageContent } = await import("./build-spec");
+    expect(isShellPageContent("")).toBe(false);
+    expect(isShellPageContent("x".repeat(9000))).toBe(false);
+  });
 });
