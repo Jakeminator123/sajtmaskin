@@ -643,7 +643,8 @@ export async function handleSseStream(
             const nextV0ProjectId =
               typeof data === "string"
                 ? data
-                : (data as Record<string, unknown>)?.v0ProjectId ||
+                : (data as Record<string, unknown>)?.projectId ||
+                  (data as Record<string, unknown>)?.v0ProjectId ||
                   (data as Record<string, unknown>)?.v0_project_id ||
                   null;
             if (nextV0ProjectId && !linkedProjectIdFromStream) {
@@ -748,7 +749,8 @@ export async function handleSseStream(
             const doneData =
               typeof data === "object" && data ? (data as Record<string, unknown>) : {};
             const donePreflight = parseDonePreflight(doneData);
-            const doneV0ProjectId = doneData.v0ProjectId || doneData.v0_project_id || null;
+            const doneV0ProjectId =
+              doneData.projectId || doneData.v0ProjectId || doneData.v0_project_id || null;
             if (doneV0ProjectId && !linkedProjectIdFromStream) {
               linkedProjectIdFromStream = String(doneV0ProjectId);
               onLinkedProjectId?.(linkedProjectIdFromStream);

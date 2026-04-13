@@ -97,6 +97,8 @@ export function useCreateChat(
       }
 
       const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
+      const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
+      const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
 
       const createKey = buildCreateChatKey(
         initialMessage,
@@ -104,6 +106,17 @@ export function useCreateChat(
         selectedModelTier,
         enableImageGenerations,
         effectiveSystemPrompt,
+        {
+          scaffoldMode: effectiveScaffoldMode,
+          scaffoldId: effectiveScaffoldId,
+          buildMethod,
+          buildIntent,
+          planMode: options.planMode,
+          promptAssistMode,
+          promptAssistModel,
+          promptAssistDeep,
+          paletteState,
+        },
       );
       const existingLock = getActiveCreateChatLock(createKey);
       if (existingLock) {
@@ -131,9 +144,6 @@ export function useCreateChat(
       const now = Date.now();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
-      const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
-      const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
-
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
       const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
@@ -255,7 +265,8 @@ export function useCreateChat(
         }
         const newChatId =
           data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
-        const newLinkedProjectId = data.v0ProjectId || data.v0_project_id || null;
+        const newLinkedProjectId =
+          data.projectId || data.v0ProjectId || data.v0_project_id || null;
         const preflight = readPreviewPreflight(data);
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =

@@ -63,6 +63,9 @@ import {
   versionSummaryHasPreview,
 } from "./builder-page-preview-helpers";
 
+/** Max non-404 failures before stopping prompt handoff retries (avoids toast/network spam). */
+const MAX_PROMPT_HANDOFF_RETRIES = 5;
+
 export function useBuilderPageController() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -114,6 +117,8 @@ export function useBuilderPageController() {
   }, [setPreviewRefreshToken]);
 
   const resetRecoverAfterBootstrapRef = useRef<(() => void) | null>(null);
+  /** Prevents duplicate `createProject` while the dynamic-import path is in flight. */
+  const autoProjectCreateInFlightRef = useRef(false);
   const shouldHoldChatHooksForFreshEntry = Boolean(
     chatId && !chatIdParam && !templateId && hasEntryParams && entryIntentActive,
   );
@@ -492,6 +497,11 @@ export function useBuilderPageController() {
   const autoGenerateTriggeredRef = useRef(false);
   const [promptFetchRetryNonce, setPromptFetchRetryNonce] = useState(0);
 
+  // Reset handoff retry counter when navigating to a different prompt id.
+  useEffect(() => {
+    setPromptFetchRetryNonce(0);
+  }, [promptId]);
+
   // =====================================================================
   // EFFECTS — cross-cutting concerns, localStorage sync, URL sync
   // =====================================================================
@@ -551,11 +561,22 @@ export function useBuilderPageController() {
           return;
         }
         debugLog("builder", "Prompt handoff fetch failed", error);
-        toast.error("Kunde inte hämta prompten just nu. Försök igen.");
+        if (promptFetchRetryNonce >= MAX_PROMPT_HANDOFF_RETRIES) {
+          toast.error("Kunde inte hämta prompten efter flera försök. Ladda om sidan eller försök senare.", {
+            id: "prompt-handoff-gave-up",
+          });
+          promptFetchDoneRef.current = promptId;
+          shouldClearPromptId = true;
+          return;
+        }
+        toast.error("Kunde inte hämta prompten just nu. Försök igen.", {
+          id: "prompt-handoff-retry",
+        });
+        const delayMs = Math.min(1500 * 2 ** promptFetchRetryNonce, 12_000);
         retryTimer = window.setTimeout(() => {
           if (!isActive) return;
           setPromptFetchRetryNonce((value) => value + 1);
-        }, 1500);
+        }, delayMs);
       } finally {
         if (promptFetchInFlightRef.current === promptId) {
           promptFetchInFlightRef.current = null;
@@ -583,7 +604,20 @@ export function useBuilderPageController() {
         promptFetchInFlightRef.current = null;
       }
     };
-  }, [entry.isTemplateEntry, entry.shouldFetchPromptHandoff, promptId, promptFetchDoneRef, promptFetchInFlightRef, promptFetchRetryNonce, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
+  }, [
+    entry.isTemplateEntry,
+    entry.shouldFetchPromptHandoff,
+    promptId,
+    promptFetchDoneRef,
+    promptFetchInFlightRef,
+    promptFetchRetryNonce,
+    setEntryIntentActive,
+    setResolvedPrompt,
+    setAppProjectId,
+    setAuditPromptLoaded,
+    router,
+    searchParams,
+  ]);
 
   // Auth fetch
   useEffect(() => {
@@ -790,11 +824,12 @@ export function useBuilderPageController() {
   // Auto project init
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isAuthLoading) return;
     if (autoProjectInitRef.current) return;
+    if (autoProjectCreateInFlightRef.current) return;
     if (appProjectId || projectParam || chatIdParam || hasEntryParams) {
       return;
     }
-    autoProjectInitRef.current = true;
 
     let restored: string | null = null;
     try {
@@ -804,6 +839,7 @@ export function useBuilderPageController() {
     }
 
     if (restored) {
+      autoProjectInitRef.current = true;
       setAppProjectId(restored);
       const params = new URLSearchParams(searchParams.toString());
       params.set("project", restored);
@@ -811,31 +847,52 @@ export function useBuilderPageController() {
       return;
     }
 
-    import("@/lib/project-client").then(({ createProject }) =>
-      createProject("Untitled Project")
-        .then((project) => {
-          setAppProjectId(project.id);
-          try {
-            localStorage.setItem("sajtmaskin:lastProjectId", project.id);
-          } catch {
-            /* ignore */
-          }
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("project", project.id);
-          router.replace(`/builder?${params.toString()}`);
-        })
-        .catch((error) => {
-          debugLog("builder", "Auto project create failed", error);
-          autoProjectInitRef.current = false;
-          const status = (error as { status?: number })?.status;
-          if (status === 401 || status === 403) {
-            setAuthModalReason("builder");
-          } else {
-            toast.error("Kunde inte skapa projekt automatiskt. Försök igen eller logga in.");
-          }
-        }),
-    );
-  }, [appProjectId, projectParam, chatIdParam, hasEntryParams, autoProjectInitRef, setAppProjectId, router, searchParams]);
+    autoProjectCreateInFlightRef.current = true;
+    import("@/lib/project-client")
+      .then(({ createProject }) =>
+        createProject("Untitled Project")
+          .then((project) => {
+            autoProjectInitRef.current = true;
+            autoProjectCreateInFlightRef.current = false;
+            setAppProjectId(project.id);
+            try {
+              localStorage.setItem("sajtmaskin:lastProjectId", project.id);
+            } catch {
+              /* ignore */
+            }
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("project", project.id);
+            router.replace(`/builder?${params.toString()}`);
+          })
+          .catch((error) => {
+            debugLog("builder", "Auto project create failed", error);
+            autoProjectCreateInFlightRef.current = false;
+            autoProjectInitRef.current = false;
+            const status = (error as { status?: number })?.status;
+            if (status === 401 || status === 403) {
+              setAuthModalReason("builder");
+            } else {
+              toast.error("Kunde inte skapa projekt automatiskt. Försök igen eller logga in.");
+            }
+          }),
+      )
+      .catch((err) => {
+        autoProjectCreateInFlightRef.current = false;
+        autoProjectInitRef.current = false;
+        debugLog("builder", "Failed to load project-client for auto init", err);
+      });
+  }, [
+    appProjectId,
+    projectParam,
+    chatIdParam,
+    hasEntryParams,
+    isAuthLoading,
+    autoProjectInitRef,
+    setAppProjectId,
+    router,
+    searchParams,
+    setAuthModalReason,
+  ]);
 
   // Entry intent sync
   useEffect(() => {
