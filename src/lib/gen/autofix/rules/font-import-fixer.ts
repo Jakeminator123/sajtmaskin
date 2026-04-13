@@ -1,15 +1,35 @@
 import type { AutoFixEntry } from "../pipeline";
 
 const GOOGLE_FONTS = new Set([
-  "Inter", "Geist", "Geist_Mono", "Roboto", "Open_Sans", "Lato", "Montserrat",
+  "Inter", "Roboto", "Open_Sans", "Lato", "Montserrat",
   "Poppins", "Raleway", "Nunito", "Playfair_Display", "Merriweather",
   "Source_Sans_3", "Oswald", "Quicksand", "Ubuntu", "Rubik", "Work_Sans",
   "Noto_Sans", "DM_Sans", "Outfit", "Space_Grotesk", "Sora", "Manrope",
   "Plus_Jakarta_Sans", "Figtree", "Bricolage_Grotesque", "Instrument_Sans",
 ]);
 
+const UNAVAILABLE_FONT_REPLACEMENTS: Record<string, string> = {
+  Geist: "Inter",
+  Geist_Mono: "Source_Code_Pro",
+};
+
 const FONT_USAGE_RE = /\bconst\s+\w+\s*=\s*(\w+)\s*\(\s*\{/g;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
+
+function replaceUnavailableFonts(
+  code: string,
+): { code: string; replaced: [string, string][]; } {
+  let result = code;
+  const replaced: [string, string][] = [];
+  for (const [bad, good] of Object.entries(UNAVAILABLE_FONT_REPLACEMENTS)) {
+    const importRe = new RegExp(`\\b${bad}\\b`, "g");
+    if (importRe.test(result)) {
+      result = result.replace(importRe, good);
+      replaced.push([bad, good]);
+    }
+  }
+  return { code: result, replaced };
+}
 
 export function fixFontImport(
   code: string,
@@ -19,8 +39,23 @@ export function fixFontImport(
     return { code, fixed: false, fixes: [] };
   }
 
+  const fixes: AutoFixEntry[] = [];
+  let workingCode = code;
+
+  const fontReplacement = replaceUnavailableFonts(workingCode);
+  if (fontReplacement.replaced.length > 0) {
+    workingCode = fontReplacement.code;
+    for (const [bad, good] of fontReplacement.replaced) {
+      fixes.push({
+        fixer: "font-import-fixer",
+        description: `Replaced unavailable font ${bad} with ${good}`,
+        file: filePath,
+      });
+    }
+  }
+
   const usedFonts = new Set<string>();
-  for (const match of code.matchAll(FONT_USAGE_RE)) {
+  for (const match of workingCode.matchAll(FONT_USAGE_RE)) {
     const fontName = match[1];
     if (GOOGLE_FONTS.has(fontName)) {
       usedFonts.add(fontName);
@@ -28,48 +63,44 @@ export function fixFontImport(
   }
 
   if (usedFonts.size === 0) {
-    return { code, fixed: false, fixes: [] };
+    return { code: workingCode, fixed: fixes.length > 0, fixes };
   }
 
-  if (FONT_IMPORT_RE.test(code)) {
-    const importMatch = code.match(/import\s+\{([^}]*)\}\s+from\s+["']next\/font\/google["']/);
+  if (FONT_IMPORT_RE.test(workingCode)) {
+    const importMatch = workingCode.match(/import\s+\{([^}]*)\}\s+from\s+["']next\/font\/google["']/);
     if (importMatch) {
       const imported = new Set(
         importMatch[1].split(",").map((s) => s.trim()).filter(Boolean),
       );
       const missing = [...usedFonts].filter((f) => !imported.has(f));
       if (missing.length === 0) {
-        return { code, fixed: false, fixes: [] };
+        return { code: workingCode, fixed: fixes.length > 0, fixes };
       }
       const allImports = [...imported, ...missing].join(", ");
       const newImport = `import { ${allImports} } from "next/font/google"`;
-      const fixedCode = code.replace(
+      workingCode = workingCode.replace(
         /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/,
         newImport,
       );
-      return {
-        code: fixedCode,
-        fixed: true,
-        fixes: missing.map((f) => ({
+      for (const f of missing) {
+        fixes.push({
           fixer: "font-import-fixer",
           description: `Added ${f} to next/font/google import`,
           file: filePath,
-        })),
-      };
+        });
+      }
+      return { code: workingCode, fixed: true, fixes };
     }
   }
 
   const fontList = [...usedFonts].join(", ");
   const importLine = `import { ${fontList} } from "next/font/google";\n`;
-  const fixedCode = importLine + code;
+  workingCode = importLine + workingCode;
+  fixes.push({
+    fixer: "font-import-fixer",
+    description: `Added missing next/font/google import for: ${fontList}`,
+    file: filePath,
+  });
 
-  return {
-    code: fixedCode,
-    fixed: true,
-    fixes: [{
-      fixer: "font-import-fixer",
-      description: `Added missing next/font/google import for: ${fontList}`,
-      file: filePath,
-    }],
-  };
+  return { code: workingCode, fixed: true, fixes };
 }

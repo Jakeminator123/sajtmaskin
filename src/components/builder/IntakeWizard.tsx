@@ -1036,10 +1036,12 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   return (
     <dialog
       ref={dialogRef}
-      className="fixed inset-0 z-[99999] m-auto flex max-h-[min(85vh,700px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl outline-none backdrop:bg-background/80 backdrop:backdrop-blur-sm"
+      className="fixed inset-0 z-[99999] m-auto w-full max-w-2xl rounded-2xl border border-border bg-card p-0 shadow-2xl outline-none backdrop:bg-background/80 backdrop:backdrop-blur-sm"
+      style={{ maxHeight: "min(85vh, 700px)" }}
       aria-label="Intake-guiden"
       onCancel={(e) => e.preventDefault()}
     >
+      <div className="flex max-h-[min(85vh,700px)] flex-col overflow-hidden rounded-2xl">
         {/* ── Progress bar ───────────────────────────────────── */}
         <div className="h-1 w-full bg-muted">
           <div
@@ -1323,6 +1325,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
+      </div>
     </dialog>
   );
 }

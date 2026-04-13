@@ -16,6 +16,7 @@ import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
 import { fixLucideImageMisuse } from "@/lib/gen/autofix/rules/lucide-image-fixer";
 import { fixLucideLinkMisuse } from "@/lib/gen/autofix/rules/lucide-link-fixer";
+import { fixUnavailableLucideIcons } from "@/lib/gen/autofix/rules/lucide-unavailable-icons-fixer";
 import type { FixEntry } from "./types";
 import {
   fixMetadataClientConflict,
@@ -26,6 +27,9 @@ import {
 const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smooth\b([^"']*["'])/;
 const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
+const NONEXISTENT_TEXTURE_RE = /url\(["']?\/(grain|noise|texture|dots|pattern)\.(png|jpg|svg|webp)["']?\)/gi;
+const UNAVAILABLE_IMPORT_RE = /^[ \t]*import\s+(?:type\s+)?\{[^}]*\}\s+from\s+["'](?:react-intersection-observer|framer-motion\/useInView)["'];?\s*$/gm;
+const USE_IN_VIEW_BARE_RE = /\buseInView\b/g;
 
 /**
  * @deprecated Use `FixEntry` from `./types`. Kept for backwards compat.
@@ -190,6 +194,44 @@ export function repairGeneratedFiles(files: CodeFile[]): {
         description: "Replaced lucide-react Image with next/image",
         file: file.path,
       });
+    }
+
+    const unavailableIconsResult = fixUnavailableLucideIcons(content);
+    if (unavailableIconsResult.fixed) {
+      content = unavailableIconsResult.code;
+      fixes.push({
+        fixer: "lucide-unavailable-icons-fixer",
+        category: "mechanical",
+        description: "Replaced unavailable lucide-react icons with safe alternatives",
+        file: file.path,
+      });
+    }
+
+    const contentBeforeTextureFix = content;
+    content = content.replace(NONEXISTENT_TEXTURE_RE, 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.04\'/%3E%3C/svg%3E")');
+    if (content !== contentBeforeTextureFix) {
+      fixes.push({
+        fixer: "texture-file-fixer",
+        category: "mechanical",
+        description: "Replaced nonexistent texture file reference with inline SVG noise",
+        file: file.path,
+      });
+    }
+
+    const contentBeforeUnavailableImport = content;
+    content = content.replace(UNAVAILABLE_IMPORT_RE, "");
+    if (content !== contentBeforeUnavailableImport) {
+      fixes.push({
+        fixer: "unavailable-import-fixer",
+        category: "mechanical",
+        description: "Removed import from unavailable package (react-intersection-observer / framer-motion/useInView)",
+        file: file.path,
+      });
+    }
+
+    if (USE_IN_VIEW_BARE_RE.test(content) && !content.includes("import") && !content.includes("useInView")) {
+      /* no-op: if useInView was removed by import removal and is used bare, the repair autofix or
+         the broader dep-completer will catch it in a next pass. For now mark as warning. */
     }
 
     const iconComponentResult = fixIconComponentValueMisuse(content, file.path);

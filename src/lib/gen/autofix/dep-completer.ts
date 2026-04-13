@@ -104,6 +104,14 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "katex": "^0.16",
 };
 
+/**
+ * Packages that should NEVER be installed — the import should be removed by autofix instead.
+ * The LLM sometimes generates code using these, but they are not available in the preview runtime.
+ */
+const BLOCKED_PACKAGES = new Set([
+  "react-intersection-observer",
+]);
+
 function normalizePackageName(source: string): string {
   if (source.startsWith("@")) {
     const parts = source.split("/");
@@ -144,6 +152,8 @@ export function runDepCompleter(code: string): {
     if (isBuiltin(pkg)) continue;
 
     if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) continue;
+
+    if (BLOCKED_PACKAGES.has(pkg)) continue;
 
     const knownVersion = KNOWN_PACKAGES[pkg];
     if (knownVersion) {
