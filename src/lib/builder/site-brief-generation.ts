@@ -214,72 +214,7 @@ const simplifiedBriefSchema = z.object({
   avoid: z.array(z.string()).optional().default([]),
 });
 
-type SiteTypeRule = { hint: string; keywords: string[] };
-
-const SITE_TYPE_RULES: SiteTypeRule[] = [
-  {
-    hint: "ecommerce storefront",
-    keywords: [
-      "ecommerce",
-      "e-commerce",
-      "webshop",
-      "shop",
-      "store",
-      "cart",
-      "checkout",
-      "product",
-    ],
-  },
-  {
-    hint: "saas product marketing site",
-    keywords: ["saas", "b2b", "platform", "subscription", "dashboard", "startup"],
-  },
-  {
-    hint: "portfolio site",
-    keywords: ["portfolio", "designer", "photography", "photographer", "case study", "showcase"],
-  },
-  {
-    hint: "restaurant or cafe site",
-    keywords: ["restaurant", "cafe", "menu", "reservation", "takeaway"],
-  },
-  {
-    hint: "agency or services site",
-    keywords: ["agency", "consulting", "consultant", "services", "company", "foretag", "tjanst"],
-  },
-  {
-    hint: "event or conference site",
-    keywords: ["event", "conference", "ticket", "schedule", "speaker", "workshop"],
-  },
-  {
-    hint: "education or course site",
-    keywords: ["course", "education", "academy", "school", "training", "learning"],
-  },
-  {
-    hint: "real estate site",
-    keywords: ["real estate", "property", "listing", "broker", "apartment"],
-  },
-  {
-    hint: "healthcare site",
-    keywords: ["clinic", "health", "medical", "dentist", "therapy"],
-  },
-];
-
-function normalizePromptText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function inferSiteTypeHint(prompt: string): string | null {
-  const normalized = normalizePromptText(prompt);
-  for (const rule of SITE_TYPE_RULES) {
-    if (rule.keywords.some((keyword) => normalized.includes(keyword))) {
-      return rule.hint;
-    }
-  }
-  return null;
-}
+import { inferSiteTypeHintFromDomain } from "./domain-inference";
 
 function resolveAnthropicBriefModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
@@ -301,7 +236,7 @@ const BRIEF_SYSTEM_PROMPT =
   "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.";
 
 function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string {
-  const siteTypeHint = inferSiteTypeHint(prompt);
+  const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
   return (
     prompt +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +
