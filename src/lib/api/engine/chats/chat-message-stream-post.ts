@@ -19,6 +19,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
+import { resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -63,7 +64,7 @@ import {
   createPlanModePipelineStream,
   dumpPlanModePlannerPrompts,
   logPlanModeGenerationStart,
-  resolvePlanModePlannerModelId,
+  resolvePlanModePlannerSettings,
 } from "@/lib/own-engine/session/own-engine-plan-mode";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
@@ -488,18 +489,23 @@ export async function handleMessageStreamRequest(
               role: m.role as "user" | "assistant",
               content: m.content,
             }));
-          const planModel = resolvePlanModePlannerModelId(resolvedModelTier);
+          const plannerSettings = resolvePlanModePlannerSettings(
+            resolvedModelTier,
+            resolvedThinking,
+          );
+          const planModel = plannerSettings.modelId;
           logPlanModeGenerationStart({
             planModel,
             promptLength: optimizedMessage.length,
             scaffoldId: planResolvedScaffold?.id ?? null,
-            resolvedThinking,
+            resolvedThinking: plannerSettings.thinking,
           });
           const planPipelineStream = createPlanModePipelineStream({
             optimizedMessage,
             planSystemPrompt,
             planModel,
-            resolvedThinking,
+            plannerThinking: plannerSettings.thinking,
+            plannerReasoningEffort: plannerSettings.reasoningEffort,
             abortSignal: req.signal,
             chatHistory: planChatHistory,
             referenceAttachments: requestAttachments,
@@ -511,7 +517,7 @@ export async function handleMessageStreamRequest(
             modelTier: resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            thinking: resolvedThinking,
+            thinking: plannerSettings.thinking,
             promptStrategyMeta: promptOrchestration.strategyMeta,
             buildSpec: planOrchestration.buildSpec,
             resolvedScaffold: planResolvedScaffold,
@@ -760,14 +766,18 @@ export async function handleMessageStreamRequest(
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
 
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
+        const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
+        const effectiveGeneratorThinking =
+          resolvedThinking && generatorThinking.thinking;
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
+          resolvedTier: resolvedModelTier,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,
             model: engineModel,
             chatHistory,
-            thinking: resolvedThinking,
+            thinking: effectiveGeneratorThinking,
             abortSignal: req.signal,
             maxSteps: resolveOwnEngineMaxSteps({
               buildSpec: orchestrationBase.buildSpec,
@@ -782,7 +792,7 @@ export async function handleMessageStreamRequest(
             resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            resolvedThinking,
+            resolvedThinking: effectiveGeneratorThinking,
             resolvedImageGenerations,
             strategyMeta: promptOrchestration.strategyMeta,
             orchestrationBase,

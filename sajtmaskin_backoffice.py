@@ -48,11 +48,21 @@ if not _running_under_streamlit():
 import streamlit as st
 import pandas as pd
 from shared_overhead import (
+    AVAILABLE_PHASE_MODELS,
+    BUILD_PROFILE_ORDER,
+    PHASE_LABELS,
+    PHASE_ORDER,
+    REASONING_EFFORT_OPTIONS,
+    build_profile_defaults,
     human_model_label,
     load_fault_fix_csv,
+    phase_model_display_label,
     phase_routing_defaults,
+    phase_thinking_defaults,
+    phase_token_budget_entry,
     read_autofix_runtime_config,
     read_json,
+    write_phase_thinking,
     write_json,
 )
 
@@ -1052,25 +1062,87 @@ LLM-generering
                 key="bo_pgp_verifier_snippet",
             )
 
-        st.markdown("### Phase routing (read-only)")
-        routing_rows = []
-        for tier, values in routing.items():
-            if not isinstance(values, dict):
-                continue
-            routing_rows.append({
-                "tier": tier,
-                "planner": human_model_label(values.get("planner", "")),
-                "generator": human_model_label(values.get("generator", "")),
-                "fixer": human_model_label(values.get("fixer", "")),
-                "verifier": human_model_label(values.get("verifier", "")),
-                "deploy-assistant": human_model_label(values.get("deploy-assistant", "")),
-            })
-        if routing_rows:
-            st.dataframe(pd.DataFrame(routing_rows), width="stretch", hide_index=True)
-            st.caption(
-                "Fixer/verifier-modellerna visas här för överblick. Full fas-routing redigeras fortfarande bäst i "
-                "`config/dashboard/app.py`."
-            )
+        st.markdown("### Phase routing")
+        st.caption(
+            "Choose a model per phase. `selected_build_model` is shown as `Tier model (...)`, "
+            "and planner/generator still require the existing builder thinking toggle to be on."
+        )
+        build_defaults = build_profile_defaults(manifest)
+        thinking_defaults = phase_thinking_defaults(manifest)
+        edited_routing: dict[str, dict[str, str]] = {}
+        edited_thinking: dict[str, dict[str, dict[str, Any]]] = {}
+        tier_tabs = st.tabs([tier for tier in BUILD_PROFILE_ORDER])
+        for idx, tier in enumerate(BUILD_PROFILE_ORDER):
+            tier_routing = routing.get(tier) or {}
+            tier_thinking = thinking_defaults.get(tier) or {}
+            edited_routing[tier] = {}
+            edited_thinking[tier] = {}
+            with tier_tabs[idx]:
+                for phase in PHASE_ORDER:
+                    current_model = (
+                        str(tier_routing.get(phase, "selected_build_model")).strip()
+                        or "selected_build_model"
+                    )
+                    current_thinking_cfg = tier_thinking.get(phase) or {}
+                    current_thinking = bool(current_thinking_cfg.get("thinking", False))
+                    current_effort = (
+                        str(current_thinking_cfg.get("reasoningEffort", "medium")).strip()
+                        or "medium"
+                    )
+                    budget = phase_token_budget_entry(manifest, phase)
+                    st.markdown(f"#### {PHASE_LABELS.get(phase, phase)}")
+                    c1, c2, c3, c4 = st.columns([1.8, 0.9, 1.1, 1.1])
+                    with c1:
+                        model_value = st.selectbox(
+                            "Model",
+                            AVAILABLE_PHASE_MODELS,
+                            index=AVAILABLE_PHASE_MODELS.index(current_model)
+                            if current_model in AVAILABLE_PHASE_MODELS
+                            else 0,
+                            key=f"bo_phase_model_{tier}_{phase}",
+                            format_func=lambda model_id, _tier=tier: phase_model_display_label(
+                                model_id,
+                                _tier,
+                                build_defaults,
+                            ),
+                        )
+                    with c2:
+                        thinking_value = st.toggle(
+                            "Thinking",
+                            value=current_thinking,
+                            key=f"bo_phase_thinking_{tier}_{phase}",
+                        )
+                    with c3:
+                        effort_value = st.selectbox(
+                            "Reasoning effort",
+                            REASONING_EFFORT_OPTIONS,
+                            index=REASONING_EFFORT_OPTIONS.index(current_effort)
+                            if current_effort in REASONING_EFFORT_OPTIONS
+                            else REASONING_EFFORT_OPTIONS.index("medium"),
+                            key=f"bo_phase_effort_{tier}_{phase}",
+                            disabled=not thinking_value,
+                        )
+                    with c4:
+                        resolved_model_value = (
+                            build_defaults.get(tier, "").strip()
+                            if model_value == "selected_build_model"
+                            else model_value
+                        )
+                        st.text_input(
+                            "Resolved model",
+                            value=human_model_label(resolved_model_value),
+                            key=f"bo_phase_resolved_{tier}_{phase}",
+                            disabled=True,
+                        )
+                    st.caption(
+                        f"Budget: `{budget['label']}` default={budget['default']} min={budget['min']} max={budget['max']} "
+                        f"env={budget['envKey'] or '—'}. {budget['note']}"
+                    )
+                    edited_routing[tier][phase] = model_value
+                    edited_thinking[tier][phase] = {
+                        "thinking": thinking_value,
+                        "reasoningEffort": effort_value,
+                    }
 
         if st.button("Spara Autofix & Kvalitet", type="primary"):
             tb.setdefault("engineMaxOutputTokens", {})["default"] = int(engine_tokens)
@@ -1081,6 +1153,17 @@ LLM-generering
             rp["syntaxFixPasses"] = int(syntax_passes)
             rp["manualRepairRouteLlmPasses"] = int(manual_passes)
             rp["serverRepairPasses"] = int(server_passes)
+            phase_routing_cfg = manifest.setdefault("phaseRouting", {})
+            phase_routing_cfg["defaultByTier"] = edited_routing
+            for tier, phase_entries in edited_thinking.items():
+                for phase, cfg in phase_entries.items():
+                    write_phase_thinking(
+                        manifest,
+                        tier,
+                        phase,
+                        bool(cfg.get("thinking", False)),
+                        str(cfg.get("reasoningEffort", "medium")),
+                    )
             try:
                 write_json(MANIFEST_JSON, manifest)
                 st.success("Sparade Autofix & Kvalitet-inställningar till config/ai_models/manifest.json.")

@@ -25,6 +25,7 @@ import {
   MODEL_LABELS,
   getBuildProfileId,
 } from "@/lib/models/catalog";
+import { resolvePhaseThinking } from "@/lib/models/phase-routing";
 import {
   buildContractClarificationQuestion,
   buildStoredContractClarificationUiPart,
@@ -65,7 +66,7 @@ import {
   createPlanModePipelineStream,
   dumpPlanModePlannerPrompts,
   logPlanModeGenerationStart,
-  resolvePlanModePlannerModelId,
+  resolvePlanModePlannerSettings,
 } from "@/lib/own-engine/session/own-engine-plan-mode";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
@@ -341,7 +342,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
       // ── Plan Mode Path ────────────────────────────────────────────────
       if (metaPlanMode) {
-        const planModel = resolvePlanModePlannerModelId(resolvedModelTier);
+        const plannerSettings = resolvePlanModePlannerSettings(
+          resolvedModelTier,
+          resolvedThinking,
+        );
+        const planModel = plannerSettings.modelId;
         let engineIntent: BuildIntent =
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
@@ -377,14 +382,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           planModel,
           promptLength: optimizedMessage.length,
           scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
-          resolvedThinking,
+          resolvedThinking: plannerSettings.thinking,
         });
 
         const pipelineStream = createPlanModePipelineStream({
           optimizedMessage,
           planSystemPrompt,
           planModel,
-          resolvedThinking,
+          plannerThinking: plannerSettings.thinking,
+          plannerReasoningEffort: plannerSettings.reasoningEffort,
           abortSignal: req.signal,
         });
 
@@ -428,7 +434,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           modelTier: resolvedModelTier,
           buildProfileId,
           buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-          thinking: resolvedThinking,
+          thinking: plannerSettings.thinking,
           promptStrategyMeta: strategyMeta,
           buildSpec: planOrchestration.buildSpec,
           resolvedScaffold: planOrchestration.resolvedScaffold,
@@ -708,13 +714,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           compressedUrlCount: Object.keys(urlMap).length,
           chatId: engineChat.id,
         });
+        const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
+        const effectiveGeneratorThinking =
+          resolvedThinking && generatorThinking.thinking;
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId: engineChat.id,
+          resolvedTier: resolvedModelTier,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,
             model: engineModel,
-            thinking: resolvedThinking,
+            thinking: effectiveGeneratorThinking,
             abortSignal: req.signal,
             maxSteps: resolveOwnEngineMaxSteps({
               buildSpec: orchestrationBase.buildSpec,
@@ -731,7 +741,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedModelTier,
             buildProfileId,
             buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            resolvedThinking,
+            resolvedThinking: effectiveGeneratorThinking,
             resolvedImageGenerations,
             strategyMeta,
             orchestrationBase,

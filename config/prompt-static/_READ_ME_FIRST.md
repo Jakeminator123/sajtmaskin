@@ -18,6 +18,11 @@ The app **does not** inject placeholders into these files. Anything that changes
 
 If you duplicate those topics here, the model gets **conflicting or stale** instructions. Keep this folder for **stable** product rules only.
 
+Design note: the static visual rules should now defer to the request-specific
+`Style Direction` block for layout rhythm, signature motif, and font mood.
+Avoid re-introducing generic hero/cards/footer recipes here when the dynamic
+style-direction layer already owns that choice.
+
 ## Editing
 
 1. Open `config/codegen-static-prompt.json` — fragment order = assembly order.  

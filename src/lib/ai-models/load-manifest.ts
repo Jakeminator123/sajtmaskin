@@ -40,6 +40,7 @@ const generationPhaseSchema = z.enum([
   "verifier",
   "deploy-assistant",
 ]);
+const reasoningEffortSchema = z.enum(["none", "low", "medium", "high", "xhigh"]);
 
 const buildProfilesSchema = z.object({
   defaults: z.object({
@@ -100,6 +101,19 @@ const phaseRoutingTierSchema = z.object({
   "deploy-assistant": z.string(),
 });
 
+const phaseThinkingSchema = z.object({
+  thinking: z.boolean(),
+  reasoningEffort: reasoningEffortSchema,
+});
+
+const phaseThinkingTierSchema = z.object({
+  planner: phaseThinkingSchema,
+  generator: phaseThinkingSchema,
+  fixer: phaseThinkingSchema,
+  verifier: phaseThinkingSchema,
+  "deploy-assistant": phaseThinkingSchema,
+});
+
 const phaseRoutingSchema = z.object({
   defaultByTier: z.object({
     fast: phaseRoutingTierSchema,
@@ -108,6 +122,15 @@ const phaseRoutingSchema = z.object({
     codex: phaseRoutingTierSchema,
     anthropic: phaseRoutingTierSchema,
   }),
+  thinkingByTier: z
+    .object({
+      fast: phaseThinkingTierSchema,
+      pro: phaseThinkingTierSchema,
+      max: phaseThinkingTierSchema,
+      codex: phaseThinkingTierSchema,
+      anthropic: phaseThinkingTierSchema,
+    })
+    .optional(),
   notes: z.string().optional(),
 });
 
@@ -243,7 +266,10 @@ export type AiModelsManifest = z.infer<typeof aiModelsManifestSchema>;
 export type BuildProfileId = z.infer<typeof buildProfileIdSchema>;
 export type QualityLevelFromManifest = z.infer<typeof qualityLevelSchema>;
 export type GenerationPhaseFromManifest = z.infer<typeof generationPhaseSchema>;
+export type ReasoningEffortFromManifest = z.infer<typeof reasoningEffortSchema>;
 export type PhaseRoutingTierFromManifest = z.infer<typeof phaseRoutingTierSchema>;
+export type PhaseThinkingConfigFromManifest = z.infer<typeof phaseThinkingSchema>;
+export type PhaseThinkingTierFromManifest = z.infer<typeof phaseThinkingTierSchema>;
 export type RepairPoliciesFromManifest = z.infer<typeof repairPoliciesSchema>;
 export type PromptOrchestrationFromManifest = z.infer<typeof promptOrchestrationSchema>;
 export type PostGenerationPassesFromManifest = z.infer<typeof postGenerationPassesSchema>;
@@ -262,6 +288,47 @@ function parseManifest(): AiModelsManifest {
 }
 
 let cached: AiModelsManifest | null = null;
+
+const DEFAULT_PHASE_THINKING_BY_TIER: Record<
+  BuildProfileId,
+  PhaseThinkingTierFromManifest
+> = {
+  fast: {
+    planner: { thinking: true, reasoningEffort: "medium" },
+    generator: { thinking: true, reasoningEffort: "medium" },
+    fixer: { thinking: false, reasoningEffort: "medium" },
+    verifier: { thinking: false, reasoningEffort: "medium" },
+    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+  },
+  pro: {
+    planner: { thinking: true, reasoningEffort: "medium" },
+    generator: { thinking: true, reasoningEffort: "medium" },
+    fixer: { thinking: false, reasoningEffort: "medium" },
+    verifier: { thinking: false, reasoningEffort: "medium" },
+    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+  },
+  max: {
+    planner: { thinking: true, reasoningEffort: "high" },
+    generator: { thinking: true, reasoningEffort: "high" },
+    fixer: { thinking: false, reasoningEffort: "medium" },
+    verifier: { thinking: false, reasoningEffort: "medium" },
+    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+  },
+  codex: {
+    planner: { thinking: true, reasoningEffort: "high" },
+    generator: { thinking: true, reasoningEffort: "high" },
+    fixer: { thinking: false, reasoningEffort: "medium" },
+    verifier: { thinking: false, reasoningEffort: "medium" },
+    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+  },
+  anthropic: {
+    planner: { thinking: true, reasoningEffort: "high" },
+    generator: { thinking: true, reasoningEffort: "high" },
+    fixer: { thinking: false, reasoningEffort: "medium" },
+    verifier: { thinking: false, reasoningEffort: "medium" },
+    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+  },
+};
 
 /** Validated manifest (throws at first access if JSON is invalid). */
 export function getAiModelsManifest(): AiModelsManifest {
@@ -322,6 +389,17 @@ export function getPhaseRoutingFromManifest(): Record<
     throw new Error("[sajtmaskin] manifest.json missing phaseRouting");
   }
   return phaseRouting.defaultByTier;
+}
+
+export function getPhaseThinkingFromManifest(): Record<
+  BuildProfileId,
+  PhaseThinkingTierFromManifest
+> {
+  const phaseRouting = getAiModelsManifest().phaseRouting;
+  if (!phaseRouting) {
+    throw new Error("[sajtmaskin] manifest.json missing phaseRouting");
+  }
+  return phaseRouting.thinkingByTier ?? DEFAULT_PHASE_THINKING_BY_TIER;
 }
 
 export function getRepairPoliciesFromManifest(): RepairPoliciesFromManifest {

@@ -1,6 +1,6 @@
 import { runLlmFixer } from "./llm-fixer";
 import { runAutoFix } from "./pipeline";
-import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
@@ -240,6 +240,9 @@ export async function validateAndFix(
       const fixerModel = opts.resolvedTier
         ? resolvePhaseModel(opts.resolvedTier, "fixer").modelId
         : undefined;
+      const fixerThinking = opts.resolvedTier
+        ? resolvePhaseThinking(opts.resolvedTier, "fixer")
+        : null;
       devLogAppend("in-progress", {
         type: "syntax-validation.fixer.start",
         chatId: opts.chatId,
@@ -266,6 +269,8 @@ export async function validateAndFix(
         try {
           fixerResult = await runLlmFixer(currentContent, errorSummary, {
             model: fixerModel,
+            thinking: fixerThinking?.thinking,
+            reasoningEffort: fixerThinking?.reasoningEffort,
             requiredFiles: brokenFiles,
             abortSignal: fixerAbort.signal,
           });

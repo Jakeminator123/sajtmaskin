@@ -12,19 +12,20 @@ Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine
 | Fas-ID:n + ordning | `src/lib/gen/stream/finalize-pipeline-contract.ts` — `OWN_ENGINE_POST_STREAM_PIPELINE` |
 | Syntax + LLM-fixer | `src/lib/gen/autofix/validate-and-fix.ts` |
 | Deterministisk autofix före syntax | `src/lib/gen/autofix/pipeline.ts` — `runAutoFix()` |
-| Verifier-pass (read-only LLM) | `src/lib/gen/verifier-pass.ts` |
+| Verifier-pass (read-only LLM) | `src/lib/gen/verify/verifier-pass.ts` |
 | Parse / merge / preflight | `src/lib/gen/stream/finalize-preflight.ts`, `finalize-merge.ts` |
 | Stream → finalize anrop | `src/lib/providers/own-engine/generation-stream.ts`, `src/lib/gen/stream/shared-own-engine-helpers.ts` |
 | Efter finalize (done/preview/server-verify) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` |
-| Asynk server-verify (ej i finalize) | `src/lib/gen/server-verify.ts` |
+| Asynk server-verify (ej i finalize) | `src/lib/gen/verify/server-verify.ts` |
+| Fasmodell + phase-thinking | `src/lib/models/phase-routing.ts`, `config/ai_models/manifest.json` |
 
 ## Faktisk stegordning i `finalizeAndSaveVersion`
 
 1. **`autofix`** — `runAutoFix()` på ackumulerat stream-innehåll (kan stängas av med `runAutofix: false`). Kör alla **mekaniska fixar** (imports, struktur, lucide, metadata, scroll-smooth, icon-value, basePath m.m.). Typer: `FixEntry` med `category: "mechanical"` från `autofix/types.ts`.
 2. **`url_expand`** — `expandUrls()` med `urlMap` från orkestrering.
-3. **`validate_syntax`** — `validateAndFix()`: syntaxvalidering + progressiv mekanisk→**LLM-fix**→mekanisk fix-loop. Loggar `autofix.mechanical-residual` (vilka fel som överlevde mekaniska fixar) före LLM-eskalering. Returnerar `mechanicalFixCount`, `llmFixCount`, `residualPatterns`.
+3. **`validate_syntax`** — `validateAndFix()`: syntaxvalidering + progressiv mekanisk→**LLM-fix**→mekanisk fix-loop. Loggar `autofix.mechanical-residual` (vilka fel som överlevde mekaniska fixar) före LLM-eskalering. När tier är känd följer LLM-fixen både `phaseRouting.fixer` och `phaseRouting.thinkingByTier`. Returnerar `mechanicalFixCount`, `llmFixCount`, `residualPatterns`.
 4. **`materialize_images`** — **endast om «deep path»** (`runDeepPath === true` i `resolveFinalizePathPolicy`). Ersätter placeholder-bilder m.m. Vid fel: **non-fatal**, logg och fortsätt.
-5. **`verifier`** — **endast om deep path** *och* `resolveVerifierPassPolicy` säger ja (BuildSpec, feature flag, inte repair-pass > 0). Read-only LLM; fel här är **non-fatal** (hoppar över).
+5. **`verifier`** — **endast om deep path** *och* `resolveVerifierPassPolicy` säger ja (BuildSpec, feature flag, inte repair-pass > 0). Read-only LLM; följer `phaseRouting.verifier` och `phaseRouting.thinkingByTier`. Fel här är **non-fatal** (hoppar över).
 6. **`parse_merge_preflight`** — parse JSON-filer från innehåll, `mergeGeneratedProjectFiles`, `runFinalizePreflight`, `injectIntegrationManifestIntoFilesJson`, scaffold-retry-förslag.
 7. **Fail-fast strukturgrind** — om preflight/sanity hittar tecken på **partial-file-output** (t.ex. avhuggen filstart, överlappande importblock eller annan snippet-lik repair-output) kastas nu `PartialFileOutputError` och **ingen version sparas alls**.
 8. **Persist** — `addAssistantMessageAndCreateDraftVersion` (transaktion: assistant + utkastversion med `files_json`).
@@ -54,7 +55,7 @@ Telemetry använder etiketterna `fast+deep` respektive `fast-only` (se `devLogAp
 | **Observability** | `createGenerationTelemetryRecord`, `devLogAppend`, preflight-loggar | Nej |
 | **Non-fatal fel** | Bildmaterialisering misslyckas, verifier-pass kastar | Nej — logg/warn, fortsätt |
 
-**`server-verify`:** körs **asynkront** efter finalize/handoff till preview (se `server-verify.ts` och `resolvePostFinalizeServerVerifyDecision()` i `post-finalize-policies.ts`); **blockerar inte** SSE `done`. Den hoppas över för t.ex. `verificationPolicy === "fast"`, icke-eligible versioner, `previewBlocked`, `verificationBlocked` eller låg-risk-standardflöden. Det är **Steg 4-nära** men **inte** samma synkrona pipeline som `finalizeAndSaveVersion`.
+**`server-verify`:** körs **asynkront** efter finalize/handoff till preview (se `verify/server-verify.ts` och `resolvePostFinalizeServerVerifyDecision()` i `post-finalize-policies.ts`); **blockerar inte** SSE `done`. Den hoppas över för t.ex. `verificationPolicy === "fast"`, icke-eligible versioner, `previewBlocked`, `verificationBlocked` eller låg-risk-standardflöden. Background repair i denna lane använder samma fixer-fasmodell och phase-thinking som annan LLM-fix. Det är **Steg 4-nära** men **inte** samma synkrona pipeline som `finalizeAndSaveVersion`.
 
 ## Fault/fix-loggning och overhead-ytor
 

@@ -8,9 +8,10 @@ import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import type { CodeFile } from "@/lib/gen/parser";
 import { createGenerationPipeline, type PipelineOptions } from "@/lib/gen/engine";
-import type { ReasoningEffort } from "@/lib/gen/engine";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
+import { resolvePhaseThinking } from "@/lib/models/phase-routing";
+import type { CanonicalModelId } from "@/lib/models/catalog";
 import {
   createOwnEngineGenerationStream,
   type GenerationStreamMeta,
@@ -30,6 +31,7 @@ export type OwnEnginePipelineFragment = {
 
 export type OwnEnginePipelineAndGenerationInput = {
   chatId: string;
+  resolvedTier: CanonicalModelId;
   pipeline: OwnEnginePipelineFragment;
   meta: GenerationStreamMeta;
   engineModel: string;
@@ -53,24 +55,13 @@ export function createOwnEnginePipelineAndGenerationStream(
   input: OwnEnginePipelineAndGenerationInput,
 ): ReadableStream<Uint8Array> {
   const tools = getAgentTools();
-  const effortByQuality: Record<string, ReasoningEffort> = {
-    standard: "medium",
-    premium: "high",
-    "release-candidate": "high",
-  };
-  let reasoningEffort = effortByQuality[input.buildSpec.qualityTarget] ?? "high";
-  const isLightFollowUp =
-    input.buildSpec.generationMode === "followUp" &&
-    (input.buildSpec.changeScope === "copy" || input.buildSpec.changeScope === "local-layout");
-  if (isLightFollowUp && reasoningEffort === "high") {
-    reasoningEffort = "medium";
-  }
+  const generatorThinking = resolvePhaseThinking(input.resolvedTier, "generator");
   const pipelineStream = createGenerationPipeline({
     prompt: input.pipeline.prompt,
     systemPrompt: input.pipeline.systemPrompt,
     model: input.pipeline.model,
     thinking: input.pipeline.thinking,
-    reasoningEffort,
+    reasoningEffort: generatorThinking.reasoningEffort,
     abortSignal: input.pipeline.abortSignal,
     tools,
     maxSteps: input.pipeline.maxSteps ?? 4,

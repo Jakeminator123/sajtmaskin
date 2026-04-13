@@ -80,9 +80,7 @@ const BUILD_INTENT_GUIDANCE: Record<
     label: "Website",
     rules: [
       "Ship code that passes a real App Router build: valid `next/image`, metadata exports, and Server Components by default — not patterns that only work inside a browser-transpiled preview.",
-      "Build a complete, visually polished website: sticky navigation, hero with headline + subtext + CTA, content sections for the business, footer with contact or links.",
-      "Use shadcn/ui Cards for feature grids, Badges for labels, Buttons for CTAs. Add Accordion for FAQs only when the user or brief explicitly asks.",
-      "Alternate section backgrounds (`bg-background` / `bg-muted/50`) for rhythm. Hero: large type (`text-5xl+`), generous vertical padding (`py-24+`).",
+      "Build a complete, visually polished website with navigation, content sections, and a footer. Follow the Style Direction block for layout approach, section rhythm, and visual motif — do not fall back to a generic hero-cards-footer formula.",
       "Include realistic mock content specific to the business type — never generic placeholder copy.",
       "Match scope: short prompt → polished one-pager; detailed prompt → multi-page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
     ],

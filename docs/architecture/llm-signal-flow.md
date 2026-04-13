@@ -53,7 +53,7 @@ flowchart TD
 4. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
 5. Route plan, contracts och BuildSpec byggs — dessa översätter briefens semantik till exekvering snarare än att uppfinna ny vision.
 6. Dynamic context byggs i `system-prompt.ts`. `## Your Toolkit` byggs nu från den registry-synkade `SHADCN_COMPONENTS`-mappen men filtreras mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
-7. Generatorn kör.
+7. Generatorn kör. Modellvalet kommer från `phaseRouting.defaultByTier`, och planner/generator hämtar dessutom phase-specifik thinking / `reasoningEffort` från `phaseRouting.thinkingByTier`. För dessa två faser måste också builderns vanliga thinking-toggle vara på.
 8. Finalize, post-checks, preview-start och quality gate sker efteråt.
 
 ### Brief → Scaffold
@@ -92,6 +92,8 @@ Repair arbetar normalt med:
 - senaste versionen
 - persisted scaffold
 - error logs / quality gate / preflight-signaler
+
+När tier kan härledas använder repairkedjan nu både fixer-fasens modell och fixer-fasens thinking / `reasoningEffort` från manifestet.
 
 Om scaffold-aware retry hittar tydliga blockerare kan den föreslå en enklare scaffoldpivot (t.ex. `ecommerce` -> `base-nextjs`), men detta sker sent och kostar extra pass. Ren merged syntax utan import-/strukturstöd ska nu mindre aggressivt tolkas som scaffold-drift.
 

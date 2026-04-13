@@ -24,7 +24,7 @@ Det här dokumentet är den mänskligt läsbara översikten över **vilka modell
 | Planner | LLM | används i plan mode för plan-/JSON-artifact, inte sajtkod | `src/lib/own-engine/session/own-engine-plan-mode.ts` |
 | Generator | LLM | genererar själva sajtkoden/projektfilerna | `src/lib/providers/own-engine/generation-stream.ts` |
 | LLM-fix (syntax fixer) | LLM | riktad kodreparation efter syntaxvalidering när mekaniska fixar inte räcker | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/autofix/llm-fixer.ts` |
-| Verifier | LLM | read-only verifiering/quality findings efter syntax och innan/under finalize | `src/lib/gen/verifier-pass.ts`, `src/lib/models/phase-routing.ts` |
+| Verifier | LLM | read-only verifiering/quality findings efter syntax och innan/under finalize | `src/lib/gen/verify/verifier-pass.ts`, `src/lib/models/phase-routing.ts` |
 | Deploy assistant | LLM-roll | hjälpfas i phase routing för deploy-/auxiliary-steg | `src/lib/models/phase-routing.ts` |
 
 ## Fasrouting
@@ -42,6 +42,11 @@ Se:
 - `config/ai_models/manifest.json`
 - `src/lib/ai-models/load-manifest.ts`
 - `src/lib/models/phase-routing.ts`
+
+Phase routing bär nu två signaler per fas:
+
+- **modellval** via `phaseRouting.defaultByTier`
+- **thinking / reasoningEffort** via `phaseRouting.thinkingByTier`
 
 ## Prompt-assist-kedjan i detalj
 
@@ -66,7 +71,7 @@ Flödet vid freeform create-chat:
 
 ## Viktiga noter
 
-- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Aktiveras server-side via `SAJTMASKIN_DEFAULT_THINKING=true` i `.env.local`; klienten skickar flaggan explicit bara om användaren ändrat togglen i UI. `SAJTMASKIN_SHOW_THINKING` finns bara kvar som legacy-alias för äldre miljöer.
+- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Planner/generator kräver nu både den vanliga builder-togglen och att fasen är aktiverad i `phaseRouting.thinkingByTier`; fixer/verifier/manual repair/server verify använder fasinställningen direkt. `SAJTMASKIN_SHOW_THINKING` finns bara kvar som legacy-alias för äldre miljöer.
 - Prompt assist, Deep brief och spec-first ligger **utanför** phase-routingtabellen och fungerar mer som för-/pre-generation-lager.
 - Deep brief och server auto-brief bygger **samma typ av structured brief**, men startas från olika ställen i kedjan.
 - Builderns normala `specMode` använder oftast `briefToSpec()` eller `promptToSpec()` och inte den fristående `/api/ai/spec`-routen.

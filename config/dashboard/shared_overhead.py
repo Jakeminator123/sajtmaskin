@@ -86,6 +86,83 @@ MODEL_LABELS = {
 }
 
 BUILD_PROFILE_ORDER = ("fast", "pro", "max", "codex", "anthropic")
+PHASE_ORDER = (
+    "planner",
+    "generator",
+    "fixer",
+    "verifier",
+    "deploy-assistant",
+)
+REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high", "xhigh")
+AVAILABLE_PHASE_MODELS = (
+    "selected_build_model",
+    "gpt-4.1",
+    "gpt-5.2",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.3-codex-max",
+    "claude-sonnet-4.6",
+    "claude-opus-4.6",
+)
+PHASE_LABELS = {
+    "planner": "Planner",
+    "generator": "Generator",
+    "fixer": "Fixer",
+    "verifier": "Verifier",
+    "deploy-assistant": "Deploy-assistant",
+}
+DEFAULT_PHASE_THINKING_BY_TIER: dict[str, dict[str, dict[str, Any]]] = {
+    "fast": {
+        "planner": {"thinking": True, "reasoningEffort": "medium"},
+        "generator": {"thinking": True, "reasoningEffort": "medium"},
+        "fixer": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    },
+    "pro": {
+        "planner": {"thinking": True, "reasoningEffort": "medium"},
+        "generator": {"thinking": True, "reasoningEffort": "medium"},
+        "fixer": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    },
+    "max": {
+        "planner": {"thinking": True, "reasoningEffort": "high"},
+        "generator": {"thinking": True, "reasoningEffort": "high"},
+        "fixer": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    },
+    "codex": {
+        "planner": {"thinking": True, "reasoningEffort": "high"},
+        "generator": {"thinking": True, "reasoningEffort": "high"},
+        "fixer": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    },
+    "anthropic": {
+        "planner": {"thinking": True, "reasoningEffort": "high"},
+        "generator": {"thinking": True, "reasoningEffort": "high"},
+        "fixer": {"thinking": False, "reasoningEffort": "medium"},
+        "verifier": {"thinking": False, "reasoningEffort": "medium"},
+        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    },
+}
+PHASE_TOKEN_BUDGET_NOTES = {
+    "planner": ("tokenBudgets", "engineMaxOutputTokens", "Shares the engine token budget."),
+    "generator": ("tokenBudgets", "engineMaxOutputTokens", "Shares the engine token budget."),
+    "fixer": ("tokenBudgets", "autofixMaxOutputTokens", "Uses the autofix token budget."),
+    "verifier": (
+        "postGenerationPasses",
+        "verifierMaxOutputTokens",
+        "Uses the verifier token budget.",
+    ),
+    "deploy-assistant": (
+        "tokenBudgets",
+        "engineMaxOutputTokens",
+        "Currently shares the engine token budget.",
+    ),
+}
 PHASE_ROUTED_WORKLOADS = {
     "manual_repair_route_llm": "fixer",
     "server_verify_repair_llm": "fixer",
@@ -147,6 +224,74 @@ def summarize_tier_models(models_by_tier: dict[str, str]) -> str:
         if model:
             parts.append(f"{tier}: {human_model_label(model)}")
     return " | ".join(parts) if parts else "—"
+
+
+def phase_model_display_label(
+    model_id: str,
+    tier: str,
+    build_defaults: dict[str, str],
+) -> str:
+    model_id = (model_id or "").strip()
+    if model_id == "selected_build_model":
+        tier_model = build_defaults.get(tier, "").strip()
+        if tier_model:
+            return f"Tier model ({human_model_label(tier_model)})"
+        return "Tier model"
+    return human_model_label(model_id)
+
+
+def phase_thinking_defaults(manifest: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
+    stored = ((manifest.get("phaseRouting") or {}).get("thinkingByTier") or {})
+    result: dict[str, dict[str, dict[str, Any]]] = {}
+    for tier in BUILD_PROFILE_ORDER:
+        tier_defaults = DEFAULT_PHASE_THINKING_BY_TIER.get(tier, {})
+        tier_stored = stored.get(tier) if isinstance(stored, dict) else {}
+        normalized: dict[str, dict[str, Any]] = {}
+        for phase in PHASE_ORDER:
+            default_cfg = tier_defaults.get(phase, {"thinking": False, "reasoningEffort": "medium"})
+            phase_cfg = tier_stored.get(phase) if isinstance(tier_stored, dict) else {}
+            normalized[phase] = {
+                "thinking": bool(phase_cfg.get("thinking", default_cfg["thinking"])),
+                "reasoningEffort": str(
+                    phase_cfg.get("reasoningEffort", default_cfg["reasoningEffort"])
+                ).strip()
+                or str(default_cfg["reasoningEffort"]),
+            }
+        result[tier] = normalized
+    return result
+
+
+def write_phase_thinking(
+    manifest: dict[str, Any],
+    tier: str,
+    phase: str,
+    thinking: bool,
+    effort: str,
+) -> None:
+    phase_routing = manifest.setdefault("phaseRouting", {})
+    thinking_by_tier = phase_routing.setdefault("thinkingByTier", {})
+    tier_cfg = thinking_by_tier.setdefault(tier, {})
+    tier_cfg[phase] = {
+        "thinking": bool(thinking),
+        "reasoningEffort": (effort or "medium").strip() or "medium",
+    }
+
+
+def phase_token_budget_entry(manifest: dict[str, Any], phase: str) -> dict[str, Any]:
+    group_name, key, note = PHASE_TOKEN_BUDGET_NOTES.get(
+        phase,
+        ("tokenBudgets", "engineMaxOutputTokens", "Shares the engine token budget."),
+    )
+    group = manifest.get(group_name) or {}
+    entry = group.get(key) or {}
+    return {
+        "label": key,
+        "default": entry.get("default"),
+        "min": entry.get("min"),
+        "max": entry.get("max"),
+        "envKey": entry.get("envKey", ""),
+        "note": note,
+    }
 
 
 def resolve_phase_models_for_dashboard(

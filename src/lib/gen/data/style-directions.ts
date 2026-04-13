@@ -50,8 +50,8 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Stat band with animated counters and Badge highlights",
       "Content sections using Tabs for topic switching",
     ],
-    families: ["content-site", "blog", "portfolio"],
-    keywords: ["editorial", "story", "portfolio", "magazine", "content"],
+    families: ["content-site", "blog"],
+    keywords: ["editorial", "story", "magazine", "content", "artikel", "berättelse", "tidning", "nyheter", "news"],
   },
   {
     id: "glass_dashboard",
@@ -69,8 +69,8 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Metric cards with Chart + Progress indicators",
       "Settings panel using Tabs + Form + Switch toggles",
     ],
-    families: ["dashboard", "app-shell", "auth-pages"],
-    keywords: ["dashboard", "analytics", "admin", "control", "workspace"],
+    families: ["dashboard", "app-shell"],
+    keywords: ["dashboard", "analytics", "admin", "control", "workspace", "panel", "statistik", "översikt"],
   },
   {
     id: "commerce_showcase",
@@ -88,27 +88,27 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Trust strip with Table for comparison + Badge for ratings",
       "CTA section with Dialog for quick-buy flow",
     ],
-    families: ["ecommerce", "landing-page"],
-    keywords: ["shop", "store", "product", "checkout", "ecommerce"],
+    families: ["ecommerce"],
+    keywords: ["shop", "store", "product", "checkout", "ecommerce", "butik", "köp", "handla", "webbshop", "varukorg", "webshop"],
   },
   {
     id: "saas_precision",
-    layoutApproach: "structured SaaS narrative with alternating split sections",
+    layoutApproach: "structured SaaS narrative with alternating split sections and metric-driven hero",
     sectionRhythm: "tight value statement -> medium feature matrix -> tight conversion close",
-    signatureMotif: "signal lines, controlled glow accents, and metric chips",
+    signatureMotif: "signal lines, controlled glow accents, metric chips, and trust badges",
     fontMood: "technical sans stack with subtle display emphasis",
     fontPairings: [
       { heading: "Space Grotesk", body: "Inter" },
-      { heading: "Sora", body: "Nunito Sans" },
+      { heading: "Manrope", body: "Inter" },
     ],
     sectionRecipes: [
-      "Value-prop hero with Badge social proof + animated metrics",
+      "Value-prop hero with Badge social proof + animated metrics + partner logos",
       "Feature matrix using Tabs + Card grid with Tooltip details",
-      "Pricing section with Card + Accordion for FAQ",
-      "Integration logos in ScrollArea + Popover partner info",
+      "Pricing section with Table comparison + Card tiers + Accordion FAQ",
+      "Case studies with Carousel + Dialog for full case view",
     ],
-    families: ["saas-landing", "landing-page", "base-nextjs"],
-    keywords: ["saas", "startup", "platform", "api", "b2b", "software"],
+    families: ["saas-landing"],
+    keywords: ["saas", "startup", "platform", "api", "b2b", "software", "enterprise", "corporate", "agency", "byrå", "konsult", "plattform", "företag", "professional", "trust"],
   },
   {
     id: "retro_atmosphere",
@@ -126,13 +126,13 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Gallery section with Carousel + AspectRatio + Dialog lightbox",
       "Feature cards with HoverCard reveals and themed Badge accents",
     ],
-    keywords: ["retro", "vintage", "western", "neon", "cyberpunk", "atmospheric"],
+    keywords: ["retro", "vintage", "western", "neon", "cyberpunk", "atmospheric", "nostalgi", "klassisk"],
   },
   {
     id: "minimal_confident",
-    layoutApproach: "clean vertical flow with intentional asymmetry",
+    layoutApproach: "clean vertical flow with intentional asymmetry and generous whitespace",
     sectionRhythm: "spacious hero -> compact feature lane -> spacious social proof",
-    signatureMotif: "large typography, negative space, and restrained color punches",
+    signatureMotif: "large typography, negative space, and restrained single-color punches",
     fontMood: "high-legibility sans with occasional display contrast",
     fontPairings: [
       { heading: "Instrument Sans", body: "Inter" },
@@ -144,8 +144,8 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Testimonial section with Carousel + Avatar + blockquote",
       "Contact section with Sheet-triggered Form overlay",
     ],
-    families: ["base-nextjs", "landing-page", "portfolio"],
-    keywords: ["minimal", "clean", "modern", "simple"],
+    families: ["base-nextjs"],
+    keywords: ["minimal", "clean", "simple", "minimalistisk", "enkel", "ren"],
   },
   {
     id: "warm_editorial",
@@ -163,8 +163,13 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Testimonial rail with Carousel + Avatar + HoverCard bios",
       "Location/hours section with Tabs for multiple branches",
     ],
-    families: ["landing-page", "content-site"],
-    keywords: ["friendly", "warm", "community", "local", "cafe", "bakery", "restaurant", "restaurang", "kafé", "bageri", "mat", "food", "catering", "bistro", "konditori"],
+    families: ["content-site"],
+    keywords: [
+      "friendly", "warm", "community", "local", "cafe", "bakery", "restaurant",
+      "restaurang", "kafé", "bageri", "mat", "food", "catering", "bistro", "konditori",
+      "frisör", "spa", "salong", "yoga", "terapi", "klinik", "veterinär", "djur",
+      "förskola", "skola", "förening", "kyrka", "ideell",
+    ],
   },
   {
     id: "bold_brutalist",
@@ -182,7 +187,7 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Manifest section with large monospace Collapsible blocks",
       "Contact as Dialog with minimal Form and stark contrast",
     ],
-    keywords: ["brutalist", "bold", "raw", "punk", "industrial", "grunge"],
+    keywords: ["brutalist", "bold", "raw", "punk", "industrial", "grunge", "street", "urban"],
   },
   {
     id: "luxury_noir",
@@ -200,7 +205,7 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Testimonial section with HoverCard + Avatar on dark Card surfaces",
       "Conversion strip with Dialog CTA and premium form styling",
     ],
-    keywords: ["luxury", "premium", "exclusive", "fashion", "jewelry", "elegant"],
+    keywords: ["luxury", "premium", "exclusive", "fashion", "jewelry", "elegant", "lyx", "exklusiv", "mode", "smycken"],
   },
   {
     id: "playful_cards",
@@ -218,8 +223,7 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Feature showcase with Carousel + Popover detail reveals",
       "Interactive FAQ with Accordion + colorful section backgrounds",
     ],
-    families: ["landing-page", "base-nextjs"],
-    keywords: ["playful", "fun", "kids", "game", "creative", "colorful"],
+    keywords: ["playful", "fun", "kids", "game", "creative", "colorful", "lekfull", "barn", "spel", "kreativ", "färgglad"],
   },
   {
     id: "documentation_clarity",
@@ -237,8 +241,8 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "API reference with Table + Badge for status codes + Tooltip param hints",
       "Search with Command palette + inline code examples",
     ],
-    families: ["base-nextjs", "content-site", "blog"],
-    keywords: ["docs", "documentation", "guide", "tutorial", "reference", "api"],
+    families: ["blog"],
+    keywords: ["docs", "documentation", "guide", "tutorial", "reference", "api", "dokumentation", "handbok", "manual"],
   },
   {
     id: "nature_organic",
@@ -256,26 +260,7 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Impact section using Chart for sustainability data + Badge certifications",
       "Contact with Tabs for locations + Form with earth-tone styling",
     ],
-    keywords: ["nature", "eco", "green", "organic", "sustainability", "garden", "forest"],
-  },
-  {
-    id: "corporate_trust",
-    layoutApproach: "structured grid hero with metric counters and partner logos",
-    sectionRhythm: "tight value proposition -> dense social proof -> tight conversion CTA",
-    signatureMotif: "precise grid alignment, neutral depth layers, and trust badges",
-    fontMood: "professional sans-serif with clear hierarchy through weight and size",
-    fontPairings: [
-      { heading: "Plus Jakarta Sans", body: "Inter" },
-      { heading: "Manrope", body: "Inter" },
-    ],
-    sectionRecipes: [
-      "Metric hero with animated counters + Badge trust signals + partner logos",
-      "Feature grid using Card + Tooltip details + Separator sections",
-      "Case studies with Carousel + Dialog for full case view",
-      "Pricing with Table comparison + Accordion FAQ + Form lead capture",
-    ],
-    families: ["saas-landing", "landing-page"],
-    keywords: ["corporate", "enterprise", "b2b", "professional", "trust", "agency"],
+    keywords: ["nature", "eco", "green", "organic", "sustainability", "garden", "forest", "natur", "miljö", "hållbar", "trädgård", "skog", "odling"],
   },
   {
     id: "portfolio_showcase",
@@ -294,7 +279,7 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "About/contact with Tabs for bio/skills/contact + Form",
     ],
     families: ["portfolio"],
-    keywords: ["portfolio", "work", "projects", "cases", "gallery", "creative"],
+    keywords: ["portfolio", "work", "projects", "cases", "gallery", "fotograf", "designer", "arkitekt", "konstnär", "frilans"],
   },
   {
     id: "tech_terminal",
@@ -312,8 +297,7 @@ const STYLE_DIRECTION_PRESETS: StyleDirectionPreset[] = [
       "Integration grid with Card + DropdownMenu for framework selection",
       "Docs quickstart with Accordion steps + ScrollArea code blocks",
     ],
-    families: ["saas-landing", "base-nextjs"],
-    keywords: ["developer", "api", "cli", "terminal", "code", "open-source", "devtools"],
+    keywords: ["developer", "cli", "terminal", "code", "open-source", "devtools", "utvecklare", "verktyg"],
   },
 ];
 
@@ -332,14 +316,24 @@ function scorePreset(
   scaffoldId?: ScaffoldId | null,
 ): number {
   let score = 0;
+
   if (scaffoldId && preset.families?.includes(scaffoldId)) {
-    score += 2;
+    score += 4;
+  } else if (scaffoldId && preset.families && preset.families.length > 0) {
+    score -= 1;
   }
+
+  let keywordHits = 0;
   for (const keyword of preset.keywords ?? []) {
-    if (promptLower.includes(keyword) || styleKeywordsLower.some((v) => v.includes(keyword))) {
-      score += 3;
+    if (promptLower.includes(keyword)) {
+      keywordHits += 1;
+    } else if (styleKeywordsLower.some((v) => v.includes(keyword))) {
+      keywordHits += 1;
     }
   }
+  score += keywordHits * 3;
+  if (keywordHits >= 2) score += keywordHits * 2;
+
   return score;
 }
 
@@ -354,7 +348,11 @@ export function pickStyleDirection(input: StyleDirectionInput): StyleDirection {
     }))
     .sort((a, b) => b.score - a.score || a.preset.id.localeCompare(b.preset.id));
 
-  const topCandidates = ranked.slice(0, 3);
+  const topScore = ranked[0]?.score ?? 0;
+  const topCandidates = topScore > 0
+    ? ranked.filter((r) => r.score > 0).slice(0, 5)
+    : ranked.slice(0, 5);
+
   const seedKey = [
     input.prompt.trim().toLowerCase().slice(0, 200),
     input.scaffoldId ?? "none",

@@ -5,10 +5,11 @@ import { buildPlannerSystemPrompt } from "@/lib/gen/plan/prompt";
 import {
   createGenerationPipeline,
   type PipelineOptions,
+  type ReasoningEffort,
 } from "@/lib/gen/engine";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "@/lib/gen/prompt-dump";
-import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -53,6 +54,19 @@ export function resolvePlanModePlannerModelId(resolvedModelTier: CanonicalModelI
   return resolvePhaseModel(resolvedModelTier, "planner").modelId;
 }
 
+export function resolvePlanModePlannerSettings(
+  resolvedModelTier: CanonicalModelId,
+  requestedThinking: boolean,
+): { modelId: string; thinking: boolean; reasoningEffort: ReasoningEffort } {
+  const modelId = resolvePhaseModel(resolvedModelTier, "planner").modelId;
+  const thinkingConfig = resolvePhaseThinking(resolvedModelTier, "planner");
+  return {
+    modelId,
+    thinking: requestedThinking && thinkingConfig.thinking,
+    reasoningEffort: thinkingConfig.reasoningEffort,
+  };
+}
+
 export function logPlanModeGenerationStart(params: {
   planModel: string;
   promptLength: number;
@@ -77,7 +91,8 @@ export function createPlanModePipelineStream(params: {
   optimizedMessage: string;
   planSystemPrompt: string;
   planModel: string;
-  resolvedThinking: boolean;
+  plannerThinking: boolean;
+  plannerReasoningEffort: ReasoningEffort;
   abortSignal: AbortSignal;
   chatHistory?: PipelineOptions["chatHistory"];
   referenceAttachments?: PipelineOptions["referenceAttachments"];
@@ -86,7 +101,8 @@ export function createPlanModePipelineStream(params: {
     prompt: params.optimizedMessage,
     systemPrompt: params.planSystemPrompt,
     model: params.planModel,
-    thinking: params.resolvedThinking,
+    thinking: params.plannerThinking,
+    reasoningEffort: params.plannerReasoningEffort,
     abortSignal: params.abortSignal,
     tools: getAgentTools(),
     maxSteps: 2,

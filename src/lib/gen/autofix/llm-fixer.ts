@@ -1,7 +1,9 @@
 import { streamText } from "ai";
 
 import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
-import { getOpenAIModel } from "../models";
+import type { ReasoningEffort } from "../engine";
+import { toAnthropicEffort } from "../engine";
+import { getOpenAIModel, isAnthropicModel } from "../models";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser";
 import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
 import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
@@ -15,12 +17,18 @@ export interface FixerResult {
   durationMs: number;
 }
 
+type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
+type JsonObject = { [key: string]: JsonValue | undefined };
+type ProviderOptionsRecord = Record<string, JsonObject>;
+
 const DEFAULT_FIXER_MODEL = canonicalModelIdToOwnModelId("pro");
 export async function runLlmFixer(
   content: string,
   errors: string[],
   options?: {
     model?: string;
+    thinking?: boolean;
+    reasoningEffort?: ReasoningEffort;
     maxTokens?: number;
     requiredFiles?: string[];
     abortSignal?: AbortSignal;
@@ -33,6 +41,21 @@ export async function runLlmFixer(
       requiredFiles: options?.requiredFiles,
     });
     const model = getOpenAIModel(options?.model ?? DEFAULT_FIXER_MODEL);
+    const resolvedModelId = options?.model ?? DEFAULT_FIXER_MODEL;
+    const resolvedThinking = Boolean(options?.thinking);
+    let providerOptions: ProviderOptionsRecord | undefined;
+    if (resolvedThinking) {
+      providerOptions = isAnthropicModel(resolvedModelId)
+        ? {
+            anthropic: {
+              thinking: { type: "adaptive" as const },
+              effort: toAnthropicEffort(options?.reasoningEffort ?? "medium"),
+            },
+          }
+        : {
+            openai: { reasoningEffort: options?.reasoningEffort ?? "medium" },
+          };
+    }
 
     const result = streamText({
       model,
@@ -40,6 +63,7 @@ export async function runLlmFixer(
       messages: [{ role: "user", content: userPrompt }],
       maxOutputTokens: options?.maxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS,
       abortSignal: options?.abortSignal,
+      ...(providerOptions ? { providerOptions } : {}),
     });
 
     const fixedText = await result.text;

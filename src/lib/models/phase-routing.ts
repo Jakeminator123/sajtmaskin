@@ -1,8 +1,10 @@
 import type { CanonicalModelId, OwnModelId } from "./catalog";
 import { canonicalModelIdToOwnModelId } from "./catalog";
 import {
+  getPhaseThinkingFromManifest,
   getPhaseRoutingFromManifest,
   type GenerationPhaseFromManifest,
+  type ReasoningEffortFromManifest,
 } from "@/lib/ai-models/load-manifest";
 
 /**
@@ -26,6 +28,13 @@ export type GenerationPhase =
 export type PhaseModelOverride = {
   phase: GenerationPhase;
   modelId: OwnModelId;
+  reason: string;
+};
+
+export type PhaseThinkingOverride = {
+  phase: GenerationPhase;
+  thinking: boolean;
+  reasoningEffort: ReasoningEffortFromManifest;
   reason: string;
 };
 
@@ -63,6 +72,20 @@ export function resolvePhaseModel(
   }
 
   return { phase, modelId, reason: "manifest-phase-override" };
+}
+
+export function resolvePhaseThinking(
+  selectedTier: CanonicalModelId,
+  phase: GenerationPhase,
+): PhaseThinkingOverride {
+  const thinkingByTier = getPhaseThinkingFromManifest();
+  const config = thinkingByTier[selectedTier][phase];
+  return {
+    phase,
+    thinking: config.thinking,
+    reasoningEffort: config.reasoningEffort,
+    reason: "manifest-phase-thinking",
+  };
 }
 
 export function getPhaseRoutingSummary(

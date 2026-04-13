@@ -36,7 +36,7 @@ import {
   shouldPromoteAfterRepair,
 } from "./preview-quality-gate";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
-import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
 import { buildLintRepairContextLines } from "./lint-output";
@@ -357,6 +357,9 @@ async function tryServerRepairLoop(params: {
   const fixerModel = originatingTier
     ? resolvePhaseModel(originatingTier, "fixer").modelId
     : undefined;
+  const fixerThinking = originatingTier
+    ? resolvePhaseThinking(originatingTier, "fixer")
+    : null;
 
   let llmPasses = 0;
   let earlyStopReason: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null = null;
@@ -381,6 +384,8 @@ async function tryServerRepairLoop(params: {
     try {
       fixerResult = await runLlmFixer(content, errorSummary, {
         model: fixerModel,
+        thinking: fixerThinking?.thinking,
+        reasoningEffort: fixerThinking?.reasoningEffort,
         requiredFiles: brokenFiles,
         abortSignal: fixerAbort.signal,
       });

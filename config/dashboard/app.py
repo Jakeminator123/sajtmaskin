@@ -28,19 +28,27 @@ if str(SCRIPTS_DIR_FOR_IMPORT) not in sys.path:
 
 from dashboard_shared import collect_prompt_dump_statuses
 from shared_overhead import (
+    AVAILABLE_PHASE_MODELS,
     BUILD_PROFILE_ORDER,
     MODEL_LABELS,
+    PHASE_LABELS,
+    PHASE_ORDER,
     PHASE_ROUTED_WORKLOADS,
+    REASONING_EFFORT_OPTIONS,
     ROUTE_LOCAL_WORKLOAD_MODELS,
     build_profile_defaults,
     describe_workload_model_resolution,
     find_workload,
     human_model_label,
     load_fault_fix_csv,
+    phase_model_display_label,
     phase_routing_defaults,
+    phase_thinking_defaults,
+    phase_token_budget_entry,
     read_json,
     resolve_phase_models_for_dashboard,
     summarize_tier_models,
+    write_phase_thinking,
     write_json,
 )
 
@@ -740,37 +748,84 @@ elif page == "ai_models":
         st.markdown("### Phase routing (vem gör vad i kedjan)")
         st.caption(
             "Sätt `selected_build_model` om fasen ska följa användarens valda byggprofil. "
-            "Sätt ett konkret modell-ID om fasen ska ha en egen modell."
+            "Sätt ett konkret modell-ID om fasen ska ha en egen modell. "
+            "Planner/generator kräver fortfarande att builderns vanliga thinking-toggle är på."
         )
-        routing_rows: list[dict[str, str]] = []
-        for tier in ["fast", "pro", "max", "codex", "anthropic"]:
+        thinking_defaults = phase_thinking_defaults(manifest)
+        edited_routing: dict[str, dict[str, str]] = {}
+        edited_thinking: dict[str, dict[str, dict[str, Any]]] = {}
+        tier_tabs = st.tabs([tier for tier in BUILD_PROFILE_ORDER])
+        for idx, tier in enumerate(BUILD_PROFILE_ORDER):
             tier_cfg = phase_routing.get(tier) or {}
-            routing_rows.append(
-                {
-                    "tier": tier,
-                    "planner": str(tier_cfg.get("planner", "selected_build_model")),
-                    "generator": str(tier_cfg.get("generator", "selected_build_model")),
-                    "fixer": str(tier_cfg.get("fixer", "selected_build_model")),
-                    "verifier": str(tier_cfg.get("verifier", "selected_build_model")),
-                    "deploy-assistant": str(
-                        tier_cfg.get("deploy-assistant", "selected_build_model")
-                    ),
-                }
-            )
-        edited_routing = st.data_editor(
-            routing_rows,
-            hide_index=True,
-            width="stretch",
-            key="phase_routing_editor",
-            column_config={
-                "tier": st.column_config.TextColumn("Profil", disabled=True),
-                "planner": st.column_config.TextColumn("Planner"),
-                "generator": st.column_config.TextColumn("Generator"),
-                "fixer": st.column_config.TextColumn("Fixer"),
-                "verifier": st.column_config.TextColumn("Verifier"),
-                "deploy-assistant": st.column_config.TextColumn("Deploy-assistant"),
-            },
-        )
+            tier_thinking = thinking_defaults.get(tier) or {}
+            edited_routing[tier] = {}
+            edited_thinking[tier] = {}
+            with tier_tabs[idx]:
+                for phase in PHASE_ORDER:
+                    current_model = (
+                        str(tier_cfg.get(phase, "selected_build_model")).strip()
+                        or "selected_build_model"
+                    )
+                    current_thinking_cfg = tier_thinking.get(phase) or {}
+                    current_thinking = bool(current_thinking_cfg.get("thinking", False))
+                    current_effort = (
+                        str(current_thinking_cfg.get("reasoningEffort", "medium")).strip()
+                        or "medium"
+                    )
+                    budget = phase_token_budget_entry(manifest, phase)
+                    st.markdown(f"#### {PHASE_LABELS.get(phase, phase)}")
+                    c1, c2, c3, c4 = st.columns([1.8, 0.9, 1.1, 1.1])
+                    with c1:
+                        model_value = st.selectbox(
+                            "Model",
+                            AVAILABLE_PHASE_MODELS,
+                            index=AVAILABLE_PHASE_MODELS.index(current_model)
+                            if current_model in AVAILABLE_PHASE_MODELS
+                            else 0,
+                            key=f"cfg_phase_model_{tier}_{phase}",
+                            format_func=lambda model_id, _tier=tier: phase_model_display_label(
+                                model_id,
+                                _tier,
+                                build_profiles,
+                            ),
+                        )
+                    with c2:
+                        thinking_value = st.toggle(
+                            "Thinking",
+                            value=current_thinking,
+                            key=f"cfg_phase_thinking_{tier}_{phase}",
+                        )
+                    with c3:
+                        effort_value = st.selectbox(
+                            "Reasoning effort",
+                            REASONING_EFFORT_OPTIONS,
+                            index=REASONING_EFFORT_OPTIONS.index(current_effort)
+                            if current_effort in REASONING_EFFORT_OPTIONS
+                            else REASONING_EFFORT_OPTIONS.index("medium"),
+                            key=f"cfg_phase_effort_{tier}_{phase}",
+                            disabled=not thinking_value,
+                        )
+                    with c4:
+                        resolved_model_value = (
+                            build_profiles.get(tier, "").strip()
+                            if model_value == "selected_build_model"
+                            else model_value
+                        )
+                        st.text_input(
+                            "Resolved model",
+                            value=human_model_label(resolved_model_value),
+                            key=f"cfg_phase_resolved_{tier}_{phase}",
+                            disabled=True,
+                        )
+                    st.caption(
+                        f"Budget: `{budget['label']}` default={budget['default']} min={budget['min']} max={budget['max']} "
+                        f"env={budget['envKey'] or '—'}. {budget['note']}"
+                    )
+                    edited_routing[tier][phase] = model_value
+                    edited_thinking[tier][phase] = {
+                        "thinking": thinking_value,
+                        "reasoningEffort": effort_value,
+                    }
 
         st.markdown("### Repair-kedjor som påverkas av samma routing")
         st.markdown(
@@ -783,22 +838,16 @@ elif page == "ai_models":
                 build_profiles[key] = value.strip()
             for key, value in quality_inputs.items():
                 quality_map[key] = value.strip()
-            new_routing: dict[str, dict[str, str]] = {}
-            for row in edited_routing:
-                tier = str(row.get("tier", "")).strip()
-                if not tier:
-                    continue
-                new_routing[tier] = {
-                    "planner": str(row.get("planner", "")).strip() or "selected_build_model",
-                    "generator": str(row.get("generator", "")).strip() or "selected_build_model",
-                    "fixer": str(row.get("fixer", "")).strip() or "selected_build_model",
-                    "verifier": str(row.get("verifier", "")).strip() or "selected_build_model",
-                    "deploy-assistant": str(
-                        row.get("deploy-assistant", "")
-                    ).strip()
-                    or "selected_build_model",
-                }
-            manifest.setdefault("phaseRouting", {})["defaultByTier"] = new_routing
+            manifest.setdefault("phaseRouting", {})["defaultByTier"] = edited_routing
+            for tier, phase_entries in edited_thinking.items():
+                for phase, cfg in phase_entries.items():
+                    write_phase_thinking(
+                        manifest,
+                        tier,
+                        phase,
+                        bool(cfg.get("thinking", False)),
+                        str(cfg.get("reasoningEffort", "medium")),
+                    )
             write_json(man_path, manifest)
             st.success("Sparat generator-kedjan.")
             st.rerun()
