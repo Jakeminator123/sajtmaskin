@@ -95,6 +95,42 @@ export const STRUCTURED_PROMPT_TOKENS = [
   ...CONTENT_TOKENS,
 ] as const;
 
+/** Section-type keywords for formatPrompt / addendum extraction */
+export const SECTION_KEYWORDS = [
+  "hero",
+  "features",
+  "pricing",
+  "faq",
+  "testimonials",
+  "contact",
+  "about",
+  "footer",
+  "cta",
+  "gallery",
+  "services",
+  "team",
+  "blog",
+  "navbar",
+] as const;
+
+/** Style/tone keywords for formatPrompt / addendum extraction */
+export const STYLE_KEYWORDS = [
+  "minimal",
+  "modern",
+  "clean",
+  "bold",
+  "playful",
+  "professional",
+  "luxury",
+  "dark",
+  "light",
+  "retro",
+  "corporate",
+  "soft",
+  "elegant",
+  "futuristic",
+] as const;
+
 /**
  * Count how many tokens from a list appear in the text.
  */

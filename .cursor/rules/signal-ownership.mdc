@@ -1,0 +1,36 @@
+---
+description: Ownership gates — varje signal i init-pipelinen har exakt en canonical source
+globs:
+  - src/lib/builder/**
+  - src/lib/gen/**
+  - src/lib/hooks/usePromptAssist.ts
+  - src/lib/hooks/chat/useCreateChat.ts
+  - config/domain-rules.json
+  - config/prompt-static/**
+---
+
+# Signal ownership
+
+Ägarmatris: `docs/architecture/phase-1-ownership.md`.
+
+## Gate
+
+Innan du lägger till, duplicerar eller flyttar en signal:
+
+1. Kolla matrisen: finns det redan en canonical source?
+2. Om ja → ändra **ägaren**, inte konsumenten. Skapa aldrig en parallell källa.
+3. Om du lägger till en ny signal → registrera den i matrisen.
+
+## Konkreta regler
+
+| Signal | Canonical source | Duplicera inte i |
+|--------|-----------------|------------------|
+| Domän / site-type | `config/domain-rules.json` → `domain-inference.ts` | Inga lokala keyword-listor |
+| Prompt-heuristik tokens | `prompt-heuristics.ts` | Inga lokala `MARKERS`/`HINTS`-arrayer |
+| Init-semantik | Deep Brief (`site-brief-generation.ts`) | Inte i `customInstructions` |
+| Designregler | `config/prompt-static/` (global) + `buildDynamicContext` (per-request) | Inte i `EXTENDED_CUSTOM_INSTRUCTIONS` (borttagen) |
+| Build intent (codegen) | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` | Assist-copy i `promptAssist.ts` ok men synka |
+
+## Vid tvivel
+
+Läs ägarmatrisen först. Om din ändring skapar en ny ordlista, regextabell eller keyword-array som liknar en som redan finns — importera den befintliga istället.

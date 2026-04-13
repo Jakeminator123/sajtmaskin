@@ -1,6 +1,7 @@
 import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
 import { type DomainProfile, inferDomain } from "./domain-inference";
+import { SECTION_KEYWORDS, STYLE_KEYWORDS } from "./prompt-heuristics";
 import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
 
 // OpenAI-class assist models (loaded from manifest).
@@ -52,39 +53,7 @@ export function resolvePromptAssistProvider(model: string): PromptAssistProvider
   return "gateway";
 }
 
-const SECTION_KEYWORDS = [
-  "hero",
-  "features",
-  "pricing",
-  "faq",
-  "testimonials",
-  "contact",
-  "about",
-  "footer",
-  "cta",
-  "gallery",
-  "services",
-  "team",
-  "blog",
-  "navbar",
-] as const;
-
-const STYLE_KEYWORDS = [
-  "minimal",
-  "modern",
-  "clean",
-  "bold",
-  "playful",
-  "professional",
-  "luxury",
-  "dark",
-  "light",
-  "retro",
-  "corporate",
-  "soft",
-  "elegant",
-  "futuristic",
-] as const;
+// SECTION_KEYWORDS and STYLE_KEYWORDS imported from prompt-heuristics.ts
 
 type MotionProfile = "static" | "balanced" | "lively";
 
