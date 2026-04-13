@@ -309,25 +309,47 @@ function resolveInstallCommand(filesJson) {
     };
   }
   return {
-    command: "npm install --no-audit",
+    command: "npm install --no-audit --legacy-peer-deps",
     successLabel: "npm install passed.",
-    logLabel: "npm install --no-audit",
+    logLabel: "npm install --no-audit --legacy-peer-deps",
   };
 }
 
-/** Older exports without codegen repair: inject basePath hook so Fly /{chatId} previews get CSS/JS. */
+/** Inject basePath env hook so Fly /{chatId} previews get CSS/JS. Handles .ts/.mjs/.js and common export patterns. */
 function patchNextConfigForPreviewBasePath(workspaceDir) {
-  const cfgPath = path.join(workspaceDir, "next.config.ts");
-  if (!fs.existsSync(cfgPath)) return;
+  const candidates = ["next.config.ts", "next.config.mjs", "next.config.js"];
+  let cfgPath = null;
+  for (const name of candidates) {
+    const p = path.join(workspaceDir, name);
+    if (fs.existsSync(p)) { cfgPath = p; break; }
+  }
+  if (!cfgPath) return;
   let s = fs.readFileSync(cfgPath, "utf8");
   if (s.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) return;
   if (/\bbasePath\s*:/.test(s)) return;
-  const re = /(const\s+nextConfig\s*(?::\s*NextConfig\s*)?=\s*\{)/;
-  if (!re.test(s)) return;
-  const insert =
-    "\n  ...(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim()\n    ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() }\n    : {}),";
-  s = s.replace(re, `$1${insert}`);
-  fs.writeFileSync(cfgPath, s, "utf8");
+
+  const envSnippet = "(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() } : {})";
+
+  const constPattern = /(const\s+\w+\s*(?::\s*\w+\s*)?=\s*\{)/;
+  if (constPattern.test(s)) {
+    s = s.replace(constPattern, `$1\n  ...${envSnippet},`);
+    fs.writeFileSync(cfgPath, s, "utf8");
+    return;
+  }
+
+  const exportDefaultObj = /(export\s+default\s*\{)/;
+  if (exportDefaultObj.test(s)) {
+    s = s.replace(exportDefaultObj, `$1\n  ...${envSnippet},`);
+    fs.writeFileSync(cfgPath, s, "utf8");
+    return;
+  }
+
+  const moduleExports = /(module\.exports\s*=\s*\{)/;
+  if (moduleExports.test(s)) {
+    s = s.replace(moduleExports, `$1\n  ...${envSnippet},`);
+    fs.writeFileSync(cfgPath, s, "utf8");
+    return;
+  }
 }
 
 const BINARY_BASE64_PREFIX = "base64:";
