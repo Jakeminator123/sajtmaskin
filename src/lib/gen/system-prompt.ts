@@ -33,6 +33,7 @@ import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickStyleDirection } from "./data/style-directions";
+import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -213,16 +214,7 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
 }
 
 function buildShadcnToolkitSummary(): string[] {
-  return [
-    "  - Navigation: navigation-menu, sheet, menubar, breadcrumb, sidebar, tabs",
-    "  - Content density: accordion, collapsible, carousel, scroll-area",
-    "  - Rich reveals: hover-card, tooltip, popover, dialog, drawer, dropdown-menu",
-    "  - Data & app UI: table, pagination, chart, progress, skeleton, empty",
-    "  - Forms: form, field, input, input-group, textarea, select, native-select, checkbox, radio-group, switch, slider, calendar",
-    "  - Feedback: alert, badge, toast, sonner, spinner",
-    "  - Layout: card, aspect-ratio, separator, resizable, avatar, item, button-group",
-    "  - Also available: alert-dialog, command, context-menu, input-otp, toggle, toggle-group, label, kbd, direction",
-  ];
+  return buildRegistryDrivenShadcnToolkitSummary();
 }
 
 const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
@@ -543,7 +535,7 @@ export async function buildDynamicContext(
     "",
     "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
     "",
-    "- shadcn/ui (import from `@/components/ui/{name}`):",
+    "- shadcn/ui (registry-synced local layer; import from `@/components/ui/<subpath>`):",
     ...buildShadcnToolkitSummary(),
   ];
   if (capabilityLines.length > 0) {

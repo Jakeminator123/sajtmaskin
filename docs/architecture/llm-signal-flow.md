@@ -52,7 +52,7 @@ flowchart TD
 3. Server Auto-Brief är fallback när klienten inte skickar brief — körs för underspecificerade init-prompts (inklusive korta vaga website-prompts), hoppas över för audit, technical, follow-up och redan tydligt strukturerade prompts.
 4. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
 5. Route plan, contracts och BuildSpec byggs — dessa översätter briefens semantik till exekvering snarare än att uppfinna ny vision.
-6. Dynamic context byggs i `system-prompt.ts`.
+6. Dynamic context byggs i `system-prompt.ts`. `## Your Toolkit` byggs nu från den registry-synkade `SHADCN_COMPONENTS`-mappen men filtreras mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
 7. Generatorn kör.
 8. Finalize, post-checks, preview-start och quality gate sker efteråt.
 

@@ -7,6 +7,7 @@ Small shared lookup tables for generation and registry-related helpers. Parent: 
 | File | What it does |
 |------|-------------|
 | `shadcn-components.ts` | Component metadata for the shadcn/ui registry and related tooling. |
+| `shadcn-toolkit-summary.ts` | Builds the grouped, prompt-facing `## Your Toolkit` summary from the synced registry, filtered to locally present `@/components/ui/*` files. |
 | `lucide-icons.ts` | Icon name lookup data used by generation helpers and audits. |
 
 ## Notes

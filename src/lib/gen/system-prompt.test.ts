@@ -269,6 +269,24 @@ describe("buildDynamicContext", () => {
       );
     });
 
+    it("builds the toolkit block from the synced local shadcn registry surface", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "followUp",
+        buildSpec: {
+          ...lightFollowUpSpec,
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("Registry-synced local layer:");
+      expect(context).toContain("combobox");
+      expect(context).toContain("button-group");
+      expect(context).toContain("field");
+    });
+
     it("describes follow-up work as editing the current project state", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",

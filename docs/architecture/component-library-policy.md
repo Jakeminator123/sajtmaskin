@@ -18,6 +18,8 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 
 `@/components/ui/` imports are already whitelisted in `project-sanity.ts` and do not trigger unresolved-import errors.
 
+`## Your Toolkit` is the prompt-facing summary of that layer. It is built from the registry-synced `SHADCN_COMPONENTS` map, but filtered to subpaths that actually exist locally under `src/components/ui` / `components/ui`, so the model sees a grouped summary of the safe local runtime surface rather than a stale manual shortlist.
+
 ## Capability-gated dependencies
 
 `capability-inference.ts` detects prompt signals and sets boolean flags. These flags currently drive prompt hints via `buildCapabilityHints()`. The policy for each:

@@ -291,7 +291,7 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 ├── style direction (deterministisk variation: layout, rytm, motiv, fontpar, sektionsrecept)
 ├── capability hints
 ├── scaffold research priorities
-└── your toolkit (shadcn-importer + capability-hints)
+└── your toolkit (registry-synced local shadcn summary + capability-hints)
 ```
 
 Block prioriteras och prunas mot token-budget.

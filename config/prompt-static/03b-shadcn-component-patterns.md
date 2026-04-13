@@ -5,7 +5,7 @@ These are the correct usage patterns for interactive shadcn components. Use thes
 - **Calendar**: `<Calendar mode="single" selected={date} onSelect={setDate} />` wraps react-day-picker. Supports `mode="range"` for date spans. NEVER build a manual date grid — Calendar handles navigation, selection, and accessibility.
 - **DatePicker** (composition): Calendar + Popover + `format(date, "PPP")` from date-fns. Trigger with a Button inside PopoverTrigger.
 - **Command**: `<Command><CommandInput /><CommandList><CommandGroup><CommandItem>` wraps cmdk for searchable menus with fuzzy matching. Combine with Dialog for a cmd+k overlay.
-- **Combobox** (composition): Command + Popover. Not a standalone component — build it from Command inside a Popover.
+- **Combobox**: local `@/components/ui/combobox` primitives exist. Preferred pattern: `<Combobox><ComboboxInput ... /><ComboboxContent><ComboboxList><ComboboxItem ... /></ComboboxList></ComboboxContent></Combobox>`. Use the local combobox wrapper directly unless you intentionally need a lower-level custom composition.
 - **Drawer**: `<Drawer><DrawerTrigger><DrawerContent>` wraps vaul. Mobile-optimized bottom sheet. Use instead of Dialog on mobile touch surfaces.
 - **Carousel**: `<Carousel><CarouselContent><CarouselItem>` wraps embla-carousel-react. Add `embla-carousel-autoplay` to deps for auto-rotation.
 - **Chart**: `<ChartContainer config={chartConfig}><BarChart data={data}>` wraps Recharts. Always use `<ChartTooltip content={<ChartTooltipContent />} />` — not raw Recharts Tooltip.
