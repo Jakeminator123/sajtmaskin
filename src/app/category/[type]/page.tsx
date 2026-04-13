@@ -35,6 +35,7 @@ import {
 } from "@/lib/templates/template-data";
 import { createProject } from "@/lib/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
 import Image from "next/image";
 import { PreviewModal } from "@/components/templates/preview-modal";
 import { toast } from "sonner";
@@ -424,17 +425,17 @@ function V0TemplateCard({
 
     setIsCreating(true);
     try {
-      // Create project in database
+      const catalogItem = getTemplateCatalogItemById(template.id);
+      const resolvedIntent: BuildIntent = catalogItem?.buildIntent ?? buildIntent;
       const project = await createProject(
         `${template.title || template.id} - ${new Date().toLocaleDateString("sv-SE")}`,
         type,
         `Baserat på template: ${template.id}`,
       );
-      // Navigate to builder with templateId parameter
       const params = new URLSearchParams();
       params.set("project", project.id);
       params.set("templateId", template.id);
-      params.set("buildIntent", buildIntent);
+      params.set("buildIntent", resolvedIntent);
       params.set("buildMethod", "category");
       router.push(`/builder?${params.toString()}`);
     } catch (error) {

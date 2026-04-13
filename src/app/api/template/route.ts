@@ -145,6 +145,7 @@ async function initializeLocalTemplateProject(params: {
     appProjectId: projectId,
     versionIdForSession: version.id,
     skipRepair: true,
+    skipProjectScaffold: true,
   });
   if (!previewSessionStarted.ok) {
     throw new Error(

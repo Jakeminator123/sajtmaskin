@@ -262,7 +262,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Contract Plan** | `inferPreGenerationContracts()` → `PreGenerationContractContext` | `pre-generation-contracts.ts` | Auth, payment, database, env vars, integrations. `contracts`, `unresolvedDecisions`, `confirmedAnswers`. | kanonisk |
 | **Confirmed Contract Answers** | `collectConfirmedContractAnswers()` | `contract/answer-context.ts` | Återbygger bekräftade svar från chatten. | kanonisk |
 | **Build Policy** | `deriveBuildSpec()` → `BuildSpec` | `build-spec.ts` | Körpolicy: `changeScope`, `qualityTarget`, `previewPolicy`, `verificationPolicy`, `contextPolicy`, `referenceCategories`, `forbiddenPatterns`, `tokenBudgets`, `routeRealization`. | kanonisk |
-| **Route Realization** | `BuildSpec.routeRealization` | `build-spec.ts` | Litet policylager ovanpå Route Plan: skiljer planerade routes från vilka routes som ska realiseras fullt i just denna generation. Init kan vara `full` eller `primary-full-with-shells`. | kanonisk |
+| **Route Realization** | `BuildSpec.routeRealization` | `build-spec.ts` | Litet policylager ovanpå Route Plan: skiljer planerade routes från vilka routes som ska realiseras fullt i just denna generation. Init (och `isFirstCodeGeneration`) kan vara `full` eller `primary-full-with-shells`. Follow-up bevarar befintliga shells automatiskt via `existingShellRoutePaths` om inte användaren explicit ber om utbyggnad. Shell-detektion via `isShellPageContent()`. | kanonisk |
 | **Token Budgets** | `BuildSpecTokenBudgets` | `build-spec.ts` | `scaffoldTokens`, `scaffoldChars`, etc. | kanonisk |
 
 ### 2.10 System prompt och dynamic context
@@ -450,6 +450,8 @@ Tre distinkta lanes — inte samma gate:
 | ~~sandbox~~ (generell term) | Legacy-/compat-term. | **legacy** — använd VM / `preview_host` |
 | **Fidelity 2** | Normal tier-2 live-preview via VM. | kanonisk |
 | **Fidelity 3** | Striktare lane där `next build` ingår i quality gate. | kanonisk |
+| **`skipProjectScaffold`** | Preview-session-option som hoppar över `buildCompleteProject()` för repo-importer (v0-mallar). Projektet skickas rått till VM utan baseline-merge. | kanonisk |
+| **`BINARY_BASE64_PREFIX`** | `"base64:"`-prefix på filinnehåll i `filesJson`. Preview-host skriver dessa som binärt (Buffer) istället för UTF-8. Används av v0-import för bilder/fonts. | kanonisk |
 
 ---
 
@@ -548,6 +550,8 @@ Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra v
 | 2026-04-13 | Phase 1 consolidation (v9): Deep Brief kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte längre i `customInstructions`. `pendingBriefRef` rensas efter create-chat; follow-ups skickar inte `meta.brief`. Server Auto-Brief körs nu för korta underspecificerade website-prompts (`looksSimpleWebsitePrompt`-skip borttagen). Follow-up handler ignorerar klientbrief. |
 | 2026-04-13 | Phase 2/3 consolidation (v10): Dynamic Context: `Pages & Sections` emitteras bara vid sektionsdetalj; `Visual Identity` `styleKeywords`-rad borttagen (täcks av `Style Direction`). Klientflöde: `runPreviewQualityGate` → `runTier2VerifyLane`; heuristiska readiness-fält omdöpta (`readinessFailures`, `readinessPassed`, `verifyPending`) för att skilja från den riktiga verify-lanen; tre verify-lanes dokumenterade i `quality-gate-checks.ts`. |
 | 2026-04-13 | Phase 1 cleanup (v11): `formatPrompt()` körs bara som fallback när brief saknas — init skickar rå user-text. `skipAddendum` stoppar onödig addendum-beräkning i init. `mustHave`/`avoid` tillagda i `siteBriefSchema`/`simplifiedBriefSchema` så `buildDynamicContext` konsumenter inte är döda. `uiNotes` emitteras nu som `## UX & UI Notes` i dynamic context. |
+| 2026-04-13 | Route realization fix (v12): `isFirstCodeGeneration` propageras nu till `deriveBuildSpec`/`deriveRouteRealizationPolicy` så att första kodgenerering efter scaffold/contract-gate behandlas som effektiv init för defer. Follow-up bevarar shells via `existingShellRoutePaths` + `isShellPageContent()` multi-signal heuristik. `ensureDeferredRouteShells` utvidgad. |
+| 2026-04-13 | v0-repo-import (v12): `skipProjectScaffold` i `startPreviewSession()` — repo-importer (v0-mallar) skickas rakt till VM utan `buildCompleteProject()`-merge. Binary assets (bilder/fonts) importeras som base64 och skrivs binärt av preview-host. `buildIntent` härleds per template via `template-catalog.ts` istället för hårdkodat `"template"`. |
 
 ## När detta dokument uppdateras
 

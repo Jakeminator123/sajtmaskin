@@ -9,6 +9,12 @@ const DOWNLOADED_LOG_PATH = resolve(process.cwd(), "templates_v0/out/downloaded.
 const MAX_ARCHIVE_BYTES = 50 * 1024 * 1024;
 const MAX_IMPORTED_FILES = 600;
 const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
+const MAX_IMPORTED_BINARY_BYTES = 32 * 1024 * 1024;
+/**
+ * Prefix prepended to base64-encoded binary file content so that the preview-host
+ * can distinguish text from binary when writing to the workspace filesystem.
+ */
+export const BINARY_BASE64_PREFIX = "base64:";
 const BLOCKED_IMPORT_PREFIXES = [
   "node_modules/",
   ".git/",
@@ -219,34 +225,44 @@ async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> 
   const normalizedEntries = stripCommonArchiveRoot(rawEntries);
 
   const files: CodeFile[] = [];
-  let totalBytes = 0;
+  let totalTextBytes = 0;
+  let totalBinaryBytes = 0;
 
   for (let index = 0; index < rawEntries.length; index += 1) {
     const originalName = rawEntries[index];
     const strippedName = normalizedEntries[index];
     const safePath = normalizeImportedPath(strippedName);
     if (!safePath) continue;
-    if (!shouldTreatAsText(safePath)) continue;
 
-    const entry = zip.files[originalName];
-    const contentBuffer = Buffer.from(await entry.async("uint8array"));
-    if (looksBinary(contentBuffer)) continue;
-
-    totalBytes += contentBuffer.byteLength;
     if (files.length >= MAX_IMPORTED_FILES) {
       throw new Error(`Too many files in template import (${files.length} >= ${MAX_IMPORTED_FILES})`);
     }
-    if (totalBytes > MAX_IMPORTED_TEXT_BYTES) {
-      throw new Error(
-        `Template archive contains too much text content (${totalBytes} bytes > ${MAX_IMPORTED_TEXT_BYTES})`,
-      );
-    }
 
-    files.push({
-      path: safePath,
-      content: contentBuffer.toString("utf8"),
-      language: inferFileLanguage(safePath),
-    });
+    const isText = shouldTreatAsText(safePath);
+    const entry = zip.files[originalName];
+    const contentBuffer = Buffer.from(await entry.async("uint8array"));
+
+    if (isText && !looksBinary(contentBuffer)) {
+      totalTextBytes += contentBuffer.byteLength;
+      if (totalTextBytes > MAX_IMPORTED_TEXT_BYTES) {
+        throw new Error(
+          `Template archive contains too much text content (${totalTextBytes} bytes > ${MAX_IMPORTED_TEXT_BYTES})`,
+        );
+      }
+      files.push({
+        path: safePath,
+        content: contentBuffer.toString("utf8"),
+        language: inferFileLanguage(safePath),
+      });
+    } else {
+      totalBinaryBytes += contentBuffer.byteLength;
+      if (totalBinaryBytes > MAX_IMPORTED_BINARY_BYTES) continue;
+      files.push({
+        path: safePath,
+        content: BINARY_BASE64_PREFIX + contentBuffer.toString("base64"),
+        language: "binary",
+      });
+    }
   }
 
   return files;

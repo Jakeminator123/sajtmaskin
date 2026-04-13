@@ -216,6 +216,7 @@ describe("POST /api/template", () => {
         appProjectId: "proj_new",
         versionIdForSession: "ver_import",
         skipRepair: true,
+        skipProjectScaffold: true,
       }),
     );
     expect(chatRepoUpdateVersionPreviewUrl).toHaveBeenCalledWith(

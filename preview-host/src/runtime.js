@@ -330,6 +330,8 @@ function patchNextConfigForPreviewBasePath(workspaceDir) {
   fs.writeFileSync(cfgPath, s, "utf8");
 }
 
+const BINARY_BASE64_PREFIX = "base64:";
+
 function writeFilesIntoWorkspace(workspaceDir, filesJson) {
   ensureDir(workspaceDir);
   const priorManifest = readJsonIfExists(manifestPathForWorkspace(workspaceDir));
@@ -344,7 +346,11 @@ function writeFilesIntoWorkspace(workspaceDir, filesJson) {
   for (const [relPath, content] of Object.entries(filesJson)) {
     const absPath = path.join(workspaceDir, relPath);
     ensureDir(path.dirname(absPath));
-    fs.writeFileSync(absPath, content, "utf8");
+    if (typeof content === "string" && content.startsWith(BINARY_BASE64_PREFIX)) {
+      fs.writeFileSync(absPath, Buffer.from(content.slice(BINARY_BASE64_PREFIX.length), "base64"));
+    } else {
+      fs.writeFileSync(absPath, content, "utf8");
+    }
   }
   fs.writeFileSync(
     manifestPathForWorkspace(workspaceDir),
