@@ -249,6 +249,9 @@ Persisted errors for this version:
         needsEcommerce: false,
         needsCarousel: true,
         needsPremiumVisuals: false,
+        needsCalendar: false,
+        needsCommandSearch: false,
+        needsThemeToggle: false,
       },
     });
 

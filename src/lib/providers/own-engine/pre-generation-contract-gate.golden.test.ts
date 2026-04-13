@@ -91,6 +91,9 @@ const capabilities: InferredCapabilities = {
   needsEcommerce: false,
   needsCarousel: false,
   needsPremiumVisuals: false,
+  needsCalendar: false,
+  needsCommandSearch: false,
+  needsThemeToggle: false,
 };
 
 const buildSpec: BuildSpec = {

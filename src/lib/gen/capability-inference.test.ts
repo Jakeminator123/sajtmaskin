@@ -29,6 +29,38 @@ describe("inferCapabilities", () => {
     expect(caps.needsEcommerce).toBe(true);
     expect(caps.needsForms).toBe(true);
   });
+
+  it("detects calendar from Swedish 'almanacka' and implies needsForms", () => {
+    const caps = inferCapabilities("Jag vill ha en almanacka på sidan där man kan se datum");
+    expect(caps.needsCalendar).toBe(true);
+    expect(caps.needsForms).toBe(true);
+  });
+
+  it("detects calendar from 'boka tid' prompt", () => {
+    const caps = inferCapabilities("En sida där kunder kan boka tid för klippning");
+    expect(caps.needsCalendar).toBe(true);
+    expect(caps.needsForms).toBe(true);
+  });
+
+  it("detects theme toggle from 'dark mode' prompt", () => {
+    const caps = inferCapabilities("I want a dark mode toggle on the site");
+    expect(caps.needsThemeToggle).toBe(true);
+  });
+
+  it("detects theme toggle from Swedish 'mörkt tema'", () => {
+    const caps = inferCapabilities("Lägg till en knapp för att byta mellan ljust och mörkt tema");
+    expect(caps.needsThemeToggle).toBe(true);
+  });
+
+  it("detects command search from 'cmd+k' prompt", () => {
+    const caps = inferCapabilities("Add a cmd+k command palette for quick navigation");
+    expect(caps.needsCommandSearch).toBe(true);
+  });
+
+  it("detects command search from Swedish 'sökpalett'", () => {
+    const caps = inferCapabilities("Jag vill ha en sökpalett som öppnas med tangentbordsgenväg");
+    expect(caps.needsCommandSearch).toBe(true);
+  });
 });
 
 describe("buildCapabilityHints (pack-based)", () => {
@@ -64,5 +96,58 @@ describe("buildCapabilityHints (pack-based)", () => {
     const ecommerceCaps = inferCapabilities("An ecommerce storefront with a cart");
     expect(buildCapabilityHints(ecommerceCaps)).toContain("E-commerce");
   });
-});
 
+  it("calendar hint includes react-day-picker and Popover", () => {
+    const caps = inferCapabilities("En kalender för att välja datum");
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("react-day-picker");
+    expect(hints).toContain("Popover");
+    expect(hints).toContain("Calendar");
+  });
+
+  it("forms hint includes Calendar reference when needsCalendar is also true", () => {
+    const caps = inferCapabilities("Ett bokningsformulär med kalender för att välja datum");
+    expect(caps.needsCalendar).toBe(true);
+    expect(caps.needsForms).toBe(true);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("DatePicker pattern");
+  });
+
+  it("forms hint does NOT mention Calendar when needsCalendar is false", () => {
+    const caps = inferCapabilities("A contact form with name and email");
+    expect(caps.needsForms).toBe(true);
+    expect(caps.needsCalendar).toBe(false);
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).not.toContain("DatePicker");
+  });
+
+  it("command search hint includes cmdk and Dialog", () => {
+    const caps = inferCapabilities("Add a cmd+k command palette");
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("cmdk");
+    expect(hints).toContain("Dialog");
+  });
+
+  it("theme toggle hint includes next-themes and useTheme", () => {
+    const caps = inferCapabilities("Dark mode toggle on the site");
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("next-themes");
+    expect(hints).toContain("useTheme");
+  });
+
+  it("app shell hint includes dashboard component guidance", () => {
+    const caps = inferCapabilities("Build a dashboard with sidebar");
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("Chart");
+    expect(hints).toContain("Table");
+    expect(hints).toContain("Skeleton");
+  });
+
+  it("ecommerce hint includes Drawer and Dialog guidance", () => {
+    const caps = inferCapabilities("An ecommerce shop with product pages");
+    const hints = buildCapabilityHints(caps)!;
+    expect(hints).toContain("Drawer");
+    expect(hints).toContain("Dialog");
+    expect(hints).toContain("Carousel");
+  });
+});

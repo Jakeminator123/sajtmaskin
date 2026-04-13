@@ -14,6 +14,9 @@ const baseCaps = (over: Partial<InferredCapabilities> = {}): InferredCapabilitie
   needsEcommerce: false,
   needsCarousel: false,
   needsPremiumVisuals: false,
+  needsCalendar: false,
+  needsCommandSearch: false,
+  needsThemeToggle: false,
   ...over,
 });
 

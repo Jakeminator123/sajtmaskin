@@ -17,6 +17,9 @@ export interface InferredCapabilities {
   needsEcommerce: boolean;
   needsCarousel: boolean;
   needsPremiumVisuals: boolean;
+  needsCalendar: boolean;
+  needsCommandSearch: boolean;
+  needsThemeToggle: boolean;
 }
 
 interface CapabilityRule {
@@ -99,6 +102,24 @@ const RULES: CapabilityRule[] = [
       /\b(filmisk|filmiskt|cinematisk|cinematiskt|arkiv.?x|x-files|ufo|paranormal)\b/i,
     ],
   },
+  {
+    key: "needsCalendar",
+    patterns: [
+      /\b(calendar|kalender|almanacka|date.?picker|datumväl|boka tid|schedule|tidbok|event.?calendar|händelsekalender)\b/i,
+    ],
+  },
+  {
+    key: "needsCommandSearch",
+    patterns: [
+      /\b(command.?palette|cmd.?k|sökpalett|sökfält|quick.?search|spotlight|command.?menu|kommandopalett)\b/i,
+    ],
+  },
+  {
+    key: "needsThemeToggle",
+    patterns: [
+      /\b(dark.?mode|mörkt.?tema|theme.?switch|light.?mode|tema.?växl|toggle.?theme|ljust.*mörkt|mörkt.*ljust|theme.?toggle)\b/i,
+    ],
+  },
 ];
 
 export function inferCapabilities(prompt: string): InferredCapabilities {
@@ -114,6 +135,9 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
     needsEcommerce: false,
     needsCarousel: false,
     needsPremiumVisuals: false,
+    needsCalendar: false,
+    needsCommandSearch: false,
+    needsThemeToggle: false,
   };
 
   for (const rule of RULES) {
@@ -127,6 +151,7 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
 
   if (result.needs3D) result.needsMotion = true;
   if (result.needsPremiumVisuals) result.needsMotion = true;
+  if (result.needsCalendar) result.needsForms = true;
 
   if (result.needsEcommerce) {
     const hospitalityVeto =
@@ -153,7 +178,8 @@ export function hasHeavyCapabilities(caps: InferredCapabilities): boolean {
     caps.needsPremiumVisuals ||
     caps.needsAppShell ||
     caps.needsDataUI ||
-    caps.needsEcommerce
+    caps.needsEcommerce ||
+    caps.needsCommandSearch
   );
 }
 
@@ -189,9 +215,27 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
       "- **Premium visual effects requested**: Use glassmorphism, gradient text, backdrop-blur, layered shadows. Go beyond standard card layouts.",
     );
   }
-  if (caps.needsForms) {
+  if (caps.needsCalendar) {
     lines.push(
-      "- **Forms requested**: Use react-hook-form + zod + shadcn Form components. Always define a zod schema.",
+      "- **Calendar/date selection requested**: Use shadcn Calendar (wraps react-day-picker) with `mode=\"single\"` and `onSelect` for interactive date selection. For inline date pickers, combine Calendar + Popover + `format()` from date-fns. NEVER build a static calendar grid manually — the Calendar component handles all interaction, navigation, and accessibility. Add react-day-picker and date-fns to deps.",
+    );
+  }
+  if (caps.needsForms) {
+    const calendarAddendum = caps.needsCalendar
+      ? " For date inputs, use shadcn Calendar inside a Popover (DatePicker pattern) rather than a plain text input."
+      : "";
+    lines.push(
+      `- **Forms requested**: Use react-hook-form + zod + shadcn Form components. Always define a zod schema.${calendarAddendum}`,
+    );
+  }
+  if (caps.needsCommandSearch) {
+    lines.push(
+      "- **Search/command palette requested**: Use shadcn Command (wraps cmdk) for searchable command menus with fuzzy matching. Combine with Dialog for a cmd+k overlay. Add cmdk to deps.",
+    );
+  }
+  if (caps.needsThemeToggle) {
+    lines.push(
+      '- **Dark mode / theme toggle requested**: Use next-themes `ThemeProvider` in layout.tsx and a toggle button using `useTheme()`. Wrap the toggle component in `"use client"`. Add next-themes to deps.',
     );
   }
   if (caps.needsDatabase) {
@@ -206,7 +250,7 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
   }
   if (caps.needsAppShell) {
     lines.push(
-      "- **App shell requested**: Use a sidebar + top-bar layout with shadcn Sheet/Sidebar. Include settings, account, and navigation affordances.",
+      "- **App shell requested**: Use a sidebar + top-bar layout with shadcn Sheet/Sidebar. Include settings, account, and navigation affordances. Dashboards typically combine Chart, Table, Progress, and Skeleton for loading states.",
     );
   }
   if (caps.needsDataUI) {
@@ -216,7 +260,7 @@ export function buildCapabilityHints(caps: InferredCapabilities): string | null 
   }
   if (caps.needsEcommerce) {
     lines.push(
-      "- **E-commerce requested**: Include product grid, product detail, cart, and checkout flow. Use shadcn Card, Sheet, and form components.",
+      "- **E-commerce requested**: Include product grid, product detail, cart, and checkout flow. Use shadcn Card, Sheet, and form components. Use Drawer for mobile cart, Dialog for quick-buy, and Carousel for product image galleries.",
     );
   }
 
