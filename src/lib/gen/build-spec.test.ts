@@ -357,6 +357,47 @@ Persisted errors for this version:
     vi.resetModules();
   });
 
+  it("keeps small auth route clusters fully realized when they are needed for init", async () => {
+    const original = process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
+    vi.resetModules();
+    const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
+
+    const spec = deriveBuildSpecWithFlag({
+      prompt: "Build an app with login, signup and forgot password before the main dashboard.",
+      buildIntent: "app",
+      generationMode: "init",
+      resolvedScaffold: saasScaffold,
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "Auth + app entry flow",
+        routes: [
+          { path: "/", name: "Dashboard", intent: "Main app shell", required: true },
+          { path: "/login", name: "Login", intent: "Authentication entry", required: false },
+          { path: "/signup", name: "Signup", intent: "Account creation", required: false },
+          { path: "/forgot-password", name: "Forgot Password", intent: "Password reset", required: false },
+        ],
+      },
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.routeRealization).toEqual({
+      mode: "primary-full-with-shells",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/", "/login", "/signup", "/forgot-password"],
+      shellRoutePaths: [],
+    });
+
+    if (original === undefined) {
+      delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    } else {
+      process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+    }
+    vi.resetModules();
+  });
+
   it("maps tokenBudgets to contextPolicy levels (light, normal, heavy)", () => {
     const light = deriveBuildSpec({
       prompt: "Uppdatera bara rubriken, behåll layouten.",

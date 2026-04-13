@@ -232,6 +232,32 @@ function choosePrimaryRoutePath(params: {
   return routePaths[0] ?? "/";
 }
 
+const AUTH_ROUTE_PATHS = new Set([
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+]);
+
+function deriveRequiredCompanionRoutes(params: {
+  buildIntent: BuildIntent;
+  prompt: string;
+  primaryRoutePath: string;
+  allRoutePaths: string[];
+}): string[] {
+  const { buildIntent, prompt, primaryRoutePath, allRoutePaths } = params;
+  const authRoutes = allRoutePaths.filter((path) => AUTH_ROUTE_PATHS.has(path));
+  const authSignals =
+    buildIntent === "app" ||
+    /\b(auth|login|sign.?in|signup|register|forgot.?password|reset.?password|lösenord|inlogg)\b/i.test(
+      prompt,
+    ) ||
+    authRoutes.length >= 2;
+
+  if (!authSignals || authRoutes.length === 0) return [];
+  return authRoutes.filter((path) => path !== primaryRoutePath);
+}
+
 function deriveRouteRealizationPolicy(params: {
   generationMode: BuildSpecGenerationMode;
   buildIntent: BuildIntent;
@@ -255,11 +281,21 @@ function deriveRouteRealizationPolicy(params: {
     };
   }
 
+  const companionRoutePaths = deriveRequiredCompanionRoutes({
+    buildIntent,
+    prompt,
+    primaryRoutePath,
+    allRoutePaths,
+  });
+  const fullRoutePaths = Array.from(
+    new Set([primaryRoutePath, ...companionRoutePaths]),
+  );
+
   return {
     mode: "primary-full-with-shells",
     primaryRoutePath,
-    fullRoutePaths: [primaryRoutePath],
-    shellRoutePaths: allRoutePaths.filter((path) => path !== primaryRoutePath),
+    fullRoutePaths,
+    shellRoutePaths: allRoutePaths.filter((path) => !fullRoutePaths.includes(path)),
   };
 }
 
