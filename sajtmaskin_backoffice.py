@@ -599,9 +599,9 @@ elif page == "Orchestration Map":
         bs_text = build_spec_path.read_text(encoding="utf-8")
         for bs_type, bs_desc in [
             ("BuildSpecContextPolicy", "Tokenbudget-niv\u00e5 f\u00f6r scaffold"),
-            ("BuildSpecQualityTarget", "Quality gate-niv\u00e5"),
-            ("BuildSpecPreviewPolicy", "Preview-typ"),
-            ("BuildSpecVerificationPolicy", "Verifieringsniv\u00e5"),
+            ("BuildSpecQualityTarget", "Kvalitetsm\u00e5l (standard/premium/release-candidate)"),
+            ("BuildSpecPreviewPolicy", "Preview-policy: fidelity2 (typecheck) eller fidelity3 (build)"),
+            ("BuildSpecVerificationPolicy", "Verifieringsniv\u00e5: fast / standard / strict"),
         ]:
             bs_vals = extract_ts_union_values(bs_text, bs_type)
             if bs_vals:
@@ -617,38 +617,43 @@ elif page == "Orchestration Map":
     st.subheader("Fl\u00f6de: Prompt \u2192 Genererad kod")
     st.markdown("""
 ```
-ANVA\u0308NDARENS PROMPT
-  \u2502
-  \u251c\u2500 1. PromptOrchestration \u2192 PromptType + PromptStrategy
-  \u2502      (klassificerar, budgeterar, trimmar)
-  \u2502
-  \u251c\u2500 2. Deep Brief (valfri)
-  \u2502      (strukturerat objekt: sidor, visuell riktning, SEO)
-  \u2502
-  \u251c\u2500 3. Scaffold-val \u2192 ScaffoldId
-  \u2502      \u251c\u2500 ScaffoldMode: off / auto / manual
-  \u2502      \u251c\u2500 Keyword-matchning (synkron, 9 listor)
-  \u2502      \u251c\u2500 Embedding-matchning (parallell, cosine)
-  \u2502      \u2514\u2500 Merge-policy + safety guards
-  \u2502
-  \u251c\u2500 3b. Intent-koersning (manuellt app-scaffold \u2192 buildIntent=app)
-  \u2502      isAppScaffold() + resolveBuildIntentWithScaffold()
-  \u2502
-  \u251c\u2500 4. Capability-inferens (auth, ecommerce, forms, 3D, motion...)
-  \u2502
-  \u251c\u2500 5. Route Plan (brief > scaffold > prompt)
-  \u2502
-  \u251c\u2500 6. Pre-generation Contracts (auth, payment, db, env vars)
-  \u2502
-  \u251c\u2500 7. BuildSpec \u2192 ContextPolicy + QualityTarget + PreviewPolicy
-  \u2502
-  \u251c\u2500 8. Scaffold-serialisering \u2192 ScaffoldSerializeMode
-  \u2502      (inspirational vid init, structural vid follow-up/heavy)
-  \u2502
-  \u251c\u2500 9. Dynamic Context + System Prompt
-  \u2502      (scaffold + routes + contracts + brief + style direction)
-  \u2502
-  \u2514\u250010. LLM-generering \u2192 CodeFile[] \u2192 Autofix \u2192 Preview
+ANVÄNDARENS PROMPT
+  │
+  ├─ 1. PromptOrchestration → PromptType + PromptStrategy
+  │      (klassificerar, budgeterar, trimmar)
+  │
+  ├─ 2. Deep Brief (valfri)
+  │      (strukturerat objekt: sidor, visuell riktning, SEO)
+  │
+  ├─ 3. Scaffold-val → ScaffoldId
+  │      ├─ ScaffoldMode: off / auto / manual
+  │      ├─ Keyword + embedding-matchning
+  │      └─ Merge-policy + safety guards
+  │
+  ├─ 3b. Intent-koersning (app-scaffold → buildIntent=app)
+  │
+  ├─ 4. Capability-inferens (auth, ecommerce, forms, 3D, motion...)
+  │
+  ├─ 5. Route Plan (brief > scaffold > prompt)
+  │
+  ├─ 6. Pre-generation Contracts (preview-first defaults)
+  │
+  ├─ 7. BuildSpec → ContextPolicy + QualityTarget + PreviewPolicy
+  │
+  ├─ 8. Dynamic Context (rollbaserade block, token-prunade):
+  │      Project Context · Route Plan · Pages & Sections (vid sektionsdetalj)
+  │      Style Direction · Visual Identity · Contracts · Toolkit
+  │
+  ├─ 9. LLM-generering → CodeFile[]
+  │
+  └─10. Post-generation:
+        ├─ Mekanisk autofix → Syntax validate/fix → Finalize
+        ├─ Readiness-bedömning (heuristisk)
+        ├─ Tier-2 verify-lane (typecheck)
+        │    ├─ Env-signal (saknade nycklar → UI-hint)
+        │    ├─ Server repair (mekanisk → LLM)
+        │    └─ Autofix fallback
+        └─ Background server verify (typecheck + lint, asynkron)
 ```
 """)
 

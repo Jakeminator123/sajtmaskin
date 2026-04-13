@@ -139,7 +139,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Polish Model** | `POLISH_MODEL`, `DEFAULT_PROMPT_POLISH_MODEL` | `defaults.ts` | Modell för Skriv om-lanen. | kanonisk |
 | **Spec Model** | `SPEC_MODEL` | `defaults.ts` | Modell för spec-first. | kanonisk |
 | ~~LEGACY_ALIAS~~ | `LEGACY_ALIAS`, `LEGACY_MODEL_IDS` | `catalog.ts` | Gamla modell-id-strängar. | **legacy** |
-| ~~Gateway Assist Models~~ | `GATEWAY_ASSIST_MODELS` | `promptAssist.ts` | Assist-modeller från borttagen AI Gateway. | **legacy** |
+| **Assist Models** | `ASSIST_MODELS`, `normalizeAssistModel()` | `promptAssist.ts` | OpenAI-class assistmodeller ladade från manifest. `GATEWAY_ASSIST_MODELS` kvarstår som deprecated alias. | kanonisk |
 
 **Löst namnskugga — `PlanPhase "polish"` → `"refine"`:** Plan-artefaktens fas döptes om från `"polish"` till `"refine"` för att inte kollidera med builder-lanens Prompt Polish (`Skriv om`). Gamla lagrade artefakter med `"polish"` coercas automatiskt till `"refine"` i `normalizePlanArtifact()`.
 
@@ -174,8 +174,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Scaffold** | `ScaffoldManifest` | `scaffolds/types.ts` | Runtime-startpunkt: `id` (typat som `ScaffoldId`, inte `string`), `label`, `description`, `structureProfile?`, `contentProfile?`, `siteKind?`, `complexity?`, `features?`, `promptHints?`, `tags?`, `allowedBuildIntents`, `files`, `qualityChecklist?`, `research?`. Fältet `family` är borttaget — använd `id`. | kanonisk |
-| **Scaffold Family** | `ScaffoldFamily` (deprecated, use ScaffoldId) | `scaffolds/types.ts` | Collapsed into `ScaffoldId`. The `ScaffoldFamily` type is a deprecated alias for `ScaffoldId`. The `family` field was removed from `ScaffoldManifest` — use `id` instead. Tidigare: union av scaffold-id; primärnyckel i registry/matcher är nu `ScaffoldId` via `id`. | **legacy** |
+| **Scaffold** | `ScaffoldManifest` | `scaffolds/types.ts` | Runtime-startpunkt: `id` (typat som `ScaffoldId`, inte `string`), `label`, `description`, `structureProfile?`, `contentProfile?`, `siteKind?`, `complexity?`, `features?`, `promptHints?`, `tags?`, `allowedBuildIntents`, `files`, `qualityChecklist?`, `research?`. | kanonisk |
 | **Scaffold Selection** | `matchScaffoldAuto()` → `ScaffoldSelectionResult` | `scaffolds/matcher.ts` | Två lager: keyword+capability-boost → embedding challenge. | kanonisk |
 | **Scaffold Selection Meta** | `ScaffoldSelectionMeta` | `scaffolds/matcher.ts` | `selectionMethod` (`keyword`/`embedding`/`manual`/`persisted`/`default`/`off`), `selectionConfidence`, `keywordScores`, `embeddingTopResult`, `embeddingOverrideReason`, `briefContextApplied`, `topCandidates`, `embeddingAvailable/Failed`, `semanticUnavailableReason`. | kanonisk |
 | **Scaffold Query Context** | `ScaffoldQueryContext`, `buildScaffoldQueryContext()` | `matcher.ts`, `orchestrate.ts` | Brief-deriverat: `briefPages`, `styleKeywords`, `domainHints`. | kanonisk |
@@ -247,8 +246,6 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Curation** | `curate-scaffold-candidates.ts`, `scaffold-candidates-curated.json` | `scripts/scaffolds/` | Bedömning/scoring av scaffold-kandidater. | kanonisk |
 | **Scaffold Candidate Report** | `ScaffoldCandidateRecord`, `buildScaffoldCandidateReport()` | `scaffold-candidate-report.ts` | Prioriterad kandidatlista i tier-buckets. | kanonisk |
 | **Promote to Scaffold** | `promote-to-scaffold.ts` | `scripts/scaffolds/` | Dossier → `ScaffoldManifest` TS-fil. | kanonisk |
-| ~~Legacy Candidate~~ | `LegacyCandidate` (intern) | `curate-scaffold-candidates.ts` | Gammalt import-format. | **legacy** |
-| ~~Legacy Summary~~ | `normalizeLegacySummary()`, `"legacy-summary"` | `template-library-discovery.ts` | Gammalt intake-format. | **legacy** |
 
 ### 2.9 Policy-lager (capability, route plan, contracts, build spec)
 
