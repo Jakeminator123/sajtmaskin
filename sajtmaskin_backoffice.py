@@ -449,6 +449,28 @@ elif page == "Research & Dossiers":
     )
     st.divider()
 
+    # ── Domain rules (config/domain-rules.json) ─────────────────────
+    st.subheader("Domänregler (domain-inference)")
+    domain_rules_path = REPO_ROOT / "config" / "domain-rules.json"
+    domain_rules = read_json(domain_rules_path)
+    if domain_rules and isinstance(domain_rules, list):
+        st.caption(
+            f"{len(domain_rules)} domäner. Redigera `config/domain-rules.json` direkt — "
+            "runtime bygger regex från keywords_sv + keywords_en per domän."
+        )
+        dr_rows = []
+        for rule in domain_rules:
+            dr_rows.append({
+                "domain": rule.get("domain", ""),
+                "briefHint": rule.get("briefHint", ""),
+                "keywords_sv": ", ".join(rule.get("keywords_sv", [])),
+                "keywords_en": ", ".join(rule.get("keywords_en", [])),
+            })
+        st.dataframe(dr_rows, use_container_width=True)
+    else:
+        st.warning("Kunde inte läsa `config/domain-rules.json`.")
+    st.divider()
+
     catalog = read_json(CATALOG_JSON)
     template_lib = read_json(TEMPLATE_LIB_JSON)
 
