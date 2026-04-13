@@ -13,7 +13,7 @@ describe("mergePackageJsonWithBaseline", () => {
     const model = JSON.parse(
       JSON.stringify({
         dependencies: {
-          next: "^16.2.1",
+          next: "^16.2.3",
           react: "^19.2.0",
           "react-dom": "^19.2.0",
           "lucide-react": "^0.460.0",
@@ -31,7 +31,7 @@ describe("mergePackageJsonWithBaseline", () => {
     expect(merged.scripts.build).toBe("next build");
     expect(merged.devDependencies.typescript).toBeDefined();
     expect(merged.devDependencies.tailwindcss).toBeDefined();
-    expect(merged.dependencies.next).toBe("16.2.1");
+    expect(merged.dependencies.next).toBe("16.2.3");
     expect(merged.dependencies.react).toBe("19.2.4");
     expect(merged.dependencies["react-dom"]).toBe("19.2.4");
   });
@@ -155,12 +155,12 @@ describe("buildCompleteProject", () => {
       scripts: Record<string, string>;
     };
     expect(pkg.engines.node).toBe(">=22.14.0");
-    expect(pkg.dependencies.next).toBe("16.2.1");
+    expect(pkg.dependencies.next).toBe("16.2.3");
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
     expect(pkg.scripts.lint).toBe("eslint .");
     expect(pkg.devDependencies.eslint).toBe("9.39.2");
-    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.1");
+    expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.3");
   });
 
   it("merges a model tsconfig with baseline compiler essentials", () => {
@@ -231,7 +231,7 @@ describe("buildCompleteProject", () => {
     };
     expect(pkg.dependencies.react).toBe("19.2.4");
     expect(pkg.dependencies["react-dom"]).toBe("19.2.4");
-    expect(pkg.dependencies.next).toBe("16.2.1");
+    expect(pkg.dependencies.next).toBe("16.2.3");
     expect(pkg.dependencies["@react-three/fiber"]).toBe("9.1.2");
     expect(pkg.dependencies["@react-three/drei"]).toBe("10.7.7");
     expect(pkg.dependencies.three).toBe("0.176.0");
@@ -331,7 +331,7 @@ describe("runProjectSanityChecks peer heuristics", () => {
       {
         path: "package.json",
         content: JSON.stringify({
-          dependencies: { react: "19.2.4", next: "16.2.1" },
+          dependencies: { react: "19.2.4", next: "16.2.3" },
         }),
         language: "json",
       },
@@ -353,7 +353,7 @@ describe("runProjectSanityChecks peer heuristics", () => {
         content: JSON.stringify({
           dependencies: {
             react: "19.2.4",
-            next: "16.2.1",
+            next: "16.2.3",
             "canvas-confetti": "^1.9.3",
           },
         }),
@@ -405,7 +405,7 @@ describe("runProjectSanityChecks peer heuristics", () => {
       {
         path: "package.json",
         content: JSON.stringify({
-          dependencies: { react: "18.2.0", next: "16.2.1" },
+          dependencies: { react: "18.2.0", next: "16.2.3" },
         }),
         language: "json",
       },
