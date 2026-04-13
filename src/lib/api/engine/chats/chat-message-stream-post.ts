@@ -34,6 +34,7 @@ import {
   resolveOrchestrationBase,
   writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
+import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
@@ -48,6 +49,7 @@ import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { createCommitCreditsOnce } from "./credits-handler";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { isAppScaffold } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context/file-context-builder";
 import { resolveFollowUpPreviousFiles } from "@/lib/gen/version-manager";
 import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
@@ -139,7 +141,7 @@ export async function handleMessageStreamRequest(
         const resolvedThinking =
           typeof thinking === "boolean"
             ? thinking
-            : process.env.SAJTMASKIN_DEFAULT_THINKING === "true";
+            : getDefaultThinkingEnabled();
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
         const metaBuildMethod = parsedMeta.buildMethod;
@@ -153,7 +155,10 @@ export async function handleMessageStreamRequest(
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
         const metaThemeColors = parsedMeta.themeColors;
-        const metaBrief = parsedMeta.brief;
+        // Follow-ups should not carry the init brief — the server relies on
+        // persisted scaffold, orchestration snapshot, and previous files instead.
+        // Ignore any stale client brief on this path.
+        const metaBrief: Record<string, unknown> | null = null;
         const metaDesignThemePreset = parsedMeta.designThemePreset;
         const metaPalette = parsedMeta.palette;
         const metaPromptAssistModel = parsedMeta.promptAssistModel;
@@ -410,12 +415,15 @@ export async function handleMessageStreamRequest(
         if (metaPlanMode) {
           await chatRepo.addMessage(engineChat.id, "user", message);
 
-          const planEngineIntent: BuildIntent =
+          let planEngineIntent: BuildIntent =
             metaBuildIntent === "template" ||
             metaBuildIntent === "website" ||
             metaBuildIntent === "app"
               ? (metaBuildIntent as BuildIntent)
               : "website";
+          if (planEngineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+            planEngineIntent = "app";
+          }
           const planOrchestrationStartedAt = Date.now();
           const planOrchestration = await prepareGenerationContext({
             prompt: optimizedMessage,
@@ -432,6 +440,7 @@ export async function handleMessageStreamRequest(
             designReferences,
             persistedScaffoldId,
             generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
+            isFirstCodeGeneration: previousFiles.length === 0 && Boolean(persistedScaffoldId),
             ignorePersistedScaffoldForMatch,
             promptStrategyMeta: promptOrchestration.strategyMeta,
             existingRoutePaths,
@@ -530,12 +539,15 @@ export async function handleMessageStreamRequest(
 
         const promptForLlm = optimizedMessage;
 
-        const engineIntent: BuildIntent =
+        let engineIntent: BuildIntent =
           metaBuildIntent === "template" ||
           metaBuildIntent === "website" ||
           metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+          engineIntent = "app";
+        }
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
         const orchestrationInput = {
           prompt: optimizedMessage,
@@ -555,6 +567,7 @@ export async function handleMessageStreamRequest(
           customInstructions: trimmedSystem || undefined,
           promptStrategyMeta: promptOrchestration.strategyMeta,
           generationMode: previousFiles.length > 0 ? ("followUp" as const) : undefined,
+          isFirstCodeGeneration: previousFiles.length === 0 && Boolean(persistedScaffoldId),
           ignorePersistedScaffoldForMatch,
           existingRoutePaths,
           capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,

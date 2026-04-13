@@ -3,9 +3,13 @@
  * scaffold selection. Only scaffolds listed in ALL_SCAFFOLDS are used
  * by matchScaffoldAuto() during code generation.
  *
- * External Vercel template research (e.g. data/external-template-pipeline/,
- * _template_refs/) is reference material for new internal scaffolds.
- * They are NOT used at runtime and have no connection to this registry.
+ * External Vercel template research reaches runtime indirectly:
+ * - scaffold-research.generated.json merges qualityChecklist, upgradeTargets,
+ *   and referenceTemplates into each manifest at load time (below).
+ * - When SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE is enabled, the orchestration
+ *   layer reads referenceTemplates → template-library catalog → runtimeGuidance
+ *   and injects compact guidance into the system prompt (init only).
+ * Raw dossiers under data/external-template-pipeline/ are NOT read at runtime.
  */
 import type { ScaffoldManifest, ScaffoldId } from "./types";
 import { baseNextjsManifest } from "./base-nextjs/manifest";

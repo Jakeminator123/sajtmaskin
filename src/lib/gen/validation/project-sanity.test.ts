@@ -15,7 +15,7 @@ describe("runProjectSanityChecks", () => {
           name: "test-project",
           private: true,
           dependencies: {
-            next: "16.2.1",
+            next: "16.2.3",
             react: "19.2.4",
             "react-dom": "19.2.4",
           },
@@ -59,7 +59,7 @@ import { Button } from "@/components/ui/button"
         content: JSON.stringify({
           name: "test-project",
           private: true,
-          dependencies: { next: "16.2.1", react: "19.2.4", "react-dom": "19.2.4" },
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
         }),
       },
       {
@@ -88,7 +88,7 @@ import { Button } from "@/components/ui/button"
         content: JSON.stringify({
           name: "test-project",
           private: true,
-          dependencies: { next: "16.2.1", react: "19.2.4", "react-dom": "19.2.4" },
+          dependencies: { next: "16.2.3", react: "19.2.4", "react-dom": "19.2.4" },
         }),
       },
       {

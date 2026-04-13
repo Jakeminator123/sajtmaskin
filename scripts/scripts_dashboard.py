@@ -351,7 +351,7 @@ class ScriptsDashboard:
             "",
             "Scaffolds = src/lib/gen/scaffolds/*",
             "Detta är interna startpunkter som own-engine använder vid codegen.",
-            "Scaffold family = scaffoldens runtime-bucket i registret.",
+            "Scaffold id = scaffoldens kanoniska runtime-nyckel i registret.",
             "Exempel: auth-pages/manifest.ts -> registry.ts -> matcher -> system prompt -> own-engine.",
             "",
             "Template-library = src/lib/gen/template-library/*",

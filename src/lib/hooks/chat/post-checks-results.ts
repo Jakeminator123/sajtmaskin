@@ -47,9 +47,9 @@ export type { QualityTier };
 export interface PostCheckArtifacts {
   finalDemoUrl: string | null;
   previewBlockingReason: string | null;
-  qualityGateFailures: string[];
-  qualityGatePassed: boolean;
-  qualityGatePending: boolean;
+  readinessFailures: string[];
+  readinessPassed: boolean;
+  verifyPending: boolean;
   autoFixQueued: boolean;
   provisionalVersion: boolean;
   autoFixReasons: string[];
@@ -64,6 +64,7 @@ export interface PostCheckArtifacts {
       removed: number;
       warnings: number;
       provisional: boolean;
+      /** @deprecated Renamed to verifyPending — kept for backward-compatible JSON. */
       qualityGatePending: boolean;
       autoFixQueued: boolean;
       qualityTier: QualityTier;
@@ -410,37 +411,37 @@ export function buildPostCheckArtifacts(params: {
   const changedFilesCount = changes
     ? changes.added.length + changes.modified.length + changes.removed.length
     : 1;
-  const qualityGateFailures: string[] = [];
+  const readinessFailures: string[] = [];
   if (changedFilesCount === 0) {
-    qualityGateFailures.push("no_file_changes");
+    readinessFailures.push("no_file_changes");
   }
   if (!finalDemoUrl && !previewPendingInVm) {
-    qualityGateFailures.push(getPreviewUnavailableQualityGateFailure(preflight));
+    readinessFailures.push(getPreviewUnavailableQualityGateFailure(preflight));
   }
   if (streamQuality?.hasCriticalAnomaly) {
-    qualityGateFailures.push(`stream_anomaly:${streamQuality.reasons.join(",")}`);
+    readinessFailures.push(`stream_anomaly:${streamQuality.reasons.join(",")}`);
   }
   if (lucideLinkMisuse.length > 0) {
-    qualityGateFailures.push("invalid_link_import");
+    readinessFailures.push("invalid_link_import");
   }
   if (sanityErrors.length > 0) {
-    qualityGateFailures.push("project_sanity_errors");
+    readinessFailures.push("project_sanity_errors");
   }
   if (preflight?.previewStart?.hasCriticalInstallRisk) {
-    qualityGateFailures.push("dependency_install_failure");
+    readinessFailures.push("dependency_install_failure");
   }
   if (preflight?.previewStart?.requiresEnvConfig) {
-    qualityGateFailures.push("env_config_missing");
+    readinessFailures.push("env_config_missing");
   }
   if (
     missingPlannedRoutes.length > 0 &&
     getRoutePlanPrimarySource(preflight?.routePlan) === "brief" &&
     !finalDemoUrl
   ) {
-    qualityGateFailures.push("planned_routes_missing");
+    readinessFailures.push("planned_routes_missing");
   }
 
-  const qualityGatePassed = qualityGateFailures.length === 0;
+  const readinessPassed = readinessFailures.length === 0;
 
   const criticalReasons: string[] = [];
   if (!finalDemoUrl && !previewPendingInVm && !preflight?.previewStart?.requiresEnvConfig) {
@@ -487,17 +488,17 @@ export function buildPostCheckArtifacts(params: {
 
   const autoFixReasons = criticalReasons;
   const autoFixQueued = criticalReasons.length > 0;
-  const qualityGatePending = !autoFixQueued;
-  const provisionalVersion = !qualityGatePassed || qualityGatePending || autoFixQueued;
+  const verifyPending = !autoFixQueued;
+  const provisionalVersion = !readinessPassed || verifyPending || autoFixQueued;
 
   const qualityTier: QualityTier =
     (!finalDemoUrl && !previewPendingInVm) || criticalReasons.length > 0
       ? "none"
-      : qualityGatePassed && warningReasons.length === 0
+      : readinessPassed && warningReasons.length === 0
         ? "tier2"
         : "preview";
 
-  const preflightOnlyFailures = qualityGateFailures.filter((failure) =>
+  const preflightOnlyFailures = readinessFailures.filter((failure) =>
     failure === "preflight_preview_blocked" ||
     failure === "missing_preview_url" ||
     failure === "preview_waiting_for_vm" ||
@@ -505,11 +506,11 @@ export function buildPostCheckArtifacts(params: {
     failure === "env_config_missing",
   );
   steps.push(
-    qualityGatePassed
-      ? "Quality gate: PASS (changes + preview + stream quality)."
-      : autoFixQueued && preflightOnlyFailures.length === qualityGateFailures.length
-        ? `Preflight blocker: ${qualityGateFailures.join(" | ")}. Quality gate kördes inte ännu.`
-        : `Quality gate: FAIL (${qualityGateFailures.join(" | ")}).`,
+    readinessPassed
+      ? "Readiness: PASS (changes + preview + stream quality)."
+      : autoFixQueued && preflightOnlyFailures.length === readinessFailures.length
+        ? `Preflight blocker: ${readinessFailures.join(" | ")}. Verify-lane körs efter fix.`
+        : `Readiness: FAIL (${readinessFailures.join(" | ")}).`,
   );
 
   const regressionMatrix = [
@@ -547,7 +548,7 @@ export function buildPostCheckArtifacts(params: {
       removed: changes?.removed.length ?? 0,
       warnings: warnings.length,
       provisional: provisionalVersion,
-      qualityGatePending,
+      qualityGatePending: verifyPending,
       autoFixQueued,
       qualityTier,
     },
@@ -563,11 +564,11 @@ export function buildPostCheckArtifacts(params: {
     previousVersionId,
     demoUrl: finalDemoUrl,
     provisional: provisionalVersion,
-    qualityGatePending,
+    qualityGatePending: verifyPending,
     autoFixQueued,
     qualityGate: {
-      passed: qualityGatePassed,
-      failures: qualityGateFailures,
+      passed: readinessPassed,
+      failures: readinessFailures,
     },
     analyticsReview,
     analyticsSummary: summarizeAnalyticsSignals(analyticsReview),
@@ -691,21 +692,21 @@ export function buildPostCheckArtifacts(params: {
       meta: { warnings: imageValidation.warnings },
     });
   }
-  if (!qualityGatePassed) {
+  if (!readinessPassed) {
     logItems.push({
       level: "error",
       category: "quality-gate",
-      message: "Quality gate failed after generation.",
-      meta: { failures: qualityGateFailures },
+      message: "Readiness check failed after generation.",
+      meta: { failures: readinessFailures },
     });
   }
 
   return {
     finalDemoUrl,
     previewBlockingReason,
-    qualityGateFailures,
-    qualityGatePassed,
-    qualityGatePending,
+    readinessFailures,
+    readinessPassed,
+    verifyPending,
     autoFixQueued,
     provisionalVersion,
     autoFixReasons,

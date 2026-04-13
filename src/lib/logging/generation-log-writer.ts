@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeErrorPattern } from "@/lib/gen/autofix/types";
 
 type GenerationLogTarget = "in-progress" | "latest";
 
@@ -12,19 +13,60 @@ type StoredGenerationEntry = {
 };
 
 const ROOT_DIR = path.join(process.cwd(), "logs", "generationslogg");
+const SITE_OBSERVABILITY_DIR = path.join(process.cwd(), "logs", "site-observability");
 const LEGACY_INDEX_DIR = path.join(process.cwd(), "logs", "llm-segmentts-and-index");
 const TIMELINE_FILE = "timeline.ndjson";
 const SUMMARY_FILE = "summary.md";
 const META_FILE = "meta.json";
+const OBSERVABILITY_FILE = "observability.json";
+const FIX_PATTERNS_FILE = "fix-patterns.json";
 const LATEST_FILE = "_latest.txt";
 const FAULT_FIX_CSV_FILE = "fault-fix-index.csv";
 const GLOBAL_ERROR_LOG_CSV_FILE = "error-log.csv";
+const SITE_HISTORY_FILE = "history.ndjson";
+const SITE_LATEST_DIR = "latest";
 const FALSE_VALUES = new Set(["0", "false", "off", "no"]);
 const MAX_RUN_DIRS = 3;
 const MAX_TIMELINE_ENTRIES_PER_RUN = 1_000;
 const MAX_SUMMARY_TIMELINE_ROWS = 180;
+const MAX_SITE_HISTORY_RUNS = 50;
 const runDirBySlug = new Map<string, string>();
 const runDirByChatId = new Map<string, string>();
+
+type RunFixPattern = {
+  pattern: string;
+  occurrences: number;
+  sources: Record<string, number>;
+  files: Array<{ file: string; count: number }>;
+  latestTs: string | null;
+  example: string | null;
+};
+
+type RunObservabilitySnapshot = {
+  runId: string;
+  chatId: string;
+  versionId: string | null;
+  status: string;
+  startedAt: string | null;
+  updatedAt: string | null;
+  generationKind: string | null;
+  modelId: string | null;
+  buildIntent: string | null;
+  buildMethod: string | null;
+  promptStrategy: string | null;
+  promptType: string | null;
+  preflight: Record<string, unknown> | null;
+  verifier: Record<string, unknown> | null;
+  serverVerify: Record<string, unknown> | null;
+  highlights: string[];
+  faultFixSummary: {
+    total: number;
+    unresolved: number;
+    bySeverity: Record<string, number>;
+  };
+  appliedFixers: Array<{ fixer: string; count: number }>;
+  recurringPatterns: RunFixPattern[];
+};
 
 function normalizeFlag(value: string | undefined): string {
   return String(value || "").trim().toLowerCase();
@@ -101,6 +143,12 @@ function ensureRootDir(): void {
 function ensureLegacyIndexDir(): void {
   if (!fs.existsSync(LEGACY_INDEX_DIR)) {
     fs.mkdirSync(LEGACY_INDEX_DIR, { recursive: true });
+  }
+}
+
+function ensureSiteObservabilityDir(): void {
+  if (!fs.existsSync(SITE_OBSERVABILITY_DIR)) {
+    fs.mkdirSync(SITE_OBSERVABILITY_DIR, { recursive: true });
   }
 }
 
@@ -241,6 +289,8 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
   const done = findLatestByType(entries, ["site.done", "site.message.done"]);
   const preflight = findLatestByType(entries, ["preflight.summary"]);
   const streamSummary = findLatestByType(entries, ["stream.summary"]);
+  const verifier = findLatestByType(entries, ["verifier-pass"]);
+  const serverVerifyPolicy = findLatestByType(entries, ["server-verify.policy"]);
   const partialOutput = findLatestByType(entries, ["site.partial_file_output"]);
   const emptyGen = findLatestByType(entries, ["site.empty_generation"]);
   const persistBlocker = partialOutput ?? emptyGen;
@@ -289,6 +339,20 @@ function buildMeta(entries: StoredGenerationEntry[]): Record<string, unknown> {
           warningCount: readNumber(preflight.data.warningCount),
           previewBlocked: readBoolean(preflight.data.previewBlocked),
           verificationBlocked: readBoolean(preflight.data.verificationBlocked),
+        }
+      : null,
+    verifier: verifier
+      ? {
+          blocking: readNumber(verifier.data.blocking),
+          quality: readNumber(verifier.data.quality),
+        }
+      : null,
+    serverVerify: serverVerifyPolicy
+      ? {
+          run: readBoolean(serverVerifyPolicy.data.run),
+          reason: readString(serverVerifyPolicy.data.reason),
+          verificationPolicy: readString(serverVerifyPolicy.data.verificationPolicy),
+          qualityTarget: readString(serverVerifyPolicy.data.qualityTarget),
         }
       : null,
   };
@@ -989,6 +1053,31 @@ function buildHighlights(entries: StoredGenerationEntry[]): string[] {
     ) {
       const message = readString(entry.data.message) || readString(entry.data.reason) || type;
       lines.push(`- ${entry.ts.slice(11, 19)} \`${type}\`: ${message}`);
+      continue;
+    }
+    if (type === "syntax-validation.early-stop") {
+      const reason = readString(entry.data.reason) || "unknown";
+      lines.push(`- ${entry.ts.slice(11, 19)} \`${type}\`: stopped early (${reason})`);
+      continue;
+    }
+    if (type === "verifier-pass") {
+      const blocking = readNumber(entry.data.blocking) ?? 0;
+      const quality = readNumber(entry.data.quality) ?? 0;
+      if (blocking > 0 || quality > 0) {
+        lines.push(
+          `- ${entry.ts.slice(11, 19)} \`verifier-pass\`: blocking=${blocking}, quality=${quality}`,
+        );
+      }
+      continue;
+    }
+    if (type === "server-verify.policy") {
+      const run = readBoolean(entry.data.run);
+      const reason = readString(entry.data.reason) || "unknown";
+      if (run === false) {
+        lines.push(
+          `- ${entry.ts.slice(11, 19)} \`server-verify.policy\`: background verify skipped (${reason})`,
+        );
+      }
     }
   }
   return [...new Set(lines)].slice(-12);
@@ -1014,10 +1103,196 @@ function trimRunEntries(entries: StoredGenerationEntry[]): StoredGenerationEntry
   return entries.slice(-MAX_TIMELINE_ENTRIES_PER_RUN);
 }
 
+function extractEntryFileHints(entry: StoredGenerationEntry): string[] {
+  const files: string[] = [];
+  const data = entry.data;
+  if (Array.isArray(data.errors)) {
+    for (const error of data.errors) {
+      if (error && typeof error === "object" && typeof (error as { file?: unknown }).file === "string") {
+        files.push(((error as { file: string }).file).trim());
+      }
+    }
+  }
+  if (Array.isArray(data.residualErrors)) {
+    for (const error of data.residualErrors) {
+      if (error && typeof error === "object" && typeof (error as { file?: unknown }).file === "string") {
+        files.push(((error as { file: string }).file).trim());
+      }
+    }
+  }
+  const candidates = [
+    readString(data.file),
+    readString(data.currentScaffoldId),
+  ].filter((value): value is string => Boolean(value));
+  files.push(...candidates);
+  return files.filter(Boolean);
+}
+
+function buildRunFixPatterns(entries: StoredGenerationEntry[]): RunFixPattern[] {
+  const buckets = new Map<string, {
+    count: number;
+    sources: Record<string, number>;
+    fileCounts: Record<string, number>;
+    latestTs: string | null;
+    example: string | null;
+  }>();
+
+  for (const entry of entries) {
+    const type = readString(entry.data.type) || "unknown";
+    const fileHints = extractEntryFileHints(entry);
+
+    const candidates: string[] = [];
+    if (Array.isArray(entry.data.errors)) {
+      for (const error of entry.data.errors) {
+        if (typeof error === "string") {
+          candidates.push(error);
+        } else if (error && typeof error === "object" && typeof (error as { message?: unknown }).message === "string") {
+          candidates.push((error as { message: string }).message);
+        }
+      }
+    }
+    if (Array.isArray(entry.data.residualErrors)) {
+      for (const error of entry.data.residualErrors) {
+        if (error && typeof error === "object" && typeof (error as { message?: unknown }).message === "string") {
+          candidates.push((error as { message: string }).message);
+        }
+      }
+    }
+    const directReason = readString(entry.data.reason);
+    const directMessage = readString(entry.data.message);
+    if (type === "syntax-validation.early-stop" && directReason) candidates.push(directReason);
+    if (type.includes("error") && directMessage) candidates.push(directMessage);
+
+    for (const candidate of candidates) {
+      const pattern = normalizeErrorPattern(candidate);
+      const bucket = buckets.get(pattern) ?? {
+        count: 0,
+        sources: {},
+        fileCounts: {},
+        latestTs: null,
+        example: null,
+      };
+      bucket.count += 1;
+      bucket.sources[type] = (bucket.sources[type] ?? 0) + 1;
+      for (const file of fileHints) {
+        bucket.fileCounts[file] = (bucket.fileCounts[file] ?? 0) + 1;
+      }
+      bucket.latestTs = entry.ts;
+      if (!bucket.example) bucket.example = candidate;
+      buckets.set(pattern, bucket);
+    }
+  }
+
+  return [...buckets.entries()]
+    .map(([pattern, bucket]) => ({
+      pattern,
+      occurrences: bucket.count,
+      sources: bucket.sources,
+      files: Object.entries(bucket.fileCounts)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 5)
+        .map(([file, count]) => ({ file, count })),
+      latestTs: bucket.latestTs,
+      example: bucket.example,
+    }))
+    .sort((a, b) => b.occurrences - a.occurrences || a.pattern.localeCompare(b.pattern))
+    .slice(0, 20);
+}
+
+function buildRunObservabilitySnapshot(runId: string, entries: StoredGenerationEntry[]): RunObservabilitySnapshot {
+  const meta = buildMeta(entries);
+  const highlights = buildHighlights(entries);
+  const faultFixRows = collectFaultFixRows(entries);
+  const bySeverity: Record<string, number> = {};
+  const fixerCounts: Record<string, number> = {};
+  let unresolved = 0;
+  for (const row of faultFixRows) {
+    bySeverity[row.severity] = (bySeverity[row.severity] ?? 0) + 1;
+    if (row.resolved !== "true") unresolved += 1;
+    if (row.fixer && row.fixer !== "-") {
+      fixerCounts[row.fixer] = (fixerCounts[row.fixer] ?? 0) + 1;
+    }
+  }
+
+  return {
+    runId,
+    chatId: readString(meta.chatId) || "-",
+    versionId: readString(meta.versionId),
+    status: readString(meta.status) || "unknown",
+    startedAt: readString(meta.startedAt),
+    updatedAt: readString(meta.updatedAt),
+    generationKind: readString(meta.generationKind),
+    modelId: readString(meta.modelId),
+    buildIntent: readString(meta.buildIntent),
+    buildMethod: readString(meta.buildMethod),
+    promptStrategy: readString(meta.promptStrategy),
+    promptType: readString(meta.promptType),
+    preflight: (meta.preflight as Record<string, unknown> | null) ?? null,
+    verifier: (meta.verifier as Record<string, unknown> | null) ?? null,
+    serverVerify: (meta.serverVerify as Record<string, unknown> | null) ?? null,
+    highlights,
+    faultFixSummary: {
+      total: faultFixRows.length,
+      unresolved,
+      bySeverity,
+    },
+    appliedFixers: Object.entries(fixerCounts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 15)
+      .map(([fixer, count]) => ({ fixer, count })),
+    recurringPatterns: buildRunFixPatterns(entries),
+  };
+}
+
+function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnapshot): void {
+  const chatId = snapshot.chatId.trim();
+  if (!chatId || chatId === "-") return;
+  ensureSiteObservabilityDir();
+  const siteDir = path.join(SITE_OBSERVABILITY_DIR, chatId);
+  const latestDir = path.join(siteDir, SITE_LATEST_DIR);
+  fs.mkdirSync(latestDir, { recursive: true });
+
+  const historyPath = path.join(siteDir, SITE_HISTORY_FILE);
+  const existing = fs.existsSync(historyPath)
+    ? fs.readFileSync(historyPath, "utf8").split(/\r?\n/).filter(Boolean)
+    : [];
+  const nextRecord = JSON.stringify({
+    runId: snapshot.runId,
+    versionId: snapshot.versionId,
+    status: snapshot.status,
+    updatedAt: snapshot.updatedAt,
+    highlights: snapshot.highlights,
+    faultFixSummary: snapshot.faultFixSummary,
+    recurringPatterns: snapshot.recurringPatterns.slice(0, 10),
+  });
+  const deduped = [...existing.filter((line) => !line.includes(`"runId":"${snapshot.runId}"`)), nextRecord]
+    .slice(-MAX_SITE_HISTORY_RUNS);
+  fs.writeFileSync(historyPath, deduped.join("\n") + "\n", "utf8");
+
+  fs.copyFileSync(path.join(runDir, SUMMARY_FILE), path.join(latestDir, SUMMARY_FILE));
+  fs.writeFileSync(
+    path.join(latestDir, OBSERVABILITY_FILE),
+    JSON.stringify(snapshot, null, 2) + "\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(latestDir, FIX_PATTERNS_FILE),
+    JSON.stringify(snapshot.recurringPatterns, null, 2) + "\n",
+    "utf8",
+  );
+}
+
 function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
   const meta = buildMeta(entries);
   const highlights = buildHighlights(entries);
   const timeline = buildTimeline(entries);
+  const verifier = meta.verifier as { blocking?: number; quality?: number } | null;
+  const serverVerify = meta.serverVerify as {
+    run?: boolean;
+    reason?: string | null;
+    verificationPolicy?: string | null;
+    qualityTarget?: string | null;
+  } | null;
 
   return [
     "# Generationslogg",
@@ -1058,6 +1333,21 @@ function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
     `- Preflight warnings: ${String((meta.preflight as { warningCount?: number } | null)?.warningCount ?? "-")}`,
     `- Preview blocked: ${String((meta.preflight as { previewBlocked?: boolean } | null)?.previewBlocked ?? "-")}`,
     `- Verification blocked: ${String((meta.preflight as { verificationBlocked?: boolean } | null)?.verificationBlocked ?? "-")}`,
+    "",
+    "## Verify / Quality Gate",
+    "",
+    `- Verifier blockers: ${String(verifier?.blocking ?? "-")}`,
+    `- Verifier quality findings: ${String(verifier?.quality ?? "-")}`,
+    `- Background verify: ${
+      typeof serverVerify?.run === "boolean"
+        ? serverVerify.run
+          ? "scheduled"
+          : "skipped"
+        : "-"
+    }`,
+    `- Background verify reason: ${serverVerify?.reason ?? "-"}`,
+    `- Verification policy: ${serverVerify?.verificationPolicy ?? "-"}`,
+    `- Quality target: ${serverVerify?.qualityTarget ?? "-"}`,
     "",
     "## Fel / Signaler",
     "",
@@ -1157,12 +1447,22 @@ export function writeGenerationLogEntry(params: {
     appendNdjsonLine(timelinePath, entry);
     const entries = trimRunEntries(readRunEntries(runDir));
     const faultFixRows = collectFaultFixRows(entries);
+    const runId = path.basename(runDir);
+    const runSnapshot = buildRunObservabilitySnapshot(runId, entries);
+    const summaryMarkdown = buildSummary(runDir, entries);
     writeNdjson(timelinePath, entries);
     fs.writeFileSync(path.join(runDir, META_FILE), JSON.stringify(buildMeta(entries), null, 2) + "\n", "utf8");
-    fs.writeFileSync(path.join(runDir, SUMMARY_FILE), buildSummary(runDir, entries), "utf8");
+    fs.writeFileSync(path.join(runDir, SUMMARY_FILE), summaryMarkdown, "utf8");
+    fs.writeFileSync(path.join(runDir, OBSERVABILITY_FILE), JSON.stringify(runSnapshot, null, 2) + "\n", "utf8");
+    fs.writeFileSync(
+      path.join(runDir, FIX_PATTERNS_FILE),
+      JSON.stringify(runSnapshot.recurringPatterns, null, 2) + "\n",
+      "utf8",
+    );
     fs.writeFileSync(path.join(runDir, FAULT_FIX_FILE), buildFaultFixIndex(entries), "utf8");
     fs.writeFileSync(path.join(runDir, FAULT_FIX_CSV_FILE), buildFaultFixCsv(faultFixRows), "utf8");
     appendGlobalFaultFixCsv(faultFixRows);
+    updateSiteObservability(runDir, runSnapshot);
   } catch (err) {
     console.warn(
       "[generationslogg] writeGenerationLogEntry failed:",

@@ -118,6 +118,10 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_HOST_BASE_URL: z.string().optional(),
   /** Bearer token for preview-host HTTP API (`PREVIEW_HOST_API_KEY` on the host); required when preview-host runs outside local dev. */
   SAJTMASKIN_PREVIEW_HOST_API_KEY: z.string().optional(),
+  /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
+  SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
+  /** Legacy alias for SAJTMASKIN_DEFAULT_THINKING; kept during env migration. */
+  SAJTMASKIN_SHOW_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
   AI_CHAT_MAX_TOKENS: z.string().optional(),
   SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
@@ -156,6 +160,10 @@ export const serverSchema = z.object({
   SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION: z.string().optional(),
   SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT: z.string().optional(),
   SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
+  /** When "true"/"1", inject scaffold-anchored template-library runtimeGuidance into init generations. */
+  SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE: z.string().optional(),
+  /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
+  SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),

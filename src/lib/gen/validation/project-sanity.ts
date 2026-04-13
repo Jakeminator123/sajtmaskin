@@ -375,6 +375,40 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     }
   }
 
+  // 8. Literal vs dynamic route segment conflict (e.g. product/id/ vs product/[id]/)
+  const routeDirs = new Map<string, string[]>();
+  for (const file of files) {
+    const appMatch = file.path.match(/^(?:src\/)?app\/(.+)\/(page|layout)\.(tsx|jsx|ts|js)$/);
+    if (!appMatch) continue;
+    const segments = appMatch[1].split("/");
+    for (let i = 0; i < segments.length; i++) {
+      const parent = segments.slice(0, i).join("/") || ".";
+      const segment = segments[i];
+      const existing = routeDirs.get(parent) ?? [];
+      if (!existing.includes(segment)) existing.push(segment);
+      routeDirs.set(parent, existing);
+    }
+  }
+  for (const [parent, segments] of routeDirs) {
+    const dynamic = segments.filter((s) => s.startsWith("[") && s.endsWith("]"));
+    const literal = segments.filter((s) => !s.startsWith("["));
+    for (const dyn of dynamic) {
+      const paramName = dyn.slice(1, -1);
+      const conflicting = literal.find((lit) => lit === paramName);
+      if (conflicting) {
+        const literalPath = parent === "." ? conflicting : `${parent}/${conflicting}`;
+        issues.push(
+          createSanityIssue(
+            `app/${literalPath}/`,
+            "error",
+            `Literal route segment "${conflicting}" conflicts with dynamic segment "${dyn}" under "${parent}". The literal version should be removed.`,
+            "code_structure_failure",
+          ),
+        );
+      }
+    }
+  }
+
   return {
     issues,
     valid: issues.filter((i) => i.severity === "error").length === 0,

@@ -14,6 +14,7 @@ import {
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import { buildCompleteProject } from "../export/project-scaffold";
+import { collectRequiredUiComponents } from "../export/build-exportable-project";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 
 type RuntimeFile = {
@@ -182,7 +183,6 @@ async function runStartPreviewSession(
     }
   }
 
-  const { collectRequiredUiComponents } = await import("@/lib/gen/export/project-scaffold-ui-reader");
   const projectFiles = buildCompleteProject(
     filesForProject,
     collectRequiredUiComponents(filesForProject),

@@ -83,7 +83,7 @@ ANVÄNDARENS PROMPT
   │      + Dynamic Context (prioriterad + prunad):
   │        - Scaffold context (serialiserade filer)
   │        - Scaffold Research Priorities (checklist + upgrade targets + reference templates)
-  │        - Route plan, contracts, brief, style direction, toolkit
+  │        - Route plan, contracts, brief, style direction (med fontpar + sektionsrecept), toolkit
   │
   └─10. LLM-generering → CodeFile[] → Autofix → Preview
 ```
@@ -124,8 +124,8 @@ Research-blocket (`## Scaffold Research Priorities`) skickas separat av `buildDy
 1. **## Scaffold** — Filträd + utvalda filer (layout.tsx, globals.css, page.tsx) med placeholder-innehåll
 2. **## Scaffold Research Priorities** — Quality checklist + upgrade targets + reference template-sammanfattningar
 3. **## Route Plan** — Planerade sidor (/, /products, /product/[id], etc.)
-4. **## Style Direction** — Deterministisk visuell stil (layout, typografi, motif)
-5. **## Your Toolkit** — shadcn-komponenter + capability-hints
+4. **## Style Direction** — Deterministisk visuell stil (layout, typografi, motif, konkreta fontpar, sektionsrecept)
+5. **## Your Toolkit** — Grupperad shadcn-komponentvägledning + capability-hints
 
 ## Token-kostnad
 

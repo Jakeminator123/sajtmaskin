@@ -2,17 +2,17 @@ import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
 import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
 
-// "gateway" is the legacy UI/internal label for OpenAI-class assist models; `/api/ai/chat`
-// still calls OpenAI directly via OPENAI_API_KEY (`createDirectModel`).
+// OpenAI-class assist models (loaded from manifest).
 // "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
-// Prompt assist does not use the v0 Model API.
 export type PromptAssistProvider = "gateway" | "anthropic";
 
 const promptAssistAllowed = getPromptAssistAllowedFromManifest();
 
-export const GATEWAY_ASSIST_MODELS = Object.freeze([
+export const ASSIST_MODELS = Object.freeze([
   ...promptAssistAllowed.gatewayClassModels,
 ]);
+/** @deprecated Use ASSIST_MODELS */
+export const GATEWAY_ASSIST_MODELS = ASSIST_MODELS;
 
 export const ANTHROPIC_ASSIST_MODELS = Object.freeze([
   ...promptAssistAllowed.anthropicDirectModels,
@@ -27,7 +27,7 @@ export function normalizeAssistModel(rawModel: string): string {
 }
 
 export function isGatewayAssistModel(model: string): boolean {
-  return GATEWAY_ASSIST_MODELS.includes(model);
+  return ASSIST_MODELS.includes(model);
 }
 
 export function isAnthropicAssistModel(model: string): boolean {

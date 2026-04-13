@@ -17,6 +17,7 @@ Avsluta det aktuella arbetet i följande ordning:
 4. Synka dokumentation om runtime-sanningen ändrats:
    - relevanta schemas/docs
    - `config/dashboard/app.py`
+   - `sajtmaskin_backoffice.py` när dess område, env-ytor eller drift-/adminflöden har påverkats
    - `5-steg.txt` (vid större slutbildsändring)
    - håll fast vid ord som passar repoet: `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization`, `verify`
 5. Verifiera med riktade tester/lints/typecheck efter behov.
@@ -29,6 +30,7 @@ Avsluta det aktuella arbetet i följande ordning:
 - Leta efter kvarvarande gamla begrepp eller fältnamn om en migration nyss gjorts.
 - Leta efter kvarvarande halv-ersatta parallellspår inom scopet: temporära hjälpfunktioner, dubbla beslutsvägar och gammal text som beskriver den ersatta vägen.
 - Om dashboards eller docs berörs: låt dem spegla runtime-sanningen, inte definiera den.
+- Om admin-/backofficeyta, env-policy eller driftflöden berörs: kontrollera om `sajtmaskin_backoffice.py` också behöver uppdateras för att spegla samma runtime-sanning.
 - Om du överväger att radera filer eller mappar:
   - verifiera först att de inte importeras, refereras i script eller docs, eller används som kompatspår
   - om det inte är uppenbart säkert: rapportera som "kan städas senare" i stället för att ta bort nu

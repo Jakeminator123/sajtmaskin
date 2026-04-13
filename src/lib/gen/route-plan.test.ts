@@ -73,6 +73,19 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/kontakt")).toBe(false);
   });
 
+  it("normalizes colon-style dynamic brief paths into App Router segment syntax", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { path: "/produkt/:slug", name: "Produkt", purpose: "Produktdetalj" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/produkt/[slug]"]);
+  });
+
   it("uses brief-based routes when brief has pages", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
@@ -317,5 +330,46 @@ describe("findMissingPlannedRoutes", () => {
 
     const missing = findMissingPlannedRoutes(routePlan, ["/blog/[slug]"]);
     expect(missing.map((route) => route.path)).toEqual(["/pricing"]);
+  });
+});
+
+describe("buildRoutePlan — dashboard scaffold with app intent", () => {
+  it("produces app-shell siteType and Dashboard root for dashboard scaffold + app intent", () => {
+    const dashboardScaffold = getScaffoldById("dashboard");
+    expect(dashboardScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: "En dashboard för att granska grafer och aktier med logga in och mörkt tema",
+      buildIntent: "app",
+      resolvedScaffold: dashboardScaffold,
+    });
+    expect(plan.siteType).toBe("app-shell");
+    expect(plan.routes[0]?.name).toBe("Dashboard");
+    expect(plan.routes.some((r) => r.path === "/login")).toBe(true);
+  });
+
+  it("does not produce website-style brochure routes for dashboard scaffold + app intent", () => {
+    const dashboardScaffold = getScaffoldById("dashboard");
+    expect(dashboardScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: "Bygg en säkerhets-dashboard med grafer",
+      buildIntent: "app",
+      resolvedScaffold: dashboardScaffold,
+    });
+    expect(plan.routes.every((r) => r.name !== "Home")).toBe(true);
+    const websiteOnlyPaths = ["/about", "/om", "/services", "/testimonials", "/contact"];
+    for (const path of websiteOnlyPaths) {
+      expect(plan.routes.some((r) => r.path === path)).toBe(false);
+    }
+  });
+
+  it("adds /settings scaffold default for dashboard + app intent", () => {
+    const dashboardScaffold = getScaffoldById("dashboard");
+    expect(dashboardScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: "Instrumentpanel med statistik",
+      buildIntent: "app",
+      resolvedScaffold: dashboardScaffold,
+    });
+    expect(plan.routes.some((r) => r.path === "/settings")).toBe(true);
   });
 });

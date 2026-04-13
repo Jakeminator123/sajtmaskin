@@ -69,7 +69,7 @@ export function buildPostCheckSummary(params: {
   demoUrl: string | null;
   previewBlockingReason?: string | null;
   provisional?: boolean;
-  qualityGatePending?: boolean;
+  verifyPending?: boolean;
   autoFixQueued?: boolean;
   qualityTier?: QualityTier;
   warningReasons?: string[];
@@ -80,7 +80,7 @@ export function buildPostCheckSummary(params: {
     demoUrl,
     previewBlockingReason = null,
     provisional = false,
-    qualityGatePending = false,
+    verifyPending = false,
     autoFixQueued = false,
     qualityTier = "none",
     warningReasons = [],
@@ -110,8 +110,8 @@ export function buildPostCheckSummary(params: {
     lines.push(
       "Obs: Den här versionen är preliminär eftersom autofix redan har köats efter efterkontrollerna.",
     );
-  } else if (qualityGatePending) {
-    lines.push("Obs: Quality gate körs fortfarande för den här versionen.");
+  } else if (verifyPending) {
+    lines.push("Obs: Verify-lane körs fortfarande för den här versionen.");
   } else if (provisional) {
     lines.push(
       "Obs: Den här versionen är preliminär medan efterkontroller eller autofix fortfarande arbetar.",

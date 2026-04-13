@@ -54,8 +54,10 @@ EMBEDDINGS_JSON = SCAFFOLDS_DIR / "scaffold-embeddings.json"
 CATALOG_JSON = REPO_ROOT / "data" / "external-template-pipeline" / "reference-library" / "catalog.json"
 TEMPLATE_LIB_JSON = REPO_ROOT / "src" / "lib" / "gen" / "template-library" / "template-library.generated.json"
 EVAL_LATEST = REPO_ROOT / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json"
-SCHEMA_MD = REPO_ROOT / "struktur_scarf" / "schema.md"
+SCHEMA_MD = REPO_ROOT / "docs" / "architecture" / "scaffold-schema.md"
 SCAFFOLD_CLI = REPO_ROOT / "scripts" / "scaffolds" / "scaffold_cli.py"
+ENV_LOCAL = REPO_ROOT / ".env.local"
+MANAGE_ENV_SCRIPT = REPO_ROOT / "scripts" / "env" / "manage_env.py"
 
 ORCH_TS_SOURCES = {
     "ScaffoldId / ScaffoldMode": SCAFFOLDS_DIR / "types.ts",
@@ -77,6 +79,43 @@ NAV_PAGES = (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _load_manage_env_helpers():
+    """Import parse_env_file / set_in_env_file from scripts/env/manage_env.py."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("manage_env", str(MANAGE_ENV_SCRIPT))
+    if spec is None or spec.loader is None:
+        return None, None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return None, None
+    return getattr(mod, "parse_env_file", None), getattr(mod, "set_in_env_file", None)
+
+
+_parse_env_file, _set_in_env_file = _load_manage_env_helpers()
+
+
+def read_env_flag(key: str) -> bool:
+    """Read a boolean flag from .env.local (true/1 = on)."""
+    if _parse_env_file is None:
+        return False
+    env_data = _parse_env_file(ENV_LOCAL)
+    val = env_data.get(key, "").strip().lower()
+    return val in ("true", "1")
+
+
+def write_env_flag(key: str, enabled: bool) -> bool:
+    """Write a boolean flag to .env.local. Returns True on success."""
+    if _set_in_env_file is None:
+        return False
+    try:
+        _set_in_env_file(ENV_LOCAL, key, "true" if enabled else "false")
+        return True
+    except Exception:
+        return False
+
 
 def read_json(path: Path) -> Any:
     if not path.exists():
@@ -108,11 +147,21 @@ def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
     if m:
         result["description"] = m.group(1)[:120]
 
-    intents = re.findall(r'"(website|app|template)"', text.split("allowedBuildIntents")[1] if "allowedBuildIntents" in text else "")
+    intents_block = ""
+    if "allowedBuildIntents" in text:
+        m_intents = re.search(r'allowedBuildIntents:\s*\[(.*?)\]', text, re.DOTALL)
+        if m_intents:
+            intents_block = m_intents.group(1)
+    intents = re.findall(r'"(website|app|template)"', intents_block)
     if intents:
         result["allowedBuildIntents"] = intents
 
-    tags = re.findall(r'"([^"]+)"', text.split("tags:")[1].split("],")[0]) if "tags:" in text else []
+    tags_block = ""
+    if "tags:" in text:
+        m_tags = re.search(r'tags:\s*\[(.*?)\]', text, re.DOTALL)
+        if m_tags:
+            tags_block = m_tags.group(1)
+    tags = re.findall(r'"([^"]+)"', tags_block)
     result["tags"] = tags[:10]
 
     hints = text.count("promptHints")
@@ -124,7 +173,8 @@ def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
     research = "research:" in text
     result["has_research"] = research
 
-    file_count = text.count('path: "')
+    files_dir = manifest_path.parent / "files"
+    file_count = sum(1 for _ in files_dir.rglob("*") if _.is_file()) if files_dir.is_dir() else 0
     result["file_count"] = file_count
 
     for key in ("siteKind", "complexity", "structureProfile", "contentProfile"):
@@ -133,8 +183,9 @@ def parse_manifest_ts(manifest_path: Path) -> dict[str, Any] | None:
             result[key] = m.group(1)
 
     if "features:" in text:
-        feat_block = text.split("features:")[1].split("],")[0]
-        result["features"] = re.findall(r'"([^"]+)"', feat_block)
+        m_feat = re.search(r'features:\s*\[(.*?)\]', text, re.DOTALL)
+        if m_feat:
+            result["features"] = re.findall(r'"([^"]+)"', m_feat.group(1))
 
     return result
 
@@ -265,8 +316,11 @@ if page == "Scaffolds":
                     return []
                 return re.findall(r'"([^"]*)"', m.group(1))
 
+            def _escape_ts_string(s: str) -> str:
+                return s.replace("\\", "\\\\").replace('"', '\\"')
+
             def _write_ts_string_array(text: str, field: str, values: list[str]) -> str:
-                items = ", ".join(f'"{v}"' for v in values)
+                items = ", ".join(f'"{_escape_ts_string(v)}"' for v in values)
                 pattern = rf'({field}:\s*)\[.*?\]'
                 return re.sub(pattern, rf'\g<1>[{items}]', text, count=1, flags=re.DOTALL)
 
@@ -281,7 +335,7 @@ if page == "Scaffolds":
                 if not values:
                     pattern = rf'({field}:\s*)\[.*?\]'
                     return re.sub(pattern, rf'\g<1>[]', text, count=1, flags=re.DOTALL)
-                items = "\n".join(f'    "{v}",' for v in values)
+                items = "\n".join(f'    "{_escape_ts_string(v)}",' for v in values)
                 pattern = rf'({field}:\s*)\[.*?\]'
                 return re.sub(pattern, rf'\g<1>[\n{items}\n  ]', text, count=1, flags=re.DOTALL)
 
@@ -342,6 +396,57 @@ if page == "Scaffolds":
 # ===== PAGE: Research & Dossiers =====
 elif page == "Research & Dossiers":
     st.header("Research & Dossiers")
+
+    # ── Runtime Template Guidance toggle ─────────────────────────────────
+    st.subheader("Runtime Template Guidance")
+    _TG_KEY = "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE"
+    _tg_current = read_env_flag(_TG_KEY)
+    _tg_new = st.toggle(
+        "Aktivera scaffold-ankrad template guidance (init only)",
+        value=_tg_current,
+        key="tg_toggle",
+        help=f"Styr env-flaggan `{_TG_KEY}` i `.env.local`. När på injiceras kompakt runtimeGuidance "
+             "från scaffoldens referenceTemplates i första genereringen.",
+    )
+    if _tg_new != _tg_current:
+        if write_env_flag(_TG_KEY, _tg_new):
+            st.success(f"`{_TG_KEY}` satt till `{'true' if _tg_new else 'false'}` i `.env.local`.")
+            st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
+        else:
+            st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
+    else:
+        st.caption(f"Nuvarande: `{_TG_KEY}={'true' if _tg_current else 'false'}`")
+    st.divider()
+
+    # ── Deferred extra init routes toggle ────────────────────────────────
+    st.subheader("Deferred Extra Init Routes")
+    _DEFER_KEY = "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT"
+    _defer_current = read_env_flag(_DEFER_KEY)
+    _defer_new = st.toggle(
+        "Aktivera plan-many/build-one för init-generering",
+        value=_defer_current,
+        key="defer_extra_init_routes_toggle",
+        help=(
+            f"Styr env-flaggan `{_DEFER_KEY}` i `.env.local`. När på får init-genereringar "
+            "planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor "
+            "blir då shell-sidor med tydlig 'Skapa sida'-yta."
+        ),
+    )
+    if _defer_new != _defer_current:
+        if write_env_flag(_DEFER_KEY, _defer_new):
+            st.success(
+                f"`{_DEFER_KEY}` satt till `{'true' if _defer_new else 'false'}` i `.env.local`."
+            )
+            st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
+        else:
+            st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
+    else:
+        st.caption(f"Nuvarande: `{_DEFER_KEY}={'true' if _defer_current else 'false'}`")
+    st.info(
+        "Rekommenderad kombination: ha både runtime template guidance och deferred extra init routes på samtidigt. "
+        "Då kan init ha en grand plan för flera routes, men lägga största delen av budgeten på primärrouten medan extrasidor blir shells."
+    )
+    st.divider()
 
     catalog = read_json(CATALOG_JSON)
     template_lib = read_json(TEMPLATE_LIB_JSON)
@@ -455,36 +560,27 @@ elif page == "Eval":
         results = eval_data.get("results", [])
         summary = eval_data.get("summary", {})
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total cases", summary.get("totalCases", len(results)))
-        col2.metric("Correct", summary.get("correct", "?"))
-        col3.metric("Accuracy", f"{summary.get('accuracy', 0):.0%}" if isinstance(summary.get("accuracy"), (int, float)) else "?")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total cases", summary.get("total", len(results)))
+        col2.metric("Keyword Top-1", f"{summary.get('keywordTop1Accuracy', 0):.1f}%" if isinstance(summary.get("keywordTop1Accuracy"), (int, float)) else "?")
+        col3.metric("Semantic Top-1", f"{summary.get('semanticTop1Accuracy', 0):.1f}%" if isinstance(summary.get("semanticTop1Accuracy"), (int, float)) else "?")
+        col4.metric("Semantic Top-3", f"{summary.get('semanticTop3Accuracy', 0):.1f}%" if isinstance(summary.get("semanticTop3Accuracy"), (int, float)) else "?")
 
         if results:
             eval_rows = []
             for r in results:
                 eval_rows.append({
-                    "prompt": r.get("prompt", "")[:80],
+                    "id": r.get("id", ""),
                     "expected": r.get("expected", ""),
-                    "actual": r.get("actual", ""),
-                    "correct": r.get("correct", False),
-                    "method": r.get("method", ""),
-                    "confidence": r.get("confidence", ""),
+                    "keyword": r.get("keywordTop1", ""),
+                    "semantic": r.get("semanticTop1", ""),
+                    "kw_ok": r.get("keywordTop1Correct", False),
+                    "sem_ok": r.get("semanticTop1Correct", False),
+                    "method": r.get("semanticMethod", ""),
+                    "confidence": r.get("semanticConfidence", ""),
                 })
             st.dataframe(pd.DataFrame(eval_rows), width="stretch", hide_index=True)
 
-        per_scaffold = summary.get("perScaffold", {})
-        if per_scaffold:
-            st.subheader("Per scaffold")
-            ps_rows = []
-            for sid, data in sorted(per_scaffold.items()):
-                ps_rows.append({
-                    "scaffold": sid,
-                    "total": data.get("total", 0),
-                    "correct": data.get("correct", 0),
-                    "accuracy": f"{data.get('accuracy', 0):.0%}" if isinstance(data.get("accuracy"), (int, float)) else "?",
-                })
-            st.dataframe(pd.DataFrame(ps_rows), width="stretch", hide_index=True)
     else:
         st.info("Ingen eval-rapport hittades. Kör `npm run scaffolds:eval` eller tryck nedan.")
 
@@ -533,9 +629,9 @@ elif page == "Orchestration Map":
         bs_text = build_spec_path.read_text(encoding="utf-8")
         for bs_type, bs_desc in [
             ("BuildSpecContextPolicy", "Tokenbudget-niv\u00e5 f\u00f6r scaffold"),
-            ("BuildSpecQualityTarget", "Quality gate-niv\u00e5"),
-            ("BuildSpecPreviewPolicy", "Preview-typ"),
-            ("BuildSpecVerificationPolicy", "Verifieringsniv\u00e5"),
+            ("BuildSpecQualityTarget", "Kvalitetsm\u00e5l (standard/premium/release-candidate)"),
+            ("BuildSpecPreviewPolicy", "Preview-policy: fidelity2 (typecheck) eller fidelity3 (build)"),
+            ("BuildSpecVerificationPolicy", "Verifieringsniv\u00e5: fast / standard / strict"),
         ]:
             bs_vals = extract_ts_union_values(bs_text, bs_type)
             if bs_vals:
@@ -551,35 +647,43 @@ elif page == "Orchestration Map":
     st.subheader("Fl\u00f6de: Prompt \u2192 Genererad kod")
     st.markdown("""
 ```
-ANVA\u0308NDARENS PROMPT
-  \u2502
-  \u251c\u2500 1. PromptOrchestration \u2192 PromptType + PromptStrategy
-  \u2502      (klassificerar, budgeterar, trimmar)
-  \u2502
-  \u251c\u2500 2. Deep Brief (valfri)
-  \u2502      (strukturerat objekt: sidor, visuell riktning, SEO)
-  \u2502
-  \u251c\u2500 3. Scaffold-val \u2192 ScaffoldId
-  \u2502      \u251c\u2500 ScaffoldMode: off / auto / manual
-  \u2502      \u251c\u2500 Keyword-matchning (synkron, 9 listor)
-  \u2502      \u251c\u2500 Embedding-matchning (parallell, cosine)
-  \u2502      \u2514\u2500 Merge-policy + safety guards
-  \u2502
-  \u251c\u2500 4. Capability-inferens (auth, ecommerce, forms, 3D, motion...)
-  \u2502
-  \u251c\u2500 5. Route Plan (brief > scaffold > prompt)
-  \u2502
-  \u251c\u2500 6. Pre-generation Contracts (auth, payment, db, env vars)
-  \u2502
-  \u251c\u2500 7. BuildSpec \u2192 ContextPolicy + QualityTarget + PreviewPolicy
-  \u2502
-  \u251c\u2500 8. Scaffold-serialisering \u2192 ScaffoldSerializeMode
-  \u2502      (inspirational vid init, structural vid follow-up/heavy)
-  \u2502
-  \u251c\u2500 9. Dynamic Context + System Prompt
-  \u2502      (scaffold + routes + contracts + brief + style direction)
-  \u2502
-  \u2514\u250010. LLM-generering \u2192 CodeFile[] \u2192 Autofix \u2192 Preview
+ANVÄNDARENS PROMPT
+  │
+  ├─ 1. PromptOrchestration → PromptType + PromptStrategy
+  │      (klassificerar, budgeterar, trimmar)
+  │
+  ├─ 2. Deep Brief (valfri)
+  │      (strukturerat objekt: sidor, visuell riktning, SEO)
+  │
+  ├─ 3. Scaffold-val → ScaffoldId
+  │      ├─ ScaffoldMode: off / auto / manual
+  │      ├─ Keyword + embedding-matchning
+  │      └─ Merge-policy + safety guards
+  │
+  ├─ 3b. Intent-koersning (app-scaffold → buildIntent=app)
+  │
+  ├─ 4. Capability-inferens (auth, ecommerce, forms, 3D, motion...)
+  │
+  ├─ 5. Route Plan (brief > scaffold > prompt)
+  │
+  ├─ 6. Pre-generation Contracts (preview-first defaults)
+  │
+  ├─ 7. BuildSpec → ContextPolicy + QualityTarget + PreviewPolicy
+  │
+  ├─ 8. Dynamic Context (rollbaserade block, token-prunade):
+  │      Project Context · Route Plan · Pages & Sections (vid sektionsdetalj)
+  │      Style Direction · Visual Identity · Contracts · Toolkit
+  │
+  ├─ 9. LLM-generering → CodeFile[]
+  │
+  └─10. Post-generation:
+        ├─ Mekanisk autofix → Syntax validate/fix → Finalize
+        ├─ Readiness-bedömning (heuristisk)
+        ├─ Tier-2 verify-lane (typecheck)
+        │    ├─ Env-signal (saknade nycklar → UI-hint)
+        │    ├─ Server repair (mekanisk → LLM)
+        │    └─ Autofix fallback
+        └─ Background server verify (typecheck + lint, asynkron)
 ```
 """)
 

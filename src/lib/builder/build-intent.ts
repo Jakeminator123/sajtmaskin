@@ -30,12 +30,31 @@ export function normalizeBuildMethod(raw?: string | null): BuildMethod | null {
   return null;
 }
 
+const APP_SCAFFOLD_IDS = new Set(["dashboard", "app-shell"]);
+
+export function isAppScaffold(scaffoldId: string | null | undefined): boolean {
+  return Boolean(scaffoldId && APP_SCAFFOLD_IDS.has(scaffoldId));
+}
+
 export function resolveBuildIntentForMethod(
   method: BuildMethod | null | undefined,
   selected: BuildIntent,
 ): BuildIntent {
   if (method === "category") return "template";
   if (method === "audit" || method === "kostnadsfri") return "website";
+  return selected;
+}
+
+export function resolveBuildIntentWithScaffold(
+  method: BuildMethod | null | undefined,
+  selected: BuildIntent,
+  scaffoldMode: "off" | "auto" | "manual" | null | undefined,
+  scaffoldId: string | null | undefined,
+): BuildIntent {
+  if (method === "category") return "template";
+  if (method === "audit" || method === "kostnadsfri") return "website";
+  if (selected !== "website") return selected;
+  if (scaffoldMode === "manual" && isAppScaffold(scaffoldId)) return "app";
   return selected;
 }
 

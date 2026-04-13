@@ -27,9 +27,141 @@ Your job:
 
 Output: Only fenced code blocks with file="path". No explanations.`;
 
+const STRUCTURED_ERROR_RE = /^([^\s:][^:\s]*\.[^:\s]+):(\d+)(?::(\d+))?\s+(.+)$/;
+const DIAGNOSTIC_PREFIX_RE = /^\[([^\]]+)\]\s+(.+)$/;
+const MAX_PRIMARY_ERRORS = 40;
+const MAX_CONTEXT_LINES = 20;
+const MAX_REQUIRED_FILES = 20;
+
+type FixerPromptOptions = {
+  requiredFiles?: string[];
+};
+
+type StructuredFixerError = {
+  file: string;
+  line: string;
+  column: string | null;
+  message: string;
+  prefixed: boolean;
+};
+
+function uniqueNonEmpty(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function parseStructuredError(value: string): StructuredFixerError | null {
+  const tagged = value.match(DIAGNOSTIC_PREFIX_RE);
+  const candidate = tagged?.[2] ?? value;
+  const match = candidate.match(STRUCTURED_ERROR_RE);
+  if (!match) return null;
+  return {
+    file: match[1],
+    line: match[2],
+    column: match[3] ?? null,
+    message: match[4],
+    prefixed: Boolean(tagged),
+  };
+}
+
 export function buildFixerUserPrompt(
   content: string,
   errors: string[],
+  options?: FixerPromptOptions,
 ): string {
-  return `Fix these errors:\n\n${errors.map((e, i) => `${i + 1}. ${e}`).join("\n")}\n\nIMPORTANT:\n- Return only changed files.\n- Every returned file block must contain the complete file from first line to last line.\n- Never return snippets, partial imports, or diff-style patches.\n\n---\n\nCode:\n\n${content}`;
+  const normalizedErrors = uniqueNonEmpty(errors);
+  const structuredErrors: StructuredFixerError[] = [];
+  const taggedStructuredSignals: string[] = [];
+  const taggedStructuredFiles: string[] = [];
+  const contextualSignals: string[] = [];
+
+  for (const error of normalizedErrors) {
+    const structured = parseStructuredError(error);
+    if (structured) {
+      if (structured.prefixed) {
+        taggedStructuredSignals.push(error);
+        taggedStructuredFiles.push(structured.file);
+      } else {
+        structuredErrors.push(structured);
+      }
+      continue;
+    }
+    contextualSignals.push(error);
+  }
+
+  const primaryErrors = structuredErrors.slice(0, MAX_PRIMARY_ERRORS);
+  const primaryFiles = primaryErrors.map((error) => error.file);
+  const requiredFiles = uniqueNonEmpty([
+    ...(options?.requiredFiles ?? []),
+    ...primaryFiles,
+    ...taggedStructuredFiles,
+  ]).slice(0, MAX_REQUIRED_FILES);
+  const secondarySignals = (
+    primaryErrors.length > 0
+      ? [...taggedStructuredSignals, ...contextualSignals]
+      : [...contextualSignals]
+  ).slice(0, MAX_CONTEXT_LINES);
+
+  const sections: string[] = ["Fix the blocking code issues below.", ""];
+
+  if (primaryErrors.length > 0) {
+    sections.push("Primary blocking diagnostics:");
+    sections.push(
+      ...primaryErrors.map((error, index) => {
+        const location = error.column
+          ? `${error.file}:${error.line}:${error.column}`
+          : `${error.file}:${error.line}`;
+        return `${index + 1}. ${location} ${error.message}`;
+      }),
+    );
+    if (structuredErrors.length > primaryErrors.length) {
+      sections.push(
+        `... ${structuredErrors.length - primaryErrors.length} additional structured diagnostics omitted to keep the repair focused.`,
+      );
+    }
+  } else {
+    sections.push("Blocking diagnostics:");
+    sections.push(
+      ...normalizedErrors.slice(0, MAX_PRIMARY_ERRORS).map((error, index) => `${index + 1}. ${error}`),
+    );
+  }
+
+  if (secondarySignals.length > 0) {
+    sections.push("", "Additional repair context (may explain the root cause):");
+    sections.push(...secondarySignals.map((signal) => `- ${signal}`));
+    if (contextualSignals.length > secondarySignals.length) {
+      sections.push(
+        `- ... ${contextualSignals.length - secondarySignals.length} more context lines omitted.`,
+      );
+    }
+  }
+
+  if (requiredFiles.length > 0) {
+    sections.push("", "Files that likely need edits first:");
+    sections.push(...requiredFiles.map((filePath) => `- ${filePath}`));
+  }
+
+  sections.push(
+    "",
+    "IMPORTANT:",
+    "- Return only changed files.",
+    "- Every returned file block must contain the complete file from first line to last line.",
+    "- Never return snippets, partial imports, or diff-style patches.",
+    "- Prioritize the listed files and resolve the primary blocking diagnostics before touching anything else.",
+    "",
+    "---",
+    "",
+    "Code:",
+    "",
+    content,
+  );
+
+  return sections.join("\n");
 }

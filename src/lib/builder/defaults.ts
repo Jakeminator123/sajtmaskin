@@ -23,7 +23,7 @@
  *   but produces more thorough results for complex projects.
  */
 
-import { ANTHROPIC_ASSIST_MODELS, GATEWAY_ASSIST_MODELS } from "./promptAssist";
+import { ANTHROPIC_ASSIST_MODELS, ASSIST_MODELS } from "./promptAssist";
 import { ASSIST_MODEL, POLISH_MODEL } from "@/lib/gen/defaults";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import { DEFAULT_MODEL_ID } from "@/lib/models/catalog";
@@ -115,14 +115,14 @@ function humanizePromptAssistModel(model: string): string {
 
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
-  ...GATEWAY_ASSIST_MODELS.map((value) => ({
+  ...ASSIST_MODELS.map((value) => ({
     value,
     label: humanizePromptAssistModel(value),
   })),
 ];
 
 const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
-  ...GATEWAY_ASSIST_MODELS,
+  ...ASSIST_MODELS,
   ...ANTHROPIC_ASSIST_MODELS,
 ]);
 

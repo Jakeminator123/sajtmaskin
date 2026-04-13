@@ -419,7 +419,7 @@ export async function materializeImages(
 ): Promise<MaterializeResult> {
   const accessKey = SECRETS.unsplashAccessKey;
   if (!accessKey || !FEATURES.useUnsplash) {
-    debugLog("images", "Image materialization skipped (no Unsplash key)");
+    warnLog("images", "Image materialization skipped — UNSPLASH_ACCESS_KEY not configured. Placeholder images will remain.");
     return { content, replacedCount: 0, skippedCount: 0, queries: [], resolvedUrls: new Set() };
   }
 

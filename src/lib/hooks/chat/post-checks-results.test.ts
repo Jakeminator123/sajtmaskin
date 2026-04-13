@@ -133,7 +133,7 @@ describe("post-checks-results", () => {
     });
 
     expect(artifacts.output.steps).toContain(
-      "Preflight blocker: preflight_preview_blocked. Quality gate kördes inte ännu.",
+      "Preflight blocker: preflight_preview_blocked. Verify-lane körs efter fix.",
     );
   });
 

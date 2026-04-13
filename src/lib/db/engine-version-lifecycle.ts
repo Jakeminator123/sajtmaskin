@@ -84,7 +84,11 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
     return lifecycleStatus;
   }
 
-  if (lifecycleStatus === "failed" || lifecycleStatus === "repairing") {
+  if (
+    lifecycleStatus === "failed" ||
+    lifecycleStatus === "repairing" ||
+    lifecycleStatus === "verifying"
+  ) {
     return "retrying";
   }
 

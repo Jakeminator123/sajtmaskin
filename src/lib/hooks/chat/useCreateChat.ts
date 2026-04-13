@@ -315,7 +315,6 @@ export function useCreateChat(
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
-            suppressSummaryText: true,
           });
         }
 
@@ -366,10 +365,7 @@ export function useCreateChat(
           promptMeta.promptSourceTechnical = options.promptSourceMeta.isTechnical;
           promptMeta.promptSourcePreservePayload = options.promptSourceMeta.preservePayload;
         }
-        if (options.meta) {
-          Object.assign(promptMeta, options.meta);
-        }
-        if (pendingBriefRef?.current && !promptMeta.brief) {
+        if (pendingBriefRef?.current) {
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
@@ -523,6 +519,10 @@ export function useCreateChat(
         clearCreateChatLock();
         createChatInFlightRef.current = false;
         setIsCreatingChat(false);
+        // Brief was consumed by init — clear so follow-ups don't re-send it.
+        if (pendingBriefRef?.current) {
+          pendingBriefRef.current = null;
+        }
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );

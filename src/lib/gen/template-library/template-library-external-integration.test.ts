@@ -5,12 +5,13 @@
  * If entries.length === 0, run hydrate + build + embeddings (see scripts/README.md).
  */
 import { describe, expect, it } from "vitest";
-import { getScaffoldIds } from "@/lib/gen/scaffolds";
+import { getAllScaffolds, getScaffoldIds } from "@/lib/gen/scaffolds";
 import {
   getTemplateLibraryCatalog,
   getTemplateLibraryEntries,
   getTemplateLibraryEntryById,
 } from "./catalog";
+import { deriveTemplateRuntimeGuidance } from "./runtime-guidance";
 import {
   searchTemplateLibrary,
   searchTemplateLibraryKeywordsOnly,
@@ -137,5 +138,70 @@ describe("template-library.generated.json snapshot contract", () => {
       if (!entry.repo.clonePath) continue;
       expect(absolutePathRe.test(entry.repo.clonePath)).toBe(false);
     }
+  });
+});
+
+describe("scaffold-anchored template guidance (end-to-end proof)", () => {
+  it("every scaffold with referenceTemplates resolves at least one catalog entry with runtimeGuidance", () => {
+    if (entries.length === 0) return;
+
+    const scaffolds = getAllScaffolds();
+    const results: Array<{ scaffoldId: string; hits: number; misses: number; sampleTitle?: string; sampleStyleRules?: number }> = [];
+
+    for (const s of scaffolds) {
+      const refs = s.research?.referenceTemplates ?? [];
+      if (refs.length === 0) continue;
+      let hits = 0;
+      let misses = 0;
+      let sampleTitle: string | undefined;
+      let sampleStyleRules: number | undefined;
+      for (const ref of refs.slice(0, 2)) {
+        const entry = getTemplateLibraryEntryById(ref.id);
+        if (entry) {
+          hits++;
+          if (!sampleTitle) {
+            sampleTitle = entry.title;
+            const g = deriveTemplateRuntimeGuidance(entry);
+            sampleStyleRules = g.styleRules.length;
+          }
+        } else {
+          misses++;
+        }
+      }
+      results.push({ scaffoldId: s.id, hits, misses, sampleTitle, sampleStyleRules });
+    }
+
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.hits, `${r.scaffoldId}: expected at least 1 catalog hit but got 0`).toBeGreaterThan(0);
+      expect(r.sampleStyleRules, `${r.scaffoldId} -> ${r.sampleTitle}: no styleRules`).toBeGreaterThan(0);
+    }
+  });
+
+  it("formatted guidance text contains expected structure markers", () => {
+    if (entries.length === 0) return;
+
+    const ecommerce = getAllScaffolds().find((s) => s.id === "ecommerce");
+    if (!ecommerce?.research?.referenceTemplates?.length) return;
+    const ref = ecommerce.research.referenceTemplates[0]!;
+    const entry = getTemplateLibraryEntryById(ref.id);
+    if (!entry) return;
+    const g = deriveTemplateRuntimeGuidance(entry);
+
+    const lines: string[] = [
+      "- External template guidance (adapt to the scaffold and user request, do not copy verbatim):",
+    ];
+    if (g.styleRules.length > 0) {
+      lines.push(`  - **${entry.title}** style: ${g.styleRules.slice(0, 2).join("; ")}`);
+    }
+    if (g.sectionInventory.length > 0) {
+      lines.push(`  - Sections: ${g.sectionInventory.slice(0, 3).join(", ")}`);
+    }
+    const formatted = lines.join("\n");
+    expect(formatted).toContain("External template guidance");
+    expect(formatted).toContain(entry.title);
+    expect(formatted).toContain("Sections:");
+    expect(formatted).not.toContain("selectedFiles");
+    expect(formatted).not.toContain("excerpt");
   });
 });

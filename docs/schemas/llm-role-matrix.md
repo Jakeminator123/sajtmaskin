@@ -66,7 +66,7 @@ Flödet vid freeform create-chat:
 
 ## Viktiga noter
 
-- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Aktiveras server-side via `SAJTMASKIN_DEFAULT_THINKING=true` i `.env.local`; klienten skickar flaggan explicit bara om användaren ändrat togglen i UI.
+- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Aktiveras server-side via `SAJTMASKIN_DEFAULT_THINKING=true` i `.env.local`; klienten skickar flaggan explicit bara om användaren ändrat togglen i UI. `SAJTMASKIN_SHOW_THINKING` finns bara kvar som legacy-alias för äldre miljöer.
 - Prompt assist, Deep brief och spec-first ligger **utanför** phase-routingtabellen och fungerar mer som för-/pre-generation-lager.
 - Deep brief och server auto-brief bygger **samma typ av structured brief**, men startas från olika ställen i kedjan.
 - Builderns normala `specMode` använder oftast `briefToSpec()` eller `promptToSpec()` och inte den fristående `/api/ai/spec`-routen.

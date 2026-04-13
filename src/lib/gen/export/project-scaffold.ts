@@ -29,7 +29,7 @@ const PACKAGE_JSON = `{
     "lint": "eslint ."
   },
   "dependencies": {
-    "next": "16.2.1",
+    "next": "16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "radix-ui": "1.4.3",
@@ -50,14 +50,16 @@ const PACKAGE_JSON = `{
     "@hookform/resolvers": "5.2.2",
     "zod": "4.3.6",
     "framer-motion": "12.38.0",
+    "@tanstack/react-table": "8.21.3",
     "three": "0.176.0",
     "@react-three/fiber": "9.1.2",
     "@react-three/drei": "10.7.7",
+    "@react-three/rapier": "2.2.0",
     "date-fns": "4.1.0"
   },
   "devDependencies": {
     "eslint": "9.39.2",
-    "eslint-config-next": "16.2.1",
+    "eslint-config-next": "16.2.3",
     "typescript": "5.8.3",
     "@types/node": "22.15.18",
     "@types/react": "19.1.2",

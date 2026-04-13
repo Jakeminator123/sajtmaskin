@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { deriveBuildSpec, deriveFollowUpContextPolicy } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import type { RoutePlan } from "./route-plan";
@@ -76,6 +76,20 @@ describe("deriveBuildSpec", () => {
     ).toBe("normal");
   });
 
+  it("does not downgrade image/placeholder follow-ups to light context", () => {
+    for (const prompt of [
+      "Byt bara hero-bilden till en AI-bild.",
+      "Only replace the placeholder images.",
+      "Ersätt bara placeholders med riktiga bilder.",
+      "Just swap the hero image for a new photo.",
+      "Byt bara ut bilden i hero-sektionen.",
+    ]) {
+      expect(
+        deriveFollowUpContextPolicy({ prompt, capabilityHeavy: false }),
+      ).toBe("normal");
+    }
+  });
+
   it("keeps init generations compact and deterministic", () => {
     const spec = deriveBuildSpec({
       prompt: "Bygg en modern hemsida för ett arkitektkontor.",
@@ -95,6 +109,12 @@ describe("deriveBuildSpec", () => {
     expect(spec.contextPolicy).toBe("normal");
     expect(spec.tokenBudgets.scaffoldTokens).toBe(15_000);
     expect(spec.tokenBudgets.scaffoldChars).toBe(28_000);
+    expect(spec.routeRealization).toEqual({
+      mode: "full",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/"],
+      shellRoutePaths: [],
+    });
   });
 
   it("uses normal context by default for narrow follow-up edits", () => {
@@ -301,6 +321,81 @@ Persisted errors for this version:
     expect(spec.changeScope).toBe("page-addition");
     expect(spec.qualityTarget).toBe("standard");
     expect(spec.contextPolicy).toBe("normal");
+  });
+
+  it("can defer extra init routes behind feature flag while preserving the full plan", async () => {
+    const original = process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
+    vi.resetModules();
+    const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
+
+    const spec = deriveBuildSpecWithFlag({
+      prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
+      buildIntent: "website",
+      generationMode: "init",
+      resolvedScaffold: null,
+      routePlan: multiPageWebsiteRoutePlan,
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.routeRealization).toEqual({
+      mode: "primary-full-with-shells",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/"],
+      shellRoutePaths: ["/om-oss", "/produkter"],
+    });
+    expect(spec.qualityTarget).toBe("standard");
+    expect(spec.contextPolicy).toBe("normal");
+    expect(spec.previewPolicy).toBe("fidelity2");
+
+    if (original === undefined) {
+      delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    } else {
+      process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+    }
+    vi.resetModules();
+  });
+
+  it("keeps small auth route clusters fully realized when they are needed for init", async () => {
+    const original = process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = "true";
+    vi.resetModules();
+    const { deriveBuildSpec: deriveBuildSpecWithFlag } = await import("./build-spec");
+
+    const spec = deriveBuildSpecWithFlag({
+      prompt: "Build an app with login, signup and forgot password before the main dashboard.",
+      buildIntent: "app",
+      generationMode: "init",
+      resolvedScaffold: saasScaffold,
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "app-shell",
+        reason: "Auth + app entry flow",
+        routes: [
+          { path: "/", name: "Dashboard", intent: "Main app shell", required: true },
+          { path: "/login", name: "Login", intent: "Authentication entry", required: false },
+          { path: "/signup", name: "Signup", intent: "Account creation", required: false },
+          { path: "/forgot-password", name: "Forgot Password", intent: "Password reset", required: false },
+        ],
+      },
+      preGenerationContracts: emptyContracts,
+      promptStrategyMeta: { strategy: "direct", promptType: "freeform" },
+    });
+
+    expect(spec.routeRealization).toEqual({
+      mode: "primary-full-with-shells",
+      primaryRoutePath: "/",
+      fullRoutePaths: ["/", "/login", "/signup", "/forgot-password"],
+      shellRoutePaths: [],
+    });
+
+    if (original === undefined) {
+      delete process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT;
+    } else {
+      process.env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT = original;
+    }
+    vi.resetModules();
   });
 
   it("maps tokenBudgets to contextPolicy levels (light, normal, heavy)", () => {

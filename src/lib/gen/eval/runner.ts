@@ -6,6 +6,7 @@ import { parseCodeProject } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
 import { buildCompleteProject } from "../export/project-scaffold";
+import { collectRequiredUiComponents } from "../export/build-exportable-project";
 import { runFinalizePreflight } from "../stream/finalize-preflight";
 import { runSeoPreflightChecks } from "../validation/seo-preflight";
 import { EVAL_PROMPTS, type EvalPrompt } from "./prompts";
@@ -143,7 +144,6 @@ async function evaluatePrompt(
 
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
-  const { collectRequiredUiComponents } = await import("@/lib/gen/export/project-scaffold-ui-reader");
   const completeProjectFiles = buildCompleteProject(
     project.files,
     collectRequiredUiComponents(project.files),

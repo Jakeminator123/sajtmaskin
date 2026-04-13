@@ -19,6 +19,7 @@
 | [step4-post-generation.md](./step4-post-generation.md) | Steg 4: finalize, validate, verifier, preflight, fast-only vs fast+deep, gräns mot Steg 5 |
 | [preview-deploy.md](./preview-deploy.md) | Tier-2 preview via `preview_host` / VM, preview-session lifecycle, legacy shim/compat, fidelity tiers, deploy-precheck |
 | [preview-white-screen-runbook.md](./preview-white-screen-runbook.md) | Vit/tom preview: felsökning, loggar, förebyggande; speglar UI-runbook |
+| [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fullständiga schema: flöde, typer, matris, merge-pipeline |
 | [repository-and-platform.md](./repository-and-platform.md) | Mappar & terminologi, doc-livscykel, repo-hygien, skript/scaffolds, kände fel, v0-deprecation, Vercel-mallar/webhooks, övriga integrationer |
 
 ## Dokumentlivscykel

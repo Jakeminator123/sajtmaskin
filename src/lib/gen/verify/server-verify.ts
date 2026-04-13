@@ -18,6 +18,8 @@ import {
   failVersionVerification,
   updateVersionFiles,
   getChat,
+  getLatestVersion,
+  markVersionSupersededByRepair,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
@@ -47,6 +49,7 @@ import {
 } from "./server-verify-log-meta";
 
 const inflight = new Set<string>();
+const SERVER_REPAIR_LLM_TIMEOUT_MS = 60_000;
 
 export function isServerVerifyEligible(versionId: string): boolean {
   if (!dbConfigured) return false;
@@ -59,6 +62,24 @@ function filesToCodeProjectContent(files: CodeFile[]): string {
   return files
     .map((f) => `\`\`\`${f.language || "tsx"} file="${f.path}"\n${f.content}\n\`\`\``)
     .join("\n\n");
+}
+
+function uniqueContextLines(values: string[], limit: number): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+    if (result.length >= limit) break;
+  }
+  return result;
+}
+
+async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
+  const latest = await getLatestVersion(chatId).catch(() => null);
+  return !latest || latest.id === versionId;
 }
 
 /**
@@ -74,6 +95,18 @@ export async function triggerServerVerification(params: {
   inflight.add(versionId);
 
   try {
+    if (!(await isLatestVersionForChat(chatId, versionId))) {
+      await markVersionSupersededByRepair(versionId).catch(() => null);
+      await createEngineVersionErrorLogs([{
+        chatId,
+        versionId,
+        level: "warning",
+        category: "server-verify:superseded",
+        message: "Background verification skipped because a newer version already exists.",
+        meta: { serverOwned: true },
+      }]).catch(() => null);
+      return;
+    }
     const codeFiles = await getVersionFiles(versionId);
     if (!codeFiles || codeFiles.length === 0) return;
 
@@ -215,6 +248,21 @@ async function tryServerRepairLoop(params: {
       : undefined;
     let promoted = false;
     if (decision.promote) {
+      if (!(await isLatestVersionForChat(chatId, versionId))) {
+        await markVersionSupersededByRepair(versionId).catch(() => null);
+        await createEngineVersionErrorLogs([{
+          chatId,
+          versionId,
+          level: "warning",
+          category: "server-verify:superseded",
+          message: "Post-repair promotion skipped because a newer version already exists.",
+          meta: {
+            method,
+            serverOwned: true,
+          },
+        }]).catch(() => null);
+        return false;
+      }
       const filesJson = JSON.stringify(repairedFiles);
       const msg =
         method === "deterministic"
@@ -311,32 +359,41 @@ async function tryServerRepairLoop(params: {
     : undefined;
 
   let llmPasses = 0;
-  let earlyStopReason: "fixer_noop" | "no_improvement" | null = null;
+  let earlyStopReason: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null = null;
   for (let pass = 0; pass < SERVER_REPAIR_MAX_PASSES; pass++) {
     if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
       content = bestContent;
       syntaxResult = await validateGeneratedCode(content);
     }
     const errorsBefore = syntaxResult.errors.length;
-    const errorSummary = [
+    const errorSummary = uniqueContextLines([
       ...syntaxResult.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`),
       ...errorLines,
-    ].slice(0, 50);
+    ], 50);
     const brokenFiles = [...new Set([
       ...syntaxResult.errors.map((e) => e.file).filter(Boolean),
       ...filesFromGateOutput,
     ])];
 
-    const fixerResult = await runLlmFixer(content, errorSummary, {
-      model: fixerModel,
-      requiredFiles: brokenFiles,
-    });
+    const fixerAbort = new AbortController();
+    const timeoutHandle = setTimeout(() => fixerAbort.abort(), SERVER_REPAIR_LLM_TIMEOUT_MS);
+    let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
+    try {
+      fixerResult = await runLlmFixer(content, errorSummary, {
+        model: fixerModel,
+        requiredFiles: brokenFiles,
+        abortSignal: fixerAbort.signal,
+      });
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
     llmPasses++;
     if (!fixerResult.success && !fixerResult.partial) {
       const stopReason = resolveServerRepairEarlyStopReason({
         fixerProducedOutput: false,
         errorsBefore,
         errorsAfter: errorsBefore,
+        timedOut: fixerAbort.signal.aborted,
       });
       earlyStopReason = stopReason === "continue" ? null : stopReason;
       break;
@@ -349,6 +406,7 @@ async function tryServerRepairLoop(params: {
       fixerProducedOutput: true,
       errorsBefore,
       errorsAfter: syntaxResult.errors.length,
+      timedOut: false,
     });
 
     if (syntaxResult.errors.length < bestErrorCount) {
@@ -390,7 +448,7 @@ function logRepairOutcome(
   repaired: boolean,
   llmPasses: number,
   remainingErrors?: number,
-  earlyStopReason?: "fixer_noop" | "no_improvement" | null,
+  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null,
   verifyContext?: {
     verifyLaneDurationMs: number;
     firstFailureCheck: string | null;

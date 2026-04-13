@@ -82,6 +82,34 @@ export function repairGeneratedFiles(files: CodeFile[]): {
           file: file.path,
         });
       }
+
+      const REQUIRED_REMOTE_HOSTS = [
+        "images.unsplash.com",
+        "plus.unsplash.com",
+        "images.pexels.com",
+        "*.blob.vercel-storage.com",
+        "api.dicebear.com",
+      ];
+      const missingHosts = REQUIRED_REMOTE_HOSTS.filter((h) => !content.includes(h));
+      if (missingHosts.length > 0 && !content.includes("remotePatterns")) {
+        const patternsBlock = missingHosts
+          .map((h) => `      { protocol: "https", hostname: "${h}" },`)
+          .join("\n");
+        const injected = content.replace(
+          /(const\s+nextConfig\s*(?::\s*NextConfig\s*)?=\s*\{)/,
+          `$1\n  images: {\n    remotePatterns: [\n${patternsBlock}\n    ],\n  },`,
+        );
+        if (injected !== content) {
+          content = injected;
+          fixes.push({
+            fixer: "next-config-remote-patterns",
+            category: "mechanical",
+            description: `Injected ${missingHosts.length} missing remote image patterns (${missingHosts.join(", ")})`,
+            file: file.path,
+          });
+        }
+      }
+
       return content === file.content ? file : { ...file, content };
     }
 

@@ -4,7 +4,7 @@ import type { ShadcnBlockSelection } from "@/components/builder/UiElementPicker"
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteSelection, PaletteState } from "@/lib/builder/palette";
 import type { BuildMethod } from "@/lib/builder/build-intent";
-import type { ScaffoldMode } from "@/lib/gen/scaffolds";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
 import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
@@ -241,9 +241,10 @@ export function useBuilderPromptActions({
       try {
         pendingBriefRef.current = null;
         pendingSpecRef.current = null;
-        // First freeform prompt always uses deep brief — yields better scaffold
-        // selection and fewer autofix passes. User toggle applies to later prompts.
-        const addendum = await generateDynamicInstructions(trimmed, {
+        // Generate Deep Brief for init — the brief object is sent via meta.brief
+        // and consumed by the server's buildDynamicContext(). We no longer merge
+        // brief-derived prose into customInstructions to avoid double representation.
+        await generateDynamicInstructions(trimmed, {
           forceShallow: false,
           forceDeepBrief: true,
           onBrief: (brief) => {
@@ -261,9 +262,7 @@ export function useBuilderPromptActions({
         const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
         const paletteHint = buildPaletteInstruction(paletteState);
         const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
-        const combined = addendum.trim()
-          ? `${baseInstructions}\n\n${addendum}${paletteSuffix}${specSuffix}`.trim()
-          : `${baseInstructions}${paletteSuffix}${specSuffix}`.trim();
+        const combined = `${baseInstructions}${paletteSuffix}${specSuffix}`.trim();
         setCustomInstructions(combined);
         pendingInstructionsRef.current = combined;
         pendingInstructionsOnceRef.current = false;
@@ -294,19 +293,11 @@ export function useBuilderPromptActions({
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
       setEntryIntentActive(false);
-      pendingBriefRef.current = null;
-      pendingSpecRef.current = null;
-      pendingInstructionsRef.current = null;
-      if (options?.skipDynamicInstructions) {
-        captureInstructionSnapshot();
-        await createNewChat(message, options);
-        return true;
-      }
-      const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
-      if (dynamicInstructions == null) {
+      const userInstructions = await applyDynamicInstructionsForNewChat(message);
+      if (userInstructions == null) {
         captureInstructionSnapshot();
       }
-      const systemOverride = dynamicInstructions?.trim() ? dynamicInstructions.trim() : undefined;
+      const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
       await createNewChat(message, options, systemOverride);
       return true;
     },

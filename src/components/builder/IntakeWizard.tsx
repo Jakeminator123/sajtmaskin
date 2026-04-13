@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Building2,
@@ -1023,25 +1022,24 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
     }
   }, [step, handleSuggestMustHaves]);
 
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    if (mounted && dialogRef.current) {
-      dialogRef.current.focus();
+    const el = dialogRef.current;
+    if (mounted && el && !el.open) {
+      el.showModal();
     }
   }, [mounted]);
 
   if (!mounted) return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-background/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Intake-guiden">
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl outline-none"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxHeight: "min(85vh, 700px)" }}
-      >
+  return (
+    <dialog
+      ref={dialogRef}
+      className="fixed inset-0 z-[99999] m-auto flex max-h-[min(85vh,700px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl outline-none backdrop:bg-background/80 backdrop:backdrop-blur-sm"
+      aria-label="Intake-guiden"
+      onCancel={(e) => e.preventDefault()}
+    >
         {/* ── Progress bar ───────────────────────────────────── */}
         <div className="h-1 w-full bg-muted">
           <div
@@ -1325,9 +1323,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </dialog>
   );
 }
 

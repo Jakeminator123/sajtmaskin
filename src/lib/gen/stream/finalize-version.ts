@@ -126,6 +126,7 @@ interface FinalizeFastPathResult {
   previewBlockingReason: string | null;
   finalizedFilesForPreview: CodeFile[];
   scaffoldRetry: ScaffoldRetrySuggestion | null;
+  verifierBlockingFindings: Array<{ id: string; detail: string }>;
   stepTelemetry: FinalizeStepTelemetryMap;
 }
 
@@ -164,6 +165,30 @@ function buildSyntaxFailureLog(params: {
       lineageHash: lineageHash ?? null,
     },
   };
+}
+
+function buildVerifierFailureLogs(params: {
+  chatId: string;
+  versionId: string;
+  blockingFindings: Array<{ id: string; detail: string }>;
+  logPassId: string;
+  repairPassIndex: number;
+  lineageHash?: string | null;
+}) {
+  const { chatId, versionId, blockingFindings, logPassId, repairPassIndex, lineageHash } = params;
+  return blockingFindings.map((finding) => ({
+    chatId,
+    versionId,
+    level: "warning" as const,
+    category: "quality-gate:verifier",
+    message: finding.detail,
+    meta: {
+      verifierFindingId: finding.id,
+      logPassId,
+      repairPassIndex,
+      lineageHash: lineageHash ?? null,
+    },
+  }));
 }
 
 function createFinalizeStepTelemetry(
@@ -461,11 +486,13 @@ async function runFinalizeFastPath(params: {
     finalizePath,
     repairPassIndex,
   });
+  let verifierBlockingFindings: Array<{ id: string; detail: string }> = [];
   if (verifierPolicy.run) {
     const verifierStartedAt = Date.now();
     onProgress?.("verifier", { phase: "start" });
     try {
       const findings = await runVerifierPass(contentForVersion, { resolvedTier: verifierTier });
+      verifierBlockingFindings = findings.blocking.slice(0, 5);
       devLogAppend("in-progress", {
         type: "verifier-pass",
         chatId,
@@ -527,6 +554,7 @@ async function runFinalizeFastPath(params: {
     model,
     resolvedTier,
     filesJson,
+    buildSpec,
     routePlan,
     orchestrationContract,
     originalPrompt,
@@ -599,6 +627,7 @@ async function runFinalizeFastPath(params: {
     previewBlockingReason,
     finalizedFilesForPreview,
     scaffoldRetry,
+    verifierBlockingFindings,
     stepTelemetry,
   };
 }
@@ -739,6 +768,7 @@ export async function finalizeAndSaveVersion(
     previewBlockingReason,
     finalizedFilesForPreview,
     scaffoldRetry,
+    verifierBlockingFindings,
     stepTelemetry: fastPathStepTelemetry,
   } = await runFinalizeFastPath({
     chatId,
@@ -839,6 +869,17 @@ export async function finalizeAndSaveVersion(
   });
   if (syntaxFailureLog) {
     preflightLogs.unshift(syntaxFailureLog);
+  }
+  const verifierFailureLogs = buildVerifierFailureLogs({
+    chatId,
+    versionId: version.id,
+    blockingFindings: verifierBlockingFindings,
+    logPassId,
+    repairPassIndex,
+    lineageHash,
+  });
+  if (verifierFailureLogs.length > 0) {
+    preflightLogs.push(...verifierFailureLogs);
   }
   if (autoFixHeavyLoad) {
     preflightLogs.push({

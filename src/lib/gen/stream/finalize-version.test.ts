@@ -72,6 +72,10 @@ vi.mock("@/lib/gen/export/project-scaffold", () => ({
   buildCompleteProject,
 }));
 
+vi.mock("@/lib/gen/export/build-exportable-project", () => ({
+  collectRequiredUiComponents: vi.fn().mockReturnValue([]),
+}));
+
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addAssistantMessageAndCreateDraftVersion,
   updateChatOrchestrationSnapshot,
@@ -571,6 +575,69 @@ describe("finalizeAndSaveVersion", () => {
     );
   });
 
+  it("persists verifier blockers as reusable version error logs", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "next-image-remote-patterns",
+          detail:
+            "`app/page.tsx` uses external next/image hosts without confirmed remotePatterns config.",
+        },
+      ],
+      quality: [],
+    });
+
+    await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "quality-gate:verifier",
+          level: "warning",
+          message:
+            "`app/page.tsx` uses external next/image hosts without confirmed remotePatterns config.",
+          meta: expect.objectContaining({
+            verifierFindingId: "next-image-remote-patterns",
+          }),
+        }),
+      ]),
+    );
+  });
+
   it("fails before persist when preflight detects partial file output", async () => {
     runProjectSanityChecks.mockReturnValueOnce({
       valid: false,
@@ -628,6 +695,12 @@ describe("finalizeAndSaveVersion", () => {
           scaffoldChars: 36_000,
           refsChars: 12_000,
           systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
         },
       },
       resolvedScaffold: null,
@@ -701,6 +774,12 @@ describe("finalizeAndSaveVersion", () => {
             refsChars: 12_000,
             systemContextChars: 48_000,
           },
+          routeRealization: {
+            mode: "full",
+            primaryRoutePath: "/",
+            fullRoutePaths: ["/"],
+            shellRoutePaths: [],
+          },
         },
         resolvedScaffold: null,
         urlMap: {},
@@ -766,6 +845,12 @@ describe("finalizeAndSaveVersion", () => {
             refsChars: 12_000,
             systemContextChars: 48_000,
           },
+          routeRealization: {
+            mode: "full",
+            primaryRoutePath: "/",
+            fullRoutePaths: ["/"],
+            shellRoutePaths: [],
+          },
         },
         resolvedScaffold: null,
         urlMap: {},
@@ -814,6 +899,12 @@ describe("finalizeAndSaveVersion", () => {
             scaffoldChars: 36_000,
             refsChars: 12_000,
             systemContextChars: 48_000,
+          },
+          routeRealization: {
+            mode: "full",
+            primaryRoutePath: "/",
+            fullRoutePaths: ["/"],
+            shellRoutePaths: [],
           },
         },
         resolvedScaffold: null,

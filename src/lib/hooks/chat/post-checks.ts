@@ -132,7 +132,6 @@ export async function runPostGenerationChecks(params: {
   setMessages: SetMessages;
   streamQuality?: StreamQualitySignal;
   onAutoFix?: (payload: AutoFixPayload) => void;
-  suppressSummaryText?: boolean;
 }) {
   const {
     chatId,
@@ -143,7 +142,6 @@ export async function runPostGenerationChecks(params: {
     setMessages,
     streamQuality,
     onAutoFix,
-    suppressSummaryText = false,
   } = params;
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
@@ -226,26 +224,24 @@ export async function runPostGenerationChecks(params: {
       output: artifacts.output,
     });
 
-    if (!suppressSummaryText) {
-      appendPostCheckSummaryToMessage(
-        setMessages,
-        assistantMessageId,
-        buildPostCheckSummary({
-          changes: baseline.changes,
-          warnings,
-          demoUrl: artifacts.finalDemoUrl,
-          previewBlockingReason: artifacts.previewBlockingReason,
-          provisional: artifacts.provisionalVersion,
-          qualityGatePending: artifacts.qualityGatePending,
-          autoFixQueued: artifacts.autoFixQueued,
-          qualityTier: artifacts.qualityTier,
-          warningReasons: artifacts.warningReasons,
-        }),
-      );
-    }
+    appendPostCheckSummaryToMessage(
+      setMessages,
+      assistantMessageId,
+      buildPostCheckSummary({
+        changes: baseline.changes,
+        warnings,
+        demoUrl: artifacts.finalDemoUrl,
+        previewBlockingReason: artifacts.previewBlockingReason,
+        provisional: artifacts.provisionalVersion,
+        verifyPending: artifacts.verifyPending,
+        autoFixQueued: artifacts.autoFixQueued,
+        qualityTier: artifacts.qualityTier,
+        warningReasons: artifacts.warningReasons,
+      }),
+    );
 
     if (artifacts.autoFixReasons.length === 0) {
-      void runPreviewQualityGate({
+      void runTier2VerifyLane({
         chatId,
         versionId,
         assistantMessageId,
@@ -260,7 +256,7 @@ export async function runPostGenerationChecks(params: {
         state: "output-available",
         output: {
           skipped: true,
-          reason: "Skippad eftersom autofix redan har köats från post-check.",
+          reason: "Autofix köad från post-check — verify-lane körs efter fix.",
           autoFixQueued: true,
         },
       } as UiMessagePart);
@@ -321,7 +317,7 @@ function formatUtcClock(timestamp: string | null | undefined): string | null {
   return `${parsed.toISOString().slice(11, 19)}Z`;
 }
 
-async function runPreviewQualityGate(params: {
+async function runTier2VerifyLane(params: {
   chatId: string;
   versionId: string;
   assistantMessageId: string;
@@ -446,87 +442,14 @@ async function runPreviewQualityGate(params: {
     } as UiMessagePart);
 
     if (!data.passed && failedChecks.length > 0) {
-      const missingEnvKeys = extractMissingEnvKeysFromQualityGate(data.checks ?? []);
-      if (missingEnvKeys.length > 0) {
-        appendToolPartToMessage(
-          setMessages,
-          assistantMessageId,
-          integrationSignalToToolPart(
-            {
-              key: `quality-gate-env:${versionId}`,
-              name: "Miljövariabler",
-              intent: "env_vars",
-              envVars: missingEnvKeys,
-              status:
-                "Bygget kräver miljövariabler innan live-preview kan nå Fidelity 2. Lägg in nycklarna och starta om previewn i stället för att generera om sajten.",
-              sourceEvent: "quality-gate",
-            },
-            versionId,
-          ),
-        );
-        return;
-      }
+      const handled = handleEnvSignal(data.checks ?? [], versionId, setMessages, assistantMessageId);
+      if (handled) return;
 
-      const repair: RepairContext = {
-        qualityGate: (data.checks ?? [])
-          .filter((c) => !c.passed)
-          .map((c) => ({
-            check: c.check as "typecheck" | "build" | "lint",
-            exitCode: c.exitCode,
-            output: c.output.slice(0, 4000),
-            durationMs: c.durationMs ?? null,
-          })),
-        qualityGateMeta: {
-          verifyLaneDurationMs: data.verifyLaneDurationMs ?? null,
-          firstFailureCheck:
-            typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
-          jobStartedAt: typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
-          jobFinishedAt: typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
-        },
-      };
-
-      const serverRepaired = await tryServerRepair(chatId, versionId, repair);
-      appendToolPartToMessage(setMessages, assistantMessageId, {
-        type: "tool:quality-gate",
-        toolName: "Server repair",
-        toolCallId: `server-repair:${versionId}`,
-        state: "output-available",
-        output: {
-          repaired: serverRepaired.repaired,
-          method: serverRepaired.status === "completed"
-            ? serverRepaired.deterministic
-              ? "deterministic"
-              : "llm"
-            : null,
-          newVersionId: serverRepaired.newVersionId,
-          remainingErrors: serverRepaired.remainingErrors ?? null,
-          improvedSyntax: serverRepaired.improvedSyntax ?? null,
-          earlyStopReason: serverRepaired.earlyStopReason ?? null,
-          status: serverRepaired.status ?? "completed",
-          reason: serverRepaired.reason ?? null,
-        },
-      } as UiMessagePart);
-      if (!serverRepaired.repaired) {
-        onAutoFix?.({
-          chatId,
-          versionId,
-          reasons: failedChecks.map((check) => `${check} failed`),
-          repair,
-        });
-      }
-    } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
-      const repair: RepairContext = {
-        visualQA: visualQa.checks
-          .filter((c) => !c.passed)
-          .map((c) => ({ check: c.check, score: c.score, detail: c.detail }))
-          .slice(0, 4),
-      };
-      onAutoFix({
-        chatId,
-        versionId,
-        reasons: [`Visual QA score ${visualQa.overallScore}/100 below threshold`],
-        repair,
+      await handleRepairOrAutofix({
+        chatId, versionId, data, failedChecks, setMessages, assistantMessageId, onAutoFix,
       });
+    } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
+      handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
     }
   } catch {
     appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -537,6 +460,121 @@ async function runPreviewQualityGate(params: {
       errorText: "Quality gate request failed (network error)",
     } as UiMessagePart);
   }
+}
+
+function handleEnvSignal(
+  checks: QualityGateCheckResult[],
+  versionId: string,
+  setMessages: SetMessages,
+  assistantMessageId: string,
+): boolean {
+  const missingEnvKeys = extractMissingEnvKeysFromQualityGate(checks);
+  if (missingEnvKeys.length === 0) return false;
+  appendToolPartToMessage(
+    setMessages,
+    assistantMessageId,
+    integrationSignalToToolPart(
+      {
+        key: `quality-gate-env:${versionId}`,
+        name: "Miljövariabler",
+        intent: "env_vars",
+        envVars: missingEnvKeys,
+        status:
+          "Bygget kräver miljövariabler innan live-preview kan nå Fidelity 2. Lägg in nycklarna och starta om previewn i stället för att generera om sajten.",
+        sourceEvent: "quality-gate",
+      },
+      versionId,
+    ),
+  );
+  return true;
+}
+
+async function handleRepairOrAutofix(params: {
+  chatId: string;
+  versionId: string;
+  data: {
+    checks?: QualityGateCheckResult[];
+    verifyLaneDurationMs?: number;
+    firstFailureCheck?: string | null;
+    jobStartedAt?: string | null;
+    jobFinishedAt?: string | null;
+  };
+  failedChecks: string[];
+  setMessages: SetMessages;
+  assistantMessageId: string;
+  onAutoFix?: (payload: AutoFixPayload) => void;
+}) {
+  const { chatId, versionId, data, failedChecks, setMessages, assistantMessageId, onAutoFix } = params;
+
+  const repair: RepairContext = {
+    qualityGate: (data.checks ?? [])
+      .filter((c) => !c.passed)
+      .map((c) => ({
+        check: c.check as "typecheck" | "build" | "lint",
+        exitCode: c.exitCode,
+        output: c.output.slice(0, 4000),
+        durationMs: c.durationMs ?? null,
+      })),
+    qualityGateMeta: {
+      verifyLaneDurationMs: data.verifyLaneDurationMs ?? null,
+      firstFailureCheck:
+        typeof data.firstFailureCheck === "string" ? data.firstFailureCheck : null,
+      jobStartedAt: typeof data.jobStartedAt === "string" ? data.jobStartedAt : null,
+      jobFinishedAt: typeof data.jobFinishedAt === "string" ? data.jobFinishedAt : null,
+    },
+  };
+
+  const serverRepaired = await tryServerRepair(chatId, versionId, repair);
+  appendToolPartToMessage(setMessages, assistantMessageId, {
+    type: "tool:quality-gate",
+    toolName: "Server repair",
+    toolCallId: `server-repair:${versionId}`,
+    state: "output-available",
+    output: {
+      repaired: serverRepaired.repaired,
+      method: serverRepaired.status === "completed"
+        ? serverRepaired.deterministic
+          ? "deterministic"
+          : "llm"
+        : null,
+      newVersionId: serverRepaired.newVersionId,
+      remainingErrors: serverRepaired.remainingErrors ?? null,
+      improvedSyntax: serverRepaired.improvedSyntax ?? null,
+      earlyStopReason: serverRepaired.earlyStopReason ?? null,
+      status: serverRepaired.status ?? "completed",
+      reason: serverRepaired.reason ?? null,
+    },
+  } as UiMessagePart);
+
+  if (!serverRepaired.repaired) {
+    onAutoFix?.({
+      chatId,
+      versionId,
+      reasons: failedChecks.map((check) => `${check} failed`),
+      repair,
+    });
+  }
+}
+
+function handleVisualQaAutofix(params: {
+  chatId: string;
+  versionId: string;
+  visualQa: QualityGateVisualQaResult;
+  onAutoFix: (payload: AutoFixPayload) => void;
+}) {
+  const { chatId, versionId, visualQa, onAutoFix } = params;
+  const repair: RepairContext = {
+    visualQA: visualQa.checks
+      .filter((c) => !c.passed)
+      .map((c) => ({ check: c.check, score: c.score, detail: c.detail }))
+      .slice(0, 4),
+  };
+  onAutoFix({
+    chatId,
+    versionId,
+    reasons: [`Visual QA score ${visualQa.overallScore}/100 below threshold`],
+    repair,
+  });
 }
 
 function isServerRepairDisabled(): boolean {
@@ -554,7 +592,7 @@ type ServerRepairResult = {
   newVersionId?: string | null;
   remainingErrors?: number;
   improvedSyntax?: boolean;
-  earlyStopReason?: "fixer_noop" | "no_improvement" | null;
+  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
   status?: "completed" | "skipped" | "request_failed";
   reason?: string | null;
 };

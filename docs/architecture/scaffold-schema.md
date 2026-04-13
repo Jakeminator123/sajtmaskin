@@ -88,7 +88,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 17 | Kodgenerering | `generateCode()` | `engine.ts` | Ja | LLM-anrop med systemprompt + user turn |
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
-| 20 | Template-library runtime | `searchTemplateLibrary()` | `template-library/search.ts` | **Inte aktiv** | Exporterad men inte injicerad i system-prompt |
+| 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Opt-in** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Init only. `searchTemplateLibrary()` ej använd i runtime. |
 
 ---
 
@@ -288,7 +288,7 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 ├── route plan
 ├── contracts
 ├── brief (om finns)
-├── style direction (deterministisk variation)
+├── style direction (deterministisk variation: layout, rytm, motiv, fontpar, sektionsrecept)
 ├── capability hints
 ├── scaffold research priorities
 └── your toolkit (shadcn-importer + capability-hints)
@@ -400,9 +400,9 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Problem | Detalj |
 |---------|--------|
-| Template-library search exporterad men oanvänd | `searchTemplateLibrary()` injiceras inte i system-prompt. |
+| Template-library scaffold-anchored guidance (opt-in) | `resolveTemplateGuidance()` i `orchestrate.ts` injicerar runtimeGuidance i `## Scaffold Research Priorities` när `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true`. Global `searchTemplateLibrary()` förblir oanvänd i runtime. |
 | `PromptType` i kod ≠ glossary | Koden har `wizard \| freeform \| template \| audit \| followup_*`. Glossary nämner även `app` och `technical` som docs-only flavorer. |
-| Scaffold inline-filer | Manifest-filer innehåller hela TSX/CSS som strängar — kan inte lintas. |
+| ~~Scaffold inline-filer~~ | **Löst.** Scaffold-filer extraherade till disk under `scaffolds/<id>/files/`. Manifest-filer refererar filer via `loadScaffoldFiles()`. |
 
 ---
 
@@ -419,7 +419,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `template-library/types.ts` | `recommendedScaffoldIds: ScaffoldId[]` | **Nej** — en dossier kan rekommendera flera scaffold-id:n |
 | `scaffold-embedding-locale.ts` | Nycklar per family | Ja — byt till id |
 | `scaffold-aware-retry.ts` | Retry per family | Ja — byt till id |
-| `style-directions.ts` | Style per scaffold | Ja |
+| `style-directions.ts` | Style per scaffold (layout, fontPairings, sectionRecipes) | Ja |
 | `diagnostics.ts` | Telemetri | Ja |
 | `orchestration-contract.ts` | `scaffoldId` i contract | Genomfört |
 | Dossier-manifests (catalog.json) | `recommendedScaffoldIds[]` | **Nej** — extern mapping |
@@ -599,7 +599,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | Åtgärd | Risk | Påverkan |
 |--------|------|----------|
 | Flytta scaffold-filer ur inline-strängar → riktiga filer under `files/` | Medel | Linting, diffbar, redigerbar |
-| Koppla in `searchTemplateLibrary()` i runtime ELLER ta bort export | Medel | Rensar oanvänd feature |
+| Ta bort `searchTemplateLibrary()`-export om den förblir oanvänd i runtime | Låg | Rensar oanvänd feature |
 | Skapa `data/prompt-dumps/README.md` | Låg | Dokumenterar debug-verktyg |
 
 ---

@@ -11,7 +11,7 @@ export function loadScaffoldFiles(scaffoldId: string): ScaffoldFile[] {
 }
 
 function collectFiles(dir: string, root: string): ScaffoldFile[] {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const entries = fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
   const result: ScaffoldFile[] = [];
   for (const entry of entries) {
     const full = path.join(dir, entry.name);

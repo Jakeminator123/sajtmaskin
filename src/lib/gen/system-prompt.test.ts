@@ -20,6 +20,12 @@ const lightFollowUpSpec: BuildSpec = {
     refsChars: 12_000,
     systemContextChars: 48_000,
   },
+  routeRealization: {
+    mode: "full",
+    primaryRoutePath: "/",
+    fullRoutePaths: ["/"],
+    shellRoutePaths: [],
+  },
 };
 
 describe("buildDynamicContext", () => {
@@ -188,6 +194,46 @@ describe("buildDynamicContext", () => {
       expect(profileIdx).toBeLessThan(routePlanIdx);
     });
 
+    it("describes init shell policy when route realization defers extra routes", async () => {
+      const routePlan = {
+        provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
+        siteType: "brochure" as const,
+        reason: "Multiple pages planned from prompt",
+        routes: [
+          { path: "/", name: "Home", intent: "Primary landing page", required: true },
+          { path: "/about", name: "About", intent: "Company story", required: false },
+          { path: "/contact", name: "Contact", intent: "Lead capture", required: false },
+        ],
+      };
+
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        routePlan,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "page-addition",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+          routeRealization: {
+            mode: "primary-full-with-shells",
+            primaryRoutePath: "/",
+            fullRoutePaths: ["/"],
+            shellRoutePaths: ["/about", "/contact"],
+          },
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("**Primary route:** `/`");
+      expect(context).toContain("Fully realize only `/` in this generation");
+      expect(context).toContain("`/about` — About [shell now]");
+      expect(context).toContain("`/contact` — Contact [shell now]");
+      expect(context).toContain("clear primary CTA such as 'Skapa sida'");
+      expect(context).toContain("deliberate builder-owned placeholder states");
+    });
+
     it("follow-up keeps mode and profile without retrieval sections", async () => {
       const { context } = await buildDynamicContext({
         intent: "website",
@@ -268,6 +314,267 @@ describe("buildDynamicContext", () => {
       expect(blocks.length).toBeGreaterThan(0);
       expect(blocks.some((block) => block.title === "Build Intent: Website")).toBe(true);
       expect(blocks.some((block) => block.kept)).toBe(true);
+    });
+
+    it("brief-derived content appears only once as Project Context, not also as Custom Instructions", async () => {
+      const brief = {
+        projectTitle: "Veterinärkliniken Hund & Katt",
+        brandName: "Hund & Katt",
+        oneSentencePitch: "Professionell djurvård i Malmö.",
+        targetAudience: "Djurägare i södra Sverige",
+        toneAndVoice: ["varm", "professionell"],
+        pages: [
+          { name: "Hem", path: "/", purpose: "Landningssida", sections: [{ type: "hero", heading: "Välkommen" }] },
+        ],
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Project Context");
+      expect(context).toContain("Hund & Katt");
+      const projectContextCount = context.split("## Project Context").length - 1;
+      expect(projectContextCount).toBe(1);
+    });
+
+    it("custom instructions from user appear separately and do not duplicate brief content", async () => {
+      const brief = {
+        projectTitle: "TestSite",
+        brandName: "TestBrand",
+      };
+      const userInstructions = "Always use Swedish copy. Prefer dark theme.";
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        customInstructions: userInstructions,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Custom Instructions (from the user)");
+      expect(context).toContain(userInstructions);
+      expect(context).toContain("## Project Context");
+      expect(context).toContain("TestBrand");
+      const customIdx = context.indexOf("## Custom Instructions (from the user)");
+      const projectIdx = context.indexOf("## Project Context");
+      expect(customIdx).toBeLessThan(projectIdx);
+    });
+
+    it("omits Pages & Sections when brief pages have no section detail (Route Plan covers paths)", async () => {
+      const brief = {
+        projectTitle: "MyShop",
+        pages: [
+          { name: "Home", path: "/", purpose: "Landing page" },
+          { name: "About", path: "/about", purpose: "Company info" },
+        ],
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Project Context");
+      expect(context).not.toContain("## Pages & Sections");
+    });
+
+    it("includes Pages & Sections only for pages that have section-level detail", async () => {
+      const brief = {
+        projectTitle: "MyShop",
+        pages: [
+          { name: "Home", path: "/", purpose: "Landing", sections: [{ type: "hero", heading: "Welcome" }] },
+          { name: "About", path: "/about", purpose: "Company info" },
+        ],
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Pages & Sections");
+      expect(context).toContain("Home");
+      expect(context).toContain("hero");
+      expect(context).not.toContain("About");
+    });
+
+    it("deduplicates imagery styleKeywords that already appear in visualDirection", async () => {
+      const brief = {
+        projectTitle: "StyleTest",
+        visualDirection: {
+          styleKeywords: ["minimalist", "bold"],
+        },
+        imagery: {
+          styleKeywords: ["minimalist", "cinematic"],
+          suggestedSubjects: ["mountain landscape"],
+        },
+      };
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        brief,
+        buildSpec: {
+          ...lightFollowUpSpec,
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+      });
+
+      expect(context).toContain("## Imagery (from brief)");
+      expect(context).toContain("cinematic");
+      expect(context).toContain("mountain landscape");
+      const imagerySection = context.slice(context.indexOf("## Imagery"));
+      const minimalistInImagery = (imagerySection.match(/minimalist/g) || []).length;
+      expect(minimalistInImagery).toBe(0);
+    });
+  });
+
+  describe("template guidance injection", () => {
+    const initSpec: BuildSpec = {
+      ...lightFollowUpSpec,
+      generationMode: "init",
+      changeScope: "redesign",
+      contextPolicy: "normal",
+      verificationPolicy: "standard",
+    };
+
+    const sampleGuidance =
+      "- External template guidance (adapt to the scaffold and user request, do not copy verbatim):\n" +
+      "  - **Commerce Starter** style: Keep storefront hierarchy explicit\n" +
+      "  - Sections: catalog grid, product detail, cart\n" +
+      "  - Avoid: Avoid hiding product information\n" +
+      "  - Quality: Commerce flows should feel trustworthy";
+
+    it("includes template guidance in scaffold research block when provided for init", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        buildSpec: initSpec,
+        scaffoldContext: "Scaffold context",
+        resolvedScaffold: {
+          id: "ecommerce",
+          label: "E-handel",
+          description: "E-commerce storefront",
+          allowedBuildIntents: ["website"],
+          tags: [],
+          promptHints: [],
+          files: [],
+          qualityChecklist: ["Keep hero above fold"],
+        },
+        templateGuidance: sampleGuidance,
+      });
+
+      expect(context).toContain("## Scaffold Research Priorities");
+      expect(context).toContain("External template guidance");
+      expect(context).toContain("Commerce Starter");
+      expect(context).toContain("catalog grid");
+    });
+
+    it("omits template guidance when not provided", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        buildSpec: initSpec,
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).not.toContain("External template guidance");
+    });
+
+    it("omits template guidance for follow-up when templateGuidance is not provided", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "followUp",
+        buildSpec: lightFollowUpSpec,
+        scaffoldContext: "Scaffold context",
+        resolvedScaffold: {
+          id: "ecommerce",
+          label: "E-handel",
+          description: "E-commerce storefront",
+          allowedBuildIntents: ["website"],
+          tags: [],
+          promptHints: [],
+          files: [],
+          qualityChecklist: ["Keep hero above fold"],
+        },
+      });
+
+      expect(context).not.toContain("External template guidance");
+    });
+
+    it("does not contain selectedFiles or excerpt content", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        buildSpec: initSpec,
+        scaffoldContext: "Scaffold context",
+        templateGuidance: sampleGuidance,
+        resolvedScaffold: {
+          id: "ecommerce",
+          label: "E-handel",
+          description: "E-commerce storefront",
+          allowedBuildIntents: ["website"],
+          tags: [],
+          promptHints: [],
+          files: [],
+        },
+      });
+
+      expect(context).not.toContain("selectedFiles");
+      expect(context).not.toContain("excerpt");
+    });
+
+    it("opens scaffold research block when only template guidance exists (no checklist/targets)", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        buildSpec: initSpec,
+        scaffoldContext: "Scaffold context",
+        templateGuidance: sampleGuidance,
+        resolvedScaffold: {
+          id: "base-nextjs",
+          label: "Base Next.js",
+          description: "Minimal starter",
+          allowedBuildIntents: ["website"],
+          tags: [],
+          promptHints: [],
+          files: [],
+        },
+      });
+
+      expect(context).toContain("## Scaffold Research Priorities");
+      expect(context).toContain("External template guidance");
     });
   });
 });

@@ -150,7 +150,7 @@ describe("shouldRunServerAutoBrief", () => {
     ).toBe(false);
   });
 
-  it("skips auto-brief for short simple website prompts", () => {
+  it("runs auto-brief for short underspecified website prompts", () => {
     expect(
       shouldRunServerAutoBrief({
         hasClientBrief: false,
@@ -161,6 +161,48 @@ describe("shouldRunServerAutoBrief", () => {
         prompt: "Bygg en enkel hemsida för en lokal frisörsalong i Malmö.",
         buildIntent: "website",
       }),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("runs auto-brief for app init prompts without client brief", () => {
+    expect(
+      shouldRunServerAutoBrief({
+        hasClientBrief: false,
+        promptSourceTechnical: false,
+        promptSourcePreservePayload: false,
+        promptType: "freeform",
+        orchestrationReason: "within_budget",
+        prompt: "Bygg en dashboard med grafer för aktiehandel",
+        buildIntent: "app",
+      }),
+    ).toBe(true);
+  });
+
+  it("runs auto-brief for wizard init prompts without client brief", () => {
+    expect(
+      shouldRunServerAutoBrief({
+        hasClientBrief: false,
+        promptSourceTechnical: false,
+        promptSourcePreservePayload: false,
+        promptType: "wizard",
+        orchestrationReason: "within_budget",
+        prompt: "Jag vill ha en sajt",
+        buildIntent: "website",
+      }),
+    ).toBe(true);
+  });
+
+  it("runs auto-brief for very short vague website prompts", () => {
+    expect(
+      shouldRunServerAutoBrief({
+        hasClientBrief: false,
+        promptSourceTechnical: false,
+        promptSourcePreservePayload: false,
+        promptType: "freeform",
+        orchestrationReason: "within_budget",
+        prompt: "Bygg en sajt",
+        buildIntent: "website",
+      }),
+    ).toBe(true);
   });
 });

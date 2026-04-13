@@ -32,22 +32,29 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
-import { SHADCN_COMPONENTS } from "./data/shadcn-components";
 import { pickStyleDirection } from "./data/style-directions";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
-import { getStaticCoreFromWorkspace } from "./static-core-loader";
 import {
   buildBudgetedSystemPrompt,
   estimateTokens,
   type PromptBudgetBlock,
 } from "./tokens";
-import type { TemplateReferenceContext } from "./template-reference-types";
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
+// Loaded via require() to keep node:fs out of Turbopack's static analysis
+// while remaining available at server runtime.
 // ═══════════════════════════════════════════════════════════════════════════
+
+let _cachedStaticCore: string | null = null;
+function loadStaticCoreSync(): string {
+  if (_cachedStaticCore !== null) return _cachedStaticCore;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getStaticCoreFromWorkspace } = require("./static-core-loader") as typeof import("./static-core-loader");
+  _cachedStaticCore = getStaticCoreFromWorkspace();
+  return _cachedStaticCore;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DYNAMIC CONTEXT — varies per request
@@ -74,7 +81,7 @@ const BUILD_INTENT_GUIDANCE: Record<
       "Use shadcn/ui Cards for feature grids, Badges for labels, Buttons for CTAs. Add Accordion for FAQs only when the user or brief explicitly asks.",
       "Alternate section backgrounds (`bg-background` / `bg-muted/50`) for rhythm. Hero: large type (`text-5xl+`), generous vertical padding (`py-24+`).",
       "Include realistic mock content specific to the business type — never generic placeholder copy.",
-      "Match scope to the route plan: if the route plan lists multiple pages, create each one as a separate App Router page file — never collapse them into a single page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
+      "Match scope: short prompt → polished one-pager; detailed prompt → multi-page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
     ],
   },
   app: {
@@ -158,6 +165,7 @@ export interface DesignReferenceAsset {
   kind: "figma" | "image";
   label: string;
   note?: string;
+  url?: string;
 }
 
 export interface DynamicContextOptions {
@@ -179,9 +187,10 @@ export interface DynamicContextOptions {
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
-  templateReferences?: TemplateReferenceContext[];
   /** Per-session seed (chatId or similar) to vary style direction across sessions with identical prompts. */
   sessionSeed?: string;
+  /** Pre-rendered scaffold-anchored template-library guidance (init only, opt-in). */
+  templateGuidance?: string;
 }
 
 function str(v: unknown): string {
@@ -192,84 +201,6 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : [];
 }
 
-function dedup(items: string[]): string[] {
-  return Array.from(new Set(items.map((s) => s.trim()).filter(Boolean)));
-}
-
-function renderTemplateReferenceModules(
-  refs: TemplateReferenceContext[],
-  budgetTokens: number,
-): string[] {
-  if (refs.length === 0) return [];
-
-  const parts: string[] = [
-    "## Template Reference Modules",
-    "",
-    "Use the following real-world template patterns as building blocks. " +
-      "Adapt them to match the user's brand, content, and scaffold structure. " +
-      "Do NOT copy verbatim — rewrite component names, styles, and content to fit the project.",
-    "",
-  ];
-
-  const allStyleRules = dedup(refs.flatMap((r) => r.guidance.styleRules));
-  const allSections = dedup(refs.flatMap((r) => r.guidance.sectionInventory));
-  const allAvoid = dedup(refs.flatMap((r) => r.guidance.avoidPatterns));
-  const allRubric = dedup(refs.flatMap((r) => r.guidance.worldClassRubric));
-
-  parts.push(`### Design Guidelines (from ${refs.length} matched templates)`, "");
-
-  if (allStyleRules.length > 0) {
-    parts.push("**Style rules:**");
-    parts.push(...allStyleRules.slice(0, 6).map((r) => `- ${r}`));
-    parts.push("");
-  }
-  if (allSections.length > 0) {
-    parts.push("**Section patterns to include:**");
-    parts.push(...allSections.slice(0, 8).map((s) => `- ${s}`));
-    parts.push("");
-  }
-  if (allAvoid.length > 0) {
-    parts.push("**Patterns to avoid:**");
-    parts.push(...allAvoid.slice(0, 5).map((a) => `- ${a}`));
-    parts.push("");
-  }
-  if (allRubric.length > 0) {
-    parts.push("**Quality rubric:**");
-    parts.push(...allRubric.slice(0, 5).map((r) => `- ${r}`));
-    parts.push("");
-  }
-
-  let usedTokens = estimateTokens(parts.join("\n"));
-  const codeRefBudget = Math.max(0, budgetTokens - usedTokens);
-  if (codeRefBudget < 200) return parts;
-
-  let codeTokensUsed = 0;
-  const topRefs = refs.slice(0, 3);
-
-  for (const ref of topRefs) {
-    if (ref.codeExcerpts.length === 0) continue;
-    if (codeTokensUsed >= codeRefBudget) break;
-
-    const headerLine = `### Code Reference: ${ref.title} (score ${ref.qualityScore})`;
-    const headerTokens = estimateTokens(headerLine);
-    if (codeTokensUsed + headerTokens >= codeRefBudget) break;
-
-    parts.push(headerLine, "");
-    codeTokensUsed += headerTokens;
-
-    for (const excerpt of ref.codeExcerpts) {
-      const block = `\`\`\`tsx\n// ${excerpt.path}\n${excerpt.excerpt}\n\`\`\``;
-      const blockTokens = estimateTokens(block);
-      if (codeTokensUsed + blockTokens > codeRefBudget && codeTokensUsed > 0) break;
-
-      parts.push(block, "");
-      codeTokensUsed += blockTokens;
-    }
-  }
-
-  return parts;
-}
-
 function extractCapabilityHintLines(capabilityHints?: string): string[] {
   if (!capabilityHints?.trim()) return [];
   return capabilityHints
@@ -278,19 +209,17 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
     .filter((line) => line.startsWith("- "));
 }
 
-function buildShadcnToolkitSummary(): string {
-  const groups = new Map<string, string[]>();
-  for (const [componentName, importPath] of Object.entries(SHADCN_COMPONENTS)) {
-    const existing = groups.get(importPath);
-    if (existing) {
-      existing.push(componentName);
-    } else {
-      groups.set(importPath, [componentName]);
-    }
-  }
-
-  const allPaths = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
-  return `  - ${allPaths.length} component groups available via \`@/components/ui/{name}\`: ${allPaths.join(", ")}`;
+function buildShadcnToolkitSummary(): string[] {
+  return [
+    "  - Navigation: navigation-menu, sheet, menubar, breadcrumb, sidebar, tabs",
+    "  - Content density: accordion, collapsible, carousel, scroll-area",
+    "  - Rich reveals: hover-card, tooltip, popover, dialog, drawer, dropdown-menu",
+    "  - Data & app UI: table, pagination, chart, progress, skeleton, empty",
+    "  - Forms: form, field, input, input-group, textarea, select, native-select, checkbox, radio-group, switch, slider, calendar",
+    "  - Feedback: alert, badge, toast, sonner, spinner",
+    "  - Layout: card, aspect-ratio, separator, resizable, avatar, item, button-group",
+    "  - Also available: alert-dialog, command, context-menu, input-otp, toggle, toggle-group, label, kbd, direction",
+  ];
 }
 
 const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
@@ -312,9 +241,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
-  { match: /^template reference modules$/i, priority: 80 },
-  { match: /^media catalog$/i, priority: 78 },
-  { match: /^visual identity$/i, priority: 76 },
+  { match: /^media catalog$/i, priority: 80 },
+  { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
@@ -325,12 +253,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^component palette$/i, priority: 72 },
   { match: /^spec file$/i, priority: 78 },
   { match: /^current project files$/i, priority: 80 },
-  { match: /^import rules$/i, priority: 85, required: true },
-  { match: /^known pitfalls$/i, priority: 84, required: true },
   { match: /^imagery/i, priority: 66 },
   { match: /^seo$/i, priority: 62 },
-  { match: /^import rules$/i, priority: 94, required: true },
-  { match: /^known pitfalls$/i, priority: 93, required: true },
 ];
 
 function normalizeContextBlockKey(title: string, index: number): string {
@@ -451,8 +375,8 @@ export async function buildDynamicContext(
     customInstructions,
     generationMode,
     buildSpec,
-    templateReferences,
     sessionSeed,
+    templateGuidance,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -529,33 +453,25 @@ export async function buildDynamicContext(
     `- **Section rhythm:** ${styleDirection.sectionRhythm}`,
     `- **Signature motif:** ${styleDirection.signatureMotif}`,
     `- **Font mood:** ${styleDirection.fontMood}`,
-    "",
   );
+  if (styleDirection.fontPairings.length > 0) {
+    const pairStr = styleDirection.fontPairings
+      .map((p) => `${p.heading} + ${p.body}`)
+      .join(", or ");
+    parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
+  }
+  if (styleDirection.sectionRecipes.length > 0) {
+    parts.push(
+      "- **Section recipes (suggested combinations — adapt or replace based on the user's prompt):**",
+    );
+    for (const recipe of styleDirection.sectionRecipes.slice(0, 4)) {
+      parts.push(`  - ${recipe}`);
+    }
+  }
+  parts.push("");
 
-  // ── Import Rules (prevent recurring syntax errors) ───────────────────
-  parts.push(
-    "## Import Rules",
-    "",
-    "Follow these rules strictly to produce valid ES module syntax:",
-    "- Every `import { ... }` block MUST close with `} from \"module\";` on the same statement. Never start a new `import` inside an unclosed `import { ... }` block.",
-    "- Each file may have at most ONE `export default`. Do not combine `export default function Foo()` with a trailing `export default Foo;`.",
-    "- shadcn/ui components: always use `@/components/ui/<component>` paths (e.g. `import { Button } from \"@/components/ui/button\"`).",
-    "- lucide-react icons: use the exact PascalCase export name (e.g. `ArrowRight`, not `ArrowRightIcon`).",
-    "- Always include a `package.json` with pinned dependency versions for all third-party libraries used.",
-    "",
-  );
-
-  parts.push(
-    "## Known Pitfalls",
-    "",
-    "Avoid these recurring generation errors:",
-    "- `package.json` MUST exist and list every third-party dependency used in the project. Omitting it causes install failures.",
-    "- Pin dependency versions to a specific major range (e.g. `\"framer-motion\": \"^12\"`, `\"three\": \"^0.183\"`). Never use `\"*\"` or `\"latest\"`.",
-    "- `useReducedMotion()` from framer-motion returns `boolean | null`. Always coerce to boolean before passing to props typed as `boolean` (e.g. `Boolean(useReducedMotion())`).",
-    "- When importing both a type and a value with the same name (e.g. `Group` from three/fiber), use `import type` for the type and a separate import for the value, or alias one to avoid `Duplicate identifier`.",
-    "- Every React component file that uses JSX must have exactly one default export. Do not forget it and do not duplicate it.",
-    "",
-  );
+  // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
+  // (static core, cached per process — no longer eats dynamic context token budget)
 
   // ── Scaffold ───────────────────────────────────────────────────────────
   if (scaffoldContext) {
@@ -586,7 +502,7 @@ export async function buildDynamicContext(
       refsUsedTokens += lineTokens;
     }
 
-    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0) {
+    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0 || templateGuidance) {
       parts.push(
         "## Scaffold Research Priorities",
         "",
@@ -604,80 +520,13 @@ export async function buildDynamicContext(
         parts.push("", "- Reference inspirations from curated templates:");
         parts.push(...referenceLines);
       }
+      if (templateGuidance) {
+        parts.push("", templateGuidance);
+      }
       parts.push("");
     }
   }
 
-  // ── Template Reference Modules ───────────────────────────────────────
-  if (templateReferences && templateReferences.length > 0 && !isFollowUp) {
-    const refsBudget = Math.max(
-      450,
-      buildSpec?.tokenBudgets.refsTokens ?? DEFAULT_REFS_BUDGET_TOKENS,
-    );
-    const templateParts = renderTemplateReferenceModules(templateReferences, refsBudget);
-    if (templateParts.length > 0) {
-      parts.push(...templateParts);
-    }
-  }
-
-  // ── Import Rules ───────────────────────────────────────────────────────
-  if (!isFollowUp) {
-    parts.push(
-      "## Import Rules",
-      "",
-      "- Always use `@/components/ui/<component>` for shadcn imports (e.g. `@/components/ui/button`, `@/components/ui/card`).",
-      "- Never nest an `import` statement inside an unclosed `import { ... }` block. Each import must be a complete, self-contained statement.",
-      "- Never emit more than one `export default` in a single file.",
-      "- Use exact lucide-react icon names from the installed palette (e.g. `ChevronRight`, not `ChevronRightIcon`).",
-      "- Always close import specifier blocks before starting a new import: `import { A } from \"a\"; import { B } from \"b\";`",
-      "",
-    );
-  }
-
-  // ── Known Pitfalls ─────────────────────────────────────────────────────
-  if (!isFollowUp) {
-    parts.push(
-      "## Known Pitfalls",
-      "",
-      "NEVER do this (nested/broken import):",
-      "```",
-      "import {",
-      "  useState,",
-      "  useEffect,",
-      "import { Button } from \"@/components/ui/button\"",
-      "```",
-      "ALWAYS do this (each import complete):",
-      "```",
-      "import { useState, useEffect } from \"react\";",
-      "import { Button } from \"@/components/ui/button\";",
-      "```",
-      "",
-      "NEVER: two `export default` in the same file.",
-      "ALWAYS: one `export default` per file, at the bottom.",
-      "",
-      "ALWAYS: include a `package.json` with correct dependency versions.",
-      "",
-      "## CRITICAL: No Placeholder Content",
-      "",
-      "NEVER output bracket placeholders like `[Rubrik]`, `[Kort beskrivning]`, `[Fördel 1]`, `[CTA]`, `[Företagsnamn]`.",
-      "NEVER output generic labels like \"Feature 1\", \"Service 1\", \"Category 1\", \"Benefit 1\".",
-      "NEVER output wireframe-style content. Every heading, paragraph, button, and card must contain REAL, SPECIFIC content.",
-      "",
-      "The user has provided business details in their message. USE THEM:",
-      "- Company name → in header, footer, hero, metadata, contact page",
-      "- Services/products → in service cards, feature sections, pricing",
-      "- Contact info (phone, email, address) → in footer and contact page",
-      "- USPs/strengths → in hero subtext, about page, trust section",
-      "- Testimonials → in social proof section with real quotes",
-      "",
-      "If specific details are missing, INVENT realistic Swedish content that fits the business type.",
-      "A CBD skincare brand should have ingredient descriptions, skin care routines, product benefits.",
-      "A restaurant should have dish names, prices, opening hours. NEVER use brackets or generic labels.",
-      "",
-    );
-  }
-
-  // ── Toolkit (from master — shadcn summary, capabilities, palette) ────
   const capabilityLines = extractCapabilityHintLines(capabilityHints);
   const paletteSelections = componentPalette?.selections ?? [];
   const paletteLines = paletteSelections.slice(0, 12).map((selection) => {
@@ -690,7 +539,7 @@ export async function buildDynamicContext(
     "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
     "",
     "- shadcn/ui (import from `@/components/ui/{name}`):",
-    buildShadcnToolkitSummary(),
+    ...buildShadcnToolkitSummary(),
   ];
   if (capabilityLines.length > 0) {
     toolkitLines.push("", "- Capability-driven additions for this request:");
@@ -704,6 +553,10 @@ export async function buildDynamicContext(
   parts.push(...toolkitLines);
 
   if (routePlan && routePlan.routes.length > 0) {
+    const routeRealization = buildSpec?.routeRealization ?? null;
+    const routeMode = routeRealization?.mode ?? "full";
+    const shellRoutes = routeRealization?.shellRoutePaths ?? [];
+    const fullRoutes = routeRealization?.fullRoutePaths ?? routePlan.routes.map((route) => route.path);
     parts.push(
       "## Route Plan",
       "",
@@ -713,41 +566,68 @@ export async function buildDynamicContext(
       `- **Why:** ${routePlan.reason}`,
       "",
     );
+    if (routeRealization) {
+      parts.push(`- **Primary route:** \`${routeRealization.primaryRoutePath}\``);
+      if (routeMode === "primary-full-with-shells") {
+        parts.push(
+          `- **Init realization policy:** Fully realize only \`${routeRealization.primaryRoutePath}\` in this generation. Planned extras should start as intentional shell pages.`,
+        );
+        parts.push(
+          `- **Full routes now:** ${fullRoutes.map((path) => `\`${path}\``).join(", ")}`,
+        );
+        parts.push(
+          `- **Shell routes now:** ${shellRoutes.map((path) => `\`${path}\``).join(", ")}`,
+        );
+      } else {
+        parts.push(
+          `- **Init realization policy:** Fully realize all planned routes in this generation when they are in scope.`,
+        );
+      }
+      parts.push("");
+    }
     for (const route of routePlan.routes.slice(0, 10)) {
+      const routeModeLabel =
+        routeMode === "primary-full-with-shells"
+          ? route.path === routeRealization?.primaryRoutePath
+            ? " [full now]"
+            : shellRoutes.includes(route.path)
+              ? " [shell now]"
+              : ""
+          : "";
       parts.push(
-        `- \`${route.path}\` — ${route.name}: ${route.intent}${route.required ? " (must exist)" : ""}`,
+        `- \`${route.path}\` — ${route.name}${routeModeLabel}: ${route.intent}${route.required ? " (must exist)" : ""}`,
       );
     }
-    if (routePlan.routes.length > 1) {
+    if (routeMode === "primary-full-with-shells") {
+      parts.push(
+        "",
+        "- For shell routes, create valid App Router pages that look intentional: include page title, route purpose, a short explanation of what the page will become, and a clear primary CTA such as 'Skapa sida'.",
+        "- Shell routes should feel like deliberate builder-owned placeholder states, not broken pages. It is fine if they use a bold branded theme treatment to signal 'this route exists and is ready to be expanded next'.",
+        "- Keep shell code lightweight, coherent, and safe to preview. They should preserve navigation, metadata surface, and internal linking without pretending to be fully implemented.",
+        "- Keep most design and implementation budget on the primary route. Extra planned routes should preserve IA, navigation, metadata, and internal linking without demanding full implementation yet.",
+      );
+    } else if (routePlan.routes.length > 1) {
       parts.push(
         "",
         "### MANDATORY — Multi-Page File Generation",
-        "",
-        "You MUST create a separate `app/<slug>/page.tsx` file for **every** route listed above.",
         "This is the single most important rule for multi-page sites. A missing page file = a 404 error for the user.",
-        "",
-        "Checklist (verify before finishing):",
-      );
-      for (const route of routePlan.routes.slice(0, 10)) {
-        if (route.path === "/") {
-          parts.push(`  - [ ] \`app/page.tsx\` exists (Home)`);
-        } else {
-          const slug = route.path.replace(/^\//, "");
-          parts.push(`  - [ ] \`app/${slug}/page.tsx\` exists (${route.name})`);
-        }
-      }
-      parts.push(
-        "",
-        "- Navigation `<Link href>` values MUST exactly match the route plan paths above.",
-        "- NEVER add a nav link to a page you did not create a file for.",
-        "- NEVER collapse multiple pages into one single-page layout with anchor links unless explicitly asked.",
-        "- Each page should have real, meaningful Swedish content — not just a heading and one line.",
+        "- Do not collapse this into a single long landing page. Create real App Router page files for the required routes unless the user explicitly asks to simplify.",
+        "- For EVERY route listed above you MUST generate an `app/<slug>/page.tsx` file.",
+        "- If a route is `/om` you must create `app/om/page.tsx`.",
+        "- Navigation `<Link href=\"/om\">Om oss</Link>` without a matching page file is a broken link.",
       );
     } else {
-      parts.push("", "- Only one route is planned. If the prompt describes additional pages or sections that should be separate routes, create them as real App Router page files.");
+      parts.push("", "- Keep the route structure compact unless the prompt clearly requires extra pages.");
     }
     parts.push("");
   }
+
+  parts.push(
+    "## CRITICAL: No Placeholder Content",
+    "NEVER output bracket placeholders like `[Rubrik]`, `[Kort beskrivning]`, `[Fördel 1]`, `[CTA]`, `[Företagsnamn]`.",
+    "Always write realistic, specific content in Swedish based on the business description provided.",
+    "",
+  );
 
   if (preGenerationContracts) {
     const { contracts, unresolvedDecisions } = preGenerationContracts;
@@ -826,11 +706,15 @@ export async function buildDynamicContext(
 
     parts.push(...ctxLines);
 
-    // Pages & sections
+    // Pages & Sections — only when the brief carries section-level detail
+    // that goes beyond what Route Plan already provides (path + name + intent).
     const pages = Array.isArray(brief.pages) ? brief.pages : [];
-    if (pages.length > 0) {
+    const pagesWithSections = pages.filter(
+      (p) => Array.isArray(p?.sections) && p.sections.length > 0,
+    );
+    if (pagesWithSections.length > 0) {
       parts.push("## Pages & Sections", "");
-      for (const p of pages.slice(0, 10)) {
+      for (const p of pagesWithSections.slice(0, 10)) {
         const name = str(p?.name) || "Page";
         const path = str(p?.path) || "/";
         const purpose = str(p?.purpose);
@@ -864,15 +748,11 @@ export async function buildDynamicContext(
   const typography = brief?.visualDirection?.typography;
   const themePresetLabel = str(designThemePreset);
 
-  if (themePresetLabel || hasTheme || briefPalette || styleKeywords.length > 0 || typography) {
+  if (themePresetLabel || hasTheme || briefPalette || typography) {
     parts.push("## Visual Identity", "");
 
     if (themePresetLabel) {
       parts.push(`- **Internal theme preset:** ${themePresetLabel}`);
-    }
-
-    if (styleKeywords.length > 0) {
-      parts.push(`- **Style:** ${styleKeywords.join(", ")}`);
     }
 
     if (hasTheme) {
@@ -893,27 +773,40 @@ export async function buildDynamicContext(
   }
 
   if (designReferences && designReferences.length > 0) {
-    const hasContentImages = designReferences.some((r) => r.note?.includes("CONTENT IMAGE") || r.note?.includes("EXACT URL"));
+    const hasUserImages = designReferences.some(
+      (r) => r.kind === "image" && r.url && /^https?:\/\//.test(r.url),
+    );
     parts.push(
       "## Design References & User Images",
       "",
+      "- Use attached design references as visual direction, not as an excuse to produce a flat screenshot clone.",
+      "- Read references in this order: (1) structure and hierarchy, (2) spacing rhythm and alignment, (3) component vocabulary, (4) finishing details such as texture, glow, shadows, and gradients.",
+      "- Preserve the strongest layout ideas from the references, but still produce clean React/Tailwind code with reusable sections and accessible markup.",
       "- If a reference is marked as a CONTENT IMAGE or includes an EXACT URL, you MUST use that URL directly in an `<img src=\"...\">` tag. Do NOT replace it with a placeholder like `/placeholder.svg`.",
-      "- For style/composition references: extract visual direction (layout, spacing, color, typography) but do not produce a flat clone.",
-      hasContentImages
-        ? "- CRITICAL: User-uploaded images with URLs must appear in the generated site using their exact URLs."
-        : "- Read references in this order: (1) structure and hierarchy, (2) spacing rhythm, (3) component vocabulary, (4) finishing details.",
     );
     for (const reference of designReferences.slice(0, 6)) {
       const note = reference.note ? ` — ${reference.note}` : "";
       parts.push(`- **${reference.kind === "figma" ? "Figma" : "Image"} reference:** ${reference.label}${note}`);
     }
+    if (hasUserImages) {
+      parts.push(
+        "",
+        "- CRITICAL: User-uploaded images with URLs must appear in the generated site using their exact URLs.",
+      );
+    }
     parts.push("");
   }
 
   // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
+  // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
+  // (those already feed Style Direction). Keep only concrete image subjects/notes.
   if (brief?.imagery) {
+    const visualKwSet = new Set(styleKeywords.map((k) => k.toLowerCase()));
+    const imgStyleKw = strList(brief.imagery.styleKeywords).filter(
+      (k) => !visualKwSet.has(k.toLowerCase()),
+    );
     const imgNotes = [
-      ...strList(brief.imagery.styleKeywords),
+      ...imgStyleKw,
       ...strList(brief.imagery.suggestedSubjects),
       ...strList(brief.imagery.styleNotes),
     ].filter(Boolean);
@@ -1054,12 +947,12 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     generationMode: options.generationMode,
   });
 
-  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
+  return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
 }
 
 /** Compose static codegen core + dynamic context without re-running retrieval. */
 export function composeEngineSystemPrompt(dynamicContextText: string): string {
-  return `${getStaticCoreFromWorkspace()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContextText}`;
+  return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${dynamicContextText}`;
 }
 
 /**

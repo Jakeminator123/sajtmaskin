@@ -13,8 +13,8 @@ import {
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
-import type { ScaffoldMode } from "@/lib/gen/scaffolds";
-import { getAllScaffolds } from "@/lib/gen/scaffolds";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
+import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/types";
 import { useSearchParams } from "next/navigation";
 import {
   DropdownMenu,
@@ -190,7 +190,7 @@ export function BuilderHeader(props: {
       ? "Av"
       : scaffoldMode === "auto"
         ? "Auto"
-        : getAllScaffolds().find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
+        : SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
   const assistModelOptions = getPromptAssistModelOptions();
   const hasCustomAssistModel =
     Boolean(promptAssistModel) &&
@@ -440,7 +440,7 @@ export function BuilderHeader(props: {
               <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
                 Välj själv
               </DropdownMenuLabel>
-              {getAllScaffolds().map((scaffold) => (
+              {SCAFFOLD_CLIENT_LIST.map((scaffold) => (
                 <DropdownMenuRadioItem
                   key={scaffold.id}
                   value={`manual:${scaffold.id}`}

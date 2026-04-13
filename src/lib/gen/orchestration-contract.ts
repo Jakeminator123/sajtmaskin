@@ -32,9 +32,18 @@ export function buildOrchestrationContract(params: {
   buildSpec: BuildSpec;
 }): OrchestrationContract {
   const { resolvedScaffold, routePlan, buildSpec } = params;
-  const requiredRoutePaths = routePlan.routes
-    .filter((route) => route.required)
-    .map((route) => route.path);
+  const routeRealization = buildSpec.routeRealization ?? {
+    mode: "full" as const,
+    primaryRoutePath: routePlan.routes.find((route) => route.required)?.path ?? routePlan.routes[0]?.path ?? "/",
+    fullRoutePaths: routePlan.routes.map((route) => route.path),
+    shellRoutePaths: [],
+  };
+  const requiredRoutePaths =
+    routeRealization.mode === "primary-full-with-shells"
+      ? routeRealization.fullRoutePaths
+      : routePlan.routes
+          .filter((route) => route.required)
+          .map((route) => route.path);
   return {
     scaffoldToRoute: {
       scaffoldId: resolvedScaffold?.id ?? null,

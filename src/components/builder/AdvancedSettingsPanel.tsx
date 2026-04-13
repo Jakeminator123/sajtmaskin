@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { MODEL_TIER_OPTIONS, getDefaultCustomInstructions, isDefaultCustomInstructions } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
-import { getAllScaffolds } from "@/lib/gen/scaffolds";
+import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/types";
 
 const STORAGE_KEY = "sajtmaskin:advanced-panel-open";
 const HINTS_SEEN_KEY = "sajtmaskin:advanced-hints-seen";
@@ -96,7 +96,7 @@ export function AdvancedSettingsPanel(props: AdvancedSettingsPanelProps) {
     setIsOpen((v) => !v);
   }, []);
 
-  const scaffolds = getAllScaffolds();
+  const scaffolds = SCAFFOLD_CLIENT_LIST;
   const hasCustomInstructions = Boolean(customInstructions.trim()) && !isDefaultCustomInstructions(customInstructions);
 
   return (

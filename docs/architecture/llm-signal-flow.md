@@ -11,49 +11,63 @@ För matrisen över LLM-roller/modeller: se `docs/schemas/llm-role-matrix.md`.
 
 ```mermaid
 flowchart TD
-  userPrompt["Raw Prompt"] --> promptRewrite["Prompt Rewrite / Deep Brief"]
-  promptRewrite --> scaffoldMatch["Scaffold Selection"]
-  promptRewrite --> brief["Deep Brief"]
-  brief --> scaffoldMatch
-  scaffoldMatch --> routePlan["Route Plan"]
-  brief --> routePlan
-  promptRewrite --> capability["Capability Map"]
-  capability --> contracts["Contract Plan"]
-  brief --> contracts
-  scaffoldMatch --> buildSpec["Build Policy"]
+  rawPrompt[RawPrompt] --> promptOrchestration[PromptOrchestration]
+  promptOrchestration --> canonicalBrief[CanonicalDeepBrief]
+  canonicalBrief --> scaffoldMatch[ScaffoldSelection]
+  canonicalBrief --> routePlan[RoutePlan]
+  canonicalBrief --> contractPlan[ContractPlan]
+  rawPrompt --> capabilityMap[CapabilityMap]
+  capabilityMap --> contractPlan
+  capabilityMap --> dynamicContext[DynamicContext]
+  scaffoldMatch --> buildSpec[BuildPolicy]
   routePlan --> buildSpec
-  contracts --> buildSpec
-  brief --> dynamicContext["Dynamic Context"]
+  contractPlan --> buildSpec
+  canonicalBrief --> dynamicContext
   scaffoldMatch --> dynamicContext
   routePlan --> dynamicContext
-  contracts --> dynamicContext
-  capability --> dynamicContext
-  dynamicContext --> generator["Generation"]
-  generator --> postChecks["Post-Checks"]
-  postChecks --> qualityGate["Quality Gate"]
+  contractPlan --> dynamicContext
+  buildSpec --> dynamicContext
+  dynamicContext --> generator[Generation]
+  generator --> postChecks[PostChecks]
+  postChecks --> qualityGate[QualityGate]
 ```
+
+**Styrprincip:** expandera en gång (Deep Brief), exekvera många steg.
+
+## Ägarskap per steg
+
+| Steg | Äger | Ska **inte** |
+|------|------|-------------|
+| **Deep Brief** | Produktidé, målgrupp, tonalitet, sidor/IA, CTA, visual direction, imagery, SEO-bas | — |
+| **Scaffold Selection** | Strukturhypotes och startform | Uppfinna ny produktsemantik |
+| **Route Plan** | IA-normalisering med tydlig provenance (`brief` / `prompt` / `scaffold`) | Omtolka briefens sidor |
+| **Contract Plan** | Auth, db, betalning, env, integrationer | Gissa domäntillhörighet utöver brief |
+| **BuildSpec** | Execution policy, budgetar, preview/verifiering, change scope | Kreativt omtolka prompten |
+| **Dynamic Context** | Prompt-assembly och token-pruning | Lägga till ny kreativ tolkning utöver brief |
 
 ## Create-chat (`init`)
 
 1. Buildern tar emot användarprompten.
-2. `promptAssist` / Deep brief kan bygga ut prompten eller generera en structured brief.
-3. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
-4. Route plan, contracts och BuildSpec byggs.
-5. Dynamic context byggs i `system-prompt.ts`.
-6. Generatorn kör.
-7. Finalize, post-checks, preview-start och quality gate sker efteråt.
+2. **Deep Brief** genereras som det kanoniska semantiska expansionssteget. Brief-objektet skickas via `meta.brief`; brief-deriverad prose ska **inte** dubblera samma semantik i `system`/`customInstructions`.
+3. Server Auto-Brief är fallback när klienten inte skickar brief — körs för underspecificerade init-prompts (inklusive korta vaga website-prompts), hoppas över för audit, technical, follow-up och redan tydligt strukturerade prompts.
+4. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
+5. Route plan, contracts och BuildSpec byggs — dessa översätter briefens semantik till exekvering snarare än att uppfinna ny vision.
+6. Dynamic context byggs i `system-prompt.ts`.
+7. Generatorn kör.
+8. Finalize, post-checks, preview-start och quality gate sker efteråt.
 
 ### Brief → Scaffold
 
-Deep brief matas nu in i scaffoldmatchningen via `ScaffoldQueryContext` (`briefPages`, `styleKeywords`, `domainHints` → keyword-boost + berikad embedding-prompt). Det minskar risken att ett fel scaffold väljs, men keyword-lagret kan fortfarande dominera vid mycket starka träffar.
+Deep brief matas in i scaffoldmatchningen via `ScaffoldQueryContext` (`briefPages`, `styleKeywords`, `domainHints` → keyword-boost + berikad embedding-prompt). Det minskar risken att ett fel scaffold väljs, men keyword-lagret kan fortfarande dominera vid mycket starka träffar.
 
 ## Follow-up
 
-Follow-ups skiljer sig från create-chat på tre sätt:
+Follow-ups skiljer sig från create-chat på fyra sätt:
 
 1. user-turnen wrappas med continuity / current files / requested changes
 2. persisted scaffold kan återanvändas
 3. route plan fryser ofta befintliga routes i stället för att bygga ny IA från scratch
+4. **init-brief skickas inte med** — follow-ups förlitar sig på persisted scaffold, orchestration snapshot och tidigare filer
 
 Det här gör follow-upkedjan mer konservativ, men innebär också att ett fel scaffold kan leva kvar tills repair eller explicit redesign låser upp det.
 
@@ -66,6 +80,10 @@ Det betyder i praktiken:
 - små copy-/layoutändringar kan fortfarande gå i ett lättare follow-up-spår
 - capability-heavy follow-ups ska oftare stanna på minst `contextPolicy: normal`
 - capability-heavy follow-ups ska oftare undvika `verificationPolicy: fast`
+
+### Framtida delta-brief
+
+Större redesigns eller nya sidstrukturer kan i framtiden få en smal `change-brief` eller `delta-brief` som bara beskriver vad som ska ändras och vad som ska bevaras — inte en ny full Deep Brief.
 
 ## Repair
 
@@ -95,7 +113,8 @@ Repair/fixer-output måste returnera **kompletta filer**, inte snippets. Runtime
 
 ## Rekommenderad styrprincip
 
-1. Prompt assist / Deep brief ska ge hela kedjan rikare domäninformation.
+1. Deep Brief ska vara den **enda kanoniska semantiska expansionen** för init. Expandera en gång, exekvera många steg.
 2. Scaffold ska vara **strukturhypotes**, inte ensam domänsanning.
 3. Route plan och contracts ska väga briefsignaler tyngre än scaffolddefaults när de krockar.
-4. Post-checks ska fortsatt vara sanningslager för vad som faktiskt blev genererat.
+4. Follow-ups ska **inte** bära init-brief — de utgår från persisted scaffold, orchestration snapshot och tidigare filer.
+5. Post-checks ska fortsatt vara sanningslager för vad som faktiskt blev genererat.

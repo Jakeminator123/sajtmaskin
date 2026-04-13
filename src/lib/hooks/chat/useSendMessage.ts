@@ -200,7 +200,6 @@ export function useSendMessage(
             assistantMessageId,
             setMessages,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
-            suppressSummaryText: true,
           });
         }
       };
@@ -242,10 +241,10 @@ export function useSendMessage(
         }
         if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
         if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
-        if (pendingBriefRef?.current) {
-          promptMeta.brief = pendingBriefRef.current;
-          promptMeta.promptAssistDeep = true;
-        } else if (typeof promptAssistDeep === "boolean") {
+        // Defense-in-depth: never re-send the init brief on follow-ups.
+        // The server uses persisted scaffold, orchestration snapshot, and
+        // previous files for follow-up context instead.
+        if (typeof promptAssistDeep === "boolean") {
           promptMeta.promptAssistDeep = promptAssistDeep;
         }
         const trimmedVersionId =

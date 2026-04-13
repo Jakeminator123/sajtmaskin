@@ -7,8 +7,6 @@ export type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
   planMode?: boolean;
-  skipDynamicInstructions?: boolean;
-  meta?: Record<string, unknown>;
 };
 
 const _inverted = Object.entries(QUALITY_TO_MODEL).reduce(

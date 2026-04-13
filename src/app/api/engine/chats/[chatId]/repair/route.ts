@@ -35,6 +35,7 @@ import {
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+const MANUAL_REPAIR_LLM_TIMEOUT_MS = 60_000;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),
@@ -114,6 +115,28 @@ function extractErrorLines(
   return lines;
 }
 
+function normalizeRepairContextLines(lines: string[] | undefined, label: string): string[] {
+  if (!Array.isArray(lines) || lines.length === 0) return [];
+  return lines
+    .map((line) => (typeof line === "string" ? line.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 12)
+    .map((line) => `[${label}] ${line}`);
+}
+
+function uniqueContextLines(values: string[], limit: number): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+    if (result.length >= limit) break;
+  }
+  return result;
+}
+
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
@@ -171,6 +194,19 @@ export async function POST(
     );
     let syntaxResult = await validateGeneratedCode(content);
     const gateFailures = repairContext.qualityGate ?? [];
+    const currentVersionErrors = normalizeRepairContextLines(
+      repairContext.currentVersionErrors,
+      "persisted-current",
+    );
+    const previousVersionErrors = normalizeRepairContextLines(
+      repairContext.previousVersionErrors,
+      "persisted-previous",
+    );
+    const visualQaLines = Array.isArray(repairContext.visualQA)
+      ? repairContext.visualQA
+          .slice(0, 6)
+          .map((entry) => `[visual-qa] ${entry.check} (${entry.score}/100): ${entry.detail}`)
+      : [];
     const hadQualityGateFailures = gateFailures.length > 0;
     const initialSyntaxErrorCount = syntaxResult.errors.length;
     const currentVersionId = internalVersionId;
@@ -277,7 +313,11 @@ export async function POST(
 
     // Phase 2: targeted LLM repair (only with exact error context)
     const hasErrorContext =
-      gateFailures.length > 0 || syntaxResult.errors.length > 0;
+      gateFailures.length > 0 ||
+      syntaxResult.errors.length > 0 ||
+      currentVersionErrors.length > 0 ||
+      previousVersionErrors.length > 0 ||
+      visualQaLines.length > 0;
     if (!hasErrorContext) {
       if (dbConfigured) {
         await failVersionVerification(
@@ -328,6 +368,9 @@ export async function POST(
         .filter((failure) => failure.check === "lint")
         .flatMap((failure) => buildLintRepairContextLines(failure.output)),
       ...extractErrorLines(gateFailures),
+      ...currentVersionErrors,
+      ...previousVersionErrors,
+      ...visualQaLines,
     ];
     const filesFromGateOutput = new Set<string>();
     for (const line of gateErrorLines) {
@@ -337,7 +380,7 @@ export async function POST(
     let bestContent = content;
     let bestErrorCount = syntaxResult.errors.length;
     let llmPasses = 0;
-    let earlyStopReason: "fixer_noop" | "no_improvement" | null = null;
+    let earlyStopReason: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null = null;
     const originatingChat = await getChat(chatId).catch(() => null);
     const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
     const fixerModel = originatingTier
@@ -350,12 +393,12 @@ export async function POST(
         syntaxResult = await validateGeneratedCode(content);
       }
       const errorsBefore = syntaxResult.errors.length;
-      const errorSummary = [
+      const errorSummary = uniqueContextLines([
         ...syntaxResult.errors.map(
           (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
         ),
         ...gateErrorLines,
-      ].slice(0, 50);
+      ], 50);
 
       const brokenFiles = [
         ...new Set([
@@ -364,10 +407,18 @@ export async function POST(
         ]),
       ];
 
-      const fixerResult = await runLlmFixer(content, errorSummary, {
-        model: fixerModel,
-        requiredFiles: brokenFiles,
-      });
+      const fixerAbort = new AbortController();
+      const timeoutHandle = setTimeout(() => fixerAbort.abort(), MANUAL_REPAIR_LLM_TIMEOUT_MS);
+      let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
+      try {
+        fixerResult = await runLlmFixer(content, errorSummary, {
+          model: fixerModel,
+          requiredFiles: brokenFiles,
+          abortSignal: fixerAbort.signal,
+        });
+      } finally {
+        clearTimeout(timeoutHandle);
+      }
       llmPasses++;
 
       if (!fixerResult.success && !fixerResult.partial) {
@@ -375,6 +426,7 @@ export async function POST(
           fixerProducedOutput: false,
           errorsBefore,
           errorsAfter: errorsBefore,
+          timedOut: fixerAbort.signal.aborted,
         });
         earlyStopReason = stopReason === "continue" ? null : stopReason;
         break;
@@ -387,6 +439,7 @@ export async function POST(
         fixerProducedOutput: true,
         errorsBefore,
         errorsAfter: syntaxResult.errors.length,
+        timedOut: false,
       });
 
       if (syntaxResult.errors.length < bestErrorCount) {
@@ -472,7 +525,7 @@ function logRepair(
   repaired: boolean,
   llmPasses: number,
   remainingErrors?: number,
-  earlyStopReason?: "fixer_noop" | "no_improvement" | null,
+  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null,
   qualityGateMeta?: {
     verifyLaneDurationMs?: number | null;
     firstFailureCheck?: string | null;

@@ -269,9 +269,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       const brief = companyBriefRef.current;
       void wrappedRequestCreateChat(prompt, {
         ...pending.options,
-        skipDynamicInstructions: true,
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
-        ...(brief ? { meta: { brief, promptAssistDeep: true } } : {}),
       });
     },
     [vm.selectedTemplateIds, wrappedRequestCreateChat],

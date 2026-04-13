@@ -50,6 +50,10 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages: vi.fn(),
 }));
 
+vi.mock("@/lib/gen/export/build-exportable-project", () => ({
+  collectRequiredUiComponents: vi.fn().mockReturnValue([]),
+}));
+
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend: vi.fn(),
 }));
@@ -68,7 +72,7 @@ describe("runFinalizePreflight", () => {
         content: JSON.stringify(
           {
             dependencies: {
-              next: "16.2.1",
+              next: "16.2.3",
               react: "19.2.4",
               "react-dom": "19.2.4",
             },
@@ -296,5 +300,62 @@ describe("runFinalizePreflight", () => {
     });
     expect(result.previewStart.canStartPreview).toBe(true);
     expect(result.previewStart.primaryPreviewTarget).toBe("preview");
+  });
+
+  it("backfills deferred init shell routes before route-plan preflight checks", async () => {
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "page-addition",
+        scaffoldId: "ecommerce",
+        routePlanSummary: "prompt:brochure:/,/about",
+        stylePack: "commerce",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["ecommerce"],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 28_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+        routeRealization: {
+          mode: "primary-full-with-shells",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: ["/about"],
+        },
+      },
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "brochure",
+        reason: "test",
+        routes: [
+          { path: "/", name: "Home", intent: "Primary landing page", required: true },
+          { path: "/about", name: "About", intent: "Tell the company story", required: false },
+        ],
+      },
+      filesJson: JSON.stringify([
+        {
+          path: "src/app/page.tsx",
+          content: "export default function Page() { return <div>Hello</div>; }",
+          language: "tsx",
+        },
+      ]),
+    });
+
+    const finalFiles = JSON.parse(result.filesJson) as Array<{ path: string; content: string }>;
+    expect(finalFiles.some((file) => file.path === "app/about/page.tsx")).toBe(true);
+    expect(
+      finalFiles.find((file) => file.path === "app/about/page.tsx")?.content,
+    ).toContain("Skapa sida");
+    expect(result.preflightIssues.some((issue) => issue.message.includes("/about"))).toBe(false);
   });
 });

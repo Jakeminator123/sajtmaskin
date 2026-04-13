@@ -126,7 +126,7 @@ type BuildServerRepairOutcomeMetaParams = {
   llmPasses: number;
   repaired: boolean;
   remainingErrors?: number;
-  earlyStopReason?: "fixer_noop" | "no_improvement" | null;
+  earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
   verifyLaneDurationMs: number;
   firstFailureCheck: string | null;
   jobStartedAt: string | null;

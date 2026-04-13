@@ -3,12 +3,12 @@
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
 import type { ChatMessage } from "@/lib/builder/types";
 import {
-  resolveBuildIntentForMethod,
+  resolveBuildIntentWithScaffold,
   type BuildIntent,
   type BuildMethod,
 } from "@/lib/builder/build-intent";
 import { deriveBuilderEntryState } from "./builder-entry";
-import type { ScaffoldMode } from "@/lib/gen/scaffolds";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import {
   getDefaultPaletteState,
   type PaletteState,
@@ -146,8 +146,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const effectiveThinking = enableThinking;
   const isThinkingSupported = selectedModelTier !== "fast";
   const resolvedBuildIntent = useMemo(
-    () => resolveBuildIntentForMethod(buildMethod, buildIntent),
-    [buildMethod, buildIntent],
+    () => resolveBuildIntentWithScaffold(buildMethod, buildIntent, scaffoldMode, scaffoldId),
+    [buildMethod, buildIntent, scaffoldMode, scaffoldId],
   );
   const themeColors = useMemo(
     () => (buildMethod === "kostnadsfri" ? null : getThemeColors(designTheme)),
