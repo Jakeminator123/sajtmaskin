@@ -19,3 +19,8 @@ These are the correct usage patterns for interactive shadcn components. Use thes
 - **Spinner**: `<Spinner />` for loading indicators. Accepts size variants via className.
 - **InputGroup**: `<InputGroup><InputGroupInput placeholder="Search..." /><InputGroupAddon><SearchIcon /></InputGroupAddon></InputGroup>` for inputs with icons, prefixes, or action buttons.
 - **next-themes**: Use `<ThemeProvider>` in layout.tsx wrapping children. Toggle with `const { setTheme } = useTheme()` in a `"use client"` component.
+- **HoverCard**: `<HoverCard openDelay={200}><HoverCardTrigger asChild><Link>...</Link></HoverCardTrigger><HoverCardContent>` for rich preview on hover. Use for author cards, link previews, product details.
+- **Accordion**: `<Accordion type="single" collapsible><AccordionItem value="item-1"><AccordionTrigger>...<AccordionContent>`. Use `type="multiple"` to allow several open at once.
+- **Tabs**: `<Tabs defaultValue="tab1"><TabsList><TabsTrigger value="tab1">...<TabsTrigger value="tab2">...</TabsList><TabsContent value="tab1">...<TabsContent value="tab2">`. Value must match between trigger and content.
+- **NavigationMenu**: `<NavigationMenu><NavigationMenuList><NavigationMenuItem><NavigationMenuTrigger>...<NavigationMenuContent>`. Use NavigationMenuLink for leaf items. Complex hierarchy — prefer for multi-section nav, not simple link bars.
+- **Resizable**: `<ResizablePanelGroup direction="horizontal"><ResizablePanel>...<ResizableHandle /><ResizablePanel>`. Use for split-view editors, adjustable layouts.
