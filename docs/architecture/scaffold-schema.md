@@ -288,7 +288,7 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 ├── route plan
 ├── contracts
 ├── brief (om finns)
-├── style direction (deterministisk variation)
+├── style direction (deterministisk variation: layout, rytm, motiv, fontpar, sektionsrecept)
 ├── capability hints
 ├── scaffold research priorities
 └── your toolkit (shadcn-importer + capability-hints)
@@ -419,7 +419,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `template-library/types.ts` | `recommendedScaffoldIds: ScaffoldId[]` | **Nej** — en dossier kan rekommendera flera scaffold-id:n |
 | `scaffold-embedding-locale.ts` | Nycklar per family | Ja — byt till id |
 | `scaffold-aware-retry.ts` | Retry per family | Ja — byt till id |
-| `style-directions.ts` | Style per scaffold | Ja |
+| `style-directions.ts` | Style per scaffold (layout, fontPairings, sectionRecipes) | Ja |
 | `diagnostics.ts` | Telemetri | Ja |
 | `orchestration-contract.ts` | `scaffoldId` i contract | Genomfört |
 | Dossier-manifests (catalog.json) | `recommendedScaffoldIds[]` | **Nej** — extern mapping |

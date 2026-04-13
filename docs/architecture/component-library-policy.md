@@ -8,7 +8,7 @@ How scaffolds, UI component libraries, and capability-gated dependencies interac
 |---|---|---|
 | **Scaffolds** | App structure, routes, base layout, core files | `app/layout.tsx`, `app/page.tsx`, route pages, `globals.css`, `package.json` |
 | **shadcn/ui** | On-demand UI widgets via registry | carousel, chart, sheet/drawer, tabs, datatable, sidebar, calendar, toast, command, form fields |
-| **Capability-gated deps** | Heavy libraries injected only when prompt signals require them | `framer-motion`, `@react-three/fiber`, `@react-three/drei`, `recharts` |
+| **Capability-gated deps** | Heavy libraries injected only when prompt signals require them | `framer-motion`, `@react-three/fiber`, `@react-three/drei`, `@react-three/rapier`, `@tanstack/react-table`, `recharts` |
 
 ## shadcn/ui as primary component source
 
@@ -25,10 +25,11 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 | Capability flag | Library | Gate policy |
 |---|---|---|
 | `needsMotion` | `framer-motion` (Motion for React) | Install only when prompt clearly requires reveal animations, scroll motion, drag/gesture, or micro-interactions. Not default. |
-| `needs3D` | `@react-three/fiber` + `@react-three/drei` | Strong feature gate. Only when explicit 3D signal (WebGL, Three.js, 3D model, particle). Bundle risk warning in hints. |
+| `needs3D` | `@react-three/fiber` + `@react-three/drei` + `@react-three/rapier` (physics) | Strong feature gate. Only when explicit 3D signal (WebGL, Three.js, 3D model, particle). Rapier added for physics/gravity. Bundle risk warning in hints. |
 | `needsCharts` | `recharts` (via shadcn `ChartContainer`) | Install when chart/graph/analytics signal is present. |
 | `needsCarousel` | `embla-carousel-react` (via shadcn `Carousel`) | Install when carousel/slider/gallery signal is present. |
 | `needsForms` | `react-hook-form` + `zod` (via shadcn `Form`) | Install when form/booking/contact-form signal is present. |
+| `needsDataUI` | `@tanstack/react-table` (via shadcn `Table`) | Install when data table/CRUD/sorting/filtering signal is present. |
 
 ## Libraries evaluated but not default
 

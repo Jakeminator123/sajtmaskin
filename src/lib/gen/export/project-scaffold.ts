@@ -50,9 +50,11 @@ const PACKAGE_JSON = `{
     "@hookform/resolvers": "5.2.2",
     "zod": "4.3.6",
     "framer-motion": "12.38.0",
+    "@tanstack/react-table": "8.21.3",
     "three": "0.176.0",
     "@react-three/fiber": "9.1.2",
     "@react-three/drei": "10.7.7",
+    "@react-three/rapier": "2.2.0",
     "date-fns": "4.1.0"
   },
   "devDependencies": {

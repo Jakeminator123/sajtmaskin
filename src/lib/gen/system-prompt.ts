@@ -32,7 +32,6 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
-import { SHADCN_COMPONENTS } from "./data/shadcn-components";
 import { pickStyleDirection } from "./data/style-directions";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -209,19 +208,17 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
     .filter((line) => line.startsWith("- "));
 }
 
-function buildShadcnToolkitSummary(): string {
-  const groups = new Map<string, string[]>();
-  for (const [componentName, importPath] of Object.entries(SHADCN_COMPONENTS)) {
-    const existing = groups.get(importPath);
-    if (existing) {
-      existing.push(componentName);
-    } else {
-      groups.set(importPath, [componentName]);
-    }
-  }
-
-  const allPaths = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
-  return `  - ${allPaths.length} component groups available via \`@/components/ui/{name}\`: ${allPaths.join(", ")}`;
+function buildShadcnToolkitSummary(): string[] {
+  return [
+    "  - Navigation: navigation-menu, sheet, menubar, breadcrumb, sidebar, tabs",
+    "  - Content density: accordion, collapsible, carousel, scroll-area",
+    "  - Rich reveals: hover-card, tooltip, popover, dialog, drawer, dropdown-menu",
+    "  - Data & app UI: table, pagination, chart, progress, skeleton, empty",
+    "  - Forms: form, field, input, input-group, textarea, select, native-select, checkbox, radio-group, switch, slider, calendar",
+    "  - Feedback: alert, badge, toast, sonner, spinner",
+    "  - Layout: card, aspect-ratio, separator, resizable, avatar, item, button-group",
+    "  - Also available: alert-dialog, command, context-menu, input-otp, toggle, toggle-group, label, kbd, direction",
+  ];
 }
 
 const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
@@ -455,8 +452,22 @@ export async function buildDynamicContext(
     `- **Section rhythm:** ${styleDirection.sectionRhythm}`,
     `- **Signature motif:** ${styleDirection.signatureMotif}`,
     `- **Font mood:** ${styleDirection.fontMood}`,
-    "",
   );
+  if (styleDirection.fontPairings.length > 0) {
+    const pairStr = styleDirection.fontPairings
+      .map((p) => `${p.heading} + ${p.body}`)
+      .join(", or ");
+    parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
+  }
+  if (styleDirection.sectionRecipes.length > 0) {
+    parts.push(
+      "- **Section recipes (suggested combinations — adapt or replace based on the user's prompt):**",
+    );
+    for (const recipe of styleDirection.sectionRecipes.slice(0, 4)) {
+      parts.push(`  - ${recipe}`);
+    }
+  }
+  parts.push("");
 
   // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
   // (static core, cached per process — no longer eats dynamic context token budget)
@@ -527,7 +538,7 @@ export async function buildDynamicContext(
     "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
     "",
     "- shadcn/ui (import from `@/components/ui/{name}`):",
-    buildShadcnToolkitSummary(),
+    ...buildShadcnToolkitSummary(),
   ];
   if (capabilityLines.length > 0) {
     toolkitLines.push("", "- Capability-driven additions for this request:");
@@ -589,8 +600,9 @@ export async function buildDynamicContext(
     if (routeMode === "primary-full-with-shells") {
       parts.push(
         "",
-        "- For shell routes, create valid App Router pages that look intentional: include page title, route purpose, a short explanation of what the page will become, and a clear CTA or note that the page can be expanded next.",
-        "- Shell routes must not look broken, empty, or like a failed generation. They should be lightweight, coherent, and safe to preview.",
+        "- For shell routes, create valid App Router pages that look intentional: include page title, route purpose, a short explanation of what the page will become, and a clear primary CTA such as 'Skapa sida'.",
+        "- Shell routes should feel like deliberate builder-owned placeholder states, not broken pages. It is fine if they use a bold branded theme treatment to signal 'this route exists and is ready to be expanded next'.",
+        "- Keep shell code lightweight, coherent, and safe to preview. They should preserve navigation, metadata surface, and internal linking without pretending to be fully implemented.",
         "- Keep most design and implementation budget on the primary route. Extra planned routes should preserve IA, navigation, metadata, and internal linking without demanding full implementation yet.",
       );
     } else if (routePlan.routes.length > 1) {
