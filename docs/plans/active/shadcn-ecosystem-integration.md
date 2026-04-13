@@ -1,6 +1,6 @@
 # shadcn Ecosystem Integration — Future Plan
 
-Status: **planerat** (ej påbörjat)
+Status: **delvis genomfört** (Nivå 0 klar, resten planerat)
 Skapad: 2026-04-13
 Kontext: [Toolkit Enrichment](../../../.cursor/plans/toolkit_enrichment_plan_dc42efbf.plan.md) — fas 1–5 genomförda
 
@@ -9,6 +9,22 @@ Kontext: [Toolkit Enrichment](../../../.cursor/plans/toolkit_enrichment_plan_dc4
 Under Toolkit Enrichment-arbetet (april 2026) upptäcktes att shadcn-ekosystemet har utvecklats betydligt bortom vad vi utnyttjar idag. Vi underhåller manuella datastrukturer (`SHADCN_COMPONENTS`, handskrivna section recipes, fontpar som strängar) där shadcn erbjuder maskinläsbara, strukturerade alternativ: MCP-server, blocks med metadata, `registry:font`-schemat, och community-registrys.
 
 Det här dokumentet listar konkreta framtida investeringar, ordnade efter värde och risk.
+
+---
+
+## Nivå 0 — Statiska component patterns (GENOMFÖRD)
+
+### Problem
+
+Toolkit-sammanfattningen listar komponentnamn men inte *hur* de används. LLM:en ser "calendar" i listan men vet inte att den tar `mode="single"` + `onSelect`, att DatePicker = Calendar + Popover, eller att Drawer wrapprar vaul. Resultatet: statiska grids istället för interaktiva komponenter.
+
+### Lösning
+
+Ny statisk promptfil `config/prompt-static/03b-shadcn-component-patterns.md` med korta API-mönster för ~18 interaktiva komponenter. Laddas via `codegen-static-prompt.json` direkt efter `03-shadcn-ui-components.md`. ~250 tokens, alltid närvarande i prompten.
+
+Täcker: Calendar, DatePicker, Command, Combobox, Drawer, Carousel, Chart, Form, InputOTP, Sheet, DataTable, Sidebar, Sonner, Empty, Spinner, InputGroup, next-themes.
+
+**Status:** Genomförd 2026-04-13.
 
 ---
 
@@ -161,30 +177,43 @@ Medel. Risken är att shadcn CLI-beteende ändras med det nya formatet och påve
 
 ---
 
-## Nivå 5 — MCP-servern i generationspipelinen (långsikt, hög risk)
+## Nivå 5 — Dedikerad sajtmaskin-component-mcp (medelsikt, medel risk)
 
 ### Problem
 
-Idag är vår verktygslåda statisk: vi talar om för LLM:en vilka komponenter som finns, och hoppas att den genererar korrekt kod. Vi har ingen feedback-loop mot det faktiska registret under generering.
+Nivå 0 (statiska component patterns) ger depth för de vanligaste komponenterna men är manuellt underhållen och begränsad till ~18 mönster. När shadcn lägger till nya komponenter eller ändrar API:er hamnar vi efter.
 
-### Vision
+### Distinktion från Cursor-MCP
 
-I framtiden kan generationspipelinen använda MCP-servern för att:
+| MCP-server | Används av | Transport |
+|---|---|---|
+| `project-0-sajtmaskin-shadcn` (Cursor) | Utvecklare i Cursor IDE | Cursor MCP-protokoll (lokal) |
+| **sajtmaskin-component-mcp** (ny) | Genererings-LLM i `orchestrate.ts` | HTTP/fetch mot lokal cache eller shadcn-registret |
 
-1. **Hämta komponentkod** — istället för att lita på LLM:ens kunskap om t.ex. `InputGroup`-API:t, ge den faktisk source
-2. **Validera importer** — efter generering, verifiera mot registret att alla använda komponenter faktiskt existerar
-3. **Installera saknade deps** — om LLM:en refererar en komponent vi inte har, hämta den automatiskt
+Cursor-MCP:n är **inte** tillgänglig för genererings-LLM:en — den körs i en API-route/serverless function utan Cursor-transport.
 
-### Varför det är hög risk
+### Lösning
 
-- MCP-anrop lägger latens i en redan latens-känslig pipeline
-- Registret kan vara nere eller ändra API
-- Token-budget: att inkludera komponentkällfiler tar hundratals tokens per fil
-- Arkitekturändring: kräver ny fas i `orchestrate.ts`-flödet
+Ett pre-generation-steg i `orchestrate.ts` (efter `inferCapabilities`, före `buildDynamicContext`) som:
 
-### Rekommendation
+1. Baserat på capabilities + prompt-keywords, identifierar 3-5 relevanta shadcn-komponenter
+2. Hämtar deras examples via HTTP mot en lokal cache (synkad från `ui.shadcn.com/r/`)
+3. Injicerar som `## Component References` i dynamisk kontext (~400-1500 tokens)
 
-Börja med offline-varianten (nivå 1-3) som ger samma nytta utan runtime-risk. MCP i pipeline är en R&D-investering, inte en quick win.
+### Implementation
+
+- **Lokal cache:** `data/shadcn-registry-cache/` med JSON-filer per komponent, synkade via `npm run shadcn:sync`
+- **Fetch-modul:** `src/lib/gen/data/shadcn-registry-fetch.ts` — läser lokal cache, fallback till Nivå 0 patterns
+- **Orchestration-hook:** nytt steg i `resolveOrchestrationBase()` som bygger `componentReferences`
+- **Prompt-rendering:** ny sektion i `buildDynamicContext()` med demokod för matchade komponenter
+
+### Fallback
+
+Om cachen saknas eller är tom: Nivå 0 (statiska patterns) används alltid som baseline. Component references är ett *tillägg*, inte en ersättning.
+
+### Uppskattad insats
+
+2-3 dagar. Huvudarbetet är cache-synk-scriptet och orchestration-hooken. Prompt-rendering och fallback är trivialt.
 
 ---
 
@@ -192,11 +221,12 @@ Börja med offline-varianten (nivå 1-3) som ger samma nytta utan runtime-risk. 
 
 | Nivå | Beskrivning | Värde | Risk | Uppskattad insats |
 |------|-------------|-------|------|-------------------|
+| 0 | Statiska component patterns | Hög — ger API-depth utan runtime-kostnad | Låg | **Genomförd** |
 | 1 | Automatisk komponentsynk | Hög — eliminerar manuellt underhåll | Låg | 2-4 h |
 | 2 | Blocks-metadata → section recipes | Medel — rikare recipes, bättre first-pass | Medel | 4-8 h |
 | 3 | registry:font-schema för fontpar | Medel — validerade fontnamn, bättre konsistens | Låg | 2-3 h |
 | 4 | components.json v4-uppgradering | Låg nu — möjliggör community-registrys | Medel | 1-2 h |
-| 5 | MCP-server i generationspipeline | Hög potentiellt — men hög risk | Hög | 2-4 veckor |
+| 5 | Dedikerad sajtmaskin-component-mcp | Hög — on-demand API-depth från registret | Medel | 2-3 dagar |
 
 ---
 
@@ -210,5 +240,7 @@ Toolkit Enrichment (april 2026) löste de akuta problemen:
 - Section recipes per style direction (data-utökning)
 - 9 saknade shadcn-komponenter tillagda i registret
 - lucide-react KNOWN_PACKAGES fixad (^0.563 → ^1)
+- Capability-inference gaps: needsCalendar, needsCommandSearch, needsThemeToggle + berikade hints
+- **Nivå 0:** Statiska component patterns (`03b-shadcn-component-patterns.md`) — API-depth för ~18 interaktiva komponenter
 
 Arbetet ovan bygger vidare på den grunden — det ersätter den inte.
