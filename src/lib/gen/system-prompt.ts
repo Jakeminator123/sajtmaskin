@@ -60,6 +60,8 @@ function loadStaticCoreSync(): string {
 // DYNAMIC CONTEXT — varies per request
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Canonical build intent rules for codegen. Assist-copy in promptAssist.ts
+// serves rewrite/polish — keep in sync but do not merge (circular import risk).
 const BUILD_INTENT_GUIDANCE: Record<
   BuildIntent,
   { label: string; rules: string[] }

@@ -40,6 +40,7 @@ Detta dokument är handoff för nästa agent efter fas-1-konsolideringen.
 
 ## Snabb verifiering inför nästa steg
 
+- Ägarmatris: `docs/architecture/phase-1-ownership.md` — varje signal har en canonical source.
 - Typecheck ska vara grön.
 - `server-auto-brief-policy.test.ts` ska passera.
 - Kontrollera att `config/domain-rules.json` och `domain-inference.ts` är synkade vid ändring av domäner.
