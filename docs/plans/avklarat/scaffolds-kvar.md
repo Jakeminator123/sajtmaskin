@@ -35,9 +35,9 @@ Commits hittills:
    lokala moduler, provider-wrapping och dynamiska route-segment. Baserat på de 38 vanligaste
    autofix-felen från e-handels-testkörningen.
 
-2. **Thinking-routing** (issue #1 i acute-generation-issues.md)
-   Thinking var av trots `SAJTMASKIN_DEFAULT_THINKING=true`. Undersök varför.
-   Den andra agenten har dokumenterat detta.
+2. ~~**Thinking-routing**~~ (issue #1 i acute-generation-issues.md) — ÅTGÄRDAT.
+   Server behandlar nu `SAJTMASKIN_DEFAULT_THINKING` som canonical; legacy `SAJTMASKIN_SHOW_THINKING`
+   är fallback. Anthropic-modeller går igenom `providerOptions.reasoningEffort`.
 
 ### Medel prioritet
 
