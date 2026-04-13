@@ -679,6 +679,7 @@ ANVÄNDARENS PROMPT
   │      (strukturerat objekt: sidor, visuell riktning, SEO,
   │       mustHave, avoid, uiNotes — rå user-text som message)
   │      (formatPrompt() enbart fallback när brief saknas)
+  │      (domän/site-type matchning från config/domain-rules.json)
   │
   ├─ 3. Scaffold-val → ScaffoldId
   │      ├─ ScaffoldMode: off / auto / manual
