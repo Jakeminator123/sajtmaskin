@@ -289,7 +289,7 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
     );
   }
 
-  // 5. layout.tsx must exist
+  // 5. layout.tsx must exist and should wrap with providers when children need them
   const layout = fileMap.get("app/layout.tsx") ?? fileMap.get("src/app/layout.tsx");
   if (!layout) {
     issues.push(
@@ -300,6 +300,47 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
         "code_structure_failure",
       ),
     );
+  } else {
+    const layoutContent = layout.content;
+    const nonLayoutFiles = files.filter(
+      (f) => /\.(tsx?|jsx?)$/.test(f.path) && !f.path.match(/(^|\/)layout\.(tsx|jsx)$/),
+    );
+    const childrenUseTheme = nonLayoutFiles.some((f) => /\buseTheme\b/.test(f.content));
+    const layoutHasThemeProvider = /\bThemeProvider\b/.test(layoutContent);
+    if (childrenUseTheme && !layoutHasThemeProvider) {
+      issues.push(
+        createSanityIssue(
+          layout.path,
+          "warning",
+          "Child routes use useTheme() but root layout does not wrap with ThemeProvider",
+          "non_blocking_quality_warning",
+        ),
+      );
+    }
+
+    const providerImportRe = /import\s+\{[^}]*\b(\w+Provider)\b[^}]*\}\s+from\s+['"](@\/[^'"]+)['"]/g;
+    const childProviders = new Set<string>();
+    for (const f of nonLayoutFiles) {
+      for (const m of f.content.matchAll(providerImportRe)) {
+        const providerName = m[1]!;
+        const source = m[2]!;
+        if (!source.startsWith("@/components/ui/")) {
+          childProviders.add(providerName);
+        }
+      }
+    }
+    for (const provider of childProviders) {
+      if (!layoutContent.includes(provider)) {
+        issues.push(
+          createSanityIssue(
+            layout.path,
+            "warning",
+            `Child routes import ${provider} but root layout does not include it — children may crash from missing context`,
+            "non_blocking_quality_warning",
+          ),
+        );
+      }
+    }
   }
 
   // 6. Known bad peer-dependency pairs in package.json

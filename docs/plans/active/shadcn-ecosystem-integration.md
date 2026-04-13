@@ -1,6 +1,6 @@
 # shadcn Ecosystem Integration — Future Plan
 
-Status: **delvis genomfört** (Nivå 0 klar, resten planerat)
+Status: **delvis genomfört** (Nivå 0 + 1 + 5 klara, resten planerat)
 Skapad: 2026-04-13
 Kontext: [Toolkit Enrichment](../../../.cursor/plans/toolkit_enrichment_plan_dc42efbf.plan.md) — fas 1–5 genomförda
 
@@ -28,7 +28,7 @@ Täcker: Calendar, DatePicker, Command, Combobox, Drawer, Carousel, Chart, Form,
 
 ---
 
-## Nivå 1 — Automatisk komponentsynk (kort sikt, låg risk)
+## Nivå 1 — Automatisk komponentsynk (GENOMFÖRD)
 
 ### Problem
 
@@ -36,27 +36,26 @@ Täcker: Calendar, DatePicker, Command, Combobox, Drawer, Carousel, Chart, Form,
 
 ### Lösning
 
-Skapa ett script (t.ex. `scripts/sync-shadcn-registry.ts`) som:
+`scripts/shadcn/sync-shadcn-registry.ts`:
 
-1. Anropar shadcn MCP-servern (`list_items_in_registries` med `@shadcn`) eller hämtar `https://ui.shadcn.com/r/registry.json`
-2. Filtrerar `registry:ui`-items
-3. Genererar en uppdaterad `SHADCN_COMPONENTS`-map (eller varnar om diff mot nuvarande)
-4. Körs som en npm-script (`npm run shadcn:sync`) eller i CI
+1. Hämtar `https://ui.shadcn.com/r/index.json` → filtrera `registry:ui`
+2. Hämtar varje komponents detail-JSON (`/r/styles/new-york-v4/{name}.json`) och parsar `export { ... }` för PascalCase-exporter
+3. Jämför mot befintlig `SHADCN_COMPONENTS`-map
+4. Utan flagga: warn-only diff. Med `--write`: uppdaterar filen. Med `--json`: maskinläsbar diff.
 
 ### Berörda filer
 
-- `src/lib/gen/data/shadcn-components.ts` — output-mål
-- `scripts/sync-shadcn-registry.ts` — nytt script
-- `package.json` — ny script-entry
+- `src/lib/gen/data/shadcn-components.ts` — output-mål (307 entries efter första synk)
+- `scripts/shadcn/sync-shadcn-registry.ts` — synk-script
+- `package.json` — `shadcn:sync` + `shadcn:sync:write`
 
-### Komplexitet
+### Resultat (första körning 2026-04-13)
 
-Låg. MCP-servern (`project-0-sajtmaskin-shadcn`) är redan konfigurerad och fungerar. Alternativt kan vi hämta registry.json direkt via HTTP.
+- 73 nya exports tillagda (bl.a. hela `Combobox*`-familjen, `AvatarGroup`, `SidebarRail` m.fl.)
+- 4 entries borttagna från upstream men behållna lokalt (`Chart`, `Direction`, `Sonner`, `Toast`)
+- 1 subpath-ändring: `Toaster` → `"sonner"` (var `"toaster"`)
 
-### Öppna frågor
-
-- Ska scriptet generera filen helt, eller bara varna om saknade poster?
-- Export-namn (PascalCase) finns inte i registry.json — de ligger i komponentfilernas source. Vi kan antingen hämta varje komponents fil via MCP (`view_items_in_registries`) och parsa exporter, eller underhålla en minimal manuell mapping från subpath → exporter och bara automatisera *vilka subpaths som finns*.
+**Status:** Genomförd 2026-04-13.
 
 ---
 
@@ -222,7 +221,7 @@ Om cachen saknas eller är tom: Nivå 0 (statiska patterns) används alltid som 
 | Nivå | Beskrivning | Värde | Risk | Uppskattad insats |
 |------|-------------|-------|------|-------------------|
 | 0 | Statiska component patterns | Hög — ger API-depth utan runtime-kostnad | Låg | **Genomförd** |
-| 1 | Automatisk komponentsynk | Hög — eliminerar manuellt underhåll | Låg | 2-4 h |
+| 1 | Automatisk komponentsynk | Hög — eliminerar manuellt underhåll | Låg | **Genomförd** |
 | 2 | Blocks-metadata → section recipes | Medel — rikare recipes, bättre first-pass | Medel | 4-8 h |
 | 3 | registry:font-schema för fontpar | Medel — validerade fontnamn, bättre konsistens | Låg | 2-3 h |
 | 4 | components.json v4-uppgradering | Låg nu — möjliggör community-registrys | Medel | 1-2 h |

@@ -11,18 +11,16 @@
 
 ## Kvar att göra
 
-### shadcn registry-synk (planerat, inte påbörjat)
+### shadcn registry-synk — GENOMFÖRD 2026-04-13
 
-- Skapa scripts/sync-shadcn-registry.ts som hämtar shadcn registry
-- Jämför mot SHADCN_COMPONENTS i src/lib/gen/data/shadcn-components.ts
-- Warn-only default, --write för att uppdatera
-- npm run shadcn:sync i package.json
-- Se docs/plans/active/shadcn-ecosystem-integration.md (Nivå 1)
+- `scripts/shadcn/sync-shadcn-registry.ts` hämtar index + component details, parsar exports
+- `npm run shadcn:sync` (warn-only) / `npm run shadcn:sync:write` (uppdaterar)
+- 307 entries i SHADCN_COMPONENTS efter första synk (73 nya, 1 ändrad subpath)
 
-### Akuta generationsfel (docs/plans/active/acute-generation-issues.md)
+### Akuta generationsfel — GENOMFÖRDA 2026-04-13
 
-- #2: Ecommerce import-kedjor — cross-file-import-checker skapar stubs men de är icke-funktionella
-- #4: Root layout providers — genererad layout saknar provider-tree (ThemeProvider, CartProvider)
+- #2: cross-file-import-checker parsar nu importerade namn och genererar kontextmedvetna stubs (Provider → wrapper, Context → createContext, use* → hook, PascalCase → komponent)
+- #4: layout-provider-fixer injicerar ThemeProvider/Toaster i layout; sanity-check varnar för saknade providers
 
 ### Operativt
 

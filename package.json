@@ -72,6 +72,8 @@
     "scaffolds:curate": "npx tsx scripts/scaffolds/curate-scaffold-candidates.ts",
     "scaffolds:promote": "npx tsx scripts/scaffolds/promote-to-scaffold.ts",
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
+    "shadcn:sync": "npx tsx scripts/shadcn/sync-shadcn-registry.ts",
+    "shadcn:sync:write": "npx tsx scripts/shadcn/sync-shadcn-registry.ts --write",
     "shadcn:sync-examples": "npx tsx scripts/shadcn/sync-shadcn-examples.ts",
     "baseline-deps:verify": "npx tsx scripts/deps/validate-baseline-npm-versions.ts",
     "baseline-deps:tree": "npx tsx scripts/deps/validate-baseline-npm-tree.ts",

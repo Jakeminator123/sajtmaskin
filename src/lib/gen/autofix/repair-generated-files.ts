@@ -16,6 +16,7 @@ import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
 import { fixLucideImageMisuse } from "@/lib/gen/autofix/rules/lucide-image-fixer";
 import { fixLucideLinkMisuse } from "@/lib/gen/autofix/rules/lucide-link-fixer";
+import { fixLayoutProviders } from "@/lib/gen/autofix/rules/layout-provider-fixer";
 import type { FixEntry } from "./types";
 import {
   fixMetadataClientConflict,
@@ -288,6 +289,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
 
     return content === file.content ? file : { ...file, content };
   });
+
+  const providerResult = fixLayoutProviders(repairedFiles);
+  if (providerResult.fixes.length > 0) {
+    fixes.push(...providerResult.fixes);
+    return { files: providerResult.files, fixes };
+  }
 
   return { files: repairedFiles, fixes };
 }

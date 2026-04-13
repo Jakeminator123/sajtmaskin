@@ -19,9 +19,11 @@ Tracked separately so phase 2/3 scope stays narrow.
 
 ## 2. Cross-file provider/import chains (ecommerce)
 
+**Status:** Fixed. Stubs now parse import specifiers and generate context-aware exports: `*Provider` → children-wrapping component, `*Context` → `createContext`, `use*` → hook returning `{}`, other PascalCase → visual component stub. Multi-file imports to the same missing target are merged.
+
 **Symptom:** Larger ecommerce generations produce unresolved `@/components/providers/*` or `@/lib/*` imports because autofix stubs are minimal.
 
-**Likely cause:** `runtime-imports.ts` allowlist doesn't cover app-specific providers that the LLM invents. `cross-file-import-checker.ts` creates stub files but they're placeholders, not functional.
+**Original cause:** `cross-file-import-checker.ts` generated a single default-export stub per missing file, but importing code expects specific named exports (`CartProvider`, `CartContext`, `useCart`).
 
 **Files:**
 - `src/lib/gen/autofix/rules/cross-file-import-checker.ts`
@@ -47,13 +49,17 @@ Tracked separately so phase 2/3 scope stays narrow.
 
 ## 4. Root layout wrapper / provider pattern missed by repair
 
+**Status:** Fixed. Two-part solution:
+1. **Autofix:** `layout-provider-fixer.ts` runs in `repairGeneratedFiles` and injects `ThemeProvider` (from `next-themes`) when theme signals are present, and `<Toaster />` (from `sonner`) when toast usage is detected in child routes.
+2. **Sanity check:** `project-sanity.ts` section 5 now detects `useTheme()` usage in child routes without `ThemeProvider` in layout, and flags any `*Provider` imported in children but absent from root layout.
+
+Custom providers (`CartProvider`, `AuthProvider`) get functional stubs via the improved cross-file-import-checker (#2) but are not auto-injected into the layout (requires app-specific props).
+
 **Symptom:** Generated `app/layout.tsx` has `<html><body>{children}</body></html>` but no provider tree (e.g. ThemeProvider, CartProvider), causing runtime errors when child routes expect context.
 
-**Likely cause:** Minimal layout baseline in `finalize-preflight.test.ts` doesn't enforce provider presence. Scaffold `layout.tsx` files include richer shells but generated output may diverge. Neither `visual-qa.ts` nor `seo-preflight.ts` check for provider completeness.
-
 **Files:**
-- `src/lib/gen/stream/finalize-preflight.test.ts` (`withMinimalBaseline`)
-- `src/lib/gen/scaffolds/*/files/app/layout.tsx`
-- `src/lib/gen/verify/visual-qa.ts`
+- `src/lib/gen/autofix/rules/layout-provider-fixer.ts` (new)
+- `src/lib/gen/autofix/repair-generated-files.ts` (integration)
+- `src/lib/gen/validation/project-sanity.ts` (detection)
 
 **Repro:** Generate an ecommerce scaffold and check if the layout wraps children with the expected providers.
