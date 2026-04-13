@@ -789,6 +789,7 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
     if (tracked.ignoreExit) return;
     await updateSessionById(session.sessionId, (stored) => {
       stored.status = "stopped";
+      stored.stoppedAt = nowIso();
       stored.updatedAt = nowIso();
     });
     await appendRuntimeLog(
@@ -814,6 +815,10 @@ async function bootRuntimeForSession(session, options = {}) {
     const existing = runtimeChildren.get(session.sessionId);
     if (existing && existing.child.exitCode === null) {
       return { runtimePort: existing.port };
+    }
+    const stoppedAt = Date.parse(session.stoppedAt ?? "");
+    if (Number.isFinite(stoppedAt) && Date.now() - stoppedAt < 5000) {
+      throw new Error("Runtime stopped recently; waiting before retry.");
     }
   }
 
