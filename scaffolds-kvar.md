@@ -30,9 +30,10 @@ Commits hittills:
 
 ### Hög prioritet
 
-1. **Import-disciplin i genererad kod**
-   38 av 72 autofix var saknade imports. Bör stärkas i systemprompt (`## Import Rules`)
-   eller i autofix-pipeline (mekanisk import-komplettering).
+1. ~~**Import-disciplin i genererad kod**~~ — ÅTGÄRDAT. `config/prompt-static/12-import-rules-and-pitfalls.md`
+   utökad med "Import Completeness Checklist" som täcker Next.js builtins, React hooks, shadcn,
+   lokala moduler, provider-wrapping och dynamiska route-segment. Baserat på de 38 vanligaste
+   autofix-felen från e-handels-testkörningen.
 
 2. **Thinking-routing** (issue #1 i acute-generation-issues.md)
    Thinking var av trots `SAJTMASKIN_DEFAULT_THINKING=true`. Undersök varför.
