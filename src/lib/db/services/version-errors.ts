@@ -132,3 +132,17 @@ export async function getEngineVersionErrorLogs(versionId: string): Promise<Vers
     .orderBy(desc(engineVersionErrorLogs.created_at));
   return rows as VersionErrorLog[];
 }
+
+export async function getLatestEngineVersionErrorLogs(
+  versionId: string,
+  limit = 200,
+): Promise<VersionErrorLog[]> {
+  assertDbConfigured();
+  const rows = await db
+    .select()
+    .from(engineVersionErrorLogs)
+    .where(eq(engineVersionErrorLogs.version_id, versionId))
+    .orderBy(desc(engineVersionErrorLogs.created_at))
+    .limit(limit);
+  return rows as VersionErrorLog[];
+}

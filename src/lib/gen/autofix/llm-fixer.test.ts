@@ -73,4 +73,46 @@ describe("runLlmFixer merge behavior", () => {
     expect(result.success).toBe(true);
     expect(result.fixedContent).toBe(llmOutput);
   });
+
+  it("passes structured diagnostics and prioritized files into the fixer prompt", async () => {
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve([
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <main />; }",
+        "```",
+      ].join("\n")),
+    });
+
+    await runLlmFixer(
+      [
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <div>broken</div> }",
+        "```",
+      ].join("\n"),
+      [
+        'app/page.tsx:4:7 Expected "as" but found "{"',
+        "[build] app/page.tsx:4 Build failed near unexpected token",
+      ],
+      {
+        requiredFiles: ["app/page.tsx", "components/site-header.tsx"],
+      },
+    );
+
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          expect.objectContaining({
+            content: expect.stringContaining("Primary blocking diagnostics:"),
+          }),
+        ],
+      }),
+    );
+    const prompt = streamTextMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(prompt).toContain("1. app/page.tsx:4:7 Expected \"as\" but found \"{\"");
+    expect(prompt).toContain("Additional repair context (may explain the root cause):");
+    expect(prompt).toContain("- [build] app/page.tsx:4 Build failed near unexpected token");
+    expect(prompt).toContain("Files that likely need edits first:");
+    expect(prompt).toContain("- app/page.tsx");
+    expect(prompt).toContain("- components/site-header.tsx");
+  });
 });

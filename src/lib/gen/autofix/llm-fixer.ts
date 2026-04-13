@@ -29,7 +29,9 @@ export async function runLlmFixer(
   const start = performance.now();
 
   try {
-    const userPrompt = buildFixerUserPrompt(content, errors);
+    const userPrompt = buildFixerUserPrompt(content, errors, {
+      requiredFiles: options?.requiredFiles,
+    });
     const model = getOpenAIModel(options?.model ?? DEFAULT_FIXER_MODEL);
 
     const result = streamText({

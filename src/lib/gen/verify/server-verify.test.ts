@@ -38,6 +38,17 @@ describe("resolveServerRepairEarlyStopReason", () => {
       }),
     ).toBe("continue");
   });
+
+  it("stops with time budget exceeded when the fixer times out", () => {
+    expect(
+      resolveServerRepairEarlyStopReason({
+        fixerProducedOutput: false,
+        errorsBefore: 3,
+        errorsAfter: 3,
+        timedOut: true,
+      }),
+    ).toBe("time_budget_exceeded");
+  });
 });
 
 describe("SERVER_VERIFY_QUALITY_GATE_CHECKS", () => {

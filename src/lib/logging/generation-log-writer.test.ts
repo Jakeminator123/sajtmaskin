@@ -82,6 +82,24 @@ describe("generation-log writer", () => {
       previewBlocked: false,
       verificationBlocked: true,
     });
+    devLogAppend("in-progress", {
+      type: "verifier-pass",
+      chatId: "chat_1",
+      versionId: "ver_1",
+      blocking: 1,
+      quality: 2,
+      slug: "retro-arcade",
+    });
+    devLogAppend("in-progress", {
+      type: "server-verify.policy",
+      chatId: "chat_1",
+      versionId: "ver_1",
+      run: false,
+      reason: "fast_policy",
+      verificationPolicy: "fast",
+      qualityTarget: "standard",
+      slug: "retro-arcade",
+    });
     devLogAppend("latest", {
       type: "site.done",
       chatId: "chat_1",
@@ -97,9 +115,38 @@ describe("generation-log writer", () => {
     const latestDirName = fs.readFileSync(latestFile, "utf8").trim();
     const runDir = path.join(rootDir, latestDirName);
     const summary = fs.readFileSync(path.join(runDir, "summary.md"), "utf8");
+    const observability = JSON.parse(
+      fs.readFileSync(path.join(runDir, "observability.json"), "utf8"),
+    ) as {
+      chatId?: string;
+      recurringPatterns?: Array<{ pattern: string; occurrences: number }>;
+    };
+    const fixPatterns = JSON.parse(
+      fs.readFileSync(path.join(runDir, "fix-patterns.json"), "utf8"),
+    ) as Array<{ pattern: string; occurrences: number }>;
     const timeline = fs.readFileSync(path.join(runDir, "timeline.ndjson"), "utf8");
     const faultFix = fs.readFileSync(path.join(runDir, "fault-fix-index.md"), "utf8");
     const faultFixCsv = fs.readFileSync(path.join(runDir, "fault-fix-index.csv"), "utf8");
+    const siteSummary = fs.readFileSync(
+      path.join(tempDir, "logs", "site-observability", "chat_1", "latest", "summary.md"),
+      "utf8",
+    );
+    const siteObservability = JSON.parse(
+      fs.readFileSync(
+        path.join(tempDir, "logs", "site-observability", "chat_1", "latest", "observability.json"),
+        "utf8",
+      ),
+    ) as { chatId?: string };
+    const siteFixPatterns = JSON.parse(
+      fs.readFileSync(
+        path.join(tempDir, "logs", "site-observability", "chat_1", "latest", "fix-patterns.json"),
+        "utf8",
+      ),
+    ) as Array<{ pattern: string; occurrences: number }>;
+    const siteHistory = fs.readFileSync(
+      path.join(tempDir, "logs", "site-observability", "chat_1", "history.ndjson"),
+      "utf8",
+    );
     const globalCsv = fs.readFileSync(
       path.join(tempDir, "logs", "llm-segmentts-and-index", "error-log.csv"),
       "utf8",
@@ -114,7 +161,19 @@ describe("generation-log writer", () => {
     expect(summary).toContain("Typ: followup");
     expect(summary).toContain("Promptstrategi: direct");
     expect(summary).toContain("Version: ver_1");
+    expect(summary).toContain("## Verify / Quality Gate");
+    expect(summary).toContain("Verifier blockers: 1");
+    expect(summary).toContain("Verifier quality findings: 2");
+    expect(summary).toContain("Background verify: skipped");
+    expect(summary).toContain("Background verify reason: fast_policy");
+    expect(siteSummary).toContain("Background verify reason: fast_policy");
     expect(timeline).toContain("\"type\":\"comm.request.followup\"");
+    expect(observability.chatId).toBe("chat_1");
+    expect(Array.isArray(observability.recurringPatterns)).toBe(true);
+    expect(Array.isArray(fixPatterns)).toBe(true);
+    expect(siteObservability.chatId).toBe("chat_1");
+    expect(Array.isArray(siteFixPatterns)).toBe(true);
+    expect(siteHistory).toContain("\"runId\"");
     expect(faultFix).toContain("| Tid | Fas | Steg | Severity |");
     expect(faultFix).toContain("chat_1");
     expect(faultFix).toContain("ver_1");

@@ -6,7 +6,9 @@ import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   failVersionVerification,
+  getLatestVersion,
   markVersionVerifying,
+  markVersionSupersededByRepair,
   promoteVersion,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
@@ -96,6 +98,11 @@ function buildQualityGateSummaryLog(params: {
 
 function buildVerificationSummary(checkResults: QualityGateCheckResult[]): string {
   return describeQualityGateVerification(checkResults);
+}
+
+async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
+  const latest = await getLatestVersion(chatId).catch(() => null);
+  return !latest || latest.id === versionId;
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -206,6 +213,31 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
 
         const verificationSummary = buildVerificationSummary(results);
+        const stillLatest = await isLatestVersionForChat(chatId, internalVersionId);
+        if (!stillLatest) {
+          await markVersionSupersededByRepair(internalVersionId).catch((err) => {
+            console.warn("[quality-gate] Failed to mark superseded version:", err);
+          });
+          await createEngineVersionErrorLogs([
+            {
+              chatId,
+              versionId: internalVersionId,
+              level: "warning",
+              category: "quality-gate:superseded",
+              message: "Quality gate finished after a newer version was created; skipping state mutation.",
+              meta: {
+                verificationSummary,
+                serverOwned: false,
+              },
+            },
+          ]).catch((err) => {
+            console.warn("[quality-gate] Failed to persist superseded log:", err);
+          });
+          return NextResponse.json({
+            ...gateResult,
+            superseded: true,
+          });
+        }
         if (gateResult.passed) {
           await promoteVersion(internalVersionId, verificationSummary).catch((err) => {
             console.warn("[quality-gate] Failed to promote version:", err);

@@ -58,6 +58,12 @@ describe("resolveEngineVersionDisplayStatus", () => {
     const newer = { verificationState: "verifying", versionNumber: 2 };
     expect(resolveEngineVersionDisplayStatus(failed, [failed, newer])).toBe("retrying");
   });
+
+  it("shows retrying when verifying but newer version exists", () => {
+    const verifying = { verificationState: "verifying", versionNumber: 1 };
+    const newer = { verificationState: "pending", versionNumber: 2 };
+    expect(resolveEngineVersionDisplayStatus(verifying, [verifying, newer])).toBe("retrying");
+  });
 });
 
 describe("resolveQualityTier", () => {
