@@ -92,6 +92,7 @@ function minimalOrchestrationBase(): OrchestrationBase {
     },
     buildSpec,
     serializeMode: null,
+    componentReferences: [],
     capabilityHints: undefined,
   };
 }

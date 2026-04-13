@@ -31,6 +31,12 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 | `needsForms` | `react-hook-form` + `zod` (via shadcn `Form`) | Install when form/booking/contact-form signal is present. |
 | `needsDataUI` | `@tanstack/react-table` (via shadcn `Table`) | Install when data table/CRUD/sorting/filtering signal is present. |
 
+## Dynamic component references
+
+When capabilities are detected, the orchestration pipeline loads verified shadcn usage examples from a local cache (`data/shadcn-examples/`) and injects them into the dynamic context as `## Component References`. This gives the LLM actual working code patterns (DatePicker = Calendar + Popover, Combobox = Command + Popover, etc.) rather than just component names.
+
+The cache is synced via `npm run shadcn:sync-examples` from `ui.shadcn.com/r/`. Static component patterns in `config/prompt-static/03b-shadcn-component-patterns.md` serve as always-present baseline; dynamic references add depth for capability-matched components.
+
 ## Libraries evaluated but not default
 
 | Library | Status | Rationale |

@@ -55,6 +55,8 @@ import { FEATURES } from "@/lib/config";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
 import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
 import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
+import { getRelevantExampleNames } from "./data/shadcn-example-map";
+import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
 
 export interface TemplateGuidanceMeta {
   enabled: boolean;
@@ -132,6 +134,7 @@ export interface OrchestrationBase {
   capabilities: InferredCapabilities;
   buildSpec: BuildSpec;
   serializeMode: "inspirational" | "structural" | null;
+  componentReferences: ComponentReference[];
 }
 
 export interface FinalizedOrchestrationContext {
@@ -344,6 +347,10 @@ export async function resolveOrchestrationBase(
   }
 
   const capabilityHints = buildCapabilityHints(capabilities);
+
+  const componentRefNames = getRelevantExampleNames(capabilities);
+  const componentReferences = loadShadcnExamples(componentRefNames);
+
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent,
@@ -405,6 +412,7 @@ export async function resolveOrchestrationBase(
     capabilities,
     buildSpec,
     serializeMode: resolvedSerializeMode,
+    componentReferences,
   };
 }
 
@@ -571,6 +579,7 @@ export async function finalizeOrchestrationPrompts(
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
     templateGuidance: templateGuidanceText,
+    componentReferences: base.componentReferences,
   };
 
   const dynamic = await buildDynamicContext(dynamicOpts);

@@ -177,7 +177,7 @@ Medel. Risken är att shadcn CLI-beteende ändras med det nya formatet och påve
 
 ---
 
-## Nivå 5 — Dedikerad sajtmaskin-component-mcp (medelsikt, medel risk)
+## Nivå 5 — Dedikerad sajtmaskin-component-mcp (GENOMFÖRD — förenklad variant)
 
 ### Problem
 
@@ -226,7 +226,7 @@ Om cachen saknas eller är tom: Nivå 0 (statiska patterns) används alltid som 
 | 2 | Blocks-metadata → section recipes | Medel — rikare recipes, bättre first-pass | Medel | 4-8 h |
 | 3 | registry:font-schema för fontpar | Medel — validerade fontnamn, bättre konsistens | Låg | 2-3 h |
 | 4 | components.json v4-uppgradering | Låg nu — möjliggör community-registrys | Medel | 1-2 h |
-| 5 | Dedikerad sajtmaskin-component-mcp | Hög — on-demand API-depth från registret | Medel | 2-3 dagar |
+| 5 | Dedikerad sajtmaskin-component-mcp | Hög — on-demand API-depth från registret | Medel | **Genomförd** (förenklad: lokal cache + orchestration-hook) |
 
 ---
 

@@ -190,6 +190,8 @@ export interface DynamicContextOptions {
   sessionSeed?: string;
   /** Pre-rendered scaffold-anchored template-library guidance (init only, opt-in). */
   templateGuidance?: string;
+  /** Verified shadcn usage examples matched to this request's capabilities. */
+  componentReferences?: { name: string; code: string }[];
 }
 
 function str(v: unknown): string {
@@ -243,6 +245,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
+  { match: /^component references$/i, priority: 76 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
@@ -376,6 +379,7 @@ export async function buildDynamicContext(
     buildSpec,
     sessionSeed,
     templateGuidance,
+    componentReferences,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -827,6 +831,23 @@ export async function buildDynamicContext(
       parts.push(`- \`{{${item.alias}}}\`${altText}`);
     }
     parts.push("");
+  }
+
+  // ── Component References (capability-driven shadcn examples) ─────────
+  if (componentReferences && componentReferences.length > 0) {
+    parts.push(
+      "## Component References",
+      "",
+      "Verified usage examples for components relevant to this request. Adapt these patterns to the site — do not copy verbatim.",
+      "",
+    );
+    for (const ref of componentReferences.slice(0, 5)) {
+      const truncatedCode =
+        ref.code.split("\n").length > 60
+          ? ref.code.split("\n").slice(0, 60).join("\n") + "\n// ... (truncated)"
+          : ref.code;
+      parts.push(`### ${ref.name}`, "", "```tsx", truncatedCode, "```", "");
+    }
   }
 
   // ── SEO (from brief) ───────────────────────────────────────────────────
