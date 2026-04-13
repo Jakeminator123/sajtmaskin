@@ -15,8 +15,10 @@ Varje signal i init-pipelinen ska ha exakt **en canonical source**. Konsumenter 
 | **Build intent (codegen)** | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` | lokal konstant | `buildDynamicContext()` | Assist-copy i `promptAssist.ts` ok (annat syfte) |
 | **Build intent (assist)** | `BUILD_INTENT_GUIDANCE` i `promptAssist.ts` | lokal konstant | rewrite/polish/addendum | Synka manuellt med codegen-versionen |
 | **Capability-inferens** | `capability-inference.ts` | regexar + manifest | `buildDynamicContext()`, `BuildSpec`, `follow-up-clarification` | Nej |
-| **Fallback-addendum (non-init)** | `promptAssist.ts` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
+| **Fallback-addendum (non-init)** | `promptAssist.ts` | `MOTION_GUIDANCE`, `VISUAL_IDENTITY_GUIDANCE`, `QUALITY_BAR_GUIDANCE` | `useInitBrief.ts` → `generateDynamicInstructions` vid brief-miss | Legacy-fallback, skippas vid init |
 | **User-message formattering (fallback)** | `formatPrompt()` i `promptAssist.ts` | `SECTION_KEYWORDS`, `STYLE_KEYWORDS` | `useCreateChat.ts` (bara utan brief) | Fallback — init skickar rå text |
+| **Prompt Rewrite hook** | `usePromptRewrite.ts` | `maybeEnhanceInitialPrompt` | `useBuilderPageController.ts` | Hook — konsumerar `promptAssist.ts` builders |
+| **Init Brief hook** | `useInitBrief.ts` | `generateDynamicInstructions` | `useBuilderPageController.ts` | Hook — konsumerar `/api/ai/brief` + fallback addendum |
 
 ## Princip
 

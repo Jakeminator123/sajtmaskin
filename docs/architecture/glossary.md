@@ -93,6 +93,8 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Prompt Wrapper** | `PROMPT_WRAPPER_HEADINGS`, `wrapWithSection()` | `prompt-wrapper-contract.ts` | Sektionsrubriker för follow-up-kontinuitet. | kanonisk |
 | **URL Compression** | `compressUrls()` / `expandUrls()` | `url-compress.ts` | Komprimerar URL:er i prompten; expanderar i finalize. | kanonisk |
 | ~~Prompt Assist~~ (paraply) | — | docs | Otydligt samlingsnamn för flera steg. | **legacy** — använd specifik term |
+| **Prompt Rewrite Hook** | `usePromptRewrite()` | `hooks/usePromptRewrite.ts` | React-hook för manuella rewrite/polish-knappar. Returnerar `maybeEnhanceInitialPrompt`. | kanonisk |
+| **Init Brief Hook** | `useInitBrief()` | `hooks/useInitBrief.ts` | React-hook för init-brief + fallback-addendum. Returnerar `generateDynamicInstructions`. | kanonisk |
 
 ### 1.2 Brief och spec
 
@@ -553,6 +555,7 @@ Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra v
 | 2026-04-13 | Phase 1 consolidation (v11): Deep Brief är kanonisk init-signal: `formatPrompt()` är fallback-only, `skipAddendum` tar bort onödig init-beräkning, och brieffält `mustHave`/`avoid` + `uiNotes` används nu i dynamic context. Lagerstädning: `EXTENDED_CUSTOM_INSTRUCTIONS` borttagen (design/motion/images ägs av static core + brief-driven dynamic context). Semantisk konsolidering: `domain-inference.ts` + `config/domain-rules.json` är canonical domänkälla och `prompt-heuristics.ts` är delad ordlistekälla för structured-prompt-heuristiker. |
 | 2026-04-13 | Route realization fix (v12): `isFirstCodeGeneration` propageras nu till `deriveBuildSpec`/`deriveRouteRealizationPolicy` så att första kodgenerering efter scaffold/contract-gate behandlas som effektiv init för defer. Follow-up bevarar shells via `existingShellRoutePaths` + `isShellPageContent()` multi-signal heuristik. System-prompten inkluderar shell-bevaringsregel för follow-up. `ensureDeferredRouteShells` utvidgad att trigga för alla scenarier med shellRoutePaths. |
 | 2026-04-13 | v0-repo-import (v13): `skipProjectScaffold` i `startPreviewSession()` — repo-importer (v0-mallar) skickas rakt till VM utan `buildCompleteProject()`-merge. Binary assets (bilder/fonts) importeras som base64 och skrivs binärt av preview-host. `buildIntent` härleds per template via `template-catalog.ts` istället för hårdkodat `"template"`. |
+| 2026-04-13 | Hook split (v14): `usePromptAssist` uppdelad i `usePromptRewrite` (rewrite/polish via `/api/ai/chat`) och `useInitBrief` (init-brief via `/api/ai/brief` + fallback-addendum). Delade typer i `prompt-assist-types.ts`, delade utilities i `prompt-assist-utils.ts`. `usePromptAssist` kvar som deprecated facade. |
 
 ## När detta dokument uppdateras
 

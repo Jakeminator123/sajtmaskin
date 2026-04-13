@@ -22,7 +22,8 @@ import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
-import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
+import { usePromptRewrite } from "@/lib/hooks/usePromptRewrite";
+import { useInitBrief } from "@/lib/hooks/useInitBrief";
 import { useChatMessaging } from "@/lib/hooks/chat/useChatMessaging";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useChatReadiness } from "@/lib/hooks/useChatReadiness";
@@ -375,12 +376,21 @@ export function useBuilderPageController() {
 
   const sendMessage = rawSendMessage;
 
-  // ── Prompt assist ────────────────────────────────────────────────────
-  const { maybeEnhanceInitialPrompt, generateDynamicInstructions } = usePromptAssist({
+  // ── Prompt rewrite (manual "Förbättra"/"Skriv om") ──────────────────
+  const { maybeEnhanceInitialPrompt } = usePromptRewrite({
     model: state.promptAssistModel,
     deep: state.promptAssistDeep,
     imageGenerations: state.enableImageGenerations,
     codeContext: state.promptAssistContext,
+    buildIntent: state.resolvedBuildIntent,
+    themeColors: state.themeColors,
+  });
+
+  // ── Init brief (Deep Brief + fallback addendum) ────────────────────
+  const { generateDynamicInstructions } = useInitBrief({
+    model: state.promptAssistModel,
+    deep: state.promptAssistDeep,
+    imageGenerations: state.enableImageGenerations,
     buildIntent: state.resolvedBuildIntent,
     themeColors: state.themeColors,
   });
