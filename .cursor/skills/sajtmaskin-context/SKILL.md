@@ -10,7 +10,7 @@ description: Quick domain/context skill for Sajtmaskin. Use when working on buil
 1. `docs/architecture/glossary.md` — canonical glossary
 2. `.cursor/rules/terminology.mdc` — quick confusion table
 3. `docs/README.md` — doc navigation
-4. `docs/plans/README.md` + `5-steg.txt` — status and decisions
+4. `docs/plans/README.md` — status and decisions
 
 ## Guardrails
 

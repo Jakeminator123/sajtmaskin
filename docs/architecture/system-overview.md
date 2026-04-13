@@ -64,7 +64,7 @@ Tom `/builder` är **inte** en sjätte canonical metod — bootstrap. v0-templat
 
 ## Planer och handoff
 
-- **Samlad slutstatus för avslutat 5-stegsspår:** [`../../5-steg.txt`](../../5-steg.txt) — sammanfattning, kvarvarande problemområden och nästa naturliga pass.
+- **Samlad terminologi:** [`docs/architecture/glossary.md`](../architecture/glossary.md) — alla begrepp med livscykelstatus.
 - **Index / buckets:** [`docs/plans/README.md`](../plans/README.md).
 - **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [preview-deploy.md](./preview-deploy.md) → capstone ovan vid backlog-frågor.
 - Handoffs sker i chatten; historik i git.

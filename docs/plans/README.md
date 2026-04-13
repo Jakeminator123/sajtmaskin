@@ -6,11 +6,11 @@
 
 ## Aktiva filer (`active/`)
 
-Efter den avslutade 5-stegsgenomgången ar arbetet normalt smala uppfoljningspass.
+Arbetet drivs som smala uppföljningspass. Se aktiva filer i `active/`.
 
 Nuvarande orientering:
 
-- **Samlad slutoversikt:** [`../../5-steg.txt`](../../5-steg.txt)
+- **Arkitektur:** [`../architecture/builder-generation.md`](../architecture/builder-generation.md)
 - **Steg 4-djupkarta:** [`../architecture/step4-post-generation.md`](../architecture/step4-post-generation.md)
 
 ### Component uplift (P14–P16) — ARKIVERAT

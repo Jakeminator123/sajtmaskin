@@ -4,7 +4,7 @@
 
 ## Steg 4 — post-stream (finalize, validering, preflight)
 
-Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`. **Samlad slutbild:** `5-steg.txt`.
+Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`.
 
 ## Modellbanor (UI ↔ API)
 

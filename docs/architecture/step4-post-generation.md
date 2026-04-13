@@ -2,7 +2,7 @@
 
 **Senast uppdaterad:** 2026-04-10
 
-Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna. Detta motsvarar **Steg 4** i 5-stegskartan. **Steg 5** (preview/materialisering, tier-2, uppföljning) börjar **efter** denna kedja — även om SSE kan fortsätta med `preview-ready` m.m.
+Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna.
 
 ## Kanoniska källfiler
 
@@ -71,7 +71,6 @@ Bygg **inte** mental modell där `previewUrl: null` i finalize-resultat betyder 
 Uppdatera i samma leverans:
 
 - `docs/architecture/step4-post-generation.md` (denna fil)
-- `5-steg.txt` (samlad slutbild och kvarvarande problemomraden)
 - `.cursor/rules/terminology.mdc`
 - `docs/architecture/glossary.md` (fas 3: repair, quality gate, finalize)
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)

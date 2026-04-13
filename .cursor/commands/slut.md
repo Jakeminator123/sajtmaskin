@@ -21,7 +21,7 @@ Stäng arbetet i följande ordning:
 
 - Var hård med dubbla docs och gamla körplaner: ta bort eller slimma hellre än att lämna kvar tre nästan likadana dokument.
 - Behåll historisk kontext bara när den fortfarande hjälper framtida agenter eller reviewers.
-- Om ett stegspår avslutas: se till att `docs/plans/README.md` och eventuell slutöversikt (t.ex. `5-steg.txt`) tydligt visar att spåret är stängt och vad nästa riktiga arbete är.
+- Om ett stegspår avslutas: se till att `docs/plans/README.md` tydligt visar att spåret är stängt och vad nästa riktiga arbete är.
 - Om ett särskilt slutdokument behövs för spåret, skapa det med ett enkelt namn nära repo-roten eller i den mest naturliga kanoniska mappen.
 - Radera inte bred legacy-/compatlogik utan verifierad ersättning; markera i stället som parkerat problemområde.
 

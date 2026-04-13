@@ -4,7 +4,7 @@
 
 **Terminologinot:** den relevanta tier-2-previewen just nu är **VM / `preview_host` via Fly.io**. Publika app-routes använder `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy` och `preview-hibernate`. Ordet **`sandbox`** lever fortfarande kvar i vissa interna typer, legacy Redis-nycklar och några interna wrapper-moduler, medan DB-kolumnen i `engine_versions` nu är **`preview_url`**. **Quality gate / server-verify** kör nu också via preview-host, men i en **separat verify-lane** och inte i samma workspace som live-previewn.
 
-**Operativt kördokument** för own-engine → finalize → tier-2-preview → iframe. Intent, leveranser och kodpekare: denna fil + [`../../5-steg.txt`](../../5-steg.txt) (samlad 5-stegsbild och kvarvarande problemområden).
+**Operativt kördokument** för own-engine → finalize → tier-2-preview → iframe. Intent, leveranser och kodpekare.
 
 ## End-to-end: own-engine som ägare och Fidelity 2
 
@@ -72,7 +72,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Tester | Bl.a. `httpStatusForPreviewSessionFailure`, bootstrap-retry, preview-gate, repair-idempotens | `*.test.ts` under `src/lib/gen`, `src/lib/builder` |
 | Vitest / config-mock | `route.test.ts` mockar `REDIS_KEY_PREFIX` m.m. när `redis.ts` laddas | `src/app/api/v0/chats/stream/route.test.ts` |
 
-**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se [`../../5-steg.txt`](../../5-steg.txt).
+**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling.
 
 **Vit / tom preview:** operativ runbook + checklista — [`preview-white-screen-runbook.md`](./preview-white-screen-runbook.md). Kort hjälptext visas i byggarens iframe-overlay (`previewRunbookLinesForCode` i `preview-diagnostics.ts`).
 

@@ -99,8 +99,7 @@
         "docs/schemas/model-build-profiles.md",
         "docs/architecture/builder-generation.md",
         "docs/architecture/llm-input-blocks.md",
-        "docs/architecture/step4-post-generation.md",
-        "5-steg.txt"
+        "docs/architecture/step4-post-generation.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -186,8 +185,7 @@
         "src/app/api/engine/chats/[chatId]/repair/route.ts"
       ],
       "docsPaths": [
-        "docs/architecture/preview-deploy.md",
-        "5-steg.txt"
+        "docs/architecture/preview-deploy.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"
@@ -254,8 +252,7 @@
         ".cursor/rules/repo-env-indexing.mdc",
         ".cursor/rules/cleanup-and-scope.mdc",
         ".cursor/rules/platform-quirks.mdc",
-        "docs/architecture/repository-and-platform.md",
-        "5-steg.txt"
+        "docs/architecture/repository-and-platform.md"
       ],
       "docsPaths": [
         ".cursor/README.md",

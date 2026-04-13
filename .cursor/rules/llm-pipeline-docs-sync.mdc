@@ -45,7 +45,7 @@ globs:
 
 ## Vid behov
 
-`5-steg.txt`; `preview-deploy.md`; `docs/plans/README.md`; `repository-and-platform.md` / `config/README.md`; `manifest.schema.json` om **formen** ändras; dashboard: `domain-map.json`, `config/dashboard/app.py` (översikt), `scripts/scripts_dashboard.py` (pipeline) — delad logik i `scripts/dashboard_shared.py`.
+`preview-deploy.md`; `docs/plans/README.md`; `repository-and-platform.md` / `config/README.md`; `manifest.schema.json` om **formen** ändras; dashboard: `domain-map.json`, `config/dashboard/app.py` (översikt), `scripts/scripts_dashboard.py` (pipeline) — delad logik i `scripts/dashboard_shared.py`.
 
 ## Principer
 

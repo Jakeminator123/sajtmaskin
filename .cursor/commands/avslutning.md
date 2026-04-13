@@ -18,7 +18,6 @@ Avsluta det aktuella arbetet i följande ordning:
    - relevanta schemas/docs
    - `config/dashboard/app.py`
    - `sajtmaskin_backoffice.py` när dess område, env-ytor eller drift-/adminflöden har påverkats
-   - `5-steg.txt` (vid större slutbildsändring)
    - håll fast vid ord som passar repoet: `orchestrate`, `LLM-input`, `generate/finalize/validate`, `preview/version materialization`, `verify`
 5. Verifiera med riktade tester/lints/typecheck efter behov.
 6. Commit:a och pusha när användaren uttryckligen vill avsluta/ship:a arbetet.
