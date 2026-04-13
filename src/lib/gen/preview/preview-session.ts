@@ -14,6 +14,7 @@ import {
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import { buildCompleteProject } from "../export/project-scaffold";
+import { PLACEHOLDER_API_ROUTE } from "../export/project-scaffold";
 import { collectRequiredUiComponents } from "../export/build-exportable-project";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 
@@ -197,6 +198,15 @@ async function runStartPreviewSession(
         filesForProject,
         collectRequiredUiComponents(filesForProject),
       ).map((f) => ({ name: f.path, content: f.content }));
+
+  if (skipProjectScaffold) {
+    const hasPlaceholder = runtimeFiles.some(
+      (f) => f.name === "app/api/placeholder/route.ts" || f.name === "app/api/placeholder/route.js",
+    );
+    if (!hasPlaceholder) {
+      runtimeFiles.push({ name: "app/api/placeholder/route.ts", content: PLACEHOLDER_API_ROUTE });
+    }
+  }
 
   const envLocalPath = ".env.local";
   const envIdx = runtimeFiles.findIndex((f) => f.name === envLocalPath);
