@@ -1,6 +1,7 @@
 import { streamText, type ModelMessage, type ToolSet } from "ai";
 
 import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
+import { getDefaultThinkingEnabled } from "./default-thinking";
 import { getOpenAIModel, DEFAULT_MODEL, isAnthropicModel } from "./models";
 import {
   buildUserPromptContent,
@@ -10,6 +11,26 @@ import { createCodeGenSSEStream, type StreamMeta } from "./stream/stream-format"
 
 export type { StreamMeta };
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
+type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
+type JsonObject = { [key: string]: JsonValue | undefined };
+type ProviderOptionsRecord = Record<string, JsonObject>;
+
+export function toAnthropicEffort(
+  effort: ReasoningEffort,
+): "low" | "medium" | "high" | "max" {
+  switch (effort) {
+    case "none":
+    case "low":
+      return "low";
+    case "medium":
+      return "medium";
+    case "xhigh":
+      return "max";
+    case "high":
+    default:
+      return "high";
+  }
+}
 
 export interface GenerateOptions {
   prompt: string;
@@ -45,7 +66,7 @@ export function generateCode(
   options: GenerateOptions,
   meta?: StreamMeta,
 ): ReadableStream<Uint8Array> {
-  const defaultThinkingEnabled = process.env.SAJTMASKIN_SHOW_THINKING === "true";
+  const defaultThinkingEnabled = getDefaultThinkingEnabled();
   const {
     prompt,
     systemPrompt,
@@ -73,10 +94,19 @@ export function generateCode(
   const internalAbortController = abortSignal ? null : new AbortController();
   const resolvedAbortSignal = abortSignal ?? internalAbortController!.signal;
 
-  const providerOptions =
-    resolvedThinking && !anthropic
-      ? { openai: { reasoningEffort } }
-      : undefined;
+  let providerOptions: ProviderOptionsRecord | undefined;
+  if (resolvedThinking) {
+    providerOptions = anthropic
+      ? {
+          anthropic: {
+            thinking: { type: "adaptive" as const },
+            effort: toAnthropicEffort(reasoningEffort),
+          },
+        }
+      : {
+          openai: { reasoningEffort },
+        };
+  }
 
   const result = streamText({
     model,

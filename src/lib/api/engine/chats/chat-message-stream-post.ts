@@ -34,6 +34,7 @@ import {
   resolveOrchestrationBase,
   writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
+import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import {
   buildPlanSummaryMessage,
   buildPlanUiPart,
@@ -140,7 +141,7 @@ export async function handleMessageStreamRequest(
         const resolvedThinking =
           typeof thinking === "boolean"
             ? thinking
-            : process.env.SAJTMASKIN_DEFAULT_THINKING === "true";
+            : getDefaultThinkingEnabled();
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
         const metaBuildMethod = parsedMeta.buildMethod;

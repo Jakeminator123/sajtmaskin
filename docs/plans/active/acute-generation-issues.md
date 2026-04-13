@@ -4,9 +4,11 @@ Tracked separately so phase 2/3 scope stays narrow.
 
 ## 1. `thinking` flag unexpectedly `false`
 
+**Status:** Fixed. The server now treats `SAJTMASKIN_DEFAULT_THINKING` as canonical, only falls back to `SAJTMASKIN_SHOW_THINKING` for legacy environments, and maps `thinking` to provider-specific options for both OpenAI and Anthropic own-engine runs.
+
 **Symptom:** Generations that should use extended reasoning run without it.
 
-**Likely cause:** Env name mismatch (`SAJTMASKIN_DEFAULT_THINKING` in follow-up stream vs `SAJTMASKIN_SHOW_THINKING` in `engine.ts`), or Anthropic models never entering the `providerOptions.reasoningEffort` branch.
+**Original cause:** Env name mismatch (`SAJTMASKIN_DEFAULT_THINKING` in create/follow-up handlers vs `SAJTMASKIN_SHOW_THINKING` in `engine.ts`), or Anthropic models never entering the `providerOptions.reasoningEffort` branch.
 
 **Files:**
 - `src/lib/api/engine/chats/chat-message-stream-post.ts` (~140–143)

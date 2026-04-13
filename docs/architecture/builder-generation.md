@@ -13,7 +13,7 @@ Tre **lanes** + flaggor (detalj + mermaid i arkiv: `builder-model-routing-and-tr
 1. **Byggmodell (model lane)** — `fast` | `pro` | `max` | `codex` | `anthropic` — styr **själva generation/refine-streamen**. **Default är nu `pro`** (`gpt-5.3-codex`), medan `max`/\"Tanker\" pekar på `gpt-5.4`.
 2. **Produkt-/promptlane** — modell för *Förbättra*, *Djup brief*, m.m. (`/api/ai/chat`, `/api/ai/brief`).
 3. **Polish** — billig omskrivning av promptfältet (`Skriv om`, `SAJTMASKIN_POLISH_MODEL`).
-4. **Resonemang (`Thinking`)** — metadata/reasoning i generationen, **inte** en tredje modellbana i samma bemärkelse. Server-side default styrs av `SAJTMASKIN_DEFAULT_THINKING` i `.env.local` (`true` = on). Klienten skickar flaggan explicit bara om användaren ändrat togglen i UI; annars gäller serverns env-default. `SAJTMASKIN_SHOW_THINKING` i `engine.ts` är en äldre fallback som bara gäller när `thinking` är helt utelämnad.
+4. **Resonemang (`Thinking`)** — metadata/reasoning i generationen, **inte** en tredje modellbana i samma bemärkelse. Server-side default styrs av `SAJTMASKIN_DEFAULT_THINKING` i `.env.local` (`true` = on). Klienten skickar flaggan explicit bara om användaren ändrat togglen i UI; annars gäller serverns env-default. `SAJTMASKIN_SHOW_THINKING` stöds bara som legacy-alias under migrering av äldre miljöer.
 
 **Anthropic-jämförelse** — preset som linjerar build + produktlane mot Anthropic.
 

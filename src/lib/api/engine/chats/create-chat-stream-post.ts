@@ -36,6 +36,7 @@ import {
   resolveOrchestrationBase,
   writeOrchestrationDynamicDump,
 } from "@/lib/gen/orchestrate";
+import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { compressUrls } from "@/lib/gen/url-compress";
 import {
   buildPlanSummaryMessage,
@@ -143,7 +144,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const resolvedThinking =
         typeof thinking === "boolean"
           ? thinking
-          : process.env.SAJTMASKIN_DEFAULT_THINKING === "true";
+          : getDefaultThinkingEnabled();
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
