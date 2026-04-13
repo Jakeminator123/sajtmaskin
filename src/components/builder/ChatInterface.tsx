@@ -979,7 +979,7 @@ export function ChatInterface({
                 placeholder="Figma URL (delningslänk)"
                 autoComplete="url"
                 disabled={inputDisabled}
-                className="h-8"
+                className="h-8 min-w-0 flex-1"
               />
               <Button
                 type="button"
@@ -1012,10 +1012,10 @@ export function ChatInterface({
                   alt={figmaPreviewName || "Figma preview"}
                   className="h-14 w-20 rounded-sm object-cover"
                 />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                   <p className="text-muted-foreground text-xs">Figma preview</p>
                   {figmaPreviewName && (
-                    <p className="text-foreground text-xs">{figmaPreviewName}</p>
+                    <p className="text-foreground truncate text-xs">{figmaPreviewName}</p>
                   )}
                 </div>
                 <Button

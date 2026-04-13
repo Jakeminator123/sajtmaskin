@@ -69,7 +69,7 @@ export function Conversation({ children, className, ...props }: ConversationProp
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={cn("relative flex flex-col", className)}
+        className={cn("relative flex flex-col overflow-y-auto", className)}
         {...props}
       >
         {children}
@@ -97,7 +97,7 @@ export function ConversationContent({ children, className, ...props }: Conversat
   }, [children, isAtBottom, scrollRef]);
 
   return (
-    <div className={cn("flex-1 space-y-4 overflow-y-auto p-4", className)} {...props}>
+    <div className={cn("flex-1 space-y-4 p-4", className)} {...props}>
       {children}
     </div>
   );

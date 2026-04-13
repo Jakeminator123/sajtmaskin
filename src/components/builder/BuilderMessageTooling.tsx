@@ -541,8 +541,8 @@ export function CompactToolParts({
             className="border-border bg-card mb-3 rounded-md border p-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-medium">{toolTitle}</div>
-              <span className="text-muted-foreground text-xs">{getToolStateLabel(toolState)}</span>
+              <div className="min-w-0 truncate text-sm font-medium">{toolTitle}</div>
+              <span className="text-muted-foreground shrink-0 text-xs">{getToolStateLabel(toolState)}</span>
             </div>
             {replyPrompt ? (
               !pendingReply && !hasUserAfterCurrentMessage ? (

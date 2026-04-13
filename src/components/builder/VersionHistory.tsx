@@ -540,7 +540,7 @@ export function VersionHistory({
                   : lifecycleStatus === "repairing"
                     ? "Repairing"
                     : lifecycleStatus === "retrying"
-                      ? "Omtag"
+                      ? "Ersatt"
                       : lifecycleStatus === "failed"
                         ? "Fel"
                         : "Draft";
@@ -634,7 +634,7 @@ export function VersionHistory({
                   ? version.verificationSummary.trim()
                   : null;
               if (lifecycleStatus === "retrying") {
-                return summary || "Ersatt av ett senare omtag efter verifieringsfel.";
+                return summary || "Ersatt av en nyare version innan denna hann bli klar.";
               }
               return summary;
             })();
@@ -653,7 +653,7 @@ export function VersionHistory({
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
                         <Clock className="text-muted-foreground h-3 w-3" />
                         <span className="text-muted-foreground text-xs">
                           {formatVersionTime(version.createdAt)}

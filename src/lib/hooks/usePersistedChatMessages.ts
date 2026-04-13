@@ -58,10 +58,23 @@ export function usePersistedChatMessages(params: {
     if (!chatId) return;
     if (isCreatingChat) return;
     if (isAnyStreaming) return;
-    if (messages.length > 0) return;
+
+    const normalizedServerMessages = normalizeServerMessages(serverMessages);
+
+    if (messages.length > 0) {
+      if (
+        serverMessagesChatId === chatId &&
+        normalizedServerMessages.length > 0 &&
+        (normalizedServerMessages.length > messages.length ||
+          countUiParts(normalizedServerMessages) > countUiParts(messages))
+      ) {
+        setMessages(normalizedServerMessages);
+        persistMessages(chatId, normalizedServerMessages);
+      }
+      return;
+    }
 
     const restored = normalizeServerMessages(loadPersistedMessages(chatId));
-    const normalizedServerMessages = normalizeServerMessages(serverMessages);
 
     if (serverMessagesChatId && serverMessagesChatId !== chatId) {
       if (restored.length > 0) {
@@ -93,7 +106,7 @@ export function usePersistedChatMessages(params: {
     chatId,
     isCreatingChat,
     isAnyStreaming,
-    messages.length,
+    messages,
     setMessages,
     serverMessages,
     serverMessagesChatId,

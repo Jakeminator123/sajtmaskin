@@ -28,6 +28,7 @@ alwaysApply: true
 | `previewUrl` | demoUrl (legacy) |
 | `mekanisk fix` | "deterministisk autofix", "repair" (blandat) |
 | `LLM-fix` | "fixer", "syntax fixer" (blandat) |
+| `Ersatt` (UI-etikett) | Omtag (döda) |
 
 **`v0`:** (1) `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
 

@@ -401,7 +401,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
         Verify: {props.passed ? "PASS" : "FAIL"}
       </p>
       {props.checks.length > 0 && (
-        <p className="text-muted-foreground mt-1">
+        <p className="text-muted-foreground mt-1 wrap-break-word">
           {props.checks
             .map((check) => {
               const duration = formatDurationMsShort(check.durationMs);

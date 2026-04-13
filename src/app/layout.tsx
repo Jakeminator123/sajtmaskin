@@ -5,7 +5,6 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "@/styles/landing-v2.css";
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
-import { BetaBanner } from "@/components/layout/beta-banner";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
@@ -92,7 +91,6 @@ export default async function RootLayout({
           <AnalyticsTracker />
           <Analytics />
           <SpeedInsights />
-          <BetaBanner />
           {children}
           <Toaster position="top-right" />
           {openclawSurfaceEnabled && <OpenClawChatLazy />}

@@ -30,6 +30,7 @@ export async function consumeSseResponse(
 
   const signal = options?.signal;
   const decoder = new TextDecoder();
+  const MAX_BUFFER_LENGTH = 4 * 1024 * 1024;
   let buffer = "";
   let currentEvent = "";
   let dataLines: string[] = [];
@@ -55,6 +56,9 @@ export async function consumeSseResponse(
     if (done) break;
 
     buffer += decoder.decode(value, { stream: true });
+    if (buffer.length > MAX_BUFFER_LENGTH) {
+      buffer = buffer.slice(-MAX_BUFFER_LENGTH);
+    }
     const lines = buffer.split("\n");
     buffer = lines.pop() || "";
 

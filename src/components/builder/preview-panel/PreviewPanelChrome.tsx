@@ -146,7 +146,7 @@ export function PreviewPanelChrome({
             </Badge>
           ) : null}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             variant="ghost"
             size="sm"

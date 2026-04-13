@@ -64,6 +64,12 @@ describe("resolveEngineVersionDisplayStatus", () => {
     const newer = { verificationState: "pending", versionNumber: 2 };
     expect(resolveEngineVersionDisplayStatus(verifying, [verifying, newer])).toBe("retrying");
   });
+
+  it("keeps pending versions as draft when a newer version exists", () => {
+    const pending = { verificationState: "pending", versionNumber: 1 };
+    const newer = { verificationState: "verifying", versionNumber: 2 };
+    expect(resolveEngineVersionDisplayStatus(pending, [pending, newer])).toBe("draft");
+  });
 });
 
 describe("resolveQualityTier", () => {

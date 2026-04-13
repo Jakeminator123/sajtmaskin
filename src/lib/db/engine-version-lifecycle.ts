@@ -84,6 +84,12 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
     return lifecycleStatus;
   }
 
+  const verificationState = version?.verificationState ?? version?.verification_state ?? null;
+
+  if (lifecycleStatus === "verifying" && verificationState === "pending") {
+    return "draft";
+  }
+
   if (
     lifecycleStatus === "failed" ||
     lifecycleStatus === "repairing" ||

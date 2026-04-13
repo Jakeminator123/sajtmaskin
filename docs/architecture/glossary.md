@@ -377,13 +377,21 @@ Tre distinkta lanes — inte samma gate:
 | **Server Verify Log Meta** | `buildServerVerifyQualityGateMeta()`, `buildServerRepairOutcomeMeta()` | `verify/server-verify-log-meta.ts` | Logg/meta för server-verify. | kanonisk |
 | ~~PostChecksAndQualityGate~~ | — | `llm-signal-flow.md` | Sammansatt docs-term. | **döda** |
 
-### 3.7 Eval-checks (verifieringsnära)
+### 3.7 Versionslivscykel (UI)
+
+| Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
+|---|---|---|---|---|
+| **Engine Version Lifecycle Status** | `EngineVersionLifecycleStatus`, `resolveEngineVersionLifecycleStatus()` | `db/engine-version-lifecycle.ts` | Kanonisk livscykelfas: `draft`, `verifying`, `repairing`, `failed`, `promoted`. | kanonisk |
+| **Engine Version Display Status** | `EngineVersionDisplayStatus`, `resolveEngineVersionDisplayStatus()` | `db/engine-version-lifecycle.ts` | UI-visningstatus: livscykelstatus + `retrying` (UI-etikett: "Ersatt") när en äldre version ersatts av en nyare. `pending`-versioner med nyare version visar `draft` istället för `retrying`. | kanonisk |
+| ~~Omtag~~ | — | VersionHistory UI | Tidigare UI-etikett för `retrying`. | **döda** — ersatt av "Ersatt" |
+
+### 3.8 Eval-checks (verifieringsnära)
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Eval Checks** | `checkProjectSanity()`, `checkTier2Readiness()`, `checkSeoPublishReadiness()`, `checkVisualQuality()` | `eval/checks.ts` | Namngivna kontroller i eval-harnessen. Visual QA i `verify/visual-qa.ts`. | kanonisk |
 
-### 3.8 Loggning och telemetri (Fault & Fix)
+### 3.9 Loggning och telemetri (Fault & Fix)
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|

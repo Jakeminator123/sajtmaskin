@@ -1003,6 +1003,11 @@ export async function handleSseStream(
   }
 
   if (!didReceiveDone) {
+    if (signal.aborted) {
+      const abortErr = new Error("Streaming aborted by client");
+      abortErr.name = "AbortError";
+      throw abortErr;
+    }
     throw new Error(
       pendingStreamErrorMessage || "Streamen avslutades innan genereringen var klar. Försök igen.",
     );
@@ -1021,7 +1026,7 @@ export async function handleSseStream(
 
   const latestMaterialize =
     materializeQueue.length > 0 ? materializeQueue[materializeQueue.length - 1] : null;
-  if (latestMaterialize) {
+  if (latestMaterialize && !signal.aborted) {
     void triggerImageMaterialization({
       chatId: latestMaterialize.chatId,
       versionId: latestMaterialize.versionId,
@@ -1058,7 +1063,7 @@ export async function handleSseStream(
 
   const latestPostCheck =
     postCheckQueue.length > 0 ? postCheckQueue[postCheckQueue.length - 1] : null;
-  if (latestPostCheck) {
+  if (latestPostCheck && !signal.aborted) {
     void runPostGenerationChecks({
       chatId: latestPostCheck.chatId,
       versionId: latestPostCheck.versionId,
