@@ -217,6 +217,19 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 - free from unnecessary external infrastructure assumptions
 - equipped with `qualityChecklist` (>= 3 items) and `promptHints` (>= 2 items)
 
+## Structural References
+
+When `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`, the orchestration layer injects budgeted code excerpts from template-library entries into the system prompt as `## Structural References (this variant)`.
+
+Two passes:
+
+1. **Variant-driven** — reads the active scaffold variant's `sourceTemplateIds`, selects up to 3 structural files (layout, middleware, page) ranked by configurable priority from `config/structural-file-priorities.json`.
+2. **Capability-driven** — searches the full template-library catalog for entries matching `InferredCapabilities` signals (auth, ecommerce, dashboard, cms) not already covered by the variant pass, adds up to 2 additional files.
+
+File priority and capability-signal mappings are configurable via `config/structural-file-priorities.json`. Files with priority < 0 are blocked. See `docs/schemas/strict/structural-references.schema.json` for the machine-readable schema.
+
+Code source of truth: `src/lib/gen/scaffold-variants/structural-files.ts`.
+
 ## Archived docs
 
 Older scaffold schema notes may exist in git under `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`).

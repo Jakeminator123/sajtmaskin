@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "structural-references.schema.json",
+  "title": "VariantStructuralFilesSelection",
+  "description": "Structural code references injected into the system prompt via ## Structural References (this variant). Source of truth: src/lib/gen/scaffold-variants/structural-files.ts",
+  "type": "object",
+  "required": ["files", "sourceIds", "totalChars"],
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/definitions/VariantStructuralFileReference"
+      }
+    },
+    "sourceIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Unique template-library entry IDs that contributed files."
+    },
+    "totalChars": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Sum of all excerpt character lengths."
+    }
+  },
+  "definitions": {
+    "VariantStructuralFileReference": {
+      "type": "object",
+      "required": ["sourceId", "sourceTitle", "path", "reason", "excerpt", "truncated"],
+      "additionalProperties": false,
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "description": "Template-library entry ID (e.g. ecommerce-stripe-subscription-starter)."
+        },
+        "sourceTitle": {
+          "type": "string",
+          "description": "Human-readable title of the source template."
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative file path within the source repo (e.g. app/layout.tsx)."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why this file was selected (e.g. Layout and navigation reference)."
+        },
+        "excerpt": {
+          "type": "string",
+          "description": "Budget-trimmed code excerpt injected into the prompt."
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "True if the excerpt was truncated to fit the budget."
+        }
+      }
+    }
+  }
+}

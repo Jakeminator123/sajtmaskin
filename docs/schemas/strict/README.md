@@ -28,6 +28,7 @@ Conservative rollout:
 | Schema | Validates | Source of truth |
 |--------|-----------|-----------------|
 | `scaffold-variant.schema.json` | `config/scaffold-variants/<scaffoldId>/*.json` | `src/lib/gen/scaffold-variants/types.ts` |
+| `structural-references.schema.json` | `VariantStructuralFilesSelection` (prompt-dump output) | `src/lib/gen/scaffold-variants/structural-files.ts` |
 | `preview-session-contract.schema.json` | Preview session objects | See file |
 
 ### scaffold-variant.schema.json

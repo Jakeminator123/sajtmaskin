@@ -250,7 +250,42 @@ def _load_dossier_lookup(ctx: BackofficeContext) -> tuple[dict[str, dict[str, An
     return {}, None
 
 
-def _collect_structural_selected_files(dossier: dict[str, Any]) -> list[dict[str, Any]]:
+def _load_structural_priority_rules(ctx: BackofficeContext) -> tuple[list[tuple[re.Pattern, int]], int]:
+    config_path = ctx.config_dir / "structural-file-priorities.json"
+    if config_path.is_file():
+        try:
+            raw = read_json(config_path)
+            if isinstance(raw, dict) and isinstance(raw.get("rules"), list):
+                rules = [
+                    (re.compile(str(r.get("pattern", "")), re.IGNORECASE), int(r.get("priority", -1)))
+                    for r in raw["rules"]
+                    if isinstance(r, dict) and r.get("pattern")
+                ]
+                return rules, int(raw.get("defaultPriority", -1))
+        except Exception:
+            pass
+    return [
+        (re.compile(r"(?:src/)?app/layout\.[jt]sx?$", re.IGNORECASE), 50),
+        (re.compile(r"middleware\.[jt]sx?$", re.IGNORECASE), 45),
+        (re.compile(r"(?:src/)?app/page\.[jt]sx?$", re.IGNORECASE), 40),
+        (re.compile(r"layout\.[jt]sx?$", re.IGNORECASE), 30),
+        (re.compile(r"page\.[jt]sx?$", re.IGNORECASE), 25),
+    ], -1
+
+
+def _structural_file_priority(path_value: str, rules: list[tuple[re.Pattern, int]], default_prio: int) -> int:
+    normalized = path_value.replace("\\", "/")
+    for pattern, priority in rules:
+        if pattern.search(normalized):
+            return priority
+    return default_prio
+
+
+def _collect_structural_selected_files(
+    dossier: dict[str, Any],
+    priority_rules: list[tuple[re.Pattern, int]] | None = None,
+    default_priority: int = -1,
+) -> list[dict[str, Any]]:
     selected_files = dossier.get("selectedFiles")
     if not isinstance(selected_files, list):
         return []
@@ -261,17 +296,26 @@ def _collect_structural_selected_files(dossier: dict[str, Any]) -> list[dict[str
         path_value = str(item.get("path", "")).strip()
         if not path_value:
             continue
-        normalized = path_value.replace("\\", "/").lower()
-        if not re.search(r"(^|/)(?:middleware\.(?:[jt]sx?)|layout\.(?:[jt]sx?)|page\.(?:[jt]sx?))$", normalized):
+        if priority_rules is not None:
+            prio = _structural_file_priority(path_value, priority_rules, default_priority)
+        else:
+            normalized = path_value.replace("\\", "/").lower()
+            if re.search(r"(^|/)(?:middleware\.(?:[jt]sx?)|layout\.(?:[jt]sx?)|page\.(?:[jt]sx?))$", normalized):
+                prio = 25
+            else:
+                prio = -1
+        if prio < 0:
             continue
         excerpt = str(item.get("excerpt", "") or "")
         rows.append(
             {
                 "path": path_value,
+                "priority": prio,
                 "reason": str(item.get("reason", "") or ""),
                 "truncated": "// ... truncated" in excerpt,
             }
         )
+    rows.sort(key=lambda r: -r["priority"])
     return rows
 
 
@@ -607,6 +651,7 @@ def _render_tree_view(
     dossier_lookup: dict[str, dict[str, Any]],
     dossier_source_label: str | None,
 ) -> None:
+    priority_rules, default_prio = _load_structural_priority_rules(ctx)
     total_links = sum(
         len(variant.get("sourceTemplateIds", []) or [])
         for variants in variants_by_scaffold.values()
@@ -631,6 +676,43 @@ def _render_tree_view(
 
     if dossier_source_label:
         st.caption(f"Dossiermetadata laddas från `{dossier_source_label}`.")
+
+    with st.expander("Structural References — budget och capability-mappning", expanded=False):
+        st.markdown("**Filprioriteringsregler** (från `config/structural-file-priorities.json`):")
+        prio_rows = [{"pattern": r.pattern, "priority": p} for r, p in priority_rules]
+        if prio_rows:
+            st.dataframe(pd.DataFrame(prio_rows), width="stretch", hide_index=True)
+        else:
+            st.info("Inga prioritetsregler laddade (fallback-regler används).")
+        st.markdown(f"Filer med prioritet < 0 blockeras. Default-prioritet: **{default_prio}**")
+        st.divider()
+        st.markdown("**Budget:**")
+        st.markdown("- Variant-pass: max 3 filer, 16 000 chars")
+        st.markdown("- Capability-pass: max 2 filer, 8 000 chars")
+        st.markdown("- Totalt: max 5 filer, ~24 000 chars (~6 000 tokens)")
+        st.divider()
+        st.markdown("**Capability → signal-mappning** (från samma config):")
+        config_path = ctx.config_dir / "structural-file-priorities.json"
+        cap_map_rows: list[dict[str, str]] = []
+        if config_path.is_file():
+            try:
+                raw_cfg = read_json(config_path)
+                for m in raw_cfg.get("capabilitySignalMap", []):
+                    if isinstance(m, dict):
+                        cap_map_rows.append({"capability": str(m.get("capabilityKey", "")), "signal": str(m.get("signalKey", ""))})
+            except Exception:
+                pass
+        if not cap_map_rows:
+            cap_map_rows = [
+                {"capability": "needsAuth", "signal": "auth"},
+                {"capability": "needsEcommerce", "signal": "ecommerce"},
+                {"capability": "needsAppShell", "signal": "dashboard"},
+                {"capability": "needsCharts", "signal": "dashboard"},
+                {"capability": "needsDataUI", "signal": "dashboard"},
+                {"capability": "needsForms", "signal": "cms"},
+                {"capability": "needsCarousel", "signal": "ecommerce"},
+            ]
+        st.dataframe(pd.DataFrame(cap_map_rows), width="stretch", hide_index=True)
 
     overview_rows = []
     for manifest in manifests:
@@ -705,12 +787,13 @@ def _render_tree_view(
                             }
                         )
                         if dossier:
-                            for structural in _collect_structural_selected_files(dossier):
+                            for structural in _collect_structural_selected_files(dossier, priority_rules, default_prio):
                                 structural_rows.append(
                                     {
                                         "sourceId": template_id,
                                         "sourceTitle": dossier.get("title", template_id),
                                         "path": structural["path"],
+                                        "priority": structural["priority"],
                                         "reason": structural["reason"],
                                         "truncated": structural["truncated"],
                                     }

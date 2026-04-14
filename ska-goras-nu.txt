@@ -14,10 +14,15 @@ som ger mest synlig effekt for anvandarsajternas strukturella
 variation.
 
 ===================================================================
-  A. BREDDA STRUKTURELLA FILTYPER
+  A. BREDDA STRUKTURELLA FILTYPER — KLAR
 ===================================================================
 
-STATUS: Idag filtreras structural files genom hardkodade regex
+STATUS: Prioriteter och capability-mappning flyttade till
+config/structural-file-priorities.json. Sidebar (prio 15)
+och header (prio 10) nu tillåtna. structural-files.ts
+laser fran config med process-cached fallback.
+
+TIDIGARE STATUS: Idag filtreras structural files genom hardkodade regex
 i structuralFilePriority() (structural-files.ts rad 35-42).
 Bara layout.tsx, page.tsx och middleware.ts tillats. Alla andra
 filer far prioritet -1 och slangs.
@@ -68,10 +73,14 @@ VERIFIERING:
   for en dashboard-variant
 
 ===================================================================
-  B. VISA PRIORITETER I BACKOFFICE
+  B. VISA PRIORITETER I BACKOFFICE — KLAR
 ===================================================================
 
-STATUS: Backoffice (Scaffold Lifecycle) visar vilka strukturella
+STATUS: Scaffold Lifecycle visar nu prioritet per fil,
+budgetgranser (3+2 filer, 16k+8k chars) och
+capability-signal-mappning i en expanderbar info-ruta.
+
+TIDIGARE STATUS: Backoffice (Scaffold Lifecycle) visar vilka strukturella
 filer som FINNS per variant, och om de ar trunkerade. Men den
 visar INTE vilken prioritet de har, vilken ordning de valjs i,
 eller budgetgranser.
@@ -100,10 +109,13 @@ FILER ATT ANDRA:
 - Ev. backoffice/pages/_ops_impl.py (Research & Dossiers)
 
 ===================================================================
-  C. STRIKT SCHEMA FOR STRUCTURAL REFERENCES
+  C. STRIKT SCHEMA FOR STRUCTURAL REFERENCES — KLAR
 ===================================================================
 
-STATUS: scaffold-variant.schema.json validerar variant-JSON-filer.
+STATUS: docs/schemas/strict/structural-references.schema.json
+skapad. README.md och scaffold-contract.md uppdaterade.
+
+TIDIGARE STATUS: scaffold-variant.schema.json validerar variant-JSON-filer.
 Men det finns inget schema for VariantStructuralFilesSelection
 eller VariantStructuralFileReference (runtime-output).
 
@@ -140,10 +152,13 @@ FILER ATT ANDRA:
 - docs/schemas/scaffold-contract.md
 
 ===================================================================
-  D. UTOKA CAPABILITY-SIGNAL-MAPPNINGEN
+  D. UTOKA CAPABILITY-SIGNAL-MAPPNINGEN — KLAR
 ===================================================================
 
-STATUS: Idag mappar vi bara 5 capabilities till catalog-signals:
+STATUS: needsForms->cms och needsCarousel->ecommerce tillagda.
+Mappningen laser nu fran config/structural-file-priorities.json.
+
+TIDIGARE STATUS: Idag mappar vi bara 5 capabilities till catalog-signals:
   needsAuth -> signals.auth
   needsEcommerce -> signals.ecommerce
   needsAppShell -> signals.dashboard

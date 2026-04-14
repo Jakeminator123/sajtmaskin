@@ -3,6 +3,7 @@ export { pickScaffoldVariant } from "./matcher";
 export {
   selectVariantStructuralFiles,
   selectCapabilityStructuralFiles,
+  clearStructuralFilePriorityCache,
 } from "./structural-files";
 export type {
   FontPairing,

@@ -1,0 +1,21 @@
+{
+  "rules": [
+    { "pattern": "(?:src/)?app/layout\\.[jt]sx?$", "priority": 50, "kind": "layout" },
+    { "pattern": "middleware\\.[jt]sx?$", "priority": 45, "kind": "middleware" },
+    { "pattern": "(?:src/)?app/page\\.[jt]sx?$", "priority": 40, "kind": "page" },
+    { "pattern": "layout\\.[jt]sx?$", "priority": 30, "kind": "layout" },
+    { "pattern": "page\\.[jt]sx?$", "priority": 25, "kind": "page" },
+    { "pattern": "[Ss]idebar\\.[jt]sx?$", "priority": 15, "kind": null },
+    { "pattern": "[Hh]eader\\.[jt]sx?$", "priority": 10, "kind": null }
+  ],
+  "defaultPriority": -1,
+  "capabilitySignalMap": [
+    { "capabilityKey": "needsAuth", "signalKey": "auth" },
+    { "capabilityKey": "needsEcommerce", "signalKey": "ecommerce" },
+    { "capabilityKey": "needsAppShell", "signalKey": "dashboard" },
+    { "capabilityKey": "needsCharts", "signalKey": "dashboard" },
+    { "capabilityKey": "needsDataUI", "signalKey": "dashboard" },
+    { "capabilityKey": "needsForms", "signalKey": "cms" },
+    { "capabilityKey": "needsCarousel", "signalKey": "ecommerce" }
+  ]
+}

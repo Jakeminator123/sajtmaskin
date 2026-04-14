@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { InferredCapabilities } from "../capability-inference";
 import {
   getTemplateLibraryEntries,
@@ -32,21 +34,76 @@ export interface VariantStructuralFilesSelection {
   totalChars: number;
 }
 
+interface PriorityRule {
+  regex: RegExp;
+  priority: number;
+  kind: StructuralFileKind | null;
+}
+
+interface StructuralFilePrioritiesConfig {
+  rules: PriorityRule[];
+  defaultPriority: number;
+}
+
+let cachedConfig: StructuralFilePrioritiesConfig | null = null;
+
+function loadPriorityConfig(): StructuralFilePrioritiesConfig {
+  if (cachedConfig) return cachedConfig;
+  try {
+    const raw = JSON.parse(
+      readFileSync(
+        join(process.cwd(), "config", "structural-file-priorities.json"),
+        "utf-8",
+      ),
+    ) as {
+      rules?: Array<{ pattern: string; priority: number; kind?: string | null }>;
+      defaultPriority?: number;
+    };
+    cachedConfig = {
+      rules: (raw.rules ?? []).map((rule) => ({
+        regex: new RegExp(rule.pattern, "i"),
+        priority: rule.priority,
+        kind: (rule.kind === "layout" || rule.kind === "middleware" || rule.kind === "page")
+          ? rule.kind
+          : null,
+      })),
+      defaultPriority: raw.defaultPriority ?? -1,
+    };
+  } catch {
+    cachedConfig = {
+      rules: [
+        { regex: /(?:src\/)?app\/layout\.[jt]sx?$/i, priority: 50, kind: "layout" },
+        { regex: /middleware\.[jt]sx?$/i, priority: 45, kind: "middleware" },
+        { regex: /(?:src\/)?app\/page\.[jt]sx?$/i, priority: 40, kind: "page" },
+        { regex: /layout\.[jt]sx?$/i, priority: 30, kind: "layout" },
+        { regex: /page\.[jt]sx?$/i, priority: 25, kind: "page" },
+      ],
+      defaultPriority: -1,
+    };
+  }
+  return cachedConfig;
+}
+
+export function clearStructuralFilePriorityCache(): void {
+  cachedConfig = null;
+  cachedCapabilityMap = null;
+}
+
 function structuralFilePriority(file: TemplateLibrarySelectedFile): number {
-  const normalized = file.path.replace(/\\/g, "/").toLowerCase();
-  if (/(^|\/)(?:src\/)?app\/layout\.(?:[jt]sx?)$/.test(normalized)) return 50;
-  if (/(^|\/)middleware\.(?:[jt]sx?)$/.test(normalized)) return 45;
-  if (/(^|\/)(?:src\/)?app\/page\.(?:[jt]sx?)$/.test(normalized)) return 40;
-  if (/(^|\/)layout\.(?:[jt]sx?)$/.test(normalized)) return 30;
-  if (/(^|\/)page\.(?:[jt]sx?)$/.test(normalized)) return 25;
-  return -1;
+  const config = loadPriorityConfig();
+  const normalized = file.path.replace(/\\/g, "/");
+  for (const rule of config.rules) {
+    if (rule.regex.test(normalized)) return rule.priority;
+  }
+  return config.defaultPriority;
 }
 
 function structuralFileKind(file: TemplateLibrarySelectedFile): StructuralFileKind | null {
-  const normalized = file.path.replace(/\\/g, "/").toLowerCase();
-  if (/(^|\/)middleware\.(?:[jt]sx?)$/.test(normalized)) return "middleware";
-  if (/(^|\/)layout\.(?:[jt]sx?)$/.test(normalized)) return "layout";
-  if (/(^|\/)page\.(?:[jt]sx?)$/.test(normalized)) return "page";
+  const config = loadPriorityConfig();
+  const normalized = file.path.replace(/\\/g, "/");
+  for (const rule of config.rules) {
+    if (rule.kind && rule.regex.test(normalized)) return rule.kind;
+  }
   return null;
 }
 
@@ -182,13 +239,37 @@ type CapabilitySignalMapping = {
   signalKey: keyof TemplateLibrarySignals;
 };
 
-const CAPABILITY_SIGNAL_MAP: CapabilitySignalMapping[] = [
+const FALLBACK_CAPABILITY_MAP: CapabilitySignalMapping[] = [
   { capabilityKey: "needsAuth", signalKey: "auth" },
   { capabilityKey: "needsEcommerce", signalKey: "ecommerce" },
   { capabilityKey: "needsAppShell", signalKey: "dashboard" },
   { capabilityKey: "needsCharts", signalKey: "dashboard" },
   { capabilityKey: "needsDataUI", signalKey: "dashboard" },
+  { capabilityKey: "needsForms", signalKey: "cms" },
+  { capabilityKey: "needsCarousel", signalKey: "ecommerce" },
 ];
+
+let cachedCapabilityMap: CapabilitySignalMapping[] | null = null;
+
+function getCapabilitySignalMap(): CapabilitySignalMapping[] {
+  if (cachedCapabilityMap) return cachedCapabilityMap;
+  try {
+    const raw = JSON.parse(
+      readFileSync(
+        join(process.cwd(), "config", "structural-file-priorities.json"),
+        "utf-8",
+      ),
+    ) as {
+      capabilitySignalMap?: Array<{ capabilityKey: string; signalKey: string }>;
+    };
+    if (Array.isArray(raw.capabilitySignalMap) && raw.capabilitySignalMap.length > 0) {
+      cachedCapabilityMap = raw.capabilitySignalMap as CapabilitySignalMapping[];
+      return cachedCapabilityMap;
+    }
+  } catch { /* use fallback */ }
+  cachedCapabilityMap = FALLBACK_CAPABILITY_MAP;
+  return cachedCapabilityMap;
+}
 
 export function selectCapabilityStructuralFiles(
   capabilities: InferredCapabilities,
@@ -200,7 +281,7 @@ export function selectCapabilityStructuralFiles(
 
   const usedSet = new Set(usedSourceIds ?? []);
   const neededSignals = new Set<keyof TemplateLibrarySignals>();
-  for (const mapping of CAPABILITY_SIGNAL_MAP) {
+  for (const mapping of getCapabilitySignalMap()) {
     if (capabilities[mapping.capabilityKey]) {
       neededSignals.add(mapping.signalKey);
     }
