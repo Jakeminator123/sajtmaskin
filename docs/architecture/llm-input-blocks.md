@@ -59,6 +59,20 @@ Det betyder:
 - `## Component References` förblir ett separat lager: 0-5 capability-matchade kodexempel från `data/shadcn-examples/`
 - `## Structural References (this variant)` kan, när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`, lägga till budgeterade `layout.tsx`-/`page.tsx`-/`middleware.ts`-utdrag från variantens `sourceTemplateIds` i `template-library.generated.json`
 
+## Integrations- och referenslager — ansvarsfördelning
+
+Tre lager samverkar för att ge modellen integrationskunskap utan att blanda signaler:
+
+| Lager | Ansvar | Var det byggs | Exempel |
+|-------|--------|---------------|---------|
+| **Contract Plan** | *Vilka* providers/integrations som behövs | `contract/pre-generation-contracts.ts` | `authProvider: "nextauth"`, `paymentProvider: "stripe"`, `databaseProvider: "supabase"` |
+| **Capability Hints** | *Vilka bibliotek och mönster* att använda | `capability-inference.ts` → `## Detected Capabilities` | "Use react-hook-form + zod", "Use @tanstack/react-table" |
+| **Structural References** | *Hur referenskod ser ut* strukturellt | `scaffold-variants/structural-files.ts` → `## Structural References (this variant)` | layout.tsx med Navbar+Footer, middleware.ts med auth session, page.tsx med Pricing |
+
+**Tunga integrationer** (Postgres-setup, Redis-konfiguration, CMS-koppling, Fortnox API) hanteras av Contract Plan + Capability Hints + statiska promptregler, **inte** av structural references. Att stoppa in databas-setup-kod i structural references skulle göra prompten för lång och blanda signaltyper.
+
+**Follow-ups:** Contract Plan körs även vid follow-ups — om en användare i en follow-up ber om "lägg till Stripe-betalning" detekteras `needsEcommerce` och `paymentProvider: stripe`. Structural references injiceras däremot bara vid init/first-code-generation.
+
 ## Teckenfält vs tokenbudget i `BuildSpec`
 
 - **`systemContextTokens` / `scaffoldTokens` / `refsTokens`** styr runtime-budgetar.

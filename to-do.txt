@@ -30,9 +30,33 @@ UPPSKJUTET (inget blockerar)
 [ ] Nya scaffolds: AI-chat, docs-site, realtime-app
 [ ] Automatisk baseline-uppdatering (CI/script)
 
+[ ] Structural references: bredda urval av strukturfiler
+    Idag filtreras bara layout.tsx, page.tsx, middleware.ts.
+    Nästa steg: inkludera pricing/page.tsx, checkout/page.tsx, login/page.tsx,
+    signup/page.tsx, dashboard/page.tsx som strukturfiler i
+    selectStructuralFilesForEntry() (structural-files.ts).
+    Kräver att build-pipeline (build-template-library.ts) också väljer dessa filer
+    med höjd excerpt-gräns (4800 tecken). Cursorignore blockerar inte runtime,
+    bara agent-sökning i dossier-filer.
+
+[ ] shadcn blocks-integration i init-generering
+    FEATURED_BLOCKS och buildShadcnBlockPrompt() i registry-service.ts / registry-utils.ts
+    används idag bara av builder-UI:t (element picker). Potential att koppla in i
+    init-genereringen som capability-matchade block-referenser.
+
 ══════════════════════════════════════════════════
 OPERATIVT / MILJÖ
 ══════════════════════════════════════════════════
 
 [ ] WSS/HMR till Fly — WebSocket-proxy tappar connection
 [ ] Hydration error overlay — pre-existerande på landningssidan
+
+
+
+---
+
+
+@/hooks/use-mobile / @/hooks/use-toast i runtime-imports.ts — behålls som bakåtkompatibel fallback bredvid nya @/lib/hooks/-vägarna, eftersom äldre genererade sajter kan använda dem.
+useDeploymentStatus lyssnar på /api/v0/deployments/ — API-versioning (v0 i URL:en) är naming debt men inte trasigt; hanteras som en separat städ.
+useIntegrationStatus har previewUrl i dependency-array utan att använda den i fetch — funktionellt korrekt (re-triggrar när preview blir tillgänglig) men semantiskt förvirrande. Inte värt att bryta nu.
+35 filer under src/lib/hooks/ granskade — alla aktiva i runtime, inga döda.
