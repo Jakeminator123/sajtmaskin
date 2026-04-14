@@ -228,7 +228,7 @@ def _variants_by_scaffold(variants: list[dict[str, Any]]) -> dict[str, list[dict
 
 
 def _load_dossier_lookup(ctx: BackofficeContext) -> tuple[dict[str, dict[str, Any]], str | None]:
-    for source_path in (ctx.catalog_json, ctx.template_lib_json):
+    for source_path in (ctx.template_lib_json, ctx.catalog_json):
         if not source_path.is_file():
             continue
         try:
@@ -248,6 +248,31 @@ def _load_dossier_lookup(ctx: BackofficeContext) -> tuple[dict[str, dict[str, An
         if lookup:
             return lookup, source_path.relative_to(ctx.repo_root).as_posix()
     return {}, None
+
+
+def _collect_structural_selected_files(dossier: dict[str, Any]) -> list[dict[str, Any]]:
+    selected_files = dossier.get("selectedFiles")
+    if not isinstance(selected_files, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for item in selected_files:
+        if not isinstance(item, dict):
+            continue
+        path_value = str(item.get("path", "")).strip()
+        if not path_value:
+            continue
+        normalized = path_value.replace("\\", "/").lower()
+        if not re.search(r"(^|/)(?:middleware\.(?:[jt]sx?)|layout\.(?:[jt]sx?)|page\.(?:[jt]sx?))$", normalized):
+            continue
+        excerpt = str(item.get("excerpt", "") or "")
+        rows.append(
+            {
+                "path": path_value,
+                "reason": str(item.get("reason", "") or ""),
+                "truncated": "// ... truncated" in excerpt,
+            }
+        )
+    return rows
 
 
 def _unescape_ts_string(value: str) -> str:
@@ -662,6 +687,7 @@ def _render_tree_view(
 
                 if source_ids:
                     dossier_rows = []
+                    structural_rows = []
                     for template_id in source_ids:
                         dossier = dossier_lookup.get(template_id)
                         dossier_rows.append(
@@ -678,7 +704,23 @@ def _render_tree_view(
                                 else "",
                             }
                         )
+                        if dossier:
+                            for structural in _collect_structural_selected_files(dossier):
+                                structural_rows.append(
+                                    {
+                                        "sourceId": template_id,
+                                        "sourceTitle": dossier.get("title", template_id),
+                                        "path": structural["path"],
+                                        "reason": structural["reason"],
+                                        "truncated": structural["truncated"],
+                                    }
+                                )
                     st.dataframe(pd.DataFrame(dossier_rows), width="stretch", hide_index=True)
+                    if structural_rows:
+                        st.caption("Strukturella filer som skulle kunna injiceras för varianten.")
+                        st.dataframe(pd.DataFrame(structural_rows), width="stretch", hide_index=True)
+                    else:
+                        st.caption("Inga strukturella `layout.tsx`/`page.tsx`/`middleware.ts`-utdrag hittades för variantens sourceTemplateIds.")
 
                 with st.expander("Visa variant-JSON", expanded=False):
                     st.json(

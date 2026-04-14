@@ -57,6 +57,7 @@ Det betyder:
 - prompten ser en grupperad, budgetvänlig sammanfattning av den **säkra lokala** shadcn-ytan
 - import-validator/autofix använder samma registry-map för att känna igen och reparera shadcn-importer
 - `## Component References` förblir ett separat lager: 0-5 capability-matchade kodexempel från `data/shadcn-examples/`
+- `## Structural References (this variant)` kan, när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`, lägga till budgeterade `layout.tsx`-/`page.tsx`-/`middleware.ts`-utdrag från variantens `sourceTemplateIds` i `template-library.generated.json`
 
 ## Teckenfält vs tokenbudget i `BuildSpec`
 

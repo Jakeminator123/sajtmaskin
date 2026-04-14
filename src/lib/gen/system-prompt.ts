@@ -33,7 +33,10 @@ import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
-import type { ScaffoldVariant } from "./scaffold-variants";
+import type {
+  ScaffoldVariant,
+  VariantStructuralFilesSelection,
+} from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -195,6 +198,8 @@ export interface DynamicContextOptions {
   templateGuidance?: string;
   /** Verified shadcn usage examples matched to this request's capabilities. */
   componentReferences?: { name: string; code: string }[];
+  /** Curated structural code references derived from the active scaffold variant. */
+  variantStructuralFiles?: VariantStructuralFilesSelection | null;
 }
 
 function str(v: unknown): string {
@@ -240,6 +245,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
   { match: /^component references$/i, priority: 76 },
+  { match: /^structural references \(this variant\)$/i, priority: 75 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
@@ -377,6 +383,15 @@ function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): str
   return lines;
 }
 
+function inferReferenceCodeFence(path: string): string {
+  if (/\.tsx$/i.test(path)) return "tsx";
+  if (/\.ts$/i.test(path)) return "ts";
+  if (/\.jsx$/i.test(path)) return "jsx";
+  if (/\.js$/i.test(path)) return "js";
+  if (/\.json$/i.test(path)) return "json";
+  return "text";
+}
+
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
@@ -405,6 +420,7 @@ export async function buildDynamicContext(
     sessionSeed,
     templateGuidance,
     componentReferences,
+    variantStructuralFiles,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -532,6 +548,27 @@ export async function buildDynamicContext(
       );
     }
     parts.push("");
+  }
+
+  if (variantStructuralFiles && variantStructuralFiles.files.length > 0) {
+    parts.push(
+      "## Structural References (this variant)",
+      "",
+      "Verified structural patterns from curated references for the active scaffold variant. Adapt routing, middleware, and layout patterns to the user's request - do not clone them verbatim.",
+      "",
+    );
+    for (const ref of variantStructuralFiles.files) {
+      parts.push(
+        `### ${ref.path} (from ${ref.sourceTitle})`,
+        "",
+        `Reason: ${ref.reason}`,
+        "",
+        `\`\`\`${inferReferenceCodeFence(ref.path)}`,
+        ref.excerpt,
+        "```",
+        "",
+      );
+    }
   }
 
   // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
@@ -1000,6 +1037,7 @@ export interface BuildSystemPromptOptions {
   customInstructions?: string;
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
+  variantStructuralFiles?: VariantStructuralFilesSelection | null;
 }
 
 /**
@@ -1026,6 +1064,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     buildSpec: options.buildSpec,
     customInstructions: options.customInstructions,
     generationMode: options.generationMode,
+    variantStructuralFiles: options.variantStructuralFiles,
   });
 
   return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${context}`;

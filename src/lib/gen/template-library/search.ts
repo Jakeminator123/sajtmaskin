@@ -139,7 +139,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-function trimExcerpt(excerpt: string, maxChars: number): string {
+export function trimExcerpt(excerpt: string, maxChars: number): string {
   const normalized = excerpt.trim();
   if (normalized.length <= maxChars) return normalized;
   const slice = normalized.slice(0, maxChars);

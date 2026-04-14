@@ -11,6 +11,7 @@ import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import {
   pickScaffoldVariant,
+  selectVariantStructuralFiles,
   type ScaffoldVariant,
 } from "./scaffold-variants";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -239,6 +240,7 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       variantId: pkg.variantId ?? null,
       templateGuidanceEnabled: pkg.templateGuidanceMeta?.enabled ?? false,
       templateGuidanceIds: pkg.templateGuidanceMeta?.templateIds ?? [],
+      structuralRefsInjected: pkg.dynamicContext.includes("## Structural References (this variant)"),
     },
   );
 }
@@ -605,6 +607,11 @@ export async function finalizeOrchestrationPrompts(
     resolvedMode,
     input.sessionSeed,
   );
+  const effectiveInit =
+    resolvedMode === "init" || (resolvedMode === "followUp" && input.isFirstCodeGeneration);
+  const variantStructuralFiles = effectiveInit
+    ? selectVariantStructuralFiles(resolvedVariant, FEATURES.useVariantStructuralFiles)
+    : null;
 
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,
@@ -625,6 +632,7 @@ export async function finalizeOrchestrationPrompts(
     sessionSeed: input.sessionSeed,
     templateGuidance: templateGuidanceText,
     componentReferences: base.componentReferences,
+    variantStructuralFiles,
     resolvedVariant,
   };
 

@@ -266,6 +266,27 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
             st.caption(f"Nuvarande: `{tg_key}={'true' if tg_current else 'false'}`")
         st.divider()
 
+        st.subheader("Variant Structural Files")
+        vsf_key = "SAJTMASKIN_VARIANT_STRUCTURAL_FILES"
+        vsf_current = read_env_flag(ctx, vsf_key)
+        vsf_new = st.toggle(
+            "Aktivera strukturella kodreferenser från scaffold-varianter (init only)",
+            value=vsf_current,
+            key="variant_structural_files_toggle",
+            help=(
+                f"Styr env-flaggan `{vsf_key}` i `.env.local`. När på injiceras utvalda `layout.tsx`-, `page.tsx`- och `middleware.ts`-utdrag från variantens `sourceTemplateIds` i första genereringen."
+            ),
+        )
+        if vsf_new != vsf_current:
+            if write_env_flag(ctx, vsf_key, vsf_new):
+                st.success(f"`{vsf_key}` satt till `{'true' if vsf_new else 'false'}` i `.env.local`.")
+                st.caption("Dev-servern kan behöva startas om för att ändringen ska gälla i runtime.")
+            else:
+                st.error("Kunde inte skriva till `.env.local`. Kontrollera filrättigheter.")
+        else:
+            st.caption(f"Nuvarande: `{vsf_key}={'true' if vsf_current else 'false'}`")
+        st.divider()
+
         st.subheader("Deferred Extra Init Routes")
         defer_key = "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT"
         defer_current = read_env_flag(ctx, defer_key)
@@ -286,7 +307,7 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
         else:
             st.caption(f"Nuvarande: `{defer_key}={'true' if defer_current else 'false'}`")
         st.info(
-            "Rekommenderad kombination: ha både runtime template guidance och deferred extra init routes på samtidigt. Då kan init ha en grand plan för flera routes, men lägga största delen av budgeten på primärrouten medan extrasidor blir shells. Shells bevaras automatiskt i follow-ups om inte användaren explicit ber om att bygga ut dem."
+            "Rekommenderad kombination: ha runtime template guidance, variant structural files och deferred extra init routes på samtidigt. Då kan init ha en grand plan för flera routes, få in verkliga strukturmönster från kuraterade referenser, och ändå lägga största delen av budgeten på primärrouten medan extrasidor blir shells. Shells bevaras automatiskt i follow-ups om inte användaren explicit ber om att bygga ut dem."
         )
         st.divider()
 
