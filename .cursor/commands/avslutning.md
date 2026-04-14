@@ -2,6 +2,12 @@
 
 Stäng pågående arbete — eller ett helt arbetsspår. Review, scoped cleanup, synk, verifiering och leverans.
 
+## Andra agenter och parallellt arbete
+
+- **Respektera** pågående arbete av andra agenter eller människor: rör inte filer eller beslut som tillhör ett annat spår utan att stämma av (eller vänta på merge).
+- **Integrera** snarare än att skriva över: om samma yta berörs, läs diff/kontext och bevara meningsfulla tillägg från andra — tvinga inte en "ren" lösning som kastar bort deras arbete.
+- **Dokumentera** i slutsvar vad som kom från denna session vs vad som redan fanns eller kompletterades från annat håll, när det är relevant.
+
 ## Mål
 
 1. **Granska** ändringarna med code-review-ögon: buggrisker, regressionsrisker, överdrivna docs och missad verifiering.
