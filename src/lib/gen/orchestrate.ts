@@ -12,7 +12,9 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import {
   pickScaffoldVariant,
   selectVariantStructuralFiles,
+  selectCapabilityStructuralFiles,
   type ScaffoldVariant,
+  type VariantStructuralFilesSelection,
 } from "./scaffold-variants";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -569,6 +571,27 @@ function resolveScaffoldVariant(
   });
 }
 
+function mergeStructuralFiles(
+  variant: VariantStructuralFilesSelection | null,
+  capability: VariantStructuralFilesSelection | null,
+): VariantStructuralFilesSelection | null {
+  if (!variant && !capability) return null;
+  if (!variant) return capability;
+  if (!capability) return variant;
+  const usedSourcePaths = new Set(
+    variant.files.map((f) => `${f.sourceId}::${f.path}`),
+  );
+  const dedupedCapFiles = capability.files.filter(
+    (f) => !usedSourcePaths.has(`${f.sourceId}::${f.path}`),
+  );
+  const merged = [...variant.files, ...dedupedCapFiles];
+  return {
+    files: merged,
+    sourceIds: [...new Set(merged.map((f) => f.sourceId))],
+    totalChars: merged.reduce((sum, f) => sum + f.excerpt.length, 0),
+  };
+}
+
 /**
  * Build full system prompt from a resolved orchestration base.
  */
@@ -609,9 +632,17 @@ export async function finalizeOrchestrationPrompts(
   );
   const effectiveInit =
     resolvedMode === "init" || (resolvedMode === "followUp" && input.isFirstCodeGeneration);
-  const variantStructuralFiles = effectiveInit
-    ? selectVariantStructuralFiles(resolvedVariant, FEATURES.useVariantStructuralFiles)
-    : null;
+  const variantStructuralFiles = (() => {
+    if (!effectiveInit) return null;
+    const fromVariant = selectVariantStructuralFiles(resolvedVariant, FEATURES.useVariantStructuralFiles);
+    const fromCapabilities = selectCapabilityStructuralFiles(
+      base.capabilities,
+      base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId,
+      fromVariant?.sourceIds,
+      FEATURES.useVariantStructuralFiles,
+    );
+    return mergeStructuralFiles(fromVariant, fromCapabilities);
+  })();
 
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,

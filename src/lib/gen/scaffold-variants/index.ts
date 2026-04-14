@@ -1,6 +1,9 @@
 export { getAllScaffoldVariants, getVariantById, getVariantsForScaffold } from "./registry";
 export { pickScaffoldVariant } from "./matcher";
-export { selectVariantStructuralFiles } from "./structural-files";
+export {
+  selectVariantStructuralFiles,
+  selectCapabilityStructuralFiles,
+} from "./structural-files";
 export type {
   FontPairing,
   PickScaffoldVariantInput,

@@ -1,9 +1,15 @@
-import { getTemplateLibraryEntryById } from "../template-library/catalog";
+import type { InferredCapabilities } from "../capability-inference";
+import {
+  getTemplateLibraryEntries,
+  getTemplateLibraryEntryById,
+} from "../template-library/catalog";
 import { trimExcerpt } from "../template-library/search";
 import type {
   TemplateLibraryEntry,
   TemplateLibrarySelectedFile,
+  TemplateLibrarySignals,
 } from "../template-library/types";
+import type { ScaffoldId } from "../scaffolds/types";
 import type { ScaffoldVariant } from "./types";
 
 const MAX_STRUCTURAL_REFERENCE_FILES = 3;
@@ -164,6 +170,106 @@ export function selectVariantStructuralFiles(
   return {
     files,
     sourceIds: [...new Set(files.map((file) => file.sourceId))],
+    totalChars,
+  };
+}
+
+const MAX_CAPABILITY_REFERENCE_FILES = 2;
+const MAX_CAPABILITY_REFERENCE_TOTAL_CHARS = 8_000;
+
+type CapabilitySignalMapping = {
+  capabilityKey: keyof InferredCapabilities;
+  signalKey: keyof TemplateLibrarySignals;
+};
+
+const CAPABILITY_SIGNAL_MAP: CapabilitySignalMapping[] = [
+  { capabilityKey: "needsAuth", signalKey: "auth" },
+  { capabilityKey: "needsEcommerce", signalKey: "ecommerce" },
+  { capabilityKey: "needsAppShell", signalKey: "dashboard" },
+  { capabilityKey: "needsCharts", signalKey: "dashboard" },
+  { capabilityKey: "needsDataUI", signalKey: "dashboard" },
+];
+
+export function selectCapabilityStructuralFiles(
+  capabilities: InferredCapabilities,
+  scaffoldId: ScaffoldId | string | null | undefined,
+  usedSourceIds: string[] | undefined,
+  enabled: boolean,
+): VariantStructuralFilesSelection | null {
+  if (!enabled || !scaffoldId) return null;
+
+  const usedSet = new Set(usedSourceIds ?? []);
+  const neededSignals = new Set<keyof TemplateLibrarySignals>();
+  for (const mapping of CAPABILITY_SIGNAL_MAP) {
+    if (capabilities[mapping.capabilityKey]) {
+      neededSignals.add(mapping.signalKey);
+    }
+  }
+  if (neededSignals.size === 0) return null;
+
+  const allEntries = getTemplateLibraryEntries();
+
+  const files: VariantStructuralFileReference[] = [];
+  const seen = new Set<string>();
+  let totalChars = 0;
+  const sourceIds: string[] = [];
+
+  for (const signalKey of neededSignals) {
+    if (files.length >= MAX_CAPABILITY_REFERENCE_FILES) break;
+
+    const candidates = allEntries
+      .filter((entry) => entry.signals[signalKey] && !usedSet.has(entry.id))
+      .map((entry) => {
+        const structuralFiles = selectStructuralFilesForEntry(entry);
+        if (structuralFiles.length === 0) return null;
+        const relevance =
+          (entry.recommendedScaffoldIds.includes(scaffoldId as ScaffoldId) ? 10 : 0) +
+          entry.qualityScore / 10;
+        return { entry, structuralFiles, relevance };
+      })
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          entry: TemplateLibraryEntry;
+          structuralFiles: TemplateLibrarySelectedFile[];
+          relevance: number;
+        } => Boolean(candidate),
+      )
+      .sort((a, b) => b.relevance - a.relevance);
+
+    for (const candidate of candidates) {
+      if (files.length >= MAX_CAPABILITY_REFERENCE_FILES) break;
+
+      for (const file of candidate.structuralFiles) {
+        if (files.length >= MAX_CAPABILITY_REFERENCE_FILES) break;
+        const dedupeKey = `${candidate.entry.id}::${file.path}`;
+        if (seen.has(dedupeKey)) continue;
+        const remainingChars = MAX_CAPABILITY_REFERENCE_TOTAL_CHARS - totalChars;
+        const reference = buildReferenceFile(
+          file,
+          candidate.entry.id,
+          candidate.entry.title,
+          remainingChars,
+        );
+        if (!reference) continue;
+        files.push(reference);
+        seen.add(dedupeKey);
+        totalChars += reference.excerpt.length;
+        if (!sourceIds.includes(candidate.entry.id)) {
+          sourceIds.push(candidate.entry.id);
+        }
+        usedSet.add(candidate.entry.id);
+        break;
+      }
+    }
+  }
+
+  if (files.length === 0) return null;
+
+  return {
+    files,
+    sourceIds,
     totalChars,
   };
 }
