@@ -1,5 +1,5 @@
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
-import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
+import { LUCIDE_ICONS, LUCIDE_BRAND_ICON_REPLACEMENTS } from "@/lib/gen/data/lucide-icons";
 import {
   findNearestIcon,
   parseSpecifier,

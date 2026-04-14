@@ -205,7 +205,7 @@ describe("deriveBuildSpec", () => {
 
     expect(spec.changeScope).toBe("local-layout");
     expect(spec.contextPolicy).toBe("light");
-    expect(spec.verificationPolicy).toBe("fast");
+    expect(spec.verificationPolicy).toBe("standard");
   });
 
   it("keeps targeted repair follow-ups at least normal context", () => {

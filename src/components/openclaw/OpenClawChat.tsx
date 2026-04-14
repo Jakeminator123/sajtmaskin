@@ -127,7 +127,7 @@ function getSurfaceContent(
     teaserCta: "Prova Sajtagenten",
     fabTitle: "Sajtagenten",
     fabSubtitle: "AI-hjälp på sajten",
-    showTeaser: pathname === "/",
+    showTeaser: false,
   };
 }
 

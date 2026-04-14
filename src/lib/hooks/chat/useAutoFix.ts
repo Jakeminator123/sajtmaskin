@@ -330,6 +330,23 @@ async function isLatestVersionPayload(payload: AutoFixPayload): Promise<boolean>
   return latestVersionId === payload.versionId;
 }
 
+async function isVersionUnderServerRepair(chatId: string, versionId: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${engineChatBaseUrl(chatId)}/readiness?versionId=${encodeURIComponent(versionId)}`,
+      { method: "GET" },
+    );
+    if (!response.ok) return false;
+    const data = (await response.json().catch(() => null)) as
+      | { verificationState?: string | null }
+      | null;
+    const state = typeof data?.verificationState === "string" ? data.verificationState : "";
+    return state === "verifying" || state === "repairing";
+  } catch {
+    return false;
+  }
+}
+
 export function useAutoFix(
   sendMessage: (messageText: string, options?: MessageOptions) => Promise<void>,
 ) {
@@ -395,6 +412,7 @@ export function useAutoFix(
           void (async () => {
             if (pendingPayloadKeyRef.current !== reasonKey) return;
             if (!(await isLatestVersionPayload(payload))) return;
+            if (await isVersionUnderServerRepair(payload.chatId, payload.versionId)) return;
             pendingPayloadKeyRef.current = null;
             const messageOptions: MessageOptions = {
               engineBaseVersionIdOverride: payload.versionId,

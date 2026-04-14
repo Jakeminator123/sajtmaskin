@@ -549,6 +549,22 @@ async function runFinalizeFastPath(params: {
     previousFiles,
   });
 
+  if (previousFiles && previousFiles.length > 0) {
+    const previousContentLen = previousFiles.reduce((sum, f) => sum + (f.content?.length ?? 0), 0);
+    const mergedContentLen = filesJson.length;
+    const shrinkRatio = previousContentLen > 0 ? mergedContentLen / previousContentLen : 1;
+    if (shrinkRatio < 0.25 && previousContentLen > 2000) {
+      warnLog("engine", "Follow-up output is drastically smaller than previous version", {
+        chatId,
+        previousContentLen,
+        mergedContentLen,
+        shrinkRatio: Math.round(shrinkRatio * 100),
+        generatedFileCount: generatedFiles.length,
+        previousFileCount: previousFiles.length,
+      });
+    }
+  }
+
   const preflightResult = await runFinalizePreflight({
     chatId,
     model,

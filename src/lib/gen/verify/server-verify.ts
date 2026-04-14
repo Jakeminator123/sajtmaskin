@@ -58,6 +58,10 @@ export function isServerVerifyEligible(versionId: string): boolean {
   return true;
 }
 
+export function isServerVerifyInFlight(versionId: string): boolean {
+  return inflight.has(versionId);
+}
+
 function filesToCodeProjectContent(files: CodeFile[]): string {
   return files
     .map((f) => `\`\`\`${f.language || "tsx"} file="${f.path}"\n${f.content}\n\`\`\``)

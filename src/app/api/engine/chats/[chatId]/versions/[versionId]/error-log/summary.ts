@@ -33,7 +33,15 @@ export function buildErrorLogSummary(logs: ErrorLogRow[]) {
   const activeLogs =
     latestPassId === null
       ? logs
-      : logs.filter((log) => readLogPassId(log.meta) === latestPassId);
+      : logs.filter((log) => {
+          if (readLogPassId(log.meta) === latestPassId) return true;
+          if (readLogPassId(log.meta) !== null) return false;
+          const cat = typeof log.category === "string" ? log.category : "";
+          return cat.startsWith("quality-gate:") ||
+            cat === "preflight:quality-gate" ||
+            cat === "preview" ||
+            cat === "render-telemetry";
+        });
   const activeByLevel = { info: 0, warning: 0, error: 0 };
   for (const log of activeLogs) {
     const level =

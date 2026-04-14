@@ -1,11 +1,35 @@
 /**
  * Set of valid Lucide icon names (PascalCase, as exported by lucide-react).
  *
- * Covers ~790 commonly used icons. LLMs almost always pick from this subset.
+ * Covers ~780 commonly used icons. LLMs almost always pick from this subset.
  * Unknown names are caught by the lucide-icon-fix suspense rule.
  *
- * To update: compare against `lucide-react` package exports.
+ * IMPORTANT: This list must match lucide-react v1+ exports (used by generated
+ * projects via `"lucide-react": "^1"`). Brand icons (Instagram, Facebook,
+ * Twitter, etc.) were removed in v1 and must NOT appear here. Use
+ * LUCIDE_BRAND_ICON_REPLACEMENTS below instead.
+ *
+ * To update: compare against `lucide-react` v1+ package exports.
  */
+
+/**
+ * Brand icons removed in lucide-react v1. Generated projects install v1+
+ * so these are invalid. Map each to a safe geometric/generic replacement
+ * that the autofix pipeline can substitute automatically.
+ */
+export const LUCIDE_BRAND_ICON_REPLACEMENTS: Record<string, string> = {
+  Instagram: "Camera",
+  Facebook: "Globe",
+  Twitter: "MessageCircle",
+  Twitch: "Tv",
+  Youtube: "Play",
+  Chrome: "Globe",
+  Figma: "PenTool",
+  Github: "Code2",
+  GithubIcon: "Code2",
+  Linkedin: "Briefcase",
+  Slack: "MessageSquare",
+};
 
 export const LUCIDE_ICONS: Set<string> = new Set([
   // A
@@ -138,7 +162,6 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "ChevronsRight",
   "ChevronsUp",
   "ChevronsUpDown",
-  "Chrome",
   "Circle",
   "CircleArrowDown",
   "CircleArrowLeft",
@@ -252,11 +275,9 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "Eye",
   "EyeOff",
   // F
-  "Facebook",
   "Factory",
   "FastForward",
   "Feather",
-  "Figma",
   "File",
   "FileArchive",
   "FileAudio",
@@ -338,7 +359,6 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "GitFork",
   "GitMerge",
   "GitPullRequest",
-  "GithubIcon",
   "Globe",
   "Globe2",
   "GlobeLock",
@@ -395,7 +415,6 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "IndianRupee",
   "Infinity",
   "Info",
-  "Instagram",
   "Italic",
   // K-L
   "Kanban",
@@ -423,7 +442,6 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "LineChart",
   "Link",
   "Link2",
-  "Linkedin",
   "List",
   "ListChecks",
   "ListCollapse",
@@ -666,7 +684,6 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "SkipBack",
   "SkipForward",
   "Skull",
-  "Slack",
   "Slash",
   "Slice",
   "Sliders",
@@ -759,8 +776,6 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "Truck",
   "Tv",
   "Tv2",
-  "Twitch",
-  "Twitter",
   "Type",
   // U-V
   "Umbrella",
@@ -813,7 +828,6 @@ export const LUCIDE_ICONS: Set<string> = new Set([
   "XCircle",
   "XOctagon",
   "XSquare",
-  "Youtube",
   "Zap",
   "ZapOff",
   "ZoomIn",

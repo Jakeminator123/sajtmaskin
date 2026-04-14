@@ -564,7 +564,7 @@ function inferVerificationPolicy(params: {
   const { generationMode, changeScope, previewPolicy, capabilityHeavy } = params;
   if (previewPolicy === "fidelity3") return "strict";
   if (generationMode === "followUp" && capabilityHeavy) return "standard";
-  if (generationMode === "followUp" && (changeScope === "copy" || changeScope === "local-layout")) {
+  if (generationMode === "followUp" && changeScope === "copy") {
     return "fast";
   }
   return "standard";
