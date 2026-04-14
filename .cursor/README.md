@@ -47,6 +47,6 @@ I chat: `@terminology` eller `@.cursor/rules/terminology.mdc`.
 
 ## MCP (`mcp.json`)
 
-Valfria repo-/plattforms-MCP: **`shadcn`** (repo-local för Cursor via `npx shadcn@latest mcp`) samt vid behov v0, Vercel, OpenAI-docs och ev. `openclaw-docs` på användarnivå. Detta är **IDE-lokal utvecklarintegration**, inte runtime för own-engine-genereringen. Repoets `components.json` pinnaar `@shadcn` till den stilbundna live-registryn `new-york-v4`, så att Cursor-MCP:n kan lista och visa samma registry-items som buildern använder. **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen.
+Valfria repo-/plattforms-MCP: **`shadcn`** (repo-local för Cursor via `npx shadcn@latest mcp`) samt vid behov v0, Vercel, OpenAI-docs och ev. `openclaw-docs` på användarnivå. Detta är **IDE-lokal utvecklarintegration**, inte runtime för own-engine-genereringen. Repoets `components.json` använder preset `radix-vega` med `@shadcn` pinnad till den stilbundna live-registryn, så att Cursor-MCP:n kan lista och visa samma registry-items som buildern använder. **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen.
 
 **GitHub:** `.cursor/mcp.json` är **ignorerad**; kopiera `.cursor/mcp.json.example` → `.cursor/mcp.json` och ta bort de MCP:er du inte använder lokalt.

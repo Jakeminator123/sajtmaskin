@@ -1,6 +1,6 @@
 {
   "name": "login-01",
-  "title": "login-01",
+  "title": "Login 01",
   "description": "A simple login form.",
   "dependencies": [],
   "code": "import { LoginForm } from \"@/components/blocks/login-01/components/login-form\"\n\nexport default function Page() {\n  return (\n    <div className=\"flex min-h-svh w-full items-center justify-center p-6 md:p-10\">\n      <div className=\"w-full max-w-sm\">\n        <LoginForm />\n      </div>\n    </div>\n  )\n}\n"

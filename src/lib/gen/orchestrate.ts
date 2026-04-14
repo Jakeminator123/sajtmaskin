@@ -62,8 +62,9 @@ import { FEATURES } from "@/lib/config";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
 import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
 import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
-import { getRelevantExampleNames } from "./data/shadcn-example-map";
+import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";
 import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
+import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 
 export interface TemplateGuidanceMeta {
   enabled: boolean;
@@ -358,8 +359,15 @@ export async function resolveOrchestrationBase(
 
   const capabilityHints = buildCapabilityHints(capabilities);
 
-  const componentRefNames = getRelevantExampleNames(capabilities);
-  const componentReferences = loadShadcnExamples(componentRefNames);
+  const componentRefNames = [
+    ...getRelevantExampleNames(capabilities),
+    ...getPromptDrivenExampleNames(prompt),
+  ];
+  const uniqueRefNames = [...new Set(componentRefNames)];
+  const localRefs = loadShadcnExamples(uniqueRefNames);
+  const componentReferences = await fetchMissingRegistryExamples(uniqueRefNames, localRefs)
+    .then((fetched) => [...localRefs, ...fetched])
+    .catch(() => localRefs);
 
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,

@@ -11,7 +11,7 @@
 
 | File | Role |
 |------|------|
-| `registry-url.ts` | Registry base URL, style resolution (`new-york-v4` vs legacy), docs URLs (`buildShadcnDocsUrl`), `LEGACY_STYLE_DEFAULT`. |
+| `registry-url.ts` | Registry base URL, style resolution (`radix-vega` default, `new-york` legacy coercion), docs URLs (`buildShadcnDocsUrl`), `LEGACY_STYLE_DEFAULT`. |
 | `registry-service.ts` | Fetch registry index/items (with in-memory cache keys scoped by **source** `official` \| `legacy`), categories, curated lists. |
 | `registry-cache.ts` | Optional DB-backed cache for registry index (server). Uses same `source` + style + base URL as routes. |
 | `registry-utils.ts` | Import rewrites, markdown previews, **prompt text** for adding blocks/components (`buildShadcnBlockPrompt`, …). |

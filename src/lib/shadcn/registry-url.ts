@@ -3,7 +3,7 @@
  */
 
 const DEFAULT_REGISTRY_BASE_URL = "https://ui.shadcn.com";
-const DEFAULT_REGISTRY_STYLE = "new-york-v4";
+const DEFAULT_REGISTRY_STYLE = "radix-vega";
 
 /** Default style segment when resolving legacy (v3) registry items — matches shadcn CLI "new-york". */
 export const LEGACY_STYLE_DEFAULT = "new-york";
@@ -52,8 +52,8 @@ export function resolveRegistryStyle(
   const resolvedBase = baseUrl
     ? normalizeRegistryBaseUrl(baseUrl) || getRegistryBaseUrl()
     : getRegistryBaseUrl();
-  if (!options.allowLegacy && resolvedBase.includes("ui.shadcn.com") && !rawStyle.endsWith("-v4")) {
-    return `${rawStyle}-v4`;
+  if (!options.allowLegacy && resolvedBase.includes("ui.shadcn.com") && rawStyle === "new-york") {
+    return "radix-vega";
   }
   return rawStyle;
 }
