@@ -14,7 +14,7 @@ const ROOT_DOC_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt
 const MAX_LOG_CHARS = 1000;
 const DEFAULT_DOC_MAX_WORDS = 10_000;
 const MAX_DOC_MAX_WORDS = 20_000;
-const SENSITIVE_KEY_PATTERN = /(token|secret|password|authorization|cookie|api[-_]?key|session)/i;
+const SENSITIVE_KEY_PATTERN = /(?<!(?:input|output|prompt|completion))token|secret|password|authorization|cookie|api[-_]?key|session/i;
 const CHAT_SLUG_CACHE_LIMIT = 200;
 const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "site.start",

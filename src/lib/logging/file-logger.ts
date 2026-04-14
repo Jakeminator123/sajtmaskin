@@ -31,7 +31,7 @@ export interface LogRecord {
   details?: Record<string, unknown>;
 }
 
-const SENSITIVE_KEY_PATTERN = /(token|secret|password|authorization|cookie|key)/i;
+const SENSITIVE_KEY_PATTERN = /(?<!(?:input|output|prompt|completion))token|secret|password|authorization|cookie|(?:api[-_]?)key/i;
 
 function sanitizeDetails(value: unknown, depth = 0): unknown {
   if (depth > 5) return "[truncated]";
