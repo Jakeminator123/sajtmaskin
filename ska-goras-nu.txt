@@ -189,43 +189,38 @@ FILER ATT ANDRA:
 - Ev. config/capability-signal-map.json (NY)
 
 ===================================================================
-  E. SHADCN BLOCKS-INTEGRATION (SEPARAT SPAR)
+  E. SHADCN BLOCKS-INTEGRATION — KLAR (via steg 1-3)
 ===================================================================
 
-STATUS: FEATURED_BLOCKS (30+ block-grupper: login, sidebar,
-dashboard, charts etc.) och CURATED_UI_COLLECTIONS (637+ items)
-i src/lib/shadcn/registry-service.ts anvands BARA av builder-
-UI:t (element picker). buildShadcnBlockPrompt() och
-buildShadcnComponentPrompt() i registry-utils.ts kan bygga
-fullstandiga prompts med importmappning och kallkod — men
-anropas aldrig fran orchestrate.ts eller system-prompt.ts.
+STATUS: Lost genom tre separata steg i en annan agents arbete:
 
-POTENTIAL: Capability-matchade shadcn blocks (login-01, sidebar-07,
-dashboard-01, chart-bar-default) kan injiceras i init-generering
-som ett KOMPLEMENT till structural references. De ger modellen
-fardiga komponentmonster, inte bara layout/routing-struktur.
+Steg 1 (b7b94b976): Breddad lokal exempelcache fran 11 till 33
+items — alla chart-varianter, auth-blocks, app shells. Bredare
+capability-mappning (max 8 per generation).
 
-ATGARD:
-1. Skapa en ny funktion selectCapabilityShadcnBlocks() som:
-   - Tar InferredCapabilities som input
-   - Mappar capabilities till FEATURED_BLOCKS-grupper
-   - Valjer max 2-3 block-examples
-   - Budgeterar ~3000 tokens
+Steg 2 (3a8fc81bf): On-demand registry fetch fran officiella
+shadcn-registret under orkestrering. Prompt-driven keyword-
+matchning for specifika chart-typer. Migrering till radix-vega
+preset + shadcn Skills installerad.
 
-2. Injicera som ett nytt promptblock ## Capability Block Examples
-   med prioritet 73 (under Structural References 75).
+Steg 3 (d2de8f147): Community-registries (@shadcnblocks 2640+
+blocks, @tailark 210 blocks, @magicui 231 animerade effekter)
+integrerade via config/community-registries.json. Orchestratorn
+hamtar automatiskt 1-3 community-blocks baserat pa prompt-
+keywords och capabilities.
 
-3. Alternativt: utoka det befintliga Component References-blocket
-   (prio 76) istallet for att skapa ett nytt block. Men det
-   riskar att blanda shadcn-examples med block-examples.
+Alla tre lagrena injiceras i ## Component References (prio 76).
+Inget nytt promptblock behovdes — det befintliga blocket
+utokades med on-demand fetch + community-fetch.
 
-RISK: Storst risk ar att prompten blir for lang. Kombinera
-aldrig mer an ~8000 tokens fran alla referens-block totalt.
-
-FILER ATT ANDRA:
-- src/lib/gen/system-prompt.ts (nytt block eller utokat)
-- src/lib/gen/orchestrate.ts (anslutning)
-- Ev. src/lib/shadcn/registry-service.ts (export av mappning)
+FILER SOM ANDRADES:
+- src/lib/gen/data/shadcn-example-map.ts (breddad mappning)
+- src/lib/gen/data/shadcn-registry-fetch.ts (NY — on-demand)
+- src/lib/gen/data/community-registry-fetch.ts (NY — community)
+- src/lib/gen/orchestrate.ts (koppling)
+- config/community-registries.json (NY — kurerad lista)
+- data/shadcn-examples/ (33 filer)
+- scripts/shadcn/sync-shadcn-examples.ts (radix-vega + fallback)
 
 ===================================================================
   F. INTEGRATION-LAYER ANSVARSFORDELNING (DOKUMENTATION)
