@@ -57,7 +57,6 @@ import {
   isTier2LivePreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import {
@@ -166,9 +165,9 @@ export function PreviewPanel({
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const reportOwnEngineRenderFailureSink = useRef<(payload: PreviewIssuePayload) => void>(() => {});
+  const reportOwnEngineRenderFailureSinkRef = useRef<(payload: PreviewIssuePayload) => void>(() => {});
   const reportOwnEngineRenderFailure = useCallback((payload: PreviewIssuePayload) => {
-    reportOwnEngineRenderFailureSink.current(payload);
+    reportOwnEngineRenderFailureSinkRef.current(payload);
   }, []);
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
@@ -216,7 +215,7 @@ export function PreviewPanel({
     setIframeError,
     setIframeErrorMessage,
     onNavigatePreviewUrl,
-    reportOwnEngineRenderFailureSink,
+    reportOwnEngineRenderFailureSinkRef,
   });
 
   const fetchFilesForRegistry = useCallback(async () => {
@@ -237,7 +236,7 @@ export function PreviewPanel({
     } catch {
       /* best-effort */
     }
-  }, [chatId, versionId, files.length]);
+  }, [chatId, versionId, files.length, setFiles]);
 
   useEffect(() => {
     if (placementMode) setComposerMode(false);
@@ -619,7 +618,14 @@ export function PreviewPanel({
       setIframeError(false);
       setIframeErrorMessage(null);
     },
-    [previewUrl, isOwnEnginePreview, onNavigatePreviewUrl],
+    [
+      previewUrl,
+      isOwnEnginePreview,
+      onNavigatePreviewUrl,
+      setIframeLoading,
+      setIframeError,
+      setIframeErrorMessage,
+    ],
   );
 
   const handleClear = () => {
@@ -673,6 +679,10 @@ export function PreviewPanel({
     isTier2LivePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
+    setIframeLoading,
+    setIframeError,
+    setIframeDiagnosticCode,
+    setIframeErrorMessage,
   ]);
 
   const isV0Preview = Boolean(
@@ -817,7 +827,15 @@ export function PreviewPanel({
       setSelectedRegistryLine(lastCodeMatch.item.lineNumber);
       setSelectedPath(lastCodeMatch.item.filePath);
     });
-  }, [lastCodeMatch, startViewSwitchTransition]);
+  }, [
+    lastCodeMatch,
+    startViewSwitchTransition,
+    setInspectMode,
+    setViewMode,
+    setSelectedRegistryId,
+    setSelectedRegistryLine,
+    setSelectedPath,
+  ]);
   const PreviewSurface = PreviewPanelFrame;
 
   if (!previewUrl && !isCodeView) {

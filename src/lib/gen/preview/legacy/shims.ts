@@ -1,7 +1,5 @@
 import type { PreparedModule } from "../types";
-import { isPreviewBuiltinImportSource } from "../constants";
-import { normalizeFilePath, inferPreviewUiComponentName, resolveLocalImportPath } from "../utils";
-import { buildCodeFileMap, buildPreparedModuleMap } from "../file-resolution";
+import { inferPreviewUiComponentName } from "../utils";
 
 /**
  * Legacy shim stubs for the compatibility iframe preview (optional deps).

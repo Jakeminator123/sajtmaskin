@@ -303,6 +303,7 @@ export function useOnboarding() {
     if (typeof window === "undefined") return;
     const hasSeenOnboarding = localStorage.getItem("sajtmaskin_onboarding_seen");
     if (!hasSeenOnboarding) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect -- show modal once from localStorage */
       setShowOnboarding(true);
     }
   }, []);

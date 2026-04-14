@@ -25,10 +25,6 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-function normalizeVersionId(version: VersionSummary): string | null {
-  return version.versionId || version.id || null;
-}
-
 async function fetchVersionFiles(chatId: string, versionId: string, signal: AbortSignal): Promise<FileEntry[]> {
   const response = await fetch(
     `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(versionId)}&wait=1`,

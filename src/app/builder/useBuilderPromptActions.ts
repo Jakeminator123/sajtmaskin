@@ -88,22 +88,22 @@ type Args = {
 
 export function useBuilderPromptActions({
   chatId,
-  scaffoldMode,
+  scaffoldMode: _scaffoldMode,
   customInstructions,
   applyInstructionsOnce,
   promptAssistModel,
-  promptAssistDeep,
+  promptAssistDeep: _promptAssistDeep,
   specMode,
   themeColors,
   paletteState,
-  selectedModelTier,
+  selectedModelTier: _selectedModelTier,
   isCreatingChat,
   isAnyStreaming,
   isTemplateLoading,
   isPreparingPrompt,
   buildMethod: _buildMethod,
   designTheme: _designTheme,
-  appProjectId,
+  appProjectId: _appProjectId,
   pendingSpecRef,
   pendingBriefRef,
   pendingInstructionsRef,
@@ -127,8 +127,8 @@ export function useBuilderPromptActions({
   generateDynamicInstructions,
   createNewChat,
   cancelActiveGeneration,
-  resetBeforeCreateChat,
-  applyAppProjectId,
+  resetBeforeCreateChat: _resetBeforeCreateChat,
+  applyAppProjectId: _applyAppProjectId,
 }: Args) {
   const [templateSwitchDialog, setTemplateSwitchDialog] = useState<TemplateSwitchDialogState>(null);
 

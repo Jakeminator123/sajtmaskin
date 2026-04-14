@@ -589,6 +589,7 @@ export function useCreateChat(
       streamAbortRef,
       autoFixHandlerRef,
       lastSentSystemPromptRef,
+      setPreviewPending,
     ],
   );
 

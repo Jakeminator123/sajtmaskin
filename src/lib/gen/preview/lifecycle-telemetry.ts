@@ -74,12 +74,19 @@ export function logPreviewLifecycleTelemetry(event: PreviewLifecycleTelemetryEve
     return;
   }
   if (typeof window === "undefined") {
-    try {
-      const { devLogAppend } = require("@/lib/logging/devLog") as typeof import("@/lib/logging/devLog");
-      devLogAppend("latest", {
-        type: `preview-lifecycle.${event.kind}`,
-        ...event,
+    void import("@/lib/logging/devLog")
+      .then(({ devLogAppend }) => {
+        try {
+          devLogAppend("latest", {
+            type: `preview-lifecycle.${event.kind}`,
+            ...event,
+          });
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {
+        /* ignore */
       });
-    } catch {}
   }
 }

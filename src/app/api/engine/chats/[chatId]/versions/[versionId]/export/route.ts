@@ -36,7 +36,8 @@ export async function POST(
 
       const { chatId, versionId } = await ctx.params;
       const { searchParams } = new URL(req.url);
-      const format = searchParams.get("format") === "tar" ? "tar" : "zip";
+      const _format = searchParams.get("format") === "tar" ? "tar" : "zip";
+      void _format; // tar export not implemented yet; query reserved for API compatibility
 
       const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
       if (!scopedVersion) {

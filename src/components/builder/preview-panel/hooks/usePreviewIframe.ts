@@ -50,7 +50,9 @@ export function usePreviewIframe(params: {
   }, []);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- clear diagnostic when error clears */
     if (!iframeError) setIframeDiagnosticCode(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [iframeError]);
 
   useEffect(() => {
@@ -58,16 +60,20 @@ export function usePreviewIframe(params: {
   }, [clearPreviewReadyTimer]);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- reset iframe error state when preview identity changes */
     setIframeError(false);
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [chatId, versionId, previewUrl]);
 
   useEffect(() => {
     if (!previewUrl) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- loading state when URL or refresh token changes */
     setIframeLoading(true);
     setIframeError(false);
     setIframeErrorMessage(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [previewUrl, refreshToken]);
 
   const handleIframeLoad = useCallback(() => {
@@ -157,6 +163,7 @@ export function usePreviewIframe(params: {
     isOwnEnginePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
+    iframeRef,
   ]);
 
   return {

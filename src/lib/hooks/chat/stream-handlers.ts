@@ -31,7 +31,6 @@ import {
   isOwnEnginePostStreamPhaseId,
   ownEnginePostStreamStepLabelSv,
 } from "@/lib/gen/stream/finalize-pipeline-contract";
-import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   resolveCanonicalLivePreviewUrlFromDonePayload,
   resolveCanonicalLivePreviewUrlFromPreviewReadyPayload,

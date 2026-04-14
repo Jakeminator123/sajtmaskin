@@ -19,9 +19,11 @@ export function useDeploymentStatus(deploymentId: string | null) {
   useEffect(() => {
     if (!deploymentId) return;
 
+    /* eslint-disable react-hooks/set-state-in-effect -- reset UI when subscribing to a new deployment stream */
     setStatus("pending");
     setUrl(null);
     setInspectorUrl(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const es = new EventSource(`/api/v0/deployments/${deploymentId}/events`);
     esRef.current = es;

@@ -2,10 +2,7 @@
 
 import type { ChatMessage } from "@/lib/builder/types";
 import { buildPromptAssistContext } from "@/lib/builder/promptAssistContext";
-import {
-  normalizeBuildIntent,
-  normalizeBuildMethod,
-} from "@/lib/builder/build-intent";
+import { normalizeBuildIntent } from "@/lib/builder/build-intent";
 import { normalizeDesignTheme } from "@/lib/builder/theme-presets";
 import {
   getDefaultPaletteState,
@@ -37,11 +34,7 @@ import { toast } from "sonner";
 
 import { useBuilderCallbacks } from "./useBuilderCallbacks";
 import { useBuilderDeployActions } from "./useBuilderDeployActions";
-import {
-  useBuilderDerivedState,
-  type ChatData,
-  type VersionSummary,
-} from "./useBuilderDerivedState";
+import { useBuilderDerivedState, type ChatData } from "./useBuilderDerivedState";
 import { useBuilderEffects } from "./useBuilderEffects";
 import { useBuilderProjectActions } from "./useBuilderProjectActions";
 import { useBuilderPromptActions } from "./useBuilderPromptActions";
@@ -82,14 +75,14 @@ export function useBuilderPageController() {
   // for eslint-disable comments.
   const {
     appProjectId, applyInstructionsOnce, buildIntentParam, buildMethod,
-    buildMethodParam, chatId, chatIdParam, currentPreviewUrl, customInstructions,
+    chatId, chatIdParam, currentPreviewUrl, customInstructions,
     designTheme, enableBlobMedia, enableImageGenerations, enableThinking,
     entry, entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
     projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
     selectedVersionId, serverProjectChatId, serverProjectDemoUrl,
     serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId,
     clearedPreviewVersionId,
-    showStructuredChat, source, templateId, externalProjectId,
+    showStructuredChat, templateId, externalProjectId,
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
     setCurrentPreviewUrl, setCurrentPageCode, setCustomInstructions,
@@ -167,7 +160,7 @@ export function useBuilderPageController() {
     return resolveAlternatePreviewUrls({
       storedLivePreviewUrl: v.previewUrl,
     });
-  }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
+  }, [derived.activeVersionId, derived.effectiveVersionsList]);
 
   const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
     chatHooksChatId,

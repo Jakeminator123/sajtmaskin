@@ -30,11 +30,15 @@ Snabb uppslagsregel när du behöver rätt kommando utan att leta runt. **`packa
 - `npm run db:migrate` — kör SQL-migrationer.
 - `npm run db:push` — guardad Drizzle push.
 
-## Env och modellspår
+## Vercel och env
 
-- `python scripts/env/manage_env.py status` — status för env-nycklar.
-- `python scripts/env/manage_env.py audit` — audit av env-policy.
-- `python scripts/env/manage_env.py reconcile` — jämför/justera drift mellan lokalt och Vercel.
+- `npm run vercel:link` — länka repot till Vercel-projektet (`.vercel/project.json`).
+- `npm run env:pull` — hämta Vercel-envs till `.env.local`.
+- `npm run env:pull:prod-snapshot` — dra ner prod-env till `.env.vercel.production.pulled` (för db-guard).
+- `npm run env:status` — status för env-nycklar.
+- `npm run env:audit` — audit av env-policy.
+- `npm run env:audit:strict` — audit inkl. lokal-only och over-target drift.
+- `npm run env:reconcile` — jämför/justera drift mellan lokalt och Vercel.
 - `python scripts/env/model_trace_overlay.py` — synca GUI-modell-envs och öppna trace-overlay.
 
 ## Embeddings och bibliotek

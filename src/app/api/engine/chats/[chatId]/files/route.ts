@@ -155,7 +155,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
               if (resolvedVersionId) {
                 await updateVersionFiles(resolvedVersionId, JSON.stringify(files));
               }
-              console.log(
+              console.info(
                 `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references`,
               );
             }

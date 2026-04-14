@@ -16,8 +16,6 @@ import {
   resolveSummaryPath,
 } from "./template-library-discovery";
 
-const WORKSPACE_ROOT = process.cwd();
-
 function readArg(name: string, argv: string[]): string | null {
   const prefix = `${name}=`;
   const hit = argv.find((a) => a.startsWith(prefix));

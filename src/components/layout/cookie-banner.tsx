@@ -36,6 +36,27 @@ const GHOSTS = [
   { start: { x: 6, y: 5 }, color: "#00FFFF", name: "Inky" },
 ];
 
+function getNewPosition(pos: Position, dir: Direction): Position {
+  switch (dir) {
+    case "up":
+      return { x: pos.x, y: pos.y - 1 };
+    case "down":
+      return { x: pos.x, y: pos.y + 1 };
+    case "left":
+      return { x: pos.x - 1, y: pos.y };
+    case "right":
+      return { x: pos.x + 1, y: pos.y };
+    default:
+      return pos;
+  }
+}
+
+function canMove(pos: Position): boolean {
+  if (pos.y < 0 || pos.y >= MAZE.length) return false;
+  if (pos.x < 0 || pos.x >= MAZE[0].length) return false;
+  return MAZE[pos.y][pos.x] !== 0;
+}
+
 export function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
@@ -63,6 +84,7 @@ export function CookieBanner() {
     // Remove start and cookie positions from dots
     initialDots.delete(`${START_POS.x},${START_POS.y}`);
     initialDots.delete(`${COOKIE_POS.x},${COOKIE_POS.y}`);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time maze dot init from static MAZE
     setDots(initialDots);
   }, []);
 
@@ -131,6 +153,7 @@ export function CookieBanner() {
     );
 
     if (collision) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- game-over flag from collision check tick
       setGameOver(true);
       setTimeout(() => {
         // Reset game
@@ -151,27 +174,6 @@ export function CookieBanner() {
       }, 1500);
     }
   }, [pacmanPos, ghosts, gameStarted, hasWon, gameOver]);
-
-  const getNewPosition = (pos: Position, dir: Direction): Position => {
-    switch (dir) {
-      case "up":
-        return { x: pos.x, y: pos.y - 1 };
-      case "down":
-        return { x: pos.x, y: pos.y + 1 };
-      case "left":
-        return { x: pos.x - 1, y: pos.y };
-      case "right":
-        return { x: pos.x + 1, y: pos.y };
-      default:
-        return pos;
-    }
-  };
-
-  const canMove = (pos: Position): boolean => {
-    if (pos.y < 0 || pos.y >= MAZE.length) return false;
-    if (pos.x < 0 || pos.x >= MAZE[0].length) return false;
-    return MAZE[pos.y][pos.x] !== 0;
-  };
 
   const movePacman = useCallback(
     (dir: Direction) => {

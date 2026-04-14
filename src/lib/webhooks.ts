@@ -41,21 +41,22 @@ export interface V0WebhookEvent {
     previewUrl?: string;
     url?: string;
     error?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
-export function parseWebhookEvent(body: any): V0WebhookEvent | null {
-  if (!body || !body.type) {
+export function parseWebhookEvent(body: unknown): V0WebhookEvent | null {
+  if (!body || typeof body !== "object" || !("type" in body)) {
     return null;
   }
+  const b = body as Record<string, unknown>;
 
-  const rawType = String(body.type) as V0WebhookEventType;
+  const rawType = String(b.type) as V0WebhookEventType;
   const normalizedType = rawType === "message.completed" ? ("message.finished" as const) : rawType;
 
   return {
     type: normalizedType,
-    timestamp: body.timestamp || new Date().toISOString(),
-    data: body.data || body,
+    timestamp: (typeof b.timestamp === "string" ? b.timestamp : null) || new Date().toISOString(),
+    data: (b.data && typeof b.data === "object" ? b.data : b) as V0WebhookEvent["data"],
   };
 }

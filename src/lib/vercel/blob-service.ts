@@ -1,7 +1,7 @@
 import path from "path";
 import { PATHS } from "@/lib/config";
 import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
-import type { StorageObjectInfo, StorageProvider } from "@/lib/storage/types";
+import type { StorageProvider } from "@/lib/storage/types";
 import { VercelBlobProvider } from "@/lib/storage/vercel-blob-provider";
 
 export interface BlobUploadResult {
@@ -140,8 +140,4 @@ function createLocalUploadProvider(): StorageProvider {
     rootDir: path.join(PATHS.uploads, "media"),
     publicUrlBase: "/api/uploads/media",
   });
-}
-
-function matchesPathBoundary(item: StorageObjectInfo, prefix: string): boolean {
-  return item.pathname === prefix || item.pathname.startsWith(`${prefix}/`);
 }

@@ -946,11 +946,7 @@ export async function buildDynamicContext(
       "",
     );
     for (const ref of componentReferences.slice(0, 5)) {
-      const truncatedCode =
-        ref.code.split("\n").length > 60
-          ? ref.code.split("\n").slice(0, 60).join("\n") + "\n// ... (truncated)"
-          : ref.code;
-      parts.push(`### ${ref.name}`, "", "```tsx", truncatedCode, "```", "");
+      parts.push(`### ${ref.name}`, "", "```tsx", ref.code, "```", "");
     }
   }
 

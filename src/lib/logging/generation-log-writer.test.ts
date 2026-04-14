@@ -4,7 +4,6 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const originalCwd = process.cwd();
-const mutableEnv = process.env as Record<string, string | undefined>;
 
 let tempDir: string | null = null;
 

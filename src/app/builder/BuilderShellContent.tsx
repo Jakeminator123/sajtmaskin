@@ -32,7 +32,6 @@ import { DomainManager } from "@/components/builder/DomainManager";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
-import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
@@ -614,11 +613,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         console.warn("[Builder] Failed to persist preview override:", error);
       }
     },
-    [
-      vm.appProjectId,
-      vm.setServerProjectPreviewOverrideUrl,
-      vm.setServerProjectPreviewOverrideVersionId,
-    ],
+    [vm],
   );
 
   const handleClearPreview = useCallback(() => {
@@ -646,16 +641,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       void persistPreviewOverride(null, null);
       void vm.mutateVersions();
     })();
-  }, [
-    vm.activeVersionId,
-    vm.activePreviewSessionId,
-    vm.chatId,
-    vm.clearPreviewSessionState,
-    vm.mutateVersions,
-    vm.setClearedPreviewVersionId,
-    vm.setCurrentPreviewUrl,
-    persistPreviewOverride,
-  ]);
+  }, [vm, persistPreviewOverride]);
 
   const handleVersionSelect = useCallback(
     (versionId: string, demoUrl?: string) => {
@@ -666,13 +652,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       }
       vm.handleVersionSelect(versionId, demoUrl);
     },
-    [
-      vm.handleVersionSelect,
-      vm.clearPreviewBuildError,
-      vm.serverProjectPreviewOverrideVersionId,
-      vm.setClearedPreviewVersionId,
-      persistPreviewOverride,
-    ],
+    [vm, persistPreviewOverride],
   );
 
   const handleApplyAnthropicComparePreset = useCallback(() => {
@@ -747,7 +727,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onSaveProject={vm.handleSaveProject}
         onCancelGeneration={vm.cancelActiveGeneration}
         isDeploying={vm.isDeploying}
-        isCreatingChat={vm.isCreatingChat || vm.isTemplateLoading}
+        isCreatingChat={vm.isCreatingChat}
         isAnyStreaming={vm.isAnyStreaming}
         isSavingProject={vm.isSavingProject}
         canDeploy={canDeploy}

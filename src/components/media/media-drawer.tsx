@@ -19,7 +19,7 @@
  * - Simplified action: click = use in chat
  */
 
-import { useState, useCallback, useRef, useEffect, useId } from "react";
+import { createElement, useMemo, useState, useCallback, useRef, useEffect, useId } from "react";
 import {
   Upload as UploadIcon,
   Image as ImageIcon,
@@ -541,7 +541,10 @@ function MediaItemCard({
   onDragEnd,
 }: MediaItemCardProps) {
   const [showActions, setShowActions] = useState(false);
-  const Icon = getFileTypeIcon(item.fileType);
+  const iconElement = useMemo(
+    () => createElement(getFileTypeIcon(item.fileType), { className: "mb-1 h-8 w-8 text-gray-500" }),
+    [item.fileType],
+  );
 
   return (
     <div
@@ -572,7 +575,7 @@ function MediaItemCard({
         </div>
       ) : (
         <div className="flex h-full w-full flex-col items-center justify-center bg-gray-800 p-2">
-          <Icon className="mb-1 h-8 w-8 text-gray-500" />
+          {iconElement}
           <span className="w-full truncate px-2 text-left text-[10px] text-gray-500">
             {item.filename}
           </span>

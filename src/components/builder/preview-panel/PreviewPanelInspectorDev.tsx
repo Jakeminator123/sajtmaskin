@@ -2,7 +2,6 @@
 
 import { BrainCircuit, Code2, MousePointer2, X, Zap } from "lucide-react";
 import { type MouseEventHandler } from "react";
-import { Button } from "@/components/ui/button";
 import type { ElementMapItem } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
 

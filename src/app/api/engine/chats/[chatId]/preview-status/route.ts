@@ -14,7 +14,7 @@ import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 
 const BOOT_GRACE_MS = 90_000;
 
-function sessionSoftExpiryAt(entry: PreviewSessionEntry, now: number): number {
+function sessionSoftExpiryAt(entry: PreviewSessionEntry): number {
   return Math.min(entry.createdAt + PREVIEW_SESSION_HARD_CAP_MS, entry.lastUsedAt + PREVIEW_SESSION_IDLE_MS);
 }
 
@@ -83,7 +83,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           previewSessionId: session.sandboxId,
           previewUrl: session.sandboxUrl,
           versionId: sessionVid,
-          sessionExpiresAt: sessionSoftExpiryAt(session, now),
+          sessionExpiresAt: sessionSoftExpiryAt(session),
           reason: "session_bound_to_other_version",
         };
         logPreviewLifecycleTelemetry({
@@ -103,7 +103,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           previewSessionId: session.sandboxId,
           previewUrl: session.sandboxUrl,
           versionId: sessionVid,
-          sessionExpiresAt: sessionSoftExpiryAt(session, now),
+          sessionExpiresAt: sessionSoftExpiryAt(session),
           reason: "preview_session_id_mismatch",
         };
         logPreviewLifecycleTelemetry({
@@ -127,7 +127,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           previewSessionId: session.sandboxId,
           previewUrl: session.sandboxUrl,
           versionId: sessionVid,
-          sessionExpiresAt: sessionSoftExpiryAt(session, now),
+          sessionExpiresAt: sessionSoftExpiryAt(session),
           reason,
         };
         logPreviewLifecycleTelemetry({
@@ -146,7 +146,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         previewSessionId: resumed.sandboxId,
         previewUrl: resumed.primaryUrl,
         versionId: sessionVid,
-        sessionExpiresAt: sessionSoftExpiryAt(session, now),
+        sessionExpiresAt: sessionSoftExpiryAt(session),
       };
       logPreviewLifecycleTelemetry({
         kind: "preview_status",

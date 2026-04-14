@@ -30,12 +30,15 @@ export function usePreviewHeartbeat(params: {
   const viewerIdRef = useRef<string | null>(null);
   const hibernateRequestedRef = useRef(false);
   const hiddenHibernateTimerRef = useRef<number | null>(null);
-  if (typeof window !== "undefined" && !viewerIdRef.current) {
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (viewerIdRef.current) return;
     viewerIdRef.current =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `viewer_${Math.random().toString(36).slice(2)}`;
-  }
+  }, []);
 
   const clearHiddenHibernateTimer = () => {
     if (hiddenHibernateTimerRef.current !== null) {

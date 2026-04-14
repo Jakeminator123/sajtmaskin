@@ -6,10 +6,22 @@
 
 npm run template-pipeline:refresh          # Full: scrape + import + hydrate + build + embeddings + validate
 npm run template-pipeline:refresh:reuse-cache   # Samma men hoppa over scrape (snabbare)
-npm run artifacts:rebuild                  # Reuse cache, validate + typecheck
-npm run artifacts:rebuild:full             # Full scrape + validate + typecheck
-npm run artifacts:rebuild:with-eval        # Reuse cache + eval + typecheck
-npm run artifacts:rebuild:full:with-eval   # Full scrape + eval + typecheck
+
+---  ARTEFAKTER — återbygg (template-library + scaffold-research + v0-mallar m.m.)  ---
+
+# Rekommenderat efter du har giltig scrape-summary under data/external-template-pipeline/:
+npm run artifacts:rebuild                  # Snabb: återanvänder scrape-cache/repo-cache, purge + rebuild + validate + typecheck
+npm run artifacts:rebuild:full             # Långsammare: kör även --refresh-scrape (ny scrape innan rebuild)
+npm run artifacts:rebuild:with-eval        # Som rebuild men kör även eval efteråt
+npm run artifacts:rebuild:full:with-eval # Full scrape + eval + typecheck
+
+# Avancerat (samma script som npm anropar):
+python scripts/rebuild_artifacts.py --help
+python scripts/rebuild_artifacts.py --with-typecheck              # minimalt
+python scripts/rebuild_artifacts.py --refresh-scrape --reset-repo-cache --with-typecheck  # hård reset av cache
+
+# Efter lyckad rebuild kan du sätta SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true (eller ta bort =false)
+# så att appen kräver att template-library.generated.json / scaffold-research.generated.json finns.
 
 ---  TEMPLATE-LIBRARY (enskilda steg)  ---
 
@@ -88,6 +100,7 @@ python scripts/env/manage_env.py audit --strict  # Strict audit
 SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true  # Scaffold-ankrad template guidance (init only). Auto-on i dev.
 SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true   # Injectera budgeterade structural references fran variantens sourceTemplateIds.
 SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true # Defer extra routes till shells i init-generering.
+SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true # Kräv genererade JSON-artefakter (satt false lokalt om du inte byggt om).
 SAJTMASKIN_DEFAULT_THINKING=true           # Server-side default for reasoning/thinking.
 
 ===================================================================

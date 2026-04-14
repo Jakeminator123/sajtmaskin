@@ -473,7 +473,16 @@ export function ProjectEnvVarsPanel({
     } finally {
       setIsSaving(false);
     }
-  }, [effectiveEnvProjectId, canAdd, isSaving, newKey, newValue, newSensitive]);
+  }, [
+    effectiveEnvProjectId,
+    canAdd,
+    isSaving,
+    newKey,
+    newValue,
+    newSensitive,
+    chatId,
+    activeVersionId,
+  ]);
 
   const handleDeleteEnvVar = useCallback(
     async (item: EnvVarItem) => {
@@ -514,7 +523,7 @@ export function ProjectEnvVarsPanel({
         setIsSaving(false);
       }
     },
-    [effectiveEnvProjectId, isSaving],
+    [effectiveEnvProjectId, isSaving, chatId, activeVersionId],
   );
 
   // --- effects ---

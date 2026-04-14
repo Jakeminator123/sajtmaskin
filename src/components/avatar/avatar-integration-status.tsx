@@ -22,6 +22,7 @@ export function AvatarIntegrationStatus({
   const [requestError, setRequestError] = useState<string | null>(null);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- loading flags for bridge health fetch */
     if (mode !== "bridge") {
       setLoading(false);
       return;
@@ -30,6 +31,7 @@ export function AvatarIntegrationStatus({
     let cancelled = false;
     setLoading(true);
     setRequestError(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     fetch("/api/openclaw/health")
       .then(async (res) => {

@@ -1,0 +1,287 @@
+===================================================================
+  SKA-GORAS-NU — Planerade forbattringar for structural references,
+  backoffice-styrbarhet, och schema-kontrakt
+===================================================================
+
+Kontext: Tva commits pa master (82f1eba4f + eaa8a58b8) inforde
+"Variant Structural Files" — ett system dar scaffold-varianter
+och capability-inference injicerar strukturella kodreferenser
+(layout.tsx, page.tsx, middleware.ts) fran template-library-
+katalogen i systempromptens ## Structural References-block.
+
+Allt nedan ar naturliga nasta steg. Prioritera i den ordning
+som ger mest synlig effekt for anvandarsajternas strukturella
+variation.
+
+===================================================================
+  A. BREDDA STRUKTURELLA FILTYPER — KLAR
+===================================================================
+
+STATUS: Prioriteter och capability-mappning flyttade till
+config/structural-file-priorities.json. Sidebar (prio 15)
+och header (prio 10) nu tillåtna. structural-files.ts
+laser fran config med process-cached fallback.
+
+TIDIGARE STATUS: Idag filtreras structural files genom hardkodade regex
+i structuralFilePriority() (structural-files.ts rad 35-42).
+Bara layout.tsx, page.tsx och middleware.ts tillats. Alla andra
+filer far prioritet -1 och slangs.
+
+PROBLEM: Dossier-entries innehaller aven:
+- app/pricing/page.tsx (fanga redan av page-regex, prio 25)
+- app/login/page.tsx (fangas redan)
+- app/dashboard/page.tsx (fangas redan)
+- sidebar.tsx (BLOCKERAD — prio -1)
+- header.tsx (BLOCKERAD — prio -1)
+- components/pricing-card.tsx (BLOCKERAD)
+
+ATGARD:
+1. Lagg till nya prioritetsnivaer i structuralFilePriority():
+   - sidebar.tsx / Sidebar.tsx: prioritet 15
+   - header.tsx / Header.tsx: prioritet 10
+   - Lata andra .tsx-komponentfiler forbli blockerade (-1)
+
+2. Flytta prioritetstabellen till en JSON-config-fil:
+   Skapa config/structural-file-priorities.json:
+   {
+     "rules": [
+       { "pattern": "app/layout\\.tsx$", "priority": 50 },
+       { "pattern": "middleware\\.ts$", "priority": 45 },
+       { "pattern": "app/page\\.tsx$", "priority": 40 },
+       { "pattern": "layout\\.tsx$", "priority": 30 },
+       { "pattern": "page\\.tsx$", "priority": 25 },
+       { "pattern": "sidebar\\.tsx$", "priority": 15 },
+       { "pattern": "[Hh]eader\\.tsx$", "priority": 10 }
+     ],
+     "defaultPriority": -1
+   }
+
+3. Uppdatera structuralFilePriority() att lasa fran config
+   istallet for hardkodade regex.
+
+4. Visa prioriteterna i backoffice Scaffold Lifecycle-tradvyn
+   bredvid varje fil (t.ex. "app/layout.tsx (prio 50)").
+
+FILER ATT ANDRA:
+- src/lib/gen/scaffold-variants/structural-files.ts
+- config/structural-file-priorities.json (NY)
+- backoffice/pages/scaffold_lifecycle.py
+
+VERIFIERING:
+- npm run typecheck
+- Smoke-test: kontrollera att sidebar.tsx dyker upp i prompten
+  for en dashboard-variant
+
+===================================================================
+  B. VISA PRIORITETER I BACKOFFICE — KLAR
+===================================================================
+
+STATUS: Scaffold Lifecycle visar nu prioritet per fil,
+budgetgranser (3+2 filer, 16k+8k chars) och
+capability-signal-mappning i en expanderbar info-ruta.
+
+TIDIGARE STATUS: Backoffice (Scaffold Lifecycle) visar vilka strukturella
+filer som FINNS per variant, och om de ar trunkerade. Men den
+visar INTE vilken prioritet de har, vilken ordning de valjs i,
+eller budgetgranser.
+
+ATGARD:
+1. I _render_tree_view() (scaffold_lifecycle.py rad 718-723):
+   - Lagg till en "priority"-kolumn i structural_rows
+   - Berakna genom att matcha filpath mot
+     config/structural-file-priorities.json
+   - Visa "Blockerad" for filer med prio -1
+
+2. Lagg till en sektion "Structural file budget" med:
+   - MAX_STRUCTURAL_REFERENCE_FILES = 3 (variant)
+   - MAX_CAPABILITY_REFERENCE_FILES = 2 (capability)
+   - MAX total = 5 filer, ~24000 chars
+
+3. Lagg till en sektion "Capability signal mappning" som visar:
+   - needsAuth -> signals.auth
+   - needsEcommerce -> signals.ecommerce
+   - needsAppShell -> signals.dashboard
+   - needsCharts -> signals.dashboard
+   - needsDataUI -> signals.dashboard
+
+FILER ATT ANDRA:
+- backoffice/pages/scaffold_lifecycle.py
+- Ev. backoffice/pages/_ops_impl.py (Research & Dossiers)
+
+===================================================================
+  C. STRIKT SCHEMA FOR STRUCTURAL REFERENCES — KLAR
+===================================================================
+
+STATUS: docs/schemas/strict/structural-references.schema.json
+skapad. README.md och scaffold-contract.md uppdaterade.
+
+TIDIGARE STATUS: scaffold-variant.schema.json validerar variant-JSON-filer.
+Men det finns inget schema for VariantStructuralFilesSelection
+eller VariantStructuralFileReference (runtime-output).
+
+ATGARD:
+1. Skapa docs/schemas/strict/structural-references.schema.json
+   som validerar prompt-dump-output (generation-input-package.json
+   nar structuralRefsInjected=true).
+
+   Schema for VariantStructuralFileReference:
+   {
+     "sourceId": string (template-library entry ID),
+     "sourceTitle": string,
+     "path": string (relativ filpath),
+     "reason": string,
+     "excerpt": string (budgeterad kodtext),
+     "truncated": boolean
+   }
+
+   Schema for VariantStructuralFilesSelection:
+   {
+     "files": array of VariantStructuralFileReference (max 5),
+     "sourceIds": array of string (unika entry-IDs),
+     "totalChars": number
+   }
+
+2. Uppdatera docs/schemas/strict/README.md med ny rad i tabellen.
+
+3. Dokumentera i docs/schemas/scaffold-contract.md under en ny
+   rubrik "Structural References" (bredvid "Scaffold Variant").
+
+FILER ATT ANDRA:
+- docs/schemas/strict/structural-references.schema.json (NY)
+- docs/schemas/strict/README.md
+- docs/schemas/scaffold-contract.md
+
+===================================================================
+  D. UTOKA CAPABILITY-SIGNAL-MAPPNINGEN — KLAR
+===================================================================
+
+STATUS: needsForms->cms och needsCarousel->ecommerce tillagda.
+Mappningen laser nu fran config/structural-file-priorities.json.
+
+TIDIGARE STATUS: Idag mappar vi bara 5 capabilities till catalog-signals:
+  needsAuth -> signals.auth
+  needsEcommerce -> signals.ecommerce
+  needsAppShell -> signals.dashboard
+  needsCharts -> signals.dashboard
+  needsDataUI -> signals.dashboard
+
+PROBLEM: Fler capabilities saknar mappning:
+  needsForms -> (inget, men borde kanske -> signals.cms)
+  needsCarousel -> (inget)
+  needsDatabase -> (inget, men hanteras av Contract Plan)
+
+ATGARD:
+1. Utoka CAPABILITY_SIGNAL_MAP i structural-files.ts:
+   - needsForms -> signals.cms (CMS-dossiers har ofta
+     formularmoenster)
+   - needsCarousel -> signals.ecommerce (product carousels)
+
+2. Overvaeg att lata mappningen styras fran config/ istallet
+   for hardkodad array. Samma JSON-fil som prioriteterna?
+   Eller separat config/capability-signal-map.json.
+
+3. INTE mappa needsDatabase — det hanteras redan av Contract
+   Plan och kapabilitetshints. Structural references ska inte
+   innehalla databas-setup-kod.
+
+FILER ATT ANDRA:
+- src/lib/gen/scaffold-variants/structural-files.ts
+- Ev. config/capability-signal-map.json (NY)
+
+===================================================================
+  E. SHADCN BLOCKS-INTEGRATION — KLAR (via steg 1-3)
+===================================================================
+
+STATUS: Lost genom tre separata steg i en annan agents arbete:
+
+Steg 1 (b7b94b976): Breddad lokal exempelcache fran 11 till 33
+items — alla chart-varianter, auth-blocks, app shells. Bredare
+capability-mappning (max 8 per generation).
+
+Steg 2 (3a8fc81bf): On-demand registry fetch fran officiella
+shadcn-registret under orkestrering. Prompt-driven keyword-
+matchning for specifika chart-typer. Migrering till radix-vega
+preset + shadcn Skills installerad.
+
+Steg 3 (d2de8f147): Community-registries (@shadcnblocks 2640+
+blocks, @tailark 210 blocks, @magicui 231 animerade effekter)
+integrerade via config/community-registries.json. Orchestratorn
+hamtar automatiskt 1-3 community-blocks baserat pa prompt-
+keywords och capabilities.
+
+Alla tre lagrena injiceras i ## Component References (prio 76).
+Inget nytt promptblock behovdes — det befintliga blocket
+utokades med on-demand fetch + community-fetch.
+
+FILER SOM ANDRADES:
+- src/lib/gen/data/shadcn-example-map.ts (breddad mappning)
+- src/lib/gen/data/shadcn-registry-fetch.ts (NY — on-demand)
+- src/lib/gen/data/community-registry-fetch.ts (NY — community)
+- src/lib/gen/orchestrate.ts (koppling)
+- config/community-registries.json (NY — kurerad lista)
+- data/shadcn-examples/ (33 filer)
+- scripts/shadcn/sync-shadcn-examples.ts (radix-vega + fallback)
+
+===================================================================
+  F. INTEGRATION-LAYER ANSVARSFORDELNING (DOKUMENTATION)
+===================================================================
+
+STATUS: docs/architecture/llm-input-blocks.md har nu en sektion
+"Integrations- och referenslager — ansvarsfordelning" som
+forklarar Contract Plan vs Capability Hints vs Structural Refs.
+
+ATGARD (rensning/komplettering):
+1. Lank fran docs/schemas/orchestration-signal-contract.md till
+   llm-input-blocks.md#integrations- och referenslager
+
+2. Kontrollera att backoffice "Orchestration Map"-sidan visar
+   alla tre lagrena och deras relationer.
+
+3. Se till att to-do.txt-posterna stammer med det som faktiskt
+   gjorts — rensa gamla poster om structural refs som ar klara.
+
+===================================================================
+  PRIORITETSORDNING (rekommenderad)
+===================================================================
+
+1. A (bredda filtyper) + B (visa i backoffice) — snabbast
+   synlig effekt, smal scope, liten risk
+2. D (utoka capability-mappning) — smal andring, stor effekt
+3. C (strikt schema) — stabilitet och verifierbarhet
+4. E (shadcn blocks) — storst potentiell effekt men storst risk
+5. F (dokumentation) — gor nar ovriga ar levererade
+
+===================================================================
+  TEKNISK KONTEXT FOR NASTA AGENT
+===================================================================
+
+Relevanta filer:
+- src/lib/gen/scaffold-variants/structural-files.ts (karnlogik)
+- src/lib/gen/scaffold-variants/index.ts (exports)
+- src/lib/gen/orchestrate.ts (mergeStructuralFiles, hookup)
+- src/lib/gen/system-prompt.ts (## Structural References block)
+- src/lib/gen/capability-inference.ts (InferredCapabilities)
+- src/lib/gen/template-library/catalog.ts (getTemplateLibraryEntries)
+- src/lib/gen/template-library/types.ts (TemplateLibrarySignals)
+- config/env-policy.json (SAJTMASKIN_VARIANT_STRUCTURAL_FILES)
+- backoffice/pages/_ops_impl.py (Research & Dossiers toggles)
+- backoffice/pages/scaffold_lifecycle.py (tradvyn)
+- docs/architecture/glossary.md (v16 + v17)
+- docs/architecture/scaffold-schema.md (rad 21)
+- docs/architecture/llm-input-blocks.md (ansvarsfordelning)
+
+Env-flagga: SAJTMASKIN_VARIANT_STRUCTURAL_FILES
+  - Auto-on i development (NODE_ENV=development)
+  - Explicit =false stangar av
+  - Toggle i backoffice: Research & Dossiers
+
+Tester:
+- npm run typecheck
+- Smoke-test: npx tsx -e med prepareGenerationContext()
+  (se commits 82f1eba4f och eaa8a58b8 for exakta kommandon)
+
+Commits att referera:
+- 82f1eba4f — variant-driven structural refs
+- eaa8a58b8 — capability-driven structural refs
+- 1cc06270b — integration layer docs
+- 113d8076f — backoffice + scaffold-schema update

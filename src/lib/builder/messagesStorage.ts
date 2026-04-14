@@ -14,13 +14,19 @@ export function loadPersistedMessages(chatId: string): ChatMessage[] {
 
     return parsed
       .filter(
-        (m: any) =>
-          m &&
-          typeof m.id === "string" &&
-          (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string",
+        (m: unknown): m is Record<string, unknown> & {
+          id: string;
+          role: "user" | "assistant";
+          content: string;
+        } =>
+          !!m &&
+          typeof m === "object" &&
+          typeof (m as { id?: unknown }).id === "string" &&
+          ((m as { role?: unknown }).role === "user" ||
+            (m as { role?: unknown }).role === "assistant") &&
+          typeof (m as { content?: unknown }).content === "string",
       )
-      .map((m: any) => ({
+      .map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,

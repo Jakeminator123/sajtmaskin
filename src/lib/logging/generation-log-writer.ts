@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { normalizeErrorPattern } from "@/lib/gen/autofix/types";
+import { normalizeSlug } from "./shared";
 
 type GenerationLogTarget = "in-progress" | "latest";
 
@@ -103,18 +104,6 @@ function formatErrorDetails(data: Record<string, unknown>, maxItems = 3): string
   });
   const rest = errors.length > maxItems ? ` … +${errors.length - maxItems} till` : "";
   return items.join("; ") + rest;
-}
-
-function normalizeSlug(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const normalized = value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-  return normalized || null;
 }
 
 function formatRunTimestamp(ts: string): string {
@@ -249,14 +238,6 @@ function findLastString(entries: StoredGenerationEntry[], key: string): string |
   for (let i = entries.length - 1; i >= 0; i -= 1) {
     const value = readString(entries[i].data[key]);
     if (value) return value;
-  }
-  return null;
-}
-
-function findLastNumber(entries: StoredGenerationEntry[], key: string): number | null {
-  for (let i = entries.length - 1; i >= 0; i -= 1) {
-    const value = readNumber(entries[i].data[key]);
-    if (value !== null) return value;
   }
   return null;
 }

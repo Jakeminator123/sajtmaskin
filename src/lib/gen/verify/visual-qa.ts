@@ -27,7 +27,6 @@ export interface VisualQAResult {
 }
 
 const PASS_THRESHOLD = 60;
-const MAX_DESIGN_PATCH_ATTEMPTS = 1;
 
 /**
  * Analyze generated HTML/CSS files for common visual quality issues

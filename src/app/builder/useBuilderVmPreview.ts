@@ -181,7 +181,9 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
   useEffect(() => {
     if (!activePreviewSessionMeta || !activeVersionId) return;
     if (activePreviewSessionMeta.versionId !== activeVersionId) {
+      /* eslint-disable react-hooks/set-state-in-effect -- drop stale session meta when version changes */
       setActivePreviewSessionMeta(null);
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [activePreviewSessionMeta, activeVersionId]);
 

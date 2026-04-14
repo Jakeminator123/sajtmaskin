@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { SECRETS } from "@/lib/config";
-import { getAllScaffolds, getScaffoldById } from "./registry";
+import { getScaffoldById } from "./registry";
 import type { ScaffoldManifest } from "./types";
 import type { ScaffoldEmbeddingEntry, ScaffoldEmbeddingsFile } from "./scaffold-embeddings-core";
 import { SCAFFOLD_EMBEDDING_MODEL, SCAFFOLD_EMBEDDING_DIMENSIONS } from "./scaffold-embeddings-core";

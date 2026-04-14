@@ -1,6 +1,6 @@
 # Builder — generering, modeller, prompt och SSE
 
-**Senast uppdaterad:** 2026-04-10 (partial-file fail-fast + repair guardrails)
+**Senast uppdaterad:** 2026-04-14 (own-engine verktyg: blocking vs informativa signals)
 
 ## Steg 4 — post-stream (finalize, validering, preflight)
 
@@ -126,6 +126,18 @@ Se även: [`src/lib/gen/stream/builder-stream-contract.ts`](../../src/lib/gen/st
 
 **Integration-SS:** eventet `integration` bär kanoniskt `{ items: BuilderIntegrationItemPayload[] }` (se `builder-stream-contract.ts`); klienten tolererar fortfarande en rå array via `coerceIntegrationSignals`.
 
+### Own-engine verktyg: blocking vs informativa signals (2026-04-14)
+
+**Fixstrategi:** `suggestIntegration` och `requestEnvVar` ska **inte** vara blockerande — de är **informativa signals** som UI:t visar (integration/env-hints), men **koden ska genereras ändå** i samma stream. Bara **`askClarifyingQuestion`** ska sätta streamens blocking-läge (`setBlockingToolCall` → `awaitingInput`), eftersom den ställer en **faktisk fråga** som kräver svar innan kedjan ska fortsätta.
+
+| Verktyg | SSE / effekt | Blockerar generation? |
+|---------|----------------|----------------------|
+| `suggestIntegration` | `integration`-event med provider/env-hints | **Nej** — endast UI-signal |
+| `requestEnvVar` | `integration`-event för env-nyckel | **Nej** — endast UI-signal |
+| `askClarifyingQuestion` | `tool-call` + blocking-flagga | **Ja** — väntar på användarsvar |
+
+Implementation: `emitOwnEngineToolCallSse()` i `src/lib/providers/own-engine/generation-stream-tools.ts`. Verktygsbeskrivningar i `src/lib/gen/agent-tools.ts` ska inte uppmuntra modellen att *endast* anropa verktyg utan kod i samma svar.
+
 ## Generationsloop och felminne
 
 - Efter stream: `finalizeAndSaveVersion`, autofix-pipeline (loopas `DETERMINISTIC_AUTOFIX_MAX_PASSES` gånger, manifest-styrt med 15 deterministiska fixers inkl. lucide-link/image-fixers), syntaxvalidering (`validateAndFix`, eskalerar till LLM-fixer vid behov men stoppar tidigt vid fixer-noop, utebliven förbättring **eller fixer-budget timeout**), därefter capad/bounded-parallel bildmaterialisering i deep path, och sedan ev. verifier-pass (read-only blocking/quality), kvalitetsgrind — se `generation-loop-and-error-memory.md` i arkivet och `llm-pipeline-flow.html` för visuellt flöde. Repair-/autofix-prompter kräver nu uttryckligen **kompletta filer**, inte snippets, och `project-sanity` stoppar kända partial-file-signaler innan persist.
@@ -157,7 +169,7 @@ Det finns inte längre någon separat kanonisk `meritmind-build-flows.md` i trä
 | P5 | **Flera routes** | Shim styrs ofta med `?route=`; **riktig** App Router har **egna** segment, layouts, `loading.tsx` — paritet saknas ofta. |
 | P6 | **API routes / server actions** | Genererade `app/api/*`, server actions och **reella nätverksanrop** körs **inte** som i en riktig Next-server inuti tier‑1. |
 | P7 | **Middleware / edge** | Middleware och edge-runtime **ingår inte** i preview-shimens modell. |
-| P8 | **Miljövariabler & placeholders** | **`suggestIntegration` / `requestEnvVar`** kan sätta **blocking** utan att projekt-env i UI **räknas** som “svar”; **placeholders i `.env.example`** löser inte automatiskt `awaiting-input` i chatten. |
+| P8 | **Miljövariabler & placeholders** | Integration-/env-verktygen **pausar inte längre** streamen (2026-04-14); de visar hints i UI medan kod genereras. **Saknade hemligheter** i VM/preview kan fortfarande ge verify-fel eller ofullständig runtime — det är separat från `awaitingInput`, som bara **`askClarifyingQuestion`** ska utlösa. |
 | P9 | **Hemligheter vs demo** | Stripe/DB utan nycklar: shim kan **visa statiskt innehåll** medan **preview-host verify-lane** (`tsc` / `next build`) **faller** — **dubbla sanningar**. |
 | P10 | **Verifiering vs förhandsvisning** | **Lyckad** `preview-render` + **misslyckad** server-verify — svårt för medlemmar utan tydlig koppling i UI. |
 | P11 | **CSP & eval** | Dev/prod och iframe **CSP** skiljer sig; vissa 3D-/spelbibliotek utlöser **strängare** policy i preview än lokalt. |

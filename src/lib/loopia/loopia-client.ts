@@ -64,16 +64,6 @@ function extractStringValue(xml: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-function extractAllStringValues(xml: string): string[] {
-  const values: string[] = [];
-  const regex = /<value>\s*(?:<string>)?([\s\S]*?)(?:<\/string>)?\s*<\/value>/g;
-  let m;
-  while ((m = regex.exec(xml)) !== null) {
-    values.push(m[1].trim());
-  }
-  return values;
-}
-
 async function callRpc(methodName: string, params: string[]): Promise<string> {
   const body = buildMethodCall(methodName, params);
 

@@ -253,7 +253,6 @@ export async function generateOwnEngineSiteFromPrompt(
     throw new Error(`Could not parse generated files: ${msg}`);
   }
   let runtimeUrl: string | null = finalized.previewUrl;
-  let previewSessionId: string | undefined;
   let runtime: string | undefined;
   let ports: number[] | undefined;
 
@@ -276,7 +275,7 @@ export async function generateOwnEngineSiteFromPrompt(
     );
   }
   runtimeUrl = previewSessionStarted.result.sandboxUrl;
-  previewSessionId = previewSessionStarted.result.sandboxId;
+  const previewSessionId = previewSessionStarted.result.sandboxId;
   await chatRepo.updateVersionPreviewUrl(finalized.version.id, runtimeUrl);
 
   return {

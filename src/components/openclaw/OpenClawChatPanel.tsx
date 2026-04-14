@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/refs -- useDidAvatar exposes ref-like fields for video and connection UI */
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Bot, Send, Square, Trash2, Video, VideoOff, X } from "lucide-react";
@@ -76,7 +77,7 @@ export function OpenClawChatPanel({
     if (!lastAssistant?.content) return;
     const speechText = truncateForSpeech(lastAssistant.content);
     if (speechText) void avatar.speak(speechText);
-  }, [isStreaming, avatarMode, avatar.connectionState, messages, avatar.speak]);
+  }, [isStreaming, avatarMode, avatar, messages]);
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;

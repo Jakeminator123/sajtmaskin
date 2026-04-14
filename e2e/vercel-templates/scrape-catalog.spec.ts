@@ -74,16 +74,6 @@ function buildFilterUrl(filters: Record<string, string[]>): string {
   return `${BASE_URL}?${params.toString()}`;
 }
 
-function uniqueStrings(values: Array<string | null | undefined>): string[] {
-  return Array.from(
-    new Set(
-      values
-        .map((value) => value?.replace(/\s+/g, " ").trim() ?? "")
-        .filter(Boolean),
-    ),
-  );
-}
-
 async function scrollToBottom(page: Page) {
   let previousHeight = 0;
   let attempts = 0;

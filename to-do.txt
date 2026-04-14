@@ -45,6 +45,20 @@ UPPSKJUTET (inget blockerar)
     init-genereringen som capability-matchade block-referenser.
 
 ══════════════════════════════════════════════════
+KLART (2026-04-14)
+══════════════════════════════════════════════════
+
+[x] file-logger.ts borttagen — helt oanvänd (ingen import i src/).
+    SAJTMASKIN_LOG borttagen ur env-policy.json och ENV.md.
+[x] Loggning: shared.ts med gemensamma helpers (paths, slug, gating, sensitive-pattern).
+    devLog.ts, dev-log-reader.ts, generation-log-writer.ts rensat från dubbletter.
+[x] Vercel-sync: manage_env.py läser nu .vercel/project.json (vercel link).
+    Nya npm-scripts: vercel:link, env:pull, env:pull:prod-snapshot, env:status, env:audit, env:reconcile.
+[x] Builder-bugg: modellval/scaffold/inställningar disabled under isCreatingChat fixat.
+    Nu använder config-kontroller isConfigLocked (=isAnyStreaming) istället för isBusy.
+[x] findLastNumber() borttagen ur generation-log-writer.ts (oanvänd, eslint-varning).
+
+══════════════════════════════════════════════════
 OPERATIVT / MILJÖ
 ══════════════════════════════════════════════════
 

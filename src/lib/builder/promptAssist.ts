@@ -809,6 +809,8 @@ export function buildPolishSystemPrompt(params: {
   );
 }
 
+// Brief is intentionally loose (LLM JSON); narrow at use sites with helpers below.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
 type Brief = any;
 
 export function buildPromptFromBrief(params: {
@@ -864,14 +866,14 @@ export function buildPromptFromBrief(params: {
   const qualityGuidance = resolveQualityBarGuidance(tone, styleKeywords, "compact");
   const toBulletLine = (line: string) => (line.startsWith("-") ? line : `- ${line}`);
 
-  const pages: any[] = Array.isArray(brief.pages) ? brief.pages : [];
+  const pages: Brief[] = Array.isArray(brief.pages) ? brief.pages : [];
   const pageLines = pages
     .slice(0, 10)
     .map((p) => {
       const name = asString(p?.name) || "Page";
       const path = asString(p?.path) || "/";
       const purpose = asString(p?.purpose);
-      const sections: any[] = Array.isArray(p?.sections) ? p.sections : [];
+      const sections: Brief[] = Array.isArray(p?.sections) ? p.sections : [];
       const sectionLines = sections.slice(0, 14).map((s) => {
         const type = asString(s?.type) || "section";
         const heading = asString(s?.heading);
@@ -975,7 +977,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const audience = asString(brief.targetAudience);
   const tone = asStringList(brief.toneAndVoice);
 
-  const pages: any[] = Array.isArray(brief.pages) ? brief.pages : [];
+  const pages: Brief[] = Array.isArray(brief.pages) ? brief.pages : [];
   const isSinglePage = pages.length === 1 && asString(pages[0]?.path) === "/";
   const pageLines = pages
     .slice(0, 8)
@@ -983,7 +985,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
       const name = asString(p?.name) || "Page";
       const path = asString(p?.path) || "/";
       const purpose = asString(p?.purpose);
-      const sections: any[] = Array.isArray(p?.sections) ? p.sections : [];
+      const sections: Brief[] = Array.isArray(p?.sections) ? p.sections : [];
       const sectionLines = sections.slice(0, 12).map((s) => {
         const type = asString(s?.type) || "section";
         const heading = asString(s?.heading);

@@ -135,10 +135,12 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [scaffoldId, setScaffoldId] = useState<string | null>(DEFAULT_SCAFFOLD_ID);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- refresh defaults when scaffold mode changes */
     setCustomInstructions((prev) => {
       if (!isDefaultCustomInstructions(prev)) return prev;
       return getDefaultCustomInstructions(scaffoldMode);
     });
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [scaffoldMode]);
 
   const effectiveThinking = enableThinking;

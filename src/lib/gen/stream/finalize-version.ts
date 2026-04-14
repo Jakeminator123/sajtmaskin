@@ -111,11 +111,6 @@ type FinalizeStepTelemetryMap = Partial<Record<OwnEnginePostStreamPhaseId, Final
 type FinalizeSyntaxResult = Awaited<ReturnType<typeof validateAndFix>>;
 type FinalizePreflightResult = Awaited<ReturnType<typeof runFinalizePreflight>>;
 
-interface FinalizeDeepPathResult {
-  contentForVersion: string;
-  stepTelemetry: FinalizeStepTelemetryMap;
-}
-
 interface FinalizeFastPathResult {
   contentForVersion: string;
   syntaxResult: FinalizeSyntaxResult;
@@ -883,7 +878,7 @@ export async function finalizeAndSaveVersion(
       lineageHash: lineageHash ?? null,
     },
   });
-  let preflightLogs = rawPreflightLogs.map((log) => withLogPassMeta(log));
+  const preflightLogs = rawPreflightLogs.map((log) => withLogPassMeta(log));
   const syntaxFailureLog = buildSyntaxFailureLog({
     chatId,
     versionId: version.id,

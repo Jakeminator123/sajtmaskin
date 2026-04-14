@@ -26,6 +26,9 @@ const CLIENT_KEY = sanitizePublicEnv(process.env.NEXT_PUBLIC_AVATAR_CLIENT_KEY);
 
 export const DID_AVATAR_AVAILABLE = Boolean(AGENT_ID && CLIENT_KEY);
 
+type DidClientSdk = typeof import("@d-id/client-sdk");
+type DidAgentManager = Awaited<ReturnType<DidClientSdk["createAgentManager"]>>;
+
 export function truncateForSpeech(text: string, maxSentences = 3): string {
   const clean = text
     .replace(/[*_`#\[\]]/g, "")
@@ -40,8 +43,8 @@ export function useDidAvatar(options?: { enabled?: boolean }) {
   const enabled = (options?.enabled ?? true) && DID_AVATAR_AVAILABLE;
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const agentRef = useRef<any>(null);
-  const sdkModuleRef = useRef<any>(null);
+  const agentRef = useRef<DidAgentManager | null>(null);
+  const sdkModuleRef = useRef<DidClientSdk | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const [connectionState, setConnectionState] =

@@ -33,7 +33,7 @@ function baseCaps(overrides: Partial<InferredCapabilities> = {}): InferredCapabi
   };
 }
 
-function makeResponse(name: string, namespace: string) {
+function makeResponse(name: string, _namespace: string) {
   return {
     ok: true,
     json: async () => ({

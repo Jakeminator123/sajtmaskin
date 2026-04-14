@@ -1,5 +1,5 @@
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
-import { LUCIDE_ICONS, LUCIDE_BRAND_ICON_REPLACEMENTS } from "@/lib/gen/data/lucide-icons";
+import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import {
   findNearestIcon,
   parseSpecifier,
@@ -458,7 +458,6 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
   const lines = code.split("\n");
 
   const importedNames = new Set<string>();
-  const importLines: string[] = [];
   for (const line of lines) {
     const defaultMatch = line.match(/^\s*import\s+(\w+)\s+from\s+/);
     if (defaultMatch) importedNames.add(defaultMatch[1]);

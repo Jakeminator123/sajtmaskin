@@ -32,8 +32,8 @@ const numericEnvSettingSchema = z.object({
   max: z.number(),
 });
 
-const buildProfileIdSchema = z.enum(["fast", "pro", "max", "codex", "anthropic"]);
-const generationPhaseSchema = z.enum([
+const _buildProfileIdSchema = z.enum(["fast", "pro", "max", "codex", "anthropic"]);
+const _generationPhaseSchema = z.enum([
   "planner",
   "generator",
   "fixer",
@@ -59,7 +59,7 @@ const buildProfilesSchema = z.object({
   }),
 });
 
-const qualityLevelSchema = z.enum(["light", "standard", "pro", "premium", "max"]);
+const _qualityLevelSchema = z.enum(["light", "standard", "pro", "premium", "max"]);
 
 const promptAssistSchema = z.object({
   defaults: z.object({
@@ -263,9 +263,9 @@ const aiModelsManifestSchema = z.object({
 });
 
 export type AiModelsManifest = z.infer<typeof aiModelsManifestSchema>;
-export type BuildProfileId = z.infer<typeof buildProfileIdSchema>;
-export type QualityLevelFromManifest = z.infer<typeof qualityLevelSchema>;
-export type GenerationPhaseFromManifest = z.infer<typeof generationPhaseSchema>;
+export type BuildProfileId = z.infer<typeof _buildProfileIdSchema>;
+export type QualityLevelFromManifest = z.infer<typeof _qualityLevelSchema>;
+export type GenerationPhaseFromManifest = z.infer<typeof _generationPhaseSchema>;
 export type ReasoningEffortFromManifest = z.infer<typeof reasoningEffortSchema>;
 export type PhaseRoutingTierFromManifest = z.infer<typeof phaseRoutingTierSchema>;
 export type PhaseThinkingConfigFromManifest = z.infer<typeof phaseThinkingSchema>;
