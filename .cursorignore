@@ -44,9 +44,9 @@ archive/scripts-labs-testning_scarf/output_first_llm_underlag/
 scripts/output_test_scaffold/
 
 # --- MCP & lokal config ---
-.cursor/mcp.json
-config.browser.txt
-config.txt
+#.cursor/mcp.json
+#config.browser.txt
+#config.txt
 
 # --- Media ---
 public/video/
