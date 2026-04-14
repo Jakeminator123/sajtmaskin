@@ -89,7 +89,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
 | 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Auto i dev** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Auto-on i `NODE_ENV=development`, explicit opt-in i prod. Init only. `searchTemplateLibrary()` ej använd i runtime. |
-| 21 | Variant structural files | `selectVariantStructuralFiles()` | `scaffold-variants/structural-files.ts`, `orchestrate.ts` | **Auto i dev** | Scaffold-variant-ankrade `selectedFiles`-utdrag (`layout.tsx`, `page.tsx`, `middleware.ts`) via `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`. Injecteras i promptblocket `## Structural References (this variant)` för init / first-code-generation. |
+| 21 | Variant structural files | `selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()` | `scaffold-variants/structural-files.ts`, `orchestrate.ts` | **Auto i dev** | Två pass: (1) variant-driven från `sourceTemplateIds` (max 3 filer), (2) capability-driven från hela katalogen baserat på `InferredCapabilities` (max 2 extra). Injecteras i `## Structural References (this variant)` via `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`. Init / first-code-generation only. |
 
 ---
 
@@ -402,7 +402,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | Problem | Detalj |
 |---------|--------|
 | Template-library scaffold-anchored guidance (opt-in) | `resolveTemplateGuidance()` i `orchestrate.ts` injicerar runtimeGuidance i `## Scaffold Research Priorities` när `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true`. Global `searchTemplateLibrary()` förblir oanvänd i runtime. |
-| Variant structural files (opt-in) | `selectVariantStructuralFiles()` i `scaffold-variants/structural-files.ts` slår upp variantens `sourceTemplateIds`, väljer budgeterade `layout.tsx`-/`page.tsx`-/`middleware.ts`-utdrag och injicerar dem i `## Structural References (this variant)` när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`. |
+| Variant structural files (opt-in) | Två pass: (1) `selectVariantStructuralFiles()` slår upp variantens `sourceTemplateIds` (max 3 filer), (2) `selectCapabilityStructuralFiles()` söker i hela katalogen efter entries som matchar `InferredCapabilities` (max 2 extra). Merged via `mergeStructuralFiles()` och injiceras i `## Structural References (this variant)` när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`. |
 | `PromptType` i kod ≠ glossary | Koden har `wizard \| freeform \| template \| audit \| followup_*`. Glossary nämner även `app` och `technical` som docs-only flavorer. |
 | ~~Scaffold inline-filer~~ | **Löst.** Scaffold-filer extraherade till disk under `scaffolds/<id>/files/`. Manifest-filer refererar filer via `loadScaffoldFiles()`. |
 

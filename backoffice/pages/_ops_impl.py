@@ -274,7 +274,7 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
             value=vsf_current,
             key="variant_structural_files_toggle",
             help=(
-                f"Styr env-flaggan `{vsf_key}` i `.env.local`. När på injiceras utvalda `layout.tsx`-, `page.tsx`- och `middleware.ts`-utdrag från variantens `sourceTemplateIds` i första genereringen."
+                f"Styr env-flaggan `{vsf_key}` i `.env.local`. När på injiceras utvalda `layout.tsx`-, `page.tsx`- och `middleware.ts`-utdrag i första genereringen. Två pass: (1) variant-driven från `sourceTemplateIds`, (2) capability-driven från hela katalogen baserat på detekterade capabilities (auth, ecommerce, dashboard)."
             ),
         )
         if vsf_new != vsf_current:
