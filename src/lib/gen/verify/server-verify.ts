@@ -432,14 +432,14 @@ async function tryServerRepairLoop(params: {
   const syntaxClean = bestErrorCount === 0;
   if (syntaxClean) {
     if (await tryPromoteAfterGate(bestContent, "llm")) {
-      logRepairOutcome(chatId, versionId, "llm", true, llmPasses, 0, undefined, verifyContext);
+      logRepairOutcome(chatId, versionId, "llm", true, llmPasses, 0, undefined, verifyContext, fixerModel);
       return;
     }
     await failVersionVerification(
       versionId,
       "Server repair: syntax clean but quality gate still failing.",
     ).catch(() => null);
-    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason, verifyContext);
+    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason, verifyContext, fixerModel);
     return;
   }
 
@@ -447,7 +447,7 @@ async function tryServerRepairLoop(params: {
     versionId,
     `Server repair incomplete (${bestErrorCount} errors remain).`,
   ).catch(() => null);
-  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason, verifyContext);
+  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason, verifyContext, fixerModel);
 }
 
 function logRepairOutcome(
@@ -464,6 +464,7 @@ function logRepairOutcome(
     jobStartedAt: string | null;
     jobFinishedAt: string | null;
   },
+  fixerModelId?: string | null,
 ) {
   createEngineVersionErrorLogs([{
     chatId,
@@ -473,17 +474,20 @@ function logRepairOutcome(
     message: repaired
       ? `Server repair succeeded (${method}).`
       : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
-    meta: buildServerRepairOutcomeMeta({
-      method,
-      llmPasses,
-      repaired,
-      remainingErrors,
-      earlyStopReason,
-      verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
-      firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
-      jobStartedAt: verifyContext?.jobStartedAt ?? null,
-      jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
-    }),
+    meta: {
+      ...buildServerRepairOutcomeMeta({
+        method,
+        llmPasses,
+        repaired,
+        remainingErrors,
+        earlyStopReason,
+        verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
+        firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
+        jobStartedAt: verifyContext?.jobStartedAt ?? null,
+        jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
+      }),
+      ...(fixerModelId ? { fixerModelId } : {}),
+    },
   }]).catch((err) => {
     console.warn("[server-verify] Failed to persist server-repair outcome log:", err);
   });

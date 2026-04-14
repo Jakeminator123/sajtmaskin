@@ -1,6 +1,6 @@
 # Steg 4 — generera (codegen), finalisera och validera (post-stream)
 
-**Senast uppdaterad:** 2026-04-10
+**Senast uppdaterad:** 2026-04-14
 
 Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna.
 
@@ -55,7 +55,11 @@ Telemetry använder etiketterna `fast+deep` respektive `fast-only` (se `devLogAp
 | **Observability** | `createGenerationTelemetryRecord`, `devLogAppend`, preflight-loggar | Nej |
 | **Non-fatal fel** | Bildmaterialisering misslyckas, verifier-pass kastar | Nej — logg/warn, fortsätt |
 
-**`server-verify`:** körs **asynkront** efter finalize/handoff till preview (se `verify/server-verify.ts` och `resolvePostFinalizeServerVerifyDecision()` i `post-finalize-policies.ts`); **blockerar inte** SSE `done`. Den hoppas över för t.ex. `verificationPolicy === "fast"`, icke-eligible versioner, `previewBlocked`, `verificationBlocked` eller låg-risk-standardflöden. Background repair i denna lane använder samma fixer-fasmodell och phase-thinking som annan LLM-fix. Det är **Steg 4-nära** men **inte** samma synkrona pipeline som `finalizeAndSaveVersion`.
+**`server-verify`:** körs **asynkront** efter finalize/handoff till preview (se `verify/server-verify.ts` och `resolvePostFinalizeServerVerifyDecision()` i `post-finalize-policies.ts`); **blockerar inte** SSE `done`. Den hoppas över för t.ex. `verificationPolicy === "fast"`, icke-eligible versioner, `previewBlocked`, `verificationBlocked` eller låg-risk-standardflöden. Background repair i denna lane använder samma fixer-fasmodell och phase-thinking som annan LLM-fix (modell-ID loggas nu i `server-repair`-loggar via `fixerModelId`). Det är **Steg 4-nära** men **inte** samma synkrona pipeline som `finalizeAndSaveVersion`.
+
+**Reparationskoordination (2026-04-14):** Tre parallella reparationskedjor kan triggas vid quality-gate-fel: (1) server-verify/`tryServerRepairLoop`, (2) klient tier-2 verify → `POST /repair`, (3) klient `useAutoFix` → ny follow-up-stream. `useAutoFix` kontrollerar nu versionens verifieringsstatus (`verifying`/`repairing`) och avbryter om server-verify pågår. Follow-ups med `changeScope === "local-layout"` får `verificationPolicy: "standard"` i stället för `"fast"`. Finalize loggar en `finalize.content-shrink-warning` om follow-up-output krymper versionsinnehållet med mer än 75%.
+
+**Bildmaterialisering:** standard-cap höjd till **6** bilder (från 4); premium/fidelity3 upp till **8** (från 6). API: **Unsplash Search** med 8s timeout per sökning, parallellitet 2.
 
 ## Fault/fix-loggning och overhead-ytor
 

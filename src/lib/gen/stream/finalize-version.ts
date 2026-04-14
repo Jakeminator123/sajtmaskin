@@ -204,12 +204,12 @@ function createFinalizeStepTelemetry(
 }
 
 function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number {
-  if (!buildSpec) return 4;
+  if (!buildSpec) return 6;
   if (
     buildSpec.previewPolicy === "fidelity3" ||
     buildSpec.qualityTarget === "release-candidate"
   ) {
-    return 6;
+    return 8;
   }
   if (
     buildSpec.qualityTarget !== "standard" ||
@@ -217,9 +217,9 @@ function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number 
     buildSpec.contextPolicy === "heavy" ||
     buildSpec.changeScope === "integration"
   ) {
-    return 5;
+    return 7;
   }
-  return 4;
+  return 6;
 }
 
 function resolveVerifierPassPolicy(params: {
@@ -559,6 +559,15 @@ async function runFinalizeFastPath(params: {
         previousContentLen,
         mergedContentLen,
         shrinkRatio: Math.round(shrinkRatio * 100),
+        generatedFileCount: generatedFiles.length,
+        previousFileCount: previousFiles.length,
+      });
+      devLogAppend("in-progress", {
+        type: "finalize.content-shrink-warning",
+        chatId,
+        previousContentLen,
+        mergedContentLen,
+        shrinkPercent: Math.round((1 - shrinkRatio) * 100),
         generatedFileCount: generatedFiles.length,
         previousFileCount: previousFiles.length,
       });

@@ -1397,7 +1397,16 @@ function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnaps
     .slice(-MAX_SITE_HISTORY_RUNS);
   fs.writeFileSync(historyPath, deduped.join("\n") + "\n", "utf8");
 
-  fs.copyFileSync(path.join(runDir, SUMMARY_FILE), path.join(latestDir, SUMMARY_FILE));
+  const copyIfExists = (fileName: string) => {
+    const src = path.join(runDir, fileName);
+    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(latestDir, fileName));
+  };
+  copyIfExists(SUMMARY_FILE);
+  copyIfExists(META_FILE);
+  copyIfExists(TIMELINE_FILE);
+  copyIfExists(FAULT_FIX_CSV_FILE);
+  copyIfExists(FAULT_FIX_FILE);
+
   fs.writeFileSync(
     path.join(latestDir, OBSERVABILITY_FILE),
     JSON.stringify(snapshot, null, 2) + "\n",
@@ -1406,6 +1415,11 @@ function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnaps
   fs.writeFileSync(
     path.join(latestDir, FIX_PATTERNS_FILE),
     JSON.stringify(snapshot.recurringPatterns, null, 2) + "\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(latestDir, "_source_run.txt"),
+    `${path.basename(runDir)}\n`,
     "utf8",
   );
 }
