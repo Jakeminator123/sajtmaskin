@@ -65,6 +65,7 @@ import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
 import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";
 import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
 import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
+import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 
 export interface TemplateGuidanceMeta {
   enabled: boolean;
@@ -365,9 +366,11 @@ export async function resolveOrchestrationBase(
   ];
   const uniqueRefNames = [...new Set(componentRefNames)];
   const localRefs = loadShadcnExamples(uniqueRefNames);
-  const componentReferences = await fetchMissingRegistryExamples(uniqueRefNames, localRefs)
+  const officialRefs = await fetchMissingRegistryExamples(uniqueRefNames, localRefs)
     .then((fetched) => [...localRefs, ...fetched])
     .catch(() => localRefs);
+  const communityRefs = await fetchCommunityBlocks(capabilities, prompt).catch(() => []);
+  const componentReferences = [...officialRefs, ...communityRefs];
 
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,

@@ -94,11 +94,36 @@ def _render_sync_status(ctx: BackofficeContext) -> None:
         )
 
 
+def _render_community_registries(ctx: BackofficeContext) -> None:
+    st.subheader("Community registries")
+    cr_path = ctx.config_dir / "community-registries.json"
+    if not cr_path.is_file():
+        st.info("Ingen `config/community-registries.json` hittad.")
+        return
+    try:
+        registries = json.loads(cr_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        st.error("Kunde inte läsa community-registries.json")
+        return
+
+    for reg in registries:
+        ns = reg.get("namespace", "?")
+        desc = reg.get("description", "")
+        mappings = reg.get("sectionMappings", {})
+        total_items = sum(len(v) for v in mappings.values())
+        max_gen = reg.get("maxPerGeneration", "?")
+        st.markdown(f"**{ns}** — {desc}")
+        st.caption(f"{len(mappings)} sektionstyper · {total_items} mappade items · max {max_gen} per generation")
+
+
 def render(ctx: BackofficeContext) -> None:
     domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("shadcn Ecosystem")
 
     _render_sync_status(ctx)
+
+    st.divider()
+    _render_community_registries(ctx)
 
     st.divider()
     st.subheader("shadcn-mirror-audit-policy.json")

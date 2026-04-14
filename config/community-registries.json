@@ -1,0 +1,47 @@
+[
+  {
+    "namespace": "@shadcnblocks",
+    "url": "https://shadcnblocks.com/r/{name}.json",
+    "description": "Marketing blocks: hero, features, pricing, CTA, testimonials, FAQ, footer, navbar, contact, about",
+    "maxPerGeneration": 2,
+    "sectionMappings": {
+      "hero": ["hero1", "hero3", "hero5"],
+      "features": ["feature1", "feature3", "feature5"],
+      "pricing": ["pricing1", "pricing3"],
+      "testimonials": ["testimonial1", "testimonial3"],
+      "cta": ["cta1", "cta3"],
+      "faq": ["faq1", "faq2"],
+      "footer": ["footer1", "footer3"],
+      "navbar": ["navbar1"],
+      "contact": ["contact1"],
+      "about": ["about1"],
+      "stats": ["stats1"]
+    }
+  },
+  {
+    "namespace": "@tailark",
+    "url": "https://tailark.com/r/{name}.json",
+    "description": "Clean marketing website blocks",
+    "maxPerGeneration": 1,
+    "sectionMappings": {
+      "hero": ["hero-1", "hero-3"],
+      "features": ["features-1", "features-3"],
+      "pricing": ["pricing-1"],
+      "cta": ["call-to-action-1"],
+      "faq": ["faqs-1", "faqs-2"],
+      "footer": ["footer-1"],
+      "testimonials": ["testimonials-1"]
+    }
+  },
+  {
+    "namespace": "@magicui",
+    "url": "https://magicui.design/r/{name}",
+    "description": "Animated UI effects",
+    "maxPerGeneration": 1,
+    "sectionMappings": {
+      "animation": ["marquee", "bento-grid", "shimmer-button", "number-ticker", "animated-list"],
+      "background": ["particles", "dot-pattern", "grid-pattern", "retro-grid"],
+      "premium": ["magic-card", "neon-gradient-card", "meteors", "globe"]
+    }
+  }
+]

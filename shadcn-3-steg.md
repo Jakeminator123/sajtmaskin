@@ -113,13 +113,12 @@ inferCapabilities(prompt)
 
 **Din lokala mapp med alla repos:** Användbar för curation/audit — inte som runtime-källa. Vi kan köra ett audit-script som traverserar varje registry och validerar stackkompatibilitet.
 
-**Risk:** Medel–hög. Kräver audit + testning.
-**Insats:** 1-2 dagar.
+**Status:** Genomförd 2026-04-14. Tre registries integrerade: `@shadcnblocks`, `@tailark`, `@magicui` med kurerad section-mapping i `config/community-registries.json`. Orchestratorn hämtar automatiskt 1-3 community-blocks baserat på prompt-keywords och capabilities.
 
 ---
 
 ## Ordning
 
-1. **Steg 1** → /avslutning → commit + push
-2. **Steg 2** → /avslutning → commit + push
-3. **Diskussion** om steg 3 strategi och audit-process
+1. **Steg 1** → /avslutning → commit + push — **KLART**
+2. **Steg 2** → /avslutning → commit + push — **KLART**
+3. **Steg 3** → /avslutning → commit + push — **KLART**
