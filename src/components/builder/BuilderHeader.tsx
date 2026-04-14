@@ -255,7 +255,7 @@ export function BuilderHeader(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <DropdownMenu>
+        {chatId && (<><DropdownMenu>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -649,7 +649,7 @@ export function BuilderHeader(props: {
               Visa tips efter AI-svar
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu></>)}
 
         <DropdownMenu>
           <TooltipProvider>

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { devLogAppend } from "@/lib/logging/devLog";
 import type { InferredCapabilities } from "../capability-inference";
 import {
   getTemplateLibraryEntries,
@@ -151,7 +152,16 @@ export function selectVariantStructuralFiles(
   const sources = variant.sourceTemplateIds
     .map((sourceId) => {
       const entry = getTemplateLibraryEntryById(sourceId);
-      if (!entry) return null;
+      if (!entry) {
+        devLogAppend("in-progress", {
+          type: "structural-files.source-missing",
+          sourceId,
+          variantId: variant.id,
+          scaffoldId: variant.scaffoldId,
+          message: `sourceTemplateId "${sourceId}" not found in template-library catalog`,
+        });
+        return null;
+      }
       const files = selectStructuralFilesForEntry(entry);
       if (files.length === 0) return null;
       const scaffoldRelevance = entry.recommendedScaffoldIds.includes(scaffoldId)

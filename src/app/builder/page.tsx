@@ -17,7 +17,7 @@ export default function BuilderPage() {
         <div className="bg-muted/30 flex h-screen items-center justify-center supports-[height:100dvh]:h-dvh">
           <div className="text-center">
             <Loader2 className="text-primary mx-auto h-8 w-8 animate-spin" />
-            <p className="text-muted-foreground mt-4 text-sm">Loading builder...</p>
+            <p className="text-muted-foreground mt-4 text-sm">Laddar byggaren…</p>
           </div>
         </div>
       }

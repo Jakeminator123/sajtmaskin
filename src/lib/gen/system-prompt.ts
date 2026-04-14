@@ -244,8 +244,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
-  { match: /^component references$/i, priority: 76 },
-  { match: /^structural references \(this variant\)$/i, priority: 75 },
+  { match: /^component references$/i, priority: 80 },
+  { match: /^structural references$/i, priority: 75 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
@@ -552,9 +552,9 @@ export async function buildDynamicContext(
 
   if (variantStructuralFiles && variantStructuralFiles.files.length > 0) {
     parts.push(
-      "## Structural References (this variant)",
+      "## Structural References",
       "",
-      "Verified structural patterns from curated references for the active scaffold variant. Adapt routing, middleware, and layout patterns to the user's request - do not clone them verbatim.",
+      "Verified structural patterns from curated references relevant to the active scaffold variant and detected capabilities. Adapt routing, middleware, and layout patterns to the user's request — do not clone them verbatim.",
       "",
     );
     for (const ref of variantStructuralFiles.files) {

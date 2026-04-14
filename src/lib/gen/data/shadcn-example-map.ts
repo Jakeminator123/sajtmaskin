@@ -47,5 +47,5 @@ export function getPromptDrivenExampleNames(prompt: string): string[] {
       for (const n of candidates) names.add(n);
     }
   }
-  return [...names];
+  return [...names].slice(0, 8);
 }
