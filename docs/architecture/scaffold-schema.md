@@ -495,10 +495,11 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Verktyg | Kommando | Vad det gör |
 |---------|---------|-------------|
-| `scripts/scripts_dashboard.py` | `npm run scripts:dashboard` | **Tkinter** pipeline-panel: kör npm-steg + visar artifact-parity |
-| `scripts/dashboard_shared.py` | (importeras) | Prompt-dump-status, delad med config-dashboarden |
-| `config/dashboard/app.py` | `config/dashboard/run.ps1` | **Streamlit** config-dashboard med dedikerad "Runtime scaffolds"-sida |
-| `sajtmaskin_backoffice.py` | `npm run backoffice` | **Streamlit** overheadpanel för scaffolds, pipeline, eval och Autofix/Kvalitet |
+| `backoffice/` | (importeras av entrypoints) | **Kanonisk Streamlit-app** med sidmoduler för config, overhead och artifacts |
+| `scripts/scripts_dashboard.py` | `npm run scripts:dashboard` | Legacy-entrypoint till den konsoliderade backoffice-appen |
+| `scripts/dashboard_shared.py` | (importeras) | Legacy re-export till `backoffice/shared.py` |
+| `config/dashboard/app.py` | `config/dashboard/run.ps1` | Legacy Streamlit-entrypoint till samma konsoliderade backoffice |
+| `sajtmaskin_backoffice.py` | `npm run backoffice` | Root-entrypoint till den konsoliderade backoffice-appen |
 
 ### Övriga aktiva
 
@@ -559,7 +560,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Fil | Vad |
 |-----|-----|
-| `config/dashboard/app.py` | Streamlit dashboard med "Runtime scaffolds"-sida |
+| `backoffice/pages/runtime_scaffolds.py` | Runtime-scaffolds-sida i den konsoliderade backoffice-appen |
 | `config/dashboard/domain-map.json` | Maskin-läsbar karta (parity-testad) |
 | `config/dashboard/requirements.txt` | Streamlit beroende |
 | `config/dashboard/run.ps1` | Launcher |
@@ -572,7 +573,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 - **Skapas av** `src/lib/gen/prompt-dump.ts` — bara om `SAJTMASKIN_PROMPT_DUMP=1`
 - **Innehåller** snapshot av senaste generation: system prompt, dynamic context, generation-input-package
 - **Användbart för:** debugging av "vilken scaffold såg modellen?" — men inte för att redigera/hantera scaffolds
-- Dashboards (`scripts_dashboard.py`, `config/dashboard/app.py`) visar dump-status via `dashboard_shared.py`
+- Backoffice-ytan visar dump-status via `backoffice/shared.py` (legacy re-export finns kvar i `dashboard_shared.py`)
 
 ---
 
@@ -584,7 +585,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 |--------|--------|
 | Acceptera att `family === id` och sluta tänka på "families" som separat begrepp | En dimension mindre |
 | Använd `scaffold_cli.py` istället för att manuellt navigera filer | CLI gör status/build/eval/verify |
-| Använd `config/dashboard/app.py` "Runtime scaffolds"-sidan för översikt | Streamlit-vy istf. att läsa manifest-filer |
+| Använd den konsoliderade backoffice-appens "Runtime scaffolds"-sida för översikt | Streamlit-vy istf. att läsa manifest-filer |
 
 ### Nivå 2 — Kodförenkling (15-20 filändringar)
 
@@ -622,4 +623,4 @@ Fristående Streamlit-app: `sajtmaskin_backoffice.py` i repo-roten.
 | **Autofix & Kvalitet** | Pipelineöversikt, fault/fix-statistik från `error-log.csv`, runtime-gränser för LLM-autofix och centrala repair/token/verifier-kontroller från `config/ai_models/manifest.json`. |
 | **Mental modell** | Renderar `docs/architecture/scaffold-schema.md` + snabbfakta (antal scaffolds, IDs, site kinds, complexities). |
 
-Backoffice och config-dashboard ska dela helperlogik via `config/dashboard/shared_overhead.py` när de läser/skriver manifest- eller fault/fix-relaterade data.
+Backoffice-ytan ska dela helperlogik via `backoffice/shared.py` när den läser/skriver manifest- eller fault/fix-relaterade data. `config/dashboard/shared_overhead.py` finns kvar som legacy re-export.

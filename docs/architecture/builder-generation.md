@@ -83,7 +83,7 @@ Snabba lokala orienteringsfiler för nästa agent:
 Prompt-dumps är **debug-/observabilityartefakter**, inte source of truth för
 runtime. Den kanoniska skrivningen ligger i `src/lib/gen/prompt-dump.ts`, och
 båda Python-panelerna läser nu samma statussemantik via
-`scripts/dashboard_shared.py`.
+`backoffice/shared.py` (legacy re-export finns kvar i `scripts/dashboard_shared.py`).
 
 Det finns nu tre separata observability-spår som är lätta att blanda ihop:
 
@@ -93,8 +93,8 @@ Det finns nu tre separata observability-spår som är lätta att blanda ihop:
 
 Det finns **ingen** samlad kanonisk `logs/`-mapp ännu som binder ihop prompt-dumps, prompt logs, evals, verifieringsresultat, modeller, tokens och slutlig scaffold/utfall i en enda körjournal. Dagens läge är i stället uppdelat mellan `data/prompt-dumps/`, databastabeller/UI för prompt logs och vanliga dev-/runtime-loggar.
 
-**Viktigt:** `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
-inte leda den. Delad overheadlogik ska ligga i `config/dashboard/shared_overhead.py`, inte dupliceras mellan apparna. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
+**Viktigt:** `backoffice/`, `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
+inte leda den. Delad overheadlogik ska ligga i `backoffice/shared.py`, inte dupliceras mellan entrypointsen. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
 
 Kategorier:
 
@@ -108,8 +108,8 @@ Statusord som visas i panelerna:
 - `stale-risk` — dump finns men ser gammal ut; kontrollera tidsstämpeln
 - `disabled` — dumpning är avstängd; gamla payloadfiler kan fortfarande ligga kvar
 
-`config/dashboard/app.py` visar detta i preview-/versionsöversikten som del av
-konfigurations- och observabilityytan. `scripts/scripts_dashboard.py` använder
+Den konsoliderade backoffice-appen visar detta i preview-/versionsöversikten som del av
+konfigurations- och observabilityytan. Legacy-entrypointen `scripts/scripts_dashboard.py` använder
 samma statusdata i pipeline-/artifactpanelen.
 
 ## SSE / stream-scope (W3)

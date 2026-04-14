@@ -61,7 +61,7 @@ Telemetry använder etiketterna `fast+deep` respektive `fast-only` (se `devLogAp
 
 - `devLog.ts` skriver full ISO-tid till körloggarna; `generation-log-writer.ts` bygger därifrån `fault-fix-index.md`, `fault-fix-index.csv` och den globala `logs/llm-segmentts-and-index/error-log.csv`.
 - `error-log.csv` är den sammanhållna fault/fix-loggen för mekaniska fixar, LLM-fixar och relevanta pipeline-/verify-signaler. `time` ska tolkas som full tidsstämpel, inte bara klockslag.
-- `config/dashboard/app.py` och `sajtmaskin_backoffice.py` ska spegla samma runtime-sanning via `config/dashboard/shared_overhead.py`, inte genom att reimplementera eller importera varandras app-entrypoints.
+- Den konsoliderade backoffice-appen under `backoffice/` ska spegla runtime-sanningen via `backoffice/shared.py`. `config/dashboard/app.py`, `sajtmaskin_backoffice.py` och `scripts/scripts_dashboard.py` är nu wrappers/legacy entrypoints, inte separata sanningar.
 - Versionskolumnen `files_json` förblir medvetet den \"slanka\" fil-listan efter merge/preflight. `package.json`, `tsconfig.json`, `next.config.ts` och annan baseline läggs i stället till via `buildCompleteProject(...)` för preview/export. Saknad `package.json` i DB betyder därför inte automatiskt att preview-projektet är ofullständigt.
 
 ## Steg 4 vs Steg 5 (gräns)
@@ -83,6 +83,6 @@ Uppdatera i samma leverans:
 - `docs/architecture/glossary.md` (fas 3: repair, quality gate, finalize)
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)
-- Vid manifest-/overheadändringar: `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `config/dashboard/shared_overhead.py`, ev. `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
+- Vid manifest-/overheadändringar: `backoffice/`, `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
 
 Se även: `docs/architecture/llm-input-blocks.md` (Steg 3), `docs/architecture/preview-deploy.md` (Steg 5).
