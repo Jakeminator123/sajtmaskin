@@ -66,7 +66,11 @@ function extractCode(item: RegistryItem): string | null {
   if (!tsxFile?.content) return null;
   return tsxFile.content
     .replace(/@\/registry\/new-york-v4\/ui\//g, "@/components/ui/")
-    .replace(/@\/registry\/new-york-v4\/examples\//g, "@/components/examples/");
+    .replace(/@\/registry\/new-york-v4\/hooks\//g, "@/lib/hooks/")
+    .replace(/@\/registry\/new-york-v4\/lib\/utils/g, "@/lib/utils")
+    .replace(/@\/registry\/new-york-v4\/blocks\//g, "@/components/blocks/")
+    .replace(/@\/registry\/new-york-v4\/examples\//g, "@/components/examples/")
+    .replace(/@\/registry\/new-york-v4\//g, "@/components/");
 }
 
 async function main() {

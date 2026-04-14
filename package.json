@@ -9,7 +9,7 @@
     "node": "22.22.2"
   },
   "scripts": {
-    "predev": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/refresh-token.mjs && node scripts/db/db-init.mjs",
+    "predev": "node scripts/dev/check-systemprompt.mjs && npm run shadcn:sync:soft && node scripts/dev/refresh-token.mjs && node scripts/db/db-init.mjs",
     "dev": "node scripts/dev/next-runner.mjs dev",
     "refresh-token": "node scripts/dev/refresh-token.mjs",
     "prebuild": "node scripts/dev/check-systemprompt.mjs",
@@ -73,6 +73,7 @@
     "scaffolds:promote": "npx tsx scripts/scaffolds/promote-to-scaffold.ts",
     "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts",
     "shadcn:sync": "npx tsx scripts/shadcn/sync-shadcn-registry.ts",
+    "shadcn:sync:soft": "npm run shadcn:sync || echo [shadcn-sync] Registry check skipped",
     "shadcn:sync:write": "npx tsx scripts/shadcn/sync-shadcn-registry.ts --write",
     "shadcn:sync-examples": "npx tsx scripts/shadcn/sync-shadcn-examples.ts",
     "baseline-deps:verify": "npx tsx scripts/deps/validate-baseline-npm-versions.ts",

@@ -1,0 +1,71 @@
+---
+description: Snabb kommandoöversikt per område
+alwaysApply: false
+---
+
+# Useful Commands
+
+Snabb uppslagsregel när du behöver rätt kommando utan att leta runt. **`package.json` är kanonisk källa** om något här blir inaktuellt.
+
+## Dev och verifiering
+
+- `npm run dev` — starta appen lokalt.
+- `npm run devtest` — konservativ smoke-test: typecheck + scaffoldvalidering + test + lint.
+- `npm run typecheck` — TypeScript utan output.
+- `npm run test:ci` — kör hela Vitest-sviten en gång.
+- `npm run lint` — ESLint för repot.
+
+## shadcn
+
+- `npm run shadcn:sync` — jämför lokal `SHADCN_COMPONENTS` mot officiella registret; skriver inte filer.
+- `npm run shadcn:sync:soft` — samma kontroll men non-blocking; körs automatiskt via `predev`.
+- `npm run shadcn:sync:write` — uppdatera `src/lib/gen/data/shadcn-components.ts`.
+- `npm run shadcn:sync-examples` — uppdatera `data/shadcn-examples/` från officiella exempel.
+
+## Databas
+
+- `npm run db:init` — bootstrap + SQL-migrationer lokalt.
+- `npm run db:check` — read-only sanity-koll mot dev-databasen.
+- `npm run db:rows` — read-only radöversikt för utvalda tabeller.
+- `npm run db:migrate` — kör SQL-migrationer.
+- `npm run db:push` — guardad Drizzle push.
+
+## Env och modellspår
+
+- `python scripts/env/manage_env.py status` — status för env-nycklar.
+- `python scripts/env/manage_env.py audit` — audit av env-policy.
+- `python scripts/env/manage_env.py reconcile` — jämför/justera drift mellan lokalt och Vercel.
+- `python scripts/env/model_trace_overlay.py` — synca GUI-modell-envs och öppna trace-overlay.
+
+## Embeddings och bibliotek
+
+- `npm run templates:embeddings` — embeddings för builderns `v0-mallar`.
+- `npm run template-library:embeddings` — embeddings för externa `template-library`.
+- `npm run scaffolds:embeddings` — embeddings för interna runtime-scaffolds.
+- `npm run templates:local:refresh:embeddings` — lokal `v0-mallar` refresh + embeddings.
+- `npm run template-pipeline:refresh` — full extern template-pipeline i rätt ordning.
+
+## Scaffolds
+
+- `npm run scaffolds:status` — scaffoldstatus.
+- `npm run scaffolds:import` — importera nya scaffoldkandidater.
+- `npm run scaffolds:hydrate` — hydrera underlag/cache.
+- `npm run scaffolds:build` — bygg scaffoldartefakter.
+- `npm run scaffolds:eval` — scaffold-eval.
+- `npm run scaffolds:verify` — verifiera scaffoldlagret.
+- `npm run scaffolds:all` — kör hela scaffold-CLI-flödet.
+- `npm run scaffolds:validate` — snabb manifestvalidering.
+
+## Audit och artifacts
+
+- `npm run mirror:audit` — audit mot externa shadcn mirror/template-repon.
+- `npm run runtime-library:audit` — audit av runtime component-library.
+- `npm run artifacts:rebuild` — rebuild med återanvänd cache + typecheck.
+- `npm run artifacts:rebuild:full` — rebuild med full refresh + typecheck.
+- `npm run eval` — kör eval-suite och scorecard.
+
+## Tumregel
+
+- Börja med npm-skriptet om det finns ett.
+- Gå till `scripts/README.md` för tematisk bakgrund.
+- Gå till `package.json` för exakt kommando.

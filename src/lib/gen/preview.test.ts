@@ -33,7 +33,7 @@ describe("buildPreviewHtml", () => {
           [
             'import ButtonRoot from "@/components/ui/button";',
             'import * as utils from "@/lib/utils";',
-            'import { useIsMobile as useMobile } from "@/hooks/use-mobile";',
+            'import { useIsMobile as useMobile } from "@/lib/hooks/use-mobile";',
             "",
             "export default function Page() {",
             "  const mobile = useMobile();",

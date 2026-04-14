@@ -1,6 +1,6 @@
 # shadcn Ecosystem Integration — Future Plan
 
-Status: **delvis genomfört** (Nivå 0 + 1 + 5 klara, resten planerat)
+Status: **delvis genomfört** (Nivå 0 + 1 + 4 + 5 klara, Nivå 2–3 planerat)
 Skapad: 2026-04-13
 Kontext: [Toolkit Enrichment](../../../.cursor/plans/toolkit_enrichment_plan_dc42efbf.plan.md) — fas 1–5 genomförda
 
@@ -137,42 +137,17 @@ Community-registryn [Fonttrio](https://fonttrio.com) har redan en stor samling `
 
 ---
 
-## Nivå 4 — components.json v4-format och registrys (långsikt, medel risk)
+## Nivå 4 — components.json v4-format och registrys (GENOMFÖRD)
 
 ### Problem
 
-Vår `components.json` använder äldre schema utan `registries`-fält. Det påverkar inte generering men hindrar oss från att:
-
-- Använda community-registrys (t.ex. `@shadcnblocks`, prompt-kit)
-- Dra nytta av `npx shadcn add @registry/component`-flödet i development
-- Använda `registry:base` för design system presets
+`components.json` saknade `registries`-fält. Det hindrade namespaced `npx shadcn add @shadcn/...`-flödet och Cursor-MCP:n från att lista/visa registry-items.
 
 ### Lösning
 
-Uppgradera till v4-format:
+`registries` tillagt med `@shadcn` pinnnad till den stilbundna live-registryn (`new-york-v4`) som faktiskt exponerar `registry.json` + item-JSON:er. Hooks-alias konsoliderad till `@/lib/hooks` genom hela pipeline. `predev` kör nu `shadcn:sync:soft` automatiskt.
 
-```json
-{
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "new-york",
-  "rsc": true,
-  "tsx": true,
-  "registries": {
-    "@shadcn": "https://ui.shadcn.com/r/{name}.json"
-  },
-  "tailwind": { ... },
-  "aliases": { ... }
-}
-```
-
-### Berörda filer
-
-- `components.json` — uppgradering
-- Eventuellt: `config/prompt-static/03-shadcn-ui-components.md` om instruktioner om registrys ska med i prompts
-
-### Komplexitet
-
-Medel. Risken är att shadcn CLI-beteende ändras med det nya formatet och påverkar hur vi installerar komponenter. Kräver testning.
+**Status:** Genomförd 2026-04-14.
 
 ---
 
@@ -224,7 +199,7 @@ Om cachen saknas eller är tom: Nivå 0 (statiska patterns) används alltid som 
 | 1 | Automatisk komponentsynk | Hög — eliminerar manuellt underhåll | Låg | **Genomförd** |
 | 2 | Blocks-metadata → section recipes | Medel — rikare recipes, bättre first-pass | Medel | 4-8 h |
 | 3 | registry:font-schema för fontpar | Medel — validerade fontnamn, bättre konsistens | Låg | 2-3 h |
-| 4 | components.json v4-uppgradering | Låg nu — möjliggör community-registrys | Medel | 1-2 h |
+| 4 | components.json v4-uppgradering | Låg nu — möjliggör community-registrys | Medel | **Genomförd** |
 | 5 | Dedikerad sajtmaskin-component-mcp | Hög — on-demand API-depth från registret | Medel | **Genomförd** (förenklad: lokal cache + orchestration-hook) |
 
 ---

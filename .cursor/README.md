@@ -20,6 +20,7 @@ Se [`docs/README.md`](../docs/README.md) — enda fulla navtabellen. Snabb ordni
 | [session-git-docs.mdc](rules/session-git-docs.mdc) | Git-hygien, parallellt arbete, docs/plans-livscykel |
 | [repo-env-indexing.mdc](rules/repo-env-indexing.mdc) | Workspace, `.env*`, cursorignored paths |
 | [llm-pipeline-docs-sync.mdc](rules/llm-pipeline-docs-sync.mdc) | Synka kod ↔ docs vid LLM-pipeline-ändringar |
+| [useful-commands.mdc](rules/useful-commands.mdc) | Snabb kommandoöversikt per område |
 | [platform-quirks.mdc](rules/platform-quirks.mdc) | PowerShell, Sandbox, Playwright, streams, git-commit |
 
 I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
@@ -46,6 +47,6 @@ I chat: `@terminology` eller `@.cursor/rules/terminology.mdc`.
 
 ## MCP (`mcp.json`)
 
-Valfria **plattforms-MCP** (v0, Vercel, OpenAI-docs; ev. `openclaw-docs` på användarnivå). **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen.
+Valfria repo-/plattforms-MCP: **`shadcn`** (repo-local för Cursor via `npx shadcn@latest mcp`) samt vid behov v0, Vercel, OpenAI-docs och ev. `openclaw-docs` på användarnivå. Detta är **IDE-lokal utvecklarintegration**, inte runtime för own-engine-genereringen. Repoets `components.json` pinnaar `@shadcn` till den stilbundna live-registryn `new-york-v4`, så att Cursor-MCP:n kan lista och visa samma registry-items som buildern använder. **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen.
 
-**GitHub:** `.cursor/mcp.json` är **ignorerad**; kopiera `.cursor/mcp.json.example` → `.cursor/mcp.json`.
+**GitHub:** `.cursor/mcp.json` är **ignorerad**; kopiera `.cursor/mcp.json.example` → `.cursor/mcp.json` och ta bort de MCP:er du inte använder lokalt.
