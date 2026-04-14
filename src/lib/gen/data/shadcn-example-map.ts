@@ -9,9 +9,12 @@ export function getRelevantExampleNames(caps: InferredCapabilities): string[] {
   if (caps.needsCalendar) names.push("date-picker-demo");
   if (caps.needsCommandSearch) names.push("combobox-demo");
   if (caps.needsCarousel) names.push("carousel-demo");
-  if (caps.needsCharts) names.push("chart-bar-default");
+  if (caps.needsCharts) {
+    names.push("chart-bar-default", "chart-line-default", "chart-pie-simple", "chart-radial-simple");
+  }
   if (caps.needsForms && !caps.needsCalendar) names.push("input-form");
-  if (caps.needsAppShell) names.push("sidebar-07");
+  if (caps.needsAuth) names.push("login-01");
+  if (caps.needsAppShell) names.push("sidebar-07", "dashboard-01");
   if (caps.needsDataUI) names.push("data-table-demo");
-  return names.slice(0, 5);
+  return names.slice(0, 8);
 }

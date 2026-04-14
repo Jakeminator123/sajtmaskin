@@ -15,16 +15,63 @@ const REGISTRY_BASE = "https://ui.shadcn.com/r/styles/new-york-v4";
 const OUTPUT_DIR = join(process.cwd(), "data", "shadcn-examples");
 
 const EXAMPLES_TO_FETCH = [
+  // Calendar & date
   "calendar-demo",
   "date-picker-demo",
   "date-picker-with-range",
+
+  // Search & command
   "combobox-demo",
   "command-demo",
+
+  // Carousel
   "carousel-demo",
+
+  // Charts — bar
   "chart-bar-default",
+  "chart-bar-interactive",
+  "chart-bar-stacked",
+
+  // Charts — area
   "chart-area-default",
+  "chart-area-interactive",
+  "chart-area-stacked",
+
+  // Charts — line
+  "chart-line-default",
+  "chart-line-interactive",
+  "chart-line-multiple",
+
+  // Charts — pie & donut
+  "chart-pie-simple",
+  "chart-pie-donut",
+  "chart-pie-interactive",
+
+  // Charts — radar & radial
+  "chart-radar-default",
+  "chart-radar-multiple",
+  "chart-radial-simple",
+  "chart-radial-text",
+  "chart-radial-stacked",
+
+  // Charts — tooltip patterns
+  "chart-tooltip-default",
+
+  // Forms
   "input-form",
+
+  // App shell & navigation
+  "sidebar-01",
   "sidebar-07",
+  "sidebar-10",
+  "dashboard-01",
+
+  // Auth
+  "login-01",
+  "login-04",
+  "signup-01",
+
+  // Data table
   "data-table-demo",
 ];
 
