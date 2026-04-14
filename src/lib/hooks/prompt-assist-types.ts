@@ -25,9 +25,3 @@ export type InitBriefOptions = {
   modelOverride?: string;
   onBrief?: (brief: Record<string, unknown>) => void;
 };
-
-/**
- * @deprecated Import PromptRewriteOptions or InitBriefOptions directly.
- * Kept for backward compatibility with code that used the union type.
- */
-export type PromptAssistOptions = PromptRewriteOptions & InitBriefOptions;
