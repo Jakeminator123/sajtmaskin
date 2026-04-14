@@ -688,12 +688,12 @@ function tokenBudgetsForContextPolicy(contextPolicy: BuildSpecContextPolicy): Bu
       };
     default:
       return {
-        scaffoldTokens: 15_000,
-        refsTokens: 7_500,
-        systemContextTokens: 30_000,
-        scaffoldChars: 28_000,
-        refsChars: 24_000,
-        systemContextChars: 96_000,
+        scaffoldTokens: 18_000,
+        refsTokens: 9_000,
+        systemContextTokens: 40_000,
+        scaffoldChars: 34_000,
+        refsChars: 28_000,
+        systemContextChars: 128_000,
       };
   }
 }

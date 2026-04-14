@@ -264,7 +264,7 @@
   },
   "repairPolicies": {
     "deterministicAutofixPasses": 2,
-    "syntaxFixPasses": 3,
+    "syntaxFixPasses": 4,
     "manualRepairRouteLlmPasses": 2,
     "serverRepairPasses": 2
   },
@@ -658,7 +658,7 @@
     },
     "autofixMaxOutputTokens": {
       "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-      "default": 49152,
+      "default": 82000,
       "min": 2048,
       "max": 131072
     },
