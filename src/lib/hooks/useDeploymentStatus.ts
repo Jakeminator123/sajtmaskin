@@ -36,7 +36,9 @@ export function useDeploymentStatus(deploymentId: string | null) {
         if (["ready", "error", "cancelled"].includes(data.status)) {
           es.close();
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[useDeploymentStatus] Failed to parse SSE message:", err);
+      }
     };
 
     es.onerror = () => {
