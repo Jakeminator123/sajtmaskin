@@ -41,8 +41,8 @@
  *     └── lib/entry → THIS MODULE (isolated entry logic)
  */
 
-import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useSearchParams, type ReadonlyURLSearchParams } from "next/navigation";
 import type { EntryMode } from "@/components/modals/entry-modal";
 import {
   saveEntryToken,
@@ -110,104 +110,117 @@ function formatCompanySlug(slug: string): string {
     .join(" ");
 }
 
+// ── Pure parser ──────────────────────────────────────────────────
+
+function parseEntryFromSearchParams(searchParams: ReadonlyURLSearchParams) {
+  const rawMode = searchParams.get("mode");
+  const rawRef = searchParams.get("ref");
+  const rawToken = searchParams.get("token");
+  const rawCompany = searchParams.get("company");
+
+  let mode: EntryMode | null = null;
+  let directAction: EntryMode | null = null;
+  let company: string | null = null;
+  let showWelcome = false;
+
+  if (rawCompany) {
+    const decoded = decodeURIComponent(rawCompany);
+    company = decoded.includes("-") ? formatCompanySlug(decoded) : decoded;
+  }
+
+  if (rawMode && VALID_ENTRY_MODES.has(rawMode)) {
+    const entryMode: EntryMode = MODE_ALIASES[rawMode] ?? (rawMode as EntryMode);
+    if (rawCompany && DIRECT_MODES.has(entryMode)) {
+      showWelcome = true;
+      directAction = entryMode;
+    } else if (DIRECT_MODES.has(entryMode)) {
+      directAction = entryMode;
+    } else {
+      mode = entryMode;
+    }
+  }
+
+  return {
+    mode,
+    directAction,
+    partner: rawRef,
+    token: (rawToken && TOKEN_PATTERN.test(rawToken) ? rawToken : null) as EntryToken | null,
+    company,
+    showWelcome,
+    hasEntryParams: !!(rawMode || rawRef || rawToken || rawCompany),
+  };
+}
+
 // ── Hook ────────────────────────────────────────────────────────
 
 /**
  * Reads entry parameters (?mode, ?ref, ?token) from the URL on
  * mount, stores the token in sessionStorage, and cleans the URL.
  *
+ * Uses useMemo to derive values synchronously so directAction,
+ * showWelcome etc. are correct on first render (no flash of
+ * default state).
+ *
  * Returns controls for the entry modal (continue / dismiss).
  */
 export function useEntryParams(): EntryParams {
   const searchParams = useSearchParams();
 
-  const [mode, setMode] = useState<EntryMode | null>(null);
-  const [directAction, setDirectAction] = useState<EntryMode | null>(null);
-  const [partner, setPartner] = useState<string | null>(null);
-  const [token, setToken] = useState<EntryToken | null>(null);
-  const [company, setCompany] = useState<string | null>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
+  // Derive entry config synchronously — correct from first render
+  const parsed = useMemo(
+    () => parseEntryFromSearchParams(searchParams),
+    [searchParams],
+  );
 
-  // ── Parse URL params on mount ──
+  // Mutable dismiss flags for fields that callbacks can clear
+  const [modeDismissed, setModeDismissed] = useState(false);
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+
+  const mode = modeDismissed ? null : parsed.mode;
+  const showWelcome = parsed.showWelcome && !welcomeDismissed;
+
+  // ── Side effects: save token + clean URL (once) ──
+  const cleanedRef = useRef(false);
   useEffect(() => {
-    const rawMode = searchParams.get("mode");
-    const rawRef = searchParams.get("ref");
-    const rawToken = searchParams.get("token");
-    const rawCompany = searchParams.get("company");
+    if (cleanedRef.current || !parsed.hasEntryParams) return;
+    cleanedRef.current = true;
 
-    let hasEntryParams = false;
+    if (parsed.token) saveEntryToken(parsed.token);
 
-    // Company name (e.g. ?company=alpha-rekrytering-ab → "Alpha Rekrytering AB")
-    if (rawCompany) {
-      const decoded = decodeURIComponent(rawCompany);
-      // Format slug (hyphens → spaces, capitalize, AB/HB uppercase)
-      setCompany(decoded.includes("-") ? formatCompanySlug(decoded) : decoded);
-      hasEntryParams = true;
-    }
-
-    // Mode (e.g. ?mode=audit, ?mode=analyserad)
-    if (rawMode && VALID_ENTRY_MODES.has(rawMode)) {
-      // Resolve alias (e.g. "analyserad" → "wizard")
-      const entryMode: EntryMode = MODE_ALIASES[rawMode] ?? (rawMode as EntryMode);
-
-      if (rawCompany && DIRECT_MODES.has(entryMode)) {
-        // Company + direct mode → show welcome overlay first, then activate
-        setShowWelcome(true);
-        setDirectAction(entryMode);
-      } else if (DIRECT_MODES.has(entryMode)) {
-        // Direct mode without company → activate immediately
-        setDirectAction(entryMode);
-      } else {
-        // Other modes → show the entry modal first
-        setMode(entryMode);
-      }
-      hasEntryParams = true;
-    }
-
-    // Partner/referral (e.g. ?ref=sajtstudio)
-    if (rawRef) {
-      setPartner(rawRef);
-      hasEntryParams = true;
-    }
-
-    // Token (e.g. ?token=demo-kzmpc9tk45vsovp4cme1)
-    if (rawToken && TOKEN_PATTERN.test(rawToken)) {
-      setToken(rawToken);
-      saveEntryToken(rawToken);
-      hasEntryParams = true;
-    }
-
-    // Clean all entry params from URL without navigation
-    if (hasEntryParams) {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("mode");
-      url.searchParams.delete("ref");
-      url.searchParams.delete("token");
-      url.searchParams.delete("company");
-      window.history.replaceState({}, "", url.pathname + url.search);
-    }
-  }, [searchParams]);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("mode");
+    url.searchParams.delete("ref");
+    url.searchParams.delete("token");
+    url.searchParams.delete("company");
+    window.history.replaceState({}, "", url.pathname + url.search);
+  }, [parsed]);
 
   // ── Actions ──
 
   const continueEntry = useCallback(() => {
     const currentMode = mode;
-    setMode(null);
-    setPartner(null);
-
+    setModeDismissed(true);
     if (!currentMode) return null;
-
     return { action: currentMode } as const;
   }, [mode]);
 
   const dismissEntry = useCallback(() => {
-    setMode(null);
-    setPartner(null);
+    setModeDismissed(true);
   }, []);
 
   const dismissWelcome = useCallback(() => {
-    setShowWelcome(false);
+    setWelcomeDismissed(true);
   }, []);
 
-  return { mode, partner, token, company, directAction, showWelcome, dismissWelcome, continueEntry, dismissEntry };
+  return {
+    mode,
+    partner: parsed.partner,
+    token: parsed.token,
+    company: parsed.company,
+    directAction: parsed.directAction,
+    showWelcome,
+    dismissWelcome,
+    continueEntry,
+    dismissEntry,
+  };
 }

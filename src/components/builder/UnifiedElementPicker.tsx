@@ -864,7 +864,7 @@ export function UnifiedElementPicker({
                     <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">Om du startar från en mall skapas en ny chat.</div>
                   )}
                   <div className="mb-4 rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-3 text-xs text-muted-foreground">
-                    Visar endast lokalt kompletta mallar (ZIP + metadata + bilder). Alla går att starta direkt i VM-previewn.
+                    Visar kompletta mallar med förhandsgranskning. Alla går att starta direkt.
                   </div>
                   {templateQuery.trim() && templateSearchLoading ? (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -892,7 +892,7 @@ export function UnifiedElementPicker({
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={result.template.previewImageUrl} alt={result.template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
                                 <Badge className="absolute top-2 left-2 border-emerald-400/20 bg-emerald-500/85 text-[10px] text-white">
-                                  Lokal repo
+                                  Mall
                                 </Badge>
                                 <Badge className="absolute top-2 right-2 border-0 bg-black/60 text-[10px] text-white backdrop-blur-sm">{scorePercent}% match</Badge>
                               </div>
@@ -922,7 +922,7 @@ export function UnifiedElementPicker({
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img src={getTemplateImageUrl(template)} alt={template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
                                   <Badge className="absolute top-2 left-2 border-emerald-400/20 bg-emerald-500/85 text-[10px] text-white">
-                                    Lokal repo
+                                    Mall
                                   </Badge>
                                 </div>
                                 <div className="p-3">
@@ -931,7 +931,7 @@ export function UnifiedElementPicker({
                                     {template.category}
                                   </div>
                                   <div className="mt-1 text-[11px] text-emerald-300/90">
-                                    Startar från lokal repo-mall
+                                    Kuraterad startpunkt
                                   </div>
                                 </div>
                               </button>

@@ -71,13 +71,13 @@ export function PreviewPanelEmptyState({
     : activeVersionStatus === "retrying" && !activeVersionIsLatest
       ? activeVersionSummary || "En nyare reparerad version tar över som den aktuella previewn."
       : previewLifecycle === "recovering"
-        ? "Vi verifierar sessionen mot servern och återansluter VM-previewn om det behövs."
+        ? "Vi verifierar sessionen mot servern och återansluter förhandsgranskningen om det behövs."
         : activeVersionStatus === "verifying"
           ? activeVersionSummary || "Versionen är sparad och verifieras innan den markeras som stabil."
           : activeVersionStatus === "repairing"
             ? activeVersionSummary || "Versionen repareras i bakgrunden innan nästa användbara preview blir aktiv."
     : previewPending
-      ? "Next.js startas i VM-previewn och visas så snart dev-servern svarar."
+      ? "Sajten startar och visas så snart den är klar."
       : awaitingInput
         ? "AI behöver ditt svar innan nästa preview kan genereras."
         : externalLoading

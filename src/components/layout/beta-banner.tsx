@@ -38,7 +38,7 @@ export function BetaBanner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: formData.name || "Beta-anvandare",
+          name: formData.name || "Beta-användare",
           email: formData.email || "noreply@sajtmaskin.se",
           message: formData.message,
           type: "feedback",
@@ -82,9 +82,9 @@ export function BetaBanner() {
           {/* Text */}
           <div className="min-w-0 flex-1">
             <p className="text-xs leading-relaxed text-gray-300 sm:text-sm">
-              <strong className="text-white">Sajtmaskin ar i tidig betafas.</strong>{" "}
-              Vi bygger Sveriges smartaste sajtbyggare for foretag — driven av
-              affarsmal, inte mallar.
+              <strong className="text-white">Sajtmaskin är i tidig betafas.</strong>{" "}
+              Vi bygger Sveriges smartaste sajtbyggare för företag — driven av
+              affärsmål, inte mallar.
             </p>
           </div>
 
@@ -100,7 +100,7 @@ export function BetaBanner() {
             <button
               onClick={handleDismiss}
               className="rounded-md p-1 text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300"
-              aria-label="Stang banner"
+              aria-label="Stäng banner"
             >
               <X className="h-4 w-4" />
             </button>
@@ -113,7 +113,7 @@ export function BetaBanner() {
             {sent ? (
               <div className="flex items-center gap-2 py-2 text-sm text-brand-teal">
                 <Send className="h-4 w-4" />
-                Tack for din feedback!
+                Tack för din feedback!
               </div>
             ) : (
               <div className="space-y-2">
@@ -139,7 +139,7 @@ export function BetaBanner() {
                     value={formData.message}
                     onChange={(e) => setFormData((p) => ({ ...p, message: e.target.value }))}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                    placeholder="Beskriv en bugg, ge feedback eller stall en fraga..."
+                    placeholder="Beskriv en bugg, ge feedback eller ställ en fråga..."
                     className="flex-1 rounded-md border border-gray-700 bg-black/50 px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:border-brand-teal/50 focus:outline-none"
                     autoFocus
                   />

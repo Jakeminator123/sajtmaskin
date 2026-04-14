@@ -113,7 +113,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
           <p className="text-[10px] text-muted-foreground/40 text-center mb-6">
             Dessa f&ouml;retag anv&auml;nder React &amp; Next.js &mdash; samma ramverk vi bygger din sajt med
           </p>
-          <div className="relative overflow-hidden">
+          <div className="relative overflow-hidden" aria-hidden="true">
             <div className="absolute inset-y-0 left-0 w-32 bg-linear-to-r from-background to-transparent z-10 pointer-events-none" />
             <div className="absolute inset-y-0 right-0 w-32 bg-linear-to-l from-background to-transparent z-10 pointer-events-none" />
             <div className="flex animate-marquee whitespace-nowrap">

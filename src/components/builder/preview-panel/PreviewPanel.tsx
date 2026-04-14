@@ -702,7 +702,7 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "VM-previewn svarade inte som förväntat — vi kontrollerar sessionen mot servern och startar om vid behov.",
+            "Förhandsgranskningen svarade inte som förväntat — vi kontrollerar och startar om vid behov.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
@@ -711,7 +711,7 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "VM-previewn startar eller laddar om (Next dev i VM). Vänta tills URL:en är klar — då laddas live-preview om automatiskt.",
+            "Förhandsgranskningen startar eller laddar om. Vänta tills den är klar — då uppdateras live-preview automatiskt.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };

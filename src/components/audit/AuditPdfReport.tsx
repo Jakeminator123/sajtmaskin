@@ -800,11 +800,11 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
         <!-- ═══ FOOTER ═══ -->
         <div class="report-footer">
           <p>
-            Denna rapport ar genererad av <strong>sajtmaskin</strong> -
+            Denna rapport är genererad av <strong>sajtmaskin</strong> –
             AI-driven webbplatsanalys och utveckling
           </p>
           <p style="margin-top: 4px;">
-            &copy; ${new Date().getFullYear()} sajtmaskin.se &bull; Rapporten ar konfidentiell
+            &copy; ${new Date().getFullYear()} sajtmaskin.se &bull; Rapporten är konfidentiell
           </p>
         </div>
       </body>
