@@ -97,6 +97,33 @@ function countAvailableExportSymbols(availableSubpaths: Set<string>): number {
   return Object.values(SHADCN_COMPONENTS).filter((subpath) => availableSubpaths.has(subpath)).length;
 }
 
+function buildImportExamples(availableSet: Set<string>): string[] {
+  const subpathToExports = new Map<string, string[]>();
+  for (const [exportName, subpath] of Object.entries(SHADCN_COMPONENTS)) {
+    if (!availableSet.has(subpath)) continue;
+    const list = subpathToExports.get(subpath) ?? [];
+    list.push(exportName);
+    subpathToExports.set(subpath, list);
+  }
+
+  const highPriority = [
+    "button", "card", "badge", "input", "label", "sheet",
+    "dialog", "tabs", "select", "separator", "avatar",
+    "accordion", "table",
+  ];
+
+  const examples: string[] = [];
+  for (const subpath of highPriority) {
+    const exports = subpathToExports.get(subpath);
+    if (!exports) continue;
+    const names = exports.slice(0, 5).join(", ");
+    examples.push(`    import { ${names} } from "@/components/ui/${subpath}"`);
+    if (examples.length >= 8) break;
+  }
+
+  return examples;
+}
+
 export function buildRegistryDrivenShadcnToolkitSummary(): string[] {
   const availableSubpaths = getAvailableRegistrySubpaths();
   const availableSet = new Set(availableSubpaths);
@@ -117,6 +144,16 @@ export function buildRegistryDrivenShadcnToolkitSummary(): string[] {
   const remaining = availableSubpaths.filter((subpath) => !grouped.has(subpath));
   if (remaining.length > 0) {
     lines.push(`  - Also available from the synced local registry: ${remaining.join(", ")}`);
+  }
+
+  const importExamples = buildImportExamples(availableSet);
+  if (importExamples.length > 0) {
+    lines.push("");
+    lines.push("  Ready-to-use import statements (MUST be included at the top of every file that uses these components):");
+    lines.push(...importExamples);
+    lines.push(`    import Link from "next/link"`);
+    lines.push(`    import Image from "next/image"`);
+    lines.push(`    import type { Metadata } from "next"`);
   }
 
   return lines;

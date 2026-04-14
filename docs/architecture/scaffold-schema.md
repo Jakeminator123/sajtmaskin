@@ -88,7 +88,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 17 | Kodgenerering | `generateCode()` | `engine.ts` | Ja | LLM-anrop med systemprompt + user turn |
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
-| 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Opt-in** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Init only. `searchTemplateLibrary()` ej använd i runtime. |
+| 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Auto i dev** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Auto-on i `NODE_ENV=development`, explicit opt-in i prod. Init only. `searchTemplateLibrary()` ej använd i runtime. |
 
 ---
 
