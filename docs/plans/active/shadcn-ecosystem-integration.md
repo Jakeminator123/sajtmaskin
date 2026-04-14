@@ -63,7 +63,7 @@ Täcker: Calendar, DatePicker, Command, Combobox, Drawer, Carousel, Chart, Form,
 
 ### Problem
 
-Section recipes i `style-directions.ts` är handskrivna strängar som beskriver komponentkombinationer (t.ex. "Testimonial rail using Carousel + HoverCard author reveals"). De är bra men subjektiva och kan bli inaktuella.
+Variant-guidance i `config/scaffold-variants/*.json` innehåller handskrivna strängar för visuella och strukturella uttryck (t.ex. dossier-härledda style rules). De är bra men subjektiva och kan bli inaktuella.
 
 ### Lösning
 
@@ -84,7 +84,7 @@ login-04     → Card + Form + Input + Button (split layout med bild)
 
 ### Berörda filer
 
-- `src/lib/gen/data/style-directions.ts` — `sectionRecipes` kan bli delvis automatgenererade
+- `config/scaffold-variants/` — variant-guidance kan bli delvis automatgenererad från blocks-metadata
 - Eventuellt ny datafil `src/lib/gen/data/block-patterns.ts`
 - `scripts/extract-block-patterns.ts` — nytt script
 
@@ -102,7 +102,7 @@ Vi importerar INTE hela block-filer i prompten. Vi extraherar deras *komposition
 
 ### Problem
 
-`fontPairings` i `style-directions.ts` innehåller Google Font-namn som strängar. LLM:en tolkar dem och genererar `next/font/google`-importer. Om ett fontnamn stavas fel eller inte finns i Google Fonts failar det tyst.
+`fontPairings` i scaffold-variant-JSON innehåller Google Font-namn som strängar. LLM:en tolkar dem och genererar `next/font/google`-importer. Om ett fontnamn stavas fel eller inte finns i Google Fonts failar det tyst.
 
 ### Lösning
 
@@ -123,7 +123,7 @@ Skapa `registry:font`-items för varje fontpar och använd schemat som referens:
 
 ### Berörda filer
 
-- `src/lib/gen/data/style-directions.ts` — `fontPairings` byter format till strukturerat schema
+- `config/scaffold-variants/` — `fontPairings` byter format till strukturerat schema
 - `src/lib/gen/system-prompt.ts` — rendering av font direction
 - Eventuellt: `data/font-registry/` med JSON-filer per fontpar
 

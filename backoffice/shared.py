@@ -20,6 +20,7 @@ class BackofficeContext:
     repo_root: Path
     dashboard_dir: Path
     config_dir: Path
+    variants_dir: Path
     scripts_dir: Path
     domain_map_json: Path
     manifest_json: Path
@@ -86,12 +87,14 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
     root = (repo_root or find_repo_root()).resolve()
     dashboard_dir = root / "config" / "dashboard"
     config_dir = root / "config"
+    variants_dir = config_dir / "scaffold-variants"
     scripts_dir = root / "scripts"
     scaffolds_dir = root / "src" / "lib" / "gen" / "scaffolds"
     return BackofficeContext(
         repo_root=root,
         dashboard_dir=dashboard_dir,
         config_dir=config_dir,
+        variants_dir=variants_dir,
         scripts_dir=scripts_dir,
         domain_map_json=dashboard_dir / "domain-map.json",
         manifest_json=config_dir / "ai_models" / "manifest.json",

@@ -120,6 +120,32 @@ lookup, matching, embeddings, and telemetry. `ScaffoldFamily`/`family` is
 legacy terminology kept only where older docs or stored plan artifacts still
 need compatibility.
 
+## Backoffice lifecycle
+
+`Scaffold Lifecycle` i backoffice kan nu skapa och radera scaffold-shells som
+en del av runtime-registret.
+
+Create-flödet:
+
+- klonar `files/` från en vald källscaffold
+- skriver en ny `manifest.ts`
+- patchar `ScaffoldId`, `SCAFFOLD_CLIENT_LIST`, `registry.ts` och
+  `scaffold-embedding-locale.ts`
+- skriver build-säkra defaults i `scripts/template-library/build-template-library.ts`
+- kan skapa en neutral startvariant under `config/scaffold-variants/`
+
+Delete-flödet gör motsvarande cleanup för samma lager, men lämnar fortfarande
+manuell kurering åt människor för:
+
+- `matcher.ts`
+- `scaffold-aware-retry.ts`
+- eventuell dossier-/template-library-kuration
+- övriga manuella kodreferenser utanför lifecycle-flödets säkra patchområden
+
+Det innebär att lifecycle-flödet gör en scaffold skapbar, registrerbar,
+manuellt valbar, build-safe och borttagbar, men inte automatiskt fullt
+handkuraterad för auto-matchning eller retry-heuristik.
+
 ## Validation rules
 
 `validateScaffoldManifest()` currently checks:

@@ -7,10 +7,10 @@ Keyword-matchning lever idag på tre ställen som inte delar data:
 | Fil | Vad | Format | ~Rader keywords |
 |-----|-----|--------|-----------------|
 | `src/lib/gen/scaffolds/matcher.ts` | 11 const-arrayer: `LANDING_KEYWORDS`, `SAAS_KEYWORDS`, `PORTFOLIO_KEYWORDS`, `PORTFOLIO_MEDIA_KEYWORDS`, `PORTFOLIO_ART_DIRECTION_KEYWORDS`, `BLOG_KEYWORDS`, `DASHBOARD_KEYWORDS`, `APP_KEYWORDS`, `AUTH_KEYWORDS`, `ECOMMERCE_KEYWORDS`, `CONTENT_KEYWORDS`, `HOSPITALITY_SERVICE_KEYWORDS`, `STRONG_ECOMMERCE_INTENT` | TypeScript string[] | ~340 |
-| `src/lib/gen/data/style-directions.ts` | `keywords` fält per `StyleDirectionPreset` (14 presets, inline) | TypeScript inline arrays | ~130 |
+| `config/scaffold-variants/**/*.json` | `keywords` fält per scaffold-variant (21 JSON-filer) | JSON-arrayer | ~180 |
 | `src/lib/gen/scaffolds/scaffold-search.ts` | `SWEDISH_TO_ENGLISH_HINTS` + `ENGLISH_TO_SWEDISH_HINTS` i `expandQuery()` | Regex → hint-strängar | ~30 |
 
-Problemet: tre separata keyword-vokabulärer, inga delade termer, risk för inkonsistens (svenska termer saknas i ett system men finns i ett annat).
+Problemet: tre separata keyword-vokabulärer, inga delade termer, risk för inkonsistens (svenska termer saknas i ett system men finns i ett annat), och variant-keywords lever nu i JSON medan scaffold-matchning och semantic hints fortfarande bor i TypeScript.
 
 ## Mål
 
@@ -40,7 +40,7 @@ Populera från befintliga keyword-arrayer i de tre filerna. Slå ihop keywords s
 Kategorier att skapa (baserat på befintliga arrayer):
 
 - `landing` — från `LANDING_KEYWORDS`
-- `saas` — från `SAAS_KEYWORDS` + relevanta `style-directions` keywords
+- `saas` — från `SAAS_KEYWORDS` + relevanta variant-keywords under `config/scaffold-variants/saas-landing/`
 - `portfolio` — från `PORTFOLIO_KEYWORDS` + subcategories: `media` (från `PORTFOLIO_MEDIA_KEYWORDS`), `art_direction` (från `PORTFOLIO_ART_DIRECTION_KEYWORDS`)
 - `blog` — från `BLOG_KEYWORDS`
 - `dashboard` — från `DASHBOARD_KEYWORDS`
@@ -48,14 +48,14 @@ Kategorier att skapa (baserat på befintliga arrayer):
 - `auth` — från `AUTH_KEYWORDS`
 - `ecommerce` — från `ECOMMERCE_KEYWORDS` + subcategories: `strong_intent` (från `STRONG_ECOMMERCE_INTENT`), `hospitality_veto` (från `HOSPITALITY_SERVICE_KEYWORDS`)
 - `content` — från `CONTENT_KEYWORDS`
-- `docs` — från `documentation_clarity` keywords i style-directions
-- `nature` — från `nature_organic` keywords
-- `luxury` — från `luxury_noir` keywords
-- `retro` — från `retro_atmosphere` keywords
-- `brutalist` — från `bold_brutalist` keywords
-- `playful` — från `playful_cards` keywords
-- `warm_local` — från `warm_editorial` keywords (restaurang, café, frisör, etc.)
-- `tech_dev` — från `tech_terminal` keywords
+- `docs` — från relevanta documentation/content-varianter
+- `nature` — från natur-/eco-varianter
+- `luxury` — från premium/editorial-varianter
+- `retro` — från varianter som uttryckligen bär retro-atmosfär
+- `brutalist` — från varianter som uttryckligen bär brutalistiskt uttryck
+- `playful` — från varianter med playful/cards-uttryck
+- `warm_local` — från `warm-local` och relaterade service-/hospitality-varianter
+- `tech_dev` — från `dev-terminal` och andra tech/terminal-varianter
 
 ### Steg 2: Skapa loader
 
@@ -81,13 +81,13 @@ const STRONG_ECOMMERCE_INTENT = getSubcategoryKeywords("ecommerce", "strong_inte
 
 `countKeywordMatches`, `buildKeywordScores`, `applyBriefKeywordBoost` och resten av matcher-logiken ska **inte** ändras — bara keyword-datan byter källa.
 
-### Steg 4: Refaktorera style-directions.ts
+### Steg 4: Refaktorera scaffold-variants som keyword-källa
 
-Varje `StyleDirectionPreset.keywords`-array ska antingen:
-- Läsa från taxonomin via `getCategoryKeywords("luxury")` etc.
-- Eller kombinera flera kategorier: `[...getCategoryKeywords("saas"), ...getCategoryKeywords("landing").filter(k => ["corporate", "enterprise"].includes(k))]`
+Varianternas `keywords`-fält ska antingen:
+- Speglas in i taxonomin via generator/script
+- Eller valideras mot taxonomin så att varje variant bara använder kanoniska termer
 
-Behåll inline-keywords bara för preset-specifika termer som inte passar i någon taxonomi-kategori.
+Behåll variant-specifika termer i JSON bara om de också kan härledas tillbaka till en taxonomikategori. Nya lokala ordlistor i TypeScript ska inte införas.
 
 ### Steg 5: Refaktorera scaffold-search.ts expandQuery()
 
@@ -107,7 +107,7 @@ Behåll inline-keywords bara för preset-specifika termer som inte passar i någ
 - **Signal ownership** (`signal-ownership.mdc`): keyword-taxonomin blir den kanoniska källan. Inga lokala keyword-listor ska finnas kvar efter refaktorn.
 - **Befintliga filer att läsa först:**
   - `src/lib/gen/scaffolds/matcher.ts` (rad 23–361 — alla keyword-arrayer)
-  - `src/lib/gen/data/style-directions.ts` (alla presets med `keywords` fält)
+  - `config/scaffold-variants/` (alla variant-JSON med `keywords` fält)
   - `src/lib/gen/scaffolds/scaffold-search.ts` (`expandQuery` + hint-tabeller)
   - `.cursor/rules/signal-ownership.mdc` (ägarmatris)
   - `config/prompt-heuristic-tokens.json` (exempel på liknande centraliserad keyword-fil)

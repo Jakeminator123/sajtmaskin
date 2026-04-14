@@ -83,7 +83,7 @@ ANVÄNDARENS PROMPT
   │      + Dynamic Context (prioriterad + prunad):
   │        - Scaffold context (serialiserade filer)
   │        - Scaffold Research Priorities (checklist + upgrade targets + reference templates)
-  │        - Route plan, contracts, brief, style direction (med fontpar + sektionsrecept), toolkit
+  │        - Route plan, contracts, brief, scaffold variant (med fontpar, theme tokens och guidance), toolkit
   │
   └─10. LLM-generering → CodeFile[] → Autofix → Preview
 ```
@@ -124,7 +124,7 @@ Research-blocket (`## Scaffold Research Priorities`) skickas separat av `buildDy
 1. **## Scaffold** — Filträd + utvalda filer (layout.tsx, globals.css, page.tsx) med placeholder-innehåll
 2. **## Scaffold Research Priorities** — Quality checklist + upgrade targets + reference template-sammanfattningar
 3. **## Route Plan** — Planerade sidor (/, /products, /product/[id], etc.)
-4. **## Style Direction** — Deterministisk visuell stil (layout, typografi, motif, konkreta fontpar, sektionsrecept)
+4. **## Scaffold Variant (this generation)** — Deterministiskt valt visuellt uttryck inom den valda scaffolden (typografi, motif, theme tokens, prompt hints, dossier-härledd guidance)
 5. **## Your Toolkit** — Grupperad shadcn-komponentvägledning + capability-hints
 
 ## Token-kostnad
@@ -139,6 +139,7 @@ Scaffold-kontexten är typiskt 5-15% av systempromten. Budgeteras via BuildSpec:
 | Sida | Funktion |
 |------|----------|
 | Scaffolds | Visa + redigera tags, hints, checklist, intents per scaffold |
+| Scaffold Lifecycle | Trädvy scaffold → varianter → dossier-kopplingar, scaffold-shell creation, CRUD för varianter, samt beroendevaliderad scaffold-radering |
 | Research & Dossiers | Kuraterade Vercel templates + research overrides |
 | Pipeline | Kör scaffold/template pipeline (import → verify) |
 | Eval | Scaffold-matchningens accuracy |
