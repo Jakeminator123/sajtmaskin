@@ -6,7 +6,7 @@
 
 ## Aktiva filer (`active/`)
 
-Arbetet drivs som smala uppföljningspass. Se aktiva filer i `active/`.
+Arbetet drivs som smala uppföljningspass. **Index och kort bakgrund:** [`active/README.md`](./active/README.md). Övriga filer i `active/`.
 
 Nuvarande orientering:
 

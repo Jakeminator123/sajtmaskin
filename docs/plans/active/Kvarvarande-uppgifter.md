@@ -1,7 +1,8 @@
-# Sajtmaskin — kvarvarande uppgifter (konsoliderad)
+# Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Konsoliderad från tidigare halvfärdiga planer och listor.
-Detta är den enda listan att följa framåt.
+Flyttad från `halvfärdiga_filer/` (2026-04-15). Detta är den enda checklistan för öppna spår som inte redan har en dedikerad P-fil.
+
+**Smala spår med egen fil:** se `README.md` i denna mapp (P17–P20).
 
 ## Planerade förbättringar (kräver kodarbete)
 
@@ -25,6 +26,8 @@ Detta är den enda listan att följa framåt.
 - [ ] Automatisk baseline-uppdatering (CI/script)
 
 ## Operativt / miljö
+
+(Uppföljning med scope och hypoteser: **P18** för WSS/hydration, **P17** för Unsplash/materialisering.)
 
 - [ ] WSS/HMR till Fly: WebSocket-proxy tappar connection
 - [ ] Hydration error overlay på landningssidan
