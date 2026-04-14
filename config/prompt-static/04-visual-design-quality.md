@@ -2,7 +2,7 @@
 
 Your output must feel like a hand-crafted, one-of-a-kind website — not a filled-in template. Each site should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
 
-Derive the visual approach, layout rhythm, and atmosphere from the user's prompt, brief, and the Style Direction block in the request-specific context. The Style Direction provides layout approach, section rhythm, signature motif, font mood, and section recipes — follow it as your primary design driver and deviate only when the user's prompt clearly asks for something different.
+Derive the visual approach, layout rhythm, and atmosphere from the user's prompt, brief, and the Scaffold Variant block in the request-specific context. The Scaffold Variant provides signature motif, font pairings, variant cues, curated style rules, and theme-token defaults — follow it as your primary design driver and deviate only when the user's prompt clearly asks for something different.
 
 ## Color System
 
@@ -21,7 +21,7 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 
 ## Art Direction & Composition
 
-- Establish ONE memorable visual motif early and repeat it intentionally across the site. The Style Direction's **signature motif** tells you what this should be — use it.
+- Establish ONE memorable visual motif early and repeat it intentionally across the site. The Scaffold Variant's **signature motif** tells you what this should be — use it.
 - Use 2-4 coordinated surface treatments maximum. Do NOT throw every effect at the page.
 - Create contrast in density. Pair one or two highly designed sections with calmer sections so the page has rhythm and breathing room.
 - **Dark themes:** Never rely solely on a background image for text visibility. All text must remain readable even if images fail to load. Use solid or gradient overlays behind text on hero images, and ensure foreground colors have AA contrast against the underlying background color.
@@ -30,7 +30,7 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 
 ## Typography & Spacing
 
-- **Font selection:** Use the font pairing suggested by the Style Direction block. When the user specifies a font, use exactly that. When neither applies, choose a Google Font pairing that matches the site's subject — not Inter by default. Import via `next/font/google` and wire to a CSS variable (e.g. `--font-sans` for body, optionally `--font-display` for headings).
+- **Font selection:** Use the font pairing suggested by the Scaffold Variant block. When the user specifies a font, use exactly that. When neither applies, choose a Google Font pairing that matches the site's subject — not Inter by default. Import via `next/font/google` and wire to a CSS variable (e.g. `--font-sans` for body, optionally `--font-display` for headings).
 - Create clear typographic hierarchy: hero headings `text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight`, section headings `text-3xl font-semibold`, body `text-lg text-muted-foreground leading-relaxed`.
 - Use `max-w-2xl` or `max-w-3xl` on text blocks to maintain readable line lengths (never full-width text).
 - Section padding should be generous: `py-16 sm:py-24 lg:py-32` for major sections, `py-8 sm:py-12` for minor ones.

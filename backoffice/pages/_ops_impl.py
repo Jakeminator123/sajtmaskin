@@ -643,7 +643,7 @@ ANVÄNDARENS PROMPT
   │
   ├─ 8. Dynamic Context (rollbaserade block, token-prunade):
   │      Project Context · Route Plan · Pages & Sections (vid sektionsdetalj)
-  │      Style Direction · Visual Identity · Contracts · Toolkit
+  │      Scaffold Variant · Visual Identity · Contracts · Toolkit
   │      Must Have / Avoid · UX & UI Notes
   │
   ├─ 9. LLM-generering → CodeFile[]

@@ -140,6 +140,7 @@ describe("buildDynamicContext", () => {
 
       expect(context).toContain("## Build Intent: Website");
       expect(context).toContain("## Generation Profile");
+      expect(context).toContain("## Scaffold Variant (this generation)");
       expect(context).toContain("- **Style direction:** brand-led");
       expect(context).toContain("## Project Context");
       expect(context).toContain("Lindström");

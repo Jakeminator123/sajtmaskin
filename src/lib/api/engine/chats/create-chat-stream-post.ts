@@ -655,12 +655,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           routeCount: orchestrationBase.routePlan.routes.length,
           qualityTarget: orchestrationBase.buildSpec.qualityTarget,
           contextPolicy: orchestrationBase.buildSpec.contextPolicy,
-          styleDirection: finalized.styleDirectionId,
+          scaffoldVariant: finalized.variantId,
         });
-        if (finalized.styleDirectionId) {
+        if (finalized.variantId) {
           devLogAppend("in-progress", {
             type: "orchestration.styleDirection",
-            styleDirection: finalized.styleDirectionId,
+            styleDirection: finalized.variantId,
           });
         }
         const generationInputPackage = buildGenerationInputPackage(

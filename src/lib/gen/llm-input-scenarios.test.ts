@@ -46,6 +46,7 @@ describe("LLM input scenarios (dynamic context)", () => {
       scaffoldContext: "## Scaffold: test\n\nbody",
     });
     expect(context).toContain("## Build Intent: Website");
+    expect(context).toContain("## Scaffold Variant (this generation)");
     expect(context).toContain("## Scaffold");
     expect(context).toContain("## Project Context");
     expect(pruning.budgetTokens).toBeGreaterThan(0);

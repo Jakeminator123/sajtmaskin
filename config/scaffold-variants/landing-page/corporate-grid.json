@@ -1,0 +1,75 @@
+{
+  "id": "corporate-grid",
+  "scaffoldId": "landing-page",
+  "label": "Corporate Grid",
+  "description": "Trust-heavy B2B and consulting landing pages with clean hierarchy.",
+  "keywords": [
+    "b2b",
+    "consulting",
+    "agency",
+    "corporate",
+    "enterprise",
+    "trust",
+    "professional",
+    "byrå",
+    "företag"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Manrope",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "precise grid alignment, neutral surfaces, and partner-proof rhythm",
+  "colorMode": "light",
+  "promptHints": [
+    "Lead with business clarity, partner trust, and a measured hierarchy rather than expressive atmospherics.",
+    "Prefer proof blocks, metrics, and cases over decorative cards."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.99 0.002 255)",
+    "foreground": "oklch(0.23 0.01 255)",
+    "card": "oklch(1 0 0)",
+    "primary": "oklch(0.56 0.14 250)",
+    "primaryForeground": "oklch(0.98 0 0)",
+    "secondary": "oklch(0.96 0.004 255)",
+    "muted": "oklch(0.95 0.004 255)",
+    "accent": "oklch(0.92 0.015 240)",
+    "border": "oklch(0.89 0.004 255)",
+    "ring": "oklch(0.56 0.14 250)",
+    "radius": "0.95rem"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+    "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "hero",
+    "product proof",
+    "pricing"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+    "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Final output should feel custom and production-grade, not like a renamed starter.",
+    "Commercial sections should feel conversion-ready without looking template-generic."
+  ],
+  "sourceTemplateIds": [
+    "saas-next-js-enterprise-boilerplate",
+    "multi-tenant-apps-b2b-multi-tenant-starter-kit",
+    "blog-next-js-wisp-corporate-blog-starter",
+    "saas-paddle-billing-subscription-starter"
+  ],
+  "default": true
+}

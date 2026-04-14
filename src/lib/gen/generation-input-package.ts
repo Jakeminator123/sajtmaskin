@@ -28,6 +28,8 @@ export interface GenerationInputPackage extends OrchestrationBase {
   dynamicContextPruning: DynamicContextPruning;
   /** Structured observability for the dynamic prompt blocks before/after pruning. */
   dynamicContextBlocks: DynamicContextBlockTrace[];
+  /** Chosen scaffold variant for this generation. */
+  variantId: string | null;
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
   /** Scaffold-anchored template-library guidance metadata (observability). */
@@ -85,6 +87,7 @@ export function serializePackageForDump(
     dynamicContextLength: pkg.dynamicContext.length,
     dynamicContextPruning: pkg.dynamicContextPruning,
     dynamicContextBlocks: pkg.dynamicContextBlocks,
+    variantId: pkg.variantId,
     templateGuidance: pkg.templateGuidanceMeta
       ? {
           enabled: pkg.templateGuidanceMeta.enabled,

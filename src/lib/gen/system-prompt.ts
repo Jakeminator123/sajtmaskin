@@ -32,7 +32,8 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
-import { pickStyleDirection } from "./data/style-directions";
+import { pickScaffoldVariant } from "./scaffold-variants";
+import type { ScaffoldVariant } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
@@ -80,7 +81,7 @@ const BUILD_INTENT_GUIDANCE: Record<
     label: "Website",
     rules: [
       "Ship code that passes a real App Router build: valid `next/image`, metadata exports, and Server Components by default — not patterns that only work inside a browser-transpiled preview.",
-      "Build a complete, visually polished website with navigation, content sections, and a footer. Follow the Style Direction block for layout approach, section rhythm, and visual motif — do not fall back to a generic hero-cards-footer formula.",
+      "Build a complete, visually polished website with navigation, content sections, and a footer. Follow the Scaffold Variant block for layout cues, visual motif, and tone — do not fall back to a generic hero-cards-footer formula.",
       "Include realistic mock content specific to the business type — never generic placeholder copy.",
       "Match scope: short prompt → polished one-pager; detailed prompt → multi-page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
     ],
@@ -177,6 +178,7 @@ export interface DynamicContextOptions {
   scaffoldContext?: string;
   capabilityHints?: string;
   resolvedScaffold?: ScaffoldManifest | null;
+  resolvedVariant?: ScaffoldVariant | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
   componentPalette?: PaletteState | null;
@@ -187,7 +189,7 @@ export interface DynamicContextOptions {
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
-  /** Per-session seed (chatId or similar) to vary style direction across sessions with identical prompts. */
+  /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
   /** Pre-rendered scaffold-anchored template-library guidance (init only, opt-in). */
   templateGuidance?: string;
@@ -227,7 +229,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
-  { match: /^style direction \(this generation\)$/i, priority: 91 },
+  { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
   { match: /^scaffold$/i, priority: 90, required: true },
   { match: /^route plan$/i, priority: 90, required: true },
   { match: /^your toolkit$/i, priority: 85, required: true },
@@ -342,8 +344,38 @@ export type BuildDynamicContextResult = {
   context: string;
   pruning: DynamicContextPruning;
   blocks: DynamicContextBlockTrace[];
-  styleDirectionId: string | null;
+  variantId: string | null;
 };
+
+function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): string[] {
+  const tokens = variant?.themeTokens;
+  if (!tokens) return [];
+  const entries = [
+    ["--background", tokens.background],
+    ["--foreground", tokens.foreground],
+    ["--card", tokens.card],
+    ["--card-foreground", tokens.cardForeground],
+    ["--primary", tokens.primary],
+    ["--primary-foreground", tokens.primaryForeground],
+    ["--secondary", tokens.secondary],
+    ["--secondary-foreground", tokens.secondaryForeground],
+    ["--muted", tokens.muted],
+    ["--muted-foreground", tokens.mutedForeground],
+    ["--accent", tokens.accent],
+    ["--accent-foreground", tokens.accentForeground],
+    ["--border", tokens.border],
+    ["--ring", tokens.ring],
+    ["--radius", tokens.radius],
+  ] as const;
+
+  const lines = entries
+    .filter(([, value]) => Boolean(value))
+    .map(([token, value]) => `  - ${token}: ${value}`);
+  if (tokens.bodyBackgroundImage) {
+    lines.push(`  - background-image: ${tokens.bodyBackgroundImage}`);
+  }
+  return lines;
+}
 
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
@@ -361,6 +393,7 @@ export async function buildDynamicContext(
     scaffoldContext,
     capabilityHints,
     resolvedScaffold,
+    resolvedVariant,
     routePlan,
     preGenerationContracts,
     componentPalette,
@@ -376,6 +409,7 @@ export async function buildDynamicContext(
 
   const isFollowUp = generationMode === "followUp";
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
+  const toneKeywords = strList(brief?.toneAndVoice);
 
   const parts: string[] = [];
 
@@ -397,6 +431,25 @@ export async function buildDynamicContext(
 
   // ── Build Intent ────────────────────────────────────────────────────────
   const guidance = BUILD_INTENT_GUIDANCE[intent];
+  const effectiveVariant =
+    resolvedVariant ??
+    pickScaffoldVariant({
+      prompt: [
+        str(brief?.oneSentencePitch),
+        str(brief?.tagline),
+        strList(brief?.mustHave).join(" "),
+        toneKeywords.join(" "),
+        styleKeywords.join(" "),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || guidance.rules.join(" "),
+      scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
+      styleKeywords,
+      toneKeywords,
+      generationMode,
+      sessionSeed,
+    });
   parts.push(
     `## Build Intent: ${guidance.label}`,
     "",
@@ -425,45 +478,61 @@ export async function buildDynamicContext(
     parts.push(...profileLines);
   }
 
-  const styleDirection = pickStyleDirection({
-    prompt: [
-      str(brief?.oneSentencePitch),
-      str(brief?.tagline),
-      strList(brief?.mustHave).join(" "),
-      strList(brief?.toneAndVoice).join(" "),
-      styleKeywords.join(" "),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || guidance.rules.join(" "),
-    scaffoldId: resolvedScaffold?.id ?? null,
-    styleKeywords,
-    generationMode,
-    sessionSeed,
-  });
-  parts.push(
-    "## Style Direction (this generation)",
-    "",
-    `- **Layout approach:** ${styleDirection.layoutApproach}`,
-    `- **Section rhythm:** ${styleDirection.sectionRhythm}`,
-    `- **Signature motif:** ${styleDirection.signatureMotif}`,
-    `- **Font mood:** ${styleDirection.fontMood}`,
-  );
-  if (styleDirection.fontPairings.length > 0) {
-    const pairStr = styleDirection.fontPairings
+  if (effectiveVariant) {
+    parts.push(
+      "## Scaffold Variant (this generation)",
+      "",
+      `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
+      `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,
+      `- **Color mode:** ${effectiveVariant.colorMode}`,
+      `- **Signature motif:** ${effectiveVariant.signatureMotif}`,
+    );
+    if (effectiveVariant.description) {
+      parts.push(`- **Variant purpose:** ${effectiveVariant.description}`);
+    }
+    if (effectiveVariant.fontPairings.length > 0) {
+      const pairStr = effectiveVariant.fontPairings
       .map((p) => `${p.heading} + ${p.body}`)
       .join(", or ");
-    parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
-  }
-  if (styleDirection.sectionRecipes.length > 0) {
-    parts.push(
-      "- **Section recipes (suggested combinations — adapt or replace based on the user's prompt):**",
-    );
-    for (const recipe of styleDirection.sectionRecipes.slice(0, 4)) {
-      parts.push(`  - ${recipe}`);
+      parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
     }
+    if (effectiveVariant.promptHints.length > 0) {
+      parts.push("- **Variant cues:**");
+      for (const hint of effectiveVariant.promptHints.slice(0, 3)) {
+        parts.push(`  - ${hint}`);
+      }
+    }
+    if ((effectiveVariant.styleRules?.length ?? 0) > 0) {
+      parts.push("- **Style rules from curated references:**");
+      for (const rule of effectiveVariant.styleRules!.slice(0, 3)) {
+        parts.push(`  - ${rule}`);
+      }
+    }
+    if ((effectiveVariant.sectionInventory?.length ?? 0) > 0) {
+      parts.push(
+        `- **Section inventory to favor:** ${effectiveVariant.sectionInventory!.slice(0, 4).join(", ")}`,
+      );
+    }
+    if ((effectiveVariant.avoidPatterns?.length ?? 0) > 0) {
+      parts.push("- **Avoid patterns:**");
+      for (const pattern of effectiveVariant.avoidPatterns!.slice(0, 2)) {
+        parts.push(`  - ${pattern}`);
+      }
+    }
+    const themeTokenLines = formatThemeTokenLines(effectiveVariant);
+    if (themeTokenLines.length > 0) {
+      parts.push(
+        "- **Theme tokens (variant defaults — override only when the brief or locked theme says otherwise):**",
+      );
+      parts.push(...themeTokenLines);
+    }
+    if ((effectiveVariant.sourceTemplateIds?.length ?? 0) > 0) {
+      parts.push(
+        `- **Derived from curated references:** ${effectiveVariant.sourceTemplateIds!.slice(0, 4).join(", ")}`,
+      );
+    }
+    parts.push("");
   }
-  parts.push("");
 
   // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
   // (static core, cached per process — no longer eats dynamic context token budget)
@@ -794,7 +863,7 @@ export async function buildDynamicContext(
 
   // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
-  // (those already feed Style Direction). Keep only concrete image subjects/notes.
+  // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
   if (brief?.imagery) {
     const visualKwSet = new Set(styleKeywords.map((k) => k.toLowerCase()));
     const imgStyleKw = strList(brief.imagery.styleKeywords).filter(
@@ -904,7 +973,7 @@ export async function buildDynamicContext(
       keptBlockKeys: budgeted.keptKeys,
     },
     blocks: blockTrace,
-    styleDirectionId: styleDirection.id,
+    variantId: effectiveVariant?.id ?? null,
   };
 }
 

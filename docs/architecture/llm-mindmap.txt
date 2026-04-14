@@ -17,13 +17,13 @@ ANVÄNDARPROMPT: "Jag vill ha en sajt för min frisörsalong"
   │         "bygg nåt" utan kontext → base-nextjs.
   │         "sajt för min frisörsalong" → landing-page direkt.
   │
-  ├─── 4. Style Direction → "warm_editorial"
-  │    │     (keyword "frisör" + "salong" + brief "warm" + "spa"
-  │    │      matchar warm_editorial-keywords)
+  ├─── 4. Scaffold Variant → "warm-local"
+  │    │     (vald scaffold = landing-page, brief/prompt signalerar
+  │    │      lokal varm verksamhet → warm-local-varianten vinner)
   │    │
-  │    │   PARALLELL med scaffold-val, INTE underordnad.
-  │    │   Scaffold ger struktur. Style ger känsla.
-  │    │   (Dock: families-kopplingen ger +4 om de råkar matcha)
+  │    │   Scaffold ger struktur. Variant ger känsla.
+  │    │   Valet sker inom den valda scaffoldens variantpool,
+  │    │   inte som ett frikopplat globalt style-presetsystem.
   │    │
   ├─── 5. Route Plan, Contracts, Capability Inference
   │         (alla läser brief + scaffold + prompt)
@@ -41,10 +41,10 @@ ANVÄNDARPROMPT: "Jag vill ha en sajt för min frisörsalong"
   │    │
   │    │   ┌─ DYNAMISK (buildDynamicContext) ───────────────┐
   │    │   │  Build Intent: Website                         │
-  │    │   │  Style Direction: warm_editorial               │
-  │    │   │    - Layout: full-bleed hero + inset cards     │
+  │    │   │  Scaffold Variant: warm-local                  │
   │    │   │    - Font: DM Serif Display + DM Sans          │
   │    │   │    - Motif: warm tints, rounded, soft shadows  │
+  │    │   │    - Theme: light OKLCh tokens + warm accents  │
   │    │   │  Scaffold: landing-page (serialiserad)         │
   │    │   │  Project Context: "Salong X", audience, CTA    │
   │    │   │  Route Plan: / (hem)                           │

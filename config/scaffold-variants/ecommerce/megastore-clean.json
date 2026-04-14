@@ -1,0 +1,74 @@
+{
+  "id": "megastore-clean",
+  "scaffoldId": "ecommerce",
+  "label": "Megastore Clean",
+  "description": "Catalog-heavy ecommerce variant with cleaner navigation and retail clarity.",
+  "keywords": [
+    "catalog",
+    "storefront",
+    "ecommerce",
+    "retail",
+    "megastore",
+    "clean",
+    "marketplace",
+    "katalog"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Inter",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "clean retail IA, strong faceting rhythm, and conversion-first clarity",
+  "colorMode": "light",
+  "promptHints": [
+    "Optimize for product discovery, filtering, and cart clarity before decorative storytelling.",
+    "Use a retailer mindset: navigation, categories, and trust must read instantly."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.99 0.002 255)",
+    "foreground": "oklch(0.22 0.01 255)",
+    "card": "oklch(1 0 0)",
+    "primary": "oklch(0.57 0.13 250)",
+    "primaryForeground": "oklch(0.98 0 0)",
+    "secondary": "oklch(0.97 0.004 255)",
+    "muted": "oklch(0.95 0.004 255)",
+    "accent": "oklch(0.93 0.01 240)",
+    "border": "oklch(0.9 0.004 255)",
+    "ring": "oklch(0.57 0.13 250)",
+    "radius": "0.9rem"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+    "Preserve clear information density with persistent navigation and scannable panels."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "overview metrics",
+    "filters or controls",
+    "table or chart area"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+    "Avoid turning dashboard references into generic marketing landing pages."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Final output should feel custom and production-grade, not like a renamed starter.",
+    "Dense UI must still feel legible, fast, and trustworthy."
+  ],
+  "sourceTemplateIds": [
+    "ecommerce-blazity-enterprise-ecommerce-starter",
+    "ecommerce-stripe-subscription-starter",
+    "ecommerce-your-next-store-commerce-with-next-js-and-stripe",
+    "starter-next-js-app-router-playground"
+  ],
+  "default": true
+}

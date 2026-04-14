@@ -90,7 +90,7 @@ login-04     → Card + Form + Input + Button (split layout med bild)
 
 ### Komplexitet
 
-Medel. Blocks dependencies ger oss vilka *komponenter* som ingår, men inte *hur* de arrangeras (layout, visuell hierarki). Mänsklig curation behövs fortfarande för att matcha patterns mot style directions.
+Medel. Blocks dependencies ger oss vilka *komponenter* som ingår, men inte *hur* de arrangeras (layout, visuell hierarki). Mänsklig curation behövs fortfarande för att matcha patterns mot scaffold variants.
 
 ### Designbeslut
 
@@ -235,8 +235,8 @@ Toolkit Enrichment (april 2026) löste de akuta problemen:
 
 - `@tanstack/react-table` och `@react-three/rapier` installerade (dep-bugfix)
 - Grupperad komponentvägledning i `## Your Toolkit` (prompt-förbättring)
-- Konkreta fontpar per style direction (data-utökning)
-- Section recipes per style direction (data-utökning)
+- Konkreta fontpar per scaffold variant (data-utökning)
+- Section recipes per scaffold variant (data-utökning)
 - 9 saknade shadcn-komponenter tillagda i registret
 - lucide-react KNOWN_PACKAGES fixad (^0.563 → ^1)
 - Capability-inference gaps: needsCalendar, needsCommandSearch, needsThemeToggle + berikade hints

@@ -1,0 +1,74 @@
+{
+  "id": "showcase-bold",
+  "scaffoldId": "portfolio",
+  "label": "Showcase Bold",
+  "description": "Image-forward portfolio variant with stronger attitude and project contrast.",
+  "keywords": [
+    "portfolio",
+    "showcase",
+    "creative",
+    "photography",
+    "visual",
+    "gallery",
+    "bold",
+    "work"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Bricolage Grotesque",
+      "body": "DM Sans"
+    }
+  ],
+  "signatureMotif": "image-led project framing, strong contrast, and curated metadata overlays",
+  "colorMode": "dark",
+  "promptHints": [
+    "Lead with project imagery and work identity before biography copy.",
+    "Every project block should feel curated and memorable, not like a feature card."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.14 0.01 275)",
+    "foreground": "oklch(0.95 0.006 275)",
+    "card": "oklch(0.18 0.01 275)",
+    "primary": "oklch(0.74 0.16 18)",
+    "primaryForeground": "oklch(0.1 0 0)",
+    "secondary": "oklch(0.21 0.01 275)",
+    "muted": "oklch(0.19 0.008 275)",
+    "accent": "oklch(0.7 0.12 155)",
+    "border": "oklch(0.3 0.01 275)",
+    "ring": "oklch(0.74 0.16 18)",
+    "radius": "0.95rem"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+    "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "article hero",
+    "archive list",
+    "author or credibility block"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+    "Avoid collapsing editorial references into generic feature-card marketing."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Final output should feel custom and production-grade, not like a renamed starter.",
+    "Reading flow should feel deliberate on both desktop and mobile."
+  ],
+  "sourceTemplateIds": [
+    "portfolio-magic-portfolio-for-next-js",
+    "portfolio-next-js-portfolio-with-pageview-counter",
+    "portfolio-nim-minimalist-personal-site",
+    "authentication-partner-gallery"
+  ],
+  "default": false
+}

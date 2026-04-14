@@ -1,0 +1,73 @@
+{
+  "id": "glass-frosted",
+  "scaffoldId": "dashboard",
+  "label": "Glass Frosted",
+  "description": "Modern SaaS analytics dashboard with frosted surfaces and layered depth.",
+  "keywords": [
+    "analytics",
+    "dashboard",
+    "saas",
+    "glass",
+    "metrics",
+    "workspace",
+    "modern"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Space Grotesk",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "frosted panels, layered cards, and subtle glowing metrics",
+  "colorMode": "dark",
+  "promptHints": [
+    "Keep information density high, but use translucent depth to separate zones cleanly.",
+    "This should feel operational, polished, and product-grade rather than brochure-like."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.16 0.015 250)",
+    "foreground": "oklch(0.94 0.006 250)",
+    "card": "oklch(0.21 0.015 250)",
+    "primary": "oklch(0.7 0.18 280)",
+    "primaryForeground": "oklch(0.12 0 0)",
+    "secondary": "oklch(0.24 0.015 250)",
+    "muted": "oklch(0.22 0.01 250)",
+    "accent": "oklch(0.62 0.14 220)",
+    "border": "oklch(0.3 0.01 250)",
+    "ring": "oklch(0.7 0.18 280)",
+    "radius": "1rem"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+    "Preserve clear information density with persistent navigation and scannable panels."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "overview metrics",
+    "filters or controls",
+    "table or chart area"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+    "Avoid turning dashboard references into generic marketing landing pages."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Final output should feel custom and production-grade, not like a renamed starter.",
+    "Dense UI must still feel legible, fast, and trustworthy."
+  ],
+  "sourceTemplateIds": [
+    "ecommerce-blazity-enterprise-ecommerce-starter",
+    "authentication-clerk-authentication-starter",
+    "admin-dashboard-modernize-next-js-admin-dashboard-template",
+    "authentication-next-js-saas-starter"
+  ],
+  "default": true
+}

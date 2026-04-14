@@ -1,0 +1,74 @@
+{
+  "id": "tech-minimal",
+  "scaffoldId": "blog",
+  "label": "Tech Minimal",
+  "description": "Developer blog variant with cleaner, faster, docs-adjacent presentation.",
+  "keywords": [
+    "developer",
+    "technical",
+    "markdown",
+    "contentlayer",
+    "minimal",
+    "docs",
+    "api",
+    "engineering"
+  ],
+  "fontPairings": [
+    {
+      "heading": "IBM Plex Sans",
+      "body": "IBM Plex Mono"
+    }
+  ],
+  "signatureMotif": "clean technical hierarchy, docs-adjacent rhythm, and restrained developer polish",
+  "colorMode": "either",
+  "promptHints": [
+    "Keep the reading flow technical and efficient rather than lifestyle-editorial.",
+    "Use code-friendly surfaces and documentation-adjacent hierarchy where it helps."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.97 0.003 240)",
+    "foreground": "oklch(0.2 0.01 240)",
+    "card": "oklch(0.99 0.003 240)",
+    "primary": "oklch(0.52 0.14 245)",
+    "primaryForeground": "oklch(0.98 0 0)",
+    "secondary": "oklch(0.95 0.004 240)",
+    "muted": "oklch(0.94 0.004 240)",
+    "accent": "oklch(0.9 0.014 230)",
+    "border": "oklch(0.88 0.004 240)",
+    "ring": "oklch(0.52 0.14 245)",
+    "radius": "0.7rem"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
+    "Favor editorial readability, spacing rhythm, and content hierarchy over card spam."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "article hero",
+    "archive list",
+    "author or credibility block"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
+    "Avoid collapsing editorial references into generic feature-card marketing."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Final output should feel custom and production-grade, not like a renamed starter.",
+    "Reading flow should feel deliberate on both desktop and mobile."
+  ],
+  "sourceTemplateIds": [
+    "blog-next-js-contentlayer-blog-starter",
+    "portfolio-next-js-portfolio-with-pageview-counter",
+    "blog-tailwind-css-blog",
+    "blog-notion-powered-next-js-blog"
+  ],
+  "default": false
+}

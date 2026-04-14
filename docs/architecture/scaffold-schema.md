@@ -288,7 +288,7 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 ├── route plan
 ├── contracts
 ├── brief (om finns)
-├── style direction (deterministisk variation: layout, rytm, motiv, fontpar, sektionsrecept)
+├── scaffold variant (scaffold-bunden variation: signaturmotiv, fontpar, variant-hints, tema-tokens)
 ├── capability hints
 ├── scaffold research priorities
 └── your toolkit (registry-synced local shadcn summary + capability-hints)
