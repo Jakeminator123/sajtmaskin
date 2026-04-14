@@ -33,7 +33,7 @@ Output: `data/external-template-pipeline/raw-discovery/current/` (see spec heade
 
 ## Builder & deploy API (regression idag)
 
-Kontraktstester (mockad DB/version, inga riktiga Vercel-anrop): `src/app/api/v0/deployments/route.test.ts`. Preflight, `precheckOnly`, `skipAutoFix` och canonical path: [`docs/architecture/preview-deploy.md`](../docs/architecture/preview-deploy.md).
+Kontraktstester (mockad DB/version, inga riktiga Vercel-anrop): `src/app/api/v0/deployments/route.test.ts`. Preflight, `precheckOnly`, `skipAutoFix` och canonical path: [`docs/architecture/fas3-preview-and-deploy.md`](../docs/architecture/fas3-preview-and-deploy.md).
 
 En full **HTTP- eller Playwright-`request`-smoke mot `POST /api/v0/deployments`** kräver autentiserad session och ägarskap till chat/version — separat produktbeslut.
 

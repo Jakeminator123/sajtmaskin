@@ -9,6 +9,6 @@ alwaysApply: true
 
 **Docs:** uppdatera när beteende, yta, struktur, terminologi eller status **faktiskt** ändrats — **ersätt** gammal text, lägg inte lager ovanpå. Ta bort obsolete. Inga nya process-/handoff-filer utan verkligt nytt scope. **Självsanering:** tomma kataloger, döda länkar/pekare och inaktuella tabellrader i samma svep som ändringen som gör dem överflödiga. Uppdatera eller ta bort docs som inte längre speglar kod.
 
-**Var:** `docs/architecture/` · `docs/schemas/` · `docs/plans/active/` · policy: `documentation-lifecycle.md` · env/index: `repo-env-indexing.mdc`
+**Var:** `docs/architecture/` · `docs/schemas/` (human-readable) · `docs/schemas/strict/` (machine-readable) · `docs/plans/active/` · env/index: `repo-env-indexing.mdc`
 
 **Princip:** en sanning, ett ställe. Ta bort > lägg till när inaktuellt. Om beteendet inte ändrats — rör inte docs.

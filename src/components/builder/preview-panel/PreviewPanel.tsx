@@ -801,7 +801,7 @@ export function PreviewPanel({
     previewUrl && imageGenerationsEnabled && !imageGenerationsSupported,
   );
   const showBlobConfigWarning = Boolean(previewUrl && imageGenerationsEnabled && !isBlobConfigured);
-  /** Tier 2: one user-facing strip for media/env limits — no env-var name dump (`preview-deploy.md`). */
+  /** Tier 2: one user-facing strip for media/env limits — no env-var name dump (`fas3-preview-and-deploy.md`). */
   const showPreviewUnifiedStrip = Boolean(
     !isCodeView &&
       previewUrl &&

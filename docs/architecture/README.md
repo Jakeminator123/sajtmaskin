@@ -1,34 +1,50 @@
-# Arkitektur — översikt
+# Arkitektur — oversikt
 
-**Senast strukturerad om:** 2026-04-10. Arkiv: git-historik.
+**Senast strukturerad om:** 2026-04-15
 
-**Vad det här är:** en **ingångs**-sammanfattning i vanlig markdown — inte en tjänst, MCP-server eller “hub” i teknisk mening. Den här mappen beskriver **hur Sajtmaskin är uppbyggt** (egen motor, builder, preview, integrationer, repo). Produktordlista för agenter: [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc). Nav i hela `docs/`: [`docs/README.md`](../README.md).
+Detta ar ingangssidan for arkitekturdokumentationen.
 
-## Snabb orientering (rot-träd)
+- Kod ar alltid source of truth.
+- Fasnamn (Fas 1/2/3) ar kanoniska.
+- "Steg 3/4/5" anvands inte langre som primar struktur i docs.
 
-[Karta över rotmappar och två “data”-begrepp](./repo-tree.md) — läs före du gräver i detalj nedan.
+---
 
-## De centrala huvuddokumenten
+## Snabb orientering
 
-| Dokument | Vad det täcker |
-|----------|----------------|
-| [system-overview.md](./system-overview.md) | Motorflöde, modellager, builder-entry (`BuildMethod`), handoff till planer |
-| [builder-generation.md](./builder-generation.md) | Promptlager, modellval & trace, SSE, generation loop, UX-kontrakt, projektinställningar |
-| [llm-input-blocks.md](./llm-input-blocks.md) | Steg 3: vad som når modellen (system vs user-turn vs historik), budget/pruning |
-| [llm-signal-flow.md](./llm-signal-flow.md) | Hur prompt assist, Deep brief, scaffold, route plan, capabilities, contracts och post-checks samspelar |
-| [step4-post-generation.md](./step4-post-generation.md) | Steg 4: finalize, validate, verifier, preflight, fast-only vs fast+deep, gräns mot Steg 5 |
-| [preview-deploy.md](./preview-deploy.md) | Tier-2 preview via `preview_host` / VM, preview-session lifecycle, legacy shim/compat, fidelity tiers, deploy-precheck |
-| [preview-white-screen-runbook.md](./preview-white-screen-runbook.md) | Vit/tom preview: felsökning, loggar, förebyggande; speglar UI-runbook |
-| [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fullständiga schema: flöde, typer, matris, merge-pipeline |
-| [repository-and-platform.md](./repository-and-platform.md) | Mappar & terminologi, doc-livscykel, repo-hygien, skript/scaffolds, kände fel, v0-deprecation, Vercel-mallar/webhooks, övriga integrationer |
+- Rottrad och mappansvar: [repo-tree.md](./repo-tree.md)
+- Terminologi: [`../../.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc)
+- Full ordlista: [glossary.md](./glossary.md)
 
-## Dokumentlivscykel
+---
 
-Policy: [`documentation-lifecycle.md`](./documentation-lifecycle.md).
+## Fasdokument (kanonisk LLM-kedja)
 
-## Snabblänkar (kod som sanning)
+| Fas | Dokument | Fokus |
+|---|---|---|
+| 1 | [fas1-startprompt-flow.md](./fas1-startprompt-flow.md) | Prompt in, assist, brief, init/follow-up-ingang |
+| 2 | [fas2-orchestration-and-build.md](./fas2-orchestration-and-build.md) | Orkestrering, LLM-input, finalize/autofix/verifier/persist |
+| 3 | [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md) | Preview-host/VM, lifecycle, quality-gate, deploy |
 
-- `src/lib/gen/` — egen motor, stream, preview, sandbox
-- `src/lib/models/catalog.ts` — byggprofiler / modell-ID
-- `config/ai_models/manifest.json` — manifest för modeller
-- `docs/schemas/README.md` — schema-dokumentation
+---
+
+## Ovriga centrala dokument
+
+| Dokument | Vad det tacker |
+|---|---|
+| [builder-generation.md](./builder-generation.md) | Kort nav for builderns LLM-pipeline |
+| [llm-signal-flow.md](./llm-signal-flow.md) | Hur signallager samspelar i kedjan |
+| [preview-white-screen-runbook.md](./preview-white-screen-runbook.md) | Felsokning av vit/tom preview |
+| [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fulla schema |
+| [system-overview.md](./system-overview.md) | Hog niva: motor, builder, preview, deploy |
+| [repository-and-platform.md](./repository-and-platform.md) | Repohygien, plattformsgrans och nav |
+
+---
+
+## Snabblankar till kod
+
+- `src/lib/gen/`
+- `src/lib/providers/own-engine/`
+- `src/lib/models/catalog.ts`
+- `config/ai_models/manifest.json`
+- `docs/schemas/README.md`

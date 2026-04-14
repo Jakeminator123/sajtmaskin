@@ -13,7 +13,7 @@ Primary code sources:
 - `preview-host/src/server.js`
 - `preview-host/src/validate.js`
 - `preview-host/src/runtime.js`
-- `docs/architecture/preview-deploy.md`
+- `docs/architecture/fas3-preview-and-deploy.md`
 
 Machine-oriented companion:
 

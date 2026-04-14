@@ -1,6 +1,6 @@
 /**
  * Legacy compatibility-preview URL helpers (`/api/preview-render`) och shim-detektion.
- * Primär produktpreview är tier-2 live-preview; se `docs/architecture/preview-deploy.md`.
+ * Primär produktpreview är tier-2 live-preview; se `docs/architecture/fas3-preview-and-deploy.md`.
  */
 export type AlternatePreviewUrls = {
   shimUrl: string | null;

@@ -1,7 +1,7 @@
 /**
  * Client-side retry policy for POST `/api/engine/chats/.../preview-session` bootstrap
  * (v0 route is compat).
- * Must match docs/architecture/preview-deploy.md and server `retryable` semantics.
+ * Must match docs/architecture/fas3-preview-and-deploy.md and server `retryable` semantics.
  */
 
 /** Default delay before bootstrap retries (matches `parseRetryAfterMs` fallback). */

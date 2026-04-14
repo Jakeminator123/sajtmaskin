@@ -18,8 +18,8 @@ Primära kodkällor:
 Närliggande docs:
 
 - `docs/schemas/preview-session-contract.md`
-- `docs/architecture/preview-deploy.md`
-- `docs/architecture/step4-post-generation.md`
+- `docs/architecture/fas3-preview-and-deploy.md`
+- `docs/architecture/fas2-orchestration-and-build.md`
 
 ## Vad quality gate är
 
@@ -161,7 +161,7 @@ flowchart TD
 Quality gate finns redan dokumenterad, men utspritt:
 
 - `docs/schemas/preview-session-contract.md` — verify-lane och API-kontrakt
-- `docs/architecture/preview-deploy.md` — runtimebild, tier-2 vs verify-lane
-- `docs/architecture/step4-post-generation.md` — relation till finalize och `server-verify`
+- `docs/architecture/fas3-preview-and-deploy.md` — runtimebild, tier-2 vs verify-lane
+- `docs/architecture/fas2-orchestration-and-build.md` — relation till finalize och `server-verify`
 
 Den här sidan finns för att ge en enda sammanhållen ingångspunkt.

@@ -12,7 +12,7 @@
  *  │  → Build intent, visual identity, project ctx    │
  *  └─────────────────────────────────────────────────┘
  *
- * Step 3 — what actually reaches the model (own-engine):
+ * Fas 2 — what actually reaches the model (own-engine):
  *  - **Static core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
  *    **dynamic context** from this file = full **system** message.
  *  - **User turn** = current request prompt (possibly URL-compressed); it is **not**
@@ -20,7 +20,7 @@
  *    the same user text (see `buildDynamicContext`).
  *  - **Chat history** = prior user/assistant turns, assembled by the generation
  *    pipeline (`createOwnEnginePipelineAndGenerationStream`, etc.), separate from system.
- * Canonical map: `docs/architecture/llm-input-blocks.md`.
+ * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
  *
  * Keeping the static block in one stable file helps prompt-prefix caching;
  * edit config/prompt-static/*.md and/or the manifest; see _READ_ME_FIRST.md.

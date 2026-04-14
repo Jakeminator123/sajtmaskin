@@ -25,6 +25,8 @@ Signallagrens tabell: `docs/schemas/orchestration-signal-contract.md`.
 3. **Docs-only-termer måste motiveras.** Om en term bara lever i mermaid/docs men inte i kod behöver den antingen mappa tydligt till en kodsymbol eller fasas ut.
 4. **Sammansatta samlingsnamn undviks.** Termer som `PostChecksAndQualityGate` eller `PromptAssistOrDeepBrief` som klumpar ihop distinkta steg ska ersättas med sina beståndsdelar.
 5. **Fasindelning styr.** Varje term tillhör en fas. Om en term används i flera faser dokumenteras det, men den "ägs" av den fas där den skapas.
+6. **Steg-nummer ar legacy i pipeline-docs.** Anvand Fas 1/2/3 som primar
+   indelning i ny dokumentation.
 
 ### Livscykelstatus
 
@@ -298,9 +300,10 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 
 ---
 
-## Fas 3 — Repair, verifiering och quality gate
+## Fas 3 — Preview, VM, deploy och verifiering
 
-Allt efter att generatorn producerat output.
+Allt efter att Fas 2 har sparat en version: preview-session, VM-livscykel,
+quality-gate/server-verify, repair-loopar och deploy-relaterade kontroller.
 
 ### 3.1 Autofix och repair
 

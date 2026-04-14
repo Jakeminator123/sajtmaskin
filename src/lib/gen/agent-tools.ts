@@ -46,6 +46,8 @@ export const suggestIntegration = tool({
       .optional()
       .describe("Brief setup instruction for the user"),
   }),
+  execute: async ({ name, provider }) =>
+    `Integration "${name}" (${provider}) noted. Now generate the complete site code.`,
 });
 
 export const requestEnvVar = tool({
@@ -66,6 +68,8 @@ export const requestEnvVar = tool({
       .default(true)
       .describe("Whether the site will fail without this variable"),
   }),
+  execute: async ({ key }) =>
+    `Env var "${key}" noted. Now generate the complete site code.`,
 });
 
 export const askClarifyingQuestion = tool({

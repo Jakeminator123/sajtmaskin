@@ -14,7 +14,7 @@
 | **Kompatibilitetsvy — Shim** | Statisk HTML + React 18 från **CDN** (unpkg) + Tailwind från **cdn.tailwindcss.com** | `legacyShimPreviewUrl` eller äldre `demoUrl` pekar på `/api/preview-render?...` |
 | **Primär preview — `preview_host`** | Riktig `npm run dev` i VM via preview-host | `previewUrl` / faktisk iframe-URL är normalt `*.fly.dev/{chatId}`; `engine_versions.sandbox_url` satt |
 
-**Preflight grön** (`previewBlocked: false`) betyder inte längre “shim funkar”, utan att den aktiva versionen fortfarande kan exponeras. Preview-host kräver **`SAJTMASKIN_PREVIEW_HOST_BASE_URL`** i huvudappen och ev. auth mellan appen och preview-host. Se [`preview-deploy.md`](./preview-deploy.md) och [`docs/ENV.md`](../ENV.md).
+**Preflight grön** (`previewBlocked: false`) betyder inte längre “shim funkar”, utan att den aktiva versionen fortfarande kan exponeras. Preview-host kräver **`SAJTMASKIN_PREVIEW_HOST_BASE_URL`** i huvudappen och ev. auth mellan appen och preview-host. Se [`fas3-preview-and-deploy.md`](./fas3-preview-and-deploy.md) och [`docs/ENV.md`](../ENV.md).
 
 ---
 
@@ -77,6 +77,6 @@ Byggaren visar vid iframe-fel en **kort åtgärdslista** (samma innehåll som pu
 
 ## 6. Relaterade dokument
 
-- [`preview-deploy.md`](./preview-deploy.md) — fidelity, preview-host, verifiering och kedja  
+- [`fas3-preview-and-deploy.md`](./fas3-preview-and-deploy.md) — fidelity, preview-host, verifiering och kedja  
 - [`docs/ENV.md`](../ENV.md) — miljövariabler  
 - [`docs/README.md`](../README.md) — nav i `docs/`

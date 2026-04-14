@@ -102,7 +102,16 @@ function sanitizeQuery(raw: string): string {
     .replace(/`/g, "")
     .replace(/encodeURIComponent/gi, "")
     .replace(/\([^)]*\)/g, "")
+    .replace(/[{}[\]<>;=]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+const MIN_QUERY_WORD_CHARS = 3;
+
+function isViableImageQuery(query: string): boolean {
+  const wordChars = query.replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, "");
+  return wordChars.length >= MIN_QUERY_WORD_CHARS;
 }
 
 export interface MaterializeResult {
@@ -176,7 +185,7 @@ export async function materializeImages(
   while ((m = re.exec(content)) !== null) {
     const params = parseParams(m[1]);
     const rawText = sanitizeQuery(params.text ?? "");
-    if (!rawText) continue;
+    if (!rawText || !isViableImageQuery(rawText)) continue;
     matches.push({
       fullMatch: m[0],
       text: rawText,

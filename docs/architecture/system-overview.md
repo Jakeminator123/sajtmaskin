@@ -6,7 +6,7 @@
 
 - **Egen motor (own engine)** — standardväg för kodgenerering i buildern (`src/lib/gen/`, OpenAI).
 - **v0** — fortfarande i API:t för mallar/registry/zip/deploy-hjälp; **inte** huvudstream för codegen (se [repository-and-platform.md](./repository-and-platform.md) § v0).
-- **Preview** — tier-2 preview via `preview_host` / VM bakom `preview-session` / `preview-status` / `preview-heartbeat` / `preview-destroy` / `preview-hibernate`; tier-1 shim (`/api/preview-render`) är legacy/compat. Detaljer i [preview-deploy.md](./preview-deploy.md).
+- **Preview** — tier-2 preview via `preview_host` / VM bakom `preview-session` / `preview-status` / `preview-heartbeat` / `preview-destroy` / `preview-hibernate`; tier-1 shim (`/api/preview-render`) är legacy/compat. Detaljer i [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md).
 
 ## Pipeline (förenklad)
 
@@ -23,7 +23,7 @@ Mer detaljerad runtime-mermaid och modul-lista: [builder-generation.md](./builde
 
 ## Own-engine preview vs «riktig» runtime
 
-Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bakom `preview-*`-kontraktet. Tier-1 shim (`/api/preview-render`) kan finnas kvar för bakåtkompatibilitet eller diagnostik, men är **inte** standardvägen i produktflödet. För build-nära verifiering används preview-hosts separata verify-lane; för riktig deployment gäller deploy-spåret. Se [preview-deploy.md](./preview-deploy.md).
+Standardpreview i buildern är nu **tier-2 preview** via `preview_host` / VM bakom `preview-*`-kontraktet. Tier-1 shim (`/api/preview-render`) kan finnas kvar för bakåtkompatibilitet eller diagnostik, men är **inte** standardvägen i produktflödet. För build-nära verifiering används preview-hosts separata verify-lane; för riktig deployment gäller deploy-spåret. Se [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md).
 
 ## Modellmappning (kort)
 
@@ -66,5 +66,5 @@ Tom `/builder` är **inte** en sjätte canonical metod — bootstrap. v0-templat
 
 - **Samlad terminologi:** [`docs/architecture/glossary.md`](../architecture/glossary.md) — alla begrepp med livscykelstatus.
 - **Index / buckets:** [`docs/plans/README.md`](../plans/README.md).
-- **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [preview-deploy.md](./preview-deploy.md) → capstone ovan vid backlog-frågor.
+- **Läsrordning för ny agent:** `docs/README.md` → detta dokument → [builder-generation.md](./builder-generation.md) → [fas3-preview-and-deploy.md](./fas3-preview-and-deploy.md) → capstone ovan vid backlog-frågor.
 - Handoffs sker i chatten; historik i git.
