@@ -1,6 +1,8 @@
 ---
 description: Synka LLM-flödesändringar med kanoniska docs och dashboard
 globs:
+  - sajtmaskin_backoffice.py
+  - backoffice/**
   - config/codegen-static-prompt.json
   - config/prompt-static/**
   - config/ai_models/**
@@ -45,10 +47,10 @@ globs:
 
 ## Vid behov
 
-`5-steg.txt`; `preview-deploy.md`; `docs/plans/README.md`; `repository-and-platform.md` / `config/README.md`; `manifest.schema.json` om **formen** ändras; dashboard: `domain-map.json`, `config/dashboard/app.py` (översikt), `scripts/scripts_dashboard.py` (pipeline) — delad logik i `scripts/dashboard_shared.py`.
+`preview-deploy.md`; `docs/plans/README.md`; `repository-and-platform.md` / `config/README.md`; `manifest.schema.json` om **formen** ändras; dashboard: `backoffice/` (kanonisk Streamlit-app), `domain-map.json`, `config/dashboard/app.py` (legacy entrypoint), `sajtmaskin_backoffice.py` (legacy/root entrypoint), `scripts/scripts_dashboard.py` (legacy pipeline entrypoint) — delad logik i `backoffice/shared.py` med legacy re-exports från `scripts/dashboard_shared.py` och `config/dashboard/shared_overhead.py`.
 
 ## Principer
 
-Uppdatera bara det som faktiskt bröts; inget brett docs-pass av vana. `app.py` = config/översikt; `scripts_dashboard.py` = pipeline/artifacts.
+Uppdatera bara det som faktiskt bröts; inget brett docs-pass av vana. `backoffice/` = kanonisk Streamlit-yta; `app.py`, `sajtmaskin_backoffice.py` och `scripts_dashboard.py` är legacy entrypoints/wrappers. Overhead-ytorna ska spegla runtime-sanningen via `backoffice/shared.py`, inte duplicerad logik.
 
 Terminologi: `terminology.mdc` + `docs/architecture/glossary.md`; tvetydiga ord → § Namnskuggor. Verifiera mot kod innan du skriver om docs. Föredra repo-specifika termer (`orchestrate`, `finalize`, `preview materialization`, `verify`) framför generisk CI/CD-jargong.

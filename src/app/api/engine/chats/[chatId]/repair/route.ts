@@ -22,7 +22,7 @@ import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
-import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 import { resolveServerRepairEarlyStopReason } from "@/lib/gen/verify/server-repair-policy";
 import { buildLintRepairContextLines } from "@/lib/gen/verify/lint-output";
@@ -386,6 +386,9 @@ export async function POST(
     const fixerModel = originatingTier
       ? resolvePhaseModel(originatingTier, "fixer").modelId
       : undefined;
+    const fixerThinking = originatingTier
+      ? resolvePhaseThinking(originatingTier, "fixer")
+      : null;
 
     for (let pass = 0; pass < MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES; pass++) {
       if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
@@ -413,6 +416,8 @@ export async function POST(
       try {
         fixerResult = await runLlmFixer(content, errorSummary, {
           model: fixerModel,
+          thinking: fixerThinking?.thinking,
+          reasoningEffort: fixerThinking?.reasoningEffort,
           requiredFiles: brokenFiles,
           abortSignal: fixerAbort.signal,
         });

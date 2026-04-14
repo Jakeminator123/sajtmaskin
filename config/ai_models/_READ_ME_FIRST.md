@@ -9,6 +9,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
    - standard **prompt assist** / **polish** (`openai/…`, `anthropic/…`);
    - standard **briefing**-modeller för `/api/ai/brief`, server auto-brief och äldre spec-first-hjälpare;
    - **phase routing** för planner / generator / fixer / verifier / deploy-assistant;
+   - **phase-specifik thinking / reasoning** via `phaseRouting.thinkingByTier`;
    - **repairPolicies** (deterministiska autofix-pass, maxpass i syntax-fix, manuell repair-route, server verify repair);
    - **promptOrchestration** (hard caps, soft targets och phase-trösklar för första prompten / follow-ups);
    - **postGenerationPasses** (verifier-budgetar och tidsgränser efter syntax);
@@ -33,6 +34,7 @@ Det här biblioteket är tänkt att fungera ungefär som `config/prompt-static/`
 - **Miljövariabler vinner alltid** över värden i `manifest.json`. Se `src/lib/gen/defaults.ts` och `src/lib/models/catalog.ts`.
 - När du ändrar **tillåtna assist-modeller** i manifestet ska runtime och UI läsa samma källa. `promptAssist.ts` och builder-defaults ska inte bära en separat osynkad allowlist.
 - `phaseRouting.defaultByTier` använder sentinel-värdet **`selected_build_model`** för att följa vald byggprofil. Det gör att planner/generator/fixer kan fortsätta följa buildprofilen även om du byter `buildProfiles.defaults.*`.
+- `phaseRouting.thinkingByTier` styr om varje fas **får** använda provider-reasoning och vilken `reasoningEffort` som skickas. Planner/generator kräver fortfarande att builderns vanliga thinking-toggle är på; fixer/verifier/server-repair använder fasinställningen direkt.
 - `repairPolicies` styr hur aggressivt systemet försöker laga fel efter generering. Höj varsamt: fler pass ger dyrare och långsammare repair-kedjor.
 - `promptOrchestration` styr **inte** modellen direkt utan när prompten skickas som-is, komprimeras eller går över till tydligare phase-plan-build-polish-läge.
 - `postGenerationPasses` styr **inte** generatorn, utan read-only verifier efter syntaxvalidering.

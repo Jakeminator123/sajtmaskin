@@ -22,6 +22,9 @@ const minimalCapabilities: InferredCapabilities = {
   needsEcommerce: false,
   needsCarousel: false,
   needsPremiumVisuals: false,
+  needsCalendar: false,
+  needsCommandSearch: false,
+  needsThemeToggle: false,
 };
 
 /** Explicit empty planner-style contracts (null providers = unset). */

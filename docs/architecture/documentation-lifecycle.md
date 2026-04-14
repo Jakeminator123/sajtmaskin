@@ -4,7 +4,7 @@
 
 **Översikt över hur hela projektet hänger ihop (hög nivå):** [`docs/architecture/README.md`](./README.md) och [`system-overview.md`](./system-overview.md). Uppdatera dem vid **strukturella eller stora beteendeändringar** — inte för varje liten bugfix. Små ändringar hör hemma i commit/PR och kod; skapa inte nya översiktsfiler för kosmetik.
 
-**Nav:** [`docs/README.md`](../README.md) · planer: [`docs/plans/README.md`](../plans/README.md) · slutöversikt: [`../../5-steg.txt`](../../5-steg.txt) · rot-träd: [`repo-tree.md`](./repo-tree.md).
+**Nav:** [`docs/README.md`](../README.md) · planer: [`docs/plans/README.md`](../plans/README.md) · rot-träd: [`repo-tree.md`](./repo-tree.md).
 
 ## Status för planfiler
 

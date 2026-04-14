@@ -4,7 +4,7 @@
 
 ## Steg 4 — post-stream (finalize, validering, preflight)
 
-Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`. **Samlad slutbild:** `5-steg.txt`.
+Efter codegen-streamen körs **`finalizeAndSaveVersion`** (autofix → URL-expansion → syntaxvalidering/fixer → ev. bildmaterialisering + verifier → parse/merge/preflight → sparad version). **Djupkarta, blocking vs observability och gräns mot Steg 5:** `docs/architecture/step4-post-generation.md`.
 
 ## Modellbanor (UI ↔ API)
 
@@ -17,7 +17,7 @@ Tre **lanes** + flaggor (detalj + mermaid i arkiv: `builder-model-routing-and-tr
 
 **Anthropic-jämförelse** — preset som linjerar build + produktlane mot Anthropic.
 
-Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptAssist.ts`, `src/lib/models/catalog.ts`, `selection.ts`, samt **`src/lib/api/engine/chats/`** (kanonisk stream-handlers) med tunna **`/api/v0/chats/...`-compat**-routes.
+Primär kod: `BuilderHeader.tsx`, `useBuilderState.ts`, `usePromptRewrite.ts`, `useInitBrief.ts`, `src/lib/models/catalog.ts`, `selection.ts`, samt **`src/lib/api/engine/chats/`** (kanonisk stream-handlers) med tunna **`/api/v0/chats/...`-compat**-routes.
 
 ## OpenClaw / Sajtagenten ligger bredvid
 
@@ -43,11 +43,11 @@ Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
 - **Statisk kärna** + dynamisk kontext (scaffold, route plan, kontrakt, brief, tema och övrig request-specifik kontext) byggs i `system-prompt.ts` m.m.
 - **Statisk kärna är stabil produktpolicy, inte request-payload.** `config/prompt-static/*.md` ska beskriva varaktiga regler för output/runtime. Request-specifika signaler som component palette, design references, scaffold payloads, media aliases, follow-up-kontext och kontrakt ska i stället komma via den dynamiska kontexten eller via user-turn wrappers.
 - **Visible `<Thinking>` är inte del av normalkontraktet längre.** Reasoning kan fortfarande exponeras separat när `thinking` är aktiverat, men själva projektsvaret ska hållas i CodeProject-format utan synlig wrapper före filblocken.
-- **shadcn-reglerna är nu tvålagriga:** modellen ska i första hand använda projektets lokala `@/components/ui/*`, men request-specifik shadcn-/registry-/palette-kontext får utöka komponentvokabulären när hosten redan skickat sådan payload.
+- **shadcn-reglerna är nu trelagriga:** `## Your Toolkit` byggs i `system-prompt.ts` från den registry-synkade `SHADCN_COMPONENTS`-mappen, men begränsas till subpaths som faktiskt finns lokalt under `@/components/ui/*`; `config/prompt-static/03b-shadcn-component-patterns.md` ger alltid-på usage-regler; `## Component References` lägger sedan till capability-matchade kodexempel från `data/shadcn-examples/`. Request-specifik shadcn-/registry-/palette-kontext kan därefter utöka komponentvokabulären när hosten redan skickat sådan payload.
 - **Fan-in före modellen:** `prepareGenerationContext()` / `resolveOrchestrationBase()` bygger nu ett litet **`BuildSpec`** (`src/lib/gen/build-spec.ts`) som bär styrsignaler som `generationMode`, `changeScope`, `contextPolicy`, `previewPolicy` och `verificationPolicy`. Det används för att hålla scaffold-/referensbudget, follow-up-policy och previewpolicy deterministiska.
 - **`GenerationInputPackage` är kanonisk fan-in-artefakt för generationen.** Den bär bl.a. `engineSystemPrompt`, `dynamicContext`, `dynamicContextPruning`, `dynamicContextBlocks` och `lineageHash`, och skrivs till prompt-dumps för observability.
 - **Deep brief default-on (2026-04-08):** `DEFAULT_PROMPT_ASSIST.deep` är nu `true`. Alla nya chattar kör Deep brief som standard. Briefens output driver side-/sektionsstruktur, visuell riktning och SEO i den dynamiska kontexten. **Scaffoldvalet konsulterar nu briefen** via `ScaffoldQueryContext` (`briefPages`, `styleKeywords`, `domainHints`) som matas in i `matchScaffoldAuto()` — keyword-scores boostar med +2 per matchande domän, och embedding-prompten berikas med brief-fragment. Keyword-lagret kan fortfarande dominera vid mycket starka träffar. *Vertikal* (t.ex. restaurang) vs *sidtyp* (landning, flersidor) är medvetet inte en första klass-modell i scaffold-registret ännu — brief + dynamisk kontext bär mer av den friheten än scaffold-etiketten.
-- **Deep Brief är kanonisk semantisk expansion för init (2026-04-13).** Brief-objektet skickas via `meta.brief` och konsumeras av serverns `buildDynamicContext()`. Brief-deriverad prose sammanfogas **inte** längre med `customInstructions` — `customInstructions` bär enbart användarens egna instruktioner plus eventuellt palette-/spec-suffix. Server Auto-Brief (`shouldRunServerAutoBrief`) körs nu även för korta underspecificerade website-prompts som fallback; skip kvarstår för audit, technical, follow-up och redan tydligt strukturerade prompts. Follow-ups skickar inte `meta.brief` — de förlitar sig på persisted scaffold, orchestration snapshot och tidigare filer.
+- **Deep Brief är kanonisk semantisk expansion för init (2026-04-13).** Brief-objektet skickas via `meta.brief` och konsumeras av serverns `buildDynamicContext()`. Brief-deriverad prose sammanfogas **inte** längre med `customInstructions` — `customInstructions` bär enbart användarens egna instruktioner plus eventuellt palette-/spec-suffix. `formatPrompt()` (MÅL/CONSTRAINTS-wrappning) körs **bara som fallback** när brief saknas; init skickar rå user-text. Init-pathen skippar addendum-beräkning (`skipAddendum: true`). Brief-schemat inkluderar nu `mustHave`/`avoid` och `uiNotes` emitteras som `## UX & UI Notes` i dynamic context. Server Auto-Brief (`shouldRunServerAutoBrief`) körs nu även för korta underspecificerade website-prompts som fallback; skip kvarstår för audit, technical, follow-up och redan tydligt strukturerade prompts. Follow-ups skickar inte `meta.brief` — de förlitar sig på persisted scaffold, orchestration snapshot och tidigare filer.
 - **Signal- och rollöversikter:** Den kanoniska tabellen över LLM-roller finns i `docs/schemas/llm-role-matrix.md`. Den kanoniska tabellen över signallager finns i `docs/schemas/orchestration-signal-contract.md`. Flödesöversikten för hur dessa lager samspelar finns i `docs/architecture/llm-signal-flow.md`.
 - **Narrow follow-up policy:** `BuildSpec` använder nu `normal` som standard även för vanliga follow-ups. `light` används mest när prompten tydligt signalerar en liten lokal copy-/layoutändring; då hålls den dynamiska kontexten märkbart smalare och bred KB/template-retrieval hoppas över.
 - **Capability-heavy follow-ups:** follow-ups som tydligt signalerar t.ex. karusell, 3D eller större visuella effekter ska inte lika lätt behandlas som de allra minsta lokala tweaksen. Capability inference används därför också som en skyddssignal mot att sådana ändringar degraderas till för lätt context-/verification-policy.
@@ -59,7 +59,7 @@ Kanoniskt mänskligt kontrakt: `docs/schemas/builder-entry-contract.md`.
 ## Nuvarande kodflöde
 
 1. **Prompt in** via Builder (kanonisk väg) eller direkt mot own-engine API-routes.
-2. **Före-build prompt-verktyg (valfritt):** "Skriv om" (polish) eller "Förbättra" (rewrite) via `/api/ai/chat` + guardrails i `usePromptAssist.ts`. Redigerar text i realtid utan att skicka iväg.
+2. **Före-build prompt-verktyg (valfritt):** "Skriv om" (polish) eller "Förbättra" (rewrite) via `/api/ai/chat` + guardrails i `usePromptRewrite.ts`. Redigerar text i realtid utan att skicka iväg.
 3. **Första prompten (create-chat SSE):** `orchestratePromptMessage()` körs alltid (budget/skydd). Om klienten **inte** skickat `meta.brief` kan servern fylla **`brief`** via Deep Brief (`src/lib/builder/site-brief-generation.ts`, styrt av `server-auto-brief-policy.ts`). **Briefen genereras alltid från originalprompt** — inte den orkestrerade/summarerade versionen. Auto-brief körs nu även för korta underspecificerade website-prompts; skip kvarstår för follow-ups, audit, tekniska prompts och **redan strukturerade website-prompts** där användaren redan specificerat flera sektioner/styrsignaler. Brief-deriverad prose dubbleras **inte** i `customInstructions`; brief-objektet via `meta.brief` är den kanoniska semantiska signalen.
 4. **Spec-first chain (valfritt, `specMode=true`):** Om briefen finns konverteras den till en `WebsiteSpec` via `briefToSpec()` i `promptAssistContext.ts`, annars via `promptToSpec()`. Specfilen bifogas som strukturerad kontext till systemprompten.
 5. **`resolveOrchestrationBase()`** i `src/lib/gen/orchestrate.ts` orkestrerar generationen: väljer scaffold (`manual` / persisted / `auto`), bygger route plan, pre-generation contracts och `BuildSpec`.
@@ -83,7 +83,7 @@ Snabba lokala orienteringsfiler för nästa agent:
 Prompt-dumps är **debug-/observabilityartefakter**, inte source of truth för
 runtime. Den kanoniska skrivningen ligger i `src/lib/gen/prompt-dump.ts`, och
 båda Python-panelerna läser nu samma statussemantik via
-`scripts/dashboard_shared.py`.
+`backoffice/shared.py` (legacy re-export finns kvar i `scripts/dashboard_shared.py`).
 
 Det finns nu tre separata observability-spår som är lätta att blanda ihop:
 
@@ -93,8 +93,8 @@ Det finns nu tre separata observability-spår som är lätta att blanda ihop:
 
 Det finns **ingen** samlad kanonisk `logs/`-mapp ännu som binder ihop prompt-dumps, prompt logs, evals, verifieringsresultat, modeller, tokens och slutlig scaffold/utfall i en enda körjournal. Dagens läge är i stället uppdelat mellan `data/prompt-dumps/`, databastabeller/UI för prompt logs och vanliga dev-/runtime-loggar.
 
-**Viktigt:** `config/dashboard/app.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
-inte leda den. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
+**Viktigt:** `backoffice/`, `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `scripts/scripts_dashboard.py` och ovriga docs ska **spegla** runtime-sanningen,
+inte leda den. Delad overheadlogik ska ligga i `backoffice/shared.py`, inte dupliceras mellan entrypointsen. Arbetsordningen är: kod → verifiering → docs/dashboard-sync.
 
 Kategorier:
 
@@ -108,8 +108,8 @@ Statusord som visas i panelerna:
 - `stale-risk` — dump finns men ser gammal ut; kontrollera tidsstämpeln
 - `disabled` — dumpning är avstängd; gamla payloadfiler kan fortfarande ligga kvar
 
-`config/dashboard/app.py` visar detta i preview-/versionsöversikten som del av
-konfigurations- och observabilityytan. `scripts/scripts_dashboard.py` använder
+Den konsoliderade backoffice-appen visar detta i preview-/versionsöversikten som del av
+konfigurations- och observabilityytan. Legacy-entrypointen `scripts/scripts_dashboard.py` använder
 samma statusdata i pipeline-/artifactpanelen.
 
 ## SSE / stream-scope (W3)

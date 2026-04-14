@@ -1,0 +1,80 @@
+{
+  "id": "corporate-grid",
+  "scaffoldId": "landing-page",
+  "label": "Corporate Grid",
+  "description": "Trust-heavy B2B and consulting landing pages with clean hierarchy, neutral surfaces, and precise grid alignment. Best for agencies, enterprise services, and professional firms where credibility and clarity outweigh decorative flair.",
+  "keywords": [
+    "b2b",
+    "consulting",
+    "agency",
+    "corporate",
+    "enterprise",
+    "trust",
+    "professional",
+    "byrå",
+    "företag",
+    "redovisning",
+    "juridik",
+    "finans"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Manrope",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "precise grid alignment, neutral surfaces, and partner-proof rhythm",
+  "colorMode": "light",
+  "promptHints": [
+    "Lead with business clarity, partner trust, and a measured hierarchy rather than expressive atmospherics.",
+    "Prefer proof blocks (metrics, logos, case studies) over decorative illustration cards.",
+    "Keep font weights restrained — bold for headings, regular for body. Avoid playful type mixing."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.99 0.002 255)",
+    "foreground": "oklch(0.23 0.01 255)",
+    "card": "oklch(1 0 0)",
+    "primary": "oklch(0.56 0.14 250)",
+    "primaryForeground": "oklch(0.98 0 0)",
+    "secondary": "oklch(0.96 0.004 255)",
+    "muted": "oklch(0.95 0.004 255)",
+    "accent": "oklch(0.92 0.015 240)",
+    "border": "oklch(0.89 0.004 255)",
+    "ring": "oklch(0.56 0.14 250)",
+    "radius": "0.95rem"
+  },
+  "styleRules": [
+    "Use consistent 12-column grid alignment — sections should feel measured, not organic or asymmetric.",
+    "Keep surface hierarchy tight: white cards on near-white background with subtle border separation.",
+    "Typography should feel authoritative: tight tracking on headings, generous line-height on body text.",
+    "CTAs use primary color fill; secondary actions use ghost/outline — never multiple competing colored buttons."
+  ],
+  "sectionInventory": [
+    "hero with headline, subline, and single primary CTA",
+    "social proof bar (client logos or partner badges)",
+    "services or capabilities grid (3-4 cards)",
+    "metrics or results row (concrete numbers)",
+    "testimonial or case study block",
+    "contact or consultation CTA"
+  ],
+  "avoidPatterns": [
+    "Avoid playful or rounded aesthetics — no bubbly gradients, emoji accents, or whimsical illustration.",
+    "Do not use more than two accent colors; the palette should feel restrained and trustworthy.",
+    "Avoid generic marketing filler like 'We are passionate about...' — use specific, concrete language.",
+    "Do not stack more than two full-width hero-style sections; switch to grid/card layout after the fold."
+  ],
+  "worldClassRubric": [
+    "Above the fold communicates who you are, what you do, and why to trust you — in under 5 seconds.",
+    "Every section earns its place: proof, clarity, or conversion. No decorative padding sections.",
+    "Responsive grid degrades gracefully: 3-col → 2-col → 1-col without breaking visual rhythm.",
+    "Color palette feels intentional and branded, not default-gray-with-blue.",
+    "Final output passes the 'would a real company ship this?' test."
+  ],
+  "sourceTemplateIds": [
+    "saas-next-js-enterprise-boilerplate",
+    "multi-tenant-apps-b2b-multi-tenant-starter-kit",
+    "blog-next-js-wisp-corporate-blog-starter",
+    "saas-paddle-billing-subscription-starter"
+  ],
+  "default": true
+}

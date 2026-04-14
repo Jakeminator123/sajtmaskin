@@ -4,7 +4,7 @@
 
 **Terminologinot:** den relevanta tier-2-previewen just nu är **VM / `preview_host` via Fly.io**. Publika app-routes använder `preview-session`, `preview-status`, `preview-heartbeat`, `preview-destroy` och `preview-hibernate`. Ordet **`sandbox`** lever fortfarande kvar i vissa interna typer, legacy Redis-nycklar och några interna wrapper-moduler, medan DB-kolumnen i `engine_versions` nu är **`preview_url`**. **Quality gate / server-verify** kör nu också via preview-host, men i en **separat verify-lane** och inte i samma workspace som live-previewn.
 
-**Operativt kördokument** för own-engine → finalize → tier-2-preview → iframe. Intent, leveranser och kodpekare: denna fil + [`../../5-steg.txt`](../../5-steg.txt) (samlad 5-stegsbild och kvarvarande problemområden).
+**Operativt kördokument** för own-engine → finalize → tier-2-preview → iframe. Intent, leveranser och kodpekare.
 
 ## End-to-end: own-engine som ägare och Fidelity 2
 
@@ -62,6 +62,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Session / lease | `POST preview-heartbeat` uppdaterar bara aktiv session när samma chat+version+session-id fortfarande gäller; dold flik schemalägger `preview-hibernate` efter grace period och `pagehide` försöker hibernatera direkt. `GET preview-status` används för recover/url-resync och ska inte i sig vara den sak som håller previewn vid liv. Recover är provider-agnostisk via `tryResumeTier2Runtime`. Klient-API: `preview-session/api.ts`. | `preview-heartbeat/route.ts`, `preview-status/route.ts`, `tier2-resume.ts`, `preview-session/`, `hooks/usePreviewHeartbeat.ts`, `usePreviewSession.ts`, `useBuilderVmPreview.ts` |
 | Repair-versioner | När server-verify eller manuell repair skapar en ny promotad version markeras den tidigare repair-källan som ersatt/superseded i stället för att lämnas kvar i `repairing`. UI visar detta som `Omtag`. | `server-verify.ts`, `repair/route.ts`, `chat-repository-pg.ts`, `engine-version-lifecycle.ts`, `VersionHistory.tsx` |
 | Dubbel repair | `skipRepair: true` när underlag redan är finalizeat (DB / `filesJson`) | `preview-session.ts` |
+| Repo-import (v0-mallar) | `skipProjectScaffold: true` hoppar över `buildCompleteProject()` helt — zip-projektets egna `package.json`/`tsconfig`/`next.config` behålls orörda. Binära assets (bilder, fonts) importeras som `base64:`-prefixade strängar i `filesJson`; preview-host skriver dem som binära buffers. `buildIntent` härleds per mall via `template-catalog.ts`. | `preview-session.ts`, `local-v0-template-source.ts`, `template/route.ts`, `preview-host/src/runtime.js`, `category/[type]/page.tsx` |
 | Per-generation previewpolicy | `BuildSpec.previewPolicy` / `verificationPolicy` följer fortfarande med i telemetri och startparams, men aktiv preview-startväg är preview-host `dev_only` | `build-spec.ts`, `preview-session.ts`, `generation-stream-post-finalize.ts` |
 | Policy-/preview-telemetri | generation-telemetri sparar nu `BuildSpec`/finalize-path-meta; preview-lifecycle loggar `preview_ready` / `preview_failed` med tid från engine-start | `finalize-version.ts`, `generation-telemetry.ts`, `generation-stream-post-finalize.ts`, `preview/lifecycle-telemetry.ts` |
 | Finalize fast/deep path | Lätta follow-ups kan stanna på finalize fast path och hoppa över deep-path-steg som bildmaterialisering, verifier och polish | `finalize-version.ts`, `finalize-pipeline-contract.ts` |
@@ -71,7 +72,7 @@ Följande är **implementerat** i kod och täcks av denna fil; env-namn finns i 
 | Tester | Bl.a. `httpStatusForPreviewSessionFailure`, bootstrap-retry, preview-gate, repair-idempotens | `*.test.ts` under `src/lib/gen`, `src/lib/builder` |
 | Vitest / config-mock | `route.test.ts` mockar `REDIS_KEY_PREFIX` m.m. när `redis.ts` laddas | `src/app/api/v0/chats/stream/route.test.ts` |
 
-**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling — se [`../../5-steg.txt`](../../5-steg.txt).
+**Öppet / senare:** adapters för vissa integrationer, GitHub-export som sekundär väg, ev. vidare shim-förenkling.
 
 **Vit / tom preview:** operativ runbook + checklista — [`preview-white-screen-runbook.md`](./preview-white-screen-runbook.md). Kort hjälptext visas i byggarens iframe-overlay (`previewRunbookLinesForCode` i `preview-diagnostics.ts`).
 

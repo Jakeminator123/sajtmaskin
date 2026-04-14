@@ -13,7 +13,6 @@ import {
   useRef,
   useEffect,
   useState,
-  useCallback,
   type HTMLAttributes,
   type ReactNode,
 } from "react";
@@ -24,9 +23,8 @@ import { cn } from "@/lib/utils";
 // ============================================================================
 
 interface ConversationContextValue {
-  contentRef: React.RefObject<HTMLDivElement | null>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   isAtBottom: boolean;
-  setIsAtBottom: (v: boolean) => void;
   scrollToBottom: () => void;
 }
 
@@ -49,22 +47,31 @@ export interface ConversationProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 export function Conversation({ children, className, ...props }: ConversationProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
-  const scrollToBottom = useCallback(() => {
-    if (contentRef.current) {
-      contentRef.current.scrollTo({
-        top: contentRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-      setIsAtBottom(true);
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, []);
+  };
+
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      const threshold = 100;
+      setIsAtBottom(scrollHeight - scrollTop - clientHeight < threshold);
+    }
+  };
 
   return (
-    <ConversationContext.Provider value={{ contentRef, isAtBottom, setIsAtBottom, scrollToBottom }}>
-      <div className={cn("relative flex flex-col", className)} {...props}>
+    <ConversationContext.Provider value={{ scrollRef, isAtBottom, scrollToBottom }}>
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className={cn("relative flex flex-col overflow-y-auto", className)}
+        {...props}
+      >
         {children}
       </div>
     </ConversationContext.Provider>
@@ -72,7 +79,7 @@ export function Conversation({ children, className, ...props }: ConversationProp
 }
 
 // ============================================================================
-// CONVERSATION CONTENT — this is the scrollable element
+// CONVERSATION CONTENT
 // ============================================================================
 
 export interface ConversationContentProps extends HTMLAttributes<HTMLDivElement> {
@@ -80,65 +87,17 @@ export interface ConversationContentProps extends HTMLAttributes<HTMLDivElement>
 }
 
 export function ConversationContent({ children, className, ...props }: ConversationContentProps) {
-  const { contentRef, isAtBottom, setIsAtBottom } = useConversation();
-  const prevScrollHeightRef = useRef(0);
-  const prevScrollTopRef = useRef(0);
-  const didInitialScrollRef = useRef(false);
-  const userScrolledUpRef = useRef(false);
+  const { scrollRef, isAtBottom } = useConversation();
 
-  // Scroll to bottom on initial mount
+  // Auto-scroll when new messages arrive (if at bottom)
   useEffect(() => {
-    if (didInitialScrollRef.current) return;
-    const el = contentRef.current;
-    if (!el) return;
-    didInitialScrollRef.current = true;
-    requestAnimationFrame(() => {
-      if (contentRef.current) {
-        contentRef.current.scrollTop = contentRef.current.scrollHeight;
-        setIsAtBottom(true);
-        userScrolledUpRef.current = false;
-      }
-    });
-  }, [contentRef, setIsAtBottom]);
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const newHeight = el.scrollHeight;
-    if (newHeight > prevScrollHeightRef.current && !userScrolledUpRef.current) {
-      requestAnimationFrame(() => {
-        if (contentRef.current) {
-          contentRef.current.scrollTop = contentRef.current.scrollHeight;
-          setIsAtBottom(true);
-        }
-      });
+    if (isAtBottom && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    prevScrollHeightRef.current = newHeight;
-  });
-
-  const handleScroll = useCallback(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    const threshold = 80;
-    const atBottom = scrollHeight - scrollTop - clientHeight < threshold;
-    setIsAtBottom(atBottom);
-
-    if (atBottom) {
-      userScrolledUpRef.current = false;
-    } else if (scrollTop < prevScrollTopRef.current - 2) {
-      userScrolledUpRef.current = true;
-    }
-    prevScrollTopRef.current = scrollTop;
-  }, [contentRef, setIsAtBottom]);
+  }, [children, isAtBottom, scrollRef]);
 
   return (
-    <div
-      ref={contentRef}
-      onScroll={handleScroll}
-      className={cn("flex-1 space-y-4 overflow-y-auto p-4", className)}
-      {...props}
-    >
+    <div className={cn("flex-1 space-y-4 p-4", className)} {...props}>
       {children}
     </div>
   );
@@ -168,8 +127,8 @@ export function ConversationScrollButton({
       aria-label="Scrolla ned till senaste meddelande"
       className={cn(
         "fixed bottom-24 left-1/2 z-10 -translate-x-1/2",
-        "rounded-full bg-muted px-4 py-2 text-sm text-foreground shadow-lg",
-        "transition-colors hover:bg-muted",
+        "rounded-full bg-zinc-800 px-4 py-2 text-sm text-white shadow-lg",
+        "transition-colors hover:bg-zinc-700",
         "flex items-center gap-2",
         className,
       )}

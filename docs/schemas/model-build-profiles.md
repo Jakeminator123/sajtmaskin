@@ -167,12 +167,19 @@ Important current nuance:
 
 ## Thinking
 
-`Thinking` is a separate boolean passed into generation metadata and the own-engine
-pipeline.
+`Thinking` is still **not** a lane, but it is now resolved through two layers:
+
+1. the normal builder toggle / env default (`SAJTMASKIN_DEFAULT_THINKING`)
+2. `phaseRouting.thinkingByTier` in `config/ai_models/manifest.json`
+
+Important current behavior:
 
 - it is not part of `fast | pro | max | codex`
 - it does not change the canonical build-profile ID
 - it does not affect prompt-assist route selection
+- **planner** and **generator** only use provider reasoning when **both** layers are on
+- **fixer**, **verifier**, manual repair, and server verify use the phase config directly
+- `src/lib/models/phase-routing.ts` resolves this via `resolvePhaseThinking()`
 
 ## Validation surface
 
@@ -185,8 +192,18 @@ pipeline.
 
 ## Phase routing
 
-`src/lib/models/phase-routing.ts` maps each `GenerationPhase` to an `OwnModelId`
-using `phaseRouting.defaultByTier` in `config/ai_models/manifest.json`:
+`src/lib/models/phase-routing.ts` resolves two things per `GenerationPhase`:
+
+1. the concrete **model** via `phaseRouting.defaultByTier`
+2. the phase-specific **thinking / reasoningEffort** via `phaseRouting.thinkingByTier`
+
+Current default thinking profile:
+
+- **fast** / **pro**: planner + generator default to `thinking=true`, `reasoningEffort=medium`
+- **max** / **codex** / **anthropic**: planner + generator default to `thinking=true`, `reasoningEffort=high`
+- **fixer**, **verifier**, and **deploy-assistant** default to `thinking=false` across tiers
+
+Model routing still works like this:
 
 - **fast**: every phase follows `selected_build_model` (the tier’s primary model,
   default `gpt-4.1`).
@@ -202,7 +219,9 @@ using `phaseRouting.defaultByTier` in `config/ai_models/manifest.json`:
   tier’s primary Claude model; **deploy-assistant** uses **`gpt-4.1`**.
 
 Env overrides on the build profile still apply to the resolved **base** model for
-phases that resolve via `selected_build_model`.
+phases that resolve via `selected_build_model`. The `thinkingByTier` settings do
+not change the resolved model ID; they only change whether that phase asks the
+provider for reasoning and at what effort.
 
 ## Archived docs
 

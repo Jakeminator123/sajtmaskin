@@ -337,6 +337,7 @@ export function useAutoFix(
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
   const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPayloadKeyRef = useRef<string | null>(null);
+  const autoFixInFlightRef = useRef(false);
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
@@ -351,6 +352,9 @@ export function useAutoFix(
         return;
       }
       void (async () => {
+        if (autoFixInFlightRef.current) return;
+        autoFixInFlightRef.current = true;
+        try {
         const now = Date.now();
         pruneStale(autoFixAttemptsRef.current, now);
 
@@ -410,6 +414,9 @@ export function useAutoFix(
             );
           })();
         }, delayMs);
+        } finally {
+          autoFixInFlightRef.current = false;
+        }
       })();
     },
     [sendMessage],

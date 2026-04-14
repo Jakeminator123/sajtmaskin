@@ -120,7 +120,7 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 `;
 
-const PLACEHOLDER_API_ROUTE = `import { NextRequest } from "next/server";
+export const PLACEHOLDER_API_ROUTE = `import { NextRequest } from "next/server";
 
 function escapeXml(s: string): string {
   return s

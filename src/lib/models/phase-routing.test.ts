@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   resolvePhaseModel,
+  resolvePhaseThinking,
   getPhaseRoutingSummary,
   type GenerationPhase,
 } from "./phase-routing";
@@ -110,5 +111,34 @@ describe("getPhaseRoutingSummary", () => {
     expect(summary.fixer).toBe("claude-sonnet-4.6");
     expect(summary.verifier).toBe("claude-sonnet-4.6");
     expect(summary["deploy-assistant"]).toBe("gpt-4.1");
+  });
+});
+
+describe("resolvePhaseThinking", () => {
+  it("keeps planner/generator thinking enabled by default for fast tier", () => {
+    expect(resolvePhaseThinking("fast", "planner")).toEqual({
+      phase: "planner",
+      thinking: true,
+      reasoningEffort: "medium",
+      reason: "manifest-phase-thinking",
+    });
+    expect(resolvePhaseThinking("fast", "generator")).toEqual({
+      phase: "generator",
+      thinking: true,
+      reasoningEffort: "medium",
+      reason: "manifest-phase-thinking",
+    });
+  });
+
+  it("disables fixer/verifier thinking by default", () => {
+    expect(resolvePhaseThinking("pro", "fixer").thinking).toBe(false);
+    expect(resolvePhaseThinking("pro", "verifier").thinking).toBe(false);
+    expect(resolvePhaseThinking("pro", "deploy-assistant").thinking).toBe(false);
+  });
+
+  it("raises planner/generator reasoning effort for higher tiers", () => {
+    expect(resolvePhaseThinking("max", "planner").reasoningEffort).toBe("high");
+    expect(resolvePhaseThinking("codex", "generator").reasoningEffort).toBe("high");
+    expect(resolvePhaseThinking("anthropic", "planner").reasoningEffort).toBe("high");
   });
 });

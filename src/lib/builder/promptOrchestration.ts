@@ -1,5 +1,11 @@
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import {
+  SCOPE_MARKERS,
+  DESIGN_TOKENS,
+  REQUIREMENT_MARKERS,
+  countTokenHits,
+} from "./prompt-heuristics";
+import {
   MAX_CHAT_MESSAGE_CHARS,
   ORCHESTRATION_PHASE_FORCE_AUDIT_CHARS,
   ORCHESTRATION_PHASE_FORCE_CHARS,
@@ -61,53 +67,6 @@ type ComplexitySignals = {
   requirementKeywordCount: number;
   designKeywordCount: number;
 };
-
-const SECTION_MARKERS = [
-  "mal",
-  "goal",
-  "sektion",
-  "section",
-  "constraint",
-  "requirements",
-  "design direction",
-  "scope",
-  "problem",
-  "forbattring",
-  "improvement",
-  "audit",
-];
-
-const REQUIREMENT_MARKERS = [
-  "must",
-  "ska",
-  "behover",
-  "need to",
-  "required",
-  "do not",
-  "avoid",
-  "wcag",
-  "accessibility",
-  "seo",
-  "performance",
-  "responsive",
-];
-
-const DESIGN_MARKERS = [
-  "figma",
-  "hero",
-  "layout",
-  "typography",
-  "font",
-  "palette",
-  "color",
-  "spacing",
-  "animation",
-  "motion",
-  "ui-element",
-  "designsystem",
-  "landing page",
-  "visual",
-];
 
 const PHASE_HINTS = [
   "Phase 1: Plan",
@@ -177,8 +136,7 @@ function mustPreserveTechnicalContent(message: string): boolean {
 
 /** Exported for follow-up context policy and file-context heuristics. */
 export function looksDesignHeavyMessage(message: string): boolean {
-  const lower = toSafeLower(message);
-  return DESIGN_MARKERS.reduce((count, marker) => count + (lower.includes(marker) ? 1 : 0), 0) >= 3;
+  return countTokenHits(message, DESIGN_TOKENS) >= 3;
 }
 
 function shouldPreserveRegistryPayload(
@@ -234,16 +192,10 @@ function analyzeComplexity(message: string): ComplexitySignals {
   const bulletCount = lines.filter((line) => /^([-*•]|\d+[.)])\s+/.test(line)).length;
   const headingLikeCount = lines.filter((line) => line.endsWith(":") || /^[A-Z0-9_ ]{8,}$/.test(line))
     .length;
-  const sectionMarkerCount = SECTION_MARKERS.reduce((count, marker) => {
-    return count + (joinedLower.includes(marker) ? 1 : 0);
-  }, 0);
+  const sectionMarkerCount = countTokenHits(joinedLower, SCOPE_MARKERS);
   const urlCount = (message.match(/https?:\/\/[^\s)]+/g) || []).length;
-  const requirementKeywordCount = REQUIREMENT_MARKERS.reduce((count, marker) => {
-    return count + (joinedLower.includes(marker) ? 1 : 0);
-  }, 0);
-  const designKeywordCount = DESIGN_MARKERS.reduce((count, marker) => {
-    return count + (joinedLower.includes(marker) ? 1 : 0);
-  }, 0);
+  const requirementKeywordCount = countTokenHits(joinedLower, REQUIREMENT_MARKERS);
+  const designKeywordCount = countTokenHits(joinedLower, DESIGN_TOKENS);
 
   return {
     lineCount: lines.length,

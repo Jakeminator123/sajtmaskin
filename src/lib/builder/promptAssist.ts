@@ -1,5 +1,7 @@
 import type { BuildIntent } from "./build-intent";
 import type { ThemeColors } from "./theme-presets";
+import { type DomainProfile, inferDomain } from "./domain-inference";
+import { SECTION_KEYWORDS, STYLE_KEYWORDS } from "./prompt-heuristics";
 import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
 
 // OpenAI-class assist models (loaded from manifest).
@@ -51,39 +53,7 @@ export function resolvePromptAssistProvider(model: string): PromptAssistProvider
   return "gateway";
 }
 
-const SECTION_KEYWORDS = [
-  "hero",
-  "features",
-  "pricing",
-  "faq",
-  "testimonials",
-  "contact",
-  "about",
-  "footer",
-  "cta",
-  "gallery",
-  "services",
-  "team",
-  "blog",
-  "navbar",
-] as const;
-
-const STYLE_KEYWORDS = [
-  "minimal",
-  "modern",
-  "clean",
-  "bold",
-  "playful",
-  "professional",
-  "luxury",
-  "dark",
-  "light",
-  "retro",
-  "corporate",
-  "soft",
-  "elegant",
-  "futuristic",
-] as const;
+// SECTION_KEYWORDS and STYLE_KEYWORDS imported from prompt-heuristics.ts
 
 type MotionProfile = "static" | "balanced" | "lively";
 
@@ -164,6 +134,9 @@ const MOTION_STATIC_STYLE_KEYWORDS = [
   "quiet",
 ] as const;
 
+// Build intent guidance for prompt-assist paths (rewrite, polish, addendum).
+// Canonical source for codegen is BUILD_INTENT_GUIDANCE in system-prompt.ts.
+// Keep these in sync — the summaries here feed the assist system prompts.
 const BUILD_INTENT_GUIDANCE: Record<
   BuildIntent,
   { summary: string; instructionLines: string[] }
@@ -262,45 +235,9 @@ const IMAGE_DENSITY_GUIDANCE = [
   "Consistent aspect ratios and professional cropping throughout.",
 ];
 
-type DomainProfile =
-  | "restaurant"
-  | "hotel"
-  | "spa-salon"
-  | "clinic"
-  | "event-venue"
-  | "ecommerce"
-  | "portfolio"
-  | "saas"
-  | "general";
-
-function inferDomainProfile(prompt: string): DomainProfile {
-  const lower = prompt.toLowerCase();
-  if (/\b(restaurang|restaurant|café|cafe|kafé|bistro|bar|pub|matrestaurang|meny|menu|boka bord|book a table)\b/i.test(lower)) {
-    return "restaurant";
-  }
-  if (/\b(hotell|hotel|boutiquehotell|boutique hotel|spa retreat|bed and breakfast|b&b)\b/i.test(lower)) {
-    return "hotel";
-  }
-  if (/\b(spa|salong|salon|frisör|barber|massage|skincare|hudvård)\b/i.test(lower)) {
-    return "spa-salon";
-  }
-  if (/\b(klinik|clinic|dentist|tandläkare|läkare|doctor|veterinär|vet)\b/i.test(lower)) {
-    return "clinic";
-  }
-  if (/\b(event venue|bröllop|wedding venue|konferens|conference venue|festival venue|festlokal)\b/i.test(lower)) {
-    return "event-venue";
-  }
-  if (/\b(ecommerce|e-commerce|e-handel|webshop|webbshop|checkout|varukorg|kundvagn|storefront|online store)\b/i.test(lower)) {
-    return "ecommerce";
-  }
-  if (/\b(portfolio|photographer|designer|showcase|creative studio|fotograf|portfolio)\b/i.test(lower)) {
-    return "portfolio";
-  }
-  if (/\b(saas|platform|dashboard|workspace|subscription|pricing)\b/i.test(lower)) {
-    return "saas";
-  }
-  return "general";
-}
+// Domain profile is now provided by domain-inference.ts (canonical source).
+// buildDomainStructureHints / buildDomainContractHints remain here because
+// they produce prompt text specific to the addendum format.
 
 function buildDomainStructureHints(domain: DomainProfile): string[] {
   switch (domain) {
@@ -349,6 +286,21 @@ function buildDomainStructureHints(domain: DomainProfile): string[] {
       return [
         "Treat this as product/saas positioning or app-marketing.",
         "Strong default pages/sections: home, features, pricing, FAQ, contact/demo CTA.",
+      ];
+    case "agency":
+      return [
+        "Treat this as an agency/services website.",
+        "Strong default pages/sections: home, services, about/team, case studies/portfolio, contact.",
+      ];
+    case "education":
+      return [
+        "Treat this as an education/course website.",
+        "Strong default pages/sections: home, courses/programs, about, instructors/team, enrollment/contact, FAQ.",
+      ];
+    case "real-estate":
+      return [
+        "Treat this as a real estate/property website.",
+        "Strong default pages/sections: home, listings/properties, about, agents/team, contact.",
       ];
     default:
       return [];
@@ -1055,7 +1007,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const topicIsSeasonalOrCultural = isSeasonalOrCulturalTopic(
     [projectTitle, brandName, pitch, originalPrompt, imageryNotes.join(" ")].join(" "),
   );
-  const domainProfile = inferDomainProfile(
+  const domainProfile = inferDomain(
     [projectTitle, brandName, pitch, audience, originalPrompt, pageLines].filter(Boolean).join(" "),
   );
   const domainStructureHints = buildDomainStructureHints(domainProfile);
@@ -1201,7 +1153,7 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "elegant", "minimal", "dramatic", "lekfull", "energetic",
   ] as const);
   const promptSections = extractKeywordMatches(originalPrompt, SECTION_KEYWORDS);
-  const domainProfile = inferDomainProfile(originalPrompt);
+  const domainProfile = inferDomain(originalPrompt);
   const domainStructureHints = buildDomainStructureHints(domainProfile);
   const domainContractHints = buildDomainContractHints(domainProfile);
   const promptObservations = buildPromptAssistObservations(

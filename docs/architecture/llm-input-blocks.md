@@ -48,6 +48,16 @@ Det blocket är ett **hint-lager** för generatorn:
 - det ersätter inte route plan / contracts / brief
 - det ska hjälpa follow-ups att inte feltolkas som små lokala tweaks när den faktiska ändringen är capability-heavy
 
+## Toolkit och shadcn-registry
+
+`## Your Toolkit` i den dynamiska kontexten är inte längre en fristående handskriven shortlist. Blocket byggs i `system-prompt.ts` från den registry-synkade `SHADCN_COMPONENTS`-mappen, men filtreras mot vilka subpaths som faktiskt finns lokalt under `src/components/ui` / `components/ui`.
+
+Det betyder:
+
+- prompten ser en grupperad, budgetvänlig sammanfattning av den **säkra lokala** shadcn-ytan
+- import-validator/autofix använder samma registry-map för att känna igen och reparera shadcn-importer
+- `## Component References` förblir ett separat lager: 0-5 capability-matchade kodexempel från `data/shadcn-examples/`
+
 ## Teckenfält vs tokenbudget i `BuildSpec`
 
 - **`systemContextTokens` / `scaffoldTokens` / `refsTokens`** styr runtime-budgetar.

@@ -367,8 +367,13 @@ function ensureDeferredRouteShells(params: {
     fullRoutePaths: routePlan.routes.map((route) => route.path),
     shellRoutePaths: [],
   };
+
+  const effectiveInit =
+    buildSpec.generationMode === "init" ||
+    realization.shellRoutePaths.length > 0;
+
   if (
-    buildSpec.generationMode !== "init" ||
+    !effectiveInit ||
     realization.mode !== "primary-full-with-shells" ||
     realization.shellRoutePaths.length === 0
   ) {

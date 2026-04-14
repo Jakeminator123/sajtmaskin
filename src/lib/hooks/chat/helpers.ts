@@ -98,12 +98,36 @@ export function hashString(value: string): string {
   return (hash >>> 0).toString(36);
 }
 
+/** Extra fields so two distinct create jobs never share the same sessionStorage dedupe key. */
+export type CreateChatKeyJobFields = {
+  scaffoldMode?: string | null;
+  scaffoldId?: string | null;
+  buildMethod?: string | null;
+  buildIntent?: string | null;
+  planMode?: boolean;
+  promptAssistMode?: string | null;
+  promptAssistModel?: string | null;
+  promptAssistDeep?: boolean;
+  /** Serialized palette / theme snapshot (caller passes stable JSON-able value). */
+  paletteState?: unknown;
+};
+
+function stablePaletteFingerprint(paletteState: unknown): string {
+  if (paletteState === undefined || paletteState === null) return "";
+  try {
+    return JSON.stringify(paletteState);
+  } catch {
+    return String(paletteState);
+  }
+}
+
 export function buildCreateChatKey(
   message: string,
   options: MessageOptions,
   modelId: string,
   imageGenerations: boolean,
   systemPrompt?: string,
+  job?: CreateChatKeyJobFields,
 ): string {
   const normalizedMessage = normalizePrompt(message);
   const normalizedSystem = normalizePrompt(systemPrompt ?? "");
@@ -117,6 +141,7 @@ export function buildCreateChatKey(
     .map((value) => encodeURIComponent(value))
     .join("|");
   const attachmentPrompt = normalizePrompt(options.attachmentPrompt ?? "");
+  const planMode = job?.planMode ?? options.planMode ?? false;
   const fingerprint = [
     normalizedMessage,
     `model:${modelId}`,
@@ -124,6 +149,15 @@ export function buildCreateChatKey(
     `system:${normalizedSystem}`,
     `attachments:${attachmentSignature}`,
     `attachmentPrompt:${attachmentPrompt}`,
+    `scaffoldMode:${job?.scaffoldMode ?? ""}`,
+    `scaffoldId:${job?.scaffoldId ?? ""}`,
+    `buildMethod:${job?.buildMethod ?? ""}`,
+    `buildIntent:${job?.buildIntent ?? ""}`,
+    `planMode:${planMode ? "1" : "0"}`,
+    `promptAssistMode:${job?.promptAssistMode ?? ""}`,
+    `promptAssistModel:${job?.promptAssistModel ?? ""}`,
+    `promptAssistDeep:${job?.promptAssistDeep ? "1" : "0"}`,
+    `palette:${stablePaletteFingerprint(job?.paletteState)}`,
   ].join("::");
   return hashString(fingerprint);
 }

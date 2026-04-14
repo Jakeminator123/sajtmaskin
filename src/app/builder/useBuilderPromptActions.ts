@@ -6,6 +6,8 @@ import type { PaletteSelection, PaletteState } from "@/lib/builder/palette";
 import type { BuildMethod } from "@/lib/builder/build-intent";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
+import type { PromptRewriteOptions } from "@/lib/hooks/prompt-assist-types";
+import type { InitBriefOptions } from "@/lib/hooks/prompt-assist-types";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
 import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import {
@@ -72,15 +74,11 @@ type Args = {
   setPaletteState: Dispatch<SetStateAction<PaletteState>>;
   maybeEnhanceInitialPrompt: (
     message: string,
-    options?: { forceShallow?: boolean; mode?: "rewrite" | "polish"; modelOverride?: string },
+    options?: PromptRewriteOptions,
   ) => Promise<string>;
   generateDynamicInstructions: (
     message: string,
-    options?: {
-      forceShallow?: boolean;
-      forceDeepBrief?: boolean;
-      onBrief?: (brief: Record<string, unknown>) => void;
-    },
+    options?: InitBriefOptions,
   ) => Promise<string>;
   createNewChat: (message: string, options?: CreateChatOptions, systemOverride?: string) => Promise<void>;
   cancelActiveGeneration: () => void;
@@ -247,6 +245,7 @@ export function useBuilderPromptActions({
         await generateDynamicInstructions(trimmed, {
           forceShallow: false,
           forceDeepBrief: true,
+          skipAddendum: true,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
             if (specMode) {

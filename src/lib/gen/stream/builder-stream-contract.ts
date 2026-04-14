@@ -57,7 +57,7 @@ export type BuilderIntegrationPayload =
   | BuilderIntegrationItemPayload[];
 export type BuilderChatIdPayload = { id?: string; chatId?: string } | string;
 export type BuilderProjectIdPayload =
-  | { v0ProjectId?: string; v0_project_id?: string }
+  | { projectId?: string; v0ProjectId?: string; v0_project_id?: string }
   | string;
 export type BuilderTextPayload =
   | string

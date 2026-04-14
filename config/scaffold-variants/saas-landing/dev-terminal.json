@@ -1,0 +1,74 @@
+{
+  "id": "dev-terminal",
+  "scaffoldId": "saas-landing",
+  "label": "Dev Terminal",
+  "description": "Developer-facing SaaS variant with API-first framing and technical product proof.",
+  "keywords": [
+    "api",
+    "developer",
+    "terminal",
+    "cli",
+    "devtools",
+    "sdk",
+    "platform",
+    "open-source"
+  ],
+  "fontPairings": [
+    {
+      "heading": "JetBrains Mono",
+      "body": "Space Grotesk"
+    }
+  ],
+  "signatureMotif": "terminal previews, code framing, and dense technical product proof",
+  "colorMode": "dark",
+  "promptHints": [
+    "Market the product through developer trust, API clarity, and technical proof instead of broad lifestyle benefits.",
+    "Treat code examples and product surface previews as first-class design elements."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.12 0.01 265)",
+    "foreground": "oklch(0.95 0.006 265)",
+    "card": "oklch(0.17 0.01 265)",
+    "primary": "oklch(0.68 0.18 160)",
+    "primaryForeground": "oklch(0.1 0 0)",
+    "secondary": "oklch(0.2 0.01 265)",
+    "muted": "oklch(0.18 0.008 265)",
+    "accent": "oklch(0.72 0.1 85)",
+    "border": "oklch(0.28 0.01 265)",
+    "ring": "oklch(0.68 0.18 160)",
+    "radius": "0.85rem"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Preserve clear information density with persistent navigation and scannable panels.",
+    "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "overview metrics",
+    "filters or controls",
+    "table or chart area"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid turning dashboard references into generic marketing landing pages.",
+    "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Dense UI must still feel legible, fast, and trustworthy.",
+    "Commercial sections should feel conversion-ready without looking template-generic."
+  ],
+  "sourceTemplateIds": [
+    "saas-router-so-headless-forms-and-lead-routing",
+    "saas-xata-typo-tolerant-full-text-search",
+    "saas-evervault-encryption-starter-kit-for-next-js",
+    "saas-paddle-billing-subscription-starter"
+  ],
+  "default": false
+}

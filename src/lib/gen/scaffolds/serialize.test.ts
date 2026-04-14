@@ -86,6 +86,9 @@ describe("serializeScaffoldForPrompt", () => {
         needsEcommerce: false,
         needsCarousel: false,
         needsPremiumVisuals: false,
+        needsCalendar: false,
+        needsCommandSearch: false,
+        needsThemeToggle: false,
       },
     });
 

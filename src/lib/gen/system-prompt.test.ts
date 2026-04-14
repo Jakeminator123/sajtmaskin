@@ -140,6 +140,7 @@ describe("buildDynamicContext", () => {
 
       expect(context).toContain("## Build Intent: Website");
       expect(context).toContain("## Generation Profile");
+      expect(context).toContain("## Scaffold Variant (this generation)");
       expect(context).toContain("- **Style direction:** brand-led");
       expect(context).toContain("## Project Context");
       expect(context).toContain("Lindström");
@@ -267,6 +268,24 @@ describe("buildDynamicContext", () => {
       expect(context.indexOf("## Scaffold")).toBeLessThan(
         context.indexOf("## Your Toolkit"),
       );
+    });
+
+    it("builds the toolkit block from the synced local shadcn registry surface", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "followUp",
+        buildSpec: {
+          ...lightFollowUpSpec,
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        scaffoldContext: "Scaffold context",
+      });
+
+      expect(context).toContain("Registry-synced local layer:");
+      expect(context).toContain("combobox");
+      expect(context).toContain("button-group");
+      expect(context).toContain("field");
     });
 
     it("describes follow-up work as editing the current project state", async () => {

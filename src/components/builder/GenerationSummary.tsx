@@ -118,10 +118,48 @@ export const GenerationSummary = memo(function GenerationSummary({
     );
   }
 
-  if (!parsed.hasCodeBlocks) {
+  const hasOpenFences = !parsed.hasCodeBlocks && /```/.test(content);
+
+  if (!parsed.hasCodeBlocks && !hasOpenFences) {
     return (
       <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 overflow-hidden wrap-break-word">
         {isStreaming ? streamingNotice : content}
+      </div>
+    );
+  }
+
+  if (!parsed.hasCodeBlocks && hasOpenFences) {
+    return (
+      <div className="space-y-2 min-w-0">
+        <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 overflow-hidden wrap-break-word">
+          {isStreaming ? streamingNotice : "Genererat innehåll med kodblock."}
+        </div>
+        {!isStreaming && (
+          <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowRaw((prev) => !prev)}
+              className="flex w-full items-center justify-between px-3 py-2.5 text-xs"
+            >
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center size-5 rounded-full bg-emerald-500/10">
+                  <FileCode2 className="size-3 text-emerald-400" />
+                </div>
+                <span className="font-medium text-zinc-200">Genererat innehåll</span>
+              </div>
+              {showRaw ? <ChevronUp className="size-3 text-zinc-500" /> : <ChevronDown className="size-3 text-zinc-500" />}
+            </button>
+            {showRaw && (
+              <div className="border-t border-zinc-700/40 bg-black/30">
+                <div className="max-h-[400px] overflow-auto p-3">
+                  <pre className="whitespace-pre-wrap wrap-break-word text-[11px] leading-5 text-zinc-400 font-mono">
+                    {content}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }

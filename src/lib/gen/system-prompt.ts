@@ -32,7 +32,9 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
-import { pickStyleDirection } from "./data/style-directions";
+import { pickScaffoldVariant } from "./scaffold-variants";
+import type { ScaffoldVariant } from "./scaffold-variants";
+import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -60,6 +62,8 @@ function loadStaticCoreSync(): string {
 // DYNAMIC CONTEXT — varies per request
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Canonical build intent rules for codegen. Assist-copy in promptAssist.ts
+// serves rewrite/polish — keep in sync but do not merge (circular import risk).
 const BUILD_INTENT_GUIDANCE: Record<
   BuildIntent,
   { label: string; rules: string[] }
@@ -77,11 +81,9 @@ const BUILD_INTENT_GUIDANCE: Record<
     label: "Website",
     rules: [
       "Ship code that passes a real App Router build: valid `next/image`, metadata exports, and Server Components by default — not patterns that only work inside a browser-transpiled preview.",
-      "Build a visually stunning primary page: sticky navigation, hero with headline + subtext + CTA, content sections for the business, footer with contact or links.",
-      "Each page must feel handcrafted: distinct hero treatment, unique section layouts, interactive hover effects, scroll-triggered animations via native IntersectionObserver, and at least one memorable visual signature.",
-      "Use shadcn/ui Cards with lift-on-hover effects, Badges for labels, Buttons with scale transitions for CTAs. Add glassmorphism panels, gradient text on hero headings, and animated counters for stats.",
-      "Alternate section backgrounds with visual depth: gradients, subtle patterns, glassmorphism layers. Hero: large type (`text-5xl+`), generous vertical padding (`py-24+`), atmospheric background treatment.",
-      "Include realistic, detailed content in Swedish specific to the business — never generic placeholder copy.",
+      "Build a complete, visually polished website with navigation, content sections, and a footer. Follow the Scaffold Variant block for layout cues, visual motif, and tone — do not fall back to a generic hero-cards-footer formula.",
+      "Each page must feel handcrafted: distinct hero treatment, unique section layouts, interactive hover effects, and at least one memorable visual signature.",
+      "CONTENT IS KING: every section must have real, substantial text in Swedish specific to the business. Write at least 2-3 sentences per section, not just a heading. Never use generic placeholder copy.",
       "Match scope: short prompt → polished one-pager; detailed prompt → multi-page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
     ],
   },
@@ -178,6 +180,7 @@ export interface DynamicContextOptions {
   scaffoldContext?: string;
   capabilityHints?: string;
   resolvedScaffold?: ScaffoldManifest | null;
+  resolvedVariant?: ScaffoldVariant | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
   componentPalette?: PaletteState | null;
@@ -188,10 +191,12 @@ export interface DynamicContextOptions {
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
-  /** Per-session seed (chatId or similar) to vary style direction across sessions with identical prompts. */
+  /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
   /** Pre-rendered scaffold-anchored template-library guidance (init only, opt-in). */
   templateGuidance?: string;
+  /** Verified shadcn usage examples matched to this request's capabilities. */
+  componentReferences?: { name: string; code: string }[];
 }
 
 function str(v: unknown): string {
@@ -211,16 +216,7 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
 }
 
 function buildShadcnToolkitSummary(): string[] {
-  return [
-    "  - Navigation: navigation-menu, sheet, menubar, breadcrumb, sidebar, tabs",
-    "  - Content density: accordion, collapsible, carousel, scroll-area",
-    "  - Rich reveals: hover-card, tooltip, popover, dialog, drawer, dropdown-menu",
-    "  - Data & app UI: table, pagination, chart, progress, skeleton, empty",
-    "  - Forms: form, field, input, input-group, textarea, select, native-select, checkbox, radio-group, switch, slider, calendar",
-    "  - Feedback: alert, badge, toast, sonner, spinner",
-    "  - Layout: card, aspect-ratio, separator, resizable, avatar, item, button-group",
-    "  - Also available: alert-dialog, command, context-menu, input-otp, toggle, toggle-group, label, kbd, direction",
-  ];
+  return buildRegistryDrivenShadcnToolkitSummary();
 }
 
 const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
@@ -235,7 +231,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^custom instructions/i, priority: 100, required: true },
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
-  { match: /^style direction \(this generation\)$/i, priority: 91 },
+  { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
   { match: /^scaffold$/i, priority: 90, required: true },
   { match: /^route plan$/i, priority: 90, required: true },
   { match: /^your toolkit$/i, priority: 85, required: true },
@@ -245,6 +241,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
+  { match: /^component references$/i, priority: 76 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
@@ -349,8 +346,38 @@ export type BuildDynamicContextResult = {
   context: string;
   pruning: DynamicContextPruning;
   blocks: DynamicContextBlockTrace[];
-  styleDirectionId: string | null;
+  variantId: string | null;
 };
+
+function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): string[] {
+  const tokens = variant?.themeTokens;
+  if (!tokens) return [];
+  const entries = [
+    ["--background", tokens.background],
+    ["--foreground", tokens.foreground],
+    ["--card", tokens.card],
+    ["--card-foreground", tokens.cardForeground],
+    ["--primary", tokens.primary],
+    ["--primary-foreground", tokens.primaryForeground],
+    ["--secondary", tokens.secondary],
+    ["--secondary-foreground", tokens.secondaryForeground],
+    ["--muted", tokens.muted],
+    ["--muted-foreground", tokens.mutedForeground],
+    ["--accent", tokens.accent],
+    ["--accent-foreground", tokens.accentForeground],
+    ["--border", tokens.border],
+    ["--ring", tokens.ring],
+    ["--radius", tokens.radius],
+  ] as const;
+
+  const lines = entries
+    .filter(([, value]) => Boolean(value))
+    .map(([token, value]) => `  - ${token}: ${value}`);
+  if (tokens.bodyBackgroundImage) {
+    lines.push(`  - background-image: ${tokens.bodyBackgroundImage}`);
+  }
+  return lines;
+}
 
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
@@ -368,6 +395,7 @@ export async function buildDynamicContext(
     scaffoldContext,
     capabilityHints,
     resolvedScaffold,
+    resolvedVariant,
     routePlan,
     preGenerationContracts,
     componentPalette,
@@ -378,10 +406,12 @@ export async function buildDynamicContext(
     buildSpec,
     sessionSeed,
     templateGuidance,
+    componentReferences,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
   const styleKeywords = strList(brief?.visualDirection?.styleKeywords);
+  const toneKeywords = strList(brief?.toneAndVoice);
 
   const parts: string[] = [];
 
@@ -403,6 +433,25 @@ export async function buildDynamicContext(
 
   // ── Build Intent ────────────────────────────────────────────────────────
   const guidance = BUILD_INTENT_GUIDANCE[intent];
+  const effectiveVariant =
+    resolvedVariant ??
+    pickScaffoldVariant({
+      prompt: [
+        str(brief?.oneSentencePitch),
+        str(brief?.tagline),
+        strList(brief?.mustHave).join(" "),
+        toneKeywords.join(" "),
+        styleKeywords.join(" "),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || guidance.rules.join(" "),
+      scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
+      styleKeywords,
+      toneKeywords,
+      generationMode,
+      sessionSeed,
+    });
   parts.push(
     `## Build Intent: ${guidance.label}`,
     "",
@@ -431,45 +480,61 @@ export async function buildDynamicContext(
     parts.push(...profileLines);
   }
 
-  const styleDirection = pickStyleDirection({
-    prompt: [
-      str(brief?.oneSentencePitch),
-      str(brief?.tagline),
-      strList(brief?.mustHave).join(" "),
-      strList(brief?.toneAndVoice).join(" "),
-      styleKeywords.join(" "),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim() || guidance.rules.join(" "),
-    scaffoldId: resolvedScaffold?.id ?? null,
-    styleKeywords,
-    generationMode,
-    sessionSeed,
-  });
-  parts.push(
-    "## Style Direction (this generation)",
-    "",
-    `- **Layout approach:** ${styleDirection.layoutApproach}`,
-    `- **Section rhythm:** ${styleDirection.sectionRhythm}`,
-    `- **Signature motif:** ${styleDirection.signatureMotif}`,
-    `- **Font mood:** ${styleDirection.fontMood}`,
-  );
-  if (styleDirection.fontPairings.length > 0) {
-    const pairStr = styleDirection.fontPairings
+  if (effectiveVariant) {
+    parts.push(
+      "## Scaffold Variant (this generation)",
+      "",
+      `- **Variant:** ${effectiveVariant.label} (\`${effectiveVariant.id}\`)`,
+      `- **Scaffold:** \`${effectiveVariant.scaffoldId}\``,
+      `- **Color mode:** ${effectiveVariant.colorMode}`,
+      `- **Signature motif:** ${effectiveVariant.signatureMotif}`,
+    );
+    if (effectiveVariant.description) {
+      parts.push(`- **Variant purpose:** ${effectiveVariant.description}`);
+    }
+    if (effectiveVariant.fontPairings.length > 0) {
+      const pairStr = effectiveVariant.fontPairings
       .map((p) => `${p.heading} + ${p.body}`)
       .join(", or ");
-    parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
-  }
-  if (styleDirection.sectionRecipes.length > 0) {
-    parts.push(
-      "- **Section recipes (suggested combinations — adapt or replace based on the user's prompt):**",
-    );
-    for (const recipe of styleDirection.sectionRecipes.slice(0, 4)) {
-      parts.push(`  - ${recipe}`);
+      parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
     }
+    if (effectiveVariant.promptHints.length > 0) {
+      parts.push("- **Variant cues:**");
+      for (const hint of effectiveVariant.promptHints.slice(0, 3)) {
+        parts.push(`  - ${hint}`);
+      }
+    }
+    if ((effectiveVariant.styleRules?.length ?? 0) > 0) {
+      parts.push("- **Style rules from curated references:**");
+      for (const rule of effectiveVariant.styleRules!.slice(0, 3)) {
+        parts.push(`  - ${rule}`);
+      }
+    }
+    if ((effectiveVariant.sectionInventory?.length ?? 0) > 0) {
+      parts.push(
+        `- **Section inventory to favor:** ${effectiveVariant.sectionInventory!.slice(0, 4).join(", ")}`,
+      );
+    }
+    if ((effectiveVariant.avoidPatterns?.length ?? 0) > 0) {
+      parts.push("- **Avoid patterns:**");
+      for (const pattern of effectiveVariant.avoidPatterns!.slice(0, 2)) {
+        parts.push(`  - ${pattern}`);
+      }
+    }
+    const themeTokenLines = formatThemeTokenLines(effectiveVariant);
+    if (themeTokenLines.length > 0) {
+      parts.push(
+        "- **Theme tokens (variant defaults — override only when the brief or locked theme says otherwise):**",
+      );
+      parts.push(...themeTokenLines);
+    }
+    if ((effectiveVariant.sourceTemplateIds?.length ?? 0) > 0) {
+      parts.push(
+        `- **Derived from curated references:** ${effectiveVariant.sourceTemplateIds!.slice(0, 4).join(", ")}`,
+      );
+    }
+    parts.push("");
   }
-  parts.push("");
 
   // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
   // (static core, cached per process — no longer eats dynamic context token budget)
@@ -539,7 +604,7 @@ export async function buildDynamicContext(
     "",
     "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
     "",
-    "- shadcn/ui (import from `@/components/ui/{name}`):",
+    "- shadcn/ui (registry-synced local layer; import from `@/components/ui/<subpath>`):",
     ...buildShadcnToolkitSummary(),
   ];
   if (capabilityLines.length > 0) {
@@ -607,6 +672,11 @@ export async function buildDynamicContext(
         "- Keep shell code lightweight, coherent, and safe to preview. They should preserve navigation, metadata surface, and internal linking without pretending to be fully implemented.",
         "- Keep most design and implementation budget on the primary route. Extra planned routes should preserve IA, navigation, metadata, and internal linking without demanding full implementation yet.",
       );
+      if (isFollowUp) {
+        parts.push(
+          "- **Shell preservation rule (follow-up):** These shell routes already exist as intentional placeholders. Do NOT replace, expand, redesign, or regenerate them unless the user explicitly asks to build out that specific page. If your change does not target a shell route, omit it from your response entirely so it is kept as-is.",
+        );
+      }
     } else if (routePlan.routes.length > 1) {
       parts.push(
         "",
@@ -741,6 +811,23 @@ export async function buildDynamicContext(
     if (avoid.length > 0) {
       parts.push("## Avoid", "", ...avoid.map((a) => `- ${a}`), "");
     }
+
+    // UX & UI notes from brief
+    const uiComponents = strList(brief.uiNotes?.components).slice(0, 16);
+    const uiInteractions = strList(brief.uiNotes?.interactions).slice(0, 16);
+    const uiAccessibility = strList(brief.uiNotes?.accessibility).slice(0, 16);
+    if (uiComponents.length > 0 || uiInteractions.length > 0 || uiAccessibility.length > 0) {
+      parts.push("## UX & UI Notes", "");
+      if (uiComponents.length > 0) {
+        parts.push("**Components:**", ...uiComponents.map((c) => `- ${c}`), "");
+      }
+      if (uiInteractions.length > 0) {
+        parts.push("**Interactions:**", ...uiInteractions.map((i) => `- ${i}`), "");
+      }
+      if (uiAccessibility.length > 0) {
+        parts.push("**Accessibility:**", ...uiAccessibility.map((a) => `- ${a}`), "");
+      }
+    }
   }
 
   // ── Visual Identity ─────────────────────────────────────────────────────
@@ -800,7 +887,7 @@ export async function buildDynamicContext(
 
   // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
-  // (those already feed Style Direction). Keep only concrete image subjects/notes.
+  // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
   if (brief?.imagery) {
     const visualKwSet = new Set(styleKeywords.map((k) => k.toLowerCase()));
     const imgStyleKw = strList(brief.imagery.styleKeywords).filter(
@@ -829,6 +916,23 @@ export async function buildDynamicContext(
       parts.push(`- \`{{${item.alias}}}\`${altText}`);
     }
     parts.push("");
+  }
+
+  // ── Component References (capability-driven shadcn examples) ─────────
+  if (componentReferences && componentReferences.length > 0) {
+    parts.push(
+      "## Component References",
+      "",
+      "Verified usage examples for components relevant to this request. Adapt these patterns to the site — do not copy verbatim.",
+      "",
+    );
+    for (const ref of componentReferences.slice(0, 5)) {
+      const truncatedCode =
+        ref.code.split("\n").length > 60
+          ? ref.code.split("\n").slice(0, 60).join("\n") + "\n// ... (truncated)"
+          : ref.code;
+      parts.push(`### ${ref.name}`, "", "```tsx", truncatedCode, "```", "");
+    }
   }
 
   // ── SEO (from brief) ───────────────────────────────────────────────────
@@ -893,7 +997,7 @@ export async function buildDynamicContext(
       keptBlockKeys: budgeted.keptKeys,
     },
     blocks: blockTrace,
-    styleDirectionId: styleDirection.id,
+    variantId: effectiveVariant?.id ?? null,
   };
 }
 

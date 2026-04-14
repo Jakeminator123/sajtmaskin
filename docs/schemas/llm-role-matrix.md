@@ -24,7 +24,7 @@ Det här dokumentet är den mänskligt läsbara översikten över **vilka modell
 | Planner | LLM | används i plan mode för plan-/JSON-artifact, inte sajtkod | `src/lib/own-engine/session/own-engine-plan-mode.ts` |
 | Generator | LLM | genererar själva sajtkoden/projektfilerna | `src/lib/providers/own-engine/generation-stream.ts` |
 | LLM-fix (syntax fixer) | LLM | riktad kodreparation efter syntaxvalidering när mekaniska fixar inte räcker | `src/lib/gen/autofix/validate-and-fix.ts`, `src/lib/gen/autofix/llm-fixer.ts` |
-| Verifier | LLM | read-only verifiering/quality findings efter syntax och innan/under finalize | `src/lib/gen/verifier-pass.ts`, `src/lib/models/phase-routing.ts` |
+| Verifier | LLM | read-only verifiering/quality findings efter syntax och innan/under finalize | `src/lib/gen/verify/verifier-pass.ts`, `src/lib/models/phase-routing.ts` |
 | Deploy assistant | LLM-roll | hjälpfas i phase routing för deploy-/auxiliary-steg | `src/lib/models/phase-routing.ts` |
 
 ## Fasrouting
@@ -43,30 +43,35 @@ Se:
 - `src/lib/ai-models/load-manifest.ts`
 - `src/lib/models/phase-routing.ts`
 
+Phase routing bär nu två signaler per fas:
+
+- **modellval** via `phaseRouting.defaultByTier`
+- **thinking / reasoningEffort** via `phaseRouting.thinkingByTier`
+
 ## Prompt-assist-kedjan i detalj
 
-Tre separata lager bearbetar prompten **före** kodgenerering. De ska inte blandas ihop:
+Två lager bearbetar prompten **före** kodgenerering:
 
 | Lager | Vad det gör | Var output hamnar | Kodfiler |
 |-------|-------------|-------------------|----------|
-| **`formatPrompt()`** | Enkel client-side formatter som wrappar text i `MÅL / CONSTRAINTS / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. | User-meddelandet i streamen (`message`-fältet). | `src/lib/builder/promptAssist.ts` (~rad 760) |
-| **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kallas "Djup Breef" i UI. | `meta.brief` → systemprompten via `buildDynamicContext()`. Genererar ~15–20k tecken dynamisk kontext. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
-| **`buildDynamicInstructionAddendumFromBrief()`** | Tar briefens JSON och bygger rik markdown med `## Pages & Sections`, `## Visual Identity`, `## Interaction & Motion`, `## Domain Inference`, `## Quality Bar`, `## Imagery` m.fl. | Injiceras i `customInstructions` → systemprompten. | `src/lib/builder/promptAssist.ts` (~rad 1007) |
+| **Deep brief** (`/api/ai/brief`) | LLM-anrop som producerar en **strukturerad JSON** (sidor, sektioner, visuell riktning, imagery, SEO, m.m.). Kanonisk semantisk expansion för init. | `meta.brief` → systemprompten via `buildDynamicContext()`. Genererar ~15–20k tecken dynamisk kontext. | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` |
+| **`formatPrompt()`** *(fallback)* | Enkel client-side formatter som wrappar text i `MÅL / CONSTRAINTS / TILLGÄNGLIGHET`-rubriker. Ingen LLM involverad. Körs **bara** när Deep Brief inte är aktiv (assist off eller brief-generering misslyckades). | User-meddelandet i streamen (`message`-fältet). | `src/lib/builder/promptAssist.ts` (~rad 760) |
 
 Flödet vid freeform create-chat:
 
 1. Användaren skriver prompt (t.ex. 400 tecken)
-2. `formatPrompt()` wrappar i MÅL/CONSTRAINTS → user-message (~1000 tecken)
-3. `/api/ai/brief` producerar strukturerad JSON (deep brief, ~28s)
-4. `buildDynamicInstructionAddendumFromBrief()` expanderar JSON → rik kontext (~17k tecken)
-5. Kontexten injiceras i **systemprompten** (dynamisk del), inte i user-meddelandet
-6. Kodgeneratorn ser: statisk kärna (23k) + dynamisk kontext (17k) + user-message (~1k)
+2. `/api/ai/brief` producerar strukturerad JSON (deep brief, ~28s)
+3. Brief-objektet skickas via `meta.brief` till servern
+4. Serverns `buildDynamicContext(brief)` bygger rik dynamisk kontext (~17k tecken)
+5. Kontexten injiceras i **systemprompten** (dynamisk del)
+6. Användarens **råa prompttext** skickas som user-message (ingen MÅL/CONSTRAINTS-wrappning)
+7. Kodgeneratorn ser: statisk kärna (23k) + dynamisk kontext (17k) + rå user-message
 
-**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) körs istället `buildDynamicInstructionAddendumFromPrompt()` som gör en enklare expansion baserad på keyword-analys av prompten. Den producerar kontext men utan sidstruktur, sektioner eller visuell riktning.
+**Utan** deep brief (t.ex. om `promptAssistDeep: false` eller briefen misslyckas) körs `formatPrompt()` som fallback och `buildDynamicInstructionAddendumFromPrompt()` för en enklare prompt-baserad expansion.
 
 ## Viktiga noter
 
-- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Aktiveras server-side via `SAJTMASKIN_DEFAULT_THINKING=true` i `.env.local`; klienten skickar flaggan explicit bara om användaren ändrat togglen i UI. `SAJTMASKIN_SHOW_THINKING` finns bara kvar som legacy-alias för äldre miljöer.
+- `Thinking` är **inte** en egen LLM-roll. Det är en separat flagga som påverkar resonemangs-/reasoning-exponering. Planner/generator kräver nu både den vanliga builder-togglen och att fasen är aktiverad i `phaseRouting.thinkingByTier`; fixer/verifier/manual repair/server verify använder fasinställningen direkt. `SAJTMASKIN_SHOW_THINKING` finns bara kvar som legacy-alias för äldre miljöer.
 - Prompt assist, Deep brief och spec-first ligger **utanför** phase-routingtabellen och fungerar mer som för-/pre-generation-lager.
 - Deep brief och server auto-brief bygger **samma typ av structured brief**, men startas från olika ställen i kedjan.
 - Builderns normala `specMode` använder oftast `briefToSpec()` eller `promptToSpec()` och inte den fristående `/api/ai/spec`-routen.

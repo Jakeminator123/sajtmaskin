@@ -14,6 +14,7 @@ import {
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import { buildCompleteProject } from "../export/project-scaffold";
+import { PLACEHOLDER_API_ROUTE } from "../export/project-scaffold";
 import { collectRequiredUiComponents } from "../export/build-exportable-project";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 
@@ -81,13 +82,20 @@ export type StartPreviewSessionOptions = {
    * (`filesJson` from DB / own-engine stream). Use `false` when parsing from raw `contentForVersion`.
    */
   skipRepair?: boolean;
+  /**
+   * Skip `buildCompleteProject` scaffold merge entirely. Used for repo imports (v0 templates)
+   * where the zip already contains a complete project with its own package.json, tsconfig,
+   * next.config, etc. Avoids overwriting the project's own dependency tree.
+   */
+  skipProjectScaffold?: boolean;
 };
 
 /**
  * Start a full Next.js preview session from generated files (own-engine + `/preview-session` API).
  *
  * Ordning: (1) återanvänd befintlig VM om session matchar chat+version — **utan** att bygga projekt på nytt;
- * (2) valfritt `repairGeneratedFiles` om inte `skipRepair`; (3) `buildCompleteProject` + `.env.local`;
+ * (2) valfritt `repairGeneratedFiles` om inte `skipRepair`; (3) `buildCompleteProject` + `.env.local`
+ * (skippas med `skipProjectScaffold` för repo-importer);
  * (4) preview-host/Fly bootar projektet med `npm install` + `npm run dev`.
  *
  * **Paritet:** `skipRepair: true` när underlaget redan är finalize-preflightat (`filesJson`), t.ex. own-engine-ström och API mot DB.
@@ -166,6 +174,7 @@ async function runStartPreviewSession(
   }
 
   const skipRepair = options?.skipRepair === true;
+  const skipProjectScaffold = options?.skipProjectScaffold === true;
   let filesForProject: CodeFile[];
   if (skipRepair) {
     filesForProject = generatedFiles;
@@ -183,15 +192,21 @@ async function runStartPreviewSession(
     }
   }
 
-  const projectFiles = buildCompleteProject(
-    filesForProject,
-    collectRequiredUiComponents(filesForProject),
-  );
+  const runtimeFiles: RuntimeFile[] = skipProjectScaffold
+    ? filesForProject.map((f) => ({ name: f.path, content: f.content }))
+    : buildCompleteProject(
+        filesForProject,
+        collectRequiredUiComponents(filesForProject),
+      ).map((f) => ({ name: f.path, content: f.content }));
 
-  const runtimeFiles: RuntimeFile[] = projectFiles.map((f) => ({
-    name: f.path,
-    content: f.content,
-  }));
+  if (skipProjectScaffold) {
+    const hasPlaceholder = runtimeFiles.some(
+      (f) => f.name === "app/api/placeholder/route.ts" || f.name === "app/api/placeholder/route.js",
+    );
+    if (!hasPlaceholder) {
+      runtimeFiles.push({ name: "app/api/placeholder/route.ts", content: PLACEHOLDER_API_ROUTE });
+    }
+  }
 
   const envLocalPath = ".env.local";
   const envIdx = runtimeFiles.findIndex((f) => f.name === envLocalPath);

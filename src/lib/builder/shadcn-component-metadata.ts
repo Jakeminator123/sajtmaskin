@@ -98,6 +98,12 @@ const CURATED_COMPONENT_METADATA: Record<string, ShadcnComponentMetadata> = {
     iconKey: "inputs",
     usageHint: "Primär call-to-action för nästa steg i flödet.",
   },
+  "button-group": {
+    category: "layout",
+    previewKind: "layout",
+    iconKey: "layout",
+    usageHint: "Gruppera relaterade knappar med konsekvent avstånd och stil.",
+  },
   calendar: {
     category: "inputs",
     previewKind: "inputs",
@@ -158,11 +164,23 @@ const CURATED_COMPONENT_METADATA: Record<string, ShadcnComponentMetadata> = {
     iconKey: "overlay",
     usageHint: "Bra för inställningar och detaljpaneler från sidan.",
   },
+  direction: {
+    category: "layout",
+    previewKind: "layout",
+    iconKey: "layout",
+    usageHint: "RTL/LTR-provider för internationella layouter.",
+  },
   "dropdown-menu": {
     category: "navigation",
     previewKind: "navigation",
     iconKey: "navigation",
     usageHint: "Kompakt meny för sekundära val och åtgärder.",
+  },
+  empty: {
+    category: "feedback",
+    previewKind: "feedback",
+    iconKey: "feedback",
+    usageHint: "Visa tydlig zero-state när inga resultat eller objekt finns.",
   },
   form: {
     category: "forms",
@@ -182,11 +200,29 @@ const CURATED_COMPONENT_METADATA: Record<string, ShadcnComponentMetadata> = {
     iconKey: "inputs",
     usageHint: "Basfält för textinmatning i nästan alla formulär.",
   },
+  "input-group": {
+    category: "inputs",
+    previewKind: "inputs",
+    iconKey: "inputs",
+    usageHint: "Input med ikon, prefix eller actionknapp i en sammanhållen grupp.",
+  },
   "input-otp": {
     category: "inputs",
     previewKind: "inputs",
     iconKey: "inputs",
     usageHint: "Specialiserat fält för engångskoder och verifiering.",
+  },
+  item: {
+    category: "layout",
+    previewKind: "layout",
+    iconKey: "layout",
+    usageHint: "Generisk list-item-primitiv med media, titel och innehåll.",
+  },
+  kbd: {
+    category: "data",
+    previewKind: "data",
+    iconKey: "data",
+    usageHint: "Visa tangentbordsgenvägar och shortcuts tydligt.",
   },
   label: {
     category: "forms",
@@ -199,6 +235,12 @@ const CURATED_COMPONENT_METADATA: Record<string, ShadcnComponentMetadata> = {
     previewKind: "navigation",
     iconKey: "navigation",
     usageHint: "Klassisk menyrad för app-liknande gränssnitt.",
+  },
+  "native-select": {
+    category: "inputs",
+    previewKind: "inputs",
+    iconKey: "inputs",
+    usageHint: "Enkel native HTML-select för snabba val utan extra JS.",
   },
   "navigation-menu": {
     category: "navigation",
@@ -283,6 +325,12 @@ const CURATED_COMPONENT_METADATA: Record<string, ShadcnComponentMetadata> = {
     previewKind: "feedback",
     iconKey: "feedback",
     usageHint: "Toast-notiser för bekräftelser och bakgrundshändelser.",
+  },
+  spinner: {
+    category: "feedback",
+    previewKind: "feedback",
+    iconKey: "feedback",
+    usageHint: "Laddningsindikator för asynkrona operationer och väntetillstånd.",
   },
   switch: {
     category: "inputs",

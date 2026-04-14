@@ -44,3 +44,5 @@ export function SiteFooter() {
     </footer>
   );
 }
+
+export default SiteFooter;

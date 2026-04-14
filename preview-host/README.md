@@ -34,6 +34,7 @@ I praktiken betyder det:
 - samma `chatId` ateranvander normalt samma preview-session/path; ny version restartar runtime med nya filer i stallet for att skapa en helt separat lane
 - vantesida visas i iframen medan projektet bootar (auto-reload var 4:e sekund)
 - workspace-caching: `node_modules` ateranvands om `package.json` inte andrats
+- binary assets (bilder, fonts) stods via `base64:`-prefix i `filesJson`; `writeFilesIntoWorkspace` skriver dem som binara buffers
 - verify-jobb koas lugnare pa enskild VM for att undvika att flera tunga `npm install`/`tsc` kor samtidigt
 - `GET /admin/storage`, `GET /admin/sessions`, `POST /admin/cleanup` och `POST /admin/destroy-all` finns for drift och felsokning
 - sessionstiden ar nu forenklad till cirka 1 timme pa bade host och app-sida

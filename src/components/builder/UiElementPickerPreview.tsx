@@ -393,7 +393,7 @@ function ThemePreviewCard({
         <img
           src={buildPreviewImageUrl(name, mode, style)}
           alt={`${title} – ${isLight ? "ljust" : "mörkt"}`}
-          className="w-full"
+          className="w-full object-contain"
           loading="lazy"
           onError={onFail}
         />

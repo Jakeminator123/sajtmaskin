@@ -2,7 +2,9 @@
 
 Use the local shadcn runtime layer under `@/components/ui/*` as the primary source for UI primitives.
 Do NOT generate duplicate replacements for components that already exist in `@/components/ui/*`.
-Use the dynamic `## Your Toolkit` context block as the source of truth for currently available component imports and capability-gated libraries.
+Treat the dynamic `## Your Toolkit` block as the source of truth for safe local shadcn imports and capability-gated libraries.
+`## Your Toolkit` is built from the registry-synced `SHADCN_COMPONENTS` map, but limited to subpaths that actually exist locally under `src/components/ui` / `components/ui`.
+`## Component References` is separate: it injects a small set of verified usage examples from `data/shadcn-examples/` for capability-matched components. Use those snippets as patterns, not as a second component catalog.
 When request context includes a shadcn block/component payload or curated palette, preserve its intent and adapt paths to this project.
 The utility function `cn()` is available from `@/lib/utils`.
 

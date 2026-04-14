@@ -1,0 +1,74 @@
+{
+  "id": "editorial-serif",
+  "scaffoldId": "blog",
+  "label": "Editorial Serif",
+  "description": "Reading-led blog variant with stronger typography and editorial hierarchy.",
+  "keywords": [
+    "editorial",
+    "essay",
+    "reading",
+    "magazine",
+    "content",
+    "blog",
+    "serif",
+    "longform"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Playfair Display",
+      "body": "Source Sans 3"
+    }
+  ],
+  "signatureMotif": "editorial type hierarchy, generous reading rhythm, and calm framing",
+  "colorMode": "light",
+  "promptHints": [
+    "Make reading comfort and article hierarchy more important than card-heavy grids.",
+    "Use typography and spacing to create authority before adding decorative layout moves."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.985 0.004 85)",
+    "foreground": "oklch(0.2 0.015 45)",
+    "card": "oklch(0.995 0.003 85)",
+    "primary": "oklch(0.48 0.1 35)",
+    "primaryForeground": "oklch(0.98 0 0)",
+    "secondary": "oklch(0.96 0.005 75)",
+    "muted": "oklch(0.95 0.004 65)",
+    "accent": "oklch(0.9 0.02 60)",
+    "border": "oklch(0.88 0.004 65)",
+    "ring": "oklch(0.48 0.1 35)",
+    "radius": "0.85rem"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Favor editorial readability, spacing rhythm, and content hierarchy over card spam.",
+    "Prioritize content scanning, navigation clarity, and readable documentation rhythm."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "article hero",
+    "archive list",
+    "author or credibility block"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid collapsing editorial references into generic feature-card marketing.",
+    "Avoid forcing documentation references into pricing-first SaaS structures."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Reading flow should feel deliberate on both desktop and mobile.",
+    "Content-first sites should feel structured, findable, and stable."
+  ],
+  "sourceTemplateIds": [
+    "blog-a-next-js-14-blog-with-server-components",
+    "blog-blog-with-agility-cms-and-next-js",
+    "blog-clean-next-js-sanity-app",
+    "blog-launchpad-next-js-strapi-starter"
+  ],
+  "default": true
+}

@@ -1,0 +1,68 @@
+[
+  {
+    "domain": "restaurant",
+    "briefHint": "restaurant or cafe site",
+    "keywords_sv": ["restaurang", "café", "kafé", "bistro", "bar", "pub", "matrestaurang", "meny", "boka bord"],
+    "keywords_en": ["restaurant", "cafe", "menu", "book a table", "takeaway"]
+  },
+  {
+    "domain": "hotel",
+    "briefHint": "hotel or hospitality site",
+    "keywords_sv": ["hotell", "boutiquehotell"],
+    "keywords_en": ["hotel", "boutique hotel", "spa retreat", "bed and breakfast", "b&b"]
+  },
+  {
+    "domain": "spa-salon",
+    "briefHint": "spa or salon site",
+    "keywords_sv": ["salong", "frisör", "hudvård"],
+    "keywords_en": ["spa", "salon", "barber", "massage", "skincare"]
+  },
+  {
+    "domain": "clinic",
+    "briefHint": "healthcare site",
+    "keywords_sv": ["klinik", "tandläkare", "läkare", "veterinär"],
+    "keywords_en": ["clinic", "dentist", "doctor", "vet", "medical", "health", "therapy"]
+  },
+  {
+    "domain": "event-venue",
+    "briefHint": "event or conference site",
+    "keywords_sv": ["bröllop", "konferens", "festlokal"],
+    "keywords_en": ["event venue", "wedding venue", "conference", "festival", "ticket", "schedule", "speaker", "workshop"]
+  },
+  {
+    "domain": "ecommerce",
+    "briefHint": "ecommerce storefront",
+    "keywords_sv": ["e-handel", "webshop", "webbshop", "varukorg", "kundvagn"],
+    "keywords_en": ["ecommerce", "e-commerce", "checkout", "storefront", "online store", "shop", "store", "cart", "product"]
+  },
+  {
+    "domain": "portfolio",
+    "briefHint": "portfolio site",
+    "keywords_sv": ["fotograf"],
+    "keywords_en": ["portfolio", "photographer", "designer", "showcase", "creative studio", "case study"]
+  },
+  {
+    "domain": "saas",
+    "briefHint": "saas product marketing site",
+    "keywords_sv": [],
+    "keywords_en": ["saas", "b2b", "platform", "dashboard", "workspace", "subscription", "pricing", "startup"]
+  },
+  {
+    "domain": "agency",
+    "briefHint": "agency or services site",
+    "keywords_sv": ["byrå", "företag", "tjänst"],
+    "keywords_en": ["agency", "consulting", "consultant", "services", "company"]
+  },
+  {
+    "domain": "education",
+    "briefHint": "education or course site",
+    "keywords_sv": ["kurs", "utbildning"],
+    "keywords_en": ["course", "education", "academy", "school", "training", "learning"]
+  },
+  {
+    "domain": "real-estate",
+    "briefHint": "real estate site",
+    "keywords_sv": ["fastighet", "mäklare", "lägenhet", "bostad"],
+    "keywords_en": ["real estate", "property", "listing", "broker", "apartment"]
+  }
+]

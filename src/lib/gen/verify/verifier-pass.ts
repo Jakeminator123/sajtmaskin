@@ -5,9 +5,10 @@
 import { z } from "zod";
 import { generateObject } from "ai";
 import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { getOpenAIModel } from "@/lib/gen/models";
+import { toAnthropicEffort } from "@/lib/gen/engine";
+import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
-import { resolvePhaseModel } from "@/lib/models/phase-routing";
+import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 
 /** OpenAI structured-output strict mode requires no optional object keys — keep paths inside `detail`. */
@@ -35,6 +36,10 @@ export const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
   quality: [],
   polishCandidates: [],
 };
+
+type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
+type JsonObject = { [key: string]: JsonValue | undefined };
+type ProviderOptionsRecord = Record<string, JsonObject>;
 
 export function isVerifierPassEnabled(): boolean {
   const v = process.env.SAJTMASKIN_VERIFIER_PASS?.trim().toLowerCase();
@@ -70,6 +75,7 @@ export async function runVerifierPass(
 
   const cfg = resolvePostGenerationVerifierConfig();
   const modelId = resolvePhaseModel(opts.resolvedTier, "verifier").modelId;
+  const thinkingConfig = resolvePhaseThinking(opts.resolvedTier, "verifier");
 
   const snippet = buildVerifierPromptSnippet(codeProjectContent, cfg.snippetCharsPerFile);
   if (!snippet.trim()) {
@@ -84,6 +90,19 @@ Return structured findings only. Do not output code fixes.
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), cfg.timeoutMs);
+  let providerOptions: ProviderOptionsRecord | undefined;
+  if (thinkingConfig.thinking) {
+    providerOptions = isAnthropicModel(modelId)
+      ? {
+          anthropic: {
+            thinking: { type: "adaptive" as const },
+            effort: toAnthropicEffort(thinkingConfig.reasoningEffort),
+          },
+        }
+      : {
+          openai: { reasoningEffort: thinkingConfig.reasoningEffort },
+        };
+  }
 
   try {
     const result = await generateObject({
@@ -93,6 +112,7 @@ Return structured findings only. Do not output code fixes.
       prompt: `Review this generated project (snippets may be truncated):\n\n${snippet}`,
       maxOutputTokens: cfg.maxOutputTokens,
       abortSignal: controller.signal,
+      ...(providerOptions ? { providerOptions } : {}),
     });
     return result.object;
   } catch (err) {

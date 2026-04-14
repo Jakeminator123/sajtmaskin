@@ -24,6 +24,23 @@ const PLACEHOLDER_REPLACEMENT_INSTRUCTIONS = [
 ].join(" ");
 
 const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 20_000;
+
+function extractImportBlock(content: string, filePath: string): string {
+  const lines = content.split("\n");
+  const importLines: string[] = [];
+  for (const line of lines) {
+    if (/^\s*import\s/.test(line) || (importLines.length > 0 && /^\s*\}?\s*from\s/.test(line))) {
+      importLines.push(line);
+    } else if (importLines.length > 0 && line.trim() === "") {
+      break;
+    } else if (importLines.length > 0) {
+      break;
+    }
+  }
+  if (importLines.length === 0) return "";
+  return `\n\n## Import Reference (from scaffold ${filePath})\n\nEvery generated file MUST include complete imports at the top. Follow this pattern:\n\n\`\`\`tsx\n${importLines.join("\n")}\n\`\`\``;
+}
+
 const CRITICAL_PATH_PATTERNS = [
   /^app\/layout\.tsx$/,
   /^src\/app\/layout\.tsx$/,
@@ -69,7 +86,12 @@ export function serializeScaffoldForPrompt(
       Math.min(maxChars, 4_000),
     );
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nUse the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** to match the user's request. You are not bound by the scaffold's existing section order, number of sections, or layout patterns. **Invent a unique page flow** that fits the user's specific business — a restaurant site should NOT look like a SaaS landing or a consultant portfolio. Vary section types, grid layouts, visual rhythm, and content hierarchy to genuinely reflect the domain.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Layout & Theme Files (adapt these, don't ignore)\n\n${layoutBlocks}\n\n**Page structure (app/page.tsx):** Do NOT copy a generic hero → cards → testimonials → CTA pattern. Instead, choose sections that genuinely serve this specific business. For example: a restaurant might lead with an atmosphere image + reservation CTA, then menu highlights, then location/hours. A creative studio might open with a bold project showcase grid. Let the user's domain drive the section choices.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${hints}`;
+    const pageFile = scaffold.files.find(
+      (f) => f.path.endsWith("/page.tsx") || f.path.endsWith("\\page.tsx") || f.path === "app/page.tsx",
+    );
+    const importExampleBlock = pageFile ? extractImportBlock(pageFile.content, pageFile.path) : "";
+
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}${roleSplit}\n\nUse the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** to match the user's request. You are not bound by the scaffold's existing section order, number of sections, or layout patterns. **Invent a unique page flow** that fits the user's specific business — a restaurant site should NOT look like a SaaS landing or a consultant portfolio. Vary section types, grid layouts, visual rhythm, and content hierarchy to genuinely reflect the domain.\n\n${PLACEHOLDER_REPLACEMENT_INSTRUCTIONS}\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}\n\n## Layout & Theme Files (adapt these, don't ignore)\n\n${layoutBlocks}\n\n**Page structure (app/page.tsx):** Do NOT copy a generic hero → cards → testimonials → CTA pattern. Instead, choose sections that genuinely serve this specific business. For example: a restaurant might lead with an atmosphere image + reservation CTA, then menu highlights, then location/hours. A creative studio might open with a bold project showcase grid. Let the user's domain drive the section choices.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` contains starter palette tokens that must be treated as placeholders. You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks default/neutral, you forgot to adapt the colors.${importExampleBlock}${hints}`;
   }
 
   if (!FEATURES.useLightweightScaffoldSerialization || options.forceFullDump) {

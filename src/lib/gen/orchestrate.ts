@@ -9,6 +9,10 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import {
+  pickScaffoldVariant,
+  type ScaffoldVariant,
+} from "./scaffold-variants";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
@@ -55,6 +59,8 @@ import { FEATURES } from "@/lib/config";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
 import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
 import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
+import { getRelevantExampleNames } from "./data/shadcn-example-map";
+import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
 
 export interface TemplateGuidanceMeta {
   enabled: boolean;
@@ -107,9 +113,11 @@ export interface OrchestrationInput {
   promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> | null;
   /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
   existingRoutePaths?: string[];
+  /** Route paths whose existing content is a deferred shell page (auto-detected from file content). */
+  existingShellRoutePaths?: string[];
   /** Optional pre-inferred capabilities so callers can reuse the same deterministic pass. */
   capabilities?: InferredCapabilities;
-  /** Per-session seed (e.g. chatId) to vary style direction across sessions with identical prompts. */
+  /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
   /**
    * True when this is the first real code generation in a chat that already has a
@@ -130,6 +138,7 @@ export interface OrchestrationBase {
   capabilities: InferredCapabilities;
   buildSpec: BuildSpec;
   serializeMode: "inspirational" | "structural" | null;
+  componentReferences: ComponentReference[];
 }
 
 export interface FinalizedOrchestrationContext {
@@ -137,7 +146,7 @@ export interface FinalizedOrchestrationContext {
   dynamicContext: string;
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
-  styleDirectionId: string | null;
+  variantId: string | null;
   templateGuidanceMeta: TemplateGuidanceMeta;
 }
 
@@ -199,6 +208,7 @@ export function buildGenerationInputPackage(
     dynamicContext: finalized.dynamicContext,
     dynamicContextPruning: finalized.dynamicContextPruning,
     dynamicContextBlocks: finalized.dynamicContextBlocks,
+    variantId: finalized.variantId,
     lineageHash,
     templateGuidanceMeta: finalized.templateGuidanceMeta,
   };
@@ -226,6 +236,7 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
       dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
       dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
+      variantId: pkg.variantId ?? null,
       templateGuidanceEnabled: pkg.templateGuidanceMeta?.enabled ?? false,
       templateGuidanceIds: pkg.templateGuidanceMeta?.templateIds ?? [],
     },
@@ -254,6 +265,7 @@ export async function resolveOrchestrationBase(
     promptStrategyMeta = null,
     ignorePersistedScaffoldForMatch = false,
     existingRoutePaths = [],
+    existingShellRoutePaths = [],
     capabilities: providedCapabilities,
   } = input;
 
@@ -341,6 +353,10 @@ export async function resolveOrchestrationBase(
   }
 
   const capabilityHints = buildCapabilityHints(capabilities);
+
+  const componentRefNames = getRelevantExampleNames(capabilities);
+  const componentReferences = loadShadcnExamples(componentRefNames);
+
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
     buildIntent,
@@ -365,6 +381,8 @@ export async function resolveOrchestrationBase(
     preGenerationContracts,
     promptStrategyMeta,
     capabilities,
+    isFirstCodeGeneration: input.isFirstCodeGeneration,
+    existingShellRoutePaths,
   });
   const orchestrationContract = buildOrchestrationContract({
     resolvedScaffold,
@@ -400,6 +418,7 @@ export async function resolveOrchestrationBase(
     capabilities,
     buildSpec,
     serializeMode: resolvedSerializeMode,
+    componentReferences,
   };
 }
 
@@ -516,6 +535,38 @@ function formatTemplateGuidanceForPrompt(meta: TemplateGuidanceMeta): string | u
   return lines.join("\n");
 }
 
+function resolveScaffoldVariant(
+  scaffoldId: string | null | undefined,
+  prompt: string,
+  brief: Record<string, unknown> | null,
+  generationMode: "init" | "followUp",
+  sessionSeed?: string,
+): ScaffoldVariant | null {
+  const styleKeywords = Array.isArray(
+    (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords,
+  )
+    ? (
+        (
+          brief as { visualDirection?: { styleKeywords?: unknown[] } } | null
+        )?.visualDirection?.styleKeywords ?? []
+      )
+        .filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
+    : [];
+  const toneKeywords = Array.isArray((brief as { toneAndVoice?: unknown } | null)?.toneAndVoice)
+    ? (
+        (brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []
+      ).filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
+    : [];
+  return pickScaffoldVariant({
+    prompt,
+    scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
+    styleKeywords,
+    toneKeywords,
+    generationMode,
+    sessionSeed,
+  });
+}
+
 /**
  * Build full system prompt from a resolved orchestration base.
  */
@@ -547,6 +598,13 @@ export async function finalizeOrchestrationPrompts(
     input.isFirstCodeGeneration,
   );
   const templateGuidanceText = formatTemplateGuidanceForPrompt(templateGuidanceMeta);
+  const resolvedVariant = resolveScaffoldVariant(
+    base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId,
+    prompt,
+    brief,
+    resolvedMode,
+    input.sessionSeed,
+  );
 
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,
@@ -566,6 +624,8 @@ export async function finalizeOrchestrationPrompts(
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
     templateGuidance: templateGuidanceText,
+    componentReferences: base.componentReferences,
+    resolvedVariant,
   };
 
   const dynamic = await buildDynamicContext(dynamicOpts);
@@ -576,7 +636,7 @@ export async function finalizeOrchestrationPrompts(
     dynamicContext: dynamic.context,
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
-    styleDirectionId: dynamic.styleDirectionId,
+    variantId: dynamic.variantId,
     templateGuidanceMeta,
   };
 }

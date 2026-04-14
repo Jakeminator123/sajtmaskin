@@ -18,6 +18,11 @@ The app **does not** inject placeholders into these files. Anything that changes
 
 If you duplicate those topics here, the model gets **conflicting or stale** instructions. Keep this folder for **stable** product rules only.
 
+Design note: the static visual rules should now defer to the request-specific
+`Scaffold Variant` block for signature motif, font pairings, curated style rules,
+and theme-token defaults. Avoid re-introducing generic hero/cards/footer recipes
+here when the dynamic scaffold-variant layer already owns that choice.
+
 ## Editing
 
 1. Open `config/codegen-static-prompt.json` — fragment order = assembly order.  

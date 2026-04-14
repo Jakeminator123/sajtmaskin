@@ -115,7 +115,7 @@ async function initializeLocalTemplateProject(params: {
   chatId: string;
   projectId: string;
   versionId: string;
-  previewUrl: string;
+  previewUrl: string | null;
   files: LegacyTemplateFile[];
   code: string;
   model: string;
@@ -140,24 +140,28 @@ async function initializeLocalTemplateProject(params: {
     assistantMessage.id,
     JSON.stringify(imported.files),
   );
+
+  let previewUrl: string | null = null;
   const previewSessionStarted = await startPreviewSession(imported.files, {
     chatId: chat.id,
     appProjectId: projectId,
     versionIdForSession: version.id,
     skipRepair: true,
+    skipProjectScaffold: true,
   });
-  if (!previewSessionStarted.ok) {
-    throw new Error(
-      `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
+  if (previewSessionStarted.ok) {
+    previewUrl = previewSessionStarted.result.sandboxUrl?.trim() || null;
+    if (previewUrl) {
+      await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
+    }
+  } else {
+    console.warn(
+      "[API /template] Preview session failed — version saved without live preview:",
+      previewSessionStarted.error.stage,
+      previewSessionStarted.error.message,
     );
   }
 
-  const previewUrl = previewSessionStarted.result.sandboxUrl?.trim();
-  if (!previewUrl) {
-    throw new Error("Tier-2 preview started without a preview URL.");
-  }
-
-  await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
   const mainCode = findMainTemplateFile(files)?.content || "";
 
   await persistTemplateProjectData({

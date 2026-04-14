@@ -20,6 +20,7 @@ alwaysApply: true
 | `template-library` | "mallar" om du menar katalogen |
 | `scaffolds` | mallar/templates (om runtime-startpunkter) |
 | `scaffoldId` / `ScaffoldId` | `ScaffoldFamily`, `family` (legacy alias) |
+| `scaffold variant` / `ScaffoldVariant` | `scaffold family` (dagligt tal ok, men kod = variant), `style direction` (borttaget) |
 | `builderns Mallar-tab` / `v0-mallar` | template-library, scaffolds |
 | `appProjectId` | chatId, VERCEL_PROJECT_ID |
 | `Deep Brief` | brief, StructuredBrief, PromptAssist-paraply |
@@ -28,10 +29,13 @@ alwaysApply: true
 | `previewUrl` | demoUrl (legacy) |
 | `mekanisk fix` | "deterministisk autofix", "repair" (blandat) |
 | `LLM-fix` | "fixer", "syntax fixer" (blandat) |
+| `Ersatt` (UI-etikett) | Omtag (döda) |
 
 **`v0`:** (1) `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
 
 **Scaffold:** Kanonisk identifierare är `ScaffoldId` / manifestfältet `id` — inte `ScaffoldFamily` eller `family`. `detectScaffoldMode()` togs bort (död kod).
+
+**Scaffold Variant:** Visuellt uttryck inom en scaffold — samma routing/filer, annat utseende (typsnitt, theme tokens, motif, prompt hints). Kod: `ScaffoldVariant`, `pickScaffoldVariant()`, `config/scaffold-variants/<scaffoldId>/<variant>.json`. Ersätter det gamla `style-directions.ts`-systemet. I dagligt tal kan du säga "scaffold family" men i kod och docs ska det vara "variant".
 
 **Builder-lanes:** Byggmodell = Build Profile · Förbättra = Prompt Rewrite · Skriv om = Prompt Polish · Thinking = reasoning-flagga, inte lane.
 

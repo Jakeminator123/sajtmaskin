@@ -82,7 +82,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Raw Prompt** | `prompt` i `OrchestrationInput` | `orchestrate.ts` | Användarens obearbetade prompttext. | kanonisk |
-| **Prompt Formatting** | `formatPrompt()` | `promptAssist.ts` | Mekanisk strukturering till MÅL, STIL, CONSTRAINTS, ASSETS, TILLGÄNGLIGHET. | kanonisk |
+| **Prompt Formatting** | `formatPrompt()` | `promptAssist.ts` | Mekanisk strukturering till MÅL, STIL, CONSTRAINTS, ASSETS, TILLGÄNGLIGHET. **Fallback** — körs bara när Deep Brief inte är aktiv (assist off eller brief-generering misslyckades). När brief finns skickas rå user-text. | kanonisk (fallback) |
 | **Prompt Rewrite** | `buildRewriteSystemPrompt()` | `promptAssist.ts` | LLM-driven förbättring (lane: Förbättra). | kanonisk |
 | **Prompt Polish** | `buildPolishSystemPrompt()` | `promptAssist.ts` | Lätt copy-editor (lane: Skriv om). | kanonisk |
 | **Prompt Orchestration** | `orchestratePromptMessage()` | `promptOrchestration.ts` | Strategi-/budget-/trunkerings-gate; väljer `PromptStrategy`. | kanonisk |
@@ -93,16 +93,18 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Prompt Wrapper** | `PROMPT_WRAPPER_HEADINGS`, `wrapWithSection()` | `prompt-wrapper-contract.ts` | Sektionsrubriker för follow-up-kontinuitet. | kanonisk |
 | **URL Compression** | `compressUrls()` / `expandUrls()` | `url-compress.ts` | Komprimerar URL:er i prompten; expanderar i finalize. | kanonisk |
 | ~~Prompt Assist~~ (paraply) | — | docs | Otydligt samlingsnamn för flera steg. | **legacy** — använd specifik term |
+| **Prompt Rewrite Hook** | `usePromptRewrite()` | `hooks/usePromptRewrite.ts` | React-hook för manuella rewrite/polish-knappar. Returnerar `maybeEnhanceInitialPrompt`. | kanonisk |
+| **Init Brief Hook** | `useInitBrief()` | `hooks/useInitBrief.ts` | React-hook för init-brief + fallback-addendum. Returnerar `generateDynamicInstructions`. | kanonisk |
 
 ### 1.2 Brief och spec
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
-| **Deep Brief** | `siteBriefSchema`, `generateSiteBriefObject()` | `site-brief-generation.ts` | LLM-genererad strukturerad sajtbrief: `projectTitle`, `brandName`, `oneSentencePitch`, `targetAudience`, `primaryCallToAction`, `toneAndVoice`, `pages[]`, `visualDirection`, `imagery`, `uiNotes`, `seo`. Kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte i `customInstructions`. Follow-ups skickar inte brief. | kanonisk |
+| **Deep Brief** | `siteBriefSchema`, `generateSiteBriefObject()` | `site-brief-generation.ts` | LLM-genererad strukturerad sajtbrief: `projectTitle`, `brandName`, `oneSentencePitch`, `targetAudience`, `primaryCallToAction`, `toneAndVoice`, `pages[]`, `visualDirection`, `imagery`, `uiNotes`, `seo`, `mustHave`, `avoid`. Kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte i `customInstructions`. Follow-ups skickar inte brief. Init skickar rå user-text (ej `formatPrompt()`-wrppad) när brief finns. | kanonisk |
 | **Server Auto-Brief** | `tryGenerateServerAutoBrief()`, `shouldRunServerAutoBrief()` | `site-brief-generation.ts`, `server-auto-brief-policy.ts` | Server-side auto-brief som fallback för underspecificerade init-prompts (inklusive korta website-prompts). Hoppas över för audit, technical, follow-up och redan strukturerade prompts. | kanonisk |
 | **Brief** (interface) | `Brief` | `system-prompt.ts` | Runtime-representation av deep brief med typade fält. | alias (av Deep Brief) |
 | **Brief from Prompt** | `buildPromptFromBrief()` | `promptAssist.ts` | Bygger kodgenereringsprompt från briefobjekt. Obs: använder lokal `type Brief = any`, inte det typade interfacet. | kanonisk |
-| **Dynamic Instruction Addendum** | `buildDynamicInstructionAddendumFromBrief()`, `buildDynamicInstructionAddendumFromPrompt()` | `promptAssist.ts` | Markdown-addendum för brief resp. rå prompt. | kanonisk |
+| **Dynamic Instruction Addendum** | `buildDynamicInstructionAddendumFromBrief()`, `buildDynamicInstructionAddendumFromPrompt()` | `promptAssist.ts` | Markdown-addendum för brief resp. rå prompt. Init-pathen skippar addendum-beräkning (`skipAddendum: true`) — bara brief-objektet via `onBrief` används. Addendum byggs bara för non-init paths (prompt assist UI). | kanonisk |
 | **WebsiteSpec** | `WebsiteSpec`, `websiteSpecSchema`, `processPromptWithSpec()` | `promptAssistContext.ts` | Spec-first: LLM-genererat strukturerat spec-objekt via zod. | kanonisk |
 | **SajtmaskinSpec** | `SajtmaskinSpec`, `briefToSpec()`, `promptToSpec()` | `promptAssistContext.ts` | Persisterad spec-fil (`sajtmaskin.spec.json`-format). | kanonisk |
 | **Prompt Corpus** | `getPromptCorpus()` | `pre-generation-contracts.ts` | Sammanslagen textmassa av prompt + brief-fält; intern för contracts-inferens. | kanonisk (intern) |
@@ -164,8 +166,10 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Orchestration Base** | `OrchestrationBase`, `resolveOrchestrationBase()` | `orchestrate.ts` | Löst scaffold + route plan + contracts + BuildSpec (utan full static core). | kanonisk |
 | **Finalized Orchestration** | `FinalizedOrchestrationContext`, `finalizeOrchestrationPrompts()` | `orchestrate.ts` | Dynamic context + `engineSystemPrompt` färdiga. | kanonisk |
 | **Generation Context** | `prepareGenerationContext()` | `orchestrate.ts` | End-to-end: base → finalize → `GenerationInputPackage` + prompt dump. | kanonisk |
-| **Style Direction (this generation)** | `pickStyleDirection()` + promptblocket `"## Style Direction (this generation)"` | `data/style-directions.ts`, `system-prompt.ts` | Deterministiskt variationsspår per request: layout, rytm, motiv, fontmood, konkreta fontpar (`fontPairings`), och sektionsrecept (`sectionRecipes`) med komponentkombinationer. | kanonisk |
-| **Your Toolkit** | promptblocket `"## Your Toolkit"` | `system-prompt.ts`, `data/shadcn-components.ts`, `capability-inference.ts` | Samlad verktygsyta för modellen: grupperad shadcn-komponentvägledning (per syfte: navigation, content density, rich reveals, data/app UI, forms, feedback, layout) + capability-hints + ev. component palette. | kanonisk |
+| **Scaffold Variant (this generation)** | `pickScaffoldVariant()` + promptblocket `"## Scaffold Variant (this generation)"` | `scaffold-variants/matcher.ts`, `scaffold-variants/registry.ts`, `system-prompt.ts` | Scaffold-bunden visuell variant per request: signaturmotiv, fontpar, prompt-hints, dossier-härledda style-rules/sectionInventory/avoidPatterns, och variant-defaults för tema-tokens. | kanonisk |
+| **Scaffold Lifecycle** | backoffice-sida `Scaffold Lifecycle` | `backoffice/pages/scaffold_lifecycle.py` | Backoffice-yta för trädvy scaffold→varianter→dossier-kopplingar, scaffold-shell create/delete (patchar types.ts, registry.ts, embedding-locale, build-template-library defaults), CRUD för variant-JSON. Matcher/retry/eval-semantik kurateras fortfarande manuellt. | kanonisk |
+| **Your Toolkit** | promptblocket `"## Your Toolkit"` | `system-prompt.ts`, `data/shadcn-components.ts`, `data/shadcn-toolkit-summary.ts`, `capability-inference.ts` | Samlad verktygsyta för modellen: registry-synkad men lokalt säker shadcn-sammanfattning (grupperad från `SHADCN_COMPONENTS`, filtrerad mot faktiska `@/components/ui/*`-filer) + capability-hints + ev. component palette. | kanonisk |
+| **Component References** | promptblocket `"## Component References"` | `system-prompt.ts`, `data/shadcn-example-map.ts`, `data/shadcn-example-loader.ts` | Capability-driven shadcn-kodexempel injicerade från lokal cache (`data/shadcn-examples/`). Max 5 examples per generation, ~150-400 tokens styck. Prunas vid tight budget (priority 76). | kanonisk |
 | **Orchestration Contract** | `OrchestrationContract`, `buildOrchestrationContract()` | `orchestration-contract.ts` | Samlad kontraktsyta: scaffold-ruttkontrakt (`ScaffoldRouteContract`) + valideringsförväntningar (`GenerationValidateContract`). Bindemedel, inte primär domänmodell. | kanonisk |
 | **Orchestration Snapshot** | `buildPersistedOrchestrationSnapshot()`, `mergePersistedOrchestrationSnapshots()` | `orchestration-snapshot.ts` | K-019 persisterad snapshot för follow-up-kontinuitet. | kanonisk |
 | **Pre-generation Contract Gate** | `createPreGenerationContractGateReadableStream()` | `pre-generation-contract-gate.ts` | SSE-gate innan static core betalas. | kanonisk |
@@ -262,7 +266,7 @@ Allt som händer innan `resolveOrchestrationBase()`: tolkning, förbättring och
 | **Contract Plan** | `inferPreGenerationContracts()` → `PreGenerationContractContext` | `pre-generation-contracts.ts` | Auth, payment, database, env vars, integrations. `contracts`, `unresolvedDecisions`, `confirmedAnswers`. | kanonisk |
 | **Confirmed Contract Answers** | `collectConfirmedContractAnswers()` | `contract/answer-context.ts` | Återbygger bekräftade svar från chatten. | kanonisk |
 | **Build Policy** | `deriveBuildSpec()` → `BuildSpec` | `build-spec.ts` | Körpolicy: `changeScope`, `qualityTarget`, `previewPolicy`, `verificationPolicy`, `contextPolicy`, `referenceCategories`, `forbiddenPatterns`, `tokenBudgets`, `routeRealization`. | kanonisk |
-| **Route Realization** | `BuildSpec.routeRealization` | `build-spec.ts` | Litet policylager ovanpå Route Plan: skiljer planerade routes från vilka routes som ska realiseras fullt i just denna generation. Init kan vara `full` eller `primary-full-with-shells`. | kanonisk |
+| **Route Realization** | `BuildSpec.routeRealization` | `build-spec.ts` | Litet policylager ovanpå Route Plan: skiljer planerade routes från vilka routes som ska realiseras fullt i just denna generation. Init (och `isFirstCodeGeneration`) kan vara `full` eller `primary-full-with-shells`. Follow-up bevarar befintliga shells automatiskt via `existingShellRoutePaths` om inte användaren explicit ber om utbyggnad. Shell-detektion via `isShellPageContent()`. | kanonisk |
 | **Token Budgets** | `BuildSpecTokenBudgets` | `build-spec.ts` | `scaffoldTokens`, `scaffoldChars`, etc. | kanonisk |
 
 ### 2.10 System prompt och dynamic context
@@ -374,22 +378,30 @@ Tre distinkta lanes — inte samma gate:
 | **Server Verify Log Meta** | `buildServerVerifyQualityGateMeta()`, `buildServerRepairOutcomeMeta()` | `verify/server-verify-log-meta.ts` | Logg/meta för server-verify. | kanonisk |
 | ~~PostChecksAndQualityGate~~ | — | `llm-signal-flow.md` | Sammansatt docs-term. | **döda** |
 
-### 3.7 Eval-checks (verifieringsnära)
+### 3.7 Versionslivscykel (UI)
+
+| Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
+|---|---|---|---|---|
+| **Engine Version Lifecycle Status** | `EngineVersionLifecycleStatus`, `resolveEngineVersionLifecycleStatus()` | `db/engine-version-lifecycle.ts` | Kanonisk livscykelfas: `draft`, `verifying`, `repairing`, `failed`, `promoted`. | kanonisk |
+| **Engine Version Display Status** | `EngineVersionDisplayStatus`, `resolveEngineVersionDisplayStatus()` | `db/engine-version-lifecycle.ts` | UI-visningstatus: livscykelstatus + `retrying` (UI-etikett: "Ersatt") när en äldre version ersatts av en nyare. `pending`-versioner med nyare version visar `draft` istället för `retrying`. | kanonisk |
+| ~~Omtag~~ | — | VersionHistory UI | Tidigare UI-etikett för `retrying`. | **döda** — ersatt av "Ersatt" |
+
+### 3.8 Eval-checks (verifieringsnära)
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Eval Checks** | `checkProjectSanity()`, `checkTier2Readiness()`, `checkSeoPublishReadiness()`, `checkVisualQuality()` | `eval/checks.ts` | Namngivna kontroller i eval-harnessen. Visual QA i `verify/visual-qa.ts`. | kanonisk |
 
-### 3.8 Loggning och telemetri (Fault & Fix)
+### 3.9 Loggning och telemetri (Fault & Fix)
 
 | Kanonisk term | Kodsymbol | Fil | Vad det är | Status |
 |---|---|---|---|---|
 | **Fault & Fix Index** | `FaultFixRow`, `FAULT_FIX_TYPES`, `collectFaultFixRows()` | `logging/generation-log-writer.ts` | Per-generering fel/fix-rader. Skrivs per run-katalog (`fault-fix-index.md`, `.csv`) och globalt (`error-log.csv`). | kanonisk |
-| **Global Error Log** | `appendGlobalFaultFixCsv()`, `logs/llm-segmentts-and-index/error-log.csv` | `logging/generation-log-writer.ts` | Append-only CSV med alla fel/fixar. Kolumner: time, phase, step, severity, scaffold_id, `scaffold_family` (deprecated, use ScaffoldId), serialize_mode, style_direction, file, fixer, resolved, m.fl. | kanonisk |
+| **Global Error Log** | `appendGlobalFaultFixCsv()`, `logs/llm-segmentts-and-index/error-log.csv` | `logging/generation-log-writer.ts` | Append-only CSV med alla fel/fixar. Kolumner: time, phase, step, severity, scaffold_id, `scaffold_family` (deprecated, use ScaffoldId), serialize_mode, `style_direction` (legacy alias that now carries `Scaffold Variant`-ID:n), file, fixer, resolved, m.fl. | kanonisk |
 | **Generation Run** | `logs/generationslogg/<YYYYMMDD-HHMMSS-slug>/` | `logging/generation-log-writer.ts` | Per-körning-katalog: `timeline.ndjson`, `summary.md`, `meta.json`, `fault-fix-index.md/.csv`. | kanonisk |
 | **DevLog Append** | `devLogAppend()`, `appendRollingLine()` | `logging/devLog.ts` | Gemensam ingångspunkt för loggning. Matar tre sinks: dev-log-filer, generationslogg/timeline, och global CSV. | kanonisk |
 | **Timeline** | `timeline.ndjson`, `StoredGenerationEntry` | `logging/generation-log-writer.ts` | NDJSON-logg per generering. Källa för fault-fix-index och CSV. | kanonisk |
-| **Enrich Fault Fix Row** | `enrichFaultFixRow()` | `logging/generation-log-writer.ts` | Backfyller chatId, versionId, scaffoldId, serializeMode, styleDirection från tidigare timeline-poster. | kanonisk |
+| **Enrich Fault Fix Row** | `enrichFaultFixRow()` | `logging/generation-log-writer.ts` | Backfyller chatId, versionId, scaffoldId, serializeMode, och legacy-fältet `styleDirection` från tidigare timeline-poster. Fältet används nu som observability-alias för vald `Scaffold Variant`. | kanonisk |
 
 ---
 
@@ -450,6 +462,8 @@ Tre distinkta lanes — inte samma gate:
 | ~~sandbox~~ (generell term) | Legacy-/compat-term. | **legacy** — använd VM / `preview_host` |
 | **Fidelity 2** | Normal tier-2 live-preview via VM. | kanonisk |
 | **Fidelity 3** | Striktare lane där `next build` ingår i quality gate. | kanonisk |
+| **`skipProjectScaffold`** | Preview-session-option som hoppar över `buildCompleteProject()` för repo-importer (v0-mallar). Projektet skickas rått till VM utan baseline-merge. | kanonisk |
+| **`BINARY_BASE64_PREFIX`** | `"base64:"`-prefix på filinnehåll i `filesJson`. Preview-host skriver dessa som binärt (Buffer) istället för UTF-8. Används av v0-import för bilder/fonts. | kanonisk |
 
 ---
 
@@ -546,7 +560,12 @@ Kopplar glossaryns domäner till filträdet. Använd tabellen för att avgöra v
 | 2026-04-11 | Loggning och telemetri (v7): +6 termer (Fault & Fix Index, Global Error Log, Generation Run, DevLog Append, Timeline, Enrich Fault Fix Row). Utökat CSV-schema med scaffold_id, serialize_mode, style_direction, file, fixer, resolved. |
 | 2026-04-12 | Intent drift fix (v8): `resolveBuildIntentWithScaffold()` och `isAppScaffold()` tillagda i `build-intent.ts`. Manuellt val av `dashboard`/`app-shell` koersar `buildIntent` till `app`. Server-side guard i `create-chat-stream-post.ts` och `chat-message-stream-post.ts`. `family`-fältet borttaget från plan-review och docs uppdaterade. |
 | 2026-04-13 | Phase 1 consolidation (v9): Deep Brief kanonisk semantisk expansion för init — brief-deriverad prose dubbleras inte längre i `customInstructions`. `pendingBriefRef` rensas efter create-chat; follow-ups skickar inte `meta.brief`. Server Auto-Brief körs nu för korta underspecificerade website-prompts (`looksSimpleWebsitePrompt`-skip borttagen). Follow-up handler ignorerar klientbrief. |
-| 2026-04-13 | Phase 2/3 consolidation (v10): Dynamic Context: `Pages & Sections` emitteras bara vid sektionsdetalj; `Visual Identity` `styleKeywords`-rad borttagen (täcks av `Style Direction`). Klientflöde: `runPreviewQualityGate` → `runTier2VerifyLane`; heuristiska readiness-fält omdöpta (`readinessFailures`, `readinessPassed`, `verifyPending`) för att skilja från den riktiga verify-lanen; tre verify-lanes dokumenterade i `quality-gate-checks.ts`. |
+| 2026-04-13 | Phase 2/3 consolidation (v10): Dynamic Context: `Pages & Sections` emitteras bara vid sektionsdetalj; `Visual Identity` `styleKeywords`-rad borttagen (täcks nu i senare versioner av `Scaffold Variant`-lagret). Klientflöde: `runPreviewQualityGate` → `runTier2VerifyLane`; heuristiska readiness-fält omdöpta (`readinessFailures`, `readinessPassed`, `verifyPending`) för att skilja från den riktiga verify-lanen; tre verify-lanes dokumenterade i `quality-gate-checks.ts`. |
+| 2026-04-13 | Phase 1 consolidation (v11): Deep Brief är kanonisk init-signal: `formatPrompt()` är fallback-only, `skipAddendum` tar bort onödig init-beräkning, och brieffält `mustHave`/`avoid` + `uiNotes` används nu i dynamic context. Lagerstädning: `EXTENDED_CUSTOM_INSTRUCTIONS` borttagen (design/motion/images ägs av static core + brief-driven dynamic context). Semantisk konsolidering: `domain-inference.ts` + `config/domain-rules.json` är canonical domänkälla och `prompt-heuristics.ts` är delad ordlistekälla för structured-prompt-heuristiker. |
+| 2026-04-13 | Route realization fix (v12): `isFirstCodeGeneration` propageras nu till `deriveBuildSpec`/`deriveRouteRealizationPolicy` så att första kodgenerering efter scaffold/contract-gate behandlas som effektiv init för defer. Follow-up bevarar shells via `existingShellRoutePaths` + `isShellPageContent()` multi-signal heuristik. System-prompten inkluderar shell-bevaringsregel för follow-up. `ensureDeferredRouteShells` utvidgad att trigga för alla scenarier med shellRoutePaths. |
+| 2026-04-13 | v0-repo-import (v13): `skipProjectScaffold` i `startPreviewSession()` — repo-importer (v0-mallar) skickas rakt till VM utan `buildCompleteProject()`-merge. Binary assets (bilder/fonts) importeras som base64 och skrivs binärt av preview-host. `buildIntent` härleds per template via `template-catalog.ts` istället för hårdkodat `"template"`. |
+| 2026-04-13 | Hook split (v14): tidigare `usePromptAssist` ersatt av `usePromptRewrite` (rewrite/polish via `/api/ai/chat`) och `useInitBrief` (init-brief via `/api/ai/brief` + fallback-addendum). Delade typer i `prompt-assist-types.ts`, delade utilities i `prompt-assist-utils.ts`. Deprecated facade-filen borttagen. |
+| 2026-04-14 | Scaffold Lifecycle (v15): +1 term (Scaffold Lifecycle). Backoffice-sida med create/delete scaffold-shell (patchar types.ts, registry.ts, embedding-locale, build-template-library defaults, variant-mapp), CRUD för scaffold-varianter, trädvy scaffold→varianter→dossier-kopplingar. `style-directions.ts` borttagen (döpt kod, ersatt av scaffold-variants). Docs som nämner style-directions uppdaterade till scaffold-variants. |
 
 ## När detta dokument uppdateras
 

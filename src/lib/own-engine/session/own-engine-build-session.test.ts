@@ -86,9 +86,13 @@ function minimalOrchestrationBase(): OrchestrationBase {
       needsEcommerce: false,
       needsCarousel: false,
       needsPremiumVisuals: false,
+      needsCalendar: false,
+      needsCommandSearch: false,
+      needsThemeToggle: false,
     },
     buildSpec,
     serializeMode: null,
+    componentReferences: [],
     capabilityHints: undefined,
   };
 }

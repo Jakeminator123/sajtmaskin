@@ -88,7 +88,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 17 | Kodgenerering | `generateCode()` | `engine.ts` | Ja | LLM-anrop med systemprompt + user turn |
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
-| 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Opt-in** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Init only. `searchTemplateLibrary()` ej använd i runtime. |
+| 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Auto i dev** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Auto-on i `NODE_ENV=development`, explicit opt-in i prod. Init only. `searchTemplateLibrary()` ej använd i runtime. |
 
 ---
 
@@ -288,10 +288,10 @@ Dynamic Context (request-specifik, prioriterad + prunad):
 ├── route plan
 ├── contracts
 ├── brief (om finns)
-├── style direction (deterministisk variation: layout, rytm, motiv, fontpar, sektionsrecept)
+├── scaffold variant (scaffold-bunden variation: signaturmotiv, fontpar, variant-hints, tema-tokens)
 ├── capability hints
 ├── scaffold research priorities
-└── your toolkit (shadcn-importer + capability-hints)
+└── your toolkit (registry-synced local shadcn summary + capability-hints)
 ```
 
 Block prioriteras och prunas mot token-budget.
@@ -419,7 +419,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `template-library/types.ts` | `recommendedScaffoldIds: ScaffoldId[]` | **Nej** — en dossier kan rekommendera flera scaffold-id:n |
 | `scaffold-embedding-locale.ts` | Nycklar per family | Ja — byt till id |
 | `scaffold-aware-retry.ts` | Retry per family | Ja — byt till id |
-| `style-directions.ts` | Style per scaffold (layout, fontPairings, sectionRecipes) | Ja |
+| `config/scaffold-variants/` | Variantdata per scaffold (keywords, fontPairings, themeTokens, dossier-härledd guidance) | Ja |
 | `diagnostics.ts` | Telemetri | Ja |
 | `orchestration-contract.ts` | `scaffoldId` i contract | Genomfört |
 | Dossier-manifests (catalog.json) | `recommendedScaffoldIds[]` | **Nej** — extern mapping |
@@ -495,9 +495,11 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Verktyg | Kommando | Vad det gör |
 |---------|---------|-------------|
-| `scripts/scripts_dashboard.py` | `npm run scripts:dashboard` | **Tkinter** pipeline-panel: kör npm-steg + visar artifact-parity |
-| `scripts/dashboard_shared.py` | (importeras) | Prompt-dump-status, delad med config-dashboarden |
-| `config/dashboard/app.py` | `config/dashboard/run.ps1` | **Streamlit** config-dashboard med dedikerad "Runtime scaffolds"-sida |
+| `backoffice/` | (importeras av entrypoints) | **Kanonisk Streamlit-app** med sidmoduler för config, overhead och artifacts |
+| `scripts/scripts_dashboard.py` | `npm run scripts:dashboard` | Legacy-entrypoint till den konsoliderade backoffice-appen |
+| `scripts/dashboard_shared.py` | (importeras) | Legacy re-export till `backoffice/shared.py` |
+| `config/dashboard/app.py` | `config/dashboard/run.ps1` | Legacy Streamlit-entrypoint till samma konsoliderade backoffice |
+| `sajtmaskin_backoffice.py` | `npm run backoffice` | Root-entrypoint till den konsoliderade backoffice-appen |
 
 ### Övriga aktiva
 
@@ -558,7 +560,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Fil | Vad |
 |-----|-----|
-| `config/dashboard/app.py` | Streamlit dashboard med "Runtime scaffolds"-sida |
+| `backoffice/pages/runtime_scaffolds.py` | Runtime-scaffolds-sida i den konsoliderade backoffice-appen |
 | `config/dashboard/domain-map.json` | Maskin-läsbar karta (parity-testad) |
 | `config/dashboard/requirements.txt` | Streamlit beroende |
 | `config/dashboard/run.ps1` | Launcher |
@@ -571,7 +573,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 - **Skapas av** `src/lib/gen/prompt-dump.ts` — bara om `SAJTMASKIN_PROMPT_DUMP=1`
 - **Innehåller** snapshot av senaste generation: system prompt, dynamic context, generation-input-package
 - **Användbart för:** debugging av "vilken scaffold såg modellen?" — men inte för att redigera/hantera scaffolds
-- Dashboards (`scripts_dashboard.py`, `config/dashboard/app.py`) visar dump-status via `dashboard_shared.py`
+- Backoffice-ytan visar dump-status via `backoffice/shared.py` (legacy re-export finns kvar i `dashboard_shared.py`)
 
 ---
 
@@ -583,7 +585,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 |--------|--------|
 | Acceptera att `family === id` och sluta tänka på "families" som separat begrepp | En dimension mindre |
 | Använd `scaffold_cli.py` istället för att manuellt navigera filer | CLI gör status/build/eval/verify |
-| Använd `config/dashboard/app.py` "Runtime scaffolds"-sidan för översikt | Streamlit-vy istf. att läsa manifest-filer |
+| Använd den konsoliderade backoffice-appens "Runtime scaffolds"-sida för översikt | Streamlit-vy istf. att läsa manifest-filer |
 
 ### Nivå 2 — Kodförenkling (15-20 filändringar)
 
@@ -618,4 +620,7 @@ Fristående Streamlit-app: `sajtmaskin_backoffice.py` i repo-roten.
 | **Research & Dossiers** | catalog.json-vy (kuraterade templates med scores + scaffoldIds). Template-library status. Scaffold-research overrides per scaffold. |
 | **Pipeline** | Status-panel + knappar för varje steg (import, hydrate, build, embeddings, eval, verify, all). Live output. Artifact-status. |
 | **Eval** | Senaste eval-rapport: accuracy, per-scaffold, per-case tabell. Knapp: kör ny eval. |
+| **Autofix & Kvalitet** | Pipelineöversikt, fault/fix-statistik från `error-log.csv`, runtime-gränser för LLM-autofix och centrala repair/token/verifier-kontroller från `config/ai_models/manifest.json`. |
 | **Mental modell** | Renderar `docs/architecture/scaffold-schema.md` + snabbfakta (antal scaffolds, IDs, site kinds, complexities). |
+
+Backoffice-ytan ska dela helperlogik via `backoffice/shared.py` när den läser/skriver manifest- eller fault/fix-relaterade data. `config/dashboard/shared_overhead.py` finns kvar som legacy re-export.

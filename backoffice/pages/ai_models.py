@@ -1,0 +1,760 @@
+from __future__ import annotations
+
+import json
+from typing import Any
+
+import streamlit as st
+
+from backoffice.shared import (
+    AVAILABLE_PHASE_MODELS,
+    BUILD_PROFILE_ORDER,
+    PHASE_LABELS,
+    PHASE_ORDER,
+    REASONING_EFFORT_OPTIONS,
+    BackofficeContext,
+    build_profile_defaults,
+    describe_workload_model_resolution,
+    find_workload,
+    human_model_label,
+    normalize_nonempty_lines,
+    phase_model_display_label,
+    phase_thinking_defaults,
+    phase_token_budget_entry,
+    read_json,
+    read_text,
+    render_where_panel,
+    sync_route_timeout_literals,
+    write_json,
+    write_phase_thinking,
+    write_text,
+)
+
+
+def _render_generator_chain(
+    ctx: BackofficeContext,
+    man_path,
+    manifest: dict[str, Any],
+) -> None:
+    build_profiles = manifest.setdefault("buildProfiles", {}).setdefault("defaults", {})
+    quality_map = manifest.setdefault("qualityToOwnEngineModel", {})
+    phase_routing = manifest.setdefault("phaseRouting", {}).setdefault("defaultByTier", {})
+
+    codegen = find_workload(manifest, "own_engine_codegen") or {}
+    planner = find_workload(manifest, "plan_mode_planner") or {}
+    brief = find_workload(manifest, "brief_structured") or {}
+    verifier = find_workload(manifest, "post_generation_verifier") or {}
+    manual_repair = find_workload(manifest, "manual_repair_route_llm") or {}
+    server_repair = find_workload(manifest, "server_verify_repair_llm") or {}
+
+    st.markdown("### Kedjan i klarspråk")
+    st.markdown(
+        f"1. **Första fritextprompten** kan först gå via **brief** ({human_model_label(brief.get('defaultModel', ''))}) om klienten eller servern behöver struktur.\n"
+        f"2. Därefter går den in i **själva byggmodellen** ({human_model_label(build_profiles.get('max', ''))} när profilen är `max`).\n"
+        f"3. Om du väljer **planläge** används planner-fasen ({planner.get('notes') or 'styrs av phase routing'}).\n"
+        f"4. Efter syntax körs **verifier** ({verifier.get('notes') or 'styrs av phase routing'}).\n"
+        f"5. Om kvaliteten fortfarande faller kan **LLM-fix / repair** försöka laga fel — både i explicit repair-route och i background verify."
+    )
+    st.caption(
+        "Begrepp: `planner` = tänk/plan före kod, `generator` = bygger sajten, mekanisk fix = deterministisk regex/AST-fix, LLM-fix = modelldriven reparation, `verifier` = efterkontroll i bakgrunden."
+    )
+    st.info(
+        "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: `qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`."
+    )
+
+    st.markdown("### Byggprofiler (själva kodgeneratorn)")
+    profile_labels = {
+        "fast": "Fast / Snabb",
+        "pro": "Pro / Lagom",
+        "max": "Max / Tanker",
+        "codex": "Codex / Kod Max",
+        "anthropic": "Anthropic",
+    }
+    profile_inputs: dict[str, str] = {}
+    cols = st.columns(5, gap="small")
+    for col, key in zip(cols, ["fast", "pro", "max", "codex", "anthropic"]):
+        with col:
+            profile_inputs[key] = st.text_input(
+                profile_labels[key],
+                value=str(build_profiles.get(key, "")),
+                help="Konkret modell-ID som används när denna byggprofil väljs i buildern.",
+                key=f"bp_{key}",
+            )
+
+    st.markdown("### Kvalitetsnivå → modell")
+    quality_inputs: dict[str, str] = {}
+    quality_cols = st.columns(5, gap="small")
+    for col, key in zip(quality_cols, ["light", "standard", "pro", "premium", "max"]):
+        with col:
+            quality_inputs[key] = st.text_input(
+                key,
+                value=str(quality_map.get(key, "")),
+                key=f"quality_{key}",
+            )
+
+    st.markdown("### Phase routing (vem gör vad i kedjan)")
+    st.caption(
+        "Sätt `selected_build_model` om fasen ska följa användarens valda byggprofil. Planner/generator kräver fortfarande att builderns vanliga thinking-toggle är på."
+    )
+    thinking_defaults = phase_thinking_defaults(manifest)
+    edited_routing: dict[str, dict[str, str]] = {}
+    edited_thinking: dict[str, dict[str, dict[str, Any]]] = {}
+    tier_tabs = st.tabs([tier for tier in BUILD_PROFILE_ORDER])
+    for idx, tier in enumerate(BUILD_PROFILE_ORDER):
+        tier_cfg = phase_routing.get(tier) or {}
+        tier_thinking = thinking_defaults.get(tier) or {}
+        edited_routing[tier] = {}
+        edited_thinking[tier] = {}
+        with tier_tabs[idx]:
+            for phase in PHASE_ORDER:
+                current_model = str(tier_cfg.get(phase, "selected_build_model")).strip() or "selected_build_model"
+                current_thinking_cfg = tier_thinking.get(phase) or {}
+                current_thinking = bool(current_thinking_cfg.get("thinking", False))
+                current_effort = str(current_thinking_cfg.get("reasoningEffort", "medium")).strip() or "medium"
+                budget = phase_token_budget_entry(manifest, phase)
+                st.markdown(f"#### {PHASE_LABELS.get(phase, phase)}")
+                c1, c2, c3, c4 = st.columns([1.8, 0.9, 1.1, 1.1])
+                with c1:
+                    model_value = st.selectbox(
+                        "Model",
+                        AVAILABLE_PHASE_MODELS,
+                        index=AVAILABLE_PHASE_MODELS.index(current_model)
+                        if current_model in AVAILABLE_PHASE_MODELS
+                        else 0,
+                        key=f"cfg_phase_model_{tier}_{phase}",
+                        format_func=lambda model_id, _tier=tier: phase_model_display_label(
+                            model_id,
+                            _tier,
+                            build_profiles,
+                        ),
+                    )
+                with c2:
+                    thinking_value = st.toggle(
+                        "Thinking",
+                        value=current_thinking,
+                        key=f"cfg_phase_thinking_{tier}_{phase}",
+                    )
+                with c3:
+                    effort_value = st.selectbox(
+                        "Reasoning effort",
+                        REASONING_EFFORT_OPTIONS,
+                        index=REASONING_EFFORT_OPTIONS.index(current_effort)
+                        if current_effort in REASONING_EFFORT_OPTIONS
+                        else REASONING_EFFORT_OPTIONS.index("medium"),
+                        key=f"cfg_phase_effort_{tier}_{phase}",
+                        disabled=not thinking_value,
+                    )
+                with c4:
+                    resolved_model_value = (
+                        build_profiles.get(tier, "").strip()
+                        if model_value == "selected_build_model"
+                        else model_value
+                    )
+                    st.text_input(
+                        "Resolved model",
+                        value=human_model_label(resolved_model_value),
+                        key=f"cfg_phase_resolved_{tier}_{phase}",
+                        disabled=True,
+                    )
+                st.caption(
+                    f"Budget: `{budget['label']}` default={budget['default']} min={budget['min']} max={budget['max']} env={budget['envKey'] or '—'}. {budget['note']}"
+                )
+                edited_routing[tier][phase] = model_value
+                edited_thinking[tier][phase] = {
+                    "thinking": thinking_value,
+                    "reasoningEffort": effort_value,
+                }
+
+    st.markdown("### Repair-kedjor som påverkas av samma routing")
+    st.markdown(
+        f"- **Manuell repair-route:** {manual_repair.get('title', '—')}  \n"
+        f"- **Server verify repair:** {server_repair.get('title', '—')}"
+    )
+
+    if st.button("Spara generator-kedja", type="primary"):
+        for key, value in profile_inputs.items():
+            build_profiles[key] = value.strip()
+        for key, value in quality_inputs.items():
+            quality_map[key] = value.strip()
+        manifest.setdefault("phaseRouting", {})["defaultByTier"] = edited_routing
+        for tier, phase_entries in edited_thinking.items():
+            for phase, cfg in phase_entries.items():
+                write_phase_thinking(
+                    manifest,
+                    tier,
+                    phase,
+                    bool(cfg.get("thinking", False)),
+                    str(cfg.get("reasoningEffort", "medium")),
+                )
+        write_json(man_path, manifest)
+        st.success("Sparat generator-kedjan.")
+        st.rerun()
+
+
+def _render_markdown_docs(ctx: BackofficeContext) -> None:
+    am_dir = ctx.config_dir / "ai_models"
+    docs = sorted(am_dir.glob("*.md")) + sorted(am_dir.glob("*.txt"))
+    names = [d.name for d in docs]
+    pick = st.selectbox("Dokument", names, index=0) if names else None
+    if pick:
+        dp = am_dir / pick
+        body = read_text(dp)
+        body_e = st.text_area(pick, value=body, height=460, key=f"am_doc_{pick}")
+        if st.button("Spara ai_models-dokument"):
+            write_text(dp, body_e)
+            st.success("Sparat.")
+
+
+def _render_assist_brief_polish(man_path, manifest: dict[str, Any]) -> None:
+    prompt_assist = manifest.setdefault("promptAssist", {})
+    prompt_defaults = prompt_assist.setdefault("defaults", {})
+    prompt_allowed = prompt_assist.setdefault("allowed", {})
+    briefing = manifest.setdefault("briefing", {}).setdefault("defaults", {})
+
+    assist_default = st.text_input(
+        "Standard: Prompt assist-modell",
+        value=str(prompt_defaults.get("assist", "")),
+        key="assist_default_model",
+    )
+    polish_default = st.text_input(
+        "Standard: Prompt polish-modell",
+        value=str(prompt_defaults.get("polish", "")),
+        key="polish_default_model",
+    )
+    request_model = st.text_input(
+        "API `/api/ai/brief` (förvald modell)",
+        value=str(briefing.get("requestModel", "")),
+        key="brief_request_model",
+    )
+    auto_openai = st.text_input(
+        "Server auto-brief: OpenAI-standard",
+        value=str(briefing.get("serverAutoOpenAI", "")),
+        key="brief_auto_openai",
+    )
+    auto_anthropic = st.text_input(
+        "Server auto-brief: Anthropic-standard",
+        value=str(briefing.get("serverAutoAnthropic", "")),
+        key="brief_auto_anthropic",
+    )
+    spec_model = st.text_input(
+        "Äldre spec-first helper",
+        value=str(briefing.get("specModel", "")),
+        key="brief_spec_model",
+    )
+    gateway_text = st.text_area(
+        "User-facing assistmodeller (en per rad)",
+        value="\n".join(prompt_allowed.get("gatewayClassModels") or []),
+        height=140,
+        key="assist_gateway_models",
+    )
+    anthropic_direct_text = st.text_area(
+        "Anthropic direct-lista (en per rad)",
+        value="\n".join(prompt_allowed.get("anthropicDirectModels") or []),
+        height=120,
+        key="assist_anthropic_direct_models",
+    )
+
+    if st.button("Spara assist / brief / polish", type="primary"):
+        prompt_defaults["assist"] = assist_default.strip()
+        prompt_defaults["polish"] = polish_default.strip()
+        prompt_allowed["gatewayClassModels"] = normalize_nonempty_lines(gateway_text)
+        prompt_allowed["anthropicDirectModels"] = normalize_nonempty_lines(
+            anthropic_direct_text
+        )
+        briefing["requestModel"] = request_model.strip()
+        briefing["serverAutoOpenAI"] = auto_openai.strip()
+        briefing["serverAutoAnthropic"] = auto_anthropic.strip()
+        briefing["specModel"] = spec_model.strip()
+        write_json(man_path, manifest)
+        st.success("Sparat assist / brief / polish.")
+        st.rerun()
+
+
+def _render_prompt_orchestration(man_path, manifest: dict[str, Any]) -> None:
+    orchestration = manifest.setdefault("promptOrchestration", {})
+    hard_caps = orchestration.setdefault("hardCaps", {})
+    soft_targets = orchestration.setdefault("softTargets", {})
+    phase_thresholds = orchestration.setdefault("phaseThresholds", {})
+
+    max_chat_message = st.number_input(
+        "Max längd: användarens prompt till build-route",
+        value=int((hard_caps.get("maxChatMessageChars") or {}).get("default", 800000)),
+        step=5000,
+        key="po_max_chat_message",
+    )
+    warn_chat_message = st.number_input(
+        "Varningsnivå: lång användarprompt",
+        value=int((hard_caps.get("warnChatMessageChars") or {}).get("default", 500000)),
+        step=5000,
+        key="po_warn_chat_message",
+    )
+    max_chat_system = st.number_input(
+        "Max längd: systemprompt / instruktioner",
+        value=int((hard_caps.get("maxChatSystemChars") or {}).get("default", 600000)),
+        step=5000,
+        key="po_max_chat_system",
+    )
+    warn_chat_system = st.number_input(
+        "Varningsnivå: lång systemprompt / instruktioner",
+        value=int((hard_caps.get("warnChatSystemChars") or {}).get("default", 350000)),
+        step=5000,
+        key="po_warn_chat_system",
+    )
+    max_handoff = st.number_input(
+        "Max längd: prompt-handoff mellan steg",
+        value=int((hard_caps.get("maxPromptHandoffChars") or {}).get("default", 800000)),
+        step=5000,
+        key="po_max_handoff",
+    )
+    max_brief_prompt = st.number_input(
+        "Max längd: prompt till structured brief",
+        value=int((hard_caps.get("maxAiBriefPromptChars") or {}).get("default", 800000)),
+        step=5000,
+        key="po_max_brief",
+    )
+    max_ai_chat = st.number_input(
+        "Max längd: prompt till assist-chat",
+        value=int((hard_caps.get("maxAiChatMessageChars") or {}).get("default", 600000)),
+        step=5000,
+        key="po_max_ai_chat",
+    )
+    max_ai_spec = st.number_input(
+        "Max längd: prompt till spec-first helper",
+        value=int((hard_caps.get("maxAiSpecPromptChars") or {}).get("default", 800000)),
+        step=5000,
+        key="po_max_ai_spec",
+    )
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        soft_freeform = st.number_input(
+            "Fritext",
+            value=int((soft_targets.get("freeformChars") or {}).get("default", 75000)),
+            step=1000,
+            key="po_soft_freeform",
+        )
+        soft_template = st.number_input(
+            "Template / kategori",
+            value=int((soft_targets.get("templateChars") or {}).get("default", 50000)),
+            step=1000,
+            key="po_soft_template",
+        )
+        soft_followup = st.number_input(
+            "Uppföljning",
+            value=int((soft_targets.get("followupChars") or {}).get("default", 70000)),
+            step=1000,
+            key="po_soft_followup",
+        )
+    with c2:
+        soft_wizard = st.number_input(
+            "Wizard",
+            value=int((soft_targets.get("wizardChars") or {}).get("default", 85000)),
+            step=1000,
+            key="po_soft_wizard",
+        )
+        soft_audit = st.number_input(
+            "Audit",
+            value=int((soft_targets.get("auditChars") or {}).get("default", 110000)),
+            step=1000,
+            key="po_soft_audit",
+        )
+    with c3:
+        soft_technical = st.number_input(
+            "Teknisk follow-up",
+            value=int((soft_targets.get("technicalChars") or {}).get("default", 95000)),
+            step=1000,
+            key="po_soft_technical",
+        )
+        soft_app = st.number_input(
+            "App",
+            value=int((soft_targets.get("appChars") or {}).get("default", 90000)),
+            step=1000,
+            key="po_soft_app",
+        )
+
+    phase_default = st.number_input(
+        "Stor prompt: plan-build-polish-tröskel",
+        value=int((phase_thresholds.get("defaultChars") or {}).get("default", 180000)),
+        step=2000,
+        key="po_phase_default",
+    )
+    phase_audit = st.number_input(
+        "Stor audit: plan-build-polish-tröskel",
+        value=int((phase_thresholds.get("auditChars") or {}).get("default", 140000)),
+        step=2000,
+        key="po_phase_audit",
+    )
+
+    if st.button("Spara första prompten / orkestrering", type="primary"):
+        hard_caps.setdefault("maxChatMessageChars", {})["default"] = int(max_chat_message)
+        hard_caps.setdefault("warnChatMessageChars", {})["default"] = int(warn_chat_message)
+        hard_caps.setdefault("maxChatSystemChars", {})["default"] = int(max_chat_system)
+        hard_caps.setdefault("warnChatSystemChars", {})["default"] = int(warn_chat_system)
+        hard_caps.setdefault("maxPromptHandoffChars", {})["default"] = int(max_handoff)
+        hard_caps.setdefault("maxAiBriefPromptChars", {})["default"] = int(max_brief_prompt)
+        hard_caps.setdefault("maxAiChatMessageChars", {})["default"] = int(max_ai_chat)
+        hard_caps.setdefault("maxAiSpecPromptChars", {})["default"] = int(max_ai_spec)
+        soft_targets.setdefault("freeformChars", {})["default"] = int(soft_freeform)
+        soft_targets.setdefault("templateChars", {})["default"] = int(soft_template)
+        soft_targets.setdefault("followupChars", {})["default"] = int(soft_followup)
+        soft_targets.setdefault("wizardChars", {})["default"] = int(soft_wizard)
+        soft_targets.setdefault("auditChars", {})["default"] = int(soft_audit)
+        soft_targets.setdefault("technicalChars", {})["default"] = int(soft_technical)
+        soft_targets.setdefault("appChars", {})["default"] = int(soft_app)
+        phase_thresholds.setdefault("defaultChars", {})["default"] = int(phase_default)
+        phase_thresholds.setdefault("auditChars", {})["default"] = int(phase_audit)
+        write_json(man_path, manifest)
+        st.success("Sparat orkestreringsgränserna.")
+        st.rerun()
+
+
+def _render_provider_contracts(man_path, manifest: dict[str, Any]) -> None:
+    contracts_cfg = manifest.setdefault("preGenerationContracts", {})
+    contract_defaults = contracts_cfg.setdefault("defaults", {})
+    provider_rules = contracts_cfg.setdefault("providerRules", [])
+
+    fallback_db = st.text_input(
+        "Fallback-databas",
+        value=str(contract_defaults.get("fallbackDatabaseProvider", "SQLite")),
+        key="contracts_fallback_db",
+    )
+    fallback_auth = st.text_input(
+        "Fallback-auth",
+        value=str(contract_defaults.get("fallbackAuthProvider", "NextAuth / Auth.js")),
+        key="contracts_fallback_auth",
+    )
+    fallback_payment = st.text_input(
+        "Fallback-betalprovider",
+        value=str(contract_defaults.get("fallbackPaymentProvider", "Stripe")),
+        key="contracts_fallback_payment",
+    )
+
+    rows: list[dict[str, str]] = []
+    for rule in provider_rules:
+        if not isinstance(rule, dict):
+            continue
+        rows.append(
+            {
+                "kind": str(rule.get("kind", "")),
+                "provider": str(rule.get("provider", "")),
+                "name": str(rule.get("name", "")),
+                "envVars": ", ".join(rule.get("envVars") or []),
+                "matchPatterns": " | ".join(rule.get("matchPatterns") or []),
+                "status": str(rule.get("status", "")),
+                "reason": str(rule.get("reason", "")),
+            }
+        )
+
+    edited_rules = st.data_editor(
+        rows,
+        num_rows="dynamic",
+        hide_index=True,
+        width="stretch",
+        key="contract_rules_editor",
+        column_config={
+            "kind": st.column_config.SelectboxColumn(
+                "Typ",
+                options=["database", "auth", "payment", "integration"],
+                required=True,
+            ),
+            "provider": st.column_config.TextColumn("Provider"),
+            "name": st.column_config.TextColumn("Namn"),
+            "envVars": st.column_config.TextColumn("Env-nycklar (kommaseparerat)"),
+            "matchPatterns": st.column_config.TextColumn("Träffmönster / regex (separerade med |)"),
+            "status": st.column_config.SelectboxColumn("Status", options=["", "chosen", "optional"]),
+            "reason": st.column_config.TextColumn("Varför"),
+        },
+    )
+
+    if st.button("Spara provider / kontrakt", type="primary"):
+        contract_defaults["fallbackDatabaseProvider"] = fallback_db.strip()
+        contract_defaults["fallbackAuthProvider"] = fallback_auth.strip()
+        contract_defaults["fallbackPaymentProvider"] = fallback_payment.strip()
+        cleaned_rules: list[dict[str, Any]] = []
+        for row in edited_rules:
+            provider = str(row.get("provider", "")).strip()
+            kind = str(row.get("kind", "")).strip()
+            if not provider or not kind:
+                continue
+            env_vars = [item.strip() for item in str(row.get("envVars", "")).split(",") if item.strip()]
+            match_patterns = [
+                item.strip() for item in str(row.get("matchPatterns", "")).split("|") if item.strip()
+            ]
+            payload: dict[str, Any] = {
+                "kind": kind,
+                "provider": provider,
+                "name": str(row.get("name", "")).strip() or provider,
+                "envVars": env_vars,
+                "matchPatterns": match_patterns,
+                "reason": str(row.get("reason", "")).strip(),
+            }
+            status = str(row.get("status", "")).strip()
+            if status:
+                payload["status"] = status
+            cleaned_rules.append(payload)
+        contracts_cfg["providerRules"] = cleaned_rules
+        write_json(man_path, manifest)
+        st.success("Sparat provider-/kontraktsregler.")
+        st.rerun()
+
+
+def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: dict[str, Any]) -> None:
+    tb = manifest.setdefault("tokenBudgets", {})
+    rt = manifest.setdefault("routeTimeouts", {})
+    rp = manifest.setdefault("repairPolicies", {})
+
+    engine_tokens = st.number_input(
+        "Build/generator max output tokens",
+        value=int((tb.get("engineMaxOutputTokens") or {}).get("default", 82768)),
+        step=1024,
+        key="tb_engine",
+    )
+    autofix_tokens = st.number_input(
+        "Autofix / fixer max output tokens",
+        value=int((tb.get("autofixMaxOutputTokens") or {}).get("default", 12288)),
+        step=512,
+        key="tb_autofix",
+    )
+    assist_tokens = st.number_input(
+        "Assist / brief max output tokens",
+        value=int((tb.get("assistMaxOutputTokens") or {}).get("default", 82768)),
+        step=1024,
+        key="tb_assist",
+    )
+    engine_timeout = st.number_input(
+        "Build-route maxDuration (sekunder)",
+        value=int((rt.get("engineRouteMaxDurationSeconds") or {}).get("default", 800)),
+        step=10,
+        key="rt_engine",
+    )
+    assist_timeout = st.number_input(
+        "Assist/brief-route maxDuration (sekunder)",
+        value=int((rt.get("assistRouteMaxDurationSeconds") or {}).get("default", 600)),
+        step=10,
+        key="rt_assist",
+    )
+    stream_timeout = st.number_input(
+        "Klientens stream-safety-timeout (millisekunder)",
+        value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 720000)),
+        step=1000,
+        key="rt_stream",
+    )
+
+    pgp = manifest.setdefault("postGenerationPasses", {})
+    p_ver_tok = pgp.setdefault("verifierMaxOutputTokens", {})
+    p_ver_ms = pgp.setdefault("verifierTimeoutMs", {})
+    p_ver_snip = pgp.setdefault("verifierSnippetCharsPerFile", {})
+    ver_out = st.number_input(
+        "Verifier: max output tokens",
+        value=int(p_ver_tok.get("default", 8192)),
+        step=256,
+        key="pgp_ver_out",
+    )
+    ver_ms = st.number_input(
+        "Verifier: timeout (ms)",
+        value=int(p_ver_ms.get("default", 60000)),
+        step=1000,
+        key="pgp_ver_ms",
+    )
+    ver_snip = st.number_input(
+        "Verifier: snippet-tecken per fil",
+        value=int(p_ver_snip.get("default", 14000)),
+        step=500,
+        key="pgp_ver_snip",
+    )
+
+    deterministic_passes = st.number_input(
+        "Mekaniska fix-pass före LLM",
+        value=int(rp.get("deterministicAutofixPasses", 2)),
+        min_value=1,
+        max_value=10,
+        step=1,
+        key="repair_deterministic",
+    )
+    syntax_passes = st.number_input(
+        "Syntax-fix-pass efter generering",
+        value=int(rp.get("syntaxFixPasses", 3)),
+        min_value=1,
+        max_value=10,
+        step=1,
+        key="repair_syntax",
+    )
+    manual_passes = st.number_input(
+        "Manuell repair-route: max LLM-pass",
+        value=int(rp.get("manualRepairRouteLlmPasses", 2)),
+        min_value=1,
+        max_value=10,
+        step=1,
+        key="repair_manual",
+    )
+    server_passes = st.number_input(
+        "Background server verify: max repair-pass",
+        value=int(rp.get("serverRepairPasses", 2)),
+        min_value=1,
+        max_value=10,
+        step=1,
+        key="repair_server",
+    )
+
+    if st.button("Spara repair / budget / timeout", type="primary"):
+        tb.setdefault("engineMaxOutputTokens", {})["default"] = int(engine_tokens)
+        tb.setdefault("autofixMaxOutputTokens", {})["default"] = int(autofix_tokens)
+        tb.setdefault("assistMaxOutputTokens", {})["default"] = int(assist_tokens)
+        rt.setdefault("engineRouteMaxDurationSeconds", {})["default"] = int(engine_timeout)
+        rt.setdefault("assistRouteMaxDurationSeconds", {})["default"] = int(assist_timeout)
+        rt.setdefault("streamSafetyTimeoutMs", {})["default"] = int(stream_timeout)
+        p_ver_tok["default"] = int(ver_out)
+        p_ver_ms["default"] = int(ver_ms)
+        p_ver_snip["default"] = int(ver_snip)
+        rp["deterministicAutofixPasses"] = int(deterministic_passes)
+        rp["syntaxFixPasses"] = int(syntax_passes)
+        rp["manualRepairRouteLlmPasses"] = int(manual_passes)
+        rp["serverRepairPasses"] = int(server_passes)
+        write_json(man_path, manifest)
+        changed = sync_route_timeout_literals(ctx.repo_root, int(engine_timeout), int(assist_timeout))
+        st.success(f"Sparat repair / budget / timeout. Synkade {changed} statiska route-filer.")
+        st.rerun()
+
+
+def _render_other_route_models(man_path, manifest: dict[str, Any]) -> None:
+    route_specs = [
+        ("audit_structured", "Audit (strukturerad webbgranskning)", "Primary model och fallback-kedja."),
+        ("project_analyze", "Projektanalys", "Gratis kodöversikt för projekt."),
+        ("inspector_ai_match", "Inspector AI match", "Pekar ut vilken fil/koddel som matchar ett visuellt område."),
+        ("analyze_presentation", "Presentation analysis", "Separat analysrutt för presentationsmaterial."),
+    ]
+    route_values: dict[str, tuple[str, str]] = {}
+    for workload_id, title, blurb in route_specs:
+        workload = find_workload(manifest, workload_id)
+        if not workload:
+            st.warning(f"Saknar workload `{workload_id}` i manifestet.")
+            continue
+        st.markdown(f"#### {title}")
+        st.caption(blurb)
+        default_value = st.text_input(
+            f"{title} · defaultModel",
+            value=str(workload.get("defaultModel", "")),
+            key=f"route_model_{workload_id}",
+        )
+        fallback_value = st.text_area(
+            f"{title} · fallbackModels (en per rad)",
+            value="\n".join(workload.get("fallbackModels") or []),
+            height=80,
+            key=f"route_fallback_{workload_id}",
+        )
+        route_values[workload_id] = (default_value, fallback_value)
+
+    if st.button("Spara route-modeller", type="primary"):
+        for workload_id, (default_value, fallback_value) in route_values.items():
+            workload = find_workload(manifest, workload_id)
+            if not workload:
+                continue
+            workload["defaultModel"] = default_value.strip()
+            fallback_models = normalize_nonempty_lines(fallback_value)
+            if fallback_models:
+                workload["fallbackModels"] = fallback_models
+            else:
+                workload.pop("fallbackModels", None)
+        write_json(man_path, manifest)
+        st.success("Sparat route-modeller.")
+        st.rerun()
+
+
+def _render_workloads(manifest: dict[str, Any]) -> None:
+    st.markdown("### Alla katalogiserade LLM-/AI-anrop")
+    workloads = manifest.get("workloads") or []
+    rows = []
+    for workload in workloads:
+        if not isinstance(workload, dict):
+            continue
+        effective_model, model_source, model_note = describe_workload_model_resolution(
+            workload,
+            manifest,
+        )
+        explicit_default = str(workload.get("defaultModel", "")).strip()
+        fallback_models = [
+            human_model_label(str(model).strip())
+            for model in (workload.get("fallbackModels") or [])
+            if str(model).strip()
+        ]
+        rows.append(
+            {
+                "id": workload.get("id", ""),
+                "titel": workload.get("title", ""),
+                "provider": workload.get("provider", ""),
+                "invocation": workload.get("invocation", ""),
+                "defaultModel": human_model_label(explicit_default),
+                "effectiveModel": effective_model,
+                "modelSource": model_source,
+                "fallbackModels": ", ".join(fallback_models) or "—",
+                "authEnv": ", ".join(workload.get("authEnv") or []),
+                "förklaring": model_note,
+            }
+        )
+    st.dataframe(rows, width="stretch", hide_index=True, height=520)
+
+
+def _render_manifest_json(ctx: BackofficeContext, man_path, manifest: dict[str, Any]) -> None:
+    raw = read_text(man_path)
+    edited = st.text_area("manifest.json", value=raw, height=520, key="manifest_edit")
+    if st.button("Spara manifest.json", type="primary"):
+        try:
+            parsed = json.loads(edited)
+            write_json(man_path, parsed)
+            route_timeouts = parsed.get("routeTimeouts") or {}
+            engine_timeout = int(
+                (route_timeouts.get("engineRouteMaxDurationSeconds") or {}).get("default", 800)
+            )
+            assist_timeout = int(
+                (route_timeouts.get("assistRouteMaxDurationSeconds") or {}).get("default", 600)
+            )
+            changed = sync_route_timeout_literals(ctx.repo_root, engine_timeout, assist_timeout)
+            st.success(f"Sparat (validerad JSON). Synkade {changed} statiska route-filer.")
+            st.rerun()
+        except json.JSONDecodeError as e:
+            st.error(f"Ogiltig JSON: {e}")
+
+
+def render(ctx: BackofficeContext) -> None:
+    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
+    st.header("config/ai_models")
+    render_where_panel("ai_models", domain_map)
+    man_path = ctx.config_dir / "ai_models" / "manifest.json"
+    manifest = read_json(man_path)
+    st.info(
+        "Här styr du LLM-kedjan för buildern: första prompten, deep brief, planläge, själva byggmodellen, fixer/repair och separata analysrutter."
+    )
+    models_part = st.radio(
+        "Del",
+        [
+            "Generator-kedja",
+            "Assist / brief / polish",
+            "Första prompten / orkestrering",
+            "Provider / kontrakt",
+            "Repair / budget / timeout",
+            "Övriga route-modeller",
+            "Workloads",
+            "manifest.json",
+            "Markdown / .txt",
+        ],
+        horizontal=True,
+        key="ai_models_part",
+    )
+
+    if models_part == "Generator-kedja":
+        _render_generator_chain(ctx, man_path, manifest)
+    elif models_part == "Markdown / .txt":
+        _render_markdown_docs(ctx)
+    elif models_part == "Assist / brief / polish":
+        _render_assist_brief_polish(man_path, manifest)
+    elif models_part == "Första prompten / orkestrering":
+        _render_prompt_orchestration(man_path, manifest)
+    elif models_part == "Provider / kontrakt":
+        _render_provider_contracts(man_path, manifest)
+    elif models_part == "Repair / budget / timeout":
+        _render_repair_budget_timeout(ctx, man_path, manifest)
+    elif models_part == "Övriga route-modeller":
+        _render_other_route_models(man_path, manifest)
+    elif models_part == "Workloads":
+        _render_workloads(manifest)
+    elif models_part == "manifest.json":
+        _render_manifest_json(ctx, man_path, manifest)
+

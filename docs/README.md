@@ -7,7 +7,7 @@
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
 | **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
-| **Planer / status** | Aktivt eller avslutat planläge, status och pekare | [`plans/README.md`](plans/README.md) · [`../5-steg.txt`](../5-steg.txt) |
+| **Planer / status** | Aktivt eller avslutat planläge, status och pekare | [`plans/README.md`](plans/README.md) |
 | **Arkiv** | Avklarade planer i git-historik; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) |
 
 ## Terminology (two layers — do not duplicate)
@@ -25,18 +25,18 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/README.md` + [`5-steg.txt`](../5-steg.txt) — **planläge och slutöversikt**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
 
-**Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md). Samlad 5-stegsstatus finns i [`5-steg.txt`](../5-steg.txt).
+**Remediation-historik** (%, orchestrator-körningar) finns i **git-historik** under `docs/plans/avklarat/` — se [`docs/plans/avklarat/README.md`](plans/avklarat/README.md).
 
 Everything else is deep reference, history, or architecture.
 
 **Folder map:** `architecture/` → [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) (rot-träd) · `config/` → [`../config/README.md`](../config/README.md) (prompt, modeller, env-policy, dashboard) · `schemas/` → [`schemas/README.md`](schemas/README.md) · `plans/` → [`plans/README.md`](plans/README.md). Doc-policy: [`architecture/documentation-lifecycle.md`](architecture/documentation-lifecycle.md).
 
-**För agenter (orientering):** [`architecture/repo-tree.md`](architecture/repo-tree.md) → [`plans/README.md`](plans/README.md) → [`../5-steg.txt`](../5-steg.txt) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
+**För agenter (orientering):** [`architecture/repo-tree.md`](architecture/repo-tree.md) → [`plans/README.md`](plans/README.md) → [`architecture/glossary.md`](architecture/glossary.md) → [`.cursor/rules/terminology.mdc`](../.cursor/rules/terminology.mdc).
 
 ## Source of truth policy
 
@@ -109,7 +109,6 @@ Not runtime dependencies:
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Plans (all buckets) | `docs/plans/README.md` |
 | Plan / agent handoff (historik) | Borttagen — git-historik. Handoffs sker i chatten. |
-| Samlad 5-stegsstatus | [`5-steg.txt`](../5-steg.txt) |
 | Storstädning / äldre större pass | `docs/plans/avklarat/README.md` eller git-historik |
 | Äldre remediation / orchestrator-text | git-historik — [`docs/plans/avklarat/README.md`](plans/avklarat/README.md) |
 | Agent workflows (fler agenter, konfliktzoner) | [`.cursor/README.md`](../.cursor/README.md) § Flera agenter |

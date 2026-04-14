@@ -129,6 +129,16 @@ const siteBriefSchema = z.object({
     metaDescription: z.string().describe("One concise meta description"),
     keywords: z.array(z.string()).min(3).max(30),
   }),
+  mustHave: z
+    .array(z.string())
+    .min(0)
+    .max(10)
+    .describe("Hard requirements the user explicitly stated or that are critical for the site type"),
+  avoid: z
+    .array(z.string())
+    .min(0)
+    .max(8)
+    .describe("Things to explicitly avoid based on user request or domain conventions"),
 });
 
 const simplifiedBriefSchema = z.object({
@@ -200,74 +210,11 @@ const simplifiedBriefSchema = z.object({
       keywords: z.array(z.string()).optional().default([]),
     })
     .optional(),
+  mustHave: z.array(z.string()).optional().default([]),
+  avoid: z.array(z.string()).optional().default([]),
 });
 
-type SiteTypeRule = { hint: string; keywords: string[] };
-
-const SITE_TYPE_RULES: SiteTypeRule[] = [
-  {
-    hint: "ecommerce storefront",
-    keywords: [
-      "ecommerce",
-      "e-commerce",
-      "webshop",
-      "shop",
-      "store",
-      "cart",
-      "checkout",
-      "product",
-    ],
-  },
-  {
-    hint: "saas product marketing site",
-    keywords: ["saas", "b2b", "platform", "subscription", "dashboard", "startup"],
-  },
-  {
-    hint: "portfolio site",
-    keywords: ["portfolio", "designer", "photography", "photographer", "case study", "showcase"],
-  },
-  {
-    hint: "restaurant or cafe site",
-    keywords: ["restaurant", "cafe", "menu", "reservation", "takeaway"],
-  },
-  {
-    hint: "agency or services site",
-    keywords: ["agency", "consulting", "consultant", "services", "company", "foretag", "tjanst"],
-  },
-  {
-    hint: "event or conference site",
-    keywords: ["event", "conference", "ticket", "schedule", "speaker", "workshop"],
-  },
-  {
-    hint: "education or course site",
-    keywords: ["course", "education", "academy", "school", "training", "learning"],
-  },
-  {
-    hint: "real estate site",
-    keywords: ["real estate", "property", "listing", "broker", "apartment"],
-  },
-  {
-    hint: "healthcare site",
-    keywords: ["clinic", "health", "medical", "dentist", "therapy"],
-  },
-];
-
-function normalizePromptText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function inferSiteTypeHint(prompt: string): string | null {
-  const normalized = normalizePromptText(prompt);
-  for (const rule of SITE_TYPE_RULES) {
-    if (rule.keywords.some((keyword) => normalized.includes(keyword))) {
-      return rule.hint;
-    }
-  }
-  return null;
-}
+import { inferSiteTypeHintFromDomain } from "./domain-inference";
 
 function resolveAnthropicBriefModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
@@ -293,7 +240,7 @@ const BRIEF_SYSTEM_PROMPT =
   "- Full Swedish content rules are in the codegen system prompt (14-swedish-content.md).";
 
 function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string {
-  const siteTypeHint = inferSiteTypeHint(prompt);
+  const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
   return (
     prompt +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +

@@ -392,58 +392,69 @@ const EMPTY_CONTEXT_COLS: Pick<FaultFixRow, "scaffoldId" | "serializeMode" | "st
   resolved: "-",
 };
 
+function faultFixTimestamp(e: StoredGenerationEntry): string {
+  return readString(e.ts) || new Date().toISOString();
+}
+
 const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow | FaultFixRow[] | null> = {
   "autofix.result": (e) => {
     const fixEntries = Array.isArray(e.data.fixes) ? (e.data.fixes as Array<{ fixer?: string; description?: string; file?: string }>) : [];
     const warnings = Array.isArray(e.data.warnings) ? e.data.warnings.length : 0;
     if (fixEntries.length === 0 && warnings === 0) return null;
+    const chatId = readString(e.data.chatId) || "-";
+    const versionId = readString(e.data.versionId) || "-";
+    const lineageHash = readString(e.data.lineageHash) || "-";
+    const scaffoldId = readString(e.data.scaffoldId) || "-";
+    const modelTier = readString(e.data.resolvedTier) || "-";
     const rows: FaultFixRow[] = fixEntries.map((fix) => ({
-      ts: e.ts.slice(11, 19),
+      ts: faultFixTimestamp(e),
       phase: "phase-3",
       step: `Autofix: ${readString(fix.fixer) || "unknown"}`,
       severity: "info",
       createdBy: "deterministic-autofix",
       fixedBy: "deterministic-autofix",
-      modelTier: "-",
+      modelTier,
       problem: readString(fix.description) || "autofix",
       action: "Deterministisk autofix",
       model: "-",
       provider: "-",
       pass: "-",
       outcome: "OK",
-      chatId: "-",
-      versionId: "-",
-      lineageHash: "-",
+      chatId,
+      versionId,
+      lineageHash,
       ...EMPTY_CONTEXT_COLS,
+      scaffoldId,
       file: readString(fix.file) || "-",
       fixer: readString(fix.fixer) || "-",
       resolved: "true",
     }));
     if (rows.length > 0) {
       rows.push({
-        ts: e.ts.slice(11, 19),
+        ts: faultFixTimestamp(e),
         phase: "phase-3",
         step: "Autofix",
         severity: "info",
         createdBy: "deterministic-autofix",
         fixedBy: "deterministic-autofix",
-        modelTier: "-",
+        modelTier,
         problem: `${fixEntries.length} fix(ar), ${warnings} varning(ar)`,
         action: "Deterministisk autofix (sammanfattning)",
         model: "-",
         provider: "-",
         pass: "-",
         outcome: "OK",
-        chatId: "-",
-        versionId: "-",
-        lineageHash: "-",
+        chatId,
+        versionId,
+        lineageHash,
         ...EMPTY_CONTEXT_COLS,
+        scaffoldId,
       });
     }
     return rows;
   },
   "autofix.heavy_load": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Autofix",
     severity: "warning",
@@ -466,7 +477,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     const errorCount = readNumber(e.data.errorCount);
     if (phase === "invalid" && errorCount && errorCount > 0) {
       return {
-        ts: e.ts.slice(11, 19),
+        ts: faultFixTimestamp(e),
         phase: "phase-3",
         step: `Syntaxvalidering (pass ${readNumber(e.data.pass) ?? "?"})`,
         severity: "error",
@@ -489,7 +500,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     return null;
   },
   "syntax-validation.fixer.start": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
     severity: "warning",
@@ -510,7 +521,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     resolved: "false",
   }),
   "syntax-validation.fixer.result": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
     severity: readBoolean(e.data.valid) ? "info" : readBoolean(e.data.improved) ? "warning" : "error",
@@ -531,7 +542,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     resolved: (readNumber(e.data.errorsAfter) ?? 1) === 0 ? "true" : "false",
   }),
   "syntax-validation.fixer.error": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
     severity: "error",
@@ -552,7 +563,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     resolved: "false",
   }),
   "syntax-validation.fixer.noop": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: `LLM Fixer (pass ${readNumber(e.data.pass) ?? "?"})`,
     severity: "warning",
@@ -573,7 +584,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     resolved: "false",
   }),
   "syntax-validation.gave-up": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: `Syntaxvalidering (pass ${readNumber(e.data.pass) ?? "?"})`,
     severity: "error",
@@ -593,7 +604,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     resolved: "false",
   }),
   "syntax-validation.early-stop": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Syntaxvalidering",
     severity: "warning",
@@ -613,7 +624,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     resolved: "false",
   }),
   "syntax-validation.pipeline-error": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Syntaxpipeline",
     severity: "error",
@@ -644,7 +655,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
       })
       .join("; ");
     return {
-      ts: e.ts.slice(11, 19),
+      ts: faultFixTimestamp(e),
       phase: "phase-3",
       step: "Mekanisk residual",
       severity: "warning",
@@ -668,7 +679,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     const fixes = Array.isArray(e.data.fixes) ? e.data.fixes.length : 0;
     if (fixes === 0) return null;
     return {
-      ts: e.ts.slice(11, 19),
+      ts: faultFixTimestamp(e),
       phase: "phase-3",
       step: "Filreparation (preflight)",
       severity: "info",
@@ -690,7 +701,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     };
   },
   "merged-syntax.invalid": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Merged syntax",
     severity: "error",
@@ -710,7 +721,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     resolved: "false",
   }),
   "merged-syntax.fixed": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Merged syntax fixer",
     severity: readNumber(e.data.errorsAfter) === 0 ? "info" : "warning",
@@ -736,7 +747,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     const blockingCount = readNumber(e.data.blocking) ?? blockingFindings.length;
     const qualityCount = readNumber(e.data.quality) ?? qualityFindings.length;
     const summaryRow: FaultFixRow = {
-      ts: e.ts.slice(11, 19),
+      ts: faultFixTimestamp(e),
       phase: "phase-3",
       step: "Verifier-pass",
       severity: blockingCount > 0 ? "warning" : qualityCount > 0 ? "info" : "info",
@@ -772,7 +783,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     return [summaryRow, ...findingRows, ...qualityRows];
   },
   "scaffold-retry.suggested": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Scaffold retry",
     severity: "warning",
@@ -792,7 +803,7 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     scaffoldId: readString(e.data.currentScaffoldId) || "-",
   }),
   "preflight.version.failed": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-3",
     step: "Preflight",
     severity: "error",
@@ -811,8 +822,132 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     ...EMPTY_CONTEXT_COLS,
     resolved: "false",
   }),
+  "preview-preflight.error": (e) => ({
+    ts: faultFixTimestamp(e),
+    phase: "phase-4",
+    step: "Preview preflight",
+    severity: "error",
+    createdBy: "preview-preflight",
+    fixedBy: "-",
+    modelTier: "-",
+    problem: readString(e.data.message) || readString(e.data.reason) || "Preview preflight failed",
+    action: "Preview-start blocker identifierad",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
+    pass: "-",
+    outcome: "Blockerad",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
+  }),
+  "project-sanity.error": (e) => ({
+    ts: faultFixTimestamp(e),
+    phase: "phase-4",
+    step: "Project sanity",
+    severity: "error",
+    createdBy: "project-sanity",
+    fixedBy: "-",
+    modelTier: "-",
+    problem: readString(e.data.message) || readString(e.data.reason) || "Project sanity failure",
+    action: "Sanity-kontroll flaggade blockerande fel",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
+    pass: "-",
+    outcome: "Fel",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    file: readString(e.data.file) || "-",
+    resolved: "false",
+  }),
+  "site.empty_generation": (e) => ({
+    ts: faultFixTimestamp(e),
+    phase: "phase-3",
+    step: "Finalize",
+    severity: "error",
+    createdBy: "generator",
+    fixedBy: "-",
+    modelTier: "-",
+    problem: readString(e.data.message) || "Tom generation efter finalize",
+    action: "Generation stoppades innan version sparades",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
+    pass: "-",
+    outcome: "Ingen version",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
+  }),
+  "site.partial_file_output": (e) => ({
+    ts: faultFixTimestamp(e),
+    phase: "phase-3",
+    step: "Finalize",
+    severity: "error",
+    createdBy: "generator",
+    fixedBy: "-",
+    modelTier: "-",
+    problem: readString(e.data.message) || "Partial file output upptäckt",
+    action: "Fail-fast skydd stoppade versionssave",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
+    pass: "-",
+    outcome: "Ingen version",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
+  }),
+  "site.awaiting_input": (e) => ({
+    ts: faultFixTimestamp(e),
+    phase: "phase-3",
+    step: "Awaiting input",
+    severity: "warning",
+    createdBy: "generator",
+    fixedBy: "-",
+    modelTier: "-",
+    problem: readString(e.data.message) || readString(e.data.reason) || "Generatorn behöver användarinput",
+    action: "Blockerande fråga presenterades i stället för automatisk fix",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
+    pass: "-",
+    outcome: "Väntar på input",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
+  }),
+  "server-verify.policy": (e) => {
+    if (readBoolean(e.data.run) !== false) return null;
+    return {
+      ts: faultFixTimestamp(e),
+      phase: "phase-4",
+      step: "Background verify",
+      severity: "info",
+      createdBy: "server-verify",
+      fixedBy: "-",
+      modelTier: "-",
+      problem: readString(e.data.reason) || "Background verify skipped",
+      action: "Server verify hoppades över enligt policy",
+      model: readString(e.data.model) || "-",
+      provider: readString(e.data.provider) || "-",
+      pass: "-",
+      outcome: "Skippad",
+      chatId: "-",
+      versionId: "-",
+      lineageHash: "-",
+      ...EMPTY_CONTEXT_COLS,
+      resolved: "true",
+    };
+  },
   "comm.error.create": (e) => ({
-    ts: e.ts.slice(11, 19),
+    ts: faultFixTimestamp(e),
     phase: "phase-1",
     step: "Kommunikation",
     severity: "error",
@@ -1015,25 +1150,18 @@ function appendGlobalFaultFixCsv(rows: FaultFixRow[]): void {
         .filter(Boolean)
     : [];
 
-  const existingBody = new Set(
-    existingLines.filter((line) => line !== FAULT_FIX_CSV_HEADER),
+  const existingBody = existingLines.length > 0 && existingLines[0] === FAULT_FIX_CSV_HEADER
+    ? existingLines.slice(1)
+    : existingLines;
+  const mergedLines = [...new Set([
+    ...existingBody,
+    ...rows.map(faultFixRowToCsvLine),
+  ])];
+  fs.writeFileSync(
+    csvPath,
+    [FAULT_FIX_CSV_HEADER, ...mergedLines].join("\n") + "\n",
+    "utf8",
   );
-  const nextLines = rows
-    .map(faultFixRowToCsvLine)
-    .filter((line) => !existingBody.has(line));
-
-  if (existingLines.length === 0) {
-    fs.writeFileSync(
-      csvPath,
-      [FAULT_FIX_CSV_HEADER, ...nextLines].join("\n") + "\n",
-      "utf8",
-    );
-    return;
-  }
-
-  if (nextLines.length > 0) {
-    fs.appendFileSync(csvPath, nextLines.join("\n") + "\n", "utf8");
-  }
 }
 
 function buildHighlights(entries: StoredGenerationEntry[]): string[] {

@@ -1,0 +1,76 @@
+{
+  "id": "bold-startup",
+  "scaffoldId": "landing-page",
+  "label": "Bold Startup",
+  "description": "Launch-oriented landing pages with strong contrast, velocity, and product momentum.",
+  "keywords": [
+    "startup",
+    "launch",
+    "waitlist",
+    "product",
+    "growth",
+    "momentum",
+    "bold",
+    "snabb",
+    "scale"
+  ],
+  "fontPairings": [
+    {
+      "heading": "Space Grotesk",
+      "body": "Inter"
+    }
+  ],
+  "signatureMotif": "high-contrast headlines, sharp gradients, and velocity-driven proof blocks",
+  "colorMode": "dark",
+  "promptHints": [
+    "Favor momentum, value velocity, and conversion tension over soft hospitality aesthetics.",
+    "Above the fold should feel product-led and energetic without collapsing into generic SaaS blue."
+  ],
+  "themeTokens": {
+    "background": "oklch(0.17 0.02 270)",
+    "foreground": "oklch(0.94 0.006 260)",
+    "card": "oklch(0.2 0.02 270)",
+    "primary": "oklch(0.72 0.22 310)",
+    "primaryForeground": "oklch(0.12 0.01 270)",
+    "secondary": "oklch(0.24 0.02 270)",
+    "muted": "oklch(0.23 0.015 270)",
+    "accent": "oklch(0.66 0.17 220)",
+    "border": "oklch(0.3 0.015 270)",
+    "ring": "oklch(0.72 0.22 310)",
+    "radius": "1rem",
+    "bodyBackgroundImage": "radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 18%, transparent) 0%, transparent 32%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) 14%, transparent) 0%, transparent 30%)"
+  },
+  "styleRules": [
+    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
+    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
+    "Use clear value hierarchy, product proof, and pricing rhythm before deep detail.",
+    "Keep each auth screen single-purpose, calm, and trustworthy."
+  ],
+  "sectionInventory": [
+    "primary entry section",
+    "supporting content section",
+    "hero",
+    "product proof",
+    "pricing"
+  ],
+  "avoidPatterns": [
+    "Do not paste large reference code blocks verbatim into the generated site.",
+    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
+    "Avoid weak CTA hierarchy or pricing without surrounding trust signals.",
+    "Avoid mixing auth flows with unrelated landing-page sections."
+  ],
+  "worldClassRubric": [
+    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
+    "Reusable sections with believable content, not generic lorem-style filler.",
+    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
+    "Commercial sections should feel conversion-ready without looking template-generic.",
+    "Auth pages should feel ready for real product onboarding."
+  ],
+  "sourceTemplateIds": [
+    "saas-finwise-saas-landing-page",
+    "saas-next-js-enterprise-boilerplate",
+    "ecommerce-medusa-next-js-ecommerce-store-starter",
+    "saas-paddle-billing-subscription-starter"
+  ],
+  "default": false
+}

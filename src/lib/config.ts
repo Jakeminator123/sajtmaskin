@@ -350,7 +350,9 @@ export const FEATURES = {
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
   useRuntimeTemplateGuidance:
     env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "true" ||
-    env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "1",
+    env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "1" ||
+    (env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE !== "false" &&
+      env.NODE_ENV === "development"),
   deferExtraRoutesOnInit:
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "true" ||
     env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "1",

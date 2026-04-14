@@ -211,10 +211,10 @@ export function VersionHistory({
 
     try {
       window.open(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`, "_blank");
-      toast.success("Nedladdning startad");
+      toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
-      toast.error("Kunde inte ladda ner");
+      toast.error("Failed to download");
     } finally {
       setDownloadingVersionId(null);
     }
@@ -445,10 +445,10 @@ export function VersionHistory({
       <div className="border-border border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h3 className="font-semibold">Versionshistorik</h3>
+            <h3 className="font-semibold">Version History</h3>
             <p className="text-muted-foreground mt-1 text-xs">
-              {versions.length} version{versions.length !== 1 ? "er" : ""}
-              {pinnedCount > 0 ? ` • ${pinnedCount} fästa` : ""}
+              {versions.length} version{versions.length !== 1 ? "s" : ""}
+              {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
             </p>
             <p className="text-muted-foreground text-xs">
               Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
@@ -540,7 +540,7 @@ export function VersionHistory({
                   : lifecycleStatus === "repairing"
                     ? "Repairing"
                     : lifecycleStatus === "retrying"
-                      ? "Omtag"
+                      ? "Ersatt"
                       : lifecycleStatus === "failed"
                         ? "Fel"
                         : "Draft";
@@ -581,7 +581,7 @@ export function VersionHistory({
               qualityTier === "production"
                 ? "Produktionsklar"
                 : qualityTier === "tier2"
-                  ? "Preview-klar"
+                  ? "Live-preview klar"
                   : qualityTier === "preview"
                     ? "Preview-URL"
                     : null;
@@ -589,7 +589,7 @@ export function VersionHistory({
               qualityTier === "production"
                 ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300"
                 : qualityTier === "tier2"
-                  ? "border-primary/40 bg-primary/10 text-primary"
+                  ? "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300"
                   : qualityTier === "preview"
                     ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
                     : undefined;
@@ -634,7 +634,7 @@ export function VersionHistory({
                   ? version.verificationSummary.trim()
                   : null;
               if (lifecycleStatus === "retrying") {
-                return "Ersatt av ett senare omtag efter verifieringsfel.";
+                return summary || "Ersatt av en nyare version innan denna hann bli klar.";
               }
               return summary;
             })();
@@ -653,7 +653,7 @@ export function VersionHistory({
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
                         <Clock className="text-muted-foreground h-3 w-3" />
                         <span className="text-muted-foreground text-xs">
                           {formatVersionTime(version.createdAt)}
@@ -767,7 +767,7 @@ export function VersionHistory({
                       aria-label="Jämför med föregående version"
                       className="h-7 px-2 text-xs"
                     >
-                      Jämför
+                      Compare
                     </Button>
                     {canRestore && (
                       <Button
@@ -818,8 +818,8 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleDownload(e, version)}
                       disabled={isDownloading}
-                      title="Ladda ner version"
-                      aria-label="Ladda ner version"
+                      title="Download version"
+                      aria-label="Download version"
                       className="h-7 w-7"
                     >
                       {isDownloading ? (

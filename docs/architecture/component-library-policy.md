@@ -18,6 +18,8 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 
 `@/components/ui/` imports are already whitelisted in `project-sanity.ts` and do not trigger unresolved-import errors.
 
+`## Your Toolkit` is the prompt-facing summary of that layer. It is built from the registry-synced `SHADCN_COMPONENTS` map, but filtered to subpaths that actually exist locally under `src/components/ui` / `components/ui`, so the model sees a grouped summary of the safe local runtime surface rather than a stale manual shortlist.
+
 ## Capability-gated dependencies
 
 `capability-inference.ts` detects prompt signals and sets boolean flags. These flags currently drive prompt hints via `buildCapabilityHints()`. The policy for each:
@@ -30,6 +32,12 @@ Components like `carousel`, `chart`, `sidebar`, `calendar`, `command`, and `data
 | `needsCarousel` | `embla-carousel-react` (via shadcn `Carousel`) | Install when carousel/slider/gallery signal is present. |
 | `needsForms` | `react-hook-form` + `zod` (via shadcn `Form`) | Install when form/booking/contact-form signal is present. |
 | `needsDataUI` | `@tanstack/react-table` (via shadcn `Table`) | Install when data table/CRUD/sorting/filtering signal is present. |
+
+## Dynamic component references
+
+When capabilities are detected, the orchestration pipeline loads verified shadcn usage examples from a local cache (`data/shadcn-examples/`) and injects them into the dynamic context as `## Component References`. This gives the LLM actual working code patterns (DatePicker = Calendar + Popover, Combobox = Command + Popover, etc.) rather than just component names.
+
+The cache is synced via `npm run shadcn:sync-examples` from `ui.shadcn.com/r/`. Static component patterns in `config/prompt-static/03b-shadcn-component-patterns.md` serve as always-present baseline; dynamic references add depth for capability-matched components.
 
 ## Libraries evaluated but not default
 

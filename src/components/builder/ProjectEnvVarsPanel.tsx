@@ -795,16 +795,8 @@ export function ProjectEnvVarsPanel({
           <TabsContent value="integrations">
             <div className="space-y-2">
               <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                <span className="text-foreground/90">Fokus är din sajt:</span> vad som hittas i den aktiva
-                versionens kod (och manifest om det finns), samt vilka nycklar som är satta i projektets
-                miljövariabler. Ren heuristik kan ge falska träffar — använd fliken Miljövariabler för
-                verifierade värden. Under &quot;Felsökning&quot; nedan ligger endast Sajtmaskin-serverns
-                egen status (påverkar inte den genererade sajten).
-                <span className="mt-2 block text-[11px] leading-snug text-muted-foreground/95">
-                  <span className="text-foreground/85">Automatisk analys:</span> samma aktiva version
-                  läses av för koddetektion, analytics/konvertering och affärsflöden — se sektionerna
-                  nedan.
-                </span>
+                Bygger på den aktiva versionens kod och projektets miljövariabler. Heuristik kan ge
+                falska träffar, så använd fliken Miljövariabler för verifierade värden.
               </div>
 
               {showSetupWizard && hasDetectedIntegrations ? (
@@ -835,11 +827,9 @@ export function ProjectEnvVarsPanel({
                   <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-200">automatisk</span>
                 </div>
                 <div className="text-muted-foreground mt-1 text-[11px]">
-                  Heuristiskt detekterat från koden i den valda versionen. Om{" "}
+                  Detekterat från koden i den valda versionen. Om{" "}
                   <code className="text-[10px]">sajtmaskin.integration-manifest.json</code> finns används den
-                  som primär lista (pålitligare än enbart mönster i koden). ORM-lager (t.ex. Prisma) är inte
-                  samma sak som en hostad databas — röd status gäller bara när listade nycklar saknas i
-                  projektets miljö.
+                  först. Röd status betyder att nödvändiga projektvariabler saknas här.
                 </div>
                 {isLoadingDetectedIntegrations ? (
                   <div className="text-muted-foreground mt-2 flex items-center gap-2 text-[11px]">
@@ -1154,29 +1144,25 @@ export function ProjectEnvVarsPanel({
                   </div>
                   {strategy && (
                     <div className="text-muted-foreground mt-1 text-[11px]">
-                      Du hanterar och bekostar integrationen själv.{" "}
-                      <span className="text-foreground/90">
-                        Valfritt: koppla Neon, Supabase eller Upstash till <em>ditt</em> Vercel-projekt via
-                        Marketplace — oberoende av Sajtmaskin-appens egen databas.
-                      </span>
+                      Du hanterar och bekostar integrationen själv. Koppla valfri provider till ditt
+                      Vercel-projekt via Marketplace vid behov.
                     </div>
                   )}
                   {marketplaceOptionsInfo.isFilteredSubset && (
                     <div className="text-muted-foreground mt-2 text-[11px]">
-                      Listan är filtrerad utifrån vad som verkar användas i den aktiva versionen (t.ex. Supabase
-                      om detekterat).
+                      Listan är filtrerad utifrån vad som verkar användas i den aktiva versionen.
                     </div>
                   )}
                   {marketplaceOptionsInfo.fallbackToFullList && integrationOptions.length > 0 && (
                     <div className="text-muted-foreground mt-2 text-[11px]">
-                      Ingen tydlig match i koden ännu — alla valfria marketplace-providers visas.
+                      Ingen tydlig match i koden ännu, så alla valfria providers visas.
                     </div>
                   )}
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
                     <select
                       value={selectedIntegration}
                       onChange={(event) => setSelectedIntegration(event.target.value)}
-                      className="border-border bg-background h-8 min-w-[160px] rounded-md border px-2 text-xs"
+                      className="border-border bg-background h-8 min-w-[160px] max-w-full rounded-md border px-2 text-xs"
                     >
                       {marketplaceOptionsInfo.options.length === 0 && (
                         <option value="">Välj provider när alternativ finns</option>
@@ -1236,13 +1222,13 @@ export function ProjectEnvVarsPanel({
                   className="mt-2 h-7 text-[11px]"
                   onClick={() => setShowDiagnostics(true)}
                 >
-                  Visa felsökning (Sajtmaskin-server & MCP)
+                  Visa plattformsfelsökning
                 </Button>
               ) : (
-                <details className="border-border group mt-2 rounded-md border p-2" open>
+                <details className="border-border group mt-2 rounded-md border p-2">
                   <summary className="cursor-pointer list-none text-left text-xs font-medium text-gray-200 marker:content-none [&::-webkit-details-marker]:hidden">
                     <span className="inline-flex items-center gap-2">
-                      Felsökning: Sajtmaskin-server &amp; MCP
+                      Plattformsfelsökning: Sajtmaskin-server &amp; MCP
                       <span className="rounded-full border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[9px] text-slate-200">
                         valfritt
                       </span>
@@ -1260,9 +1246,8 @@ export function ProjectEnvVarsPanel({
                     </Button>
                   </div>
                   <div className="text-muted-foreground mt-2 text-[11px]">
-                    Här visas hur Sajtmaskin-appens backend är konfigurerad (t.ex. appens Postgres, OpenAI).
-                    Det är inte samma sak som databaser eller API:er i <em>din</em> genererade sajt — öppna bara
-                    om du felsöker själva plattformen. Samma sektion samlar MCP-prioritering för utvecklingsverktyg.
+                    Visar bara Sajtmaskins egen backend-status och MCP-prioritering. Det här gäller
+                    plattformen, inte databaser eller API:er i din genererade sajt.
                   </div>
                   {integrationStatus && (
                     <div className="mt-2 space-y-1">

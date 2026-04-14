@@ -1,6 +1,6 @@
 # shadcn Ecosystem Integration — Future Plan
 
-Status: **planerat** (ej påbörjat)
+Status: **delvis genomfört** (Nivå 0 + 1 + 5 klara, resten planerat)
 Skapad: 2026-04-13
 Kontext: [Toolkit Enrichment](../../../.cursor/plans/toolkit_enrichment_plan_dc42efbf.plan.md) — fas 1–5 genomförda
 
@@ -12,7 +12,23 @@ Det här dokumentet listar konkreta framtida investeringar, ordnade efter värde
 
 ---
 
-## Nivå 1 — Automatisk komponentsynk (kort sikt, låg risk)
+## Nivå 0 — Statiska component patterns (GENOMFÖRD)
+
+### Problem
+
+Toolkit-sammanfattningen listar komponentnamn men inte *hur* de används. LLM:en ser "calendar" i listan men vet inte att den tar `mode="single"` + `onSelect`, att DatePicker = Calendar + Popover, eller att Drawer wrapprar vaul. Resultatet: statiska grids istället för interaktiva komponenter.
+
+### Lösning
+
+Ny statisk promptfil `config/prompt-static/03b-shadcn-component-patterns.md` med korta API-mönster för ~18 interaktiva komponenter. Laddas via `codegen-static-prompt.json` direkt efter `03-shadcn-ui-components.md`. ~250 tokens, alltid närvarande i prompten.
+
+Täcker: Calendar, DatePicker, Command, Combobox, Drawer, Carousel, Chart, Form, InputOTP, Sheet, DataTable, Sidebar, Sonner, Empty, Spinner, InputGroup, next-themes.
+
+**Status:** Genomförd 2026-04-13.
+
+---
+
+## Nivå 1 — Automatisk komponentsynk (GENOMFÖRD)
 
 ### Problem
 
@@ -20,27 +36,26 @@ Det här dokumentet listar konkreta framtida investeringar, ordnade efter värde
 
 ### Lösning
 
-Skapa ett script (t.ex. `scripts/sync-shadcn-registry.ts`) som:
+`scripts/shadcn/sync-shadcn-registry.ts`:
 
-1. Anropar shadcn MCP-servern (`list_items_in_registries` med `@shadcn`) eller hämtar `https://ui.shadcn.com/r/registry.json`
-2. Filtrerar `registry:ui`-items
-3. Genererar en uppdaterad `SHADCN_COMPONENTS`-map (eller varnar om diff mot nuvarande)
-4. Körs som en npm-script (`npm run shadcn:sync`) eller i CI
+1. Hämtar `https://ui.shadcn.com/r/index.json` → filtrera `registry:ui`
+2. Hämtar varje komponents detail-JSON (`/r/styles/new-york-v4/{name}.json`) och parsar `export { ... }` för PascalCase-exporter
+3. Jämför mot befintlig `SHADCN_COMPONENTS`-map
+4. Utan flagga: warn-only diff. Med `--write`: uppdaterar filen. Med `--json`: maskinläsbar diff.
 
 ### Berörda filer
 
-- `src/lib/gen/data/shadcn-components.ts` — output-mål
-- `scripts/sync-shadcn-registry.ts` — nytt script
-- `package.json` — ny script-entry
+- `src/lib/gen/data/shadcn-components.ts` — output-mål (307 entries efter första synk)
+- `scripts/shadcn/sync-shadcn-registry.ts` — synk-script
+- `package.json` — `shadcn:sync` + `shadcn:sync:write`
 
-### Komplexitet
+### Resultat (första körning 2026-04-13)
 
-Låg. MCP-servern (`project-0-sajtmaskin-shadcn`) är redan konfigurerad och fungerar. Alternativt kan vi hämta registry.json direkt via HTTP.
+- 73 nya exports tillagda (bl.a. hela `Combobox*`-familjen, `AvatarGroup`, `SidebarRail` m.fl.)
+- 4 entries borttagna från upstream men behållna lokalt (`Chart`, `Direction`, `Sonner`, `Toast`)
+- 1 subpath-ändring: `Toaster` → `"sonner"` (var `"toaster"`)
 
-### Öppna frågor
-
-- Ska scriptet generera filen helt, eller bara varna om saknade poster?
-- Export-namn (PascalCase) finns inte i registry.json — de ligger i komponentfilernas source. Vi kan antingen hämta varje komponents fil via MCP (`view_items_in_registries`) och parsa exporter, eller underhålla en minimal manuell mapping från subpath → exporter och bara automatisera *vilka subpaths som finns*.
+**Status:** Genomförd 2026-04-13.
 
 ---
 
@@ -48,7 +63,7 @@ Låg. MCP-servern (`project-0-sajtmaskin-shadcn`) är redan konfigurerad och fun
 
 ### Problem
 
-Section recipes i `style-directions.ts` är handskrivna strängar som beskriver komponentkombinationer (t.ex. "Testimonial rail using Carousel + HoverCard author reveals"). De är bra men subjektiva och kan bli inaktuella.
+Variant-guidance i `config/scaffold-variants/*.json` innehåller handskrivna strängar för visuella och strukturella uttryck (t.ex. dossier-härledda style rules). De är bra men subjektiva och kan bli inaktuella.
 
 ### Lösning
 
@@ -69,13 +84,13 @@ login-04     → Card + Form + Input + Button (split layout med bild)
 
 ### Berörda filer
 
-- `src/lib/gen/data/style-directions.ts` — `sectionRecipes` kan bli delvis automatgenererade
+- `config/scaffold-variants/` — variant-guidance kan bli delvis automatgenererad från blocks-metadata
 - Eventuellt ny datafil `src/lib/gen/data/block-patterns.ts`
 - `scripts/extract-block-patterns.ts` — nytt script
 
 ### Komplexitet
 
-Medel. Blocks dependencies ger oss vilka *komponenter* som ingår, men inte *hur* de arrangeras (layout, visuell hierarki). Mänsklig curation behövs fortfarande för att matcha patterns mot style directions.
+Medel. Blocks dependencies ger oss vilka *komponenter* som ingår, men inte *hur* de arrangeras (layout, visuell hierarki). Mänsklig curation behövs fortfarande för att matcha patterns mot scaffold variants.
 
 ### Designbeslut
 
@@ -87,7 +102,7 @@ Vi importerar INTE hela block-filer i prompten. Vi extraherar deras *komposition
 
 ### Problem
 
-`fontPairings` i `style-directions.ts` innehåller Google Font-namn som strängar. LLM:en tolkar dem och genererar `next/font/google`-importer. Om ett fontnamn stavas fel eller inte finns i Google Fonts failar det tyst.
+`fontPairings` i scaffold-variant-JSON innehåller Google Font-namn som strängar. LLM:en tolkar dem och genererar `next/font/google`-importer. Om ett fontnamn stavas fel eller inte finns i Google Fonts failar det tyst.
 
 ### Lösning
 
@@ -108,7 +123,7 @@ Skapa `registry:font`-items för varje fontpar och använd schemat som referens:
 
 ### Berörda filer
 
-- `src/lib/gen/data/style-directions.ts` — `fontPairings` byter format till strukturerat schema
+- `config/scaffold-variants/` — `fontPairings` byter format till strukturerat schema
 - `src/lib/gen/system-prompt.ts` — rendering av font direction
 - Eventuellt: `data/font-registry/` med JSON-filer per fontpar
 
@@ -161,30 +176,43 @@ Medel. Risken är att shadcn CLI-beteende ändras med det nya formatet och påve
 
 ---
 
-## Nivå 5 — MCP-servern i generationspipelinen (långsikt, hög risk)
+## Nivå 5 — Dedikerad sajtmaskin-component-mcp (GENOMFÖRD — förenklad variant)
 
 ### Problem
 
-Idag är vår verktygslåda statisk: vi talar om för LLM:en vilka komponenter som finns, och hoppas att den genererar korrekt kod. Vi har ingen feedback-loop mot det faktiska registret under generering.
+Nivå 0 (statiska component patterns) ger depth för de vanligaste komponenterna men är manuellt underhållen och begränsad till ~18 mönster. När shadcn lägger till nya komponenter eller ändrar API:er hamnar vi efter.
 
-### Vision
+### Distinktion från Cursor-MCP
 
-I framtiden kan generationspipelinen använda MCP-servern för att:
+| MCP-server | Används av | Transport |
+|---|---|---|
+| `project-0-sajtmaskin-shadcn` (Cursor) | Utvecklare i Cursor IDE | Cursor MCP-protokoll (lokal) |
+| **sajtmaskin-component-mcp** (ny) | Genererings-LLM i `orchestrate.ts` | HTTP/fetch mot lokal cache eller shadcn-registret |
 
-1. **Hämta komponentkod** — istället för att lita på LLM:ens kunskap om t.ex. `InputGroup`-API:t, ge den faktisk source
-2. **Validera importer** — efter generering, verifiera mot registret att alla använda komponenter faktiskt existerar
-3. **Installera saknade deps** — om LLM:en refererar en komponent vi inte har, hämta den automatiskt
+Cursor-MCP:n är **inte** tillgänglig för genererings-LLM:en — den körs i en API-route/serverless function utan Cursor-transport.
 
-### Varför det är hög risk
+### Lösning
 
-- MCP-anrop lägger latens i en redan latens-känslig pipeline
-- Registret kan vara nere eller ändra API
-- Token-budget: att inkludera komponentkällfiler tar hundratals tokens per fil
-- Arkitekturändring: kräver ny fas i `orchestrate.ts`-flödet
+Ett pre-generation-steg i `orchestrate.ts` (efter `inferCapabilities`, före `buildDynamicContext`) som:
 
-### Rekommendation
+1. Baserat på capabilities + prompt-keywords, identifierar 3-5 relevanta shadcn-komponenter
+2. Hämtar deras examples via HTTP mot en lokal cache (synkad från `ui.shadcn.com/r/`)
+3. Injicerar som `## Component References` i dynamisk kontext (~400-1500 tokens)
 
-Börja med offline-varianten (nivå 1-3) som ger samma nytta utan runtime-risk. MCP i pipeline är en R&D-investering, inte en quick win.
+### Implementation
+
+- **Lokal cache:** `data/shadcn-registry-cache/` med JSON-filer per komponent, synkade via `npm run shadcn:sync`
+- **Fetch-modul:** `src/lib/gen/data/shadcn-registry-fetch.ts` — läser lokal cache, fallback till Nivå 0 patterns
+- **Orchestration-hook:** nytt steg i `resolveOrchestrationBase()` som bygger `componentReferences`
+- **Prompt-rendering:** ny sektion i `buildDynamicContext()` med demokod för matchade komponenter
+
+### Fallback
+
+Om cachen saknas eller är tom: Nivå 0 (statiska patterns) används alltid som baseline. Component references är ett *tillägg*, inte en ersättning.
+
+### Uppskattad insats
+
+2-3 dagar. Huvudarbetet är cache-synk-scriptet och orchestration-hooken. Prompt-rendering och fallback är trivialt.
 
 ---
 
@@ -192,11 +220,12 @@ Börja med offline-varianten (nivå 1-3) som ger samma nytta utan runtime-risk. 
 
 | Nivå | Beskrivning | Värde | Risk | Uppskattad insats |
 |------|-------------|-------|------|-------------------|
-| 1 | Automatisk komponentsynk | Hög — eliminerar manuellt underhåll | Låg | 2-4 h |
+| 0 | Statiska component patterns | Hög — ger API-depth utan runtime-kostnad | Låg | **Genomförd** |
+| 1 | Automatisk komponentsynk | Hög — eliminerar manuellt underhåll | Låg | **Genomförd** |
 | 2 | Blocks-metadata → section recipes | Medel — rikare recipes, bättre first-pass | Medel | 4-8 h |
 | 3 | registry:font-schema för fontpar | Medel — validerade fontnamn, bättre konsistens | Låg | 2-3 h |
 | 4 | components.json v4-uppgradering | Låg nu — möjliggör community-registrys | Medel | 1-2 h |
-| 5 | MCP-server i generationspipeline | Hög potentiellt — men hög risk | Hög | 2-4 veckor |
+| 5 | Dedikerad sajtmaskin-component-mcp | Hög — on-demand API-depth från registret | Medel | **Genomförd** (förenklad: lokal cache + orchestration-hook) |
 
 ---
 
@@ -206,9 +235,11 @@ Toolkit Enrichment (april 2026) löste de akuta problemen:
 
 - `@tanstack/react-table` och `@react-three/rapier` installerade (dep-bugfix)
 - Grupperad komponentvägledning i `## Your Toolkit` (prompt-förbättring)
-- Konkreta fontpar per style direction (data-utökning)
-- Section recipes per style direction (data-utökning)
+- Konkreta fontpar per scaffold variant (data-utökning)
+- Section recipes per scaffold variant (data-utökning)
 - 9 saknade shadcn-komponenter tillagda i registret
 - lucide-react KNOWN_PACKAGES fixad (^0.563 → ^1)
+- Capability-inference gaps: needsCalendar, needsCommandSearch, needsThemeToggle + berikade hints
+- **Nivå 0:** Statiska component patterns (`03b-shadcn-component-patterns.md`) — API-depth för ~18 interaktiva komponenter
 
 Arbetet ovan bygger vidare på den grunden — det ersätter den inte.

@@ -148,6 +148,118 @@
         "deploy-assistant": "gpt-4.1"
       }
     },
+    "thinkingByTier": {
+      "fast": {
+        "planner": {
+          "thinking": true,
+          "reasoningEffort": "medium"
+        },
+        "generator": {
+          "thinking": true,
+          "reasoningEffort": "medium"
+        },
+        "fixer": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "verifier": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "deploy-assistant": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        }
+      },
+      "pro": {
+        "planner": {
+          "thinking": true,
+          "reasoningEffort": "medium"
+        },
+        "generator": {
+          "thinking": true,
+          "reasoningEffort": "medium"
+        },
+        "fixer": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "verifier": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "deploy-assistant": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        }
+      },
+      "max": {
+        "planner": {
+          "thinking": true,
+          "reasoningEffort": "high"
+        },
+        "generator": {
+          "thinking": true,
+          "reasoningEffort": "high"
+        },
+        "fixer": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "verifier": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "deploy-assistant": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        }
+      },
+      "codex": {
+        "planner": {
+          "thinking": true,
+          "reasoningEffort": "high"
+        },
+        "generator": {
+          "thinking": true,
+          "reasoningEffort": "high"
+        },
+        "fixer": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "verifier": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "deploy-assistant": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        }
+      },
+      "anthropic": {
+        "planner": {
+          "thinking": true,
+          "reasoningEffort": "high"
+        },
+        "generator": {
+          "thinking": true,
+          "reasoningEffort": "high"
+        },
+        "fixer": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "verifier": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        },
+        "deploy-assistant": {
+          "thinking": false,
+          "reasoningEffort": "medium"
+        }
+      }
+    },
     "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override."
   },
   "repairPolicies": {

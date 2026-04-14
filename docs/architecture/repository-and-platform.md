@@ -30,7 +30,7 @@ Detalj: [`.cursor/rules/repo-env-indexing.mdc`](../../.cursor/rules/repo-env-ind
 - **Research-skript** (`scripts/template-library/hamta_sidor_branch_emil.py`, `scripts/template-library/full_template_refresh.py`, m.m.): påverkar **inte** produktion direkt — se [`scripts/README.md`](../../scripts/README.md).
 - **Env-verktyg** (`scripts/env/manage_env.py`, `scripts/env/model_trace_overlay.py`): kanoniska entrypoints.
 - **Scaffold-manifest**: `src/lib/gen/scaffolds/`.
-- **Prompt-dump-status** delas mellan panelerna via `scripts/dashboard_shared.py`.
+- **Prompt-dump-status** delas nu via `backoffice/shared.py` (med legacy re-export från `scripts/dashboard_shared.py`).
 
 ### Tre separata mallspår
 
@@ -75,9 +75,9 @@ Lokal capture: `services/inspector-worker/`, `npm run inspector:*` (se rot `pack
 
 ## Övrigt
 
-- **Config dashboard (Streamlit)**: `config/dashboard/app.py` är konfigurations- och översiktspanel för `config/*`, vissa docs/rules, runtime-scaffolds, template-pipelineöversikt och prompt-dump-status. Det är inte en egen runtime-källa.
-- **Scriptpanel (Tkinter)**: `scripts/scripts_dashboard.py` är pipeline-/artifactpanel för rebuild, embeddings, scaffolds, externa referenser, parity och prompt-dump-status.
-- **Delad dashboardlogik**: `scripts/dashboard_shared.py` bär gemensam statuslogik för prompt-dumps så att panelerna inte driver isär i kategorier, filnamn eller statusord.
+- **Konsoliderad backoffice (Streamlit)**: `sajtmaskin_backoffice.py` startar nu den samlade Streamlit-ytan. Kod och sidmoduler ligger under `backoffice/` och täcker både konfigurationspanel, overhead/admin och artifacts/pipeline.
+- **Legacy entrypoints**: `config/dashboard/app.py` och `scripts/scripts_dashboard.py` finns kvar som wrappers som öppnar samma konsoliderade app med annan startkontext.
+- **Delad dashboardlogik**: `backoffice/shared.py` är den kanoniska helperkällan för prompt-dumps, manifest, autofix-/quality-inställningar, repo-paths och scaffold-/pipelinehelpers. `scripts/dashboard_shared.py` och `config/dashboard/shared_overhead.py` är bara re-exports för bakåtkompatibilitet.
 - **Dashboardkarta**: `config/dashboard/domain-map.json` beskriver vilka kanoniska paths, docs och codeReaders varje vy hör till.
 - **Cursor slash-kommandon**: repo-lokala kommandon kan ligga i `.cursor/commands/` och användas via `/...` i Cursor-chatten, t.ex. `/avslutning` för slutstädning/sync/verify/ship.
 - **OpenClaw / Sajtagenten**: användarytan nere till höger lever i `src/components/openclaw/` och `src/app/api/openclaw/`. Det är en separat assistent-/agentyta, inte builderns own-engine.

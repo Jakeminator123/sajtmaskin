@@ -2,7 +2,7 @@
 
 **Senast uppdaterad:** 2026-04-10
 
-Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna. Detta motsvarar **Steg 4** i 5-stegskartan. **Steg 5** (preview/materialisering, tier-2, uppföljning) börjar **efter** denna kedja — även om SSE kan fortsätta med `preview-ready` m.m.
+Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine **codegen-streamen** levererat rå output, tills en **version** finns sparad och preflight/telemetri är skrivna.
 
 ## Kanoniska källfiler
 
@@ -12,19 +12,20 @@ Syfte: ge en **repo-rätt** karta över vad som händer **efter** att own-engine
 | Fas-ID:n + ordning | `src/lib/gen/stream/finalize-pipeline-contract.ts` — `OWN_ENGINE_POST_STREAM_PIPELINE` |
 | Syntax + LLM-fixer | `src/lib/gen/autofix/validate-and-fix.ts` |
 | Deterministisk autofix före syntax | `src/lib/gen/autofix/pipeline.ts` — `runAutoFix()` |
-| Verifier-pass (read-only LLM) | `src/lib/gen/verifier-pass.ts` |
+| Verifier-pass (read-only LLM) | `src/lib/gen/verify/verifier-pass.ts` |
 | Parse / merge / preflight | `src/lib/gen/stream/finalize-preflight.ts`, `finalize-merge.ts` |
 | Stream → finalize anrop | `src/lib/providers/own-engine/generation-stream.ts`, `src/lib/gen/stream/shared-own-engine-helpers.ts` |
 | Efter finalize (done/preview/server-verify) | `src/lib/providers/own-engine/generation-stream-post-finalize.ts` |
-| Asynk server-verify (ej i finalize) | `src/lib/gen/server-verify.ts` |
+| Asynk server-verify (ej i finalize) | `src/lib/gen/verify/server-verify.ts` |
+| Fasmodell + phase-thinking | `src/lib/models/phase-routing.ts`, `config/ai_models/manifest.json` |
 
 ## Faktisk stegordning i `finalizeAndSaveVersion`
 
 1. **`autofix`** — `runAutoFix()` på ackumulerat stream-innehåll (kan stängas av med `runAutofix: false`). Kör alla **mekaniska fixar** (imports, struktur, lucide, metadata, scroll-smooth, icon-value, basePath m.m.). Typer: `FixEntry` med `category: "mechanical"` från `autofix/types.ts`.
 2. **`url_expand`** — `expandUrls()` med `urlMap` från orkestrering.
-3. **`validate_syntax`** — `validateAndFix()`: syntaxvalidering + progressiv mekanisk→**LLM-fix**→mekanisk fix-loop. Loggar `autofix.mechanical-residual` (vilka fel som överlevde mekaniska fixar) före LLM-eskalering. Returnerar `mechanicalFixCount`, `llmFixCount`, `residualPatterns`.
+3. **`validate_syntax`** — `validateAndFix()`: syntaxvalidering + progressiv mekanisk→**LLM-fix**→mekanisk fix-loop. Loggar `autofix.mechanical-residual` (vilka fel som överlevde mekaniska fixar) före LLM-eskalering. När tier är känd följer LLM-fixen både `phaseRouting.fixer` och `phaseRouting.thinkingByTier`. Returnerar `mechanicalFixCount`, `llmFixCount`, `residualPatterns`.
 4. **`materialize_images`** — **endast om «deep path»** (`runDeepPath === true` i `resolveFinalizePathPolicy`). Ersätter placeholder-bilder m.m. Vid fel: **non-fatal**, logg och fortsätt.
-5. **`verifier`** — **endast om deep path** *och* `resolveVerifierPassPolicy` säger ja (BuildSpec, feature flag, inte repair-pass > 0). Read-only LLM; fel här är **non-fatal** (hoppar över).
+5. **`verifier`** — **endast om deep path** *och* `resolveVerifierPassPolicy` säger ja (BuildSpec, feature flag, inte repair-pass > 0). Read-only LLM; följer `phaseRouting.verifier` och `phaseRouting.thinkingByTier`. Fel här är **non-fatal** (hoppar över).
 6. **`parse_merge_preflight`** — parse JSON-filer från innehåll, `mergeGeneratedProjectFiles`, `runFinalizePreflight`, `injectIntegrationManifestIntoFilesJson`, scaffold-retry-förslag.
 7. **Fail-fast strukturgrind** — om preflight/sanity hittar tecken på **partial-file-output** (t.ex. avhuggen filstart, överlappande importblock eller annan snippet-lik repair-output) kastas nu `PartialFileOutputError` och **ingen version sparas alls**.
 8. **Persist** — `addAssistantMessageAndCreateDraftVersion` (transaktion: assistant + utkastversion med `files_json`).
@@ -54,7 +55,14 @@ Telemetry använder etiketterna `fast+deep` respektive `fast-only` (se `devLogAp
 | **Observability** | `createGenerationTelemetryRecord`, `devLogAppend`, preflight-loggar | Nej |
 | **Non-fatal fel** | Bildmaterialisering misslyckas, verifier-pass kastar | Nej — logg/warn, fortsätt |
 
-**`server-verify`:** körs **asynkront** efter finalize/handoff till preview (se `server-verify.ts` och `resolvePostFinalizeServerVerifyDecision()` i `post-finalize-policies.ts`); **blockerar inte** SSE `done`. Den hoppas över för t.ex. `verificationPolicy === "fast"`, icke-eligible versioner, `previewBlocked`, `verificationBlocked` eller låg-risk-standardflöden. Det är **Steg 4-nära** men **inte** samma synkrona pipeline som `finalizeAndSaveVersion`.
+**`server-verify`:** körs **asynkront** efter finalize/handoff till preview (se `verify/server-verify.ts` och `resolvePostFinalizeServerVerifyDecision()` i `post-finalize-policies.ts`); **blockerar inte** SSE `done`. Den hoppas över för t.ex. `verificationPolicy === "fast"`, icke-eligible versioner, `previewBlocked`, `verificationBlocked` eller låg-risk-standardflöden. Background repair i denna lane använder samma fixer-fasmodell och phase-thinking som annan LLM-fix. Det är **Steg 4-nära** men **inte** samma synkrona pipeline som `finalizeAndSaveVersion`.
+
+## Fault/fix-loggning och overhead-ytor
+
+- `devLog.ts` skriver full ISO-tid till körloggarna; `generation-log-writer.ts` bygger därifrån `fault-fix-index.md`, `fault-fix-index.csv` och den globala `logs/llm-segmentts-and-index/error-log.csv`.
+- `error-log.csv` är den sammanhållna fault/fix-loggen för mekaniska fixar, LLM-fixar och relevanta pipeline-/verify-signaler. `time` ska tolkas som full tidsstämpel, inte bara klockslag.
+- Den konsoliderade backoffice-appen under `backoffice/` ska spegla runtime-sanningen via `backoffice/shared.py`. `config/dashboard/app.py`, `sajtmaskin_backoffice.py` och `scripts/scripts_dashboard.py` är nu wrappers/legacy entrypoints, inte separata sanningar.
+- Versionskolumnen `files_json` förblir medvetet den \"slanka\" fil-listan efter merge/preflight. `package.json`, `tsconfig.json`, `next.config.ts` och annan baseline läggs i stället till via `buildCompleteProject(...)` för preview/export. Saknad `package.json` i DB betyder därför inte automatiskt att preview-projektet är ofullständigt.
 
 ## Steg 4 vs Steg 5 (gräns)
 
@@ -71,11 +79,10 @@ Bygg **inte** mental modell där `previewUrl: null` i finalize-resultat betyder 
 Uppdatera i samma leverans:
 
 - `docs/architecture/step4-post-generation.md` (denna fil)
-- `5-steg.txt` (samlad slutbild och kvarvarande problemomraden)
 - `.cursor/rules/terminology.mdc`
 - `docs/architecture/glossary.md` (fas 3: repair, quality gate, finalize)
 - `docs/architecture/builder-generation.md` (ingress till Steg 4)
 - `.cursor/rules/llm-pipeline-docs-sync.mdc` (glob/mandatory-rader)
-- Vid manifeständringar: `config/dashboard/app.py` (repair/verifier/timeouts), ev. `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
+- Vid manifest-/overheadändringar: `backoffice/`, `config/dashboard/app.py`, `sajtmaskin_backoffice.py`, `scripts/scripts_dashboard.py`, `config/dashboard/domain-map.json`
 
 Se även: `docs/architecture/llm-input-blocks.md` (Steg 3), `docs/architecture/preview-deploy.md` (Steg 5).

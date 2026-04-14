@@ -1,32 +1,8 @@
 import type { PromptType } from "@/lib/builder/promptOrchestration";
-
-const STRUCTURED_WEBSITE_HINTS = [
-  "hero",
-  "sektion",
-  "section",
-  "kontakt",
-  "om oss",
-  "about",
-  "cta",
-  "faq",
-  "pricing",
-  "gallery",
-  "produktkatalog",
-  "product catalog",
-  "catalog",
-  "shop",
-  "ehandel",
-  "e-handel",
-  "bakgrund",
-  "palette",
-  "color",
-  "färg",
-] as const;
+import { STRUCTURED_PROMPT_TOKENS, countTokenHits } from "./prompt-heuristics";
 
 function looksStructuredWebsitePrompt(prompt: string): boolean {
-  const normalized = prompt.toLowerCase();
-  const hintHits = STRUCTURED_WEBSITE_HINTS.filter((token) => normalized.includes(token)).length;
-  return normalized.length >= 120 && hintHits >= 2;
+  return prompt.length >= 120 && countTokenHits(prompt, STRUCTURED_PROMPT_TOKENS) >= 2;
 }
 
 /**

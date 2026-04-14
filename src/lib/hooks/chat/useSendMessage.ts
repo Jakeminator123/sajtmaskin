@@ -340,12 +340,13 @@ export function useSendMessage(
 
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
+          const fallbackController = new AbortController();
           try {
             const fallbackRes = await fetch(`${engineChatBaseUrl(chatId)}/messages`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
-              signal: streamAbortRef.current?.signal,
+              signal: fallbackController.signal,
             });
             if (!fallbackRes.ok) {
               let errorData: Record<string, unknown> | null = null;

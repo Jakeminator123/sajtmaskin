@@ -97,6 +97,8 @@ export function useCreateChat(
       }
 
       const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
+      const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
+      const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
 
       const createKey = buildCreateChatKey(
         initialMessage,
@@ -104,6 +106,17 @@ export function useCreateChat(
         selectedModelTier,
         enableImageGenerations,
         effectiveSystemPrompt,
+        {
+          scaffoldMode: effectiveScaffoldMode,
+          scaffoldId: effectiveScaffoldId,
+          buildMethod,
+          buildIntent,
+          planMode: options.planMode,
+          promptAssistMode,
+          promptAssistModel,
+          promptAssistDeep,
+          paletteState,
+        },
       );
       const existingLock = getActiveCreateChatLock(createKey);
       if (existingLock) {
@@ -131,9 +144,6 @@ export function useCreateChat(
       const now = Date.now();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
-      const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
-      const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
-
       const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
       const engineModel = canonicalModelIdToOwnModelId(canonicalTier);
       const buildProfileId = getBuildProfileId(canonicalTier);
@@ -255,7 +265,8 @@ export function useCreateChat(
         }
         const newChatId =
           data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
-        const newLinkedProjectId = data.v0ProjectId || data.v0_project_id || null;
+        const newLinkedProjectId =
+          data.projectId || data.v0ProjectId || data.v0_project_id || null;
         const preflight = readPreviewPreflight(data);
         const latestVersion = data.latestVersion as Record<string, unknown> | undefined;
         const resolvedVersionId =
@@ -326,11 +337,19 @@ export function useCreateChat(
       let requestBody: Record<string, unknown> | null = null;
 
       try {
-        const formattedMessage = formatPrompt(initialMessage);
+        // When Deep Brief is active the brief object carries all semantic
+        // expansion (pages, tone, visual direction, etc.) via meta.brief →
+        // buildDynamicContext().  The raw user text is the best user-message
+        // for the generator — no mechanical MÅL/CONSTRAINTS wrapper needed.
+        // Fall back to formatPrompt() only when brief is absent (assist off
+        // or brief generation failed).
+        const hasBrief = Boolean(pendingBriefRef?.current);
+        const formattedMessage = hasBrief ? initialMessage : formatPrompt(initialMessage);
         debugLog("AI", "Prompt formatting result", {
           originalLength: initialMessage.length,
           finalLength: formattedMessage.length,
           changed: formattedMessage.trim() !== initialMessage.trim(),
+          briefActive: hasBrief,
         });
         const finalMessage = appendAttachmentPrompt(
           formattedMessage,
@@ -464,12 +483,13 @@ export function useCreateChat(
 
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
+          const fallbackController = new AbortController();
           try {
             const fallbackRes = await fetch(ENGINE_CHATS_API_PREFIX, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
-              signal: streamAbortRef.current?.signal,
+              signal: fallbackController.signal,
             });
             if (!fallbackRes.ok) {
               let errorData: Record<string, unknown> | null = null;
