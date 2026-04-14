@@ -355,7 +355,7 @@ describe("runFinalizePreflight", () => {
     expect(finalFiles.some((file) => file.path === "app/about/page.tsx")).toBe(true);
     expect(
       finalFiles.find((file) => file.path === "app/about/page.tsx")?.content,
-    ).toContain("Skapa sida");
+    ).toContain("Tillbaka till startsidan");
     expect(result.preflightIssues.some((issue) => issue.message.includes("/about"))).toBe(false);
   });
 });

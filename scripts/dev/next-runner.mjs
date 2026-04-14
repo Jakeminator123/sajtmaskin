@@ -16,11 +16,26 @@ if (nextCommand === "dev" && !("SAJTMASKIN_DEV_LOG_STDOUT" in env)) {
 // Load .env.local so we can read INSPECTOR_CAPTURE_WORKER_URL before Next.js
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envLocalPath = resolve(__dirname, "..", "..", ".env.local");
+
+// API keys that .env.local must always win over stale shell environment values.
+// Cursor/IDE terminals often inherit old keys from parent processes.
+const FORCE_OVERRIDE_KEYS = new Set([
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+]);
+
 if (existsSync(envLocalPath)) {
   try {
     const parsed = parseDotenv(readFileSync(envLocalPath, "utf-8"));
     for (const [key, val] of Object.entries(parsed)) {
-      if (!(key in env)) env[key] = val;
+      if (FORCE_OVERRIDE_KEYS.has(key)) {
+        if (key in env && env[key] !== val) {
+          console.log(`\x1b[33m[next-runner] ${key} in shell env differs from .env.local — using .env.local\x1b[0m`);
+        }
+        env[key] = val;
+      } else if (!(key in env)) {
+        env[key] = val;
+      }
     }
   } catch {}
 }

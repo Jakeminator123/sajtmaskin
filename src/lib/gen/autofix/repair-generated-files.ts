@@ -29,8 +29,14 @@ const HTML_SCROLL_SMOOTH_RE = /(<html\b[^>]*?\bclassName=["'][^"']*)\bscroll-smo
 const CSS_SCROLL_SMOOTH_RE = /scroll-behavior:\s*smooth/g;
 const NEXT_CONFIG_FILE_RE = /(^|\/)next\.config\.(ts|mts)$/i;
 const NONEXISTENT_TEXTURE_RE = /url\(["']?\/(grain|noise|texture|dots|pattern)\.(png|jpg|svg|webp)["']?\)/gi;
-const UNAVAILABLE_IMPORT_RE = /^[ \t]*import\s+(?:type\s+)?\{[^}]*\}\s+from\s+["'](?:react-intersection-observer|framer-motion\/useInView)["'];?\s*$/gm;
+const UNAVAILABLE_IMPORT_RE = /^[ \t]*import\s+(?:type\s+)?(?:\{[^}]*\}|[A-Za-z_$][\w$]*)\s+from\s+["'](?:react-intersection-observer|framer-motion\/useInView|sora-font|geist|geist-font|inter-font|playfair-display|dm-sans|space-grotesk)["'];?\s*$/gm;
 const USE_IN_VIEW_BARE_RE = /\buseInView\b/g;
+const SHELL_PAGE_TECH_STRINGS = [
+  "Route purpose:",
+  "Plan för sidan",
+  "Varför sidan är enkel",
+  "Förberedd sida",
+];
 
 /**
  * @deprecated Use `FixEntry` from `./types`. Kept for backwards compat.
@@ -215,6 +221,21 @@ export function repairGeneratedFiles(files: CodeFile[]): {
         fixer: "texture-file-fixer",
         category: "mechanical",
         description: "Replaced nonexistent texture file reference with inline SVG noise",
+        file: file.path,
+      });
+    }
+
+    const contentBeforeShellCruft = content;
+    for (const phrase of SHELL_PAGE_TECH_STRINGS) {
+      const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`^.*[>"]\\s*${escaped}.*$`, "gm");
+      content = content.replace(re, "");
+    }
+    if (content !== contentBeforeShellCruft) {
+      fixes.push({
+        fixer: "shell-page-tech-cruft-fixer",
+        category: "mechanical",
+        description: "Removed developer-facing text (Route purpose, Plan för sidan, etc.) from shell page",
         file: file.path,
       });
     }

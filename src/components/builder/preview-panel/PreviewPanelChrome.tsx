@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileText,
   LayoutGrid,
+  MousePointerClick,
   Redo2,
   RefreshCw,
   Search,
@@ -61,17 +62,15 @@ interface PreviewPanelChromeProps {
   previewBuildError?: { stage: string; message: string } | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
   isCodeView: boolean;
-  previewRoutesLoading: boolean;
-  previewRoutes: string[];
-  activePreviewRoute: string | null;
-  handleNavigateRoute: (route: string) => void;
-  showTier2UnifiedStrip: boolean;
   showBlobWarning: boolean;
   showBlobConfigWarning: boolean;
   integrationError: boolean;
   showImagesDisabledWarning: boolean;
   showImagesUnsupportedWarning: boolean;
   showExternalWarning: boolean;
+  simplified?: boolean;
+  inlineEditMode?: boolean;
+  handleToggleInlineEdit?: () => void;
 }
 
 export function PreviewPanelChrome({
@@ -107,17 +106,15 @@ export function PreviewPanelChrome({
   previewBuildError,
   previewProdBuild,
   isCodeView,
-  previewRoutesLoading,
-  previewRoutes,
-  activePreviewRoute,
-  handleNavigateRoute,
-  showTier2UnifiedStrip,
   showBlobWarning,
   showBlobConfigWarning,
   integrationError,
   showImagesDisabledWarning,
   showImagesUnsupportedWarning,
   showExternalWarning,
+  simplified: _simplified,
+  inlineEditMode = false,
+  handleToggleInlineEdit,
 }: PreviewPanelChromeProps) {
   return (
     <div className="max-h-[40%] shrink-0 overflow-y-auto">
@@ -151,15 +148,17 @@ export function PreviewPanelChrome({
             variant="ghost"
             size="sm"
             onClick={handleToggleComposer}
-            disabled={!previewUrl || placementMode || inspectMode}
+            disabled={!previewUrl || placementMode || inspectMode || inlineEditMode}
             title={
               placementMode
                 ? "Avsluta placering först"
                 : inspectMode
                   ? "Stäng inspektionsläget först"
-                  : composerMode
-                    ? "Stäng Visual Composer"
-                    : "Dra sajblock till previewn (startsida)"
+                  : inlineEditMode
+                    ? "Stäng redigeringsläget först"
+                    : composerMode
+                      ? "Stäng Visual Composer"
+                      : "Dra sajblock till previewn (startsida)"
             }
             className={cn(
               "text-gray-400 hover:text-white",
@@ -207,19 +206,45 @@ export function PreviewPanelChrome({
               </Button>
             </>
           ) : null}
+          {handleToggleInlineEdit ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleInlineEdit}
+              disabled={!previewUrl || placementMode || composerMode || inspectMode}
+              title={
+                composerMode
+                  ? "Stäng Composer först"
+                  : inspectMode
+                    ? "Stäng inspektionsläget först"
+                    : inlineEditMode
+                      ? "Avsluta redigeringsläge"
+                      : "Klicka på text eller bilder i previewn för att redigera"
+              }
+              className={cn(
+                "text-gray-400 hover:text-white",
+                inlineEditMode && "bg-primary/20 text-primary hover:text-primary/90",
+              )}
+            >
+              <MousePointerClick className="mr-1 h-4 w-4" />
+              Redigera
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"
             onClick={handleToggleInspect}
-            disabled={!inspectorEnabled || !previewUrl || placementMode || composerMode}
+            disabled={!inspectorEnabled || !previewUrl || placementMode || composerMode || inlineEditMode}
             title={
               !inspectorEnabled
                 ? "Inspector är avstängd via feature flag"
                 : composerMode
                   ? "Stäng Composer först"
-                  : placementMode
-                    ? "Placering aktiv - avsluta placering först"
-                    : "Markera punkt i preview och skicka till chatten"
+                  : inlineEditMode
+                    ? "Stäng redigeringsläget först"
+                    : placementMode
+                      ? "Placering aktiv - avsluta placering först"
+                      : "Markera punkt i preview och skicka till chatten"
             }
             className={cn(
               "text-gray-400 hover:text-white",
@@ -293,10 +318,6 @@ export function PreviewPanelChrome({
         </div>
       </div>
 
-      <div className={cn("border-b px-4 py-2 text-xs", surfaceDescriptor.className)}>
-        {surfaceDescriptor.detail}
-      </div>
-
       {alternatePreviewBanner && onNavigatePreviewUrl ? (
         <div className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded-md border border-zinc-700/80 bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-300">
           <span>Live-preview med Next.js finns också för samma version.</span>
@@ -355,57 +376,6 @@ export function PreviewPanelChrome({
             </AlertDescription>
           </Alert>
         )
-      ) : null}
-
-      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0) ? (
-        <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
-          <div className="mb-1 text-[11px] font-medium text-gray-300">Sidor i skapad preview</div>
-          <div className="flex flex-wrap gap-1.5">
-            {previewRoutesLoading && previewRoutes.length === 0 ? (
-              <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
-            ) : (
-              previewRoutes.map((route) => (
-                <Button
-                  key={route}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "h-6 border-gray-700 px-2 text-[11px] text-gray-300 hover:bg-gray-800 hover:text-white",
-                    activePreviewRoute === route && "border-sky-500/60 bg-sky-500/10 text-sky-200",
-                  )}
-                  onClick={() => handleNavigateRoute(route)}
-                  title={`Visa ${route}`}
-                >
-                  {route}
-                </Button>
-              ))
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {showTier2UnifiedStrip ? (
-        <div className="border-b border-amber-900/45 bg-amber-950/30 px-4 py-2 text-xs text-amber-100">
-          <p className="font-medium text-amber-50">Live-preview (Next.js)</p>
-          <p className="mt-1 text-amber-100/90">
-            Din genererade kod körs med Next.js i den här miljön. Följande kan fortfarande gälla:
-          </p>
-          <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-amber-100/85">
-            {(showBlobWarning || showBlobConfigWarning) ? (
-              <li>Bilder och uppladdningar kan saknas om mediastorage inte är aktivt i byggaren.</li>
-            ) : null}
-            {integrationError ? (
-              <li>Integrationsstatus kunde inte läsas — vissa resurser kan saknas i preview.</li>
-            ) : null}
-            {showImagesDisabledWarning ? (
-              <li>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</li>
-            ) : null}
-            {showImagesUnsupportedWarning ? (
-              <li>Bildgenerering är inte tillgänglig med nuvarande konfiguration.</li>
-            ) : null}
-          </ul>
-        </div>
       ) : null}
 
       {!isCodeView &&

@@ -34,6 +34,8 @@ export function usePreviewPanelInspectMapPlacement(options: {
   placementMode: boolean;
   /** När sann, ladda elementkarta/zoner som för placering (t.ex. Visual Composer) utan chat-picker-läge. */
   composerMode?: boolean;
+  /** When true, load element map for inline click-to-edit (independent of inspector feature flag). */
+  inlineEditMode?: boolean;
   iframeLoading: boolean;
   externalLoading: boolean;
   iframeRef: RefObject<HTMLIFrameElement | null>;
@@ -53,6 +55,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     versionId,
     placementMode,
     composerMode = false,
+    inlineEditMode = false,
     iframeLoading,
     externalLoading,
     iframeRef,
@@ -68,6 +71,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
   } = options;
 
   const zonesActive = placementMode || Boolean(composerMode);
+  const needsElementMap = inspectorEnabled || inlineEditMode;
 
   const [inspectMode, setInspectMode] = useState(false);
   const [elementMap, setElementMap] = useState<ElementMapItem[]>([]);
@@ -84,7 +88,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
       height: number,
       requestToken = inspectFetchTokenRef.current,
     ) => {
-      if (!inspectorEnabled) {
+      if (!inspectorEnabled && !inlineEditMode) {
         if (requestToken === inspectFetchTokenRef.current) {
           setElementMap([]);
           setElementMapLoading(false);
@@ -136,7 +140,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
         }
       }
     },
-    [inspectorEnabled],
+    [inspectorEnabled, inlineEditMode],
   );
 
   const handleToggleInspect = useCallback(() => {
@@ -255,7 +259,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
   );
 
   useEffect(() => {
-    if (!previewUrl || !inspectorEnabled) return;
+    if (!previewUrl || !needsElementMap) return;
     setElementMap([]);
     let cancelled = false;
     const sleep = (ms: number) =>
@@ -284,16 +288,16 @@ export function usePreviewPanelInspectMapPlacement(options: {
     return () => {
       cancelled = true;
     };
-  }, [previewUrl, versionId, fetchElementMap, inspectorEnabled, iframeRef]);
+  }, [previewUrl, versionId, fetchElementMap, needsElementMap, iframeRef]);
 
   useEffect(() => {
-    if (inspectorEnabled) return;
+    if (needsElementMap) return;
     setInspectMode(false);
     setHoveredMapElement(null);
     setElementMap([]);
     setElementMapLoading(false);
     setHoveredPlacement(null);
-  }, [inspectorEnabled]);
+  }, [needsElementMap]);
 
   useEffect(() => {
     if (!zonesActive) return;

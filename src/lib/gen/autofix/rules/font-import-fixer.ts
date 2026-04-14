@@ -15,6 +15,8 @@ const UNAVAILABLE_FONT_REPLACEMENTS: Record<string, string> = {
 
 const FONT_USAGE_RE = /\bconst\s+\w+\s*=\s*(\w+)\s*\(\s*\{/g;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
+const LOCAL_FONT_GEIST_RE = /import\s+\w+\s+from\s+["']next\/font\/local["'];?\n?/g;
+const GEIST_LOCAL_FONT_BLOCK_RE = /const\s+(?:geist\w*|fontSans|fontMono)\s*=\s*\w+\(\{\s*src:\s*["'][^"']*geist[^"']*["'][^}]*\}\);?\n?/gi;
 
 function replaceUnavailableFonts(
   code: string,
@@ -41,6 +43,35 @@ export function fixFontImport(
 
   const fixes: AutoFixEntry[] = [];
   let workingCode = code;
+
+  if (/next\/font\/local/.test(workingCode) && /geist/i.test(workingCode)) {
+    const before = workingCode;
+    workingCode = workingCode.replace(GEIST_LOCAL_FONT_BLOCK_RE, "");
+    if (workingCode === before) {
+      workingCode = workingCode.replace(LOCAL_FONT_GEIST_RE, "");
+    } else {
+      workingCode = workingCode.replace(LOCAL_FONT_GEIST_RE, "");
+    }
+    if (workingCode !== before) {
+      if (!workingCode.includes("next/font/google")) {
+        workingCode = `import { Inter } from "next/font/google";\n` + workingCode;
+      }
+      if (!/\bconst\s+\w+\s*=\s*Inter\b/.test(workingCode)) {
+        const insertAfter = workingCode.indexOf("next/font/google");
+        const lineEnd = workingCode.indexOf("\n", insertAfter);
+        if (lineEnd !== -1) {
+          workingCode = workingCode.slice(0, lineEnd + 1) +
+            `const inter = Inter({ subsets: ["latin"] });\n` +
+            workingCode.slice(lineEnd + 1);
+        }
+      }
+      fixes.push({
+        fixer: "font-import-fixer",
+        description: "Replaced next/font/local Geist with next/font/google Inter (Geist .woff2 files not available on preview host)",
+        file: filePath,
+      });
+    }
+  }
 
   const fontReplacement = replaceUnavailableFonts(workingCode);
   if (fontReplacement.replaced.length > 0) {

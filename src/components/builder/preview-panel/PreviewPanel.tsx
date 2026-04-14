@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
-import type { FileNode } from "@/lib/builder/types";
+import type { ElementMapItem, FileNode } from "@/lib/builder/types";
 import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import {
   buildComposerDropDetail,
@@ -38,19 +38,16 @@ import { usePreviewPanelInspectCapture } from "./hooks/usePreviewPanelInspectCap
 import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspectMapPlacement";
 import { usePreviewPanelOwnEnginePreviewTelemetry } from "./hooks/usePreviewPanelOwnEnginePreviewTelemetry";
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
-import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
 import type {
   ComposerAiFallbackPayload,
   InspectEngine,
   PreviewPanelProps,
   PreviewViewMode,
 } from "./preview-panel-types";
-import {
-  buildExternalRoutePreviewUrl,
-  buildOwnEngineRoutePreviewUrl,
-} from "./preview-route-helpers";
 import { findFileNodeByPath } from "./code-file-tree-utils";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
+import { EditModeOverlay, type EditModeClickEvent } from "./EditModeOverlay";
+import { InlineEditPopup } from "./InlineEditPopup";
 import {
   buildAlternatePreviewBannerState,
   isCompatibilityShimPreviewUrl,
@@ -112,10 +109,19 @@ export function PreviewPanel({
   simplified = false,
   onComposerAiFallback,
   generationPhase,
+  onInlineEditPrompt,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
   const [composerMode, setComposerMode] = useState(false);
+  const [inlineEditMode, setInlineEditMode] = useState(false);
+  const [inlineEditTarget, setInlineEditTarget] = useState<{
+    element: ElementMapItem;
+    posX: number;
+    posY: number;
+    containerWidth: number;
+    containerHeight: number;
+  } | null>(null);
   const [isComposerDragging, setIsComposerDragging] = useState(false);
   const [composerUndoStack, setComposerUndoStack] = useState<ComposerPatchHistoryEntry[]>([]);
   const [composerRedoStack, setComposerRedoStack] = useState<ComposerPatchHistoryEntry[]>([]);
@@ -136,7 +142,6 @@ export function PreviewPanel({
     refreshToken,
     onFilesSaved,
   });
-  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(chatId, versionId);
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
     return findFileNodeByPath(files, selectedPath);
@@ -242,11 +247,19 @@ export function PreviewPanel({
   }, [chatId, versionId, files.length]);
 
   useEffect(() => {
-    if (placementMode) setComposerMode(false);
+    if (placementMode) {
+      setComposerMode(false);
+      setInlineEditMode(false);
+      setInlineEditTarget(null);
+    }
   }, [placementMode]);
 
   useEffect(() => {
-    if (isCodeView) setComposerMode(false);
+    if (isCodeView) {
+      setComposerMode(false);
+      setInlineEditMode(false);
+      setInlineEditTarget(null);
+    }
   }, [isCodeView]);
 
   useEffect(() => {
@@ -254,6 +267,8 @@ export function PreviewPanel({
     setComposerRedoStack([]);
     setComposerHistoryBusy(false);
     setLastComposerActionLabel(null);
+    setInlineEditMode(false);
+    setInlineEditTarget(null);
   }, [chatId, versionId]);
 
   useEffect(() => {
@@ -283,6 +298,7 @@ export function PreviewPanel({
     versionId,
     placementMode: Boolean(placementMode),
     composerMode,
+    inlineEditMode,
     iframeLoading,
     externalLoading,
     iframeRef,
@@ -349,8 +365,34 @@ export function PreviewPanel({
   const handleToggleComposer = useCallback(() => {
     if (!previewUrl || placementMode) return;
     setInspectMode(false);
+    setInlineEditMode(false);
+    setInlineEditTarget(null);
     setComposerMode((v) => !v);
   }, [previewUrl, placementMode, setInspectMode]);
+
+  const handleToggleInlineEdit = useCallback(() => {
+    if (!previewUrl || placementMode) return;
+    setComposerMode(false);
+    setInspectMode(false);
+    setInlineEditTarget(null);
+    setInlineEditMode((v) => !v);
+  }, [previewUrl, placementMode, setInspectMode]);
+
+  const handleInlineEditClick = useCallback((event: EditModeClickEvent) => {
+    setInlineEditTarget({
+      element: event.element,
+      posX: event.clientX - event.containerRect.left,
+      posY: event.clientY - event.containerRect.top,
+      containerWidth: event.containerRect.width,
+      containerHeight: event.containerRect.height,
+    });
+  }, []);
+
+  const handleInlineEditSave = useCallback((prompt: string, file?: File) => {
+    setInlineEditTarget(null);
+    setInlineEditMode(false);
+    onInlineEditPrompt?.(prompt, file);
+  }, [onInlineEditPrompt]);
 
   const handleComposerDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -595,35 +637,6 @@ export function PreviewPanel({
     if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
-  const activePreviewRoute = useMemo(() => {
-    if (!previewUrl) return null;
-    try {
-      if (isOwnEnginePreview) {
-        const current = new URL(previewUrl, window.location.origin);
-        return current.searchParams.get("route") || "/";
-      }
-      const current = new URL(previewUrl, window.location.origin);
-      return current.pathname || "/";
-    } catch {
-      return null;
-    }
-  }, [previewUrl, isOwnEnginePreview]);
-
-  const handleNavigateRoute = useCallback(
-    (route: string) => {
-      if (!previewUrl) return;
-      const nextUrl = isOwnEnginePreview
-        ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
-        : buildExternalRoutePreviewUrl(previewUrl, route);
-      if (!nextUrl || nextUrl === previewUrl) return;
-      onNavigatePreviewUrl?.(nextUrl);
-      setIframeLoading(true);
-      setIframeError(false);
-      setIframeErrorMessage(null);
-    },
-    [previewUrl, isOwnEnginePreview, onNavigatePreviewUrl],
-  );
-
   const handleClear = () => {
     if (!onClear) return;
     clearPreviewReadyTimer();
@@ -793,18 +806,6 @@ export function PreviewPanel({
     previewUrl && imageGenerationsEnabled && !imageGenerationsSupported,
   );
   const showBlobConfigWarning = Boolean(previewUrl && imageGenerationsEnabled && !isBlobConfigured);
-  /** Tier 2: one user-facing strip for media/env limits — no env-var name dump (`preview-deploy.md`). */
-  const showPreviewUnifiedStrip = Boolean(
-    !isCodeView &&
-      previewUrl &&
-      !isOwnEnginePreview &&
-      isTier2LivePreview &&
-      (showBlobWarning ||
-        showBlobConfigWarning ||
-        integrationError ||
-        showImagesDisabledWarning ||
-        showImagesUnsupportedWarning),
-  );
   const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(previewUrl);
   const showComposerOverlay =
     composerMode && Boolean(previewUrl) && !placementMode && !isCodeView;
@@ -879,11 +880,6 @@ export function PreviewPanel({
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
         isCodeView={isCodeView}
-        previewRoutesLoading={previewRoutesLoading}
-        previewRoutes={previewRoutes}
-        activePreviewRoute={activePreviewRoute}
-        handleNavigateRoute={handleNavigateRoute}
-        showTier2UnifiedStrip={showPreviewUnifiedStrip}
         showBlobWarning={showBlobWarning}
         showBlobConfigWarning={showBlobConfigWarning}
         integrationError={integrationError}
@@ -891,6 +887,8 @@ export function PreviewPanel({
         showImagesUnsupportedWarning={showImagesUnsupportedWarning}
         showExternalWarning={showExternalWarning}
         simplified={simplified}
+        inlineEditMode={inlineEditMode}
+        handleToggleInlineEdit={onInlineEditPrompt ? handleToggleInlineEdit : undefined}
       />
 
       {isCodeView ? (
@@ -993,6 +991,23 @@ export function PreviewPanel({
                   lastActionLabel={lastComposerActionLabel}
                 />
               ) : null}
+              <EditModeOverlay
+                active={inlineEditMode && !iframeLoading && !externalLoading}
+                elementMap={elementMap}
+                loading={elementMapLoading}
+                onElementClick={handleInlineEditClick}
+              />
+              {inlineEditTarget && (
+                <InlineEditPopup
+                  element={inlineEditTarget.element}
+                  posX={inlineEditTarget.posX}
+                  posY={inlineEditTarget.posY}
+                  containerWidth={inlineEditTarget.containerWidth}
+                  containerHeight={inlineEditTarget.containerHeight}
+                  onSave={handleInlineEditSave}
+                  onClose={() => setInlineEditTarget(null)}
+                />
+              )}
               {shouldRenderInspectorDev ? (
                 <PreviewPanelInspectorDev
                   showPlacementOverlay={showPlacementOverlay}

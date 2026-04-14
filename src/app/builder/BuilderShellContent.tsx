@@ -8,6 +8,7 @@ import {
 import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/components/builder/BuilderMessageTooling";
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { IntakeWizard, type IntakeWizardResult, type WizardScrapeData } from "@/components/builder/IntakeWizard";
+import { resolveScaffoldHintFromLabels } from "@/lib/builder/scaffold-hint";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
@@ -299,6 +300,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     (result: IntakeWizardResult) => {
       setShowIntakeWizard(false);
 
+      // Apply scaffold hint from wizard site type selection
+      const siteTypeField = result.fieldMessages.find((fm) => fm.field === "siteType");
+      if (siteTypeField) {
+        const labels = siteTypeField.text.split(", ").map((s) => s.trim());
+        const hint = resolveScaffoldHintFromLabels(labels);
+        if (hint.suggestedFamily) {
+          vm.setScaffoldMode("manual");
+          vm.setScaffoldId(hint.suggestedFamily);
+        }
+      }
+
       const userMessages: ChatMessage[] = result.fieldMessages.map((fm, i) => ({
         id: `wizard-${fm.field}-${Date.now()}-${i}`,
         role: "user" as const,
@@ -306,10 +318,36 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       }));
       vm.setMessages((prev) => [...prev, ...userMessages]);
 
+      // Upload media files from wizard (logo, product images, etc.)
+      if (result.mediaFiles?.length) {
+        for (const { file, context } of result.mediaFiles) {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("context", context);
+          void fetch("/api/media/upload", { method: "POST", body: formData })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data?.url) {
+                vm.setMessages((prev) => [
+                  ...prev,
+                  { id: `media-${Date.now()}`, role: "user" as const, content: `[Uppladdad bild: ${context}](${data.url})` },
+                ]);
+              }
+            })
+            .catch(() => { /* silent */ });
+        }
+      }
+
       const allMessages = [...vm.messages, ...userMessages];
-      triggerStarterGeneration(allMessages);
+
+      if (result.mediaFiles?.length) {
+        pendingGenerationRef.current = { messages: allMessages };
+        executeStarterGeneration();
+      } else {
+        triggerStarterGeneration(allMessages);
+      }
     },
-    [vm.messages, vm.setMessages, triggerStarterGeneration],
+    [vm.messages, vm.setMessages, vm.setScaffoldMode, vm.setScaffoldId, triggerStarterGeneration, executeStarterGeneration],
   );
 
   const handleIntakeWizardScrape = useCallback(
@@ -1832,6 +1870,22 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onPlacementComplete={handlePlacementComplete}
               simplified={false}
               generationPhase={generationPhase}
+              onInlineEditPrompt={(prompt, file) => {
+                if (file) {
+                  const formData = new FormData();
+                  formData.append("file", file);
+                  formData.append("context", "inline-edit-image");
+                  void fetch("/api/media/upload", { method: "POST", body: formData })
+                    .then((res) => res.json())
+                    .then((data) => {
+                      const imageRef = data?.url ? `\n[Bifogad bild](${data.url})` : "";
+                      void vm.sendMessage(prompt + imageRef);
+                    })
+                    .catch(() => void vm.sendMessage(prompt));
+                } else {
+                  void vm.sendMessage(prompt);
+                }
+              }}
             />
             <PostGenerationAdvisor
               visible={Boolean(

@@ -231,8 +231,7 @@ describe("buildDynamicContext", () => {
       expect(context).toContain("Fully realize only `/` in this generation");
       expect(context).toContain("`/about` — About [shell now]");
       expect(context).toContain("`/contact` — Contact [shell now]");
-      expect(context).toContain("clear primary CTA such as 'Skapa sida'");
-      expect(context).toContain("deliberate builder-owned placeholder states");
+      expect(context).toContain("Shell route design");
     });
 
     it("follow-up keeps mode and profile without retrieval sections", async () => {

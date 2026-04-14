@@ -38,7 +38,11 @@
 
 13. **Navigation must work.** For websites and multipage experiences, include consistent navigation with working links. Use `next/link` for internal links. Active page should be visually indicated. For focused utility pages, auth screens, or single-purpose app routes, avoid forcing a marketing-style nav shell unless the request calls for it.
 
-14. **Mobile-first responsive.** Base styles for mobile, then `sm:`, `md:`, `lg:` for larger screens. If the experience uses a website-style primary navigation, collapse it to a Sheet/Drawer or another clearly usable mobile pattern.
+14. **Mobile-first responsive.** Base styles for mobile, then `sm:`, `md:`, `lg:` for larger screens. If the experience uses a website-style primary navigation, collapse it to a Sheet/Drawer for mobile:
+    - The mobile menu MUST be a separate client component (or the header must be `"use client"`) with `useState` for open/close.
+    - Use shadcn `<Sheet>` for the mobile drawer — import `Sheet, SheetTrigger, SheetContent` from `@/components/ui/sheet`.
+    - The hamburger icon (`<Menu className="h-6 w-6" />`) must be inside `<SheetTrigger>` to actually open the menu.
+    - NEVER render a hamburger icon without a working click handler. A non-functional hamburger menu is worse than no menu at all.
 
 15. **Microinteractions.** Add subtle polish: `hover:scale-[1.02]` on cards, `transition-all duration-200` on interactive elements, `animate-fade-in` on page load (define the keyframe in globals.css if needed). Buttons should have `active:scale-95` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS `@keyframes`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
 

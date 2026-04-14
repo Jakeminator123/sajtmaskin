@@ -667,10 +667,24 @@ export async function buildDynamicContext(
     if (routeMode === "primary-full-with-shells") {
       parts.push(
         "",
-        "- For shell routes, create valid App Router pages that look intentional: include page title, route purpose, a short explanation of what the page will become, and a clear primary CTA such as 'Skapa sida'.",
-        "- Shell routes should feel like deliberate builder-owned placeholder states, not broken pages. It is fine if they use a bold branded theme treatment to signal 'this route exists and is ready to be expanded next'.",
-        "- Keep shell code lightweight, coherent, and safe to preview. They should preserve navigation, metadata surface, and internal linking without pretending to be fully implemented.",
-        "- Keep most design and implementation budget on the primary route. Extra planned routes should preserve IA, navigation, metadata, and internal linking without demanding full implementation yet.",
+        "- **Shell route design — minimalist white placeholder (FOLLOW EXACTLY):**",
+        "  Shell pages share the site header/footer. The main content area is a centered, minimal placeholder.",
+        "  ```tsx",
+        "  <main className=\"flex min-h-[60vh] flex-col items-center justify-center px-6 py-32 text-center\">",
+        "    <LucideIcon className=\"mx-auto mb-6 h-12 w-12 text-black/20\" />",
+        "    <h1 className=\"text-3xl font-bold tracking-tight text-black\">Sidnamn</h1>",
+        "    <p className=\"mt-3 max-w-md text-black/60\">En kort mening på svenska om vad sidan kommer innehålla.</p>",
+        "    <Link href=\"/\" className=\"mt-8 inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-black/80\">",
+        "      ← Tillbaka till startsidan",
+        "    </Link>",
+        "  </main>",
+        "  ```",
+        "  - Pick a matching lucide icon: `ShoppingBag` for products, `Users` for about, `Mail` for contact, `FileText` for blog.",
+        "  - Write 1 sentence from the business perspective: 'Här visar vi snart vårt sortiment av...'",
+        "  - The only interactive element is a `<Link href=\"/\">` back to the home page. Do NOT add a 'Skapa sida' button — page creation is handled by the builder, not the preview.",
+        "  - FORBIDDEN: file paths, 'Route purpose:', 'Path:', 'Plan för sidan', 'Varför sidan är enkel', any English text, any developer-facing explanation, colored banners, 'Förberedd sida' badges, `<Button>` elements.",
+        "  - Background: white or very subtle gradient (e.g. `bg-gradient-to-b from-white to-gray-50`). No harsh colors.",
+        "  - Keep most design budget on the primary route.",
       );
       if (isFollowUp) {
         parts.push(

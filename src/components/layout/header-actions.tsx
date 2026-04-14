@@ -44,18 +44,11 @@ export function HeaderActions({ onLoginClick, onRegisterClick }: HeaderActionsPr
     onLoginClick?.();
   };
 
-  if (!isInitialized) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className="h-8 w-8 animate-pulse rounded-md bg-muted" />
-        <SiteNavMenu />
-      </div>
-    );
-  }
-
   return (
     <div className="flex items-center gap-2">
-      {isAuthenticated ? (
+      {!isInitialized ? (
+        <div className="h-8 w-8 animate-pulse rounded-md bg-muted" />
+      ) : isAuthenticated ? (
         <>
           {diamonds !== null && (
             <Button

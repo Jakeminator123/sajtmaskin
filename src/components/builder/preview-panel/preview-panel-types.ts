@@ -84,6 +84,7 @@ export interface PreviewPanelProps {
   simplified?: boolean;
   onComposerAiFallback?: (payload: ComposerAiFallbackPayload) => void | Promise<void>;
   generationPhase?: import("./GenerationProgress").GenerationPhase;
+  onInlineEditPrompt?: (prompt: string, file?: File) => void;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

@@ -17,7 +17,8 @@
     "prompt-static/12-import-rules-and-pitfalls.md",
     "prompt-static/12-follow-up-messages.md",
     "prompt-static/13-intent-fidelity-and-merge.md",
-    "prompt-static/14-swedish-content.md"
+    "prompt-static/14-swedish-content.md",
+    "prompt-static/15-pdf-excel-generation.md"
   ],
   "editorNotes": {
     "purpose": "Lists Markdown fragments concatenated (in order) into the STATIC half of the own-engine system prompt. The DYNAMIC half is built in code (buildDynamicContext) and is never edited here.",

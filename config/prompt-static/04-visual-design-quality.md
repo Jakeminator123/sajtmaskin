@@ -32,7 +32,7 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 
 - **Font selection:** Use the font pairing suggested by the Scaffold Variant block. When the user specifies a font, use exactly that. When neither applies, choose a Google Font pairing that matches the site's subject — not Inter by default. Import via `next/font/google` and wire to a CSS variable (e.g. `--font-sans` for body, optionally `--font-display` for headings).
 - **DO NOT use Geist or Geist_Mono fonts** — they are not reliably available in the preview runtime. Use Inter, DM Sans, Space Grotesk, or another established Google Font instead.
-- Fonts are ONLY loaded via `next/font/google` — NEVER install font packages from npm (e.g. `sora-font`, `geist`, `inter-font`, `playfair-display`).
+- **Fonts are ONLY loaded via `next/font/google`** — NEVER install font packages from npm (e.g. `sora-font`, `geist`, `inter-font`, `playfair-display`). These do NOT exist on npm. Always use `import { FontName } from "next/font/google"` instead.
 - Create clear typographic hierarchy: hero headings `text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight`, section headings `text-3xl font-semibold`, body `text-lg text-muted-foreground leading-relaxed`.
 - Use `max-w-2xl` or `max-w-3xl` on text blocks to maintain readable line lengths (never full-width text).
 - Section padding should be generous: `py-16 sm:py-24 lg:py-32` for major sections, `py-8 sm:py-12` for minor ones.
@@ -62,39 +62,22 @@ Choose the layout approach that best serves the site's subject and atmosphere. T
 - Use subtle atmosphere when it fits: grain overlays, masked gradients, glass blur, glows, spotlight vignettes, or soft noise. Keep it cohesive with the site's subject, not as decoration for its own sake.
 - **CRITICAL: No external texture/asset files.** Never reference image files like `/grain.png`, `/noise.png`, `/texture.svg` etc. These files do not exist. All grain, noise, and texture effects MUST be implemented with pure CSS: use `background-image: url("data:image/svg+xml,...")` inline SVG data URIs, CSS gradients, `backdrop-filter`, or CSS `::before`/`::after` pseudo-elements with gradient overlays. Example grain effect: `background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E")`
 
-### Mandatory: Interactive Elements & Wow-Factor
+### Content First, Effects Second
 
-Every generated page MUST include at least 3 of these interactive/visual techniques to feel alive and premium:
+The #1 priority is rich, readable content. Every section must have substantial text: headings, descriptions, value propositions, feature explanations, testimonials. A page with beautiful backgrounds but sparse text is a failure. Fill every section with realistic Swedish content before adding any visual effects.
 
-1. **Hover-lift cards** — cards that lift on hover with `hover:-translate-y-1 hover:shadow-xl transition-all duration-300`
-2. **Scroll-triggered sections** — create a reusable `<Reveal>` client component that uses `useRef` + `useEffect` + native `IntersectionObserver` API to toggle classes. Example pattern:
-   ```tsx
-   "use client";
-   import { useRef, useEffect, useState, type ReactNode } from "react";
-   export function Reveal({ children }: { children: ReactNode }) {
-     const ref = useRef<HTMLDivElement>(null);
-     const [visible, setVisible] = useState(false);
-     useEffect(() => {
-       const el = ref.current; if (!el) return;
-       const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.15 });
-       obs.observe(el); return () => obs.disconnect();
-     }, []);
-     return <div ref={ref} className={`transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>{children}</div>;
-   }
-   ```
-   **DO NOT** use `useInView` from `react-intersection-observer` or `framer-motion` — these packages are NOT installed in the preview runtime and will crash the site. Always use native `IntersectionObserver` as shown above.
-3. **Animated counters/stats** — numeric values that count up when they scroll into view (use `useEffect` + `IntersectionObserver` + `requestAnimationFrame`, NOT external libraries)
-4. **Gradient text** — bold headlines with `bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent`
-5. **Glassmorphism panels** — `bg-background/80 backdrop-blur-lg border border-border/50 shadow-xl rounded-2xl`
-6. **Floating/parallax accents** — subtle background shapes, gradient orbs, or blur spots that create depth
-7. **Animated CTA buttons** — buttons with `hover:scale-105 active:scale-95 transition-transform` and gradient backgrounds
-8. **Interactive feature grids** — cards that expand, flip, or reveal additional content on hover/click
-9. **Progress/skill bars** — animated bars or rings for visual data representation
-10. **Micro-animations** — pulse on badges, shimmer on loading states, smooth accordion reveals
+### Nice-to-have interactive touches (use sparingly)
 
-**CRITICAL: Do NOT import from `react-intersection-observer`, `framer-motion/useInView`, or any intersection observer library. These are NOT available. Always use native browser `IntersectionObserver` API directly.**
+Pick 1-2 of these if they fit the site — do NOT overload the page:
 
-The goal: every page should make the visitor say "wow, this looks professional and expensive". Flat, static layouts with just text and simple boxes are NOT acceptable.
+- **Hover-lift cards** — `hover:-translate-y-1 hover:shadow-xl transition-all duration-300`
+- **Gradient text** — headlines with `bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent`
+- **Animated CTA buttons** — `hover:scale-105 active:scale-95 transition-transform`
+- **Glassmorphism panels** — `bg-background/80 backdrop-blur-lg border border-border/50 rounded-2xl` (only on 1-2 elements)
+
+**DO NOT** use scroll-triggered animations, `IntersectionObserver`, `useInView`, `react-intersection-observer`, `framer-motion`, or any animation that hides content with `opacity-0` by default. Content must always be visible without JavaScript.
+
+**DO NOT** import from `react-intersection-observer` or `framer-motion/useInView` — these packages are NOT available in the preview runtime.
 
 ## Text Overflow Prevention
 
