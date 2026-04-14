@@ -28,7 +28,7 @@ Detta är den enda listan att följa framåt.
 
 - [ ] WSS/HMR till Fly: WebSocket-proxy tappar connection
 - [ ] Hydration error overlay på landningssidan
-- [ ] Sätt `UNSPLASH_ACCESS_KEY` i miljön för bildmaterialisering
+- [ ] Utred varför bildmaterialisering fortfarande fallerar trots satt `UNSPLASH_ACCESS_KEY`
 
 ## Noterat (inte uppgifter)
 
