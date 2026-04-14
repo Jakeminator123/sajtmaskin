@@ -535,6 +535,12 @@ export async function buildDynamicContext(
         parts.push(`  - ${pattern}`);
       }
     }
+    if ((effectiveVariant.worldClassRubric?.length ?? 0) > 0) {
+      parts.push("- **World-class quality bar:**");
+      for (const rubric of effectiveVariant.worldClassRubric!.slice(0, 3)) {
+        parts.push(`  - ${rubric}`);
+      }
+    }
     const themeTokenLines = formatThemeTokenLines(effectiveVariant);
     if (themeTokenLines.length > 0) {
       parts.push(
