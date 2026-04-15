@@ -1,7 +1,7 @@
 "use client";
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { isGatewayAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
+import { isOpenAIAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
   MODEL_TIER_OPTIONS,
@@ -202,12 +202,12 @@ export function BuilderHeader(props: {
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
   const isAssistOff = promptAssistModel === PROMPT_ASSIST_OFF_VALUE;
-  const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
-  const isDeepBriefDisabled = isConfigLocked || isAssistOff || !isGatewayProvider || !canUseDeepBrief;
+  const isOpenAIProvider = isOpenAIAssistModel(promptAssistModel);
+  const isDeepBriefDisabled = isConfigLocked || isAssistOff || !isOpenAIProvider || !canUseDeepBrief;
   const assistModelLabel = getPromptAssistModelLabel(promptAssistModel);
   const assistProviderName = (() => {
     const provider = resolvePromptAssistProvider(promptAssistModel);
-    if (provider === "gateway") return "OpenAI";
+    if (provider === "openai") return "OpenAI";
     if (provider === "anthropic") return "Anthropic";
     return provider;
   })();
@@ -216,7 +216,7 @@ export function BuilderHeader(props: {
     : `${assistProviderName}: ${assistModelLabel}`;
   const assistStatusSummary = isAssistOff
     ? "Förbättra: av"
-    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (djup brief)" : ""}`;
+    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isOpenAIProvider ? " (djup brief)" : ""}`;
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -267,7 +267,7 @@ export function BuilderHeader(props: {
                     <span className="hidden max-w-[220px] truncate sm:inline">
                       Modell: {modelButtonLabel}
                     </span>
-                    {promptAssistDeep && isGatewayProvider && !isAssistOff && (
+                    {promptAssistDeep && isOpenAIProvider && !isAssistOff && (
                       <Wand2 className="text-primary h-3 w-3" />
                     )}
                     <ChevronDown className="h-3 w-3 opacity-50" />
@@ -383,7 +383,7 @@ export function BuilderHeader(props: {
                   <p className="text-xs">
                     AI skapar först en detaljerad brief som sedan används för en bättre prompt. Tar
                     längre tid men ger mer genomtänkta resultat. Gäller bara första prompten i en ny
-                    chat. Stöds för de gateway-modeller som listas här, inklusive Claude-alternativ.
+                    chat. Stöds för OpenAI- och Anthropic-modellerna som listas här.
                   </p>
                 </TooltipContent>
               </Tooltip>

@@ -338,24 +338,6 @@ export async function resolveOrchestrationBase(
       });
     }
 
-    if (
-      resolvedScaffold &&
-      (resolvedScaffold.id === "landing-page" || resolvedScaffold.id === "base-nextjs")
-    ) {
-      try {
-        const { getScaffoldBoost } = await import("./scaffolds/scaffold-scoring");
-        const boost = await getScaffoldBoost(resolvedScaffold.id);
-        if (boost <= -2) {
-          console.info(
-            "[orchestrate] Generic scaffold %s has poor telemetry (boost=%d), keeping it but noting for retry",
-            resolvedScaffold.id,
-            boost,
-          );
-        }
-      } catch {
-        /* best-effort telemetry check */
-      }
-    }
   }
 
   const capabilityHints = buildCapabilityHints(capabilities);

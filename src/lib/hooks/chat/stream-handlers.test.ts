@@ -25,7 +25,7 @@ vi.mock("@/lib/builder/promptAssist", async (importOriginal) => {
   return {
     ...actual,
     isPromptAssistOff: vi.fn(() => false),
-    resolvePromptAssistProvider: vi.fn(() => "gateway"),
+    resolvePromptAssistProvider: vi.fn(() => "openai"),
   };
 });
 

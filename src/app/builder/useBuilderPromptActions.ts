@@ -9,14 +9,10 @@ import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import type { PromptRewriteOptions } from "@/lib/hooks/prompt-assist-types";
 import type { InitBriefOptions } from "@/lib/hooks/prompt-assist-types";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
-import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
-import {
-  DEFAULT_PROMPT_POLISH_MODEL,
-  SPEC_FILE_INSTRUCTION,
-} from "@/lib/builder/defaults";
+import { DEFAULT_PROMPT_POLISH_MODEL } from "@/lib/builder/defaults";
 import {
   formatPrompt,
-  isGatewayAssistModel,
+  isOpenAIAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import {
@@ -42,7 +38,6 @@ type Args = {
   applyInstructionsOnce: boolean;
   promptAssistModel: string;
   promptAssistDeep: boolean;
-  specMode: boolean;
   themeColors: ThemeColors | null;
   paletteState: PaletteState;
   selectedModelTier: ModelTier;
@@ -53,7 +48,6 @@ type Args = {
   buildMethod: BuildMethod | null;
   designTheme: DesignTheme;
   appProjectId: string | null;
-  pendingSpecRef: MutableRefObject<object | null>;
   pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
@@ -93,8 +87,7 @@ export function useBuilderPromptActions({
   applyInstructionsOnce,
   promptAssistModel,
   promptAssistDeep: _promptAssistDeep,
-  specMode,
-  themeColors,
+  themeColors: _themeColors,
   paletteState,
   selectedModelTier: _selectedModelTier,
   isCreatingChat,
@@ -104,7 +97,6 @@ export function useBuilderPromptActions({
   buildMethod: _buildMethod,
   designTheme: _designTheme,
   appProjectId: _appProjectId,
-  pendingSpecRef,
   pendingBriefRef,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
@@ -136,7 +128,6 @@ export function useBuilderPromptActions({
     (templateId: string) => {
       setTemplateSwitchDialog(null);
       pendingBriefRef.current = null;
-      pendingSpecRef.current = null;
       setChatId(null);
       setMessages([]);
       setCurrentPreviewUrl(null);
@@ -161,7 +152,6 @@ export function useBuilderPromptActions({
       setSelectedVersionId,
       templateInitAttemptKeyRef,
       pendingBriefRef,
-      pendingSpecRef,
     ],
   );
 
@@ -186,7 +176,7 @@ export function useBuilderPromptActions({
 
   const handlePromptAssistModelChange = useCallback((model: string) => {
     setPromptAssistModel(model);
-    if (!isGatewayAssistModel(model)) {
+    if (!isOpenAIAssistModel(model)) {
       setPromptAssistDeep(false);
     }
   }, [setPromptAssistModel, setPromptAssistDeep]);
@@ -237,7 +227,6 @@ export function useBuilderPromptActions({
       setIsPreparingPrompt(true);
       try {
         pendingBriefRef.current = null;
-        pendingSpecRef.current = null;
         // Generate Deep Brief for init — the brief object is sent via meta.brief
         // and consumed by the server's buildDynamicContext(). We no longer merge
         // brief-derived prose into customInstructions to avoid double representation.
@@ -247,20 +236,13 @@ export function useBuilderPromptActions({
           skipAddendum: true,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
-            if (specMode) {
-              pendingSpecRef.current = briefToSpec(brief, trimmed, themeColors, paletteState);
-            }
           },
         });
-        if (specMode && !pendingSpecRef.current) {
-          pendingSpecRef.current = promptToSpec(trimmed, themeColors, paletteState);
-        }
 
         const baseInstructions = customInstructions.trim();
-        const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
         const paletteHint = buildPaletteInstruction(paletteState);
         const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
-        const combined = `${baseInstructions}${paletteSuffix}${specSuffix}`.trim();
+        const combined = `${baseInstructions}${paletteSuffix}`.trim();
         setCustomInstructions(combined);
         pendingInstructionsRef.current = combined;
         pendingInstructionsOnceRef.current = false;
@@ -277,9 +259,6 @@ export function useBuilderPromptActions({
       customInstructions,
       generateDynamicInstructions,
       paletteState,
-      specMode,
-      themeColors,
-      pendingSpecRef,
       pendingBriefRef,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,

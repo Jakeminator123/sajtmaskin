@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       debugLog("brief", `start ${normalizedModel} (${prompt.length} chars, images=${imageGenerations})`);
 
       try {
-        const { brief, usedSimplified, provider: briefProvider } = await generateSiteBriefObject({
+        const result = await generateSiteBriefObject({
           prompt,
           normalizedModel,
           imageGenerations,
@@ -48,16 +48,27 @@ export async function POST(req: Request) {
           maxTokens,
           source: briefSource,
         });
+        if (!result) {
+          return NextResponse.json(
+            {
+              error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
+              details: "Model output could not be parsed against the brief schema.",
+              suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
+            },
+            { status: 422 },
+          );
+        }
+        const { brief, briefQuality, provider: briefProvider } = result;
 
         const headers: Record<string, string> = {
           "Cache-Control": "no-store",
           "X-Provider": briefProvider === "anthropic" ? "anthropic" : "openai",
           "X-Key-Source": briefProvider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY",
-          ...(usedSimplified ? { "X-Schema": "simplified" } : {}),
+          "X-Brief-Quality": briefQuality,
         };
         return NextResponse.json(brief, { headers });
-      } catch (simplifiedErr) {
-        const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
+      } catch (briefErr) {
+        const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
         return NextResponse.json(
           {
             error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",

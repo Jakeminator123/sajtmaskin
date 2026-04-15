@@ -19,7 +19,7 @@ Stäng pågående arbete — eller ett helt arbetsspår. Review, scoped cleanup,
    - Kontrollera att inga nya begrepp introducerats utan registrering i `docs/architecture/glossary.md`.
    - Kontrollera glossaryns § Namnskuggor om du använt tvetydiga ord.
    - Om du döpt om eller lagt till termer: uppdatera glossaryn i samma leverans.
-4. **Synka docs och schemas om runtime-sanningen ändrats:**
+4. **Synka docs, schemas och sajtmaskin_backoffice.py (med underliggande skritpt i mappen 'backoffice' och eventuella andra relaterade filer) om runtime-sanningen ändrats:**
    - Berörda filer under `docs/schemas/` och `docs/schemas/strict/`.
    - Berörda arkitekturdocs under `docs/architecture/`.
    - `backoffice/` (kanonisk Streamlit-app) och `sajtmaskin_backoffice.py` när backoffice-området, env-ytor eller drift-/adminflöden påverkats.

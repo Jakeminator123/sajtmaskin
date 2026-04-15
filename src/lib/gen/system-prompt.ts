@@ -39,6 +39,7 @@ import type {
 } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
+import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -65,46 +66,6 @@ function loadStaticCoreSync(): string {
 // ═══════════════════════════════════════════════════════════════════════════
 // DYNAMIC CONTEXT — varies per request
 // ═══════════════════════════════════════════════════════════════════════════
-
-// Canonical build intent rules for codegen. Assist-copy in promptAssist.ts
-// serves rewrite/polish — keep in sync but do not merge (circular import risk).
-const BUILD_INTENT_GUIDANCE: Record<
-  BuildIntent,
-  { label: string; rules: string[] }
-> = {
-  template: {
-    label: "Template",
-    rules: [
-      "Scope is compact: 1-2 pages maximum with reusable sections.",
-      "Avoid heavy app logic, databases, or authentication unless explicitly requested.",
-      "Focus on layout quality, clean component composition, and content placeholders.",
-      "Optimize for reusability — someone will customize this template for their own brand.",
-    ],
-  },
-  website: {
-    label: "Website",
-    rules: [
-      "Ship code that passes a real App Router build: valid `next/image`, metadata exports, and Server Components by default — not patterns that only work inside a browser-transpiled preview.",
-      "Build a complete, visually polished website with navigation, content sections, and a footer. Follow the Scaffold Variant block for layout cues, visual motif, and tone — do not fall back to a generic hero-cards-footer formula.",
-      "Include realistic mock content specific to the business type — never generic placeholder copy.",
-      "Match scope: short prompt → polished one-pager; detailed prompt → multi-page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
-    ],
-  },
-  app: {
-    label: "Application",
-    rules: [
-      "Build a functional application with professional UI that feels like a real product.",
-      "MUST include: sidebar or top navigation, main content area, and contextual actions.",
-      "Use shadcn/ui Sidebar for dashboard-style apps. Include a collapsible sidebar with icon + label navigation items.",
-      "Include stateful UI: data tables with sorting/filtering, forms with validation feedback, modals for create/edit flows.",
-      "Define realistic mock data with TypeScript interfaces. Use 5-10 realistic data rows, not placeholder text.",
-      "Add empty states with illustrations (Lucide icons), loading skeletons, and error boundaries.",
-      "Structure state with React hooks (useState, useReducer). Only add Context if state is shared across many components.",
-      "Include toast notifications (via Sonner) for actions like save, delete, and error feedback.",
-      "Full Next.js runtime is available: Server Actions, API routes, middleware, and any npm package. Use them when the app needs real data flow.",
-    ],
-  },
-};
 
 export interface Brief {
   projectTitle?: string;

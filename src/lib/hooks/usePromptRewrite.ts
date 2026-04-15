@@ -2,7 +2,7 @@ import {
   buildPromptFromBrief,
   buildPolishSystemPrompt,
   buildRewriteSystemPrompt,
-  isGatewayAssistModel,
+  isOpenAIAssistModel,
   isPromptAssistModelAllowed,
   isPromptAssistOff,
   normalizeAssistModel,
@@ -56,7 +56,7 @@ export function usePromptRewrite(params: UsePromptRewriteParams) {
           ? buildPolishSystemPrompt({ buildIntent, forceEnglish: wantsEnglish })
           : buildRewriteSystemPrompt({ codeContext, buildIntent });
       const startedAt = Date.now();
-      const resolvedDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
+      const resolvedDeep = isOpenAIAssistModel(normalizedModel) ? deep : false;
       const allowDeep = mode !== "polish";
       const useDeep = allowDeep && resolvedDeep && !options.forceShallow;
       const originalNormalized = originalPrompt.trim();
@@ -274,7 +274,7 @@ export function usePromptRewrite(params: UsePromptRewriteParams) {
           }
           if (!isFailedFetch) return rawMessage;
 
-          if (provider === "gateway") {
+          if (provider === "openai") {
             return "Kunde inte nå OpenAI för prompt-assist. Sätt OPENAI_API_KEY i .env.local (eller motsvarande i Vercel).";
           }
           if (provider === "anthropic") {

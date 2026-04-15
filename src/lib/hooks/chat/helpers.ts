@@ -756,7 +756,7 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   }
   if (typeof info.promptAssistProvider === "string") {
     const providerLabel =
-      info.promptAssistProvider === "gateway"
+      info.promptAssistProvider === "openai" || info.promptAssistProvider === "gateway"
         ? "OpenAI"
         : info.promptAssistProvider === "anthropic"
           ? "Anthropic"
@@ -891,9 +891,7 @@ function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
   const strategyLabel =
     meta.strategy === "phase_plan_build_refine"
       ? "fasad (Plan -> Build -> Polish)"
-      : meta.strategy === "summarize"
-        ? "sammanfattad"
-        : meta.strategy === "preserved"
+      : meta.strategy === "preserved"
           ? "bevarad (full handoff)"
           : "redo";
   // budgetTarget = soft ceiling (ORCHESTRATION_SOFT_TARGET_*); NOT a goal length for the user prompt.

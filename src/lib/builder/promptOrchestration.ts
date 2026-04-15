@@ -18,7 +18,7 @@ import {
   ORCHESTRATION_SOFT_TARGET_WIZARD_CHARS,
 } from "@/lib/builder/promptLimits";
 
-export type PromptStrategy = "direct" | "summarize" | "phase_plan_build_refine" | "preserved";
+export type PromptStrategy = "direct" | "phase_plan_build_refine" | "preserved";
 export type PromptType =
   | "audit"
   | "wizard"

@@ -171,7 +171,7 @@ export const DEFAULT_IMAGE_GENERATIONS = true;
 export const DEFAULT_THINKING = false;
 
 /** Default for spec mode in builder */
-export const DEFAULT_SPEC_MODE = true;
+export const DEFAULT_SPEC_MODE = false;
 
 /**
  * Core instructions — always relevant regardless of scaffold/engine.
