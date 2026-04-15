@@ -15,7 +15,7 @@ startar. Skrivet för att reda ut vanliga förväxlingar.
 | **Prompt Rewrite** | "Förbättra"-knappen — en LLM skriver om prompten till bättre svenska/engelska. Resultatet syns *i inputfältet*. Ingen brief skapas. | Förväxlas med Deep Brief — men rewrite ändrar text, brief skapar struktur |
 | **Prompt Polish** | "Skriv om"-knappen — lättare copy-edit av prompten. Billigare modell. Resultatet syns *i inputfältet*. | Förväxlas med rewrite — skillnaden är depth |
 | **formatPrompt()** | Mekanisk wrapper som lägger till MÅL / TILLGÄNGLIGHET-rubriker runt prompten. Ingen LLM involverad. | Förväxlas med rewrite/polish — men detta är ren strängmanipulation |
-| **Prompt Orchestration** | Server-side budget/trunkering/strategi. Bestämmer om prompten är "direct", "summarize" eller "phase". | Förväxlas med brief — men orchestration handlar om *budget*, inte *berikande* |
+| **Prompt Orchestration** | Server-side budget/trunkering/strategi. Bestämmer om prompten är "direct", "phase_plan_build_refine" eller "preserved". | Förväxlas med brief — men orchestration handlar om *budget*, inte *berikande* |
 | **Build Intent** | `"website"`, `"app"` eller `"template"`. Klassificerar *vad* användaren vill bygga. | Förväxlas med Build Profile — intent = typ av sak, profile = vilken modell |
 | **Build Profile / Model Tier** | `fast`, `pro`, `max`, `codex`, `anthropic`. Vilken LLM som kör codegen. | Förväxlas med Assist Model — detta styr *kodgenereringen*, inte briefen |
 | **Assist Model** | Vilken LLM som kör brief/rewrite/polish. Separat val i UI. | Förväxlas med Build Profile — dessa är *två olika modellval* |
@@ -66,7 +66,7 @@ Inuti `generateDynamicInstructions` (i `useInitBrief.ts`):
 1. Kolla att modell är giltig och att deep brief är på
 2. POST /api/ai/brief med:
    ├── prompt: "Skapa en hemsida för min restaurang..."
-   ├── provider: "gateway" (= OpenAI)
+   ├── provider: "openai"
    ├── model: "openai/gpt-5.4"
    └── temperature: 0.2
 
@@ -91,7 +91,7 @@ Inuti `generateDynamicInstructions` (i `useInitBrief.ts`):
    │   │         avoid: ["generic stock photos", ...]
    │   │
    │   └── FALLBACK (om Anthropic/schema-fel):
-   │       └── simplifiedBriefSchema (färre fält, mer optional)
+   │       └── (simplifiedBriefSchema borttaget — enda schemat nu)
    │
    └── Returnerar brief-objekt till klienten
 
@@ -177,7 +177,7 @@ misslyckades, förutom en toast som är lätt att missa).
 
 ```
 orchestratePromptMessage() bestämmer:
-├── Är prompten för lång? → strategi: "summarize"
+├── Är prompten för lång? → strategi: "phase_plan_build_refine" eller "preserved"
 ├── Är prompten lagom? → strategi: "direct" (skicka som den är)
 ├── Behöver den fasplanering? → strategi: "phase_plan_build_refine"
 └── Returnerar: { optimizedPrompt, strategy, budget, ... }
@@ -196,7 +196,7 @@ Briefen konsumeras senare i Fas 2 av `buildDynamicContext()`.
 | Brief (strukturerat objekt) | Deep Brief LLM | `brief` → scaffold-val, route plan, dynamisk kontext |
 | Modellval (tier) | UI | `selectedModelTier` → vilken LLM som kör codegen |
 | Scaffold-hint | UI (auto/manual) | `scaffoldMode`, `scaffoldId` |
-| Prompt-strategi | `orchestratePromptMessage` | `promptStrategy` (direct/summarize) |
+| Prompt-strategi | `orchestratePromptMessage` | `promptStrategy` (direct/phase/preserved) |
 | Build intent | Klassificering | `"website"` / `"app"` / `"template"` |
 | Custom instructions | Användarens egna + palette/spec | `customInstructions` |
 
@@ -402,37 +402,12 @@ API**. Anthropic kompilerar JSON-schemat till en grammar, och den grammatiken
 blir för stor om schemat har >24 optional-params. OpenAI har inte samma
 begränsning.
 
-`siteBriefSchema` har fler än 24 optional-parametrar (nested objects med
-optional defaults). Lösningen är inte att ändra API-nyckel utan att:
+`siteBriefSchema` är nu det enda schemat (alla fält obligatoriska, 0 optionals).
+`simplifiedBriefSchema` (34 optionals) är borttaget. Om genereringen misslyckas
+returneras `null` och server auto-brief tar vid som säkerhetsnät.
 
-1. **Krympa schemat** till <24 optional-params (bästa lösningen)
-2. Använda `simplifiedBriefSchema` som primary (redan implementerat som fallback)
-3. Undvika Anthropic för brief helt (fungerande workaround men begränsar valet)
+### F7: `BUILD_INTENT_GUIDANCE` — konsoliderat
 
-Anthropics admin-API:er (`/v1/organizations/api_keys/*`) handlar om
-nyckelhantering och har ingen koppling till detta problem. Vercel AI Gateway
-använde samma underliggande Anthropic API — så att byta tillbaka till gateway
-hjälper inte heller.
-
-### F7: Vad är `BUILD_INTENT_GUIDANCE`-dubbletten?
-
-Det finns **två separata** `BUILD_INTENT_GUIDANCE`-konstanter i kodbasen:
-
-| Plats | Syfte | Konsumenter |
-|---|---|---|
-| `system-prompt.ts` (rad 70) | Regler för **codegen** | `buildDynamicContext()` → system prompt |
-| `promptAssist.ts` (rad 140) | Summering för **rewrite/polish** | `buildRewriteSystemPrompt()`, addendum |
-
-De **måste** hållas i synk manuellt. Kommentaren i koden säger:
-*"Keep in sync but do not merge (circular import risk)"*. Det är alltså
-medvetet duplicerat för att undvika cirkulära importer. Men det är en
-underhållsrisk — om en uppdateras men inte den andra kan rewrite/polish ge
-andra signaler än codegen.
-
----
-
-## Notering: åtgärdsplan för Fas 1 (påminnelse)
-
-Du bad mig påminna dig om att fråga om en åtgärdsplan för att göra Fas 1
-"snudd på världsklass". Fråga när du är redo — jag har redan identifierat
-8 konkreta förbättringspunkter.
+`BUILD_INTENT_GUIDANCE` finns nu i en gemensam modul: `src/lib/gen/intent-guidance.ts`.
+Både `system-prompt.ts` (codegen) och `promptAssist.ts` (rewrite/polish) importerar
+samma källa — ingen manuell synk behövs längre.

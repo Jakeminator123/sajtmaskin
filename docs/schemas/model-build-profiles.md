@@ -138,7 +138,7 @@ Important current nuance:
 
 - `Skriv om` normally uses the polish lane model, but follows the Anthropic product lane when the current assist lane is Anthropic
 - deep brief is only used before the first message in a new chat
-- builder `specMode` usually builds `sajtmaskin.spec.json` from `briefToSpec()` or `promptToSpec()` in the client flow; the dedicated `/api/ai/spec` route exists, but the normal builder path does not currently call it
+- builder `specMode` is now `false` by default; spec-layer code remains but is not active in the freeform flow
 
 ## Prompt-assist provider strings
 
@@ -152,17 +152,15 @@ Prompt assist accepts provider-coded model strings such as:
 
 Current provider categories:
 
-- manifest `gatewayClassModels`, which currently includes `openai/*` plus
-  `anthropic/*`
+- manifest `gatewayClassModels` (OpenAI-class models; the runtime type is now `"openai" | "anthropic"`)
 - manifest `anthropicDirectModels`, which contains `anthropic-direct/*`
 
 Important current nuance:
 
 - prompt assist does **not** use the v0 Model API
-- the route names and labels still talk about `gateway`
-- some code constants still keep historical "gateway" naming for allowlists
-- the current prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/gateway-policy.ts`
-- in practice, "gateway-class" selection currently means a manifest-approved
+- the `"gateway"` provider label has been replaced by `"openai"` in runtime code (HTTP schemas still accept `"gateway"` for backwards compat and normalize server-side)
+- the prompt-assist implementation constructs direct OpenAI/Anthropic AI SDK clients in `src/lib/builder/gateway-policy.ts`
+- in practice, "gateway-class" selection in the manifest currently means a manifest-approved
   model string plus direct provider client construction in the route implementation
 
 ## Thinking

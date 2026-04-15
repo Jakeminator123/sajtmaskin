@@ -66,15 +66,15 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Term | Vad det är | Status |
 |------|-----------|--------|
 | Raw Prompt | Obearbetad prompttext | kanonisk |
-| Prompt Formatting | Mekanisk strukturering (MÅL, STIL, …). Fallback — körs bara utan brief. | kanonisk |
+| Prompt Formatting | Minimal wrapper (MÅL + TILLGÄNGLIGHET). Fallback — körs bara utan brief. | kanonisk |
 | Prompt Rewrite | LLM-driven förbättring (Förbättra) | kanonisk |
 | Prompt Polish | Lätt copy-editor (Skriv om) | kanonisk |
 | Prompt Orchestration | Strategi-/budget-/trunkerings-gate; väljer PromptStrategy | kanonisk |
-| Prompt Strategy | `direct`, `summarize`, `phase_plan_build_refine`, `preserved` | kanonisk |
+| Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
 | Deep Brief | LLM-genererad strukturerad sajtbrief. Kanonisk semantisk expansion för init. | kanonisk |
 | Server Auto-Brief | Server-side brief-fallback för underspecificerade prompts | kanonisk |
-| WebsiteSpec / SajtmaskinSpec | Spec-first LLM-genererat strukturobjekt | kanonisk |
+| ~~WebsiteSpec / SajtmaskinSpec~~ | Spec-first LLM-genererat strukturobjekt. `specMode` default false sedan Fas 1 världsklass. | **legacy** |
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
 | Generation Mode | `init \| followUp` | kanonisk |
@@ -85,6 +85,9 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Static Core | Stabila produktpolicyregler från `config/prompt-static/*.md` | kanonisk |
 | ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn | **legacy** |
 | ~~StructuredBrief~~ | Docs-synonym för Deep Brief | **döda** |
+| ~~simplifiedBriefSchema~~ | Borttaget brief-schema med 34 optionals, failade Anthropic >24 | **döda** |
+| ~~gateway (provider-etikett)~~ | Historisk synonym för "openai" i PromptAssistProvider. Nu `"openai"`. | **döda** |
+| ~~summarize (PromptStrategy)~~ | Aldrig producerad strategi, borttagen ur typen | **döda** |
 
 ---
 
@@ -233,6 +236,10 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `detectScaffoldMode()` | Var död kod, borttagen |
 | `applyScaffoldTraits()` | Borttagen, traits i manifest direkt |
 | `EXTENDED_CUSTOM_INSTRUCTIONS` | Borttagen; `LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS` kvar som compat |
+| `simplifiedBriefSchema` | Borttaget; `siteBriefSchema` är enda schemat |
+| `GATEWAY_ASSIST_MODELS` | Borttagen re-export; använd `ASSIST_MODELS` |
+| `isGatewayAssistModel()` | Borttagen; ersatt av `isOpenAIAssistModel()` |
+| `SPEC_FILE_INSTRUCTION` | Borttagen ur init-flödet (specMode default false) |
 
 ---
 
@@ -255,4 +262,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-15 (mekanisk vs LLM-fix). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-15 (Fas 1 världsklass: gateway→openai, summarize borttagen, specMode default false, simplifiedBriefSchema borttagen). Versionhistorik finns i git.

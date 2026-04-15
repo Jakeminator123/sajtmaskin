@@ -40,11 +40,11 @@ Användaren skriver prompt på landingssidan
         │   │   │   ├── POST /api/ai/brief  (client-side deep brief)
         │   │   │   │   ├── generateSiteBriefObject()  [site-brief-generation.ts]
         │   │   │   │   ├── Använder createDirectModel() → OPENAI_API_KEY / ANTHROPIC_API_KEY
-        │   │   │   │   ├── Schema: siteBriefSchema (full) → simplifiedBriefSchema (fallback)
-        │   │   │   │   └── Returnerar strukturerat brief-objekt (pages, visual, SEO, etc.)
+        │           │   │   │   ├── Schema: siteBriefSchema (enda schemat; null vid fail → server auto-brief)
+        │   │   │   │   └── Returnerar brief-objekt med briefQuality: "full" | "server-auto" | "none"
         │   │   │   └── Brief sparas i pendingBriefRef
         │   │   └── Om shallow: bygger prompt-addendum från heuristik
-        │   └── Sätter customInstructions + pendingBriefRef + ev. pendingSpecRef
+        │   └── Sätter customInstructions + pendingBriefRef
         │
         ├── 2. createNewChat()  [useCreateChat.ts]
         │   ├── Formaterar prompt:
@@ -57,7 +57,7 @@ Användaren skriver prompt på landingssidan
             │
             ├── parseChatRequestMeta(meta)
             ├── resolveModelSelection() → canonisk tier + engineModel
-            ├── orchestratePromptMessage() → strategi (direct/summarize/phase)
+            ├── orchestratePromptMessage() → strategi (direct/phase/preserved)
             │
             ├── Brief-resolution:
             │   ├── clientBriefFromMeta = meta.brief (från steg 1)
@@ -178,8 +178,9 @@ Alla LLM-anrop i builder-flödet går via direkta provider-API:er:
 | Brief / prompt-assist | `createDirectModel()` | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` |
 | Prompt rewrite/polish | `createDirectModel()` | samma |
 
-Ordet **"gateway"** lever kvar som intern etikett i manifest/promptAssist men
-refererar **inte** till Vercel AI Gateway i den aktiva kedjan.
+`PromptAssistProvider` är nu `"openai" | "anthropic"` — den gamla `"gateway"`-etiketten
+är borttagen ur runtime-typer. HTTP-scheman accepterar `"gateway"` för bakåtkompatibilitet
+och normaliserar till `"openai"` server-side.
 
 ---
 
