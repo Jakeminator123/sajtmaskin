@@ -193,8 +193,6 @@ interface ChatInterfaceProps {
   designTheme?: DesignTheme;
   onDesignThemeChange?: (theme: DesignTheme) => void;
   onPromptAssistModeReset?: () => void;
-  onEnhancePrompt?: (message: string) => Promise<string>;
-  onRewritePrompt?: (message: string) => Promise<string>;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;
   isBusy?: boolean;
@@ -259,8 +257,6 @@ export function ChatInterface({
   designTheme = "blue",
   onDesignThemeChange,
   onPromptAssistModeReset,
-  onEnhancePrompt,
-  onRewritePrompt,
   isFigmaInputOpen: controlledFigmaInputOpen,
   onFigmaInputOpenChange,
   isBusy,
@@ -526,46 +522,6 @@ export function ChatInterface({
     window.addEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
-
-  const runPromptRefine = async (
-    mode: "polish" | "rewrite",
-    handler: ((message: string) => Promise<string>) | undefined,
-  ) => {
-    if (!handler) return;
-    const current = input.trim();
-    if (!current) return;
-
-    setActivePromptRefineMode(mode);
-    try {
-      const enhanced = await handler(current);
-      const trimmedEnhanced = enhanced.trim();
-      if (trimmedEnhanced) {
-        setInput(trimmedEnhanced);
-        debugLog("AI", "Prompt manually refined", {
-          mode,
-          length: trimmedEnhanced.length,
-        });
-      }
-    } catch (error) {
-      console.error("Prompt refine failed:", error);
-      toast.error(
-        mode === "rewrite"
-          ? "Kunde inte förbättra prompten just nu."
-          : "Kunde inte skriva om prompten just nu.",
-      );
-    } finally {
-      setActivePromptRefineMode(null);
-      onPromptAssistModeReset?.();
-    }
-  };
-
-  const handleEnhancePrompt = async () => {
-    await runPromptRefine("polish", onEnhancePrompt);
-  };
-
-  const handleRewritePrompt = async () => {
-    await runPromptRefine("rewrite", onRewritePrompt);
-  };
 
   const handlePlanRequest = async () => {
     if (inputDisabled) return;
@@ -916,38 +872,6 @@ export function ChatInterface({
             Förfina innan du skickar
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {onRewritePrompt && (
-              <button
-                type="button"
-                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-                onClick={handleRewritePrompt}
-                disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Gör prompten starkare och mer konkret innan build"
-              >
-                {activePromptRefineMode === "rewrite" ? (
-                  <Loader2 className="size-3 animate-spin" />
-                ) : (
-                  <Sparkles className="size-3" />
-                )}
-                Förbättra
-              </button>
-            )}
-            {onEnhancePrompt && (
-              <button
-                type="button"
-                className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-                onClick={handleEnhancePrompt}
-                disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Lätt språklig omskrivning / polish utan deep brief"
-              >
-                {activePromptRefineMode === "polish" ? (
-                  <Loader2 className="size-3 animate-spin" />
-                ) : (
-                  <Wand2 className="size-3" />
-                )}
-                Skriv om
-              </button>
-            )}
             <button
               type="button"
               className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"

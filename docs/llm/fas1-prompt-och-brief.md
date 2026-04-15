@@ -12,18 +12,18 @@ startar. Skrivet för att reda ut vanliga förväxlingar.
 | **Prompt** | Rå text som användaren skriver i inputfältet | — |
 | **Deep Brief** | LLM-genererat strukturerat objekt (sidor, färger, stil, CTA, målgrupp, etc.) som skapas *från* prompten | Förväxlas med "rewrite" eller "improve" — men briefen ändrar inte prompten, den skapar ett separat dataunderlag |
 | **Server Auto-Brief** | Samma Deep Brief men genererad av servern som fallback om klienten inte skickade en | Förväxlas med "dubbel brief" — det är inte ett nytt koncept, bara en reservväg |
-| **Prompt Rewrite** | "Förbättra"-knappen — en LLM skriver om prompten till bättre svenska/engelska. Resultatet syns *i inputfältet*. Ingen brief skapas. | Förväxlas med Deep Brief — men rewrite ändrar text, brief skapar struktur |
-| **Prompt Polish** | "Skriv om"-knappen — lättare copy-edit av prompten. Billigare modell. Resultatet syns *i inputfältet*. | Förväxlas med rewrite — skillnaden är depth |
+| ~~**Prompt Rewrite**~~ | _Borttagen._ Förbättra-knappen fanns tidigare i UI. Ersatt av Deep Brief → server-side expansion. | — |
+| ~~**Prompt Polish**~~ | _Borttagen._ Skriv om-knappen fanns tidigare i UI. Ersatt av Deep Brief → server-side expansion. | — |
 | **formatPrompt()** | Mekanisk wrapper som lägger till MÅL / TILLGÄNGLIGHET-rubriker runt prompten. Ingen LLM involverad. | Förväxlas med rewrite/polish — men detta är ren strängmanipulation |
 | **Prompt Orchestration** | Server-side budget/trunkering/strategi. Bestämmer om prompten är "direct", "phase_plan_build_refine" eller "preserved". | Förväxlas med brief — men orchestration handlar om *budget*, inte *berikande* |
 | **Build Intent** | `"website"`, `"app"` eller `"template"`. Klassificerar *vad* användaren vill bygga. | Förväxlas med Build Profile — intent = typ av sak, profile = vilken modell |
 | **Build Profile / Model Tier** | `fast`, `pro`, `max`, `codex`, `anthropic`. Vilken LLM som kör codegen. | Förväxlas med Assist Model — detta styr *kodgenereringen*, inte briefen |
-| **Assist Model** | Vilken LLM som kör brief/rewrite/polish. Separat val i UI. | Förväxlas med Build Profile — dessa är *två olika modellval* |
+| **Assist Model** | Vilken LLM som kör Deep Brief. Konfigureras via manifest (inget separat UI-val längre). | Förväxlas med Build Profile — dessa är *två olika modellval* |
 | **Scaffold** | Startpunkt/mall för projektstrukturen (landing-page, blog, dashboard, etc.) | Förväxlas med template — scaffold styr genereringens ramverk, template är galleri-produkter |
 | **Spec File** | (`sajtmaskin.spec.json`) — ett äldre/parallellt sätt att ge strukturerad input till codegen. Brief konverteras till spec via `briefToSpec()`. | Spec-first är idag `active: false` — briefen har tagit den rollen |
 | **`pendingBriefRef`** | React ref som håller brief-objektet mellan brief-generering och chat-skapande | — |
 | **`meta.brief`** | Briefen som skickas till servern i SSE-anropets metadata | — |
-| **`customInstructions`** | Fältet för användarens egna extra instruktioner (+ ev. palette/spec-suffix) | Briefen läggs INTE i customInstructions längre — den skickas separat via meta.brief |
+| **`customInstructions`** | Fältet för användarens egna extra instruktioner (+ ev. palette-suffix). Briefen skickas separat via `meta.brief` och expanderas i `buildDynamicContext()`. | — |
 
 ---
 
@@ -37,8 +37,7 @@ med meny, boka bord och om oss"
 
 Inställningar i UI:
 ├── Byggmodell: pro (gpt-5.3-codex)
-├── Promptverktyg: openai/gpt-5.4
-└── Djup/-Deep brief: ✅ (default on)
+└── Deep Brief: alltid aktiv på init
 ```
 
 Knappen triggar `requestCreateChat()` i `useBuilderPromptActions.ts`.
@@ -53,7 +52,7 @@ requestCreateChat()
     │
     └── await generateDynamicInstructions(message, {
           forceDeepBrief: true,
-          skipAddendum: true,      ← VIKTIGT: vi vill INTE blanda brief i text
+          skipAddendum: true,      ← Brief-objektet skickas via meta.brief; expansion sker server-side
           onBrief: (brief) => {
             pendingBriefRef.current = brief   ← sparar brief-objektet
           }

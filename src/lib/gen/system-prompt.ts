@@ -39,6 +39,7 @@ import type {
 } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
+import { resolveGuidanceBlocks, type ColorPalette } from "./guidance-resolvers";
 import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
@@ -151,6 +152,8 @@ export interface DynamicContextOptions {
   designReferences?: DesignReferenceAsset[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
+  /** Raw user prompt text — used for domain/motion/quality inference. */
+  userPrompt?: string;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
@@ -216,6 +219,9 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
+  { match: /^domain inference$/i, priority: 77 },
+  { match: /^structure hints$/i, priority: 76 },
+  { match: /^contract.*backend.*hints$/i, priority: 75 },
   { match: /^coding direction$/i, priority: 76 },
   { match: /^interaction.+motion$/i, priority: 68 },
   { match: /^quality bar$/i, priority: 74 },
@@ -382,6 +388,7 @@ export function buildDynamicContext(
     designThemePreset,
     designReferences,
     customInstructions,
+    userPrompt,
     generationMode,
     buildSpec,
     sessionSeed,
@@ -886,6 +893,77 @@ export function buildDynamicContext(
     parts.push("");
   }
 
+  // ── Guidance blocks (domain, motion, quality bar) ────────────────────────
+  // Previously produced client-side by buildDynamicInstructionAddendumFromBrief;
+  // now resolved server-side from the user prompt + brief signals.
+  if (userPrompt) {
+    const briefPaletteForGuidance: ColorPalette = briefPalette
+      ? {
+          primary: briefPalette.primary,
+          secondary: briefPalette.secondary,
+          accent: briefPalette.accent,
+          background: briefPalette.background,
+          text: briefPalette.text,
+        }
+      : {};
+    const guidance = resolveGuidanceBlocks({
+      userPrompt,
+      buildIntent: intent,
+      tone: toneKeywords,
+      styleKeywords,
+      briefPalette: briefPaletteForGuidance,
+      themeOverride,
+      topicSignal: [
+        str(brief?.projectTitle),
+        str(brief?.brandName),
+        str(brief?.oneSentencePitch),
+        userPrompt,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    });
+
+    if (guidance.domainProfile !== "general") {
+      parts.push(
+        "## Domain Inference",
+        "",
+        `- Domain profile inferred from prompt: **${guidance.domainProfile}**.`,
+        "",
+      );
+    }
+    if (guidance.domainStructureHints.length > 0) {
+      parts.push(
+        "## Structure Hints",
+        "",
+        ...guidance.domainStructureHints.map((h) => `- ${h}`),
+        "",
+      );
+    }
+    if (guidance.domainContractHints.length > 0) {
+      parts.push(
+        "## Contract & Backend Hints",
+        "",
+        ...guidance.domainContractHints.map((h) => `- ${h}`),
+        "",
+      );
+    }
+    parts.push(
+      "## Interaction & Motion",
+      "",
+      ...guidance.motionGuidance.map((g) => `- ${g}`),
+      "",
+    );
+    parts.push(
+      "## Quality Bar",
+      "",
+      ...guidance.qualityBarGuidance.map((g) => `- ${g}`),
+      "",
+    );
+    if (guidance.seasonalPaletteGuidance.length > 0) {
+      parts.push(...guidance.seasonalPaletteGuidance.map((g) => `- ${g}`));
+    }
+  }
+
   // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
   // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
@@ -1019,6 +1097,7 @@ export interface BuildSystemPromptOptions {
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
   customInstructions?: string;
+  userPrompt?: string;
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
   variantStructuralFiles?: VariantStructuralFilesSelection | null;
@@ -1047,6 +1126,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
     designReferences: options.designReferences,
     buildSpec: options.buildSpec,
     customInstructions: options.customInstructions,
+    userPrompt: options.userPrompt,
     generationMode: options.generationMode,
     variantStructuralFiles: options.variantStructuralFiles,
   });

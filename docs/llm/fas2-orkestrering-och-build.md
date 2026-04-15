@@ -265,13 +265,10 @@ Finns på **två** ställen:
 
 | Plats | Syfte |
 |-------|-------|
-| `system-prompt.ts` (rad 70) | Regler för codegen: "Template → compact, reusable layout", "Website → rich, multi-section" |
-| `promptAssist.ts` (rad 140) | Samma regler men för rewrite/polish-prompter |
+| `system-prompt.ts` | Regler för codegen: "Template → compact, reusable layout", "Website → rich, multi-section" |
+| `guidance-resolvers.ts` | Dynamiska guidance-block (motion, quality bar, domain hints) — importeras av `system-prompt.ts` |
 
-Kommentaren: *"Keep in sync but do not merge (circular import risk)"*
-
-Risken: om en uppdateras men inte den andra kan rewrite ge andra signaler
-än codegen — modellen tror att det är en "template" i rewrite men en "website"
+_(Rewrite/polish-spåret i `promptAssist.ts` är borttaget. Guidance-resolvers lever nu i en ren modul.)_
 i codegen.
 
 ---

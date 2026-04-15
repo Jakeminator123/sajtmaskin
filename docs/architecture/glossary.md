@@ -44,9 +44,7 @@ Signallagrens tabell: `docs/schemas/orchestration-signal-contract.md`.
 |-----|-----------|-----|
 | **Create-chat (init)** | Första generering — hela orkestreringskedjan körs | 1→2→3 |
 | **Follow-up** | Ändringsförfrågan i befintlig chat — konservativ, återanvänder scaffold | 1→2→3 |
-| **Prompt Rewrite** | LLM förbättrar prompten (lane: Förbättra). Ingen kodgenerering. | 1 |
-| **Prompt Polish** | Lätt copy-edit (lane: Skriv om). Ingen kodgenerering. | 1 |
-| **Deep Brief** | LLM genererar strukturerad sajtbrief. Ingen kodgenerering. | 1 |
+| **Deep Brief** | LLM genererar strukturerad sajtbrief. Expanderas server-side i `buildDynamicContext()`. | 1 |
 | **Plan Mode** | Planner-LLM som returnerar plan (JSON), inte sajtkod | 1→2 |
 | **Repair (fas 3)** | Efter fel i genererad kod: först mekaniska autofixar, vid behov LLM-fix | 3 |
 | **Verifier Pass** | Read-only LLM-granskning, producerar findings | 3 |
@@ -54,7 +52,7 @@ Signallagrens tabell: `docs/schemas/orchestration-signal-contract.md`.
 
 **Viktiga skillnader:**
 - **Init vs Follow-up:** Init bygger allt från scratch. Follow-up återanvänder scaffold, fryser routes, wrappar med filkontext.
-- **Rewrite/Polish vs Brief:** Rewrite/Polish ändrar prompttexten. Brief genererar strukturerat objekt som matar pipeline:n.
+- **Brief → Dynamic Context:** Deep Brief genererar ett strukturerat objekt som `buildDynamicContext()` expanderar till system-prompt-block (domain, motion, quality bar, project context, etc.).
 - **Repair vs Follow-up:** Repair arbetar med felloggar, inte ny användarförfrågan.
 
 ---
@@ -67,8 +65,8 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 |------|-----------|--------|
 | Raw Prompt | Obearbetad prompttext | kanonisk |
 | Prompt Formatting | Minimal wrapper (MÅL + TILLGÄNGLIGHET). Fallback — körs bara utan brief. | kanonisk |
-| Prompt Rewrite | LLM-driven förbättring (Förbättra) | kanonisk |
-| Prompt Polish | Lätt copy-editor (Skriv om) | kanonisk |
+| ~~Prompt Rewrite~~ | LLM-driven förbättring (Förbättra). Borttagen — ersatt av Deep Brief → server-side expansion. | **borttagen** |
+| ~~Prompt Polish~~ | Lätt copy-editor (Skriv om). Borttagen — ersatt av Deep Brief → server-side expansion. | **borttagen** |
 | Prompt Orchestration | Strategi-/budget-/trunkerings-gate; väljer PromptStrategy | kanonisk |
 | Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
@@ -83,7 +81,7 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Generation Phase | `planner`, `generator`, `fixer`, `verifier`, `deploy-assistant` — per-fas modellrouting | kanonisk |
 | Thinking | Reasoning-flagga, inte en separat lane | kanonisk |
 | Static Core | Stabila produktpolicyregler från `config/prompt-static/*.md` | kanonisk |
-| ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn | **legacy** |
+| ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn. Rewrite/Polish/model-picker borttagna. Deep Brief lever kvar. | **borttagen** |
 | ~~StructuredBrief~~ | Docs-synonym för Deep Brief | **döda** |
 | ~~simplifiedBriefSchema~~ | Borttaget brief-schema med 34 optionals, failade Anthropic >24 | **döda** |
 | ~~gateway (provider-etikett)~~ | Historisk synonym för "openai" i PromptAssistProvider. Nu `"openai"`. | **döda** |
@@ -220,7 +218,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 **`v0` betyder tre saker:** (1) API-versionering `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
 
-**Builder model lanes:** Byggmodell = Build Profile · Förbättra = Prompt Rewrite · Skriv om = Prompt Polish · Thinking = reasoning-flagga, inte lane.
+**Builder model lanes:** Byggmodell = Build Profile · Deep Brief = automatisk init-expansion (alltid aktiv) · Thinking = reasoning-flagga, inte lane. _(Förbättra/Skriv om-knapparna borttagna.)_
 
 ---
 

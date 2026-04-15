@@ -665,6 +665,7 @@ export async function finalizeOrchestrationPrompts(
     designReferences,
     buildSpec: base.buildSpec,
     customInstructions,
+    userPrompt: input.prompt,
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
     templateGuidance: templateGuidanceText,

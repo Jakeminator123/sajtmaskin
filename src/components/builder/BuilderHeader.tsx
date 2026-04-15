@@ -69,9 +69,7 @@ export function BuilderHeader(props: {
   onApplyAnthropicComparePreset: () => void;
 
   promptAssistModel: string;
-  onPromptAssistModelChange: (model: string) => void;
   promptAssistDeep: boolean;
-  onPromptAssistDeepChange: (deep: boolean) => void;
   canUseDeepBrief: boolean;
 
   scaffoldMode: ScaffoldMode;
@@ -130,11 +128,9 @@ export function BuilderHeader(props: {
     selectedModelTier,
     onSelectedModelTierChange,
     onApplyAnthropicComparePreset,
-    promptAssistModel,
-    onPromptAssistModelChange,
-    promptAssistDeep,
-    onPromptAssistDeepChange,
-    canUseDeepBrief,
+    promptAssistModel: _promptAssistModel,
+    promptAssistDeep: _promptAssistDeep,
+    canUseDeepBrief: _canUseDeepBrief,
     scaffoldMode,
     scaffoldId,
     onScaffoldModeChange,
@@ -192,31 +188,12 @@ export function BuilderHeader(props: {
       : scaffoldMode === "auto"
         ? "Auto"
         : SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
-  const assistModelOptions = getPromptAssistModelOptions();
-  const hasCustomAssistModel =
-    Boolean(promptAssistModel) &&
-    !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
-  const isAssistOff = promptAssistModel === PROMPT_ASSIST_OFF_VALUE;
-  const isOpenAIProvider = isOpenAIAssistModel(promptAssistModel);
-  const isDeepBriefDisabled = isConfigLocked || isAssistOff || !isOpenAIProvider || !canUseDeepBrief;
-  const assistModelLabel = getPromptAssistModelLabel(promptAssistModel);
-  const assistProviderName = (() => {
-    const provider = resolvePromptAssistProvider(promptAssistModel);
-    if (provider === "openai") return "OpenAI";
-    if (provider === "anthropic") return "Anthropic";
-    return provider;
-  })();
-  const assistProviderLabel = isAssistOff
-    ? "Av"
-    : `${assistProviderName}: ${assistModelLabel}`;
-  const assistStatusSummary = isAssistOff
-    ? "Förbättra: av"
-    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isOpenAIProvider ? " (djup brief)" : ""}`;
+  const assistStatusSummary = "Deep Brief aktiv";
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -267,9 +244,7 @@ export function BuilderHeader(props: {
                     <span className="hidden max-w-[220px] truncate sm:inline">
                       Modell: {modelButtonLabel}
                     </span>
-                    {promptAssistDeep && isOpenAIProvider && !isAssistOff && (
-                      <Wand2 className="text-primary h-3 w-3" />
-                    )}
+                    
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -315,79 +290,6 @@ export function BuilderHeader(props: {
               ))}
             </DropdownMenuRadioGroup>
 
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <span>Promptverktyg</span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
-                      <HelpCircle className="h-3 w-3" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-xs">
-                    <p className="text-xs">
-                      Styr den tyngre förbättringen: djup brief, mallhjälp, designbrief och dynamiska
-                      instruktioner före första bygget. Knappen «Förbättra» gör en starkare omskrivning
-                      före build, medan «Skriv om» är den lätta polish-/copy-varianten för texten i
-                      inmatningsrutan. Snabbknapparna följer Anthropic-spåret när Claude är vald för
-                      jämförelse. För ren Anthropic-jämförelse: välj Anthropic som byggprofil och Claude
-                      under Förbättra, eller använd snabbknapparna nedan.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={promptAssistModel}
-              onValueChange={(v) => onPromptAssistModelChange(v)}
-            >
-              {assistModelOptions.map((option, idx) => {
-                const isOff = option.value === PROMPT_ASSIST_OFF_VALUE;
-                const nextOption = assistModelOptions[idx + 1];
-                const needsSeparator = isOff && nextOption && nextOption.value !== PROMPT_ASSIST_OFF_VALUE;
-                return (
-                  <span key={option.value}>
-                    <DropdownMenuRadioItem value={option.value}>
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                    {needsSeparator && <DropdownMenuSeparator />}
-                  </span>
-                );
-              })}
-              {hasCustomAssistModel && (
-                <DropdownMenuRadioItem value={promptAssistModel}>
-                  Anpassad: {promptAssistModel}
-                </DropdownMenuRadioItem>
-              )}
-            </DropdownMenuRadioGroup>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={promptAssistDeep}
-                      onCheckedChange={onPromptAssistDeepChange}
-                      disabled={isDeepBriefDisabled}
-                    >
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Djup brief
-                      {!canUseDeepBrief && (
-                        <span className="text-muted-foreground ml-2 text-xs">(endast ny chat)</span>
-                      )}
-                      <HelpCircle className="text-muted-foreground ml-1 h-3 w-3" />
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    AI skapar först en detaljerad brief som sedan används för en bättre prompt. Tar
-                    längre tid men ger mer genomtänkta resultat. Gäller bara första prompten i en ny
-                    chat. Stöds för OpenAI- och Anthropic-modellerna som listas här.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               disabled={isConfigLocked}
