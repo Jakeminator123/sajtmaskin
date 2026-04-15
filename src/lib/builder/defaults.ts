@@ -160,6 +160,24 @@ export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   deep: true,
 };
 
+export type BriefAddendumMode = "client" | "server";
+
+function normalizeBriefAddendumMode(raw: string | undefined): BriefAddendumMode {
+  const normalized = raw?.trim().toLowerCase();
+  return normalized === "server" ? "server" : "client";
+}
+
+/**
+ * Controls whether Deep Brief should also be converted into the client-side
+ * addendum text that is merged into customInstructions (`client`) or rely
+ * only on server-side brief expansion in buildDynamicContext (`server`).
+ *
+ * Client bundle can read only NEXT_PUBLIC_* env vars at runtime.
+ */
+export const DEFAULT_BRIEF_ADDENDUM_MODE: BriefAddendumMode = normalizeBriefAddendumMode(
+  process.env.NEXT_PUBLIC_SAJTMASKIN_BRIEF_ADDENDUM_MODE,
+);
+
 // ============================================
 // OTHER DEFAULTS
 // ============================================

@@ -771,6 +771,7 @@ export async function handleMessageStreamRequest(
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
           resolvedTier: resolvedModelTier,
+          includeIntegrationSignals: false,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,

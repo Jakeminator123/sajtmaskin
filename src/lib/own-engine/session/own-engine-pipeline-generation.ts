@@ -46,6 +46,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   previousFiles?: CodeFile[];
   lineageHash?: string | null;
   targetVersionId?: string | null;
+  includeIntegrationSignals?: boolean;
 };
 
 /**
@@ -54,7 +55,9 @@ export type OwnEnginePipelineAndGenerationInput = {
 export function createOwnEnginePipelineAndGenerationStream(
   input: OwnEnginePipelineAndGenerationInput,
 ): ReadableStream<Uint8Array> {
-  const tools = getAgentTools();
+  const tools = getAgentTools({
+    includeIntegrationSignals: input.includeIntegrationSignals !== false,
+  });
   const generatorThinking = resolvePhaseThinking(input.resolvedTier, "generator");
   const pipelineStream = createGenerationPipeline({
     prompt: input.pipeline.prompt,

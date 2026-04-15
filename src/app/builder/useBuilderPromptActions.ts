@@ -9,7 +9,10 @@ import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import type { PromptRewriteOptions } from "@/lib/hooks/prompt-assist-types";
 import type { InitBriefOptions } from "@/lib/hooks/prompt-assist-types";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
-import { DEFAULT_PROMPT_POLISH_MODEL } from "@/lib/builder/defaults";
+import {
+  DEFAULT_BRIEF_ADDENDUM_MODE,
+  DEFAULT_PROMPT_POLISH_MODEL,
+} from "@/lib/builder/defaults";
 import {
   formatPrompt,
   isOpenAIAssistModel,
@@ -123,6 +126,7 @@ export function useBuilderPromptActions({
   applyAppProjectId: _applyAppProjectId,
 }: Args) {
   const [templateSwitchDialog, setTemplateSwitchDialog] = useState<TemplateSwitchDialogState>(null);
+  const skipBriefAddendum = DEFAULT_BRIEF_ADDENDUM_MODE === "server";
 
   const applyTemplateSwitch = useCallback(
     (templateId: string) => {
@@ -230,7 +234,7 @@ export function useBuilderPromptActions({
         const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: false,
           forceDeepBrief: true,
-          skipAddendum: false,
+          skipAddendum: skipBriefAddendum,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
           },
@@ -262,6 +266,7 @@ export function useBuilderPromptActions({
       pendingBriefRef,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
+      skipBriefAddendum,
       setIsPreparingPrompt,
       setCustomInstructions,
     ],
