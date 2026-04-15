@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { collectCompanyIntel, type CompanyIntelResult } from "@/lib/builder/company-intel";
-import { synthesizeCompanyBrief } from "@/lib/builder/company-brief-synthesis";
+import { synthesizeCompanyBrief, extractWizardFields } from "@/lib/builder/company-brief-synthesis";
 import { extractTextFromDocument, isExtractableDocument } from "@/lib/builder/document-extractor";
 import type { Brief } from "@/lib/gen/system-prompt";
 import { getCurrentUser } from "@/lib/auth/auth";
@@ -82,19 +82,35 @@ export async function POST(request: NextRequest) {
     });
 
     let brief: Brief | null = null;
+    let wizardFields = null;
+
     if (parsed.data.synthesize && intel.rawTextCorpus.length > 20) {
-      try {
-        brief = await synthesizeCompanyBrief({
+      const [briefResult, wizardResult] = await Promise.allSettled([
+        synthesizeCompanyBrief({
           intel,
           siteType: parsed.data.siteType,
           userPreferences: parsed.data.userPreferences,
-        });
-      } catch (err) {
-        console.error("[API/builder/company-intel] Brief synthesis failed:", err);
+        }),
+        extractWizardFields({
+          intel,
+          userDescription: parsed.data.userPreferences,
+        }),
+      ]);
+
+      if (briefResult.status === "fulfilled") {
+        brief = briefResult.value;
+      } else {
+        console.error("[API/builder/company-intel] Brief synthesis failed:", briefResult.reason);
+      }
+
+      if (wizardResult.status === "fulfilled") {
+        wizardFields = wizardResult.value;
+      } else {
+        console.error("[API/builder/company-intel] Wizard extraction failed:", wizardResult.reason);
       }
     }
 
-    return NextResponse.json({ success: true, data: { intel, brief } });
+    return NextResponse.json({ success: true, data: { intel, brief, wizardFields } });
   } catch (err) {
     console.error("[API/builder/company-intel] Error:", err);
     return NextResponse.json(

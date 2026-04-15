@@ -41,7 +41,6 @@ import {
   FolderGit2,
   HelpCircle,
   Image as ImageIcon,
-  Layers,
   Loader2,
   Link2,
   LogOut,
@@ -106,6 +105,8 @@ export function BuilderHeader(props: {
 
   chatId: string | null;
   activeVersionId: string | null;
+  /** Short label for current phase or project id (wizard / needs analysis / session). */
+  projectLabel?: string | null;
 
   onOpenImport: () => void;
   onDeployProduction: () => void;
@@ -163,6 +164,7 @@ export function BuilderHeader(props: {
     onToggleFigmaInput,
     chatId,
     activeVersionId,
+    projectLabel,
     onOpenImport,
     onDeployProduction,
     onDomainSearch,
@@ -197,6 +199,7 @@ export function BuilderHeader(props: {
     Boolean(promptAssistModel) &&
     !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
@@ -237,50 +240,122 @@ export function BuilderHeader(props: {
   }, [logout, onGoHome, runDeferredAction]);
 
   return (
-    <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onGoHome}
-          className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
-          aria-label="Gå till startsidan"
-          title="Till startsidan"
-        >
-          Sajtmaskin
-        </button>
+    <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/85 flex h-10 shrink-0 items-center justify-between gap-1.5 border-b px-2.5 backdrop-blur-sm motion-safe:transition-[background-color,border-color,box-shadow] motion-safe:duration-200 sm:gap-2 sm:px-3">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+        <div className="flex min-w-0 items-baseline gap-1 sm:gap-1.5">
+          <button
+            type="button"
+            onClick={onGoHome}
+            className="text-foreground shrink-0 text-sm font-semibold tracking-tight motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out hover:opacity-80"
+            aria-label="Gå till startsidan"
+            title="Till startsidan"
+          >
+            Sajtmaskin
+          </button>
+          {projectLabel ? (
+            <>
+              <span className="text-muted-foreground/70 hidden shrink-0 sm:inline" aria-hidden>
+                ·
+              </span>
+              <span
+                className="text-muted-foreground min-w-0 truncate text-xs font-medium tracking-tight sm:text-sm"
+                title={projectLabel}
+              >
+                {projectLabel}
+              </span>
+            </>
+          ) : null}
+        </div>
         {hasMounted && isAuthenticated && (
-          <Button variant="ghost" size="sm" onClick={handleLogout} title="Logga ut">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0"
+            onClick={handleLogout}
+            title="Logga ut"
+            aria-label="Logga ut"
+          >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logga ut</span>
           </Button>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {<><DropdownMenu>
+      <div className="relative flex shrink-0 flex-wrap items-center justify-end gap-1 sm:gap-1.5">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="flex lg:hidden" aria-label="Fler åtgärder">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem
+              disabled={isConfigLocked}
+              onSelect={() => setSettingsOpen(true)}
+            >
+              <Settings2 className="mr-2 h-4 w-4" />
+              Inställningar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={() => runDeferredAction(onNewChat)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Ny chat
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canSaveProject || isBusy || isSavingProject}
+              onSelect={() =>
+                runDeferredAction(() => {
+                  void onSaveProject();
+                })
+              }
+            >
+              <Save className="mr-2 h-4 w-4" />
+              Spara
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canManageDomain || isBusy}
+              onSelect={() => runDeferredAction(onDomainSearch)}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              Domän
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu open={settingsOpen} onOpenChange={setSettingsOpen}>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
-                    <Bot className="h-4 w-4" />
-                    <span className="hidden max-w-[220px] truncate sm:inline">
-                      Modell: {modelButtonLabel}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isConfigLocked}
+                    className="pointer-events-none invisible absolute right-0 top-0 max-w-[min(100vw-8rem,14rem)] gap-1 lg:pointer-events-auto lg:visible lg:static lg:inline-flex"
+                    aria-label="Bygginställningar: modell, mall och mer"
+                  >
+                    <Settings2 className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Inställningar</span>
+                    <span className="text-muted-foreground hidden min-w-0 truncate text-[11px] font-normal sm:inline">
+                      {modelButtonLabel} · {scaffoldButtonLabel}
                     </span>
-                    {promptAssistDeep && isOpenAIProvider && !isAssistOff && (
-                      <Wand2 className="text-primary h-3 w-3" />
-                    )}
-                    <ChevronDown className="h-3 w-3 opacity-50" />
+                    <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
                 <p>Byggmodell: {modelButtonLabel}</p>
                 <p>{assistStatusSummary}</p>
+                <p className="text-muted-foreground mt-1">Mall: {scaffoldButtonLabel}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuContent
+            align="end"
+            className="border-border max-h-[min(70vh,32rem)] w-[min(100vw-2rem,22rem)] overflow-y-auto rounded-xl"
+          >
             <DropdownMenuLabel className="flex items-center gap-2">
               <span>Byggmodell</span>
               <TooltipProvider>
@@ -399,29 +474,8 @@ export function BuilderHeader(props: {
               <Bot className="mr-2 h-4 w-4" />
               Anthropic-jämförelse
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
 
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
-                    <Layers className="h-4 w-4" />
-                    <span className="hidden max-w-[180px] truncate sm:inline">
-                      Mall: {scaffoldButtonLabel}
-                    </span>
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Hemsidemall — startpunkt för genererad kod</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuSeparator />
             <DropdownMenuLabel>Hemsidemall</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
@@ -454,18 +508,8 @@ export function BuilderHeader(props: {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isConfigLocked}>
-              <Settings2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Inställningar</span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuSeparator />
             <DropdownMenuLabel>Generering</DropdownMenuLabel>
             <TooltipProvider>
               <Tooltip>
@@ -651,7 +695,7 @@ export function BuilderHeader(props: {
               Visa tips efter AI-svar
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
-        </DropdownMenu></>}
+        </DropdownMenu>
 
         <DropdownMenu>
           <TooltipProvider>
@@ -718,50 +762,52 @@ export function BuilderHeader(props: {
           </Button>
         ) : null}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => runDeferredAction(onNewChat)}
-          disabled={isBusy}
-          title="Starta en ny chat (nuvarande finns kvar i historiken)"
-        >
-          {isCreatingChat ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Ny chat</span>
-        </Button>
+        <div className="hidden items-center gap-1 lg:flex sm:gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runDeferredAction(onNewChat)}
+            disabled={isBusy}
+            title="Starta en ny chat (nuvarande finns kvar i historiken)"
+          >
+            {isCreatingChat ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Ny chat</span>
+          </Button>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            runDeferredAction(() => {
-              void onSaveProject();
-            })
-          }
-          disabled={!canSaveProject || isBusy || isSavingProject}
-          title="Spara projekt"
-        >
-          {isSavingProject ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Spara</span>
-        </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              runDeferredAction(() => {
+                void onSaveProject();
+              })
+            }
+            disabled={!canSaveProject || isBusy || isSavingProject}
+            title="Spara projekt"
+          >
+            {isSavingProject ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Spara</span>
+          </Button>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => runDeferredAction(onDomainSearch)}
-          disabled={!canManageDomain || isBusy}
-          title="Sök & köp domän"
-        >
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">Domän</span>
-        </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => runDeferredAction(onDomainSearch)}
+            disabled={!canManageDomain || isBusy}
+            title="Sök & köp domän"
+          >
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">Domän</span>
+          </Button>
+        </div>
 
         {deploymentStatus === "building" ? (
           <Button size="sm" variant="outline" disabled>
@@ -772,7 +818,7 @@ export function BuilderHeader(props: {
           <Button
             size="sm"
             variant="outline"
-            className="border-green-500 text-green-600"
+            className="border-primary/40 text-primary hover:bg-accent hover:text-accent-foreground"
             onClick={() => window.open(deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`, "_blank")}
           >
             <Globe className="h-4 w-4" />

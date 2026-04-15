@@ -33,12 +33,15 @@ export function LandingBackground({
   return (
     <div className="landing-chat-bg pointer-events-none absolute inset-0 z-0" aria-hidden>
       <div className="absolute inset-0 bg-background" />
-      <div className="absolute inset-0 overflow-hidden" data-landing-bg={mode}>
+      <div
+        className="absolute inset-0 overflow-hidden opacity-90 motion-reduce:opacity-95"
+        data-landing-bg={mode}
+      >
         <div className="shader-orb shader-orb-1" />
         <div className="shader-orb shader-orb-2" />
         <div className="shader-orb shader-orb-3" />
       </div>
-      <div className="landing-chat-bg-grid absolute inset-0 opacity-[0.06] grid-background" />
+      <div className="landing-chat-bg-grid grid-background absolute inset-0 opacity-[0.05] motion-reduce:opacity-[0.035]" />
       <div
         className="landing-chat-bg-noise absolute inset-0 opacity-[0.03] mix-blend-soft-light pointer-events-none"
         style={{ backgroundImage: NOISE_BG }}

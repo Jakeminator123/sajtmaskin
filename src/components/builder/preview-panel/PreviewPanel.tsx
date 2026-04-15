@@ -38,6 +38,7 @@ import { usePreviewPanelInspectCapture } from "./hooks/usePreviewPanelInspectCap
 import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspectMapPlacement";
 import { usePreviewPanelOwnEnginePreviewTelemetry } from "./hooks/usePreviewPanelOwnEnginePreviewTelemetry";
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
+import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
 import type {
   ComposerAiFallbackPayload,
   InspectEngine,
@@ -116,6 +117,7 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
   const [composerMode, setComposerMode] = useState(false);
   const [inlineEditMode, setInlineEditMode] = useState(false);
   const [inlineEditTarget, setInlineEditTarget] = useState<{
@@ -145,6 +147,7 @@ export function PreviewPanel({
     refreshToken,
     onFilesSaved,
   });
+  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(chatId, versionId);
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
     return findFileNodeByPath(files, selectedPath);
@@ -740,20 +743,24 @@ export function PreviewPanel({
   /** True när versionen har en live-preview-URL sparad — då kan användaren byta till live-preview. */
   const previewUrlPresent = Boolean(alternatePreviewUrls?.storedLivePreviewUrl?.trim());
   const surfaceDescriptor = useMemo(() => {
+    const badgeMuted = "border-border bg-muted/60 text-muted-foreground";
+    const badgeAccent = "border-primary/25 bg-primary/10 text-foreground";
+    const badgeAttention = "border-primary/35 bg-primary/15 text-foreground";
+
     if (viewMode === "registry") {
       return {
         label: "Elementregister",
         detail: "Kodläge för att matcha UI-element mot filer och rader.",
-        className: "border-purple-900/40 bg-purple-950/25 text-purple-100",
-        badgeClassName: "border-purple-500/30 bg-purple-500/10 text-purple-200",
+        className: "",
+        badgeClassName: badgeAccent,
       };
     }
     if (viewMode === "code") {
       return {
         label: "Kodvy",
         detail: "Visar versionsfilerna direkt i buildern.",
-        className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
-        badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
+        className: "",
+        badgeClassName: badgeMuted,
       };
     }
     if (isOwnEnginePreview) {
@@ -762,8 +769,8 @@ export function PreviewPanel({
           label: "Live-preview",
           detail:
             "Förhandsgranskningen svarade inte som förväntat — vi kontrollerar och startar om vid behov.",
-          className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
-          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+          className: "",
+          badgeClassName: badgeAttention,
         };
       }
       if (previewPending) {
@@ -771,8 +778,8 @@ export function PreviewPanel({
           label: "Live-preview",
           detail:
             "Förhandsgranskningen startar eller laddar om. Vänta tills den är klar — då uppdateras live-preview automatiskt.",
-          className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
-          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+          className: "",
+          badgeClassName: badgeAttention,
         };
       }
       if (!previewUrlPresent) {
@@ -780,16 +787,16 @@ export function PreviewPanel({
           label: "Kompatibilitetsvy",
           detail:
             "VM-preview är primär previewväg. Den här kompatibilitetsvyn (äldre shim) är fallback tills live-preview finns.",
-          className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
-          badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
+          className: "",
+          badgeClassName: badgeMuted,
         };
       }
       return {
         label: "Kompatibilitetsvy",
         detail:
           "Du tittar på shim-/kompatibilitetsvyn. Live-preview med Next.js i VM är den primära körbara ytan — byt när tier-2-URL finns.",
-        className: "border-sky-900/40 bg-sky-950/30 text-sky-100",
-        badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-200",
+        className: "",
+        badgeClassName: badgeMuted,
       };
     }
     if (isTier2LivePreview) {
@@ -798,16 +805,16 @@ export function PreviewPanel({
           label: "Live-preview",
           detail:
             "Återansluter till live-preview — sessionen verifieras mot servern och preview startas om vid behov.",
-          className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
-          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+          className: "",
+          badgeClassName: badgeAttention,
         };
       }
       return {
         label: "Live-preview",
         detail:
           "Din genererade sajt körs här med Next.js (motsvarar npm run dev) i en isolerad miljö.",
-        className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
-        badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+        className: "",
+        badgeClassName: badgeAccent,
       };
     }
     if (isV0Preview) {
@@ -815,15 +822,15 @@ export function PreviewPanel({
         label: "Fallback preview",
         detail:
           "Visar en extern previewyta. Bra för snabb kontroll, men den kan avvika från lokal runtime och publicerad build.",
-        className: "border-yellow-900/40 bg-yellow-950/30 text-yellow-100",
-        badgeClassName: "border-yellow-500/30 bg-yellow-500/10 text-yellow-200",
+        className: "",
+        badgeClassName: badgeAttention,
       };
     }
     return {
       label: "Extern preview",
       detail: "Visar den aktuella preview-URL:en för vald version.",
-      className: "border-zinc-800 bg-zinc-950/50 text-zinc-200",
-      badgeClassName: "border-zinc-500/30 bg-zinc-500/10 text-zinc-200",
+      className: "",
+      badgeClassName: badgeMuted,
     };
   }, [
     viewMode,
@@ -912,6 +919,12 @@ export function PreviewPanel({
     <div className="flex h-full flex-col bg-muted/30">
       <PreviewPanelChrome
         previewUrl={previewUrl}
+        previewDevice={previewDevice}
+        onPreviewDeviceChange={setPreviewDevice}
+        previewRoutes={previewRoutes}
+        previewRoutesLoading={previewRoutesLoading}
+        activePreviewRoute={activePreviewRoute}
+        onNavigateRoute={handleNavigateRoute}
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
         isTier2LivePreview={isTier2LivePreview}
@@ -1039,6 +1052,7 @@ export function PreviewPanel({
               iframeRef={iframeRef}
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
+              deviceMode={previewDevice}
             >
               {showComposerOverlay ? (
                 <PreviewPanelComposerOverlay

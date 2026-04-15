@@ -15,7 +15,7 @@ export function AnimatedLogo({ className = "" }: { className?: string }) {
         alt="SajtMaskin"
         width={148}
         height={56}
-        className="h-7 w-auto object-contain transition-opacity hover:opacity-80"
+        className="h-6 w-auto object-contain transition-opacity duration-200 hover:opacity-80 md:h-7"
         priority
       />
     </Link>

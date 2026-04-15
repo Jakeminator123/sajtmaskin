@@ -33,7 +33,7 @@ export function FeatureCard({
   return (
     <div
       ref={scrollRef}
-      className={`card-3d group relative bg-card/50 backdrop-blur-sm rounded-2xl border border-border/20 p-6 flex flex-col gap-4 hover:border-primary/20 cursor-pointer overflow-hidden transition-all duration-700 ${scrollVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+      className={`card-3d group relative bg-card/50 backdrop-blur-sm rounded-2xl border border-border/20 p-6 flex flex-col gap-4 hover:border-primary/20 cursor-pointer overflow-hidden transition-all duration-200 ${scrollVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
       style={{ transitionDelay: `${index * 100}ms` }}
       onClick={onClick}
       onMouseMove={handleMouse}
@@ -59,7 +59,7 @@ export function FeatureCard({
       />
 
       <div
-        className="absolute -top-1 -right-1 opacity-[0.08] group-hover:opacity-[0.25] transition-opacity duration-700 pointer-events-none"
+        className="absolute -top-1 -right-1 opacity-[0.08] group-hover:opacity-[0.25] transition-opacity duration-200 pointer-events-none"
         style={{ width: 80, height: 80, perspective: 400 }}
       >
         {renderMiniShape(feature.shape)}

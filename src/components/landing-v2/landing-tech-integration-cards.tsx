@@ -41,12 +41,12 @@ export function TechStackCard({ tech, index }: { tech: TechStackItem; index: num
       }`}
       style={{
         transitionDelay: `${index * 60}ms`,
-        boxShadow: visible ? "0 20px 60px rgba(8, 15, 30, 0.22)" : "none",
+        boxShadow: visible ? "0 20px 60px hsl(var(--brand-navy) / 0.22)" : "none",
         ["--glow-x" as string]: "120px",
         ["--glow-y" as string]: "60px",
       }}
     >
-      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,rgba(255,255,255,0.04),transparent_40%,rgba(45,212,191,0.05)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-[linear-gradient(135deg,hsl(var(--foreground)/0.04),transparent_40%,hsl(var(--primary)/0.05)_100%)]" />
       <div
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{

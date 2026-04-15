@@ -50,6 +50,7 @@ export interface CompanyIntelResult {
     headings: string[];
     text: string;
     images: number;
+    imageUrls?: Array<{ url: string; alt: string; role: string }>;
     meta: Record<string, string | undefined>;
     wordCount: number;
     sampledUrls?: string[];
@@ -287,6 +288,7 @@ function websiteContentToScraped(wc: WebsiteContent): CompanyIntelResult["scrape
     headings: wc.headings,
     text: wc.text,
     images: wc.images,
+    imageUrls: wc.imageUrls,
     meta: {
       keywords: wc.meta.keywords,
       author: wc.meta.author,

@@ -73,11 +73,11 @@ export default function CategoryPage() {
 
   if (!displayCategory) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="space-y-4 text-center">
-          <p className="text-gray-400">Kategorin hittades inte</p>
+          <p className="text-muted-foreground text-sm">Hittades inte.</p>
           <Link href="/">
-            <Button variant="outline">Tillbaka till start</Button>
+            <Button variant="outline">Till start</Button>
           </Link>
         </div>
       </div>
@@ -261,23 +261,19 @@ export default function CategoryPage() {
         {/* Header */}
         <div className="mx-auto mb-8 max-w-5xl">
           <Link href="/">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mb-6 gap-2 text-gray-400 hover:bg-gray-800 hover:text-white"
-            >
+            <Button variant="ghost" size="sm" className="mb-6 gap-2 text-muted-foreground hover:bg-muted hover:text-foreground">
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
             </Button>
           </Link>
 
           <div className="mb-4 flex items-center gap-4">
-            <div className="bg-brand-teal/20 border-brand-teal/30 border p-3">
-              <Icon className="text-brand-teal h-6 w-6" />
+            <div className="rounded-2xl border border-border bg-primary/10 p-3">
+              <Icon className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">{displayCategory.title}</h1>
-              <p className="text-gray-400">{displayCategory.description}</p>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">{displayCategory.title}</h1>
+              <p className="text-muted-foreground mt-1 text-sm leading-relaxed">{displayCategory.description}</p>
             </div>
           </div>
         </div>
@@ -285,49 +281,47 @@ export default function CategoryPage() {
         <div className="mx-auto max-w-5xl space-y-10">
           {/* Section 1: Custom prompt */}
           <section>
-            <div className="mb-4 flex items-center gap-2">
-              <Wand2 className="text-brand-teal h-5 w-5" />
-              <h2 className="text-lg font-semibold text-white">Beskriv med egna ord</h2>
-              <HelpTooltip text="Skriv en beskrivning av vad du vill skapa så genererar AI:n det åt dig." />
+            <div className="mb-3 flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-primary" />
+              <h2 className="text-foreground text-base font-semibold tracking-tight">Eget</h2>
+              <HelpTooltip text="Beskriv vad du vill skapa." />
             </div>
 
-            <div className="border border-gray-800 bg-black/50 p-4">
-              <div className="flex gap-4">
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
                 <div className="flex flex-1 flex-col">
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={`Beskriv din ${displayCategory.title.toLowerCase()}...`}
-                    className="focus:ring-brand-teal/50 h-24 flex-1 resize-none border border-gray-800 bg-black/50 p-3 text-white placeholder:text-gray-500 focus:ring-2 focus:outline-none"
+                    placeholder={`${displayCategory.title.toLowerCase()}…`}
+                    className="h-28 flex-1 resize-none rounded-xl border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-[3px] focus:ring-ring/50"
                   />
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">{prompt.length} tecken</span>
-                    </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground text-xs tabular-nums">{prompt.length}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowWizard(true)}
                       disabled={isCreating}
-                      className="text-brand-teal hover:text-brand-teal/80 hover:bg-brand-teal/10 h-7 gap-1.5 px-2"
+                      className="text-primary hover:bg-primary/10 h-8 gap-1.5 px-2"
                     >
                       <Wand2 className="h-3.5 w-3.5" />
-                      <span className="text-xs">Bygg ut med AI</span>
+                      <span className="text-xs">Utöka</span>
                     </Button>
                   </div>
                 </div>
                 <Button
                   onClick={handlePromptSubmit}
                   disabled={!prompt.trim() || isCreating}
-                  className="bg-brand-teal hover:bg-brand-teal/90 h-24 gap-2 px-6"
+                  className="h-auto min-h-[7rem] shrink-0 gap-2 px-6 sm:w-36"
                 >
                   {isCreating ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <Rocket className="h-5 w-5" />
                   )}
-                  <span className="hidden sm:inline">{isCreating ? "Skapar..." : "Skapa"}</span>
+                  <span>{isCreating ? "…" : "Skapa"}</span>
                 </Button>
               </div>
             </div>
@@ -336,27 +330,22 @@ export default function CategoryPage() {
           {/* Section 2: Quick prompts */}
           {displayCategory.quickPrompts && displayCategory.quickPrompts.length > 0 && (
             <section>
-              <div className="mb-4 flex items-center gap-2">
-                <Zap className="text-brand-amber h-5 w-5" />
-                <h2 className="text-lg font-semibold text-white">Snabbval</h2>
-                <HelpTooltip text="Klicka på ett snabbval för att snabbt komma igång med en fördefinierad design." />
+              <div className="mb-3 flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                <h2 className="text-foreground text-base font-semibold tracking-tight">Snabbval</h2>
+                <HelpTooltip text="Starta med fördefinierat innehåll." />
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {displayCategory.quickPrompts.map((quickPrompt) => (
                   <Button
                     key={quickPrompt.label}
                     onClick={() => handleQuickPrompt(quickPrompt)}
                     disabled={isCreating}
                     variant="outline"
-                    className="hover:border-brand-amber/50 hover:bg-brand-amber/5 group flex h-auto flex-col items-start gap-1 border-gray-800 bg-black/50 px-4 py-4 text-left transition-all disabled:opacity-50"
+                    className="group flex h-auto min-h-[4.5rem] flex-col items-start gap-0.5 rounded-2xl border-border bg-card px-4 py-4 text-left shadow-sm transition-[border-color,box-shadow,background-color] duration-200 hover:border-primary/25 hover:bg-muted/50 hover:shadow-md disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
-                    <span className="group-hover:text-brand-amber/80 font-medium text-gray-200">
-                      {quickPrompt.label}
-                    </span>
-                    <span className="line-clamp-2 text-xs text-gray-500">
-                      AI genererar baserat på fördefinierad beskrivning
-                    </span>
+                    <span className="font-semibold tracking-tight text-foreground">{quickPrompt.label}</span>
                   </Button>
                 ))}
               </div>
@@ -366,16 +355,14 @@ export default function CategoryPage() {
           {/* Section 3: Templates */}
           {v0Templates.length > 0 && (
             <section>
-              <div className="mb-4 flex items-center gap-2">
-                <Layout className="text-brand-teal h-5 w-5" />
-                <h2 className="text-lg font-semibold text-white">Mallar</h2>
-                <HelpTooltip text="Färdiga mallar. Klicka för att starta just den mallen i buildern." />
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Layout className="h-5 w-5 text-primary" />
+                <h2 className="text-foreground text-base font-semibold tracking-tight">Mallar</h2>
+                <HelpTooltip text="Starta en färdig mall i buildern." />
               </div>
-              <p className="mb-4 text-xs leading-relaxed text-gray-400">
-                Alla mallar här är kompletta och går att starta direkt i förhandsgranskningen.
-              </p>
+              <p className="text-muted-foreground mb-4 text-xs">Förhandsgranska eller öppna i builder.</p>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {v0Templates.map((template) => (
                   <V0TemplateCard
                     key={template.id}
@@ -430,7 +417,7 @@ function V0TemplateCard({
       const project = await createProject(
         `${template.title || template.id} - ${new Date().toLocaleDateString("sv-SE")}`,
         type,
-        `Baserat på template: ${template.id}`,
+        `Baserat på mall: ${template.title || template.id}`,
       );
       const params = new URLSearchParams();
       params.set("project", project.id);
@@ -446,52 +433,51 @@ function V0TemplateCard({
 
   return (
     <>
-      <div className="group hover:border-brand-teal/50 cursor-pointer overflow-hidden rounded-lg border border-gray-800 bg-black/50 transition-all">
-        <div className="relative aspect-video overflow-hidden bg-gray-900">
+      <div className="group cursor-pointer overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-[border-color,box-shadow] duration-200 hover:border-primary/20 hover:shadow-md">
+        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           <Image
             src={imageUrl}
             alt={template.title || template.id}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02]"
             loading="lazy"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             unoptimized
           />
         </div>
         <div className="space-y-3 p-4">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="line-clamp-1 text-sm font-medium text-white">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-start gap-2">
+              <h3 className="line-clamp-2 text-sm font-semibold tracking-tight text-foreground">
                 {template.title || template.id}
               </h3>
-              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
+              <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Mall
               </span>
             </div>
-            <p className="text-[11px] leading-relaxed text-gray-400">
-              Kuraterad startpunkt för din sajt.
-            </p>
           </div>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={handlePreviewClick}
               disabled={disabled || !imageUrl}
-              className="bg-brand-teal/20 hover:bg-brand-teal/30 border-brand-teal/30 text-brand-teal flex flex-1 items-center justify-center gap-2 rounded border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <Play className="h-3.5 w-3.5" />
-              Förhandsvisa
+              Visa
             </button>
             <button
+              type="button"
               onClick={handleEdit}
               disabled={disabled || isCreating}
-              className="flex flex-1 items-center justify-center gap-2 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               {isCreating ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <Edit className="h-3.5 w-3.5" />
               )}
-              {isCreating ? "Skapar..." : "Redigera"}
+              {isCreating ? "…" : "Öppna"}
             </button>
           </div>
         </div>

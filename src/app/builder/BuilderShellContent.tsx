@@ -218,6 +218,19 @@ function saveNeedsAnalysisMessages(messages: ChatMessage[]) {
 }
 
 
+function pick(...candidates: unknown[]): string | undefined {
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim();
+  }
+  return undefined;
+}
+
+function pickArr(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const filtered = v.filter((s): s is string => typeof s === "string" && s.trim().length > 0);
+  return filtered.length > 0 ? filtered : undefined;
+}
+
 export function BuilderShellContent(vm: BuilderViewModel) {
   
   const scrapeDataRef = useRef<ScrapeResult | null>(null);
@@ -299,7 +312,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     (result: IntakeWizardResult) => {
       setShowIntakeWizard(false);
 
-      // Apply scaffold hint from wizard site type selection
       const siteTypeField = result.fieldMessages.find((fm) => fm.field === "siteType");
       if (siteTypeField) {
         const labels = siteTypeField.text.split(", ").map((s) => s.trim());
@@ -317,31 +329,47 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       }));
       vm.setMessages((prev) => [...prev, ...userMessages]);
 
-      // Upload media files from wizard (logo, product images, etc.)
-      if (result.mediaFiles?.length) {
-        for (const { file, context } of result.mediaFiles) {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("context", context);
-          void fetch("/api/media/upload", { method: "POST", body: formData })
-            .then((res) => res.json())
-            .then((data) => {
-              if (data?.url) {
-                vm.setMessages((prev) => [
-                  ...prev,
-                  { id: `media-${Date.now()}`, role: "user" as const, content: `[Uppladdad bild: ${context}](${data.url})` },
-                ]);
-              }
-            })
-            .catch(() => { /* silent */ });
-        }
-      }
-
       const allMessages = [...vm.messages, ...userMessages];
 
       if (result.mediaFiles?.length) {
         pendingGenerationRef.current = { messages: allMessages };
-        executeStarterGeneration();
+
+        const uploadAll = async () => {
+          const uploaded: UploadedMediaInfo[] = [];
+          for (const { file, context } of result.mediaFiles!) {
+            try {
+              const formData = new FormData();
+              formData.append("file", file);
+              formData.append("context", context);
+              const res = await fetch("/api/media/upload", { method: "POST", body: formData });
+              const data = await res.json();
+              if (data?.url) {
+                const ctx = context.toLowerCase();
+                let purpose = "site-media";
+                if (ctx.includes("logo")) purpose = "brand-logo";
+                else if (ctx.includes("produkt") || ctx.includes("product")) purpose = "product-photo";
+                else if (ctx.includes("meny") || ctx.includes("menu")) purpose = "product-photo";
+                else if (ctx.includes("projekt") || ctx.includes("project")) purpose = "product-photo";
+                uploaded.push({
+                  filename: file.name,
+                  mimeType: file.type || "image/jpeg",
+                  url: data.url,
+                  purpose,
+                  context,
+                });
+                vm.setMessages((prev) => [
+                  ...prev,
+                  { id: `media-${Date.now()}-${file.name}`, role: "user" as const, content: `[Uppladdad bild: ${context}](${data.url})` },
+                ]);
+              }
+            } catch { /* silent */ }
+          }
+          if (uploaded.length > 0) {
+            uploadedMediaRef.current = uploaded;
+          }
+          executeStarterGeneration();
+        };
+        void uploadAll();
       } else {
         triggerStarterGeneration(allMessages);
       }
@@ -361,6 +389,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         if (!json.success || !json.data) return null;
         const intel = json.data.intel;
         const brief = json.data.brief as Record<string, unknown> | null;
+        const wizardFields = json.data.wizardFields as Record<string, unknown> | null;
         if (brief) {
           companyBriefRef.current = brief;
         }
@@ -380,80 +409,65 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           ?.map((s) => s.url)
           .filter((u): u is string => Boolean(u)) ?? [];
 
+        const wf = wizardFields ?? {};
+        const confidence = (wf.confidence ?? {}) as Record<string, string>;
+        const isConfident = (key: string) => confidence[key] === "high" || confidence[key] === "medium";
+
         const colorPalette = (brief?.visualDirection as { colorPalette?: Record<string, string> } | undefined)?.colorPalette;
-        const brandColors = colorPalette
+        const briefColors = colorPalette
           ? Object.values(colorPalette).filter((c) => typeof c === "string" && c.startsWith("#"))
           : [];
-
-        const toneArr = brief?.toneAndVoice as string[] | undefined;
-
-        const servicesFromBrief: string[] = [];
-        const testimonialsFromBrief: string[] = [];
-        const teamFromBrief: Array<{ name: string; role?: string }> = [];
-        type BriefSection = { type?: string; heading?: string; suggestedContent?: string; bullets?: string[] };
-        const pagesArr = brief?.pages as Array<{ sections?: BriefSection[] }> | undefined;
-        if (pagesArr) {
-          for (const page of pagesArr) {
-            for (const sec of page.sections ?? []) {
-              if (sec.type === "services" && sec.bullets?.length) {
-                servicesFromBrief.push(...sec.bullets.map((b) => b.split(":")[0].trim()));
-              }
-              if (sec.type === "testimonials" && sec.bullets?.length) {
-                testimonialsFromBrief.push(...sec.bullets);
-              }
-              if (sec.type === "team" && sec.bullets?.length) {
-                for (const b of sec.bullets) {
-                  const dashMatch = b.match(/^(.+?)\s*[—–-]\s*(.+)/);
-                  if (dashMatch) teamFromBrief.push({ name: dashMatch[1].trim(), role: dashMatch[2].trim() });
-                  else teamFromBrief.push({ name: b.trim() });
-                }
-              }
-            }
-          }
-        }
-
-        const phoneFromMeta = sc?.meta?.phone as string | undefined;
-        const emailFromMeta = sc?.meta?.email as string | undefined;
-
-        const phoneFromText = !phoneFromMeta && sc?.text
-          ? sc.text.match(/(?:Tel|Telefon|Ring)[:\s]*([0-9\s\-+()]{7,})/i)?.[1]?.trim()
-          : undefined;
-        const emailFromText = !emailFromMeta && sc?.text
-          ? sc.text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
-          : undefined;
-
-        const openingHoursFromText = sc?.text
-          ? sc.text.match(/(?:Öppettider|Öppet|Opening hours)[:\s]*([^\n]{5,80})/i)?.[1]?.trim()
-          : undefined;
-
-        const uspFromBrief: string[] = [];
-        if (brief?.targetAudience) uspFromBrief.push(`Målgrupp: ${brief.targetAudience}`);
-        if (brief?.oneSentencePitch) uspFromBrief.push(brief.oneSentencePitch as string);
+        const wfColors = Array.isArray(wf.brandColors) ? wf.brandColors.filter((c: unknown): c is string => typeof c === "string" && (c as string).startsWith("#")) : [];
 
         const result: WizardScrapeData = {
-          title: (brief?.brandName as string) || reg?.companyName || sc?.title || undefined,
-          metaDescription: (brief?.oneSentencePitch as string) || sc?.description || undefined,
+          title: pick(wf.companyName, brief?.brandName, reg?.companyName, sc?.title),
+          metaDescription: pick(wf.offer, brief?.oneSentencePitch, sc?.description),
+          description: pick(wf.offer),
           orgNr: reg?.orgNr || undefined,
-          address: reg?.address ? `${reg.address}${reg.city ? `, ${reg.city}` : ""}` : undefined,
+          address: pick(wf.address, reg?.address ? `${reg.address}${reg.city ? `, ${reg.city}` : ""}` : undefined),
           industries: reg?.industries ?? undefined,
           employees: reg?.employees ?? undefined,
-          phone: phoneFromMeta || phoneFromText || undefined,
-          email: emailFromMeta || emailFromText || undefined,
+          phone: pick(wf.phone, sc?.meta?.phone),
+          email: pick(wf.email, sc?.meta?.email),
           socialLinks: socialUrls.length > 0 ? socialUrls : undefined,
-          brandColors: brandColors.length > 0 ? brandColors : undefined,
-          openingHours: openingHoursFromText || undefined,
-          tagline: (brief?.tagline as string) || undefined,
+          brandColors: wfColors.length > 0 ? wfColors : briefColors.length > 0 ? briefColors : undefined,
+          openingHours: pick(wf.openingHours),
+          tagline: pick(wf.tagline, brief?.tagline),
+          tone: pick(wf.tone),
+          designStyle: pick(wf.designStyle),
           logoUrl: sc?.meta?.["og:image"] || undefined,
-          callToAction: (brief?.primaryCallToAction as string) || undefined,
-          services: servicesFromBrief.length > 0 ? servicesFromBrief : undefined,
-          uniqueSellingPoints: uspFromBrief.length > 0 ? uspFromBrief : undefined,
-          testimonials: testimonialsFromBrief.length > 0 ? testimonialsFromBrief : undefined,
-          teamMembers: teamFromBrief.length > 0 ? teamFromBrief : undefined,
+          callToAction: pick(brief?.primaryCallToAction),
+          services: pickArr(wf.services),
+          uniqueSellingPoints: pickArr(wf.uniqueSellingPoints),
+          testimonials: pickArr(wf.testimonials),
+          teamMembers: Array.isArray(wf.teamMembers) && wf.teamMembers.length > 0
+            ? (wf.teamMembers as Array<{ name: string; role?: string }>)
+            : undefined,
+          menuItems: isConfident("menuItems") && Array.isArray(wf.menuItems) && wf.menuItems.length > 0
+            ? (wf.menuItems as Array<{ name: string; description?: string; price?: string }>)
+            : undefined,
+          products: isConfident("products") && Array.isArray(wf.products) && wf.products.length > 0
+            ? (wf.products as Array<{ name: string; price?: string; image?: string }>)
+            : undefined,
+          treatments: isConfident("treatments") && Array.isArray(wf.treatments) && wf.treatments.length > 0
+            ? (wf.treatments as Array<{ name: string; price?: string; duration?: string }>)
+            : undefined,
+          projects: Array.isArray(wf.projects) && wf.projects.length > 0
+            ? (wf.projects as Array<{ name: string; description?: string; url?: string }>)
+            : undefined,
+          cuisine: pick(Array.isArray(wf.cuisine) && wf.cuisine.length > 0 ? wf.cuisine[0] : undefined),
+          acceptsReservations: typeof wf.acceptsReservations === "boolean" ? wf.acceptsReservations : undefined,
+          delivery: typeof wf.delivery === "boolean" ? wf.delivery : undefined,
+          bookingUrl: pick(wf.bookingUrl),
+          paymentMethods: pickArr(wf.paymentMethods),
+          shippingInfo: pick(wf.shippingInfo),
+          priceRange: pick(wf.priceRange),
+          topics: pickArr(wf.topics),
+          categorySpecific: wf.categorySpecific && typeof wf.categorySpecific === "object"
+            ? (wf.categorySpecific as Record<string, string | string[] | boolean>)
+            : undefined,
+          scrapedImages: sc?.imageUrls as Array<{ url: string; alt: string; role: string }> | undefined,
         };
-
-        if (toneArr?.length) {
-          result.tone = toneArr.join(", ");
-        }
 
         return result;
       } catch {
@@ -472,11 +486,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const generationPhase = useMemo((): GenerationPhase => {
     const lastAssistant = [...displayMessages].reverse().find((m) => m.role === "assistant");
-    if (!lastAssistant?.uiParts) return null;
+    if (!lastAssistant?.uiParts) {
+      if (vm.isAnyStreaming) return "brief";
+      return null;
+    }
     const progressParts = lastAssistant.uiParts.filter(
       (p: Record<string, unknown>) => typeof p.type === "string" && (p.type as string).startsWith("tool:engine-"),
     );
-    if (progressParts.length === 0) return null;
+    if (progressParts.length === 0) {
+      if (vm.isAnyStreaming) return "brief";
+      return null;
+    }
     const last = progressParts[progressParts.length - 1] as Record<string, unknown>;
     const toolType = typeof last.type === "string" ? (last.type as string).replace("tool:engine-", "") : "";
     const phaseMap: Record<string, GenerationPhase> = {
@@ -488,7 +508,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       preview: "preview",
     };
     return phaseMap[toolType] ?? "generation";
-  }, [displayMessages]);
+  }, [displayMessages, vm.isAnyStreaming]);
 
   const currentField = useMemo(() => {
     if (!needsAnalysisState || needsAnalysisState.ready) return null;
@@ -641,6 +661,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [tipCost, setTipCost] = useState<number | null>(null);
   const [isTipLoading, setIsTipLoading] = useState(false);
   const previousStreamingRef = useRef(vm.isAnyStreaming);
+  const hasAutoSwitchedToPreview = useRef(false);
+  useEffect(() => {
+    if (vm.currentPreviewUrl && !hasAutoSwitchedToPreview.current) {
+      hasAutoSwitchedToPreview.current = true;
+      setMobileTab("preview");
+    }
+  }, [vm.currentPreviewUrl]);
   const lastAutoTipAssistantIdRef = useRef<string | null>(null);
   const latestTipRequestIdRef = useRef(0);
   const [pendingPlacementRequest, setPendingPlacementRequest] =
@@ -1004,11 +1031,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 img.parentElement?.textContent?.trim().slice(0, 60) ||
                 "(unknown)";
 
-              console.info(
-                `%c[ExtImg]%c ${closestLabel}\n${url.href}`,
-                "color:#f59e0b;font-weight:bold",
-                "color:inherit",
-              );
+              console.info(`[ExtImg] ${closestLabel}`, url.href);
             } catch { /* invalid URL */ }
           }
         }
@@ -1546,7 +1569,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onGoHome={vm.handleGoHome}
         onNewChat={vm.resetToNewChat}
         onSaveProject={vm.handleSaveProject}
-        onCancelGeneration={() => {}}
+        onCancelGeneration={vm.cancelActiveGeneration}
         isDeploying={vm.isDeploying}
         isCreatingChat={vm.isCreatingChat}
         isAnyStreaming={vm.isAnyStreaming}
@@ -1568,8 +1591,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         />
       )}
 
-      {/* Mobile tab bar (visible < lg) */}
-      <div className="border-border bg-background flex border-b lg:hidden" role="tablist" aria-label="Byggarvyer">
+      {/* Mobile tab bar (visible < lg); chat first tills sajt finns */}
+      <div
+        className="border-border bg-background/95 flex shrink-0 border-b lg:hidden"
+        role="tablist"
+        aria-label="Byggarvyer"
+      >
         <button
           role="tab"
           aria-selected={mobileTab === "chat"}
@@ -1577,43 +1604,43 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           aria-label="Chatt"
           onClick={() => setMobileTab("chat")}
           className={cn(
-            "flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors",
+            "flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium motion-safe:transition-colors motion-safe:duration-200",
             mobileTab === "chat"
               ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <MessageSquare className="h-4 w-4" />
+          <MessageSquare className="h-4 w-4 shrink-0" />
           Chatt
         </button>
         <button
           role="tab"
           aria-selected={mobileTab === "preview"}
           aria-controls="builder-preview-panel"
-          aria-label="Din sajt"
+          aria-label="Förhandsvisning"
           onClick={() => setMobileTab("preview")}
           className={cn(
-            "relative flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors",
+            "relative flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium motion-safe:transition-colors motion-safe:duration-200",
             mobileTab === "preview"
               ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <Eye className="h-4 w-4" />
-          Din sajt
+          <Eye className="h-4 w-4 shrink-0" />
+          Sajt
           {vm.currentPreviewUrl && mobileTab !== "preview" && (
-            <span className="bg-primary absolute top-1 right-[calc(50%-20px)] h-1.5 w-1.5 rounded-full" />
+            <span className="bg-primary ring-background absolute top-1.5 right-[calc(50%-1.25rem)] h-1.5 w-1.5 rounded-full ring-2" />
           )}
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* ---------- Chat panel ---------- */}
+      <div className="flex min-h-0 flex-1 overflow-hidden lg:flex-row-reverse">
+        {/* ---------- Chat panel (desktop: right) ---------- */}
         <div
           id="builder-chat-panel"
           role="tabpanel"
           className={cn(
-            "border-border bg-background min-h-0 w-full flex-col border-r lg:flex lg:w-80",
+            "border-border bg-muted/20 text-foreground min-h-0 w-full flex-col border-r motion-safe:transition-[background-color,border-color] motion-safe:duration-200 lg:flex lg:w-80 lg:max-w-[20rem] lg:border-l lg:border-r-0",
             mobileTab === "chat" ? "flex" : "hidden",
           )}
         >
@@ -1669,7 +1696,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             initialPrompt={vm.initialPrompt}
             onCreateChat={smartCreateChat}
             onSendMessage={smartSendMessage}
-            onStartFromRegistry={vm.handleStartFromRegistry}
             onRequestPlacement={handleRequestPlacement}
             onStartFromTemplate={vm.handleStartFromTemplate}
             onPaletteSelection={vm.handlePaletteSelection}
@@ -1806,16 +1832,16 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           deploymentId={vm.activeDeploymentId}
         />
 
-        {/* ---------- Preview panel ---------- */}
+        {/* ---------- Preview panel (desktop: left, primary) ---------- */}
         <div
           id="builder-preview-panel"
           role="tabpanel"
           className={cn(
-            "min-h-0 flex-1 overflow-hidden",
+            "bg-background min-h-0 flex-1 overflow-hidden motion-safe:transition-[background-color] motion-safe:duration-200",
             mobileTab === "preview" ? "flex" : "hidden lg:flex",
           )}
         >
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
@@ -1849,6 +1875,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               pendingPlacementItem={pendingPlacementItem}
               onPlacementComplete={handlePlacementComplete}
               simplified={false}
+              onComposerAiFallback={async (payload) => {
+                const prompt = `Lägg till en "${payload.placementLabel}"-sektion ${payload.placement === "after-hero" ? "efter hero" : `vid ${payload.placement}`} på startsidan.`;
+                void vm.sendMessage(prompt);
+              }}
               generationPhase={generationPhase}
               onInlineEditPrompt={(prompt, file) => {
                 if (file) {
@@ -1881,7 +1911,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           </div>
           <div
             className={cn(
-              "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
+              "border-border bg-muted/15 flex h-full flex-col border-l motion-safe:transition-[width,background-color,border-color] motion-safe:duration-200",
               vm.isVersionPanelCollapsed ? "w-10" : "w-80",
             )}
           >

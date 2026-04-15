@@ -108,19 +108,19 @@ export function PreviewPanelEmptyState({
     .filter(Boolean)
     .slice(0, 6);
   const title = sandboxBuildError
-    ? "Sajten kunde inte byggas"
+    ? "Bygget misslyckades"
     : awaitingInput
-      ? "AI väntar på ditt svar"
+      ? "Svar behövs"
       : isInitialEmpty
         ? "Välkommen"
-        : "Ingen sajt att visa ännu";
+        : "Ingen preview än";
   const subtitle = sandboxBuildError
-    ? `Steg: ${sandboxBuildError.stage}. ${sandboxBuildError.message}`
+    ? `${sandboxBuildError.stage}: ${sandboxBuildError.message}`
     : awaitingInput
-      ? "AI behöver ditt svar innan nästa version kan genereras."
+      ? "Svara i chatten."
       : isInitialEmpty
-        ? "Skriv en prompt till vänster så skapar vi din sajt."
-        : "Det finns ingen vy för senaste versionen. Testa att generera igen eller reparera.";
+        ? "Skriv en prompt till vänster."
+        : "Generera igen eller reparera.";
   const showFixAction = Boolean(
     onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput && !sandboxPending,
   );
@@ -133,39 +133,41 @@ export function PreviewPanelEmptyState({
         : AlertCircle;
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-muted/20 text-muted-foreground">
-      <EmptyIcon className={cn("mb-4 h-12 w-12")} />
-      <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
-        {title}
-      </p>
-      <p className="text-sm" suppressHydrationWarning>
-        {subtitle}
-      </p>
-      {awaitingInput && normalizedAwaitingQuestion ? (
-        <div className="mt-4 max-w-xl space-y-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-center">
-          <p className="text-sm font-semibold text-foreground">{normalizedAwaitingQuestion}</p>
-          {normalizedAwaitingOptions.length > 0 ? (
-            <div className="flex flex-wrap justify-center gap-2">
-              {normalizedAwaitingOptions.map((option) => (
-                <Badge
-                  key={option}
-                  variant="secondary"
-                  className="border border-primary/20 bg-primary/10 text-foreground"
-                >
-                  {option}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">Svara i chatten till vänster för att fortsätta.</p>
-          )}
-        </div>
-      ) : null}
-      {showFixAction ? (
-        <Button className="mt-4" onClick={onFixPreview!} disabled={externalLoading}>
-          Försök igen
-        </Button>
-      ) : null}
+    <div className="flex h-full flex-col items-center justify-center bg-muted/15 p-6 text-muted-foreground">
+      <div className="w-full max-w-md rounded-[var(--radius)] border border-border bg-card px-8 py-10 text-center shadow-sm">
+        <EmptyIcon className={cn("mx-auto mb-4 h-10 w-10 text-primary/85")} />
+        <p className="mb-2 text-base font-medium tracking-tight text-foreground" suppressHydrationWarning>
+          {title}
+        </p>
+        <p className="text-sm text-muted-foreground" suppressHydrationWarning>
+          {subtitle}
+        </p>
+        {awaitingInput && normalizedAwaitingQuestion ? (
+          <div className="mt-5 space-y-3 rounded-[var(--radius)] border border-border bg-muted/30 px-4 py-3 text-left">
+            <p className="text-sm font-medium text-foreground">{normalizedAwaitingQuestion}</p>
+            {normalizedAwaitingOptions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {normalizedAwaitingOptions.map((option) => (
+                  <Badge
+                    key={option}
+                    variant="secondary"
+                    className="border border-border bg-background text-foreground"
+                  >
+                    {option}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Svara i chatten.</p>
+            )}
+          </div>
+        ) : null}
+        {showFixAction ? (
+          <Button className="mt-6" onClick={onFixPreview!} disabled={externalLoading}>
+            Försök igen
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -1,8 +1,37 @@
+/* Primary hero/builder CTAs — orange glow via --primary only */
+.landing-cta-primary {
+  box-shadow:
+    0 1px 2px hsl(var(--primary) / 0.2),
+    0 8px 28px -6px hsl(var(--primary) / 0.45),
+    0 0 0 1px hsl(var(--primary) / 0.25);
+  transition:
+    box-shadow var(--transition-base) var(--ease-out-soft),
+    background-color var(--transition-base) var(--ease-out-soft),
+    opacity var(--transition-base) var(--ease-out-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-cta-primary {
+    transition: background-color var(--transition-base) var(--ease-out-soft), opacity var(--transition-base) var(--ease-out-soft);
+  }
+}
+
+.landing-cta-primary:hover:not(:disabled) {
+  box-shadow:
+    0 2px 4px hsl(var(--primary) / 0.25),
+    0 12px 36px -4px hsl(var(--primary) / 0.5),
+    0 0 0 1px hsl(var(--primary) / 0.35);
+}
+
+.landing-cta-primary:disabled {
+  box-shadow: none;
+}
+
 .shader-orb {
   position: absolute;
   border-radius: 50%;
   filter: blur(100px);
-  opacity: 0.4;
+  opacity: 0.22;
   mix-blend-mode: multiply;
   animation: landing-v2-shader-float 20s ease-in-out infinite;
 }
@@ -10,7 +39,7 @@
 .shader-orb-1 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, rgba(20, 40, 80, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.06) 0%, transparent 70%);
   top: -100px;
   left: -100px;
   animation-duration: 25s;
@@ -19,7 +48,7 @@
 .shader-orb-2 {
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(200, 90, 40, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.06) 0%, transparent 70%);
   bottom: -150px;
   right: -150px;
   animation-duration: 30s;
@@ -29,7 +58,7 @@
 .shader-orb-3 {
   width: 400px;
   height: 400px;
-  background: radial-gradient(circle, rgba(30, 50, 90, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.05) 0%, transparent 70%);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -40,51 +69,52 @@
 
 .grid-background {
   background-image:
-    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+    linear-gradient(hsl(var(--foreground) / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--foreground) / 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
-  animation: landing-v2-grid-move 20s linear infinite;
+  /* Static grid — calmer than infinite motion */
+  animation: none;
 }
 
 /* Landing page chat backdrop — semantic tint per category (navy/orange palette) */
 .landing-chat-bg [data-landing-bg="template"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(30, 50, 100, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.06) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="template"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(200, 90, 40, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.05) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="template"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(25, 45, 85, 0.04) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.04) 0%, transparent 70%);
 }
 
 .landing-chat-bg [data-landing-bg="audit"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(220, 130, 50, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.06) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="audit"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(200, 100, 35, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-orange) / 0.05) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="audit"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(240, 160, 70, 0.04) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-warm) / 0.04) 0%, transparent 70%);
 }
 
 .landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(25, 45, 90, 0.06) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.06) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(20, 38, 80, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.05) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="analyserad"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(30, 55, 100, 0.04) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.04) 0%, transparent 70%);
 }
 
 .landing-chat-bg [data-landing-bg="fritext"] .shader-orb-1 {
-  background: radial-gradient(circle, rgba(22, 40, 70, 0.04) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.04) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="fritext"] .shader-orb-2 {
-  background: radial-gradient(circle, rgba(18, 35, 65, 0.03) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.03) 0%, transparent 70%);
 }
 .landing-chat-bg [data-landing-bg="fritext"] .shader-orb-3 {
-  background: radial-gradient(circle, rgba(20, 38, 68, 0.03) 0%, transparent 70%);
+  background: radial-gradient(circle, hsl(var(--brand-navy) / 0.03) 0%, transparent 70%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -106,7 +136,7 @@
 
 /* btn-3d and btn-glow removed in redesign — replaced with calm transitions */
 .btn-3d {
-  transition: all 0.2s ease;
+  transition: all var(--transition-base) var(--ease-out-soft);
 }
 
 .btn-3d:hover {
@@ -115,7 +145,7 @@
 
 .btn-3d:active {
   transform: translateY(0) scale(0.98);
-  transition: all 0.1s ease;
+  transition: all var(--transition-fast, 150ms cubic-bezier(0.4, 0, 0.2, 1));
 }
 
 .btn-glow {
@@ -126,16 +156,16 @@
   transform-style: preserve-3d;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 2px 8px rgba(0, 0, 0, 0.04);
+    0 1px 3px hsl(var(--foreground) / 0.06),
+    0 2px 8px hsl(var(--foreground) / 0.04);
 }
 
 .card-3d:hover {
   transform: translateY(-4px) scale(1.01);
   box-shadow:
-    0 8px 16px rgba(0, 0, 0, 0.08),
-    0 16px 32px rgba(0, 0, 0, 0.04),
-    0 0 0 1px rgba(200, 100, 40, 0.12);
+    0 8px 16px hsl(var(--foreground) / 0.08),
+    0 16px 32px hsl(var(--foreground) / 0.04),
+    0 0 0 1px hsl(var(--brand-orange) / 0.12);
 }
 
 .input-3d {
@@ -143,14 +173,14 @@
   transform-style: preserve-3d;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.06);
+    0 1px 3px hsl(var(--foreground) / 0.06),
+    0 0 0 1px hsl(var(--foreground) / 0.06);
 }
 
 .input-3d:focus-within {
   transform: translateY(-1px);
   box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 2px 8px hsl(var(--foreground) / 0.08),
     0 0 0 2px hsl(var(--primary) / 0.2);
 }
 
@@ -174,13 +204,13 @@
 @keyframes landing-v2-hero-pulse {
   0%, 100% {
     box-shadow:
-      0 0 0 0 rgba(229, 126, 34, 0),
-      0 20px 60px -15px rgba(0, 0, 0, 0.08);
+      0 0 0 0 hsl(var(--brand-orange) / 0),
+      0 20px 60px -15px hsl(var(--foreground) / 0.08);
   }
   50% {
     box-shadow:
-      0 0 40px 4px rgba(229, 126, 34, 0.06),
-      0 25px 70px -15px rgba(0, 0, 0, 0.12);
+      0 0 40px 4px hsl(var(--brand-orange) / 0.06),
+      0 25px 70px -15px hsl(var(--foreground) / 0.12);
   }
 }
 
@@ -285,10 +315,10 @@
 @keyframes rocket-glow-pulse {
   0%,
   100% {
-    filter: drop-shadow(0 0 6px rgba(220, 110, 50, 0.4));
+    filter: drop-shadow(0 0 6px hsl(var(--brand-orange) / 0.4));
   }
   50% {
-    filter: drop-shadow(0 0 14px rgba(220, 110, 50, 0.7));
+    filter: drop-shadow(0 0 14px hsl(var(--brand-orange) / 0.7));
   }
 }
 
@@ -380,9 +410,9 @@
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    oklch(0.65 0.14 50 / 0.04) 45%,
-    oklch(0.65 0.14 50 / 0.08) 50%,
-    oklch(0.65 0.14 50 / 0.04) 55%,
+    hsl(var(--brand-orange) / 0.04) 45%,
+    hsl(var(--brand-orange) / 0.08) 50%,
+    hsl(var(--brand-orange) / 0.04) 55%,
     transparent 100%
   );
   animation: scan-line-kf 4s linear infinite;
@@ -440,7 +470,7 @@
 /* Hero chat scroll area */
 .hero-chat-scroll {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border) / 0.3) transparent;
+  scrollbar-color: hsl(var(--scrollbar-thumb) / 0.35) transparent;
 }
 .hero-chat-scroll::-webkit-scrollbar {
   width: 4px;
@@ -449,14 +479,19 @@
   background: transparent;
 }
 .hero-chat-scroll::-webkit-scrollbar-thumb {
-  background: hsl(var(--border) / 0.3);
+  background: hsl(var(--scrollbar-thumb) / 0.4);
   border-radius: 4px;
+}
+.hero-chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--scrollbar-thumb-hover) / 0.35);
 }
 
 /* Intent cards */
 .intent-card {
   backdrop-filter: blur(8px);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform var(--transition-base) var(--ease-out-soft),
+    box-shadow var(--transition-base) var(--ease-out-soft);
 }
 @media (hover: hover) {
   .intent-card:hover {

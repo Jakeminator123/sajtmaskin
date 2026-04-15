@@ -45,8 +45,14 @@ import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface MessageListProps {
   chatId: string | null;
@@ -156,26 +162,34 @@ const MessageListComponent = ({
 
   if (!chatId && messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
-        <MessageSquare className="mb-3 h-10 w-10" />
-        <p className="text-sm" suppressHydrationWarning>Ingen chat vald ännu</p>
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border/40 bg-card/60 shadow-[0_1px_0_hsl(var(--border)/0.4)]">
+          <MessageSquare className="h-7 w-7 text-muted-foreground/75" aria-hidden />
+        </div>
+        <p className="text-sm" suppressHydrationWarning>
+          Ingen chat vald
+        </p>
       </div>
     );
   }
 
   if (messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
-        <MessageSquare className="mb-3 h-10 w-10" />
-        <p className="text-sm" suppressHydrationWarning>Inga meddelanden ännu</p>
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-border/40 bg-card/60 shadow-[0_1px_0_hsl(var(--border)/0.4)]">
+          <MessageSquare className="h-7 w-7 text-muted-foreground/75" aria-hidden />
+        </div>
+        <p className="text-sm" suppressHydrationWarning>
+          Inga meddelanden ännu
+        </p>
       </div>
     );
   }
 
   return (
     <>
-      <Conversation className="h-full">
-        <ConversationContent>
+      <Conversation className="h-full scroll-smooth scrollbar-thin [scroll-behavior:smooth]">
+        <ConversationContent className="space-y-3 px-3 py-3 sm:px-4 sm:py-4">
           {messages.map((message, messageIndex) => {
           const reasoningPart = message.parts.find(
             (p): p is Extract<MessagePart, { type: "reasoning" }> => p.type === "reasoning",
@@ -219,10 +233,19 @@ const MessageListComponent = ({
           const hasVisibleTooling =
             agentLogItems.length > 0 || compactToolParts.length > 0 || toolParts.length > 0;
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
+          const expandToolSection = Boolean(pendingReply?.messageId === message.id);
+          const toolingStepCount = agentLogItems.length + compactToolParts.length;
 
           return (
             <Message key={message.id} from={message.role}>
-              <MessageContent>
+              <MessageContent
+                className={cn(
+                  "max-w-[min(88%,28rem)] gap-2.5 rounded-[1.25rem] border px-4 py-3 shadow-[0_1px_0_hsl(var(--border)/0.45)] transition-[box-shadow,background-color,border-color] duration-[var(--transition-base,200ms)] ease-out",
+                  message.role === "user"
+                    ? "ml-auto border-primary/20 bg-primary/[0.06] text-foreground"
+                    : "border-border/40 bg-card/75 text-foreground backdrop-blur-[2px]",
+                )}
+              >
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
                     <ReasoningTrigger />
@@ -247,22 +270,41 @@ const MessageListComponent = ({
 
                 {!showStructuredParts &&
                   message.role === "assistant" &&
-                  agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
-
-                {!showStructuredParts &&
-                  message.role === "assistant" &&
-                  compactToolParts.length > 0 && (
-                    <CompactToolParts
-                      messageId={message.id}
-                      toolParts={compactToolParts}
-                      pendingReply={pendingReply}
-                      hasUserAfterCurrentMessage={hasUserAfterCurrentMessage}
-                      pendingQuickReplyKey={pendingQuickReplyKey}
-                      onQuickReply={async (messageId, optionIndex, option, options) =>
-                        sendQuickReply(messageId, optionIndex, option, options)
-                      }
-                      quickReplyDisabled={quickReplyDisabled}
-                    />
+                  toolingStepCount > 0 && (
+                    <Collapsible
+                      key={`tool-section-${message.id}-${expandToolSection ? "open" : "shut"}-${pendingReply?.key ?? "none"}`}
+                      defaultOpen={expandToolSection}
+                      className="group rounded-xl border border-border/35 bg-muted/15"
+                    >
+                      <CollapsibleTrigger className="text-muted-foreground hover:bg-muted/35 flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-colors">
+                        <span>
+                          Steg · {toolingStepCount}
+                          {expandToolSection ? (
+                            <span className="text-primary/90 ml-1.5 font-normal">· svar</span>
+                          ) : null}
+                        </span>
+                        <ChevronDown
+                          className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-[var(--transition-base,200ms)] group-data-[state=open]:rotate-180"
+                          aria-hidden
+                        />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-0 px-2 pb-2">
+                        {agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
+                        {compactToolParts.length > 0 && (
+                          <CompactToolParts
+                            messageId={message.id}
+                            toolParts={compactToolParts}
+                            pendingReply={pendingReply}
+                            hasUserAfterCurrentMessage={hasUserAfterCurrentMessage}
+                            pendingQuickReplyKey={pendingQuickReplyKey}
+                            onQuickReply={async (messageId, optionIndex, option, options) =>
+                              sendQuickReply(messageId, optionIndex, option, options)
+                            }
+                            quickReplyDisabled={quickReplyDisabled}
+                          />
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
 
                 {showStructuredParts &&
@@ -271,7 +313,7 @@ const MessageListComponent = ({
                     <Plan
                       key={`${message.id}-plan-${index}`}
                       isStreaming={Boolean(part.isStreaming || message.isStreaming)}
-                      defaultOpen
+                      defaultOpen={Boolean(part.isStreaming || message.isStreaming)}
                     >
                       <PlanHeader>
                         <div className="space-y-1">
@@ -299,7 +341,7 @@ const MessageListComponent = ({
                       {part.plan.actions && part.plan.actions.length > 0 && (
                         <PlanFooter>
                           <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
-                            Plan actions
+                            Planåtgärder
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {part.plan.actions.map((action) => (
@@ -332,7 +374,7 @@ const MessageListComponent = ({
                       </MessageResponse>
                     )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts && !hasVisibleTooling ? (
-                    <span className="text-sm text-gray-500">Startar own-engine-ström...</span>
+                    <StreamingTypingIndicator />
                   ) : null
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
@@ -362,7 +404,7 @@ const MessageListComponent = ({
                     <VersionFeedback
                       chatId={chatId}
                       versionId={versionId}
-                      className="mt-2 pt-2 border-t border-zinc-700/50"
+                      className="mt-2 border-t border-border/50 pt-2"
                     />
                   )}
               </MessageContent>
@@ -378,12 +420,12 @@ const MessageListComponent = ({
           <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-semibold text-amber-300">
-                  Svar krävs för att fortsätta
+                <DialogTitle className="font-semibold text-foreground">
+                  Svar krävs
                 </DialogTitle>
                 <DialogDescription>
-                  Buildern väntar på ditt svar innan nästa steg kan fortsätta. Det kan gälla till
-                  exempel integrationer, innehåll, designval eller planblockerare.
+                  Buildern väntar innan nästa steg. Det kan gälla integrationer, innehåll eller
+                  designval.
                 </DialogDescription>
               </DialogHeader>
 
@@ -399,7 +441,8 @@ const MessageListComponent = ({
                         <Button
                           key={replyKey}
                           size="sm"
-                          variant="secondary"
+                          variant="outline"
+                          className="h-8 border-border/60 text-xs font-normal"
                           disabled={!canReply || pendingQuickReplyKey !== null}
                           onClick={() => void handleModalQuickReply(option, optionIndex)}
                         >
@@ -421,7 +464,9 @@ const MessageListComponent = ({
           {!isReplyDialogOpen && (
             <Button
               type="button"
-              className="fixed bottom-6 right-6 z-40 bg-amber-500 text-black hover:bg-amber-400"
+              size="sm"
+              variant="outline"
+              className="border-border/60 bg-card/90 text-foreground shadow-sm backdrop-blur-sm transition-[box-shadow,background-color] duration-[var(--transition-fast,150ms)] hover:bg-muted/50 fixed bottom-6 right-6 z-40"
               onClick={() => setIsReplyDialogOpen(true)}
             >
               Svar krävs
@@ -439,6 +484,30 @@ export const MessageList = memo(MessageListComponent);
  * CollapsibleUserMessage - Truncates long user messages (especially shadcn/ui block prompts)
  * Shows first few lines with expand button for long technical messages.
  */
+function StreamingTypingIndicator() {
+  return (
+    <div
+      className="flex items-center gap-2.5 py-1 text-muted-foreground/80"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="sr-only">Skriver</span>
+      <span className="flex items-center gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 rounded-full bg-primary/45 motion-safe:animate-pulse"
+            style={{
+              animationDelay: `${i * 180}ms`,
+              animationDuration: "0.75s",
+            }}
+          />
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function CollapsibleUserMessage({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -470,13 +539,16 @@ function CollapsibleUserMessage({ content }: { content: string }) {
         <MessageResponse>
           <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
         </MessageResponse>
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-2 text-xs text-muted-foreground"
           onClick={() => setIsExpanded(false)}
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
         >
           <ChevronUp className="h-3 w-3" />
-          Dölj detaljer
-        </button>
+          Dölj
+        </Button>
       </div>
     );
   }
@@ -486,13 +558,16 @@ function CollapsibleUserMessage({ content }: { content: string }) {
       <MessageResponse>
         <Streamdown plugins={{ code: streamdownCode }}>{summary}</Streamdown>
       </MessageResponse>
-      <button
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1 px-2 text-xs text-muted-foreground"
         onClick={() => setIsExpanded(true)}
-        className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
       >
         <ChevronDown className="h-3 w-3" />
-        Visa tekniska instruktioner ({lineCount} rader)
-      </button>
+        Visa mer ({lineCount})
+      </Button>
     </div>
   );
 }

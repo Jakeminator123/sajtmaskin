@@ -284,7 +284,7 @@ export function useBuilderPromptActions({
       await createNewChat(message, options, systemOverride);
       return true;
     },
-    [createNewChat, captureInstructionSnapshot, applyDynamicInstructionsForNewChat, setEntryIntentActive, pendingBriefRef, pendingSpecRef, pendingInstructionsRef],
+    [createNewChat, captureInstructionSnapshot, applyDynamicInstructionsForNewChat, setEntryIntentActive, pendingBriefRef, pendingInstructionsRef],
   );
 
   const handleStartFromRegistry = useCallback(

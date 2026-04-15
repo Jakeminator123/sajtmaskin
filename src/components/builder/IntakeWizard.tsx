@@ -42,7 +42,7 @@ import type { NeedsAnalysisField } from "@/lib/builder/needs-analysis";
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
-type StepId = "siteType" | "businessInfo" | "content" | "design" | "pages";
+type StepId = "company" | "siteType" | "content" | "design" | "pages" | "media";
 
 export interface ProductEntry {
   name: string;
@@ -118,6 +118,10 @@ interface WizardAnswers {
 
   mustHave: string[];
   goal: string[];
+  features: string[];
+
+  siteMedia: Array<{ file: File; preview: string; context: string }>;
+  scrapedImageUrls: Array<{ url: string; alt: string; role: string }>;
 }
 
 /* ── Exported types (backward compat with BuilderShellContent) ─── */
@@ -139,6 +143,7 @@ export interface WizardScrapeData {
   openingHours?: string;
   tagline?: string;
   tone?: string;
+  designStyle?: string;
   logoUrl?: string;
   services?: string[];
   uniqueSellingPoints?: string[];
@@ -149,12 +154,20 @@ export interface WizardScrapeData {
   industries?: string[];
   employees?: number;
   menuItems?: Array<{ name: string; description?: string; price?: string }>;
-  treatments?: Array<{ name: string; price?: string }>;
+  treatments?: Array<{ name: string; price?: string; duration?: string }>;
   products?: Array<{ name: string; price?: string; image?: string }>;
   teamMembers?: Array<{ name: string; role?: string }>;
+  projects?: Array<{ name: string; description?: string; url?: string }>;
   cuisine?: string;
   acceptsReservations?: boolean;
+  delivery?: boolean;
+  bookingUrl?: string;
+  paymentMethods?: string[];
+  shippingInfo?: string;
   priceRange?: string;
+  topics?: string[];
+  categorySpecific?: Record<string, string | string[] | boolean>;
+  scrapedImages?: Array<{ url: string; alt: string; role: string }>;
 }
 
 interface IntakeWizardProps {
@@ -230,11 +243,66 @@ const MUST_HAVE_OPTIONS = [
   "Meny / Matsedel",
 ];
 
+type FeatureModule = { id: string; label: string; description: string; icon: LucideIcon };
+
+const FEATURE_MODULES: { category: string; items: FeatureModule[] }[] = [
+  {
+    category: "Interaktion",
+    items: [
+      { id: "booking", label: "Onlinebokning", description: "Bokningsformulär med datum, tid och tjänst", icon: Calendar },
+      { id: "contact-form", label: "Kontaktformulär", description: "Namn, e-post, meddelande med bekräftelse", icon: FileText },
+      { id: "newsletter", label: "Nyhetsbrev", description: "E-post signup i footer eller popup", icon: BookOpen },
+      { id: "live-chat", label: "Chatt / Support", description: "Chattbubbla eller supportwidget", icon: Users },
+      { id: "reviews", label: "Kundrecensioner", description: "Omdömen med stjärnbetyg och citat", icon: Sparkles },
+    ],
+  },
+  {
+    category: "Innehåll",
+    items: [
+      { id: "blog", label: "Blogg / Nyheter", description: "Artikelsida med kategorier och datum", icon: BookOpen },
+      { id: "faq", label: "FAQ", description: "Vanliga frågor med expanderbar accordion", icon: FileText },
+      { id: "gallery", label: "Bildgalleri", description: "Responsivt grid med lightbox", icon: Camera },
+      { id: "portfolio", label: "Portfolio / Case", description: "Projekt med bilder och beskrivning", icon: Film },
+      { id: "team", label: "Teamsektion", description: "Medarbetare med bild, namn och roll", icon: Users },
+      { id: "menu", label: "Meny / Prislista", description: "Rätter eller tjänster med pris", icon: UtensilsCrossed },
+      { id: "pricing", label: "Prispaket", description: "Paketjämförelse i kolumner", icon: Briefcase },
+    ],
+  },
+  {
+    category: "E-handel",
+    items: [
+      { id: "product-catalog", label: "Produktkatalog", description: "Produktgrid med filter och sortering", icon: ShoppingBag },
+      { id: "cart", label: "Varukorg", description: "Lägg till, ta bort, beställ", icon: ShoppingBag },
+      { id: "checkout", label: "Betalning / Checkout", description: "Betalflöde med Swish, kort etc.", icon: ShoppingBag },
+    ],
+  },
+  {
+    category: "Funktioner",
+    items: [
+      { id: "login", label: "Inloggning", description: "Användarkonton med login/registrering", icon: Users },
+      { id: "search", label: "Sökfunktion", description: "Sök i innehåll eller produkter", icon: Globe },
+      { id: "map", label: "Karta / Hitta hit", description: "Google Maps med vägbeskrivning", icon: Globe },
+      { id: "dark-mode", label: "Mörkt läge", description: "Tema-switch för ljust/mörkt", icon: Laptop },
+      { id: "multi-lang", label: "Flerspråkig", description: "Stöd för svenska och engelska", icon: Globe },
+      { id: "cookie-banner", label: "Cookie-banner", description: "GDPR-kompatibel cookie-hantering", icon: FileText },
+    ],
+  },
+];
+
 const CUISINE_OPTIONS = ["Svenskt", "Italienskt", "Asiatiskt", "Franskt", "Amerikanskt", "Fusion", "Vegetariskt", "Annat"];
 const PAYMENT_OPTIONS = ["Swish", "Kort", "Klarna", "Faktura", "PayPal"];
 const PRICE_RANGE_OPTIONS = ["Budget", "Mellan", "Premium"];
 const MENU_CATEGORY_OPTIONS = ["Förrätter", "Varmrätter", "Desserter", "Drycker", "Övrigt"];
 const PRODUCT_CATEGORY_OPTIONS = ["Populärt", "Nyhet", "Rea", "Övrigt"];
+
+const HOTEL_AMENITY_OPTIONS = ["WiFi", "Parkering", "Pool", "Gym", "Spa", "Frukost", "Restaurang", "Bar", "Rum med utsikt", "Husdjur tillåtna"];
+const HOTEL_ROOM_OPTIONS = ["Enkelrum", "Dubbelrum", "Svit", "Familjerum", "Stuga / Lägenhet"];
+const CONSTRUCTION_PROJECT_OPTIONS = ["Nybyggnation", "Renovering", "Tillbyggnad", "Badrum", "Kök", "Tak", "Fasad", "Målning", "El", "VVS"];
+const EDUCATION_FORMAT_OPTIONS = ["På plats", "Distans / Online", "Hybrid", "Kvällskurs", "Helgkurs", "Självstudier"];
+const EVENT_TYPE_OPTIONS = ["Bröllop", "Företagsevent", "Konferens", "Fest", "Konsert", "Mässa", "Workshop", "Festival"];
+const LEGAL_AREA_OPTIONS = ["Familjerätt", "Avtalsrätt", "Arbetsrätt", "Bostadsrätt", "Straffrätt", "Affärsjuridik", "Migrationsrätt", "Skatterätt"];
+const PROPERTY_TYPE_OPTIONS = ["Villa", "Bostadsrätt", "Hyresrätt", "Tomt", "Kommersiell", "Fritidshus"];
+const CONSULTING_EXPERTISE_OPTIONS = ["Strategi", "IT / Digitalisering", "Marknadsföring", "Organisation", "Ekonomi", "HR / Rekrytering", "Hållbarhet", "Innovation"];
 
 /* ── Category inference from text ────────────────────────────────── */
 
@@ -359,7 +427,9 @@ function extractOffer(prompt: string): string {
 
 /* ── Branch detection helpers ────────────────────────────────────── */
 
-type ContentBranch = "ecommerce" | "restaurant" | "salon" | "portfolio" | "business" | "minimal";
+type ContentBranch =
+  | "ecommerce" | "restaurant" | "salon" | "portfolio" | "business" | "minimal"
+  | "hotel" | "construction" | "education" | "event" | "legal" | "realestate" | "nonprofit" | "consulting";
 
 function resolveContentBranch(siteTypeLabels: string[]): ContentBranch {
   for (const label of siteTypeLabels) {
@@ -369,6 +439,14 @@ function resolveContentBranch(siteTypeLabels: string[]): ContentBranch {
     if (cat.id === "restaurant" || cat.id === "food") return "restaurant";
     if (cat.id === "salon" || cat.id === "healthcare" || cat.id === "fitness") return "salon";
     if (cat.id === "portfolio" || cat.id === "photo" || cat.id === "music") return "portfolio";
+    if (cat.id === "hotel" || cat.id === "travel") return "hotel";
+    if (cat.id === "construction" || cat.id === "auto") return "construction";
+    if (cat.id === "education") return "education";
+    if (cat.id === "event") return "event";
+    if (cat.id === "legal" || cat.id === "accounting") return "legal";
+    if (cat.id === "realestate") return "realestate";
+    if (cat.id === "nonprofit") return "nonprofit";
+    if (cat.id === "consulting" || cat.id === "tech") return "consulting";
     if (cat.id === "blog" || cat.id === "landing" || cat.id === "other") return "minimal";
   }
   return "business";
@@ -380,6 +458,14 @@ function contentBranchTitle(branch: ContentBranch): string {
     case "restaurant": return "Meny och mat";
     case "salon": return "Behandlingar och team";
     case "portfolio": return "Projekt och kompetenser";
+    case "hotel": return "Boende och faciliteter";
+    case "construction": return "Tjänster och projekt";
+    case "education": return "Utbildning och kurser";
+    case "event": return "Event och arrangemang";
+    case "legal": return "Verksamhet och expertis";
+    case "realestate": return "Fastigheter och tjänster";
+    case "nonprofit": return "Uppdrag och engagemang";
+    case "consulting": return "Expertis och erbjudande";
     case "business": return "Tjänster och erbjudande";
     case "minimal": return "Ditt innehåll";
   }
@@ -388,6 +474,10 @@ function contentBranchTitle(branch: ContentBranch): string {
 /* ── Empty state ─────────────────────────────────────────────────── */
 
 function emptyAnswers(promptOffer: string, inferredLabels: string[], initialUrl: string): WizardAnswers {
+  const isEcommerce = inferredLabels.some((l) => {
+    const cat = CATEGORIES.find((c) => c.label === l);
+    return cat?.id === "ecommerce";
+  });
   return {
     siteType: inferredLabels,
     companyName: "",
@@ -396,7 +486,7 @@ function emptyAnswers(promptOffer: string, inferredLabels: string[], initialUrl:
     phone: "",
     email: "",
     address: "",
-    products: [],
+    products: isEcommerce ? [{ name: "", price: "", description: "", category: "" }] : [],
     menuItems: [],
     treatments: [],
     teamMembers: [],
@@ -422,37 +512,54 @@ function emptyAnswers(promptOffer: string, inferredLabels: string[], initialUrl:
     tagline: "",
     mustHave: [],
     goal: [],
+    features: [],
+    siteMedia: [],
+    scrapedImageUrls: [],
   };
 }
 
 /* ── Step definitions ────────────────────────────────────────────── */
 
 const STEP_TITLES: Record<StepId, string> = {
+  company: "Om ditt företag",
   siteType: "Vad bygger vi?",
-  businessInfo: "Om din verksamhet",
   content: "Ditt innehåll",
   design: "Design och stil",
   pages: "Vad ska finnas med?",
+  media: "Bilder och videos",
 };
 
-const FIELD_CLASS =
-  "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors";
+/** Motion: 150–200ms; prefers-reduced-motion respected via Tailwind motion-safe / motion-reduce */
+const MOTION =
+  "motion-safe:transition-[color,background-color,border-color,box-shadow,opacity,transform] motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none";
+
+const FIELD_CLASS = cn(
+  "w-full min-h-11 touch-manipulation rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground shadow-sm",
+  "placeholder:text-muted-foreground/55",
+  "focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+  MOTION,
+);
 
 const STEP_ICONS: Record<StepId, LucideIcon> = {
+  company: Building2,
   siteType: Sparkles,
-  businessInfo: Building2,
   content: FileText,
   design: ImagePlus,
   pages: BookOpen,
+  media: Upload,
 };
 
 const STEP_SUBTITLES: Record<StepId, string> = {
+  company: "Namn, beskrivning och befintlig hemsida",
   siteType: "Välj den kategori som bäst beskriver din verksamhet",
-  businessInfo: "Grundläggande information om ditt företag",
   content: "Det som gör din verksamhet unik",
   design: "Hur ska din sajt se ut och kännas?",
   pages: "Välj vilka sidor och funktioner du vill ha",
+  media: "Ladda upp bilder och videos som ska finnas på sajten",
 };
+
+const DIETARY_OPTIONS = ["Veganskt", "Vegetariskt", "Glutenfritt", "Laktosfritt", "Ekologiskt"];
+const EDUCATION_LEVEL_OPTIONS = ["Barn", "Ungdom", "Vuxen", "Företag", "Senior"];
 
 /* ── Main component ──────────────────────────────────────────────── */
 
@@ -476,13 +583,19 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   );
 
   const autoScrapedRef = useRef(false);
+  const [scrapedImages, setScrapedImages] = useState<Array<{ url: string; alt: string; role: string }>>([]);
   const [scraping, setScraping] = useState(false);
+  const [scrapeProgress, setScrapeProgress] = useState(0);
+  const scrapeProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [scrapeComplete, setScrapeComplete] = useState(false);
+  const [scrapedFields, setScrapedFields] = useState<Set<string>>(new Set());
+  const [scrapedCategoryIds, setScrapedCategoryIds] = useState<string[]>([]);
   const scrapeAbortRef = useRef(false);
   const [suggesting, setSuggesting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const steps: StepId[] = ["siteType", "businessInfo", "content", "design", "pages"];
+  const steps: StepId[] = ["company", "siteType", "content", "design", "pages", "media"];
   const totalSteps = steps.length;
   const step = steps[currentStep];
   const progress = totalSteps > 0 ? ((currentStep + 1) / totalSteps) * 100 : 0;
@@ -499,66 +612,160 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   }, []);
 
   const applyScrapeToBusiness = useCallback((data: WizardScrapeData) => {
+    const filled = new Set<string>();
+
+    const combinedCatIds: string[] = [];
+
+    if (data.industries?.length) {
+      for (const ind of data.industries) {
+        combinedCatIds.push(...inferCategoriesFromText(ind));
+      }
+    }
+
+    const descriptionText = [data.metaDescription, data.description, data.title, data.tagline].filter(Boolean).join(" ");
+    if (descriptionText.length > 5) {
+      combinedCatIds.push(...inferCategoriesFromText(descriptionText));
+    }
+
+    if (data.menuItems?.length) combinedCatIds.push("restaurant");
+    if (data.products?.length) combinedCatIds.push("ecommerce");
+    if (data.treatments?.length) combinedCatIds.push("salon");
+    if (data.projects?.length) combinedCatIds.push("portfolio");
+    if (data.bookingUrl) combinedCatIds.push("salon");
+
+    const uniqueCatIds = [...new Set(combinedCatIds)];
+    if (uniqueCatIds.length) {
+      setScrapedCategoryIds(uniqueCatIds);
+      const labels = uniqueCatIds
+        .map((id) => CATEGORIES.find((c) => c.id === id)?.label)
+        .filter(Boolean) as string[];
+      if (labels.length) {
+        setAnswers((prev) => ({
+          ...prev,
+          siteType: [...new Set([...prev.siteType, ...labels])],
+        }));
+      }
+    }
+
     setAnswers((prev) => {
       const next = { ...prev };
-      if (data.metaDescription && prev.offer.trim().length < 3) next.offer = data.metaDescription;
-      if (data.title && !prev.companyName) next.companyName = data.title;
-      if (data.phone && !prev.phone) next.phone = data.phone;
-      if (data.email && !prev.email) next.email = data.email;
-      if (data.address && !prev.address) next.address = data.address;
-      if (data.brandColors?.length && !prev.brandColors.length) next.brandColors = data.brandColors;
-      if (data.tagline && !prev.tagline) next.tagline = data.tagline;
+      if (data.metaDescription && prev.offer.trim().length < 3) { next.offer = data.metaDescription; filled.add("offer"); }
+      if (data.title && !prev.companyName) { next.companyName = data.title; filled.add("companyName"); }
+      if (data.phone && !prev.phone) { next.phone = data.phone; filled.add("phone"); }
+      if (data.email && !prev.email) { next.email = data.email; filled.add("email"); }
+      if (data.address && !prev.address) { next.address = data.address; filled.add("address"); }
+      if (data.brandColors?.length && !prev.brandColors.length) { next.brandColors = data.brandColors; filled.add("brandColors"); }
+      if (data.tagline && !prev.tagline) { next.tagline = data.tagline; filled.add("tagline"); }
 
       const matchedTone = data.tone
         ? TONE_OPTIONS.find((t) => data.tone!.toLowerCase().includes(t.toLowerCase().split(" ")[0]))
         : undefined;
-      if (matchedTone && !prev.tone) next.tone = matchedTone;
+      if (matchedTone && !prev.tone) { next.tone = matchedTone; filled.add("tone"); }
 
-      if (data.services?.length && !prev.services.length) next.services = data.services;
-      if (data.uniqueSellingPoints?.length && !prev.uniqueSellingPoints.length) next.uniqueSellingPoints = data.uniqueSellingPoints;
-      if (data.testimonials?.length && !prev.testimonials) next.testimonials = data.testimonials.join("\n\n");
-      if (data.openingHours && !prev.openingHours) next.openingHours = data.openingHours;
-      if (data.cuisine && !prev.cuisine.length) next.cuisine = [data.cuisine];
-      if (data.acceptsReservations != null) next.acceptsReservations = data.acceptsReservations;
-      if (data.priceRange && !prev.priceRange) next.priceRange = data.priceRange;
+      const matchedDesign = data.designStyle
+        ? DESIGN_STYLE_OPTIONS.find((d) => data.designStyle!.toLowerCase().includes(d.toLowerCase().split(" ")[0]))
+        : undefined;
+      if (matchedDesign && !prev.designStyle) { next.designStyle = matchedDesign; filled.add("designStyle"); }
+
+      if (data.services?.length && !prev.services.length) { next.services = data.services; filled.add("services"); }
+      if (data.uniqueSellingPoints?.length && !prev.uniqueSellingPoints.length) { next.uniqueSellingPoints = data.uniqueSellingPoints; filled.add("uniqueSellingPoints"); }
+      if (data.testimonials?.length && !prev.testimonials) { next.testimonials = data.testimonials.join("\n\n"); filled.add("testimonials"); }
+      if (data.openingHours && !prev.openingHours) { next.openingHours = data.openingHours; filled.add("openingHours"); }
+      if (data.cuisine && !prev.cuisine.length) { next.cuisine = [data.cuisine]; filled.add("cuisine"); }
+      if (data.acceptsReservations != null) { next.acceptsReservations = data.acceptsReservations; filled.add("acceptsReservations"); }
+      if (data.delivery != null) { next.delivery = data.delivery; filled.add("delivery"); }
+      if (data.priceRange && !prev.priceRange) { next.priceRange = data.priceRange; filled.add("priceRange"); }
+      if (data.bookingUrl && !prev.bookingUrl) { next.bookingUrl = data.bookingUrl; filled.add("bookingUrl"); }
+      if (data.shippingInfo && !prev.shippingInfo) { next.shippingInfo = data.shippingInfo; filled.add("shippingInfo"); }
+      if (data.paymentMethods?.length && !prev.paymentMethods.length) { next.paymentMethods = data.paymentMethods; filled.add("paymentMethods"); }
+      if (data.topics?.length && !prev.topics.length) { next.topics = data.topics; filled.add("topics"); }
 
       if (data.menuItems?.length && !prev.menuItems.length) {
         next.menuItems = data.menuItems.map((m) => ({
           name: m.name, price: m.price ?? "", description: m.description ?? "", category: "", imagePreview: "",
         }));
+        filled.add("menuItems");
       }
       if (data.treatments?.length && !prev.treatments.length) {
         next.treatments = data.treatments.map((t) => ({
-          name: t.name, price: t.price ?? "", duration: "",
+          name: t.name, price: t.price ?? "", duration: t.duration ?? "",
         }));
+        filled.add("treatments");
       }
       if (data.products?.length && !prev.products.length) {
         next.products = data.products.map((p) => ({
           name: p.name, price: p.price ?? "", description: "", category: "", imagePreview: p.image ?? "",
         }));
+        filled.add("products");
       }
       if (data.teamMembers?.length && !prev.teamMembers.length) {
         next.teamMembers = data.teamMembers.map((t) => ({
           name: t.name, role: t.role ?? "",
         }));
+        filled.add("teamMembers");
+      }
+      if (data.projects?.length && !prev.projects.length) {
+        next.projects = data.projects.map((p) => ({
+          name: p.name, client: "", description: p.description ?? "",
+        }));
+        filled.add("projects");
+      }
+
+      if (data.categorySpecific && Object.keys(data.categorySpecific).length > 0) {
+        next.categorySpecific = { ...prev.categorySpecific, ...data.categorySpecific };
+        filled.add("categorySpecific");
       }
 
       const autoMustHaves: string[] = ["Startsida / Hero", "Kontaktformulär"];
       if (data.menuItems?.length) autoMustHaves.push("Meny / Matsedel");
       if (data.teamMembers?.length) autoMustHaves.push("Vårt team");
-      if (data.acceptsReservations) autoMustHaves.push("Bokning online");
+      if (data.acceptsReservations || data.bookingUrl) autoMustHaves.push("Bokning online");
       if (data.services?.length) autoMustHaves.push("Priser och paket");
       if (data.testimonials?.length) autoMustHaves.push("Kundrecensioner");
+      if (data.products?.length) autoMustHaves.push("Produktkatalog");
+      if (data.projects?.length) autoMustHaves.push("Portfolio / Projekt");
       next.mustHave = [...new Set([...prev.mustHave, ...autoMustHaves])];
 
       if (!prev.goal.length) {
         const autoGoals: string[] = ["Få fler kunder"];
-        if (data.callToAction?.toLowerCase().includes("boka")) autoGoals.push("Boka tid / möten");
+        if (data.callToAction?.toLowerCase().includes("boka") || data.bookingUrl) autoGoals.push("Boka tid / möten");
         if (data.callToAction?.toLowerCase().includes("offert")) autoGoals.push("Samla leads / offertförfrågningar");
+        if (data.products?.length) autoGoals.push("Sälja produkter online");
         next.goal = autoGoals;
       }
       return next;
     });
+
+    if (data.scrapedImages?.length) {
+      setScrapedImages(data.scrapedImages);
+    }
+
+    setScrapedFields(filled);
+  }, []);
+
+  const startScrapeProgress = useCallback(() => {
+    setScrapeProgress(0);
+    if (scrapeProgressRef.current) clearInterval(scrapeProgressRef.current);
+    const start = Date.now();
+    scrapeProgressRef.current = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const raw = Math.min(elapsed / 25000, 1);
+      const eased = 1 - Math.pow(1 - raw, 1.6);
+      setScrapeProgress(Math.min(Math.round(eased * 90), 90));
+    }, 200);
+  }, []);
+
+  const stopScrapeProgress = useCallback((success: boolean) => {
+    if (scrapeProgressRef.current) {
+      clearInterval(scrapeProgressRef.current);
+      scrapeProgressRef.current = null;
+    }
+    if (success) {
+      setScrapeProgress(100);
+      setTimeout(() => setScraping(false), 600);
+    } else {
+      setScraping(false);
+    }
   }, []);
 
   const handleScrape = useCallback(async (url: string) => {
@@ -567,30 +774,37 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
     if (!normalized) return;
     scrapeAbortRef.current = false;
     setScraping(true);
+    setScrapeComplete(false);
+    startScrapeProgress();
     try {
       const data = await onScrapeUrl(normalized);
       if (data && !scrapeAbortRef.current) {
         applyScrapeToBusiness(data);
+        setScrapeComplete(true);
         const filled: string[] = [];
         if (data.title) filled.push("företagsnamn");
         if (data.phone || data.email) filled.push("kontaktuppgifter");
         if (data.services?.length) filled.push("tjänster");
         if (data.tagline) filled.push("tagline");
         if (data.brandColors?.length) filled.push("färgpalett");
+        if (data.industries?.length) filled.push("bransch");
         if (filled.length > 0) {
           toast.success(`Hämtade ${filled.length} uppgifter`, { description: filled.join(", ") });
         } else {
           toast("Kunde inte hämta tillräckligt med data. Fyll i fälten manuellt.");
         }
+        stopScrapeProgress(true);
       } else if (!scrapeAbortRef.current) {
         toast.error("Kunde inte analysera sajten.");
+        stopScrapeProgress(false);
+      } else {
+        stopScrapeProgress(false);
       }
     } catch {
       if (!scrapeAbortRef.current) toast.error("Något gick fel vid analys.");
-    } finally {
-      setScraping(false);
+      stopScrapeProgress(false);
     }
-  }, [onScrapeUrl, scraping, applyScrapeToBusiness, normalizeUrl]);
+  }, [onScrapeUrl, scraping, applyScrapeToBusiness, normalizeUrl, startScrapeProgress, stopScrapeProgress]);
 
   useEffect(() => setMounted(true), []);
 
@@ -600,12 +814,19 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
     scrapeAbortRef.current = false;
     const url = initialExistingUrl.startsWith("http") ? initialExistingUrl : `https://${initialExistingUrl}`;
     setScraping(true);
+    startScrapeProgress();
     void onScrapeUrl(url).then((data) => {
-      if (data && !scrapeAbortRef.current) applyScrapeToBusiness(data);
-    }).finally(() => {
-      if (!scrapeAbortRef.current) setScraping(false);
+      if (data && !scrapeAbortRef.current) {
+        applyScrapeToBusiness(data);
+        setScrapeComplete(true);
+        stopScrapeProgress(true);
+      } else {
+        stopScrapeProgress(false);
+      }
+    }).catch(() => {
+      stopScrapeProgress(false);
     });
-  }, [initialExistingUrl, onScrapeUrl, applyScrapeToBusiness]);
+  }, [initialExistingUrl, onScrapeUrl, applyScrapeToBusiness, startScrapeProgress, stopScrapeProgress]);
 
   /* ── AI suggestions ──────────────────────────────────────────── */
 
@@ -635,7 +856,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
 
   const mustHaveAutoSuggestedRef = useRef(false);
   useEffect(() => {
-    if (step === "businessInfo" && textareaRef.current) {
+    if (step === "company" && textareaRef.current) {
       setTimeout(() => textareaRef.current?.focus(), 200);
     }
     if (step === "pages" && !mustHaveAutoSuggestedRef.current) {
@@ -647,15 +868,16 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   /* ── Navigation ──────────────────────────────────────────────── */
 
   const canContinue = useCallback(() => {
-    if (!step) return false;
+    if (!step || scraping) return false;
     switch (step) {
+      case "company": return answers.companyName.trim().length >= 2 && answers.offer.trim().length >= 3;
       case "siteType": return answers.siteType.length > 0;
-      case "businessInfo": return answers.companyName.trim().length >= 2 && answers.offer.trim().length >= 3;
       case "content": return true;
       case "design": return true;
       case "pages": return answers.mustHave.length > 0;
+      case "media": return true;
     }
-  }, [step, answers]);
+  }, [step, answers, scraping]);
 
   const toggleChip = useCallback((field: "siteType" | "goal" | "mustHave" | "cuisine" | "paymentMethods", value: string) => {
     setAnswers((prev) => {
@@ -665,15 +887,16 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
     });
   }, []);
 
+  const clearScrapedField = useCallback((field: string) => {
+    setScrapedFields((prev) => {
+      const next = new Set(prev);
+      next.delete(field);
+      return next;
+    });
+  }, []);
+
   const goNext = useCallback(() => {
     if (currentStep < totalSteps - 1) {
-      if (step === "businessInfo" && answers.existingSite.trim() && !scraping) {
-        const normalized = normalizeUrl(answers.existingSite);
-        if (normalized && onScrapeUrl) {
-          setAnswers((p) => ({ ...p, existingSite: normalized }));
-          handleScrape(normalized);
-        }
-      }
       setDirection("forward");
       setCurrentStep((s) => s + 1);
     } else {
@@ -762,12 +985,68 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       if (answers.paymentMethods.length) csParts.push(`Betalning: ${answers.paymentMethods.join(", ")}`);
       if (answers.shippingInfo) csParts.push(`Leverans: ${answers.shippingInfo}`);
       if (answers.priceRange) csParts.push(`Prisnivå: ${answers.priceRange}`);
+
+      const CS_LABELS: Record<string, string> = {
+        rooms: "Rumstyper", amenities: "Faciliteter", checkInOut: "Incheckning/Utcheckning",
+        locationHighlights: "Läge", season: "Säsong",
+        projectTypes: "Projekttyper", serviceArea: "Tjänsteområde",
+        freeQuote: "Kostnadsfri offert", courseFormats: "Undervisningsformat", targetGroup: "Målgrupp",
+        educationLevel: "Åldersgrupp/Nivå",
+        eventTypes: "Eventtyper", venue: "Plats/Lokal", ticketInfo: "Biljetter/Priser",
+        practiceAreas: "Verksamhetsområden", experience: "Erfarenhet", propertyTypes: "Bostadstyper",
+        coverageArea: "Områden", mission: "Mission", acceptsDonations: "Donationer",
+        volunteerSignup: "Volontäranmälan", expertiseAreas: "Expertisområden", clientTypes: "Kundtyper",
+        returnPolicy: "Returpolicy", targetAudience: "Målgrupp",
+        dietary: "Kostalternativ", wifi: "WiFi", parking: "Parkering",
+        onlineBooking: "Onlinebokning",
+      };
+      for (const [key, value] of Object.entries(answers.categorySpecific)) {
+        if (value === undefined || value === "" || value === false) continue;
+        const label = CS_LABELS[key] ?? key;
+        if (Array.isArray(value) && value.length > 0) {
+          csParts.push(`${label}: ${value.join(", ")}`);
+        } else if (typeof value === "boolean" && value) {
+          csParts.push(`${label}: Ja`);
+        } else if (typeof value === "string" && value.trim()) {
+          csParts.push(`${label}: ${value.trim()}`);
+        }
+      }
+
       if (csParts.length) fieldMessages.push({ field: "categorySpecific" as NeedsAnalysisField, text: csParts.join("\n") });
 
       if (answers.goal.length) fieldMessages.push({ field: "goal", text: answers.goal.join(", ") });
       if (answers.mustHave.length) fieldMessages.push({ field: "mustHave", text: answers.mustHave.join(", ") });
 
-      // Collect media files (product/menu/project images + logo)
+      if (answers.features.length) {
+        const featureLabels = answers.features.map((id) => {
+          for (const group of FEATURE_MODULES) {
+            const mod = group.items.find((m) => m.id === id);
+            if (mod) return `${mod.label}: ${mod.description}`;
+          }
+          return id;
+        });
+        fieldMessages.push({ field: "features" as NeedsAnalysisField, text: featureLabels.join("\n") });
+      }
+
+      if (answers.siteMedia.length > 0 || answers.scrapedImageUrls.length > 0) {
+        const parts: string[] = [];
+        if (answers.siteMedia.length > 0) {
+          const mediaDesc = answers.siteMedia.map((m) => {
+            const type = m.file.type.startsWith("video/") ? "video" : "bild";
+            return `${m.context || "Egen fil"} (${type}: ${m.file.name})`;
+          });
+          parts.push(`Uppladdade filer:\n${mediaDesc.join("\n")}`);
+        }
+        if (answers.scrapedImageUrls.length > 0) {
+          const scrapedDesc = answers.scrapedImageUrls.map((i) =>
+            `${i.alt || "Bild"} (${i.role}) — ${i.url}`
+          );
+          parts.push(`Bilder från befintlig sajt (använd dessa som <img src>):\n${scrapedDesc.join("\n")}`);
+        }
+        fieldMessages.push({ field: "siteMedia" as NeedsAnalysisField, text: parts.join("\n\n") });
+      }
+
+      // Collect media files (product/menu/project images + logo + site media)
       const mediaFiles: IntakeWizardResult["mediaFiles"] = [];
       if (answers.logoFile) mediaFiles.push({ file: answers.logoFile, context: "Logo" });
       for (const p of answers.products) {
@@ -779,10 +1058,13 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       for (const p of answers.projects) {
         if (p.imageFile) mediaFiles.push({ file: p.imageFile, context: `Projekt: ${p.name}` });
       }
+      for (const sm of answers.siteMedia) {
+        mediaFiles.push({ file: sm.file, context: sm.context || "Egen bild/video" });
+      }
 
       onComplete({ answers, fieldMessages, mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined });
     }
-  }, [currentStep, totalSteps, answers, onComplete, step, scraping, normalizeUrl, onScrapeUrl, handleScrape]);
+  }, [currentStep, totalSteps, answers, onComplete]);
 
   const goBack = useCallback(() => {
     if (currentStep > 0) {
@@ -810,83 +1092,105 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   return (
     <dialog
       ref={dialogRef}
-      className="fixed inset-0 z-[99999] m-auto w-full max-w-2xl rounded-3xl border border-white/10 bg-gradient-to-b from-card to-card/95 p-0 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.5)] outline-none backdrop:bg-black/60 backdrop:backdrop-blur-md"
+      className={cn(
+        "fixed inset-0 z-[99999] m-auto w-[calc(100%-1.25rem)] max-w-2xl rounded-3xl border border-border p-0 outline-none",
+        "bg-card/92 supports-[backdrop-filter]:bg-card/78 supports-[backdrop-filter]:backdrop-blur-xl",
+        "shadow-[0_25px_60px_-12px_hsl(var(--foreground)/0.2)] ring-1 ring-border/50",
+        "backdrop:bg-foreground/40 backdrop:backdrop-blur-xl",
+        MOTION,
+      )}
       style={{ maxHeight: "min(90vh, 780px)" }}
       aria-label="Intake-guiden"
       onCancel={(e) => e.preventDefault()}
     >
       <div className="flex max-h-[min(90vh,780px)] flex-col overflow-hidden rounded-3xl">
-        {/* Step indicators */}
-        <div className="flex items-center justify-center gap-1.5 px-8 pt-5 pb-1">
-          {steps.map((s, i) => (
-            <div key={s} className="flex items-center gap-1.5">
-              <div className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300",
-                i < currentStep ? "bg-primary text-primary-foreground" :
-                i === currentStep ? "bg-primary text-primary-foreground shadow-md shadow-primary/30 ring-2 ring-primary/20" :
-                "bg-white/5 text-muted-foreground/50",
-              )}>
-                {i < currentStep ? <Check className="h-3.5 w-3.5" /> : i + 1}
-              </div>
-              {i < steps.length - 1 && (
-                <div className={cn(
-                  "h-px w-6 transition-colors duration-300",
-                  i < currentStep ? "bg-primary/50" : "bg-white/10",
-                )} />
-              )}
-            </div>
-          ))}
+        {/* Progress + minimal dots */}
+        <div className="px-6 pt-6 sm:px-10">
+          <div className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary motion-safe:transition-[width] motion-safe:duration-200 motion-safe:ease-out motion-reduce:transition-none"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="mt-2 flex justify-center gap-1" aria-hidden>
+            {steps.map((s, i) => (
+              <span
+                key={s}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full motion-safe:transition-colors motion-safe:duration-200",
+                  i <= currentStep ? "bg-primary" : "bg-muted-foreground/20",
+                )}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Header */}
-        <div className="px-8 pt-4 pb-2">
+        <div className="px-6 pb-2 pt-5 sm:px-10">
           <div className="flex items-start gap-3">
-            <div className={cn(
-              "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-all duration-300",
-              "bg-primary/10 text-primary",
-            )}>
+            <div
+              className={cn(
+                "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary",
+                MOTION,
+              )}
+            >
               <StepIcon className="h-5 w-5" />
             </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold tracking-tight text-foreground">{stepTitle}</h2>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">{stepTitle}</h2>
               <p className="mt-0.5 text-sm text-muted-foreground">{stepSubtitle}</p>
-              {step === "siteType" && inferredLabels.length > 0 && (
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-primary/70">
-                  <Sparkles className="h-3 w-3" />
-                  Föreslaget baserat på din beskrivning
+              {step === "siteType" && (inferredLabels.length > 0 || scrapedCategoryIds.length > 0) && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Sparkles className="h-3 w-3 shrink-0 text-primary" />
+                  {scrapedCategoryIds.length > 0 && inferredLabels.length > 0
+                    ? "Förvalt utifrån din sajt och beskrivning"
+                    : scrapedCategoryIds.length > 0
+                      ? "Förvalt utifrån din sajt"
+                      : "Förslag från din text"}
                 </p>
               )}
             </div>
             {currentStep > 0 && (
-              <button type="button" onClick={goBack} className="mt-1 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+              <button
+                type="button"
+                onClick={goBack}
+                className={cn(
+                  "mt-0.5 shrink-0 rounded-xl border border-transparent bg-transparent px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground",
+                  "min-h-11 min-w-[4.75rem] touch-manipulation",
+                  MOTION,
+                )}
+              >
                 Tillbaka
               </button>
             )}
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="mx-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="mx-6 h-px bg-border sm:mx-10" />
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-8 py-5">
-          {step === "siteType" && (
-            <SiteTypeStep siteType={answers.siteType} onToggle={(label) => toggleChip("siteType", label)} />
-          )}
-          {step === "businessInfo" && (
-            <BusinessInfoStep
+        <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-10">
+          {step === "company" && (
+            <CompanyStep
               answers={answers}
               onChange={setAnswers}
               scraping={scraping}
+              scrapeProgress={scrapeProgress}
+              scrapeComplete={scrapeComplete}
+              scrapedFields={scrapedFields}
               onScrape={handleScrape}
+              onClearScraped={clearScrapedField}
               textareaRef={textareaRef}
             />
           )}
+          {step === "siteType" && (
+            <SiteTypeStep siteType={answers.siteType} onToggle={(label) => toggleChip("siteType", label)} suggestedCategoryIds={scrapedCategoryIds} />
+          )}
           {step === "content" && (
-            <ContentStep branch={contentBranch} answers={answers} onChange={setAnswers} />
+            <ContentStep branch={contentBranch} answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} onClearScraped={clearScrapedField} />
           )}
           {step === "design" && (
-            <DesignStep answers={answers} onChange={setAnswers} />
+            <DesignStep answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} onClearScraped={clearScrapedField} />
           )}
           {step === "pages" && (
             <PagesStep
@@ -898,30 +1202,45 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
               onSuggest={handleSuggestMustHaves}
             />
           )}
+          {step === "media" && (
+            <MediaStep answers={answers} onChange={setAnswers} scrapedImages={scrapedImages} />
+          )}
         </div>
 
         {/* Footer */}
-        <div className="mx-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <div className="flex items-center justify-between px-8 py-4">
-          {step !== "siteType" && step !== "businessInfo" && currentStep < totalSteps - 1 ? (
+        <div className="mx-6 h-px bg-border sm:mx-10" />
+        <div
+          className={cn(
+            "flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:px-10",
+            step !== "company" && step !== "siteType" && (currentStep < totalSteps - 1 || step === "media")
+              ? "sm:justify-between"
+              : "sm:justify-end",
+          )}
+        >
+          {step !== "company" && step !== "siteType" && currentStep < totalSteps - 1 ? (
             <button
               type="button"
               onClick={() => { setDirection("forward"); setCurrentStep((s) => s + 1); }}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+              className={cn(
+                "inline-flex min-h-11 items-center justify-center gap-1.5 self-start rounded-xl border border-transparent bg-transparent px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
+                MOTION,
+              )}
             >
               <SkipForward className="h-3 w-3" />
               Hoppa över
             </button>
-          ) : <div />}
+          ) : null}
           <button
             type="button"
             onClick={goNext}
             disabled={!canContinue()}
             className={cn(
-              "inline-flex items-center gap-2 rounded-xl px-7 py-3 text-sm font-semibold transition-all duration-200",
+              "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-8 py-3 text-sm font-semibold sm:ml-auto sm:w-auto",
+              MOTION,
+              "motion-safe:active:scale-[0.99] motion-reduce:active:scale-100",
               canContinue()
-                ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98]"
-                : "cursor-not-allowed bg-white/5 text-muted-foreground/50",
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/92 hover:shadow-lg hover:shadow-primary/30"
+                : "cursor-not-allowed bg-muted text-muted-foreground opacity-60",
             )}
           >
             {currentStep === totalSteps - 1 ? (
@@ -946,141 +1265,241 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
    Step 1: Site type
    ════════════════════════════════════════════════════════════════════ */
 
-function SiteTypeStep({ siteType, onToggle }: { siteType: string[]; onToggle: (label: string) => void }) {
+function SiteTypeStep({ siteType, onToggle, suggestedCategoryIds }: { siteType: string[]; onToggle: (label: string) => void; suggestedCategoryIds?: string[] }) {
+  const suggested = suggestedCategoryIds ?? [];
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {CATEGORIES.map((cat) => {
-        const selected = siteType.includes(cat.label);
-        const Icon = cat.icon;
-        return (
-          <button
-            key={cat.id}
-            type="button"
-            onClick={() => onToggle(cat.label)}
-            className={cn(
-              "group relative flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm transition-all duration-200",
-              selected
-                ? "border-primary/50 bg-primary/10 font-medium text-primary shadow-sm shadow-primary/10"
-                : "border-white/5 bg-white/[0.03] text-muted-foreground hover:border-white/15 hover:bg-white/[0.06]",
-            )}
-          >
-            <div className={cn(
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
-              selected ? "bg-primary/20" : "bg-white/5 group-hover:bg-white/10",
-            )}>
-              <Icon className="h-3.5 w-3.5" />
-            </div>
-            <span className="truncate">{cat.label}</span>
-            {selected && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-primary" />}
-          </button>
-        );
-      })}
+    <div className="space-y-3">
+      {suggested.length > 0 && (
+        <div className="rounded-xl border border-primary/15 bg-primary/[0.06] px-3.5 py-2 text-xs text-muted-foreground backdrop-blur-[2px]">
+          <Sparkles className="mr-1.5 inline h-3 w-3 text-primary" />
+          Automatiskt förvalt — ändra om det inte stämmer
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+        {CATEGORIES.map((cat) => {
+          const selected = siteType.includes(cat.label);
+          const isSuggested = suggested.includes(cat.id);
+          const Icon = cat.icon;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => onToggle(cat.label)}
+              className={cn(
+                "group relative flex min-h-11 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm touch-manipulation",
+                "motion-safe:active:scale-[0.99] motion-reduce:active:scale-100",
+                MOTION,
+                selected
+                  ? "border-primary/40 bg-primary/10 font-medium text-foreground shadow-sm ring-1 ring-primary/20"
+                  : isSuggested
+                    ? "border-border bg-muted/30 text-muted-foreground hover:border-primary/25 hover:bg-muted/50"
+                    : "border-border bg-card text-muted-foreground hover:border-muted-foreground/25 hover:bg-muted/35",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                  MOTION,
+                  selected ? "bg-primary/12 text-primary" : isSuggested ? "bg-muted text-foreground" : "bg-muted/60 text-muted-foreground group-hover:bg-muted",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </div>
+              <span className="min-w-0 truncate">{cat.label}</span>
+              {selected && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-primary" />}
+              {isSuggested && !selected && <Sparkles className="ml-auto h-3 w-3 shrink-0 text-primary/45" />}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   Step 2: Business info (merged offer + existingSite + details)
+   Step 1: Company (name + URL + scrape)
    ════════════════════════════════════════════════════════════════════ */
 
-function BusinessInfoStep({
+function CompanyStep({
   answers,
   onChange,
   scraping,
+  scrapeProgress,
+  scrapeComplete,
+  scrapedFields,
   onScrape,
+  onClearScraped,
   textareaRef,
 }: {
   answers: WizardAnswers;
   onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>;
   scraping: boolean;
+  scrapeProgress: number;
+  scrapeComplete: boolean;
+  scrapedFields: Set<string>;
   onScrape: (url: string) => void;
+  onClearScraped: (field: string) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
 }) {
-  const set = <K extends keyof WizardAnswers>(key: K, value: WizardAnswers[K]) =>
+  const set = <K extends keyof WizardAnswers>(key: K, value: WizardAnswers[K]) => {
     onChange((prev) => ({ ...prev, [key]: value }));
+    onClearScraped(key);
+  };
+
+  const SCRAPE_CHECKS: { key: string; label: string }[] = [
+    { key: "companyName", label: "Företagsnamn" },
+    { key: "phone", label: "Kontaktuppgifter" },
+    { key: "services", label: "Tjänster" },
+    { key: "tagline", label: "Tagline" },
+    { key: "brandColors", label: "Designinfo" },
+    { key: "menuItems", label: "Meny" },
+    { key: "products", label: "Produkter" },
+    { key: "treatments", label: "Behandlingar" },
+    { key: "teamMembers", label: "Team" },
+    { key: "testimonials", label: "Omdömen" },
+  ];
 
   return (
     <div className="space-y-5">
       <div>
         <SectionLabel>Företagsnamn *</SectionLabel>
-        <input
-          type="text"
-          value={answers.companyName}
-          onChange={(e) => set("companyName", e.target.value)}
-          placeholder="Mitt Företag AB"
-          className={FIELD_CLASS}
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={answers.companyName}
+            onChange={(e) => set("companyName", e.target.value)}
+            placeholder="Mitt Företag AB"
+            className={FIELD_CLASS}
+          />
+          {scrapedFields.has("companyName") && <ScrapeBadge />}
+        </div>
       </div>
 
       <div>
         <SectionLabel>Beskriv din verksamhet *</SectionLabel>
-        <textarea
-          ref={textareaRef}
-          value={answers.offer}
-          onChange={(e) => set("offer", e.target.value)}
-          placeholder="T.ex. Vi driver en frisörsalong i Göteborg med fokus på färgning och klippning..."
-          className={cn(FIELD_CLASS, "min-h-[100px] resize-none")}
-        />
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={answers.offer}
+            onChange={(e) => set("offer", e.target.value)}
+            placeholder="T.ex. Vi driver en frisörsalong i Göteborg med fokus på färgning och klippning..."
+            className={cn(FIELD_CLASS, "min-h-[100px] resize-none")}
+          />
+          {scrapedFields.has("offer") && <ScrapeBadge />}
+        </div>
       </div>
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
 
       <div>
         <FieldLabel>Befintlig hemsida (valfritt)</FieldLabel>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground/40" />
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
             <input
               type="url"
               value={answers.existingSite}
-              onChange={(e) => set("existingSite", e.target.value)}
+              onChange={(e) => onChange((p) => ({ ...p, existingSite: e.target.value }))}
               placeholder="www.dinhemsida.se"
               className={cn(FIELD_CLASS, "pl-10")}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onScrape(answers.existingSite); } }}
             />
-            {scraping && <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-primary" />}
+            {scraping && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" />}
           </div>
           <button
             type="button"
             disabled={scraping || !answers.existingSite.trim()}
             onClick={() => onScrape(answers.existingSite)}
             className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+              "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium touch-manipulation",
+              MOTION,
               scraping || !answers.existingSite.trim()
-                ? "cursor-not-allowed bg-white/5 text-muted-foreground/50"
-                : "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90",
+                ? "cursor-not-allowed bg-muted text-muted-foreground opacity-60"
+                : "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/92",
             )}
           >
             <Sparkles className="h-4 w-4" />
             Hämta
           </button>
         </div>
+
         {scraping && (
-          <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 px-3.5 py-2.5">
-            <div className="flex items-center gap-2 text-xs text-primary">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Analyserar och hämtar uppgifter...</span>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-2xl border border-border bg-card px-8 py-8 shadow-xl">
+              <div className="flex flex-col items-center gap-5">
+                <div className="flex items-center gap-3">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium text-foreground">Analyserar din sajt</span>
+                </div>
+                <div className="w-full space-y-2">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+                      style={{ width: `${scrapeProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-center text-xs tabular-nums text-muted-foreground">{scrapeProgress}%</p>
+                </div>
+                <p className="text-center text-xs text-muted-foreground">
+                  {scrapeProgress < 30 ? "Hämtar sidor…" : scrapeProgress < 60 ? "Läser innehåll…" : scrapeProgress < 90 ? "Extraherar info…" : "Klar!"}
+                </p>
+              </div>
             </div>
+          </div>
+        )}
+
+        {scrapeComplete && !scraping && scrapedFields.size > 0 && (
+          <div className="mt-3 rounded-2xl border border-border bg-muted/40 px-4 py-3">
+            <p className="mb-3 text-xs font-medium text-foreground">Hämtat</p>
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {SCRAPE_CHECKS.map(({ key, label }) => {
+                const found = scrapedFields.has(key);
+                if (!found && !["companyName", "phone", "services", "tagline", "brandColors"].includes(key)) return null;
+                return (
+                  <li key={key} className="flex items-center gap-2 text-xs">
+                    {found ? (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+                        <Check className="h-3 w-3" strokeWidth={2.5} />
+                      </span>
+                    ) : (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground/40">
+                        <X className="h-3 w-3" />
+                      </span>
+                    )}
+                    <span className={found ? "text-foreground" : "text-muted-foreground/40"}>{label}</span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </div>
 
-      <details className="group rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+      <details className="group rounded-xl border border-border bg-muted/25 px-4 py-3" open={!!(answers.phone || answers.email || answers.address)}>
         <summary className="cursor-pointer text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
           Kontaktuppgifter (valfritt)
         </summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div>
             <FieldLabel>Telefon</FieldLabel>
-            <input type="tel" value={answers.phone} onChange={(e) => set("phone", e.target.value)} placeholder="070-123 45 67" className={FIELD_CLASS} />
+            <div className="relative">
+              <input type="tel" value={answers.phone} onChange={(e) => set("phone", e.target.value)} placeholder="070-123 45 67" className={FIELD_CLASS} />
+              {scrapedFields.has("phone") && <ScrapeBadge />}
+            </div>
           </div>
           <div>
             <FieldLabel>E-post</FieldLabel>
-            <input type="email" value={answers.email} onChange={(e) => set("email", e.target.value)} placeholder="info@mittforetag.se" className={FIELD_CLASS} />
+            <div className="relative">
+              <input type="email" value={answers.email} onChange={(e) => set("email", e.target.value)} placeholder="info@mittforetag.se" className={FIELD_CLASS} />
+              {scrapedFields.has("email") && <ScrapeBadge />}
+            </div>
           </div>
           <div className="sm:col-span-2">
             <FieldLabel>Adress</FieldLabel>
-            <input type="text" value={answers.address} onChange={(e) => set("address", e.target.value)} placeholder="Storgatan 1, 123 45 Stad" className={FIELD_CLASS} />
+            <div className="relative">
+              <input type="text" value={answers.address} onChange={(e) => set("address", e.target.value)} placeholder="Storgatan 1, 123 45 Stad" className={FIELD_CLASS} />
+              {scrapedFields.has("address") && <ScrapeBadge />}
+            </div>
           </div>
         </div>
       </details>
@@ -1092,28 +1511,43 @@ function BusinessInfoStep({
    Step 3: Content (branch-specific)
    ════════════════════════════════════════════════════════════════════ */
 
+type ContentProps = { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>; scrapedFields?: Set<string>; onClearScraped?: (f: string) => void };
+
 function ContentStep({
   branch,
   answers,
   onChange,
+  scrapedFields,
+  onClearScraped,
 }: {
   branch: ContentBranch;
   answers: WizardAnswers;
   onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>;
+  scrapedFields?: Set<string>;
+  onClearScraped?: (f: string) => void;
 }) {
+  const p: ContentProps = { answers, onChange, scrapedFields, onClearScraped };
   switch (branch) {
-    case "ecommerce": return <EcommerceContent answers={answers} onChange={onChange} />;
-    case "restaurant": return <RestaurantContent answers={answers} onChange={onChange} />;
-    case "salon": return <SalonContent answers={answers} onChange={onChange} />;
-    case "portfolio": return <PortfolioContent answers={answers} onChange={onChange} />;
-    case "business": return <BusinessContent answers={answers} onChange={onChange} />;
-    case "minimal": return <MinimalContent answers={answers} onChange={onChange} />;
+    case "ecommerce": return <EcommerceContent {...p} />;
+    case "restaurant": return <RestaurantContent {...p} />;
+    case "salon": return <SalonContent {...p} />;
+    case "portfolio": return <PortfolioContent {...p} />;
+    case "hotel": return <HotelContent {...p} />;
+    case "construction": return <ConstructionContent {...p} />;
+    case "education": return <EducationContent {...p} />;
+    case "event": return <EventContent {...p} />;
+    case "legal": return <LegalContent {...p} />;
+    case "realestate": return <RealEstateContent {...p} />;
+    case "nonprofit": return <NonprofitContent {...p} />;
+    case "consulting": return <ConsultingContent {...p} />;
+    case "business": return <BusinessContent {...p} />;
+    case "minimal": return <MinimalContent {...p} />;
   }
 }
 
 /* ── Ecommerce: per-product entries ─────────────────────────────── */
 
-function EcommerceContent({ answers, onChange }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>> }) {
+function EcommerceContent({ answers, onChange, scrapedFields, onClearScraped }: ContentProps) {
   const addProduct = () => {
     if (answers.products.length >= 12) return;
     onChange((prev) => ({ ...prev, products: [...prev.products, { name: "", price: "", description: "", category: "" }] }));
@@ -1138,7 +1572,7 @@ function EcommerceContent({ answers, onChange }: { answers: WizardAnswers; onCha
       <p className="text-xs text-muted-foreground/70">Lägg till dina produkter — dessa visas direkt på sajten.</p>
 
       {answers.products.map((product, idx) => (
-        <div key={idx} className="rounded-xl border border-white/8 bg-white/[0.03] p-3 transition-colors hover:border-white/12">
+        <div key={idx} className="rounded-xl border border-border bg-muted/25 p-3 transition-colors hover:border-muted-foreground/25">
           <div className="flex gap-3">
             <ImagePickerThumb
               preview={product.imagePreview}
@@ -1154,7 +1588,7 @@ function EcommerceContent({ answers, onChange }: { answers: WizardAnswers; onCha
                 <div className="flex flex-wrap gap-1.5">
                   {PRODUCT_CATEGORY_OPTIONS.map((cat) => (
                     <button key={cat} type="button" onClick={() => updateProduct(idx, { category: product.category === cat ? "" : cat })}
-                      className={cn("rounded-full border px-2.5 py-0.5 text-xs transition-all duration-200", product.category === cat ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-muted-foreground hover:bg-white/[0.06]")}
+                      className={cn("rounded-full border px-2.5 py-0.5 text-xs transition-all duration-200", product.category === cat ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:bg-muted/60")}
                     >{cat}</button>
                   ))}
                 </div>
@@ -1166,12 +1600,12 @@ function EcommerceContent({ answers, onChange }: { answers: WizardAnswers; onCha
       ))}
 
       {answers.products.length < 12 && (
-        <button type="button" onClick={addProduct} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 py-3.5 text-sm text-muted-foreground/60 transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary">
+        <button type="button" onClick={addProduct} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary">
           <Plus className="h-4 w-4" /> Lägg till produkt
         </button>
       )}
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
@@ -1199,13 +1633,23 @@ function EcommerceContent({ answers, onChange }: { answers: WizardAnswers; onCha
           ))}
         </div>
       </div>
+
+      <div>
+        <FieldLabel>Returpolicy (valfritt)</FieldLabel>
+        <input type="text" value={(answers.categorySpecific.returnPolicy as string) ?? ""} onChange={(e) => { onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, returnPolicy: e.target.value } })); onClearScraped?.("returnPolicy"); }} placeholder="14 dagars öppet köp, fri retur..." className={FIELD_CLASS} />
+      </div>
+
+      <div>
+        <FieldLabel>Målgrupp (valfritt)</FieldLabel>
+        <input type="text" value={(answers.categorySpecific.targetAudience as string) ?? ""} onChange={(e) => { onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, targetAudience: e.target.value } })); onClearScraped?.("targetAudience"); }} placeholder="Unga vuxna, heminredningsentusiaster..." className={FIELD_CLASS} />
+      </div>
     </div>
   );
 }
 
 /* ── Restaurant: per-dish entries ────────────────────────────────── */
 
-function RestaurantContent({ answers, onChange }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>> }) {
+function RestaurantContent({ answers, onChange, scrapedFields, onClearScraped }: ContentProps) {
   const addItem = () => {
     if (answers.menuItems.length >= 20) return;
     onChange((prev) => ({ ...prev, menuItems: [...prev.menuItems, { name: "", price: "", description: "", category: "" }] }));
@@ -1223,7 +1667,7 @@ function RestaurantContent({ answers, onChange }: { answers: WizardAnswers; onCh
       <p className="text-xs text-muted-foreground/70">Lägg till rätter från din meny.</p>
 
       {answers.menuItems.map((item, idx) => (
-        <div key={idx} className="rounded-xl border border-white/8 bg-white/[0.03] p-3 transition-colors hover:border-white/12">
+        <div key={idx} className="rounded-xl border border-border bg-muted/25 p-3 transition-colors hover:border-muted-foreground/25">
           <div className="flex gap-3">
             <ImagePickerThumb preview={item.imagePreview} onPick={(file) => {
               const old = answers.menuItems[idx]?.imagePreview;
@@ -1240,7 +1684,7 @@ function RestaurantContent({ answers, onChange }: { answers: WizardAnswers; onCh
                 <div className="flex flex-wrap gap-1.5">
                   {MENU_CATEGORY_OPTIONS.map((cat) => (
                     <button key={cat} type="button" onClick={() => updateItem(idx, { category: item.category === cat ? "" : cat })}
-                      className={cn("rounded-full border px-2.5 py-0.5 text-xs transition-all duration-200", item.category === cat ? "border-primary/50 bg-primary/10 text-primary" : "border-white/10 text-muted-foreground hover:bg-white/[0.06]")}
+                      className={cn("rounded-full border px-2.5 py-0.5 text-xs transition-all duration-200", item.category === cat ? "border-primary/40 bg-primary/10 text-foreground" : "border-border text-muted-foreground hover:bg-muted/60")}
                     >{cat}</button>
                   ))}
                 </div>
@@ -1252,12 +1696,12 @@ function RestaurantContent({ answers, onChange }: { answers: WizardAnswers; onCh
       ))}
 
       {answers.menuItems.length < 20 && (
-        <button type="button" onClick={addItem} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 py-3.5 text-sm text-muted-foreground/60 transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary">
+        <button type="button" onClick={addItem} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary">
           <Plus className="h-4 w-4" /> Lägg till rätt
         </button>
       )}
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
 
       <div>
         <FieldLabel>Kök / matstil</FieldLabel>
@@ -1274,11 +1718,32 @@ function RestaurantContent({ answers, onChange }: { answers: WizardAnswers; onCh
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <FieldLabel>Öppettider</FieldLabel>
-          <input type="text" value={answers.openingHours} onChange={(e) => onChange((p) => ({ ...p, openingHours: e.target.value }))} placeholder="Mån–Fre 11–22, Lör–Sön 12–23" className={FIELD_CLASS} />
+          <div className="relative">
+            <input type="text" value={answers.openingHours} onChange={(e) => { onChange((p) => ({ ...p, openingHours: e.target.value })); onClearScraped?.("openingHours"); }} placeholder="Mån–Fre 11–22, Lör–Sön 12–23" className={FIELD_CLASS} />
+            {scrapedFields?.has("openingHours") && <ScrapeBadge />}
+          </div>
         </div>
-        <div className="flex items-end gap-4 pb-1">
+        <div className="flex flex-wrap items-end gap-4 pb-1">
           <ToggleField label="Bordsbokning" value={answers.acceptsReservations} onToggle={() => onChange((p) => ({ ...p, acceptsReservations: !p.acceptsReservations }))} />
           <ToggleField label="Takeaway" value={answers.delivery} onToggle={() => onChange((p) => ({ ...p, delivery: !p.delivery }))} />
+          <ToggleField label="WiFi" value={(answers.categorySpecific.wifi as boolean) ?? false} onToggle={() => onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, wifi: !(p.categorySpecific.wifi ?? false) } }))} />
+          <ToggleField label="Parkering" value={(answers.categorySpecific.parking as boolean) ?? false} onToggle={() => onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, parking: !(p.categorySpecific.parking ?? false) } }))} />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Kostaternativ</FieldLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {DIETARY_OPTIONS.map((opt) => {
+            const dietary = (answers.categorySpecific.dietary as string[] | undefined) ?? [];
+            return (
+              <Chip key={opt} label={opt} selected={dietary.includes(opt)} onClick={() => onChange((p) => {
+                const arr = (p.categorySpecific.dietary as string[] | undefined) ?? [];
+                const next = arr.includes(opt) ? arr.filter((v) => v !== opt) : [...arr, opt];
+                return { ...p, categorySpecific: { ...p.categorySpecific, dietary: next } };
+              })} />
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1287,7 +1752,7 @@ function RestaurantContent({ answers, onChange }: { answers: WizardAnswers; onCh
 
 /* ── Salon/Health: treatments + team ─────────────────────────────── */
 
-function SalonContent({ answers, onChange }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>> }) {
+function SalonContent({ answers, onChange, scrapedFields, onClearScraped }: ContentProps) {
   const addTreatment = () => onChange((p) => ({ ...p, treatments: [...p.treatments, { name: "", price: "", duration: "" }] }));
   const updateTreatment = (idx: number, patch: Partial<TreatmentEntry>) =>
     onChange((p) => ({ ...p, treatments: p.treatments.map((t, i) => i === idx ? { ...t, ...patch } : t) }));
@@ -1303,7 +1768,7 @@ function SalonContent({ answers, onChange }: { answers: WizardAnswers; onChange:
       <div>
         <SectionLabel>Behandlingar</SectionLabel>
         {answers.treatments.map((t, idx) => (
-          <div key={idx} className="mb-2 flex gap-2 rounded-xl border border-white/8 bg-white/[0.03] p-2.5">
+          <div key={idx} className="mb-2 flex gap-2 rounded-xl border border-border bg-muted/25 p-2.5">
             <input type="text" value={t.name} onChange={(e) => updateTreatment(idx, { name: e.target.value })} placeholder="Behandling *" className={cn(FIELD_CLASS, "flex-1")} />
             <input type="text" value={t.price} onChange={(e) => updateTreatment(idx, { price: e.target.value })} placeholder="Pris (kr)" className={cn(FIELD_CLASS, "w-24")} />
             <input type="text" value={t.duration} onChange={(e) => updateTreatment(idx, { duration: e.target.value })} placeholder="Min" className={cn(FIELD_CLASS, "w-16")} />
@@ -1313,12 +1778,12 @@ function SalonContent({ answers, onChange }: { answers: WizardAnswers; onChange:
         <button type="button" onClick={addTreatment} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/5"><Plus className="h-3 w-3" /> Lägg till behandling</button>
       </div>
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
 
       <div>
         <SectionLabel>Team / specialister (valfritt)</SectionLabel>
         {answers.teamMembers.map((m, idx) => (
-          <div key={idx} className="mb-2 flex gap-2 rounded-xl border border-white/8 bg-white/[0.03] p-2.5">
+          <div key={idx} className="mb-2 flex gap-2 rounded-xl border border-border bg-muted/25 p-2.5">
             <input type="text" value={m.name} onChange={(e) => updateMember(idx, { name: e.target.value })} placeholder="Namn" className={cn(FIELD_CLASS, "flex-1")} />
             <input type="text" value={m.role} onChange={(e) => updateMember(idx, { role: e.target.value })} placeholder="Roll / specialitet" className={cn(FIELD_CLASS, "flex-1")} />
             <button type="button" onClick={() => removeMember(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
@@ -1327,17 +1792,24 @@ function SalonContent({ answers, onChange }: { answers: WizardAnswers; onChange:
         <button type="button" onClick={addMember} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/5"><Plus className="h-3 w-3" /> Lägg till person</button>
       </div>
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <FieldLabel>Öppettider</FieldLabel>
-          <input type="text" value={answers.openingHours} onChange={(e) => onChange((p) => ({ ...p, openingHours: e.target.value }))} placeholder="Mån–Fre 09–18" className={FIELD_CLASS} />
+          <div className="relative">
+            <input type="text" value={answers.openingHours} onChange={(e) => { onChange((p) => ({ ...p, openingHours: e.target.value })); onClearScraped?.("openingHours"); }} placeholder="Mån–Fre 09–18" className={FIELD_CLASS} />
+            {scrapedFields?.has("openingHours") && <ScrapeBadge />}
+          </div>
         </div>
         <div>
           <FieldLabel>Boknings-URL (valfritt)</FieldLabel>
           <input type="text" value={answers.bookingUrl} onChange={(e) => onChange((p) => ({ ...p, bookingUrl: e.target.value }))} placeholder="https://..." className={FIELD_CLASS} />
         </div>
+      </div>
+
+      <div className="flex items-end pb-1">
+        <ToggleField label="Onlinebokning" value={(answers.categorySpecific.onlineBooking as boolean) ?? false} onToggle={() => onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, onlineBooking: !(p.categorySpecific.onlineBooking ?? false) } }))} />
       </div>
     </div>
   );
@@ -1345,7 +1817,7 @@ function SalonContent({ answers, onChange }: { answers: WizardAnswers; onChange:
 
 /* ── Portfolio: project entries ───────────────────────────────────── */
 
-function PortfolioContent({ answers, onChange }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>> }) {
+function PortfolioContent({ answers, onChange }: ContentProps) {
   const addProject = () => onChange((p) => ({ ...p, projects: [...p.projects, { name: "", client: "", description: "" }] }));
   const updateProject = (idx: number, patch: Partial<ProjectEntry>) =>
     onChange((p) => ({ ...p, projects: p.projects.map((pr, i) => i === idx ? { ...pr, ...patch } : pr) }));
@@ -1360,7 +1832,7 @@ function PortfolioContent({ answers, onChange }: { answers: WizardAnswers; onCha
       <p className="text-xs text-muted-foreground/70">Visa dina bästa arbeten — dessa hamnar i portfolion.</p>
 
       {answers.projects.map((project, idx) => (
-        <div key={idx} className="rounded-xl border border-white/8 bg-white/[0.03] p-3 transition-colors hover:border-white/12">
+        <div key={idx} className="rounded-xl border border-border bg-muted/25 p-3 transition-colors hover:border-muted-foreground/25">
           <div className="flex gap-3">
             <ImagePickerThumb preview={project.imagePreview} onPick={(file) => {
               const old = answers.projects[idx]?.imagePreview;
@@ -1379,7 +1851,7 @@ function PortfolioContent({ answers, onChange }: { answers: WizardAnswers; onCha
         </div>
       ))}
 
-      <button type="button" onClick={addProject} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 py-3.5 text-sm text-muted-foreground/60 transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary">
+      <button type="button" onClick={addProject} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary">
         <Plus className="h-4 w-4" /> Lägg till projekt
       </button>
 
@@ -1393,7 +1865,7 @@ function PortfolioContent({ answers, onChange }: { answers: WizardAnswers; onCha
 
 /* ── Business default: services + USPs ───────────────────────────── */
 
-function BusinessContent({ answers, onChange }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>> }) {
+function BusinessContent({ answers, onChange, scrapedFields, onClearScraped }: ContentProps) {
   return (
     <div className="space-y-5">
       <p className="text-xs text-muted-foreground/70">Beskriv vad du erbjuder — dessa hamnar på din sajt som sektioner.</p>
@@ -1412,10 +1884,26 @@ function BusinessContent({ answers, onChange }: { answers: WizardAnswers; onChan
         <FieldLabel>Kundomdömen (valfritt)</FieldLabel>
         <textarea
           value={answers.testimonials}
-          onChange={(e) => onChange((p) => ({ ...p, testimonials: e.target.value }))}
+          onChange={(e) => { onChange((p) => ({ ...p, testimonials: e.target.value })); onClearScraped?.("testimonials"); }}
           placeholder={'"Bästa frisören i stan!" – Anna S.\n"Proffsigt och snabbt." – Erik L.'}
           className={cn(FIELD_CLASS, "min-h-[80px] resize-none")}
         />
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <FieldLabel>Målgrupp (valfritt)</FieldLabel>
+          <input type="text" value={(answers.categorySpecific.targetAudience as string) ?? ""} onChange={(e) => onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, targetAudience: e.target.value } }))} placeholder="Småföretagare, privatpersoner..." className={FIELD_CLASS} />
+        </div>
+        <div>
+          <FieldLabel>Öppettider (valfritt)</FieldLabel>
+          <div className="relative">
+            <input type="text" value={answers.openingHours} onChange={(e) => { onChange((p) => ({ ...p, openingHours: e.target.value })); onClearScraped?.("openingHours"); }} placeholder="Mån–Fre 08–17" className={FIELD_CLASS} />
+            {scrapedFields?.has("openingHours") && <ScrapeBadge />}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1423,7 +1911,7 @@ function BusinessContent({ answers, onChange }: { answers: WizardAnswers; onChan
 
 /* ── Minimal: blog/landing/other ─────────────────────────────────── */
 
-function MinimalContent({ answers, onChange }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>> }) {
+function MinimalContent({ answers, onChange }: ContentProps) {
   return (
     <div className="space-y-5">
       <div>
@@ -1443,11 +1931,445 @@ function MinimalContent({ answers, onChange }: { answers: WizardAnswers; onChang
   );
 }
 
+/* ── Hotel / Travel ───────────────────────────────────────────────── */
+
+function HotelContent({ answers, onChange, scrapedFields, onClearScraped }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+  const rooms = (cs.rooms as string[] | undefined) ?? [];
+  const amenities = (cs.amenities as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <SectionLabel>Rumstyper</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {HOTEL_ROOM_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={rooms.includes(opt)} onClick={() => {
+              const next = rooms.includes(opt) ? rooms.filter((v) => v !== opt) : [...rooms, opt];
+              setCs("rooms", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel>Faciliteter</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {HOTEL_AMENITY_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={amenities.includes(opt)} onClick={() => {
+              const next = amenities.includes(opt) ? amenities.filter((v) => v !== opt) : [...amenities, opt];
+              setCs("amenities", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <FieldLabel>Incheckning / Utcheckning</FieldLabel>
+          <input type="text" value={(cs.checkInOut as string) ?? ""} onChange={(e) => setCs("checkInOut", e.target.value)} placeholder="15:00 / 11:00" className={FIELD_CLASS} />
+        </div>
+        <div>
+          <FieldLabel>Bokningssystem / URL</FieldLabel>
+          <input type="text" value={answers.bookingUrl} onChange={(e) => onChange((p) => ({ ...p, bookingUrl: e.target.value }))} placeholder="https://..." className={FIELD_CLASS} />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Omgivning / läge (valfritt)</FieldLabel>
+        <input type="text" value={(cs.locationHighlights as string) ?? ""} onChange={(e) => setCs("locationHighlights", e.target.value)} placeholder="Nära havet, mitt i centrum, vid skidbacken..." className={FIELD_CLASS} />
+      </div>
+
+      <div>
+        <FieldLabel>Prisnivå</FieldLabel>
+        <div className="flex flex-wrap gap-1.5">
+          {["Budget", "Mellan", "Premium"].map((opt) => (
+            <Chip key={opt} label={opt} selected={answers.priceRange === opt} onClick={() => onChange((p) => ({ ...p, priceRange: p.priceRange === opt ? "" : opt }))} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Säsong (valfritt)</FieldLabel>
+        <input type="text" value={(cs.season as string) ?? ""} onChange={(e) => setCs("season", e.target.value)} placeholder="Helår, sommar, vintersäsong..." className={FIELD_CLASS} />
+      </div>
+
+      <div>
+        <FieldLabel>Styrkor / USP</FieldLabel>
+        <TagInput values={answers.uniqueSellingPoints} onChange={(vals) => onChange((p) => ({ ...p, uniqueSellingPoints: vals }))} placeholder="T.ex. Havsutsikt, Historisk byggnad..." max={4} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Construction / Auto ─────────────────────────────────────────── */
+
+function ConstructionContent({ answers, onChange }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+  const projectTypes = (cs.projectTypes as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <SectionLabel>Projekttyper</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {CONSTRUCTION_PROJECT_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={projectTypes.includes(opt)} onClick={() => {
+              const next = projectTypes.includes(opt) ? projectTypes.filter((v) => v !== opt) : [...projectTypes, opt];
+              setCs("projectTypes", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Certifieringar / Behörigheter (valfritt)</FieldLabel>
+        <TagInput values={answers.services} onChange={(vals) => onChange((p) => ({ ...p, services: vals }))} placeholder="T.ex. Behörig elektriker, F-skatt, ROT-avdrag..." max={6} />
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <FieldLabel>Tjänsteområde</FieldLabel>
+          <input type="text" value={(cs.serviceArea as string) ?? ""} onChange={(e) => setCs("serviceArea", e.target.value)} placeholder="Stockholm med omnejd" className={FIELD_CLASS} />
+        </div>
+        <div className="flex items-end pb-1">
+          <ToggleField label="Kostnadsfri offert" value={(cs.freeQuote as boolean) ?? false} onToggle={() => setCs("freeQuote", !(cs.freeQuote ?? false))} />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Styrkor / USP</FieldLabel>
+        <TagInput values={answers.uniqueSellingPoints} onChange={(vals) => onChange((p) => ({ ...p, uniqueSellingPoints: vals }))} placeholder="T.ex. 20 års erfarenhet, Garanti..." max={4} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Education ────────────────────────────────────────────────────── */
+
+function EducationContent({ answers, onChange }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+  const formats = (cs.courseFormats as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <FieldLabel>Kurser / Program</FieldLabel>
+        <TagInput values={answers.services} onChange={(vals) => onChange((p) => ({ ...p, services: vals }))} placeholder="T.ex. Webbdesign, Svenska för nybörjare..." max={8} />
+      </div>
+
+      <div>
+        <SectionLabel>Undervisningsformat</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {EDUCATION_FORMAT_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={formats.includes(opt)} onClick={() => {
+              const next = formats.includes(opt) ? formats.filter((v) => v !== opt) : [...formats, opt];
+              setCs("courseFormats", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <FieldLabel>Lärare / Instruktörer (valfritt)</FieldLabel>
+        <TagInput values={answers.teamMembers.map((m) => m.name).filter(Boolean)} onChange={(vals) => onChange((p) => ({ ...p, teamMembers: vals.map((n) => ({ name: n, role: "" })) }))} placeholder="T.ex. Anna Svensson, Erik Lund..." max={6} />
+      </div>
+
+      <div>
+        <SectionLabel>Åldergrupp / Nivå</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {EDUCATION_LEVEL_OPTIONS.map((opt) => {
+            const levels = (cs.educationLevel as string[] | undefined) ?? [];
+            return (
+              <Chip key={opt} label={opt} selected={levels.includes(opt)} onClick={() => {
+                const next = levels.includes(opt) ? levels.filter((v) => v !== opt) : [...levels, opt];
+                setCs("educationLevel", next);
+              }} />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <FieldLabel>Anmälning / Registrering</FieldLabel>
+          <input type="text" value={answers.bookingUrl} onChange={(e) => onChange((p) => ({ ...p, bookingUrl: e.target.value }))} placeholder="https://..." className={FIELD_CLASS} />
+        </div>
+        <div>
+          <FieldLabel>Målgrupp (valfritt)</FieldLabel>
+          <input type="text" value={(cs.targetGroup as string) ?? ""} onChange={(e) => setCs("targetGroup", e.target.value)} placeholder="Nybörjare, yrkesverksamma, barn..." className={FIELD_CLASS} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Event ────────────────────────────────────────────────────────── */
+
+function EventContent({ answers, onChange }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+  const eventTypes = (cs.eventTypes as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <SectionLabel>Typer av event</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {EVENT_TYPE_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={eventTypes.includes(opt)} onClick={() => {
+              const next = eventTypes.includes(opt) ? eventTypes.filter((v) => v !== opt) : [...eventTypes, opt];
+              setCs("eventTypes", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <FieldLabel>Plats / Lokal (valfritt)</FieldLabel>
+          <input type="text" value={(cs.venue as string) ?? ""} onChange={(e) => setCs("venue", e.target.value)} placeholder="Egen lokal, valfri plats..." className={FIELD_CLASS} />
+        </div>
+        <div>
+          <FieldLabel>Biljetter / Priser (valfritt)</FieldLabel>
+          <input type="text" value={(cs.ticketInfo as string) ?? ""} onChange={(e) => setCs("ticketInfo", e.target.value)} placeholder="Från 500 kr, gratis inträde..." className={FIELD_CLASS} />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Tjänster som erbjuds</FieldLabel>
+        <TagInput values={answers.services} onChange={(vals) => onChange((p) => ({ ...p, services: vals }))} placeholder="T.ex. Planering, Catering, Dekoration..." max={8} />
+      </div>
+
+      <div>
+        <FieldLabel>Styrkor / USP</FieldLabel>
+        <TagInput values={answers.uniqueSellingPoints} onChange={(vals) => onChange((p) => ({ ...p, uniqueSellingPoints: vals }))} placeholder="T.ex. Skräddarsytt, 100+ event genomförda..." max={4} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Legal / Accounting ──────────────────────────────────────────── */
+
+function LegalContent({ answers, onChange }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+  const practiceAreas = (cs.practiceAreas as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <SectionLabel>Verksamhetsområden</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {LEGAL_AREA_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={practiceAreas.includes(opt)} onClick={() => {
+              const next = practiceAreas.includes(opt) ? practiceAreas.filter((v) => v !== opt) : [...practiceAreas, opt];
+              setCs("practiceAreas", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <FieldLabel>Jurister / Konsulter</FieldLabel>
+        <TagInput values={answers.teamMembers.map((m) => `${m.name}${m.role ? ` (${m.role})` : ""}`).filter(Boolean)} onChange={(vals) => onChange((p) => ({
+          ...p, teamMembers: vals.map((v) => {
+            const match = v.match(/^(.+?)\s*\((.+)\)$/);
+            return match ? { name: match[1], role: match[2] } : { name: v, role: "" };
+          }),
+        }))} placeholder="T.ex. Anna Svensson (Advokat)..." max={6} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <FieldLabel>Konsultation / Bokning</FieldLabel>
+          <input type="text" value={answers.bookingUrl} onChange={(e) => onChange((p) => ({ ...p, bookingUrl: e.target.value }))} placeholder="https://..." className={FIELD_CLASS} />
+        </div>
+        <div>
+          <FieldLabel>Erfarenhet (valfritt)</FieldLabel>
+          <input type="text" value={(cs.experience as string) ?? ""} onChange={(e) => setCs("experience", e.target.value)} placeholder="20+ år, 500+ ärenden..." className={FIELD_CLASS} />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Styrkor / USP</FieldLabel>
+        <TagInput values={answers.uniqueSellingPoints} onChange={(vals) => onChange((p) => ({ ...p, uniqueSellingPoints: vals }))} placeholder="T.ex. Gratis rådgivning, Fasta priser..." max={4} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Real Estate ──────────────────────────────────────────────────── */
+
+function RealEstateContent({ answers, onChange }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+  const propertyTypes = (cs.propertyTypes as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <SectionLabel>Bostadstyper</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {PROPERTY_TYPE_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={propertyTypes.includes(opt)} onClick={() => {
+              const next = propertyTypes.includes(opt) ? propertyTypes.filter((v) => v !== opt) : [...propertyTypes, opt];
+              setCs("propertyTypes", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <FieldLabel>Områden</FieldLabel>
+          <input type="text" value={(cs.coverageArea as string) ?? ""} onChange={(e) => setCs("coverageArea", e.target.value)} placeholder="Stockholm, Nacka, Solna..." className={FIELD_CLASS} />
+        </div>
+        <div>
+          <FieldLabel>Boknings-/Värderingsförfrågan</FieldLabel>
+          <input type="text" value={answers.bookingUrl} onChange={(e) => onChange((p) => ({ ...p, bookingUrl: e.target.value }))} placeholder="https://..." className={FIELD_CLASS} />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Mäklare / Team</FieldLabel>
+        <TagInput values={answers.teamMembers.map((m) => m.name).filter(Boolean)} onChange={(vals) => onChange((p) => ({ ...p, teamMembers: vals.map((n) => ({ name: n, role: "Mäklare" })) }))} placeholder="T.ex. Anna Svensson, Erik Lund..." max={6} />
+      </div>
+
+      <div>
+        <FieldLabel>Tjänster</FieldLabel>
+        <TagInput values={answers.services} onChange={(vals) => onChange((p) => ({ ...p, services: vals }))} placeholder="T.ex. Försäljning, Värdering, Uthyrning..." max={6} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Nonprofit ────────────────────────────────────────────────────── */
+
+function NonprofitContent({ answers, onChange }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <FieldLabel>Uppdrag / Mission</FieldLabel>
+        <textarea
+          value={(cs.mission as string) ?? ""}
+          onChange={(e) => setCs("mission", e.target.value)}
+          placeholder="Beskriv er mission och vad ni arbetar för..."
+          className={cn(FIELD_CLASS, "min-h-[80px] resize-none")}
+        />
+      </div>
+
+      <div>
+        <FieldLabel>Aktiviteter / Verksamhet</FieldLabel>
+        <TagInput values={answers.services} onChange={(vals) => onChange((p) => ({ ...p, services: vals }))} placeholder="T.ex. Utbildning, Insamling, Volontärarbete..." max={8} />
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex items-end pb-1">
+          <ToggleField label="Ta emot donationer" value={(cs.acceptsDonations as boolean) ?? false} onToggle={() => setCs("acceptsDonations", !(cs.acceptsDonations ?? false))} />
+        </div>
+        <div className="flex items-end pb-1">
+          <ToggleField label="Volontäranmälan" value={(cs.volunteerSignup as boolean) ?? false} onToggle={() => setCs("volunteerSignup", !(cs.volunteerSignup ?? false))} />
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Kontakt / Engagera sig</FieldLabel>
+        <input type="text" value={answers.bookingUrl} onChange={(e) => onChange((p) => ({ ...p, bookingUrl: e.target.value }))} placeholder="Länk till anmälan eller kontakt..." className={FIELD_CLASS} />
+      </div>
+
+      <div>
+        <FieldLabel>Styrkor / Vad ni uppnått</FieldLabel>
+        <TagInput values={answers.uniqueSellingPoints} onChange={(vals) => onChange((p) => ({ ...p, uniqueSellingPoints: vals }))} placeholder="T.ex. 10 000+ hjälpta, 50 volontärer..." max={4} />
+      </div>
+    </div>
+  );
+}
+
+/* ── Consulting / Tech ───────────────────────────────────────────── */
+
+function ConsultingContent({ answers, onChange }: ContentProps) {
+  const cs = answers.categorySpecific;
+  const setCs = (key: string, value: string | string[] | boolean) =>
+    onChange((p) => ({ ...p, categorySpecific: { ...p.categorySpecific, [key]: value } }));
+  const expertise = (cs.expertiseAreas as string[] | undefined) ?? [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <SectionLabel>Expertisområden</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          {CONSULTING_EXPERTISE_OPTIONS.map((opt) => (
+            <Chip key={opt} label={opt} selected={expertise.includes(opt)} onClick={() => {
+              const next = expertise.includes(opt) ? expertise.filter((v) => v !== opt) : [...expertise, opt];
+              setCs("expertiseAreas", next);
+            }} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Tjänster / Erbjudanden</FieldLabel>
+        <TagInput values={answers.services} onChange={(vals) => onChange((p) => ({ ...p, services: vals }))} placeholder="T.ex. Workshops, Strategirådgivning, Audit..." max={8} />
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <FieldLabel>Typiska kunder (valfritt)</FieldLabel>
+        <input type="text" value={(cs.clientTypes as string) ?? ""} onChange={(e) => setCs("clientTypes", e.target.value)} placeholder="SME:er, startups, kommuner..." className={FIELD_CLASS} />
+      </div>
+
+      <div>
+        <FieldLabel>Case studies / Resultat (valfritt)</FieldLabel>
+        <textarea
+          value={answers.testimonials}
+          onChange={(e) => onChange((p) => ({ ...p, testimonials: e.target.value }))}
+          placeholder='"Vi ökade omsättningen med 40% efter samarbetet." – Kund AB'
+          className={cn(FIELD_CLASS, "min-h-[80px] resize-none")}
+        />
+      </div>
+
+      <div>
+        <FieldLabel>Styrkor / USP</FieldLabel>
+        <TagInput values={answers.uniqueSellingPoints} onChange={(vals) => onChange((p) => ({ ...p, uniqueSellingPoints: vals }))} placeholder="T.ex. 15 års erfarenhet, Certifierad..." max={4} />
+      </div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════════
    Step 4: Design
    ════════════════════════════════════════════════════════════════════ */
 
-function DesignStep({ answers, onChange }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>> }) {
+function DesignStep({ answers, onChange, scrapedFields, onClearScraped }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>; scrapedFields?: Set<string>; onClearScraped?: (f: string) => void }) {
   const addColor = () => onChange((p) => ({ ...p, brandColors: [...p.brandColors, "#"] }));
   const removeColor = (idx: number) => onChange((p) => ({ ...p, brandColors: p.brandColors.filter((_, i) => i !== idx) }));
   const updateColor = (idx: number, val: string) => onChange((p) => ({ ...p, brandColors: p.brandColors.map((c, i) => i === idx ? val : c) }));
@@ -1463,33 +2385,36 @@ function DesignStep({ answers, onChange }: { answers: WizardAnswers; onChange: R
     <div className="space-y-5">
       {/* Logo upload */}
       <div>
-        <SectionLabel>Logotyp (valfritt)</SectionLabel>
+        <SectionLabel>Logotyp</SectionLabel>
         {answers.logoPreview ? (
-          <div className="flex items-center gap-4 rounded-xl border border-white/8 bg-white/[0.03] p-3">
-            <img src={answers.logoPreview} alt="Logo" className="h-16 w-16 rounded-xl border border-white/10 object-contain bg-white/5 p-1.5" />
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Logotyp uppladdad</span>
+          <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/40 p-4">
+            <img src={answers.logoPreview} alt="Logo" className="h-16 w-16 rounded-xl border border-border object-contain bg-background p-1.5" />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-foreground">Logotyp uppladdad</span>
               <button type="button" onClick={() => onChange((p) => { if (p.logoPreview) URL.revokeObjectURL(p.logoPreview); return { ...p, logoFile: null, logoPreview: "" }; })} className="w-fit rounded-lg px-2 py-0.5 text-xs text-muted-foreground/60 transition-all hover:bg-destructive/10 hover:text-destructive">Ta bort</button>
             </div>
           </div>
         ) : (
-          <label className="group flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-white/10 py-7 text-muted-foreground/50 transition-all hover:border-primary/40 hover:bg-primary/[0.03] hover:text-primary">
-            <Upload className="h-6 w-6 transition-transform group-hover:scale-110" />
-            <span className="text-xs font-medium">Ladda upp logotyp</span>
+          <label className={cn("group flex min-h-[10rem] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-primary/30 bg-primary/[0.04] py-8 text-muted-foreground touch-manipulation", MOTION, "hover:border-primary/50 hover:bg-primary/[0.08] hover:text-foreground")}>
+            <Upload className="h-7 w-7 transition-transform group-hover:scale-110" />
+            <div className="text-center">
+              <span className="block text-sm font-medium">Ladda upp din logotyp</span>
+              <span className="block text-xs text-muted-foreground/60 mt-1">PNG, JPG eller SVG</span>
+            </div>
             <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleLogoFile(e.target.files[0]); }} />
           </label>
         )}
       </div>
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
 
       {/* Brand colors */}
       <div>
         <FieldLabel>Profilfärger (valfritt)</FieldLabel>
         <div className="space-y-2">
           {answers.brandColors.map((color, idx) => (
-            <div key={idx} className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] p-2">
-              <input type="color" value={color.startsWith("#") && color.length === 7 ? color : "#000000"} onChange={(e) => updateColor(idx, e.target.value)} className="h-8 w-8 shrink-0 cursor-pointer rounded-lg border border-white/10" />
+            <div key={idx} className="flex items-center gap-2 rounded-xl border border-border bg-muted/25 p-2">
+              <input type="color" value={color.startsWith("#") && color.length === 7 ? color : "#000000"} onChange={(e) => updateColor(idx, e.target.value)} className="h-8 w-8 shrink-0 cursor-pointer rounded-lg border border-border" />
               <input type="text" value={color} onChange={(e) => updateColor(idx, e.target.value)} placeholder="#FF6600" className={cn(FIELD_CLASS, "flex-1")} />
               <button type="button" onClick={() => removeColor(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
             </div>
@@ -1501,10 +2426,13 @@ function DesignStep({ answers, onChange }: { answers: WizardAnswers; onChange: R
       {/* Tagline */}
       <div>
         <FieldLabel>Tagline / slogan (valfritt)</FieldLabel>
-        <input type="text" value={answers.tagline} onChange={(e) => onChange((p) => ({ ...p, tagline: e.target.value }))} placeholder="T.ex. Vi gör det enkelt att växa" className={FIELD_CLASS} />
+        <div className="relative">
+          <input type="text" value={answers.tagline} onChange={(e) => { onChange((p) => ({ ...p, tagline: e.target.value })); onClearScraped?.("tagline"); }} placeholder="T.ex. Vi gör det enkelt att växa" className={FIELD_CLASS} />
+          {scrapedFields?.has("tagline") && <ScrapeBadge />}
+        </div>
       </div>
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
 
       {/* Tone */}
       <div>
@@ -1548,6 +2476,13 @@ function PagesStep({
   aiSuggestions: string[];
   onSuggest: () => void;
 }) {
+  const toggleFeature = useCallback((id: string) => {
+    onChange((prev) => {
+      const arr = prev.features.includes(id) ? prev.features.filter((v) => v !== id) : [...prev.features, id];
+      return { ...prev, features: arr };
+    });
+  }, [onChange]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -1563,7 +2498,69 @@ function PagesStep({
         </button>
       </div>
 
-      <div className="h-px bg-white/5" />
+      <div className="h-px bg-border" />
+
+      <div>
+        <SectionLabel>Funktioner och moduler</SectionLabel>
+        <p className="mb-3 text-xs text-muted-foreground">Välj vilka funktioner du vill ha med. Alla går att lägga till eller ta bort senare.</p>
+        <div className="space-y-4">
+          {FEATURE_MODULES.map((group) => (
+            <div key={group.category}>
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                {group.category}
+              </span>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {group.items.map((mod) => {
+                  const selected = answers.features.includes(mod.id);
+                  const Icon = mod.icon;
+                  return (
+                    <button
+                      key={mod.id}
+                      type="button"
+                      onClick={() => toggleFeature(mod.id)}
+                      className={cn(
+                        "group flex items-start gap-3 rounded-xl border p-3 text-left transition-all",
+                        MOTION,
+                        selected
+                          ? "border-primary/40 bg-primary/5 shadow-sm shadow-primary/10"
+                          : "border-border bg-background hover:border-primary/20 hover:bg-muted/30",
+                      )}
+                    >
+                      <div className={cn(
+                        "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        selected ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground/50",
+                      )}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className={cn(
+                          "block text-sm font-medium transition-colors",
+                          selected ? "text-foreground" : "text-foreground/80",
+                        )}>
+                          {mod.label}
+                        </span>
+                        <span className="block text-[11px] leading-snug text-muted-foreground/60">
+                          {mod.description}
+                        </span>
+                      </div>
+                      <div className={cn(
+                        "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all",
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background",
+                      )}>
+                        {selected && <Check className="h-3 w-3" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
 
       <div>
         <FieldLabel>Mål med sajten (valfritt)</FieldLabel>
@@ -1584,19 +2581,28 @@ function PagesStep({
    Shared sub-components
    ════════════════════════════════════════════════════════════════════ */
 
+function ScrapeBadge() {
+  return (
+    <span className="absolute right-3 top-1/2 max-w-[calc(100%-1rem)] -translate-y-1/2 truncate rounded-md border border-primary/15 bg-primary/[0.07] px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur-[2px]">
+      Från sajt
+    </span>
+  );
+}
+
 function Chip({ label, selected, suggested, onClick }: { label: string; selected: boolean; suggested?: boolean; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
       className={cn(
-        "rounded-full border px-3.5 py-1.5 text-sm transition-all duration-200",
+        "min-h-10 touch-manipulation rounded-full border px-3.5 py-1.5 text-sm",
+        MOTION,
         selected
-          ? "border-primary/50 bg-primary/10 font-medium text-primary shadow-sm shadow-primary/10"
-          : "border-white/10 text-muted-foreground hover:border-white/20 hover:bg-white/[0.06]",
-        suggested && !selected && "border-primary/20 bg-primary/[0.03]",
+          ? "border-primary/40 bg-primary/10 font-medium text-foreground shadow-sm ring-1 ring-primary/15"
+          : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted/50",
+        suggested && !selected && "border-primary/20 bg-primary/[0.05]",
       )}
     >
       {label}
-      {selected && <Check className="ml-1.5 inline h-3 w-3" />}
+      {selected && <Check className="ml-1.5 inline h-3 w-3 text-primary" />}
     </button>
   );
 }
@@ -1612,16 +2618,256 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function ImagePickerThumb({ preview, onPick }: { preview?: string; onPick: (file: File) => void }) {
   return (
     <label className={cn(
-      "group flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-dashed transition-all duration-200",
-      preview ? "border-white/10 bg-white/5" : "border-white/10 bg-white/[0.03] hover:border-primary/40 hover:bg-primary/[0.03]",
+      "group flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-all duration-200",
+      preview ? "border-border bg-muted/40" : "border-2 border-dashed border-primary/25 bg-primary/[0.02] hover:border-primary/50 hover:bg-primary/[0.05]",
     )}>
       {preview ? (
         <img src={preview} alt="" className="h-full w-full rounded-xl object-cover" />
       ) : (
-        <ImagePlus className="h-5 w-5 text-muted-foreground/30 transition-colors group-hover:text-primary/60" />
+        <div className="flex flex-col items-center gap-0.5">
+          <ImagePlus className="h-5 w-5 text-primary/40 transition-colors group-hover:text-primary/70" />
+          <span className="text-[11px] text-primary/40 group-hover:text-primary/70">Bild</span>
+        </div>
       )}
       <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onPick(e.target.files[0]); }} />
     </label>
+  );
+}
+
+/* ── Media step ───────────────────────────────────────────────────── */
+
+const ACCEPTED_MEDIA_TYPES = "image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/webm,video/quicktime";
+
+function MediaStep({ answers, onChange, scrapedImages }: {
+  answers: WizardAnswers;
+  onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>;
+  scrapedImages: Array<{ url: string; alt: string; role: string }>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedScraped, setSelectedScraped] = useState<Set<string>>(() => new Set());
+  const [loadErrors, setLoadErrors] = useState<Set<string>>(() => new Set());
+
+  const addFiles = useCallback((files: FileList | File[]) => {
+    const newMedia: Array<{ file: File; preview: string; context: string }> = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) continue;
+      const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+      const isVideo = file.type.startsWith("video/");
+      newMedia.push({ file, preview, context: isVideo ? "Video" : "Bild" });
+    }
+    if (newMedia.length > 0) {
+      onChange((prev) => ({ ...prev, siteMedia: [...prev.siteMedia, ...newMedia] }));
+    }
+  }, [onChange]);
+
+  const removeFile = useCallback((index: number) => {
+    onChange((prev) => {
+      const item = prev.siteMedia[index];
+      if (item?.preview) URL.revokeObjectURL(item.preview);
+      return { ...prev, siteMedia: prev.siteMedia.filter((_, i) => i !== index) };
+    });
+  }, [onChange]);
+
+  const updateContext = useCallback((index: number, context: string) => {
+    onChange((prev) => ({
+      ...prev,
+      siteMedia: prev.siteMedia.map((m, i) => i === index ? { ...m, context } : m),
+    }));
+  }, [onChange]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+  }, [addFiles]);
+
+  const toggleScraped = useCallback((url: string) => {
+    setSelectedScraped((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  }, []);
+
+  const selectAllScraped = useCallback(() => {
+    const visible = scrapedImages.filter((i) => !loadErrors.has(i.url));
+    setSelectedScraped(new Set(visible.map((i) => i.url)));
+  }, [scrapedImages, loadErrors]);
+
+  const deselectAllScraped = useCallback(() => {
+    setSelectedScraped(new Set());
+  }, []);
+
+  // Sync selected scraped images into siteMedia.scrapedUrls
+  useEffect(() => {
+    const urls = Array.from(selectedScraped);
+    onChange((prev) => ({
+      ...prev,
+      scrapedImageUrls: urls.map((url) => {
+        const info = scrapedImages.find((i) => i.url === url);
+        return { url, alt: info?.alt || "", role: info?.role || "content" };
+      }),
+    }));
+  }, [selectedScraped, scrapedImages, onChange]);
+
+  const visibleScraped = scrapedImages.filter((i) => !loadErrors.has(i.url));
+  const allSelected = visibleScraped.length > 0 && visibleScraped.every((i) => selectedScraped.has(i.url));
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-muted-foreground">
+        Ladda upp bilder och videos som du vill ha med på din sajt. AI:n analyserar varje fil och placerar den där den passar bäst.
+      </p>
+
+      {/* Scraped images from the website */}
+      {scrapedImages.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">
+              Bilder från din nuvarande sajt
+            </span>
+            <button
+              type="button"
+              onClick={allSelected ? deselectAllScraped : selectAllScraped}
+              className="text-xs text-primary hover:underline"
+            >
+              {allSelected ? "Avmarkera alla" : "Välj alla"}
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            {scrapedImages.map((img) => {
+              if (loadErrors.has(img.url)) return null;
+              const selected = selectedScraped.has(img.url);
+              return (
+                <button
+                  key={img.url}
+                  type="button"
+                  onClick={() => toggleScraped(img.url)}
+                  className={cn(
+                    "group/scraped relative h-24 overflow-hidden rounded-lg border-2 transition-all",
+                    MOTION,
+                    selected
+                      ? "border-primary ring-2 ring-primary/20"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.url}
+                    alt={img.alt}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={() => setLoadErrors((prev) => new Set(prev).add(img.url))}
+                  />
+                  {selected && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                      <div className="rounded-full bg-primary p-1">
+                        <Check className="h-3.5 w-3.5 text-primary-foreground" />
+                      </div>
+                    </div>
+                  )}
+                  {img.role !== "content" && (
+                    <span className="absolute bottom-0.5 left-0.5 rounded bg-background/80 px-1 py-px text-[9px] font-medium text-foreground/70 backdrop-blur-sm">
+                      {img.role === "logo" ? "Logo" : img.role === "hero" ? "Hero" : img.role === "team" ? "Team" : img.role === "product" ? "Produkt" : img.role === "gallery" ? "Galleri" : img.role}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {selectedScraped.size > 0 && (
+            <p className="text-xs text-muted-foreground/60">
+              {selectedScraped.size} {selectedScraped.size === 1 ? "bild vald" : "bilder valda"} — dessa inkluderas automatiskt
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={cn(
+          "group flex min-h-[10rem] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 text-muted-foreground touch-manipulation",
+          MOTION,
+          dragOver
+            ? "border-primary bg-primary/10 text-foreground"
+            : "border-primary/30 bg-primary/[0.04] hover:border-primary/50 hover:bg-primary/[0.08] hover:text-foreground",
+        )}
+      >
+        <Upload className="h-7 w-7 transition-transform group-hover:scale-110" />
+        <div className="text-center">
+          <span className="block text-sm font-medium">
+            {dragOver ? "Släpp för att ladda upp" : "Dra och släpp filer hit"}
+          </span>
+          <span className="block text-xs text-muted-foreground/60 mt-1">
+            eller klicka för att välja — PNG, JPG, WebP, SVG, MP4, WebM
+          </span>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_MEDIA_TYPES}
+          multiple
+          className="hidden"
+          onChange={(e) => { if (e.target.files?.length) { addFiles(e.target.files); e.target.value = ""; } }}
+        />
+      </div>
+
+      {/* File grid */}
+      {answers.siteMedia.length > 0 && (
+        <div className="space-y-3">
+          <span className="text-xs font-medium text-muted-foreground">
+            {answers.siteMedia.length} {answers.siteMedia.length === 1 ? "fil" : "filer"} uppladdade
+          </span>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {answers.siteMedia.map((item, idx) => (
+              <div key={idx} className="group/card relative rounded-xl border border-border bg-muted/25 overflow-hidden">
+                {/* Preview */}
+                {item.file.type.startsWith("video/") ? (
+                  <div className="flex h-28 items-center justify-center bg-muted/50">
+                    <Film className="h-8 w-8 text-muted-foreground/40" />
+                    <span className="ml-2 text-xs text-muted-foreground/60">{item.file.name.split(".").pop()?.toUpperCase()}</span>
+                  </div>
+                ) : (
+                  <div className="h-28 overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.preview} alt={item.context} className="h-full w-full object-cover" />
+                  </div>
+                )}
+
+                {/* Remove button */}
+                <button
+                  type="button"
+                  onClick={() => removeFile(idx)}
+                  className="absolute right-1.5 top-1.5 rounded-full bg-background/80 p-1 text-muted-foreground/60 opacity-0 backdrop-blur-sm transition-all hover:bg-destructive/10 hover:text-destructive group-hover/card:opacity-100"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+
+                {/* Context input */}
+                <div className="p-2">
+                  <input
+                    type="text"
+                    value={item.context}
+                    onChange={(e) => updateContext(idx, e.target.value)}
+                    placeholder="Beskrivning, t.ex. 'Bild på teamet'"
+                    className="w-full rounded-lg border-0 bg-transparent px-1.5 py-1 text-xs text-foreground placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                  />
+                  <span className="mt-0.5 block truncate text-[10px] text-muted-foreground/40">
+                    {item.file.name}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1629,9 +2875,9 @@ function ToggleField({ label, value, onToggle }: { label: string; value: boolean
   return (
     <div className="flex items-center gap-2.5">
       <button type="button" onClick={onToggle}
-        className={cn("relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200", value ? "bg-primary shadow-sm shadow-primary/30" : "bg-white/10")}
+        className={cn("relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200", value ? "bg-primary shadow-sm shadow-primary/30" : "bg-muted")}
       >
-        <span className={cn("pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200", value ? "translate-x-4" : "translate-x-0.5")} />
+        <span className={cn("pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-sm transition-transform duration-200", value ? "translate-x-4" : "translate-x-0.5")} />
       </button>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
@@ -1656,7 +2902,7 @@ function TagInput({ values, onChange, placeholder, max = 999 }: { values: string
             onKeyDown={(e) => { if (e.key === "Enter" || (e.key === "," && input.trim())) { e.preventDefault(); add(); } }}
             placeholder={placeholder} className={cn(FIELD_CLASS, "flex-1")}
           />
-          <button type="button" onClick={add} disabled={!input.trim()} className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-white/5 disabled:opacity-30">
+          <button type="button" onClick={add} disabled={!input.trim()} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted disabled:opacity-30">
             <Plus className="h-3.5 w-3.5" />
           </button>
         </div>

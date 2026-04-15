@@ -24,10 +24,10 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
 
   return (
     <nav
-      className={`absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-6 py-3.5 transition-all duration-300 ${
+      className={`absolute left-0 right-0 top-0 z-30 flex min-h-12 items-center justify-between px-4 py-2 transition-[background-color,border-color,backdrop-filter] duration-200 ease-out motion-reduce:transition-none md:min-h-14 md:px-6 md:py-2.5 ${
         scrolled
-          ? "border-b border-border/40 bg-background/80 backdrop-blur-xl"
-          : "bg-transparent"
+          ? "border-b border-border/50 bg-background/70 backdrop-blur-xl"
+          : "border-b border-transparent bg-background/25 backdrop-blur-xl"
       }`}
     >
       <AnimatedLogo />

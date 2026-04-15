@@ -109,17 +109,6 @@ export function useLandingController({
     el.style.setProperty("--term-glow-y", `${e.clientY - rect.top}px`)
   }, [])
 
-  const pickCategory = useCallback(
-    (id: string | null) => {
-      if (onSelectedCategoryChange) {
-        onSelectedCategoryChange(id)
-      } else {
-        setInternalCategory(id)
-      }
-    },
-    [onSelectedCategoryChange],
-  )
-
   const activeCategory = categories.find((c) => c.id === selectedCategory)
   const isAuditMode = selectedCategory === "audit"
   const currentAuditUrl = auditUrl ?? inputValue
@@ -230,7 +219,6 @@ export function useLandingController({
     showVoiceRecorder,
     setShowVoiceRecorder,
     selectedCategory,
-    pickCategory,
     inputValue,
     setInputValue,
     isSubmitting,

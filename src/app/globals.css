@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 @config "../../tailwind.config.cjs";
@@ -7,27 +9,33 @@
 
 @layer base {
   :root {
-    /* Sajtmaskin redesign — white bg, dark-blue text, orange accent */
+    /* Sajtmaskin — light surfaces, navy type, orange CTA (tokens only; no raw hex in theme) */
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;
     --card: 0 0% 99%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 220 60% 22%;
+    --primary: 24 95% 53%;
     --primary-foreground: 0 0% 100%;
     --secondary: 220 14% 96%;
     --secondary-foreground: 222 47% 11%;
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
-    --accent: 20 60% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 24 90% 96%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 220 60% 22%;
+    --ring: 24 95% 53%;
     --radius: 0.75rem;
+
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+
     --brand-navy: 222 47% 11%;
     --brand-orange: 24 95% 53%;
     --accent-orange: 24 95% 53%;
@@ -37,6 +45,83 @@
     /* Backward-compat aliases */
     --brand-blue: 220 60% 22%;
     --brand-teal: 220 45% 28%;
+
+    --chart-1: 24 95% 53%;
+    --chart-2: 222 47% 11%;
+    --chart-3: 220 45% 35%;
+    --chart-4: 32 95% 44%;
+    --chart-5: 220 14% 46%;
+
+    /* Sidebar — HSL components (use as hsl(var(--sidebar))) */
+    --sidebar: 0 0% 98%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 24 95% 53%;
+
+    /* Scrollbar — HSL triplets (subtle chrome; use hsl(var(--scrollbar-thumb) / α)) */
+    --scrollbar-thumb: 220 13% 91%;
+    --scrollbar-thumb-hover: 220 9% 46%;
+
+    /* Code-section editors (builder panel) */
+    --code-section-border: 200 15% 60%;
+    --code-section-bg: 200 15% 95%;
+    --code-section-text: 200 15% 30%;
+    --code-section-accent: var(--primary);
+  }
+
+  /* Dark mode tokens: intentionally disabled at runtime (layout.tsx forcedTheme="light").
+     Kept for future enablement — requires a visual QA pass before activating. */
+  .dark {
+    color-scheme: dark;
+    --background: 222 40% 15%;
+    --foreground: 0 0% 98%;
+    --card: 222 38% 18%;
+    --card-foreground: 0 0% 98%;
+    --popover: 222 38% 16%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 24 95% 53%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 35% 22%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 222 32% 22%;
+    --muted-foreground: 220 12% 72%;
+    --accent: 222 35% 24%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 28% 26%;
+    --input: 222 28% 26%;
+    --ring: 24 95% 53%;
+
+    --sidebar: 222 40% 14%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary-foreground: 222 47% 11%;
+    --sidebar-accent: 222 35% 20%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 222 30% 22%;
+    --sidebar-ring: 24 95% 53%;
+
+    --scrollbar-thumb: 222 28% 26%;
+    --scrollbar-thumb-hover: 220 12% 72%;
+
+    /* Code-section editors (builder panel) */
+    --code-section-border: 200 15% 35%;
+    --code-section-bg: 200 15% 15%;
+    --code-section-text: 200 15% 75%;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }
 
@@ -53,6 +138,30 @@
   html {
     color-scheme: light;
     background-color: hsl(var(--background)) !important;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--scrollbar-thumb) / 0.45) transparent;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background: hsl(var(--scrollbar-thumb) / 0.55);
+    border-radius: 9999px;
+  }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--scrollbar-thumb-hover) / 0.4);
   }
 
   body {
@@ -75,8 +184,8 @@
   /* Smooth transitions for auth state changes */
   .smooth-transition {
     transition:
-      opacity 0.3s ease-in-out,
-      transform 0.3s ease-in-out;
+      opacity var(--transition-slow) var(--ease-out-soft),
+      transform var(--transition-slow) var(--ease-out-soft);
   }
 
   /* Prevent layout shift during auth transitions */
@@ -92,13 +201,24 @@
     transform: translateZ(0);
     will-change: transform, opacity;
   }
+
+  /* No-JS fallback — tokens only (avoid hex in layout.tsx) */
+  .noscript-fallback {
+    padding: 2rem;
+    max-width: 36rem;
+    margin-left: auto;
+    margin-right: auto;
+    font-family: system-ui, sans-serif;
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
+  }
 }
 
 /* Custom scrollbar for dark theme */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--scrollbar-thumb) / 0.45) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -111,12 +231,24 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--border));
+    background-color: hsl(var(--scrollbar-thumb) / 0.55);
     border-radius: 3px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--primary));
+    background-color: hsl(var(--scrollbar-thumb-hover) / 0.45);
+  }
+
+  /* Opt-in: hide scrollbars (e.g. nested panels) */
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   /* Gradient animation for text */
@@ -301,7 +433,7 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(0, 0, 0, 0.03) 50%,
+      hsl(var(--foreground) / 0.04) 50%,
       transparent 100%
     );
     background-size: 200% 100%;
@@ -311,8 +443,8 @@
   /* --- Card Hover Effect --- */
   .hover-lift {
     transition:
-      transform 0.3s ease,
-      box-shadow 0.3s ease;
+      transform var(--transition-slow) var(--ease-out-soft),
+      box-shadow var(--transition-slow) var(--ease-out-soft);
   }
 
   .hover-lift:hover {
@@ -340,37 +472,47 @@
 
 }
 
-:root {
-  --sidebar: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(222 47% 11%);
-  --sidebar-primary: hsl(220 60% 22%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(220 14% 96%);
-  --sidebar-accent-foreground: hsl(222 47% 11%);
-  --sidebar-border: hsl(220 13% 91%);
-  --sidebar-ring: hsl(220 60% 22%);
-}
-
-.dark {
-  --sidebar: hsl(222 47% 11%);
-  --sidebar-foreground: hsl(0 0% 96%);
-  --sidebar-primary: hsl(220 60% 22%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(222 40% 16%);
-  --sidebar-accent-foreground: hsl(0 0% 96%);
-  --sidebar-border: hsl(222 30% 20%);
-  --sidebar-ring: hsl(220 60% 22%);
-}
-
 @theme inline {
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @keyframes subtle-pulse {
@@ -385,13 +527,13 @@
 @keyframes chat-shadow-pulse {
   0%, 100% {
     box-shadow:
-      0 4px 24px -4px rgba(0, 0, 0, 0.08),
-      0 1px 4px -1px rgba(0, 0, 0, 0.04);
+      0 4px 24px -4px hsl(var(--foreground) / 0.08),
+      0 1px 4px -1px hsl(var(--foreground) / 0.04);
   }
   50% {
     box-shadow:
-      0 8px 40px -4px rgba(0, 0, 0, 0.14),
-      0 2px 8px -2px rgba(0, 0, 0, 0.06);
+      0 8px 40px -4px hsl(var(--foreground) / 0.14),
+      0 2px 8px -2px hsl(var(--foreground) / 0.06);
   }
 }
 
@@ -404,4 +546,73 @@
   .animate-chat-shadow-pulse {
     animation: none;
   }
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }

@@ -1,10 +1,10 @@
 "use client"
 
-import { ArrowRight, CheckCircle2, Rocket } from "lucide-react"
+import { ArrowRight, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { LandingBackground } from "@/components/landing-v2/landing-background"
-import { MinimalFooter } from "@/components/layout/minimal-footer"
+import { LandingMinimalFooter } from "@/components/landing-v2/landing-minimal-footer"
 import { LandingHero } from "@/components/landing-v2/landing-hero"
 import {
   features,
@@ -27,7 +27,6 @@ export function ChatArea(props: ChatAreaProps = {}) {
     showVoiceRecorder,
     setShowVoiceRecorder,
     selectedCategory,
-    pickCategory,
     inputValue,
     setInputValue,
     isSubmitting,
@@ -69,29 +68,35 @@ export function ChatArea(props: ChatAreaProps = {}) {
           startBuild={startBuild}
         />
 
-        {/* ━━━ TABBED CONTENT ━━━ */}
-        <div className="border-t border-border/15">
+        {/* Nedanför fold: mer info */}
+        <div className="border-t border-border/40">
           <Tabs defaultValue="funktioner" className="w-full">
-            <div className="sticky top-0 z-20 bg-background/90 backdrop-blur-md border-b border-border/15">
-              <div className="max-w-5xl mx-auto px-6">
-                <TabsList variant="line" className="h-12 w-full justify-start gap-0">
-                  <TabsTrigger value="funktioner" className="text-sm">Funktioner</TabsTrigger>
-                  <TabsTrigger value="teknik" className="text-sm">Teknik</TabsTrigger>
-                  <TabsTrigger value="priser" className="text-sm">Priser</TabsTrigger>
+            <div className="sticky top-0 z-20 border-b border-border/40 bg-background/60 backdrop-blur-md">
+              <div className="mx-auto max-w-5xl px-5 md:px-6">
+                <TabsList variant="line" className="min-h-11 h-11 w-full justify-start gap-0 md:h-10 md:min-h-10">
+                  <TabsTrigger value="funktioner" className="text-sm">
+                    Funktioner
+                  </TabsTrigger>
+                  <TabsTrigger value="teknik" className="text-sm">
+                    Teknik
+                  </TabsTrigger>
+                  <TabsTrigger value="priser" className="text-sm">
+                    Priser
+                  </TabsTrigger>
                 </TabsList>
               </div>
             </div>
 
             {/* ── FUNKTIONER ── */}
             <TabsContent value="funktioner" className="mt-0">
-              <section className="px-6 py-16 md:py-20">
-                <div className="max-w-6xl mx-auto">
-                  <div className="text-center mb-12">
-                    <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight mb-3">
-                      Samma teknik som techbolagen
+              <section id="funktioner" className="px-6 py-14 md:py-20">
+                <div className="mx-auto max-w-6xl">
+                  <div className="mb-10 text-center">
+                    <h2 className="mb-2 font-(--font-heading) text-2xl tracking-tight text-foreground md:text-3xl">
+                      Teknik du känner igen
                     </h2>
-                    <p className="text-muted-foreground max-w-lg mx-auto">
-                      Produktionsklar kod i React, Next.js och TypeScript.
+                    <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                      React, Next.js, TypeScript.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -107,14 +112,14 @@ export function ChatArea(props: ChatAreaProps = {}) {
                 </div>
               </section>
 
-              <section className="px-6 py-16 border-t border-border/15">
-                <div className="max-w-5xl mx-auto">
-                  <div className="text-center mb-10">
-                    <h2 className="text-2xl md:text-3xl text-foreground font-(--font-heading) tracking-tight mb-3">
+              <section className="border-t border-border/40 px-6 py-14">
+                <div className="mx-auto max-w-5xl">
+                  <div className="mb-8 text-center">
+                    <h2 className="mb-2 font-(--font-heading) text-xl tracking-tight text-foreground md:text-2xl">
                       Integrationer
                     </h2>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      Betalningar, utskick, data och drift — redo från start.
+                    <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                      Betalning, e-post, data.
                     </p>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -128,14 +133,14 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
             {/* ── TEKNIK ── */}
             <TabsContent value="teknik" className="mt-0">
-              <section className="px-6 py-16 md:py-20">
-                <div className="max-w-5xl mx-auto">
-                  <div className="text-center mb-12">
-                    <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight mb-3">
-                      Teknisk grund
+              <section id="teknik" className="px-6 py-14 md:py-20">
+                <div className="mx-auto max-w-5xl">
+                  <div className="mb-10 text-center">
+                    <h2 className="mb-2 font-(--font-heading) text-2xl tracking-tight text-foreground md:text-3xl">
+                      Stack
                     </h2>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      Samma verktyg som de bästa digitala bolagen.
+                    <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                      Verktyg för produktion.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -149,14 +154,14 @@ export function ChatArea(props: ChatAreaProps = {}) {
 
             {/* ── PRISER ── */}
             <TabsContent value="priser" className="mt-0">
-              <section className="px-6 py-16 md:py-20">
-                <div className="max-w-5xl mx-auto">
-                  <div className="text-center mb-12">
-                    <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight mb-3">
-                      Enkel prissättning
+              <section className="px-6 py-14 md:py-20">
+                <div className="mx-auto max-w-5xl">
+                  <div className="mb-10 text-center">
+                    <h2 className="mb-2 font-(--font-heading) text-2xl tracking-tight text-foreground md:text-3xl">
+                      Priser
                     </h2>
-                    <p className="text-muted-foreground max-w-md mx-auto">
-                      Köp credits, bygg i din takt. Inga bindningstider.
+                    <p className="mx-auto max-w-md text-sm text-muted-foreground">
+                      Credits. Bygg i din takt.
                     </p>
                   </div>
 
@@ -164,10 +169,10 @@ export function ChatArea(props: ChatAreaProps = {}) {
                     {creditPackages.map((pkg) => (
                       <div
                         key={pkg.id}
-                        className={`rounded-2xl border p-7 flex flex-col gap-5 transition-all ${
+                        className={`flex flex-col gap-5 rounded-2xl border border-border/50 p-7 transition-[border-color,box-shadow] duration-200 ease-out motion-reduce:transition-none ${
                           pkg.popular
-                            ? "bg-primary/5 border-primary/30 relative md:scale-105 md:-my-2 shadow-xl shadow-primary/5"
-                            : "bg-card/50 border-border/20 hover:border-border/40"
+                            ? "relative border-primary/25 bg-primary/5 shadow-lg shadow-[0_12px_40px_-12px_hsl(var(--primary)/0.25)] md:-my-2 md:scale-[1.02]"
+                            : "bg-card/40 hover:border-border/70"
                         }`}
                       >
                         {pkg.popular && (
@@ -183,7 +188,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                           <span className="text-3xl text-foreground font-(--font-heading)">{pkg.price} kr</span>
                           <span className="text-sm text-muted-foreground mb-1">{pkg.credits} credits</span>
                         </div>
-                        <div className="h-px bg-border/20" />
+                        <div className="h-px bg-border/60" />
                         <ul className="space-y-3 flex-1">
                           {pkg.features.map((feature) => (
                             <li key={feature} className="flex items-start gap-2.5 text-sm text-muted-foreground">
@@ -193,10 +198,10 @@ export function ChatArea(props: ChatAreaProps = {}) {
                           ))}
                         </ul>
                         <Button
-                          className={`w-full font-medium mt-2 ${
+                          className={`mt-2 w-full min-h-11 rounded-xl font-medium transition-colors duration-200 ease-out motion-reduce:transition-none ${
                             pkg.popular
-                              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/30"
+                              ? "landing-cta-primary bg-primary text-primary-foreground hover:bg-primary/90"
+                              : "border border-border/50 bg-secondary/80 text-secondary-foreground hover:bg-secondary"
                           }`}
                           onClick={() => router.push("/buy-credits")}
                           disabled={isSubmitting}
@@ -209,7 +214,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                   </div>
 
                   {/* SajtStudio upsell */}
-                  <div className="mt-14 rounded-2xl border border-border/20 bg-card/50 p-6 md:p-8">
+                  <div className="mt-12 rounded-2xl border border-border/50 bg-card/30 p-6 md:p-8">
                     <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
                       <div>
                         <p className="text-xs font-medium text-primary tracking-widest uppercase mb-2">SajtStudio</p>
@@ -221,7 +226,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                         </p>
                         <div className="space-y-2 mb-5">
                           {studioTeam.map((member) => (
-                            <div key={member.name} className="flex items-center gap-3 rounded-xl border border-border/15 bg-background/50 px-3 py-2">
+                            <div key={member.name} className="flex items-center gap-3 rounded-xl border border-border/50 bg-background/50 px-3 py-2">
                               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-(--font-heading) text-primary">
                                 {member.name.slice(0, 1)}
                               </div>
@@ -233,7 +238,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                           ))}
                         </div>
                         <Button
-                          className="bg-primary text-primary-foreground hover:bg-primary/90"
+                          className="landing-cta-primary min-h-11 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
                           onClick={() => { window.location.href = "mailto:ch.genberg@gmail.com,erik@sajtstudio.se" }}
                         >
                           Prata med teamet
@@ -242,7 +247,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
                       </div>
                       <div className="grid gap-3 md:grid-cols-3">
                         {studioTiers.map((tier) => (
-                          <div key={tier.name} className="rounded-xl border border-border/20 p-4 bg-background/50">
+                          <div key={tier.name} className="rounded-xl border border-border/50 bg-background/50 p-4">
                             <p className="text-xs uppercase tracking-wider text-primary/70 mb-2">{tier.name}</p>
                             <p className="text-lg font-(--font-heading) text-foreground">{tier.range}</p>
                             <p className="mt-1.5 text-sm text-muted-foreground">{tier.description}</p>
@@ -257,34 +262,7 @@ export function ChatArea(props: ChatAreaProps = {}) {
           </Tabs>
         </div>
 
-        {/* ━━━ BOTTOM CTA ━━━ */}
-        <section className="px-6 py-16 border-t border-border/15">
-          <div className="max-w-lg mx-auto text-center">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-5">
-              <Rocket className="w-5 h-5 text-primary" />
-            </div>
-            <h2 className="text-2xl md:text-3xl text-foreground font-(--font-heading) tracking-tight mb-3">
-              Redo?
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              Gratis att börja. Ingen kod krävs.
-            </p>
-            <Button
-              size="lg"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium px-8"
-              disabled={isSubmitting}
-              onClick={() => {
-                const cat = selectedCategory === "audit" ? "fritext" : selectedCategory ?? "fritext"
-                void startBuild(cat)
-              }}
-            >
-              Skapa din sajt
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        </section>
-
-        <MinimalFooter />
+        <LandingMinimalFooter />
       </div>
 
       <FeatureModal feature={activeFeature} onClose={() => setActiveFeature(null)} />

@@ -508,57 +508,267 @@ export interface UploadedMediaInfo {
   mimeType: string;
   url: string;
   purpose?: string;
+  context?: string;
 }
 
-function buildPageStructure(mustHave: string | null, siteType: string | null): string[] {
+function buildPageStructure(mustHave: string | null, siteType: string | null, features?: string | null): string[] {
   const pages: string[] = [];
+  const mh = mustHave?.toLowerCase() ?? "";
+  const st = siteType?.toLowerCase() ?? "";
+  const ft = features?.toLowerCase() ?? "";
 
-  const hasFeature = (keyword: string) =>
-    mustHave?.toLowerCase().includes(keyword.toLowerCase()) ?? false;
-
-  const isRestaurant = siteType?.toLowerCase().includes("restaurang") ?? false;
-  const isEcommerce = siteType?.toLowerCase().includes("webshop") || siteType?.toLowerCase().includes("e-handel");
-  const isPortfolio = siteType?.toLowerCase().includes("portfolio") ?? false;
+  const has = (keyword: string) => mh.includes(keyword.toLowerCase()) || ft.includes(keyword.toLowerCase());
+  const isRestaurant = st.includes("restaurang") || st.includes("café");
+  const isEcommerce = st.includes("webshop") || st.includes("e-handel");
+  const isPortfolio = st.includes("portfolio");
+  const isSalon = st.includes("salong") || st.includes("skönhet");
+  const isHotel = st.includes("hotell") || st.includes("boende");
 
   pages.push(
     "### Startsida (`app/page.tsx`)",
-    "1. Hero med rubrik, underrubrik och primär CTA",
+    "VIKTIGT: Startsidan ska vara rik och komplett med MINST 6 sektioner:",
+    "1. Hero — stor bild/gradient, rubrik, underrubrik, primär CTA-knapp",
     isRestaurant
-      ? "2. Meny-höjdpunkter eller populära rätter (3-4 kort)"
+      ? "2. Meny-höjdpunkter — 3-4 populära rätter med namn, beskrivning och pris i kort"
       : isEcommerce
-        ? "2. Utvalda produkter (3-4 kort)"
-        : "2. Tjänster/erbjudanden (3-4 kort med ikon och kort beskrivning)",
-    "3. Kort om oss (2-3 meningar + bild eller ikon)",
-    "4. Socialt bevis (2-3 kundcitat med namn och roll/företag)",
-    "5. CTA-banner (tydlig uppmaning med kontrasterande bakgrund)",
-    "6. Kontaktsektion (adress, telefon, e-post, eventuellt karta)",
+        ? "2. Utvalda produkter — 3-4 produktkort med bild, namn, pris, 'Köp'-knapp"
+        : isSalon
+          ? "2. Populära behandlingar — 3-4 kort med namn, tid, pris, 'Boka'-knapp"
+          : "2. Tjänster/erbjudanden — 3-4 kort med ikon, rubrik och 2-3 meningars beskrivning",
+    "3. Om oss-preview — 3-4 meningar om företaget, eventuellt bild, 'Läs mer'-länk till /om-oss",
+    "4. Socialt bevis — 2-3 kundcitat med namn och roll. Om inga finns: skriv trovärdiga men markera med platshållare",
+    "5. CTA-banner — uppmaning med kontrasterande bakgrund och tydlig knapp",
+    "6. Kontakt-footer — adress, telefon, e-post, öppettider om relevant",
+    "",
+    "VARJE sektion ovan ska ha minst 2-3 meningars text. Hero ska ha minst rubrik + underrubrik + CTA.",
   );
 
-  pages.push("", "### Om oss (`app/om-oss/page.tsx`)", "1. Rubrik och inledning", "2. Vår historia / bakgrund", "3. Teamet (om relevant) — namn, roll, kort bio", "4. Värderingar eller arbetssätt");
-
-  if (isRestaurant) {
-    pages.push("", "### Meny (`app/meny/page.tsx`)", "1. Menykategorier (förrätter, varmrätter, desserter, drycker)", "2. Varje rätt: namn, kort beskrivning, pris", "3. Allergeniformation eller dietfilter");
+  if (has("om oss") || has("om mig") || !has("landningssida")) {
+    pages.push(
+      "",
+      "### Om oss (`app/om-oss/page.tsx`)",
+      "VIKTIGT: Denna sida ska ha RIKTIGT innehåll, inte bara en rubrik!",
+      "1. Page-hero — rubrik 'Om oss' + 1-2 meningars intro",
+      "2. Vår historia — 5-8 meningar om företaget, grundande, utveckling, vision",
+      "3. Värderingar — 3 värderingar med rubrik och 2-3 meningars beskrivning vardera",
+      "4. Teamet — om relevant: namn, roll, kort bio per person. Annars: beskrivning av teamet",
+      "5. CTA — 'Kontakta oss' eller 'Boka konsultation'",
+    );
   }
 
-  if (hasFeature("pris") || hasFeature("paket")) {
-    pages.push("", "### Priser (`app/priser/page.tsx`)", "1. Prispaket (2-3 nivåer i kolumner)", "2. Vad som ingår per paket (checkmarks)", "3. CTA under varje paket", "4. FAQ om priser");
+  if (isRestaurant || has("meny") || has("matsedel")) {
+    pages.push(
+      "",
+      "### Meny (`app/meny/page.tsx`)",
+      "VIKTIGT: Fyll med RIKTIGA rätter om de finns i underlaget, annars trovärdiga exempel.",
+      "1. Page-hero — rubrik 'Vår meny' + kort intro",
+      "2. Menykategorier — förrätter, varmrätter, desserter, drycker i separata sektioner",
+      "3. Varje rätt: namn, kort beskrivning (1 mening), pris. Minst 3-4 rätter per kategori",
+      "4. Allergiinfo eller dietfilter om relevant",
+      "5. CTA — 'Boka bord' eller 'Beställ'",
+    );
   }
 
-  if (hasFeature("galleri") || isPortfolio) {
-    pages.push("", "### Galleri / Portfolio (`app/galleri/page.tsx`)", "1. Bildrutnät (responsivt grid, 2-3 kolumner)", "2. Filterkategorier om relevant", "3. Lightbox vid klick");
+  if (isEcommerce || has("webshop") || has("produkt")) {
+    pages.push(
+      "",
+      "### Produkter (`app/produkter/page.tsx`)",
+      "VIKTIGT: Visa RIKTIGA produkter om de finns i underlaget, annars trovärdiga exempel.",
+      "1. Page-hero — rubrik 'Våra produkter' + kort intro",
+      "2. Produktgrid — responsivt rutnät med minst 6 produktkort",
+      "3. Varje kort: produktbild, namn, pris, kort beskrivning, 'Lägg i varukorg'-knapp",
+      "4. Filterkategorier om relevant",
+    );
   }
 
-  if (hasFeature("bokning")) {
-    pages.push("", "### Boka tid (`app/boka/page.tsx`)", "1. Rubrik och kort beskrivning", "2. Bokningsformulär (namn, e-post, telefon, datum, tid, meddelande)", "3. Bekräftelsemeddelande efter submit");
+  if (isSalon || has("behandling")) {
+    pages.push(
+      "",
+      "### Behandlingar (`app/behandlingar/page.tsx`)",
+      "1. Page-hero — rubrik 'Våra behandlingar' + kort intro",
+      "2. Behandlingslista — varje behandling med namn, beskrivning (2-3 meningar), tid, pris",
+      "3. Minst 4-5 behandlingar. Använd data från underlaget om det finns",
+      "4. CTA — 'Boka tid'",
+    );
+  }
+
+  if (has("pris") || has("paket")) {
+    pages.push(
+      "",
+      "### Priser (`app/priser/page.tsx`)",
+      "1. Page-hero — rubrik 'Priser' + kort intro",
+      "2. Prispaket — 2-3 nivåer i kolumner med namn, pris, lista på vad som ingår (checkmarks)",
+      "3. CTA-knapp under varje paket",
+      "4. FAQ om priser — 3-4 vanliga frågor",
+    );
+  }
+
+  if (has("galleri") || has("portfolio") || has("case") || isPortfolio) {
+    pages.push(
+      "",
+      "### Galleri / Portfolio (`app/galleri/page.tsx`)",
+      "1. Page-hero — rubrik 'Våra projekt' eller 'Galleri'",
+      "2. Bildrutnät — responsivt grid (2-3 kolumner), minst 6-8 bilder/projekt",
+      "3. Varje projekt: bild, titel, kort beskrivning, eventuellt kategori",
+      "4. Filterkategorier om relevant",
+    );
+  }
+
+  if (has("bokning") || has("boka")) {
+    pages.push(
+      "",
+      "### Boka tid (`app/boka/page.tsx`)",
+      "1. Page-hero — rubrik 'Boka tid' + kort beskrivning",
+      "2. Bokningsformulär — namn, e-post, telefon, datum, tid, tjänst/behandling (dropdown), meddelande",
+      "3. Kontaktinfo bredvid formuläret",
+      "4. Bekräftelsevy efter submit",
+    );
+  }
+
+  if (has("blogg") || has("nyheter")) {
+    pages.push(
+      "",
+      "### Blogg (`app/blogg/page.tsx`)",
+      "1. Page-hero — rubrik 'Blogg' eller 'Nyheter'",
+      "2. Artikelgrid — 3-4 artiklar med bild, rubrik, datum, kort utdrag",
+      "3. Läs mer-länk per artikel",
+      "4. Artikelvy (`app/blogg/[slug]/page.tsx`) med fullständig layout",
+    );
+  }
+
+  if (has("faq")) {
+    pages.push(
+      "",
+      "### FAQ (`app/faq/page.tsx`)",
+      "1. Page-hero — rubrik 'Vanliga frågor'",
+      "2. Accordion med minst 6-8 frågor och svar. Relevanta för branschen",
+      "3. CTA — 'Kontakta oss om du har fler frågor'",
+    );
+  }
+
+  if (has("team") || has("vårt team")) {
+    pages.push(
+      "",
+      "### Teamet (`app/teamet/page.tsx`)",
+      "1. Page-hero — rubrik 'Vårt team'",
+      "2. Teamgrid — kort per person med bild/placeholder, namn, roll, kort bio (2-3 meningar)",
+      "3. Minst 3-4 teammedlemmar",
+    );
+  }
+
+  if (has("nyhetsbrev")) {
+    pages.push(
+      "",
+      "### (Inkludera nyhetsbrev i footern och/eller startsidan)",
+      "- Nyhetsbrev signup-formulär med e-postfält och 'Prenumerera'-knapp",
+      "- Kort text om vad man får: 'Få nyheter och erbjudanden direkt i din inbox'",
+    );
+  }
+
+  if (isHotel || has("rum") || has("boende")) {
+    pages.push(
+      "",
+      "### Rum / Boende (`app/rum/page.tsx`)",
+      "1. Page-hero — rubrik 'Våra rum' eller 'Boende'",
+      "2. Rumskort — bild, rumstyp, kort beskrivning, pris per natt, 'Boka'-knapp",
+      "3. Faciliteter — ikoner med WiFi, parkering, pool etc.",
+      "4. Check-in/check-out-tider",
+    );
+  }
+
+  if (has("karta") || has("hitta hit")) {
+    pages.push(
+      "",
+      "### (Inkludera karta i kontaktsidan)",
+      "- Google Maps-embed eller statisk karta med markör",
+      "- Adress, vägbeskrivning, parkering",
+    );
+  }
+
+  // Feature-specific modules
+  if (ft.includes("login") || ft.includes("inloggning")) {
+    pages.push(
+      "",
+      "### (Inkludera inloggning/registrering)",
+      "- Login-sida med e-post + lösenord, 'Glömt lösenord'-länk",
+      "- Registreringssida med namn, e-post, lösenord, bekräfta lösenord",
+      "- Skyddade sidor som kräver inloggning (t.ex. mina sidor, orderhistorik)",
+    );
+  }
+
+  if (ft.includes("sök") || ft.includes("search")) {
+    pages.push(
+      "",
+      "### (Inkludera sökfunktion)",
+      "- Sökfält i headern med ikonen (förstoringsglas)",
+      "- Sökresultatsida med relevanta resultat",
+    );
+  }
+
+  if (ft.includes("mörkt") || ft.includes("dark")) {
+    pages.push(
+      "",
+      "### (Inkludera mörkt läge)",
+      "- Tema-switch-knapp i headern (sol/måne-ikon)",
+      "- Alla färger via CSS-variabler som stödjer ljust/mörkt",
+    );
+  }
+
+  if (ft.includes("chatt") || ft.includes("support") || ft.includes("live-chat")) {
+    pages.push(
+      "",
+      "### (Inkludera chattwidget)",
+      "- Fast chattbubbla i nedre högra hörnet",
+      "- Klicka för att öppna chattfönster med namn, e-post, meddelande",
+    );
+  }
+
+  if (ft.includes("cookie")) {
+    pages.push(
+      "",
+      "### (Inkludera cookie-banner)",
+      "- GDPR-kompatibel banner i botten med 'Acceptera' och 'Inställningar'",
+      "- Sparar samtycke i localStorage",
+    );
+  }
+
+  if (ft.includes("checkout") || ft.includes("varukorg") || ft.includes("cart")) {
+    pages.push(
+      "",
+      "### Varukorg & Checkout (`app/varukorg/page.tsx`)",
+      "1. Varukorgssida — lista med produkter, antal, pris, ta bort, totalsumma",
+      "2. Checkout-formulär — leveransadress, betalningssätt, bekräftelse",
+    );
+  }
+
+  if (ft.includes("flerspråk") || ft.includes("multi-lang")) {
+    pages.push(
+      "",
+      "### (Flerspråkig sajt)",
+      "- Språkväljare i headern (svenska/engelska)",
+      "- Alla texter ska kunna översättas via locale-filer eller liknande",
+    );
   }
 
   pages.push(
     "",
     "### Kontakt (`app/kontakt/page.tsx`)",
-    "1. Kontaktformulär (namn, e-post, telefon, meddelande)",
-    "2. Direktkontaktinfo (telefon, e-post, adress)",
-    isRestaurant ? "3. Öppettider" : "3. Besöksadress / karta",
-    "4. Sociala medier-länkar",
+    "VIKTIGT: Denna sida ska ha RIKTIGT innehåll, inte bara en rubrik!",
+    "1. Page-hero — rubrik 'Kontakta oss' + kort intro",
+    "2. Kontaktformulär — namn, e-post, telefon, ämne (dropdown), meddelande. Tydlig submit-knapp",
+    "3. Direktkontaktinfo — telefon, e-post, adress (bredvid formuläret på desktop)",
+    isRestaurant ? "4. Öppettider i tydlig tabell" : "4. Besöksadress med eventuell karta",
+    "5. Sociala medier-ikoner/länkar",
+  );
+
+  pages.push(
+    "",
+    "### KRITISK REGEL FÖR ALLA UNDERSIDOR",
+    "- VARJE sida ovan MÅSTE ha VERKLIGT innehåll med MINST 3-4 sektioner.",
+    "- Det är FÖRBJUDET att skapa en sida som bara har en rubrik, en ikon och 'Tillbaka till startsidan'.",
+    "- Om innehåll saknas i underlaget: skriv trovärdigt, branschanpassat exempelinnehåll på svenska.",
+    "- Alla sidor ska ha en komplett layout: hero, innehåll, CTA och footer.",
+    "- Använd samma header/footer/navigation på ALLA sidor via layout.tsx.",
   );
 
   return pages;
@@ -586,10 +796,17 @@ function extractLocation(userMessages: string[]): string | null {
 }
 
 const WIZARD_FIELD_LABELS: Record<string, string> = {
+  siteType: "Sajttyp / Bransch",
+  offer: "Verksamhetsbeskrivning",
+  existingSite: "Befintlig hemsida",
   businessDetails: "Företagsuppgifter",
   brandIdentity: "Varumärke och stil",
   servicesProducts: "Tjänster och erbjudande",
   categorySpecific: "Branschspecifik information",
+  goal: "Mål med sajten",
+  mustHave: "Valda sidor och funktioner",
+  siteMedia: "Uppladdade bilder/videos",
+  features: "Valda moduler och funktioner",
 };
 
 function extractWizardSections(messages: ChatMessage[]): string[] {
@@ -710,7 +927,7 @@ export function buildNeedsAnalysisPrompt(
           "",
           "Egna filer:",
           ...ownMedia.map(
-            (m) => `- ${m.filename} (${m.mimeType.startsWith("video/") ? "video" : "bild"}) — ${m.url}`,
+            (m) => `- ${m.filename} (${m.mimeType.startsWith("video/") ? "video" : "bild"})${m.context ? ` [${m.context}]` : ""} — ${m.url}`,
           ),
         ]
       : [];
@@ -763,7 +980,11 @@ export function buildNeedsAnalysisPrompt(
     }
   }
 
-  const pageStructure = buildPageStructure(mustHaveEvidence, siteTypeEvidence);
+  const featuresEvidence = (() => {
+    const featMsg = messages.find((m) => m.id?.startsWith("wizard-features-"));
+    return featMsg?.content ?? null;
+  })();
+  const pageStructure = buildPageStructure(mustHaveEvidence, siteTypeEvidence, featuresEvidence);
 
   const companyName = extractCompanyName(userMessages);
   const location = extractLocation(userMessages);
@@ -789,11 +1010,11 @@ export function buildNeedsAnalysisPrompt(
     ...pageStructure,
     "",
     "## Instruktion",
-    "- Bygg direkt utifrån underlaget ovan. Följ sidstrukturen exakt.",
-    "- Ta trygga designbeslut när detaljer saknas.",
-    "- Prioritera tydlig struktur, ett starkt första intryck och en relevant CTA.",
-    "- VIKTIGT: Varje sida ska ha MINST 3-4 sektioner med verkligt innehåll. Ingen sida får ha bara en hero/rubrik och sedan tom yta ner till footer.",
-    "- Undersidor ska vara innehållsrika — inte bara en rubrik. Om det inte finns tillräckligt innehåll för en separat sida, slå ihop den med en annan.",
+    "- Bygg ALLA sidor som listas ovan. Varje sida ska ha en komplett layout med header, innehåll och footer.",
+    "- KRITISKT: Det är FÖRBJUDET att skapa undersidor som bara visar en rubrik/ikon och 'Tillbaka till startsidan'. VARJE sida MÅSTE ha MINST 3-4 sektioner med RIKTIGT innehåll.",
+    "- Om specifikt innehåll saknas i underlaget: skriv trovärdigt, branschanpassat exempelinnehåll på svenska. Det är bättre med bra exempeltext än tomma sidor.",
+    "- Alla sidor ska dela samma header/footer via layout.tsx — skapa INTE separata headers/footers per sida.",
+    "- Ta trygga designbeslut. Prioritera tydlig struktur och ett starkt första intryck.",
     "",
     "## Heading-hierarki och bildhantering",
     "- Exakt EN `<h1>` per sida. Aldrig fler.",

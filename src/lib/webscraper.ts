@@ -7,12 +7,12 @@ import type { WebsiteContent } from "@/types/audit";
 import { safeFetch as guardedFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 
 // Crawl settings
-const MAX_PAGES = 4; // root + up to three strong internal pages
+const MAX_PAGES = 8; // root + up to seven strong internal pages
 const PRIMARY_MIN_WORDS = 160; // prefer pages with real copy, not just hero
 const SECONDARY_MIN_WORDS = 80; // minimum words to include a secondary page
 const MIN_AGGREGATION_WORDS = 40; // skip near-empty pages from aggregation
-const AGGREGATE_WORD_LIMIT = 2000; // cap aggregated text to reduce token usage
-const MAX_LINKS_TO_CONSIDER = 25; // cap to avoid crawling too broadly
+const AGGREGATE_WORD_LIMIT = 5000; // cap aggregated text to keep enough for AI extraction
+const MAX_LINKS_TO_CONSIDER = 40; // consider more links for broader coverage
 const SITEMAP_URL_LIMIT = 40; // cap sitemap URLs to consider
 const SITEMAP_INDEX_LIMIT = 3; // cap sitemap index fan-out
 
@@ -78,14 +78,29 @@ function scoreLink(url: string, anchor?: string): number {
   const value = `${url} ${anchor || ""}`.toLowerCase();
   let score = 0;
 
-  // Prefer core navigation/overview pages
+  // High-value business pages (menus, pricing, products, treatments, booking)
+  if (value.includes("meny") || value.includes("menu")) score += 8;
+  if (value.includes("pris") || value.includes("price") || value.includes("pricing")) score += 8;
+  if (value.includes("behandling") || value.includes("treatment")) score += 8;
+  if (value.includes("boka") || value.includes("book") || value.includes("reservation")) score += 7;
+  if (value.includes("öppettider") || value.includes("hours") || value.includes("opening")) score += 7;
+  if (value.includes("team") || value.includes("personal") || value.includes("staff")) score += 7;
+  if (value.includes("galleri") || value.includes("gallery")) score += 6;
+
+  // Core navigation/overview pages
   if (value.includes("om oss") || value.includes("about")) score += 6;
-  if (value.includes("tjänster") || value.includes("services")) score += 5;
-  if (value.includes("produkter") || value.includes("product")) score += 4;
-  if (value.includes("portfolio") || value.includes("case") || value.includes("work")) score += 3;
+  if (value.includes("tjänster") || value.includes("services")) score += 6;
+  if (value.includes("produkter") || value.includes("product") || value.includes("shop")) score += 6;
+  if (value.includes("portfolio") || value.includes("case") || value.includes("work") || value.includes("projekt")) score += 5;
+  if (value.includes("kontakt") || value.includes("contact")) score += 4;
+  if (value.includes("rum") || value.includes("rooms") || value.includes("boende")) score += 5;
+  if (value.includes("event") || value.includes("evenemang")) score += 4;
+  if (value.includes("leverans") || value.includes("delivery") || value.includes("frakt") || value.includes("shipping")) score += 4;
+
+  // Lower-value but still useful
   if (value.includes("blog") || value.includes("nyheter")) score += 2;
   if (value.includes("home") || value.includes("hem") || value.includes("start")) score += 2;
-  if (value.includes("kontakt") || value.includes("contact")) score += 1;
+  if (value.includes("faq") || value.includes("vanliga frågor")) score += 3;
 
   // Penalize low-value/legal-only links
   if (
@@ -491,6 +506,58 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
   let externalLinks = 0;
   const images = $("img").length;
 
+  // Extract meaningful image URLs with context
+  const imageUrls: Array<{ url: string; alt: string; role: string }> = [];
+  const seenImgUrls = new Set<string>();
+
+  // OG image (usually the best hero/brand image)
+  const ogImage = $('meta[property="og:image"]').attr("content");
+  if (ogImage) {
+    const abs = absoluteUrl(ogImage, baseUrl);
+    if (abs && !seenImgUrls.has(abs)) {
+      seenImgUrls.add(abs);
+      imageUrls.push({ url: abs, alt: title || "", role: "hero" });
+    }
+  }
+
+  // Logo candidates
+  $('img[class*="logo"], img[id*="logo"], img[alt*="logo"], img[alt*="Logo"], a.logo img, .logo img, header img').each((_, el) => {
+    const src = $(el).attr("src") || $(el).attr("data-src");
+    if (!src) return;
+    const abs = absoluteUrl(src, baseUrl);
+    if (!abs || seenImgUrls.has(abs)) return;
+    if (abs.includes("data:") || abs.includes("svg+xml")) return;
+    seenImgUrls.add(abs);
+    imageUrls.push({ url: abs, alt: $(el).attr("alt") || "", role: "logo" });
+  });
+
+  // Content images (skip tiny icons, tracking pixels, etc.)
+  $("img").each((_, el) => {
+    if (imageUrls.length >= 20) return;
+    const src = $(el).attr("src") || $(el).attr("data-src") || $(el).attr("data-lazy-src");
+    if (!src) return;
+    const abs = absoluteUrl(src, baseUrl);
+    if (!abs || seenImgUrls.has(abs)) return;
+    if (abs.includes("data:") || abs.includes("svg+xml")) return;
+
+    const alt = $(el).attr("alt") || "";
+    const width = parseInt($(el).attr("width") || "0", 10);
+    const height = parseInt($(el).attr("height") || "0", 10);
+    if ((width > 0 && width < 50) || (height > 0 && height < 50)) return;
+
+    const srcLower = abs.toLowerCase();
+    if (srcLower.includes("icon") || srcLower.includes("pixel") || srcLower.includes("tracking") || srcLower.includes("spacer") || srcLower.includes("1x1")) return;
+
+    seenImgUrls.add(abs);
+    let role = "content";
+    if (alt.toLowerCase().includes("team") || alt.toLowerCase().includes("personal")) role = "team";
+    else if (alt.toLowerCase().includes("produkt") || alt.toLowerCase().includes("product")) role = "product";
+    else if ($(el).closest(".hero, [class*='hero'], [class*='banner']").length > 0) role = "hero";
+    else if ($(el).closest(".gallery, [class*='gallery'], [class*='galleri']").length > 0) role = "gallery";
+
+    imageUrls.push({ url: abs, alt, role });
+  });
+
   const linksForFollow: CandidateLink[] = [];
 
   // Canonical/OG URLs are strong candidates
@@ -556,6 +623,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     headings: headings.slice(0, 20),
     text: limitedText,
     images,
+    imageUrls,
     links: {
       internal: internalLinks,
       external: externalLinks,
@@ -779,6 +847,17 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   const totalInternal = pagesForAggregation.reduce((sum, p) => sum + p.links.internal, 0);
   const totalExternal = pagesForAggregation.reduce((sum, p) => sum + p.links.external, 0);
 
+  // Aggregate image URLs from all pages, deduplicated
+  const seenAggImgs = new Set<string>();
+  const allImageUrls: Array<{ url: string; alt: string; role: string }> = [];
+  for (const page of pagesForAggregation) {
+    for (const img of page.imageUrls ?? []) {
+      if (seenAggImgs.has(img.url) || allImageUrls.length >= 30) continue;
+      seenAggImgs.add(img.url);
+      allImageUrls.push(img);
+    }
+  }
+
   return {
     url: primaryPage.url,
     title: primaryPage.title,
@@ -786,6 +865,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
     headings: allHeadings,
     text: aggregatedText,
     images: totalImages,
+    imageUrls: allImageUrls.length > 0 ? allImageUrls : undefined,
     links: {
       internal: totalInternal,
       external: totalExternal,

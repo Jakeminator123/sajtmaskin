@@ -4,27 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-function getNewPosition(pos: Position, dir: Direction): Position {
-  switch (dir) {
-    case "up":
-      return { x: pos.x, y: pos.y - 1 };
-    case "down":
-      return { x: pos.x, y: pos.y + 1 };
-    case "left":
-      return { x: pos.x - 1, y: pos.y };
-    case "right":
-      return { x: pos.x + 1, y: pos.y };
-    default:
-      return pos;
-  }
-}
-
-function canMove(pos: Position): boolean {
-  if (pos.y < 0 || pos.y >= MAZE.length) return false;
-  if (pos.x < 0 || pos.x >= MAZE[0].length) return false;
-  return MAZE[pos.y][pos.x] !== 0;
-}
-
 export function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -51,20 +30,20 @@ export function CookieBanner() {
   };
 
   return (
-    <div className="animate-in slide-in-from-bottom-4 fixed inset-x-0 bottom-0 z-50 p-4 duration-300">
-      <div className="mx-auto flex max-w-lg items-center gap-4 rounded-lg border border-border bg-card p-4 shadow-xl">
-        <p className="flex-1 text-xs text-muted-foreground">
-          Vi använder cookies för att förbättra din upplevelse.{" "}
-          <Link href="/privacy" className="underline transition-colors hover:text-foreground">
-            Läs mer
+    <div className="animate-in slide-in-from-bottom-4 fixed inset-x-0 bottom-0 z-50 p-3 duration-300 sm:p-4">
+      <div className="mx-auto flex max-w-md flex-col gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:gap-3 sm:p-3.5">
+        <p className="flex-1 text-[11px] leading-snug text-muted-foreground sm:text-xs">
+          Cookies för statistik.{" "}
+          <Link href="/privacy" className="text-foreground/80 underline underline-offset-2 transition-colors hover:text-foreground">
+            Integritet
           </Link>
         </p>
-        <div className="flex shrink-0 gap-2">
-          <Button variant="ghost" size="sm" onClick={handleDecline} className="text-xs">
+        <div className="flex shrink-0 justify-end gap-1.5 sm:justify-start">
+          <Button variant="ghost" size="sm" onClick={handleDecline} className="h-7 px-2 text-[11px]">
             Neka
           </Button>
-          <Button size="sm" onClick={handleAccept} className="text-xs">
-            Acceptera
+          <Button size="sm" onClick={handleAccept} className="h-7 px-3 text-[11px]">
+            OK
           </Button>
         </div>
       </div>

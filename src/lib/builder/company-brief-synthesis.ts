@@ -2,8 +2,8 @@
  * AI Synthesis — converts a CompanyIntelResult into a structured Brief
  * that the generation engine already understands.
  *
- * Uses GPT to analyze all collected material and produce concrete
- * content for each page section.
+ * Also provides wizard-field extraction: a second AI call that maps
+ * scraped data to every field the Intake Wizard asks about.
  */
 
 import { generateText } from "ai";
@@ -13,6 +13,7 @@ import type { CompanyIntelResult } from "@/lib/builder/company-intel";
 
 const SYNTHESIS_MODEL = "openai/gpt-5.4";
 const MAX_CORPUS_CHARS = 12000;
+const MAX_WIZARD_CORPUS_CHARS = 18000;
 
 function truncateCorpus(corpus: string): string {
   if (corpus.length <= MAX_CORPUS_CHARS) return corpus;
@@ -388,4 +389,334 @@ function normalizeBrief(raw: Record<string, unknown>): Brief {
   }
 
   return brief;
+}
+
+/* ================================================================== */
+/*  Wizard-field extraction                                            */
+/* ================================================================== */
+
+export interface WizardFieldsResult {
+  companyName?: string;
+  offer?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  openingHours?: string;
+  tagline?: string;
+  tone?: string;
+  designStyle?: string;
+  services?: string[];
+  uniqueSellingPoints?: string[];
+  testimonials?: string[];
+  menuItems?: Array<{ name: string; description?: string; price?: string }>;
+  products?: Array<{ name: string; price?: string; image?: string }>;
+  treatments?: Array<{ name: string; price?: string; duration?: string }>;
+  teamMembers?: Array<{ name: string; role?: string }>;
+  projects?: Array<{ name: string; description?: string; url?: string }>;
+  cuisine?: string[];
+  acceptsReservations?: boolean;
+  delivery?: boolean;
+  bookingUrl?: string;
+  paymentMethods?: string[];
+  shippingInfo?: string;
+  priceRange?: string;
+  topics?: string[];
+  brandColors?: string[];
+  categorySpecific?: Record<string, string | string[] | boolean>;
+  confidence: Record<string, "high" | "medium" | "low">;
+}
+
+function buildWizardExtractionPrompt(
+  intel: CompanyIntelResult,
+  userDescription?: string,
+): string {
+  const parts: string[] = [];
+
+  parts.push(`Du är en expert på att extrahera strukturerad företagsinformation från webbinnehåll.
+
+DIN UPPGIFT: Analysera ALLT innehåll nedan och extrahera så många fält som möjligt. Returnera ett JSON-objekt.
+
+KRITISKA REGLER:
+1. Extrahera BARA information som FAKTISKT finns i texten — hitta ALDRIG på data.
+2. Om du inte hittar ett fält, utelämna det helt (returnera inte null eller tomma strängar).
+3. Varje fält du returnerar MÅSTE ha en confidence-nivå: "high" (exakt matchning i text), "medium" (rimligt tolkad), "low" (osäker/implicit).
+4. Prisuppgifter: behåll originalformat (t.ex. "149 kr", "från 299:-").
+5. Kontaktuppgifter: bara exakta, aldrig påhittade.
+6. Array-fält (menuItems, products, etc.): inkludera ALLA du hittar, inte bara de första 3.`);
+
+  const corpus = intel.rawTextCorpus.length > MAX_WIZARD_CORPUS_CHARS
+    ? intel.rawTextCorpus.slice(0, MAX_WIZARD_CORPUS_CHARS) + "\n\n[...trunkerat]"
+    : intel.rawTextCorpus;
+  parts.push(`\n## Webbinnehåll (skrapat)\n\n${corpus}`);
+
+  if (intel.registryInfo?.found) {
+    const r = intel.registryInfo;
+    parts.push(
+      `\n## Bolagsregisterdata`,
+      [
+        r.companyName && `Företagsnamn: ${r.companyName}`,
+        r.industries?.length && `Branscher: ${r.industries.join(", ")}`,
+        r.employees != null && `Anställda: ${r.employees}`,
+        r.city && `Stad: ${r.city}`,
+        r.address && `Adress: ${r.address}`,
+        r.ceo && `VD: ${r.ceo}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  }
+
+  if (userDescription) {
+    parts.push(`\n## Kundens egen beskrivning\n${userDescription}`);
+  }
+
+  parts.push(`
+## JSON-schema att fylla i
+
+Returnera EXAKT detta JSON-format. Utelämna fält du inte hittar info för:
+
+{
+  "companyName": "Företagets namn",
+  "offer": "Kort beskrivning av vad företaget erbjuder (1-2 meningar)",
+  "phone": "Telefonnummer exakt som det står",
+  "email": "E-postadress exakt som den står",
+  "address": "Fullständig adress",
+  "openingHours": "Öppettider (fritt format, t.ex. 'Mån-Fre 09-17, Lör 10-14')",
+  "tagline": "Företagets slogan/tagline",
+  "tone": "Tonalitet: en av 'Professionell', 'Varm och personlig', 'Lekfull', 'Exklusiv / lyxig', 'Rak och enkel'",
+  "designStyle": "Designstil baserat på befintlig sajt: en av 'Minimalistisk', 'Kraftfull', 'Elegant', 'Lekfull och färgglad'",
+  "services": ["Tjänst 1", "Tjänst 2"],
+  "uniqueSellingPoints": ["USP 1", "USP 2"],
+  "testimonials": ["\"Citat\" — Namn, Roll", "\"Citat 2\" — Namn"],
+  "menuItems": [
+    {"name": "Rättens namn", "description": "Kort beskrivning", "price": "149 kr"}
+  ],
+  "products": [
+    {"name": "Produktnamn", "price": "299 kr", "image": "URL till produktbild om den finns"}
+  ],
+  "treatments": [
+    {"name": "Behandlingsnamn", "price": "599 kr", "duration": "60 min"}
+  ],
+  "teamMembers": [
+    {"name": "Namn", "role": "Titel/roll"}
+  ],
+  "projects": [
+    {"name": "Projektnamn", "description": "Kort beskrivning", "url": "URL om den finns"}
+  ],
+  "cuisine": ["Typ av kök, t.ex. Italienskt, Svenskt, Asiatiskt"],
+  "acceptsReservations": true,
+  "delivery": true,
+  "bookingUrl": "URL till bokningssystem",
+  "paymentMethods": ["Kort", "Swish", "Faktura"],
+  "shippingInfo": "Leveransinformation (fritt format)",
+  "priceRange": "Prisintervall, t.ex. '$$$' eller '200-800 kr'",
+  "topics": ["Ämne 1", "Ämne 2"],
+  "brandColors": ["#hex1", "#hex2"],
+  "categorySpecific": {
+    "returnPolicy": "Returpolicy om det är e-handel",
+    "targetAudience": "Målgrupp",
+    "wifi": true,
+    "parking": true,
+    "dietary": ["Vegetariskt", "Glutenfritt"],
+    "onlineBooking": true,
+    "rooms": ["Enkelrum", "Dubbelrum"],
+    "amenities": ["Pool", "Gym", "Restaurang"],
+    "checkIn": "15:00",
+    "checkOut": "11:00",
+    "projectTypes": ["Nybyggnation", "Renovering"],
+    "certifications": ["Auktoriserad", "ISO-certifierad"],
+    "serviceArea": "Stockholm med omnejd",
+    "courseFormats": ["Online", "På plats"],
+    "ageGroups": ["Barn", "Vuxna"],
+    "accreditation": "Certifiering",
+    "eventTypes": ["Bröllop", "Företagsevent"],
+    "capacity": "200 gäster",
+    "venues": ["Inomhus", "Utomhus"],
+    "practiceAreas": ["Familjerätt", "Affärsjuridik"],
+    "jurisdictions": ["Sverige"],
+    "consultations": "Fri inledande konsultation",
+    "propertyTypes": ["Bostadsrätt", "Villa"],
+    "regions": ["Stockholms innerstad"],
+    "mission": "Föreningens mission",
+    "memberCount": "500 medlemmar",
+    "volunteerInfo": "Information om volontärarbete"
+  },
+  "confidence": {
+    "companyName": "high",
+    "phone": "high",
+    "services": "medium"
+  }
+}
+
+VIKTIGT om categorySpecific:
+- Inkludera BARA de nycklar som är relevanta för denna typ av verksamhet.
+- En restaurang har "wifi", "parking", "dietary" men INTE "rooms" eller "practiceAreas".
+- Ett hotell har "rooms", "amenities", "checkIn", "checkOut" men INTE "dietary".
+- Inkludera bara nycklar där du HITTAR faktisk information.
+
+Returnera BARA JSON-objektet, ingen förklaringstext.`);
+
+  return parts.join("\n");
+}
+
+export interface ExtractWizardFieldsOptions {
+  intel: CompanyIntelResult;
+  userDescription?: string;
+}
+
+export async function extractWizardFields(
+  opts: ExtractWizardFieldsOptions,
+): Promise<WizardFieldsResult | null> {
+  if (opts.intel.rawTextCorpus.length < 30) return null;
+
+  const prompt = buildWizardExtractionPrompt(opts.intel, opts.userDescription);
+
+  try {
+    const result = await generateText({
+      model: createDirectModel(SYNTHESIS_MODEL),
+      prompt,
+      maxRetries: 2,
+      maxOutputTokens: 6000,
+      temperature: 0.2,
+    });
+
+    const text = result.text?.trim() || "";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("[WizardExtraction] No JSON found in response:", text.slice(0, 200));
+      return null;
+    }
+
+    const raw = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    return normalizeWizardFields(raw);
+  } catch (err) {
+    console.error("[WizardExtraction] Failed:", err);
+    return null;
+  }
+}
+
+function normalizeWizardFields(raw: Record<string, unknown>): WizardFieldsResult {
+  const result: WizardFieldsResult = {
+    confidence: {},
+  };
+
+  const str = (key: string): string | undefined => {
+    const v = raw[key];
+    return typeof v === "string" && v.trim() ? v.trim() : undefined;
+  };
+
+  const strArr = (key: string): string[] | undefined => {
+    const v = raw[key];
+    if (!Array.isArray(v)) return undefined;
+    const filtered = v.filter((s): s is string => typeof s === "string" && s.trim().length > 0);
+    return filtered.length > 0 ? filtered : undefined;
+  };
+
+  const bool = (key: string): boolean | undefined => {
+    const v = raw[key];
+    return typeof v === "boolean" ? v : undefined;
+  };
+
+  result.companyName = str("companyName");
+  result.offer = str("offer");
+  result.phone = str("phone");
+  result.email = str("email");
+  result.address = str("address");
+  result.openingHours = str("openingHours");
+  result.tagline = str("tagline");
+  result.tone = str("tone");
+  result.designStyle = str("designStyle");
+  result.bookingUrl = str("bookingUrl");
+  result.shippingInfo = str("shippingInfo");
+  result.priceRange = str("priceRange");
+
+  result.services = strArr("services");
+  result.uniqueSellingPoints = strArr("uniqueSellingPoints");
+  result.testimonials = strArr("testimonials");
+  result.cuisine = strArr("cuisine");
+  result.paymentMethods = strArr("paymentMethods");
+  result.topics = strArr("topics");
+  result.brandColors = strArr("brandColors");
+
+  result.acceptsReservations = bool("acceptsReservations");
+  result.delivery = bool("delivery");
+
+  if (Array.isArray(raw.menuItems)) {
+    const items = raw.menuItems
+      .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as Record<string, unknown>).name === "string")
+      .map((v) => ({
+        name: String(v.name),
+        description: typeof v.description === "string" ? v.description : undefined,
+        price: typeof v.price === "string" ? v.price : undefined,
+      }));
+    if (items.length > 0) result.menuItems = items;
+  }
+
+  if (Array.isArray(raw.products)) {
+    const items = raw.products
+      .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as Record<string, unknown>).name === "string")
+      .map((v) => ({
+        name: String(v.name),
+        price: typeof v.price === "string" ? v.price : undefined,
+        image: typeof v.image === "string" ? v.image : undefined,
+      }));
+    if (items.length > 0) result.products = items;
+  }
+
+  if (Array.isArray(raw.treatments)) {
+    const items = raw.treatments
+      .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as Record<string, unknown>).name === "string")
+      .map((v) => ({
+        name: String(v.name),
+        price: typeof v.price === "string" ? v.price : undefined,
+        duration: typeof v.duration === "string" ? v.duration : undefined,
+      }));
+    if (items.length > 0) result.treatments = items;
+  }
+
+  if (Array.isArray(raw.teamMembers)) {
+    const items = raw.teamMembers
+      .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as Record<string, unknown>).name === "string")
+      .map((v) => ({
+        name: String(v.name),
+        role: typeof v.role === "string" ? v.role : undefined,
+      }));
+    if (items.length > 0) result.teamMembers = items;
+  }
+
+  if (Array.isArray(raw.projects)) {
+    const items = raw.projects
+      .filter((v): v is Record<string, unknown> => typeof v === "object" && v !== null && typeof (v as Record<string, unknown>).name === "string")
+      .map((v) => ({
+        name: String(v.name),
+        description: typeof v.description === "string" ? v.description : undefined,
+        url: typeof v.url === "string" ? v.url : undefined,
+      }));
+    if (items.length > 0) result.projects = items;
+  }
+
+  if (raw.categorySpecific && typeof raw.categorySpecific === "object") {
+    const cs = raw.categorySpecific as Record<string, unknown>;
+    const cleaned: Record<string, string | string[] | boolean> = {};
+    for (const [key, value] of Object.entries(cs)) {
+      if (typeof value === "string" && value.trim()) cleaned[key] = value.trim();
+      else if (typeof value === "boolean") cleaned[key] = value;
+      else if (Array.isArray(value)) {
+        const arr = value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+        if (arr.length > 0) cleaned[key] = arr;
+      }
+    }
+    if (Object.keys(cleaned).length > 0) result.categorySpecific = cleaned;
+  }
+
+  if (raw.confidence && typeof raw.confidence === "object") {
+    const conf = raw.confidence as Record<string, unknown>;
+    for (const [key, value] of Object.entries(conf)) {
+      if (value === "high" || value === "medium" || value === "low") {
+        result.confidence[key] = value;
+      }
+    }
+  }
+
+  return result;
 }

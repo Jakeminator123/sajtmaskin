@@ -980,14 +980,14 @@ export function ChatInterface({
 
   return (
     <div
-      className="border-border bg-background relative border-t p-4"
+      className="border-border bg-background/95 relative border-t p-3 backdrop-blur-[2px] sm:p-4"
       onDragOver={handleChatDragOver}
       onDragLeave={handleChatDragLeave}
       onDrop={handleChatDrop}
     >
       {isDragOver && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 backdrop-blur-[2px]">
-          <p className="text-sm text-primary/70">Släpp bilden här</p>
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[1.25rem] border-2 border-dashed border-primary/30 bg-primary/[0.05] backdrop-blur-sm">
+          <p className="text-sm text-primary/85">Släpp här</p>
         </div>
       )}
       <PromptInput
@@ -995,26 +995,26 @@ export function ChatInterface({
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         disabled={inputDisabled}
-        className="border-input bg-background rounded-lg border shadow-sm"
+        className="rounded-[1.25rem] border-border/45 bg-card/90 shadow-[0_1px_0_hsl(var(--border)/0.4)] ring-1 ring-border/25 transition-[box-shadow,ring-color] duration-[var(--transition-base,200ms)] focus-within:ring-primary/22"
       >
-        <PromptInputHeader className="items-center gap-2">
+        <PromptInputHeader className="items-center gap-1.5 border-border/40 px-0.5">
           {showAdvancedControls && (
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--transition-fast,150ms)] hover:bg-muted/55 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                   disabled={inputDisabled}
                   title="Verktyg"
                 >
                   <Plus className="size-4" />
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-44 p-1">
+              <PopoverContent align="start" className="w-48 rounded-xl border-border/50 p-1.5 shadow-lg">
                 {onEnhancePrompt && (
                   <button
                     type="button"
-                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
                     onClick={handleEnhancePrompt}
                     disabled={inputDisabled || isEnhancing || !input.trim()}
                   >
@@ -1024,7 +1024,7 @@ export function ChatInterface({
                 )}
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
                   onClick={handlePlanRequest}
                   disabled={inputDisabled || !input.trim()}
                 >
@@ -1033,7 +1033,7 @@ export function ChatInterface({
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
                   onClick={() => setPickerTab("ui")}
                   disabled={inputDisabled}
                 >
@@ -1042,7 +1042,7 @@ export function ChatInterface({
                 </button>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
                   onClick={() => setPickerTab("mall")}
                   disabled={inputDisabled}
                 >
@@ -1055,7 +1055,7 @@ export function ChatInterface({
           {showAdvancedControls && (
             <button
               type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--transition-fast,150ms)] hover:bg-muted/55 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
               disabled={inputDisabled}
               title="Förslag och hjälp"
               onClick={() => setShowHelpSuggestions((prev) => !prev)}
@@ -1065,13 +1065,13 @@ export function ChatInterface({
           )}
         </PromptInputHeader>
         {showAdvancedControls && showHelpSuggestions && (
-          <div className="max-h-52 overflow-y-auto border-t border-border px-3 py-2 space-y-3">
+          <div className="max-h-52 space-y-3 overflow-y-auto border-t border-border/50 px-3 py-2.5">
             {HELP_SUGGESTIONS.map((group) => (
               <div key={group.group}>
                 <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   {group.group}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {group.items.map((item) => (
                     <button
                       key={item}
@@ -1084,7 +1084,7 @@ export function ChatInterface({
                           setInput(item);
                         }
                       }}
-                      className="rounded-md border border-border px-2.5 py-1 text-[12px] text-foreground transition-colors hover:bg-muted/60"
+                      className="rounded-xl border border-border/60 bg-muted/20 px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-muted/50"
                     >
                       {item}
                     </button>
@@ -1230,7 +1230,7 @@ export function ChatInterface({
           </div>
         )}
         {!showAdvancedControls && answerSuggestions && answerSuggestions.length > 0 && chatId && !input && (
-          <div className="flex flex-wrap gap-1.5 px-3 pb-1 pt-2">
+          <div className="flex flex-wrap gap-2 px-3 pb-1 pt-2">
             {answerSuggestions.map((suggestion) => (
               <button
                 key={suggestion}
@@ -1243,7 +1243,7 @@ export function ChatInterface({
                   }
                 }}
                 disabled={inputDisabled}
-                className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-primary/10 disabled:opacity-50"
+                className="rounded-2xl border border-primary/25 bg-primary/[0.07] px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-primary/12 disabled:opacity-50"
               >
                 {suggestion}
               </button>
@@ -1252,13 +1252,13 @@ export function ChatInterface({
         )}
         <PromptInputBody>
           {quickChips && quickChips.length > 0 && !chatId && !input && (
-            <div className="flex flex-wrap gap-1.5 px-3 pt-2">
+            <div className="flex flex-wrap gap-2 px-3 pt-2">
               {quickChips.map((chip) => (
                 <button
                   key={chip}
                   type="button"
                   onClick={() => onQuickChipSend?.(chip)}
-                  className="rounded-xl border border-border/40 bg-muted/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="rounded-2xl border border-border/50 bg-muted/35 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   {chip}
                 </button>
@@ -1288,31 +1288,31 @@ export function ChatInterface({
             }
             autoComplete="off"
             disabled={inputDisabled}
-            className="min-h-[80px] border-0 shadow-none focus-visible:ring-0"
+            className="min-h-[76px] border-0 bg-transparent px-1 text-[15px] leading-relaxed shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0 sm:min-h-[80px]"
           />
         </PromptInputBody>
         <PromptInputFooter className="flex-col items-stretch gap-1.5">
           {showPreparingPrompt && (
-            <div className="text-muted-foreground flex items-center gap-2 text-xs">
-              <Loader2 className="size-3.5 animate-spin" />
-              Förbereder prompt...
+            <div className="text-muted-foreground flex items-center gap-2 text-xs motion-safe:animate-pulse">
+              <Loader2 className="size-3.5 animate-spin text-primary/80" />
+              Förbereder…
             </div>
           )}
           <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="flex items-center gap-1.5">
+            <PromptInputTools className="flex items-center gap-1">
               {mediaEnabled && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <button
                       type="button"
                       disabled={inputDisabled}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--transition-fast,150ms)] hover:bg-muted/55 hover:text-foreground disabled:opacity-50"
                       title="Bifoga"
                     >
                       <Paperclip className="size-4" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent align="start" className="w-44 p-1">
+                  <PopoverContent align="start" className="w-48 rounded-xl border-border/50 p-1.5 shadow-lg">
                     <div className="p-1">
                       <FileUploadZone
                         projectId={null}
@@ -1328,7 +1328,7 @@ export function ChatInterface({
                           type="button"
                           onClick={() => setIsMediaDrawerOpen(true)}
                           disabled={inputDisabled}
-                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
                         >
                           <ImageIcon className="size-3.5" />
                           Media
@@ -1337,7 +1337,7 @@ export function ChatInterface({
                           type="button"
                           onClick={() => setIsTextUploaderOpen(true)}
                           disabled={inputDisabled}
-                          className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
                         >
                           <FileText className="size-3.5" />
                           Text/PDF
@@ -1359,7 +1359,7 @@ export function ChatInterface({
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/20 bg-primary/5 text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors duration-[var(--transition-fast,150ms)] hover:bg-primary/[0.09] disabled:opacity-50"
                       disabled={inputDisabled}
                       title="Svarsförslag"
                       aria-label="Visa svarsförslag"
@@ -1370,7 +1370,7 @@ export function ChatInterface({
                   <PopoverContent
                     align="end"
                     side="top"
-                    className="w-64 p-2"
+                    className="w-64 rounded-xl border-border/50 p-2.5 shadow-lg"
                     sideOffset={12}
                   >
                     <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -1389,7 +1389,7 @@ export function ChatInterface({
                               setInput(suggestion);
                             }
                           }}
-                          className="rounded-lg border border-border/40 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-muted/60"
+                          className="rounded-xl border border-border/50 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-muted/70"
                         >
                           {suggestion}
                         </button>
@@ -1403,7 +1403,7 @@ export function ChatInterface({
                   type="button"
                   onClick={() => setActionHubOpen(true)}
                   disabled={inputDisabled}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-primary/20 bg-primary/5 text-primary transition-all hover:bg-primary/10 disabled:opacity-50"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors duration-[var(--transition-fast,150ms)] hover:bg-primary/[0.09] disabled:opacity-50"
                   title="Åtgärder"
                   aria-label="Visa åtgärder"
                 >
@@ -1411,7 +1411,11 @@ export function ChatInterface({
                 </button>
               )}
             </PromptInputTools>
-            <PromptInputSubmit disabled={submitDisabled}>
+            <PromptInputSubmit
+              disabled={submitDisabled}
+              className="rounded-full px-3.5 text-primary-foreground shadow-[0_1px_0_hsl(var(--primary)/0.35)] transition-[transform,box-shadow] duration-[var(--transition-fast,150ms)] hover:shadow-md active:scale-[0.97]"
+              aria-label="Skicka"
+            >
               {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
             </PromptInputSubmit>
           </div>

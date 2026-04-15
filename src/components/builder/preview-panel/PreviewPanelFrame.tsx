@@ -1,8 +1,23 @@
 "use client";
 
 import type { ReactNode, RefObject } from "react";
-import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { AlertCircle, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+function PreviewLoadingSkeleton() {
+  return (
+    <div className="flex w-full max-w-md flex-col gap-3 px-8" aria-hidden>
+      <div className="h-2.5 w-2/3 rounded-full bg-muted motion-safe:animate-pulse" />
+      <div className="h-2.5 w-full rounded-full bg-muted/80 motion-safe:animate-pulse motion-safe:[animation-delay:75ms]" />
+      <div className="mt-2 h-40 w-full rounded-[var(--radius)] border border-border bg-muted/50 motion-safe:animate-pulse motion-safe:[animation-delay:150ms]" />
+      <div className="flex gap-2">
+        <div className="h-2 w-16 rounded-full bg-muted/70 motion-safe:animate-pulse" />
+        <div className="h-2 w-12 rounded-full bg-muted/60 motion-safe:animate-pulse motion-safe:[animation-delay:50ms]" />
+      </div>
+    </div>
+  );
+}
 
 export interface PreviewPanelFrameProps {
   isLoading: boolean;
@@ -16,6 +31,8 @@ export interface PreviewPanelFrameProps {
   iframeRef: RefObject<HTMLIFrameElement | null>;
   handleIframeLoad: () => void;
   handleIframeError: () => void;
+  /** When mobile, iframe is inset with a phone-like max width. */
+  deviceMode?: "desktop" | "mobile";
   children?: ReactNode;
 }
 
@@ -31,16 +48,22 @@ export function PreviewPanelFrame({
   iframeRef,
   handleIframeLoad,
   handleIframeError,
+  deviceMode = "desktop",
   children,
 }: PreviewPanelFrameProps) {
+  const isMobileFrame = deviceMode === "mobile";
+
   return (
-    <div className="relative h-full overflow-hidden bg-background">
+    <div className="relative flex h-full flex-col overflow-hidden bg-muted/25">
       {isLoading ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/90">
-          <div className="text-center">
-            <Loader2 className="text-primary mx-auto mb-2 h-8 w-8 animate-spin" />
-            <p className="text-muted-foreground text-sm">Laddar preview...</p>
-          </div>
+        <div
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/85 backdrop-blur-[2px] transition-opacity duration-200"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <PreviewLoadingSkeleton />
+          <p className="mt-6 text-xs text-muted-foreground">Laddar…</p>
         </div>
       ) : null}
 
@@ -78,18 +101,31 @@ export function PreviewPanelFrame({
         </div>
       ) : null}
 
-      <iframe
-        id="preview-iframe"
-        ref={iframeRef}
-        src={previewSrc}
-        className="h-full w-full border-0"
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        title="Preview"
-      />
-
-      {children}
+      <div
+        className={cn(
+          "relative min-h-0 flex-1 p-2 sm:p-3",
+          isMobileFrame && "flex items-start justify-center overflow-auto pt-3 pb-4",
+        )}
+      >
+        <div
+          className={cn(
+            "relative flex min-h-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-sm ring-1 ring-border/40",
+            isMobileFrame ? "h-[min(100%,720px)] w-full max-w-[390px] shadow-md" : "h-full w-full",
+          )}
+        >
+          <iframe
+            id="preview-iframe"
+            ref={iframeRef}
+            src={previewSrc}
+            className="h-full min-h-0 w-full flex-1 border-0 bg-background"
+            onLoad={handleIframeLoad}
+            onError={handleIframeError}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            title="Preview"
+          />
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

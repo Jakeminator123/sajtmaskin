@@ -28,7 +28,7 @@ interface TemplateGalleryProps {
 
 export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
   const router = useRouter();
-  const categories = getAllV0Categories();
+  const categories = getAllV0Categories().filter((c) => c.id !== "uncategorized");
 
   const handleSelect = (categoryId: string) => {
     onSelect?.(categoryId);
@@ -37,7 +37,7 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
 
   return (
     <div
-      className="grid w-full max-w-6xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+      className="grid w-full max-w-6xl grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
       role="list"
     >
       {categories.map((category) => {
@@ -50,12 +50,12 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
             type="button"
             onClick={() => handleSelect(category.id)}
             role="listitem"
-            className="group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-all hover:border-primary/30 hover:bg-muted/50"
+            className="group flex min-h-[4.5rem] items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-sm transition-[border-color,box-shadow,background-color] duration-200 hover:border-primary/25 hover:bg-muted/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <Icon className="h-5 w-5 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+            <Icon className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">{category.title}</p>
-              <p className="text-[11px] text-muted-foreground">{count} mallar</p>
+              <p className="text-sm font-semibold tracking-tight text-foreground truncate">{category.title}</p>
+              <p className="text-[11px] text-muted-foreground">{count}</p>
             </div>
           </button>
         );

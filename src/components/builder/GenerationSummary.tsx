@@ -61,20 +61,8 @@ function parseGenerationContent(raw: string): ParsedContent {
 }
 
 function langBadge(lang: string): { color: string; label: string } {
-  switch (lang) {
-    case "tsx":
-      return { color: "bg-blue-500/15 text-blue-300 border-blue-500/20", label: "TSX" };
-    case "jsx":
-      return { color: "bg-blue-500/15 text-blue-300 border-blue-500/20", label: "JSX" };
-    case "ts":
-      return { color: "bg-sky-500/15 text-sky-300 border-sky-500/20", label: "TS" };
-    case "css":
-      return { color: "bg-pink-500/15 text-pink-300 border-pink-500/20", label: "CSS" };
-    case "json":
-      return { color: "bg-amber-500/15 text-amber-300 border-amber-500/20", label: "JSON" };
-    default:
-      return { color: "bg-zinc-500/15 text-zinc-400 border-zinc-500/20", label: lang.toUpperCase() };
-  }
+  const label = lang === "tsx" ? "TSX" : lang === "jsx" ? "JSX" : lang === "ts" ? "TS" : lang === "css" ? "CSS" : lang === "json" ? "JSON" : lang.toUpperCase();
+  return { color: "bg-muted text-muted-foreground border-border", label };
 }
 
 interface GenerationSummaryProps {
@@ -122,7 +110,7 @@ export const GenerationSummary = memo(function GenerationSummary({
 
   if (!parsed.hasCodeBlocks && !hasOpenFences) {
     return (
-      <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 overflow-hidden wrap-break-word">
+      <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-card-foreground overflow-hidden wrap-break-word">
         {isStreaming ? streamingNotice : content}
       </div>
     );
@@ -131,28 +119,28 @@ export const GenerationSummary = memo(function GenerationSummary({
   if (!parsed.hasCodeBlocks && hasOpenFences) {
     return (
       <div className="space-y-2 min-w-0">
-        <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 overflow-hidden wrap-break-word">
+        <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-card-foreground overflow-hidden wrap-break-word">
           {isStreaming ? streamingNotice : "Genererat innehåll med kodblock."}
         </div>
         {!isStreaming && (
-          <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 overflow-hidden">
+          <div className="rounded-xl border border-border/50 bg-muted/60 overflow-hidden">
             <button
               type="button"
               onClick={() => setShowRaw((prev) => !prev)}
               className="flex w-full items-center justify-between px-3 py-2.5 text-xs"
             >
               <div className="flex items-center gap-2">
-                <div className="flex items-center justify-center size-5 rounded-full bg-emerald-500/10">
-                  <FileCode2 className="size-3 text-emerald-400" />
+                <div className="flex items-center justify-center size-5 rounded-full bg-primary/10">
+                  <FileCode2 className="size-3 text-primary" />
                 </div>
-                <span className="font-medium text-zinc-200">Genererat innehåll</span>
+                <span className="font-medium text-foreground">Genererat innehåll</span>
               </div>
-              {showRaw ? <ChevronUp className="size-3 text-zinc-500" /> : <ChevronDown className="size-3 text-zinc-500" />}
+              {showRaw ? <ChevronUp className="size-3 text-muted-foreground" /> : <ChevronDown className="size-3 text-muted-foreground" />}
             </button>
             {showRaw && (
-              <div className="border-t border-zinc-700/40 bg-black/30">
+              <div className="border-t border-border/40 bg-background/30">
                 <div className="max-h-[400px] overflow-auto p-3">
-                  <pre className="whitespace-pre-wrap wrap-break-word text-[11px] leading-5 text-zinc-400 font-mono">
+                  <pre className="whitespace-pre-wrap wrap-break-word text-[11px] leading-5 text-muted-foreground font-mono">
                     {content}
                   </pre>
                 </div>
@@ -176,32 +164,29 @@ export const GenerationSummary = memo(function GenerationSummary({
   return (
     <div className="space-y-2 min-w-0">
       {previewText && (
-        <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 whitespace-pre-wrap overflow-hidden wrap-break-word">
+        <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-card-foreground whitespace-pre-wrap overflow-hidden wrap-break-word">
           {previewText}
         </div>
       )}
 
-      <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/60 overflow-hidden">
+      <div className="rounded-xl border border-border/50 bg-muted/60 overflow-hidden">
         <div className="flex items-center justify-between px-3 py-2.5">
           <div className="flex items-center gap-2">
             {isStreaming ? (
-              <div className="relative flex items-center justify-center size-5">
-                <span className="absolute inline-flex size-4 animate-ping rounded-full bg-emerald-500/30" />
-                <Loader2 className="relative size-3.5 animate-spin text-emerald-400" />
-              </div>
+              <Loader2 className="size-3.5 animate-spin text-primary" />
             ) : (
-              <div className="flex items-center justify-center size-5 rounded-full bg-emerald-500/10">
-                <FileCode2 className="size-3 text-emerald-400" />
+              <div className="flex items-center justify-center size-5 rounded-full bg-primary/10">
+                <FileCode2 className="size-3 text-primary" />
               </div>
             )}
-            <span className="text-xs font-medium text-zinc-200">
+            <span className="text-xs font-medium text-foreground">
               {isStreaming ? "Genererar" : "Genererat"}{" "}
-              <span className="text-emerald-400">{generatedUnitLabel}</span>
+              <span className="text-primary">{generatedUnitLabel}</span>
             </span>
             {!isStreaming ? (
-              <span className="text-[10px] text-zinc-500">{parsed.totalCodeLines} rader</span>
+              <span className="text-[10px] text-muted-foreground">{parsed.totalCodeLines} rader</span>
             ) : (
-              <span className="text-[10px] text-zinc-500" title="Radantal räknas först när strömmen är klar">
+              <span className="text-[10px] text-muted-foreground" title="Radantal räknas först när strömmen är klar">
                 …
               </span>
             )}
@@ -213,8 +198,8 @@ export const GenerationSummary = memo(function GenerationSummary({
               className={cn(
                 "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors",
                 showRaw
-                  ? "bg-zinc-700/50 text-zinc-200"
-                  : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300",
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
               )}
             >
               {showRaw ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
@@ -247,9 +232,9 @@ export const GenerationSummary = memo(function GenerationSummary({
         )}
 
         {showRaw && (
-          <div className="border-t border-zinc-700/40 bg-black/30">
+          <div className="border-t border-border/40 bg-background/30">
             <div className="max-h-[400px] overflow-auto p-3">
-              <pre className="whitespace-pre-wrap wrap-break-word text-[11px] leading-5 text-zinc-400 font-mono">
+              <pre className="whitespace-pre-wrap wrap-break-word text-[11px] leading-5 text-muted-foreground font-mono">
                 {content}
               </pre>
             </div>

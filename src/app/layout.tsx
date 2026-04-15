@@ -16,11 +16,13 @@ import { URLS } from "@/lib/config";
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-geist-mono",
+  display: "swap",
 });
 
 const spaceGrotesk = Space_Grotesk({
@@ -77,7 +79,7 @@ export default async function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <noscript>
-          <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#1e293b" }}>
+          <div className="noscript-fallback">
             <h1>Sajtmaskin</h1>
             <p>AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good AB.</p>
             <p>JavaScript krävs för att använda Sajtmaskin. Aktivera JavaScript i din webbläsare och ladda om sidan.</p>

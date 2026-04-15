@@ -19,26 +19,24 @@ const PHASE_CONFIG: Record<
   NonNullable<GenerationPhase>,
   { label: string; progress: number; tip: string }
 > = {
-  brief: { label: "Analyserar brief", progress: 5, tip: "Vi analyserar din brief och planerar sajtens struktur..." },
-  scaffold: { label: "Väljer grundmall", progress: 10, tip: "Vi väljer den bästa tekniska grunden för din sajt." },
-  generation: { label: "Genererar kod", progress: 30, tip: "LLM:en skapar sidor, komponenter och innehåll." },
-  autofix: { label: "Åtgärdar fel", progress: 70, tip: "Automatisk felsökning och korrigering pågår." },
-  verifier: { label: "Verifierar kvalitet", progress: 80, tip: "Vi granskar koden för att säkerställa kvalitet." },
-  validate_syntax: { label: "Validerar syntax", progress: 85, tip: "Syntaxkontroll och sista polering." },
-  parse_merge_preflight: { label: "Förbereder filer", progress: 90, tip: "Slutsteg: filer sparas och version skapas." },
-  preview: { label: "Startar preview", progress: 95, tip: "Din sajt förbereds för visning..." },
-  done: { label: "Klar!", progress: 100, tip: "Din sajt är redo att visas." },
+  brief: { label: "Analyserar brief", progress: 5, tip: "Planerar sajtens struktur." },
+  scaffold: { label: "Väljer grundmall", progress: 10, tip: "Väljer teknisk grund." },
+  generation: { label: "Genererar kod", progress: 30, tip: "Skapar sidor och komponenter." },
+  autofix: { label: "Åtgärdar fel", progress: 70, tip: "Korrigerar automatiskt." },
+  verifier: { label: "Verifierar kvalitet", progress: 80, tip: "Granskar koden." },
+  validate_syntax: { label: "Validerar syntax", progress: 85, tip: "Kontrollerar syntax." },
+  parse_merge_preflight: { label: "Förbereder filer", progress: 90, tip: "Sparar filer." },
+  preview: { label: "Startar preview", progress: 95, tip: "Förbereder visning." },
+  done: { label: "Klar!", progress: 100, tip: "Din sajt är redo." },
 };
 
 const FALLBACK_TIPS = [
-  "Dina val påverkar layout, färgpalett och typografi.",
-  "Varje sektion byggs med responsiv design i åtanke.",
-  "Vi skapar unika texter anpassade för din målgrupp.",
-  "Bilderna väljs ut för att matcha din varumärkeskänsla.",
-  "Navigation och användarflöde optimeras automatiskt.",
-  "SEO-grunderna läggs in redan från start.",
-  "Din sajt byggs med modern teknik för snabb laddning.",
-  "Responsiv design — ser bra ut på mobil, surfplatta och dator.",
+  "Layout och typografi anpassas efter dina val.",
+  "Responsiv design för alla skärmstorlekar.",
+  "Unik text anpassad för din målgrupp.",
+  "Navigation och flöde optimeras.",
+  "SEO-grunder från start.",
+  "Modern teknik för snabb laddning.",
 ];
 
 const TIP_INTERVAL_MS = 6000;
@@ -93,7 +91,7 @@ export function GenerationProgress({ phase }: GenerationProgressProps) {
   return (
     <div className="flex h-full flex-col items-center justify-center bg-background px-8 py-8">
       <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-2xl border border-border/40 bg-card/80 px-8 py-10 shadow-lg backdrop-blur-sm">
-        <div className="text-6xl font-light tracking-tighter text-foreground tabular-nums">{pct}%</div>
+        <div className="text-2xl font-medium tracking-tight text-foreground tabular-nums">{pct}%</div>
 
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
@@ -114,7 +112,7 @@ export function GenerationProgress({ phase }: GenerationProgressProps) {
                   i < activeIdx
                     ? "bg-primary"
                     : i === activeIdx
-                      ? "animate-pulse bg-primary/70"
+                      ? "bg-primary/70"
                       : "bg-muted",
                 )}
                 title={PHASE_CONFIG[p].label}

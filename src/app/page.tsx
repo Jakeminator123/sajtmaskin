@@ -316,15 +316,10 @@ function RootLandingContent() {
   const renderExpandedContent = () => {
     if (expandedSection === "category") {
       return (
-        <div className="w-full max-w-4xl animate-fade-up">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
-            <span className="text-xs font-medium text-primary tracking-widest uppercase flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              Templates
-            </span>
-            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
-          </div>
+        <div className="w-full max-w-4xl motion-safe:animate-fade-up motion-reduce:animate-none">
+          <p className="mb-4 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Mallar
+          </p>
           <TemplateGallery />
         </div>
       );
@@ -332,15 +327,10 @@ function RootLandingContent() {
 
     if (expandedSection === "audit") {
       return (
-        <div className="w-full max-w-2xl animate-fade-up">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
-            <span className="text-xs font-medium text-primary tracking-widest uppercase flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              Analysera webbplats
-            </span>
-            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
-          </div>
+        <div className="w-full max-w-2xl motion-safe:animate-fade-up motion-reduce:animate-none">
+          <p className="mb-4 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Analysera
+          </p>
           <SiteAuditSection
             onAuditComplete={handleAuditComplete}
             onRequireAuth={handleLoginClick}
