@@ -6,7 +6,7 @@ import {
 } from "@/lib/gen/suspense/rules/lucide-icon-fix";
 import type { AutoFixEntry } from "./pipeline";
 
-const IMPORT_RE = /^import\s+\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
+const IMPORT_RE = /^import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/gm;
 
 const KNOWN_MODULE_SPECIFIERS: Record<string, string[]> = {
   react: [
