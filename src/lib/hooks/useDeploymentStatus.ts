@@ -25,31 +25,81 @@ export function useDeploymentStatus(deploymentId: string | null) {
     setInspectorUrl(null);
     /* eslint-enable react-hooks/set-state-in-effect */
 
-    const es = new EventSource(`/api/v0/deployments/${deploymentId}/events`);
-    esRef.current = es;
+    const endpoint = `/api/v0/deployments/${deploymentId}/events`;
+    const maxReconnectAttempts = 3;
+    let reconnectAttempts = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let streamCompleted = false;
+    let isEffectActive = true;
 
-    es.onmessage = (event) => {
-      try {
-        const data: DeploymentStatusEvent = JSON.parse(event.data);
-        setStatus(data.status);
-        setUrl(data.url ?? null);
-        setInspectorUrl(data.inspectorUrl ?? null);
-
-        if (["ready", "error", "cancelled"].includes(data.status)) {
-          es.close();
-        }
-      } catch (err) {
-        console.warn("[useDeploymentStatus] Failed to parse SSE message:", err);
+    const clearReconnectTimer = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
     };
 
-    es.onerror = () => {
-      es.close();
+    const closeCurrentStream = () => {
+      if (esRef.current) {
+        esRef.current.close();
+        esRef.current = null;
+      }
     };
 
+    const scheduleReconnect = () => {
+      if (!isEffectActive || streamCompleted || reconnectTimer) return;
+      if (reconnectAttempts >= maxReconnectAttempts) {
+        closeCurrentStream();
+        return;
+      }
+      const delayMs = 2_000 * 2 ** reconnectAttempts;
+      reconnectAttempts += 1;
+      closeCurrentStream();
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delayMs);
+    };
+
+    const connect = () => {
+      if (!isEffectActive || streamCompleted) return;
+      closeCurrentStream();
+
+      const es = new EventSource(endpoint);
+      esRef.current = es;
+
+      es.onopen = () => {
+        reconnectAttempts = 0;
+      };
+
+      es.onmessage = (event) => {
+        try {
+          const data: DeploymentStatusEvent = JSON.parse(event.data);
+          setStatus(data.status);
+          setUrl(data.url ?? null);
+          setInspectorUrl(data.inspectorUrl ?? null);
+
+          if (["ready", "error", "cancelled"].includes(data.status)) {
+            streamCompleted = true;
+            clearReconnectTimer();
+            closeCurrentStream();
+          }
+        } catch (err) {
+          console.warn("[useDeploymentStatus] Failed to parse SSE message:", err);
+        }
+      };
+
+      es.onerror = () => {
+        scheduleReconnect();
+      };
+    };
+
+    connect();
+
     return () => {
-      es.close();
-      esRef.current = null;
+      isEffectActive = false;
+      clearReconnectTimer();
+      closeCurrentStream();
     };
   }, [deploymentId]);
 

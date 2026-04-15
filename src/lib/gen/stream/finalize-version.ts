@@ -299,8 +299,8 @@ function resolveFinalizePathPolicy(params: {
 }): FinalizePathPolicy {
   const { buildSpec, repairPassIndex } = params;
   if (!FEATURES.useFinalizeDeepPath) {
-    // Historical env naming: false here disables the light fast-path shortcut
-    // and keeps finalize on the deep path for every run.
+    // Historical env naming: false here disables the light pipeline shortcut
+    // and keeps finalize on the full pipeline for every run.
     return { runDeepPath: true, reason: "fast_path_disabled_by_flag" };
   }
   if (repairPassIndex > 0) {
@@ -708,7 +708,7 @@ export async function finalizeAndSaveVersion(
     chatId,
     phases: OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id),
     repairPassIndex,
-    finalizePath: finalizePath.runDeepPath ? "fast+deep" : "fast-only",
+    finalizePath: finalizePath.runDeepPath ? "full" : "light",
     finalizePathReason: finalizePath.reason,
   });
 
@@ -965,7 +965,7 @@ export async function finalizeAndSaveVersion(
 
   try {
     const telemetryMeta: Record<string, unknown> = {
-      finalizePath: finalizePath.runDeepPath ? "fast+deep" : "fast-only",
+      finalizePath: finalizePath.runDeepPath ? "full" : "light",
       finalizePathReason: finalizePath.reason,
       postStreamSteps: finalizeStepTelemetry,
       repairPassIndex,

@@ -363,9 +363,9 @@ function inferReferenceCodeFence(path: string): string {
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
  */
-export async function buildDynamicContext(
+export function buildDynamicContext(
   options: DynamicContextOptions,
-): Promise<BuildDynamicContextResult> {
+): BuildDynamicContextResult {
   const {
     intent,
     brief,
@@ -1031,8 +1031,8 @@ export interface BuildSystemPromptOptions {
  * The static core is always the first portion of the string, which allows
  * OpenAI's prompt prefix caching to kick in after the first request.
  */
-export async function buildSystemPrompt(options: BuildSystemPromptOptions): Promise<string> {
-  const { context } = await buildDynamicContext({
+export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
+  const { context } = buildDynamicContext({
     intent: options.intent,
     brief: options.brief,
     themeOverride: options.themeOverride,

@@ -151,12 +151,12 @@ export function useBuilderPageController() {
   selectedVersionIdRef.current = state.selectedVersionId;
   latestVersionIdRef.current = derived.latestVersionId;
 
-  /** Active live-preview URL for the version (shim slot kept null). */
+  /** Active live-preview URL for the version. */
   const activeVersionAlternatePreview = useMemo(() => {
     const vid = derived.activeVersionId;
-    if (!vid) return { shimUrl: null as string | null, storedLivePreviewUrl: null as string | null };
+    if (!vid) return { storedLivePreviewUrl: null as string | null };
     const v = derived.effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
-    if (!v) return { shimUrl: null, storedLivePreviewUrl: null };
+    if (!v) return { storedLivePreviewUrl: null };
     return resolveAlternatePreviewUrls({
       storedLivePreviewUrl: v.previewUrl,
     });

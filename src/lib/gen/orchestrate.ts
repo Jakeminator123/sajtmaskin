@@ -296,6 +296,19 @@ export async function resolveOrchestrationBase(
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
+  const componentRefNames = [
+    ...getRelevantExampleNames(capabilities),
+    ...getPromptDrivenExampleNames(prompt),
+  ];
+  const uniqueRefNames = [...new Set(componentRefNames)];
+  const localRefs = loadShadcnExamples(uniqueRefNames);
+  const officialRefsPromise = fetchMissingRegistryExamples(uniqueRefNames, localRefs)
+    .then((fetched) => [...localRefs, ...fetched])
+    .catch(() => localRefs);
+  const communityRefsPromise = fetchCommunityBlocks(capabilities, prompt).catch(() => []);
+  let officialRefs: ComponentReference[] = localRefs;
+  let communityRefs: ComponentReference[] = [];
+  let resolvedReferenceFetches = false;
 
   if (scaffoldMode === "off") {
     resolvedScaffold = null;
@@ -320,13 +333,20 @@ export async function resolveOrchestrationBase(
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
   } else if (scaffoldMode === "auto") {
-    const autoSelection = await matchScaffoldAuto(prompt, buildIntent, {
-      useEmbeddings: embeddingScaffoldMatch,
-      queryContext: scaffoldQueryContext,
-      capabilities,
-      generationMode: resolvedMode,
-      brief,
-    });
+    const [autoSelection, fetchedOfficialRefs, fetchedCommunityRefs] = await Promise.all([
+      matchScaffoldAuto(prompt, buildIntent, {
+        useEmbeddings: embeddingScaffoldMatch,
+        queryContext: scaffoldQueryContext,
+        capabilities,
+        generationMode: resolvedMode,
+        brief,
+      }),
+      officialRefsPromise,
+      communityRefsPromise,
+    ]);
+    officialRefs = fetchedOfficialRefs;
+    communityRefs = fetchedCommunityRefs;
+    resolvedReferenceFetches = true;
     resolvedScaffold = autoSelection.scaffold;
     scaffoldSelection = autoSelection.meta;
 
@@ -340,18 +360,11 @@ export async function resolveOrchestrationBase(
 
   }
 
-  const capabilityHints = buildCapabilityHints(capabilities);
+  if (!resolvedReferenceFetches) {
+    [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
+  }
 
-  const componentRefNames = [
-    ...getRelevantExampleNames(capabilities),
-    ...getPromptDrivenExampleNames(prompt),
-  ];
-  const uniqueRefNames = [...new Set(componentRefNames)];
-  const localRefs = loadShadcnExamples(uniqueRefNames);
-  const officialRefs = await fetchMissingRegistryExamples(uniqueRefNames, localRefs)
-    .then((fetched) => [...localRefs, ...fetched])
-    .catch(() => localRefs);
-  const communityRefs = await fetchCommunityBlocks(capabilities, prompt).catch(() => []);
+  const capabilityHints = buildCapabilityHints(capabilities);
   const componentReferences = [...officialRefs, ...communityRefs];
 
   const routePlan = buildRoutePlan({
@@ -660,7 +673,7 @@ export async function finalizeOrchestrationPrompts(
     resolvedVariant,
   };
 
-  const dynamic = await buildDynamicContext(dynamicOpts);
+  const dynamic = buildDynamicContext(dynamicOpts);
   const engineSystemPrompt = composeEngineSystemPrompt(dynamic.context);
 
   return {

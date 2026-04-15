@@ -722,7 +722,7 @@ describe("finalizeAndSaveVersion", () => {
         qualityGateResult: "preflight_passed",
         retryCount: 0,
         meta: expect.objectContaining({
-          finalizePath: "fast-only",
+          finalizePath: "light",
           finalizePathReason: "light_followup_fast_policy",
           repairPassIndex: 0,
           buildSpec: expect.objectContaining({
@@ -746,7 +746,7 @@ describe("finalizeAndSaveVersion", () => {
   });
 
   describe("finalize telemetry and persistence", () => {
-    it("init with premium quality target records preflight_passed and fast+deep default telemetry", async () => {
+    it("init with premium quality target records preflight_passed and full default telemetry", async () => {
       const result = await finalizeAndSaveVersion({
         accumulatedContent:
           '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
@@ -791,7 +791,7 @@ describe("finalizeAndSaveVersion", () => {
               qualityTarget: "premium",
               previewPolicy: "fidelity2",
             }),
-            finalizePath: "fast+deep",
+            finalizePath: "full",
             finalizePathReason: "default",
             postStreamSteps: expect.objectContaining({
               autofix: expect.objectContaining({ status: "done" }),
@@ -872,7 +872,7 @@ describe("finalizeAndSaveVersion", () => {
       );
     });
 
-    it("follow-up with fast verification skips materializeImages and records fast-only light_followup telemetry", async () => {
+    it("follow-up with fast verification skips materializeImages and records light light_followup telemetry", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
           '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
@@ -914,7 +914,7 @@ describe("finalizeAndSaveVersion", () => {
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({
           meta: expect.objectContaining({
-            finalizePath: "fast-only",
+            finalizePath: "light",
             finalizePathReason: "light_followup_fast_policy",
             postStreamSteps: expect.objectContaining({
               materialize_images: expect.objectContaining({

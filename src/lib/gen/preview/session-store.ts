@@ -182,14 +182,6 @@ export function getActivePreviewSession(
   return entry;
 }
 
-export function bumpPreviewSessionActivity(chatId: string, now?: number): void {
-  const t = now ?? Date.now();
-  const entry = getActivePreviewSession(chatId, { now: t });
-  if (!entry) return;
-  entry.lastUsedAt = t;
-  sessions.set(chatId, entry);
-}
-
 export function clearPreviewSession(chatId: string): void {
   sessions.delete(chatId);
 }

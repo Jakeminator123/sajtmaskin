@@ -67,6 +67,30 @@ export type PreviewLifecycleTelemetryEvent =
     };
 
 const PREFIX = "[telemetry:preview-lifecycle]";
+type DevLogModule = typeof import("@/lib/logging/devLog");
+let cachedDevLogModule: DevLogModule | null | undefined;
+let devLogModulePromise: Promise<DevLogModule | null> | null = null;
+
+async function getDevLogModule(): Promise<DevLogModule | null> {
+  if (cachedDevLogModule !== undefined) {
+    return cachedDevLogModule;
+  }
+  if (!devLogModulePromise) {
+    devLogModulePromise = import("@/lib/logging/devLog")
+      .then((mod) => {
+        cachedDevLogModule = mod;
+        return mod;
+      })
+      .catch(() => {
+        cachedDevLogModule = null;
+        return null;
+      })
+      .finally(() => {
+        devLogModulePromise = null;
+      });
+  }
+  return devLogModulePromise;
+}
 
 export function logPreviewLifecycleTelemetry(event: PreviewLifecycleTelemetryEvent): void {
   console.info(PREFIX, JSON.stringify(event));
@@ -74,10 +98,11 @@ export function logPreviewLifecycleTelemetry(event: PreviewLifecycleTelemetryEve
     return;
   }
   if (typeof window === "undefined") {
-    void import("@/lib/logging/devLog")
-      .then(({ devLogAppend }) => {
+    void getDevLogModule()
+      .then((devLogModule) => {
+        if (!devLogModule) return;
         try {
-          devLogAppend("latest", {
+          devLogModule.devLogAppend("latest", {
             type: `preview-lifecycle.${event.kind}`,
             ...event,
           });

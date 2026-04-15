@@ -5,9 +5,6 @@ import {
 } from "@/lib/images/unsplash-query-fallback";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 
-const _PLACEHOLDER_RE =
-  /\/placeholder\.svg\?(?:[^"'\s]*&)?text=([^&"'\s]+)(?:[^"'\s]*height=(\d+))?(?:[^"'\s]*width=(\d+))?/g;
-
 const PLACEHOLDER_FULL_RE =
   /\/placeholder\.svg\?([^"'\s]+)/g;
 
