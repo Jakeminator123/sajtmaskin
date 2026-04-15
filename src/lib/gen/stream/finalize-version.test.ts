@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runAutoFix = vi.hoisted(() => vi.fn());
+const runLlmFixer = vi.hoisted(() => vi.fn());
 const validateAndFix = vi.hoisted(() => vi.fn());
 const checkScaffoldImports = vi.hoisted(() => vi.fn());
 const checkCrossFileImports = vi.hoisted(() => vi.fn());
@@ -28,6 +29,10 @@ const validateGeneratedCode = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
+}));
+
+vi.mock("@/lib/gen/autofix/llm-fixer", () => ({
+  runLlmFixer,
 }));
 
 vi.mock("@/lib/gen/autofix/validate-and-fix", () => ({
@@ -130,6 +135,7 @@ import { finalizeAndSaveVersion } from "./finalize-version";
 describe("finalizeAndSaveVersion", () => {
   beforeEach(() => {
     runAutoFix.mockReset();
+    runLlmFixer.mockReset();
     validateAndFix.mockReset();
     checkScaffoldImports.mockReset();
     checkCrossFileImports.mockReset();
@@ -159,6 +165,14 @@ describe("finalizeAndSaveVersion", () => {
       fixes: [],
       warnings: [],
       dependencies: [],
+    });
+    runLlmFixer.mockResolvedValue({
+      fixedContent: "",
+      fixedFiles: [],
+      missingFiles: [],
+      partial: false,
+      success: false,
+      durationMs: 0,
     });
     validateAndFix.mockResolvedValue({
       content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```',
@@ -664,6 +678,47 @@ describe("finalizeAndSaveVersion", () => {
     });
 
     expect(addAssistantMessageAndCreateDraftVersion).not.toHaveBeenCalled();
+  });
+
+  it("repairs partial file output via LLM fixer and persists when second preflight passes", async () => {
+    const cleanContent =
+      '```tsx file="src/app/page.tsx"\nexport default function Page() { return <div>Hello</div>; }\n```';
+    runProjectSanityChecks
+      .mockReturnValueOnce({
+        valid: false,
+        issues: [
+          {
+            file: "components/trailer-dialog.tsx",
+            severity: "error",
+            message:
+              "File starts with overlapping import statements that look like a partial repair snippet.",
+            category: "code_structure_failure",
+          },
+        ],
+      })
+      .mockReturnValueOnce({ valid: true, issues: [] });
+
+    runLlmFixer.mockResolvedValueOnce({
+      fixedContent: cleanContent,
+      fixedFiles: ["components/trailer-dialog.tsx"],
+      missingFiles: [],
+      partial: false,
+      success: true,
+      durationMs: 1200,
+    });
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent: cleanContent,
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.version.id).toBe("ver_1");
+    expect(addAssistantMessageAndCreateDraftVersion).toHaveBeenCalled();
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
   });
 
   it("skips deep-path image materialization and verifier for light follow-up finalize", async () => {

@@ -21,7 +21,7 @@ till att en version är sparad i databasen.
 | **LLM Fixer** | Eskalerad reparation av syntax-fel med LLM. Dyrt, icke-deterministiskt. | Förväxlas med autofix — LLM-fixer körs bara som sista utväg |
 | **Verifier Pass** | Read-only LLM-granskning som rapporterar `blocking`/`quality` findings utan att ändra kod | Förväxlas med quality gate (Fas 3). `blocking` här är **advisory** och stoppar inte persist i finalize. |
 | **Preflight** | Slutkontroller före DB-persist: sanity, SEO, route-matchning, partial-file-detektering | — |
-| **PartialFileOutputError** | LLM genererade avhuggna/ofullständiga filer. Ingen version sparas. | — |
+| **PartialFileOutputError** | LLM genererade avhuggna/ofullständiga filer. En LLM-repair-runda försöks (60 s timeout). Om repair misslyckas sparas ingen version. | Förväxlas med syntaxfel — partial-file innebär strukturellt trasig fil (avhuggen), inte bara felaktig syntax |
 | **Image Materialization** | Byta placeholder-bilder mot riktiga Unsplash-foton | — |
 
 ---
@@ -198,10 +198,12 @@ accumulatedContent (rå LLM-output)
 │      │   └── route-plan vs filer-matchning
 │      └── injectIntegrationManifestIntoFilesJson()
 │
-├── 7. FAIL-FAST STRUKTURGRIND
+├── 7. PARTIAL-FILE REPAIR (max 1 försök)
 │      Om sanity hittar: "partial repair snippet",
 │      "overlapping import statements", etc.
-│      → PartialFileOutputError → INGEN VERSION SPARAS
+│      → tryRepairPartialFileOutput() (LLM fixer, 60 s timeout)
+│        ├── Lyckas → re-parse + re-merge + re-preflight
+│        └── Misslyckas → PartialFileOutputError → INGEN VERSION SPARAS
 │
 ├── 8. PERSIST
 │      addAssistantMessageAndCreateDraftVersion()
@@ -277,7 +279,7 @@ i codegen.
 | Scenario | Vad som händer | Var |
 |----------|----------------|-----|
 | LLM genererar bara tool calls, ingen kod | `handleEmptyGeneration()` → `done_empty_output` | `generation-stream.ts` |
-| LLM genererar avhuggna filer | `PartialFileOutputError` → ingen version | `finalize-version.ts` |
+| LLM genererar avhuggna filer | 1 LLM-repair-försök → om det misslyckas: `PartialFileOutputError` → ingen version | `finalize-version.ts` |
 | Syntax-fel överlever alla fix-pass | `validateAndFix` returnerar `failed` → version sparas ändå men med varningar | `validate-and-fix.ts` |
 | Unsplash-timeout / garbage-query | Non-fatal → fallback-bild eller hoppas över | `image-materializer.ts` |
 | Budget sprängs (för lång dynamisk kontext) | Lågprio-block prunas: SEO, imagery, design refs slängs först | `tokens.ts` |

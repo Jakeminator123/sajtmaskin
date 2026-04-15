@@ -95,7 +95,10 @@ Efter codegen-streamen kor `finalizeAndSaveVersion()` med denna ordning:
 4. **`materialize_images`** -> endast full path; non-fatal vid fel.
 5. **`verifier`** -> endast full path + verifier-policy; non-fatal vid fel.
 6. **`parse_merge_preflight`** -> parse, merge, preflight, integration-manifest.
-7. **Fail-fast strukturgrind** -> `PartialFileOutputError` stoppar persist helt.
+7. **Partial-file repair** -> om preflight hittar avhuggna filer, forsoks EN
+   LLM-fixer-runda (60 s timeout). Om reparationen lyckas kors
+   parse+merge+preflight om. Om den misslyckas -> `PartialFileOutputError`
+   stoppar persist helt.
 8. **Persist** -> `addAssistantMessageAndCreateDraftVersion` (assistant + version).
 9. **Efter persist (best-effort)** -> telemetry, preflight-loggar, ev.
    `failVersionVerification`.
@@ -114,7 +117,7 @@ och `contextPolicy: "light"` (om inga repair-villkor tvingar full path).
 
 | Typ | Exempel | Blockerar sparad version? |
 |---|---|---|
-| Blocking | `EmptyGenerationError`, `PartialFileOutputError` | Ja |
+| Blocking | `EmptyGenerationError`, `PartialFileOutputError` (efter 1 repair-forsok) | Ja |
 | Kvalitetssignal | Verifier-fynd (`blocking`/`quality`) | Nej. `blocking` i verifiern ar advisory-severity och stoppar inte persist. |
 | Non-fatal | Bildmaterialisering/verifier kastar | Nej, pipeline fortsatter |
 | Observability | Telemetry, devlog, preflight-loggar | Nej |

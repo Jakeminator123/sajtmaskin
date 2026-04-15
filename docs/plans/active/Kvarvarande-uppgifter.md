@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 påbörjad).
+Senast uppdaterad: 2026-04-15 (Fas 2+3 avslutade, PartialFileOutputError repair tillagd).
 
 ## Öppna punkter
 
@@ -43,5 +43,6 @@ Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 påbörjad).
 - `@/hooks/use-mobile` och `@/hooks/use-toast` behålls som bakåtkompatibel fallback.
 - `useDeploymentStatus` använder `/api/v0/` (naming debt, ej trasigt).
 - `useIntegrationStatus` har `previewUrl` i dependency-array för re-trigger (funktionellt korrekt).
-- Fas 2 worldclass-pass är genomfört (kod + docs + schemas + backoffice sync); nästa fokuserade spår är Fas 3.
+- Fas 2 worldclass-pass är genomfört (kod + docs + schemas + backoffice sync).
 - P18 är nu stängd: varningen var Three/Fiber deprecation (inte bekräftad hydration-bugg i egen kod).
+- PartialFileOutputError har nu en retry-mekanism (1 LLM-repair-försök, 60 s timeout) istället för hård abort.

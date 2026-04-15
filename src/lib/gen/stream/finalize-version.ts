@@ -4,6 +4,7 @@ import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
+import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { expandUrls } from "@/lib/gen/url-compress";
 import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
@@ -19,7 +20,7 @@ import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verify/verifie
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { getPhaseRoutingSummary } from "@/lib/models/phase-routing";
+import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
@@ -291,6 +292,80 @@ function isPartialFileOutputIssue(issue: FinalizePreflightIssue): boolean {
     message.includes("overlapping import statements") ||
     message.includes("nested import inside an unfinished import block")
   );
+}
+
+const PARTIAL_FILE_REPAIR_TIMEOUT_MS = 60_000;
+
+function extractPartialFileNames(issues: string[]): string[] {
+  const files: string[] = [];
+  for (const issue of issues) {
+    const colonIdx = issue.indexOf(":");
+    if (colonIdx > 0) {
+      const candidate = issue.slice(0, colonIdx).trim();
+      if (candidate && /\.\w{2,4}$/.test(candidate)) files.push(candidate);
+    }
+  }
+  return [...new Set(files)];
+}
+
+function formatPartialIssuesAsFixerErrors(
+  partialFiles: string[],
+  issues: string[],
+): string[] {
+  const errors = partialFiles.map(
+    (f) =>
+      `${f}:1:1 CRITICAL: This file contains only a partial snippet or excerpt. Output the COMPLETE file from the first import to the last line.`,
+  );
+  for (const issue of issues) {
+    if (!errors.some((e) => issue.startsWith(e.split(":")[0]))) {
+      errors.push(issue);
+    }
+  }
+  return errors;
+}
+
+async function tryRepairPartialFileOutput(params: {
+  contentForVersion: string;
+  chatId: string;
+  resolvedTier?: CanonicalModelId;
+  partialFileIssues: string[];
+}): Promise<string | null> {
+  const { contentForVersion, chatId, resolvedTier, partialFileIssues } = params;
+  const partialFiles = extractPartialFileNames(partialFileIssues);
+  if (partialFiles.length === 0) return null;
+
+  const fixerModel = resolvedTier
+    ? resolvePhaseModel(resolvedTier, "fixer").modelId
+    : undefined;
+  const fixerThinking = resolvedTier
+    ? resolvePhaseThinking(resolvedTier, "fixer")
+    : null;
+  const errors = formatPartialIssuesAsFixerErrors(partialFiles, partialFileIssues);
+
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), PARTIAL_FILE_REPAIR_TIMEOUT_MS);
+  try {
+    const result = await runLlmFixer(contentForVersion, errors, {
+      model: fixerModel,
+      thinking: fixerThinking?.thinking,
+      reasoningEffort: fixerThinking?.reasoningEffort,
+      requiredFiles: partialFiles,
+      abortSignal: abort.signal,
+    });
+    if (!result.success && !result.partial) return null;
+    const reFixed = await runAutoFix(result.fixedContent);
+    return reFixed.fixedContent;
+  } catch (err) {
+    devLogAppend("in-progress", {
+      type: "partial-file-repair.error",
+      chatId,
+      message: err instanceof Error ? err.message : "Unknown repair error",
+      partialFiles,
+    });
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function resolveFinalizePathPolicy(params: {
@@ -569,7 +644,7 @@ async function runFinalizeFastPath(params: {
     }
   }
 
-  const preflightResult = await runFinalizePreflight({
+  let preflightResult = await runFinalizePreflight({
     chatId,
     model,
     resolvedTier,
@@ -581,26 +656,92 @@ async function runFinalizeFastPath(params: {
   });
   filesJson = preflightResult.filesJson;
   filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
-  const finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
-  const preflightFileCount = preflightResult.preflightFileCount;
-  const preflightIssues = preflightResult.preflightIssues;
-  const previewBlockingReason = preflightResult.previewBlockingReason;
-  const partialFileIssues = preflightIssues
+  let finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
+  let preflightFileCount = preflightResult.preflightFileCount;
+  let preflightIssues = preflightResult.preflightIssues;
+  let previewBlockingReason = preflightResult.previewBlockingReason;
+  let partialFileIssues = preflightIssues
     .filter(isPartialFileOutputIssue)
     .map((issue) => `${issue.file}: ${issue.message}`);
 
   if (partialFileIssues.length > 0) {
+    const originalPartialCount = partialFileIssues.length;
     devLogAppend("in-progress", {
-      type: "project-sanity.error",
+      type: "partial-file-repair.attempting",
       chatId,
-      message: "Generation produced partial file output before persist.",
+      issueCount: originalPartialCount,
       issues: partialFileIssues,
     });
-    throw new PartialFileOutputError(
+    onProgress?.("parse_merge_preflight", {
+      phase: "partial_file_repair",
+      issueCount: originalPartialCount,
+    });
+
+    const repairedContent = await tryRepairPartialFileOutput({
+      contentForVersion,
       chatId,
-      resolvedScaffold?.id ?? null,
+      resolvedTier,
       partialFileIssues,
-    );
+    });
+
+    if (repairedContent) {
+      contentForVersion = repairedContent;
+      filesJson = parseFilesFromContent(contentForVersion);
+      const reGeneratedFiles = (
+        JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
+      ).map((f) => ({ ...f, language: f.language || "tsx" }));
+
+      filesJson = mergeGeneratedProjectFiles({
+        chatId,
+        originalFilesJson: filesJson,
+        generatedFiles: reGeneratedFiles,
+        resolvedScaffold,
+        previousFiles,
+      });
+
+      preflightResult = await runFinalizePreflight({
+        chatId,
+        model,
+        resolvedTier,
+        filesJson,
+        buildSpec,
+        routePlan,
+        orchestrationContract,
+        originalPrompt,
+      });
+      filesJson = preflightResult.filesJson;
+      filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
+      finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
+      preflightFileCount = preflightResult.preflightFileCount;
+      preflightIssues = preflightResult.preflightIssues;
+      previewBlockingReason = preflightResult.previewBlockingReason;
+      partialFileIssues = preflightIssues
+        .filter(isPartialFileOutputIssue)
+        .map((issue) => `${issue.file}: ${issue.message}`);
+    }
+
+    if (partialFileIssues.length > 0) {
+      devLogAppend("in-progress", {
+        type: "project-sanity.error",
+        chatId,
+        message: repairedContent
+          ? "Partial file repair attempted but issues persist."
+          : "Generation produced partial file output before persist.",
+        issues: partialFileIssues,
+        repairAttempted: Boolean(repairedContent),
+      });
+      throw new PartialFileOutputError(
+        chatId,
+        resolvedScaffold?.id ?? null,
+        partialFileIssues,
+      );
+    }
+
+    devLogAppend("in-progress", {
+      type: "partial-file-repair.success",
+      chatId,
+      repairedFileCount: originalPartialCount,
+    });
   }
 
   let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
