@@ -1,41 +1,42 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Flyttad från `halvfärdiga_filer/` (2026-04-15). Uppdaterad 2026-04-15 efter genomgång.
-**Smala spår med egen fil:** se `README.md` i denna mapp (P17–P20).
+Senast uppdaterad: 2026-04-15 (session-avslut).
 
-## Planerade förbättringar (kräver kodarbete)
+## Öppna punkter
 
-- [ ] shadcn Nivå 2: Blocks-metadata som section recipes — upstream stöder `registry:block` med `registryDependencies` och `target`-fält; undersök om blocks kan bli det "smartare lagret" för sektionsval i generatorn (se P20)
-- [ ] shadcn Nivå 3: `registry:font` för fonthantering — upstream har nu `registry:font` med `font.family`, `font.variable`, `font.selector`, `font.dependency`; borde konsolideras med nuvarande fontlogik (variant `fontPairings` + CSS-variabler)
-- [x] ~~Scaffold-specifik toolkit-lista per scaffold~~ — implementerat: `buildRegistryDrivenShadcnToolkitSummary` tar nu `ScaffoldToolkitContext` (scaffoldId + sectionInventory); grupperar "Primary for this scaffold" vs "Also available"
-- [x] ~~Komponentpool per scaffold~~ — ingår i ovan; `## Your Toolkit` filtreras nu via `SCAFFOLD_PRIMARY_GROUPS` + `SECTION_TO_GROUPS`
+| # | Område | Beskrivning | Prio | P-fil |
+|---|--------|-------------|------|-------|
+| 1 | shadcn | Nivå 2: Blocks-metadata / section recipes — undersök om upstream `registry:block` kan bli sektionsval i generatorn | Medel | P20 |
+| 2 | shadcn | Nivå 3: `registry:font` — konsolidera upstream font-format med nuvarande `fontPairings` + `google-font-registry.ts` | Medel | P20 |
+| 3 | Preview | Hydration-varning på landningssidan — troligen 3D-bibliotek (Three.js), låg prio | Låg | P18 |
+| 4 | Ingress | Old-content ingress hardening — bevisa ingresspunkter, sedan små fixar | Medel-hög | P19 |
+| 5 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
 
-## Uppskjutet (inget blockerar)
+## Avklarat denna session (2026-04-15)
 
-- [ ] Konsolidera dashboards (stor Python-refaktor)
-- [x] Template-library pipeline: hydrate repo-cache
-- [x] Dossier-manifests: `recommendedScaffoldFamilies` -> `recommendedScaffoldIds`
-- [x] ~~`BUILD_INTENT_GUIDANCE` dubblett~~ — löst: extraherad till `intent-guidance.ts` (`b89147172`)
-- [ ] Fallback-guidance (MOTION/VISUAL/QUALITY) i `promptAssist.ts`
-- [ ] Automatisk baseline-uppdatering (CI/script)
+| Vad | Commit |
+|-----|--------|
+| P17: Unsplash felklassning (401/429/network/timeout) | `e75325c9d` |
+| Font-register: 75 Google Fonts, autofix whitelist, importnamn i prompt | `c28be72db` |
+| Scaffold-aware komponentpool (`## Your Toolkit` per scaffold) | `65921ac53` |
+| `BUILD_INTENT_GUIDANCE` dubblett löst (extraherad till `intent-guidance.ts`) | `b89147172` |
+| Scaffold-specifik toolkit + komponentpool per scaffold | `65921ac53` |
+| WSS/HMR till Fly — löst (stabil) | redan i drift |
+| Template-library pipeline: hydrate repo-cache | redan i drift |
+| Dossier-manifests: `recommendedScaffoldFamilies` → `recommendedScaffoldIds` | redan i drift |
+| Schema-docs uppdaterade (README, scaffold-contract, glossary) | `7bdcc766c`, `5001347af` |
+| Planfiler konsoliderade, `halvfärdiga_filer/` borttagen | `fb53a87ea` |
 
-## Operativt / miljö
+## Strykt (bekräftat inte uppgifter)
 
-(Se dedikerade P-filer: **P17** för Unsplash-diagnostik, **P18** för hydration-varning.)
-
-- [x] ~~WSS/HMR till Fly~~ — löst (Fly-proxyn stabil)
-- [ ] Hydration-varning på landningssidan — troligen relaterad till 3D-bibliotek (Three.js/liknande); se P18
-- [x] ~~Utred Unsplash-materialisering~~ — felklassning implementerad i P17 (`e75325c9d`)
-
-## Borttaget (efter genomgång)
-
-Följande togs bort medvetet:
-- ~~Keyword taxonomy consolidation~~ — keywords kan komma att fasas ut helt
-- ~~Cart-provider cross-file-kedja~~ — låg prioritet, möjligen redan löst
-- ~~Nya scaffolds (AI-chat, docs-site, realtime-app)~~ — inte aktuellt nu
-- ~~Template guidance v1.75 (selectedFiles-excerpts)~~ — stryks
-- ~~Template guidance v2 (global template-library search)~~ — principen: `searchTemplateLibrary()` finns men är oanvänd i runtime; v2 = koppla den till orchestration så att prompt+brief driver sökning mot hela template-library (semantisk + keyword), top-K träffar → guidance. Stryks som task men konceptet dokumenteras
-- ~~`searchTemplateLibrary()` exporterad men oanvänd~~ — ingår i resonemanget ovan
+- ~~Fallback-guidance (MOTION/VISUAL/QUALITY)~~ — aktiv motion-inference-logik, inte ett problem att fixa
+- ~~Konsolidera dashboards~~ — redan gjort: `sajtmaskin_backoffice.py` → `backoffice/` (legacy-stubbar forwärdar)
+- ~~themeTokens aktivare i prompten~~ — redan aktiv via `formatThemeTokenLines()` i `system-prompt.ts`
+- ~~Keyword taxonomy consolidation~~ — keywords kan fasas ut helt
+- ~~Cart-provider cross-file-kedja~~ — låg prio, möjligen löst
+- ~~Nya scaffolds~~ — inte aktuellt
+- ~~Template guidance v1.75 / v2~~ — struket, konceptet dokumenterat
+- ~~`searchTemplateLibrary()` oanvänd~~ — ingår i ovan
 
 ## Noterat (inte uppgifter)
 

@@ -13,8 +13,8 @@ Tidigare fanns en tänkt uppdelning i **faser** (t.ex. blocks/recipes, sedan `re
 Kort, fokuserat arbete som matchar checklistan i `Kvarvarande-uppgifter.md`:
 
 1. **Blocks → section recipes** — metadata eller små recept så genereringen kan välja sektioner konsekvent.
-2. **`registry:font`** — tydlig fontkedja i samma anda som shadcn-registret (färre manuella fontbeslut i prompt).
-3. **Scaffold-toolkit + komponentpool** — begränsa vilka komponenter som är giltiga per scaffold.
+2. **`registry:font`** — tydlig fontkedja i samma anda som shadcn-registret (färre manuella fontbeslut i prompt). Font-register (`google-font-registry.ts`) levererat; upstream `registry:font`-integration kvar.
+3. ~~**Scaffold-toolkit + komponentpool**~~ — **KLART** (`65921ac53`): `buildRegistryDrivenShadcnToolkitSummary` tar `ScaffoldToolkitContext`, grupperar "Primary" vs "Also available".
 
 Detta ger snabb effekt om varje steg **valideras** mot minst en riktig generation + importlint.
 
