@@ -7,15 +7,15 @@ Flyttad från `halvfärdiga_filer/` (2026-04-15). Uppdaterad 2026-04-15 efter ge
 
 - [ ] shadcn Nivå 2: Blocks-metadata som section recipes — upstream stöder `registry:block` med `registryDependencies` och `target`-fält; undersök om blocks kan bli det "smartare lagret" för sektionsval i generatorn (se P20)
 - [ ] shadcn Nivå 3: `registry:font` för fonthantering — upstream har nu `registry:font` med `font.family`, `font.variable`, `font.selector`, `font.dependency`; borde konsolideras med nuvarande fontlogik (variant `fontPairings` + CSS-variabler)
-- [ ] Scaffold-specifik toolkit-lista per scaffold — embryo finns i `config/scaffold-variants/` (21 variantfiler med `sourceTemplateIds`, `styleRules`, `sectionInventory`); nästa steg: begränsa *vilka UI-komponenter* som är giltiga per scaffold
-- [ ] Komponentpool per scaffold — hänger ihop med punkten ovan; `## Your Toolkit` i prompten är idag globalt, inte scaffold-filtrerat
+- [x] ~~Scaffold-specifik toolkit-lista per scaffold~~ — implementerat: `buildRegistryDrivenShadcnToolkitSummary` tar nu `ScaffoldToolkitContext` (scaffoldId + sectionInventory); grupperar "Primary for this scaffold" vs "Also available"
+- [x] ~~Komponentpool per scaffold~~ — ingår i ovan; `## Your Toolkit` filtreras nu via `SCAFFOLD_PRIMARY_GROUPS` + `SECTION_TO_GROUPS`
 
 ## Uppskjutet (inget blockerar)
 
 - [ ] Konsolidera dashboards (stor Python-refaktor)
 - [x] Template-library pipeline: hydrate repo-cache
 - [x] Dossier-manifests: `recommendedScaffoldFamilies` -> `recommendedScaffoldIds`
-- [ ] `BUILD_INTENT_GUIDANCE` dubblett
+- [x] ~~`BUILD_INTENT_GUIDANCE` dubblett~~ — löst: extraherad till `intent-guidance.ts` (`b89147172`)
 - [ ] Fallback-guidance (MOTION/VISUAL/QUALITY) i `promptAssist.ts`
 - [ ] Automatisk baseline-uppdatering (CI/script)
 

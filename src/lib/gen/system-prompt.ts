@@ -41,7 +41,7 @@ import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-s
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
 import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
-import type { ScaffoldManifest } from "./scaffolds/types";
+import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
 import {
   buildBudgetedSystemPrompt,
   estimateTokens,
@@ -180,8 +180,13 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
     .filter((line) => line.startsWith("- "));
 }
 
-function buildShadcnToolkitSummary(): string[] {
-  return buildRegistryDrivenShadcnToolkitSummary();
+function buildShadcnToolkitSummary(ctx?: {
+  scaffoldId?: ScaffoldId | null;
+  sectionInventory?: string[];
+}): string[] {
+  return buildRegistryDrivenShadcnToolkitSummary(
+    ctx?.scaffoldId ? ctx : undefined,
+  );
 }
 
 const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
@@ -620,7 +625,10 @@ export async function buildDynamicContext(
     "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
     "",
     "- shadcn/ui (registry-synced local layer; import from `@/components/ui/<subpath>`):",
-    ...buildShadcnToolkitSummary(),
+    ...buildShadcnToolkitSummary({
+      scaffoldId: resolvedScaffold?.id ?? null,
+      sectionInventory: effectiveVariant?.sectionInventory,
+    }),
   ];
   if (capabilityLines.length > 0) {
     toolkitLines.push("", "- Capability-driven additions for this request:");
