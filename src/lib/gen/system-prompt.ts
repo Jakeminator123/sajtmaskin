@@ -38,6 +38,7 @@ import type {
   VariantStructuralFilesSelection,
 } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
+import { resolveGoogleFontImportName } from "./data/google-font-registry";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -508,9 +509,21 @@ export async function buildDynamicContext(
     }
     if (effectiveVariant.fontPairings.length > 0) {
       const pairStr = effectiveVariant.fontPairings
-      .map((p) => `${p.heading} + ${p.body}`)
-      .join(", or ");
+        .map((p) => `${p.heading} + ${p.body}`)
+        .join(", or ");
       parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
+      const importHints: string[] = [];
+      for (const pair of effectiveVariant.fontPairings.slice(0, 1)) {
+        for (const name of [pair.heading, pair.body]) {
+          const importName = resolveGoogleFontImportName(name);
+          if (importName && importName !== name) {
+            importHints.push(`\`${name}\` → \`import { ${importName} } from "next/font/google"\``);
+          }
+        }
+      }
+      if (importHints.length > 0) {
+        parts.push(`  - Import names: ${importHints.join("; ")}`);
+      }
     }
     if (effectiveVariant.promptHints.length > 0) {
       parts.push("- **Variant cues:**");

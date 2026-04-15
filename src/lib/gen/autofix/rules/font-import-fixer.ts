@@ -1,12 +1,5 @@
 import type { AutoFixEntry } from "../pipeline";
-
-const GOOGLE_FONTS = new Set([
-  "Inter", "Geist", "Geist_Mono", "Roboto", "Open_Sans", "Lato", "Montserrat",
-  "Poppins", "Raleway", "Nunito", "Playfair_Display", "Merriweather",
-  "Source_Sans_3", "Oswald", "Quicksand", "Ubuntu", "Rubik", "Work_Sans",
-  "Noto_Sans", "DM_Sans", "Outfit", "Space_Grotesk", "Sora", "Manrope",
-  "Plus_Jakarta_Sans", "Figtree", "Bricolage_Grotesque", "Instrument_Sans",
-]);
+import { GOOGLE_FONT_IMPORT_NAMES } from "@/lib/gen/data/google-font-registry";
 
 const FONT_USAGE_RE = /\bconst\s+\w+\s*=\s*(\w+)\s*\(\s*\{/g;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
@@ -22,7 +15,7 @@ export function fixFontImport(
   const usedFonts = new Set<string>();
   for (const match of code.matchAll(FONT_USAGE_RE)) {
     const fontName = match[1];
-    if (GOOGLE_FONTS.has(fontName)) {
+    if (GOOGLE_FONT_IMPORT_NAMES.has(fontName)) {
       usedFonts.add(fontName);
     }
   }
