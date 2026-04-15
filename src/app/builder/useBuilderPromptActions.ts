@@ -227,22 +227,22 @@ export function useBuilderPromptActions({
       setIsPreparingPrompt(true);
       try {
         pendingBriefRef.current = null;
-        // Generate Deep Brief for init — the brief object is sent via meta.brief
-        // and consumed by the server's buildDynamicContext(). We no longer merge
-        // brief-derived prose into customInstructions to avoid double representation.
-        await generateDynamicInstructions(trimmed, {
+        const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: false,
           forceDeepBrief: true,
-          skipAddendum: true,
+          skipAddendum: false,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
           },
         });
 
         const baseInstructions = customInstructions.trim();
+        const addendumText = addendum?.trim() ?? "";
         const paletteHint = buildPaletteInstruction(paletteState);
         const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
-        const combined = `${baseInstructions}${paletteSuffix}`.trim();
+        const combined = [baseInstructions, addendumText, paletteSuffix.trim()]
+          .filter(Boolean)
+          .join("\n\n");
         setCustomInstructions(combined);
         pendingInstructionsRef.current = combined;
         pendingInstructionsOnceRef.current = false;
