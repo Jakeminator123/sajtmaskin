@@ -208,11 +208,14 @@ export const emitPlanArtifact = tool({
   }),
 });
 
-export function getAgentTools(options?: { includePlanArtifact?: boolean }) {
+export function getAgentTools(options?: {
+  includePlanArtifact?: boolean;
+  includeClarifyingQuestion?: boolean;
+}) {
   const base = {
     suggestIntegration,
     requestEnvVar,
-    askClarifyingQuestion,
+    ...(options?.includeClarifyingQuestion ? { askClarifyingQuestion } : {}),
   };
   if (options?.includePlanArtifact) {
     return { ...base, emitPlanArtifact };
