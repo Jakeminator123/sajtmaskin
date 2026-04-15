@@ -104,7 +104,7 @@ export function createPlanModePipelineStream(params: {
     thinking: params.plannerThinking,
     reasoningEffort: params.plannerReasoningEffort,
     abortSignal: params.abortSignal,
-    tools: getAgentTools(),
+    tools: getAgentTools({ includePlanArtifact: true }),
     maxSteps: 2,
     chatHistory: params.chatHistory,
     referenceAttachments: params.referenceAttachments,

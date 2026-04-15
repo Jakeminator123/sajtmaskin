@@ -212,11 +212,14 @@ export const emitPlanArtifact = tool({
   }),
 });
 
-export function getAgentTools() {
-  return {
+export function getAgentTools(options?: { includePlanArtifact?: boolean }) {
+  const base = {
     suggestIntegration,
     requestEnvVar,
     askClarifyingQuestion,
-    emitPlanArtifact,
   };
+  if (options?.includePlanArtifact) {
+    return { ...base, emitPlanArtifact };
+  }
+  return base;
 }
