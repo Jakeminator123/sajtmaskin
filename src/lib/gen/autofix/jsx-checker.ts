@@ -2,7 +2,9 @@ import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
 
-const IMPORT_RE = /^import\s+(?:\{([^}]+)\}|(\w+))\s+from\s+["']([^"']+)["']/gm;
+/** Includes `import type { … }` so three.js `Group` is not mistaken for missing lucide `Group`. */
+const IMPORT_RE =
+  /^import\s+(?:type\s+)?(?:\{([^}]+)\}|(\w+))\s+from\s+["']([^"']+)["']/gm;
 const JSX_OPEN_TAG_RE = /<([A-Z]\w*)[\s/>]/g;
 const JSX_SELF_CLOSING_RE = /<([A-Z]\w*)\s[^>]*\/>/g;
 const JSX_CLOSE_TAG_RE = /<\/([A-Z]\w*)\s*>/g;

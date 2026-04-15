@@ -163,19 +163,20 @@ Verify-kedjan:
 │   ├── Kollar att version fortfarande är senaste
 │   │
 │   ├── Kör quality gate i VM:ens verify-lane:
-│   │   ├── SERVER_VERIFY_QUALITY_GATE_CHECKS: typecheck + lint
+│   │   ├── SERVER_VERIFY_QUALITY_GATE_CHECKS (manifeststyrd profil)
 │   │   └── Separat workspace, inte live-previewns dev-server
 │   │
 │   ├── Om PASS → promoteVersion()
 │   │
 │   └── Om FAIL → repair-loop:
 │       ├── markVersionRepairing()
-│       ├── runAutoFix (mekanisk)
-│       ├── Om syntax OK → promote
-│       ├── Annars: LLM-fixer (max SERVER_REPAIR_MAX_PASSES)
-│       │   ├── Timeout: 60s per LLM-anrop
+│       ├── runRepairLoop() (delad med manuell /repair)
+│       │   ├── mekanisk autofix + syntaxvalidering
+│       │   ├── targeted/warm repair (fel-filer + imports)
+│       │   ├── LLM-fixer (max SERVER_REPAIR_MAX_PASSES)
+│       │   ├── timeout: 60s per LLM-anrop
 │       │   ├── bestContent-rollback vid regression
-│       │   └── Ge upp vid: noop, no_improvement, timeout
+│       │   └── ge upp vid: noop, no_improvement, timeout
 │       ├── Om reparerad → updateFilesAndPromote()
 │       │   └── Tidigare version markeras "superseded"
 │       └── Om misslyckad → failVersionVerification()
@@ -237,10 +238,13 @@ useBuilderVmPreview.ts:
 
 | Profil | Checks | När |
 |--------|--------|-----|
-| `TIER2_QUALITY_GATE_CHECKS` | typecheck | Normal live-preview gate |
-| `SERVER_VERIFY_QUALITY_GATE_CHECKS` | typecheck + lint | Bakgrunds-verify |
-| `PROMOTION_QUALITY_GATE_CHECKS` | typecheck + build | Deploy-promotion |
-| `INTERACTIVE_QUALITY_GATE_CHECKS` | typecheck + build + lint | Explicit interaktiv |
+| `TIER2_QUALITY_GATE_CHECKS` | typecheck (default) | Normal live-preview gate |
+| `SERVER_VERIFY_QUALITY_GATE_CHECKS` | typecheck + lint (default) | Bakgrunds-verify |
+| `PROMOTION_QUALITY_GATE_CHECKS` | typecheck + build (default) | Deploy-promotion |
+| `INTERACTIVE_QUALITY_GATE_CHECKS` | typecheck + build + lint (default) | Explicit interaktiv |
+
+Profilerna laddas från `config/ai_models/manifest.json` (`qualityGateTiers`)
+och kan justeras utan kodändring.
 
 ---
 

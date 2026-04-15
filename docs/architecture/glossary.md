@@ -159,8 +159,11 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Image Materialize | Materialiserar bildalias/placeholders | kanonisk |
 | Verifier Pass | LLM-driven read-only granskning. `blocking` findings är advisory och stoppar inte persist. | kanonisk |
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking | kanonisk |
-| Quality Gate | Binärt pass/fail-beslut. Tre lanes: tier-2, server-verify, promotion. | kanonisk |
+| Quality Gate | Binärt pass/fail-beslut. Fyra lanes: tier-2, server-verify, promotion, interactive. | kanonisk |
+| Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`) | kanonisk |
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
+| Repair Loop Core (`runRepairLoop`) | Delad repair-kärna för server-verify och manuell `/repair` | kanonisk |
+| Warm Repair | Targeted repair där bara trasiga filer (+ imports) skickas till LLM-fixer | kanonisk |
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
 | Engine Version Lifecycle | `draft`, `verifying`, `repairing`, `failed`, `promoted` | kanonisk |
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
@@ -209,6 +212,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | Vercel-mallar | Extern research från Vercel Templates | v0-mallar, scaffolds |
 | `template-library` | Kuraterad referensartefakt | v0-mallar, scaffolds |
 | scaffolds | Interna runtime-startpunkter | template-library, Vercel-mallar |
+| `Group` (ikon vs 3D) | Lucide exporterar ikonen `Group`; Three.js/`@react-three/fiber` använder `Group` som nod — samma PascalCase | Autofix får inte lägga till lucide-`Group` när filen redan har `import type { Group } from "three"` (jsx-checker känner igen `import type`) |
 | own-engine | Enda aktiva codegen-vägen | OpenClaw, gammal v0-runtime |
 | OpenClaw / Sajtagenten | Separat assistent-/agentyta | Builderns LLM-flöde |
 | `appProjectId` | Användarprojektets id | `chatId`, `VERCEL_PROJECT_ID` |
@@ -264,4 +268,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-15 (Fas 2+3: finalizePath full/light, advisory-verifier-förtydligande, syncad preview/deploy-telemetri). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-15 (Fas 2+3: finalizePath full/light, qualityGateTiers i manifest, delad runRepairLoop + warm repair, syncad preview/deploy-telemetri). Versionhistorik finns i git.

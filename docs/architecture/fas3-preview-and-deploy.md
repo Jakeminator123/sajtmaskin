@@ -97,6 +97,10 @@ Preview-host kor tva separata lanes:
 
 En version kan alltsa vara live i preview men anda fa verify-fail.
 
+Check-profilerna (`tier2`, `serverVerify`, `promotion`, `interactive`) ar nu
+manifeststyrda via `config/ai_models/manifest.json` (`qualityGateTiers`) i
+stallet for hardkodade arrayer i kod.
+
 ---
 
 ## Vanliga blockerare i Fas 3
@@ -118,6 +122,9 @@ En version kan alltsa vara live i preview men anda fa verify-fail.
 - Deploy ar ett separat driftsteg fran preview-session.
 - Deploy-SSE pa klienten reconnectar vid transienta natverksfel (max 3 forsok: 2s/4s/8s).
 - Vercel webhook-sparet hanteras av `src/app/api/webhooks/vercel/route.ts`.
+
+`server-verify` och manuell `repair` delar nu samma repair-karnlogik
+(`runRepairLoop`) inklusive targeted/warm repair av trasiga filer.
 
 ---
 

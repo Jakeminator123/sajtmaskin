@@ -266,7 +266,14 @@
     "deterministicAutofixPasses": 2,
     "syntaxFixPasses": 4,
     "manualRepairRouteLlmPasses": 2,
-    "serverRepairPasses": 2
+    "serverRepairPasses": 2,
+    "partialFileRepairMaxAttempts": 1
+  },
+  "qualityGateTiers": {
+    "tier2": ["typecheck"],
+    "serverVerify": ["typecheck", "lint"],
+    "promotion": ["typecheck", "build"],
+    "interactive": ["typecheck", "build", "lint"]
   },
   "promptOrchestration": {
     "hardCaps": {

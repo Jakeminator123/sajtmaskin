@@ -139,6 +139,16 @@ const repairPoliciesSchema = z.object({
   syntaxFixPasses: z.number().int().positive(),
   manualRepairRouteLlmPasses: z.number().int().positive(),
   serverRepairPasses: z.number().int().positive(),
+  partialFileRepairMaxAttempts: z.number().int().min(1).max(3),
+});
+
+const qualityGateCheckSchema = z.enum(["typecheck", "build", "lint"]);
+
+const qualityGateTiersSchema = z.object({
+  tier2: z.array(qualityGateCheckSchema).min(1),
+  serverVerify: z.array(qualityGateCheckSchema).min(1),
+  promotion: z.array(qualityGateCheckSchema).min(1),
+  interactive: z.array(qualityGateCheckSchema).min(1),
 });
 
 const promptOrchestrationSchema = z.object({
@@ -243,6 +253,7 @@ const aiModelsManifestSchema = z.object({
   briefing: briefingSchema,
   phaseRouting: phaseRoutingSchema,
   repairPolicies: repairPoliciesSchema,
+  qualityGateTiers: qualityGateTiersSchema,
   promptOrchestration: promptOrchestrationSchema,
   postGenerationPasses: postGenerationPassesSchema,
   preGenerationContracts: preGenerationContractsConfigSchema,
@@ -271,6 +282,7 @@ export type PhaseRoutingTierFromManifest = z.infer<typeof phaseRoutingTierSchema
 export type PhaseThinkingConfigFromManifest = z.infer<typeof phaseThinkingSchema>;
 export type PhaseThinkingTierFromManifest = z.infer<typeof phaseThinkingTierSchema>;
 export type RepairPoliciesFromManifest = z.infer<typeof repairPoliciesSchema>;
+export type QualityGateTiersFromManifest = z.infer<typeof qualityGateTiersSchema>;
 export type PromptOrchestrationFromManifest = z.infer<typeof promptOrchestrationSchema>;
 export type PostGenerationPassesFromManifest = z.infer<typeof postGenerationPassesSchema>;
 export type ContractProviderRuleFromManifest = z.infer<typeof contractProviderRuleSchema>;
@@ -405,6 +417,10 @@ export function getPhaseThinkingFromManifest(): Record<
 export function getRepairPoliciesFromManifest(): RepairPoliciesFromManifest {
   const repairPolicies = getAiModelsManifest().repairPolicies;
   return repairPolicies;
+}
+
+export function getQualityGateTiersFromManifest(): QualityGateTiersFromManifest {
+  return getAiModelsManifest().qualityGateTiers;
 }
 
 export function getPromptOrchestrationFromManifest(): PromptOrchestrationFromManifest {

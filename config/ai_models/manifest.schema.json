@@ -3,7 +3,7 @@
   "$id": "https://sajtmaskin.local/config/ai_models/manifest.schema.json",
   "title": "Sajtmaskin AI models manifest",
   "type": "object",
-  "required": ["schemaVersion", "buildProfiles", "promptAssist", "briefing", "phaseRouting", "repairPolicies", "promptOrchestration", "postGenerationPasses", "preGenerationContracts", "tokenBudgets", "routeTimeouts", "workloads"],
+  "required": ["schemaVersion", "buildProfiles", "promptAssist", "briefing", "phaseRouting", "repairPolicies", "qualityGateTiers", "promptOrchestration", "postGenerationPasses", "preGenerationContracts", "tokenBudgets", "routeTimeouts", "workloads"],
   "additionalProperties": true,
   "properties": {
     "schemaVersion": { "type": "integer", "minimum": 1 },
@@ -97,12 +97,23 @@
     },
     "repairPolicies": {
       "type": "object",
-      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "manualRepairRouteLlmPasses", "serverRepairPasses"],
+      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "manualRepairRouteLlmPasses", "serverRepairPasses", "partialFileRepairMaxAttempts"],
       "properties": {
         "deterministicAutofixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
         "syntaxFixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
         "manualRepairRouteLlmPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
-        "serverRepairPasses": { "type": "integer", "minimum": 1, "maximum": 10 }
+        "serverRepairPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "partialFileRepairMaxAttempts": { "type": "integer", "minimum": 1, "maximum": 3 }
+      }
+    },
+    "qualityGateTiers": {
+      "type": "object",
+      "required": ["tier2", "serverVerify", "promotion", "interactive"],
+      "properties": {
+        "tier2": { "$ref": "#/$defs/qualityGateCheckArray" },
+        "serverVerify": { "$ref": "#/$defs/qualityGateCheckArray" },
+        "promotion": { "$ref": "#/$defs/qualityGateCheckArray" },
+        "interactive": { "$ref": "#/$defs/qualityGateCheckArray" }
       }
     },
     "promptOrchestration": {
@@ -310,6 +321,14 @@
         "fixer": { "type": "string" },
         "verifier": { "type": "string" },
         "deploy-assistant": { "type": "string" }
+      }
+    },
+    "qualityGateCheckArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["typecheck", "build", "lint"]
       }
     }
   }

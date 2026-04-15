@@ -24,6 +24,7 @@ import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from 
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
+import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
 import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
 import {
   type FinalizePreflightIssue,
@@ -329,10 +330,22 @@ async function tryRepairPartialFileOutput(params: {
   chatId: string;
   resolvedTier?: CanonicalModelId;
   partialFileIssues: string[];
-}): Promise<string | null> {
+}): Promise<{
+  repairedContent: string | null;
+  attempts: number;
+  succeeded: boolean;
+  partialFiles: string[];
+}> {
   const { contentForVersion, chatId, resolvedTier, partialFileIssues } = params;
   const partialFiles = extractPartialFileNames(partialFileIssues);
-  if (partialFiles.length === 0) return null;
+  if (partialFiles.length === 0) {
+    return {
+      repairedContent: null,
+      attempts: 0,
+      succeeded: false,
+      partialFiles: [],
+    };
+  }
 
   const fixerModel = resolvedTier
     ? resolvePhaseModel(resolvedTier, "fixer").modelId
@@ -341,31 +354,64 @@ async function tryRepairPartialFileOutput(params: {
     ? resolvePhaseThinking(resolvedTier, "fixer")
     : null;
   const errors = formatPartialIssuesAsFixerErrors(partialFiles, partialFileIssues);
+  const maxAttempts = Math.max(1, PARTIAL_FILE_REPAIR_MAX_ATTEMPTS);
+  let attempts = 0;
 
-  const abort = new AbortController();
-  const timeout = setTimeout(() => abort.abort(), PARTIAL_FILE_REPAIR_TIMEOUT_MS);
-  try {
-    const result = await runLlmFixer(contentForVersion, errors, {
-      model: fixerModel,
-      thinking: fixerThinking?.thinking,
-      reasoningEffort: fixerThinking?.reasoningEffort,
-      requiredFiles: partialFiles,
-      abortSignal: abort.signal,
-    });
-    if (!result.success && !result.partial) return null;
-    const reFixed = await runAutoFix(result.fixedContent);
-    return reFixed.fixedContent;
-  } catch (err) {
-    devLogAppend("in-progress", {
-      type: "partial-file-repair.error",
-      chatId,
-      message: err instanceof Error ? err.message : "Unknown repair error",
-      partialFiles,
-    });
-    return null;
-  } finally {
-    clearTimeout(timeout);
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    attempts = attempt;
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), PARTIAL_FILE_REPAIR_TIMEOUT_MS);
+    try {
+      const result = await runLlmFixer(contentForVersion, errors, {
+        model: fixerModel,
+        thinking: fixerThinking?.thinking,
+        reasoningEffort: fixerThinking?.reasoningEffort,
+        requiredFiles: partialFiles,
+        abortSignal: abort.signal,
+      });
+      if (!result.success && !result.partial) {
+        break;
+      }
+      const reFixed = await runAutoFix(result.fixedContent);
+      devLogAppend("in-progress", {
+        type: "partial-file-repair.outcome",
+        chatId,
+        attempts,
+        succeeded: true,
+        partialFiles,
+      });
+      return {
+        repairedContent: reFixed.fixedContent,
+        attempts,
+        succeeded: true,
+        partialFiles,
+      };
+    } catch (err) {
+      devLogAppend("in-progress", {
+        type: "partial-file-repair.error",
+        chatId,
+        message: err instanceof Error ? err.message : "Unknown repair error",
+        partialFiles,
+        attempt,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  devLogAppend("in-progress", {
+    type: "partial-file-repair.outcome",
+    chatId,
+    attempts,
+    succeeded: false,
+    partialFiles,
+  });
+  return {
+    repairedContent: null,
+    attempts,
+    succeeded: false,
+    partialFiles,
+  };
 }
 
 function resolveFinalizePathPolicy(params: {
@@ -677,12 +723,13 @@ async function runFinalizeFastPath(params: {
       issueCount: originalPartialCount,
     });
 
-    const repairedContent = await tryRepairPartialFileOutput({
+    const partialRepair = await tryRepairPartialFileOutput({
       contentForVersion,
       chatId,
       resolvedTier,
       partialFileIssues,
     });
+    const repairedContent = partialRepair.repairedContent;
 
     if (repairedContent) {
       contentForVersion = repairedContent;
@@ -728,7 +775,8 @@ async function runFinalizeFastPath(params: {
           ? "Partial file repair attempted but issues persist."
           : "Generation produced partial file output before persist.",
         issues: partialFileIssues,
-        repairAttempted: Boolean(repairedContent),
+        repairAttempted: partialRepair.attempts > 0,
+        repairAttempts: partialRepair.attempts,
       });
       throw new PartialFileOutputError(
         chatId,
@@ -741,6 +789,7 @@ async function runFinalizeFastPath(params: {
       type: "partial-file-repair.success",
       chatId,
       repairedFileCount: originalPartialCount,
+      repairAttempts: partialRepair.attempts,
     });
   }
 

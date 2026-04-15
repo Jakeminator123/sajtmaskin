@@ -17,15 +17,15 @@ import {
   shouldPromoteAfterRepair,
 } from "@/lib/gen/verify/preview-quality-gate";
 import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
-import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
-import { resolveServerRepairEarlyStopReason } from "@/lib/gen/verify/server-repair-policy";
-import { buildLintRepairContextLines } from "@/lib/gen/verify/lint-output";
+import {
+  buildRepairErrorContextLines,
+  runRepairLoop,
+} from "@/lib/gen/verify/repair-loop";
 import {
   buildServerRepairOutcomeMeta,
   buildServerVerifyQualityGateMeta,
@@ -91,30 +91,6 @@ function codeProjectToFiles(content: string): CodeFile[] {
   return parseCodeProject(content).files;
 }
 
-function extractErrorLines(
-  failures: z.infer<typeof qualityGateFailureSchema>[],
-): string[] {
-  const lines: string[] = [];
-  for (const f of failures) {
-    const trimmed = f.output.trim();
-    if (!trimmed) continue;
-    const outputLines = trimmed.split("\n");
-    for (let i = 0; i < outputLines.length; i++) {
-      const stripped = outputLines[i].trim();
-      if (!stripped) continue;
-      if (/error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
-        const prevLine = i > 0 ? outputLines[i - 1]?.trim() : "";
-        if (prevLine && !lines.includes(`[${f.check}] ${prevLine}`)) {
-          lines.push(`[${f.check}] ${prevLine}`);
-        }
-        lines.push(`[${f.check}] ${stripped}`);
-      }
-    }
-    if (lines.length > 60) break;
-  }
-  return lines;
-}
-
 function normalizeRepairContextLines(lines: string[] | undefined, label: string): string[] {
   if (!Array.isArray(lines) || lines.length === 0) return [];
   return lines
@@ -122,19 +98,6 @@ function normalizeRepairContextLines(lines: string[] | undefined, label: string)
     .filter(Boolean)
     .slice(0, 12)
     .map((line) => `[${label}] ${line}`);
-}
-
-function uniqueContextLines(values: string[], limit: number): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const normalized = value.replace(/\s+/g, " ").trim();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    result.push(normalized);
-    if (result.length >= limit) break;
-  }
-  return result;
 }
 
 export async function POST(
@@ -183,16 +146,7 @@ export async function POST(
     }
 
     const exportable = await buildExportableProject(codeFiles);
-    let content = filesToCodeProject(exportable);
-
-    // Phase 1: deterministic autofix
-    const autoFixResult = await runAutoFix(content);
-    content = autoFixResult.fixedContent;
-
-    const { validateGeneratedCode } = await import(
-      "@/lib/gen/retry/validate-syntax"
-    );
-    let syntaxResult = await validateGeneratedCode(content);
+    const initialContent = filesToCodeProject(exportable);
     const gateFailures = repairContext.qualityGate ?? [];
     const currentVersionErrors = normalizeRepairContextLines(
       repairContext.currentVersionErrors,
@@ -208,14 +162,17 @@ export async function POST(
           .map((entry) => `[visual-qa] ${entry.check} (${entry.score}/100): ${entry.detail}`)
       : [];
     const hadQualityGateFailures = gateFailures.length > 0;
-    const initialSyntaxErrorCount = syntaxResult.errors.length;
-    const currentVersionId = internalVersionId;
+    const currentVersionId = internalVersionId ?? scopedVersion.version.id;
 
-    async function promoteIfPostRepairGatePasses(
-      projectContent: string,
-      method: "deterministic" | "llm",
-      promoteReason: string,
-    ): Promise<{ ok: boolean; newVersionId: string | null }> {
+    async function promoteIfPostRepairGatePasses(params: {
+      projectContent: string;
+      method: "deterministic" | "llm";
+    }): Promise<{ ok: boolean; newVersionId: string | null }> {
+      const { projectContent, method } = params;
+      const promoteReason =
+        method === "deterministic"
+          ? "Server repair succeeded (deterministic); quality gate re-passed."
+          : "Server repair succeeded (LLM); quality gate re-passed.";
       const repairedFiles = codeProjectToFiles(projectContent);
       const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
@@ -286,101 +243,26 @@ export async function POST(
       return { ok: promoted, newVersionId };
     }
 
-    // Re-run quality gate when possible; syntax alone is not enough if gate context exists.
-    if (syntaxResult.valid && gateFailures.length === 0) {
-      const { ok, newVersionId } = await promoteIfPostRepairGatePasses(
-        content,
-        "deterministic",
-        "Server repair succeeded (deterministic); quality gate re-passed.",
-      );
-      logRepair(
-        chatId,
-        internalVersionId,
-        "deterministic",
-        ok,
-        0,
-        undefined,
-        undefined,
-        repairContext.qualityGateMeta,
-      );
-      return NextResponse.json({
-        repaired: ok,
-        deterministic: true,
-        newVersionId,
-        remainingErrors: 0,
-      });
-    }
-
-    // Phase 2: targeted LLM repair (only with exact error context)
-    const hasErrorContext =
-      gateFailures.length > 0 ||
-      syntaxResult.errors.length > 0 ||
-      currentVersionErrors.length > 0 ||
-      previousVersionErrors.length > 0 ||
-      visualQaLines.length > 0;
-    if (!hasErrorContext) {
-      if (dbConfigured) {
-        await failVersionVerification(
-          internalVersionId,
-          "Repair attempted but no actionable error context available.",
-        ).catch((err) => {
-          console.warn("[repair] Failed to mark version failed (no context):", err);
-        });
-        await createEngineVersionErrorLogs([
-          {
-            chatId,
-            versionId: internalVersionId,
-            level: "warning" as const,
-            category: "server-repair",
-            message: "Repair attempted without actionable error context.",
-            meta: {
-              repaired: false,
-              remainingErrors: syntaxResult.errors.length,
-              qualityGateFailureCount: gateFailures.length,
-              serverOwned: false,
-            },
-          },
-        ]).catch((err) => {
-          console.warn("[repair] Failed to log no-context repair outcome:", err);
-        });
-      }
-      return NextResponse.json({
-        repaired: false,
-        deterministic: false,
-        remainingErrors: syntaxResult.errors.length,
-      });
-    }
-
+    const normalizedFailures = gateFailures.map((failure) => ({
+      check: failure.check,
+      exitCode: failure.exitCode,
+      output: failure.output,
+      durationMs: failure.durationMs ?? null,
+    }));
     const gateErrorLines = [
       ...buildServerVerifyRepairContextLines({
-        failedOutputs: gateFailures.map((failure) => ({
-          check: failure.check,
-          exitCode: failure.exitCode,
-          output: failure.output,
-          durationMs: failure.durationMs ?? null,
-        })),
+        failedOutputs: normalizedFailures,
         verifyLaneDurationMs: repairContext.qualityGateMeta?.verifyLaneDurationMs ?? 0,
         firstFailureCheck: repairContext.qualityGateMeta?.firstFailureCheck ?? null,
         jobStartedAt: repairContext.qualityGateMeta?.jobStartedAt ?? null,
         jobFinishedAt: repairContext.qualityGateMeta?.jobFinishedAt ?? null,
       }),
-      ...gateFailures
-        .filter((failure) => failure.check === "lint")
-        .flatMap((failure) => buildLintRepairContextLines(failure.output)),
-      ...extractErrorLines(gateFailures),
+      ...buildRepairErrorContextLines(normalizedFailures),
       ...currentVersionErrors,
       ...previousVersionErrors,
       ...visualQaLines,
     ];
-    const filesFromGateOutput = new Set<string>();
-    for (const line of gateErrorLines) {
-      const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
-      if (fileMatch?.[1]) filesFromGateOutput.add(fileMatch[1]);
-    }
-    let bestContent = content;
-    let bestErrorCount = syntaxResult.errors.length;
     let llmPasses = 0;
-    let earlyStopReason: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null = null;
     const originatingChat = await getChat(chatId).catch(() => null);
     const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
     const fixerModel = originatingTier
@@ -390,123 +272,116 @@ export async function POST(
       ? resolvePhaseThinking(originatingTier, "fixer")
       : null;
 
-    for (let pass = 0; pass < MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES; pass++) {
-      if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
-        content = bestContent;
-        syntaxResult = await validateGeneratedCode(content);
-      }
-      const errorsBefore = syntaxResult.errors.length;
-      const errorSummary = uniqueContextLines([
-        ...syntaxResult.errors.map(
-          (e) => `${e.file}:${e.line}:${e.column} ${e.message}`,
-        ),
-        ...gateErrorLines,
-      ], 50);
-
-      const brokenFiles = [
-        ...new Set([
-          ...syntaxResult.errors.map((e) => e.file).filter(Boolean),
-          ...filesFromGateOutput,
-        ]),
-      ];
-
-      const fixerAbort = new AbortController();
-      const timeoutHandle = setTimeout(() => fixerAbort.abort(), MANUAL_REPAIR_LLM_TIMEOUT_MS);
-      let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
-      try {
-        fixerResult = await runLlmFixer(content, errorSummary, {
-          model: fixerModel,
-          thinking: fixerThinking?.thinking,
-          reasoningEffort: fixerThinking?.reasoningEffort,
-          requiredFiles: brokenFiles,
-          abortSignal: fixerAbort.signal,
+    const loopResult = await runRepairLoop<{ newVersionId: string | null }>({
+      initialContent,
+      failedOutputs: normalizedFailures,
+      contextLines: gateErrorLines,
+      maxLlmPasses: MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES,
+      llmTimeoutMs: MANUAL_REPAIR_LLM_TIMEOUT_MS,
+      fixerModel,
+      fixerThinking: fixerThinking?.thinking,
+      fixerReasoningEffort: fixerThinking?.reasoningEffort,
+      hasActionableErrorContext:
+        gateFailures.length > 0 ||
+        currentVersionErrors.length > 0 ||
+        previousVersionErrors.length > 0 ||
+        visualQaLines.length > 0,
+      onNoContext: async () => {
+        if (!dbConfigured) return;
+        await failVersionVerification(
+          currentVersionId,
+          "Repair attempted but no actionable error context available.",
+        ).catch((err) => {
+          console.warn("[repair] Failed to mark version failed (no context):", err);
         });
-      } finally {
-        clearTimeout(timeoutHandle);
-      }
-      llmPasses++;
-
-      if (!fixerResult.success && !fixerResult.partial) {
-        const stopReason = resolveServerRepairEarlyStopReason({
-          fixerProducedOutput: false,
-          errorsBefore,
-          errorsAfter: errorsBefore,
-          timedOut: fixerAbort.signal.aborted,
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId: currentVersionId,
+            level: "warning" as const,
+            category: "server-repair",
+            message: "Repair attempted without actionable error context.",
+            meta: {
+              repaired: false,
+              remainingErrors: 0,
+              qualityGateFailureCount: gateFailures.length,
+              serverOwned: false,
+            },
+          },
+        ]).catch((err) => {
+          console.warn("[repair] Failed to log no-context repair outcome:", err);
         });
-        earlyStopReason = stopReason === "continue" ? null : stopReason;
-        break;
-      }
+      },
+      onAttemptPromotion: async (projectContent, method) => {
+        const promote = await promoteIfPostRepairGatePasses({
+          projectContent,
+          method,
+        });
+        return {
+          promoted: promote.ok,
+          payload: { newVersionId: promote.newVersionId },
+        };
+      },
+    });
 
-      const reFixed = await runAutoFix(fixerResult.fixedContent);
-      content = reFixed.fixedContent;
-      syntaxResult = await validateGeneratedCode(content);
-      const stopReason = resolveServerRepairEarlyStopReason({
-        fixerProducedOutput: true,
-        errorsBefore,
-        errorsAfter: syntaxResult.errors.length,
-        timedOut: false,
+    llmPasses = loopResult.llmPasses;
+    const deterministic = loopResult.method === "deterministic";
+    const newVersionId = loopResult.payload?.newVersionId ?? null;
+
+    if (loopResult.noContext) {
+      logRepair(
+        chatId,
+        currentVersionId,
+        "llm",
+        false,
+        llmPasses,
+        loopResult.remainingErrors,
+        loopResult.earlyStopReason,
+        repairContext.qualityGateMeta,
+      );
+      return NextResponse.json({
+        repaired: false,
+        deterministic: false,
+        remainingErrors: loopResult.remainingErrors,
       });
-
-      if (syntaxResult.errors.length < bestErrorCount) {
-        bestErrorCount = syntaxResult.errors.length;
-        bestContent = content;
-      }
-
-      if (stopReason !== "continue") {
-        earlyStopReason = stopReason;
-        break;
-      }
-      if (syntaxResult.valid) break;
     }
 
-    const syntaxClean = bestErrorCount === 0;
-    let newVersionId: string | null = null;
-    const improvedSyntax = bestErrorCount < initialSyntaxErrorCount;
-    let repaired = false;
-
-    if (dbConfigured && syntaxClean) {
-      const promote = await promoteIfPostRepairGatePasses(
-        bestContent,
-        "llm",
-        "Server repair succeeded (LLM); quality gate re-passed.",
-      );
-      repaired = promote.ok;
-      newVersionId = promote.newVersionId;
-      if (!repaired) {
+    if (!loopResult.promoted && dbConfigured) {
+      if (loopResult.remainingErrors === 0) {
         await failVersionVerification(
-          internalVersionId,
+          currentVersionId,
           "Server repair: syntax clean but quality gate still failing.",
         ).catch((err) => {
           console.warn("[repair] Failed to mark version failed after repair:", err);
         });
+      } else {
+        await failVersionVerification(
+          currentVersionId,
+          `Server repair incomplete (${loopResult.remainingErrors} errors remain).`,
+        ).catch((err) => {
+          console.warn("[repair] Failed to mark version failed after repair:", err);
+        });
       }
-    } else if (dbConfigured) {
-      await failVersionVerification(
-        internalVersionId,
-        `Server repair incomplete (${bestErrorCount} errors remain).`,
-      ).catch((err) => {
-        console.warn("[repair] Failed to mark version failed after repair:", err);
-      });
     }
 
     logRepair(
       chatId,
-      internalVersionId,
-      "llm",
-      repaired,
+      currentVersionId,
+      deterministic ? "deterministic" : "llm",
+      loopResult.promoted,
       llmPasses,
-      bestErrorCount,
-      earlyStopReason,
+      loopResult.remainingErrors,
+      loopResult.earlyStopReason,
       repairContext.qualityGateMeta,
     );
 
     return NextResponse.json({
-      repaired,
-      deterministic: false,
+      repaired: loopResult.promoted,
+      deterministic,
       newVersionId,
-      remainingErrors: bestErrorCount,
-      improvedSyntax,
-      earlyStopReason,
+      remainingErrors: loopResult.remainingErrors,
+      improvedSyntax: loopResult.improvedSyntax,
+      earlyStopReason: loopResult.earlyStopReason,
     });
   } catch (err) {
     console.error("[repair] Error:", err);

@@ -12,6 +12,7 @@ import {
   getPromptOrchestrationFromManifest,
   getPhaseRoutingFromManifest,
   getPromptAssistAllowedFromManifest,
+  getQualityGateTiersFromManifest,
   getRepairPoliciesFromManifest,
 } from "@/lib/ai-models/load-manifest";
 import {
@@ -20,6 +21,12 @@ import {
   resolveGeneratedSitePlaceholdersPath,
 } from "@/lib/ai-models/load-generated-site-placeholders";
 import { canonicalModelIdToOwnModelId, DEFAULT_OWN_MODEL_ID, QUALITY_TO_OPENAI_MODEL } from "@/lib/models/catalog";
+import {
+  INTERACTIVE_QUALITY_GATE_CHECKS,
+  PROMOTION_QUALITY_GATE_CHECKS,
+  SERVER_VERIFY_QUALITY_GATE_CHECKS,
+  TIER2_QUALITY_GATE_CHECKS,
+} from "@/lib/gen/verify/quality-gate-checks";
 
 describe("config/ai_models/manifest.json parity", () => {
   it("parses and matches promptAssist allowlists in promptAssist.ts", () => {
@@ -80,6 +87,7 @@ describe("config/ai_models/manifest.json parity", () => {
     const briefing = getBriefingDefaultsFromManifest();
     const phaseRouting = getPhaseRoutingFromManifest();
     const repairPolicies = getRepairPoliciesFromManifest();
+    const qualityGateTiers = getQualityGateTiersFromManifest();
     const promptOrchestration = getPromptOrchestrationFromManifest();
     const postGenerationPasses = getPostGenerationPassesFromManifest();
     const contractConfig = getPreGenerationContractsConfigFromManifest();
@@ -97,6 +105,17 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(repairPolicies.syntaxFixPasses).toBeGreaterThan(0);
     expect(repairPolicies.manualRepairRouteLlmPasses).toBeGreaterThan(0);
     expect(repairPolicies.serverRepairPasses).toBeGreaterThan(0);
+    expect(repairPolicies.partialFileRepairMaxAttempts).toBeGreaterThan(0);
+    expect(repairPolicies.partialFileRepairMaxAttempts).toBeLessThanOrEqual(3);
+
+    expect(qualityGateTiers.tier2.length).toBeGreaterThan(0);
+    expect(qualityGateTiers.serverVerify.length).toBeGreaterThan(0);
+    expect(qualityGateTiers.promotion.length).toBeGreaterThan(0);
+    expect(qualityGateTiers.interactive.length).toBeGreaterThan(0);
+    expect(TIER2_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.tier2);
+    expect(SERVER_VERIFY_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.serverVerify);
+    expect(PROMOTION_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.promotion);
+    expect(INTERACTIVE_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.interactive);
 
     expect(promptOrchestration.hardCaps.maxChatMessageChars.envKey).toBe(
       "SAJTMASKIN_MAX_PROMPT_LENGTH",

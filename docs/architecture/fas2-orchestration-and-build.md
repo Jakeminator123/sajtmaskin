@@ -95,10 +95,11 @@ Efter codegen-streamen kor `finalizeAndSaveVersion()` med denna ordning:
 4. **`materialize_images`** -> endast full path; non-fatal vid fel.
 5. **`verifier`** -> endast full path + verifier-policy; non-fatal vid fel.
 6. **`parse_merge_preflight`** -> parse, merge, preflight, integration-manifest.
-7. **Partial-file repair** -> om preflight hittar avhuggna filer, forsoks EN
-   LLM-fixer-runda (60 s timeout). Om reparationen lyckas kors
+7. **Partial-file repair** -> om preflight hittar avhuggna filer, forsoks
+   `partialFileRepairMaxAttempts` LLM-fixer-rundor (manifeststyrt, default 1,
+   max 3, 60 s timeout per forsok). Om reparationen lyckas kors
    parse+merge+preflight om. Om den misslyckas -> `PartialFileOutputError`
-   stoppar persist helt.
+   stoppar persist helt. Utfallet loggas som `partial-file-repair.outcome`.
 8. **Persist** -> `addAssistantMessageAndCreateDraftVersion` (assistant + version).
 9. **Efter persist (best-effort)** -> telemetry, preflight-loggar, ev.
    `failVersionVerification`.
@@ -117,7 +118,7 @@ och `contextPolicy: "light"` (om inga repair-villkor tvingar full path).
 
 | Typ | Exempel | Blockerar sparad version? |
 |---|---|---|
-| Blocking | `EmptyGenerationError`, `PartialFileOutputError` (efter 1 repair-forsok) | Ja |
+| Blocking | `EmptyGenerationError`, `PartialFileOutputError` (efter konfigurerade repair-forsok) | Ja |
 | Kvalitetssignal | Verifier-fynd (`blocking`/`quality`) | Nej. `blocking` i verifiern ar advisory-severity och stoppar inte persist. |
 | Non-fatal | Bildmaterialisering/verifier kastar | Nej, pipeline fortsatter |
 | Observability | Telemetry, devlog, preflight-loggar | Nej |
@@ -128,6 +129,8 @@ och `contextPolicy: "light"` (om inga repair-villkor tvingar full path).
 
 - blockerar inte `done`
 - kan trigga repair-pass i bakgrunden
+- kor via delad `runRepairLoop()` (samma grunnlogik som manuell `/repair`)
+- anvander targeted/warm repair nar quality-gate pekar ut ett mindre felset
 - har egen policy (`resolvePostFinalizeServerVerifyDecision`)
 
 ---

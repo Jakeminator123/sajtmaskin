@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-15 (Fas 2+3 avslutade, PartialFileOutputError repair tillagd).
+Senast uppdaterad: 2026-04-15 (Repair/verify worldclass-pass: delad loop, manifeststyrda gate-tiers, warm repair, utökad partial-file retry).
 
 ## Öppna punkter
 
@@ -15,6 +15,10 @@ Senast uppdaterad: 2026-04-15 (Fas 2+3 avslutade, PartialFileOutputError repair 
 
 | Vad | Commit |
 |-----|--------|
+| Repair/verify worldclass-pass: delad `runRepairLoop`, warm repair (targeted filer + imports) | 2026-04-15 |
+| Quality-gate tiers flyttade till `manifest.json` (`qualityGateTiers`) | 2026-04-15 |
+| Partial-file repair: manifeststyrt antal försök + `partial-file-repair.outcome` telemetry | 2026-04-15 |
+| jsx-checker: `import type { … }` räknas nu som import — undviker lucide/Three `Group`-kollision | 2026-04-15 |
 | P17: Unsplash felklassning (401/429/network/timeout) | `e75325c9d` |
 | Font-register: 75 Google Fonts, autofix whitelist, importnamn i prompt | `c28be72db` |
 | Scaffold-aware komponentpool (`## Your Toolkit` per scaffold) | `65921ac53` |
