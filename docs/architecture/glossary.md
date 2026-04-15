@@ -115,7 +115,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Dynamic Context | Request-specifik promptdel: scaffold + routes + contracts + brief + tema. Prunad. | kanonisk |
 | System Prompt | Static Core + Dynamic Context | kanonisk |
 | Generation Package | Kanonisk fan-in: systemPrompt + dynamicContext + pruning + lineageHash | kanonisk |
-| Your Toolkit | Shadcn-sammanfattning + capability-hints i prompten | kanonisk |
+| Your Toolkit | Scaffold-medveten shadcn-sammanfattning i prompten. Primära komponentgrupper per scaffold (via `SCAFFOLD_PRIMARY_GROUPS` + variant `sectionInventory`), sedan "also available". + capability-hints. | kanonisk |
+| Google Font Registry | Central fontdatapost (`src/lib/gen/data/google-font-registry.ts`): ~75 fonts med importnamn, displaynamn, CSS-variabel, kategori. Används av font-import-fixer (autofix) och font-hint i systemprompten. | kanonisk |
 | Component References | Tre lager: lokala exempel, officiellt register, community-registries | kanonisk |
 | Agent Tools | Tool-definitioner för planner/agent-flöden | kanonisk |
 | Template-Library | Kuraterad referensartefakt byggd från externa Vercel-templates | kanonisk |
