@@ -17,6 +17,6 @@
 
 ## Lägesöversikt (2026-04-15)
 
-Sessionen levererade: Unsplash-diagnostik, font-register (75 fonts), scaffold-aware komponentpool, `BUILD_INTENT_GUIDANCE`-extraktion, plankonsolidering, schema-uppdateringar, glossary-uppdatering.
+Sessionen levererade: Unsplash-diagnostik, font-register (75 fonts), scaffold-aware komponentpool, `BUILD_INTENT_GUIDANCE`-extraktion, Fas 2 worldclass (kod + docs + schemas + backoffice-sync), plankonsolidering och glossary-uppdatering.
 
-**5 öppna punkter kvar:** 2 shadcn-spår (blocks + fonts, medelprio), 1 hydration-varning (låg), 1 old-content ingress (medel-hög), 1 eval-baseline (låg). Allt annat är avklarat eller struket.
+**5 öppna punkter kvar:** 2 shadcn-spår (blocks + fonts, medelprio), 1 hydration-varning (låg), 1 old-content ingress (medel-hög), 1 eval-baseline (låg). Fas 2 betraktas som stängd; nästa fokuserade körning är Fas 3.

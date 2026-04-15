@@ -111,6 +111,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Route Realization | Policylager: vilka routes realiseras i denna generation | kanonisk |
 | Contract Plan | Auth, payment, database, env vars, integrations | kanonisk |
 | Build Policy / BuildSpec | Körpolicy: changeScope, qualityTarget, contextPolicy, tokenBudgets | kanonisk |
+| Finalize Path | Telemetrietikett för finalize-läge: `full` (hela kedjan) eller `light` (skippar image/verifier) | kanonisk |
 | Orchestration Contract | Binder scaffold→routes→valideringsförväntningar | kanonisk |
 | Dynamic Context | Request-specifik promptdel: scaffold + routes + contracts + brief + tema. Prunad. | kanonisk |
 | System Prompt | Static Core + Dynamic Context | kanonisk |
@@ -156,7 +157,7 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | LLM Fixer | LLM-fix med fixer-prompt | kanonisk |
 | Finalize | Samlad pipeline: autofix → URL-expansion → validate → image materialize → ev. verifier → save | kanonisk |
 | Image Materialize | Materialiserar bildalias/placeholders | kanonisk |
-| Verifier Pass | LLM-driven read-only granskning | kanonisk |
+| Verifier Pass | LLM-driven read-only granskning. `blocking` findings är advisory och stoppar inte persist. | kanonisk |
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking | kanonisk |
 | Quality Gate | Binärt pass/fail-beslut. Tre lanes: tier-2, server-verify, promotion. | kanonisk |
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
@@ -263,4 +264,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-15 (Fas 1 världsklass: gateway→openai, summarize borttagen, specMode default false, simplifiedBriefSchema borttagen). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-15 (Fas 2+3: finalizePath full/light, advisory-verifier-förtydligande, syncad preview/deploy-telemetri). Versionhistorik finns i git.

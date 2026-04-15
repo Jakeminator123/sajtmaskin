@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-15 (session-avslut).
+Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 redo).
 
 ## Öppna punkter
 
@@ -43,3 +43,4 @@ Senast uppdaterad: 2026-04-15 (session-avslut).
 - `@/hooks/use-mobile` och `@/hooks/use-toast` behålls som bakåtkompatibel fallback.
 - `useDeploymentStatus` använder `/api/v0/` (naming debt, ej trasigt).
 - `useIntegrationStatus` har `previewUrl` i dependency-array för re-trigger (funktionellt korrekt).
+- Fas 2 worldclass-pass är genomfört (kod + docs + schemas + backoffice sync); nästa fokuserade spår är Fas 3.

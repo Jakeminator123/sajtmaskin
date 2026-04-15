@@ -82,7 +82,7 @@ Kanonisk lagring for own-engine:
 |---|---|
 | Status | `running` / `starting` / `stopped` / `missing` / `version_mismatch` |
 | Lease | Heartbeat cirka var 25s fran synlig flik |
-| Recover | Klient kan force-restarta session efter suspect/timeouts |
+| Recover | Klient kan force-restarta session efter suspect/timeouts; recover-raknare resetas per chat+version |
 | Hibernate | Forsok pa `pagehide` och vid dold flik |
 | TTL | Session/lease cirka 1 timme (host + app-store) |
 
@@ -116,6 +116,7 @@ En version kan alltsa vara live i preview men anda fa verify-fail.
 - Deploy prechecks ligger i deployment-routen (`precheckOnly`, `skipAutoFix`,
   `DEPLOY_MISSING_ENV` etc.).
 - Deploy ar ett separat driftsteg fran preview-session.
+- Deploy-SSE pa klienten reconnectar vid transienta natverksfel (max 3 forsok: 2s/4s/8s).
 - Vercel webhook-sparet hanteras av `src/app/api/webhooks/vercel/route.ts`.
 
 ---

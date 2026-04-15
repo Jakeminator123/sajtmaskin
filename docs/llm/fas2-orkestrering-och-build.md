@@ -16,10 +16,10 @@ till att en version är sparad i databasen.
 | **Dynamic Context** | 20+ markdown-block med `##`-rubriker som bildar systemprompten | — |
 | **Static Core** | `config/prompt-static/*.md` — fasta regler som alltid gäller (format, tillgänglighet, korstil) | — |
 | **Finalize** | Allt som händer *efter* att LLM:en svarat: autofix, syntax, bilder, verifier, parse, persist | Förväxlas med "deploy" — finalize sparar i DB, deploy skickar till Vercel |
-| **Deep Path / Fast Path** | Deep = alla steg körs (bilder, verifier). Fast = hoppar över bilder och verifier (lätta follow-ups). | — |
+| **Finalize Path (`full` / `light`)** | `full` = hela finalize-kedjan (bilder + verifier). `light` = hoppar över bilder och verifier för låg-risk follow-ups. | Förväxlas med "deep/fast" (äldre etiketter i telemetri) |
 | **Autofix** | 28 mekaniska fixers (imports, JSX, fonts, metadata, etc.) — inga LLM:er | Förväxlas med LLM-fixer — autofix är deterministisk regex/AST |
 | **LLM Fixer** | Eskalerad reparation av syntax-fel med LLM. Dyrt, icke-deterministiskt. | Förväxlas med autofix — LLM-fixer körs bara som sista utväg |
-| **Verifier Pass** | Read-only LLM-granskning som rapporterar `blocking`/`quality` findings utan att ändra kod | Förväxlas med quality gate (Fas 3) — verifier körs i finalize, quality gate körs i VM |
+| **Verifier Pass** | Read-only LLM-granskning som rapporterar `blocking`/`quality` findings utan att ändra kod | Förväxlas med quality gate (Fas 3). `blocking` här är **advisory** och stoppar inte persist i finalize. |
 | **Preflight** | Slutkontroller före DB-persist: sanity, SEO, route-matchning, partial-file-detektering | — |
 | **PartialFileOutputError** | LLM genererade avhuggna/ofullständiga filer. Ingen version sparas. | — |
 | **Image Materialization** | Byta placeholder-bilder mot riktiga Unsplash-foton | — |
@@ -74,7 +74,7 @@ IN: prompt + brief + modell + scaffold-hint (från Fas 1)
 │      → Scaffold → markdown-text (budgeterat)
 │      Follow-up: "structural" (filträd). Init: "inspirational" (traits).
 │
-└── 8. Ladda shadcn-referenser + community blocks
+└── 8. Ladda shadcn-referenser + community blocks (parallellt med auto-match)
        → Capability-matchade kodexempel (max 8 + 3 community)
 ```
 
@@ -182,10 +182,11 @@ accumulatedContent (rå LLM-output)
 │      ├── Cap: 6 bilder (8 vid premium/fidelity3)
 │      └── Non-fatal: vid fel → logga, fortsätt
 │
-├── 5. VERIFIER PASS (bara deep path + policy)
+├── 5. VERIFIER PASS (bara full path + policy)
 │      ├── Read-only LLM-granskning
 │      ├── Rapporterar: blocking | quality findings
 │      └── Non-fatal: findings loggas men stoppar inte persist
+│          ("blocking" i verifier-fynd = advisory severity, inte pipeline-gate)
 │
 ├── 6. PARSE / MERGE / PREFLIGHT
 │      ├── parseFilesFromContent() → CodeFile[]
@@ -215,14 +216,14 @@ accumulatedContent (rå LLM-output)
            failVersionVerification()
 ```
 
-### Fast path vs Deep path
+### Light path vs Full path
 
 | Villkor | Path | Bilder | Verifier |
 |---------|------|--------|----------|
-| Init, normal | Deep (`fast+deep`) | Körs (cap 6) | Körs om policy |
-| Follow-up, normal | Deep | Körs | Körs |
-| Follow-up, `verificationPolicy: "fast"` + `contextPolicy: "light"` + `changeScope: copy/local-layout` | Fast (`fast-only`) | **Hoppas över** | **Hoppas över** |
-| Repair-pass (`repairPassIndex > 0`) | Deep (tvingat) | Körs | Körs |
+| Init, normal | Full (`full`) | Körs (cap 6) | Körs om policy |
+| Follow-up, normal | Full | Körs | Körs |
+| Follow-up, `verificationPolicy: "fast"` + `contextPolicy: "light"` + `changeScope: copy/local-layout` | Light (`light`) | **Hoppas över** | **Hoppas över** |
+| Repair-pass (`repairPassIndex > 0`) | Full (tvingat) | Körs | Körs |
 
 ---
 
@@ -250,7 +251,7 @@ done {
 | `repair-generated-files.ts` | Delvis duplicerar `runAutoFix` — parallell väg i preflight | `autofix/` |
 | Priority-regler för `spec file`, `quality bar`, `coding direction` | Finns i `CONTEXT_BLOCK_PRIORITY_RULES` men skapas sällan av `buildDynamicContext` | `system-prompt.ts` |
 | `layout-provider-fixer.ts` | Inte listad i `runAutoFix` pipeline — kan vara äldre/separat | `autofix/` |
-| Verifier-findings blockerar inte persist | Loggas men påverkar inte `done` — mest observability | `finalize-version.ts` |
+| Verifier-findings blockerar inte persist | `blocking` i verifiern är advisory-severity; `done` skickas fortfarande | `finalize-version.ts` |
 
 ---
 

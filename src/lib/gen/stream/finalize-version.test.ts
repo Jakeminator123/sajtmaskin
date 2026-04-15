@@ -798,7 +798,7 @@ describe("finalizeAndSaveVersion", () => {
               url_expand: expect.objectContaining({ status: "done" }),
               materialize_images: expect.objectContaining({
                 status: "done",
-                maxReplacements: 5,
+                maxReplacements: 7,
               }),
               validate_syntax: expect.objectContaining({ status: "done" }),
               verifier: expect.objectContaining({
@@ -811,7 +811,7 @@ describe("finalizeAndSaveVersion", () => {
         }),
       );
       expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
-        maxReplacements: 5,
+        maxReplacements: 7,
       });
       expect(runVerifierPass).toHaveBeenCalled();
       expect(result.telemetryRecordId).not.toBeNull();
@@ -856,7 +856,7 @@ describe("finalizeAndSaveVersion", () => {
 
       expect(runVerifierPass).not.toHaveBeenCalled();
       expect(materializeImages).toHaveBeenCalledWith(expect.any(String), {
-        maxReplacements: 4,
+        maxReplacements: 6,
       });
       expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
         expect.objectContaining({

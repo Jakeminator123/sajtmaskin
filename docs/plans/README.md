@@ -12,6 +12,7 @@ Nuvarande orientering:
 
 - **Arkitektur:** [`../architecture/builder-generation.md`](../architecture/builder-generation.md)
 - **Fas 2-djupkarta:** [`../architecture/fas2-orchestration-and-build.md`](../architecture/fas2-orchestration-and-build.md)
+- **Fas 3-karta (nästa fokus):** [`../architecture/fas3-preview-and-deploy.md`](../architecture/fas3-preview-and-deploy.md)
 
 ### Component uplift (P14–P16) — ARKIVERAT
 

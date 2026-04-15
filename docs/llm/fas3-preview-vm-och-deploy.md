@@ -130,6 +130,9 @@ stream-handlers.ts:
 │          → GET /preview-status                      │
 │          → Om inte "running": POST /preview-session │
 │            med forceRestart                         │
+│          → Recover-räknare resetas per chat+version │
+│            (inte bara per chat) för att undvika     │
+│            falska "max_attempts" på ny version      │
 │                                                     │
 │ Destroy: "Rensa preview"-knapp                      │
 │          → POST /preview-destroy                    │
@@ -271,6 +274,8 @@ POST /api/v0/deployments
 ├── applyPreDeployFixes() om inte skipAutoFix
 ├── 409 DEPLOY_MISSING_ENV om obligatoriska nycklar saknas
 ├── Vercel API createVercelDeployment()
+├── Klientens deploy-SSE reconnectar vid transienta fel
+│   (max 3 försök med exponential backoff: 2s/4s/8s)
 └── Webhook: src/app/api/webhooks/vercel/route.ts
 ```
 

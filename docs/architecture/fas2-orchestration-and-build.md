@@ -92,30 +92,30 @@ Efter codegen-streamen kor `finalizeAndSaveVersion()` med denna ordning:
 1. **`autofix`** -> `runAutoFix()` (mekaniska fixar).
 2. **`url_expand`** -> `expandUrls()`.
 3. **`validate_syntax`** -> `validateAndFix()` (mekanisk + LLM-fixer vid behov).
-4. **`materialize_images`** -> endast deep path; non-fatal vid fel.
-5. **`verifier`** -> endast deep path + verifier-policy; non-fatal vid fel.
+4. **`materialize_images`** -> endast full path; non-fatal vid fel.
+5. **`verifier`** -> endast full path + verifier-policy; non-fatal vid fel.
 6. **`parse_merge_preflight`** -> parse, merge, preflight, integration-manifest.
 7. **Fail-fast strukturgrind** -> `PartialFileOutputError` stoppar persist helt.
 8. **Persist** -> `addAssistantMessageAndCreateDraftVersion` (assistant + version).
 9. **Efter persist (best-effort)** -> telemetry, preflight-loggar, ev.
    `failVersionVerification`.
 
-### Fast path vs deep path
+### Light path vs full path
 
 | `finalizePath.runDeepPath` | Etikett | Materialisering | Verifier |
 |---|---|---|---|
-| `true` | `fast+deep` | Kor | Kor enligt verifier-policy |
-| `false` | `fast-only` | Hoppas over | Hoppas over |
+| `true` | `full` | Kor | Kor enligt verifier-policy |
+| `false` | `light` | Hoppas over | Hoppas over |
 
-Deep path kan hoppas over for lata follow-ups med `verificationPolicy: "fast"`
-och `contextPolicy: "light"` (om inga repair-villkor tvingar deep path).
+Full path kan hoppas over for lata follow-ups med `verificationPolicy: "fast"`
+och `contextPolicy: "light"` (om inga repair-villkor tvingar full path).
 
 ### Blocking vs kvalitet vs observability
 
 | Typ | Exempel | Blockerar sparad version? |
 |---|---|---|
 | Blocking | `EmptyGenerationError`, `PartialFileOutputError` | Ja |
-| Kvalitetssignal | Verifier-fynd (`blocking`/`quality`) | Nej, men loggas |
+| Kvalitetssignal | Verifier-fynd (`blocking`/`quality`) | Nej. `blocking` i verifiern ar advisory-severity och stoppar inte persist. |
 | Non-fatal | Bildmaterialisering/verifier kastar | Nej, pipeline fortsatter |
 | Observability | Telemetry, devlog, preflight-loggar | Nej |
 

@@ -729,7 +729,8 @@ LLM-generering
      |
 [Syntax validate/fix]  ← repairPolicies.syntaxFixPasses
      |
-[Bildmaterialisering]
+[Bildmaterialisering + Verifier]  ← endast finalizePath=full
+     |                                (verifier blocking = advisory)
      |
 [Preflight]  ← server, före DB-sparning
      |
@@ -743,7 +744,7 @@ LLM-generering
 """
         )
         st.caption(
-            "Preflight kan stoppa leverans före databasen. Post-checks och quality gate körs efter att versionen har sparats, men quality gate hoppas över om post-checks redan har köat autofix."
+            "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är read-only och advisory (stoppar inte persist). Post-checks och quality gate körs efter att versionen har sparats, men quality gate hoppas över om post-checks redan har köat autofix."
         )
 
         st.divider()
