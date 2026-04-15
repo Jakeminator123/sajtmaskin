@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 redo).
+Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 påbörjad).
 
 ## Öppna punkter
 
@@ -8,9 +8,8 @@ Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 redo).
 |---|--------|-------------|------|-------|
 | 1 | shadcn | Nivå 2: Blocks-metadata / section recipes — undersök om upstream `registry:block` kan bli sektionsval i generatorn | Medel | P20 |
 | 2 | shadcn | Nivå 3: `registry:font` — konsolidera upstream font-format med nuvarande `fontPairings` + `google-font-registry.ts` | Medel | P20 |
-| 3 | Preview | Hydration-varning på landningssidan — troligen 3D-bibliotek (Three.js), låg prio | Låg | P18 |
-| 4 | Ingress | Old-content ingress hardening — bevisa ingresspunkter, sedan små fixar | Medel-hög | P19 |
-| 5 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
+| 3 | Ingress | Old-content ingress hardening — bevisa ingresspunkter, sedan små fixar | Medel-hög | P19 |
+| 4 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
 
 ## Avklarat denna session (2026-04-15)
 
@@ -22,6 +21,7 @@ Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 redo).
 | `BUILD_INTENT_GUIDANCE` dubblett löst (extraherad till `intent-guidance.ts`) | `b89147172` |
 | Scaffold-specifik toolkit + komponentpool per scaffold | `65921ac53` |
 | WSS/HMR till Fly — löst (stabil) | redan i drift |
+| P18: Landing-varning verifierad och stängd (Three/Fiber Clock-deprecation) | denna session |
 | Template-library pipeline: hydrate repo-cache | redan i drift |
 | Dossier-manifests: `recommendedScaffoldFamilies` → `recommendedScaffoldIds` | redan i drift |
 | Schema-docs uppdaterade (README, scaffold-contract, glossary) | `7bdcc766c`, `5001347af` |
@@ -44,3 +44,4 @@ Senast uppdaterad: 2026-04-15 (Fas 2 avslutad, Fas 3 redo).
 - `useDeploymentStatus` använder `/api/v0/` (naming debt, ej trasigt).
 - `useIntegrationStatus` har `previewUrl` i dependency-array för re-trigger (funktionellt korrekt).
 - Fas 2 worldclass-pass är genomfört (kod + docs + schemas + backoffice sync); nästa fokuserade spår är Fas 3.
+- P18 är nu stängd: varningen var Three/Fiber deprecation (inte bekräftad hydration-bugg i egen kod).

@@ -1,6 +1,6 @@
-# P18 — Preview runtime stability (hydration)
+# P18 — Preview runtime stability (landing warnings)
 
-Status: Delvis avklarat — WSS/Fly är löst; hydration-varning kvarstår
+Status: Stängt — WSS/Fly löst, landing-varning verifierad och åtgärdad
 Skapad: 2026-04-15
 Prioritet: Låg–medel (varning, inte krasch)
 
@@ -8,16 +8,25 @@ Prioritet: Låg–medel (varning, inte krasch)
 
 **Spår A (WSS/HMR-stabilitet) — STÄNGT.** Fly-proxyn fungerar nu stabilt; inga rapporterade reconnect-loopar.
 
-**Spår B (hydration mismatch)** är det enda kvarvarande problemet. Den gula varning som visas på landningssidan misstänks vara kopplad till ett 3D-bibliotek ("Tree"/Three.js-liknande) med eventuell versionsinkompatibilitet. Varningen blockerar inte funktionalitet men är visuellt störande.
+**Spår B (gul landing-varning) — STÄNGT.**
 
-## Kvarstående — hydration-varning
+Verifiering med Playwright visade:
 
-1. Identifiera vilken komponent på landningssidan som orsakar den gula hydration-varningen.
-2. Undersök om det rör sig om ett 3D/canvas-bibliotek och om en versionsuppdatering löser det.
-3. Om det inte är trivialt: dokumentera som känd edge case och prioritera ned.
+1. Ingen stabil, reproducerbar hydration-mismatch i appkoden.
+2. Varningen som sågs på landningssidan kom från Three/Fiber-lagret:
+   - `THREE.THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.`
+3. Stack-trace pekade in i `@react-three/fiber` store-init (Canvas root), inte i egen komponentlogik.
+4. Åtgärd:
+   - uppgradering: `@react-three/fiber` `^9.6.0`
+   - kompatibilitetsjustering: `three` `^0.182.0` + `@types/three` `^0.182.0`
+5. Efter ändring försvann Clock-deprecationen i verifierad browser-körning.
+
+Notering:
+- Kvarvarande WebGL-driver-varningar (`GPU stall due to ReadPixels`) sågs i headless Chromium/CI-lik testmiljö och klassas som miljö-/driver-specifik observability, inte app-hydrationfel.
 
 ## Avklarat
 
 - ~~WSS/HMR mot Fly tappar anslutning~~ — LÖST
 - ~~Reconnect-strategi med backoff~~ — inte längre relevant
 - ~~Fallback till polling~~ — inte längre relevant
+- ~~Hydration/landing-varning~~ — verifierad som Three/Fiber-deprecation, åtgärdad via dependency-align
