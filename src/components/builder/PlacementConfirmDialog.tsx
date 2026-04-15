@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +31,10 @@ export function PlacementConfirmDialog({
   isSubmitting = false,
 }: PlacementConfirmDialogProps) {
   const [customization, setCustomization] = useState("");
+
+  useEffect(() => {
+    if (open) setCustomization("");
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onCancel(); }}>

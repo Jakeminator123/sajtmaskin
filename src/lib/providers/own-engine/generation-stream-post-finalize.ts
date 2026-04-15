@@ -140,6 +140,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
         previewBlocked: finalized.preflight.previewBlocked,
         verificationBlocked: finalized.preflight.verificationBlocked,
         previewBlockingReason: finalized.preflight.previewBlockingReason,
+        releaseState: finalized.version.release_state,
+        verificationState: finalized.version.verification_state,
+        verificationSummary: finalized.version.verification_summary,
+        promotedAt: finalized.version.promoted_at,
         ...(previewUrlHint ? { previewUrlHint } : {}),
       }),
     ),
@@ -176,6 +180,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
           verificationPolicy: buildSpec.verificationPolicy,
           versionIdForSession: finalized.version.id,
           skipRepair: parsedFromFinalizeFilesJson,
+          // filesJson from finalize is already scaffold-merged/repaired
+          // so preview bootstrap can skip project scaffold rebuild.
+          skipProjectScaffold: parsedFromFinalizeFilesJson,
         });
       } catch (previewStartError) {
         debugLog("preview", "Preview session started", {
@@ -322,6 +329,17 @@ export async function runOwnEngineStreamPostFinalize(params: {
     triggerServerVerification({
       chatId,
       versionId: finalized.version.id,
+      onRepairAvailable: (payload) => {
+        safeEnqueue(
+          enc.encode(
+            formatSSEEvent("version-repair-available", {
+              versionId: payload.versionId,
+              summary: payload.summary,
+              repairAvailableAt: payload.repairAvailableAt,
+            }),
+          ),
+        );
+      },
     }).catch((err) => {
       console.warn("[engine] Background server verification failed:", err);
     });

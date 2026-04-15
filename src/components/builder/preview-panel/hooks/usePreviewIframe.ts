@@ -61,11 +61,12 @@ export function usePreviewIframe(params: {
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- reset iframe error state when preview identity changes */
+    clearPreviewReadyTimer();
     setIframeError(false);
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [chatId, versionId, previewUrl]);
+  }, [chatId, versionId, previewUrl, clearPreviewReadyTimer]);
 
   useEffect(() => {
     if (!previewUrl) return;

@@ -34,6 +34,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           releaseState: v.release_state,
           verificationState: v.verification_state,
           verificationSummary: v.verification_summary,
+          hasPendingRepair:
+            typeof v.repaired_files_json === "string" &&
+            v.repaired_files_json.trim().length > 0,
+          repairAvailableAt: v.repair_available_at,
           promotedAt: v.promoted_at,
           canPin: false,
       }));
@@ -65,6 +69,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
               pinned: v.pinned,
               pinnedAt: v.pinnedAt,
             createdAt: v.createdAt,
+            hasPendingRepair: false,
+            repairAvailableAt: null,
             canPin: true,
           })),
         });

@@ -267,6 +267,7 @@ export async function generateOwnEngineSiteFromPrompt(
       appProjectId: projectId,
       versionIdForSession: finalized.version.id,
       skipRepair: true,
+      skipProjectScaffold: true,
     },
   );
   if (!previewSessionStarted.ok) {

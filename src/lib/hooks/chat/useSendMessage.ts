@@ -27,7 +27,7 @@ export function useSendMessage(
       initialMessage: string,
       options?: MessageOptions,
       systemPromptOverride?: string,
-    ) => Promise<void>;
+    ) => Promise<boolean>;
     streamAbortRef: React.MutableRefObject<AbortController | null>;
     autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
     lastSentSystemPromptRef: React.MutableRefObject<string | null>;
@@ -82,7 +82,7 @@ export function useSendMessage(
       if (!messageText?.trim()) return;
 
       if (!chatId) {
-        await createNewChat(messageText, options);
+        if (!(await createNewChat(messageText, options))) return;
         return;
       }
 
@@ -199,6 +199,7 @@ export function useSendMessage(
             preflight,
             assistantMessageId,
             setMessages,
+            mutateVersions,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
           });
         }

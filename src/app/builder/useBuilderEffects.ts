@@ -73,6 +73,7 @@ export function useBuilderEffects({
         if (!response.ok || !data?.success) {
           throw new Error(data?.error || "Template init failed");
         }
+        if (!isActive) return;
 
         if (data?.chatId) {
           setChatId(data.chatId);

@@ -341,7 +341,7 @@ async function isVersionUnderServerRepair(chatId: string, versionId: string): Pr
       | { verificationState?: string | null }
       | null;
     const state = typeof data?.verificationState === "string" ? data.verificationState : "";
-    return state === "verifying" || state === "repairing";
+    return state === "verifying" || state === "repairing" || state === "repair_available";
   } catch {
     return false;
   }

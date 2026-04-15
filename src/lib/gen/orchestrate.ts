@@ -244,7 +244,7 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       variantId: pkg.variantId ?? null,
       templateGuidanceEnabled: pkg.templateGuidanceMeta?.enabled ?? false,
       templateGuidanceIds: pkg.templateGuidanceMeta?.templateIds ?? [],
-      structuralRefsInjected: pkg.dynamicContext.includes("## Structural References (this variant)"),
+      structuralRefsInjected: pkg.dynamicContext.includes("## Structural References"),
     },
   );
 }

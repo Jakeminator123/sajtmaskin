@@ -16,7 +16,7 @@ import {
   markVersionRepairing,
   promoteVersion,
   failVersionVerification,
-  updateVersionFiles,
+  saveRepairedFiles,
   getChat,
   getLatestVersion,
   markVersionSupersededByRepair,
@@ -70,8 +70,13 @@ async function isLatestVersionForChat(chatId: string, versionId: string): Promis
 export async function triggerServerVerification(params: {
   chatId: string;
   versionId: string;
+  onRepairAvailable?: (payload: {
+    versionId: string;
+    summary: string | null;
+    repairAvailableAt: string | null;
+  }) => void;
 }): Promise<void> {
-  const { chatId, versionId } = params;
+  const { chatId, versionId, onRepairAvailable } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
 
@@ -241,18 +246,19 @@ async function tryServerRepairLoop(params: {
       const filesJson = JSON.stringify(repairedFiles);
       const msg =
         method === "deterministic"
-          ? "Server repair succeeded (deterministic); quality gate re-passed."
-          : "Server repair succeeded (LLM); quality gate re-passed.";
-      const updated = await updateVersionFiles(versionId, filesJson).catch((err) => {
-        console.warn("[server-verify] Failed to update repaired version files:", err);
-        return false;
+          ? "Server repair passed quality gate (deterministic). Awaiting acceptance."
+          : "Server repair passed quality gate (LLM). Awaiting acceptance.";
+      const saved = await saveRepairedFiles(versionId, filesJson, msg).catch((err) => {
+        console.warn("[server-verify] Failed to save repaired version files:", err);
+        return null;
       });
-      if (updated) {
-        const promotedVersion = await promoteVersion(versionId, msg).catch((err) => {
-          console.warn("[server-verify] Failed to promote repaired version:", err);
-          return null;
+      promoted = Boolean(saved);
+      if (saved && onRepairAvailable) {
+        onRepairAvailable({
+          versionId: saved.id,
+          summary: saved.verification_summary,
+          repairAvailableAt: saved.repair_available_at,
         });
-        promoted = Boolean(promotedVersion);
       }
     }
     await createEngineVersionErrorLogs([
@@ -262,9 +268,9 @@ async function tryServerRepairLoop(params: {
         level: promoted ? "info" : "warning",
         category: "preflight:quality-gate",
         message: promoted
-          ? `Post-repair quality gate passed (${method}).`
+          ? `Post-repair quality gate passed (${method}); repair is ready for acceptance.`
           : decision.promote
-            ? `Post-repair quality gate passed but promotion failed (${method}).`
+            ? `Post-repair quality gate passed but repair could not be saved (${method}).`
             : "Post-repair quality gate did not pass; not promoting.",
         meta: buildServerVerifyQualityGateMeta({
           results: decision.results,

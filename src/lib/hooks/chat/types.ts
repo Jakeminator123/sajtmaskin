@@ -124,6 +124,8 @@ export type VersionEntry = {
   releaseState?: string | null;
   verificationState?: string | null;
   verificationSummary?: string | null;
+  hasPendingRepair?: boolean;
+  repairAvailableAt?: string | null;
   promotedAt?: string | null;
 };
 
@@ -247,7 +249,7 @@ export type ChatMessagingReturn = {
     initialMessage: string,
     options?: MessageOptions,
     systemPromptOverride?: string,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   sendMessage: (messageText: string, options?: MessageOptions) => Promise<void>;
   cancelActiveGeneration: () => void;
 };

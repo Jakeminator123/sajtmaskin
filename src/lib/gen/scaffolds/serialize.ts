@@ -28,9 +28,18 @@ const DEFAULT_LIGHTWEIGHT_SCAFFOLD_CHARS = 20_000;
 function extractImportBlock(content: string, filePath: string): string {
   const lines = content.split("\n");
   const importLines: string[] = [];
+  let braceDepth = 0;
+
   for (const line of lines) {
-    if (/^\s*import\s/.test(line) || (importLines.length > 0 && /^\s*\}?\s*from\s/.test(line))) {
+    const isImportStart = /^\s*import\s/.test(line);
+    const isFromLine = /^\s*\}?\s*from\s/.test(line);
+
+    if (isImportStart || (importLines.length > 0 && (isFromLine || braceDepth > 0))) {
       importLines.push(line);
+      for (const ch of line) {
+        if (ch === "{") braceDepth++;
+        if (ch === "}") braceDepth = Math.max(0, braceDepth - 1);
+      }
     } else if (importLines.length > 0 && line.trim() === "") {
       break;
     } else if (importLines.length > 0) {

@@ -7,8 +7,7 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   markVersionRepairing,
   failVersionVerification,
-  updateVersionFiles,
-  promoteVersion,
+  saveRepairedFiles,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
@@ -171,8 +170,8 @@ export async function POST(
       const { projectContent, method } = params;
       const promoteReason =
         method === "deterministic"
-          ? "Server repair succeeded (deterministic); quality gate re-passed."
-          : "Server repair succeeded (LLM); quality gate re-passed.";
+          ? "Server repair passed quality gate (deterministic). Awaiting acceptance."
+          : "Server repair passed quality gate (LLM). Awaiting acceptance.";
       const repairedFiles = codeProjectToFiles(projectContent);
       const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
@@ -196,19 +195,13 @@ export async function POST(
       let newVersionId: string | null = null;
       if (decision.promote && dbConfigured) {
         const filesJson = JSON.stringify(repairedFiles);
-        const updated = await updateVersionFiles(currentVersionId, filesJson).catch((err) => {
-          console.warn("[repair] Failed to update repaired version files:", err);
-          return false;
+        const savedVersion = await saveRepairedFiles(currentVersionId, filesJson, promoteReason).catch((err) => {
+          console.warn("[repair] Failed to save repaired version files:", err);
+          return null;
         });
-        if (updated) {
-          const promotedVersion = await promoteVersion(currentVersionId, promoteReason).catch((err) => {
-            console.warn("[repair] Failed to promote repaired version:", err);
-            return null;
-          });
-          if (promotedVersion) {
-            promoted = true;
-            newVersionId = promotedVersion.id;
-          }
+        if (savedVersion) {
+          promoted = true;
+          newVersionId = savedVersion.id;
         }
       }
       if (dbConfigured) {
@@ -219,9 +212,9 @@ export async function POST(
             level: promoted ? ("info" as const) : ("warning" as const),
             category: "preflight:quality-gate",
             message: promoted
-              ? `Post-repair quality gate passed (${method}).`
+              ? `Post-repair quality gate passed (${method}); repair is ready for acceptance.`
               : decision.promote
-                ? `Post-repair quality gate passed but promotion failed (${method}).`
+                ? `Post-repair quality gate passed but repair could not be saved (${method}).`
                 : "Post-repair quality gate did not pass; not promoting.",
             meta: buildServerVerifyQualityGateMeta({
               results: decision.results,
@@ -382,6 +375,10 @@ export async function POST(
       remainingErrors: loopResult.remainingErrors,
       improvedSyntax: loopResult.improvedSyntax,
       earlyStopReason: loopResult.earlyStopReason,
+      status: loopResult.promoted ? "repair_available" : "completed",
+      reason: loopResult.promoted
+        ? "Server-reparation finns sparad och vantar pa att accepteras."
+        : null,
     });
   } catch (err) {
     console.error("[repair] Error:", err);

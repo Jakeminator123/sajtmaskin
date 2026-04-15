@@ -52,6 +52,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                 releaseState: latest.release_state,
                 verificationState: latest.verification_state,
                 verificationSummary: latest.verification_summary,
+                hasPendingRepair:
+                  typeof latest.repaired_files_json === "string" &&
+                  latest.repaired_files_json.trim().length > 0,
+                repairAvailableAt: latest.repair_available_at,
                 promotedAt: latest.promoted_at,
                 canPin: false,
               }

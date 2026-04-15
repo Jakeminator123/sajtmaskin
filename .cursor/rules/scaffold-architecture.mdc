@@ -121,7 +121,7 @@ Research-blocket (`## Scaffold Research Priorities`) skickas separat av `buildDy
 
 ## Vad LLM:en faktiskt ser (för en ecommerce-prompt)
 
-1. **## Scaffold** — Filträd + utvalda filer (layout.tsx, globals.css, page.tsx) med placeholder-innehåll
+1. **## Scaffold: \<label\>** — Filträd + utvalda filer (layout.tsx, globals.css, page.tsx) med placeholder-innehåll (rubriken inkluderar scaffold-id, t.ex. `## Scaffold: ecommerce`)
 2. **## Scaffold Research Priorities** — Quality checklist + upgrade targets + reference template-sammanfattningar
 3. **## Route Plan** — Planerade sidor (/, /products, /product/[id], etc.)
 4. **## Scaffold Variant (this generation)** — Deterministiskt valt visuellt uttryck inom den valda scaffolden (typografi, motif, theme tokens, prompt hints, dossier-härledd guidance)

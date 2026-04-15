@@ -221,6 +221,8 @@ export function ProjectEnvVarsPanel({
   const marketplaceProjectId = hasRealExternalProject ? externalProjectId : null;
   const hasProjectContext = Boolean(effectiveEnvProjectId);
 
+  const loaderGenerationRef = useRef(0);
+
   const applyPreferredEnvKeys = useCallback((preferredKeys: string[]) => {
     const firstKey = preferredKeys
       .map((key) => key.trim().toUpperCase())
@@ -255,6 +257,7 @@ export function ProjectEnvVarsPanel({
       setSyntheticProject(true);
       return;
     }
+    const gen = loaderGenerationRef.current;
     setSyntheticProject(false);
     setIsLoading(true);
     setError(null);
@@ -262,7 +265,9 @@ export function ProjectEnvVarsPanel({
       const response = await fetch(
         `/api/v0/projects/${encodeURIComponent(effectiveEnvProjectId)}/env-vars`,
       );
+      if (loaderGenerationRef.current !== gen) return;
       const data = (await response.json().catch(() => null)) as EnvVarsResponse | null;
+      if (loaderGenerationRef.current !== gen) return;
       if (!response.ok || !data?.success) {
         setEnvVars([]);
         setError(data?.error || "Kunde inte hämta miljövariabler");
@@ -270,12 +275,13 @@ export function ProjectEnvVarsPanel({
       }
       setEnvVars(Array.isArray(data.envVars) ? data.envVars : []);
     } catch (loadError) {
+      if (loaderGenerationRef.current !== gen) return;
       setEnvVars([]);
       setError(
         loadError instanceof Error ? loadError.message : "Kunde inte hämta miljövariabler",
       );
     } finally {
-      setIsLoading(false);
+      if (loaderGenerationRef.current === gen) setIsLoading(false);
     }
   }, [appProjectId, effectiveEnvProjectId, hasSyntheticExternalProject]);
 
@@ -302,6 +308,7 @@ export function ProjectEnvVarsPanel({
       setMcpPriorities([]);
       return;
     }
+    const gen = loaderGenerationRef.current;
     try {
       const [strategyRes, recordsRes, mcpRes] = await Promise.all([
         fetch("/api/integrations/marketplace/strategy"),
@@ -310,6 +317,7 @@ export function ProjectEnvVarsPanel({
         ),
         fetch("/api/integrations/mcp/priorities"),
       ]);
+      if (loaderGenerationRef.current !== gen) return;
       const strategyData = (await strategyRes.json().catch(() => null)) as
         | MarketplaceStrategyResponse
         | null;
@@ -317,6 +325,7 @@ export function ProjectEnvVarsPanel({
         | MarketplaceRecordsResponse
         | null;
       const mcpData = (await mcpRes.json().catch(() => null)) as McpPrioritiesResponse | null;
+      if (loaderGenerationRef.current !== gen) return;
 
       if (strategyRes.ok && strategyData?.success) {
         setStrategy(strategyData.strategy ?? null);
@@ -341,7 +350,7 @@ export function ProjectEnvVarsPanel({
         setMcpPriorities([]);
       }
     } catch {
-      setMcpPriorities([]);
+      if (loaderGenerationRef.current === gen) setMcpPriorities([]);
     }
   }, [marketplaceProjectId, selectedIntegration]);
 
@@ -354,13 +363,16 @@ export function ProjectEnvVarsPanel({
       setIsLoadingDetectedIntegrations(false);
       return;
     }
+    const gen = loaderGenerationRef.current;
     setIsLoadingDetectedIntegrations(true);
     setDetectedIntegrationsError(null);
     try {
       const response = await fetch(
         `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(activeVersionId)}`,
       );
+      if (loaderGenerationRef.current !== gen) return;
       const data = (await response.json().catch(() => null)) as VersionFilesResponse | null;
+      if (loaderGenerationRef.current !== gen) return;
       if (!response.ok) {
         setDetectedIntegrations([]);
         setBusinessPacks([]);
@@ -385,6 +397,7 @@ export function ProjectEnvVarsPanel({
       setBusinessPacks(combinedSource ? detectBusinessWorkflowPacks(combinedSource) : []);
       setAnalyticsReview(fileEntries.length > 0 ? buildAnalyticsReview(fileEntries) : null);
     } catch (loadError) {
+      if (loaderGenerationRef.current !== gen) return;
       setDetectedIntegrations([]);
       setBusinessPacks([]);
       setAnalyticsReview(null);
@@ -392,7 +405,7 @@ export function ProjectEnvVarsPanel({
         loadError instanceof Error ? loadError.message : "Kunde inte analysera aktiv version",
       );
     } finally {
-      setIsLoadingDetectedIntegrations(false);
+      if (loaderGenerationRef.current === gen) setIsLoadingDetectedIntegrations(false);
     }
   }, [chatId, activeVersionId]);
 
@@ -530,6 +543,7 @@ export function ProjectEnvVarsPanel({
 
   useEffect(() => {
     if (!expanded) return;
+    loaderGenerationRef.current += 1;
     void loadEnvVars();
     void loadIntegrationStatus();
     void loadMarketplaceMetadata();

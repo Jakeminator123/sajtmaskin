@@ -60,7 +60,7 @@ type Args = {
     message: string,
     options?: InitBriefOptions,
   ) => Promise<string>;
-  createNewChat: (message: string, options?: CreateChatOptions, systemOverride?: string) => Promise<void>;
+  createNewChat: (message: string, options?: CreateChatOptions, systemOverride?: string) => Promise<boolean>;
   cancelActiveGeneration: () => void;
   resetBeforeCreateChat: () => void;
   applyAppProjectId: (nextProjectId: string | null, options?: { chatId?: string | null }) => void;
@@ -223,8 +223,7 @@ export function useBuilderPromptActions({
         captureInstructionSnapshot();
       }
       const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
-      await createNewChat(message, options, systemOverride);
-      return true;
+      return await createNewChat(message, options, systemOverride);
     },
     [createNewChat, captureInstructionSnapshot, applyDynamicInstructionsForNewChat, setEntryIntentActive],
   );

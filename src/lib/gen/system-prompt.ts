@@ -206,6 +206,9 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^generation profile$/i, priority: 92, required: true },
   { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
   { match: /^scaffold$/i, priority: 90, required: true },
+  { match: /^scaffold:\s/i, priority: 90, required: true },
+  { match: /^layout & theme files/i, priority: 85 },
+  { match: /^import reference/i, priority: 75 },
   { match: /^route plan$/i, priority: 90, required: true },
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
@@ -567,13 +570,17 @@ export function buildDynamicContext(
   // (static core, cached per process — no longer eats dynamic context token budget)
 
   // ── Scaffold ───────────────────────────────────────────────────────────
+  // scaffoldContext already starts with its own ## heading from serialize.ts
+  // (e.g. "## Scaffold: landing-page (inspirational mode)"). Adding an extra
+  // "## Scaffold" wrapper would create a near-empty required block while the
+  // real content ends up in a separate block with wrong priority.
   if (scaffoldContext) {
-    parts.push("## Scaffold", "", scaffoldContext.trim(), "");
+    parts.push(scaffoldContext.trim(), "");
   }
 
   if (resolvedScaffold) {
     const checklist = resolvedScaffold.qualityChecklist?.slice(0, 6) ?? [];
-    const upgradeTargets = resolvedScaffold.research?.upgradeTargets.slice(0, 5) ?? [];
+    const upgradeTargets = resolvedScaffold.research?.upgradeTargets?.slice(0, 5) ?? [];
     const referenceTemplates = resolvedScaffold.research?.referenceTemplates ?? [];
     const refsBudgetTokens = Math.max(
       450,
@@ -582,7 +589,7 @@ export function buildDynamicContext(
     const referenceLines: string[] = [];
     let refsUsedTokens = 0;
     for (const template of referenceTemplates.slice(0, 5)) {
-      const strengths = template.strengths.slice(0, 3).join("; ");
+      const strengths = (template.strengths ?? []).slice(0, 3).join("; ");
       const summary = strengths
         ? `${template.title} (${template.categorySlug}, score ${template.qualityScore}): ${strengths}`
         : `${template.title} (${template.categorySlug}, score ${template.qualityScore})`;

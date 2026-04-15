@@ -85,7 +85,8 @@ export type StartPreviewSessionOptions = {
   /**
    * Skip `buildCompleteProject` scaffold merge entirely. Used for repo imports (v0 templates)
    * where the zip already contains a complete project with its own package.json, tsconfig,
-   * next.config, etc. Avoids overwriting the project's own dependency tree.
+   * next.config, etc. Also used when files come from finalize-preflight persistence, where
+   * the stored `files_json` is already scaffold-merged/repaired.
    */
   skipProjectScaffold?: boolean;
 };
@@ -95,7 +96,7 @@ export type StartPreviewSessionOptions = {
  *
  * Ordning: (1) återanvänd befintlig VM om session matchar chat+version — **utan** att bygga projekt på nytt;
  * (2) valfritt `repairGeneratedFiles` om inte `skipRepair`; (3) `buildCompleteProject` + `.env.local`
- * (skippas med `skipProjectScaffold` för repo-importer);
+ * (skippas med `skipProjectScaffold` för repo-importer/finalize-preflightade filer);
  * (4) preview-host/Fly bootar projektet med `npm install` + `npm run dev`.
  *
  * **Paritet:** `skipRepair: true` när underlaget redan är finalize-preflightat (`filesJson`), t.ex. own-engine-ström och API mot DB.

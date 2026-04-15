@@ -171,6 +171,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         verificationPolicy,
         versionIdForSession: versionRow.id,
         skipRepair: true,
+        // DB files are finalize-preflighted and include scaffold baseline.
+        skipProjectScaffold: true,
       });
 
       if (!started.ok) {

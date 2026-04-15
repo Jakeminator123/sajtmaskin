@@ -39,8 +39,33 @@ export function usePreviewPanelPreviewRoutes(
   }, [chatId, versionId]);
 
   useEffect(() => {
-    void fetchPreviewRoutes();
-  }, [fetchPreviewRoutes]);
+    let isActive = true;
+
+    const load = async () => {
+      if (!chatId || !versionId) {
+        setPreviewRoutes([]);
+        return;
+      }
+      setPreviewRoutesLoading(true);
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, versionId);
+        if (!isActive) return;
+        if (!response.ok) {
+          setPreviewRoutes([]);
+          return;
+        }
+        const fileNames = Array.isArray(data?.files) ? data.files.map((file) => file.name) : [];
+        setPreviewRoutes(extractPreviewRoutesFromFileNames(fileNames));
+      } catch {
+        if (isActive) setPreviewRoutes([]);
+      } finally {
+        if (isActive) setPreviewRoutesLoading(false);
+      }
+    };
+
+    void load();
+    return () => { isActive = false; };
+  }, [chatId, versionId]);
 
   return { previewRoutes, previewRoutesLoading, fetchPreviewRoutes };
 }

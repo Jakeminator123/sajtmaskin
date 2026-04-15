@@ -90,10 +90,10 @@ export function useCreateChat(
 
   const createNewChat = useCallback(
     async (initialMessage: string, options: MessageOptions = {}, systemPromptOverride?: string) => {
-      if (isCreatingChat || createChatInFlightRef.current) return;
+      if (isCreatingChat || createChatInFlightRef.current) return false;
       if (!initialMessage?.trim()) {
         toast.error("Please enter a message to start a new chat");
-        return;
+        return false;
       }
 
       const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
@@ -133,7 +133,7 @@ export function useCreateChat(
         } else {
           toast("En skapning med samma prompt pågår redan. Vänta en stund och försök igen.");
         }
-        return;
+        return false;
       }
 
       pendingCreateKeyRef.current = createKey;
@@ -324,6 +324,7 @@ export function useCreateChat(
             preflight,
             assistantMessageId,
             setMessages,
+            mutateVersions,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
           });
         }
@@ -474,10 +475,14 @@ export function useCreateChat(
           const data = await response.json();
           await handleNonStreamingCreate(data);
         }
+        // Brief consumed by server — clear only on success so retries can reuse it.
+        if (pendingBriefRef?.current) {
+          pendingBriefRef.current = null;
+        }
       } catch (error) {
         if (isAbortLikeError(error)) {
           debugLog("AI", "Create chat stream aborted");
-          return;
+          return true;
         }
 
         let finalError = error;
@@ -507,11 +512,11 @@ export function useCreateChat(
             }
             const data = await fallbackRes.json();
             await handleNonStreamingCreate(data);
-            return;
+            return true;
           } catch (fallbackErr) {
             if (isAbortLikeError(fallbackErr)) {
               debugLog("AI", "Create chat fallback aborted");
-              return;
+              return true;
             }
             finalError = fallbackErr;
           }
@@ -538,14 +543,11 @@ export function useCreateChat(
         clearCreateChatLock();
         createChatInFlightRef.current = false;
         setIsCreatingChat(false);
-        // Brief was consumed by init — clear so follow-ups don't re-send it.
-        if (pendingBriefRef?.current) {
-          pendingBriefRef.current = null;
-        }
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
       }
+      return true;
     },
     [
       isCreatingChat,

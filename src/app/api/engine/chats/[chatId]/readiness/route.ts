@@ -78,6 +78,18 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
     };
   }
 
+  if (status === "repair_available") {
+    return {
+      id: "version-repair-available",
+      title: "En serverreparation väntar på godkännande.",
+      detail:
+        summary ||
+        "Acceptera reparationen i versionspanelen för att applicera fixen innan publicering.",
+      severity: "blocker",
+      action: "versions",
+    };
+  }
+
   if (status === "failed") {
     return {
       id: "version-failed",

@@ -161,6 +161,19 @@ export async function searchScaffoldsWithDiagnostics(
       input: expandQuery(query),
       dimensions: SCAFFOLD_EMBEDDING_DIMENSIONS,
     }, embeddingSignal ? { signal: embeddingSignal } : undefined);
+    if (!response.data?.[0]?.embedding) {
+      return {
+        results: [],
+        diagnostics: {
+          attempted: true,
+          available: false,
+          failed: true,
+          unavailableReason: "request_failed",
+          errorMessage: "Embedding API returned empty data",
+          durationMs: Date.now() - embeddingStartedAt,
+        },
+      };
+    }
     queryEmbedding = response.data[0].embedding;
     console.info("[scaffold-search] Embedding query completed", {
       durationMs: Date.now() - embeddingStartedAt,
@@ -202,14 +215,16 @@ export async function searchScaffoldsWithDiagnostics(
     if (scaffold) results.push({ scaffold, score });
   }
 
+  const unmappedIds = scored.length > 0 && results.length === 0;
+
   return {
     results,
     diagnostics: {
       attempted: true,
-      available: true,
+      available: !unmappedIds,
       failed: false,
-      unavailableReason: null,
-      errorMessage: null,
+      unavailableReason: unmappedIds ? "missing_embeddings" : null,
+      errorMessage: unmappedIds ? "All scored IDs missing from scaffold registry" : null,
       durationMs: Date.now() - embeddingStartedAt,
     },
   };

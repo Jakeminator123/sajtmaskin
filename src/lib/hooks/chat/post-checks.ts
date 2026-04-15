@@ -20,6 +20,7 @@ import {
   appendPostCheckSummaryToMessage,
   buildPostCheckSummary,
 } from "./post-checks-summary";
+import { toast } from "sonner";
 import type {
   AutoFixPayload,
   RepairContext,
@@ -131,6 +132,7 @@ export async function runPostGenerationChecks(params: {
   assistantMessageId: string;
   setMessages: SetMessages;
   streamQuality?: StreamQualitySignal;
+  mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
 }) {
   const {
@@ -141,6 +143,7 @@ export async function runPostGenerationChecks(params: {
     assistantMessageId,
     setMessages,
     streamQuality,
+    mutateVersions,
     onAutoFix,
   } = params;
   const toolCallId = `post-check:${versionId}`;
@@ -246,6 +249,7 @@ export async function runPostGenerationChecks(params: {
         versionId,
         assistantMessageId,
         setMessages,
+        mutateVersions,
         onAutoFix,
       });
     } else {
@@ -322,9 +326,10 @@ async function runTier2VerifyLane(params: {
   versionId: string;
   assistantMessageId: string;
   setMessages: SetMessages;
+  mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
 }) {
-  const { chatId, versionId, assistantMessageId, setMessages, onAutoFix } = params;
+  const { chatId, versionId, assistantMessageId, setMessages, mutateVersions, onAutoFix } = params;
   const toolCallId = `quality-gate:${versionId}`;
 
   appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -446,7 +451,14 @@ async function runTier2VerifyLane(params: {
       if (handled) return;
 
       await handleRepairOrAutofix({
-        chatId, versionId, data, failedChecks, setMessages, assistantMessageId, onAutoFix,
+        chatId,
+        versionId,
+        data,
+        failedChecks,
+        setMessages,
+        assistantMessageId,
+        mutateVersions,
+        onAutoFix,
       });
     } else if (data.passed && visualQa && !visualQa.passed && onAutoFix) {
       handleVisualQaAutofix({ chatId, versionId, visualQa, onAutoFix });
@@ -502,9 +514,19 @@ async function handleRepairOrAutofix(params: {
   failedChecks: string[];
   setMessages: SetMessages;
   assistantMessageId: string;
+  mutateVersions?: () => void;
   onAutoFix?: (payload: AutoFixPayload) => void;
 }) {
-  const { chatId, versionId, data, failedChecks, setMessages, assistantMessageId, onAutoFix } = params;
+  const {
+    chatId,
+    versionId,
+    data,
+    failedChecks,
+    setMessages,
+    assistantMessageId,
+    mutateVersions,
+    onAutoFix,
+  } = params;
 
   const repair: RepairContext = {
     qualityGate: (data.checks ?? [])
@@ -532,7 +554,8 @@ async function handleRepairOrAutofix(params: {
     state: "output-available",
     output: {
       repaired: serverRepaired.repaired,
-      method: serverRepaired.status === "completed"
+      method:
+        serverRepaired.status === "completed" || serverRepaired.status === "repair_available"
         ? serverRepaired.deterministic
           ? "deterministic"
           : "llm"
@@ -545,6 +568,13 @@ async function handleRepairOrAutofix(params: {
       reason: serverRepaired.reason ?? null,
     },
   } as UiMessagePart);
+
+  if (serverRepaired.repaired && serverRepaired.status === "repair_available") {
+    mutateVersions?.();
+    toast.message("Serverreparation tillganglig", {
+      description: "Acceptera reparationen i versionspanelen for att applicera fixen.",
+    });
+  }
 
   if (!serverRepaired.repaired) {
     onAutoFix?.({
@@ -593,7 +623,7 @@ type ServerRepairResult = {
   remainingErrors?: number;
   improvedSyntax?: boolean;
   earlyStopReason?: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null;
-  status?: "completed" | "skipped" | "request_failed";
+  status?: "completed" | "repair_available" | "skipped" | "request_failed";
   reason?: string | null;
 };
 

@@ -30,10 +30,12 @@ CREATE TABLE IF NOT EXISTS versions (
   message_id TEXT REFERENCES messages(id),
   version_number INTEGER NOT NULL,
   files_json TEXT NOT NULL,
+  repaired_files_json TEXT,
   preview_url TEXT,
   release_state TEXT NOT NULL DEFAULT 'draft',
   verification_state TEXT NOT NULL DEFAULT 'pending',
   verification_summary TEXT,
+  repair_available_at TEXT,
   promoted_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

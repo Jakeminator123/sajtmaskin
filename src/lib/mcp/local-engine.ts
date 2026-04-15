@@ -132,6 +132,7 @@ export async function createLocalGeneratedRuntime(
       appProjectId: projectId,
       versionIdForSession: resolvedVersionId,
       skipRepair: true,
+      skipProjectScaffold: true,
     },
   );
   if (!started.ok) {

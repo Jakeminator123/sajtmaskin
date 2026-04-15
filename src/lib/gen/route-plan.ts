@@ -484,6 +484,19 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Ensure a root route exists even when brief pages didn't map to `/`.
+  // A multi-page site without `/` leads to broken IA and missing homepage.
+  if (!useFollowUpFreeze && !routes.some((r) => normalizeRoutePath(r.path) === "/")) {
+    pushRoute(routes, {
+      path: "/",
+      name: buildIntent === "app" ? "Dashboard" : "Home",
+      intent: buildIntent === "app"
+        ? "Use the root route as the main product workspace or dashboard."
+        : "Use the root route for the primary landing page or homepage.",
+      required: true,
+    });
+  }
+
   if (useFollowUpFreeze && explicitRouteRemovals.size > 0) {
     for (let i = routes.length - 1; i >= 0; i -= 1) {
       const normalizedPath = normalizeRoutePath(routes[i]!.path);

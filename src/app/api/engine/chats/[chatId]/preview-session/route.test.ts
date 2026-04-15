@@ -164,6 +164,7 @@ describe("POST preview-session (engine)", () => {
         verificationPolicy: "standard",
         versionIdForSession: "ver_1",
         skipRepair: true,
+        skipProjectScaffold: true,
       }),
     );
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example/chat_1");

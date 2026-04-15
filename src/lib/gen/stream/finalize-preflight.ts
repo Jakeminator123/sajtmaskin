@@ -587,6 +587,10 @@ export async function runFinalizePreflight({
     const completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(cleanedFiles, collectRequiredUiComponents(cleanedFiles)),
     ).files;
+    // Canonical persistence payload after finalize-preflight:
+    // store the complete scaffold-merged + repaired project so downstream
+    // preview/bootstrap does not need to rebuild it again.
+    nextFilesJson = JSON.stringify(completeProjectFiles);
     preflightFileCount = completeProjectFiles.length;
     preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));
     const sanity = runProjectSanityChecks(completeProjectFiles);

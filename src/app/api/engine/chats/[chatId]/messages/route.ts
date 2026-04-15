@@ -20,6 +20,10 @@ type DonePayload = {
   demoUrl?: string | null;
   previewPending?: boolean;
   sandboxPending?: boolean;
+  releaseState?: string | null;
+  verificationState?: string | null;
+  verificationSummary?: string | null;
+  promotedAt?: string | null;
   preflight?: unknown;
   previewBlocked?: boolean;
   verificationBlocked?: boolean;
@@ -170,10 +174,25 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
     hasPreviewReadyEvent: Boolean(previewReadyEvent),
     hasBuildErrorEvent: Boolean(buildErrorEvent),
   });
-  const verificationState = done.verificationBlocked === true ? "failed" : "pending";
+  const verificationState =
+    typeof done.verificationState === "string" && done.verificationState.trim().length > 0
+      ? done.verificationState.trim()
+      : done.verificationBlocked === true
+        ? "failed"
+        : "pending";
   const verificationSummary =
-    typeof done.previewBlockingReason === "string" && done.previewBlockingReason.trim()
-      ? done.previewBlockingReason.trim()
+    typeof done.verificationSummary === "string" && done.verificationSummary.trim().length > 0
+      ? done.verificationSummary.trim()
+      : typeof done.previewBlockingReason === "string" && done.previewBlockingReason.trim()
+        ? done.previewBlockingReason.trim()
+        : null;
+  const releaseState =
+    typeof done.releaseState === "string" && done.releaseState.trim().length > 0
+      ? done.releaseState.trim()
+      : null;
+  const promotedAt =
+    typeof done.promotedAt === "string" && done.promotedAt.trim().length > 0
+      ? done.promotedAt.trim()
       : null;
   const assistantText = content || null;
   const awaitingInputPrompt =
@@ -204,10 +223,10 @@ function buildSyncPayload(chatId: string, events: SseEvent[]) {
         messageId,
         previewResolved,
         previewPending,
-        releaseState: null,
+        releaseState,
         verificationState,
         verificationSummary,
-        promotedAt: null,
+        promotedAt,
       }),
     },
   };

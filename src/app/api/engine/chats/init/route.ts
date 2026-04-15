@@ -499,6 +499,8 @@ export async function POST(req: Request) {
         appProjectId: project.id,
         versionIdForSession: version.id,
         skipRepair: true,
+        // Imported project is already complete (zip source) and should not be scaffold-merged.
+        skipProjectScaffold: true,
       });
       if (!previewSessionStarted.ok) {
         throw new Error(
