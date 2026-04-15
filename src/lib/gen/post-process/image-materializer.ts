@@ -25,12 +25,27 @@ interface UnsplashSearchHit {
   downloadLocation: string | null;
 }
 
+export type UnsplashSearchFailReason =
+  | "empty_query"
+  | "missing_key"
+  | "no_results"
+  | "invalid_key_or_unauthorized"
+  | "rate_limited"
+  | "network_or_provider_error"
+  | "timeout";
+
+interface UnsplashSearchResult {
+  hit: UnsplashSearchHit | null;
+  failReason?: UnsplashSearchFailReason;
+}
+
 async function searchUnsplash(
   query: string,
   accessKey: string,
   orientation: "landscape" | "portrait" | "squarish" = "landscape",
-): Promise<UnsplashSearchHit | null> {
-  if (!query.trim() || !accessKey) return null;
+): Promise<UnsplashSearchResult> {
+  if (!query.trim()) return { hit: null, failReason: "empty_query" };
+  if (!accessKey) return { hit: null, failReason: "missing_key" };
   try {
     const res = await fetch(
       `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=${orientation}`,
@@ -42,7 +57,13 @@ async function searchUnsplash(
         signal: AbortSignal.timeout(8_000),
       },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403)
+        return { hit: null, failReason: "invalid_key_or_unauthorized" };
+      if (res.status === 429)
+        return { hit: null, failReason: "rate_limited" };
+      return { hit: null, failReason: "network_or_provider_error" };
+    }
     const data = (await res.json()) as {
       results?: Array<{
         urls: { raw: string };
@@ -51,13 +72,17 @@ async function searchUnsplash(
       }>;
     };
     const photo = data.results?.[0];
-    if (!photo?.urls?.raw) return null;
+    if (!photo?.urls?.raw) return { hit: null, failReason: "no_results" };
     return {
-      rawUrl: photo.urls.raw,
-      downloadLocation: photo.links?.download_location ?? null,
+      hit: {
+        rawUrl: photo.urls.raw,
+        downloadLocation: photo.links?.download_location ?? null,
+      },
     };
-  } catch {
-    return null;
+  } catch (err) {
+    const isTimeout =
+      err instanceof DOMException && err.name === "AbortError";
+    return { hit: null, failReason: isTimeout ? "timeout" : "network_or_provider_error" };
   }
 }
 
@@ -223,6 +248,8 @@ export async function materializeImages(
     uniqueMatches.push({ cacheKey, match });
   }
 
+  const failReasons = new Map<UnsplashSearchFailReason, number>();
+
   await mapWithConcurrency(
     uniqueMatches,
     IMAGE_MATERIALIZATION_CONCURRENCY,
@@ -232,18 +259,35 @@ export async function materializeImages(
 
       const orientation = chooseUnsplashOrientation(match.width, match.height);
       const candidates = buildUnsplashSearchCandidates(match.text);
+      let lastFailReason: UnsplashSearchFailReason | undefined;
+
       for (const candidate of candidates) {
-        const hit = await searchUnsplash(candidate, accessKey, orientation);
-        if (!hit) continue;
+        const result = await searchUnsplash(candidate, accessKey, orientation);
+
+        if (result.failReason === "invalid_key_or_unauthorized" || result.failReason === "rate_limited") {
+          lastFailReason = result.failReason;
+          warnLog("images", `Unsplash ${result.failReason} for query "${candidate}" — aborting remaining candidates`);
+          break;
+        }
+
+        if (!result.hit) {
+          lastFailReason = result.failReason;
+          continue;
+        }
+
         resolution = {
-          url: buildUnsplashUrl(hit.rawUrl, match.width, match.height),
+          url: buildUnsplashUrl(result.hit.rawUrl, match.width, match.height),
           queryUsed: candidate,
         };
         seen.set(cacheKey, resolution);
-        if (hit.downloadLocation) {
-          trackUnsplashDownload(hit.downloadLocation, accessKey);
+        if (result.hit.downloadLocation) {
+          trackUnsplashDownload(result.hit.downloadLocation, accessKey);
         }
         return resolution;
+      }
+
+      if (lastFailReason) {
+        failReasons.set(lastFailReason, (failReasons.get(lastFailReason) ?? 0) + 1);
       }
 
       resolution = {
@@ -253,11 +297,19 @@ export async function materializeImages(
       seen.set(cacheKey, resolution);
       warnLog("images", "Unsplash miss, using fallback", {
         originalQuery: match.text,
+        reason: lastFailReason ?? "all_candidates_exhausted",
         fallbackUrl: resolution.url,
       });
       return resolution;
     },
   );
+
+  if (failReasons.size > 0) {
+    const summary = Array.from(failReasons.entries())
+      .map(([reason, count]) => `${reason}=${count}`)
+      .join(", ");
+    warnLog("images", `Materialization issues: ${summary}`);
+  }
 
   let replaced = 0;
   const queries: string[] = [];

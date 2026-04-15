@@ -11,6 +11,7 @@ Flyttad från `halvfärdiga_filer/` (2026-04-15). Detta är den enda checklistan
 - [ ] shadcn Nivå 3: `registry:font` för fonthantering
 - [ ] Scaffold-specifik toolkit-lista per scaffold
 - [ ] Komponentpool per scaffold
+- [ ] Cart-provider cross-file-kedja: LLM missar konsekvent `<CartProvider>` i root layout + `useCart`/`StoreProduct`-imports
 - [ ] Nya scaffolds: AI-chat, docs-site, realtime-app
 - [ ] Template guidance v1.75 (selectedFiles-excerpts)
 - [ ] Template guidance v2 (global template-library search i runtime)

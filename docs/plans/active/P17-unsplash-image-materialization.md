@@ -1,8 +1,8 @@
 # P17 — Unsplash image materialization stabilization
 
-Status: Active
+Status: Steg 1–3 implementerade, steg 4 verifierat med tester
 Skapad: 2026-04-15
-Prioritet: Hög
+Prioritet: Hög (diagnostik klar — återstår end-to-end repro med riktig env)
 
 ## Problem
 

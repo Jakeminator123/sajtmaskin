@@ -124,4 +124,54 @@ describe("materializeImages", () => {
     );
     expect(searchCalls).toHaveLength(3);
   });
+
+  it("uses fallback image and reports reason on 401 (invalid key)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("Unauthorized", { status: 401 })),
+    );
+
+    const content =
+      '<img src="/placeholder.svg?width=800&height=600&text=hero+banner" />';
+
+    const result = await materializeImages(content, { maxReplacements: 1 });
+
+    expect(result.replacedCount).toBe(1);
+    expect(result.content).toContain("images.unsplash.com/photo-");
+    expect(result.content).not.toContain("placeholder.svg");
+  });
+
+  it("uses fallback image and reports reason on 429 (rate limited)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("Too Many Requests", { status: 429 })),
+    );
+
+    const content =
+      '<img src="/placeholder.svg?width=400&height=400&text=product+shot" />';
+
+    const result = await materializeImages(content, { maxReplacements: 1 });
+
+    expect(result.replacedCount).toBe(1);
+    expect(result.content).toContain("images.unsplash.com/photo-");
+    expect(result.content).not.toContain("placeholder.svg");
+  });
+
+  it("uses fallback image on network error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("Network failure");
+      }),
+    );
+
+    const content =
+      '<img src="/placeholder.svg?width=800&height=600&text=landscape+photo" />';
+
+    const result = await materializeImages(content, { maxReplacements: 1 });
+
+    expect(result.replacedCount).toBe(1);
+    expect(result.content).toContain("images.unsplash.com/photo-");
+    expect(result.content).not.toContain("placeholder.svg");
+  });
 });
