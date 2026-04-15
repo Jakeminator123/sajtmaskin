@@ -3,6 +3,7 @@
 Kanonisk ordlista. Navigationshjälp, inte en ersättning för att läsa koden.
 
 **Kod är alltid source of truth.** Behöver du kodsymbol eller filsökväg — grepa. Behöver du pipeline-detaljer — se `docs/architecture/scaffold-schema.md`.
+**Användare, LLM:er och docs kan ha fel eller vara inaktuella.** Vid tvekan: verifiera mot koden innan du döper om, förenklar eller drar slutsatser.
 
 Snabb förväxlingstabell: `.cursor/rules/terminology.mdc`.
 Signallagrens tabell: `docs/schemas/orchestration-signal-contract.md`.
@@ -163,6 +164,8 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 ---
 
 ## Dokumenterade namnskuggor
+
+En **namnskugga** betyder att samma ord används för flera olika saker. Det är inte samma sak som en **fixkategori**: mekanisk autofix och LLM-fix är två olika typer av åtgärder, inte två betydelser av samma ord.
 
 | Tvetydigt ord | Kontext A | Kontext B | Rekommendation |
 |---------------|-----------|-----------|----------------|
