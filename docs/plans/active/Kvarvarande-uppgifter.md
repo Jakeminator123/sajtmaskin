@@ -1,38 +1,41 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Flyttad från `halvfärdiga_filer/` (2026-04-15). Detta är den enda checklistan för öppna spår som inte redan har en dedikerad P-fil.
-
+Flyttad från `halvfärdiga_filer/` (2026-04-15). Uppdaterad 2026-04-15 efter genomgång.
 **Smala spår med egen fil:** se `README.md` i denna mapp (P17–P20).
 
 ## Planerade förbättringar (kräver kodarbete)
 
-- [ ] Keyword taxonomy consolidation (6-stegsplan, centralisera keywords till `config/keyword-taxonomy.json`)
-- [ ] shadcn Nivå 2: Blocks-metadata som section recipes
-- [ ] shadcn Nivå 3: `registry:font` för fonthantering
-- [ ] Scaffold-specifik toolkit-lista per scaffold
-- [ ] Komponentpool per scaffold
-- [ ] Cart-provider cross-file-kedja: LLM missar konsekvent `<CartProvider>` i root layout + `useCart`/`StoreProduct`-imports
-- [ ] Nya scaffolds: AI-chat, docs-site, realtime-app
-- [ ] Template guidance v1.75 (selectedFiles-excerpts)
-- [ ] Template guidance v2 (global template-library search i runtime)
+- [ ] shadcn Nivå 2: Blocks-metadata som section recipes — upstream stöder `registry:block` med `registryDependencies` och `target`-fält; undersök om blocks kan bli det "smartare lagret" för sektionsval i generatorn (se P20)
+- [ ] shadcn Nivå 3: `registry:font` för fonthantering — upstream har nu `registry:font` med `font.family`, `font.variable`, `font.selector`, `font.dependency`; borde konsolideras med nuvarande fontlogik (variant `fontPairings` + CSS-variabler)
+- [ ] Scaffold-specifik toolkit-lista per scaffold — embryo finns i `config/scaffold-variants/` (21 variantfiler med `sourceTemplateIds`, `styleRules`, `sectionInventory`); nästa steg: begränsa *vilka UI-komponenter* som är giltiga per scaffold
+- [ ] Komponentpool per scaffold — hänger ihop med punkten ovan; `## Your Toolkit` i prompten är idag globalt, inte scaffold-filtrerat
 
 ## Uppskjutet (inget blockerar)
 
 - [ ] Konsolidera dashboards (stor Python-refaktor)
 - [ ] Template-library pipeline: hydrate repo-cache
 - [ ] Dossier-manifests: `recommendedScaffoldFamilies` -> `recommendedScaffoldIds`
-- [ ] `searchTemplateLibrary()` exporterad men oanvänd i runtime
 - [ ] `BUILD_INTENT_GUIDANCE` dubblett
 - [ ] Fallback-guidance (MOTION/VISUAL/QUALITY) i `promptAssist.ts`
 - [ ] Automatisk baseline-uppdatering (CI/script)
 
 ## Operativt / miljö
 
-(Uppföljning med scope och hypoteser: **P18** för WSS/hydration, **P17** för Unsplash/materialisering.)
+(Se dedikerade P-filer: **P17** för Unsplash-diagnostik, **P18** för hydration-varning.)
 
-- [ ] WSS/HMR till Fly: WebSocket-proxy tappar connection
-- [ ] Hydration error overlay på landningssidan
-- [ ] Utred varför bildmaterialisering fortfarande fallerar trots satt `UNSPLASH_ACCESS_KEY`
+- [x] ~~WSS/HMR till Fly~~ — löst (Fly-proxyn stabil)
+- [ ] Hydration-varning på landningssidan — troligen relaterad till 3D-bibliotek (Three.js/liknande); se P18
+- [x] ~~Utred Unsplash-materialisering~~ — felklassning implementerad i P17 (`e75325c9d`)
+
+## Borttaget (efter genomgång)
+
+Följande togs bort medvetet:
+- ~~Keyword taxonomy consolidation~~ — keywords kan komma att fasas ut helt
+- ~~Cart-provider cross-file-kedja~~ — låg prioritet, möjligen redan löst
+- ~~Nya scaffolds (AI-chat, docs-site, realtime-app)~~ — inte aktuellt nu
+- ~~Template guidance v1.75 (selectedFiles-excerpts)~~ — stryks
+- ~~Template guidance v2 (global template-library search)~~ — principen: `searchTemplateLibrary()` finns men är oanvänd i runtime; v2 = koppla den till orchestration så att prompt+brief driver sökning mot hela template-library (semantisk + keyword), top-K träffar → guidance. Stryks som task men konceptet dokumenteras
+- ~~`searchTemplateLibrary()` exporterad men oanvänd~~ — ingår i resonemanget ovan
 
 ## Noterat (inte uppgifter)
 
