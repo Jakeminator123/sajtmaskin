@@ -43,11 +43,11 @@ describe("resolvePhaseModel", () => {
   });
 
   it("uses full tier for planner/generator/fixer on codex; verifier/deploy on gpt-5.3-codex", () => {
-    expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.3-codex-max");
+    expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
-      "gpt-5.3-codex-max",
+      "gpt-5.3-codex",
     );
-    expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-5.3-codex-max");
+    expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("codex", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
   });
@@ -69,7 +69,7 @@ describe("resolvePhaseModel", () => {
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.4");
     expect(resolvePhaseModel("codex", "generator").modelId).toBe(
-      "gpt-5.3-codex-max",
+      "gpt-5.3-codex",
     );
     expect(resolvePhaseModel("anthropic", "generator").modelId).toBe(
       "claude-sonnet-4.6",

@@ -38,7 +38,7 @@ med meny, boka bord och om oss"
 Inställningar i UI:
 ├── Byggmodell: pro (gpt-5.3-codex)
 ├── Promptverktyg: openai/gpt-5.4
-└── Djup brief: ✅ (default on)
+└── Djup/-Deep brief: ✅ (default on)
 ```
 
 Knappen triggar `requestCreateChat()` i `useBuilderPromptActions.ts`.
