@@ -13,8 +13,8 @@ Flyttad från `halvfärdiga_filer/` (2026-04-15). Uppdaterad 2026-04-15 efter ge
 ## Uppskjutet (inget blockerar)
 
 - [ ] Konsolidera dashboards (stor Python-refaktor)
-- [ ] Template-library pipeline: hydrate repo-cache
-- [ ] Dossier-manifests: `recommendedScaffoldFamilies` -> `recommendedScaffoldIds`
+- [x] Template-library pipeline: hydrate repo-cache
+- [x] Dossier-manifests: `recommendedScaffoldFamilies` -> `recommendedScaffoldIds`
 - [ ] `BUILD_INTENT_GUIDANCE` dubblett
 - [ ] Fallback-guidance (MOTION/VISUAL/QUALITY) i `promptAssist.ts`
 - [ ] Automatisk baseline-uppdatering (CI/script)
