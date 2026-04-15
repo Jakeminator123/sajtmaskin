@@ -169,7 +169,7 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Install Cache Share (`install-cache-share`) | Verify-lane signal om `node_modules` delning via dependency fingerprint | kanonisk |
 | Install Peer Fallback (`install-peer-fallback`) | Verify-lane signal om peer-konflikt och fallback-install med `--legacy-peer-deps` | kanonisk |
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
-| Engine Version Lifecycle | `draft`, `verifying`, `repairing`, `failed`, `promoted` | kanonisk |
+| Engine Version Lifecycle | `draft`, `verifying`, `repairing`, `repair_available`, `failed`, `promoted` | kanonisk |
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
 | ~~PostChecksAndQualityGate~~ | Sammansatt docs-term | **döda** |
 
