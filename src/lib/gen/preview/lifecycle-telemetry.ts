@@ -67,51 +67,19 @@ export type PreviewLifecycleTelemetryEvent =
     };
 
 const PREFIX = "[telemetry:preview-lifecycle]";
-type DevLogModule = typeof import("@/lib/logging/devLog");
-let cachedDevLogModule: DevLogModule | null | undefined;
-let devLogModulePromise: Promise<DevLogModule | null> | null = null;
 
-async function getDevLogModule(): Promise<DevLogModule | null> {
-  if (cachedDevLogModule !== undefined) {
-    return cachedDevLogModule;
-  }
-  if (!devLogModulePromise) {
-    devLogModulePromise = import("@/lib/logging/devLog")
-      .then((mod) => {
-        cachedDevLogModule = mod;
-        return mod;
-      })
-      .catch(() => {
-        cachedDevLogModule = null;
-        return null;
-      })
-      .finally(() => {
-        devLogModulePromise = null;
-      });
-  }
-  return devLogModulePromise;
-}
-
+/**
+ * Log a preview lifecycle event to `console.info`.
+ *
+ * This module is imported by client components (`usePreviewSession`), so it
+ * must NOT reference server-only modules like `devLog` (which imports
+ * `node:fs`).  Turbopack resolves dynamic `import()` paths statically and
+ * would pull `node:fs` into the client chunk, crashing the build.
+ *
+ * All events are written to structured console output with the
+ * `[telemetry:preview-lifecycle]` prefix so they remain queryable in
+ * server logs without a file-system dependency.
+ */
 export function logPreviewLifecycleTelemetry(event: PreviewLifecycleTelemetryEvent): void {
   console.info(PREFIX, JSON.stringify(event));
-  if (event.kind === "heartbeat" || event.kind === "preview_status") {
-    return;
-  }
-  if (typeof window === "undefined") {
-    void getDevLogModule()
-      .then((devLogModule) => {
-        if (!devLogModule) return;
-        try {
-          devLogModule.devLogAppend("latest", {
-            type: `preview-lifecycle.${event.kind}`,
-            ...event,
-          });
-        } catch {
-          /* ignore */
-        }
-      })
-      .catch(() => {
-        /* ignore */
-      });
-  }
 }
