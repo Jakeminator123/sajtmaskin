@@ -19,6 +19,10 @@ från `done`-eventet till att användaren ser en levande sajt i iframen.
 | **`previewPending`** | Boolean state: "preview håller på att starta" | Förväxlas med "laddning" — det är en signal från servern, inte ett UI-state |
 | **Quality gate** | typecheck/lint/build i preview-hostens **verify-lane** (separat från live-preview) | Förväxlas med verifier-pass (Fas 2) — quality gate kör i VM, verifier kör i finalize |
 | **Server-verify** | Bakgrunds-verifiering + ev. repair efter finalize. Blockerar inte `done`. | — |
+| **`repair_available`** | Verify/repair passerade men fixen väntar på accept | Förväxlas med `promoted` — filer är ännu inte applicerade i `files_json` |
+| **`version-repair-available`** | SSE-event när serverrepair finns tillgänglig för accept | Ersätter antagandet att reparerad kod appliceras automatiskt |
+| **`accept-repair`** | API-route som applicerar staged serverrepair | Ska användas på senaste versionen, annars 409 |
+| **`repairAcceptTimeoutMinutes`** | Manifeststyrd timeout för auto-accept av pending repair | Inte en quality-gate-check i sig, utan livscykelregel |
 | **Repair loop** | Automatisk reparation: autofix → LLM-fixer → quality gate → promote/fail | — |
 | **Bootstrap** | Klient-side POST till `/preview-session` för att starta/återanvända VM | — |
 | **Hibernate** | VM pausas vid `pagehide` eller dold flik, kan återupptas | — |
@@ -177,8 +181,10 @@ Verify-kedjan:
 │       │   ├── timeout: 60s per LLM-anrop
 │       │   ├── bestContent-rollback vid regression
 │       │   └── ge upp vid: noop, no_improvement, timeout
-│       ├── Om reparerad → updateFilesAndPromote()
-│       │   └── Tidigare version markeras "superseded"
+│       ├── Om reparerad + quality gate pass:
+│       │   ├── saveRepairedFiles() -> verificationState=repair_available
+│       │   ├── SSE: version-repair-available
+│       │   └── Väntar på accept-repair (eller timeout auto-accept)
 │       └── Om misslyckad → failVersionVerification()
 ```
 
@@ -231,6 +237,11 @@ useBuilderVmPreview.ts:
 │ men ändå faila verify.                       │
 └──────────────────────────────────────────────┘
 ```
+
+Verify-resultat kan ocksa innehalla:
+
+- `install-cache-share`: node_modules delades fran live workspace
+- `install-peer-fallback`: peer-konflikt upptacktes och fallback-install anvandes
 
 ---
 
@@ -306,8 +317,9 @@ Användaren måste aktivt välja att deploya.
 | Scenario | Vad som händer | Var |
 |----------|----------------|-----|
 | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` saknas | 503 `preview_session_disabled` | preview-session route |
-| VM npm install misslyckas (peer deps) | `build-error` i SSE, preview startar inte | preview-host |
+| Verify lane far peer-konflikt vid install | `install-peer-fallback` loggas; fail endast om fallback ocksa misslyckas | preview-host verify |
 | "Laddar preview..." fastnar | `previewPending` state inte clearad (källa 3 vs 2 race) | stream-handlers + useCreateChat |
 | Version failer verify men live i iframe | Normalt — verify-lane är separat från dev-preview | server-verify |
+| Version i `repair_available` | Repair finns staged men inte applicerad innan accept-repair/timeout | versions + readiness |
 | Preview-URL nollställs trots att VM lever | `preview-destroy` anropat, eller version fick `failVersionVerification` | preview-session route |
 | Retry-loop vid 503/504 | Klient väntar `Retry-After` (5s), max 4 försök | useBuilderVmPreview |

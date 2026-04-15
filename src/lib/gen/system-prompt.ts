@@ -411,7 +411,7 @@ export function buildDynamicContext(
     parts.push(
       "## Generation Mode: Follow-Up",
       "",
-      "You are editing/refining the current project state from previous generations. Treat the scaffold, brief, route plan, and continuity signals below as the latest known implementation context. Apply only the user's requested changes unless they clearly ask for a redesign.",
+      "You are editing/refining the current project state from previous generations. Treat the scaffold, route plan, project context, and continuity signals below as the latest known implementation context. Apply only the user's requested changes unless they clearly ask for a redesign.",
       "",
     );
   }

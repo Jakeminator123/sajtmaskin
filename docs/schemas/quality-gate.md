@@ -12,9 +12,13 @@ Primära kodkällor:
 - `src/lib/gen/verify/preview-quality-gate.ts`
 - `src/lib/gen/verify/server-verify.ts`
 - `src/lib/gen/verify/repair-loop.ts`
+- `src/lib/db/chat-repository-pg.ts`
 - `src/lib/gen/stream/post-finalize-policies.ts`
 - `src/app/api/engine/chats/[chatId]/quality-gate/route.ts`
 - `src/app/api/engine/chats/[chatId]/repair/route.ts`
+- `src/app/api/engine/chats/[chatId]/accept-repair/route.ts`
+- `src/lib/gen/stream/builder-stream-contract.ts`
+- `preview-host/src/runtime.js`
 
 Närliggande docs:
 
@@ -61,6 +65,13 @@ Quality gate använder dessa check-id:n:
 | `build` | `npx next build` |
 
 Definitioner finns i `src/lib/gen/verify/quality-gate-checks.ts`.
+
+Verify-lane kan också returnera informativa install-signaler i `results[]`:
+
+| Check | Meaning |
+|------|----------|
+| `install-cache-share` | Verify workspace återanvände (eller försökte återanvända) `node_modules` från live workspace via fingerprint-match |
+| `install-peer-fallback` | Peer-konflikt upptäcktes och fallback med `--legacy-peer-deps` användes |
 
 ## Standardprofiler
 
@@ -116,12 +127,50 @@ den också som exakt felkälla för repair-lanen:
    både `server-verify` och manuell `/repair`
 4. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
    LLM-fixern när felmängden är lokal
-5. quality gate re-körs för att avgöra om versionen kan promotas
+5. quality gate re-körs för att avgöra om reparerad version blir `repair_available`
 
 Det betyder att quality gate i nuläget är både:
 
 - verifieringslager
 - källa till repair-kontext
+
+## Repair-accept (ingen tyst filersättning)
+
+När post-repair quality gate passerar skrivs inte reparerade filer direkt över
+`engine_versions.files_json`.
+
+I stället:
+
+1. reparerade filer sparas i `engine_versions.repaired_files_json`
+2. versionen sätts till `verification_state = "repair_available"` med `repair_available_at`
+3. stream kan skicka `version-repair-available` och versions-API visar `hasPendingRepair`
+4. användaren applicerar fixen via `POST /api/engine/chats/[chatId]/accept-repair`
+5. timeout-fallback kan auto-accepta efter `repairPolicies.repairAcceptTimeoutMinutes`
+
+Detta gör serverreparation transparent i live-preview: fixen är en synlig,
+explicit acceptpunkt i stället för en osynlig overwrite.
+
+## Strukturerat repair-underlag (`errorManifest`)
+
+`runRepairLoop()` använder `buildGroupedRepairErrorContext()` för att gruppera
+fel per fil och prioritera utifrån importgraf:
+
+- diagnostics extraheras från quality gate-output + syntaxfel
+- grupperas till `RepairErrorManifest` (`file`, `importedByCount`, `dependsOn`, diagnostics)
+- sorteras så hög-impact-filer hanteras först
+
+Samma manifest sparas i verify/repair-loggarnas metadata (`errorManifest`) så
+det går att se exakt vilket felunderlag repair-fasen jobbade med.
+
+## Installstrategi i verify-lane
+
+Verify-lane installerar nu i två steg:
+
+1. kör normal install utan `--legacy-peer-deps`
+2. bara vid detekterad peer-konflikt, kör fallback med `--legacy-peer-deps`
+
+Samtidigt försöker verify-lane dela `node_modules` mellan live och verify
+workspace när dependency fingerprint matchar, för att minska dubbla installer.
 
 ## Vad som blockeras och vad som bara varnar
 
@@ -161,6 +210,9 @@ flowchart TD
     qualityGate -->|pass| promoted[PromoteVersion]
     qualityGate -->|fail| repair[ServerRepair]
     repair --> qualityGate
+    qualityGate -->|repair pass| repairAvailable[RepairAvailable]
+    repairAvailable --> acceptRepair[AcceptRepair]
+    acceptRepair --> promoted
 ```
 
 ## Dokumentationsstatus

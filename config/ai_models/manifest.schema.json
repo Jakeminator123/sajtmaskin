@@ -97,12 +97,13 @@
     },
     "repairPolicies": {
       "type": "object",
-      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "manualRepairRouteLlmPasses", "serverRepairPasses", "partialFileRepairMaxAttempts"],
+      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "manualRepairRouteLlmPasses", "serverRepairPasses", "repairAcceptTimeoutMinutes", "partialFileRepairMaxAttempts"],
       "properties": {
         "deterministicAutofixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
         "syntaxFixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
         "manualRepairRouteLlmPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
         "serverRepairPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
+        "repairAcceptTimeoutMinutes": { "type": "integer", "minimum": 1, "maximum": 120 },
         "partialFileRepairMaxAttempts": { "type": "integer", "minimum": 1, "maximum": 3 }
       }
     },

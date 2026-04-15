@@ -197,9 +197,10 @@ Client-side deep brief och server auto-brief kan köras parallellt.
 Om client-brief inte hinner med innan create-chat startar skickas
 ingen `meta.brief`, och servern triggar sin egen auto-brief.
 
-### P3 — Brief schema för stor för Anthropic structured output
-`siteBriefSchema` har >24 optional parameters → `grammar compilation`-fel
-hos Anthropic. Fallback till `simplifiedBriefSchema` misslyckas ibland också.
+### P3 — Brief schema: Anthropic structured output (löst)
+`simplifiedBriefSchema` är borttaget; `siteBriefSchema` är enda schemat
+(`src/lib/builder/site-brief-generation.ts`). Tidigare `grammar compilation`-fel
+hos Anthropic var kopplade till den dubbla schemalösningen som inte längre finns.
 
 ### P4 — Env-panel visar inte preview-placeholders
 `ProjectEnvVarsPanel` jämför bara sparade projektvariabler.

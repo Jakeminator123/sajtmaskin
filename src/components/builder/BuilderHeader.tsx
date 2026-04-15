@@ -129,8 +129,8 @@ export function BuilderHeader(props: {
     onSelectedModelTierChange,
     onApplyAnthropicComparePreset,
     promptAssistModel: _promptAssistModel,
-    promptAssistDeep: _promptAssistDeep,
-    canUseDeepBrief: _canUseDeepBrief,
+    promptAssistDeep,
+    canUseDeepBrief,
     scaffoldMode,
     scaffoldId,
     onScaffoldModeChange,
@@ -193,7 +193,9 @@ export function BuilderHeader(props: {
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
-  const assistStatusSummary = "Deep Brief aktiv";
+  const assistStatusSummary = promptAssistDeep && canUseDeepBrief
+    ? "Deep Brief aktiv"
+    : "Assist aktiv";
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();

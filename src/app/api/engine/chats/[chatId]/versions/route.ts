@@ -11,8 +11,10 @@ import {
   addMessage,
   createDraftVersion,
   getVersionsByChat,
+  maybeAutoAcceptTimedOutRepair,
   updateVersionPreviewUrl,
 } from "@/lib/db/chat-repository-pg";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -20,7 +22,30 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     const { chatId } = await ctx.params;
 
     const engineChat = await getEngineChatByIdForRequest(req, chatId);
-    const engineVersions = engineChat ? await getVersionsByChat(engineChat.id) : [];
+    let engineVersions = engineChat ? await getVersionsByChat(engineChat.id) : [];
+    if (engineChat && engineVersions.length > 0) {
+      const latestVersion = engineVersions[0] ?? null;
+      if (latestVersion) {
+        const { version: normalizedLatestVersion, wasAutoAccepted } =
+          await maybeAutoAcceptTimedOutRepair(latestVersion);
+        if (wasAutoAccepted) {
+          engineVersions = [normalizedLatestVersion, ...engineVersions.slice(1)];
+          await createEngineVersionErrorLogs([
+            {
+              chatId: engineChat.id,
+              versionId: normalizedLatestVersion.id,
+              level: "info",
+              category: "server-repair:auto-accepted",
+              message: "Pending server repair auto-accepted after timeout.",
+              meta: {
+                acceptedAt: new Date().toISOString(),
+                serverOwned: true,
+              },
+            },
+          ]).catch(() => null);
+        }
+      }
+    }
     if (engineVersions.length > 0) {
       const versionsList = engineVersions.map((v) => ({
           id: v.id,

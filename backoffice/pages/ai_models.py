@@ -593,6 +593,15 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         step=1,
         key="repair_server",
     )
+    repair_accept_timeout = st.number_input(
+        "Repair available: auto-accept timeout (minuter)",
+        value=int(rp.get("repairAcceptTimeoutMinutes", 5)),
+        min_value=1,
+        max_value=120,
+        step=1,
+        key="repair_accept_timeout",
+        help="Styr hur länge en pending serverrepair får ligga i `repair_available` innan auto-accept.",
+    )
 
     if st.button("Spara repair / budget / timeout", type="primary"):
         tb.setdefault("engineMaxOutputTokens", {})["default"] = int(engine_tokens)
@@ -608,6 +617,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         rp["syntaxFixPasses"] = int(syntax_passes)
         rp["manualRepairRouteLlmPasses"] = int(manual_passes)
         rp["serverRepairPasses"] = int(server_passes)
+        rp["repairAcceptTimeoutMinutes"] = int(repair_accept_timeout)
         write_json(man_path, manifest)
         changed = sync_route_timeout_literals(ctx.repo_root, int(engine_timeout), int(assist_timeout))
         st.success(f"Sparat repair / budget / timeout. Synkade {changed} statiska route-filer.")

@@ -163,6 +163,22 @@ describe("buildCompleteProject", () => {
     expect(pkg.devDependencies["eslint-config-next"]).toBe("16.2.3");
   });
 
+  it("baseline package.json passes peer-compatibility sanity checks", () => {
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <div>Baseline sanity</div>; }`,
+        language: "tsx",
+      },
+    ];
+    const files = buildCompleteProject(generated);
+    const sanity = runProjectSanityChecks(files);
+    expect(sanity.issues.some((issue) => issue.category === "dependency_install_failure")).toBe(
+      false,
+    );
+  });
+
   it("merges a model tsconfig with baseline compiler essentials", () => {
     const generated: CodeFile[] = [
       {

@@ -3,9 +3,14 @@ import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
-import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
+import {
+  getLatestVersion,
+  getPreferredVersion,
+  maybeAutoAcceptTimedOutRepair,
+} from "@/lib/db/chat-repository-pg";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -14,9 +19,29 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     const chat = await getEngineChatByIdForRequest(req, chatId);
       if (chat) {
         const resolvedChatId = chat.id;
-        const latest =
+        let latest =
           (await getPreferredVersion(resolvedChatId)) ??
           (await getLatestVersion(resolvedChatId));
+        if (latest) {
+          const { version: normalizedLatestVersion, wasAutoAccepted } =
+            await maybeAutoAcceptTimedOutRepair(latest);
+          latest = normalizedLatestVersion;
+          if (wasAutoAccepted) {
+            await createEngineVersionErrorLogs([
+              {
+                chatId: resolvedChatId,
+                versionId: normalizedLatestVersion.id,
+                level: "info",
+                category: "server-repair:auto-accepted",
+                message: "Pending server repair auto-accepted after timeout.",
+                meta: {
+                  acceptedAt: new Date().toISOString(),
+                  serverOwned: true,
+                },
+              },
+            ]).catch(() => null);
+          }
+        }
         const resolvedScaffold = chat.scaffold_id ? getScaffoldById(chat.scaffold_id) : null;
 
         return NextResponse.json({

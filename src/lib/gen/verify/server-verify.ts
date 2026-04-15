@@ -36,7 +36,12 @@ import {
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
-import { buildRepairErrorContextLines, runRepairLoop } from "./repair-loop";
+import {
+  buildGroupedRepairErrorContext,
+  buildRepairErrorContextLines,
+  runRepairLoop,
+  type RepairErrorManifest,
+} from "./repair-loop";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
@@ -161,6 +166,7 @@ export async function triggerServerVerification(params: {
       firstFailureCheck: gateResult.firstFailureCheck,
       jobStartedAt: gateResult.jobStartedAt,
       jobFinishedAt: gateResult.jobFinishedAt,
+      onRepairAvailable,
     });
   } catch (err) {
     console.error("[server-verify] Error:", err);
@@ -182,6 +188,11 @@ async function tryServerRepairLoop(params: {
   firstFailureCheck: string | null;
   jobStartedAt: string | null;
   jobFinishedAt: string | null;
+  onRepairAvailable?: (payload: {
+    versionId: string;
+    summary: string | null;
+    repairAvailableAt: string | null;
+  }) => void;
 }): Promise<void> {
   const {
     chatId,
@@ -192,6 +203,7 @@ async function tryServerRepairLoop(params: {
     firstFailureCheck,
     jobStartedAt,
     jobFinishedAt,
+    onRepairAvailable,
   } = params;
   const verifyContext = {
     verifyLaneDurationMs,
@@ -282,6 +294,7 @@ async function tryServerRepairLoop(params: {
           method,
           promoted,
           visualQA: visualQAMeta,
+          errorManifest: groupedRepairContext.errorManifest,
         }),
       },
     ]).catch((err) => {
@@ -299,21 +312,22 @@ async function tryServerRepairLoop(params: {
     ? resolvePhaseThinking(originatingTier, "fixer")
     : null;
 
-  const repairContextLines = [
-    ...buildServerVerifyRepairContextLines({
-      failedOutputs,
-      verifyLaneDurationMs,
-      firstFailureCheck,
-      jobStartedAt,
-      jobFinishedAt,
-    }),
-    ...buildRepairErrorContextLines(failedOutputs),
-  ];
+  const repairLogContext = buildRepairLogContextLines({
+    failedOutputs,
+    verifyLaneDurationMs,
+    firstFailureCheck,
+    jobStartedAt,
+    jobFinishedAt,
+    initialContent,
+  });
+  const groupedRepairContext = {
+    errorManifest: repairLogContext.errorManifest,
+  };
 
   const loopResult = await runRepairLoop({
     initialContent,
     failedOutputs,
-    contextLines: repairContextLines,
+    contextLines: repairLogContext.contextLines,
     maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
     llmTimeoutMs: 60_000,
     fixerModel,
@@ -336,6 +350,7 @@ async function tryServerRepairLoop(params: {
       undefined,
       verifyContext,
       fixerModel,
+      loopResult.errorManifest,
     );
     return;
   }
@@ -355,6 +370,7 @@ async function tryServerRepairLoop(params: {
       loopResult.earlyStopReason,
       verifyContext,
       fixerModel,
+      loopResult.errorManifest,
     );
     return;
   }
@@ -373,6 +389,7 @@ async function tryServerRepairLoop(params: {
     loopResult.earlyStopReason,
     verifyContext,
     fixerModel,
+    loopResult.errorManifest,
   );
 }
 
@@ -391,6 +408,7 @@ function logRepairOutcome(
     jobFinishedAt: string | null;
   },
   fixerModelId?: string | null,
+  errorManifest?: RepairErrorManifest | null,
 ) {
   createEngineVersionErrorLogs([{
     chatId,
@@ -411,10 +429,41 @@ function logRepairOutcome(
         firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
         jobStartedAt: verifyContext?.jobStartedAt ?? null,
         jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
+        errorManifest: errorManifest ?? null,
       }),
       ...(fixerModelId ? { fixerModelId } : {}),
     },
   }]).catch((err) => {
     console.warn("[server-verify] Failed to persist server-repair outcome log:", err);
   });
+}
+
+function buildRepairLogContextLines(params: {
+  failedOutputs: ServerVerifyFailedOutput[];
+  verifyLaneDurationMs: number;
+  firstFailureCheck: string | null;
+  jobStartedAt: string | null;
+  jobFinishedAt: string | null;
+  initialContent: string;
+}): {
+  errorManifest: RepairErrorManifest;
+  contextLines: string[];
+} {
+  const baseLines = [
+    ...buildServerVerifyRepairContextLines({
+      failedOutputs: params.failedOutputs,
+      verifyLaneDurationMs: params.verifyLaneDurationMs,
+      firstFailureCheck: params.firstFailureCheck,
+      jobStartedAt: params.jobStartedAt,
+      jobFinishedAt: params.jobFinishedAt,
+    }),
+    ...buildRepairErrorContextLines(params.failedOutputs),
+  ];
+  const grouped = buildGroupedRepairErrorContext(params.failedOutputs, {
+    projectContent: params.initialContent,
+  });
+  return {
+    errorManifest: grouped.errorManifest,
+    contextLines: [...grouped.contextLines, ...baseLines],
+  };
 }

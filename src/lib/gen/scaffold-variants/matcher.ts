@@ -20,15 +20,19 @@ function scoreVariant(
   let keywordHits = 0;
   for (const keyword of variant.keywords) {
     const lower = keyword.toLowerCase();
-    if (promptLower.includes(lower)) {
+    const wordBoundary = new RegExp(
+      `(?:^|[^\\p{L}\\p{N}])${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^\\p{L}\\p{N}]|$)`,
+      "iu",
+    );
+    if (wordBoundary.test(promptLower)) {
       keywordHits += 1;
       continue;
     }
-    if (styleKeywordsLower.some((value) => value.includes(lower))) {
+    if (styleKeywordsLower.some((value) => value === lower || wordBoundary.test(value))) {
       keywordHits += 1;
       continue;
     }
-    if (toneKeywordsLower.some((value) => value.includes(lower))) {
+    if (toneKeywordsLower.some((value) => value === lower || wordBoundary.test(value))) {
       keywordHits += 1;
     }
   }

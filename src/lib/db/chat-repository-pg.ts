@@ -17,6 +17,7 @@ import {
   engineGenerationLogs,
 } from "./schema";
 import { eq, desc, sql } from "drizzle-orm";
+import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 
 export interface Chat {
   id: string;
@@ -61,6 +62,7 @@ export type VersionRepairStatus = {
   verificationState: EngineVersionVerificationState;
   hasPendingRepair: boolean;
   repairAvailableAt: string | null;
+  wasAutoAccepted?: boolean;
 };
 
 export interface GenerationLog {
@@ -517,6 +519,41 @@ export async function acceptRepair(
       .limit(1);
     return toRow(versionRows[0]) as unknown as Version;
   });
+}
+
+type AutoAcceptResult = {
+  version: Version;
+  wasAutoAccepted: boolean;
+};
+
+function parseIsoToMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function shouldAutoAcceptRepair(
+  verificationState: EngineVersionVerificationState | null | undefined,
+  repairAvailableAt: string | null | undefined,
+): boolean {
+  if (verificationState !== "repair_available") return false;
+  const repairAvailableAtMs = parseIsoToMs(repairAvailableAt);
+  if (repairAvailableAtMs === null) return false;
+  return Date.now() - repairAvailableAtMs >= REPAIR_ACCEPT_TIMEOUT_MS;
+}
+
+export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<AutoAcceptResult> {
+  if (!shouldAutoAcceptRepair(version.verification_state, version.repair_available_at)) {
+    return { version, wasAutoAccepted: false };
+  }
+  const accepted = await acceptRepair(
+    version.id,
+    "Server repair auto-accepted after timeout.",
+  );
+  if (!accepted) {
+    return { version, wasAutoAccepted: false };
+  }
+  return { version: accepted, wasAutoAccepted: true };
 }
 
 export async function updateVersionPreviewUrl(

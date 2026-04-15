@@ -103,11 +103,13 @@ async function main() {
     assert.equal(verified.status, 200);
     assert.equal(verified.body.ok, true);
     assert.ok(Array.isArray(verified.body.results));
-    assert.equal(verified.body.results[0]?.check, "install");
-    assert.equal(verified.body.results[0]?.passed, true);
-    assert.equal(verified.body.results[1]?.check, "lint");
-    assert.equal(verified.body.results[1]?.passed, true);
-    assert.match(String(verified.body.results[1]?.output || ""), /Skipped lint/i);
+    const installResult = verified.body.results.find((entry) => entry.check === "install");
+    const lintResult = verified.body.results.find((entry) => entry.check === "lint");
+    assert.ok(installResult, "verify result should contain install check");
+    assert.ok(lintResult, "verify result should contain lint check");
+    assert.equal(installResult?.passed, true);
+    assert.equal(lintResult?.passed, true);
+    assert.match(String(lintResult?.output || ""), /Skipped lint/i);
 
     const previewHtml = await waitForPreviewHtml(`${baseUrl}/chat_demo_1`, /demo-project/);
     assert.match(previewHtml, /demo-project/);

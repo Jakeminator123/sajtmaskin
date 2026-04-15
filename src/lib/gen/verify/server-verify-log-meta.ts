@@ -1,5 +1,6 @@
 import type { QualityGateCheckResult } from "./preview-quality-gate";
 import type { VisualQAResult } from "./visual-qa";
+import type { RepairErrorManifest } from "./repair-loop";
 
 export type ServerVerifyFailedOutput = {
   check: string;
@@ -43,6 +44,7 @@ type BuildServerVerifyQualityGateMetaParams = {
   method?: "deterministic" | "llm";
   promoted?: boolean;
   visualQA?: QualityGateVisualQaLogMeta | null;
+  errorManifest?: RepairErrorManifest | null;
 };
 
 export function buildServerVerifyQualityGateMeta(
@@ -60,6 +62,7 @@ export function buildServerVerifyQualityGateMeta(
     method,
     promoted,
     visualQA,
+    errorManifest,
   } = params;
 
   return {
@@ -81,6 +84,7 @@ export function buildServerVerifyQualityGateMeta(
     ...(method ? { method } : {}),
     ...(typeof promoted === "boolean" ? { promoted } : {}),
     ...(visualQA ? { visualQA } : {}),
+    ...(errorManifest ? { errorManifest } : {}),
   };
 }
 
@@ -132,6 +136,7 @@ type BuildServerRepairOutcomeMetaParams = {
   jobStartedAt: string | null;
   jobFinishedAt: string | null;
   serverOwned?: boolean;
+  errorManifest?: RepairErrorManifest | null;
 };
 
 export function buildServerRepairOutcomeMeta(
@@ -148,6 +153,7 @@ export function buildServerRepairOutcomeMeta(
     jobStartedAt,
     jobFinishedAt,
     serverOwned = true,
+    errorManifest,
   } = params;
 
   return {
@@ -162,5 +168,6 @@ export function buildServerRepairOutcomeMeta(
     jobStartedAt,
     jobFinishedAt,
     serverOwned,
+    ...(errorManifest ? { errorManifest } : {}),
   };
 }

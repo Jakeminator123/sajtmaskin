@@ -105,6 +105,8 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(repairPolicies.syntaxFixPasses).toBeGreaterThan(0);
     expect(repairPolicies.manualRepairRouteLlmPasses).toBeGreaterThan(0);
     expect(repairPolicies.serverRepairPasses).toBeGreaterThan(0);
+    expect(repairPolicies.repairAcceptTimeoutMinutes).toBeGreaterThan(0);
+    expect(repairPolicies.repairAcceptTimeoutMinutes).toBeLessThanOrEqual(120);
     expect(repairPolicies.partialFileRepairMaxAttempts).toBeGreaterThan(0);
     expect(repairPolicies.partialFileRepairMaxAttempts).toBeLessThanOrEqual(3);
 

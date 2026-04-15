@@ -162,6 +162,12 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
 | Repair Loop Core (`runRepairLoop`) | Delad repair-kärna för server-verify och manuell `/repair` | kanonisk |
 | Warm Repair | Targeted repair där bara trasiga filer (+ imports) skickas till LLM-fixer | kanonisk |
+| Repair Available (`repair_available`) | Versionstatus när serverrepair passerat quality gate men väntar på explicit accept | kanonisk |
+| Accept Repair (`accept-repair`) | API-steg som applicerar `repaired_files_json` till `files_json` för pending repair | kanonisk |
+| Repair Accept Timeout | Manifeststyrd timeout (`repairAcceptTimeoutMinutes`) för auto-accept av pending repair | kanonisk |
+| Repair Error Manifest (`errorManifest`) | Strukturerat felunderlag per fil (diagnostics + import-impact) i repair-loop/loggmeta | kanonisk |
+| Install Cache Share (`install-cache-share`) | Verify-lane signal om `node_modules` delning via dependency fingerprint | kanonisk |
+| Install Peer Fallback (`install-peer-fallback`) | Verify-lane signal om peer-konflikt och fallback-install med `--legacy-peer-deps` | kanonisk |
 | Post-Checks | Client-side post-genererings-orkestrering | kanonisk |
 | Engine Version Lifecycle | `draft`, `verifying`, `repairing`, `failed`, `promoted` | kanonisk |
 | Scaffold Retry | Sen diagnos + scaffoldpivot-förslag vid misslyckad generation | kanonisk |
@@ -266,4 +272,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-15 (Fas 2+3: finalizePath full/light, qualityGateTiers i manifest, delad runRepairLoop + warm repair, syncad preview/deploy-telemetri). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-15 (Fas 2+3: finalizePath full/light, qualityGateTiers i manifest, delad runRepairLoop + warm repair, repair_available/accept-repair/timeout, syncad preview/deploy-telemetri). Versionhistorik finns i git.

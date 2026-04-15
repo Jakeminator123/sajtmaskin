@@ -13,7 +13,8 @@ export interface ScaffoldSearchResult {
 export type ScaffoldSearchUnavailableReason =
   | "missing_api_key"
   | "missing_embeddings"
-  | "request_failed";
+  | "request_failed"
+  | "registry_mismatch";
 
 export interface ScaffoldSearchDiagnostics {
   attempted: boolean;
@@ -223,8 +224,8 @@ export async function searchScaffoldsWithDiagnostics(
       attempted: true,
       available: !unmappedIds,
       failed: false,
-      unavailableReason: unmappedIds ? "missing_embeddings" : null,
-      errorMessage: unmappedIds ? "All scored IDs missing from scaffold registry" : null,
+      unavailableReason: unmappedIds ? "registry_mismatch" : null,
+      errorMessage: unmappedIds ? "All scored IDs missing from scaffold registry — embedding file may be stale" : null,
       durationMs: Date.now() - embeddingStartedAt,
     },
   };

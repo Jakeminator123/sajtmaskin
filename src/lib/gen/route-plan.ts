@@ -534,6 +534,8 @@ export function buildRoutePlan(params: {
       ? "Route structure merges brief-defined pages with explicit prompt route requests."
       : hasBriefRoutes && scaffoldAddedRoutes
         ? "Route structure starts from brief pages and adds scaffold defaults when relevant."
+    : hasBriefRoutes
+    ? "Route structure derived from brief-defined pages; keep real App Router pages for each planned path."
     : scaffoldAddedRoutes
     ? "Scaffold defaults added routes on top of prompt-inferred structure; keep real App Router pages for each planned path."
     : routes.length > 1

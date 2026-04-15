@@ -22,6 +22,7 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 import {
+  buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
   runRepairLoop,
 } from "@/lib/gen/verify/repair-loop";
@@ -227,6 +228,7 @@ export async function POST(
               promoted,
               serverOwned: false,
               visualQA: visualQAMeta,
+              errorManifest: groupedGateContext.errorManifest,
             }),
           },
         ]).catch((err) => {
@@ -242,6 +244,9 @@ export async function POST(
       output: failure.output,
       durationMs: failure.durationMs ?? null,
     }));
+    const groupedGateContext = buildGroupedRepairErrorContext(normalizedFailures, {
+      projectContent: initialContent,
+    });
     const gateErrorLines = [
       ...buildServerVerifyRepairContextLines({
         failedOutputs: normalizedFailures,
@@ -250,6 +255,7 @@ export async function POST(
         jobStartedAt: repairContext.qualityGateMeta?.jobStartedAt ?? null,
         jobFinishedAt: repairContext.qualityGateMeta?.jobFinishedAt ?? null,
       }),
+      ...groupedGateContext.contextLines,
       ...buildRepairErrorContextLines(normalizedFailures),
       ...currentVersionErrors,
       ...previousVersionErrors,
@@ -299,6 +305,7 @@ export async function POST(
               remainingErrors: 0,
               qualityGateFailureCount: gateFailures.length,
               serverOwned: false,
+              errorManifest: loopResult.errorManifest,
             },
           },
         ]).catch((err) => {
@@ -331,6 +338,7 @@ export async function POST(
         loopResult.remainingErrors,
         loopResult.earlyStopReason,
         repairContext.qualityGateMeta,
+        loopResult.errorManifest,
       );
       return NextResponse.json({
         repaired: false,
@@ -366,6 +374,7 @@ export async function POST(
       loopResult.remainingErrors,
       loopResult.earlyStopReason,
       repairContext.qualityGateMeta,
+      loopResult.errorManifest,
     );
 
     return NextResponse.json({
@@ -409,6 +418,7 @@ function logRepair(
     jobStartedAt?: string | null;
     jobFinishedAt?: string | null;
   },
+  errorManifest?: import("@/lib/gen/verify/repair-loop").RepairErrorManifest | null,
 ) {
   if (!dbConfigured) return;
   createEngineVersionErrorLogs([
@@ -431,6 +441,7 @@ function logRepair(
         jobStartedAt: qualityGateMeta?.jobStartedAt ?? null,
         jobFinishedAt: qualityGateMeta?.jobFinishedAt ?? null,
         serverOwned: false,
+        errorManifest: errorManifest ?? null,
       }),
     },
   ]).catch((err) => {
