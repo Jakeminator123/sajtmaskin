@@ -230,6 +230,12 @@ File priority and capability-signal mappings are configurable via `config/struct
 
 Code source of truth: `src/lib/gen/scaffold-variants/structural-files.ts`.
 
+## Font handling
+
+Scaffold variants carry `fontPairings` (`{ heading: string, body: string }[]`) which are injected into the system prompt as suggested pairings. The central font registry in `src/lib/gen/data/google-font-registry.ts` maps display names (e.g. "JetBrains Mono") to `next/font/google` import names (`JetBrains_Mono`), CSS variables, and categories. The system prompt now includes the import name when it differs from the display name. The autofix `font-import-fixer` uses the same registry to recognize and fix missing font imports in layout files.
+
+Font pairings remain prompt-level guidance; scaffold starter files default to Inter + `--font-sans`. Deterministic variant→code font injection is a planned improvement (see `docs/plans/active/Kvarvarande-uppgifter.md`).
+
 ## Archived docs
 
 Older scaffold schema notes may exist in git under `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`).

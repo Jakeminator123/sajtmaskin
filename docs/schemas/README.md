@@ -26,36 +26,19 @@ Conservative rollout rule:
 
 ## What lives here
 
-- `model-build-profiles.md`
-  Current build-profile, model-selection, legacy-alias, and engine-resolution
-  rules.
-- `builder-entry-contract.md`
-  The canonical builder entry contract for `buildMethod`, `buildIntent`,
-  `appProjectId`, prompt handoff, and the v0-driven template exception path.
-- `scaffold-contract.md`
-  The runtime scaffold manifest contract, canonical `ScaffoldId` usage, and what scaffold context actually reaches the model.
-- `integrations-and-data.md`
-  The most important data, validation, and template-library schema surfaces.
-- `external-template-pipeline-contract.md`
-  The canonical scrape/import/hydrate/build/embedding contract for external
-  template research and scaffold curation data.
-- `chat-message-ui-parts.md`
-  The stable own-engine storage contract for structured builder message parts,
-  including persisted plan-review cards.
-- `preview-session-contract.md`
-  The stable human-readable contract for preview/session identifiers, preview
-  URLs, and the verify-lane boundary.
-- `llm-role-matrix.md`
-  Canonical human-readable matrix of LLM roles: prompt assist, Deep brief,
-  planner, generator, fixer, verifier, and deploy-assistant.
-- `orchestration-signal-contract.md`
-  Canonical signal-layer contract: prompt formatting, scaffold match, route
-  plan, capabilities, contracts, dynamic context, and post-check layers.
-- `strict/README.md`
-  Explains the machine-oriented strict layer.
-- `strict/preview-session-contract.schema.json`
-  The first strict contract artifact for preview/session and verify-lane
-  surfaces.
+| File | Domain |
+|------|--------|
+| `model-build-profiles.md` | Build profiles, model selection, legacy aliases, phase routing, thinking config. |
+| `builder-entry-contract.md` | Builder entry state: `buildMethod`, `buildIntent`, `appProjectId`, prompt handoff, template path. |
+| `scaffold-contract.md` | Runtime scaffold manifests, `ScaffoldId`, scaffold variants, font pairings, structural references, what reaches the model. |
+| `quality-gate.md` | Quality gate checks, verify-lane vs preview-lane, repair flow, standard profiles. |
+| `preview-session-contract.md` | Preview/session identifiers, preview URLs, verify-lane boundary, sandbox wording policy. |
+| `orchestration-signal-contract.md` | Signal layers: prompt formatting, scaffold match, route plan, capabilities, contracts, dynamic context, post-checks. |
+| `llm-role-matrix.md` | LLM roles: prompt assist, deep brief, planner, generator, fixer, verifier, deploy-assistant. |
+| `external-template-pipeline-contract.md` | Scrape/import/hydrate/build/embedding pipeline for external template research. |
+| `integrations-and-data.md` | DB tables, request validation, template-library schema surfaces. |
+| `chat-message-ui-parts.md` | Structured builder message parts (plan-review cards) in own-engine chat storage. |
+| `strict/` | Machine-oriented JSON schemas: `preview-session-contract.schema.json`, `scaffold-variant.schema.json`, `structural-references.schema.json`. |
 
 Only stable, canonical schema docs belong in this folder. Exploratory schema
 notes belong in `docs/plans/active/` until they are promoted here or
