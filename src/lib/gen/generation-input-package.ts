@@ -9,7 +9,7 @@
  */
 import { createHash } from "node:crypto";
 
-import type { OrchestrationBase, OrchestrationInput, TemplateGuidanceMeta } from "./orchestrate";
+import type { OrchestrationBase, TemplateGuidanceMeta } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 

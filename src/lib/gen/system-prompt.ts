@@ -12,7 +12,7 @@
  *  │  → Build intent, visual identity, project ctx    │
  *  └─────────────────────────────────────────────────┘
  *
- * Step 3 — what actually reaches the model (own-engine):
+ * Fas 2 — what actually reaches the model (own-engine):
  *  - **Static core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
  *    **dynamic context** from this file = full **system** message.
  *  - **User turn** = current request prompt (possibly URL-compressed); it is **not**
@@ -20,7 +20,7 @@
  *    the same user text (see `buildDynamicContext`).
  *  - **Chat history** = prior user/assistant turns, assembled by the generation
  *    pipeline (`createOwnEnginePipelineAndGenerationStream`, etc.), separate from system.
- * Canonical map: `docs/architecture/llm-input-blocks.md`.
+ * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
  *
  * Keeping the static block in one stable file helps prompt-prefix caching;
  * edit config/prompt-static/*.md and/or the manifest; see _READ_ME_FIRST.md.
@@ -33,10 +33,15 @@ import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
-import type { ScaffoldVariant } from "./scaffold-variants";
+import type {
+  ScaffoldVariant,
+  VariantStructuralFilesSelection,
+} from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
+import { resolveGoogleFontImportName } from "./data/google-font-registry";
+import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
-import type { ScaffoldManifest } from "./scaffolds/types";
+import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
 import {
   buildBudgetedSystemPrompt,
   estimateTokens,
@@ -61,47 +66,6 @@ function loadStaticCoreSync(): string {
 // ═══════════════════════════════════════════════════════════════════════════
 // DYNAMIC CONTEXT — varies per request
 // ═══════════════════════════════════════════════════════════════════════════
-
-// Canonical build intent rules for codegen. Assist-copy in promptAssist.ts
-// serves rewrite/polish — keep in sync but do not merge (circular import risk).
-const BUILD_INTENT_GUIDANCE: Record<
-  BuildIntent,
-  { label: string; rules: string[] }
-> = {
-  template: {
-    label: "Template",
-    rules: [
-      "Scope is compact: 1-2 pages maximum with reusable sections.",
-      "Avoid heavy app logic, databases, or authentication unless explicitly requested.",
-      "Focus on layout quality, clean component composition, and content placeholders.",
-      "Optimize for reusability — someone will customize this template for their own brand.",
-    ],
-  },
-  website: {
-    label: "Website",
-    rules: [
-      "Ship code that passes a real App Router build: valid `next/image`, metadata exports, and Server Components by default — not patterns that only work inside a browser-transpiled preview.",
-      "Build a complete, visually polished website with navigation, content sections, and a footer. Follow the Scaffold Variant block for layout cues, visual motif, and tone — do not fall back to a generic hero-cards-footer formula.",
-      "Each page must feel handcrafted: distinct hero treatment, unique section layouts, interactive hover effects, and at least one memorable visual signature.",
-      "CONTENT IS KING: every section must have real, substantial text in Swedish specific to the business. Write at least 2-3 sentences per section, not just a heading. Never use generic placeholder copy.",
-      "Match scope: short prompt → polished one-pager; detailed prompt → multi-page. Add testimonials/trust only when the prompt, brief, or business type calls for it.",
-    ],
-  },
-  app: {
-    label: "Application",
-    rules: [
-      "Build a functional application with professional UI that feels like a real product.",
-      "MUST include: sidebar or top navigation, main content area, and contextual actions.",
-      "Use shadcn/ui Sidebar for dashboard-style apps. Include a collapsible sidebar with icon + label navigation items.",
-      "Include stateful UI: data tables with sorting/filtering, forms with validation feedback, modals for create/edit flows.",
-      "Define realistic mock data with TypeScript interfaces. Use 5-10 realistic data rows, not placeholder text.",
-      "Add empty states with illustrations (Lucide icons), loading skeletons, and error boundaries.",
-      "Structure state with React hooks (useState, useReducer). Only add Context if state is shared across many components.",
-      "Include toast notifications (via Sonner) for actions like save, delete, and error feedback.",
-      "Full Next.js runtime is available: Server Actions, API routes, middleware, and any npm package. Use them when the app needs real data flow.",
-    ],
-  },
-};
 
 export interface Brief {
   projectTitle?: string;
@@ -168,7 +132,6 @@ export interface DesignReferenceAsset {
   kind: "figma" | "image";
   label: string;
   note?: string;
-  url?: string;
 }
 
 export interface DynamicContextOptions {
@@ -197,6 +160,8 @@ export interface DynamicContextOptions {
   templateGuidance?: string;
   /** Verified shadcn usage examples matched to this request's capabilities. */
   componentReferences?: { name: string; code: string }[];
+  /** Curated structural code references derived from the active scaffold variant. */
+  variantStructuralFiles?: VariantStructuralFilesSelection | null;
 }
 
 function str(v: unknown): string {
@@ -215,8 +180,13 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
     .filter((line) => line.startsWith("- "));
 }
 
-function buildShadcnToolkitSummary(): string[] {
-  return buildRegistryDrivenShadcnToolkitSummary();
+function buildShadcnToolkitSummary(ctx?: {
+  scaffoldId?: ScaffoldId | null;
+  sectionInventory?: string[];
+}): string[] {
+  return buildRegistryDrivenShadcnToolkitSummary(
+    ctx?.scaffoldId ? ctx : undefined,
+  );
 }
 
 const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
@@ -241,7 +211,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^media catalog$/i, priority: 80 },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
-  { match: /^component references$/i, priority: 76 },
+  { match: /^component references$/i, priority: 80 },
+  { match: /^structural references$/i, priority: 75 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
@@ -379,13 +350,22 @@ function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): str
   return lines;
 }
 
+function inferReferenceCodeFence(path: string): string {
+  if (/\.tsx$/i.test(path)) return "tsx";
+  if (/\.ts$/i.test(path)) return "ts";
+  if (/\.jsx$/i.test(path)) return "jsx";
+  if (/\.js$/i.test(path)) return "js";
+  if (/\.json$/i.test(path)) return "json";
+  return "text";
+}
+
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
  */
-export async function buildDynamicContext(
+export function buildDynamicContext(
   options: DynamicContextOptions,
-): Promise<BuildDynamicContextResult> {
+): BuildDynamicContextResult {
   const {
     intent,
     brief,
@@ -407,6 +387,7 @@ export async function buildDynamicContext(
     sessionSeed,
     templateGuidance,
     componentReferences,
+    variantStructuralFiles,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -494,9 +475,21 @@ export async function buildDynamicContext(
     }
     if (effectiveVariant.fontPairings.length > 0) {
       const pairStr = effectiveVariant.fontPairings
-      .map((p) => `${p.heading} + ${p.body}`)
-      .join(", or ");
+        .map((p) => `${p.heading} + ${p.body}`)
+        .join(", or ");
       parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
+      const importHints: string[] = [];
+      for (const pair of effectiveVariant.fontPairings.slice(0, 1)) {
+        for (const name of [pair.heading, pair.body]) {
+          const importName = resolveGoogleFontImportName(name);
+          if (importName && importName !== name) {
+            importHints.push(`\`${name}\` → \`import { ${importName} } from "next/font/google"\``);
+          }
+        }
+      }
+      if (importHints.length > 0) {
+        parts.push(`  - Import names: ${importHints.join("; ")}`);
+      }
     }
     if (effectiveVariant.promptHints.length > 0) {
       parts.push("- **Variant cues:**");
@@ -521,6 +514,12 @@ export async function buildDynamicContext(
         parts.push(`  - ${pattern}`);
       }
     }
+    if ((effectiveVariant.worldClassRubric?.length ?? 0) > 0) {
+      parts.push("- **World-class quality bar:**");
+      for (const rubric of effectiveVariant.worldClassRubric!.slice(0, 3)) {
+        parts.push(`  - ${rubric}`);
+      }
+    }
     const themeTokenLines = formatThemeTokenLines(effectiveVariant);
     if (themeTokenLines.length > 0) {
       parts.push(
@@ -534,6 +533,27 @@ export async function buildDynamicContext(
       );
     }
     parts.push("");
+  }
+
+  if (variantStructuralFiles && variantStructuralFiles.files.length > 0) {
+    parts.push(
+      "## Structural References",
+      "",
+      "Verified structural patterns from curated references relevant to the active scaffold variant and detected capabilities. Adapt routing, middleware, and layout patterns to the user's request — do not clone them verbatim.",
+      "",
+    );
+    for (const ref of variantStructuralFiles.files) {
+      parts.push(
+        `### ${ref.path} (from ${ref.sourceTitle})`,
+        "",
+        `Reason: ${ref.reason}`,
+        "",
+        `\`\`\`${inferReferenceCodeFence(ref.path)}`,
+        ref.excerpt,
+        "```",
+        "",
+      );
+    }
   }
 
   // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
@@ -605,7 +625,10 @@ export async function buildDynamicContext(
     "Use these confirmed, safe building blocks. Prefer them over inventing parallel UI primitives or adding unvetted libraries.",
     "",
     "- shadcn/ui (registry-synced local layer; import from `@/components/ui/<subpath>`):",
-    ...buildShadcnToolkitSummary(),
+    ...buildShadcnToolkitSummary({
+      scaffoldId: resolvedScaffold?.id ?? null,
+      sectionInventory: effectiveVariant?.sectionInventory,
+    }),
   ];
   if (capabilityLines.length > 0) {
     toolkitLines.push("", "- Capability-driven additions for this request:");
@@ -667,24 +690,10 @@ export async function buildDynamicContext(
     if (routeMode === "primary-full-with-shells") {
       parts.push(
         "",
-        "- **Shell route design — minimalist white placeholder (FOLLOW EXACTLY):**",
-        "  Shell pages share the site header/footer. The main content area is a centered, minimal placeholder.",
-        "  ```tsx",
-        "  <main className=\"flex min-h-[60vh] flex-col items-center justify-center px-6 py-32 text-center\">",
-        "    <LucideIcon className=\"mx-auto mb-6 h-12 w-12 text-black/20\" />",
-        "    <h1 className=\"text-3xl font-bold tracking-tight text-black\">Sidnamn</h1>",
-        "    <p className=\"mt-3 max-w-md text-black/60\">En kort mening på svenska om vad sidan kommer innehålla.</p>",
-        "    <Link href=\"/\" className=\"mt-8 inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-black/80\">",
-        "      ← Tillbaka till startsidan",
-        "    </Link>",
-        "  </main>",
-        "  ```",
-        "  - Pick a matching lucide icon: `ShoppingBag` for products, `Users` for about, `Mail` for contact, `FileText` for blog.",
-        "  - Write 1 sentence from the business perspective: 'Här visar vi snart vårt sortiment av...'",
-        "  - The only interactive element is a `<Link href=\"/\">` back to the home page. Do NOT add a 'Skapa sida' button — page creation is handled by the builder, not the preview.",
-        "  - FORBIDDEN: file paths, 'Route purpose:', 'Path:', 'Plan för sidan', 'Varför sidan är enkel', any English text, any developer-facing explanation, colored banners, 'Förberedd sida' badges, `<Button>` elements.",
-        "  - Background: white or very subtle gradient (e.g. `bg-gradient-to-b from-white to-gray-50`). No harsh colors.",
-        "  - Keep most design budget on the primary route.",
+        "- For shell routes, create valid App Router pages that look intentional: include page title, route purpose, a short explanation of what the page will become, and a clear primary CTA such as 'Skapa sida'.",
+        "- Shell routes should feel like deliberate builder-owned placeholder states, not broken pages. It is fine if they use a bold branded theme treatment to signal 'this route exists and is ready to be expanded next'.",
+        "- Keep shell code lightweight, coherent, and safe to preview. They should preserve navigation, metadata surface, and internal linking without pretending to be fully implemented.",
+        "- Keep most design and implementation budget on the primary route. Extra planned routes should preserve IA, navigation, metadata, and internal linking without demanding full implementation yet.",
       );
       if (isFollowUp) {
         parts.push(
@@ -694,25 +703,13 @@ export async function buildDynamicContext(
     } else if (routePlan.routes.length > 1) {
       parts.push(
         "",
-        "### MANDATORY — Multi-Page File Generation",
-        "This is the single most important rule for multi-page sites. A missing page file = a 404 error for the user.",
         "- Do not collapse this into a single long landing page. Create real App Router page files for the required routes unless the user explicitly asks to simplify.",
-        "- For EVERY route listed above you MUST generate an `app/<slug>/page.tsx` file.",
-        "- If a route is `/om` you must create `app/om/page.tsx`.",
-        "- Navigation `<Link href=\"/om\">Om oss</Link>` without a matching page file is a broken link.",
       );
     } else {
       parts.push("", "- Keep the route structure compact unless the prompt clearly requires extra pages.");
     }
     parts.push("");
   }
-
-  parts.push(
-    "## CRITICAL: No Placeholder Content",
-    "NEVER output bracket placeholders like `[Rubrik]`, `[Kort beskrivning]`, `[Fördel 1]`, `[CTA]`, `[Företagsnamn]`.",
-    "Always write realistic, specific content in Swedish based on the business description provided.",
-    "",
-  );
 
   if (preGenerationContracts) {
     const { contracts, unresolvedDecisions } = preGenerationContracts;
@@ -875,26 +872,16 @@ export async function buildDynamicContext(
   }
 
   if (designReferences && designReferences.length > 0) {
-    const hasUserImages = designReferences.some(
-      (r) => r.kind === "image" && r.url && /^https?:\/\//.test(r.url),
-    );
     parts.push(
-      "## Design References & User Images",
+      "## Design References",
       "",
       "- Use attached design references as visual direction, not as an excuse to produce a flat screenshot clone.",
       "- Read references in this order: (1) structure and hierarchy, (2) spacing rhythm and alignment, (3) component vocabulary, (4) finishing details such as texture, glow, shadows, and gradients.",
       "- Preserve the strongest layout ideas from the references, but still produce clean React/Tailwind code with reusable sections and accessible markup.",
-      "- If a reference is marked as a CONTENT IMAGE or includes an EXACT URL, you MUST use that URL directly in an `<img src=\"...\">` tag. Do NOT replace it with a placeholder like `/placeholder.svg`.",
     );
     for (const reference of designReferences.slice(0, 6)) {
       const note = reference.note ? ` — ${reference.note}` : "";
       parts.push(`- **${reference.kind === "figma" ? "Figma" : "Image"} reference:** ${reference.label}${note}`);
-    }
-    if (hasUserImages) {
-      parts.push(
-        "",
-        "- CRITICAL: User-uploaded images with URLs must appear in the generated site using their exact URLs.",
-      );
     }
     parts.push("");
   }
@@ -941,11 +928,7 @@ export async function buildDynamicContext(
       "",
     );
     for (const ref of componentReferences.slice(0, 5)) {
-      const truncatedCode =
-        ref.code.split("\n").length > 60
-          ? ref.code.split("\n").slice(0, 60).join("\n") + "\n// ... (truncated)"
-          : ref.code;
-      parts.push(`### ${ref.name}`, "", "```tsx", truncatedCode, "```", "");
+      parts.push(`### ${ref.name}`, "", "```tsx", ref.code, "```", "");
     }
   }
 
@@ -1038,6 +1021,7 @@ export interface BuildSystemPromptOptions {
   customInstructions?: string;
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
+  variantStructuralFiles?: VariantStructuralFilesSelection | null;
 }
 
 /**
@@ -1047,8 +1031,8 @@ export interface BuildSystemPromptOptions {
  * The static core is always the first portion of the string, which allows
  * OpenAI's prompt prefix caching to kick in after the first request.
  */
-export async function buildSystemPrompt(options: BuildSystemPromptOptions): Promise<string> {
-  const { context } = await buildDynamicContext({
+export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
+  const { context } = buildDynamicContext({
     intent: options.intent,
     brief: options.brief,
     themeOverride: options.themeOverride,
@@ -1064,6 +1048,7 @@ export async function buildSystemPrompt(options: BuildSystemPromptOptions): Prom
     buildSpec: options.buildSpec,
     customInstructions: options.customInstructions,
     generationMode: options.generationMode,
+    variantStructuralFiles: options.variantStructuralFiles,
   });
 
   return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${context}`;

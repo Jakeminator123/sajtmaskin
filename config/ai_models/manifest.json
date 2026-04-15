@@ -52,7 +52,7 @@
       "fast": "gpt-4.1",
       "pro": "gpt-5.3-codex",
       "max": "gpt-5.4",
-      "codex": "gpt-5.3-codex-max",
+      "codex": "gpt-5.3-codex",
       "anthropic": "claude-sonnet-4.6"
     },
     "envKeys": {
@@ -68,7 +68,7 @@
     "standard": "gpt-5.3-codex",
     "pro": "gpt-5.3-codex",
     "premium": "gpt-5.4",
-    "max": "gpt-5.3-codex-max"
+    "max": "gpt-5.3-codex"
   },
   "promptAssist": {
     "defaults": {
@@ -264,9 +264,16 @@
   },
   "repairPolicies": {
     "deterministicAutofixPasses": 2,
-    "syntaxFixPasses": 3,
+    "syntaxFixPasses": 4,
     "manualRepairRouteLlmPasses": 2,
-    "serverRepairPasses": 2
+    "serverRepairPasses": 2,
+    "partialFileRepairMaxAttempts": 1
+  },
+  "qualityGateTiers": {
+    "tier2": ["typecheck"],
+    "serverVerify": ["typecheck", "lint"],
+    "promotion": ["typecheck", "build"],
+    "interactive": ["typecheck", "build", "lint"]
   },
   "promptOrchestration": {
     "hardCaps": {
@@ -658,7 +665,7 @@
     },
     "autofixMaxOutputTokens": {
       "envKey": "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
-      "default": 49152,
+      "default": 82000,
       "min": 2048,
       "max": 131072
     },

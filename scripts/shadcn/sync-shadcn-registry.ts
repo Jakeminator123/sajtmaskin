@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const INDEX_URL = "https://ui.shadcn.com/r/index.json";
-const DETAIL_BASE = "https://ui.shadcn.com/r/styles/new-york-v4";
+const DETAIL_BASE = "https://ui.shadcn.com/r/styles/radix-vega";
 const COMPONENTS_PATH = join(
   process.cwd(),
   "src/lib/gen/data/shadcn-components.ts",

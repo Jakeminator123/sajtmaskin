@@ -21,7 +21,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
     const engineChat = await getEngineChatByIdForRequest(req, chatId);
     const engineVersions = engineChat ? await getVersionsByChat(engineChat.id) : [];
-    const engineChatId = engineChat?.id ?? chatId;
     if (engineVersions.length > 0) {
       const versionsList = engineVersions.map((v) => ({
           id: v.id,

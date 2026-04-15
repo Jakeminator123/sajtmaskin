@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/refs -- useDidAvatar exposes ref-like fields for video and connection UI */
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { HelpCircle, Send, Square, Trash2, X } from "lucide-react";

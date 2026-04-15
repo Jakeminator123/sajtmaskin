@@ -8,7 +8,7 @@ import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
   isAnthropicAssistModel,
-  isGatewayAssistModel,
+  isOpenAIAssistModel,
   isPromptAssistModelAllowed,
   normalizeAssistModel,
   resolvePromptAssistProvider,
@@ -24,13 +24,15 @@ import {
 
 const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 81_920;
 
+export type BriefQuality = "full" | "server-auto" | "none";
+
 export const briefRequestSchema = z.object({
   prompt: z
     .string()
     .trim()
     .min(1, "prompt is required")
     .max(MAX_AI_BRIEF_PROMPT_CHARS, `prompt too long (max ${MAX_AI_BRIEF_PROMPT_CHARS} chars)`),
-  provider: z.enum(["gateway", "anthropic"]).optional(),
+  provider: z.enum(["openai", "gateway", "anthropic"]).optional(),
   model: z.string().min(1).optional().default(BRIEF_MODEL),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
@@ -54,6 +56,13 @@ function resolveMaxTokens(requested: number | undefined): number {
 function normalizeBriefLogSource(source: string | undefined): string {
   const normalized = source?.trim();
   return normalized ? normalized : "unspecified";
+}
+
+function applyBriefQuality(
+  brief: Record<string, unknown>,
+  briefQuality: Exclude<BriefQuality, "none">,
+): Record<string, unknown> {
+  return { ...brief, briefQuality };
 }
 
 const sectionTypeSchema = z.enum([
@@ -141,79 +150,6 @@ const siteBriefSchema = z.object({
     .describe("Things to explicitly avoid based on user request or domain conventions"),
 });
 
-const simplifiedBriefSchema = z.object({
-  projectTitle: z.string(),
-  brandName: z.string().optional().default(""),
-  oneSentencePitch: z.string(),
-  targetAudience: z.string().optional().default("General audience"),
-  primaryCallToAction: z.string().optional().default("Get Started"),
-  toneAndVoice: z.array(z.string()).optional().default([]),
-  pages: z
-    .array(
-      z.object({
-        name: z.string(),
-        path: z.string(),
-        purpose: z.string().optional().default(""),
-        sections: z
-          .array(
-            z.object({
-              type: z.string(),
-              heading: z.string(),
-              bullets: z.array(z.string()).optional().default([]),
-            }),
-          )
-          .optional()
-          .default([]),
-      }),
-    )
-    .optional()
-    .default([]),
-  visualDirection: z
-    .object({
-      styleKeywords: z.array(z.string()).optional().default([]),
-      colorPalette: z
-        .object({
-          primary: z.string().optional().default("#3b82f6"),
-          secondary: z.string().optional().default("#6366f1"),
-          accent: z.string().optional().default("#f59e0b"),
-          background: z.string().optional().default("#0a0a0a"),
-          text: z.string().optional().default("#ffffff"),
-        })
-        .optional(),
-      typography: z
-        .object({
-          headings: z.string().optional().default("Inter"),
-          body: z.string().optional().default("Inter"),
-        })
-        .optional(),
-    })
-    .optional(),
-  imagery: z
-    .object({
-      needsImages: z.boolean().optional().default(true),
-      styleKeywords: z.array(z.string()).optional().default([]),
-      suggestedSubjects: z.array(z.string()).optional().default([]),
-      altTextRules: z.array(z.string()).optional().default([]),
-    })
-    .optional(),
-  uiNotes: z
-    .object({
-      components: z.array(z.string()).optional().default([]),
-      interactions: z.array(z.string()).optional().default([]),
-      accessibility: z.array(z.string()).optional().default([]),
-    })
-    .optional(),
-  seo: z
-    .object({
-      titleTemplate: z.string().optional().default("{page} | Site"),
-      metaDescription: z.string().optional().default(""),
-      keywords: z.array(z.string()).optional().default([]),
-    })
-    .optional(),
-  mustHave: z.array(z.string()).optional().default([]),
-  avoid: z.array(z.string()).optional().default([]),
-});
-
 import { inferSiteTypeHintFromDomain } from "./domain-inference";
 
 function resolveAnthropicBriefModelId(model: string): string {
@@ -252,7 +188,7 @@ function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string
 
 export type SiteBriefGenerationResult = {
   brief: Record<string, unknown>;
-  usedSimplified: boolean;
+  briefQuality: Exclude<BriefQuality, "none">;
   provider: "openai" | "anthropic";
   normalizedModel: string;
 };
@@ -267,10 +203,11 @@ export type SiteBriefHttpError = {
  */
 export function validateBriefModelForHttp(
   normalizedModel: string,
-  providerOverride?: "gateway" | "anthropic",
+  providerOverride?: "openai" | "gateway" | "anthropic",
 ): SiteBriefHttpError | null {
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
-  if (providerOverride && providerOverride !== resolvedProvider) {
+  const normalizedProviderOverride = providerOverride === "gateway" ? "openai" : providerOverride;
+  if (normalizedProviderOverride && normalizedProviderOverride !== resolvedProvider) {
     return {
       status: 400,
       body: {
@@ -309,7 +246,7 @@ export function validateBriefModelForHttp(
     }
     return null;
   }
-  if (!isGatewayAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
+  if (!isOpenAIAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
     return {
       status: 400,
       body: {
@@ -345,7 +282,7 @@ export async function generateSiteBriefObject(
     abortSignal?: AbortSignal;
     source?: string;
   },
-): Promise<SiteBriefGenerationResult> {
+): Promise<SiteBriefGenerationResult | null> {
   const {
     prompt,
     normalizedModel,
@@ -356,16 +293,15 @@ export async function generateSiteBriefObject(
     source,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
-  const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
   const maxTokens = resolveMaxTokens(requestedMaxTokens);
   const userPrompt = buildBriefUserPrompt(prompt, imageGenerations);
   const briefSource = normalizeBriefLogSource(source);
 
-  debugLog("brief", `model_call ${normalizedModel} provider=${logProvider} maxTokens=${maxTokens}`);
+  debugLog("brief", `model_call ${normalizedModel} provider=${resolvedProvider} maxTokens=${maxTokens}`);
   devLogAppend("latest", {
     type: "assist.brief.request",
     source: briefSource,
-    provider: logProvider,
+    provider: resolvedProvider,
     model: normalizedModel,
     prompt,
     imageGenerations,
@@ -374,10 +310,8 @@ export async function generateSiteBriefObject(
 
   if (resolvedProvider === "anthropic") {
     const directModel = createDirectModel(`anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`);
-    let usedSimplified = false;
-    let result;
     try {
-      result = await generateObject({
+      const result = await generateObject({
         model: directModel,
         schema: siteBriefSchema,
         messages: [
@@ -389,63 +323,36 @@ export async function generateSiteBriefObject(
         abortSignal,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
-    } catch (fullSchemaErr) {
-      debugLog("AI", "Full Anthropic brief schema failed, trying simplified", {
-        error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+      const briefObject = applyBriefQuality(result.object as Record<string, unknown>, "full");
+      const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
+      devLogAppend("latest", {
+        type: "assist.brief.response",
+        provider: "anthropic",
+        model: normalizedModel,
+        briefQuality: "full",
+        projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
+        pages,
       });
-      try {
-        result = await generateObject({
-          model: directModel,
-          schema: simplifiedBriefSchema,
-          messages: [
-            {
-              role: "system",
-              content:
-                BRIEF_SYSTEM_PROMPT +
-                "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure.",
-            },
-            { role: "user", content: userPrompt },
-          ],
-          maxRetries: 1,
-          maxOutputTokens: Math.min(maxTokens, 40_960),
-          abortSignal,
-          ...getTemperatureConfig(normalizedModel, temperature),
-        });
-        usedSimplified = true;
-      } catch (simplifiedErr) {
-        const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
-        errorLog("AI", "Anthropic brief generation failed - both schemas", {
-          model: normalizedModel,
-          promptLength: prompt.length,
-          fullError: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
-          simplifiedError: errMsg,
-        });
-        throw simplifiedErr;
-      }
+      return {
+        brief: briefObject,
+        briefQuality: "full",
+        provider: "anthropic",
+        normalizedModel,
+      };
+    } catch (briefErr) {
+      const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
+      errorLog("AI", "Anthropic brief generation failed", {
+        model: normalizedModel,
+        promptLength: prompt.length,
+        error: errMsg,
+      });
+      return null;
     }
-    const briefObject = result.object as Record<string, unknown>;
-    const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
-    devLogAppend("latest", {
-      type: "assist.brief.response",
-      provider: "anthropic",
-      model: normalizedModel,
-      schema: usedSimplified ? "simplified" : "full",
-      projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
-      pages,
-    });
-    return {
-      brief: briefObject,
-      usedSimplified,
-      provider: "anthropic",
-      normalizedModel,
-    };
   }
 
   const directModel = createDirectModel(normalizedModel);
-  let usedSimplified = false;
-  let result;
   try {
-    result = await generateObject({
+    const result = await generateObject({
       model: directModel,
       schema: siteBriefSchema,
       messages: [
@@ -457,62 +364,37 @@ export async function generateSiteBriefObject(
       abortSignal,
       ...getTemperatureConfig(normalizedModel, temperature),
     });
-  } catch (fullSchemaErr) {
-    debugLog("AI", "Full brief schema failed, trying simplified", {
-      error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+    const briefObject = applyBriefQuality(result.object as Record<string, unknown>, "full");
+    const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
+    devLogAppend("latest", {
+      type: "assist.brief.response",
+      provider: "openai",
+      model: normalizedModel,
+      briefQuality: "full",
+      projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
+      pages,
     });
-    try {
-      result = await generateObject({
-        model: directModel,
-        schema: simplifiedBriefSchema,
-        messages: [
-          {
-            role: "system",
-            content:
-              BRIEF_SYSTEM_PROMPT +
-              "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure.",
-          },
-          { role: "user", content: userPrompt },
-        ],
-        maxRetries: 1,
-        maxOutputTokens: Math.min(maxTokens, 40_960),
-        abortSignal,
-        ...getTemperatureConfig(normalizedModel, temperature),
-      });
-      usedSimplified = true;
-    } catch (simplifiedErr) {
-      const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
-      errorLog("AI", "Brief generation failed - both schemas", {
-        model: normalizedModel,
-        promptLength: prompt.length,
-        fullError: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
-        simplifiedError: errMsg,
-      });
-      throw simplifiedErr;
-    }
+    devLogAppend("in-progress", {
+      type: "brief.full",
+      provider: "openai",
+      model: normalizedModel,
+      brief: briefObject,
+    });
+    return {
+      brief: briefObject,
+      briefQuality: "full",
+      provider: "openai",
+      normalizedModel,
+    };
+  } catch (briefErr) {
+    const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
+    errorLog("AI", "Brief generation failed", {
+      model: normalizedModel,
+      promptLength: prompt.length,
+      error: errMsg,
+    });
+    return null;
   }
-  const briefObject = result.object as Record<string, unknown>;
-  const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
-  devLogAppend("latest", {
-    type: "assist.brief.response",
-    provider: "openai",
-    model: normalizedModel,
-    schema: usedSimplified ? "simplified" : "full",
-    projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
-    pages,
-  });
-  devLogAppend("in-progress", {
-    type: "brief.full",
-    provider: "openai",
-    model: normalizedModel,
-    brief: briefObject,
-  });
-  return {
-    brief: briefObject,
-    usedSimplified,
-    provider: "openai",
-    normalizedModel,
-  };
 }
 
 function resolveRunnableBriefModel(preferred: string): string | null {
@@ -525,13 +407,13 @@ function resolveRunnableBriefModel(preferred: string): string | null {
     m = AUTO_BRIEF_MODEL_OPENAI;
   }
   const provider = resolvePromptAssistProvider(m);
-  if (provider === "gateway" && !hasOpenAI && hasAnthropic) {
+  if (provider === "openai" && !hasOpenAI && hasAnthropic) {
     return AUTO_BRIEF_MODEL_ANTHROPIC;
   }
   if (provider === "anthropic" && !hasAnthropic && hasOpenAI) {
     return AUTO_BRIEF_MODEL_OPENAI;
   }
-  if (provider === "gateway" && !hasOpenAI) return null;
+  if (provider === "openai" && !hasOpenAI) return null;
   if (provider === "anthropic" && !hasAnthropic) return null;
   return m;
 }
@@ -552,14 +434,16 @@ export async function tryGenerateServerAutoBrief(params: {
   if (!runnable) return null;
 
   try {
-    const { brief, normalizedModel } = await generateSiteBriefObject({
+    const generated = await generateSiteBriefObject({
       prompt: params.prompt,
       normalizedModel: runnable,
       imageGenerations: params.imageGenerations,
       abortSignal: params.signal,
       source: "server_auto_brief",
     });
-    return { brief, modelUsed: normalizedModel };
+    if (!generated) return null;
+    const { brief, normalizedModel } = generated;
+    return { brief: applyBriefQuality(brief, "server-auto"), modelUsed: normalizedModel };
   } catch (e) {
     console.warn("[server-auto-brief] Generation failed:", e instanceof Error ? e.message : e);
     return null;

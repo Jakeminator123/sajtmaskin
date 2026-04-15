@@ -3,18 +3,17 @@ import type { ThemeColors } from "./theme-presets";
 import { type DomainProfile, inferDomain } from "./domain-inference";
 import { SECTION_KEYWORDS, STYLE_KEYWORDS } from "./prompt-heuristics";
 import { getPromptAssistAllowedFromManifest } from "@/lib/ai-models/load-manifest";
+import { BUILD_INTENT_GUIDANCE } from "@/lib/gen/intent-guidance";
 
 // OpenAI-class assist models (loaded from manifest).
 // "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
-export type PromptAssistProvider = "gateway" | "anthropic";
+export type PromptAssistProvider = "openai" | "anthropic";
 
 const promptAssistAllowed = getPromptAssistAllowedFromManifest();
 
 export const ASSIST_MODELS = Object.freeze([
   ...promptAssistAllowed.gatewayClassModels,
 ]);
-/** @deprecated Use ASSIST_MODELS */
-export const GATEWAY_ASSIST_MODELS = ASSIST_MODELS;
 
 export const ANTHROPIC_ASSIST_MODELS = Object.freeze([
   ...promptAssistAllowed.anthropicDirectModels,
@@ -28,7 +27,7 @@ export function normalizeAssistModel(rawModel: string): string {
   return `openai/${raw}`;
 }
 
-export function isGatewayAssistModel(model: string): boolean {
+export function isOpenAIAssistModel(model: string): boolean {
   return ASSIST_MODELS.includes(model);
 }
 
@@ -43,14 +42,14 @@ export function isPromptAssistOff(model: string): boolean {
 export function isPromptAssistModelAllowed(model: string): boolean {
   return (
     isPromptAssistOff(model) ||
-    isGatewayAssistModel(model) ||
+    isOpenAIAssistModel(model) ||
     isAnthropicAssistModel(model)
   );
 }
 
 export function resolvePromptAssistProvider(model: string): PromptAssistProvider {
   if (isAnthropicAssistModel(model) || model.startsWith("anthropic/")) return "anthropic";
-  return "gateway";
+  return "openai";
 }
 
 // SECTION_KEYWORDS and STYLE_KEYWORDS imported from prompt-heuristics.ts
@@ -133,40 +132,6 @@ const MOTION_STATIC_STYLE_KEYWORDS = [
   "professional",
   "quiet",
 ] as const;
-
-// Build intent guidance for prompt-assist paths (rewrite, polish, addendum).
-// Canonical source for codegen is BUILD_INTENT_GUIDANCE in system-prompt.ts.
-// Keep these in sync — the summaries here feed the assist system prompts.
-const BUILD_INTENT_GUIDANCE: Record<
-  BuildIntent,
-  { summary: string; instructionLines: string[] }
-> = {
-  template: {
-    summary: "Template build: compact, reusable layout with minimal app logic.",
-    instructionLines: [
-      "Scope is compact: 1–2 pages max, reusable sections.",
-      "Avoid heavy app logic, databases, or auth unless explicitly requested.",
-      "Focus on layout, components, and clean content placeholders.",
-    ],
-  },
-  website: {
-    summary: "Website build: purpose-fit web experience with clear structure.",
-    instructionLines: [
-      "Focus on content structure, clear sections, and flows that fit the requested use case.",
-      "Prefer static content with light interactivity; keep logic minimal.",
-      "Match scope to the request: a short, simple prompt should yield a polished one-pager; a detailed prompt may produce multiple pages.",
-      "Use shadcn/ui components (buttons, cards, forms, dialogs) for all interactive and structured UI elements.",
-    ],
-  },
-  app: {
-    summary: "App build: stateful UI with flows, data models, and auth where needed.",
-    instructionLines: [
-      "Include app flows, stateful UI, and data-backed views where relevant.",
-      "Define key entities, empty states, and realistic data placeholders.",
-      "Add auth, settings, and CRUD patterns when it fits the prompt.",
-    ],
-  },
-};
 
 function resolveBuildIntent(intent?: BuildIntent | null): BuildIntent {
   if (intent === "template" || intent === "app" || intent === "website") return intent;
@@ -611,19 +576,6 @@ function resolveQualityBarGuidance(
 
 // ── End dynamic guidance resolvers ──────────────────────────────────────
 
-const CONSTRAINT_MARKERS = [
-  "must",
-  "should",
-  "avoid",
-  "do not",
-  "don't",
-  "ska",
-  "måste",
-  "undvik",
-  "inte",
-  "utan",
-] as const;
-
 function normalizeWhitespace(value: string): string {
   const normalized = value.replace(/\r\n/g, "\n");
   const trimmedLines = normalized.split("\n").map((line) => line.replace(/\s+$/g, ""));
@@ -674,37 +626,6 @@ function extractKeywordMatches(value: string, keywords: readonly string[]): stri
   return Array.from(new Set(matches));
 }
 
-function extractConstraints(value: string): string[] {
-  const lines = value
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const picked: string[] = [];
-  lines.forEach((line) => {
-    const lower = line.toLowerCase();
-    if (CONSTRAINT_MARKERS.some((marker) => lower.includes(marker))) {
-      if (!picked.includes(line)) {
-        picked.push(line);
-      }
-    }
-  });
-  return picked.slice(0, 6);
-}
-
-function extractUrls(value: string): string[] {
-  const matches = Array.from(value.matchAll(/https?:\/\/[^\s)]+/g)).map((m) => m[0]);
-  return Array.from(new Set(matches)).slice(0, 6);
-}
-
-function normalizeConstraintKey(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/\(sr-only ok\)/g, "")
-    .replace(/[^a-z0-9åäö]+/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 const ACCESSIBILITY_REQUIREMENTS = [
   "Dialoger måste ha DialogTitle + DialogDescription (sr-only ok) eller korrekt aria-describedby.",
 ];
@@ -715,53 +636,12 @@ export function formatPrompt(prompt: string): string {
   if (!normalized) return "";
   if (isStructuredPrompt(normalized)) return normalized;
 
-  const sections = extractKeywordMatches(normalized, SECTION_KEYWORDS);
-  const styles = extractKeywordMatches(normalized, STYLE_KEYWORDS);
-  const accessibilityKeys = new Set(
-    ACCESSIBILITY_REQUIREMENTS.map((line) => normalizeConstraintKey(line)),
-  );
-  const seenConstraintKeys = new Set<string>();
-  const constraints = extractConstraints(normalized).filter((line) => {
-    const key = normalizeConstraintKey(line);
-    if (!key) return false;
-    if (seenConstraintKeys.has(key)) return false;
-    seenConstraintKeys.add(key);
-    if (accessibilityKeys.has(key)) return false;
-    return true;
-  });
-  const urls = extractUrls(normalized);
-  const normalizedPromptKeys = new Set(
-    normalized
-      .split(/\n+/)
-      .map((line) => normalizeConstraintKey(line))
-      .filter(Boolean),
-  );
-  const accessibilityRequirements = ACCESSIBILITY_REQUIREMENTS.filter(
-    (line) => !normalizedPromptKeys.has(normalizeConstraintKey(line)),
-  );
-
-  const parts: string[] = ["MÅL", normalized];
-
-  if (sections.length) {
-    parts.push("SEKTIONER", sections.join(", "));
-  }
-  if (styles.length) {
-    parts.push("STIL", styles.join(", "));
-  }
-  if (constraints.length) {
-    parts.push("CONSTRAINTS", constraints.map((line) => `- ${line}`).join("\n"));
-  }
-  if (urls.length) {
-    parts.push("ASSETS/ATTACHMENTS", urls.map((url) => `- ${url}`).join("\n"));
-  }
-  if (accessibilityRequirements.length) {
-    parts.push(
-      "TILLGÄNGLIGHET",
-      accessibilityRequirements.map((line) => `- ${line}`).join("\n"),
-    );
-  }
-
-  return parts.join("\n\n");
+  return [
+    "MÅL",
+    normalized,
+    "TILLGÄNGLIGHET",
+    ACCESSIBILITY_REQUIREMENTS.map((line) => `- ${line}`).join("\n"),
+  ].join("\n\n");
 }
 
 export function buildRewriteSystemPrompt(params: {
@@ -809,6 +689,8 @@ export function buildPolishSystemPrompt(params: {
   );
 }
 
+// Brief is intentionally loose (LLM JSON); narrow at use sites with helpers below.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- see above
 type Brief = any;
 
 export function buildPromptFromBrief(params: {
@@ -864,14 +746,14 @@ export function buildPromptFromBrief(params: {
   const qualityGuidance = resolveQualityBarGuidance(tone, styleKeywords, "compact");
   const toBulletLine = (line: string) => (line.startsWith("-") ? line : `- ${line}`);
 
-  const pages: any[] = Array.isArray(brief.pages) ? brief.pages : [];
+  const pages: Brief[] = Array.isArray(brief.pages) ? brief.pages : [];
   const pageLines = pages
     .slice(0, 10)
     .map((p) => {
       const name = asString(p?.name) || "Page";
       const path = asString(p?.path) || "/";
       const purpose = asString(p?.purpose);
-      const sections: any[] = Array.isArray(p?.sections) ? p.sections : [];
+      const sections: Brief[] = Array.isArray(p?.sections) ? p.sections : [];
       const sectionLines = sections.slice(0, 14).map((s) => {
         const type = asString(s?.type) || "section";
         const heading = asString(s?.heading);
@@ -956,6 +838,118 @@ export function buildPromptFromBrief(params: {
     .join("\n");
 }
 
+function buildSharedAddendumBlocks(params: {
+  originalPrompt: string;
+  buildIntent?: BuildIntent;
+  tone: string[];
+  styleKeywords: string[];
+  imageGenerations: boolean;
+  themeOverride?: ThemeColors | null;
+  basePalette?: ColorPalette;
+  domainSignal: string;
+  topicSignal?: string;
+  promptObservations?: string[];
+  imageryNotes?: string[];
+  guidanceVariant: "detailed" | "compact";
+  imageDensityBullets?: boolean;
+}): {
+  domainBlock: string[];
+  domainContractHints: string[];
+  motionBlock: string[];
+  themeBlock: string[];
+  imageryBlock: string[];
+} {
+  const {
+    originalPrompt,
+    buildIntent,
+    tone,
+    styleKeywords,
+    imageGenerations,
+    themeOverride,
+    basePalette,
+    domainSignal,
+    topicSignal,
+    promptObservations,
+    imageryNotes,
+    guidanceVariant,
+    imageDensityBullets = false,
+  } = params;
+  const themeLocked = hasThemeOverride(themeOverride);
+  const colorPalette: ColorPalette = themeLocked ? toColorPalette(themeOverride) : (basePalette || {});
+  const themeAccentLines = themeLocked ? buildThemeAccentLines(themeOverride) : [];
+  const themeTokenLines = themeLocked ? buildThemeTokenLines(themeOverride) : [];
+
+  const domainProfile = inferDomain(domainSignal);
+  const domainStructureHints = buildDomainStructureHints(domainProfile);
+  const domainContractHints = buildDomainContractHints(domainProfile);
+  const domainInferenceLines =
+    promptObservations && promptObservations.length > 0
+      ? promptObservations
+      : domainProfile !== "general"
+        ? [`- Domain profile inferred from prompt + brief: ${domainProfile}.`]
+        : [];
+  const domainBlock: string[] = [];
+  if (domainInferenceLines.length > 0) {
+    domainBlock.push("## Domain Inference", ...domainInferenceLines, "");
+  }
+  if (domainStructureHints.length > 0) {
+    domainBlock.push("## Structure Hints", ...domainStructureHints, "");
+  }
+
+  const motionProfile = inferMotionProfile({
+    prompt: originalPrompt,
+    tone,
+    styleKeywords,
+    buildIntent,
+    preferLively: true,
+  });
+  const motionBlock = [
+    "## Interaction & Motion",
+    ...resolveMotionGuidance(tone, styleKeywords, guidanceVariant, motionProfile),
+    "",
+  ];
+
+  const themeBlock = [
+    "## Visual Identity",
+    ...resolveVisualIdentityGuidance(colorPalette, styleKeywords, tone, guidanceVariant, {
+      themeLocked,
+    }),
+    ...(isSeasonalOrCulturalTopic(topicSignal || originalPrompt)
+      ? [
+          "Use a subject-led palette instead of default SaaS blue. Seasonal/cultural themes should borrow color cues from the actual subject matter.",
+          ...getSubjectPaletteGuidance(topicSignal || originalPrompt),
+        ]
+      : []),
+    ...themeAccentLines,
+    ...themeTokenLines,
+    "",
+  ];
+
+  const imageryLine = imageGenerations
+    ? "Image generation is enabled — use AI-generated images as the primary source. When no AI images are provided, use real Unsplash photos that directly depict the site topic (format: https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80). Hero MUST have a prominent image. Never use blob: or data: URIs."
+    : "Image generation is disabled — use /placeholder.svg?height=H&width=W for all images.";
+  const imageryBlock = [
+    "## Imagery",
+    imageryLine,
+    "Alt text required on all images. Use next/image with explicit dimensions.",
+    "Every image must visually match its alt text and the actual page topic.",
+    "Avoid generic office, laptop, startup, coworking, and meeting photos unless the request is actually about business/software/work.",
+    ...(imageDensityBullets
+      ? IMAGE_DENSITY_GUIDANCE.map((line) => `- ${line}`)
+      : IMAGE_DENSITY_GUIDANCE),
+    ...((imageryNotes || []).map((note) => `- ${note}`)),
+    "",
+  ];
+
+  return {
+    domainBlock,
+    domainContractHints,
+    motionBlock,
+    themeBlock,
+    imageryBlock,
+  };
+}
+
 export function buildDynamicInstructionAddendumFromBrief(params: {
   brief: Brief;
   originalPrompt: string;
@@ -975,7 +969,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const audience = asString(brief.targetAudience);
   const tone = asStringList(brief.toneAndVoice);
 
-  const pages: any[] = Array.isArray(brief.pages) ? brief.pages : [];
+  const pages: Brief[] = Array.isArray(brief.pages) ? brief.pages : [];
   const isSinglePage = pages.length === 1 && asString(pages[0]?.path) === "/";
   const pageLines = pages
     .slice(0, 8)
@@ -983,7 +977,7 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
       const name = asString(p?.name) || "Page";
       const path = asString(p?.path) || "/";
       const purpose = asString(p?.purpose);
-      const sections: any[] = Array.isArray(p?.sections) ? p.sections : [];
+      const sections: Brief[] = Array.isArray(p?.sections) ? p.sections : [];
       const sectionLines = sections.slice(0, 12).map((s) => {
         const type = asString(s?.type) || "section";
         const heading = asString(s?.heading);
@@ -1004,44 +998,28 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     ...asStringList(imagery?.subjects),
     ...asStringList(imagery?.shotTypes),
   ].filter(Boolean);
-  const topicIsSeasonalOrCultural = isSeasonalOrCulturalTopic(
-    [projectTitle, brandName, pitch, originalPrompt, imageryNotes.join(" ")].join(" "),
-  );
-  const domainProfile = inferDomain(
-    [projectTitle, brandName, pitch, audience, originalPrompt, pageLines].filter(Boolean).join(" "),
-  );
-  const domainStructureHints = buildDomainStructureHints(domainProfile);
-  const domainContractHints = buildDomainContractHints(domainProfile);
 
   const mustHave = asStringList(brief.mustHave).slice(0, 10);
   const avoid = asStringList(brief.avoid).slice(0, 8);
-
-  // Extract visual direction fields for dynamic guidance
   const styleKeywords = asStringList(brief?.visualDirection?.styleKeywords);
-  const themeLocked = hasThemeOverride(themeOverride);
-  const briefPalette: ColorPalette = themeLocked ? {} : (brief?.visualDirection?.colorPalette || {});
-  const colorPalette: ColorPalette = themeLocked ? toColorPalette(themeOverride) : briefPalette;
-  const themeAccentLines = themeLocked ? buildThemeAccentLines(themeOverride) : [];
-  const themeTokenLines = themeLocked ? buildThemeTokenLines(themeOverride) : [];
-
-  // Dynamic guidance adapted to the brief's tone, style, and palette
-  const motionProfile = inferMotionProfile({
-    prompt: originalPrompt,
-    tone,
-    styleKeywords,
-    buildIntent,
-    preferLively: true,
-  });
-  const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "detailed", motionProfile);
-  const visualIdentityGuidance = resolveVisualIdentityGuidance(
-    colorPalette,
-    styleKeywords,
-    tone,
-    "detailed",
-    { themeLocked },
-  );
+  const { domainBlock, domainContractHints, motionBlock, themeBlock, imageryBlock } =
+    buildSharedAddendumBlocks({
+      originalPrompt,
+      buildIntent,
+      tone,
+      styleKeywords,
+      imageGenerations,
+      themeOverride,
+      basePalette: brief?.visualDirection?.colorPalette || {},
+      domainSignal: [projectTitle, brandName, pitch, audience, originalPrompt, pageLines]
+        .filter(Boolean)
+        .join(" "),
+      topicSignal: [projectTitle, brandName, pitch, originalPrompt, imageryNotes.join(" ")].join(" "),
+      imageryNotes,
+      guidanceVariant: "detailed",
+      imageDensityBullets: true,
+    });
   const richnessGuidance = resolveQualityBarGuidance(tone, styleKeywords, "detailed");
-  const imageDensityGuidance = IMAGE_DENSITY_GUIDANCE;
 
   const parts: string[] = [
     "## Build Intent",
@@ -1070,51 +1048,19 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     parts.push("## Pages & Sections", pageLines, "");
   }
 
-  if (domainProfile !== "general") {
-    parts.push(
-      "## Domain Inference",
-      `- Domain profile inferred from prompt + brief: ${domainProfile}.`,
-      "",
-    );
-  }
-  if (domainStructureHints.length > 0) {
-    parts.push("## Structure Hints", ...domainStructureHints, "");
+  if (domainBlock.length > 0) {
+    parts.push(...domainBlock);
   }
 
-  parts.push("## Interaction & Motion", ...motionGuidance, "");
-  parts.push(
-    "## Visual Identity",
-    ...visualIdentityGuidance,
-    ...(topicIsSeasonalOrCultural
-      ? [
-          "Use a subject-led palette rather than default modern SaaS blue. Pull colors from the topic itself: evergreen, spruce, bark, warm gold, candlelight cream, deep red, winter white, or other relevant hues.",
-          ...getSubjectPaletteGuidance(
-            [projectTitle, brandName, pitch, originalPrompt, styleKeywords.join(" ")].join(" "),
-          ),
-        ]
-      : []),
-    ...themeAccentLines,
-    ...themeTokenLines,
-    "",
-  );
+  parts.push(...motionBlock);
+  parts.push(...themeBlock);
   parts.push("## Quality Bar", ...richnessGuidance, "");
 
   if (domainContractHints.length > 0) {
     parts.push("## Contract & Backend Hints", ...domainContractHints, "");
   }
 
-  parts.push(
-    "## Imagery",
-    imageGenerations
-      ? "Image generation is enabled — use AI-generated images as the primary source. When no AI images are provided, use real Unsplash photos that directly depict the site topic (format: https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80). Hero MUST have a prominent image. Never use blob: or data: URIs."
-      : "Image generation is disabled — use /placeholder.svg?height=H&width=W for all images.",
-    "Alt text required on all images. Use next/image with explicit dimensions.",
-    "Every image must visually match its alt text and the actual page topic.",
-    "Avoid generic office, laptop, startup, coworking, and meeting photos unless that is the real subject of the site.",
-    ...imageDensityGuidance.map((line) => `- ${line}`),
-    ...(imageryNotes.length ? imageryNotes.map((note) => `- ${note}`) : []),
-    "",
-  );
+  parts.push(...imageryBlock);
 
   if (mustHave.length) {
     parts.push("## Must Have", ...mustHave.map((item) => `- ${item}`), "");
@@ -1136,15 +1082,7 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
 }): string {
   const { originalPrompt, imageGenerations, buildIntent, themeOverride } = params;
   const formatted = formatPrompt(originalPrompt);
-  const imageryLine = imageGenerations
-    ? "Image generation is enabled — use AI-generated images as the primary source. When no AI images are provided, use real Unsplash photos matching the site topic (format: https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80). Hero MUST have a prominent image. Never use blob: or data: URIs. Always include alt text."
-    : "Image generation is disabled — use /placeholder.svg?height=H&width=W for all images. Always include alt text.";
   const intentLines = getBuildIntentInstructionLines(buildIntent);
-  const themeLocked = hasThemeOverride(themeOverride);
-  const colorPalette = themeLocked ? toColorPalette(themeOverride) : {};
-  const themeAccentLines = themeLocked ? buildThemeAccentLines(themeOverride) : [];
-  const themeTokenLines = themeLocked ? buildThemeTokenLines(themeOverride) : [];
-  const topicIsSeasonalOrCultural = isSeasonalOrCulturalTopic(originalPrompt);
 
   // Infer tone and style from the raw prompt for dynamic guidance
   const promptStyles = extractKeywordMatches(originalPrompt, STYLE_KEYWORDS);
@@ -1154,20 +1092,25 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
   ] as const);
   const promptSections = extractKeywordMatches(originalPrompt, SECTION_KEYWORDS);
   const domainProfile = inferDomain(originalPrompt);
-  const domainStructureHints = buildDomainStructureHints(domainProfile);
-  const domainContractHints = buildDomainContractHints(domainProfile);
   const promptObservations = buildPromptAssistObservations(
     originalPrompt,
     domainProfile,
     promptSections,
     promptStyles,
   );
-  const motionProfile = inferMotionProfile({
-    prompt: originalPrompt,
-    tone: promptTone,
-    styleKeywords: promptStyles,
-    buildIntent,
-    preferLively: true,
+  const { domainBlock, domainContractHints, motionBlock, themeBlock, imageryBlock } =
+    buildSharedAddendumBlocks({
+      originalPrompt,
+      buildIntent,
+      tone: promptTone,
+      styleKeywords: promptStyles,
+      imageGenerations,
+      themeOverride,
+      domainSignal: originalPrompt,
+      topicSignal: originalPrompt,
+      promptObservations,
+      guidanceVariant: "compact",
+      imageDensityBullets: false,
   });
 
   return [
@@ -1182,38 +1125,15 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "## Project Context",
     formatted || originalPrompt.trim(),
     "",
-    ...(promptObservations.length
-      ? ["## Domain Inference", ...promptObservations, ""]
-      : []),
-    ...(domainStructureHints.length
-      ? ["## Structure Hints", ...domainStructureHints, ""]
-      : []),
-    "## Interaction & Motion",
-    ...resolveMotionGuidance(promptTone, promptStyles, "compact", motionProfile),
-    "",
-    "## Visual Identity",
-    ...resolveVisualIdentityGuidance(colorPalette, promptStyles, promptTone, "compact", {
-      themeLocked,
-    }),
-    ...(topicIsSeasonalOrCultural
-      ? [
-          "Use a subject-led palette instead of default SaaS blue. Seasonal/cultural themes should borrow color cues from the actual subject matter.",
-          ...getSubjectPaletteGuidance(originalPrompt),
-        ]
-      : []),
-    ...themeAccentLines,
-    ...themeTokenLines,
-    "",
+    ...(domainBlock.length ? domainBlock : []),
+    ...motionBlock,
+    ...themeBlock,
     "## Quality Bar",
     ...resolveQualityBarGuidance(promptTone, promptStyles, "compact"),
     "",
     ...(domainContractHints.length
       ? ["## Contract & Backend Hints", ...domainContractHints, ""]
       : []),
-    "## Imagery",
-    imageryLine,
-    "Every image must visually match the subject, not just fill the layout.",
-    "Avoid generic office, laptop, startup, coworking, and meeting photos unless the request is actually about business/software/work.",
-    ...IMAGE_DENSITY_GUIDANCE,
+    ...imageryBlock,
   ].join("\n");
 }

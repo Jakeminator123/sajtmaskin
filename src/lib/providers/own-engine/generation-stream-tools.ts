@@ -14,6 +14,12 @@ export type OwnEngineToolSseBridge = {
 /**
  * Maps AI SDK tool invocations from the codegen stream into builder-facing SSE
  * (`integration`, `tool-call`). Keeps `generation-stream.ts` focused on I/O loop.
+ *
+ * Blocking policy (see `docs/architecture/builder-generation.md` — "Own-engine verktyg"):
+ * - `suggestIntegration` / `requestEnvVar`: informative only; emit SSE, do NOT call
+ *   `setBlockingToolCall` — code must still generate in the same response.
+ * - `askClarifyingQuestion`: blocking; calls `setBlockingToolCall` — real question
+ *   requiring user input before the chain should continue.
  */
 export function emitOwnEngineToolCallSse(
   bridge: OwnEngineToolSseBridge,
@@ -26,7 +32,6 @@ export function emitOwnEngineToolCallSse(
   const { enc, safeEnqueue, toolSignaledProviders, setBlockingToolCall } = bridge;
 
   if (toolName === "suggestIntegration") {
-    setBlockingToolCall();
     const envVars = Array.isArray(toolArgs.envVars) ? (toolArgs.envVars as string[]) : [];
     const integrationPayload: BuilderIntegrationEnvelope = {
       items: [
@@ -55,7 +60,6 @@ export function emitOwnEngineToolCallSse(
       debugLog("engine", "Tool: requestEnvVar skipped (missing key)", {});
       return;
     }
-    setBlockingToolCall();
     const integrationPayload: BuilderIntegrationEnvelope = {
       items: [
         {

@@ -7,7 +7,7 @@ import {
 } from "@/lib/builder/defaults";
 import {
   isAnthropicAssistModel,
-  isGatewayAssistModel,
+  isOpenAIAssistModel,
   isPromptAssistModelAllowed,
   isPromptAssistOff,
   normalizeAssistModel,
@@ -173,7 +173,7 @@ function buildPromptAssistOptionTrace(value: string, label: string): PromptAssis
     providerFamily: resolvePromptAssistProviderFamily(normalizedValue),
     allowed: isPromptAssistModelAllowed(normalizedValue),
     visibleInUi,
-    deepBriefEligible: isGatewayAssistModel(normalizedValue),
+    deepBriefEligible: isOpenAIAssistModel(normalizedValue),
   };
 }
 
@@ -194,7 +194,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     canUseDeepBrief &&
     promptAssistDeepRequested &&
     !isPromptAssistOff(selectedAssistModel) &&
-    isGatewayAssistModel(selectedAssistModel);
+    isOpenAIAssistModel(selectedAssistModel);
   const selectedAssistAllowed = isPromptAssistModelAllowed(selectedAssistModel);
   const selectedAssistVisibleInUi = PROMPT_ASSIST_MODEL_OPTIONS.some(
     (option) => option.value === selectedAssistModel,
@@ -269,9 +269,9 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       `Prompt assist model "${selectedAssistModel}" is not on the current allowlist.`,
     );
   }
-  if (selectedAssistProvider === "gateway" && !auth.openai) {
+  if (selectedAssistProvider === "openai" && !auth.openai) {
     warnings.push(
-      'OpenAI-class prompt assist is selected (internal label "gateway"), but OPENAI_API_KEY is missing.',
+      "OpenAI prompt assist is selected, but OPENAI_API_KEY is missing.",
     );
   }
   if (
@@ -288,7 +288,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
   if (
     promptAssistDeepRequested &&
     !isPromptAssistOff(selectedAssistModel) &&
-    !isGatewayAssistModel(selectedAssistModel)
+    !isOpenAIAssistModel(selectedAssistModel)
   ) {
     warnings.push(
       "Deep Brief was requested, but the selected prompt assist model is not deep-brief eligible.",
@@ -333,7 +333,7 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
       '"Skriv om" normally uses the dedicated polish model, but follows Anthropic when the active assist lane is Anthropic.',
       "Thinking is a boolean generation flag. It is not a separate model profile.",
       "Prompt-assist model strings are provider-coded. Build profiles are internal tiers that resolve later.",
-      "OpenAI-class prompt assist uses createDirectModel() with OPENAI_API_KEY; the internal provider label remains \"gateway\".",
+      "OpenAI prompt assist uses createDirectModel() with OPENAI_API_KEY.",
     ],
   };
 }

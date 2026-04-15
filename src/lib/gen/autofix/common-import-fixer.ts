@@ -4,7 +4,6 @@ import { normalizeFilePath, resolveLocalImportPath } from "@/lib/gen/preview/uti
 type ExportIndex = Map<string, string[]>;
 type ModuleExportIndex = Map<string, { named: Set<string>; hasDefault: boolean; defaultName: string | null }>;
 
-const IMPORT_LINE_RE = /^\s*import\s.+$/gm;
 const NAMED_IMPORT_RE = /import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["'];?/g;
 const DEFAULT_IMPORT_RE = /import\s+([A-Za-z_$][\w$]*)\s+from\s+["']([^"']+)["'];?/g;
 const LOCAL_DEFAULT_IMPORT_LINE_RE =

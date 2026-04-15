@@ -19,7 +19,7 @@
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
-import { isGatewayAssistModel, normalizeAssistModel } from "./promptAssist";
+import { isOpenAIAssistModel, normalizeAssistModel } from "./promptAssist";
 import { SPEC_MODEL } from "@/lib/gen/defaults";
 
 // Spec schema for structured output
@@ -104,7 +104,7 @@ async function generateWebsiteSpec(
 ): Promise<WebsiteSpec> {
   try {
     const requestedModel = normalizeAssistModel(modelOverride ?? DEFAULT_SPEC_MODEL);
-    const resolvedModel = isGatewayAssistModel(requestedModel) ? requestedModel : DEFAULT_SPEC_MODEL;
+    const resolvedModel = isOpenAIAssistModel(requestedModel) ? requestedModel : DEFAULT_SPEC_MODEL;
     const model = createDirectModel(resolvedModel);
 
     const result = await generateObject({

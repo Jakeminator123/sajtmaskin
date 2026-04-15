@@ -3,7 +3,7 @@
  *
  * - **Sync API** (`getActivePreviewSession`, …): in-process `Map` only — tests & same-instance hot path.
  * - **Async API** (`getActivePreviewSessionAsync`, …): when `getRedis()` is configured (`FEATURES.useRedisCache`),
- *   entries are also stored in Redis so another serverless instance can resume the same session (`preview-deploy.md`).
+ *   entries are also stored in Redis so another serverless instance can resume the same session (`fas3-preview-and-deploy.md`).
  */
 
 import { REDIS_KEY_PREFIX } from "@/lib/config";
@@ -182,20 +182,12 @@ export function getActivePreviewSession(
   return entry;
 }
 
-export function bumpPreviewSessionActivity(chatId: string, now?: number): void {
-  const t = now ?? Date.now();
-  const entry = getActivePreviewSession(chatId, { now: t });
-  if (!entry) return;
-  entry.lastUsedAt = t;
-  sessions.set(chatId, entry);
-}
-
 export function clearPreviewSession(chatId: string): void {
   sessions.delete(chatId);
 }
 
 /**
- * Prefer in preview start/resume paths when Redis may be available — cross-instance resume (`preview-deploy.md` § VM-resume).
+ * Prefer in preview start/resume paths when Redis may be available — cross-instance resume (`fas3-preview-and-deploy.md` § VM-resume).
  */
 export async function getActivePreviewSessionAsync(
   chatId: string,

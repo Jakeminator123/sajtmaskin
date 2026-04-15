@@ -79,7 +79,6 @@ import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestratio
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapper-contract";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
-import { looksDesignHeavyMessage } from "@/lib/builder/promptOrchestration";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
 
 /** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
@@ -772,6 +771,7 @@ export async function handleMessageStreamRequest(
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
           resolvedTier: resolvedModelTier,
+          includeIntegrationSignals: false,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,

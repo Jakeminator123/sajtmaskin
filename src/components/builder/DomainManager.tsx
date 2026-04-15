@@ -23,7 +23,6 @@ import {
   RefreshCw,
   Search,
   Server,
-  XCircle,
 } from "lucide-react";
 import type { DomainSearchResult } from "./DomainSearchDialog";
 

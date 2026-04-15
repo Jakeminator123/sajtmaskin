@@ -117,16 +117,6 @@ function hasCriticalSeoIssues(meta: unknown): boolean {
   );
 }
 
-function buildSeoWarning(detail?: string | null): ChatReadinessItem {
-  return {
-    id: "seo-warning",
-    title: "Den här versionen har SEO-varningar inför lansering.",
-    detail: detail || "Kontrollera metadata, robots, sitemap och rubrikstruktur.",
-    severity: "warning",
-    action: "seo",
-  };
-}
-
 function buildNoVersionReadiness(): ChatReadiness {
   return buildChatReadiness({
     blockers: [

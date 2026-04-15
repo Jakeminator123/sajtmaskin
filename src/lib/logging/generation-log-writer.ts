@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { normalizeErrorPattern } from "@/lib/gen/autofix/types";
+import { normalizeSlug } from "./shared";
 
 type GenerationLogTarget = "in-progress" | "latest";
 
@@ -103,18 +104,6 @@ function formatErrorDetails(data: Record<string, unknown>, maxItems = 3): string
   });
   const rest = errors.length > maxItems ? ` … +${errors.length - maxItems} till` : "";
   return items.join("; ") + rest;
-}
-
-function normalizeSlug(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const normalized = value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-  return normalized || null;
 }
 
 function formatRunTimestamp(ts: string): string {
@@ -249,14 +238,6 @@ function findLastString(entries: StoredGenerationEntry[], key: string): string |
   for (let i = entries.length - 1; i >= 0; i -= 1) {
     const value = readString(entries[i].data[key]);
     if (value) return value;
-  }
-  return null;
-}
-
-function findLastNumber(entries: StoredGenerationEntry[], key: string): number | null {
-  for (let i = entries.length - 1; i >= 0; i -= 1) {
-    const value = readNumber(entries[i].data[key]);
-    if (value !== null) return value;
   }
   return null;
 }
@@ -1397,7 +1378,16 @@ function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnaps
     .slice(-MAX_SITE_HISTORY_RUNS);
   fs.writeFileSync(historyPath, deduped.join("\n") + "\n", "utf8");
 
-  fs.copyFileSync(path.join(runDir, SUMMARY_FILE), path.join(latestDir, SUMMARY_FILE));
+  const copyIfExists = (fileName: string) => {
+    const src = path.join(runDir, fileName);
+    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(latestDir, fileName));
+  };
+  copyIfExists(SUMMARY_FILE);
+  copyIfExists(META_FILE);
+  copyIfExists(TIMELINE_FILE);
+  copyIfExists(FAULT_FIX_CSV_FILE);
+  copyIfExists(FAULT_FIX_FILE);
+
   fs.writeFileSync(
     path.join(latestDir, OBSERVABILITY_FILE),
     JSON.stringify(snapshot, null, 2) + "\n",
@@ -1406,6 +1396,11 @@ function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnaps
   fs.writeFileSync(
     path.join(latestDir, FIX_PATTERNS_FILE),
     JSON.stringify(snapshot.recurringPatterns, null, 2) + "\n",
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(latestDir, "_source_run.txt"),
+    `${path.basename(runDir)}\n`,
     "utf8",
   );
 }

@@ -53,7 +53,7 @@ flowchart TD
 4. Scaffoldval körs i `resolveOrchestrationBase()` via `matchScaffoldAuto()`.
 5. Route plan, contracts och BuildSpec byggs — dessa översätter briefens semantik till exekvering snarare än att uppfinna ny vision.
 6. Dynamic context byggs i `system-prompt.ts`. `## Your Toolkit` byggs nu från den registry-synkade `SHADCN_COMPONENTS`-mappen men filtreras mot vilka `@/components/ui/*`-subpaths som faktiskt finns lokalt; `## Component References` lägger separat till capability-matchade kodexempel från `data/shadcn-examples/`.
-7. Generatorn kör. Modellvalet kommer från `phaseRouting.defaultByTier`, och planner/generator hämtar dessutom phase-specifik thinking / `reasoningEffort` från `phaseRouting.thinkingByTier`. För dessa två faser måste också builderns vanliga thinking-toggle vara på.
+7. Generatorn kör. Modellvalet kommer från `phaseRouting.defaultByTier`, och planner/generator hämtar dessutom phase-specifik thinking / `reasoningEffort` från `phaseRouting.thinkingByTier`. För dessa två faser måste också builderns vanliga thinking-toggle vara på. **Codegen-verktyg:** `suggestIntegration` och `requestEnvVar` är informativa (UI-signal, ingen paus); endast `askClarifyingQuestion` sätter blocking/`awaitingInput`. Se `docs/architecture/builder-generation.md` (avsnitt *Own-engine verktyg*).
 8. Finalize, post-checks, preview-start och quality gate sker efteråt.
 
 ### Brief → Scaffold

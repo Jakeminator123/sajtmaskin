@@ -5,7 +5,7 @@ const NEXT_IMAGE_USAGE_RE = /<Image\b[^>]*\b(?:src|fill)\b/;
 
 export function fixLucideImageMisuse(
   code: string,
-  filePath: string,
+  _filePath: string,
 ): { code: string; fixed: boolean } {
   const importMatch = code.match(LUCIDE_IMAGE_IMPORT_RE);
   if (!importMatch) return { code, fixed: false };

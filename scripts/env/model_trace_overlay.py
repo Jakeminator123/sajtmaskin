@@ -199,7 +199,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fast-model", default="gpt-4.1")
     parser.add_argument("--pro-model", default="gpt-5.3-codex")
     parser.add_argument("--max-model", default="gpt-5.4")
-    parser.add_argument("--codex-model", default="gpt-5.3-codex-max")
+    parser.add_argument("--codex-model", default="gpt-5.3-codex")
     parser.add_argument("--anthropic-model", default="claude-sonnet-4.6")
     parser.add_argument("--assist-model", default="openai/gpt-5.4")
     parser.add_argument("--polish-model", default="openai/gpt-5.3-codex")

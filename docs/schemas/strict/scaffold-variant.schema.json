@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "scaffold-variant.schema.json",
+  "title": "ScaffoldVariant",
+  "description": "Visual expression within a scaffold — same routing/files, different aesthetic (typography, theme tokens, motif, prompt hints). Source of truth: src/lib/gen/scaffold-variants/types.ts",
+  "type": "object",
+  "required": [
+    "id",
+    "scaffoldId",
+    "label",
+    "signatureMotif",
+    "colorMode",
+    "keywords",
+    "fontPairings",
+    "promptHints"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema reference for editor validation."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case unique identifier. Must match the filename (without .json)."
+    },
+    "scaffoldId": {
+      "type": "string",
+      "enum": [
+        "base-nextjs",
+        "landing-page",
+        "saas-landing",
+        "portfolio",
+        "blog",
+        "dashboard",
+        "auth-pages",
+        "ecommerce",
+        "content-site",
+        "app-shell"
+      ],
+      "description": "Which scaffold this variant belongs to. Must match the parent directory name."
+    },
+    "label": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 60,
+      "description": "Human-readable display name (e.g. 'Corporate Grid', 'Warm Local')."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "2-3 sentences: WHO is this for, WHAT makes it visually distinct."
+    },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 3,
+      "maxItems": 20,
+      "description": "Match terms from user prompts and briefs. Mix Swedish and English. More specific = better matching."
+    },
+    "fontPairings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["heading", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "heading": { "type": "string", "description": "Google Font name for headings." },
+          "body": { "type": "string", "description": "Google Font name for body text." }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 3,
+      "description": "Font pairings injected into the system prompt. First pairing is primary."
+    },
+    "signatureMotif": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 120,
+      "description": "One phrase capturing the visual DNA (e.g. 'precise grid alignment, neutral surfaces, and partner-proof rhythm')."
+    },
+    "colorMode": {
+      "type": "string",
+      "enum": ["light", "dark", "either"],
+      "description": "'light' or 'dark' for strong preference, 'either' for neutral variants."
+    },
+    "promptHints": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 10 },
+      "minItems": 1,
+      "maxItems": 5,
+      "description": "Directives injected as 'Scaffold hints' in the system prompt. Be SPECIFIC to this variant, not generic."
+    },
+    "themeTokens": {
+      "type": "object",
+      "description": "CSS custom property values injected into the @theme block. Use oklch() for colors.",
+      "additionalProperties": false,
+      "properties": {
+        "background": { "type": "string" },
+        "foreground": { "type": "string" },
+        "card": { "type": "string" },
+        "cardForeground": { "type": "string" },
+        "primary": { "type": "string" },
+        "primaryForeground": { "type": "string" },
+        "secondary": { "type": "string" },
+        "secondaryForeground": { "type": "string" },
+        "muted": { "type": "string" },
+        "mutedForeground": { "type": "string" },
+        "accent": { "type": "string" },
+        "accentForeground": { "type": "string" },
+        "border": { "type": "string" },
+        "ring": { "type": "string" },
+        "radius": { "type": "string", "description": "Border radius (e.g. '0.75rem', '1.1rem')." },
+        "bodyBackgroundImage": { "type": "string", "description": "CSS background-image for body (gradients, patterns)." }
+      }
+    },
+    "styleRules": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 10 },
+      "maxItems": 6,
+      "description": "Layout/surface/typography rules SPECIFIC to this variant. Not generic advice — describe what makes THIS variant's grid, surfaces, type, and CTAs distinct."
+    },
+    "sectionInventory": {
+      "type": "array",
+      "items": { "type": "string" },
+      "maxItems": 8,
+      "description": "Expected section types for this variant. E.g. 'hero with headline + CTA', 'social proof bar', 'metrics row'."
+    },
+    "avoidPatterns": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 10 },
+      "maxItems": 6,
+      "description": "What NOT to do for this variant. Be concrete — 'Avoid bubbly gradients' not 'Avoid bad design'."
+    },
+    "worldClassRubric": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 10 },
+      "maxItems": 6,
+      "description": "Quality tests for the final output. Each item should be a pass/fail checkpoint."
+    },
+    "sourceTemplateIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "maxItems": 6,
+      "description": "Vercel template IDs from template-library that inspired this variant. Used by resolveTemplateGuidance()."
+    },
+    "default": {
+      "type": "boolean",
+      "description": "If true, this variant gets +1 base score in matching and acts as fallback for the scaffold. Exactly one variant per scaffold should be default."
+    }
+  }
+}

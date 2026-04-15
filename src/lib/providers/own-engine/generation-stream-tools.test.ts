@@ -3,7 +3,7 @@ import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
 
 describe("emitOwnEngineToolCallSse", () => {
-  it("emits integration SSE for suggestIntegration and marks blocking", () => {
+  it("emits integration SSE for suggestIntegration without blocking", () => {
     const chunks: Uint8Array[] = [];
     const enc = new TextEncoder();
     let blocking = false;
@@ -26,7 +26,7 @@ describe("emitOwnEngineToolCallSse", () => {
         },
       },
     );
-    expect(blocking).toBe(true);
+    expect(blocking).toBe(false);
     const text = chunks.map((c) => new TextDecoder().decode(c)).join("");
     const { events } = parseSSEBuffer(text);
     const integration = events.find((e) => e.event === "integration");

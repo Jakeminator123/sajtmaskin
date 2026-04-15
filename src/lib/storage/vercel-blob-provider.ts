@@ -21,6 +21,8 @@ type BlobSdkRecord = {
   uploadedAt?: Date | string | null;
 };
 
+type VercelBlobModule = typeof import("@vercel/blob");
+
 export class VercelBlobProvider implements StorageProvider {
   readonly kind = "blob" as const;
 
@@ -33,7 +35,7 @@ export class VercelBlobProvider implements StorageProvider {
   ): Promise<StorageObjectInfo> {
     const normalized = normalizeStoragePathname(pathname);
     const blobSdk = await this.getSdk();
-    const blob = (await blobSdk.put(normalized, body, {
+    const blob = (await blobSdk.put(normalized, body as Parameters<VercelBlobModule["put"]>[1], {
       access: options.access ?? this.options.defaultAccess ?? "public",
       addRandomSuffix: options.addRandomSuffix,
       contentType: options.contentType,
@@ -120,7 +122,7 @@ export class VercelBlobProvider implements StorageProvider {
     });
   }
 
-  private async deleteByUrl(blobSdk: any, url: string): Promise<void> {
+  private async deleteByUrl(blobSdk: VercelBlobModule, url: string): Promise<void> {
     if (this.options.token) {
       await blobSdk.del(url, { token: this.options.token });
       return;
@@ -132,8 +134,8 @@ export class VercelBlobProvider implements StorageProvider {
     return this.options.token ? { token: this.options.token } : {};
   }
 
-  private async getSdk(): Promise<any> {
-    return (await import("@vercel/blob")) as any;
+  private async getSdk(): Promise<VercelBlobModule> {
+    return await import("@vercel/blob");
   }
 }
 

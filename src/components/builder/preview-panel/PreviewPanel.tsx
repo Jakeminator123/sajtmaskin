@@ -54,7 +54,10 @@ import {
   isTier2LivePreviewUrl,
 } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib/gen/preview/diagnostics";
-import { cn } from "@/lib/utils";
+import {
+  buildOwnEngineRoutePreviewUrl,
+  buildExternalRoutePreviewUrl,
+} from "./preview-route-helpers";
 import { toast } from "sonner";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import {
@@ -173,9 +176,9 @@ export function PreviewPanel({
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const reportOwnEngineRenderFailureSink = useRef<(payload: PreviewIssuePayload) => void>(() => {});
+  const reportOwnEngineRenderFailureSinkRef = useRef<(payload: PreviewIssuePayload) => void>(() => {});
   const reportOwnEngineRenderFailure = useCallback((payload: PreviewIssuePayload) => {
-    reportOwnEngineRenderFailureSink.current(payload);
+    reportOwnEngineRenderFailureSinkRef.current(payload);
   }, []);
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
@@ -223,7 +226,7 @@ export function PreviewPanel({
     setIframeError,
     setIframeErrorMessage,
     onNavigatePreviewUrl,
-    reportOwnEngineRenderFailureSink,
+    reportOwnEngineRenderFailureSinkRef,
   });
 
   const fetchFilesForRegistry = useCallback(async () => {
@@ -244,7 +247,7 @@ export function PreviewPanel({
     } catch {
       /* best-effort */
     }
-  }, [chatId, versionId, files.length]);
+  }, [chatId, versionId, files.length, setFiles]);
 
   useEffect(() => {
     if (placementMode) {
@@ -637,6 +640,43 @@ export function PreviewPanel({
     if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
   };
 
+  const activePreviewRoute = useMemo(() => {
+    if (!previewUrl) return null;
+    try {
+      if (isOwnEnginePreview) {
+        const current = new URL(previewUrl, window.location.origin);
+        return current.searchParams.get("route") || "/";
+      }
+      const current = new URL(previewUrl, window.location.origin);
+      return current.pathname || "/";
+    } catch {
+      return null;
+    }
+  }, [previewUrl, isOwnEnginePreview]);
+
+  const handleNavigateRoute = useCallback(
+    (route: string) => {
+      if (!previewUrl) return;
+      const nextUrl = isOwnEnginePreview
+        ? buildOwnEngineRoutePreviewUrl(previewUrl, route)
+        : buildExternalRoutePreviewUrl(previewUrl, route);
+      if (!nextUrl || nextUrl === previewUrl) return;
+      onNavigatePreviewUrl?.(nextUrl);
+      setIframeLoading(true);
+      setIframeError(false);
+      setIframeErrorMessage(null);
+    },
+    [
+      previewUrl,
+      isOwnEnginePreview,
+      onNavigatePreviewUrl,
+      setIframeLoading,
+      setIframeError,
+      setIframeErrorMessage,
+    ],
+  );
+
+
   const handleClear = () => {
     if (!onClear) return;
     clearPreviewReadyTimer();
@@ -688,6 +728,10 @@ export function PreviewPanel({
     isTier2LivePreview,
     onPreviewSessionSuspect,
     reportOwnEngineRenderFailure,
+    setIframeLoading,
+    setIframeError,
+    setIframeDiagnosticCode,
+    setIframeErrorMessage,
   ]);
 
   const isV0Preview = Boolean(
@@ -717,7 +761,7 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "VM-previewn svarade inte som förväntat — vi kontrollerar sessionen mot servern och startar om vid behov.",
+            "Förhandsgranskningen svarade inte som förväntat — vi kontrollerar och startar om vid behov.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
@@ -726,7 +770,7 @@ export function PreviewPanel({
         return {
           label: "Live-preview",
           detail:
-            "VM-previewn startar eller laddar om (Next dev i VM). Vänta tills URL:en är klar — då laddas live-preview om automatiskt.",
+            "Förhandsgranskningen startar eller laddar om. Vänta tills den är klar — då uppdateras live-preview automatiskt.",
           className: "border-amber-900/40 bg-amber-950/30 text-amber-100",
           badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-200",
         };
@@ -806,6 +850,17 @@ export function PreviewPanel({
     previewUrl && imageGenerationsEnabled && !imageGenerationsSupported,
   );
   const showBlobConfigWarning = Boolean(previewUrl && imageGenerationsEnabled && !isBlobConfigured);
+  const showPreviewUnifiedStrip = Boolean(
+    !isCodeView &&
+      previewUrl &&
+      !isOwnEnginePreview &&
+      isTier2LivePreview &&
+      (showBlobWarning ||
+        showBlobConfigWarning ||
+        integrationError ||
+        showImagesDisabledWarning ||
+        showImagesUnsupportedWarning),
+  );
   const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(previewUrl);
   const showComposerOverlay =
     composerMode && Boolean(previewUrl) && !placementMode && !isCodeView;
@@ -820,7 +875,15 @@ export function PreviewPanel({
       setSelectedRegistryLine(lastCodeMatch.item.lineNumber);
       setSelectedPath(lastCodeMatch.item.filePath);
     });
-  }, [lastCodeMatch, startViewSwitchTransition]);
+  }, [
+    lastCodeMatch,
+    startViewSwitchTransition,
+    setInspectMode,
+    setViewMode,
+    setSelectedRegistryId,
+    setSelectedRegistryLine,
+    setSelectedPath,
+  ]);
   const PreviewSurface = PreviewPanelFrame;
 
   if (!previewUrl && !isCodeView) {

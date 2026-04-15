@@ -6,7 +6,7 @@
 
 | Block | Innehåll | Börja här |
 |-------|----------|-----------|
-| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/preview-deploy.md`](architecture/preview-deploy.md) |
+| **Arkitektur** | Kanonisk systembeskrivning, preview/VM, repo-träd | [`architecture/README.md`](architecture/README.md) · [`architecture/repo-tree.md`](architecture/repo-tree.md) · [`architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) |
 | **Planer / status** | Aktivt eller avslutat planläge, status och pekare | [`plans/README.md`](plans/README.md) |
 | **Arkiv** | Avklarade planer i git-historik; scratch-policy: [`documentation-lifecycle.md`](architecture/documentation-lifecycle.md) | [`plans/avklarat/README.md`](plans/avklarat/README.md) |
 
@@ -25,7 +25,7 @@
 
 1. This file → **Key navigation** table below.
 2. [`docs/architecture/repo-tree.md`](architecture/repo-tree.md) — **snabb rot-orientering** (agenter: var mappar ligger; `data/` vs `src/lib/gen/data/`).
-3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
+3. `docs/plans/README.md` — **planläge och aktiva spår**. Äldre avslutade planer ligger i `docs/plans/avklarat/README.md` eller i git-historik. **Preview/VM:** [`docs/architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) (operativt kördokument; levererat § där). **Vit preview / tom iframe:** [`docs/architecture/preview-white-screen-runbook.md`](architecture/preview-white-screen-runbook.md).
 4. `docs/architecture/README.md` + [`system-overview.md`](architecture/system-overview.md) — motor/builder-översikt.
 5. `docs/schemas/README.md` — which schema doc to open; then **one** schema file for your task.
 6. `docs/ENV.md` — kort env-översikt (must-have / valfritt / pekare till `src/lib/env.ts` och `config/env-policy.json`).
@@ -104,8 +104,8 @@ Not runtime dependencies:
 | System / motor / builder-entry | [`docs/architecture/system-overview.md`](architecture/system-overview.md) |
 | Generation, prompt, modellval, SSE, UX-kontrakt | [`docs/architecture/builder-generation.md`](architecture/builder-generation.md) |
 | LLM-roller och signallager | [`docs/schemas/llm-role-matrix.md`](schemas/llm-role-matrix.md), [`docs/schemas/orchestration-signal-contract.md`](schemas/orchestration-signal-contract.md), [`docs/architecture/llm-signal-flow.md`](architecture/llm-signal-flow.md) |
-| Steg 4: finalize / validate / verifier / preflight | [`docs/architecture/step4-post-generation.md`](architecture/step4-post-generation.md) |
-| Preview, sandbox, deploy | [`docs/architecture/preview-deploy.md`](architecture/preview-deploy.md) |
+| Fas 2: orkestrering, LLM-input, finalize / validate / verifier / preflight | [`docs/architecture/fas2-orchestration-and-build.md`](architecture/fas2-orchestration-and-build.md) |
+| Fas 3: preview, VM, quality-gate, deploy | [`docs/architecture/fas3-preview-and-deploy.md`](architecture/fas3-preview-and-deploy.md) |
 | Mappar, terminologi, integrationer, kända fel, mallar | [`docs/architecture/repository-and-platform.md`](architecture/repository-and-platform.md) |
 | Plans (all buckets) | `docs/plans/README.md` |
 | Plan / agent handoff (historik) | Borttagen — git-historik. Handoffs sker i chatten. |

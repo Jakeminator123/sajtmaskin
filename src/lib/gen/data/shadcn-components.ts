@@ -17,6 +17,7 @@ export const SHADCN_COMPONENTS: Record<string, string> = {
   AccordionItem: "accordion",
   AccordionTrigger: "accordion",
   Alert: "alert",
+  AlertAction: "alert",
   AlertDescription: "alert",
   AlertDialog: "alert-dialog",
   AlertDialogAction: "alert-dialog",

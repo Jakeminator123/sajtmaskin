@@ -135,7 +135,13 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
         log.meta && typeof log.meta === "object"
           ? (log.meta as Record<string, unknown>).logPassId
           : null;
-      return passId === summary.latestPassId;
+      if (passId === summary.latestPassId) return true;
+      if (passId !== null) return false;
+      const cat = typeof log.category === "string" ? log.category : "";
+      return cat.startsWith("quality-gate:") ||
+        cat === "preflight:quality-gate" ||
+        cat === "preview" ||
+        cat === "render-telemetry";
     });
   }, [logs, summary?.latestPassId]);
 

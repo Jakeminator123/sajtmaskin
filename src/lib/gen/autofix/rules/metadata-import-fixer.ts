@@ -70,7 +70,7 @@ export function fixMissingMetadataImport(
 
 export function fixMissingMetadataRouteImport(
   code: string,
-  filePath: string,
+  _filePath: string,
 ): { code: string; fixed: boolean } {
   if (!METADATA_ROUTE_USAGE_RE.test(code)) return { code, fixed: false };
   if (METADATA_ROUTE_IMPORT_RE.test(code)) return { code, fixed: false };

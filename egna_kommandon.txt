@@ -1,0 +1,108 @@
+===================================================================
+  SAJTMASKIN — EGNA KOMMANDON (snabbreferens)
+===================================================================
+
+---  TEMPLATE-PIPELINE (extern research → dossiers → artifacts)  ---
+
+npm run template-pipeline:refresh          # Full: scrape + import + hydrate + build + embeddings + validate
+npm run template-pipeline:refresh:reuse-cache   # Samma men hoppa over scrape (snabbare)
+
+---  ARTEFAKTER — återbygg (template-library + scaffold-research + v0-mallar m.m.)  ---
+
+# Rekommenderat efter du har giltig scrape-summary under data/external-template-pipeline/:
+npm run artifacts:rebuild                  # Snabb: återanvänder scrape-cache/repo-cache, purge + rebuild + validate + typecheck
+npm run artifacts:rebuild:full             # Långsammare: kör även --refresh-scrape (ny scrape innan rebuild)
+npm run artifacts:rebuild:with-eval        # Som rebuild men kör även eval efteråt
+npm run artifacts:rebuild:full:with-eval # Full scrape + eval + typecheck
+
+# Avancerat (samma script som npm anropar):
+python scripts/rebuild_artifacts.py --help
+python scripts/rebuild_artifacts.py --with-typecheck              # minimalt
+python scripts/rebuild_artifacts.py --refresh-scrape --reset-repo-cache --with-typecheck  # hård reset av cache
+
+# Efter lyckad rebuild kan du sätta SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true (eller ta bort =false)
+# så att appen kräver att template-library.generated.json / scaffold-research.generated.json finns.
+
+---  TEMPLATE-LIBRARY (enskilda steg)  ---
+
+npm run template-library:import            # Importera discovery-data
+npm run template-library:hydrate-cache     # Klona/uppdatera repo-cache (shallow)
+npm run template-library:build             # Bygg template-library.generated.json + dossiers + scaffold-research
+npm run template-library:validate-runtime  # Validera att catalog, embeddings och scaffold-research ar synkade
+npm run template-library:verify-summary    # Verifiera discovered summary
+npm run template-library:embeddings        # Generera template-library embeddings (OpenAI)
+
+---  SCAFFOLDS  ---
+
+npm run scaffolds:status                   # Status over alla scaffolds
+npm run scaffolds:validate                 # Validera manifest-filer
+npm run scaffolds:embeddings               # Generera scaffold-embeddings.json (OpenAI)
+npm run scaffolds:eval                     # Kor scaffold-selection eval
+npm run scaffolds:curate                   # Curate scaffold candidates fran template-library
+npm run scaffolds:all                      # Kor alla steg i ordning
+python scripts/scaffolds/scaffold_cli.py status       # Python CLI: status
+python scripts/scaffolds/scaffold_cli.py all --typecheck  # Python CLI: allt + typecheck
+
+---  SCAFFOLD-VARIANTER  ---
+
+npx tsx scripts/scaffolds/derive-variants-from-dossiers.ts          # Regenerera alla variant-JSON fran dossier-data
+npx tsx scripts/scaffolds/derive-variants-from-dossiers.ts --dry-run # Forhandsvisa utan att skriva
+
+---  SHADCN-REGISTER  ---
+
+npm run shadcn:sync                        # Kontrollera shadcn-registret mot components.json
+npm run shadcn:sync:write                  # Synka + skriv uppdateringar
+npm run shadcn:sync-examples               # Uppdatera data/shadcn-examples/
+
+---  DATABAS  ---
+
+npm run db:init                            # Bootstrapa tabeller + migrationer (vagrar mot prod)
+npm run db:migrate                         # Kor SQL-migrationer fran src/lib/db/migrations/
+npm run db:push                            # Drizzle-kit push (guardad mot prod)
+npm run db:check                           # Read-only sanity-koll av kerntabeller
+npm run db:rows                            # Read-only COUNT(*) per utvald tabell
+
+---  V0-MALLAR (builderns Mallar-tab, lokal data)  ---
+
+npm run templates:local:refresh            # Sync + validering
+npm run templates:local:refresh:embeddings # Sync + validering + regenerera embeddings
+
+---  VERCEL-TEMPLATES DISCOVERY (Playwright)  ---
+
+npm run references:discover                # Forsta pass: scrapa Vercel Templates
+npm run references:discover:second-pass    # Andra pass
+npm run references:discover:full           # Full scrape
+
+---  DEV / TEST / TYPECHECK  ---
+
+npm run dev                                # Starta dev-server (kor predev automatiskt)
+npm run typecheck                          # TypeScript-kontroll
+npm run lint                               # ESLint
+npm run test:ci                            # Vitest i CI-lage
+npm run devtest                            # typecheck + validate + test + lint
+
+---  EVAL  ---
+
+npm run eval                               # Kor eval-harnessen
+
+---  BACKOFFICE  ---
+
+npm run backoffice                         # Starta Streamlit backoffice (scaffolds, pipeline, varianter, ops)
+
+---  ENV-HANTERING  ---
+
+python scripts/env/manage_env.py           # Interaktiv env-kontrollpanel
+python scripts/env/manage_env.py audit     # Audit env-konfiguration
+python scripts/env/manage_env.py audit --strict  # Strict audit
+
+---  VIKTIGA ENV-FLAGGOR  ---
+
+SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true  # Scaffold-ankrad template guidance (init only). Auto-on i dev.
+SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true   # Injectera budgeterade structural references fran variantens sourceTemplateIds.
+SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true # Defer extra routes till shells i init-generering.
+SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true # Kräv genererade JSON-artefakter (satt false lokalt om du inte byggt om).
+SAJTMASKIN_DEFAULT_THINKING=true           # Server-side default for reasoning/thinking.
+
+===================================================================
+  Kanonisk kalla: package.json (scripts), scripts/README.md
+===================================================================

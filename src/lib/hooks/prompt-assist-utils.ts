@@ -78,11 +78,9 @@ export function hasSwedishChars(value: string): boolean {
 }
 
 export function promptAssistDebugFields(provider: PromptAssistProvider) {
-  const directProvider = provider === "gateway" ? "openai" : "anthropic";
   return {
-    provider: directProvider,
+    provider,
     transport: "direct_provider_api" as const,
     sdk: "ai" as const,
-    ...(provider === "gateway" ? { internalProviderLabel: "gateway" as const } : {}),
   };
 }

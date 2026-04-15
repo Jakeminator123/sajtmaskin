@@ -4,6 +4,27 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
+function getNewPosition(pos: Position, dir: Direction): Position {
+  switch (dir) {
+    case "up":
+      return { x: pos.x, y: pos.y - 1 };
+    case "down":
+      return { x: pos.x, y: pos.y + 1 };
+    case "left":
+      return { x: pos.x - 1, y: pos.y };
+    case "right":
+      return { x: pos.x + 1, y: pos.y };
+    default:
+      return pos;
+  }
+}
+
+function canMove(pos: Position): boolean {
+  if (pos.y < 0 || pos.y >= MAZE.length) return false;
+  if (pos.x < 0 || pos.x >= MAZE[0].length) return false;
+  return MAZE[pos.y][pos.x] !== 0;
+}
+
 export function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false);
 

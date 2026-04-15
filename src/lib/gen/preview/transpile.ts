@@ -1,7 +1,7 @@
 import ts from "typescript";
 import type { CodeFile, PreparedModule } from "./types";
-import { PREVIEW_BUILTIN_SOURCES, PREVIEW_TRANSPILE_ERROR_LIMIT, isPreviewBuiltinImportSource } from "./constants";
-import { escapeRegExp, normalizeFilePath, resolveLocalImportPath } from "./utils";
+import { PREVIEW_BUILTIN_SOURCES, PREVIEW_TRANSPILE_ERROR_LIMIT } from "./constants";
+import { escapeRegExp, resolveLocalImportPath } from "./utils";
 import { stripNextImports, parseImports, stripImportStatements, rewriteModuleExports } from "./import-parser";
 import { buildCodeFileMap, buildPreparedModuleMap } from "./file-resolution";
 

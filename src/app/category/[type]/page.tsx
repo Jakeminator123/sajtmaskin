@@ -369,10 +369,10 @@ export default function CategoryPage() {
               <div className="mb-4 flex items-center gap-2">
                 <Layout className="text-brand-teal h-5 w-5" />
                 <h2 className="text-lg font-semibold text-white">Mallar</h2>
-                <HelpTooltip text="Repo-baserade v0-mallar. Klicka för att starta just den mallen i buildern." />
+                <HelpTooltip text="Färdiga mallar. Klicka för att starta just den mallen i buildern." />
               </div>
               <p className="mb-4 text-xs leading-relaxed text-gray-400">
-                Alla mallar här är lokalt kompletta (ZIP + metadata + bilder) och startar direkt från den nedladdade v0-ZIP:en i VM-previewn.
+                Alla mallar här är kompletta och går att starta direkt i förhandsgranskningen.
               </p>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -465,11 +465,11 @@ function V0TemplateCard({
                 {template.title || template.id}
               </h3>
               <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-300">
-                Lokal repo
+                Mall
               </span>
             </div>
             <p className="text-[11px] leading-relaxed text-gray-400">
-              Startar från den lokala repo-mallen i VM:n.
+              Kuraterad startpunkt för din sajt.
             </p>
           </div>
           <div className="flex gap-2">

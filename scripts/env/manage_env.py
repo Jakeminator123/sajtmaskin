@@ -165,11 +165,34 @@ def remove_from_env_file(path: Path, key: str) -> bool:
 # Vercel API helpers
 # ---------------------------------------------------------------------------
 
+def _read_vercel_link_json() -> dict[str, str]:
+    """Read project/team IDs from .vercel/project.json created by `vercel link`."""
+    link_file = REPO_ROOT / ".vercel" / "project.json"
+    if not link_file.exists():
+        return {}
+    try:
+        data = json.loads(link_file.read_text(encoding="utf-8"))
+        return {
+            "projectId": str(data.get("projectId", "")).strip(),
+            "orgId": str(data.get("orgId", "")).strip(),
+        }
+    except Exception:
+        return {}
+
+
 def vercel_creds() -> tuple[str, str, str | None]:
     env = parse_env_file(ENV_LOCAL)
     token = env.get("VERCEL_TOKEN", "").strip()
     project_id = env.get("VERCEL_PROJECT_ID", "").strip()
     team_id = env.get("VERCEL_TEAM_ID", "").strip() or None
+
+    if not project_id or not team_id:
+        link = _read_vercel_link_json()
+        if not project_id and link.get("projectId"):
+            project_id = link["projectId"]
+        if not team_id and link.get("orgId"):
+            team_id = link["orgId"]
+
     return token, project_id, team_id
 
 

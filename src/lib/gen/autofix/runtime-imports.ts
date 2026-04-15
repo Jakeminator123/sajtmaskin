@@ -12,6 +12,8 @@ export const RUNTIME_PROVIDED_PREFIXES = ["@/components/ui/"] as const;
 
 export const RUNTIME_PROVIDED_EXACT = [
   "@/lib/utils",
+  "@/lib/hooks/use-mobile",
+  "@/lib/hooks/use-toast",
   "@/hooks/use-mobile",
   "@/hooks/use-toast",
 ] as const;

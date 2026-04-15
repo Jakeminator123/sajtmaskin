@@ -29,7 +29,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: s
       return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
     }
 
-    const currentStatus = (deployment.status as any) || "pending";
+    const currentStatus = String(deployment.status || "pending");
     const isTerminal =
       currentStatus === "ready" || currentStatus === "error" || currentStatus === "cancelled";
 

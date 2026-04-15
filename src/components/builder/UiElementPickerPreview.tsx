@@ -43,10 +43,12 @@ export function UiElementPickerPreview({
   const [darkFailed, setDarkFailed] = useState(false);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- reset preview chrome when selection changes */
     setShowCode(false);
     setPreviewTheme("light");
     setLightFailed(false);
     setDarkFailed(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [selectedItem?.name]);
 
   const previewLink = useMemo(() => {

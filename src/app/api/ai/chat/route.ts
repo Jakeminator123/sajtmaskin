@@ -8,7 +8,7 @@ import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
   isAnthropicAssistModel,
-  isGatewayAssistModel,
+  isOpenAIAssistModel,
   isPromptAssistModelAllowed,
   normalizeAssistModel,
   resolvePromptAssistProvider,
@@ -44,7 +44,7 @@ const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1, "messages is required").max(40, "Too many messages"),
   model: z.string().optional().default("openai/gpt-5.3-codex"),
   temperature: z.number().min(0).max(2).optional(),
-  provider: z.enum(["gateway", "anthropic"]).optional(),
+  provider: z.enum(["openai", "gateway", "anthropic"]).optional(),
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
 
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       const { messages, model, temperature, provider, maxTokens: requestedMaxTokens } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
-      const logProvider = resolvedProvider === "gateway" ? "openai" : resolvedProvider;
+      const normalizedProvider = provider === "gateway" ? "openai" : provider;
       const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       if (!isPromptAssistModelAllowed(normalizedModel)) {
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
         );
       }
 
-      if (provider && provider !== resolvedProvider) {
+      if (normalizedProvider && normalizedProvider !== resolvedProvider) {
         return NextResponse.json(
           {
             error: "Provider does not match model",
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       }
 
       debugLog("AI", "Prompt-assist HTTP request received (/api/ai/chat)", {
-        provider: logProvider,
+        provider: resolvedProvider,
         transport: "direct_provider_api",
         sdk: "ai",
         requestStage: "http_request",
@@ -126,14 +126,14 @@ export async function POST(req: Request) {
       const lastUserMessage = [...messages].reverse().find((entry) => entry.role === "user")?.content;
       devLogAppend("latest", {
         type: "assist.chat.request",
-        provider: logProvider,
+        provider: resolvedProvider,
         model: normalizedModel,
         messages: messages.length,
         userPrompt: typeof lastUserMessage === "string" ? lastUserMessage : null,
       });
 
-      if (resolvedProvider === "gateway") {
-        if (!isGatewayAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
+      if (resolvedProvider === "openai") {
+        if (!isOpenAIAssistModel(normalizedModel) || normalizedModel.startsWith("anthropic/")) {
           return NextResponse.json(
             {
               error: "Invalid model for OpenAI prompt assist",

@@ -45,7 +45,7 @@ ANVÄNDARENS PROMPT
   ├─ 1. PromptOrchestration → PromptType + PromptStrategy
   │      Klassificerar prompten, budgeterar, trimmar.
   │      Typer: freeform | wizard | template | audit | followup_*
-  │      Strategi: direct | summarize | phase_plan_build_refine | preserved
+  │      Strategi: direct | phase_plan_build_refine | preserved
   │
   ├─ 2. Deep Brief (valfri, server-auto-brief)
   │      Strukturerat objekt: pages[], visualDirection, SEO, toneAndVoice

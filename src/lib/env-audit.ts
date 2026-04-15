@@ -29,9 +29,6 @@ const policy = envPolicy as EnvPolicyFile;
 const ALL_TARGETS: VercelTarget[] = ["development", "preview", "production"];
 const DEPLOY_TARGETS: VercelTarget[] = ["preview", "production"];
 
-const KNOWN_EMPTY_OK = new Set<string>(policy.knownEmptyOk);
-const RUNTIME_ONLY_KEYS = new Set<string>(policy.runtimeOnlyKeys);
-
 const RULES: EnvRule[] = policy.rules;
 const RULE_BY_KEY = new Map(RULES.map((rule) => [rule.key, rule]));
 const EXTRA_KNOWN_KEYS = [...policy.extraKnownKeys];

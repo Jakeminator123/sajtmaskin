@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { validateWebhookSecret, getWebhookSecret, parseWebhookEvent } from "@/lib/webhooks";
+import {
+  validateWebhookSecret,
+  getWebhookSecret,
+  parseWebhookEvent,
+  type V0WebhookEvent,
+} from "@/lib/webhooks";
 import { db } from "@/lib/db/client";
 import { chats, versions, deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -52,9 +57,13 @@ export async function POST(req: Request) {
   });
 }
 
-async function handleChatCreated(data: any) {
-  const { chatId, projectId } = data;
+type V0Payload = V0WebhookEvent["data"];
+
+async function handleChatCreated(data: V0Payload) {
+  const { chatId } = data;
   if (!chatId) return;
+  const projectIdRaw = data.projectId;
+  const v0ProjectId = typeof projectIdRaw === "string" ? projectIdRaw : "";
 
   // Use upsert to prevent race condition - atomically insert or ignore if exists
   await db
@@ -62,12 +71,12 @@ async function handleChatCreated(data: any) {
     .values({
       id: nanoid(),
       v0ChatId: chatId,
-      v0ProjectId: projectId || "",
+      v0ProjectId,
     })
     .onConflictDoNothing({ target: chats.v0ChatId });
 }
 
-async function handleMessageCompleted(data: any) {
+async function handleMessageCompleted(data: V0Payload) {
   const { chatId, messageId, versionId } = data;
   if (!chatId || !messageId) return;
 
@@ -99,9 +108,12 @@ async function handleMessageCompleted(data: any) {
   }
 }
 
-async function handleDeploymentReady(data: any) {
-  const { deploymentId, url, inspectorUrl } = data;
+async function handleDeploymentReady(data: V0Payload) {
+  const { deploymentId, url: urlRaw } = data;
   if (!deploymentId) return;
+  const inspectorUrlRaw = data.inspectorUrl;
+  const url = typeof urlRaw === "string" ? urlRaw : undefined;
+  const inspectorUrl = typeof inspectorUrlRaw === "string" ? inspectorUrlRaw : undefined;
 
   const deployment = await db
     .select()
@@ -114,15 +126,15 @@ async function handleDeploymentReady(data: any) {
       .update(deployments)
       .set({
         status: "ready",
-        url: url || deployment[0].url,
-        inspectorUrl: inspectorUrl || deployment[0].inspectorUrl,
+        url: url ?? deployment[0].url ?? undefined,
+        inspectorUrl: inspectorUrl ?? deployment[0].inspectorUrl ?? undefined,
         updatedAt: new Date(),
       })
       .where(eq(deployments.id, deployment[0].id));
   }
 }
 
-async function handleDeploymentError(data: any) {
+async function handleDeploymentError(data: V0Payload) {
   const { deploymentId } = data;
   if (!deploymentId) return;
 

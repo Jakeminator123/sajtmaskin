@@ -9,8 +9,8 @@
       "src/lib/gen/preview/preview-host-client.ts"
     ],
     "runtime": [
-      "src/lib/gen/preview-quality-gate.ts",
-      "src/lib/gen/server-verify.ts",
+      "src/lib/gen/verify/preview-quality-gate.ts",
+      "src/lib/gen/verify/server-verify.ts",
       "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
       "src/app/api/engine/chats/[chatId]/repair/route.ts",
       "preview-host/src/server.js",

@@ -1,4 +1,5 @@
 {
+  "$schema": "../../../docs/schemas/strict/scaffold-variant.schema.json",
   "id": "corporate-grid",
   "scaffoldId": "landing-page",
   "label": "Corporate Grid",

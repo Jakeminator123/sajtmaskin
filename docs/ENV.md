@@ -12,7 +12,7 @@
 
 **Djupare ämnesdokument** (lägg inte in backlog eller långa tabeller här):
 
-- Preview / sandbox / credentials: [`architecture/preview-deploy.md`](./architecture/preview-deploy.md)
+- Preview / sandbox / credentials: [`architecture/fas3-preview-and-deploy.md`](./architecture/fas3-preview-and-deploy.md)
 - Modeller / assist / builder-generering: [`architecture/builder-generation.md`](./architecture/builder-generation.md), `src/lib/models/catalog.ts`
 - Historisk nyckeljämförelse (utan hemligheter): borttagen — se git-historik
 
@@ -43,12 +43,13 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | E-post | `RESEND_API_KEY` | Utan: vissa mailflöden noop:ar. |
 | OpenClaw / Sajtagenten | `OPENCLAW_GATEWAY_URL`, `OPENCLAW_GATEWAY_TOKEN`, `IMPLEMENT_UNDERSCORE_CLAW` | Alla tre krävs för att den flytande widgeten och Sajtagenten-ytorna ska aktiveras. Utan en enda av dem visas ingen widget. |
 | D-ID avatar (mAIa Klo) | `NEXT_PUBLIC_AVATAR_AGENT_ID`, `NEXT_PUBLIC_AVATAR_CLIENT_KEY` | Aktiverar videokamera-togglen i OpenClaw-widgeten och `/avatar`-pilotytan. Utan dem fungerar widgeten som ren textchatt. Origins måste vara allowlistade i D-ID Studio. |
-| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | Preview-sessioner kör nu via preview-host / Fly. Detaljer: `preview-deploy.md`. |
+| Tier 2 live preview | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `SAJTMASKIN_PREVIEW_HOST_API_KEY`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | Preview-sessioner kör nu via preview-host / Fly. Detaljer: `fas3-preview-and-deploy.md`. |
 | Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Läses direkt från `process.env` i `src/lib/gen/visual-qa.ts`, inte via `serverSchema` i `env.ts`. |
 | LLM reasoning/thinking | `SAJTMASKIN_DEFAULT_THINKING=true` | Kanonisk server-side default för reasoning/thinking-flaggan i kodgenerering. Gäller när klienten inte skickar ett explicit val. `SAJTMASKIN_SHOW_THINKING` stöds bara som legacy-alias under migrering av äldre miljöer. |
 | Scaffold template guidance | `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true` | Scaffold-ankrad template-library guidance för init-generering. Hämtar kompakt `runtimeGuidance` från scaffoldens `referenceTemplates` i `template-library.generated.json` och injicerar i `## Scaffold Research Priorities`. **På i development** (auto via `NODE_ENV`), av i production om inte explicit `=true`. Stäng av i dev med `=false`. Kan även styras via backoffice (Research & Dossiers). Runtime läser **inte** råa dossiers. |
+| Variant structural files | `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true` | Injecterar budgeterade `layout.tsx`-, `page.tsx`- och `middleware.ts`-utdrag i promptblocket `## Structural References (this variant)`. Två pass: (1) variant-driven från `sourceTemplateIds`, (2) capability-driven från hela katalogen baserat på `InferredCapabilities` (auth, ecommerce, dashboard). Läser från `template-library.generated.json`, inte från råa dossier-mappar. **På i development** (auto via `NODE_ENV`), av i production om inte explicit `=true`. Kan styras via backoffice (Research & Dossiers). |
 | Deferred extra init routes | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true` | Opt-in för att låta init-genereringar (inklusive `isFirstCodeGeneration`-fallet efter scaffold/contract-gate) planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor blir då giltiga shells med tydlig `Skapa sida`-yta. På follow-up bevaras shells automatiskt om inte användaren explicit ber om att bygga ut en specifik sida. Default av. |
-| Fil-/konsol-logg (lokal) | `SAJTMASKIN_LOG=true` → `logs/sajtmaskin.log` via `src/lib/logging/file-logger.ts`; `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod) | Varken `SAJTMASKIN_LOG` eller dev-loggnycklarna finns i Zod-schemat; de är runtime-only i `env-policy.json`. `logs/generationslogg/` behaller bara de 3 senaste korningarna och sammanfattningarna kan valfritt unignoras i `.cursorignore`. |
+| Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Runtime-only, inte i Zod-schemat. `logs/generationslogg/` behåller bara de 3 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04, oanvänd). |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
 
 ---
@@ -94,14 +95,14 @@ Djupare ämnen:
 
 - Modellprofiler och override-nycklar: `docs/schemas/model-build-profiles.md`, `docs/architecture/builder-generation.md`, `config/ai_models/manifest.json`
 - OpenClaw / avatar: `docs/architecture/builder-generation.md`, `src/lib/config.ts`
-- Exporterade Next-projekt och preview-host: `docs/architecture/preview-deploy.md`, `preview-host/README.md`
+- Exporterade Next-projekt och preview-host: `docs/architecture/fas3-preview-and-deploy.md`, `preview-host/README.md`
 - DB-skrivskydd: `scripts/README.md`
 
 ---
 
 ## Genererade användarsajter (preview / VM runtime)
 
-Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **preview-deploy.md**, avsnitt om tier-2 preview `.env.local`.
+Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **fas3-preview-and-deploy.md**, avsnitt om tier-2 preview `.env.local`.
 
 ---
 

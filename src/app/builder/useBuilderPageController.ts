@@ -2,10 +2,7 @@
 
 import type { ChatMessage } from "@/lib/builder/types";
 import { buildPromptAssistContext } from "@/lib/builder/promptAssistContext";
-import {
-  normalizeBuildIntent,
-  normalizeBuildMethod,
-} from "@/lib/builder/build-intent";
+import { normalizeBuildIntent } from "@/lib/builder/build-intent";
 import { normalizeDesignTheme } from "@/lib/builder/theme-presets";
 import {
   getDefaultPaletteState,
@@ -82,14 +79,14 @@ export function useBuilderPageController() {
   // for eslint-disable comments.
   const {
     appProjectId, applyInstructionsOnce, buildIntentParam, buildMethod,
-    buildMethodParam, chatId, chatIdParam, currentPreviewUrl, customInstructions,
+    chatId, chatIdParam, currentPreviewUrl, customInstructions,
     designTheme, enableBlobMedia, enableImageGenerations, enableThinking,
     entry, entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
     projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
     selectedVersionId, serverProjectChatId, serverProjectDemoUrl,
     serverProjectPreviewOverrideUrl, serverProjectPreviewOverrideVersionId,
     clearedPreviewVersionId,
-    showStructuredChat, source, templateId, externalProjectId,
+    showStructuredChat, templateId, externalProjectId,
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
     setCurrentPreviewUrl, setCurrentPageCode, setCustomInstructions,
@@ -158,16 +155,16 @@ export function useBuilderPageController() {
   selectedVersionIdRef.current = state.selectedVersionId;
   latestVersionIdRef.current = derived.latestVersionId;
 
-  /** Active live-preview URL for the version (shim slot kept null). */
+  /** Active live-preview URL for the version. */
   const activeVersionAlternatePreview = useMemo(() => {
     const vid = derived.activeVersionId;
-    if (!vid) return { shimUrl: null as string | null, storedLivePreviewUrl: null as string | null };
+    if (!vid) return { storedLivePreviewUrl: null as string | null };
     const v = derived.effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
-    if (!v) return { shimUrl: null, storedLivePreviewUrl: null };
+    if (!v) return { storedLivePreviewUrl: null };
     return resolveAlternatePreviewUrls({
       storedLivePreviewUrl: v.previewUrl,
     });
-  }, [derived.activeVersionId, derived.effectiveVersionsList, state.chatId]);
+  }, [derived.activeVersionId, derived.effectiveVersionsList]);
 
   const { readiness: deployReadiness, isLoading: isDeployReadinessLoading } = useChatReadiness(
     chatHooksChatId,
@@ -408,7 +405,6 @@ export function useBuilderPageController() {
     applyInstructionsOnce: state.applyInstructionsOnce,
     promptAssistModel: state.promptAssistModel,
     promptAssistDeep: state.promptAssistDeep,
-    specMode: state.specMode,
     themeColors: state.themeColors,
     paletteState: state.paletteState,
     selectedModelTier: state.selectedModelTier,
@@ -419,7 +415,6 @@ export function useBuilderPageController() {
     buildMethod: state.buildMethod,
     designTheme: state.designTheme,
     appProjectId: state.appProjectId,
-    pendingSpecRef: state.pendingSpecRef,
     pendingBriefRef: state.pendingBriefRef,
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,

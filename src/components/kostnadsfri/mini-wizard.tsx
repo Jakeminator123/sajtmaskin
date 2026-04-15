@@ -34,10 +34,10 @@ const INDUSTRY_OPTIONS = [
   { id: "cafe", label: "Cafe/Konditori", icon: "☕" },
   { id: "restaurant", label: "Restaurang/Bar", icon: "🍽️" },
   { id: "retail", label: "Butik/Detaljhandel", icon: "🛍️" },
-  { id: "tech", label: "Tech/IT-foretag", icon: "💻" },
-  { id: "consulting", label: "Konsult/Tjanster", icon: "💼" },
-  { id: "health", label: "Halsa/Wellness", icon: "🏥" },
-  { id: "creative", label: "Kreativ byra", icon: "🎨" },
+  { id: "tech", label: "Tech/IT-företag", icon: "💻" },
+  { id: "consulting", label: "Konsult/Tjänster", icon: "💼" },
+  { id: "health", label: "Hälsa/Wellness", icon: "🏥" },
+  { id: "creative", label: "Kreativ byrå", icon: "🎨" },
   { id: "education", label: "Utbildning", icon: "📚" },
   { id: "ecommerce", label: "E-handel", icon: "🛒" },
   { id: "realestate", label: "Fastigheter", icon: "🏠" },
@@ -45,11 +45,11 @@ const INDUSTRY_OPTIONS = [
 ];
 
 const PURPOSE_OPTIONS = [
-  { id: "sell", label: "Salja", icon: "🛒", desc: "Produkter/tjanster" },
-  { id: "leads", label: "Leads", icon: "📧", desc: "Fanga kontakter" },
+  { id: "sell", label: "Sälja", icon: "🛒", desc: "Produkter/tjänster" },
+  { id: "leads", label: "Leads", icon: "📧", desc: "Fånga kontakter" },
   { id: "portfolio", label: "Portfolio", icon: "🎨", desc: "Visa arbeten" },
   { id: "inform", label: "Informera", icon: "📚", desc: "Dela kunskap" },
-  { id: "brand", label: "Varumarke", icon: "⭐", desc: "Bygga identitet" },
+  { id: "brand", label: "Varumärke", icon: "⭐", desc: "Bygga identitet" },
   { id: "booking", label: "Bokningar", icon: "📅", desc: "Ta emot bokningar" },
   { id: "conversion", label: "Konvertering", icon: "📈", desc: "Oka konvertering" },
   { id: "rebrand", label: "Rebrand", icon: "🔄", desc: "Ny identitet" },
@@ -373,7 +373,7 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                   type="text"
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
-                  placeholder="Vilka vill ni na? t.ex. Foretag i Norden, unga vuxna..."
+                  placeholder="Vilka vill ni nå? t.ex. Företag i Norden, unga vuxna..."
                   className={INPUT_CLASS}
                 />
               </div>

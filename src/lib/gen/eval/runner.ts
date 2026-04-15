@@ -125,7 +125,7 @@ async function evaluatePrompt(
 ): Promise<EvalResult> {
   const start = performance.now();
 
-  const systemPrompt = await buildSystemPrompt({
+  const systemPrompt = buildSystemPrompt({
     intent: evalPrompt.intent,
     imageGenerations: false,
   });

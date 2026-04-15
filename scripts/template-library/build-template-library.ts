@@ -451,13 +451,20 @@ function buildFileExcerpt(filePath: string, repoRoot: string): TemplateLibrarySe
   const content = readMaybe(filePath);
   if (!content) return null;
   const relativePath = path.relative(repoRoot, filePath).replace(/\\/g, "/");
-  const excerptSource = content.length > 2400 ? content.slice(0, 2400) : content;
+  const excerptCharLimit = (() => {
+    const normalized = relativePath.toLowerCase();
+    return /(^|\/)(?:middleware\.(?:[jt]sx?)|layout\.(?:[jt]sx?)|page\.(?:[jt]sx?))$/.test(normalized)
+      ? 4_800
+      : 2_400;
+  })();
+  const excerptSource = content.length > excerptCharLimit ? content.slice(0, excerptCharLimit) : content;
   const normalizedExcerpt = excerptSource
     .split(/\r?\n/)
     .map((line) => line.replace(/[ \t]+$/g, ""))
     .join("\n")
     .trim();
-  const excerpt = content.length > 2400 ? `${normalizedExcerpt}\n\n// ... truncated` : normalizedExcerpt;
+  const excerpt =
+    content.length > excerptCharLimit ? `${normalizedExcerpt}\n\n// ... truncated` : normalizedExcerpt;
 
   let reason = "Useful structural reference";
   if (relativePath.endsWith("package.json")) reason = "Dependency and script verification";

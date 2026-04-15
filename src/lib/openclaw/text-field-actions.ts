@@ -1,4 +1,3 @@
-const OPENCLAW_ACTION_OPEN_TAG = "<openclaw-action>";
 const OPENCLAW_ACTION_CLOSE_TAG = "</openclaw-action>";
 const OPENCLAW_TEXT_FIELD_SELECTOR = "[data-openclaw-text-target]";
 

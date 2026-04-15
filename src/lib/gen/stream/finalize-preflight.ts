@@ -417,7 +417,7 @@ export async function runFinalizePreflight({
   buildSpec = null,
   routePlan = null,
   orchestrationContract = null,
-  originalPrompt,
+  originalPrompt: _originalPrompt,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   let nextFilesJson = filesJson;
   let preflightIssues: FinalizePreflightIssue[] = [];

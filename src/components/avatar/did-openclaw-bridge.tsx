@@ -13,14 +13,17 @@ type BridgeMessage = {
 
 type ConnectionState = "mock-ready" | "idle" | "connecting" | "connected" | "speaking" | "error";
 
+type DidClientSdk = typeof import("@d-id/client-sdk");
+type DidAgentManager = Awaited<ReturnType<DidClientSdk["createAgentManager"]>>;
+
 type SpeechRecognitionCtor = new () => {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
   maxAlternatives: number;
   onstart: null | (() => void);
-  onresult: null | ((event: any) => void);
-  onerror: null | ((event: any) => void);
+  onresult: null | ((event: unknown) => void);
+  onerror: null | ((event: unknown) => void);
   onend: null | (() => void);
   start: () => void;
   abort: () => void;
@@ -115,9 +118,9 @@ export function DidOpenClawBridge({
   iframeHref?: string;
 }) {
   const sessionIdRef = useRef("");
-  const agentRef = useRef<any>(null);
-  const recognitionRef = useRef<any>(null);
-  const sdkModuleRef = useRef<any>(null);
+  const agentRef = useRef<DidAgentManager | null>(null);
+  const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
+  const sdkModuleRef = useRef<DidClientSdk | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const pendingSpeechRef = useRef<string | null>(null);
@@ -355,18 +358,25 @@ export function DidOpenClawBridge({
       setListening(true);
       setLastError(null);
     };
-    recognition.onresult = (event: any) => {
-      const result = event.results?.[event.results.length - 1];
+    recognition.onresult = (event: unknown) => {
+      const ev = event as {
+        results: Array<Array<{ transcript: string; isFinal?: boolean }>>;
+      };
+      const result = ev.results?.[ev.results.length - 1];
       const text = result?.[0]?.transcript ?? "";
       setInterimTranscript(text);
-      if (result?.isFinal && text.trim()) {
+      if (result?.[0]?.isFinal && text.trim()) {
         void sendMessage(text.trim());
       }
     };
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: unknown) => {
       setListening(false);
-      if (event?.error && event.error !== "aborted" && event.error !== "no-speech") {
-        setLastError(`Mikrofonfel: ${event.error}`);
+      const err =
+        event && typeof event === "object" && "error" in event
+          ? String((event as { error?: string }).error ?? "")
+          : "";
+      if (err && err !== "aborted" && err !== "no-speech") {
+        setLastError(`Mikrofonfel: ${err}`);
       }
     };
     recognition.onend = () => {

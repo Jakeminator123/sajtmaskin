@@ -52,6 +52,21 @@ GitHub Actions **CI** (typecheck, lint, test, build) på push/PR till **`main`**
   - Kanonisk mutable data ligger i **`data/external-template-pipeline/`**. Om du behöver återanvända en annan scrape-cache ska du ange den **explicit** med `--scrape-output` / `--from`, inte förlita dig på path-fallbackar.
 - **~~vercel_template_cli.py~~** (borttagen) — använd `hamta_sidor_branch_emil.py` eller Playwright-discover i stället.
 
+### shadcn registry sync
+
+Använd dessa när du vill hålla den lokala shadcn-ytan och exempelcachen uppdaterad:
+
+```bash
+npm run shadcn:sync
+npm run shadcn:sync:write
+npm run shadcn:sync-examples
+```
+
+- `shadcn:sync` jämför lokal `SHADCN_COMPONENTS` mot officiella registret och skriver inte filer.
+- `shadcn:sync:write` uppdaterar `src/lib/gen/data/shadcn-components.ts`.
+- `shadcn:sync-examples` uppdaterar `data/shadcn-examples/`.
+- `predev` kör också `shadcn:sync:soft` automatiskt som en non-blocking kontroll innan `npm run dev`.
+
 ## Tre separata spår
 
 1. **`v0-mallar`**

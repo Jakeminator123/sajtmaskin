@@ -1,5 +1,5 @@
 /**
- * Merge `.env.local` for live preview (`docs/architecture/preview-deploy.md` § Preview `.env.local`):
+ * Merge `.env.local` for live preview (`docs/architecture/fas3-preview-and-deploy.md` § Preview `.env.local`):
  * 1) global integration placeholders from `config/ai_models/*-placeholders.env.txt`
  * 2) per-app-project preview tokens (stable fake secrets from project id)
  * 3) decrypted `projectEnvVars` from app project meta (user-configured)

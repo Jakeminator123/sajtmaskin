@@ -1,5 +1,8 @@
 import fs from "node:fs";
-import path from "node:path";
+import {
+  DEV_LOG_DOC_PATH,
+  isDevLoggingEnabled,
+} from "./shared";
 
 export type DevLogViewerEntry = {
   ts: string;
@@ -8,8 +11,6 @@ export type DevLogViewerEntry = {
   data: Record<string, unknown>;
 };
 
-const ROOT_LOG_DIR = path.join(process.cwd(), "logs");
-const ROOT_DOC_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt");
 const MAX_DOCUMENT_CHARS = 120_000;
 
 function normalizeMultiline(input: string): string {
@@ -48,17 +49,16 @@ function safeParseObject(raw: string): Record<string, unknown> {
 }
 
 export function isDevLogViewerEnabled(): boolean {
-  if (process.env.SAJTMASKIN_DEV_LOG === "false") return false;
-  return process.env.NODE_ENV !== "production";
+  return isDevLoggingEnabled();
 }
 
 export function readDevLogEntries(options?: {
   slug?: string | null;
   limit?: number;
 }): DevLogViewerEntry[] {
-  if (!fs.existsSync(ROOT_DOC_LOG_PATH)) return [];
+  if (!fs.existsSync(DEV_LOG_DOC_PATH)) return [];
 
-  const raw = normalizeMultiline(fs.readFileSync(ROOT_DOC_LOG_PATH, "utf8"));
+  const raw = normalizeMultiline(fs.readFileSync(DEV_LOG_DOC_PATH, "utf8"));
   const clipped = raw.length > MAX_DOCUMENT_CHARS ? raw.slice(-MAX_DOCUMENT_CHARS) : raw;
   const blocks = clipped
     .split(/\n{2,}/)

@@ -64,6 +64,7 @@ export const WebPreview = ({
   // Sync with defaultUrl when it changes
   useEffect(() => {
     if (defaultUrl) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect -- mirror prop into local URL state */
       setUrl(defaultUrl);
     }
   }, [defaultUrl]);

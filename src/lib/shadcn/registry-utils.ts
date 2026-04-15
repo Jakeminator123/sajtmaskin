@@ -46,6 +46,7 @@ export function rewriteRegistryImports(content: string, style: string = DEFAULT_
   if (!content) return content;
   const prefix = `@/registry/${style}/`;
   let result = content.replaceAll(`${prefix}lib/utils`, "@/lib/utils");
+  result = result.replaceAll(`${prefix}hooks/`, "@/lib/hooks/");
   result = result.replaceAll(prefix, "@/components/");
   return result;
 }
@@ -61,7 +62,7 @@ export function mapRegistryFilePath(filePath: string): string {
     return `src/lib/${withoutRegistry.slice("lib/".length)}`;
   }
   if (withoutRegistry.startsWith("hooks/")) {
-    return `src/hooks/${withoutRegistry.slice("hooks/".length)}`;
+    return `src/lib/hooks/${withoutRegistry.slice("hooks/".length)}`;
   }
   if (withoutRegistry.startsWith("components/")) {
     return `src/components/${withoutRegistry.slice("components/".length)}`;
@@ -163,6 +164,7 @@ export function buildShadcnBlockPrompt(
   lines.push("Use these import mappings:");
   lines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
   lines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
+  lines.push(`- \`@/registry/${style}/hooks/*\` -> \`@/lib/hooks/*\``);
   lines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
   lines.push(
     "Do not overwrite existing UI components, but CREATE any missing dependency components.",
@@ -234,6 +236,7 @@ export function buildShadcnBlockPrompt(
   slimLines.push("Use these import mappings:");
   slimLines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
   slimLines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
+  slimLines.push(`- \`@/registry/${style}/hooks/*\` -> \`@/lib/hooks/*\``);
   slimLines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
   if (item.registryDependencies?.length) {
     slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
@@ -299,6 +302,7 @@ export function buildShadcnComponentPrompt(
   lines.push("Use these import mappings:");
   lines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
   lines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
+  lines.push(`- \`@/registry/${style}/hooks/*\` -> \`@/lib/hooks/*\``);
   lines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
   lines.push(
     "Do not overwrite existing UI components, but CREATE any missing dependency components.",
@@ -365,6 +369,7 @@ export function buildShadcnComponentPrompt(
   slimLines.push("Use these import mappings:");
   slimLines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
   slimLines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
+  slimLines.push(`- \`@/registry/${style}/hooks/*\` -> \`@/lib/hooks/*\``);
   if (item.registryDependencies?.length) {
     slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
     slimLines.push("Ensure these dependencies are added to package.json if missing.");

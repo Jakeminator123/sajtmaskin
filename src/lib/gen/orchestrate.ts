@@ -11,7 +11,10 @@ import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import {
   pickScaffoldVariant,
+  selectVariantStructuralFiles,
+  selectCapabilityStructuralFiles,
   type ScaffoldVariant,
+  type VariantStructuralFilesSelection,
 } from "./scaffold-variants";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -59,8 +62,10 @@ import { FEATURES } from "@/lib/config";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
 import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
 import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
-import { getRelevantExampleNames } from "./data/shadcn-example-map";
+import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";
 import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
+import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
+import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 
 export interface TemplateGuidanceMeta {
   enabled: boolean;
@@ -239,6 +244,7 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       variantId: pkg.variantId ?? null,
       templateGuidanceEnabled: pkg.templateGuidanceMeta?.enabled ?? false,
       templateGuidanceIds: pkg.templateGuidanceMeta?.templateIds ?? [],
+      structuralRefsInjected: pkg.dynamicContext.includes("## Structural References (this variant)"),
     },
   );
 }
@@ -290,6 +296,19 @@ export async function resolveOrchestrationBase(
   const effectivePersistedScaffoldId =
     ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
+  const componentRefNames = [
+    ...getRelevantExampleNames(capabilities),
+    ...getPromptDrivenExampleNames(prompt),
+  ];
+  const uniqueRefNames = [...new Set(componentRefNames)];
+  const localRefs = loadShadcnExamples(uniqueRefNames);
+  const officialRefsPromise = fetchMissingRegistryExamples(uniqueRefNames, localRefs)
+    .then((fetched) => [...localRefs, ...fetched])
+    .catch(() => localRefs);
+  const communityRefsPromise = fetchCommunityBlocks(capabilities, prompt).catch(() => []);
+  let officialRefs: ComponentReference[] = localRefs;
+  let communityRefs: ComponentReference[] = [];
+  let resolvedReferenceFetches = false;
 
   if (scaffoldMode === "off") {
     resolvedScaffold = null;
@@ -314,13 +333,20 @@ export async function resolveOrchestrationBase(
       topCandidates: [{ id: effectivePersistedScaffoldId, score: 1, source: "keyword" }],
     };
   } else if (scaffoldMode === "auto") {
-    const autoSelection = await matchScaffoldAuto(prompt, buildIntent, {
-      useEmbeddings: embeddingScaffoldMatch,
-      queryContext: scaffoldQueryContext,
-      capabilities,
-      generationMode: resolvedMode,
-      brief,
-    });
+    const [autoSelection, fetchedOfficialRefs, fetchedCommunityRefs] = await Promise.all([
+      matchScaffoldAuto(prompt, buildIntent, {
+        useEmbeddings: embeddingScaffoldMatch,
+        queryContext: scaffoldQueryContext,
+        capabilities,
+        generationMode: resolvedMode,
+        brief,
+      }),
+      officialRefsPromise,
+      communityRefsPromise,
+    ]);
+    officialRefs = fetchedOfficialRefs;
+    communityRefs = fetchedCommunityRefs;
+    resolvedReferenceFetches = true;
     resolvedScaffold = autoSelection.scaffold;
     scaffoldSelection = autoSelection.meta;
 
@@ -332,30 +358,14 @@ export async function resolveOrchestrationBase(
       });
     }
 
-    if (
-      resolvedScaffold &&
-      (resolvedScaffold.id === "landing-page" || resolvedScaffold.id === "base-nextjs")
-    ) {
-      try {
-        const { getScaffoldBoost } = await import("./scaffolds/scaffold-scoring");
-        const boost = await getScaffoldBoost(resolvedScaffold.id);
-        if (boost <= -2) {
-          console.info(
-            "[orchestrate] Generic scaffold %s has poor telemetry (boost=%d), keeping it but noting for retry",
-            resolvedScaffold.id,
-            boost,
-          );
-        }
-      } catch {
-        /* best-effort telemetry check */
-      }
-    }
+  }
+
+  if (!resolvedReferenceFetches) {
+    [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
 
   const capabilityHints = buildCapabilityHints(capabilities);
-
-  const componentRefNames = getRelevantExampleNames(capabilities);
-  const componentReferences = loadShadcnExamples(componentRefNames);
+  const componentReferences = [...officialRefs, ...communityRefs];
 
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
@@ -567,6 +577,27 @@ function resolveScaffoldVariant(
   });
 }
 
+function mergeStructuralFiles(
+  variant: VariantStructuralFilesSelection | null,
+  capability: VariantStructuralFilesSelection | null,
+): VariantStructuralFilesSelection | null {
+  if (!variant && !capability) return null;
+  if (!variant) return capability;
+  if (!capability) return variant;
+  const usedSourcePaths = new Set(
+    variant.files.map((f) => `${f.sourceId}::${f.path}`),
+  );
+  const dedupedCapFiles = capability.files.filter(
+    (f) => !usedSourcePaths.has(`${f.sourceId}::${f.path}`),
+  );
+  const merged = [...variant.files, ...dedupedCapFiles];
+  return {
+    files: merged,
+    sourceIds: [...new Set(merged.map((f) => f.sourceId))],
+    totalChars: merged.reduce((sum, f) => sum + f.excerpt.length, 0),
+  };
+}
+
 /**
  * Build full system prompt from a resolved orchestration base.
  */
@@ -605,6 +636,19 @@ export async function finalizeOrchestrationPrompts(
     resolvedMode,
     input.sessionSeed,
   );
+  const effectiveInit =
+    resolvedMode === "init" || (resolvedMode === "followUp" && input.isFirstCodeGeneration);
+  const variantStructuralFiles = (() => {
+    if (!effectiveInit) return null;
+    const fromVariant = selectVariantStructuralFiles(resolvedVariant, FEATURES.useVariantStructuralFiles);
+    const fromCapabilities = selectCapabilityStructuralFiles(
+      base.capabilities,
+      base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId,
+      fromVariant?.sourceIds,
+      FEATURES.useVariantStructuralFiles,
+    );
+    return mergeStructuralFiles(fromVariant, fromCapabilities);
+  })();
 
   const dynamicOpts: DynamicContextOptions = {
     intent: buildIntent,
@@ -625,10 +669,11 @@ export async function finalizeOrchestrationPrompts(
     sessionSeed: input.sessionSeed,
     templateGuidance: templateGuidanceText,
     componentReferences: base.componentReferences,
+    variantStructuralFiles,
     resolvedVariant,
   };
 
-  const dynamic = await buildDynamicContext(dynamicOpts);
+  const dynamic = buildDynamicContext(dynamicOpts);
   const engineSystemPrompt = composeEngineSystemPrompt(dynamic.context);
 
   return {

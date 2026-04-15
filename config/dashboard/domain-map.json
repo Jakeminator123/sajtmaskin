@@ -5,11 +5,11 @@
     "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ innehåller nu främst legacy wrappers och stöddata till den konsoliderade Streamlit-backoffice-appen.",
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara repository-and-platform.md.",
-    ".cursor": "Cursor-projektregler och skills. Fyra kärnregler (`terminology`, `session-git-docs`, `repo-env-indexing`, `cleanup-and-scope`) plus en svagare `platform-quirks` — redigeras från vyn Cursor-agenter."
+    ".cursor": "Cursor-projektregler och skills. 13 regler: 4 generella (`terminology`, `session-git-docs`, `repo-env-indexing`, `cleanup-and-scope`), 6 glob-triggrade (`llm-pipeline-docs-sync`, `signal-ownership`, `gen-pipeline-simplicity`, `file-structure-conventions`, `scaffold-architecture`, `openclaw-bridge`), 3 manuella (`useful-commands`, `platform-quirks`, `subagent-verification`). Ett slash-kommando: `/avslutning`."
   },
   "pages": {
     "Översikt": {
-      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För manifest vs kod som faktiskt styr modeller: vyn **LLM-faser & runtime-sanning**. Stegvis LLM-kedja: docs/architecture/README.md. Steg 4 (finalize/validering): docs/architecture/step4-post-generation.md.",
+      "summary": "Samlad status. Själva innehållet redigeras i respektive vy eller direkt under config/. För manifest vs kod som faktiskt styr modeller: vyn **LLM-faser & runtime-sanning**. Fasindelad LLM-kedja: docs/architecture/README.md. Fas 2 (orkestrering/finalize/validering): docs/architecture/fas2-orchestration-and-build.md.",
       "canonicalPaths": [
         "config/codegen-static-prompt.json",
         "config/prompt-static/",
@@ -22,7 +22,7 @@
         "docs/architecture/repository-and-platform.md",
         "config/dashboard/domain-map.json",
         "docs/architecture/README.md",
-        "docs/architecture/step4-post-generation.md"
+        "docs/architecture/fas2-orchestration-and-build.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"
@@ -47,7 +47,7 @@
         "docs/schemas/llm-role-matrix.md",
         "docs/schemas/quality-gate.md",
         "docs/architecture/builder-generation.md",
-        "docs/architecture/step4-post-generation.md"
+        "docs/architecture/fas2-orchestration-and-build.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -88,7 +88,7 @@
       ]
     },
     "ai_models": {
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-input-blocks.md. Post-stream finalize/verifier/server-verify: docs/architecture/step4-post-generation.md. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/fas2-orchestration-and-build.md. Post-stream finalize/verifier/server-verify: docs/architecture/fas2-orchestration-and-build.md. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
       "canonicalPaths": [
         "config/ai_models/manifest.json",
         "config/ai_models/*.md",
@@ -99,8 +99,7 @@
       "docsPaths": [
         "docs/schemas/model-build-profiles.md",
         "docs/architecture/builder-generation.md",
-        "docs/architecture/llm-input-blocks.md",
-        "docs/architecture/step4-post-generation.md"
+        "docs/architecture/fas2-orchestration-and-build.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/model-build-profiles.md"
@@ -208,7 +207,7 @@
         "src/app/api/engine/chats/[chatId]/repair/route.ts"
       ],
       "docsPaths": [
-        "docs/architecture/preview-deploy.md"
+        "docs/architecture/fas3-preview-and-deploy.md"
       ],
       "humanSchemaPaths": [
         "docs/schemas/preview-session-contract.md"
@@ -267,14 +266,21 @@
       ]
     },
     "Cursor-agenter": {
-      "summary": "Ordlista, struktur och aktiv backlog — projektregler + arkitektur + en samlad planfil.",
+      "summary": "Ordlista, struktur och aktiv backlog — alla 13 projektregler + arkitektur + en samlad planfil. Ett slash-kommando: /avslutning.",
       "canonicalPaths": [
         ".cursor/rules/terminology.mdc",
-        ".cursor/rules/llm-pipeline-docs-sync.mdc",
         ".cursor/rules/session-git-docs.mdc",
         ".cursor/rules/repo-env-indexing.mdc",
         ".cursor/rules/cleanup-and-scope.mdc",
+        ".cursor/rules/llm-pipeline-docs-sync.mdc",
+        ".cursor/rules/signal-ownership.mdc",
+        ".cursor/rules/gen-pipeline-simplicity.mdc",
+        ".cursor/rules/file-structure-conventions.mdc",
+        ".cursor/rules/scaffold-architecture.mdc",
+        ".cursor/rules/openclaw-bridge.mdc",
+        ".cursor/rules/useful-commands.mdc",
         ".cursor/rules/platform-quirks.mdc",
+        ".cursor/rules/subagent-verification.mdc",
         "docs/architecture/repository-and-platform.md"
       ],
       "docsPaths": [

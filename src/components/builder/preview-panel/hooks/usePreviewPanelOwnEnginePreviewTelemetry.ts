@@ -16,6 +16,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   type Dispatch,
   type MutableRefObject,
@@ -33,7 +34,7 @@ type ReportFailure = (payload: PreviewIssuePayload) => void;
  * and iframe postMessage (navigation-attempt, preview-ready, preview-error).
  *
  * Call **after** `usePreviewIframe` in the parent so setter callbacks exist. Wire iframe
- * failures into this module via `reportOwnEngineRenderFailureSink`: parent passes a stable
+ * failures into this module via `reportOwnEngineRenderFailureSinkRef`: parent passes a stable
  * wrapper that forwards to `sinkRef.current`, and this hook assigns the real implementation
  * each render.
  */
@@ -46,7 +47,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
   setIframeError: Dispatch<SetStateAction<boolean>>;
   setIframeErrorMessage: Dispatch<SetStateAction<string | null>>;
   onNavigatePreviewUrl?: ((url: string) => void) | null;
-  reportOwnEngineRenderFailureSink: MutableRefObject<ReportFailure>;
+  reportOwnEngineRenderFailureSinkRef: MutableRefObject<ReportFailure>;
 }): void {
   const {
     chatId,
@@ -57,7 +58,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
     setIframeError,
     setIframeErrorMessage,
     onNavigatePreviewUrl,
-    reportOwnEngineRenderFailureSink,
+    reportOwnEngineRenderFailureSinkRef,
   } = options;
 
   const isOwnEnginePreview = Boolean(
@@ -161,7 +162,9 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
     [chatId, versionId, previewUrl, reportPreviewIssue],
   );
 
-  reportOwnEngineRenderFailureSink.current = reportOwnEngineRenderFailure;
+  useLayoutEffect(() => {
+    reportOwnEngineRenderFailureSinkRef.current = reportOwnEngineRenderFailure;
+  }, [reportOwnEngineRenderFailure, reportOwnEngineRenderFailureSinkRef]);
 
   useEffect(() => {
     previewIssueKeysRef.current.clear();

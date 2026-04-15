@@ -23,9 +23,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
-import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
-import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
+import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 import {
@@ -38,8 +36,7 @@ import {
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { SERVER_REPAIR_MAX_PASSES } from "@/lib/gen/defaults";
-import { resolveServerRepairEarlyStopReason } from "./server-repair-policy";
-import { buildLintRepairContextLines } from "./lint-output";
+import { buildRepairErrorContextLines, runRepairLoop } from "./repair-loop";
 import {
   buildServerVerifyQualityGateMeta,
   buildServerVerifyRepairContextLines,
@@ -49,7 +46,6 @@ import {
 } from "./server-verify-log-meta";
 
 const inflight = new Set<string>();
-const SERVER_REPAIR_LLM_TIMEOUT_MS = 60_000;
 
 export function isServerVerifyEligible(versionId: string): boolean {
   if (!dbConfigured) return false;
@@ -58,23 +54,8 @@ export function isServerVerifyEligible(versionId: string): boolean {
   return true;
 }
 
-function filesToCodeProjectContent(files: CodeFile[]): string {
-  return files
-    .map((f) => `\`\`\`${f.language || "tsx"} file="${f.path}"\n${f.content}\n\`\`\``)
-    .join("\n\n");
-}
-
-function uniqueContextLines(values: string[], limit: number): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    const normalized = value.replace(/\s+/g, " ").trim();
-    if (!normalized || seen.has(normalized)) continue;
-    seen.add(normalized);
-    result.push(normalized);
-    if (result.length >= limit) break;
-  }
-  return result;
+export function isServerVerifyInFlight(versionId: string): boolean {
+  return inflight.has(versionId);
 }
 
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
@@ -218,13 +199,7 @@ async function tryServerRepairLoop(params: {
   await markVersionRepairing(versionId).catch(() => null);
 
   const exportable = await buildExportableProject(codeFiles);
-  let content = filesToCodeProjectContent(exportable);
-
-  const autoFixResult = await runAutoFix(content);
-  content = autoFixResult.fixedContent;
-
-  const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
-  let syntaxResult = await validateGeneratedCode(content);
+  const initialContent = serializeCodeProject(exportable);
 
   async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
     const repairedFiles = parseCodeProject(projectContent).files;
@@ -309,49 +284,6 @@ async function tryServerRepairLoop(params: {
     return promoted;
   }
 
-  if (syntaxResult.valid) {
-    if (await tryPromoteAfterGate(content, "deterministic")) {
-      logRepairOutcome(chatId, versionId, "deterministic", true, 0, undefined, undefined, verifyContext);
-      return;
-    }
-  }
-
-  const errorLines = buildServerVerifyRepairContextLines({
-    failedOutputs,
-    verifyLaneDurationMs,
-    firstFailureCheck,
-    jobStartedAt,
-    jobFinishedAt,
-  });
-  for (const failure of failedOutputs) {
-    if (failure.check === "lint") {
-      errorLines.push(...buildLintRepairContextLines(failure.output));
-    }
-  }
-  for (const f of failedOutputs) {
-    const outputLines = f.output.split("\n");
-    for (let i = 0; i < outputLines.length; i++) {
-      const stripped = outputLines[i].trim();
-      if (!stripped) continue;
-      if (/error\b|TS\d{4}|ERR!|FAIL/i.test(stripped)) {
-        const prevLine = i > 0 ? outputLines[i - 1]?.trim() : "";
-        if (prevLine && !errorLines.includes(`[${f.check}] ${prevLine}`)) {
-          errorLines.push(`[${f.check}] ${prevLine}`);
-        }
-        errorLines.push(`[${f.check}] ${stripped}`);
-      }
-      if (errorLines.length > 60) break;
-    }
-  }
-
-  const filesFromGateOutput = new Set<string>();
-  for (const line of errorLines) {
-    const fileMatch = line.match(/]\s*([^\s:]+\.\w{2,4}):/);
-    if (fileMatch?.[1]) filesFromGateOutput.add(fileMatch[1]);
-  }
-
-  let bestContent = content;
-  let bestErrorCount = syntaxResult.errors.length;
   const originatingChat = await getChat(chatId).catch(() => null);
   const originatingTier = ownModelIdToCanonicalModelId(originatingChat?.model ?? null);
   const fixerModel = originatingTier
@@ -361,89 +293,81 @@ async function tryServerRepairLoop(params: {
     ? resolvePhaseThinking(originatingTier, "fixer")
     : null;
 
-  let llmPasses = 0;
-  let earlyStopReason: "fixer_noop" | "no_improvement" | "time_budget_exceeded" | null = null;
-  for (let pass = 0; pass < SERVER_REPAIR_MAX_PASSES; pass++) {
-    if (syntaxResult.errors.length > bestErrorCount && bestErrorCount < Infinity) {
-      content = bestContent;
-      syntaxResult = await validateGeneratedCode(content);
-    }
-    const errorsBefore = syntaxResult.errors.length;
-    const errorSummary = uniqueContextLines([
-      ...syntaxResult.errors.map((e) => `${e.file}:${e.line}:${e.column} ${e.message}`),
-      ...errorLines,
-    ], 50);
-    const brokenFiles = [...new Set([
-      ...syntaxResult.errors.map((e) => e.file).filter(Boolean),
-      ...filesFromGateOutput,
-    ])];
+  const repairContextLines = [
+    ...buildServerVerifyRepairContextLines({
+      failedOutputs,
+      verifyLaneDurationMs,
+      firstFailureCheck,
+      jobStartedAt,
+      jobFinishedAt,
+    }),
+    ...buildRepairErrorContextLines(failedOutputs),
+  ];
 
-    const fixerAbort = new AbortController();
-    const timeoutHandle = setTimeout(() => fixerAbort.abort(), SERVER_REPAIR_LLM_TIMEOUT_MS);
-    let fixerResult: Awaited<ReturnType<typeof runLlmFixer>>;
-    try {
-      fixerResult = await runLlmFixer(content, errorSummary, {
-        model: fixerModel,
-        thinking: fixerThinking?.thinking,
-        reasoningEffort: fixerThinking?.reasoningEffort,
-        requiredFiles: brokenFiles,
-        abortSignal: fixerAbort.signal,
-      });
-    } finally {
-      clearTimeout(timeoutHandle);
-    }
-    llmPasses++;
-    if (!fixerResult.success && !fixerResult.partial) {
-      const stopReason = resolveServerRepairEarlyStopReason({
-        fixerProducedOutput: false,
-        errorsBefore,
-        errorsAfter: errorsBefore,
-        timedOut: fixerAbort.signal.aborted,
-      });
-      earlyStopReason = stopReason === "continue" ? null : stopReason;
-      break;
-    }
+  const loopResult = await runRepairLoop({
+    initialContent,
+    failedOutputs,
+    contextLines: repairContextLines,
+    maxLlmPasses: SERVER_REPAIR_MAX_PASSES,
+    llmTimeoutMs: 60_000,
+    fixerModel,
+    fixerThinking: fixerThinking?.thinking,
+    fixerReasoningEffort: fixerThinking?.reasoningEffort,
+    hasActionableErrorContext: hadQualityGateFailures,
+    onAttemptPromotion: async (projectContent, method) => ({
+      promoted: await tryPromoteAfterGate(projectContent, method),
+    }),
+  });
 
-    const reFixed = await runAutoFix(fixerResult.fixedContent);
-    content = reFixed.fixedContent;
-    syntaxResult = await validateGeneratedCode(content);
-    const stopReason = resolveServerRepairEarlyStopReason({
-      fixerProducedOutput: true,
-      errorsBefore,
-      errorsAfter: syntaxResult.errors.length,
-      timedOut: false,
-    });
-
-    if (syntaxResult.errors.length < bestErrorCount) {
-      bestErrorCount = syntaxResult.errors.length;
-      bestContent = content;
-    }
-    if (stopReason !== "continue") {
-      earlyStopReason = stopReason;
-      break;
-    }
-    if (syntaxResult.valid) break;
+  if (loopResult.promoted) {
+    logRepairOutcome(
+      chatId,
+      versionId,
+      loopResult.method ?? "llm",
+      true,
+      loopResult.llmPasses,
+      0,
+      undefined,
+      verifyContext,
+      fixerModel,
+    );
+    return;
   }
 
-  const syntaxClean = bestErrorCount === 0;
-  if (syntaxClean) {
-    if (await tryPromoteAfterGate(bestContent, "llm")) {
-      logRepairOutcome(chatId, versionId, "llm", true, llmPasses, 0, undefined, verifyContext);
-      return;
-    }
+  if (loopResult.remainingErrors === 0) {
     await failVersionVerification(
       versionId,
       "Server repair: syntax clean but quality gate still failing.",
     ).catch(() => null);
-    logRepairOutcome(chatId, versionId, "llm", false, llmPasses, 0, earlyStopReason, verifyContext);
+    logRepairOutcome(
+      chatId,
+      versionId,
+      "llm",
+      false,
+      loopResult.llmPasses,
+      0,
+      loopResult.earlyStopReason,
+      verifyContext,
+      fixerModel,
+    );
     return;
   }
 
   await failVersionVerification(
     versionId,
-    `Server repair incomplete (${bestErrorCount} errors remain).`,
+    `Server repair incomplete (${loopResult.remainingErrors} errors remain).`,
   ).catch(() => null);
-  logRepairOutcome(chatId, versionId, "llm", false, llmPasses, bestErrorCount, earlyStopReason, verifyContext);
+  logRepairOutcome(
+    chatId,
+    versionId,
+    "llm",
+    false,
+    loopResult.llmPasses,
+    loopResult.remainingErrors,
+    loopResult.earlyStopReason,
+    verifyContext,
+    fixerModel,
+  );
 }
 
 function logRepairOutcome(
@@ -460,6 +384,7 @@ function logRepairOutcome(
     jobStartedAt: string | null;
     jobFinishedAt: string | null;
   },
+  fixerModelId?: string | null,
 ) {
   createEngineVersionErrorLogs([{
     chatId,
@@ -469,17 +394,20 @@ function logRepairOutcome(
     message: repaired
       ? `Server repair succeeded (${method}).`
       : `Server repair incomplete (${method}, ${remainingErrors ?? "?"} errors remain${earlyStopReason ? `, ${earlyStopReason}` : ""}).`,
-    meta: buildServerRepairOutcomeMeta({
-      method,
-      llmPasses,
-      repaired,
-      remainingErrors,
-      earlyStopReason,
-      verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
-      firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
-      jobStartedAt: verifyContext?.jobStartedAt ?? null,
-      jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
-    }),
+    meta: {
+      ...buildServerRepairOutcomeMeta({
+        method,
+        llmPasses,
+        repaired,
+        remainingErrors,
+        earlyStopReason,
+        verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
+        firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
+        jobStartedAt: verifyContext?.jobStartedAt ?? null,
+        jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
+      }),
+      ...(fixerModelId ? { fixerModelId } : {}),
+    },
   }]).catch((err) => {
     console.warn("[server-verify] Failed to persist server-repair outcome log:", err);
   });

@@ -27,17 +27,28 @@ describe("registry-url", () => {
     expect(getRegistryBaseUrl()).toBe("https://registry.example.com");
   });
 
-  it("resolveRegistryStyle appends -v4 for official ui.shadcn.com when style lacks -v4", () => {
-    expect(resolveRegistryStyle("new-york", "https://ui.shadcn.com")).toBe("new-york-v4");
+  it("resolveRegistryStyle defaults to radix-vega", () => {
+    delete process.env.NEXT_PUBLIC_REGISTRY_STYLE;
+    expect(resolveRegistryStyle(undefined, "https://ui.shadcn.com")).toBe("radix-vega");
   });
 
-  it("resolveRegistryStyle keeps -v4 suffix when already present", () => {
-    expect(resolveRegistryStyle("new-york-v4", "https://ui.shadcn.com")).toBe("new-york-v4");
+  it("resolveRegistryStyle coerces legacy new-york to radix-vega for official registry", () => {
+    expect(resolveRegistryStyle("new-york", "https://ui.shadcn.com")).toBe("radix-vega");
   });
 
-  it("resolveRegistryStyle skips -v4 coercion when allowLegacy is true", () => {
+  it("resolveRegistryStyle keeps radix-vega as-is", () => {
+    expect(resolveRegistryStyle("radix-vega", "https://ui.shadcn.com")).toBe("radix-vega");
+  });
+
+  it("resolveRegistryStyle skips coercion when allowLegacy is true", () => {
     expect(resolveRegistryStyle("new-york", "https://ui.shadcn.com", { allowLegacy: true })).toBe(
       "new-york",
+    );
+  });
+
+  it("resolveRegistryStyle passes through non-standard styles for custom registries", () => {
+    expect(resolveRegistryStyle("custom-style", "https://registry.example.com")).toBe(
+      "custom-style",
     );
   });
 

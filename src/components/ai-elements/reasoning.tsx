@@ -66,6 +66,7 @@ export function Reasoning({
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- controlled/uncontrolled open sync with streaming */
     if (isStreaming) {
       if (!streamStartRef.current) {
         streamStartRef.current = Date.now();
@@ -91,6 +92,7 @@ export function Reasoning({
       }
       autoOpenedRef.current = false;
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [isStreaming, resolvedOpen, isControlled, onOpenChange]);
 
   useEffect(() => {

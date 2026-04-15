@@ -6,21 +6,19 @@
 
 ## Aktiva filer (`active/`)
 
-Arbetet drivs som smala uppföljningspass. Se aktiva filer i `active/`.
+Arbetet drivs som smala uppföljningspass. **Index och kort bakgrund:** [`active/README.md`](./active/README.md). Övriga filer i `active/`.
 
 Nuvarande orientering:
 
 - **Arkitektur:** [`../architecture/builder-generation.md`](../architecture/builder-generation.md)
-- **Steg 4-djupkarta:** [`../architecture/step4-post-generation.md`](../architecture/step4-post-generation.md)
+- **Fas 2-djupkarta:** [`../architecture/fas2-orchestration-and-build.md`](../architecture/fas2-orchestration-and-build.md)
+- **Fas 3-karta (nästa fokus):** [`../architecture/fas3-preview-and-deploy.md`](../architecture/fas3-preview-and-deploy.md)
 
 ### Component uplift (P14–P16) — ARKIVERAT
 
-Sparet reverterades i restore `1f4e86956` — orsakade kvalitetsregression (generationer for lika, fler importfel, tunnare art direction). Planfiler flyttade till `archived/`.
-
-- [`archived/component-uplift-overview.md`](archived/component-uplift-overview.md)
-- [`archived/P14-capability-dep-injection.md`](archived/P14-capability-dep-injection.md)
-- [`archived/P15-enhancement-packs.md`](archived/P15-enhancement-packs.md)
-- [`archived/P16-missing-scaffold-shells.md`](archived/P16-missing-scaffold-shells.md)
+Sparet reverterades i restore `1f4e86956` efter kvalitetsregression
+(generationer for lika, fler importfel, tunnare art direction).
+Detaljer finns i git-historik.
 
 När ett nytt riktigt arbetsspår startar:
 

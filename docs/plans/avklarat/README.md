@@ -6,7 +6,7 @@ Bulk-innehåll som tidigare låg här finns i **git-historik** (filer kan saknas
 
 Äldre planfiler kan saknas i trädet men finns kvar i **git-historik**. Operativ sanning ligger nu i:
 
-- [`../../architecture/preview-deploy.md`](../../architecture/preview-deploy.md)
+- [`../../architecture/fas3-preview-and-deploy.md`](../../architecture/fas3-preview-and-deploy.md)
 - [`../../architecture/builder-generation.md`](../../architecture/builder-generation.md)
 
 När en äldre plan inte längre finns som fil: behandla README:n här som pekare och använd git-historik vid behov i stället för att återintroducera duplicerade roadmap-dokument.

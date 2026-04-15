@@ -296,7 +296,7 @@ MODEL_LABELS = {
     "gpt-4.1": "GPT-4.1",
     "gpt-5-mini": "GPT-5 mini",
     "gpt-5-nano": "GPT-5 nano",
-    "gpt-5.3-codex-max": "GPT-5.3 Codex Max",
+    "gpt-5.3-codex-max": "GPT-5.3 Codex Max (deprecated id — use gpt-5.3-codex)",
     "text-embedding-3-small": "OpenAI text-embedding-3-small",
     "whisper-1": "OpenAI Whisper-1",
     "claude-sonnet-4.6": "Claude Sonnet 4.6",
@@ -324,7 +324,6 @@ AVAILABLE_PHASE_MODELS = (
     "gpt-5.2",
     "gpt-5.4",
     "gpt-5.3-codex",
-    "gpt-5.3-codex-max",
     "claude-sonnet-4.6",
     "claude-opus-4.6",
 )

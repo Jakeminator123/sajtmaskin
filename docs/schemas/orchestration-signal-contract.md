@@ -15,7 +15,7 @@ Det här är en **schema-/kontraktsöversikt**, inte full arkitekturtext. För f
 
 | Lager | Vad som söks | Primära filer | Input | Output | Vanliga felbilder |
 |---|---|---|---|---|---|
-| Prompt formatting | sektioner, stilord, constraints, URL:er, tillgänglighetskrav | `src/lib/builder/promptAssist.ts` | rå användarprompt | formatterad prompt + snabb addendum | torftig prompt förblir för lös, för lite domänstruktur |
+| Prompt formatting | minimal fallback-wrap (`MÅL` + `TILLGÄNGLIGHET`) när brief saknas | `src/lib/builder/promptAssist.ts` | rå användarprompt | formatterad prompt + snabb addendum | torftig prompt förblir för lös, för lite domänstruktur |
 | Prompt assist | bättre språk, tydligare scope, bättre instruktionstäthet | `src/lib/builder/promptAssist.ts`, `/api/ai/chat` | rå prompt + build intent | förbättrad prompt | lägger till för lite struktur eller för mycket scope |
 | Deep brief | projektnamn, pages, sections, visual identity, imagery, SEO, UI notes | `src/lib/builder/site-brief-generation.ts`, `/api/ai/brief` | rå prompt | structured brief | Kanonisk semantisk expansion för init. Brief-objektet via `meta.brief` konsumeras av `buildDynamicContext()`; brief-deriverad prose dubbleras inte i `customInstructions`. Server Auto-Brief körs som fallback för underspecificerade init-prompts. Follow-ups skickar inte brief. |
 | Scaffold keyword match | domänord för auth/ecommerce/blog/portfolio/website/app + brief-boost | `src/lib/gen/scaffolds/matcher.ts` | rå prompt + brief-context | scaffold-id + keyword scores | brief-pages boostar keyword-scores (+2 per matchande domän); kan stängas av med `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off` |
@@ -38,6 +38,8 @@ Briefen matar in i scaffoldmatchningen via `ScaffoldQueryContext` (pages, styleK
 ### 2. Keyword och embeddings körs parallellt; merge-policy jämför signalerna
 
 `matchScaffoldAuto()` startar embedding-sökning direkt och beräknar keyword-signalen parallellt i samma server-side orkestreringspass; resultatet mergeas sedan innan scaffoldvalet bestäms.
+
+I samma orkestreringspass hämtas nu registry/community-komponentreferenser parallellt med auto-matchningen så scaffoldval och referensunderlag inte blockar varandra sekventiellt.
 
 - **Keyword** ger ett snabbt scaffold-förslag (eller intent-baseline om `SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH=off`).
 - **Embedding** får **utmana** även icke-generiska keyword-val när cosinuslikheden är tillräckligt hög och säkerhetsgarder (`canUseEmbeddingOverride`) passerar. Jämförelsen mot keyword-styrka skalar rå keyword-poäng mot `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (standard ~0,82 — **lägre värde** ⇒ embeddings får lättare vinna mot starka keyword-träffar).

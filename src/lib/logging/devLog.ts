@@ -1,20 +1,23 @@
 import fs from "node:fs";
-import path from "node:path";
 import {
   isGenerationLogEnabled,
   writeGenerationLogEntry,
 } from "./generation-log-writer";
+import {
+  LOGS_ROOT_DIR,
+  DEV_LOG_ROLLING_PATH,
+  DEV_LOG_DOC_PATH,
+  isDevLoggingEnabled,
+  normalizeSlug,
+  SENSITIVE_KEY_PATTERN,
+} from "./shared";
 
 type DevLogTarget = "in-progress" | "latest";
 type DevLogEntry = Record<string, unknown>;
 
-const ROOT_LOG_DIR = path.join(process.cwd(), "logs");
-const ROOT_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local.log");
-const ROOT_DOC_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt");
 const MAX_LOG_CHARS = 1000;
 const DEFAULT_DOC_MAX_WORDS = 10_000;
 const MAX_DOC_MAX_WORDS = 20_000;
-const SENSITIVE_KEY_PATTERN = /(token|secret|password|authorization|cookie|api[-_]?key|session)/i;
 const CHAT_SLUG_CACHE_LIMIT = 200;
 const CONSOLE_SUMMARY_ENABLED_TYPES = new Set([
   "site.start",
@@ -70,11 +73,6 @@ const DOCUMENT_SANITIZE_OPTIONS: SanitizeOptions = {
 const chatSlugMap = new Map<string, string>();
 let latestSlug: string | null = null;
 
-function isDevLoggingEnabled(): boolean {
-  if (process.env.SAJTMASKIN_DEV_LOG === "false") return false;
-  return process.env.NODE_ENV !== "production";
-}
-
 function isAnyLocalLogEnabled(): boolean {
   return isDevLoggingEnabled() || isGenerationLogEnabled();
 }
@@ -123,14 +121,14 @@ function safeStringify(value: unknown, pretty = false): string {
 
 function ensureRootLogFiles(): void {
   try {
-    if (!fs.existsSync(ROOT_LOG_DIR)) {
-      fs.mkdirSync(ROOT_LOG_DIR, { recursive: true });
+    if (!fs.existsSync(LOGS_ROOT_DIR)) {
+      fs.mkdirSync(LOGS_ROOT_DIR, { recursive: true });
     }
-    if (!fs.existsSync(ROOT_LOG_PATH)) {
-      fs.writeFileSync(ROOT_LOG_PATH, "", "utf8");
+    if (!fs.existsSync(DEV_LOG_ROLLING_PATH)) {
+      fs.writeFileSync(DEV_LOG_ROLLING_PATH, "", "utf8");
     }
-    if (!fs.existsSync(ROOT_DOC_LOG_PATH)) {
-      fs.writeFileSync(ROOT_DOC_LOG_PATH, "", "utf8");
+    if (!fs.existsSync(DEV_LOG_DOC_PATH)) {
+      fs.writeFileSync(DEV_LOG_DOC_PATH, "", "utf8");
     }
   } catch (err) {
     console.warn(
@@ -138,17 +136,6 @@ function ensureRootLogFiles(): void {
       err instanceof Error ? err.message : err,
     );
   }
-}
-
-function toSlug(value: string): string | null {
-  const normalized = value
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-  return normalized || null;
 }
 
 function readString(entry: DevLogEntry, key: string): string | null {
@@ -343,7 +330,7 @@ function rememberChatSlug(chatId: string, slug: string): void {
 }
 
 function deriveSlugFromEntry(entry: DevLogEntry): string | null {
-  const explicit = toSlug(
+  const explicit = normalizeSlug(
     readString(entry, "slug") ||
       readString(entry, "siteSlug") ||
       readString(entry, "projectSlug") ||
@@ -353,17 +340,17 @@ function deriveSlugFromEntry(entry: DevLogEntry): string | null {
 
   const message = readString(entry, "message");
   if (message && readString(entry, "type") === "site.start") {
-    return toSlug(message.split(/\s+/).slice(0, 12).join(" "));
+    return normalizeSlug(message.split(/\s+/).slice(0, 12).join(" "));
   }
 
   const projectId = readString(entry, "projectId");
-  if (projectId) return toSlug(`project-${projectId}`);
+  if (projectId) return normalizeSlug(`project-${projectId}`);
 
   const chatId = readString(entry, "chatId");
-  if (chatId) return toSlug(`chat-${chatId}`);
+  if (chatId) return normalizeSlug(`chat-${chatId}`);
 
   const type = readString(entry, "type");
-  if (type) return toSlug(type);
+  if (type) return normalizeSlug(type);
 
   return null;
 }
@@ -378,7 +365,7 @@ function enrichEntryWithSlug(entry: DevLogEntry): DevLogEntry {
     return enriched;
   }
 
-  const explicitSlug = toSlug(
+  const explicitSlug = normalizeSlug(
     readString(enriched, "slug") ||
       readString(enriched, "siteSlug") ||
       readString(enriched, "projectSlug") ||
@@ -428,19 +415,19 @@ function appendRollingLine(target: DevLogTarget, entry: DevLogEntry): void {
       ensureRootLogFiles();
       const shortSanitized = sanitizeValue(enriched, ROLLING_SANITIZE_OPTIONS);
       const line = `${timestamp} [${target}] ${safeStringify(shortSanitized)}\n`;
-      const current = fs.existsSync(ROOT_LOG_PATH) ? fs.readFileSync(ROOT_LOG_PATH, "utf8") : "";
+      const current = fs.existsSync(DEV_LOG_ROLLING_PATH) ? fs.readFileSync(DEV_LOG_ROLLING_PATH, "utf8") : "";
       const next = `${current}${line}`;
       const clipped = next.length > MAX_LOG_CHARS ? next.slice(-MAX_LOG_CHARS) : next;
-      fs.writeFileSync(ROOT_LOG_PATH, clipped, "utf8");
+      fs.writeFileSync(DEV_LOG_ROLLING_PATH, clipped, "utf8");
 
       const docHeader = `${timestamp} [${target}]${slugPart ? ` [slug:${slugPart}]` : ""}`;
       const docBlock = `${docHeader}\n${safeStringify(docSanitized, true)}\n\n`;
-      const docCurrent = fs.existsSync(ROOT_DOC_LOG_PATH)
-        ? fs.readFileSync(ROOT_DOC_LOG_PATH, "utf8")
+      const docCurrent = fs.existsSync(DEV_LOG_DOC_PATH)
+        ? fs.readFileSync(DEV_LOG_DOC_PATH, "utf8")
         : "";
       const docNext = `${docCurrent}${docBlock}`;
       const docClipped = clipByWords(docNext, resolveDocumentWordLimit());
-      fs.writeFileSync(ROOT_DOC_LOG_PATH, docClipped, "utf8");
+      fs.writeFileSync(DEV_LOG_DOC_PATH, docClipped, "utf8");
     }
 
     writeGenerationLogEntry({

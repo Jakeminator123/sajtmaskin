@@ -170,7 +170,8 @@ async function fetchWithLimits(
     }
 
     const body = res.body;
-    if (!body || typeof (body as any).getReader !== "function") {
+    const streamBody = body as ReadableStream<Uint8Array>;
+    if (!body || typeof streamBody.getReader !== "function") {
       const arrayBuffer = await res.arrayBuffer();
       const buf = Buffer.from(arrayBuffer);
       if (buf.byteLength > limits.maxBytesPerImage)

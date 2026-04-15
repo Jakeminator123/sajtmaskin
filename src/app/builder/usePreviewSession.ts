@@ -50,7 +50,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
     previewRecoverAttemptsRef.current = 0;
     statusUnavailableCountRef.current = 0;
     lastPreviewRecoverAtRef.current = 0;
-  }, [chatId]);
+  }, [chatId, activeVersionId]);
 
   const handlePreviewSessionSuspect = useCallback(async () => {
     const versionId = activeVersionId;
@@ -164,6 +164,7 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
 
   const resetRecoverAttempts = useCallback(() => {
     previewRecoverAttemptsRef.current = 0;
+    statusUnavailableCountRef.current = 0;
   }, []);
 
   return { handlePreviewSessionSuspect, resetRecoverAttempts };

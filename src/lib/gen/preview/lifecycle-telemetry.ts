@@ -68,18 +68,18 @@ export type PreviewLifecycleTelemetryEvent =
 
 const PREFIX = "[telemetry:preview-lifecycle]";
 
+/**
+ * Log a preview lifecycle event to `console.info`.
+ *
+ * This module is imported by client components (`usePreviewSession`), so it
+ * must NOT reference server-only modules like `devLog` (which imports
+ * `node:fs`).  Turbopack resolves dynamic `import()` paths statically and
+ * would pull `node:fs` into the client chunk, crashing the build.
+ *
+ * All events are written to structured console output with the
+ * `[telemetry:preview-lifecycle]` prefix so they remain queryable in
+ * server logs without a file-system dependency.
+ */
 export function logPreviewLifecycleTelemetry(event: PreviewLifecycleTelemetryEvent): void {
   console.info(PREFIX, JSON.stringify(event));
-  if (event.kind === "heartbeat" || event.kind === "preview_status") {
-    return;
-  }
-  if (typeof window === "undefined") {
-    try {
-      const { devLogAppend } = require("@/lib/logging/devLog") as typeof import("@/lib/logging/devLog");
-      devLogAppend("latest", {
-        type: `preview-lifecycle.${event.kind}`,
-        ...event,
-      });
-    } catch {}
-  }
 }

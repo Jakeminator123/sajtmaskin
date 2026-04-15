@@ -50,6 +50,6 @@ Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
 ## Mer läsning
 
 - [10-own-engine.md](10-own-engine.md) — byggprofiler och `claude-*`-normalisering.
-- [20-prompt-assist.md](20-prompt-assist.md) — `gateway`-benämningen vs faktiska anrop.
+- [20-prompt-assist.md](20-prompt-assist.md) — provider-namngivning (`"openai" | "anthropic"`).
 - [30-embeddings-and-misc.md](30-embeddings-and-misc.md) — embedding-modeller och övriga routes.
 - [40-generated-site-integration-placeholders.env.txt](40-generated-site-integration-placeholders.env.txt) — preview-env för genererade sajter (se även [../user_degraded_env.txt](../user_degraded_env.txt)).

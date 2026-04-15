@@ -31,7 +31,6 @@ import {
   isOwnEnginePostStreamPhaseId,
   ownEnginePostStreamStepLabelSv,
 } from "@/lib/gen/stream/finalize-pipeline-contract";
-import { isCompatibilityShimPreviewUrl, normalizePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import {
   resolveCanonicalLivePreviewUrlFromDonePayload,
   resolveCanonicalLivePreviewUrlFromPreviewReadyPayload,
@@ -375,7 +374,6 @@ export async function handleSseStream(
 
             const promptStrategy =
               meta.promptStrategy === "direct" ||
-              meta.promptStrategy === "summarize" ||
               meta.promptStrategy === "phase_plan_build_refine" ||
               meta.promptStrategy === "preserved"
                 ? meta.promptStrategy

@@ -55,7 +55,7 @@ export function useSendMessage(
     scaffoldId,
     themeColors,
     paletteState,
-    pendingBriefRef,
+    pendingBriefRef: _pendingBriefRef,
     mutateVersions,
     setCurrentPreviewUrl,
     setPreviewBuildError,
@@ -422,7 +422,6 @@ export function useSendMessage(
       scaffoldId,
       themeColors,
       paletteState,
-      pendingBriefRef,
       promptAssistModel,
       promptAssistDeep,
       promptAssistMode,
@@ -433,6 +432,7 @@ export function useSendMessage(
       streamAbortRef,
       autoFixHandlerRef,
       lastSentSystemPromptRef,
+      setPreviewPending,
     ],
   );
 

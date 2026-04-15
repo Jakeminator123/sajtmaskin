@@ -1,7 +1,7 @@
 "use client";
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { Component, ReactNode } from "react";
+import { Component, type ErrorInfo, ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 
 interface Props {
@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
     const { chatId, versionId } = this.props;
     if (!chatId || !versionId) return;

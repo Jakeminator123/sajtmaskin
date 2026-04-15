@@ -77,4 +77,30 @@ export default defineConfig([
       "@typescript-eslint/no-require-imports": "off",
     },
   },
+  // Scaffold template files copied into generated sites — plain <a> and quotes in copy are intentional
+  {
+    files: ["src/lib/gen/scaffolds/**/files/**/*.{ts,tsx,js,jsx}"],
+    rules: {
+      "@next/next/no-html-link-for-pages": "off",
+      "react/no-unescaped-entities": "off",
+    },
+  },
+  // CLI stdout/stderr
+  {
+    files: ["src/lib/gen/eval/cli.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  // Tooling / scripts / e2e — console output is intentional
+  {
+    files: [
+      "scripts/**/*.{js,mjs,cjs,ts}",
+      "e2e/**/*.ts",
+      "preview-host/**/*.js",
+    ],
+    rules: {
+      "no-console": "off",
+    },
+  },
 ]);

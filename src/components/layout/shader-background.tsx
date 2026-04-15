@@ -74,6 +74,7 @@ export function ShaderBackground({
   // Shimmer effect - smooth color cycling
   useEffect(() => {
     if (!shimmer) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect -- sync static color when shimmer off */
       setCurrentColor(color || SHADER_THEMES[theme].color);
       return;
     }
@@ -88,6 +89,7 @@ export function ShaderBackground({
   // Update color when index changes (for shimmer)
   useEffect(() => {
     if (shimmer) {
+      /* eslint-disable-next-line react-hooks/set-state-in-effect -- follow shimmer palette index */
       setCurrentColor(SHIMMER_COLORS[colorIndex]);
     }
   }, [colorIndex, shimmer]);

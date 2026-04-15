@@ -15,12 +15,12 @@ export type IntegrationStatus = {
   items: IntegrationItem[];
 };
 
-export function useIntegrationStatus(demoUrl: string | null) {
+export function useIntegrationStatus(previewUrl: string | null) {
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
   const [integrationError, setIntegrationError] = useState(false);
 
   useEffect(() => {
-    if (!demoUrl) return;
+    if (!previewUrl) return;
     let isActive = true;
     const controller = new AbortController();
 
@@ -47,7 +47,7 @@ export function useIntegrationStatus(demoUrl: string | null) {
       isActive = false;
       controller.abort();
     };
-  }, [demoUrl]);
+  }, [previewUrl]);
 
   return { integrationStatus, integrationError };
 }

@@ -8,9 +8,10 @@ kopplas till preview, `server-verify` och repair.
 
 Primära kodkällor:
 
-- `src/lib/gen/quality-gate-checks.ts`
-- `src/lib/gen/preview-quality-gate.ts`
-- `src/lib/gen/server-verify.ts`
+- `src/lib/gen/verify/quality-gate-checks.ts`
+- `src/lib/gen/verify/preview-quality-gate.ts`
+- `src/lib/gen/verify/server-verify.ts`
+- `src/lib/gen/verify/repair-loop.ts`
 - `src/lib/gen/stream/post-finalize-policies.ts`
 - `src/app/api/engine/chats/[chatId]/quality-gate/route.ts`
 - `src/app/api/engine/chats/[chatId]/repair/route.ts`
@@ -18,8 +19,8 @@ Primära kodkällor:
 Närliggande docs:
 
 - `docs/schemas/preview-session-contract.md`
-- `docs/architecture/preview-deploy.md`
-- `docs/architecture/step4-post-generation.md`
+- `docs/architecture/fas3-preview-and-deploy.md`
+- `docs/architecture/fas2-orchestration-and-build.md`
 
 ## Vad quality gate är
 
@@ -59,9 +60,13 @@ Quality gate använder dessa check-id:n:
 | `lint` | `npx eslint . --max-warnings=0` |
 | `build` | `npx next build` |
 
-Definitioner finns i `src/lib/gen/quality-gate-checks.ts`.
+Definitioner finns i `src/lib/gen/verify/quality-gate-checks.ts`.
 
 ## Standardprofiler
+
+Profilerna laddas från `config/ai_models/manifest.json` under
+`qualityGateTiers` (via `getQualityGateTiersFromManifest()`), med nuvarande
+defaultvärden:
 
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
@@ -107,8 +112,10 @@ den också som exakt felkälla för repair-lanen:
 
 1. quality gate failar
 2. feloutput (`typecheck`, `lint`, `build`) samlas
-3. mekaniska fixar körs igen
-4. vid behov körs LLM-fix med quality-gate-utskriften som kontext
+3. delad `runRepairLoop()` kör mekanisk fix + LLM-fix med samma policy för
+   både `server-verify` och manuell `/repair`
+4. warm repair försöker skicka bara trasiga filer (+ relevanta imports) till
+   LLM-fixern när felmängden är lokal
 5. quality gate re-körs för att avgöra om versionen kan promotas
 
 Det betyder att quality gate i nuläget är både:
@@ -161,7 +168,7 @@ flowchart TD
 Quality gate finns redan dokumenterad, men utspritt:
 
 - `docs/schemas/preview-session-contract.md` — verify-lane och API-kontrakt
-- `docs/architecture/preview-deploy.md` — runtimebild, tier-2 vs verify-lane
-- `docs/architecture/step4-post-generation.md` — relation till finalize och `server-verify`
+- `docs/architecture/fas3-preview-and-deploy.md` — runtimebild, tier-2 vs verify-lane
+- `docs/architecture/fas2-orchestration-and-build.md` — relation till finalize och `server-verify`
 
 Den här sidan finns för att ge en enda sammanhållen ingångspunkt.

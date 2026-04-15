@@ -162,8 +162,14 @@ export const serverSchema = z.object({
   SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED: z.string().optional(),
   /** When "true"/"1", inject scaffold-anchored template-library runtimeGuidance into init generations. */
   SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE: z.string().optional(),
+  /** When "true"/"1", inject structural code references derived from scaffold variant sourceTemplateIds into init generations. */
+  SAJTMASKIN_VARIANT_STRUCTURAL_FILES: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
+  /** `client` = merge brief-derived addendum into customInstructions, `server` = brief only via buildDynamicContext. */
+  NEXT_PUBLIC_SAJTMASKIN_BRIEF_ADDENDUM_MODE: z.string().optional(),
+  /** Server-side alias (kept for completeness in env docs/validation). */
+  SAJTMASKIN_BRIEF_ADDENDUM_MODE: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),
   NEXT_PUBLIC_BETA_BANNER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),

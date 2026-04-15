@@ -47,32 +47,55 @@ function mapWebhookTypeToStatus(
   }
 }
 
-function extractDeploymentId(body: any): string | null {
+type VercelWebhookJson = {
+  payload?: {
+    deployment?: { id?: unknown; url?: unknown };
+    deploymentId?: unknown;
+    id?: unknown;
+    url?: unknown;
+    project?: { id?: unknown };
+    projectId?: unknown;
+    links?: { deployment?: unknown };
+  };
+  deployment?: { id?: unknown; url?: unknown };
+  deploymentId?: unknown;
+  id?: unknown;
+  url?: unknown;
+  project?: { id?: unknown };
+  projectId?: unknown;
+  links?: { deployment?: unknown };
+};
+
+function extractDeploymentId(body: unknown): string | null {
+  const b = body as VercelWebhookJson | null | undefined;
   const id =
-    body?.payload?.deployment?.id ||
-    body?.payload?.deploymentId ||
-    body?.payload?.id ||
-    body?.deployment?.id ||
-    body?.deploymentId ||
-    body?.id;
+    b?.payload?.deployment?.id ||
+    b?.payload?.deploymentId ||
+    b?.payload?.id ||
+    b?.deployment?.id ||
+    b?.deploymentId ||
+    b?.id;
 
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
-function extractUrl(body: any): string | null {
+function extractUrl(body: unknown): string | null {
+  const b = body as VercelWebhookJson | null | undefined;
   const url =
-    body?.payload?.deployment?.url || body?.payload?.url || body?.deployment?.url || body?.url;
+    b?.payload?.deployment?.url || b?.payload?.url || b?.deployment?.url || b?.url;
   return typeof url === "string" && url.length > 0 ? url : null;
 }
 
-function extractInspectorUrl(body: any): string | null {
-  const url = body?.payload?.links?.deployment || body?.links?.deployment;
+function extractInspectorUrl(body: unknown): string | null {
+  const b = body as VercelWebhookJson | null | undefined;
+  const url = b?.payload?.links?.deployment || b?.links?.deployment;
   return typeof url === "string" && url.length > 0 ? url : null;
 }
 
-function extractProjectId(body: any): string | null {
+function extractProjectId(body: unknown): string | null {
+  const b = body as VercelWebhookJson | null | undefined;
   const id =
-    body?.payload?.project?.id || body?.payload?.projectId || body?.project?.id || body?.projectId;
+    b?.payload?.project?.id || b?.payload?.projectId || b?.project?.id || b?.projectId;
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
@@ -94,14 +117,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  let body: any = null;
+  let body: unknown = null;
   try {
     body = rawBody ? JSON.parse(rawBody) : null;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const type = typeof body?.type === "string" ? body.type : null;
+  const type =
+    body && typeof body === "object" && body !== null && "type" in body
+      ? typeof (body as { type?: unknown }).type === "string"
+        ? (body as { type: string }).type
+        : null
+      : null;
   if (!type) {
     return NextResponse.json({ ok: true, ignored: true, reason: "missing type" });
   }

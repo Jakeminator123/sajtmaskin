@@ -25,8 +25,6 @@ import {
   ActionStrip,
   QualityGatePanel,
   ServerRepairPanel,
-  formatDurationMsShort,
-  formatUtcClock,
 } from "./review-panels";
 
 type ToolPart = Extract<MessagePart, { type: "tool" }>;

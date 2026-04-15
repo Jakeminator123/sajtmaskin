@@ -217,6 +217,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         }
       }
       const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+      const briefQuality: "full" | "server-auto" | "none" = (() => {
+        const clientQuality = clientBriefFromMeta?.briefQuality;
+        if (clientQuality === "full" || clientQuality === "server-auto") return clientQuality;
+        if (serverAutoBrief) return "server-auto";
+        return "none";
+      })();
 
       const creditUser = creditCheck.user;
       const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
@@ -236,6 +242,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 copy.promptStrategyReason = strategyMeta.reason;
                 copy.promptComplexityScore = strategyMeta.complexityScore;
                 copy.serverAutoBriefGenerated = Boolean(serverAutoBrief);
+                copy.briefQuality = briefQuality;
                 if (serverAutoBriefModel) copy.serverAutoBriefModel = serverAutoBriefModel;
                 return Object.keys(copy).length > 0 ? copy : null;
               })()
@@ -248,6 +255,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                 promptStrategyReason: strategyMeta.reason,
                 promptComplexityScore: strategyMeta.complexityScore,
                 serverAutoBriefGenerated: Boolean(serverAutoBrief),
+                briefQuality,
                 ...(serverAutoBriefModel ? { serverAutoBriefModel } : {}),
               };
         const metaObj = meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null;
@@ -721,6 +729,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId: engineChat.id,
           resolvedTier: resolvedModelTier,
+          includeIntegrationSignals: true,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,

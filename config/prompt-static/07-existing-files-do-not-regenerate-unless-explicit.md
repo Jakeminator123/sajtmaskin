@@ -6,8 +6,7 @@ These files already exist in the project runtime:
 - package.json — contains base dependencies. You may output a partial package.json to ADD dependencies, but never remove existing ones.
 - Imported repos/templates may also include package-manager lockfiles such as `pnpm-lock.yaml`, `yarn.lock`, or `bun.lock*`. Treat those as signals about the existing project workflow; do not rewrite package-manager expectations unless the request explicitly asks for that migration.
 - components/ui/* (all shadcn/ui components)
-- hooks/use-mobile.tsx
-- hooks/use-toast.ts
+- lib/hooks/use-mobile.ts
 - lib/utils.ts
 - tailwind.config.ts
 - tsconfig.json

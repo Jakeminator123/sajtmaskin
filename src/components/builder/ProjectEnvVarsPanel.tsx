@@ -473,7 +473,16 @@ export function ProjectEnvVarsPanel({
     } finally {
       setIsSaving(false);
     }
-  }, [effectiveEnvProjectId, canAdd, isSaving, newKey, newValue, newSensitive]);
+  }, [
+    effectiveEnvProjectId,
+    canAdd,
+    isSaving,
+    newKey,
+    newValue,
+    newSensitive,
+    chatId,
+    activeVersionId,
+  ]);
 
   const handleDeleteEnvVar = useCallback(
     async (item: EnvVarItem) => {
@@ -514,7 +523,7 @@ export function ProjectEnvVarsPanel({
         setIsSaving(false);
       }
     },
-    [effectiveEnvProjectId, isSaving],
+    [effectiveEnvProjectId, isSaving, chatId, activeVersionId],
   );
 
   // --- effects ---
@@ -741,11 +750,14 @@ export function ProjectEnvVarsPanel({
   const hasDetectedIntegrations = siteIntegrations.length > 0 || businessPackItems.length > 0;
 
   // --- header summary ---
+  const hasChat = Boolean(chatId);
   const headerLabel = expanded
     ? "Projektinställningar"
-    : totalIssues > 0
-      ? `Projektinställningar • ${totalIssues} att konfigurera`
-      : `Projektinställningar • ${envVarCount} variabler`;
+    : !hasChat
+      ? "Projektinställningar"
+      : totalIssues > 0
+        ? `Projektinställningar • ${totalIssues} att konfigurera`
+        : `Projektinställningar • ${envVarCount} variabler`;
 
   return (
     <div ref={panelRef} className="border-border bg-muted/10 border-b px-3 py-2 text-xs">
@@ -755,7 +767,9 @@ export function ProjectEnvVarsPanel({
         className="flex w-full items-center justify-between gap-2"
       >
         <div className="flex items-center gap-2">
-          {totalIssues > 0 ? (
+          {!hasChat ? (
+            <KeyRound className="h-4 w-4 text-gray-500" />
+          ) : totalIssues > 0 ? (
             <AlertCircle className="h-4 w-4 text-red-400" />
           ) : (
             <CheckCircle2 className="h-4 w-4 text-green-400" />

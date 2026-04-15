@@ -11,20 +11,68 @@
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
-const REGISTRY_BASE = "https://ui.shadcn.com/r/styles/new-york-v4";
+const REGISTRY_BASE = "https://ui.shadcn.com/r/styles/radix-vega";
+const REGISTRY_FALLBACK = "https://ui.shadcn.com/r/styles/new-york-v4";
 const OUTPUT_DIR = join(process.cwd(), "data", "shadcn-examples");
 
 const EXAMPLES_TO_FETCH = [
+  // Calendar & date
   "calendar-demo",
   "date-picker-demo",
   "date-picker-with-range",
+
+  // Search & command
   "combobox-demo",
   "command-demo",
+
+  // Carousel
   "carousel-demo",
+
+  // Charts — bar
   "chart-bar-default",
+  "chart-bar-interactive",
+  "chart-bar-stacked",
+
+  // Charts — area
   "chart-area-default",
+  "chart-area-interactive",
+  "chart-area-stacked",
+
+  // Charts — line
+  "chart-line-default",
+  "chart-line-interactive",
+  "chart-line-multiple",
+
+  // Charts — pie & donut
+  "chart-pie-simple",
+  "chart-pie-donut",
+  "chart-pie-interactive",
+
+  // Charts — radar & radial
+  "chart-radar-default",
+  "chart-radar-multiple",
+  "chart-radial-simple",
+  "chart-radial-text",
+  "chart-radial-stacked",
+
+  // Charts — tooltip patterns
+  "chart-tooltip-default",
+
+  // Forms
   "input-form",
+
+  // App shell & navigation
+  "sidebar-01",
   "sidebar-07",
+  "sidebar-10",
+  "dashboard-01",
+
+  // Auth
+  "login-01",
+  "login-04",
+  "signup-01",
+
+  // Data table
   "data-table-demo",
 ];
 
@@ -44,29 +92,35 @@ interface RegistryItem {
   files?: RegistryFile[];
 }
 
-async function fetchExample(name: string): Promise<RegistryItem | null> {
-  const url = `${REGISTRY_BASE}/${name}.json`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`  [skip] ${name}: HTTP ${res.status}`);
-      return null;
+async function fetchExample(name: string): Promise<{ item: RegistryItem; style: string } | null> {
+  for (const [base, style] of [[REGISTRY_BASE, "radix-vega"], [REGISTRY_FALLBACK, "new-york-v4"]] as const) {
+    const url = `${base}/${name}.json`;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const item = (await res.json()) as RegistryItem;
+        if (item.files?.some((f) => f.content)) return { item, style };
+      }
+    } catch {
+      // try next
     }
-    return (await res.json()) as RegistryItem;
-  } catch (err) {
-    console.warn(`  [skip] ${name}: ${err instanceof Error ? err.message : "fetch failed"}`);
-    return null;
   }
+  console.warn(`  [skip] ${name}: not found in radix-vega or new-york-v4`);
+  return null;
 }
 
-function extractCode(item: RegistryItem): string | null {
+function extractCode(item: RegistryItem, style: string): string | null {
   const tsxFile = item.files?.find(
     (f) => f.content && (f.path.endsWith(".tsx") || f.path.endsWith(".ts")),
   );
   if (!tsxFile?.content) return null;
+  const prefix = `@/registry/${style}/`;
   return tsxFile.content
-    .replace(/@\/registry\/new-york-v4\/ui\//g, "@/components/ui/")
-    .replace(/@\/registry\/new-york-v4\/examples\//g, "@/components/examples/");
+    .replace(new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}lib/utils`, "g"), "@/lib/utils")
+    .replace(new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}hooks/`, "g"), "@/lib/hooks/")
+    .replace(new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}blocks/`, "g"), "@/components/blocks/")
+    .replace(new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}examples/`, "g"), "@/components/examples/")
+    .replace(new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"), "@/components/");
 }
 
 async function main() {
@@ -80,13 +134,13 @@ async function main() {
   let skipped = 0;
 
   for (const name of EXAMPLES_TO_FETCH) {
-    const item = await fetchExample(name);
-    if (!item) {
+    const result = await fetchExample(name);
+    if (!result) {
       skipped++;
       continue;
     }
 
-    const code = extractCode(item);
+    const code = extractCode(result.item, result.style);
     if (!code) {
       console.warn(`  [skip] ${name}: no .tsx content in files`);
       skipped++;
@@ -94,10 +148,10 @@ async function main() {
     }
 
     const output = {
-      name: item.name,
-      title: item.title ?? name,
-      description: item.description ?? "",
-      dependencies: item.dependencies ?? [],
+      name: result.item.name,
+      title: result.item.title ?? name,
+      description: result.item.description ?? "",
+      dependencies: result.item.dependencies ?? [],
       code,
     };
 

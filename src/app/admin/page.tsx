@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -109,7 +109,7 @@ export default function AdminPage() {
     window.print();
   };
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -134,7 +134,7 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [days]);
 
   const fetchDbStats = async () => {
     try {
@@ -214,27 +214,30 @@ export default function AdminPage() {
     }
   };
 
-  const fetchFrontlogs = async (slug = selectedFrontlogSlug) => {
-    setFrontlogsLoading(true);
-    setFrontlogsError(null);
-    try {
-      const params = new URLSearchParams({ limit: "120" });
-      if (slug) {
-        params.set("slug", slug);
+  const fetchFrontlogs = useCallback(
+    async (slug = selectedFrontlogSlug) => {
+      setFrontlogsLoading(true);
+      setFrontlogsError(null);
+      try {
+        const params = new URLSearchParams({ limit: "120" });
+        if (slug) {
+          params.set("slug", slug);
+        }
+        const response = await fetch(`/api/admin/frontlogs?${params.toString()}`);
+        const data = await response.json();
+        if (data.success) {
+          setFrontlogs(data as FrontlogsPayload);
+        } else {
+          setFrontlogsError(data.error || "Kunde inte hämta frontloggar");
+        }
+      } catch {
+        setFrontlogsError("Kunde inte hämta frontloggar");
+      } finally {
+        setFrontlogsLoading(false);
       }
-      const response = await fetch(`/api/admin/frontlogs?${params.toString()}`);
-      const data = await response.json();
-      if (data.success) {
-        setFrontlogs(data as FrontlogsPayload);
-      } else {
-        setFrontlogsError(data.error || "Kunde inte hämta frontloggar");
-      }
-    } catch {
-      setFrontlogsError("Kunde inte hämta frontloggar");
-    } finally {
-      setFrontlogsLoading(false);
-    }
-  };
+    },
+    [selectedFrontlogSlug],
+  );
 
   const fetchTeamStatus = async () => {
     setTeamStatusLoading(true);
@@ -270,13 +273,13 @@ export default function AdminPage() {
     if (stored === "true") {
       setIsAuthenticated(true);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (activeTab === "analytics" && isAuthenticated) {
       void fetchStats();
     }
-  }, [activeTab, isAuthenticated, days]);
+  }, [activeTab, isAuthenticated, fetchStats]);
 
   useEffect(() => {
     if (activeTab === "database" && isAuthenticated) {
@@ -296,9 +299,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (activeTab === "frontlogs" && isAuthenticated) {
-      fetchFrontlogs();
+      void fetchFrontlogs();
     }
-  }, [activeTab, isAuthenticated, selectedFrontlogSlug]);
+  }, [activeTab, isAuthenticated, fetchFrontlogs]);
 
   useEffect(() => {
     if (!envStatus?.vercel?.projectId || selectedVercelProjectId) return;

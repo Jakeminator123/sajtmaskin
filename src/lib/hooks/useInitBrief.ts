@@ -1,7 +1,7 @@
 import {
   buildDynamicInstructionAddendumFromBrief,
   buildDynamicInstructionAddendumFromPrompt,
-  isGatewayAssistModel,
+  isOpenAIAssistModel,
   isPromptAssistModelAllowed,
   isPromptAssistOff,
   normalizeAssistModel,
@@ -50,17 +50,17 @@ export function useInitBrief(params: PromptAssistConfig) {
 
       const provider = resolvePromptAssistProvider(normalizedModel);
       const startedAt = Date.now();
-      const resolvedGatewayDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
+      const resolvedOpenAIDeep = isOpenAIAssistModel(normalizedModel) ? deep : false;
       const useDeepBrief =
         !options.forceShallow &&
-        (options.forceDeepBrief === true || resolvedGatewayDeep);
-      const briefUsesGateway =
-        options.forceDeepBrief === true && !isGatewayAssistModel(normalizedModel)
+        (options.forceDeepBrief === true || resolvedOpenAIDeep);
+      const briefUsesOpenAI =
+        options.forceDeepBrief === true && !isOpenAIAssistModel(normalizedModel)
           ? true
           : provider !== "anthropic";
-      const briefProvider = briefUsesGateway ? "gateway" : "anthropic";
-      const briefModel = briefUsesGateway
-        ? isGatewayAssistModel(normalizedModel)
+      const briefProvider = briefUsesOpenAI ? "openai" : "anthropic";
+      const briefModel = briefUsesOpenAI
+        ? isOpenAIAssistModel(normalizedModel)
           ? normalizedModel
           : normalizeAssistModel(ASSIST_MODEL)
         : normalizedModel;
@@ -68,7 +68,7 @@ export function useInitBrief(params: PromptAssistConfig) {
       debugLog("AI", "Dynamic instructions started", {
         ...promptAssistDebugFields(provider),
         flow: useDeepBrief ? BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS : "dynamic_instructions_prompt_only",
-        briefProvider: useDeepBrief ? (briefProvider === "gateway" ? "openai" : "anthropic") : null,
+        briefProvider: useDeepBrief ? briefProvider : null,
         briefModel: useDeepBrief ? briefModel : null,
         model: normalizedModel,
         deep: useDeepBrief,

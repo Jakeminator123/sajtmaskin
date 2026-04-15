@@ -9,11 +9,11 @@ Primary code sources:
 
 - `src/lib/gen/preview/preview-contract.ts`
 - `src/lib/gen/preview/preview-host-client.ts`
-- `src/lib/gen/preview-quality-gate.ts`
+- `src/lib/gen/verify/preview-quality-gate.ts`
 - `preview-host/src/server.js`
 - `preview-host/src/validate.js`
 - `preview-host/src/runtime.js`
-- `docs/architecture/preview-deploy.md`
+- `docs/architecture/fas3-preview-and-deploy.md`
 
 Machine-oriented companion:
 
@@ -76,9 +76,9 @@ Engine-routen `POST /api/engine/chats/[chatId]/quality-gate` accepterar en `chec
 När alla verify-resultat är godkända och `SAJTMASKIN_VISUAL_QA` är på kan Sajtmaskin köra **statisk** Visual QA (`analyzeVisualQuality` i `src/lib/gen/visual-qa.ts`) på exportabla filer. Det är **inte** en del av preview-hostens JSON-svar från verify-lanen, men kan:
 
 - returneras i quality-gate-API-svaret som `visualQA`, och
-- sparas kompakt i versionslogg-meta under `preflight:quality-gate` via `buildServerVerifyQualityGateMeta` / `compactVisualQAForQualityGateLog` (`src/lib/gen/server-verify-log-meta.ts`).
+- sparas kompakt i versionslogg-meta under `preflight:quality-gate` via `buildServerVerifyQualityGateMeta` / `compactVisualQAForQualityGateLog` (`src/lib/gen/verify/server-verify-log-meta.ts`).
 
-Samma villkor och filurval delas av `maybeAnalyzeVisualQAForPassedExportable()` i `src/lib/gen/preview-quality-gate.ts` (anropas från quality-gate-routen, `repair/route.ts` och `server-verify.ts`). Sammanfattningstext för DB vid promote/fail styrs av `describeQualityGateVerification()` i samma modul.
+Samma villkor och filurval delas av `maybeAnalyzeVisualQAForPassedExportable()` i `src/lib/gen/verify/preview-quality-gate.ts` (anropas från quality-gate-routen, `repair/route.ts` och `server-verify.ts`). Sammanfattningstext för DB vid promote/fail styrs av `describeQualityGateVerification()` i samma modul.
 
 ## Public app/API contracts
 

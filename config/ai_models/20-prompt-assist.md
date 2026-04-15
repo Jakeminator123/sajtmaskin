@@ -1,4 +1,4 @@
-# Prompt assist och “gateway”-benämningen
+# Prompt assist — provider-namngivning
 
 ## Modellsträngar
 
@@ -10,9 +10,11 @@ Prompt assist använder **`provider/model`**-format, t.ex.:
 
 Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** via `getPromptAssistAllowedFromManifest()` i [`src/lib/builder/promptAssist.ts`](../../src/lib/builder/promptAssist.ts). Paritet säkerställs av `manifest-parity.test.ts`.
 
-## Varför står det fortfarande “gateway” i koden?
+## Provider-typ: `"openai" | "anthropic"`
 
-I [`src/app/api/ai/chat/route.ts`](../../src/app/api/ai/chat/route.ts) heter en gren `provider === "gateway"` för **OpenAI-klassade** assist-modeller (`openai/gpt-5.4` etc.). Själva anropet går till [`createDirectModel`](../../src/lib/builder/gateway-policy.ts), som använder **`OPENAI_API_KEY`** för `openai/*` (och Anthropic-grenen **`ANTHROPIC_API_KEY`**).
+`PromptAssistProvider` i `promptAssist.ts` är `"openai" | "anthropic"`. Tidigare hette OpenAI-grenen `"gateway"` — den etiketten är borttagen ur typen och all runtime-kod sedan Fas 1 världsklass. HTTP-scheman i `/api/ai/brief` och `/api/ai/chat` accepterar fortfarande `"gateway"` i request-body under en övergångsperiod och normaliserar det till `"openai"` server-side.
+
+Anropet går till [`createDirectModel`](../../src/lib/builder/gateway-policy.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`.
 
 ## Standard assist / polish
 

@@ -7,11 +7,11 @@ alwaysApply: true
 
 **Kanonisk ordlista:** `docs/architecture/glossary.md` (livscykel, namnskuggor, legacy).
 
-**Grundregel:** kod är source of truth. Nya begrepp bara om befintlig term inte räcker — kolla glossaryn först. Ny/omdöpt term → uppdatera glossaryn samma leverans. § Namnskuggor innan `brief`, `contracts`, `reference`, `scaffold`, `polish`, `context`, `policy`. Konsolidera hellre än ny jargong.
+**Grundregel:** kod är source of truth. Nya begrepp bara om befintlig term inte räcker — kolla glossaryn först. Ny/omdöpt term → uppdatera glossaryn samma leverans. § Namnskuggor innan `brief`, `contracts`, `reference`, `scaffold`, `polish`, `context`, `policy`. Konsolidera hellre än ny jargong. Användare, LLM:er och docs kan ha fel eller vara inaktuella — vid tvekan, verifiera mot koden.
 
 **Gate (fil/typ/export):** (1) Finns kanonisk term? (2) Tvetydigt ord? (3) Rimlig undermapp? → `file-structure-conventions.mdc`. (4) Nytt → glossaryn.
 
-## Snabb tabell
+## Förväxlingstabell
 
 | Säg | Inte |
 |-----|------|
@@ -27,20 +27,13 @@ alwaysApply: true
 | `Prompt Rewrite` / `Prompt Polish` | "Prompt Assist" som paraply |
 | `Contract Plan` | Orchestration Contract |
 | `previewUrl` | demoUrl (legacy) |
-| `mekanisk fix` | "deterministisk autofix", "repair" (blandat) |
-| `LLM-fix` | "fixer", "syntax fixer" (blandat) |
+| `mekanisk fix` / **mekanisk autofix** | "autofix" utan att skilja från LLM; "deterministisk autofix", "repair" (blandat) |
+| `LLM-fix` / **LLM-autofix** | "fixer", "syntax fixer", generiskt "autofix" (blandat) |
 | `Ersatt` (UI-etikett) | Omtag (döda) |
+| `backoffice/` | "dashboard" (legacy) |
+
+**Skilj på begreppen:** en **namnskugga** är ett tvetydigt ord med flera betydelser. **Mekanisk autofix** och **LLM-fix** är i stället två olika fixkategorier och ska inte behandlas som samma sak med olika namn.
 
 **`v0`:** (1) `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
-
-**Scaffold:** Kanonisk identifierare är `ScaffoldId` / manifestfältet `id` — inte `ScaffoldFamily` eller `family`. `detectScaffoldMode()` togs bort (död kod).
-
-**Scaffold Variant:** Visuellt uttryck inom en scaffold — samma routing/filer, annat utseende (typsnitt, theme tokens, motif, prompt hints). Kod: `ScaffoldVariant`, `pickScaffoldVariant()`, `config/scaffold-variants/<scaffoldId>/<variant>.json`. Ersätter det gamla `style-directions.ts`-systemet. I dagligt tal kan du säga "scaffold family" men i kod och docs ska det vara "variant".
-
-**Builder-lanes:** Byggmodell = Build Profile · Förbättra = Prompt Rewrite · Skriv om = Prompt Polish · Thinking = reasoning-flagga, inte lane.
-
-**Steg 4 (fas 3):** Mekaniska fixar → Validering → LLM-fix (vid behov) → Mekaniska fixar → Verifier → Preflight → Quality Gate → sparad version. Typer: `FixEntry` med `category: "mechanical" | "llm"` i `autofix/types.ts`.
-
-**Env:** repo-`.env*` vs genererad sajts `.env*` — policy `env.ts`, `env-policy.json`, `docs/ENV.md`, `repo-env-indexing.mdc`.
 
 Uppdatera denna fil bara vid nya återkommande förväxlingar; håll kort.

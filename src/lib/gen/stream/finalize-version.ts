@@ -4,6 +4,7 @@ import type { OrchestrationContract } from "@/lib/gen/orchestration-contract";
 import { FEATURES } from "@/lib/config";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
+import { runLlmFixer } from "@/lib/gen/autofix/llm-fixer";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { expandUrls } from "@/lib/gen/url-compress";
 import type { PreviewPreflightSummary } from "@/lib/gen/preview/diagnostics";
@@ -19,10 +20,11 @@ import { isVerifierPassEnabled, runVerifierPass } from "@/lib/gen/verify/verifie
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createGenerationTelemetryRecord } from "@/lib/db/services/generation-telemetry";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { getPhaseRoutingSummary } from "@/lib/models/phase-routing";
+import { getPhaseRoutingSummary, resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { isCanonicalModelId, type CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
+import { PARTIAL_FILE_REPAIR_MAX_ATTEMPTS } from "@/lib/gen/defaults";
 import { buildFinalizePreflightLogBundle } from "./finalize-preflight-logs";
 import {
   type FinalizePreflightIssue,
@@ -110,11 +112,6 @@ type FinalizeStepTelemetryMap = Partial<Record<OwnEnginePostStreamPhaseId, Final
 
 type FinalizeSyntaxResult = Awaited<ReturnType<typeof validateAndFix>>;
 type FinalizePreflightResult = Awaited<ReturnType<typeof runFinalizePreflight>>;
-
-interface FinalizeDeepPathResult {
-  contentForVersion: string;
-  stepTelemetry: FinalizeStepTelemetryMap;
-}
 
 interface FinalizeFastPathResult {
   contentForVersion: string;
@@ -204,12 +201,12 @@ function createFinalizeStepTelemetry(
 }
 
 function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number {
-  if (!buildSpec) return 20;
+  if (!buildSpec) return 6;
   if (
     buildSpec.previewPolicy === "fidelity3" ||
     buildSpec.qualityTarget === "release-candidate"
   ) {
-    return 25;
+    return 8;
   }
   if (
     buildSpec.qualityTarget !== "standard" ||
@@ -217,9 +214,9 @@ function resolveImageMaterializationLimit(buildSpec?: BuildSpec | null): number 
     buildSpec.contextPolicy === "heavy" ||
     buildSpec.changeScope === "integration"
   ) {
-    return 22;
+    return 7;
   }
-  return 20;
+  return 6;
 }
 
 function resolveVerifierPassPolicy(params: {
@@ -298,14 +295,133 @@ function isPartialFileOutputIssue(issue: FinalizePreflightIssue): boolean {
   );
 }
 
+const PARTIAL_FILE_REPAIR_TIMEOUT_MS = 60_000;
+
+function extractPartialFileNames(issues: string[]): string[] {
+  const files: string[] = [];
+  for (const issue of issues) {
+    const colonIdx = issue.indexOf(":");
+    if (colonIdx > 0) {
+      const candidate = issue.slice(0, colonIdx).trim();
+      if (candidate && /\.\w{2,4}$/.test(candidate)) files.push(candidate);
+    }
+  }
+  return [...new Set(files)];
+}
+
+function formatPartialIssuesAsFixerErrors(
+  partialFiles: string[],
+  issues: string[],
+): string[] {
+  const errors = partialFiles.map(
+    (f) =>
+      `${f}:1:1 CRITICAL: This file contains only a partial snippet or excerpt. Output the COMPLETE file from the first import to the last line.`,
+  );
+  for (const issue of issues) {
+    if (!errors.some((e) => issue.startsWith(e.split(":")[0]))) {
+      errors.push(issue);
+    }
+  }
+  return errors;
+}
+
+async function tryRepairPartialFileOutput(params: {
+  contentForVersion: string;
+  chatId: string;
+  resolvedTier?: CanonicalModelId;
+  partialFileIssues: string[];
+}): Promise<{
+  repairedContent: string | null;
+  attempts: number;
+  succeeded: boolean;
+  partialFiles: string[];
+}> {
+  const { contentForVersion, chatId, resolvedTier, partialFileIssues } = params;
+  const partialFiles = extractPartialFileNames(partialFileIssues);
+  if (partialFiles.length === 0) {
+    return {
+      repairedContent: null,
+      attempts: 0,
+      succeeded: false,
+      partialFiles: [],
+    };
+  }
+
+  const fixerModel = resolvedTier
+    ? resolvePhaseModel(resolvedTier, "fixer").modelId
+    : undefined;
+  const fixerThinking = resolvedTier
+    ? resolvePhaseThinking(resolvedTier, "fixer")
+    : null;
+  const errors = formatPartialIssuesAsFixerErrors(partialFiles, partialFileIssues);
+  const maxAttempts = Math.max(1, PARTIAL_FILE_REPAIR_MAX_ATTEMPTS);
+  let attempts = 0;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    attempts = attempt;
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), PARTIAL_FILE_REPAIR_TIMEOUT_MS);
+    try {
+      const result = await runLlmFixer(contentForVersion, errors, {
+        model: fixerModel,
+        thinking: fixerThinking?.thinking,
+        reasoningEffort: fixerThinking?.reasoningEffort,
+        requiredFiles: partialFiles,
+        abortSignal: abort.signal,
+      });
+      if (!result.success && !result.partial) {
+        break;
+      }
+      const reFixed = await runAutoFix(result.fixedContent);
+      devLogAppend("in-progress", {
+        type: "partial-file-repair.outcome",
+        chatId,
+        attempts,
+        succeeded: true,
+        partialFiles,
+      });
+      return {
+        repairedContent: reFixed.fixedContent,
+        attempts,
+        succeeded: true,
+        partialFiles,
+      };
+    } catch (err) {
+      devLogAppend("in-progress", {
+        type: "partial-file-repair.error",
+        chatId,
+        message: err instanceof Error ? err.message : "Unknown repair error",
+        partialFiles,
+        attempt,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  devLogAppend("in-progress", {
+    type: "partial-file-repair.outcome",
+    chatId,
+    attempts,
+    succeeded: false,
+    partialFiles,
+  });
+  return {
+    repairedContent: null,
+    attempts,
+    succeeded: false,
+    partialFiles,
+  };
+}
+
 function resolveFinalizePathPolicy(params: {
   buildSpec?: BuildSpec | null;
   repairPassIndex: number;
 }): FinalizePathPolicy {
   const { buildSpec, repairPassIndex } = params;
   if (!FEATURES.useFinalizeDeepPath) {
-    // Historical env naming: false here disables the light fast-path shortcut
-    // and keeps finalize on the deep path for every run.
+    // Historical env naming: false here disables the light pipeline shortcut
+    // and keeps finalize on the full pipeline for every run.
     return { runDeepPath: true, reason: "fast_path_disabled_by_flag" };
   }
   if (repairPassIndex > 0) {
@@ -549,7 +665,32 @@ async function runFinalizeFastPath(params: {
     previousFiles,
   });
 
-  const preflightResult = await runFinalizePreflight({
+  if (previousFiles && previousFiles.length > 0) {
+    const previousContentLen = previousFiles.reduce((sum, f) => sum + (f.content?.length ?? 0), 0);
+    const mergedContentLen = filesJson.length;
+    const shrinkRatio = previousContentLen > 0 ? mergedContentLen / previousContentLen : 1;
+    if (shrinkRatio < 0.25 && previousContentLen > 2000) {
+      warnLog("engine", "Follow-up output is drastically smaller than previous version", {
+        chatId,
+        previousContentLen,
+        mergedContentLen,
+        shrinkRatio: Math.round(shrinkRatio * 100),
+        generatedFileCount: generatedFiles.length,
+        previousFileCount: previousFiles.length,
+      });
+      devLogAppend("in-progress", {
+        type: "finalize.content-shrink-warning",
+        chatId,
+        previousContentLen,
+        mergedContentLen,
+        shrinkPercent: Math.round((1 - shrinkRatio) * 100),
+        generatedFileCount: generatedFiles.length,
+        previousFileCount: previousFiles.length,
+      });
+    }
+  }
+
+  let preflightResult = await runFinalizePreflight({
     chatId,
     model,
     resolvedTier,
@@ -561,26 +702,95 @@ async function runFinalizeFastPath(params: {
   });
   filesJson = preflightResult.filesJson;
   filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
-  const finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
-  const preflightFileCount = preflightResult.preflightFileCount;
-  const preflightIssues = preflightResult.preflightIssues;
-  const previewBlockingReason = preflightResult.previewBlockingReason;
-  const partialFileIssues = preflightIssues
+  let finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
+  let preflightFileCount = preflightResult.preflightFileCount;
+  let preflightIssues = preflightResult.preflightIssues;
+  let previewBlockingReason = preflightResult.previewBlockingReason;
+  let partialFileIssues = preflightIssues
     .filter(isPartialFileOutputIssue)
     .map((issue) => `${issue.file}: ${issue.message}`);
 
   if (partialFileIssues.length > 0) {
+    const originalPartialCount = partialFileIssues.length;
     devLogAppend("in-progress", {
-      type: "project-sanity.error",
+      type: "partial-file-repair.attempting",
       chatId,
-      message: "Generation produced partial file output before persist.",
+      issueCount: originalPartialCount,
       issues: partialFileIssues,
     });
-    throw new PartialFileOutputError(
+    onProgress?.("parse_merge_preflight", {
+      phase: "partial_file_repair",
+      issueCount: originalPartialCount,
+    });
+
+    const partialRepair = await tryRepairPartialFileOutput({
+      contentForVersion,
       chatId,
-      resolvedScaffold?.id ?? null,
+      resolvedTier,
       partialFileIssues,
-    );
+    });
+    const repairedContent = partialRepair.repairedContent;
+
+    if (repairedContent) {
+      contentForVersion = repairedContent;
+      filesJson = parseFilesFromContent(contentForVersion);
+      const reGeneratedFiles = (
+        JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
+      ).map((f) => ({ ...f, language: f.language || "tsx" }));
+
+      filesJson = mergeGeneratedProjectFiles({
+        chatId,
+        originalFilesJson: filesJson,
+        generatedFiles: reGeneratedFiles,
+        resolvedScaffold,
+        previousFiles,
+      });
+
+      preflightResult = await runFinalizePreflight({
+        chatId,
+        model,
+        resolvedTier,
+        filesJson,
+        buildSpec,
+        routePlan,
+        orchestrationContract,
+        originalPrompt,
+      });
+      filesJson = preflightResult.filesJson;
+      filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
+      finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
+      preflightFileCount = preflightResult.preflightFileCount;
+      preflightIssues = preflightResult.preflightIssues;
+      previewBlockingReason = preflightResult.previewBlockingReason;
+      partialFileIssues = preflightIssues
+        .filter(isPartialFileOutputIssue)
+        .map((issue) => `${issue.file}: ${issue.message}`);
+    }
+
+    if (partialFileIssues.length > 0) {
+      devLogAppend("in-progress", {
+        type: "project-sanity.error",
+        chatId,
+        message: repairedContent
+          ? "Partial file repair attempted but issues persist."
+          : "Generation produced partial file output before persist.",
+        issues: partialFileIssues,
+        repairAttempted: partialRepair.attempts > 0,
+        repairAttempts: partialRepair.attempts,
+      });
+      throw new PartialFileOutputError(
+        chatId,
+        resolvedScaffold?.id ?? null,
+        partialFileIssues,
+      );
+    }
+
+    devLogAppend("in-progress", {
+      type: "partial-file-repair.success",
+      chatId,
+      repairedFileCount: originalPartialCount,
+      repairAttempts: partialRepair.attempts,
+    });
   }
 
   let scaffoldRetry: ScaffoldRetrySuggestion | null = null;
@@ -688,7 +898,7 @@ export async function finalizeAndSaveVersion(
     chatId,
     phases: OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id),
     repairPassIndex,
-    finalizePath: finalizePath.runDeepPath ? "fast+deep" : "fast-only",
+    finalizePath: finalizePath.runDeepPath ? "full" : "light",
     finalizePathReason: finalizePath.reason,
   });
 
@@ -858,7 +1068,7 @@ export async function finalizeAndSaveVersion(
       lineageHash: lineageHash ?? null,
     },
   });
-  let preflightLogs = rawPreflightLogs.map((log) => withLogPassMeta(log));
+  const preflightLogs = rawPreflightLogs.map((log) => withLogPassMeta(log));
   const syntaxFailureLog = buildSyntaxFailureLog({
     chatId,
     versionId: version.id,
@@ -945,7 +1155,7 @@ export async function finalizeAndSaveVersion(
 
   try {
     const telemetryMeta: Record<string, unknown> = {
-      finalizePath: finalizePath.runDeepPath ? "fast+deep" : "fast-only",
+      finalizePath: finalizePath.runDeepPath ? "full" : "light",
       finalizePathReason: finalizePath.reason,
       postStreamSteps: finalizeStepTelemetry,
       repairPassIndex,

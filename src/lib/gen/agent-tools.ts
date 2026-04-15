@@ -28,8 +28,8 @@ export const suggestIntegration = tool({
   description:
     "Signal that the generated site requires an external integration or service. " +
     "Call ONLY when generated code will actually depend on that integration (not for hypothetical " +
-    "Resend/DB/auth on a static landing page). Call BEFORE writing code that depends on it. " +
-    "Include all required environment variables.",
+    "Resend/DB/auth on a static landing page). Include all required environment variables. " +
+    "IMPORTANT: Always generate the full site code in the same response. Never return only tool calls without code.",
   inputSchema: z.object({
     name: z.string().describe("Human-readable integration name, e.g. 'Supabase'"),
     provider: z
@@ -208,11 +208,22 @@ export const emitPlanArtifact = tool({
   }),
 });
 
-export function getAgentTools() {
-  return {
-    suggestIntegration,
-    requestEnvVar,
-    askClarifyingQuestion,
-    emitPlanArtifact,
+export function getAgentTools(options?: {
+  includePlanArtifact?: boolean;
+  includeClarifyingQuestion?: boolean;
+  includeIntegrationSignals?: boolean;
+}) {
+  const base = {
+    ...(options?.includeIntegrationSignals !== false
+      ? {
+          suggestIntegration,
+          requestEnvVar,
+        }
+      : {}),
+    ...(options?.includeClarifyingQuestion ? { askClarifyingQuestion } : {}),
   };
+  if (options?.includePlanArtifact) {
+    return { ...base, emitPlanArtifact };
+  }
+  return base;
 }

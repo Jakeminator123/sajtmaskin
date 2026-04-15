@@ -1,7 +1,5 @@
 import type { PreparedModule } from "../types";
-import { isPreviewBuiltinImportSource } from "../constants";
-import { normalizeFilePath, inferPreviewUiComponentName, resolveLocalImportPath } from "../utils";
-import { buildCodeFileMap, buildPreparedModuleMap } from "../file-resolution";
+import { inferPreviewUiComponentName } from "../utils";
 
 /**
  * Legacy shim stubs for the compatibility iframe preview (optional deps).
@@ -959,7 +957,7 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
         continue;
       }
 
-      if (imp.source === "@/hooks/use-mobile") {
+      if (imp.source === "@/hooks/use-mobile" || imp.source === "@/lib/hooks/use-mobile") {
         if (imp.defaultImport) {
           emitBinding(imp.defaultImport, "useIsMobile");
         }
@@ -975,7 +973,7 @@ export function buildPreviewPrelude(modules: PreparedModule[], routePath: string
         continue;
       }
 
-      if (imp.source === "@/hooks/use-toast") {
+      if (imp.source === "@/hooks/use-toast" || imp.source === "@/lib/hooks/use-toast") {
         if (imp.defaultImport) {
           emitBinding(imp.defaultImport, "useToast");
         }

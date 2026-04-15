@@ -24,7 +24,6 @@ import { withRateLimit } from "@/lib/rateLimit";
 export const maxDuration = 20;
 
 const SWEDISH_TLDS = new Set(["se", "nu"]);
-const VERCEL_TLDS = ["com", "io", "app", "net", "dev", "co", "org"];
 
 export interface DomainCheckResult {
   domain: string;

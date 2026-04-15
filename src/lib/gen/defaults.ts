@@ -38,7 +38,7 @@ const repairPolicies = getRepairPoliciesFromManifest();
 //   SAJTMASKIN_MODEL_FAST=gpt-4.1
 //   SAJTMASKIN_MODEL_PRO=gpt-5.3-codex
 //   SAJTMASKIN_MODEL_MAX=gpt-5.4
-//   SAJTMASKIN_MODEL_CODEX=gpt-5.3-codex-max
+//   SAJTMASKIN_MODEL_CODEX=gpt-5.3-codex
 //
 //   # ── Prompt Assist / Brief (provider/model, se config/ai_models) ─
 //   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.4
@@ -137,6 +137,8 @@ export const DETERMINISTIC_AUTOFIX_MAX_PASSES =
 export const MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES =
   repairPolicies.manualRepairRouteLlmPasses;
 export const SERVER_REPAIR_MAX_PASSES = repairPolicies.serverRepairPasses;
+export const PARTIAL_FILE_REPAIR_MAX_ATTEMPTS =
+  repairPolicies.partialFileRepairMaxAttempts;
 
 export const PROJECT_ANALYZE_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("project_analyze") ?? "gpt-5-mini";

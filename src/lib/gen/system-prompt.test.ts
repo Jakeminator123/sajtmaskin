@@ -154,6 +154,49 @@ describe("buildDynamicContext", () => {
       expect(scaffoldIdx).toBeLessThan(projectIdx);
     });
 
+    it("includes the variant world-class rubric when a resolved variant provides one", async () => {
+      const { context } = await buildDynamicContext({
+        intent: "website",
+        generationMode: "init",
+        buildSpec: {
+          ...lightFollowUpSpec,
+          buildIntent: "website",
+          generationMode: "init",
+          changeScope: "redesign",
+          contextPolicy: "normal",
+          verificationPolicy: "standard",
+        },
+        scaffoldContext: "Scaffold context",
+        resolvedVariant: {
+          id: "landing-page/editorial-lux",
+          scaffoldId: "landing-page",
+          label: "Editorial Lux",
+          description: "Luxury editorial landing page",
+          keywords: ["editorial", "luxury"],
+          fontPairings: [{ heading: "Playfair Display", body: "Inter" }],
+          signatureMotif: "Large image-led editorial rhythm",
+          colorMode: "light",
+          promptHints: ["Lead with an editorial hero and layered credibility"],
+          styleRules: ["Use deliberate vertical rhythm"],
+          sectionInventory: ["hero", "credibility", "feature detail"],
+          avoidPatterns: ["Avoid generic startup card spam"],
+          worldClassRubric: [
+            "Professional hierarchy above the fold with decisive CTA clarity.",
+            "Sections should feel curated and production-grade, not like a theme demo.",
+          ],
+          sourceTemplateIds: ["vercel-acme"],
+        },
+      });
+
+      expect(context).toContain("- **World-class quality bar:**");
+      expect(context).toContain(
+        "Professional hierarchy above the fold with decisive CTA clarity.",
+      );
+      expect(context).toContain(
+        "Sections should feel curated and production-grade, not like a theme demo.",
+      );
+    });
+
     it("init app with route plan surfaces application intent, routes, and multi-page instruction", async () => {
       const routePlan = {
         provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },

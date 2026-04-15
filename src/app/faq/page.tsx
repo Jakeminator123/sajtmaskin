@@ -19,7 +19,7 @@ const faqs = [
     a: "Första utkastet genereras på några sekunder. Därefter kan du förfina, iterera och publicera samma dag om du vill.",
   },
   {
-    q: "Kan jag använda min egna domän?",
+    q: "Kan jag använda min egen domän?",
     a: "Ja. Med rätt plan och setup kan du koppla din egen domän med automatisk SSL. Vi hjälper gärna till om du vill ha stöd hela vägen.",
   },
   {
@@ -32,8 +32,9 @@ const faqs = [
   },
 ]
 
-function FaqItem({ q, a }: { q: string; a: string }) {
+function FaqItem({ q, a, id }: { q: string; a: string; id: string }) {
   const [open, setOpen] = useState(false)
+  const answerId = `faq-answer-${id}`
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border/20 bg-card/35 transition-colors hover:border-border/35">
@@ -41,13 +42,15 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left"
+        aria-expanded={open}
+        aria-controls={answerId}
       >
         <span className="text-sm font-medium text-foreground md:text-base">{q}</span>
         <ChevronDown
           className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`}
         />
       </button>
-      <div className={`overflow-hidden transition-all duration-300 ${open ? "max-h-48 opacity-100" : "max-h-0 opacity-0"}`}>
+      <div id={answerId} role="region" className={`overflow-hidden transition-all duration-300 ${open ? "max-h-48 opacity-100" : "max-h-0 opacity-0"}`}>
         <p className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">{a}</p>
       </div>
     </div>
@@ -86,8 +89,8 @@ export default function FAQPage() {
 
           <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1.2fr)_320px]">
             <div className="space-y-3">
-              {faqs.map((faq) => (
-                <FaqItem key={faq.q} q={faq.q} a={faq.a} />
+              {faqs.map((faq, i) => (
+                <FaqItem key={faq.q} q={faq.q} a={faq.a} id={String(i)} />
               ))}
             </div>
 

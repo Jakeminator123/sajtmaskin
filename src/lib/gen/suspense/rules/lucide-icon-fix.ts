@@ -1,4 +1,4 @@
-import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
+import { LUCIDE_ICONS, LUCIDE_BRAND_ICON_REPLACEMENTS } from "@/lib/gen/data/lucide-icons";
 import type { SuspenseRule, StreamContext } from "../transform";
 
 export const FALLBACK_ICON = "Circle";
@@ -29,6 +29,9 @@ for (const icon of LUCIDE_ICONS) {
  *  4. Fallback to Circle
  */
 export function findNearestIcon(name: string): string {
+  const brandReplacement = LUCIDE_BRAND_ICON_REPLACEMENTS[name];
+  if (brandReplacement) return brandReplacement;
+
   const lower = name.toLowerCase();
 
   // 1. Case-insensitive exact

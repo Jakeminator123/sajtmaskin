@@ -217,6 +217,25 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 - free from unnecessary external infrastructure assumptions
 - equipped with `qualityChecklist` (>= 3 items) and `promptHints` (>= 2 items)
 
+## Structural References
+
+When `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`, the orchestration layer injects budgeted code excerpts from template-library entries into the system prompt as `## Structural References (this variant)`.
+
+Two passes:
+
+1. **Variant-driven** — reads the active scaffold variant's `sourceTemplateIds`, selects up to 3 structural files (layout, middleware, page) ranked by configurable priority from `config/structural-file-priorities.json`.
+2. **Capability-driven** — searches the full template-library catalog for entries matching `InferredCapabilities` signals (auth, ecommerce, dashboard, cms) not already covered by the variant pass, adds up to 2 additional files.
+
+File priority and capability-signal mappings are configurable via `config/structural-file-priorities.json`. Files with priority < 0 are blocked. See `docs/schemas/strict/structural-references.schema.json` for the machine-readable schema.
+
+Code source of truth: `src/lib/gen/scaffold-variants/structural-files.ts`.
+
+## Font handling
+
+Scaffold variants carry `fontPairings` (`{ heading: string, body: string }[]`) which are injected into the system prompt as suggested pairings. The central font registry in `src/lib/gen/data/google-font-registry.ts` maps display names (e.g. "JetBrains Mono") to `next/font/google` import names (`JetBrains_Mono`), CSS variables, and categories. The system prompt now includes the import name when it differs from the display name. The autofix `font-import-fixer` uses the same registry to recognize and fix missing font imports in layout files.
+
+Font pairings remain prompt-level guidance; scaffold starter files default to Inter + `--font-sans`. Deterministic variant→code font injection is a planned improvement (see `docs/plans/active/Kvarvarande-uppgifter.md`).
+
 ## Archived docs
 
 Older scaffold schema notes may exist in git under `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`).

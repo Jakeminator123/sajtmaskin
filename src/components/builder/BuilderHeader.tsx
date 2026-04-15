@@ -1,7 +1,7 @@
 "use client";
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { isGatewayAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
+import { isOpenAIAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
   MODEL_TIER_OPTIONS,
@@ -183,6 +183,7 @@ export function BuilderHeader(props: {
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
+  const isConfigLocked = isAnyStreaming;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
   const modelButtonLabel = currentModel?.label || "AI";
   const scaffoldButtonLabel =
@@ -201,12 +202,12 @@ export function BuilderHeader(props: {
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
   const isAssistOff = promptAssistModel === PROMPT_ASSIST_OFF_VALUE;
-  const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
-  const isDeepBriefDisabled = isBusy || isAssistOff || !isGatewayProvider || !canUseDeepBrief;
+  const isOpenAIProvider = isOpenAIAssistModel(promptAssistModel);
+  const isDeepBriefDisabled = isConfigLocked || isAssistOff || !isOpenAIProvider || !canUseDeepBrief;
   const assistModelLabel = getPromptAssistModelLabel(promptAssistModel);
   const assistProviderName = (() => {
     const provider = resolvePromptAssistProvider(promptAssistModel);
-    if (provider === "gateway") return "OpenAI";
+    if (provider === "openai") return "OpenAI";
     if (provider === "anthropic") return "Anthropic";
     return provider;
   })();
@@ -215,7 +216,7 @@ export function BuilderHeader(props: {
     : `${assistProviderName}: ${assistModelLabel}`;
   const assistStatusSummary = isAssistOff
     ? "Förbättra: av"
-    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (djup brief)" : ""}`;
+    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isOpenAIProvider ? " (djup brief)" : ""}`;
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -227,6 +228,7 @@ export function BuilderHeader(props: {
   const searchParams = useSearchParams();
   const showDebugViewToggle = searchParams.get("debug") === "1";
   useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect -- client-only mounted flag for hydration */
     setHasMounted(true);
   }, []);
   const handleLogout = useCallback(() => {
@@ -255,17 +257,17 @@ export function BuilderHeader(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <DropdownMenu>
+        {<><DropdownMenu>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isBusy}>
+                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
                     <Bot className="h-4 w-4" />
                     <span className="hidden max-w-[220px] truncate sm:inline">
                       Modell: {modelButtonLabel}
                     </span>
-                    {promptAssistDeep && isGatewayProvider && !isAssistOff && (
+                    {promptAssistDeep && isOpenAIProvider && !isAssistOff && (
                       <Wand2 className="text-primary h-3 w-3" />
                     )}
                     <ChevronDown className="h-3 w-3 opacity-50" />
@@ -381,14 +383,14 @@ export function BuilderHeader(props: {
                   <p className="text-xs">
                     AI skapar först en detaljerad brief som sedan används för en bättre prompt. Tar
                     längre tid men ger mer genomtänkta resultat. Gäller bara första prompten i en ny
-                    chat. Stöds för de gateway-modeller som listas här, inklusive Claude-alternativ.
+                    chat. Stöds för OpenAI- och Anthropic-modellerna som listas här.
                   </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              disabled={isBusy}
+              disabled={isConfigLocked}
               onSelect={(event) => {
                 event.preventDefault();
                 onApplyAnthropicComparePreset();
@@ -405,7 +407,7 @@ export function BuilderHeader(props: {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isBusy}>
+                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
                     <Layers className="h-4 w-4" />
                     <span className="hidden max-w-[180px] truncate sm:inline">
                       Mall: {scaffoldButtonLabel}
@@ -457,7 +459,7 @@ export function BuilderHeader(props: {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isBusy}>
+            <Button variant="outline" size="sm" disabled={isConfigLocked}>
               <Settings2 className="h-4 w-4" />
               <span className="hidden sm:inline">Inställningar</span>
               <ChevronDown className="h-3 w-3 opacity-50" />
@@ -472,7 +474,7 @@ export function BuilderHeader(props: {
                     <DropdownMenuCheckboxItem
                       checked={enableThinking}
                       onCheckedChange={onEnableThinkingChange}
-                      disabled={isBusy}
+                      disabled={isConfigLocked}
                     >
                       <Wand2 className="mr-2 h-4 w-4" />
                       Resonemang
@@ -494,7 +496,7 @@ export function BuilderHeader(props: {
                     <DropdownMenuCheckboxItem
                       checked={enableImageGenerations}
                       onCheckedChange={onEnableImageGenerationsChange}
-                      disabled={!isImageGenerationsSupported || isBusy}
+                      disabled={!isImageGenerationsSupported || isConfigLocked}
                     >
                       <ImageIcon className="mr-2 h-4 w-4" />
                       AI-bilder
@@ -524,7 +526,7 @@ export function BuilderHeader(props: {
                     <DropdownMenuCheckboxItem
                       checked={enableBlobMedia}
                       onCheckedChange={onEnableBlobMediaChange}
-                      disabled={isBusy}
+                      disabled={isConfigLocked}
                     >
                       <ImageIcon className="mr-2 h-4 w-4" />
                       Blob-bilder
@@ -550,7 +552,7 @@ export function BuilderHeader(props: {
                     <DropdownMenuCheckboxItem
                       checked={enableAutofix}
                       onCheckedChange={onEnableAutofixChange}
-                      disabled={isBusy}
+                      disabled={isConfigLocked}
                     >
                       <Wrench className="mr-2 h-4 w-4" />
                       Åtgärda fel automatiskt
@@ -576,7 +578,7 @@ export function BuilderHeader(props: {
                       onCheckedChange={(checked) =>
                         onChatPrivacyChange(checked ? "unlisted" : "private")
                       }
-                      disabled={isBusy}
+                      disabled={isConfigLocked}
                     >
                       <Globe className="mr-2 h-4 w-4" />
                       Publik preview
@@ -595,7 +597,7 @@ export function BuilderHeader(props: {
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Inmatning</DropdownMenuLabel>
             <DropdownMenuItem
-              disabled={isBusy}
+              disabled={isConfigLocked}
               onSelect={(event) => {
                 event.preventDefault();
                 onToggleFigmaInput();
@@ -608,7 +610,7 @@ export function BuilderHeader(props: {
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Instruktioner</DropdownMenuLabel>
             <DropdownMenuItem
-              disabled={isBusy}
+              disabled={isConfigLocked}
               onSelect={(event) => {
                 event.preventDefault();
                 setIsInstructionsOpen(true);
@@ -628,7 +630,7 @@ export function BuilderHeader(props: {
                 <DropdownMenuCheckboxItem
                   checked={showStructuredChat}
                   onCheckedChange={onShowStructuredChatChange}
-                  disabled={isBusy}
+                  disabled={isConfigLocked}
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Felsökningsvy (verktygsblock)
@@ -643,13 +645,13 @@ export function BuilderHeader(props: {
             <DropdownMenuCheckboxItem
               checked={tipsEnabled}
               onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
-              disabled={isBusy}
+              disabled={isConfigLocked}
             >
               <Lightbulb className="mr-2 h-4 w-4" />
               Visa tips efter AI-svar
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu></>}
 
         <DropdownMenu>
           <TooltipProvider>

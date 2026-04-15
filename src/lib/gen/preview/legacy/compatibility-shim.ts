@@ -1,9 +1,8 @@
 /**
  * Legacy compatibility-preview URL helpers (`/api/preview-render`) och shim-detektion.
- * Primär produktpreview är tier-2 live-preview; se `docs/architecture/preview-deploy.md`.
+ * Primär produktpreview är tier-2 live-preview; se `docs/architecture/fas3-preview-and-deploy.md`.
  */
 export type AlternatePreviewUrls = {
-  shimUrl: string | null;
   /** Persisted tier-2 / VM preview URL for this version (not Vercel Sandbox). */
   storedLivePreviewUrl: string | null;
 };
@@ -87,7 +86,6 @@ export function resolveAlternatePreviewUrls(params: {
 }): AlternatePreviewUrls {
   const storedLivePreviewUrl = normalizePreviewUrl(params.storedLivePreviewUrl);
   return {
-    shimUrl: null,
     storedLivePreviewUrl,
   };
 }
