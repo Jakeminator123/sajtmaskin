@@ -7,6 +7,8 @@ globs:
   - src/lib/hooks/useInitBrief.ts
   - src/lib/hooks/chat/useCreateChat.ts
   - config/domain-rules.json
+  - config/prompt-core/**
+  - config/prompt-directives/**
   - config/prompt-static/**
   - config/prompt-heuristic-tokens.json
 ---
@@ -30,7 +32,7 @@ Innan du lägger till, duplicerar eller flyttar en signal:
 | Domän / site-type | `config/domain-rules.json` → `domain-inference.ts` | Inga lokala keyword-listor |
 | Prompt-heuristik tokens | `config/prompt-heuristic-tokens.json` → `prompt-heuristics.ts` | Inga lokala `MARKERS`/`HINTS`-arrayer |
 | Init-semantik | Deep Brief (`site-brief-generation.ts`) | Inte i `customInstructions` |
-| Designregler | `config/prompt-static/` (global) + `buildDynamicContext` (per-request) | Inte i `EXTENDED_CUSTOM_INSTRUCTIONS` (borttagen) |
+| Designregler | Core Rules (`config/prompt-core/`) + Directives (`config/prompt-directives/`, Level 4) + `buildDynamicContext` (per-request, Level 1-3) | Inte i `EXTENDED_CUSTOM_INSTRUCTIONS` (borttagen) |
 | Build intent (codegen) | `BUILD_INTENT_GUIDANCE` i `system-prompt.ts` | Assist-copy i `promptAssist.ts` ok men synka |
 
 ## Vid tvivel

@@ -3,6 +3,8 @@ description: Färre lager, bättre första pass i own-engine
 alwaysApply: false
 globs:
   - src/lib/gen/**
+  - config/prompt-core/**
+  - config/prompt-directives/**
   - config/prompt-static/**
 ---
 

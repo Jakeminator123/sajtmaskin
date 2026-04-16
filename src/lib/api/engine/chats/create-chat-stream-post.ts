@@ -189,10 +189,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const clientBriefFromMeta = parsedMeta.brief;
       const assistModelHint = parsedMeta.promptAssistModel;
 
-      // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints
-      const preMatchScaffold = parsedMeta.scaffoldId
-        ? getScaffoldById(parsedMeta.scaffoldId)
-        : matchScaffold(message, metaBuildIntent as BuildIntent | null);
+      // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
+      // Only runs when scaffoldMode is not "off" — if off, resolveOrchestrationBase will
+      // also skip scaffold selection, so we should not inject stale variant hints.
+      const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";
+      const preMatchScaffold = scaffoldModeIsOff
+        ? null
+        : parsedMeta.scaffoldId
+          ? getScaffoldById(parsedMeta.scaffoldId)
+          : matchScaffold(message, metaBuildIntent as BuildIntent | null);
       const preMatchVariant = preMatchScaffold
         ? pickScaffoldVariant({ prompt: message, scaffoldId: preMatchScaffold.id })
         : null;
