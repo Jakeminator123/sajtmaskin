@@ -31,8 +31,7 @@ export interface PreviewPanelFrameProps {
   iframeRef: RefObject<HTMLIFrameElement | null>;
   handleIframeLoad: () => void;
   handleIframeError: () => void;
-  /** When mobile, iframe is inset with a phone-like max width. */
-  deviceMode?: "desktop" | "mobile";
+  deviceMode?: "desktop" | "tablet" | "mobile";
   children?: ReactNode;
 }
 
@@ -52,6 +51,8 @@ export function PreviewPanelFrame({
   children,
 }: PreviewPanelFrameProps) {
   const isMobileFrame = deviceMode === "mobile";
+  const isTabletFrame = deviceMode === "tablet";
+  const isConstrainedFrame = isMobileFrame || isTabletFrame;
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-muted/25">
@@ -68,7 +69,7 @@ export function PreviewPanelFrame({
       ) : null}
 
       {iframeError ? (
-        <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-background/95 p-4">
+        <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-background/95 p-4" role="alert" aria-live="assertive">
           <AlertCircle className="mb-4 h-12 w-12 shrink-0 text-destructive" />
           <p className="mb-2 max-w-lg text-center text-sm text-muted-foreground">
             {iframeErrorMessage || "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
@@ -104,20 +105,25 @@ export function PreviewPanelFrame({
       <div
         className={cn(
           "relative min-h-0 flex-1 p-2 sm:p-3",
-          isMobileFrame && "flex items-start justify-center overflow-auto pt-3 pb-4",
+          isConstrainedFrame && "flex items-start justify-center overflow-auto pt-3 pb-4",
         )}
       >
         <div
           className={cn(
-            "relative flex min-h-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-sm ring-1 ring-border/40",
-            isMobileFrame ? "h-[min(100%,720px)] w-full max-w-[390px] shadow-md" : "h-full w-full",
+            "relative flex min-h-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-sm ring-1 ring-border/40 transition-[max-width] duration-300 ease-out",
+            isMobileFrame
+              ? "h-[min(100%,720px)] w-full max-w-[390px] shadow-md"
+              : isTabletFrame
+                ? "h-[min(100%,900px)] w-full max-w-[768px] shadow-md"
+                : "h-full w-full",
           )}
         >
           <iframe
             id="preview-iframe"
             ref={iframeRef}
             src={previewSrc}
-            className="h-full min-h-0 w-full flex-1 border-0 bg-background"
+            className="h-full min-h-0 w-full flex-1 border-0 bg-white"
+            style={{ backgroundColor: "#fafafa" }}
             onLoad={handleIframeLoad}
             onError={handleIframeError}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"

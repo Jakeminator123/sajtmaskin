@@ -58,6 +58,8 @@ export interface FinalizeParams {
   orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
+  /** User-provided image URLs to prefer over Unsplash during image materialization. */
+  userMediaUrls?: string[];
   startedAt: number;
   runAutofix?: boolean;
   tokenUsage?: { prompt?: number; completion?: number };
@@ -476,6 +478,7 @@ async function runFinalizeFastPath(params: {
   contentForVersion: string;
   finalizePath: FinalizePathPolicy;
   repairPassIndex: number;
+  userMediaUrls?: string[];
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -562,7 +565,7 @@ async function runFinalizeFastPath(params: {
     const maxReplacements = resolveImageMaterializationLimit(buildSpec);
     onProgress?.("materialize_images", { phase: "start" });
     try {
-      const imgResult = await materializeImages(contentForVersion, { maxReplacements });
+      const imgResult = await materializeImages(contentForVersion, { maxReplacements, userMediaUrls: params.userMediaUrls });
       if (imgResult.replacedCount > 0) {
         contentForVersion = imgResult.content;
         devLogAppend("in-progress", {
@@ -868,6 +871,7 @@ export async function finalizeAndSaveVersion(
     orchestrationContract,
     resolvedScaffold,
     urlMap,
+    userMediaUrls,
     startedAt,
     runAutofix = true,
     tokenUsage,
@@ -995,6 +999,7 @@ export async function finalizeAndSaveVersion(
     contentForVersion,
     finalizePath,
     repairPassIndex,
+    userMediaUrls,
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);

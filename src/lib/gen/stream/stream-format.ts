@@ -468,7 +468,7 @@ export function createCodeGenSSEStream(
               ensureGenerationStarted();
               enqueue(
                 createBuilderStreamEvent("error", {
-                  message: part.error instanceof Error ? part.error.message : "Stream error",
+                  message: part.error instanceof Error ? part.error.message : "Strömningsfel",
                 }),
               );
               break;

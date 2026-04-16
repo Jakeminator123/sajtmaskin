@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { getAllScaffolds } from "@/lib/gen/scaffolds/registry";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -13,6 +14,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  return withRateLimit(req, "ai:intake-summary", async () => {
   try {
     const body = await req.json().catch(() => ({}));
     const parsed = requestSchema.safeParse(body);
@@ -98,4 +100,5 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+  });
 }

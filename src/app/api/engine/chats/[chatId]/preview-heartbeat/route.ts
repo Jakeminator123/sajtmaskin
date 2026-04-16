@@ -58,7 +58,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           reason: "no_session",
           viewerId,
         });
-        return NextResponse.json({ ok: false, reason: "no_session" } satisfies PreviewHeartbeatApiJson);
+        return NextResponse.json({ ok: false, reason: "no_session" } satisfies PreviewHeartbeatApiJson, { status: 404 });
       }
 
       if ((session.versionId ?? "") !== versionId || session.sandboxId !== previewSessionId) {
@@ -69,7 +69,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           reason: "session_mismatch",
           viewerId,
         });
-        return NextResponse.json({ ok: false, reason: "session_mismatch" } satisfies PreviewHeartbeatApiJson);
+        return NextResponse.json({ ok: false, reason: "session_mismatch" } satisfies PreviewHeartbeatApiJson, { status: 409 });
       }
 
       await touchPreviewSessionAsync({

@@ -1082,7 +1082,7 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
   if (rawMessage.toLowerCase().includes("no preview version was generated")) {
     return "Preview-version saknas efter streamen. Försök igen eller kör reparera preview.";
   }
-  return rawMessage || "Stream error";
+  return rawMessage || "Något gick fel vid kommunikation med servern.";
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,23 @@
 ## Images
 
-Use `/placeholder.svg?height=H&width=W&text=DESCRIPTION` as the default source for generated images unless the request-specific context explicitly gives you media aliases or another asset instruction. Write a descriptive `text` parameter that precisely describes the desired image subject (e.g. `text=Cowboy+hat+on+rustic+wooden+hook+warm+sepia+lighting`). Post-processing will automatically replace these placeholders with real Unsplash photos that match your description.
+### MANDATORY: User-provided images FIRST
+
+If the request context includes a **Media Catalog** (listed under "## Media Catalog"), you MUST follow these rules WITHOUT EXCEPTION:
+
+1. **USE EVERY `{{alias}}` TOKEN AT LEAST ONCE.** Each alias represents a real image the user uploaded or scraped from their existing site. Every single one MUST appear somewhere in the generated code as an `src` value.
+2. **NEVER use Unsplash, placeholder, or stock images for any slot where a user image fits.** User images are ALWAYS preferred.
+3. **Place user images where they logically belong:**
+   - **Logo** (`brand-logo`): header/navbar AND footer — both places
+   - **Product photos**: product cards, hero sections, feature grids
+   - **Site media / scraped images**: hero backgrounds, about sections, gallery, content areas
+4. **Use the exact `{{ALIAS}}` token syntax** (e.g., `{{USER_IMG_1}}`). Post-processing expands these to real URLs.
+5. **If you have more user images than obvious slots, create additional sections** (gallery grid, image banner, testimonial backgrounds) to use them all.
+
+Only use `/placeholder.svg?...` for additional images BEYOND what the user provided.
+
+### Placeholder fallback
+
+Use `/placeholder.svg?height=H&width=W&text=DESCRIPTION` for images where no user asset is available. Write a descriptive `text` parameter that precisely describes the desired image subject (e.g. `text=Cowboy+hat+on+rustic+wooden+hook+warm+sepia+lighting`). Post-processing will automatically replace these placeholders with real Unsplash photos that match your description.
 
 ### CRITICAL: Every page MUST have images
 A website without images looks broken and unprofessional. For every page, include AT LEAST:
@@ -22,8 +39,7 @@ The `text` parameter becomes the Unsplash search query. Make it SPECIFIC to the 
 - Thumbnails: `height=150, width=150`
 
 ### Other rules
-- If the request-specific context includes a media catalog, use the provided `{{alias}}` tokens exactly where appropriate instead of inventing external URLs.
-- Always include descriptive `alt` text on every image element that matches the `text` parameter.
+- Always include descriptive `alt` text on every image element.
 - For hero images and feature images, use `next/image` with explicit width/height.
 - For marketing websites, landing pages, restaurants, ecommerce, hospitality, travel, portfolio, and editorial experiences, a large prominent hero image is usually the right default.
 - NEVER use `/ai/` paths, `/api/ai-image`, `blob:`, `data:` URIs, picsum.photos, or placehold.co.

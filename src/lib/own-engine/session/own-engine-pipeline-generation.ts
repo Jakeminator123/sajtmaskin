@@ -42,6 +42,7 @@ export type OwnEnginePipelineAndGenerationInput = {
   orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: Record<string, string>;
+  userMediaUrls?: string[];
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
   lineageHash?: string | null;
@@ -90,6 +91,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     orchestrationContract: input.orchestrationContract ?? null,
     resolvedScaffold: input.resolvedScaffold,
     urlMap: input.urlMap,
+    userMediaUrls: input.userMediaUrls,
     commitCredits: input.commitCredits,
     previousFiles: input.previousFiles,
     lineageHash: input.lineageHash,

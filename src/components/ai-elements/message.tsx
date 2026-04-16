@@ -85,15 +85,15 @@ export function MessageContent({ children, className, role, style, ...props }: M
       style={
         isUser
           ? {
-              backgroundColor: "hsl(220 60% 22%)",
-              color: "#ffffff",
+              backgroundColor: "hsl(var(--card))",
+              color: "hsl(var(--card-foreground))",
               ...style,
             }
           : style
       }
       {...props}
     >
-      {isUser ? <div style={{ color: "#ffffff" }}>{children}</div> : children}
+      {isUser ? <div style={{ color: "hsl(var(--card-foreground))" }}>{children}</div> : children}
     </div>
   );
 }

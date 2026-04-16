@@ -114,10 +114,11 @@ export function PreviewPanel({
   onComposerAiFallback,
   generationPhase,
   onInlineEditPrompt,
+  onSuggestionClick,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
-  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [composerMode, setComposerMode] = useState(false);
   const [inlineEditMode, setInlineEditMode] = useState(false);
   const [inlineEditTarget, setInlineEditTarget] = useState<{
@@ -965,6 +966,7 @@ export function PreviewPanel({
         simplified={simplified}
         inlineEditMode={inlineEditMode}
         handleToggleInlineEdit={onInlineEditPrompt ? handleToggleInlineEdit : undefined}
+        onSuggestionClick={onSuggestionClick}
       />
 
       {isCodeView ? (

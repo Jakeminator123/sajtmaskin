@@ -38,10 +38,10 @@ type Approval = {
 } | null;
 
 const STATUS_BADGE_CLASS: Record<string, string> = {
-  pending: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  approved: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  rejected: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300",
-  changes_requested: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  pending: "border-amber-500/40 bg-amber-500/10 text-amber-700",
+  approved: "border-green-500/40 bg-green-500/10 text-green-700",
+  rejected: "border-red-500/40 bg-red-500/10 text-red-700",
+  changes_requested: "border-amber-500/40 bg-amber-500/10 text-amber-700",
 };
 
 export function VersionCollaboration({
@@ -182,7 +182,7 @@ export function VersionCollaboration({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-card/50 p-3 text-sm dark:bg-card/30",
+        "rounded-lg border border-border bg-card/50 p-3 text-sm",
         className,
       )}
     >
@@ -307,7 +307,7 @@ export function VersionCollaboration({
               </Button>
               <Button
                 size="sm"
-                className="border-emerald-600 bg-emerald-600/20 text-emerald-700 hover:bg-emerald-600/30 dark:text-emerald-300"
+                className="border-green-600 bg-green-600/20 text-green-700 hover:bg-green-600/30"
                 disabled={!!submittingApproval || !approval}
                 onClick={() => handleApprovalAction("approve")}
               >
@@ -330,7 +330,7 @@ export function VersionCollaboration({
               <Button
                 size="sm"
                 variant="outline"
-                className="border-amber-500/50 text-amber-700 dark:text-amber-300"
+                className="border-amber-500/50 text-amber-700"
                 disabled={!!submittingApproval || !approval}
                 onClick={() => handleApprovalAction("changes_requested")}
               >

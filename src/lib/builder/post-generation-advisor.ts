@@ -51,31 +51,31 @@ function buildAdvisorSuggestions(context: string, isFollowUp: boolean): AdvisorS
   if (isFollowUp) {
     suggestions.push(
       {
-        label: "Lägg till en ny sida",
-        prompt: "Lägg till en ny undersida som saknas — t.ex. Om oss, Kontakt eller Blogg.",
+        label: "Lägg till en sida",
+        prompt: "Lägg till en undersida",
       },
       {
-        label: "Byt ut bilderna",
-        prompt: "Byt ut stockbilderna mot mer relevanta bilder som passar verksamheten.",
+        label: "Byt bilder",
+        prompt: "Byt bilder",
       },
       {
         label: "Publicera",
-        prompt: "Jag är nöjd — hjälp mig publicera sajten.",
+        prompt: "Publicera sajten",
       },
     );
   } else {
     suggestions.push(
       {
         label: "Förbättra texterna",
-        prompt: "Förbättra copy, struktur och CTA så att sajten blir tydligare och mer övertygande.",
+        prompt: "Förbättra copy och CTA",
       },
       {
-        label: "Byt färger och stil",
-        prompt: "Ändra färgerna och den visuella stilen så att den passar min varumärkeskänsla bättre.",
+        label: "Ändra färgschema",
+        prompt: "Ändra färgschema",
       },
       {
-        label: "Lägg till fler sidor",
-        prompt: "Lägg till undersidor som saknas — t.ex. Om oss, Kontakt, Priser eller Blogg.",
+        label: "Fler sidor",
+        prompt: "Lägg till en undersida",
       },
     );
   }

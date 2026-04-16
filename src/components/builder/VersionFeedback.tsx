@@ -90,8 +90,8 @@ export function VersionFeedback({ chatId, versionId, className }: VersionFeedbac
             variant="outline"
             size="icon-xs"
             className={cn(
-              "border-zinc-600 hover:bg-emerald-500/20 hover:border-emerald-500/50",
-              rating === "positive" && "bg-emerald-500/20 border-emerald-500/50 text-emerald-400",
+              "border-zinc-600 hover:bg-green-500/20 hover:border-green-500/50",
+              rating === "positive" && "bg-green-500/20 border-green-500/50 text-green-400",
             )}
             onClick={() => setRating("positive")}
             aria-label="Bra resultat"

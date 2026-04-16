@@ -302,7 +302,7 @@ export function useSendMessage(
             buildApiErrorMessage({
               response,
               errorData,
-              fallbackMessage: "Failed to send message",
+              fallbackMessage: "Kunde inte skicka meddelandet.",
             }),
           );
         }
@@ -359,7 +359,7 @@ export function useSendMessage(
                 buildApiErrorMessage({
                   response: fallbackRes,
                   errorData,
-                  fallbackMessage: "Failed to send message",
+                  fallbackMessage: "Kunde inte skicka meddelandet.",
                 }),
               );
             }
@@ -376,7 +376,7 @@ export function useSendMessage(
         }
         console.error("Error sending streaming message:", finalError);
         const message =
-          finalError instanceof Error ? finalError.message : "Failed to send message";
+          finalError instanceof Error ? finalError.message : "Kunde inte skicka meddelandet.";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>

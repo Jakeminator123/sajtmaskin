@@ -79,12 +79,7 @@ export const GenerationSummary = memo(function GenerationSummary({
   const [showRaw, setShowRaw] = useState(false);
   const parsed = useMemo(() => parseGenerationContent(content), [content]);
 
-  const streamingNoticeSimple =
-    "Nu bygger jag din hemsida! Det här tar en liten stund — du kan se hur det går i förhandsgranskningen till höger.";
-  const streamingNoticePro =
-    "Bygger komponenter och filer. Följ agentloggen för detaljer medan innehållet sammanställs.";
-
-  const streamingNotice = simplified ? streamingNoticeSimple : streamingNoticePro;
+  const streamingNotice = "Bygger...";
 
   if (simplified) {
     return (

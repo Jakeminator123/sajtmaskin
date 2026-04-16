@@ -14,7 +14,14 @@ export type NeedsAnalysisField =
   | "audience"
   | "mustHave"
   | "style"
-  | "images";
+  | "images"
+  | "businessDetails"
+  | "brandIdentity"
+  | "servicesProducts"
+  | "categorySpecific"
+  | "cta"
+  | "features"
+  | "siteMedia";
 
 export type SiteTypeKey =
   | "business"
@@ -527,18 +534,18 @@ function buildPageStructure(mustHave: string | null, siteType: string | null, fe
   pages.push(
     "### Startsida (`app/page.tsx`)",
     "VIKTIGT: Startsidan ska vara rik och komplett med MINST 6 sektioner:",
-    "1. Hero — stor bild/gradient, rubrik, underrubrik, primär CTA-knapp",
+    "1. Hero — DESIGN: full-bleed bakgrundsbild med mörk gradient-overlay (from-black/60 to-black/30) ELLER en djärv gradient (from-slate-900 via-primary/20 to-slate-800). Min-höjd min-h-[70vh]. Stor rubrik (text-5xl lg:text-6xl font-bold tracking-tight), underrubrik (text-xl text-white/80), primär CTA-knapp (rounded-full px-8 py-3 text-lg).",
     isRestaurant
-      ? "2. Meny-höjdpunkter — 3-4 populära rätter med namn, beskrivning och pris i kort"
+      ? "2. Meny-höjdpunkter — DESIGN: 3-4 kort med rounded-2xl, shadow-lg, hover:-translate-y-1. Varje kort: bild, namn, kort beskrivning, pris. Bg-muted/50 sektionsbakgrund."
       : isEcommerce
-        ? "2. Utvalda produkter — 3-4 produktkort med bild, namn, pris, 'Köp'-knapp"
+        ? "2. Utvalda produkter — DESIGN: 3-4 produktkort med rounded-2xl, shadow-lg, hover:shadow-2xl transition-all. Varje kort: produktbild (aspect-square), namn, pris, 'Köp'-knapp. Grid med gap-8."
         : isSalon
-          ? "2. Populära behandlingar — 3-4 kort med namn, tid, pris, 'Boka'-knapp"
-          : "2. Tjänster/erbjudanden — 3-4 kort med ikon, rubrik och 2-3 meningars beskrivning",
-    "3. Om oss-preview — 3-4 meningar om företaget, eventuellt bild, 'Läs mer'-länk till /om-oss",
-    "4. Socialt bevis — 2-3 kundcitat med namn och roll. Om inga finns: skriv trovärdiga men markera med platshållare",
-    "5. CTA-banner — uppmaning med kontrasterande bakgrund och tydlig knapp",
-    "6. Kontakt-footer — adress, telefon, e-post, öppettider om relevant",
+          ? "2. Populära behandlingar — DESIGN: 3-4 kort med rounded-2xl, p-8, shadow-lg, hover:-translate-y-1. Varje kort: ikon/bild, namn, tid, pris, 'Boka'-knapp. Bg-muted/30 sektion."
+          : "2. Tjänster/erbjudanden — DESIGN: 3-4 kort med rounded-2xl, p-8, shadow-lg, hover:-translate-y-1 hover:shadow-2xl transition-all. Varje kort: ikon (bg-primary/10 rounded-xl p-3), rubrik, 2-3 meningars beskrivning.",
+    "3. Om oss-preview — DESIGN: Split-layout (bild vänster, text höger) eller text med stämningsfull bakgrundsbild. 3-4 meningar, 'Läs mer'-länk till /om-oss. Bg-background sektion med py-24.",
+    "4. Socialt bevis — DESIGN: Kort med bg-card, rounded-2xl, p-8, citat-tecken (text-6xl text-primary/20), kundnamn/roll i kursiv. 2-3 unika, varierade svenska namn och roller. Bg-muted/30 sektionsbakgrund.",
+    "5. CTA-banner — DESIGN: Kontrasterande bakgrund (bg-primary eller gradient from-primary to-primary/80). Stor vit text (text-3xl font-bold text-primary-foreground), framträdande vit knapp. Py-20.",
+    "6. Kontakt-footer — DESIGN: Mörk bakgrund (bg-slate-900 eller bg-background), flerkols-grid, logotyp, kontaktinfo, sociala ikoner med hover-effekt, copyright.",
     "",
     "VARJE sektion ovan ska ha minst 2-3 meningars text. Hero ska ha minst rubrik + underrubrik + CTA.",
   );
@@ -548,11 +555,11 @@ function buildPageStructure(mustHave: string | null, siteType: string | null, fe
       "",
       "### Om oss (`app/om-oss/page.tsx`)",
       "VIKTIGT: Denna sida ska ha RIKTIGT innehåll, inte bara en rubrik!",
-      "1. Page-hero — rubrik 'Om oss' + 1-2 meningars intro",
-      "2. Vår historia — 5-8 meningar om företaget, grundande, utveckling, vision",
-      "3. Värderingar — 3 värderingar med rubrik och 2-3 meningars beskrivning vardera",
-      "4. Teamet — om relevant: namn, roll, kort bio per person. Annars: beskrivning av teamet",
-      "5. CTA — 'Kontakta oss' eller 'Boka konsultation'",
+      "1. Page-hero — DESIGN: Subtil gradient-bakgrund (from-muted/50 to-background), rubrik 'Om oss' (text-4xl lg:text-5xl), 1-2 meningars intro. Py-20.",
+      "2. Vår historia — DESIGN: Split-layout med bild till höger om möjligt. 5-8 meningar. Generös padding py-16.",
+      "3. Värderingar — DESIGN: 3 kort i grid (md:grid-cols-3 gap-8), varje med ikon (bg-primary/10 rounded-xl p-4), rubrik, 2-3 meningar. Rounded-2xl shadow-md.",
+      "4. Teamet — DESIGN: Kort med porträttbild (rounded-full), namn, roll, kort bio. Grid md:grid-cols-2 lg:grid-cols-3.",
+      "5. CTA — DESIGN: Kontrasterande bakgrund, stor text, framträdande knapp. Samma stil som startsidans CTA-banner.",
     );
   }
 
@@ -561,11 +568,11 @@ function buildPageStructure(mustHave: string | null, siteType: string | null, fe
       "",
       "### Meny (`app/meny/page.tsx`)",
       "VIKTIGT: Fyll med RIKTIGA rätter om de finns i underlaget, annars trovärdiga exempel.",
-      "1. Page-hero — rubrik 'Vår meny' + kort intro",
-      "2. Menykategorier — förrätter, varmrätter, desserter, drycker i separata sektioner",
-      "3. Varje rätt: namn, kort beskrivning (1 mening), pris. Minst 3-4 rätter per kategori",
+      "1. Page-hero — DESIGN: Stämningsfull bakgrundsbild med overlay, rubrik 'Vår meny' (text-4xl). Py-20.",
+      "2. Menykategorier — DESIGN: Sektioner med bg-muted/30 och bg-background omväxlande. Rubrik per kategori (text-2xl font-semibold border-b pb-2).",
+      "3. Varje rätt: namn (font-semibold), kort beskrivning (text-muted-foreground), pris (font-bold text-right). Flex justify-between. Minst 3-4 per kategori.",
       "4. Allergiinfo eller dietfilter om relevant",
-      "5. CTA — 'Boka bord' eller 'Beställ'",
+      "5. CTA — DESIGN: Kontrasterande sektion, 'Boka bord' eller 'Beställ' i stor knapp.",
     );
   }
 
@@ -574,9 +581,9 @@ function buildPageStructure(mustHave: string | null, siteType: string | null, fe
       "",
       "### Produkter (`app/produkter/page.tsx`)",
       "VIKTIGT: Visa RIKTIGA produkter om de finns i underlaget, annars trovärdiga exempel.",
-      "1. Page-hero — rubrik 'Våra produkter' + kort intro",
-      "2. Produktgrid — responsivt rutnät med minst 6 produktkort",
-      "3. Varje kort: produktbild, namn, pris, kort beskrivning, 'Lägg i varukorg'-knapp",
+      "1. Page-hero — DESIGN: Gradient-bakgrund eller subtil bild, rubrik 'Våra produkter' (text-4xl). Py-20.",
+      "2. Produktgrid — DESIGN: grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8. Minst 6 produktkort.",
+      "3. Varje kort: DESIGN: rounded-2xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all. Produktbild (aspect-square), namn, pris (text-lg font-bold), beskrivning, 'Lägg i varukorg'-knapp (bg-primary).",
       "4. Filterkategorier om relevant",
     );
   }
@@ -754,9 +761,9 @@ function buildPageStructure(mustHave: string | null, siteType: string | null, fe
     "",
     "### Kontakt (`app/kontakt/page.tsx`)",
     "VIKTIGT: Denna sida ska ha RIKTIGT innehåll, inte bara en rubrik!",
-    "1. Page-hero — rubrik 'Kontakta oss' + kort intro",
-    "2. Kontaktformulär — namn, e-post, telefon, ämne (dropdown), meddelande. Tydlig submit-knapp",
-    "3. Direktkontaktinfo — telefon, e-post, adress (bredvid formuläret på desktop)",
+    "1. Page-hero — DESIGN: Subtil gradient eller muted bakgrund. Rubrik 'Kontakta oss' (text-4xl). Py-20.",
+    "2. Kontaktformulär — DESIGN: bg-card rounded-2xl shadow-lg p-8. Input-fält med rounded-lg, submit-knapp bg-primary rounded-full px-8.",
+    "3. Direktkontaktinfo — DESIGN: Bredvid formuläret (md:grid-cols-2). Ikoner (Mail, Phone, MapPin) med bg-primary/10 rounded-xl p-3.",
     isRestaurant ? "4. Öppettider i tydlig tabell" : "4. Besöksadress med eventuell karta",
     "5. Sociala medier-ikoner/länkar",
   );
@@ -803,6 +810,8 @@ const WIZARD_FIELD_LABELS: Record<string, string> = {
   brandIdentity: "Varumärke och stil",
   servicesProducts: "Tjänster och erbjudande",
   categorySpecific: "Branschspecifik information",
+  audience: "Målgrupp",
+  cta: "Primär call-to-action (CTA)",
   goal: "Mål med sajten",
   mustHave: "Valda sidor och funktioner",
   siteMedia: "Uppladdade bilder/videos",
@@ -832,9 +841,16 @@ export function buildNeedsAnalysisPrompt(
 ): string {
   const userMessages = getUserMessages(messages);
   const rawUserMessages = getRawUserMessages(messages);
+  const wizardMessages = messages.filter((m) => m.id?.startsWith("wizard-"));
   const summary = QUESTION_ORDER.map(({ field }) => {
     const evidence = getEvidenceForField(field, userMessages, rawUserMessages);
-    return `- ${FIELD_LABELS[field]}: ${evidence ?? "Inte tydligt uttryckt"}`;
+    if (evidence) return `- ${FIELD_LABELS[field]}: ${evidence}`;
+    const wizardEvidence = wizardMessages.find((m) => m.id?.includes(`-${field}-`));
+    if (wizardEvidence?.content) {
+      const short = wizardEvidence.content.slice(0, 300);
+      return `- ${FIELD_LABELS[field]}: ${short}`;
+    }
+    return `- ${FIELD_LABELS[field]}: (Se wizardsektioner nedan)`;
   });
 
   const wizardSections = extractWizardSections(messages);
@@ -888,17 +904,17 @@ export function buildNeedsAnalysisPrompt(
     brandLogos.length > 0
       ? [
           "",
-          "## Logotyp",
+          "## KRITISKT: Logotyp",
           "",
-          "Användaren har laddat upp sin logotyp. Den SKA användas på följande platser:",
-          "- **Header/navbar** — visa logotypen istället för text-logotyp, vänsterställd",
-          "- **Footer** — visa logotypen i footerns övre del",
-          "- **Kontaktsida** — valfritt, om det finns en kontaktsida",
+          "Användaren har laddat upp sin logotyp. Den MÅSTE användas — INTE text som logotyp.",
           "",
-          "Använd `next/image` med logotypens URL. Anpassa storlek per placering (header: h-8 till h-10, footer: h-6 till h-8).",
-          "Lägg INTE logotypen som hero-bakgrund eller dekorativt element.",
+          "### OBLIGATORISKT:",
+          `1. **Header/navbar**: <Image src="${brandLogos[0]!.url}" /> vänsterställd, h-8 till h-10`,
+          `2. **Footer**: <Image src="${brandLogos[0]!.url}" /> i footerns övre del, h-6 till h-8`,
+          "3. Använd `next/image` med exakt den URL som anges nedan.",
+          "4. Lägg INTE logotypen som hero-bakgrund eller dekorativt element.",
           "",
-          ...brandLogos.map((m) => `- Logotyp: ${m.url} (${m.filename})`),
+          ...brandLogos.map((m) => `- Logotyp-URL att använda: src="${m.url}" (${m.filename})`),
         ]
       : [];
 
@@ -906,28 +922,26 @@ export function buildNeedsAnalysisPrompt(
     ownMedia.length > 0
       ? [
           "",
-          "## Uppladdade egna bilder och videos",
+          "## KRITISKT: Användarens egna bilder och videos",
           "",
-          `Användaren har laddat upp ${ownMedia.length} egna filer som SKA användas på sajten.`,
+          `Användaren har laddat upp ${ownMedia.length} egna filer. DESSA MÅSTE ANVÄNDAS PÅ SAJTEN.`,
           "",
-          "Filerna bifogas som bilder i meddelandet. Analysera VARJE bild och bestäm:",
+          "### OBLIGATORISKA REGLER",
+          "1. ANVÄND VARJE BILD NEDAN som `<Image src=\"URL\" />` i koden — DIREKT med URL:en som anges.",
+          "2. ANVÄND ALDRIG Unsplash eller placeholder för bilder som kan ersättas av dessa.",
+          "3. Om du har fler bilder än platser — skapa en bildgalleri-sektion eller bildgrid.",
           "",
-          "### Placeringsregler (följ noggrant)",
-          "- **Personalbilder / porträtt** → 'Om oss'-sektionen eller teamsektion",
-          "- **Produktbilder** → produktkort, produktgalleri, hero om det är en webshop",
-          "- **Lokalbild / fasad / interiör** → hero-bakgrund, kontaktsektion eller gallerisektion",
-          "- **Mat / rätter** → meny-sektion, gallerisektion",
-          "- **Generell verksamhetsbild** → hero-bakgrund eller relevant sektion",
-          "- **Video (mp4/webm)** → bakgrundsvideo i hero, produktdemo eller videosektion",
+          "### Placeringsregler",
+          "- **Personalbilder / porträtt** → 'Om oss' eller teamsektion",
+          "- **Produktbilder** → produktkort, hero, feature-grid",
+          "- **Lokalbild / fasad / interiör** → hero-bakgrund, kontakt, galleri",
+          "- **Mat / rätter** → meny-sektion, galleri",
+          "- **Generell verksamhetsbild** → hero eller relevant sektion",
+          "- **Video (mp4/webm)** → bakgrundsvideo i hero eller videosektion",
           "",
-          "### Viktigt",
-          "- Använd de uppladdade bilderna ISTÄLLET FÖR placeholder/Unsplash där de passar.",
-          "- Referera till dem med sin URL i koden (next/image src eller video src).",
-          "- Om en bild inte har en uppenbar plats, använd den som dekorativt element.",
-          "",
-          "Egna filer:",
+          "### Bilder att använda (kopiera URL:erna exakt som src):",
           ...ownMedia.map(
-            (m) => `- ${m.filename} (${m.mimeType.startsWith("video/") ? "video" : "bild"})${m.context ? ` [${m.context}]` : ""} — ${m.url}`,
+            (m) => `- ${m.filename} (${m.mimeType.startsWith("video/") ? "video" : "bild"})${m.context ? ` [${m.context}]` : ""} → src="${m.url}"`,
           ),
         ]
       : [];
@@ -964,18 +978,43 @@ export function buildNeedsAnalysisPrompt(
 
   const companyBriefSection: string[] = [];
   if (companyBrief && typeof companyBrief === "object") {
-    const desc = typeof companyBrief.description === "string" ? companyBrief.description.trim() : "";
-    const industry = typeof companyBrief.industry === "string" ? companyBrief.industry.trim() : "";
-    const tone = typeof companyBrief.tone === "string" ? companyBrief.tone.trim() : "";
-    const services = typeof companyBrief.services === "string" ? companyBrief.services.trim() : "";
-    const target = typeof companyBrief.targetAudience === "string" ? companyBrief.targetAudience.trim() : "";
-    if (desc || industry || tone || services || target) {
+    // Support both old flat keys (description, industry, etc.) and canonical Brief schema
+    // (brandName, oneSentencePitch, toneAndVoice, visualDirection, etc.)
+    const str = (key: string) => typeof companyBrief[key] === "string" ? (companyBrief[key] as string).trim() : "";
+
+    const desc = str("description") || str("oneSentencePitch");
+    const brand = str("brandName");
+    const industry = str("industry");
+    const target = str("targetAudience");
+    const cta = str("primaryCallToAction");
+
+    const toneRaw = companyBrief.toneAndVoice;
+    const tone = str("tone") || (Array.isArray(toneRaw) ? (toneRaw as string[]).join(", ") : "");
+
+    const services = str("services");
+
+    const vd = companyBrief.visualDirection as Record<string, unknown> | undefined;
+    const colorPalette = vd?.colorPalette as Record<string, string> | undefined;
+    const typography = vd?.typography as Record<string, string> | undefined;
+
+    const hasBriefData = desc || brand || industry || tone || services || target || cta;
+    if (hasBriefData) {
       companyBriefSection.push("", "## Företagsprofil (automatiskt analyserad)");
+      if (brand) companyBriefSection.push(`- Varumärke: ${brand}`);
       if (desc) companyBriefSection.push(`- Verksamhet: ${desc.slice(0, 500)}`);
       if (industry) companyBriefSection.push(`- Bransch: ${industry}`);
       if (services) companyBriefSection.push(`- Tjänster/Produkter: ${services.slice(0, 300)}`);
       if (target) companyBriefSection.push(`- Målgrupp: ${target}`);
+      if (cta) companyBriefSection.push(`- Primär CTA: ${cta}`);
       if (tone) companyBriefSection.push(`- Ton/Stil: ${tone}`);
+      if (colorPalette) {
+        const colors = Object.entries(colorPalette).map(([k, v]) => `${k}: ${v}`).join(", ");
+        companyBriefSection.push(`- Färgpalett: ${colors}`);
+      }
+      if (typography) {
+        const fonts = Object.entries(typography).map(([k, v]) => `${k}: ${v}`).join(", ");
+        companyBriefSection.push(`- Typografi: ${fonts}`);
+      }
       companyBriefSection.push("", "Använd denna företagsprofil för att anpassa tonalitet, innehåll och struktur.");
     }
   }
@@ -1009,7 +1048,29 @@ export function buildNeedsAnalysisPrompt(
     "",
     ...pageStructure,
     "",
+    "## Designkvalitet",
+    "Sajten ska ha HÖG visuell kvalitet — inte en enkel wireframe. Följ dessa krav:",
+    "",
+    "### Visuell rikedom",
+    "- **Gradienter**: Använd subtila bakgrundsgradienter (t.ex. from-slate-900 to-slate-800) istället för platta enfärger",
+    "- **Skuggor**: Kort med `shadow-lg` eller `shadow-xl`, hover-effekt med `hover:shadow-2xl hover:-translate-y-1 transition-all`",
+    "- **Spacing**: Generös vertikal padding mellan sektioner (py-20 till py-32). Aldrig trångt.",
+    "- **Typografisk hierarki**: Stor rubrik (text-5xl/6xl), tydlig underrubrik (text-xl), brödtext (text-lg med text-muted-foreground)",
+    "- **Kontrast**: Växla mellan ljusa och mörka sektioner för visuell rytm",
+    "",
+    "### Sektionsdesign",
+    "- **Hero**: Full-bleed bakgrundsbild ELLER gradient med overlay. Rubrik, underrubrik, 1-2 CTA-knappar. Minst 60vh höjd.",
+    "- **Kort/features**: Rundade hörn (rounded-2xl), padding (p-8), hover-animation, ikon eller bild",
+    "- **CTA-banners**: Kontrasterande bakgrundsfärg, stor text, tydlig knapp med hover-effekt",
+    "- **Footer**: Flerkols-layout, logotyp, kontaktinfo, sociala ikoner, copyright",
+    "",
+    "### Animationer och interaktivitet",
+    "- Hover-effekter på ALLA knappar och kort (scale, shadow, color shift)",
+    "- Subtila övergångar: `transition-all duration-300`",
+    "- Knappar: `hover:scale-105` eller `hover:brightness-110`",
+    "",
     "## Instruktion",
+    "- KRITISKT: Generera MINST startsidan + 2 undersidor (t.ex. Om oss, Kontakt) i FÖRSTA svaret. Skapa ALDRIG bara en sida.",
     "- Bygg ALLA sidor som listas ovan. Varje sida ska ha en komplett layout med header, innehåll och footer.",
     "- KRITISKT: Det är FÖRBJUDET att skapa undersidor som bara visar en rubrik/ikon och 'Tillbaka till startsidan'. VARJE sida MÅSTE ha MINST 3-4 sektioner med RIKTIGT innehåll.",
     "- Om specifikt innehåll saknas i underlaget: skriv trovärdigt, branschanpassat exempelinnehåll på svenska. Det är bättre med bra exempeltext än tomma sidor.",
@@ -1034,7 +1095,7 @@ export function buildNeedsAnalysisPrompt(
     "Skriv riktiga stycken (2-3 meningar). Autentiska svenska namn och adresser.",
     "Navigation: Hem, Om oss, Tjänster, Kontakt, Priser. Knappar: Kom igång, Läs mer, Kontakta oss, Boka tid.",
     "Telefonnummer: 070-123 45 67. Adress: Storgatan 12, 411 38 Göteborg.",
-    "Footer-copyright: \"© 2025 Företagsnamn\" (INTE \"All rights reserved\").",
+    `Footer-copyright: "© ${new Date().getFullYear()} Företagsnamn" (INTE "All rights reserved").`,
     "Metadata-arrayer: ALDRIG `as const` — TypeScript kräver mutable `string[]`.",
     ...(uploadedMedia && uploadedMedia.length > 0
       ? ["Använd de uppladdade bilderna/videos på logiskt rätt plats enligt placeringsreglerna ovan."]

@@ -89,7 +89,7 @@ export function VersionCompareDialog({ chatId, versionId, versions, open, onOpen
         if (loadError instanceof Error && loadError.name === "AbortError") return;
         setDiff(null);
         setContentDiffs([]);
-        setError(loadError instanceof Error ? loadError.message : "Could not compare versions");
+        setError(loadError instanceof Error ? loadError.message : "Kunde inte jämföra versioner");
       } finally {
         if (isActive) setIsLoading(false);
       }
@@ -161,9 +161,9 @@ export function VersionCompareDialog({ chatId, versionId, versions, open, onOpen
                           variant="outline"
                           className={cn(
                             "shrink-0",
-                            fileDiff.type === "added" && "border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-300",
-                            fileDiff.type === "modified" && "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-                            fileDiff.type === "removed" && "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-300",
+                            fileDiff.type === "added" && "border-green-500/50 bg-green-500/10 text-green-700",
+                            fileDiff.type === "modified" && "border-amber-500/50 bg-amber-500/10 text-amber-700",
+                            fileDiff.type === "removed" && "border-red-500/50 bg-red-500/10 text-red-700",
                           )}
                         >
                           {fileDiff.type === "added" ? "+" : fileDiff.type === "removed" ? "-" : "~"}

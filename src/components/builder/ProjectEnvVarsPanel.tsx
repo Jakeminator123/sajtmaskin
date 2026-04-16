@@ -768,7 +768,7 @@ export function ProjectEnvVarsPanel({
       >
         <div className="flex items-center gap-2">
           {!hasChat ? (
-            <KeyRound className="h-4 w-4 text-gray-500" />
+            <KeyRound className="h-4 w-4 text-muted-foreground" />
           ) : totalIssues > 0 ? (
             <AlertCircle className="h-4 w-4 text-red-400" />
           ) : (
@@ -925,7 +925,7 @@ export function ProjectEnvVarsPanel({
                       className={cn(
                         "rounded-md border p-2",
                         analyticsReview.passed
-                          ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-100"
+                          ? "border-green-500/20 bg-green-500/5 text-green-100"
                           : "border-amber-500/20 bg-amber-500/5 text-amber-100",
                       )}
                     >
@@ -1267,7 +1267,7 @@ export function ProjectEnvVarsPanel({
                     <div className="mt-2 space-y-1">
                       <div className="flex items-center gap-2">
                         <div className="text-foreground text-xs font-medium">Plattformens status</div>
-                        <span className="rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-200">
+                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[9px] text-blue-200">
                           verifierad
                         </span>
                       </div>
@@ -1281,7 +1281,7 @@ export function ProjectEnvVarsPanel({
                           ? "text-green-400"
                           : item.required
                             ? "text-red-400"
-                            : "text-yellow-400";
+                            : "text-amber-400";
                         return (
                           <div key={item.id} className="border-border rounded-md border p-2 text-xs">
                             <div className="flex items-center justify-between">
@@ -1316,7 +1316,7 @@ export function ProjectEnvVarsPanel({
                               <span
                                 className={cn(
                                   "text-[10px]",
-                                  item.readiness === "ready" ? "text-emerald-300" : "text-amber-300",
+                                  item.readiness === "ready" ? "text-green-300" : "text-amber-300",
                                 )}
                               >
                                 {item.readiness === "ready" ? "redo" : "saknar miljövariabler"}
@@ -1348,7 +1348,7 @@ export function ProjectEnvVarsPanel({
               </div>
 
               {appProjectId && !hasRealExternalProject && (
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-100">
+                <div className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2 text-xs text-green-100">
                   Egna motorn sparar dessa projektvariabler i Sajtmaskins projektdata och skickar dem
                   vidare vid publicering. När ett riktigt externt projekt finns används dess projektvariabler i
                   stället.
@@ -1376,7 +1376,7 @@ export function ProjectEnvVarsPanel({
                             className={cn(
                               "rounded-full border px-2 py-0.5 text-[10px]",
                               isPresent
-                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                                ? "border-green-500/40 bg-green-500/10 text-green-200"
                                 : "border-amber-500/40 bg-amber-500/10 text-amber-200",
                             )}
                           >
@@ -1387,7 +1387,7 @@ export function ProjectEnvVarsPanel({
                     </div>
                   )}
                   {configuredRequiredEnvKeys.length > 0 && (
-                    <div className="mt-2 text-[11px] text-emerald-200">
+                    <div className="mt-2 text-[11px] text-green-200">
                       Redan satta i projektet: {configuredRequiredEnvKeys.join(", ")}
                     </div>
                   )}

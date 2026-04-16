@@ -147,6 +147,8 @@ export interface MaterializeResult {
 
 export interface MaterializeImagesOptions {
   maxReplacements?: number;
+  /** User-provided image URLs to prefer over Unsplash when replacing placeholders. */
+  userMediaUrls?: string[];
 }
 
 export const DEFAULT_IMAGE_MATERIALIZATION_LIMIT = 3;
@@ -232,6 +234,9 @@ export async function materializeImages(
     `Materializing ${selectedMatches.length}/${matches.length} placeholder images`,
   );
 
+  const userUrls = options.userMediaUrls ?? [];
+  let userUrlIndex = 0;
+
   const seen = new Map<string, ImageResolution>();
   const uniqueMatches: Array<{
     cacheKey: string;
@@ -253,6 +258,16 @@ export async function materializeImages(
     async ({ cacheKey, match }) => {
       let resolution = seen.get(cacheKey);
       if (resolution) return resolution;
+
+      // Prefer user-provided images over Unsplash (round-robin)
+      if (userUrls.length > 0 && userUrlIndex < userUrls.length) {
+        const userUrl = userUrls[userUrlIndex]!;
+        userUrlIndex++;
+        resolution = { url: userUrl, queryUsed: `[user-media] ${match.text}` };
+        seen.set(cacheKey, resolution);
+        debugLog("images", `Using user-provided image for "${match.text}"`, { url: userUrl });
+        return resolution;
+      }
 
       const orientation = chooseUnsplashOrientation(match.width, match.height);
       const candidates = buildUnsplashSearchCandidates(match.text);
@@ -322,6 +337,24 @@ export async function materializeImages(
     replaced++;
     queries.push(appliedKeys.has(cacheKey) ? match.text : resolution.queryUsed);
     appliedKeys.add(cacheKey);
+  }
+
+  // Second pass: replace Unsplash URLs with remaining unused user images
+  if (userUrls.length > userUrlIndex) {
+    const unsplashPattern = /https:\/\/images\.unsplash\.com\/[^\s"')]+/g;
+    const unsplashMatches = [...result.matchAll(unsplashPattern)];
+    let unsplashReplaced = 0;
+    for (const unsplashMatch of unsplashMatches) {
+      if (userUrlIndex >= userUrls.length) break;
+      const userUrl = userUrls[userUrlIndex]!;
+      userUrlIndex++;
+      result = result.replace(unsplashMatch[0], userUrl);
+      unsplashReplaced++;
+    }
+    if (unsplashReplaced > 0) {
+      debugLog("images", `Replaced ${unsplashReplaced} Unsplash URLs with user images`);
+      replaced += unsplashReplaced;
+    }
   }
 
   debugLog(

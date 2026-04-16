@@ -89,10 +89,9 @@ import { useBuilderHelpChat } from "@/lib/hooks/chat/useBuilderHelpChat";
 import { NeedsAnalysisProgress } from "@/components/builder/NeedsAnalysisProgress";
 import { AdvancedSettingsPanel } from "@/components/builder/AdvancedSettingsPanel";
 import { IntakeSummaryCard } from "@/components/builder/IntakeSummaryCard";
-import { PostGenerationAdvisor } from "@/components/builder/PostGenerationAdvisor";
 import { OnboardingOverlay, useOnboardingSeen } from "@/components/builder/OnboardingOverlay";
 import { cn } from "@/lib/utils";
-import { Eye, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
@@ -238,14 +237,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const onboardingSeen = useOnboardingSeen();
   const [showOnboarding, setShowOnboarding] = useState(!onboardingSeen);
 
-  const defaultModelAppliedRef = useRef(false);
-  useEffect(() => {
-    if (defaultModelAppliedRef.current) return;
-    if (vm.chatId) return;
-    defaultModelAppliedRef.current = true;
-    vm.setSelectedModelTier("fast");
-    vm.setEnableThinking(false);
-  }, [vm.chatId, vm.setSelectedModelTier, vm.setEnableThinking]);
+  // Model tier and thinking are now left at their defaults (not forced to "fast")
+  // so first generations get full quality including proper image adherence.
 
   const wrappedRequestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
@@ -272,20 +265,22 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       pendingGenerationRef.current = null;
       const tmplInfos = buildSelectedTemplateInfos(vm.selectedTemplateIds);
       const mediaInfos = uploadedMediaRef.current;
+      const currentMessages = vm.messages.length > (pending.messages?.length ?? 0)
+        ? vm.messages
+        : pending.messages;
       const prompt = buildNeedsAnalysisPrompt(
-        pending.messages,
+        currentMessages,
         scrapeDataRef.current,
         tmplInfos.length > 0 ? tmplInfos : null,
         mediaInfos && mediaInfos.length > 0 ? mediaInfos : null,
         companyBriefRef.current,
       );
-      const brief = companyBriefRef.current;
       void wrappedRequestCreateChat(prompt, {
         ...pending.options,
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
       });
     },
-    [vm.selectedTemplateIds, wrappedRequestCreateChat],
+    [vm.selectedTemplateIds, vm.messages, wrappedRequestCreateChat],
   );
 
   const handleImageUploadConfirm = useCallback(
@@ -322,6 +317,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         }
       }
 
+      // Wire wizard brand colors into designTheme so they reach buildDynamicContext as locked theme
+      const wizardColors = result.answers.brandColors;
+      if (wizardColors && wizardColors.length > 0) {
+        vm.setDesignTheme("custom");
+        vm.setCustomThemeColors({
+          primary: wizardColors[0] || "#1a1f36",
+          secondary: wizardColors[1] || wizardColors[0] || "#4a5568",
+          accent: wizardColors[2] || wizardColors[0] || "#f97316",
+        });
+      }
+
       const userMessages: ChatMessage[] = result.fieldMessages.map((fm, i) => ({
         id: `wizard-${fm.field}-${Date.now()}-${i}`,
         role: "user" as const,
@@ -330,6 +336,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       vm.setMessages((prev) => [...prev, ...userMessages]);
 
       const allMessages = [...vm.messages, ...userMessages];
+
+      // Collect scraped image URLs (already hosted, no upload needed)
+      const scrapedMedia: UploadedMediaInfo[] = (result.answers.scrapedImageUrls ?? []).map((img) => ({
+        filename: img.alt || "scraped-image",
+        mimeType: "image/jpeg",
+        url: img.url,
+        purpose: img.role === "logo" ? "brand-logo" : "site-media",
+        context: img.alt || img.role,
+      }));
 
       if (result.mediaFiles?.length) {
         pendingGenerationRef.current = { messages: allMessages };
@@ -343,7 +358,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               formData.append("context", context);
               const res = await fetch("/api/media/upload", { method: "POST", body: formData });
               const data = await res.json();
-              if (data?.url) {
+              const mediaUrl = data?.media?.url ?? data?.url;
+              if (mediaUrl) {
                 const ctx = context.toLowerCase();
                 let purpose = "site-media";
                 if (ctx.includes("logo")) purpose = "brand-logo";
@@ -353,23 +369,49 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 uploaded.push({
                   filename: file.name,
                   mimeType: file.type || "image/jpeg",
-                  url: data.url,
+                  url: mediaUrl,
                   purpose,
                   context,
                 });
                 vm.setMessages((prev) => [
                   ...prev,
-                  { id: `media-${Date.now()}-${file.name}`, role: "user" as const, content: `[Uppladdad bild: ${context}](${data.url})` },
+                  { id: `media-${Date.now()}-${file.name}`, role: "user" as const, content: `[Uppladdad bild: ${context}](${mediaUrl})` },
                 ]);
               }
-            } catch { /* silent */ }
+            } catch (uploadErr) {
+              console.error("[wizard] Media upload failed:", file.name, uploadErr);
+              toast.error(`Uppladdning misslyckades: ${file.name}`);
+            }
           }
-          if (uploaded.length > 0) {
-            uploadedMediaRef.current = uploaded;
+          // Merge uploaded files with scraped URLs
+          const allMedia = [...uploaded, ...scrapedMedia];
+          if (allMedia.length > 0) {
+            uploadedMediaRef.current = allMedia;
+            const attachments: V0UserFileAttachment[] = allMedia.map((u) => ({
+              type: "user_file" as const,
+              url: u.url,
+              filename: u.filename,
+              mimeType: u.mimeType,
+              purpose: u.purpose,
+            }));
+            executeStarterGeneration(attachments);
+          } else {
+            executeStarterGeneration();
           }
-          executeStarterGeneration();
         };
         void uploadAll();
+      } else if (scrapedMedia.length > 0) {
+        // No files to upload but we have scraped URLs
+        pendingGenerationRef.current = { messages: allMessages };
+        uploadedMediaRef.current = scrapedMedia;
+        const attachments: V0UserFileAttachment[] = scrapedMedia.map((u) => ({
+          type: "user_file" as const,
+          url: u.url,
+          filename: u.filename,
+          mimeType: u.mimeType,
+          purpose: u.purpose,
+        }));
+        executeStarterGeneration(attachments);
       } else {
         triggerStarterGeneration(allMessages);
       }
@@ -502,6 +544,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     const phaseMap: Record<string, GenerationPhase> = {
       generation: "generation",
       autofix: "autofix",
+      "build-error": "autofix",
       verifier: "verifier",
       validate_syntax: "validate_syntax",
       parse_merge_preflight: "parse_merge_preflight",
@@ -516,11 +559,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [needsAnalysisState, vm.messages]);
 
   const POST_GEN_SUGGESTIONS = [
-    "Lägg till en ny undersida med relevant innehåll.",
-    "Byt färgpalett till något mer modernt och professionellt.",
-    "Lägg till mer detaljerat innehåll och längre texter på alla sidor.",
-    "Byt ut platshållarbilderna mot mer relevanta och professionella bilder.",
-    "Förbättra call-to-action-knapparna för bättre konvertering.",
+    "Lägg till en undersida",
+    "Ändra färgschema",
+    "Mer innehåll",
+    "Byt bilder",
+    "Starkare CTA",
   ];
 
   const hasLivePreview = Boolean(
@@ -566,6 +609,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt || isHelpStreaming;
   const isPreviewLoading =
     vm.isCreatingChat ||
+    vm.isPreparingPrompt ||
     vm.previewPending ||
     vm.previewLifecycle === "recovering" ||
     (!vm.currentPreviewUrl && vm.isAnyStreaming);
@@ -653,6 +697,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       ? `${baseDeployDisabledReason} Lägg till nycklarna under Projektets miljövariabler (Lansering överst i chatpanelen).`
       : baseDeployDisabledReason;
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+  const [chatCollapsed, setChatCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("builder:chatCollapsed") === "true";
+    }
+    return false;
+  });
+  const toggleChatCollapsed = useCallback(() => {
+    setChatCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("builder:chatCollapsed", String(next));
+      return next;
+    });
+  }, []);
   const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [tipPanelOpen, setTipPanelOpen] = useState(false);
@@ -1281,8 +1338,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setEnableAutofix(next);
   }, []);
 
-  // Post-generation advisor is now handled purely by the PostGenerationAdvisor
-  // overlay in the preview panel — no injected chat message needed.
+  // Post-generation suggestions are now in the Verktyg dropdown (PreviewPanelChrome).
 
   const handleTemplateSelect = useCallback(
     (templateIds: string[]) => {
@@ -1604,7 +1660,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           aria-label="Chatt"
           onClick={() => setMobileTab("chat")}
           className={cn(
-            "flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium motion-safe:transition-colors motion-safe:duration-200",
+            "flex flex-1 items-center justify-center gap-1.5 px-3 min-h-11 py-2.5 text-sm font-medium motion-safe:transition-colors motion-safe:duration-200",
             mobileTab === "chat"
               ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
@@ -1620,7 +1676,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           aria-label="Förhandsvisning"
           onClick={() => setMobileTab("preview")}
           className={cn(
-            "relative flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium motion-safe:transition-colors motion-safe:duration-200",
+            "relative flex flex-1 items-center justify-center gap-1.5 px-3 min-h-11 py-2.5 text-sm font-medium motion-safe:transition-colors motion-safe:duration-200",
             mobileTab === "preview"
               ? "border-primary text-primary border-b-2"
               : "text-muted-foreground hover:text-foreground",
@@ -1636,14 +1692,37 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
       <div className="flex min-h-0 flex-1 overflow-hidden lg:flex-row-reverse">
         {/* ---------- Chat panel (desktop: right) ---------- */}
+        {chatCollapsed && (
+          <div className="border-border hidden items-start border-l pt-2 lg:flex">
+            <button
+              onClick={toggleChatCollapsed}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-r-md px-1 py-3"
+              aria-label="Visa chatt"
+              title="Visa chatt"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <div
           id="builder-chat-panel"
           role="tabpanel"
           className={cn(
-            "border-border bg-muted/20 text-foreground min-h-0 w-full flex-col border-r motion-safe:transition-[background-color,border-color] motion-safe:duration-200 lg:flex lg:w-80 lg:max-w-[20rem] lg:border-l lg:border-r-0",
+            "border-border bg-muted/20 text-foreground min-h-0 w-full flex-col border-r motion-safe:transition-[background-color,border-color,width,max-width] motion-safe:duration-200 lg:border-l lg:border-r-0",
+            chatCollapsed ? "lg:hidden" : "lg:flex lg:w-80 lg:max-w-[20rem]",
             mobileTab === "chat" ? "flex" : "hidden",
           )}
         >
+          <div className="hidden items-center justify-end px-2 pt-1 lg:flex">
+            <button
+              onClick={toggleChatCollapsed}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md p-1"
+              aria-label="Dölj chatt"
+              title="Dölj chatt"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <LaunchReadinessCard
             readiness={vm.deployReadiness}
             isLoading={vm.isDeployReadinessLoading}
@@ -1896,17 +1975,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                   void vm.sendMessage(prompt);
                 }
               }}
-            />
-            <PostGenerationAdvisor
-              visible={Boolean(
-                vm.chatId &&
-                vm.currentPreviewUrl &&
-                !isPreviewLoading &&
-                !vm.previewPending &&
-                vm.previewLifecycle === "live"
-              )}
               onSuggestionClick={(prompt) => void vm.sendMessage(prompt)}
-              onDismiss={() => {}}
             />
           </div>
           <div

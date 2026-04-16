@@ -44,7 +44,7 @@ import {
   buildPlanUiPart,
 } from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
-import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
+import { getSystemPromptLengths, type MediaCatalogItem } from "@/lib/gen/system-prompt";
 import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
@@ -517,6 +517,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const metaPalette = parsedMeta.palette;
         const designReferences = summarizeDesignReferences(requestAttachments);
 
+        const mediaCatalog: MediaCatalogItem[] = requestAttachments
+          .filter((a) => a.mimeType?.startsWith("image/") || /\.(jpe?g|png|gif|webp|svg)$/i.test(a.url))
+          .map((a, i) => ({
+            alias: `USER_IMG_${i + 1}`,
+            url: a.url,
+            alt: a.purpose || a.filename || `User image ${i + 1}`,
+          }));
+
         const orchestrationInput = {
           prompt: optimizedMessage,
           buildIntent: engineIntent,
@@ -530,6 +538,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           designReferences,
           customInstructions: trimmedSystemPrompt || undefined,
           promptStrategyMeta: strategyMeta,
+          mediaCatalog: mediaCatalog.length > 0 ? mediaCatalog : undefined,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -715,7 +724,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
         });
         const compressUrlsStartedAt = Date.now();
-        const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
+        const { compressed: enginePrompt, urlMap: baseUrlMap } = compressUrls(optimizedMessage);
+        // Merge media catalog aliases into the URL map so {{USER_IMG_n}} tokens expand in generated code
+        const urlMap: Record<string, string> = { ...baseUrlMap };
+        if (mediaCatalog.length > 0) {
+          for (const item of mediaCatalog) {
+            urlMap[item.alias] = item.url;
+          }
+        }
         debugLog("engine", "Prompt URL compression complete", {
           durationMs: Date.now() - compressUrlsStartedAt,
           originalPromptLength: optimizedMessage.length,
@@ -770,6 +786,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           resolvedScaffold: resolvedScaffold ?? null,
           lineageHash,
           urlMap,
+          userMediaUrls: mediaCatalog.length > 0 ? mediaCatalog.map((m) => m.url) : undefined,
           commitCredits: commitCreditsOnce,
         });
 

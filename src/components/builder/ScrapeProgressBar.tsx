@@ -49,7 +49,7 @@ export function ScrapeProgressBar({ status, url, title }: ScrapeProgressBarProps
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-500",
             status === "loading" && "bg-primary/10 text-primary",
-            status === "done" && "bg-emerald-500/10 text-emerald-500",
+            status === "done" && "bg-green-500/10 text-green-500",
             status === "error" && "bg-destructive/10 text-destructive",
           )}
         >
@@ -79,7 +79,7 @@ export function ScrapeProgressBar({ status, url, title }: ScrapeProgressBarProps
           className={cn(
             "h-full transition-all duration-700 ease-out",
             status === "loading" && "bg-primary",
-            status === "done" && "bg-emerald-500",
+            status === "done" && "bg-green-500",
             status === "error" && "bg-destructive",
           )}
           style={{ width: `${progress}%` }}

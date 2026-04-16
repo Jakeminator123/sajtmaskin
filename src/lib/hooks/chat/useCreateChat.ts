@@ -92,7 +92,7 @@ export function useCreateChat(
     async (initialMessage: string, options: MessageOptions = {}, systemPromptOverride?: string) => {
       if (isCreatingChat || createChatInFlightRef.current) return;
       if (!initialMessage?.trim()) {
-        toast.error("Please enter a message to start a new chat");
+        toast.error("Skriv ett meddelande för att starta en ny chat.");
         return;
       }
 
@@ -432,7 +432,7 @@ export function useCreateChat(
             // ignore
           }
           throw new Error(
-            buildApiErrorMessage({ response, errorData, fallbackMessage: "Failed to create chat" }),
+            buildApiErrorMessage({ response, errorData, fallbackMessage: "Kunde inte starta chatten." }),
           );
         }
 
@@ -501,7 +501,7 @@ export function useCreateChat(
                 buildApiErrorMessage({
                   response: fallbackRes,
                   errorData,
-                  fallbackMessage: "Failed to create chat",
+                  fallbackMessage: "Kunde inte starta chatten.",
                 }),
               );
             }
@@ -517,7 +517,7 @@ export function useCreateChat(
           }
         }
         console.error("Error creating chat:", finalError);
-        const message = finalError instanceof Error ? finalError.message : "Failed to create chat";
+        const message = finalError instanceof Error ? finalError.message : "Kunde inte starta chatten.";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>

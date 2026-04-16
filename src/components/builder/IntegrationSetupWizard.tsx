@@ -55,9 +55,9 @@ function categorizeIntegration(key: string) {
 
 function StatusBadge({ status }: { status: IntegrationItem["status"] }) {
   const config = {
-    configured: { label: "Konfigurerad", className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" },
+    configured: { label: "Konfigurerad", className: "border-green-500/40 bg-green-500/10 text-green-200" },
     partial: { label: "Delvis", className: "border-amber-500/40 bg-amber-500/10 text-amber-200" },
-    missing: { label: "Saknas", className: "border-rose-500/40 bg-rose-500/10 text-rose-200" },
+    missing: { label: "Saknas", className: "border-red-500/40 bg-red-500/10 text-red-200" },
   };
   const { label, className } = config[status];
   return (
@@ -107,8 +107,8 @@ function IntegrationCard({
                         className={cn(
                           "rounded border px-1.5 py-0.5 text-[10px]",
                           isConfigured
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-                            : "border-rose-500/40 bg-rose-500/10 text-rose-200"
+                            ? "border-green-500/40 bg-green-500/10 text-green-200"
+                            : "border-red-500/40 bg-red-500/10 text-red-200"
                         )}
                       >
                         {key}
@@ -176,8 +176,8 @@ function BusinessPackCard({
                         className={cn(
                           "rounded border px-1.5 py-0.5 text-[10px]",
                           isConfigured
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-                            : "border-rose-500/40 bg-rose-500/10 text-rose-200"
+                            ? "border-green-500/40 bg-green-500/10 text-green-200"
+                            : "border-red-500/40 bg-red-500/10 text-red-200"
                         )}
                       >
                         {key}

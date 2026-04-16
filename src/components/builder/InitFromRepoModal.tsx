@@ -54,24 +54,24 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
     if (!file) return;
 
     if (!file.name.endsWith(".zip")) {
-      toast.error("Please select a ZIP file");
+      toast.error("Välj en ZIP-fil");
       return;
     }
 
     if (file.size > 50 * 1024 * 1024) {
-      toast.error("File too large. Maximum size is 50MB.");
+      toast.error("Filen är för stor. Max 50 MB.");
       return;
     }
 
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.onerror = () => reject(new Error("Kunde inte läsa filen"));
         reader.onload = () => {
           const result = reader.result;
-          if (typeof result !== "string") return reject(new Error("Failed to read file"));
+          if (typeof result !== "string") return reject(new Error("Kunde inte läsa filen"));
           const commaIdx = result.indexOf(",");
-          if (commaIdx === -1) return reject(new Error("Invalid file encoding"));
+          if (commaIdx === -1) return reject(new Error("Ogiltig filkodning"));
           resolve(result.slice(commaIdx + 1));
         };
         reader.readAsDataURL(file);
@@ -80,19 +80,19 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       setZipContent(base64);
       setZipFileName(file.name);
       setZipUrl("");
-      toast.success(`Selected: ${file.name}`);
+      toast.success(`Vald: ${file.name}`);
     } catch {
-      toast.error("Failed to read file");
+      toast.error("Kunde inte läsa filen");
     }
   };
 
   const handleSubmit = async () => {
     if (sourceType === "github" && !githubUrl.trim()) {
-      toast.error("Please enter a GitHub URL");
+      toast.error("Ange en GitHub-URL");
       return;
     }
     if (sourceType === "zip" && !zipContent && !zipUrl.trim()) {
-      toast.error("Please select a ZIP file or paste a ZIP URL");
+      toast.error("Välj en ZIP-fil eller klistra in en ZIP-URL");
       return;
     }
     setIsLoading(true);
@@ -131,18 +131,18 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
         details?: string;
       } | null;
       if (!response.ok) {
-        throw new Error(data?.error || data?.details || "Failed to initialize");
+        throw new Error(data?.error || data?.details || "Kunde inte initiera");
       }
       if (!data) {
-        throw new Error("Failed to parse response");
+        throw new Error("Kunde inte tolka svaret");
       }
       const v0ChatId = data.id;
 
       if (!v0ChatId) {
-        throw new Error("No chat ID returned");
+        throw new Error("Inget projekt-ID returnerades");
       }
 
-      toast.success("Project imported successfully!");
+      toast.success("Projektet importerades!");
       const returnedProjectId = data?.projectId ?? data?.project_id ?? null;
       onSuccess(v0ChatId, returnedProjectId);
       handleClose();
@@ -160,7 +160,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
 
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-card p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-foreground">Import Existing Project</h2>
+          <h2 className="text-xl font-semibold text-foreground">Importera befintligt projekt</h2>
           <button
             onClick={handleClose}
             className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -206,7 +206,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   htmlFor="init-github-url"
                   className="mb-1 block text-sm font-medium text-foreground"
                 >
-                  Repository URL
+                  Repo-URL
                 </label>
                 <input
                   id="init-github-url"
@@ -218,25 +218,25 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Public repos work without login. Private repos require a GitHub connection.
+                  Publika repon fungerar utan inloggning. Privata repon kräver GitHub-koppling.
                 </p>
                 {isAuthenticated ? (
                   hasGitHub ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Connected as{" "}
-                      <span className="font-medium text-gray-700">@{user?.github_username}</span>
+                      Ansluten som{" "}
+                      <span className="font-medium text-foreground">@{user?.github_username}</span>
                     </p>
                   ) : (
                     <a
                       href={`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`}
                       className="text-brand-blue mt-2 inline-flex text-xs hover:underline"
                     >
-                      Connect GitHub to import private repos
+                      Koppla GitHub för att importera privata repon
                     </a>
                   )
                 ) : (
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Log in to connect GitHub for private repos.
+                    Logga in för att koppla GitHub för privata repon.
                   </p>
                 )}
               </div>
@@ -245,7 +245,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   htmlFor="init-branch"
                   className="mb-1 block text-sm font-medium text-foreground"
                 >
-                  Branch (optional)
+                  Branch (valfritt)
                 </label>
                 <input
                   id="init-branch"
@@ -266,8 +266,8 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   className="text-brand-blue focus:ring-brand-blue/50 mt-1 rounded border-border"
                 />
                 <label htmlFor="init-prefer-zip" className="text-sm text-muted-foreground">
-                  Use ZIP import (helps when GitHub access is limited). Provide a branch if you
-                  enable this.
+                  Använd ZIP-import (hjälper om GitHub-åtkomst är begränsad). Ange en branch om du
+                  aktiverar detta.
                 </label>
               </div>
 
@@ -276,12 +276,12 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   htmlFor="init-message"
                   className="mb-1 block text-sm font-medium text-foreground"
                 >
-                  Initial Instructions (optional)
+                  Initiala instruktioner (valfritt)
                 </label>
                 <textarea
                   id="init-message"
                   name="message"
-                  placeholder="e.g., Add a new contact page with a form"
+                  placeholder="t.ex. Lägg till en kontaktsida med formulär"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={2}
@@ -301,10 +301,10 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                       onChange={(e) => setLockConfigFiles(e.target.checked)}
                       className="text-brand-blue focus:ring-brand-blue/50 rounded border-border"
                     />
-                    <span className="text-brand-amber text-sm font-medium">Lock config files</span>
+                    <span className="text-brand-amber text-sm font-medium">Lås konfigurationsfiler</span>
                   </label>
                   <p className="text-brand-amber/80 mt-1 text-xs">
-                    Prevent AI from modifying package.json, config files, and dependencies
+                    Förhindra att AI ändrar package.json, konfigurationsfiler och beroenden
                   </p>
                 </div>
               </div>
@@ -318,7 +318,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   htmlFor="init-zip-file"
                   className="mb-1 block text-sm font-medium text-foreground"
                 >
-                  ZIP File
+                  ZIP-fil
                 </label>
                 <input
                   id="init-zip-file"
@@ -337,7 +337,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   {zipFileName ? (
                     <span className="text-sm font-medium text-foreground">{zipFileName}</span>
                   ) : (
-                    <span className="text-sm">Click to select ZIP file (max 50MB)</span>
+                    <span className="text-sm">Klicka för att välja ZIP-fil (max 50 MB)</span>
                   )}
                 </button>
               </div>
@@ -347,7 +347,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   htmlFor="init-zip-url"
                   className="mb-1 block text-sm font-medium text-foreground"
                 >
-                  Or paste a ZIP URL
+                  Eller klistra in en ZIP-URL
                 </label>
                 <input
                   id="init-zip-url"
@@ -369,7 +369,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Use a public ZIP URL for larger projects to avoid upload limits.
+                  Använd en publik ZIP-URL för större projekt för att undvika uppladdningsgränser.
                 </p>
               </div>
 
@@ -378,12 +378,12 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                   htmlFor="init-message-zip"
                   className="mb-1 block text-sm font-medium text-foreground"
                 >
-                  Initial Instructions (optional)
+                  Initiala instruktioner (valfritt)
                 </label>
                 <textarea
                   id="init-message-zip"
                   name="message"
-                  placeholder="e.g., Add a new contact page with a form"
+                  placeholder="t.ex. Lägg till en kontaktsida med formulär"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={2}
@@ -403,10 +403,10 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                       onChange={(e) => setLockConfigFiles(e.target.checked)}
                       className="text-brand-blue focus:ring-brand-blue/50 rounded border-border"
                     />
-                    <span className="text-brand-amber text-sm font-medium">Lock config files</span>
+                    <span className="text-brand-amber text-sm font-medium">Lås konfigurationsfiler</span>
                   </label>
                   <p className="text-brand-amber/80 mt-1 text-xs">
-                    Prevent AI from modifying package.json, config files, and dependencies
+                    Förhindra att AI ändrar package.json, konfigurationsfiler och beroenden
                   </p>
                 </div>
               </div>
@@ -418,9 +418,9 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
           >
-            Cancel
+            Avbryt
           </button>
           <button
             onClick={handleSubmit}
@@ -429,17 +429,17 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
               (sourceType === "github" && !githubUrl.trim()) ||
               (sourceType === "zip" && !zipContent && !zipUrl.trim())
             }
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/80 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Importing...
+                Importerar...
               </>
             ) : (
               <>
                 <Upload className="h-4 w-4" />
-                Import Project
+                Importera projekt
               </>
             )}
           </button>

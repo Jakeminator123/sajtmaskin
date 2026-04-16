@@ -17,7 +17,7 @@ type ModelTraceOverlayProps = {
 
 function statusChipClass(ok: boolean) {
   return ok
-    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+    ? "border-green-500/30 bg-green-500/10 text-green-200"
     : "border-red-500/30 bg-red-500/10 text-red-200";
 }
 
@@ -112,7 +112,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
       })
       .catch((fetchError) => {
         if (controller.signal.aborted) return;
-        setError(fetchError instanceof Error ? fetchError.message : "Could not load model trace.");
+        setError(fetchError instanceof Error ? fetchError.message : "Kunde inte ladda modellspåret.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false);
@@ -131,10 +131,10 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
           <div>
             <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-muted-foreground">
-              Model Trace
+              Modellspår
             </p>
             <p className="text-xs text-foreground">
-              Builder routing, env mapping, and active model lanes
+              Builder-routing, env-mappning och aktiva modellanor
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -142,7 +142,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
               type="button"
               className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               onClick={() => setRefreshNonce((value) => value + 1)}
-              title="Refresh trace"
+              title="Uppdatera spåret"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
             </button>
@@ -150,7 +150,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
               type="button"
               className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               onClick={() => setIsCollapsed((value) => !value)}
-              title={isCollapsed ? "Expand" : "Collapse"}
+              title={isCollapsed ? "Expandera" : "Fäll ihop"}
             >
               {isCollapsed ? (
                 <ChevronUp className="h-3.5 w-3.5" />
@@ -167,7 +167,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 }
                 setIsVisible(false);
               }}
-              title="Hide overlay"
+              title="Dölj overlay"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -295,7 +295,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                             className={cn(
                               "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
                               route.active
-                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                                ? "border-green-500/30 bg-green-500/10 text-green-200"
                                 : "border-border bg-muted/30 text-muted-foreground",
                             )}
                           >
@@ -361,7 +361,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                             className={cn(
                               "rounded-full border px-2 py-0.5",
                               option.deepBriefEligible
-                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                                ? "border-green-500/30 bg-green-500/10 text-green-200"
                                 : "border-border bg-muted/30 text-muted-foreground",
                             )}
                           >
@@ -375,7 +375,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
 
                 <section className="rounded-lg border border-border bg-muted/30 p-2 text-foreground">
                   <p className="mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground">
-                    Notes
+                    Anteckningar
                   </p>
                   <ul className="space-y-1">
                     {snapshot.notes.map((note) => (
@@ -386,7 +386,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
               </>
             ) : (
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-foreground">
-                {isLoading ? "Loading model trace..." : "No model trace loaded yet."}
+                {isLoading ? "Laddar modellspåret..." : "Inget modellspår laddat ännu."}
               </div>
             )}
           </div>

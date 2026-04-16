@@ -63,8 +63,22 @@ export function useBuilderDerivedState({
   );
 
   const isAwaitingInput = useMemo(() => {
-    const last = [...messages].reverse().find((m) => m.role === "assistant");
-    return Boolean(last?.uiParts?.some((p) => p.type === "tool:awaiting-input"));
+    const INLINE_KINDS = new Set(["needs-analysis", "scrape-progress"]);
+    let lastAssistantIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") { lastAssistantIdx = i; break; }
+    }
+    if (lastAssistantIdx < 0) return false;
+    // If the user already replied after this assistant message, not awaiting
+    const hasUserAfter = messages.slice(lastAssistantIdx + 1).some((m) => m.role === "user");
+    if (hasUserAfter) return false;
+    const last = messages[lastAssistantIdx];
+    return Boolean(last.uiParts?.some((p) => {
+      if (p.type !== "tool:awaiting-input") return false;
+      const kind = (p as Record<string, unknown>).kind ?? (p as { output?: { kind?: string } }).output?.kind;
+      if (typeof kind === "string" && INLINE_KINDS.has(kind)) return false;
+      return true;
+    }));
   }, [messages]);
 
   const versionsList = useMemo(

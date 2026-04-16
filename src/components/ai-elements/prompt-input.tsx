@@ -245,12 +245,14 @@ export interface PromptInputSubmitProps extends ButtonHTMLAttributes<HTMLButtonE
   children?: ReactNode;
 }
 
-export function PromptInputSubmit({ children, className, "aria-label": ariaLabelProp, ...props }: PromptInputSubmitProps) {
+export function PromptInputSubmit({ children, className, "aria-label": ariaLabelProp, disabled: disabledProp, ...props }: PromptInputSubmitProps) {
   const { value, onSubmit, isLoading, disabled } = usePromptInput();
-  const ariaLabel = ariaLabelProp ?? (children ? undefined : "Send message");
+  const ariaLabel = ariaLabelProp ?? (children ? undefined : "Skicka meddelande");
+
+  const isDisabled = !value.trim() || isLoading || disabled || !!disabledProp;
 
   const handleClick = () => {
-    if (value.trim() && !isLoading && !disabled) {
+    if (!isDisabled) {
       onSubmit({ text: value });
     }
   };
@@ -260,7 +262,7 @@ export function PromptInputSubmit({ children, className, "aria-label": ariaLabel
       {...props}
       type="button"
       onClick={handleClick}
-      disabled={!value.trim() || isLoading || disabled}
+      disabled={isDisabled}
       aria-label={ariaLabel}
       className={cn(
         "shrink-0 rounded-xl p-2",

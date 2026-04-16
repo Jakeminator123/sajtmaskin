@@ -6,6 +6,7 @@ import {
   jsonb,
   boolean,
   uniqueIndex,
+  index,
   integer,
   serial,
 } from "drizzle-orm/pg-core";
@@ -34,7 +35,9 @@ export const chats = pgTable("chats", {
   webUrl: text("web_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  projectIdx: index("chats_project_id_idx").on(table.projectId),
+}));
 
 export const versions = pgTable(
   "versions",
@@ -414,7 +417,9 @@ export const engineChats = pgTable("engine_chats", {
   orchestrationSnapshot: jsonb("orchestration_snapshot").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  projectIdx: index("engine_chats_project_id_idx").on(table.projectId),
+}));
 
 export const engineMessages = pgTable("engine_messages", {
   id: text("id").primaryKey(),
@@ -424,7 +429,9 @@ export const engineMessages = pgTable("engine_messages", {
   uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
   tokenCount: integer("token_count"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  chatIdx: index("engine_messages_chat_id_idx").on(table.chatId),
+}));
 
 export const engineVersions = pgTable("engine_versions", {
   id: text("id").primaryKey(),
@@ -438,7 +445,9 @@ export const engineVersions = pgTable("engine_versions", {
   verificationSummary: text("verification_summary"),
   promotedAt: timestamp("promoted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  chatIdx: index("engine_versions_chat_id_idx").on(table.chatId),
+}));
 
 export const engineGenerationLogs = pgTable("engine_generation_logs", {
   id: text("id").primaryKey(),

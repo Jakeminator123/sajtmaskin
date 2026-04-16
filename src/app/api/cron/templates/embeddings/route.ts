@@ -5,7 +5,7 @@ export const maxDuration = 300;
 
 function isAuthorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) return true;
+  if (!secret) return false;
 
   const authHeader = req.headers.get("authorization") || "";
   const bearer = authHeader.startsWith("Bearer ")

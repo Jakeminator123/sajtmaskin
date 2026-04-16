@@ -45,8 +45,8 @@ const getStatusBadge = (status: ToolUIPart["state"]) => {
     "input-available": <ClockIcon className="size-4 animate-pulse" />,
     "approval-requested": <ClockIcon className="text-brand-amber size-4" />,
     "approval-responded": <CheckCircleIcon className="text-brand-blue size-4" />,
-    "output-available": <CheckCircleIcon className="size-4 text-green-600" />,
-    "output-error": <XCircleIcon className="size-4 text-red-600" />,
+    "output-available": <CheckCircleIcon className="size-4 text-green-500" />,
+    "output-error": <XCircleIcon className="size-4 text-red-500" />,
     "output-denied": <XCircleIcon className="text-brand-warm size-4" />,
   };
 
@@ -91,7 +91,7 @@ export type ToolInputProps = ComponentProps<"div"> & {
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   <div className={cn("space-y-2 overflow-hidden p-4", className)} {...props}>
     <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-      Parameters
+      Parametrar
     </h4>
     <div className="bg-muted/50 rounded-md">
       <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
@@ -120,7 +120,7 @@ export const ToolOutput = ({ className, output, errorText, ...props }: ToolOutpu
   return (
     <div className={cn("space-y-2 p-4", className)} {...props}>
       <h4 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        {errorText ? "Error" : "Result"}
+        {errorText ? "Fel" : "Resultat"}
       </h4>
       <div
         className={cn(

@@ -13,7 +13,7 @@ import {
   getDefaultPaletteState,
   type PaletteState,
 } from "@/lib/builder/palette";
-import { DEFAULT_DESIGN_THEME, getThemeColors, type DesignTheme } from "@/lib/builder/theme-presets";
+import { DEFAULT_DESIGN_THEME, getThemeColors, type DesignTheme, type ThemeColors } from "@/lib/builder/theme-presets";
 import {
   DEFAULT_IMAGE_GENERATIONS,
   DEFAULT_MODEL_TIER,
@@ -69,9 +69,10 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [chatPrivacy, setChatPrivacy] = useState<"private" | "unlisted">("private");
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
-  const [isMediaEnabled, setIsMediaEnabled] = useState(false);
+  const [isMediaEnabled, setIsMediaEnabled] = useState(true);
   // Internal Sajtmaskin brand/theme preset used by the own engine.
   const [designTheme, setDesignTheme] = useState<DesignTheme>(DEFAULT_DESIGN_THEME);
+  const [customThemeColors, setCustomThemeColors] = useState<ThemeColors | null>(null);
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);
   const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
@@ -152,8 +153,12 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     [buildMethod, buildIntent, scaffoldMode, scaffoldId],
   );
   const themeColors = useMemo(
-    () => (buildMethod === "kostnadsfri" ? null : getThemeColors(designTheme)),
-    [buildMethod, designTheme],
+    () => {
+      if (buildMethod === "kostnadsfri") return null;
+      if (designTheme === "custom" && customThemeColors) return customThemeColors;
+      return getThemeColors(designTheme);
+    },
+    [buildMethod, designTheme, customThemeColors],
   );
 
   return {
@@ -211,6 +216,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setIsMediaEnabled,
     designTheme,
     setDesignTheme,
+    customThemeColors,
+    setCustomThemeColors,
     specMode,
     pendingSpecRef,
     pendingBriefRef,

@@ -6,7 +6,9 @@ import type {
   PreviewStatusApiJson,
 } from "@/lib/gen/preview/preview-contract";
 
-/** Browser `fetch` mot preview-status; returnerar null vid natverksfel eller icke-ok svar. */
+export type PreviewStatusError = { reason: "network" | "http" | "session_gone" | "unknown"; status?: number };
+
+/** Browser `fetch` mot preview-status; returnerar data eller ett differentierat felobjekt. */
 export async function fetchPreviewStatus(params: {
   chatId: string;
   versionId: string;

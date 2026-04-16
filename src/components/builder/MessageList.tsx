@@ -3,7 +3,6 @@
 import {
   Conversation,
   ConversationContent,
-  ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
@@ -39,7 +38,6 @@ import {
   buildAgentLogItems as buildAgentLogItemsFromTooling,
 } from "@/components/builder/BuilderMessageTooling";
 import { GenerationSummary } from "@/components/builder/GenerationSummary";
-import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
@@ -188,7 +186,7 @@ const MessageListComponent = ({
 
   return (
     <>
-      <Conversation className="h-full scroll-smooth scrollbar-thin [scroll-behavior:smooth]">
+      <Conversation className="h-full scroll-smooth scrollbar-thin [scroll-behavior:smooth]" role="log" aria-label="Konversation">
         <ConversationContent className="space-y-3 px-3 py-3 sm:px-4 sm:py-4">
           {messages.map((message, messageIndex) => {
           const reasoningPart = message.parts.find(
@@ -395,24 +393,12 @@ const MessageListComponent = ({
                   </Sources>
                 )}
 
-                {chatId &&
-                  versionId &&
-                  message.role === "assistant" &&
-                  messageIndex === lastGenMessageIndex &&
-                  !message.isStreaming &&
-                  hasGenerationContent(textContent) && (
-                    <VersionFeedback
-                      chatId={chatId}
-                      versionId={versionId}
-                      className="mt-2 border-t border-border/50 pt-2"
-                    />
-                  )}
               </MessageContent>
             </Message>
           );
           })}
         </ConversationContent>
-        <ConversationScrollButton />
+        {/* ConversationScrollButton removed for cleaner UX */}
       </Conversation>
 
       {pendingReply && (
@@ -496,10 +482,10 @@ function StreamingTypingIndicator() {
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="h-1.5 w-1.5 rounded-full bg-primary/45 motion-safe:animate-pulse"
+            className="h-1.5 w-1.5 rounded-full bg-primary/30 motion-safe:animate-bounce"
             style={{
-              animationDelay: `${i * 180}ms`,
-              animationDuration: "0.75s",
+              animationDelay: `${i * 200}ms`,
+              animationDuration: "1.2s",
             }}
           />
         ))}

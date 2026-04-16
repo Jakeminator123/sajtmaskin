@@ -77,7 +77,7 @@ export function LaunchReadinessCard({ readiness, isLoading = false }: Props) {
       ? () => <AlertCircle className="h-3.5 w-3.5 text-red-400" />
       : readiness?.status === "warning"
         ? () => <TriangleAlert className="h-3.5 w-3.5 text-amber-400" />
-        : () => <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />;
+        : () => <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />;
 
   return (
     <div className="border-border/70 border-b text-xs">

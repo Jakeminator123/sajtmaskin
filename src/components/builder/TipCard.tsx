@@ -27,10 +27,10 @@ export function TipCard({
 
   return (
     <div className="pointer-events-none absolute top-3 right-3 z-30 w-80 max-w-[calc(100%-1.5rem)]">
-      <Card className="pointer-events-auto border-yellow-500/25 shadow-md">
+      <Card className="pointer-events-auto border-amber-500/25 shadow-md">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2.5 pb-1.5">
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <Lightbulb className="h-4 w-4 text-yellow-500" />
+            <Lightbulb className="h-4 w-4 text-amber-500" />
             Tips
           </CardTitle>
           <Button

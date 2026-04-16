@@ -88,10 +88,6 @@ export function useInitBrief(params: PromptAssistConfig) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
-        toast.loading("Skapar brief och dynamiska instruktioner innan own-engine startar...", {
-          id: "sajtmaskin:dynamic-instructions",
-        });
-
         const res = await fetch("/api/ai/brief", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -131,9 +127,6 @@ export function useInitBrief(params: PromptAssistConfig) {
           debugLog("AI", "Dynamic instructions completed (brief only, addendum skipped)", {
             durationMs: Date.now() - startedAt,
           });
-          toast.success("Brief klar — own-engine kan starta.", {
-            id: "sajtmaskin:dynamic-instructions",
-          });
           return "";
         }
 
@@ -148,10 +141,6 @@ export function useInitBrief(params: PromptAssistConfig) {
         debugLog("AI", "Dynamic instructions completed", {
           durationMs: Date.now() - startedAt,
           outputLength: addendum.length,
-        });
-
-        toast.success("Brief klar — own-engine kan starta.", {
-          id: "sajtmaskin:dynamic-instructions",
         });
 
         return (
@@ -175,21 +164,6 @@ export function useInitBrief(params: PromptAssistConfig) {
           durationMs: Date.now() - startedAt,
           error: rawMessage,
         });
-
-        if (isAbort) {
-          toast.error("Brief/instruktions-generering tog för lång tid (timeout)", {
-            id: "sajtmaskin:dynamic-instructions",
-          });
-        } else if (isParseError) {
-          toast("Instruktions‑generering misslyckades, använder snabbare variant.", {
-            id: "sajtmaskin:dynamic-instructions",
-            icon: "⚠️",
-          });
-        } else {
-          toast.error(`Instruktions‑generering misslyckades: ${rawMessage}`, {
-            id: "sajtmaskin:dynamic-instructions",
-          });
-        }
 
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,

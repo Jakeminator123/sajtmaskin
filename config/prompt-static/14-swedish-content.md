@@ -47,6 +47,6 @@ All generated websites target a **Swedish audience** unless the user explicitly 
 ## Common Mistakes to Avoid
 
 - Do not mix English and Swedish in the same sentence or section.
-- Do not write "Copyright © 2025 Företagsnamn. All rights reserved." — write "© 2025 Företagsnamn. Alla rättigheter förbehållna." or simply "© 2025 Företagsnamn."
+- Do not write "Copyright © YEAR Företagsnamn. All rights reserved." — write "© YEAR Företagsnamn. Alla rättigheter förbehållna." or simply "© YEAR Företagsnamn." where YEAR is the current year.
 - Do not use "Lorem ipsum" or English placeholder text.
 - Do not hardcode `as const` assertions on arrays that are assigned to Next.js `Metadata` fields — this causes TypeScript errors (`readonly` not assignable to mutable type) that break the build and leave gray empty areas on the page.

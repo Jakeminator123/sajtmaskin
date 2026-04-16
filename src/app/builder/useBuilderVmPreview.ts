@@ -275,6 +275,9 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
 
         try {
           setPreviewPending(true);
+          const bootstrapTimeout = setTimeout(() => {
+            if (!cancelled) ac.abort();
+          }, 90_000);
           const res = await fetch(`${engineChatBaseUrl(chatId)}/preview-session`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -284,6 +287,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
             }),
             signal: ac.signal,
           });
+          clearTimeout(bootstrapTimeout);
           const data = (await res.json().catch(() => null)) as PreviewSessionPostApiJson | null;
           if (cancelled || previewBootstrapGenRef.current !== gen) return;
 

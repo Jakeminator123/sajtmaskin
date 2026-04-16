@@ -221,7 +221,7 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
           </div>
         ) : null}
         {hasHistoricalLogs ? (
-          <div className="rounded-md border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-sm text-sky-100">
+          <div className="rounded-md border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-sm text-blue-100">
             Visar senaste körpasset. Historiska loggar för versionen finns kvar i databasen.
           </div>
         ) : null}
@@ -258,7 +258,7 @@ export function VersionDiagnosticsDialog({ chatId, versionId, open, onOpenChange
                 {error}
               </div>
             ) : groupedLogs.length === 0 ? (
-              <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm text-emerald-100">
+              <div className="rounded-md border border-green-500/20 bg-green-500/5 p-3 text-sm text-green-100">
                 Inga sparade fel eller varningar för den här versionen ännu.
               </div>
             ) : (

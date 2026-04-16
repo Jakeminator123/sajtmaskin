@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createDirectModel } from "@/lib/builder/gateway-policy";
 import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -36,6 +37,7 @@ const AVAILABLE_SECTIONS = [
 ];
 
 export async function POST(req: NextRequest) {
+  return withRateLimit(req, "ai:suggest-pages", async () => {
   try {
     const body = await req.json().catch(() => ({}));
     const parsed = requestSchema.safeParse(body);
@@ -81,4 +83,5 @@ Svara BARA med en JSON-array av de exakta namnen (strängar) som passar bäst. V
     console.error("[API/ai/suggest-pages]", err);
     return NextResponse.json({ suggestions: [] });
   }
+  });
 }

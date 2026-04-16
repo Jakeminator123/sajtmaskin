@@ -318,7 +318,7 @@ export function StructuredToolParts({
               {summaries.seo ? (
                 <ReviewBlock
                   variant="full"
-                  title="SEO review"
+                  title="SEO-granskning"
                   passed={summaries.seo.passed}
                   passedLabel="SEO-baseline ser bra ut."
                   failedLabel={`${summaries.seo.issueCount} SEO-varning(ar) hittades.`}
@@ -351,7 +351,7 @@ export function StructuredToolParts({
               {summaries.analytics ? (
                 <ReviewBlock
                   variant="full"
-                  title="Analytics review"
+                  title="Analysgranskning"
                   passed={summaries.analytics.passed}
                   passedLabel="Tracking-baseline ser rimlig ut."
                   failedLabel={`${summaries.analytics.issueCount} tracking-varning(ar) hittades.`}
@@ -385,7 +385,7 @@ export function StructuredToolParts({
               {summaries.editorial ? (
                 <ReviewBlock
                   variant="full"
-                  title="Editorial inventory"
+                  title="Redaktionell inventering"
                   passed={true}
                   passedLabel={`${summaries.editorial.packCount} redigerbara innehållspack hittades.`}
                   failedLabel=""
@@ -400,7 +400,7 @@ export function StructuredToolParts({
               {summaries.business ? (
                 <ReviewBlock
                   variant="full"
-                  title="Business workflows"
+                  title="Affärsflöden"
                   passed={true}
                   passedLabel={`${summaries.business.packCount} affärspack hittades.`}
                   failedLabel=""
@@ -462,7 +462,7 @@ export function StructuredToolParts({
               )}
               <div className="border-border border-t p-4">
                 <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
-                  Tool debug
+                  Verktygsdebugg
                 </div>
                 <div className="text-muted-foreground mb-2 space-y-1 text-xs">
                   <p>
@@ -640,10 +640,10 @@ export function CompactToolParts({
                 {summaries.analytics ? (
                   <ReviewBlock
                     variant="compact"
-                    title="Analytics"
+                    title="Analys"
                     passed={summaries.analytics.passed}
-                    passedLabel="Analytics-baseline OK"
-                    failedLabel={`${summaries.analytics.issueCount} analytics-varning(ar)`}
+                    passedLabel="Analys-baseline OK"
+                    failedLabel={`${summaries.analytics.issueCount} analysvarning(ar)`}
                     details={[`Tracker: ${summaries.analytics.trackerDetected ? "ja" : "nej"} • events: ${summaries.analytics.conversionEventCount}`]}
                     issues={summaries.analytics.topIssues}
                     tips={summaries.analytics.suggestedPrompts}
@@ -655,9 +655,9 @@ export function CompactToolParts({
                 {summaries.editorial ? (
                   <ReviewBlock
                     variant="compact"
-                    title="Editorial"
+                    title="Redaktionellt"
                     passed={true}
-                    passedLabel={`Editorial packs: ${summaries.editorial.labels.join(", ")}`}
+                    passedLabel={`Redaktionella paket: ${summaries.editorial.labels.join(", ")}`}
                     failedLabel=""
                     details={[]}
                     issues={[]}
@@ -670,9 +670,9 @@ export function CompactToolParts({
                 {summaries.business ? (
                   <ReviewBlock
                     variant="compact"
-                    title="Business"
+                    title="Affär"
                     passed={true}
-                    passedLabel={`Business packs: ${summaries.business.labels.join(", ")}`}
+                    passedLabel={`Affärspaket: ${summaries.business.labels.join(", ")}`}
                     failedLabel=""
                     details={[
                       ...(summaries.business.recommendedIntegrations.length > 0 ? [`Rekommenderat: ${summaries.business.recommendedIntegrations.join(", ")}`] : []),
@@ -1156,7 +1156,7 @@ function extractQuestionPrompt(value: unknown, depth = 0): ToolQuestionPrompt | 
   );
   if (question || options.length > 0) {
     return {
-      question: question || "Choose an answer to continue.",
+      question: question || "Välj ett svar för att fortsätta.",
       options,
     };
   }

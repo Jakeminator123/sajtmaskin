@@ -33,6 +33,7 @@ import {
   type DesignReferenceAsset,
   type DynamicContextOptions,
   type DynamicContextPruning,
+  type MediaCatalogItem,
 } from "./system-prompt";
 import {
   inferCapabilities,
@@ -130,6 +131,8 @@ export interface OrchestrationInput {
    * like template guidance to activate even though generationMode resolves to "followUp".
    */
   isFirstCodeGeneration?: boolean;
+  /** User-provided image assets to inject as a media catalog in the system prompt. */
+  mediaCatalog?: MediaCatalogItem[];
 }
 
 export interface OrchestrationBase {
@@ -655,6 +658,7 @@ export async function finalizeOrchestrationPrompts(
     brief: brief as DynamicContextOptions["brief"],
     themeOverride: themeColors,
     imageGenerations,
+    mediaCatalog: input.mediaCatalog,
     scaffoldContext: base.scaffoldContext,
     capabilityHints: base.capabilityHints,
     resolvedScaffold: base.resolvedScaffold,

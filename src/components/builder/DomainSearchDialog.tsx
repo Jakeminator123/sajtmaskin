@@ -34,7 +34,7 @@ type DomainSearchDialogProps = {
 function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] }) {
   if (provider === "vercel") {
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground/60 dark:bg-white/10">
+      <span className="inline-flex items-center gap-1 rounded bg-black/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground/60">
         <Server className="h-2.5 w-2.5" />
         Vercel
       </span>
@@ -42,14 +42,14 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
   }
   if (provider === "loopia") {
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+      <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
         <Globe className="h-2.5 w-2.5" />
         Loopia
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+    <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
       <Globe className="h-2.5 w-2.5" />
       DNS
     </span>

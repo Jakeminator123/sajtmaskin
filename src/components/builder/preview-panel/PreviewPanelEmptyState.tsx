@@ -54,7 +54,7 @@ export function PreviewPanelEmptyState({
     }
   }, [externalLoading, sandboxPending]);
 
-  if ((externalLoading || sandboxPending) && !sandboxBuildError && !awaitingInput) {
+  if ((externalLoading || sandboxPending) && !sandboxBuildError) {
     return <GenerationProgress phase={generationPhase} />;
   }
 
@@ -77,8 +77,8 @@ export function PreviewPanelEmptyState({
       return (
         <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
           <MessageCircleQuestion className="mb-3 h-8 w-8 text-primary/60" />
-          <p className="mb-1 text-sm font-medium text-foreground">Jag behöver ditt svar</p>
-          <p className="text-xs">Svara i chatten så fortsätter jag bygga.</p>
+          <p className="mb-1 text-sm font-medium text-foreground">Behöver din input</p>
+          <p className="text-xs">Svara i chatten till höger så fortsätter vi.</p>
         </div>
       );
     }
@@ -110,14 +110,14 @@ export function PreviewPanelEmptyState({
   const title = sandboxBuildError
     ? "Bygget misslyckades"
     : awaitingInput
-      ? "Svar behövs"
+      ? "Behöver din input"
       : isInitialEmpty
         ? "Välkommen"
         : "Ingen preview än";
   const subtitle = sandboxBuildError
     ? `${sandboxBuildError.stage}: ${sandboxBuildError.message}`
     : awaitingInput
-      ? "Svara i chatten."
+      ? "Svara i chatten till höger så fortsätter vi."
       : isInitialEmpty
         ? "Skriv en prompt till vänster."
         : "Generera igen eller reparera.";
@@ -133,7 +133,7 @@ export function PreviewPanelEmptyState({
         : AlertCircle;
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-muted/15 p-6 text-muted-foreground">
+    <div className="flex h-full flex-col items-center justify-center bg-card p-6 text-muted-foreground">
       <div className="w-full max-w-md rounded-[var(--radius)] border border-border bg-card px-8 py-10 text-center shadow-sm">
         <EmptyIcon className={cn("mx-auto mb-4 h-10 w-10 text-primary/85")} />
         <p className="mb-2 text-base font-medium tracking-tight text-foreground" suppressHydrationWarning>

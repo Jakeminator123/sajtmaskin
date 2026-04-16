@@ -34,16 +34,16 @@ function buildPlaceholderSvg(params) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
     <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1e293b"/>
-      <stop offset="100%" style="stop-color:#0f172a"/>
+      <stop offset="0%" style="stop-color:#f1f5f9"/>
+      <stop offset="100%" style="stop-color:#e2e8f0"/>
     </linearGradient>
   </defs>
   <rect width="100%" height="100%" fill="url(#g)"/>
-  <rect x="1" y="1" width="${width - 2}" height="${height - 2}" fill="none" stroke="#334155" stroke-width="1" rx="4"/>
-  <text x="50%" y="48%" text-anchor="middle" dominant-baseline="middle" fill="#64748b" font-family="system-ui,sans-serif" font-size="${fontSize}">
+  <rect x="1" y="1" width="${width - 2}" height="${height - 2}" fill="none" stroke="#cbd5e1" stroke-width="1" rx="4"/>
+  <text x="50%" y="48%" text-anchor="middle" dominant-baseline="middle" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="${fontSize}">
     ${escapeXml(text)}
   </text>
-  <text x="50%" y="58%" text-anchor="middle" dominant-baseline="middle" fill="#475569" font-family="system-ui,sans-serif" font-size="${subFontSize}">
+  <text x="50%" y="58%" text-anchor="middle" dominant-baseline="middle" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="${subFontSize}">
     Placeholder
   </text>
 </svg>`;

@@ -63,7 +63,7 @@ export function PostCheckPanel(props: PostCheckPanelProps) {
         {props.autoFixQueued ? (
           <div className="text-amber-300">Status: autofix är köad efter post-check</div>
         ) : props.qualityGatePending ? (
-          <div className="text-cyan-300">Status: quality gate körs fortfarande</div>
+          <div className="text-blue-300">Status: quality gate körs fortfarande</div>
         ) : props.provisional ? (
           <div className="text-amber-300">
             Status: preliminär version medan verifieringen slutförs
@@ -123,7 +123,7 @@ export function ReviewBlock({
   if (variant === "compact") {
     return (
       <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-        <p className={passed ? "text-emerald-300" : "text-amber-300"}>
+        <p className={passed ? "text-green-300" : "text-amber-300"}>
           {passed ? passedLabel : failedLabel}
         </p>
         {details.length > 0 && (
@@ -145,7 +145,7 @@ export function ReviewBlock({
         {title}
       </div>
       <div className="space-y-1 text-muted-foreground">
-        <div className={passed ? "text-emerald-300" : "text-amber-300"}>
+        <div className={passed ? "text-green-300" : "text-amber-300"}>
           {passed ? passedLabel : failedLabel}
         </div>
         {details.map((detail) => (
@@ -191,10 +191,10 @@ export type ActionStripProps = {
 };
 
 const COLOR_CLASSES = {
-  cyan: "border-cyan-500/50 bg-cyan-500/10 text-cyan-200",
+  cyan: "border-blue-500/50 bg-blue-500/10 text-blue-200",
   violet: "border-violet-500/50 bg-violet-500/10 text-violet-200",
-  sky: "border-sky-500/50 bg-sky-500/10 text-sky-200",
-  emerald: "border-emerald-500/50 bg-emerald-500/10 text-emerald-200",
+  sky: "border-blue-500/50 bg-blue-500/10 text-blue-200",
+  emerald: "border-green-500/50 bg-green-500/10 text-green-200",
 } as const;
 
 export function ActionStrip({
@@ -301,7 +301,7 @@ function QualityGateFull(props: QualityGatePanelProps) {
   if (props.skipped) {
     return (
       <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-        <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Quality gate</div>
+        <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Kvalitetsgrind</div>
         <div className="text-muted-foreground">
           Hoppades över{props.reason ? `: ${props.reason}` : ""}
         </div>
@@ -319,16 +319,16 @@ function QualityGateFull(props: QualityGatePanelProps) {
 
   return (
     <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Quality gate</div>
+      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Kvalitetsgrind</div>
       <div className="space-y-1">
-        <div className={props.passed ? "text-emerald-400" : "text-rose-400"}>
-          {props.passed ? "PASS" : "FAIL"}
+        <div className={props.passed ? "text-green-400" : "text-red-400"}>
+          {props.passed ? "OK" : "FEL"}
         </div>
         {props.checks.map((check) => {
           const checkDuration = formatDurationMsShort(check.durationMs);
           return (
             <div key={check.check} className="text-muted-foreground flex items-center gap-1.5">
-              <span className={check.passed ? "text-emerald-400" : "text-rose-400"}>
+              <span className={check.passed ? "text-green-400" : "text-red-400"}>
                 {check.passed ? "\u2713" : "\u2717"}
               </span>
               <span>{check.check}</span>
@@ -337,7 +337,7 @@ function QualityGateFull(props: QualityGatePanelProps) {
               )}
               {!check.passed && check.output && (
                 <span
-                  className="ml-1 max-w-[280px] truncate text-[10px] text-rose-400/70"
+                  className="ml-1 max-w-[280px] truncate text-[10px] text-red-400/70"
                   title={check.output}
                 >
                   {check.output.split("\n")[0]?.slice(0, 80)}
@@ -354,13 +354,13 @@ function QualityGateFull(props: QualityGatePanelProps) {
         )}
         {props.firstFailureCheck && (
           <div className="text-amber-300/80 text-[10px]">
-            First failure: {props.firstFailureCheck}
+            Första felet: {props.firstFailureCheck}
           </div>
         )}
         {props.visualQA && (
           <div className="text-muted-foreground/80 text-[10px]">
-            Visual QA: {props.visualQA.overallScore}/100{" "}
-            {props.visualQA.passed ? "PASS" : "BELOW THRESHOLD"}
+            Visuell QA: {props.visualQA.overallScore}/100{" "}
+            {props.visualQA.passed ? "OK" : "UNDER TRÖSKELVÄRDET"}
           </div>
         )}
       </div>
@@ -372,7 +372,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
   if (props.skipped) {
     return (
       <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-        <p className="text-amber-300">Verify: hoppades över</p>
+        <p className="text-amber-300">Verifiera: hoppades över</p>
         {props.reason && <p className="text-muted-foreground mt-1">{props.reason}</p>}
       </div>
     );
@@ -380,8 +380,8 @@ function QualityGateCompact(props: QualityGatePanelProps) {
 
   if (props.errorText) {
     return (
-      <div className="mt-2 rounded-md border border-rose-500/40 bg-rose-500/10 p-2 text-xs">
-        <p className="text-rose-300">Verify: fel</p>
+      <div className="mt-2 rounded-md border border-red-500/40 bg-red-500/10 p-2 text-xs">
+        <p className="text-red-300">Verifiera: fel</p>
         <p className="text-muted-foreground mt-1">{props.errorText}</p>
       </div>
     );
@@ -397,8 +397,8 @@ function QualityGateCompact(props: QualityGatePanelProps) {
 
   return (
     <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-      <p className={props.passed ? "text-emerald-300" : "text-rose-300"}>
-        Verify: {props.passed ? "PASS" : "FAIL"}
+      <p className={props.passed ? "text-green-300" : "text-red-300"}>
+        Verifiera: {props.passed ? "OK" : "FEL"}
       </p>
       {props.checks.length > 0 && (
         <p className="text-muted-foreground mt-1 wrap-break-word">
@@ -417,7 +417,7 @@ function QualityGateCompact(props: QualityGatePanelProps) {
         <p className="text-muted-foreground mt-1">
           {[
             totalDuration ? `Total: ${totalDuration}` : null,
-            props.firstFailureCheck ? `First failure: ${props.firstFailureCheck}` : null,
+            props.firstFailureCheck ? `Första felet: ${props.firstFailureCheck}` : null,
           ]
             .filter((v): v is string => Boolean(v))
             .join(" • ")}
@@ -469,7 +469,7 @@ export function ServerRepairPanel(props: ServerRepairPanelProps) {
 
     return (
       <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-        <p className={props.repaired ? "text-emerald-300" : "text-amber-300"}>
+        <p className={props.repaired ? "text-green-300" : "text-amber-300"}>
           Repair: {props.repaired ? "lyckades" : "ej fullständig"}
         </p>
         {props.status && <p className="text-muted-foreground mt-1">Status: {props.status}</p>}
@@ -487,9 +487,9 @@ export function ServerRepairPanel(props: ServerRepairPanelProps) {
 
   return (
     <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
-      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Server repair</div>
+      <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">Serverreparation</div>
       <div className="space-y-1 text-muted-foreground">
-        <div className={props.repaired ? "text-emerald-300" : "text-amber-300"}>
+        <div className={props.repaired ? "text-green-300" : "text-amber-300"}>
           {props.repaired ? "Reparation lyckades" : "Reparationsförsök slutfört utan full fix"}
         </div>
         {props.status && <div>Status: {props.status}</div>}

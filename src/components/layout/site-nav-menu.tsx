@@ -32,8 +32,8 @@ const navGroups: NavGroup[] = [
   {
     title: "Utforska",
     links: [
-      { href: "#funktioner", label: "Funktioner" },
-      { href: "#teknik", label: "Teknik" },
+      { href: "/#funktioner", label: "Funktioner" },
+      { href: "/#teknik", label: "Teknik" },
     ],
   },
   {

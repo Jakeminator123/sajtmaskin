@@ -128,7 +128,7 @@ export function Reasoning({
         open={resolvedOpen}
         onOpenChange={handleOpenChange}
         className={cn(
-          "overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-900/50",
+          "overflow-hidden rounded-lg border border-border bg-muted/50",
           className,
         )}
         {...props}
@@ -156,8 +156,8 @@ export function ReasoningTrigger({
     const seconds = Math.max(1, Math.round(durationMs / 1000));
     return (
       <span className="flex items-center gap-2">
-        <span className="animate-pulse">💭</span>
-        {durationMs ? `Tänker (${seconds}s)...` : "Tänker..."}
+        <span className="h-1.5 w-1.5 rounded-full bg-primary/50 motion-safe:animate-pulse" />
+        Tänker...
       </span>
     );
   }, [isStreaming, durationMs]);
@@ -166,7 +166,7 @@ export function ReasoningTrigger({
     <CollapsibleTrigger
       className={cn(
         "flex w-full items-center gap-2 px-3 py-2 text-left",
-        "text-sm text-zinc-400 hover:text-zinc-200",
+        "text-sm text-muted-foreground hover:text-foreground",
         "transition-colors",
         className,
       )}
@@ -206,10 +206,10 @@ export interface ReasoningContentProps extends ComponentPropsWithoutRef<typeof C
 export function ReasoningContent({ children, className, ...props }: ReasoningContentProps) {
   return (
     <CollapsibleContent
-      className={cn("px-3 pb-3 text-sm leading-relaxed text-zinc-400", className)}
+      className={cn("px-3 pb-3 text-sm leading-relaxed text-muted-foreground", className)}
       {...props}
     >
-      <div className="border-t border-zinc-800 pt-2">{children}</div>
+      <div className="border-t border-border pt-2">{children}</div>
     </CollapsibleContent>
   );
 }

@@ -342,6 +342,14 @@ export function ChatInterface({
 
   const prefilledPromptRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(chatId);
+  const focusPromptTextarea = () => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLTextAreaElement>(
+        '[data-openclaw-text-target="builder.chat.primary"]',
+      );
+      el?.focus();
+    });
+  };
   useEffect(() => {
     if (chatId) return;
     if (!initialPrompt) return;
@@ -698,6 +706,7 @@ export function ChatInterface({
         setFigmaUrl("");
         setFigmaInputOpen(false);
         setInspectPoints([]);
+        focusPromptTextarea();
       }
     } finally {
       setIsSending(false);
@@ -961,10 +970,11 @@ export function ChatInterface({
       formData.append("file", rawFile);
       fetch("/api/media/upload", { method: "POST", body: formData })
         .then((res) => res.json())
-        .then((data: { url?: string }) => {
-          if (data.url) {
+        .then((data: { url?: string; media?: { url?: string } }) => {
+          const resolvedUrl = data.media?.url ?? data.url;
+          if (resolvedUrl) {
             setFiles((prev) =>
-              prev.map((f) => f.id === tempId ? { ...f, url: data.url!, status: "success" as const, isPublicUrl: true, purpose: "user-placement" } : f),
+              prev.map((f) => f.id === tempId ? { ...f, url: resolvedUrl, status: "success" as const, isPublicUrl: true, purpose: "user-placement" } : f),
             );
           } else {
             setFiles((prev) => prev.map((f) => f.id === tempId ? { ...f, status: "error" as const } : f));

@@ -74,14 +74,14 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
   }
   if (provider === "loopia") {
     return (
-      <Badge variant="secondary" className="gap-1 bg-emerald-500/10 text-[10px] text-emerald-700 dark:text-emerald-400">
+      <Badge variant="secondary" className="gap-1 bg-green-500/10 text-[10px] text-green-700">
         <Globe className="h-2.5 w-2.5" />
         Loopia
       </Badge>
     );
   }
   return (
-    <Badge variant="secondary" className="gap-1 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400">
+    <Badge variant="secondary" className="gap-1 bg-amber-500/10 text-[10px] text-amber-700">
       <Globe className="h-2.5 w-2.5" />
       DNS
     </Badge>
@@ -398,7 +398,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                 </p>
 
                 {linkError && (
-                  <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+                  <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700">
                     {linkError}
                   </div>
                 )}
@@ -439,7 +439,7 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                   )}
                   <div>
                     <p className="font-semibold">{selectedDomain.domain}</p>
-                    <p className={`text-sm ${verifyStatus?.verified ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    <p className={`text-sm ${verifyStatus?.verified ? "text-green-600" : "text-amber-600"}`}>
                       {verifyStatus?.verified
                         ? "Verifierad! Domänen är klar."
                         : "Väntar på DNS-propagering..."}
@@ -449,8 +449,8 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
               </div>
 
               {linkResult?.dnsSetup?.success && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm dark:border-green-900 dark:bg-green-950/50">
-                  <p className="font-medium text-green-700 dark:text-green-400">
+                <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm">
+                  <p className="font-medium text-green-700">
                     DNS konfigurerades automatiskt via {linkResult.dnsSetup.method === "loopia" ? "Loopia" : "Vercel"}.
                   </p>
                   <p className="text-muted-foreground mt-1 text-xs">

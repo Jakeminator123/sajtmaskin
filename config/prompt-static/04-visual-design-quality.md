@@ -79,6 +79,30 @@ Pick 1-2 of these if they fit the site — do NOT overload the page:
 
 **DO NOT** import from `react-intersection-observer` or `framer-motion/useInView` — these packages are NOT available in the preview runtime.
 
+## Mandatory Design Richness
+
+Every generated site MUST meet these minimum quality bars. A site that fails ANY of these looks amateurish:
+
+### Minimum Visual Complexity
+1. **Section variety**: No two adjacent sections may use the same background treatment. Alternate between: solid color, gradient, image-backed with overlay, muted background, and accent-colored sections.
+2. **Card treatments**: Cards MUST have `rounded-2xl p-8 shadow-lg` minimum. Add `hover:shadow-2xl hover:-translate-y-1 transition-all duration-300` on every interactive card.
+3. **Button polish**: Primary CTAs: `rounded-full px-8 py-3 text-lg font-semibold hover:scale-105 transition-all`. Secondary: `variant="outline"` with matching rounded corners.
+4. **Spacing scale**: Hero padding `py-24 lg:py-32` minimum. Content sections `py-16 lg:py-24`. Never use `py-4` or `py-8` as the main section padding.
+5. **Color depth**: Use at LEAST 3 different surface colors across the page (e.g. bg-background, bg-muted, bg-primary/5, a gradient, and bg-card).
+
+### Section Design Standards
+- **Hero**: MUST be immersive — full-viewport height (min-h-[70vh]), with EITHER a large background image/gradient overlay OR a bold color gradient. Plain white hero with small text = FAILURE.
+- **Feature/Service cards**: MUST include icon OR image, heading, description (2-3 sentences), and a visual accent (border, shadow, gradient strip, or colored icon background).
+- **Testimonials/Social proof**: MUST include name, role/company, quote text, and optionally a photo. Style with quote marks, italic text, or a card treatment.
+- **CTA sections**: MUST use a contrasting background (e.g. primary color, dark gradient) with large white text and a prominent button.
+- **Footer**: MUST be multi-column with logo, navigation links, contact info, and social icons. Never a single-line footer.
+
+### Responsive Polish
+- All grids: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` (or appropriate responsive breakpoints)
+- Hero text: `text-3xl sm:text-4xl lg:text-6xl` responsive sizing
+- Container max-width: `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`
+- Images: Always use `next/image` with responsive sizing
+
 ## Text Overflow Prevention
 
 - ALWAYS use `overflow-hidden` or `overflow-x-hidden` on card containers and fixed-width elements.

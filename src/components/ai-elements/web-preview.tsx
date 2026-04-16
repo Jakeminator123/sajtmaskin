@@ -161,7 +161,7 @@ export const WebPreviewUrl = ({ value, onChange, onKeyDown, ...props }: WebPrevi
       className="h-8 flex-1 text-sm"
       onChange={onChange ?? handleChange}
       onKeyDown={handleKeyDown}
-      placeholder="Enter URL..."
+      placeholder="Ange URL..."
       value={value ?? inputValue}
       {...props}
     />
@@ -181,7 +181,7 @@ export const WebPreviewBody = ({ className, loading, src, ...props }: WebPreview
         className={cn("size-full", className)}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
         src={(src ?? url) || undefined}
-        title="Preview"
+        title="Förhandsgranskning"
         {...props}
       />
       {loading}
@@ -217,7 +217,7 @@ export const WebPreviewConsole = ({
           className="hover:bg-muted/50 flex w-full items-center justify-between p-4 text-left font-medium"
           variant="ghost"
         >
-          Console
+          Konsol
           <ChevronDownIcon
             className={cn("h-4 w-4 transition-transform duration-200", consoleOpen && "rotate-180")}
           />
@@ -231,7 +231,7 @@ export const WebPreviewConsole = ({
       >
         <div className="max-h-48 space-y-1 overflow-y-auto">
           {logs.length === 0 ? (
-            <p className="text-muted-foreground">No console output</p>
+            <p className="text-muted-foreground">Ingen konsoloutput</p>
           ) : (
             logs.map((log, index) => (
               <div

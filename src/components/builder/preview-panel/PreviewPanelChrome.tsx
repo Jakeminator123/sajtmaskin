@@ -6,14 +6,20 @@ import {
   Code2,
   ExternalLink,
   FileText,
+  ImageIcon,
   Info,
   LayoutGrid,
   Monitor,
   MousePointerClick,
+  Palette,
+  Plus,
   Redo2,
   RefreshCw,
   Search,
   Smartphone,
+  Sparkles,
+  Tablet,
+  Type,
   Undo2,
   Wrench,
 } from "lucide-react";
@@ -23,6 +29,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -66,8 +73,8 @@ function routesEqual(active: string | null, candidate: string): boolean {
 
 export interface PreviewPanelChromeProps {
   previewUrl: string | null;
-  previewDevice?: "desktop" | "mobile";
-  onPreviewDeviceChange?: (mode: "desktop" | "mobile") => void;
+  previewDevice?: "desktop" | "tablet" | "mobile";
+  onPreviewDeviceChange?: (mode: "desktop" | "tablet" | "mobile") => void;
   previewRoutes?: string[];
   previewRoutesLoading?: boolean;
   activePreviewRoute?: string | null;
@@ -112,6 +119,7 @@ export interface PreviewPanelChromeProps {
   simplified?: boolean;
   inlineEditMode?: boolean;
   handleToggleInlineEdit?: () => void;
+  onSuggestionClick?: (prompt: string) => void;
 }
 
 export function PreviewPanelChrome({
@@ -162,6 +170,7 @@ export function PreviewPanelChrome({
   simplified: _simplified,
   inlineEditMode = false,
   handleToggleInlineEdit,
+  onSuggestionClick,
 }: PreviewPanelChromeProps) {
   const showPreviewToolbar = Boolean(previewUrl) && !isCodeView;
   const urlBar = previewUrl ? formatUrlForBar(previewUrl) : "";
@@ -206,11 +215,23 @@ export function PreviewPanelChrome({
               size="icon"
               className="h-7 w-7 rounded-md"
               onClick={() => onPreviewDeviceChange?.("desktop")}
-              title="Desktop"
-              aria-label="Desktop"
+              title="Dator"
+              aria-label="Dator"
               aria-pressed={previewDevice === "desktop"}
             >
               <Monitor className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant={previewDevice === "tablet" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-7 w-7 rounded-md"
+              onClick={() => onPreviewDeviceChange?.("tablet")}
+              title="Surfplatta"
+              aria-label="Surfplatta"
+              aria-pressed={previewDevice === "tablet"}
+            >
+              <Tablet className="h-3.5 w-3.5" />
             </Button>
             <Button
               type="button"
@@ -300,26 +321,76 @@ export function PreviewPanelChrome({
               aria-hidden
             />
           ) : previewRoutes.length > 0 ? (
-            previewRoutes.map((route) => {
-              const active = routesEqual(activePreviewRoute, route);
+            (() => {
+              const MAX_VISIBLE = 5;
+              const activeIdx = previewRoutes.findIndex((r) => routesEqual(activePreviewRoute, r));
+              const visible = previewRoutes.slice(0, MAX_VISIBLE);
+              const overflow = previewRoutes.slice(MAX_VISIBLE);
+              // Always show the active route in the visible set
+              const activeInOverflow = activeIdx >= MAX_VISIBLE ? previewRoutes[activeIdx] : null;
               return (
-                <button
-                  key={route}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => onNavigateRoute(route)}
-                  className={cn(
-                    "shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors duration-150",
-                    active
-                      ? "bg-primary/15 text-foreground shadow-sm ring-1 ring-primary/20"
-                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                <>
+                  {visible.map((route) => {
+                    const active = routesEqual(activePreviewRoute, route);
+                    return (
+                      <button
+                        key={route}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => onNavigateRoute(route)}
+                        className={cn(
+                          "shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors duration-150",
+                          active
+                            ? "bg-primary/15 text-foreground shadow-sm ring-1 ring-primary/20"
+                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                        )}
+                      >
+                        {route}
+                      </button>
+                    );
+                  })}
+                  {activeInOverflow && (
+                    <button
+                      key={activeInOverflow}
+                      type="button"
+                      role="tab"
+                      aria-selected
+                      onClick={() => onNavigateRoute(activeInOverflow)}
+                      className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] bg-primary/15 text-foreground shadow-sm ring-1 ring-primary/20 transition-colors duration-150"
+                    >
+                      {activeInOverflow}
+                    </button>
                   )}
-                >
-                  {route}
-                </button>
+                  {overflow.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors duration-150"
+                        >
+                          +{overflow.length}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                        {overflow.map((route) => (
+                          <DropdownMenuItem
+                            key={route}
+                            onClick={() => onNavigateRoute(route)}
+                            className={cn(
+                              "font-mono text-xs",
+                              routesEqual(activePreviewRoute, route) && "bg-primary/10 font-medium",
+                            )}
+                          >
+                            {route}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </>
               );
-            })
+            })()
           ) : activePreviewRoute ? (
             <span className="truncate font-mono text-[11px] text-muted-foreground">{activePreviewRoute}</span>
           ) : (
@@ -391,6 +462,31 @@ export function PreviewPanelChrome({
               <DropdownMenuItem onClick={handleClear} disabled={isLoading}>
                 Rensa
               </DropdownMenuItem>
+            ) : null}
+            {onSuggestionClick ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onSuggestionClick("Lägg till en undersida")}>
+                  <Plus className="mr-2 h-3.5 w-3.5" />
+                  Lägg till en sida
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSuggestionClick("Ändra färgschema")}>
+                  <Palette className="mr-2 h-3.5 w-3.5" />
+                  Ändra färgschema
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSuggestionClick("Mer innehåll")}>
+                  <Type className="mr-2 h-3.5 w-3.5" />
+                  Mer innehåll
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSuggestionClick("Byt bilder")}>
+                  <ImageIcon className="mr-2 h-3.5 w-3.5" />
+                  Byt bilder
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onSuggestionClick("Starkare CTA")}>
+                  <Sparkles className="mr-2 h-3.5 w-3.5" />
+                  Starkare CTA
+                </DropdownMenuItem>
+              </>
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>

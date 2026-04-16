@@ -44,6 +44,7 @@ export interface GenerationStreamParams {
   orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: UrlMap;
+  userMediaUrls?: string[];
   commitCredits: () => Promise<void>;
   previousFiles?: CodeFile[];
   /** SHA-256 of deterministic generation inputs (prompt lineage). */
@@ -68,6 +69,7 @@ export function createOwnEngineGenerationStream(
     orchestrationContract,
     resolvedScaffold,
     urlMap,
+    userMediaUrls,
     commitCredits,
     previousFiles,
     lineageHash,
@@ -268,6 +270,7 @@ export function createOwnEngineGenerationStream(
         orchestrationContract,
         resolvedScaffold,
         urlMap,
+        userMediaUrls,
         startedAt: engineStartedAt,
         orchestrationStreamMeta: meta as Record<string, unknown>,
         tokenUsage: {
@@ -429,6 +432,13 @@ export function createOwnEngineGenerationStream(
           ),
         );
       } finally {
+        if (abortSignal?.aborted) {
+          try {
+            await pipelineReader.cancel();
+          } catch {
+            /* Reader may already be cancelled */
+          }
+        }
         try {
           pipelineReader.releaseLock();
         } catch {
@@ -473,7 +483,7 @@ export function createOwnEngineGenerationStream(
           }
         }
 
-        if (!didSendDone) {
+        if (!didSendDone && !abortSignal?.aborted) {
           const flushed = suspense.flush();
           if (flushed) accumulatedContent += flushed;
 

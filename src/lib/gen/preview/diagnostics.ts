@@ -98,7 +98,7 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
     case "preflight_preview_blocked":
       return "Preview blockerades redan i preflight.";
     case "preflight_verification_blocked":
-      return "Previewn ar tillganglig, men verifieringen hittade blockerande problem.";
+      return "Previewn är tillgänglig, men verifieringen hittade blockerande problem.";
     case "preview_waiting_for_vm":
       return "Live-preview byggs fortfarande i VM.";
     case "render_route_version_not_found":
@@ -122,13 +122,13 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
     case "preview_ready_timeout":
       return "Previewn laddade inte klart innan timeout.";
     case "preview_document_unavailable":
-      return "Previewns iframe-dokument kunde inte lasas.";
+      return "Previewns iframe-dokument kunde inte läsas.";
     case "preview_route_error":
       return "Preview-route returnerade ett fel.";
     case "preview_missing_url":
-      return "Preview-lank saknas for versionen.";
+      return "Preview-länk saknas för versionen.";
     case "preview_unknown_error":
-      return "Previewn misslyckades av okand anledning.";
+      return "Previewn misslyckades av okänd anledning.";
     default:
       return null;
   }
@@ -141,7 +141,7 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
 export function previewRunbookLinesForCode(code: string | null | undefined): string[] {
   const c = (code ?? "").trim();
   const docHint =
-    "Utvecklare: full runbook finns i repot under docs/architecture/preview-white-screen-runbook.md.";
+    "Teknisk info: se docs/architecture/preview-white-screen-runbook.md.";
   switch (c) {
     case "preview_ready_timeout":
       return [

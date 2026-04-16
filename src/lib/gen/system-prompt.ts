@@ -208,7 +208,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
-  { match: /^media catalog$/i, priority: 80 },
+  { match: /^media catalog$/i, priority: 92, required: true },
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
   { match: /^component references$/i, priority: 80 },
@@ -223,6 +223,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^spec file$/i, priority: 78 },
   { match: /^current project files$/i, priority: 80 },
   { match: /^imagery/i, priority: 66 },
+  { match: /^must have$/i, priority: 88, required: true },
+  { match: /^avoid$/i, priority: 88, required: true },
   { match: /^seo$/i, priority: 62 },
 ];
 

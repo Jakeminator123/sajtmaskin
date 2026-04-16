@@ -34,12 +34,12 @@ export function LandingFooter() {
             <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Produkt</h4>
             <ul className="space-y-2">
               <li>
-                <a href="#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="/#funktioner" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Funktioner
                 </a>
               </li>
               <li>
-                <a href="#teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <a href="/#teknik" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Teknik
                 </a>
               </li>
@@ -50,7 +50,7 @@ export function LandingFooter() {
               </li>
               <li>
                 <a href="/templates" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  Templates
+                  Mallar
                 </a>
               </li>
             </ul>

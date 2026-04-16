@@ -951,10 +951,10 @@ function sendRuntimeStartingPage(res, session) {
     <title>Startar preview</title>
     <meta http-equiv="refresh" content="4" />
     <style>
-      body { font-family: system-ui, sans-serif; margin: 0; background: #0b0b0d; color: #f5f5f5; display: grid; place-items: center; min-height: 100vh; }
+      body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background: #fafafa; color: #1a1f36; display: grid; place-items: center; min-height: 100vh; }
       main { max-width: 40rem; padding: 2rem; text-align: center; }
-      .muted { color: #a3a3a3; }
-      code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.4rem; border-radius: 0.4rem; }
+      .muted { color: #6b7280; }
+      code { background: rgba(0,0,0,0.05); padding: 0.15rem 0.4rem; border-radius: 0.4rem; }
     </style>
   </head>
   <body>
