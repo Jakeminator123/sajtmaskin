@@ -164,16 +164,19 @@ export function FileUploadZone({
           const result = await response.json();
 
           if (result.success && result.media) {
-            // Check if we got a public URL (Vercel Blob)
+            const rawMediaUrl = result.media.url;
+            const normalizedUrl = rawMediaUrl && !rawMediaUrl.startsWith("http")
+              ? `${window.location.origin}${rawMediaUrl.startsWith("/") ? "" : "/"}${rawMediaUrl}`
+              : rawMediaUrl;
+
             const isPublicUrl =
-              result.media.url?.includes("blob.vercel-storage.com") ||
+              normalizedUrl?.includes("blob.vercel-storage.com") ||
               result.media.storageType === "blob";
 
-            // Update with success
             const successFile: UploadedFile = {
               ...uploadingFile,
               id: String(result.media.id) || uploadingFile.id,
-              url: result.media.url,
+              url: normalizedUrl,
               status: "success",
               isPublicUrl,
             };

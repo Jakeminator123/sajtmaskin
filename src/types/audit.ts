@@ -356,7 +356,7 @@ export interface WebsiteContent {
   headings: string[];
   text: string;
   images: number;
-  imageUrls?: Array<{ url: string; alt: string; role: string }>;
+  structuredProducts?: Array<{ name: string; price?: string; description?: string }>;
   links: {
     internal: number;
     external: number;

@@ -81,9 +81,12 @@ function PopupInner({ onConfirm, onSkip }: ImageUploadPopupProps) {
         return null;
       }
       const data = await res.json();
-      return data.success
-        ? { url: data.media?.url ?? data.url, mediaId: data.media?.id ?? null }
-        : null;
+      if (!data.success) return null;
+      const rawUrl = data.media?.url ?? data.url;
+      const url = rawUrl && !rawUrl.startsWith("http")
+        ? `${window.location.origin}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`
+        : rawUrl;
+      return { url, mediaId: data.media?.id ?? null };
     } catch (err) {
       console.warn("[ImageUpload] Upload error:", err);
       return null;

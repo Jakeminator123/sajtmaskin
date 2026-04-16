@@ -459,9 +459,13 @@ export function ChatInterface({
         try {
           const { media, file } = await uploadInspectPreview(previewDataUrl, fileName);
           const uploadedId = String(media.id || `inspect-upload-${Date.now()}`);
+          const rawInspectUrl = media.url || "";
+          const normalizedInspectUrl = rawInspectUrl && !rawInspectUrl.startsWith("http")
+            ? `${window.location.origin}${rawInspectUrl.startsWith("/") ? "" : "/"}${rawInspectUrl}`
+            : rawInspectUrl;
           const uploadedFile: UploadedFile = {
             id: uploadedId,
-            url: media.url || "",
+            url: normalizedInspectUrl,
             filename: file.name,
             mimeType: media.mimeType || file.type || "image/jpeg",
             size: file.size,
@@ -470,7 +474,7 @@ export function ChatInterface({
               detail.element?.nearestHeading ? ` heading=${detail.element.nearestHeading}` : ""
             }`,
             isPublicUrl:
-              media.storageType === "blob" || (media.url || "").includes("blob.vercel-storage.com"),
+              media.storageType === "blob" || normalizedInspectUrl.includes("blob.vercel-storage.com"),
           };
 
           setFiles((prevFiles) => {

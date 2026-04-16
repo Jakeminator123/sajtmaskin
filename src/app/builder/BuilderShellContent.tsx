@@ -326,15 +326,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
       const allMessages = [...vm.messages, ...userMessages];
 
-      // Collect scraped image URLs (already hosted, no upload needed)
-      const scrapedMedia: UploadedMediaInfo[] = (result.answers.scrapedImageUrls ?? []).map((img) => ({
-        filename: img.alt || "scraped-image",
-        mimeType: "image/jpeg",
-        url: img.url,
-        purpose: img.role === "logo" ? "brand-logo" : "site-media",
-        context: img.alt || img.role,
-      }));
-
       if (result.mediaFiles?.length) {
         pendingGenerationRef.current = { messages: allMessages };
 
@@ -347,7 +338,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               formData.append("context", context);
               const res = await fetch("/api/media/upload", { method: "POST", body: formData });
               const data = await res.json();
-              const mediaUrl = data?.media?.url ?? data?.url;
+              const rawUrl = data?.media?.url ?? data?.url;
+              const mediaUrl = rawUrl && !rawUrl.startsWith("http") ? `${window.location.origin}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}` : rawUrl;
               if (mediaUrl) {
                 const ctx = context.toLowerCase();
                 let purpose = "site-media";
@@ -355,6 +347,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 else if (ctx.includes("produkt") || ctx.includes("product")) purpose = "product-photo";
                 else if (ctx.includes("meny") || ctx.includes("menu")) purpose = "product-photo";
                 else if (ctx.includes("projekt") || ctx.includes("project")) purpose = "product-photo";
+                else if (ctx.includes("hero")) purpose = "hero-image";
+                else if (ctx.includes("about") || ctx.includes("om oss") || ctx.includes("team")) purpose = "about-image";
+                else if (ctx.includes("galleri") || ctx.includes("gallery") || ctx.includes("portfolio")) purpose = "gallery-image";
+                else if (ctx.includes("background") || ctx.includes("bakgrund")) purpose = "background-image";
                 uploaded.push({
                   filename: file.name,
                   mimeType: file.type || "image/jpeg",
@@ -372,11 +368,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               toast.error(`Uppladdning misslyckades: ${file.name}`);
             }
           }
-          // Merge uploaded files with scraped URLs
-          const allMedia = [...uploaded, ...scrapedMedia];
-          if (allMedia.length > 0) {
-            uploadedMediaRef.current = allMedia;
-            const attachments: V0UserFileAttachment[] = allMedia.map((u) => ({
+          if (uploaded.length > 0) {
+            uploadedMediaRef.current = uploaded;
+            const attachments: V0UserFileAttachment[] = uploaded.map((u) => ({
               type: "user_file" as const,
               url: u.url,
               filename: u.filename,
@@ -389,18 +383,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           }
         };
         void uploadAll();
-      } else if (scrapedMedia.length > 0) {
-        // No files to upload but we have scraped URLs
-        pendingGenerationRef.current = { messages: allMessages };
-        uploadedMediaRef.current = scrapedMedia;
-        const attachments: V0UserFileAttachment[] = scrapedMedia.map((u) => ({
-          type: "user_file" as const,
-          url: u.url,
-          filename: u.filename,
-          mimeType: u.mimeType,
-          purpose: u.purpose,
-        }));
-        executeStarterGeneration(attachments);
       } else {
         triggerStarterGeneration(allMessages);
       }
@@ -454,6 +436,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           title: pick(wf.companyName, brief?.brandName, reg?.companyName, sc?.title),
           metaDescription: pick(wf.offer, brief?.oneSentencePitch, sc?.description),
           description: pick(wf.offer),
+          aboutUs: pick(wf.aboutUs),
+          companyStory: pick(wf.companyStory),
+          vision: pick(wf.vision),
+          contactPageText: pick(wf.contactPageText),
           orgNr: reg?.orgNr || undefined,
           address: pick(wf.address, reg?.address ? `${reg.address}${reg.city ? `, ${reg.city}` : ""}` : undefined),
           industries: reg?.industries ?? undefined,
@@ -478,7 +464,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             ? (wf.menuItems as Array<{ name: string; description?: string; price?: string }>)
             : undefined,
           products: isConfident("products") && Array.isArray(wf.products) && wf.products.length > 0
-            ? (wf.products as Array<{ name: string; price?: string; image?: string }>)
+            ? (wf.products as Array<{ name: string; price?: string; description?: string; image?: string }>)
             : undefined,
           treatments: isConfident("treatments") && Array.isArray(wf.treatments) && wf.treatments.length > 0
             ? (wf.treatments as Array<{ name: string; price?: string; duration?: string }>)
@@ -497,7 +483,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           categorySpecific: wf.categorySpecific && typeof wf.categorySpecific === "object"
             ? (wf.categorySpecific as Record<string, string | string[] | boolean>)
             : undefined,
-          scrapedImages: sc?.imageUrls as Array<{ url: string; alt: string; role: string }> | undefined,
         };
 
         return result;

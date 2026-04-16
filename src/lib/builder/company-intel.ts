@@ -50,7 +50,7 @@ export interface CompanyIntelResult {
     headings: string[];
     text: string;
     images: number;
-    imageUrls?: Array<{ url: string; alt: string; role: string }>;
+    structuredProducts?: Array<{ name: string; price?: string; description?: string }>;
     meta: Record<string, string | undefined>;
     wordCount: number;
     sampledUrls?: string[];
@@ -288,7 +288,7 @@ function websiteContentToScraped(wc: WebsiteContent): CompanyIntelResult["scrape
     headings: wc.headings,
     text: wc.text,
     images: wc.images,
-    imageUrls: wc.imageUrls,
+    structuredProducts: wc.structuredProducts,
     meta: {
       keywords: wc.meta.keywords,
       author: wc.meta.author,
@@ -311,6 +311,14 @@ function buildRawTextCorpus(
     parts.push(
       `[WEBSITE] ${scraped.title}\n${scraped.description}\n${scraped.text.slice(0, 5000)}`,
     );
+
+    if (scraped.structuredProducts?.length) {
+      const productLines = scraped.structuredProducts.slice(0, 30).map((p) => {
+        const details = [p.price, p.description].filter(Boolean).join(" — ");
+        return `  - ${p.name}${details ? `: ${details}` : ""}`;
+      });
+      parts.push(`[PRODUCTS]\n${productLines.join("\n")}`);
+    }
   }
 
   if (registry?.found) {

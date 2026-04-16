@@ -42,7 +42,7 @@ import type { NeedsAnalysisField } from "@/lib/builder/needs-analysis";
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
-type StepId = "company" | "siteType" | "content" | "design" | "pages" | "media";
+type StepId = "company" | "siteType" | "content" | "story" | "design" | "pages" | "media";
 
 export interface ProductEntry {
   name: string;
@@ -85,6 +85,10 @@ interface WizardAnswers {
   siteType: string[];
   companyName: string;
   offer: string;
+  aboutUs: string;
+  companyStory: string;
+  vision: string;
+  contactPageText: string;
   existingSite: string;
   phone: string;
   email: string;
@@ -124,7 +128,6 @@ interface WizardAnswers {
   features: string[];
 
   siteMedia: Array<{ file: File; preview: string; context: string }>;
-  scrapedImageUrls: Array<{ url: string; alt: string; role: string }>;
 }
 
 /* ── Exported types (backward compat with BuilderShellContent) ─── */
@@ -138,6 +141,10 @@ export interface IntakeWizardResult {
 export interface WizardScrapeData {
   title?: string;
   description?: string;
+  aboutUs?: string;
+  companyStory?: string;
+  vision?: string;
+  contactPageText?: string;
   phone?: string;
   email?: string;
   socialLinks?: string[];
@@ -158,7 +165,7 @@ export interface WizardScrapeData {
   employees?: number;
   menuItems?: Array<{ name: string; description?: string; price?: string }>;
   treatments?: Array<{ name: string; price?: string; duration?: string }>;
-  products?: Array<{ name: string; price?: string; image?: string }>;
+  products?: Array<{ name: string; price?: string; description?: string; image?: string }>;
   teamMembers?: Array<{ name: string; role?: string }>;
   projects?: Array<{ name: string; description?: string; url?: string }>;
   cuisine?: string;
@@ -170,7 +177,6 @@ export interface WizardScrapeData {
   priceRange?: string;
   topics?: string[];
   categorySpecific?: Record<string, string | string[] | boolean>;
-  scrapedImages?: Array<{ url: string; alt: string; role: string }>;
 }
 
 interface IntakeWizardProps {
@@ -381,6 +387,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
     "webshop", "e-handel", "nätbutik", "sälj", "produkter online",
     "butik online", "webbshop", "shop", "näthandel", "webbutik",
     "e-commerce", "onlinebutik", "handla online", "varukorg",
+    "hudvårdsprodukter", "kosmetik", "skincare", "skönhetsprodukter",
   ],
   salon: [
     "salong", "frisör", "frisörsalong", "skönhet", "naglar", "hudvård",
@@ -482,6 +489,15 @@ function inferCategoriesFromText(text: string): string[] {
     }
     if (score > 0) matches.push({ id: catId, score });
   }
+
+  const hasEcommerce = matches.find((m) => m.id === "ecommerce");
+  const hasSalon = matches.find((m) => m.id === "salon");
+  if (hasEcommerce && hasSalon) {
+    const ecomSignals = ["webshop", "e-handel", "produkter", "shop", "köp", "beställ", "varukorg", "leverans", "frakt"];
+    const ecomBoost = ecomSignals.filter((s) => lower.includes(s)).length;
+    if (ecomBoost > 0) hasEcommerce.score += ecomBoost;
+  }
+
   matches.sort((a, b) => b.score - a.score);
   return matches.slice(0, 2).map((m) => m.id);
 }
@@ -497,22 +513,25 @@ type ContentBranch =
   | "hotel" | "construction" | "education" | "event" | "legal" | "realestate" | "nonprofit" | "consulting";
 
 function resolveContentBranch(siteTypeLabels: string[]): ContentBranch {
-  for (const label of siteTypeLabels) {
-    const cat = CATEGORIES.find((c) => c.label === label);
-    if (!cat) continue;
-    if (cat.id === "ecommerce") return "ecommerce";
-    if (cat.id === "restaurant" || cat.id === "food") return "restaurant";
-    if (cat.id === "salon" || cat.id === "healthcare" || cat.id === "fitness") return "salon";
-    if (cat.id === "portfolio" || cat.id === "photo" || cat.id === "music") return "portfolio";
-    if (cat.id === "hotel" || cat.id === "travel") return "hotel";
-    if (cat.id === "construction" || cat.id === "auto") return "construction";
-    if (cat.id === "education") return "education";
-    if (cat.id === "event") return "event";
-    if (cat.id === "legal" || cat.id === "accounting") return "legal";
-    if (cat.id === "realestate") return "realestate";
-    if (cat.id === "nonprofit") return "nonprofit";
-    if (cat.id === "consulting" || cat.id === "tech") return "consulting";
-    if (cat.id === "blog" || cat.id === "landing" || cat.id === "other") return "minimal";
+  const catIds = siteTypeLabels
+    .map((label) => CATEGORIES.find((c) => c.label === label)?.id)
+    .filter(Boolean) as string[];
+
+  if (catIds.includes("ecommerce")) return "ecommerce";
+
+  for (const id of catIds) {
+    if (id === "restaurant" || id === "food") return "restaurant";
+    if (id === "salon" || id === "healthcare" || id === "fitness") return "salon";
+    if (id === "portfolio" || id === "photo" || id === "music") return "portfolio";
+    if (id === "hotel" || id === "travel") return "hotel";
+    if (id === "construction" || id === "auto") return "construction";
+    if (id === "education") return "education";
+    if (id === "event") return "event";
+    if (id === "legal" || id === "accounting") return "legal";
+    if (id === "realestate") return "realestate";
+    if (id === "nonprofit") return "nonprofit";
+    if (id === "consulting" || id === "tech") return "consulting";
+    if (id === "blog" || id === "landing" || id === "other") return "minimal";
   }
   return "business";
 }
@@ -547,6 +566,10 @@ function emptyAnswers(promptOffer: string, inferredLabels: string[], initialUrl:
     siteType: inferredLabels,
     companyName: "",
     offer: promptOffer,
+    aboutUs: "",
+    companyStory: "",
+    vision: "",
+    contactPageText: "",
     existingSite: initialUrl,
     phone: "",
     email: "",
@@ -581,7 +604,6 @@ function emptyAnswers(promptOffer: string, inferredLabels: string[], initialUrl:
     goal: [],
     features: [],
     siteMedia: [],
-    scrapedImageUrls: [],
   };
 }
 
@@ -591,6 +613,7 @@ const STEP_TITLES: Record<StepId, string> = {
   company: "Ditt företag",
   siteType: "Kategori",
   content: "Innehåll",
+  story: "Om företaget",
   design: "Design",
   pages: "Sidor",
   media: "Media",
@@ -611,6 +634,7 @@ const STEP_ICONS: Record<StepId, LucideIcon> = {
   company: Building2,
   siteType: Sparkles,
   content: FileText,
+  story: Heart,
   design: ImagePlus,
   pages: BookOpen,
   media: Upload,
@@ -620,6 +644,7 @@ const STEP_SUBTITLES: Record<StepId, string> = {
   company: "",
   siteType: "",
   content: "",
+  story: "Berätta mer — detta ger innehåll till Om oss och Kontakt",
   design: "",
   pages: "",
   media: "",
@@ -650,7 +675,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   );
 
   const autoScrapedRef = useRef(false);
-  const [scrapedImages, setScrapedImages] = useState<Array<{ url: string; alt: string; role: string }>>([]);
+  
   const [scraping, setScraping] = useState(false);
   const [scrapeProgress, setScrapeProgress] = useState(0);
   const scrapeProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -662,7 +687,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const steps: StepId[] = ["company", "siteType", "content", "design", "pages", "media"];
+  const steps: StepId[] = ["company", "siteType", "content", "story", "design", "pages", "media"];
   const totalSteps = steps.length;
   const step = steps[currentStep];
   const progress = totalSteps > 0 ? ((currentStep + 1) / totalSteps) * 100 : 0;
@@ -716,8 +741,23 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
 
     setAnswers((prev) => {
       const next = { ...prev };
-      if (data.metaDescription && prev.offer.trim().length < 3) { next.offer = data.metaDescription; filled.add("offer"); }
+      if (prev.offer.trim().length < 3) {
+        const offerParts: string[] = [];
+        if (data.metaDescription) offerParts.push(data.metaDescription);
+        else if (data.description) offerParts.push(data.description);
+        if (data.tagline && !offerParts.some((p) => p.includes(data.tagline!))) offerParts.push(data.tagline);
+        if (data.services?.length) offerParts.push(`Tjänster: ${data.services.slice(0, 6).join(", ")}.`);
+        if (data.uniqueSellingPoints?.length) offerParts.push(data.uniqueSellingPoints.slice(0, 3).join(". ") + ".");
+        if (offerParts.length > 0) {
+          next.offer = offerParts.join("\n\n");
+          filled.add("offer");
+        }
+      }
       if (data.title && !prev.companyName) { next.companyName = data.title; filled.add("companyName"); }
+      if (data.aboutUs && !prev.aboutUs) { next.aboutUs = data.aboutUs; filled.add("aboutUs"); }
+      if (data.companyStory && !prev.companyStory) { next.companyStory = data.companyStory; filled.add("companyStory"); }
+      if (data.vision && !prev.vision) { next.vision = data.vision; filled.add("vision"); }
+      if (data.contactPageText && !prev.contactPageText) { next.contactPageText = data.contactPageText; filled.add("contactPageText"); }
       if (data.phone && !prev.phone) { next.phone = data.phone; filled.add("phone"); }
       if (data.email && !prev.email) { next.email = data.email; filled.add("email"); }
       if (data.address && !prev.address) { next.address = data.address; filled.add("address"); }
@@ -761,7 +801,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       }
       if (data.products?.length && !prev.products.length) {
         next.products = data.products.map((p) => ({
-          name: p.name, price: p.price ?? "", description: "", category: "", imagePreview: p.image ?? "",
+          name: p.name, price: p.price ?? "", description: p.description ?? "", category: "", imagePreview: "",
         }));
         filled.add("products");
       }
@@ -802,10 +842,6 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       }
       return next;
     });
-
-    if (data.scrapedImages?.length) {
-      setScrapedImages(data.scrapedImages);
-    }
 
     setScrapedFields(filled);
   }, []);
@@ -850,6 +886,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
         setScrapeComplete(true);
         const filled: string[] = [];
         if (data.title) filled.push("företagsnamn");
+        if (data.metaDescription || data.description || data.services?.length) filled.push("verksamhetsbeskrivning");
         if (data.phone || data.email) filled.push("kontaktuppgifter");
         if (data.services?.length) filled.push("tjänster");
         if (data.tagline) filled.push("tagline");
@@ -956,6 +993,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       case "company": return answers.companyName.trim().length >= 2 && answers.offer.trim().length >= 3;
       case "siteType": return answers.siteType.length > 0;
       case "content": return true;
+      case "story": return true;
       case "design": return true;
       case "pages": return answers.mustHave.length > 0;
       case "media": return true;
@@ -1097,6 +1135,14 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
 
       if (csParts.length) fieldMessages.push({ field: "categorySpecific" as NeedsAnalysisField, text: csParts.join("\n") });
 
+      // About / story / vision / contact
+      const storyParts: string[] = [];
+      if (answers.aboutUs.trim()) storyParts.push(`Om oss: ${answers.aboutUs.trim()}`);
+      if (answers.companyStory.trim()) storyParts.push(`Historia: ${answers.companyStory.trim()}`);
+      if (answers.vision.trim()) storyParts.push(`Vision/mission: ${answers.vision.trim()}`);
+      if (answers.contactPageText.trim()) storyParts.push(`Kontaktintro: ${answers.contactPageText.trim()}`);
+      if (storyParts.length) fieldMessages.push({ field: "companyStory" as NeedsAnalysisField, text: storyParts.join("\n\n") });
+
       if (answers.targetAudience.trim()) fieldMessages.push({ field: "audience" as NeedsAnalysisField, text: answers.targetAudience.trim() });
       if (answers.primaryCta.trim()) fieldMessages.push({ field: "cta" as NeedsAnalysisField, text: answers.primaryCta.trim() });
 
@@ -1114,22 +1160,13 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
         fieldMessages.push({ field: "features" as NeedsAnalysisField, text: featureLabels.join("\n") });
       }
 
-      if (answers.siteMedia.length > 0 || answers.scrapedImageUrls.length > 0) {
-        const parts: string[] = [];
-        if (answers.siteMedia.length > 0) {
-          const mediaDesc = answers.siteMedia.map((m) => {
-            const type = m.file.type.startsWith("video/") ? "video" : "bild";
-            return `${m.context || "Egen fil"} (${type}: ${m.file.name})`;
-          });
-          parts.push(`Uppladdade filer:\n${mediaDesc.join("\n")}`);
-        }
-        if (answers.scrapedImageUrls.length > 0) {
-          const scrapedDesc = answers.scrapedImageUrls.map((i) =>
-            `${i.alt || "Bild"} (${i.role}) — ${i.url}`
-          );
-          parts.push(`Bilder från befintlig sajt (använd dessa som <img src>):\n${scrapedDesc.join("\n")}`);
-        }
-        fieldMessages.push({ field: "siteMedia" as NeedsAnalysisField, text: parts.join("\n\n") });
+      if (answers.siteMedia.length > 0) {
+        const contextLabel = (ctx: string) => MEDIA_CONTEXT_OPTIONS.find((o) => o.value === ctx)?.label ?? ctx;
+        const mediaDesc = answers.siteMedia.map((m) => {
+          const type = m.file.type.startsWith("video/") ? "video" : "bild";
+          return `${contextLabel(m.context)} (${type}: ${m.file.name})`;
+        });
+        fieldMessages.push({ field: "siteMedia" as NeedsAnalysisField, text: `Uppladdade filer:\n${mediaDesc.join("\n")}` });
       }
 
       // Collect media files (product/menu/project images + logo + site media)
@@ -1145,7 +1182,8 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
         if (p.imageFile) mediaFiles.push({ file: p.imageFile, context: `Projekt: ${p.name}` });
       }
       for (const sm of answers.siteMedia) {
-        mediaFiles.push({ file: sm.file, context: sm.context || "Egen bild/video" });
+        const label = MEDIA_CONTEXT_OPTIONS.find((o) => o.value === sm.context)?.label ?? sm.context;
+        mediaFiles.push({ file: sm.file, context: label || "Egen bild/video" });
       }
 
       onComplete({ answers, fieldMessages, mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined });
@@ -1301,6 +1339,9 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
           {step === "content" && (
             <ContentStep branch={contentBranch} answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} onClearScraped={clearScrapedField} />
           )}
+          {step === "story" && (
+            <StoryStep answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} />
+          )}
           {step === "design" && (
             <DesignStep answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} onClearScraped={clearScrapedField} />
           )}
@@ -1316,7 +1357,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
             />
           )}
           {step === "media" && (
-            <MediaStep answers={answers} onChange={setAnswers} scrapedImages={scrapedImages} />
+            <MediaStep answers={answers} onChange={setAnswers} />
           )}
         </div>
 
@@ -1516,24 +1557,8 @@ function CompanyStep({
       </div>
 
       <div>
-        <SectionLabel>Beskriv din verksamhet *</SectionLabel>
-        <p className="mb-1.5 text-xs text-muted-foreground/70">Ju mer du beskriver, desto bättre blir sajten. Berätta vad ni gör, för vem, och vad som gör er unika.</p>
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={answers.offer}
-            onChange={(e) => set("offer", e.target.value)}
-            placeholder={"T.ex. Vi driver en frisörsalong i centrala Göteborg med fokus på färgning, klippning och hårvård. Vi riktar oss till kvinnor 25-55 som vill ha premium-behandlingar i en avslappnad miljö. Vi erbjuder även bruduppsättningar och har 15 års erfarenhet."}
-            className={cn(FIELD_CLASS, "min-h-[140px] resize-none")}
-          />
-          {scrapedFields.has("offer") && <ScrapeBadge />}
-        </div>
-      </div>
-
-      <div className="h-px bg-border" />
-
-      <div>
         <FieldLabel>Befintlig hemsida (valfritt)</FieldLabel>
+        <p className="mb-1.5 text-xs text-muted-foreground/70">Fyll i din hemsida så hämtar vi info automatiskt</p>
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
           <div className="relative min-w-0 flex-1">
             <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
@@ -1623,6 +1648,23 @@ function CompanyStep({
             </ul>
           </div>
         )}
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <SectionLabel>Beskriv din verksamhet *</SectionLabel>
+        <p className="mb-1.5 text-xs text-muted-foreground/70">Ju mer du beskriver, desto bättre blir sajten. Berätta vad ni gör, för vem, och vad som gör er unika.</p>
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={answers.offer}
+            onChange={(e) => set("offer", e.target.value)}
+            placeholder={"T.ex. Vi driver en frisörsalong i centrala Göteborg med fokus på färgning, klippning och hårvård. Vi riktar oss till kvinnor 25-55 som vill ha premium-behandlingar i en avslappnad miljö. Vi erbjuder även bruduppsättningar och har 15 års erfarenhet."}
+            className={cn(FIELD_CLASS, "min-h-[140px] resize-none")}
+          />
+          {scrapedFields.has("offer") && <ScrapeBadge />}
+        </div>
       </div>
 
       <details className="group rounded-xl border border-border bg-muted/25 px-4 py-3" open={!!(answers.phone || answers.email || answers.address)}>
@@ -2519,6 +2561,75 @@ function ConsultingContent({ answers, onChange }: ContentProps) {
    Step 4: Design
    ════════════════════════════════════════════════════════════════════ */
 
+function StoryStep({ answers, onChange, scrapedFields }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>; scrapedFields?: Set<string> }) {
+  const set = (key: keyof WizardAnswers, value: string) => onChange((p) => ({ ...p, [key]: value }));
+  return (
+    <div className="space-y-5">
+      <div>
+        <SectionLabel>Om oss</SectionLabel>
+        <p className="mb-1.5 text-xs text-muted-foreground/70">Berätta om företaget — historia, filosofi, vad som gör er unika. Blir "Om oss"-sidan.</p>
+        <div className="relative">
+          <textarea
+            value={answers.aboutUs}
+            onChange={(e) => set("aboutUs", e.target.value)}
+            placeholder="T.ex. Vi grundades 2015 med en passion för ekologisk hudvård. Idag hjälper vi tusentals kunder att hitta produkter som är bra för både huden och planeten..."
+            className={cn(FIELD_CLASS, "min-h-[120px] resize-none")}
+          />
+          {scrapedFields?.has("aboutUs") && <ScrapeBadge />}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Företagets historia (valfritt)</FieldLabel>
+        <p className="mb-1.5 text-xs text-muted-foreground/70">Hur startade företaget? Milstolpar och utveckling.</p>
+        <div className="relative">
+          <textarea
+            value={answers.companyStory}
+            onChange={(e) => set("companyStory", e.target.value)}
+            placeholder="T.ex. Grundat i ett garage 2010, idag med kontor i tre städer..."
+            className={cn(FIELD_CLASS, "min-h-[80px] resize-none")}
+          />
+          {scrapedFields?.has("companyStory") && <ScrapeBadge />}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Vision / mission (valfritt)</FieldLabel>
+        <div className="relative">
+          <input
+            type="text"
+            value={answers.vision}
+            onChange={(e) => set("vision", e.target.value)}
+            placeholder="T.ex. Att göra hållbar hudvård tillgänglig för alla"
+            className={FIELD_CLASS}
+          />
+          {scrapedFields?.has("vision") && <ScrapeBadge />}
+        </div>
+      </div>
+
+      <div className="h-px bg-border" />
+
+      <div>
+        <FieldLabel>Kontaktsidans intro (valfritt)</FieldLabel>
+        <p className="mb-1.5 text-xs text-muted-foreground/70">En kort text som visas på kontaktsidan.</p>
+        <div className="relative">
+          <textarea
+            value={answers.contactPageText}
+            onChange={(e) => set("contactPageText", e.target.value)}
+            placeholder="T.ex. Vi hjälper dig gärna! Tveka inte att höra av dig med frågor om våra produkter eller beställningar."
+            className={cn(FIELD_CLASS, "min-h-[70px] resize-none")}
+          />
+          {scrapedFields?.has("contactPageText") && <ScrapeBadge />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Step 4 : Design ────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════════════
+   ════════════════════════════════════════════════════════════════════ */
+
 function DesignStep({ answers, onChange, scrapedFields, onClearScraped }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>; scrapedFields?: Set<string>; onClearScraped?: (f: string) => void }) {
   const addColor = () => onChange((p) => ({ ...p, brandColors: [...p.brandColors, "#"] }));
   const removeColor = (idx: number) => onChange((p) => ({ ...p, brandColors: p.brandColors.filter((_, i) => i !== idx) }));
@@ -2772,8 +2883,8 @@ function PagesStep({
 
 function ScrapeBadge() {
   return (
-    <span className="absolute right-3 top-1/2 max-w-[calc(100%-1rem)] -translate-y-1/2 truncate rounded-md border border-primary/15 bg-primary/[0.07] px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur-[2px]">
-      Från sajt
+    <span className="absolute right-2 top-1 rounded-full bg-primary/10 p-0.5 text-primary" title="Hämtat från sajt">
+      <Sparkles className="h-3 w-3" />
     </span>
   );
 }
@@ -2827,23 +2938,28 @@ function ImagePickerThumb({ preview, onPick }: { preview?: string; onPick: (file
 
 const ACCEPTED_MEDIA_TYPES = "image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/webm,video/quicktime";
 
-function MediaStep({ answers, onChange, scrapedImages }: {
+const MEDIA_CONTEXT_OPTIONS = [
+  { value: "hero", label: "Herobild (stor bild högst upp)" },
+  { value: "about", label: "Om oss / teamfoto" },
+  { value: "product", label: "Produktbild" },
+  { value: "gallery", label: "Galleri / portfolio" },
+  { value: "background", label: "Bakgrundsbild" },
+  { value: "other", label: "Annat (AI bestämmer)" },
+];
+
+function MediaStep({ answers, onChange }: {
   answers: WizardAnswers;
   onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>;
-  scrapedImages: Array<{ url: string; alt: string; role: string }>;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [selectedScraped, setSelectedScraped] = useState<Set<string>>(() => new Set());
-  const [loadErrors, setLoadErrors] = useState<Set<string>>(() => new Set());
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const newMedia: Array<{ file: File; preview: string; context: string }> = [];
     for (const file of Array.from(files)) {
       if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) continue;
       const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
-      const isVideo = file.type.startsWith("video/");
-      newMedia.push({ file, preview, context: isVideo ? "Video" : "Bild" });
+      newMedia.push({ file, preview, context: "other" });
     }
     if (newMedia.length > 0) {
       onChange((prev) => ({ ...prev, siteMedia: [...prev.siteMedia, ...newMedia] }));
@@ -2871,108 +2987,11 @@ function MediaStep({ answers, onChange, scrapedImages }: {
     if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
   }, [addFiles]);
 
-  const toggleScraped = useCallback((url: string) => {
-    setSelectedScraped((prev) => {
-      const next = new Set(prev);
-      if (next.has(url)) next.delete(url);
-      else next.add(url);
-      return next;
-    });
-  }, []);
-
-  const selectAllScraped = useCallback(() => {
-    const visible = scrapedImages.filter((i) => !loadErrors.has(i.url));
-    setSelectedScraped(new Set(visible.map((i) => i.url)));
-  }, [scrapedImages, loadErrors]);
-
-  const deselectAllScraped = useCallback(() => {
-    setSelectedScraped(new Set());
-  }, []);
-
-  // Sync selected scraped images into siteMedia.scrapedUrls
-  useEffect(() => {
-    const urls = Array.from(selectedScraped);
-    onChange((prev) => ({
-      ...prev,
-      scrapedImageUrls: urls.map((url) => {
-        const info = scrapedImages.find((i) => i.url === url);
-        return { url, alt: info?.alt || "", role: info?.role || "content" };
-      }),
-    }));
-  }, [selectedScraped, scrapedImages, onChange]);
-
-  const visibleScraped = scrapedImages.filter((i) => !loadErrors.has(i.url));
-  const allSelected = visibleScraped.length > 0 && visibleScraped.every((i) => selectedScraped.has(i.url));
-
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Ladda upp bilder och videos som du vill ha med på din sajt. AI:n analyserar varje fil och placerar den där den passar bäst.
+        Ladda upp bilder och videos. AI:n placerar dem där de passar bäst, men du kan hjälpa till med kategorin.
       </p>
-
-      {/* Scraped images from the website */}
-      {scrapedImages.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              Bilder från din nuvarande sajt
-            </span>
-            <button
-              type="button"
-              onClick={allSelected ? deselectAllScraped : selectAllScraped}
-              className="text-xs text-primary hover:underline"
-            >
-              {allSelected ? "Avmarkera alla" : "Välj alla"}
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
-            {scrapedImages.map((img) => {
-              if (loadErrors.has(img.url)) return null;
-              const selected = selectedScraped.has(img.url);
-              return (
-                <button
-                  key={img.url}
-                  type="button"
-                  onClick={() => toggleScraped(img.url)}
-                  className={cn(
-                    "group/scraped relative h-24 overflow-hidden rounded-lg border-2 transition-all",
-                    MOTION,
-                    selected
-                      ? "border-primary ring-2 ring-primary/20"
-                      : "border-border hover:border-primary/40",
-                  )}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.url}
-                    alt={img.alt}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    onError={() => setLoadErrors((prev) => new Set(prev).add(img.url))}
-                  />
-                  {selected && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
-                      <div className="rounded-full bg-primary p-1">
-                        <Check className="h-3.5 w-3.5 text-primary-foreground" />
-                      </div>
-                    </div>
-                  )}
-                  {img.role !== "content" && (
-                    <span className="absolute bottom-0.5 left-0.5 rounded bg-background/80 px-1 py-px text-[9px] font-medium text-foreground/70 backdrop-blur-sm">
-                      {img.role === "logo" ? "Logo" : img.role === "hero" ? "Hero" : img.role === "team" ? "Team" : img.role === "product" ? "Produkt" : img.role === "gallery" ? "Galleri" : img.role}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {selectedScraped.size > 0 && (
-            <p className="text-xs text-muted-foreground/60">
-              {selectedScraped.size} {selectedScraped.size === 1 ? "bild vald" : "bilder valda"} — dessa inkluderas automatiskt
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Drop zone */}
       <div
@@ -3020,7 +3039,6 @@ function MediaStep({ answers, onChange, scrapedImages }: {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {answers.siteMedia.map((item, idx) => (
               <div key={idx} className="group/card relative rounded-xl border border-border bg-muted/25 overflow-hidden">
-                {/* Preview */}
                 {item.file.type.startsWith("video/") ? (
                   <div className="flex h-28 items-center justify-center bg-muted/50">
                     <Film className="h-8 w-8 text-muted-foreground/40" />
@@ -3033,7 +3051,6 @@ function MediaStep({ answers, onChange, scrapedImages }: {
                   </div>
                 )}
 
-                {/* Remove button */}
                 <button
                   type="button"
                   onClick={() => removeFile(idx)}
@@ -3042,16 +3059,17 @@ function MediaStep({ answers, onChange, scrapedImages }: {
                   <X className="h-3.5 w-3.5" />
                 </button>
 
-                {/* Context input */}
-                <div className="p-2">
-                  <input
-                    type="text"
+                <div className="p-2 space-y-1">
+                  <select
                     value={item.context}
                     onChange={(e) => updateContext(idx, e.target.value)}
-                    placeholder="Beskrivning, t.ex. 'Bild på teamet'"
-                    className="w-full rounded-lg border-0 bg-transparent px-1.5 py-1 text-xs text-foreground placeholder:text-muted-foreground/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30"
-                  />
-                  <span className="mt-0.5 block truncate text-[10px] text-muted-foreground/40">
+                    className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30"
+                  >
+                    {MEDIA_CONTEXT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <span className="block truncate text-[10px] text-muted-foreground/40">
                     {item.file.name}
                   </span>
                 </div>

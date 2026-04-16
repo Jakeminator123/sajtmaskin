@@ -398,6 +398,10 @@ function normalizeBrief(raw: Record<string, unknown>): Brief {
 export interface WizardFieldsResult {
   companyName?: string;
   offer?: string;
+  aboutUs?: string;
+  companyStory?: string;
+  vision?: string;
+  contactPageText?: string;
   phone?: string;
   email?: string;
   address?: string;
@@ -409,7 +413,7 @@ export interface WizardFieldsResult {
   uniqueSellingPoints?: string[];
   testimonials?: string[];
   menuItems?: Array<{ name: string; description?: string; price?: string }>;
-  products?: Array<{ name: string; price?: string; image?: string }>;
+  products?: Array<{ name: string; price?: string; description?: string }>;
   treatments?: Array<{ name: string; price?: string; duration?: string }>;
   teamMembers?: Array<{ name: string; role?: string }>;
   projects?: Array<{ name: string; description?: string; url?: string }>;
@@ -478,6 +482,10 @@ Returnera EXAKT detta JSON-format. Utelämna fält du inte hittar info för:
 {
   "companyName": "Företagets namn",
   "offer": "Kort beskrivning av vad företaget erbjuder (1-2 meningar)",
+  "aboutUs": "Om oss-text: en längre, engagerande beskrivning av företaget, dess historia, filosofi och vad som gör dem unika. 3-6 meningar. Basera på all tillgänglig info.",
+  "companyStory": "Företagets historia/story: grundande, milstolpar, utveckling. 2-4 meningar om info finns.",
+  "vision": "Vision/mission-statement om det finns. Vad företaget strävar efter.",
+  "contactPageText": "Beskrivande text för kontaktsidan: kort intro som bjuder in till kontakt. 1-2 meningar.",
   "phone": "Telefonnummer exakt som det står",
   "email": "E-postadress exakt som den står",
   "address": "Fullständig adress",
@@ -492,7 +500,7 @@ Returnera EXAKT detta JSON-format. Utelämna fält du inte hittar info för:
     {"name": "Rättens namn", "description": "Kort beskrivning", "price": "149 kr"}
   ],
   "products": [
-    {"name": "Produktnamn", "price": "299 kr", "image": "URL till produktbild om den finns"}
+    {"name": "Produktnamn", "price": "299 kr", "description": "Kort produktbeskrivning"}
   ],
   "treatments": [
     {"name": "Behandlingsnamn", "price": "599 kr", "duration": "60 min"}
@@ -547,6 +555,16 @@ Returnera EXAKT detta JSON-format. Utelämna fält du inte hittar info för:
     "services": "medium"
   }
 }
+
+VIKTIGT om products:
+- Inkludera "description" för varje produkt om beskrivning finns tillgänglig.
+- Inkludera ALLA produkter du hittar, inte bara de första.
+
+VIKTIGT om aboutUs/companyStory/vision:
+- aboutUs: Skriv en engagerande "Om oss"-text baserad på ALL tillgänglig information. Fokusera på vad som gör företaget unikt.
+- companyStory: Om du hittar info om hur/när företaget grundades, dess utveckling — sammanfatta det.
+- vision: Bara om det finns explicit i texten.
+- contactPageText: Skriv en kort, inbjudande text för kontaktsidan.
 
 VIKTIGT om categorySpecific:
 - Inkludera BARA de nycklar som är relevanta för denna typ av verksamhet.
@@ -619,6 +637,10 @@ function normalizeWizardFields(raw: Record<string, unknown>): WizardFieldsResult
 
   result.companyName = str("companyName");
   result.offer = str("offer");
+  result.aboutUs = str("aboutUs");
+  result.companyStory = str("companyStory");
+  result.vision = str("vision");
+  result.contactPageText = str("contactPageText");
   result.phone = str("phone");
   result.email = str("email");
   result.address = str("address");
@@ -658,7 +680,7 @@ function normalizeWizardFields(raw: Record<string, unknown>): WizardFieldsResult
       .map((v) => ({
         name: String(v.name),
         price: typeof v.price === "string" ? v.price : undefined,
-        image: typeof v.image === "string" ? v.image : undefined,
+        description: typeof v.description === "string" ? v.description : undefined,
       }));
     if (items.length > 0) result.products = items;
   }

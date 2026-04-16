@@ -208,10 +208,24 @@ export function summarizeDesignReferences(
       };
     }
 
+    const purposeHints: Record<string, string> = {
+      "hero-image": `HERO IMAGE — Place this as the main hero section background or prominent image. Use full-width with object-cover. URL: ${attachment.url}`,
+      "product-photo": `PRODUCT IMAGE — Use this in product cards, product grids, or feature sections. URL: ${attachment.url}`,
+      "about-image": `ABOUT/TEAM IMAGE — Place this on the About page or team section. URL: ${attachment.url}`,
+      "gallery-image": `GALLERY IMAGE — Include in an image gallery, portfolio grid, or showcase section. URL: ${attachment.url}`,
+      "background-image": `BACKGROUND IMAGE — Use as a section background with dark overlay for text readability. URL: ${attachment.url}`,
+      "site-media": `SITE IMAGE — Place this where it fits best based on content. URL: ${attachment.url}`,
+    };
+
+    const purposeNote = attachment.purpose ? purposeHints[attachment.purpose] : undefined;
+    if (purposeNote) {
+      return { kind: "image", label: filename, note: purposeNote };
+    }
+
     return {
       kind: "image",
       label: filename,
-      note: `User-uploaded image. If it looks like a company photo, product image, or logo, use its EXACT URL (${attachment.url}) in <img> tags on the site. Otherwise treat as a visual reference.`,
+      note: `User-uploaded image. Use its EXACT URL (${attachment.url}) in <img> tags on the site. Do NOT use placeholders.`,
     };
   });
 }

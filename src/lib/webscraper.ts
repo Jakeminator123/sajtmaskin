@@ -502,61 +502,54 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     }
   }
 
+  // Extract structured products from JSON-LD / schema.org
+  const structuredProducts: Array<{ name: string; price?: string; description?: string }> = [];
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const ld = JSON.parse($(el).html() || "");
+      const items = Array.isArray(ld) ? ld : ld["@graph"] ? ld["@graph"] : [ld];
+      for (const item of items) {
+        if (item["@type"] === "Product" || item["@type"] === "IndividualProduct") {
+          const name = item.name;
+          if (!name || typeof name !== "string") continue;
+          const offer = item.offers || item.offer;
+          const price = offer?.price ?? offer?.lowPrice;
+          const currency = offer?.priceCurrency ?? "kr";
+          structuredProducts.push({
+            name,
+            price: price ? `${price} ${currency}` : undefined,
+            description: typeof item.description === "string" ? item.description.slice(0, 200) : undefined,
+          });
+        }
+      }
+    } catch { /* ignore malformed JSON-LD */ }
+  });
+
+  // Fallback: extract product-like cards from DOM if no JSON-LD products found
+  if (structuredProducts.length === 0) {
+    const productSelectors = [
+      ".product", ".product-card", ".product-item",
+      "[class*='product-']", "[class*='ProductCard']",
+      ".woocommerce-loop-product", ".shopify-product",
+    ];
+    $(productSelectors.join(", ")).each((_, el) => {
+      if (structuredProducts.length >= 30) return;
+      const $el = $(el);
+      const name = $el.find("h2, h3, h4, .product-title, [class*='title'], [class*='name']").first().text().trim();
+      if (!name || name.length < 2) return;
+      const priceEl = $el.find(".price, [class*='price'], [class*='Price']").first().text().trim();
+      const desc = $el.find(".description, [class*='description'], [class*='excerpt'], p").first().text().trim();
+      structuredProducts.push({
+        name,
+        price: priceEl || undefined,
+        description: desc && desc.length > 5 ? desc.slice(0, 200) : undefined,
+      });
+    });
+  }
+
   let internalLinks = 0;
   let externalLinks = 0;
   const images = $("img").length;
-
-  // Extract meaningful image URLs with context
-  const imageUrls: Array<{ url: string; alt: string; role: string }> = [];
-  const seenImgUrls = new Set<string>();
-
-  // OG image (usually the best hero/brand image)
-  const ogImage = $('meta[property="og:image"]').attr("content");
-  if (ogImage) {
-    const abs = absoluteUrl(ogImage, baseUrl);
-    if (abs && !seenImgUrls.has(abs)) {
-      seenImgUrls.add(abs);
-      imageUrls.push({ url: abs, alt: title || "", role: "hero" });
-    }
-  }
-
-  // Logo candidates
-  $('img[class*="logo"], img[id*="logo"], img[alt*="logo"], img[alt*="Logo"], a.logo img, .logo img, header img').each((_, el) => {
-    const src = $(el).attr("src") || $(el).attr("data-src");
-    if (!src) return;
-    const abs = absoluteUrl(src, baseUrl);
-    if (!abs || seenImgUrls.has(abs)) return;
-    if (abs.includes("data:") || abs.includes("svg+xml")) return;
-    seenImgUrls.add(abs);
-    imageUrls.push({ url: abs, alt: $(el).attr("alt") || "", role: "logo" });
-  });
-
-  // Content images (skip tiny icons, tracking pixels, etc.)
-  $("img").each((_, el) => {
-    if (imageUrls.length >= 20) return;
-    const src = $(el).attr("src") || $(el).attr("data-src") || $(el).attr("data-lazy-src");
-    if (!src) return;
-    const abs = absoluteUrl(src, baseUrl);
-    if (!abs || seenImgUrls.has(abs)) return;
-    if (abs.includes("data:") || abs.includes("svg+xml")) return;
-
-    const alt = $(el).attr("alt") || "";
-    const width = parseInt($(el).attr("width") || "0", 10);
-    const height = parseInt($(el).attr("height") || "0", 10);
-    if ((width > 0 && width < 50) || (height > 0 && height < 50)) return;
-
-    const srcLower = abs.toLowerCase();
-    if (srcLower.includes("icon") || srcLower.includes("pixel") || srcLower.includes("tracking") || srcLower.includes("spacer") || srcLower.includes("1x1")) return;
-
-    seenImgUrls.add(abs);
-    let role = "content";
-    if (alt.toLowerCase().includes("team") || alt.toLowerCase().includes("personal")) role = "team";
-    else if (alt.toLowerCase().includes("produkt") || alt.toLowerCase().includes("product")) role = "product";
-    else if ($(el).closest(".hero, [class*='hero'], [class*='banner']").length > 0) role = "hero";
-    else if ($(el).closest(".gallery, [class*='gallery'], [class*='galleri']").length > 0) role = "gallery";
-
-    imageUrls.push({ url: abs, alt, role });
-  });
 
   const linksForFollow: CandidateLink[] = [];
 
@@ -623,7 +616,7 @@ async function parsePage(html: string, url: string, responseTime: number): Promi
     headings: headings.slice(0, 20),
     text: limitedText,
     images,
-    imageUrls,
+    structuredProducts: structuredProducts.length > 0 ? structuredProducts : undefined,
     links: {
       internal: internalLinks,
       external: externalLinks,
@@ -847,14 +840,15 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   const totalInternal = pagesForAggregation.reduce((sum, p) => sum + p.links.internal, 0);
   const totalExternal = pagesForAggregation.reduce((sum, p) => sum + p.links.external, 0);
 
-  // Aggregate image URLs from all pages, deduplicated
-  const seenAggImgs = new Set<string>();
-  const allImageUrls: Array<{ url: string; alt: string; role: string }> = [];
+  // Aggregate structured products from all pages, deduplicated by name
+  const seenProductNames = new Set<string>();
+  const allProducts: Array<{ name: string; price?: string; description?: string }> = [];
   for (const page of pagesForAggregation) {
-    for (const img of page.imageUrls ?? []) {
-      if (seenAggImgs.has(img.url) || allImageUrls.length >= 30) continue;
-      seenAggImgs.add(img.url);
-      allImageUrls.push(img);
+    for (const prod of page.structuredProducts ?? []) {
+      const key = prod.name.toLowerCase().trim();
+      if (seenProductNames.has(key) || allProducts.length >= 50) continue;
+      seenProductNames.add(key);
+      allProducts.push(prod);
     }
   }
 
@@ -865,7 +859,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
     headings: allHeadings,
     text: aggregatedText,
     images: totalImages,
-    imageUrls: allImageUrls.length > 0 ? allImageUrls : undefined,
+    structuredProducts: allProducts.length > 0 ? allProducts : undefined,
     links: {
       internal: totalInternal,
       external: totalExternal,
