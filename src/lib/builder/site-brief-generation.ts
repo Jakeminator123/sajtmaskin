@@ -216,12 +216,23 @@ const BRIEF_SYSTEM_PROMPT =
   "- Use the scaffold variant as a design starting point for colorPalette, typography, and styleKeywords.\n" +
   "- Adjust when the user's request clearly calls for a different direction.\n" +
   "- If the variant says 'dark' but the user asks for a bright, airy site — follow the user.\n" +
-  "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.";
+  "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.\n\n" +
+  "DELTA-BRIEF (when prior design context is provided):\n" +
+  "- You are updating a prior design, not starting from scratch.\n" +
+  "- Preserve aspects not explicitly changed by the new request (brand, structure, tone).\n" +
+  "- If the user says 'make it dark' — change palette/mood but keep pages, brand, and structure.\n" +
+  "- If the user describes a completely new site — treat it as a fresh brief, ignoring prior context.";
 
-function buildBriefUserPrompt(prompt: string, imageGenerations: boolean, variantHints?: string): string {
+function buildBriefUserPrompt(
+  prompt: string,
+  imageGenerations: boolean,
+  variantHints?: string,
+  priorDesignContext?: string,
+): string {
   const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
   return (
     prompt +
+    (priorDesignContext ? `\n\n${priorDesignContext}` : "") +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +
     (variantHints ? `\n\n${variantHints}` : "") +
     (imageGenerations
@@ -326,6 +337,7 @@ export async function generateSiteBriefObject(
     abortSignal?: AbortSignal;
     source?: string;
     variantHints?: string;
+    priorDesignContext?: string;
   },
 ): Promise<SiteBriefGenerationResult | null> {
   const {
@@ -337,10 +349,11 @@ export async function generateSiteBriefObject(
     abortSignal,
     source,
     variantHints,
+    priorDesignContext,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
   const maxTokens = resolveMaxTokens(requestedMaxTokens);
-  const userPrompt = buildBriefUserPrompt(prompt, imageGenerations, variantHints);
+  const userPrompt = buildBriefUserPrompt(prompt, imageGenerations, variantHints, priorDesignContext);
   const briefSource = normalizeBriefLogSource(source);
 
   debugLog("brief", `model_call ${normalizedModel} provider=${resolvedProvider} maxTokens=${maxTokens}`);
@@ -473,6 +486,7 @@ export async function tryGenerateServerAutoBrief(params: {
   imageGenerations: boolean;
   signal?: AbortSignal;
   variantHints?: string;
+  priorDesignContext?: string;
 }): Promise<{ brief: Record<string, unknown>; modelUsed: string } | null> {
   const normalized = normalizeAssistModel(
     params.assistModelHint?.trim() || AUTO_BRIEF_MODEL_OPENAI,
@@ -486,8 +500,9 @@ export async function tryGenerateServerAutoBrief(params: {
       normalizedModel: runnable,
       imageGenerations: params.imageGenerations,
       abortSignal: params.signal,
-      source: "server_auto_brief",
+      source: params.priorDesignContext ? "server_delta_brief" : "server_auto_brief",
       variantHints: params.variantHints,
+      priorDesignContext: params.priorDesignContext,
     });
     if (!generated) return null;
     const { brief, normalizedModel } = generated;

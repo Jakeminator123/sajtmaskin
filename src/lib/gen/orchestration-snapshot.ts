@@ -98,6 +98,49 @@ export function mergePersistedOrchestrationSnapshots(
   return merged;
 }
 
+// ── Delta-brief helpers ───────────────────────────────────────────────────
+
+export interface BriefSummarySnapshot {
+  projectTitle?: string;
+  brandName?: string;
+  styleKeywords?: string[];
+  toneKeywords?: string[];
+}
+
+export function extractBriefSummaryFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): BriefSummarySnapshot | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const bs = snapshot.briefSummary;
+  if (!bs || typeof bs !== "object") return null;
+  const s = bs as Record<string, unknown>;
+  const has =
+    typeof s.projectTitle === "string" ||
+    typeof s.brandName === "string" ||
+    (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
+    (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0);
+  if (!has) return null;
+  return {
+    projectTitle: typeof s.projectTitle === "string" ? s.projectTitle : undefined,
+    brandName: typeof s.brandName === "string" ? s.brandName : undefined,
+    styleKeywords: Array.isArray(s.styleKeywords) ? (s.styleKeywords as string[]) : undefined,
+    toneKeywords: Array.isArray(s.toneKeywords) ? (s.toneKeywords as string[]) : undefined,
+  };
+}
+
+export function formatPriorDesignContext(summary: BriefSummarySnapshot): string {
+  const lines = [
+    "Prior design context (preserve aspects not contradicted by the change request):",
+  ];
+  if (summary.projectTitle) lines.push(`- Project: ${summary.projectTitle}`);
+  if (summary.brandName) lines.push(`- Brand: ${summary.brandName}`);
+  if (summary.styleKeywords?.length) lines.push(`- Style: ${summary.styleKeywords.join(", ")}`);
+  if (summary.toneKeywords?.length) lines.push(`- Tone: ${summary.toneKeywords.join(", ")}`);
+  return lines.join("\n");
+}
+
+// ── Continuity ────────────────────────────────────────────────────────────
+
 export function prependOrchestrationContinuityToFollowUp(
   message: string,
   snapshot: Record<string, unknown> | null | undefined,

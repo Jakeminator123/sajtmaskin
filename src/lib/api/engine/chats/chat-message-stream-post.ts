@@ -75,7 +75,19 @@ import {
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "@/lib/providers/own-engine/follow-up-clarification";
-import { prependOrchestrationContinuityToFollowUp } from "@/lib/gen/orchestration-snapshot";
+import {
+  extractBriefSummaryFromSnapshot,
+  formatPriorDesignContext,
+  prependOrchestrationContinuityToFollowUp,
+} from "@/lib/gen/orchestration-snapshot";
+import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
+import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
+import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
+import { pickScaffoldVariant } from "@/lib/gen/scaffold-variants";
+import {
+  buildVariantHintsForBrief,
+  formatVariantHintsForPrompt,
+} from "@/lib/gen/scaffold-variants/variant-hints";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapper-contract";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
@@ -187,10 +199,9 @@ export async function handleMessageStreamRequest(
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
         const metaThemeColors = parsedMeta.themeColors;
-        // Follow-ups should not carry the init brief — the server relies on
-        // persisted scaffold, orchestration snapshot, and previous files instead.
-        // Ignore any stale client brief on this path.
-        const metaBrief: Record<string, unknown> | null = null;
+        // Follow-ups do not carry the init brief. For clear-redesign follow-ups,
+        // a delta-brief is generated below. Otherwise brief stays null.
+        let metaBrief: Record<string, unknown> | null = null;
         const metaDesignThemePreset = parsedMeta.designThemePreset;
         const metaPalette = parsedMeta.palette;
         const metaPromptAssistModel = parsedMeta.promptAssistModel;
@@ -289,6 +300,60 @@ export async function handleMessageStreamRequest(
               { headers: createSSEHeaders() },
             ),
           );
+        }
+
+        // Delta-brief: generate a fresh brief for clear-redesign follow-ups
+        // so the Kod-LLM gets structured design context instead of raw text only.
+        if (followUpIntent === "clear-redesign" && previousFiles.length > 0) {
+          const persistedScaffoldIdForDelta = engineChat.scaffold_id;
+          const deltaIgnoreScaffold = shouldIgnorePersistedScaffoldForMatch({
+            hasPreviousFiles: true,
+            followUpIntent,
+            message,
+            scaffoldMode: metaScaffoldMode,
+            scaffoldId: metaScaffoldId,
+          });
+          const deltaPreMatchScaffold = persistedScaffoldIdForDelta && !deltaIgnoreScaffold
+            ? getScaffoldById(persistedScaffoldIdForDelta)
+            : matchScaffold(message, (metaBuildIntent as BuildIntent | null));
+          const deltaPreMatchVariant = deltaPreMatchScaffold
+            ? pickScaffoldVariant({ prompt: message, scaffoldId: deltaPreMatchScaffold.id })
+            : null;
+          const deltaVariantHints = buildVariantHintsForBrief(deltaPreMatchScaffold, deltaPreMatchVariant);
+          const deltaVariantHintsText = deltaVariantHints
+            ? formatVariantHintsForPrompt(deltaVariantHints)
+            : undefined;
+
+          const snapshotBriefSummary = extractBriefSummaryFromSnapshot(
+            engineChat.orchestration_snapshot as Record<string, unknown> | null,
+          );
+          const priorContext = snapshotBriefSummary
+            ? formatPriorDesignContext(snapshotBriefSummary)
+            : undefined;
+
+          const deltaBriefStartedAt = Date.now();
+          const deltaBriefResult = await tryGenerateServerAutoBrief({
+            prompt: message,
+            assistModelHint: metaPromptAssistModel,
+            imageGenerations: resolvedImageGenerations,
+            signal: req.signal,
+            variantHints: deltaVariantHintsText,
+            priorDesignContext: priorContext,
+          });
+          if (deltaBriefResult) {
+            metaBrief = deltaBriefResult.brief;
+            debugLog("orchestration", "Delta-brief generated for clear-redesign follow-up", {
+              chatId,
+              durationMs: Date.now() - deltaBriefStartedAt,
+              modelUsed: deltaBriefResult.modelUsed,
+              hasPriorContext: Boolean(priorContext),
+            });
+          } else {
+            debugLog("orchestration", "Delta-brief skipped or failed for clear-redesign follow-up", {
+              chatId,
+              durationMs: Date.now() - deltaBriefStartedAt,
+            });
+          }
         }
 
         if (previousFiles.length > 0) {
