@@ -24,6 +24,9 @@ export function ThinkingOverlay({ isVisible }: { isVisible: boolean }) {
   useEffect(() => {
     if (!isVisible) return;
 
+    setFactIndex(0);
+    setFadeIn(true);
+
     const interval = setInterval(() => {
       setFadeIn(false);
       setTimeout(() => {
@@ -47,6 +50,7 @@ export function ThinkingOverlay({ isVisible }: { isVisible: boolean }) {
       </div>
 
       <div
+        aria-live="polite"
         className={`max-w-sm text-center transition-opacity duration-300 ${
           fadeIn ? "opacity-100" : "opacity-0"
         }`}

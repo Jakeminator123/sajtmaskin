@@ -4,6 +4,7 @@ import { getScaffoldById } from "./registry";
 import type { ScaffoldManifest } from "./types";
 import type { ScaffoldEmbeddingEntry, ScaffoldEmbeddingsFile } from "./scaffold-embeddings-core";
 import { SCAFFOLD_EMBEDDING_MODEL, SCAFFOLD_EMBEDDING_DIMENSIONS } from "./scaffold-embeddings-core";
+import { debugLog, warnLog } from "@/lib/utils/debug";
 
 export interface ScaffoldSearchResult {
   scaffold: ScaffoldManifest;
@@ -30,7 +31,8 @@ export interface ScaffoldSearchResponse {
   diagnostics: ScaffoldSearchDiagnostics;
 }
 
-let cachedEmbeddings: ScaffoldEmbeddingEntry[] | null = null;
+let cachedEmbeddings: ScaffoldEmbeddingEntry[] | undefined;
+let embeddingLoadFailed = false;
 const EMBEDDING_TIMEOUT_MS = 5_000;
 
 function createEmbeddingAbortSignal(): AbortSignal | undefined {
@@ -41,13 +43,15 @@ function createEmbeddingAbortSignal(): AbortSignal | undefined {
 }
 
 function loadEmbeddings(): ScaffoldEmbeddingEntry[] {
-  if (cachedEmbeddings) return cachedEmbeddings;
+  if (cachedEmbeddings !== undefined) return cachedEmbeddings;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const data: ScaffoldEmbeddingsFile = require("./scaffold-embeddings.json");
     cachedEmbeddings = data.embeddings ?? [];
+    embeddingLoadFailed = false;
   } catch {
     cachedEmbeddings = [];
+    embeddingLoadFailed = true;
   }
   return cachedEmbeddings;
 }
@@ -136,7 +140,10 @@ export async function searchScaffoldsWithDiagnostics(
     };
   }
 
-  const embeddings = loadEmbeddings();
+  let embeddings = loadEmbeddings();
+  if (embeddings.length === 0 && retryIfEmbeddingLoadFailed()) {
+    embeddings = loadEmbeddings();
+  }
   if (embeddings.length === 0) {
     return {
       results: [],
@@ -176,13 +183,13 @@ export async function searchScaffoldsWithDiagnostics(
       };
     }
     queryEmbedding = response.data[0].embedding;
-    console.debug("[scaffold-search] Embedding query completed", {
+    debugLog("scaffold", "Embedding query completed", {
       durationMs: Date.now() - embeddingStartedAt,
       topK,
       queryChars: query.length,
     });
   } catch (err) {
-    console.warn("[scaffold-search] Embedding API call failed", {
+    warnLog("scaffold", "Embedding API call failed", {
       message: err instanceof Error ? err.message : String(err),
       durationMs: Date.now() - embeddingStartedAt,
       timeoutMs: EMBEDDING_TIMEOUT_MS,
@@ -232,5 +239,16 @@ export async function searchScaffoldsWithDiagnostics(
 }
 
 export function invalidateScaffoldEmbeddingsCache(): void {
-  cachedEmbeddings = null;
+  cachedEmbeddings = undefined;
+  embeddingLoadFailed = false;
+}
+
+/**
+ * If a previous load failed, clear the cache so the next call retries.
+ * Useful in long-running dev servers where the file may appear after startup.
+ */
+export function retryIfEmbeddingLoadFailed(): boolean {
+  if (!embeddingLoadFailed) return false;
+  invalidateScaffoldEmbeddingsCache();
+  return true;
 }

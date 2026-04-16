@@ -224,3 +224,4 @@ UTLÅTANDE_DEEP_BREEF.txt
 
 # OpenClaw bridge (local agent communication, never commit)
 .cursor/openclaw-bridge/
+sajtmaskin.zip

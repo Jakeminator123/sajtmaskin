@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { formatPrompt } from "@/lib/builder/promptAssist";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, errorLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {
@@ -375,7 +375,7 @@ export function useSendMessage(
             finalError = fallbackErr;
           }
         }
-        console.error("Error sending streaming message:", finalError);
+        errorLog("AI", "Error sending streaming message", finalError);
         const message =
           finalError instanceof Error ? finalError.message : "Failed to send message";
         toast.error(message);
