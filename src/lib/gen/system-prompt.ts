@@ -562,9 +562,9 @@ export function buildDynamicContext(
     "",
     "When multiple sources suggest different colors, fonts, or visual direction, follow this order:",
     "1. User-locked theme tokens (if set in builder UI) — absolute, never override",
-    "2. Brief visual direction (colorPalette, typography, tone) — primary design intent",
-    "3. Scaffold Variant defaults (theme tokens, font pairings) — fallback when brief is silent",
-    "4. Scaffold globals.css baseline — structural placeholder only, always replace its colors",
+    "2. Brief visual direction (colorPalette, typography, tone, domainProfile) — primary design intent",
+    "3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, style rules) — fallback when brief is silent",
+    "4. Directive defaults — placeholder values from directive files, used when neither brief nor variant provides guidance",
     "",
   );
 
@@ -1000,10 +1000,14 @@ export function buildDynamicContext(
 
   const contentVoiceDirective = getDirectiveRawText("content-voice");
   if (contentVoiceDirective) {
-    parts.push("## Coding Direction", "", contentVoiceDirective, "");
+    const cleanedVoice = contentVoiceDirective
+      .replace(/<!--[^>]*-->\n?/g, "")
+      .replace(/^#\s+.+\n/m, "")
+      .trim();
+    parts.push("## Coding Direction", "", cleanedVoice, "");
   }
 
-  // ── Imagery (brief-specific only; global rules live in prompt-directives/02-images.md)
+  // ── Imagery (brief-specific only; prompt-directives/02-images.md is a reference doc, not runtime-injected)
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
   // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
   if (brief?.imagery) {

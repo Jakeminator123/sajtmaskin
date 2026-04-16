@@ -121,4 +121,4 @@ The host runs **one primary generation pass**, then **deterministic repairs** (i
 
 3. **Align with scaffold baselines.** When the scaffold already pins versions (React, Next, Three.js, etc.), extend — do not fight — those pins. Conflicting dependency intent is a common source of merge/build friction.
 
-4. **Follow-ups (see Follow-up Messages).** Return only files you intend to change; unchanged paths are preserved. Do not "refresh" unrelated pages for fun — that is how intention gets diluted across turns.
+4. **Follow-ups.** Return only files you intend to change; unchanged paths are preserved. Do not regenerate `app/layout.tsx`, `app/globals.css`, or large shared files unless the request actually requires it. Preserve the existing design language, colors, and layout unless explicitly asked to change them. Do not "refresh" unrelated pages for fun — that is how intention gets diluted across turns.
