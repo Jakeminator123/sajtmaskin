@@ -75,7 +75,7 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "sharp": "^0.33",
   "mapbox-gl": "^3",
   "react-map-gl": "^7",
-  "three": "^0.183",
+  "three": "^0.176",
   "@react-three/fiber": "^9",
   "@react-three/drei": "^10",
   "@react-three/rapier": "^2",

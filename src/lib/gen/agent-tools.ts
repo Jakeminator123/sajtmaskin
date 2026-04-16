@@ -46,6 +46,10 @@ export const suggestIntegration = tool({
       .optional()
       .describe("Brief setup instruction for the user"),
   }),
+  execute: async ({ name, provider }: { name: string; provider: string }) => ({
+    acknowledged: true,
+    message: `Noted: integration "${name}" (${provider}) registered. Now generate the full site code.`,
+  }),
 });
 
 export const requestEnvVar = tool({
@@ -65,6 +69,10 @@ export const requestEnvVar = tool({
       .boolean()
       .default(true)
       .describe("Whether the site will fail without this variable"),
+  }),
+  execute: async ({ key }: { key: string }) => ({
+    acknowledged: true,
+    message: `Noted: env var "${key}" registered. Now generate the full site code.`,
   }),
 });
 

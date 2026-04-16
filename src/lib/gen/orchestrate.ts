@@ -5,7 +5,7 @@
  * Resolves scaffold, builds system prompt context, and returns everything
  * needed so that callers never diverge in what signals reach the model.
  */
-import type { BuildIntent } from "@/lib/builder/build-intent";
+import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
@@ -370,12 +370,29 @@ export async function resolveOrchestrationBase(
     [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
 
+  const intentPromoted =
+    buildIntent === "website" &&
+    scaffoldMode === "auto" &&
+    isAppScaffold(resolvedScaffold?.id) &&
+    scaffoldSelection.selectionConfidence !== "low";
+  const effectiveBuildIntent: BuildIntent = intentPromoted ? "app" : buildIntent;
+
+  if (intentPromoted) {
+    console.info("[orchestrate] build_intent_promoted", {
+      from: buildIntent,
+      to: effectiveBuildIntent,
+      scaffoldId: resolvedScaffold?.id,
+      scaffoldConfidence: scaffoldSelection.selectionConfidence,
+      reason: "Auto-selected app scaffold implies app intent for route planning and downstream context",
+    });
+  }
+
   const capabilityHints = buildCapabilityHints(capabilities);
   const componentReferences = [...officialRefs, ...communityRefs];
 
   const routePlan = buildRoutePlan({
     prompt: routePlanPrompt ?? prompt,
-    buildIntent,
+    buildIntent: effectiveBuildIntent,
     brief,
     resolvedScaffold,
     generationMode: resolvedMode,
@@ -383,14 +400,14 @@ export async function resolveOrchestrationBase(
   });
   const preGenerationContracts = inferPreGenerationContracts({
     prompt,
-    buildIntent,
+    buildIntent: effectiveBuildIntent,
     brief,
     capabilities,
     contractAnswers,
   });
   const buildSpec = deriveBuildSpec({
     prompt: buildSpecPrompt ?? prompt,
-    buildIntent,
+    buildIntent: effectiveBuildIntent,
     generationMode: resolvedMode,
     resolvedScaffold,
     routePlan,
@@ -613,7 +630,7 @@ export async function finalizeOrchestrationPrompts(
 ): Promise<FinalizedOrchestrationContext> {
   const {
     prompt,
-    buildIntent,
+    buildIntent: _inputBuildIntent,
     brief = null,
     themeColors = null,
     imageGenerations = false,
@@ -663,8 +680,10 @@ export async function finalizeOrchestrationPrompts(
     return mergeStructuralFiles(fromVariant, fromCapabilities);
   })();
 
+  const finalBuildIntent: BuildIntent = base.buildSpec.buildIntent;
+
   const dynamicOpts: DynamicContextOptions = {
-    intent: buildIntent,
+    intent: finalBuildIntent,
     brief: brief as DynamicContextOptions["brief"],
     themeOverride: themeColors,
     imageGenerations,

@@ -14,6 +14,7 @@ import {
   fixNextImageImport,
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
+import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
 import { fixLucideLinkMisuse } from "./rules/lucide-link-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
@@ -477,6 +478,24 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] import-declaration-conflict-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 3i. duplicate-import-binding-fixer — remove same identifier imported from two sources
+      try {
+        const dupResult = fixDuplicateImportBindings(currentCode, file.path);
+        if (dupResult.fixed) {
+          currentCode = dupResult.code;
+          allFixes.push({
+            fixer: "duplicate-import-binding-fixer",
+            category: "mechanical",
+            description: `Removed duplicate import bindings: ${dupResult.removedBindings.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] duplicate-import-binding-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

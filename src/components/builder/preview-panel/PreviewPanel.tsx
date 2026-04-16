@@ -58,6 +58,7 @@ import { describePreviewDiagnosticCode, previewRunbookLinesForCode } from "@/lib
 import {
   buildOwnEngineRoutePreviewUrl,
   buildExternalRoutePreviewUrl,
+  extractTier2AppRoute,
 } from "./preview-route-helpers";
 import { toast } from "sonner";
 import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
@@ -652,7 +653,7 @@ export function PreviewPanel({
         return current.searchParams.get("route") || "/";
       }
       const current = new URL(previewUrl, window.location.origin);
-      return current.pathname || "/";
+      return extractTier2AppRoute(current.pathname);
     } catch {
       return null;
     }

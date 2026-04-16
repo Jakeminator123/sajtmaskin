@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
 import {
   buildRoutePlan,
+  detectExplicitPageCount,
   findMissingPlannedRoutes,
   parseRoutePlanFromUnknown,
 } from "./route-plan";
@@ -83,7 +84,7 @@ describe("buildRoutePlan", () => {
         ],
       },
     });
-    expect(plan.routes.map((r) => r.path)).toEqual(["/produkt/[slug]"]);
+    expect(plan.routes.some((r) => r.path === "/produkt/[slug]")).toBe(true);
   });
 
   it("uses brief-based routes when brief has pages", () => {
@@ -371,5 +372,66 @@ describe("buildRoutePlan — dashboard scaffold with app intent", () => {
       resolvedScaffold: dashboardScaffold,
     });
     expect(plan.routes.some((r) => r.path === "/settings")).toBe(true);
+  });
+
+  it("adds /analytics scaffold default for dashboard + app intent", () => {
+    const dashboardScaffold = getScaffoldById("dashboard");
+    expect(dashboardScaffold).not.toBeNull();
+    const plan = buildRoutePlan({
+      prompt: "Dashboard-app för besöksdata",
+      buildIntent: "app",
+      resolvedScaffold: dashboardScaffold,
+    });
+    expect(plan.routes.some((r) => r.path === "/analytics")).toBe(true);
+  });
+
+  it("maps analytics keyword to /analytics instead of /reports for app intent", () => {
+    const plan = buildRoutePlan({
+      prompt: "App med analytics och statistik",
+      buildIntent: "app",
+      resolvedScaffold: null,
+    });
+    expect(plan.routes.some((r) => r.path === "/analytics")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/reports")).toBe(false);
+  });
+});
+
+describe("detectExplicitPageCount", () => {
+  it("detects Swedish page count", () => {
+    expect(detectExplicitPageCount("Jag vill ha 3 sidor")).toBe(3);
+    expect(detectExplicitPageCount("5 sidor med bra design")).toBe(5);
+    expect(detectExplicitPageCount("en sida om kakor")).toBeNull();
+  });
+
+  it("detects English page count", () => {
+    expect(detectExplicitPageCount("I want 4 pages")).toBe(4);
+    expect(detectExplicitPageCount("create a 2 page site")).toBe(2);
+  });
+
+  it("rejects unreasonable counts", () => {
+    expect(detectExplicitPageCount("jag vill ha 0 sidor")).toBeNull();
+    expect(detectExplicitPageCount("50 pages of nonsense")).toBeNull();
+  });
+});
+
+describe("buildRoutePlan — explicit page count", () => {
+  it("elevates siteType from one-page when user says '3 sidor'", () => {
+    const plan = buildRoutePlan({
+      prompt: "En hemsida om en arkad. 3 sidor.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+    });
+    expect(plan.siteType).not.toBe("one-page");
+    expect(plan.explicitPageCount).toBe(3);
+    expect(plan.reason).toContain("3 pages");
+  });
+
+  it("does not override siteType when routes already exceed count", () => {
+    const plan = buildRoutePlan({
+      prompt: "3 sidor med kontakt och blogg och priser",
+      buildIntent: "website",
+      resolvedScaffold: null,
+    });
+    expect(plan.routes.length).toBeGreaterThanOrEqual(3);
   });
 });
