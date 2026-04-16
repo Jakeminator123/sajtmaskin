@@ -1284,6 +1284,15 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
               onScrape={handleScrape}
               onClearScraped={clearScrapedField}
               textareaRef={textareaRef}
+              onAbortScrape={() => {
+                scrapeAbortRef.current = true;
+                setScraping(false);
+                setScrapeProgress(0);
+                if (scrapeProgressRef.current) {
+                  clearInterval(scrapeProgressRef.current);
+                  scrapeProgressRef.current = null;
+                }
+              }}
             />
           )}
           {step === "siteType" && (
@@ -1459,6 +1468,7 @@ function CompanyStep({
   onScrape,
   onClearScraped,
   textareaRef,
+  onAbortScrape,
 }: {
   answers: WizardAnswers;
   onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>;
@@ -1469,6 +1479,7 @@ function CompanyStep({
   onScrape: (url: string) => void;
   onClearScraped: (field: string) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  onAbortScrape?: () => void;
 }) {
   const set = <K extends keyof WizardAnswers>(key: K, value: WizardAnswers[K]) => {
     onChange((prev) => ({ ...prev, [key]: value }));
@@ -1573,21 +1584,15 @@ function CompanyStep({
                 <p className="text-center text-xs text-muted-foreground">
                   {scrapeProgress < 30 ? "Hämtar sidor…" : scrapeProgress < 60 ? "Läser innehåll…" : scrapeProgress < 90 ? "Extraherar info…" : "Klar!"}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    scrapeAbortRef.current = true;
-                    setScraping(false);
-                    setScrapeProgress(0);
-                    if (scrapeProgressRef.current) {
-                      clearInterval(scrapeProgressRef.current);
-                      scrapeProgressRef.current = null;
-                    }
-                  }}
-                  className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
-                >
-                  Avbryt
-                </button>
+                {onAbortScrape && (
+                  <button
+                    type="button"
+                    onClick={onAbortScrape}
+                    className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+                  >
+                    Avbryt
+                  </button>
+                )}
               </div>
             </div>
           </div>

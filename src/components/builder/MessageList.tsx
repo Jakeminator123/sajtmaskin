@@ -7,6 +7,7 @@ import {
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import { Sources, SourcesContent, SourcesTrigger, Source } from "@/components/ai-elements/sources";
+import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

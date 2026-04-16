@@ -46,9 +46,15 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 - Add `rounded-lg` or `rounded-xl` to cards and containers (not square corners).
 - Use shadows for elevation: `shadow-sm` for cards, `shadow-lg` for modals/dropdowns.
 - Transitions on interactive elements: `transition-colors` on buttons, `transition-all` on cards with hover states.
-- Hover effects on cards: `hover:shadow-md hover:border-primary/20 transition-all`.
+- Hover effects on cards: `hover:shadow-xl hover:-translate-y-1 hover:border-primary/20 transition-all duration-300`.
 - Icons next to text should be consistently sized (`h-5 w-5`) and colored (`text-primary` or `text-muted-foreground`).
 - Use subtle atmosphere when it fits: grain overlays, masked gradients, glass blur, glows, spotlight vignettes, or soft noise. Keep it cohesive with the site's subject, not as decoration for its own sake.
+
+### Responsive polish
+- All grids: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` (or appropriate responsive breakpoints).
+- Hero text: `text-3xl sm:text-4xl lg:text-6xl` responsive sizing.
+- Container: `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8`.
+- Images: Always `next/image` with responsive sizing.
 
 ## Charts
 

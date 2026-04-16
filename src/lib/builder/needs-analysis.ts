@@ -14,14 +14,7 @@ export type NeedsAnalysisField =
   | "audience"
   | "mustHave"
   | "style"
-  | "images"
-  | "businessDetails"
-  | "brandIdentity"
-  | "servicesProducts"
-  | "categorySpecific"
-  | "cta"
-  | "features"
-  | "siteMedia";
+  | "images";
 
 export type SiteTypeKey =
   | "business"

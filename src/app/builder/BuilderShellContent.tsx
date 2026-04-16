@@ -62,15 +62,10 @@ import {
   type UploadedMediaInfo,
 } from "@/lib/builder/needs-analysis";
 import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
-import { TemplatePickerPopup } from "@/components/builder/TemplatePickerPopup";
-import { SiteTypePickerPopup } from "@/components/builder/SiteTypePickerPopup";
-import { MustHavePickerPopup, type MustHavePickerContext } from "@/components/builder/MustHavePickerPopup";
-import { ImageUploadPopup } from "@/components/builder/ImageUploadPopup";
 import {
   buildPromptSourceMessage,
   type PromptSourceMeta,
 } from "@/lib/builder/prompt-builder";
-import type { ActionHubItemAction } from "@/lib/builder/action-hub-items";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import { saveProjectData } from "@/lib/project-client";
 import { resolveEngineVersionDisplayStatus } from "@/lib/db/engine-version-lifecycle";
@@ -86,10 +81,6 @@ import {
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
 import { useBuilderHelpChat } from "@/lib/hooks/chat/useBuilderHelpChat";
-import { NeedsAnalysisProgress } from "@/components/builder/NeedsAnalysisProgress";
-import { AdvancedSettingsPanel } from "@/components/builder/AdvancedSettingsPanel";
-import { IntakeSummaryCard } from "@/components/builder/IntakeSummaryCard";
-import { OnboardingOverlay, useOnboardingSeen } from "@/components/builder/OnboardingOverlay";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -234,8 +225,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   
   const scrapeDataRef = useRef<ScrapeResult | null>(null);
   const companyBriefRef = useRef<Record<string, unknown> | null>(null);
-  const onboardingSeen = useOnboardingSeen();
-  const [showOnboarding, setShowOnboarding] = useState(!onboardingSeen);
 
   // Model tier and thinking are now left at their defaults (not forced to "fast")
   // so first generations get full quality including proper image adherence.
@@ -876,7 +865,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
   }, [vm.messages, vm.setMessages]);
 
-  const mustHaveContext = useMemo((): MustHavePickerContext => {
+  const mustHaveContext = useMemo((): { siteType?: string; companyDescription?: string; scrapeText?: string } => {
     const siteType = pendingSiteTypeRef.current
       ? (SITE_TYPE_LABELS[pendingSiteTypeRef.current] ?? pendingSiteTypeRef.current)
       : undefined;
@@ -1381,28 +1370,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     handleTemplateSelect([]);
   }, [handleTemplateSelect]);
 
-  const handleActionHubAction = useCallback(
-    (action: ActionHubItemAction) => {
-      if (action.type === "callback") {
-        switch (action.id) {
-          case "deploy":
-            vm.handleOpenDeployDialog();
-            break;
-          case "domain":
-            if (vm.lastDeployVercelProjectId) {
-              vm.setDomainManagerOpen(true);
-            } else {
-              vm.setDomainSearchOpen(true);
-            }
-            break;
-          case "export":
-            break;
-        }
-      }
-    },
-    [vm],
-  );
-
   const smartSendMessage = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
       const intent = await classifyIntent(message);
@@ -1750,22 +1717,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             />
             <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           </div>
-          {needsAnalysisState?.ready && !vm.chatId && !showImageUpload && (
-            <IntakeSummaryCard
-              prompt={vm.messages.filter((m) => m.role === "user").map((m) => m.content).join("\n")}
-              siteType={pendingSiteTypeRef.current ?? undefined}
-              scrapeText={scrapeDataRef.current?.textSummary}
-              onBuild={() => triggerStarterGeneration(vm.messages)}
-              onEdit={() => {
-                const advancedPanel = document.querySelector("[data-advanced-panel]");
-                if (advancedPanel) {
-                  localStorage.setItem("sajtmaskin:advanced-panel-open", "true");
-                  window.dispatchEvent(new Event("storage"));
-                }
-              }}
-              disabled={isBusy}
-            />
-          )}
           <ChatInterface
             chatId={vm.chatId}
             initialPrompt={vm.initialPrompt}
@@ -1786,58 +1737,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             currentCode={vm.currentPageCode}
             existingUiComponents={vm.existingUiComponents}
             continuePlanMode={Boolean(latestPendingReply?.planMode)}
-            showAdvancedControls={false}
-            answerSuggestions={currentAnswerSuggestions}
-            answerSuggestionsField={currentField}
-            showActionHub={Boolean(vm.chatId && vm.activeVersionId && !currentField)}
-            onActionHubAction={handleActionHubAction}
-          />
-          <AdvancedSettingsPanel
-            selectedModelTier={vm.selectedModelTier}
-            onSelectedModelTierChange={vm.setSelectedModelTier}
-            enableThinking={vm.enableThinking}
-            onEnableThinkingChange={vm.setEnableThinking}
-            isThinkingSupported={vm.isThinkingSupported}
-            customInstructions={vm.customInstructions}
-            onCustomInstructionsChange={vm.setCustomInstructions}
-            scaffoldMode={vm.scaffoldMode}
-            scaffoldId={vm.scaffoldId}
-            onScaffoldModeChange={vm.setScaffoldMode}
-            onScaffoldIdChange={vm.setScaffoldId}
-            disabled={isBusy}
           />
         </div>
-
-        {showSiteTypePicker && (
-          <SiteTypePickerPopup
-            onSelect={handleSiteTypeSelect}
-            onClose={handleSiteTypeClose}
-          />
-        )}
-
-        {showMustHavePicker && (
-          <MustHavePickerPopup
-            onSelect={handleMustHaveSelect}
-            onClose={handleMustHaveClose}
-            context={mustHaveContext}
-          />
-        )}
-
-        {vm.showTemplatePicker && (
-          <TemplatePickerPopup
-            templates={templatePickerItems}
-            isLoading={isTemplatePickerLoading}
-            onSelect={handleTemplateSelect}
-            onClose={handleTemplatePickerClose}
-          />
-        )}
-
-        {showImageUpload && (
-          <ImageUploadPopup
-            onConfirm={handleImageUploadConfirm}
-            onSkip={handleImageUploadSkip}
-          />
-        )}
 
         {showIntakeWizard && !vm.chatId && (
           <IntakeWizard
@@ -2034,9 +1935,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         reason={vm.authModalReason ?? "builder"}
       />
 
-      {showOnboarding && (
-        <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />
-      )}
     </BuilderLayout>
   );
 }

@@ -204,6 +204,6 @@ export async function searchTemplates(
  * Force-reload embeddings from disk. Useful after regenerating.
  */
 export function invalidateEmbeddingsCache(): void {
-  cachedEmbeddings = null;
+  cachedEmbeddings = undefined;
   catalogLookup = null;
 }

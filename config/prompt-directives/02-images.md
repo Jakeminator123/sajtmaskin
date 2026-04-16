@@ -13,12 +13,25 @@ Use `/placeholder.svg?height=H&width=W&text=DESCRIPTION` as the default source f
 - Avatars: height=64, width=64
 - Thumbnails: height=150, width=150
 
-## Media Catalog
+## Media Catalog (MANDATORY when present)
 
-- If the request-specific context includes a media catalog, use the provided `{{alias}}` tokens exactly where appropriate instead of inventing external URLs.
-- Always include descriptive `alt` text on every image element that matches the `text` parameter.
+When the request-specific context includes a **Media Catalog**, follow these rules WITHOUT EXCEPTION:
+
+1. **USE EVERY `{{alias}}` TOKEN AT LEAST ONCE.** Each alias represents a real image the user uploaded or scraped. Every one MUST appear in the generated code as an `src` value.
+2. **NEVER use Unsplash, placeholder, or stock images for any slot where a user image fits.** User images are ALWAYS preferred.
+3. **Place user images where they logically belong:**
+   - **Logo** (`brand-logo`): header/navbar AND footer
+   - **Product photos**: product cards, hero sections, feature grids
+   - **Site media / scraped images**: hero backgrounds, about sections, gallery, content areas
+4. **Use the exact `{{ALIAS}}` token syntax** (e.g., `{{USER_IMG_1}}`). Post-processing expands these to real URLs.
+5. **If you have more user images than obvious slots, create additional sections** (gallery grid, image banner) to use them all.
+
+When no media catalog is present, use `/placeholder.svg` as described above.
+
+### General image rules
+- Always include descriptive `alt` text on every image element.
 - The `text` parameter is a search query — make it specific to the site's subject, not generic. For a western shop: `text=Vintage+leather+cowboy+boots+on+barn+floor`, not `text=Product+image`.
-- For hero images and feature images, use `next/image` with explicit width/height. In VM preview or production these run as real Next.js; the quick in-app HTML preview is only an approximation.
+- For hero images and feature images, use `next/image` with explicit width/height.
 
 ## Hero Strategy
 <!-- default: context-dependent -->
