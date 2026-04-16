@@ -106,7 +106,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Scaffold Selection | Keyword+capability-boost → embedding challenge | kanonisk |
 | Scaffold Mode | `off \| auto \| manual` | kanonisk |
 | Scaffold Serialize Mode | `structural \| inspirational`. Init→inspirational, followUp/heavy→structural | kanonisk |
-| Scaffold Variant | Visuellt uttryck inom scaffold: typsnitt, motif, theme tokens, prompt hints | kanonisk |
+| Scaffold Variant | Visuellt uttryck inom scaffold: typsnitt, motif, theme tokens, prompt hints. `variantId` bevaras i orchestration snapshot och återanvänds vid follow-up för att förhindra variant-drift. | kanonisk |
 | Variant Structural Files | Init-only kodreferenser från variantens sourceTemplateIds + capability-driven | kanonisk |
 | Capability Map | Snabb klassificering: auth, ecommerce, forms, 3D, motion, charts | kanonisk |
 | Route Plan | Planerad IA/ruttlista. Provenance: brief > scaffold > prompt | kanonisk |
@@ -277,4 +277,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-16 (Design Priority-block tillagd i dynamisk kontext, server-auto-brief policy-fix — strukturerade prompts blockeras inte längre). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-16 (Design Priority-block, server-auto-brief policy-fix, variant-frysning vid follow-up via persistedVariantId, interna env-variabler exkluderade från integrationsdetektering). Versionhistorik finns i git.
