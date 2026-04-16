@@ -176,7 +176,7 @@ export async function searchScaffoldsWithDiagnostics(
       };
     }
     queryEmbedding = response.data[0].embedding;
-    console.info("[scaffold-search] Embedding query completed", {
+    console.debug("[scaffold-search] Embedding query completed", {
       durationMs: Date.now() - embeddingStartedAt,
       topK,
       queryChars: query.length,

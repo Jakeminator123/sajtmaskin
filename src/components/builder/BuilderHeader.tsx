@@ -1,13 +1,9 @@
 "use client";
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { isOpenAIAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
   MODEL_TIER_OPTIONS,
-  PROMPT_ASSIST_OFF_VALUE,
-  getPromptAssistModelLabel,
-  getPromptAssistModelOptions,
   getDefaultCustomInstructions,
   isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";

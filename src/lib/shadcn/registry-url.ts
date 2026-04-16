@@ -57,3 +57,18 @@ export function resolveRegistryStyle(
   }
   return rawStyle;
 }
+
+/**
+ * Ordered fallback chain for registry style resolution.
+ * Primary style first, then legacy styles to try if primary returns 404.
+ * Used by any fetch that needs graceful degradation across style renames.
+ */
+export function getStyleFallbackChain(style?: string, baseUrl?: string): string[] {
+  const primary = resolveRegistryStyle(style, baseUrl);
+  const chain = [primary];
+  if (primary !== "new-york-v4") chain.push("new-york-v4");
+  if (primary !== LEGACY_STYLE_DEFAULT && !chain.includes(LEGACY_STYLE_DEFAULT)) {
+    chain.push(LEGACY_STYLE_DEFAULT);
+  }
+  return chain;
+}

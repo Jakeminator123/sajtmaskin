@@ -475,15 +475,7 @@ export interface GuidanceBlocks {
 }
 
 export function resolveGuidanceBlocks(input: GuidanceBlocksInput): GuidanceBlocks {
-  const {
-    userPrompt,
-    buildIntent,
-    tone,
-    styleKeywords,
-    briefPalette,
-    themeOverride,
-    topicSignal,
-  } = input;
+  const { userPrompt, buildIntent, tone, styleKeywords, topicSignal } = input;
 
   const domainSignal = userPrompt;
   const domainProfile = inferDomain(domainSignal);
@@ -502,8 +494,6 @@ export function resolveGuidanceBlocks(input: GuidanceBlocksInput): GuidanceBlock
   const qualityBarGuidance = resolveQualityBarGuidance(tone, styleKeywords, "detailed");
 
   const effectiveTopicSignal = topicSignal || userPrompt;
-  const themeLocked = hasThemeOverride(themeOverride);
-  const palette = themeLocked ? toColorPalette(themeOverride) : (briefPalette || {});
   const seasonalPaletteGuidance = resolveSeasonalPaletteGuidance(effectiveTopicSignal);
 
   return {

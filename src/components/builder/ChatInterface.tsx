@@ -29,7 +29,7 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Plus, Sparkles, Wand2, X } from "lucide-react";
+import { FileText, ImageIcon, Loader2, Plus, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
@@ -54,7 +54,6 @@ import {
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
-import { debugLog } from "@/lib/utils/debug";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -268,9 +267,6 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [activePromptRefineMode, setActivePromptRefineMode] = useState<
-    "polish" | "rewrite" | null
-  >(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -303,7 +299,6 @@ export function ChatInterface({
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
-  const isEnhancing = activePromptRefineMode !== null;
 
   const handleInputChange = (value: string) => {
     setInput(value);

@@ -33,7 +33,8 @@ export function PlacementConfirmDialog({
   const [customization, setCustomization] = useState("");
 
   useEffect(() => {
-    if (open) setCustomization("");
+    if (!open) return;
+    queueMicrotask(() => setCustomization(""));
   }, [open]);
 
   return (

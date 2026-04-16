@@ -222,7 +222,7 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
 
     if (!isShimOrMissingPreviewUrl(currentPreviewUrl) && !isForcedRestart) {
       previewBootstrapDoneKeysRef.current.add(key);
-      setPreviewPending(false);
+      queueMicrotask(() => setPreviewPending(false));
       return;
     }
 
