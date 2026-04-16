@@ -4,10 +4,9 @@ import type { CodeFile } from "../parser";
 
 const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
 
-const CWD = process.cwd();
 const SEARCH_ROOTS = [
-  nodePath.resolve(CWD, "src/components/ui"),
-  nodePath.resolve(CWD, "components/ui"),
+  nodePath.resolve(/* turbopackIgnore: true */ process.cwd(), "src", "components", "ui"),
+  nodePath.resolve(/* turbopackIgnore: true */ process.cwd(), "components", "ui"),
 ] as const;
 
 export interface UiComponent {

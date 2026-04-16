@@ -122,7 +122,7 @@ function getDataDir(): string {
     );
   }
 
-  const localDataDir = path.resolve("data");
+  const localDataDir = path.join(/* turbopackIgnore: true */ process.cwd(), "data");
 
   if (!IS_PRODUCTION && !hasWarnedAboutDataDir) {
     hasWarnedAboutDataDir = true;
@@ -392,3 +392,21 @@ export const FEATURES = {
   // Required for asset materialization and shared preview flows
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;
+
+/**
+ * Follow-up tuning — configurable via env or backoffice.
+ * Controls how much context follow-up prompts carry.
+ */
+export const FOLLOW_UP_TUNING = {
+  maxRecentHistoryPairs: clampInt(env.SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS, 1, 20, 4),
+  lightContextMaxChars: clampInt(env.SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS, 8_000, 200_000, 32_000),
+  lightContextMaxFilesManyFiles: clampInt(env.SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY, 1, 12, 4),
+  lightContextMaxFilesFewFiles: clampInt(env.SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW, 1, 12, 6),
+} as const;
+
+function clampInt(raw: string | undefined, min: number, max: number, fallback: number): number {
+  if (!raw) return fallback;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}

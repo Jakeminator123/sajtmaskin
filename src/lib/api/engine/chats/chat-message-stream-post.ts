@@ -11,7 +11,7 @@ import { normalizeProviderError } from "@/lib/providers/errors/normalize-provide
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import { FEATURES } from "@/lib/config";
+import { FEATURES, FOLLOW_UP_TUNING } from "@/lib/config";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/models/selection";
 import {
   canonicalModelIdToOwnModelId,
@@ -80,6 +80,38 @@ import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapp
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { createPromptLog } from "@/lib/db/services/prompt-logs";
 import { resolveOwnEngineMaxSteps } from "@/lib/own-engine/resolve-max-steps";
+
+// ── Follow-up history management ──────────────────────────────────────────
+
+type HistoryMessage = { role: "user" | "assistant"; content: string };
+
+const CODE_BLOCK_HEAVY_THRESHOLD = 500;
+
+function compressOldAssistantContent(content: string): string {
+  if (content.length < CODE_BLOCK_HEAVY_THRESHOLD) return content;
+  const fileMatches = [...content.matchAll(/file="([^"]+)"/g)].map((m) => m[1]);
+  if (fileMatches.length === 0) {
+    const codeBlocks = (content.match(/```/g) || []).length / 2;
+    if (codeBlocks < 1) return content;
+    return content.slice(0, 200) + "\n\n[Earlier code generation truncated — see current project files for latest version.]";
+  }
+  return `[Earlier code generation: ${fileMatches.slice(0, 8).join(", ")}${fileMatches.length > 8 ? ` (+${fileMatches.length - 8} more)` : ""}. Current project files contain the latest version.]`;
+}
+
+function buildBoundedChatHistory(messages: Array<{ role: string; content: string }>): HistoryMessage[] {
+  const filtered = messages
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+  const recentCount = FOLLOW_UP_TUNING.maxRecentHistoryPairs * 2;
+  if (filtered.length <= recentCount) return filtered;
+
+  const older = filtered.slice(0, -recentCount).map((m) =>
+    m.role === "assistant" ? { ...m, content: compressOldAssistantContent(m.content) } : m,
+  );
+  const recent = filtered.slice(-recentCount);
+  return [...older, ...recent];
+}
 
 /** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
 
@@ -274,9 +306,11 @@ export async function handleMessageStreamRequest(
           const manyFiles = previousFiles.length > 14;
           const fileCtx = buildFileContext({
             files: previousFiles,
-            maxChars: useLightFollowUpContext ? 24_000 : 140_000,
+            maxChars: useLightFollowUpContext ? FOLLOW_UP_TUNING.lightContextMaxChars : 140_000,
             includeContents: true,
-            maxFilesWithContent: useLightFollowUpContext ? (manyFiles ? 2 : 4) : 8,
+            maxFilesWithContent: useLightFollowUpContext
+              ? (manyFiles ? FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles : FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles)
+              : 8,
           });
 
           if (skipIntentClassification) {
@@ -482,12 +516,7 @@ export async function handleMessageStreamRequest(
             planSystemPrompt,
             "POST /api/engine/chats/[chatId]/stream",
           );
-          const planChatHistory = engineChat.messages
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({
-              role: m.role as "user" | "assistant",
-              content: m.content,
-            }));
+          const planChatHistory = buildBoundedChatHistory(engineChat.messages);
           const plannerSettings = resolvePlanModePlannerSettings(
             resolvedModelTier,
             resolvedThinking,
@@ -632,12 +661,7 @@ export async function handleMessageStreamRequest(
           unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
         });
 
-        const chatHistory = engineChat.messages
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-          }));
+        const chatHistory = buildBoundedChatHistory(engineChat.messages);
 
         const engineModel = resolveEngineModelId(resolvedModelTier);
         debugLog("build", "Follow-up chat stream request", {

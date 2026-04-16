@@ -59,6 +59,16 @@ function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   };
 }
 
+function buildPlaceholderCoveredEnvWarning(keys: string[]): ChatReadinessItem {
+  return {
+    id: "placeholder-env",
+    title: "Vissa miljövariabler använder preview-placeholders.",
+    detail: `Fungerar i preview men behöver riktiga värden vid publicering: ${keys.join(", ")}`,
+    severity: "warning",
+    action: "env",
+  };
+}
+
 function buildLifecycleBlocker(status: string, summary?: string | null): ChatReadinessItem | null {
   if (status === "draft") {
     return {
@@ -247,7 +257,7 @@ async function buildEngineReadiness(
   }
 
   const envRequirements = resolveEnvRequirementsFromVersionFiles(versionRows, projectEnv);
-  const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys } = envRequirements;
+  const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys, placeholderCoveredKeys } = envRequirements;
 
   if (requiredEnvKeys.length > 0 && !chat.project_id) {
     blockers.push({
@@ -259,6 +269,10 @@ async function buildEngineReadiness(
     });
   } else if (missingEnvKeys.length > 0) {
     blockers.push(buildMissingEnvBlocker(missingEnvKeys));
+  }
+
+  if (placeholderCoveredKeys.length > 0) {
+    warnings.push(buildPlaceholderCoveredEnvWarning(placeholderCoveredKeys));
   }
 
   const latestPreviewSignal = errorLogs.find(
@@ -294,6 +308,7 @@ async function buildEngineReadiness(
       requiredEnvKeys,
       configuredEnvKeys,
       missingEnvKeys,
+      placeholderCoveredKeys,
     },
   });
 }

@@ -168,3 +168,23 @@ def render(ctx: BackofficeContext) -> None:
             st.caption(f"{len(filtered)} av {len(error_df)} rader visas.")
             st.dataframe(filtered, use_container_width=True, hide_index=True, height=400)
 
+    # ── Follow-up tuning ────────────────────────────────────────────────
+    st.subheader("Follow-up tuning")
+    st.caption(
+        "Styr hur mycket kontext follow-up-prompter bär. "
+        "Sätts via env-variabler (`SAJTMASKIN_FOLLOWUP_*`). "
+        "Defaults i `src/lib/config.ts` → `FOLLOW_UP_TUNING`."
+    )
+    tuning_env = {
+        "SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS": ("Antal senaste user+assistant-par i chatthistorik", "4"),
+        "SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS": ("Max tecken filkontext (light policy)", "32000"),
+        "SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY": ("Max filer med innehåll (>14 filer, light)", "4"),
+        "SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW": ("Max filer med innehåll (<=14 filer, light)", "6"),
+    }
+    import os
+    rows = []
+    for key, (desc, default) in tuning_env.items():
+        current = os.environ.get(key, "")
+        rows.append({"Env": key, "Beskrivning": desc, "Default": default, "Aktuellt": current or f"(default: {default})"})
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+

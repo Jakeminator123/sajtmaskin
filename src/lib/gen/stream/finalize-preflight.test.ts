@@ -50,7 +50,7 @@ vi.mock("@/lib/gen/post-process/image-materializer", () => ({
   materializeImages: vi.fn(),
 }));
 
-vi.mock("@/lib/gen/export/build-exportable-project", () => ({
+vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
   collectRequiredUiComponents: vi.fn().mockReturnValue([]),
 }));
 

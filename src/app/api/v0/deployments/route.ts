@@ -461,8 +461,12 @@ export async function POST(req: Request) {
         fixedFiles.map((f) => ({ path: f.name, content: f.content })),
         projectEnv,
       );
+      const allMissingForDeploy = [
+        ...envRequirements.missingEnvKeys,
+        ...envRequirements.placeholderCoveredKeys,
+      ];
       const deployReadiness = buildDeployReadiness({
-        missingEnvKeys: envRequirements.missingEnvKeys,
+        missingEnvKeys: allMissingForDeploy,
         preDeployWarnings: warnings,
         invalidFilePaths: invalidFiles,
       });
@@ -480,7 +484,7 @@ export async function POST(req: Request) {
         });
       }
 
-      if (envRequirements.missingEnvKeys.length > 0) {
+      if (allMissingForDeploy.length > 0) {
         return NextResponse.json(
           {
             error:

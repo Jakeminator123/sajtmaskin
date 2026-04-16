@@ -10,7 +10,9 @@ const DEFAULT_PACKAGE_JSON_INDENT = 2;
 let cachedVersionMap: DependencyVersionMap | null = null;
 
 export const SHADCN_BASELINE_PACKAGES = [
-  // Radix UI primitives — all packages commonly used by shadcn/ui components
+  // Radix UI — unified package (radix-vega / v4 style)
+  "radix-ui",
+  // Legacy individual Radix UI primitives (kept for backward compat with older scaffolds)
   "@radix-ui/react-accordion",
   "@radix-ui/react-alert-dialog",
   "@radix-ui/react-aspect-ratio",
@@ -58,7 +60,9 @@ export const SHADCN_BASELINE_PACKAGES = [
  * These should be updated periodically to stay current.
  */
 export const SHADCN_FALLBACK_VERSIONS: DependencyVersionMap = {
-  // Radix UI primitives
+  // Radix UI — unified package (autofix + prompts emit `from "radix-ui"`)
+  "radix-ui": "^1.1.3",
+  // Legacy individual Radix UI primitives (older scaffolds may still reference these)
   "@radix-ui/react-accordion": "^1.2.3",
   "@radix-ui/react-alert-dialog": "^1.1.6",
   "@radix-ui/react-aspect-ratio": "^1.1.3",

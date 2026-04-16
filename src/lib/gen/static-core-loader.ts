@@ -18,24 +18,25 @@ import { toPosixPath } from "@/lib/utils/path-utils";
 
 let _cwd: string | null = null;
 function getCwd(): string {
-  if (!_cwd) _cwd = process.cwd();
+  // Avoid Turbopack treating every join(cwd, …) as a pattern over the entire project tree.
+  if (!_cwd) _cwd = join(/* turbopackIgnore: true */ process.cwd());
   return _cwd;
 }
 
 function getManifestPath(): string {
-  return join(getCwd(), "config", "codegen-static-prompt.json");
+  return join(/* turbopackIgnore: true */ getCwd(), "config", "codegen-static-prompt.json");
 }
 
 function getConfigDir(): string {
-  return join(getCwd(), "config");
+  return join(/* turbopackIgnore: true */ getCwd(), "config");
 }
 
 function getMonolithCandidates(): readonly string[] {
   const cwd = getCwd();
   return [
-    join(cwd, "config", "systemprompt.md"),
-    join(cwd, "src", "config", "systemprompt"),
-    join(cwd, "scripts", "systemprompt"),
+    join(/* turbopackIgnore: true */ cwd, "config", "systemprompt.md"),
+    join(/* turbopackIgnore: true */ cwd, "src", "config", "systemprompt"),
+    join(/* turbopackIgnore: true */ cwd, "scripts", "systemprompt"),
   ];
 }
 
@@ -52,7 +53,7 @@ function safeConfigFragmentPath(rel: string): string | null {
   if (!normalized || normalized.includes("..") || normalized.startsWith("/")) {
     return null;
   }
-  return join(getConfigDir(), ...normalized.split("/"));
+  return join(getConfigDir(), /* turbopackIgnore: true */ ...normalized.split("/"));
 }
 
 function manifestCacheKey(fragmentRels: string[]): string {

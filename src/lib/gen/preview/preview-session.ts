@@ -15,7 +15,7 @@ import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import { buildCompleteProject } from "../export/project-scaffold";
 import { PLACEHOLDER_API_ROUTE } from "../export/project-scaffold";
-import { collectRequiredUiComponents } from "../export/build-exportable-project";
+import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 
 type RuntimeFile = {

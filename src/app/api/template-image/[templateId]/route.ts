@@ -6,7 +6,13 @@ import { getTemplateById } from "@/lib/templates/template-data";
 let _templateImagesRoot: string | null = null;
 function getTemplateImagesRoot(): string {
   if (!_templateImagesRoot) {
-    _templateImagesRoot = join(process.cwd(), "templates_v0", "downloads", "template-images");
+    // Narrow Turbopack file tracing: do not union-scan the repo for dynamic image paths.
+    _templateImagesRoot = join(
+      /* turbopackIgnore: true */ process.cwd(),
+      "templates_v0",
+      "downloads",
+      "template-images",
+    );
   }
   return _templateImagesRoot;
 }
@@ -46,7 +52,7 @@ async function findFirstImage(
   const base = join(getTemplateImagesRoot(), template.category, templateId);
 
   for (const subdir of ["listing", "detail"]) {
-    const fullPath = join(base, subdir, imageFilename);
+    const fullPath = join(/* turbopackIgnore: true */ base, subdir, imageFilename);
     if (!(await canAccess(fullPath))) continue;
     try {
       const buffer = await readFile(fullPath);

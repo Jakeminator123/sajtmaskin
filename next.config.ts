@@ -3,7 +3,8 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["esbuild", "pg"],
-  outputFileTracingRoot: path.join(__dirname, "./"),
+  // Keep tracing root stable without pulling the whole tree into Turbopack's broad patterns.
+  outputFileTracingRoot: path.join(/* turbopackIgnore: true */ __dirname, "./"),
   outputFileTracingExcludes: {
     "*": [
       "./data/external-template-pipeline/**",

@@ -130,6 +130,26 @@ export function prependOrchestrationContinuityToFollowUp(
   if (typeof buildSpec?.stylePack === "string") {
     lines.push(`- Previous style pack: ${buildSpec.stylePack}`);
   }
+  const briefSummary =
+    snapshot.briefSummary && typeof snapshot.briefSummary === "object"
+      ? (snapshot.briefSummary as Record<string, unknown>)
+      : null;
+  if (briefSummary) {
+    const parts: string[] = [];
+    if (typeof briefSummary.projectTitle === "string") parts.push(briefSummary.projectTitle);
+    if (typeof briefSummary.brandName === "string" && briefSummary.brandName !== briefSummary.projectTitle) {
+      parts.push(`(${briefSummary.brandName})`);
+    }
+    if (Array.isArray(briefSummary.styleKeywords) && briefSummary.styleKeywords.length > 0) {
+      parts.push(`style: ${(briefSummary.styleKeywords as string[]).slice(0, 4).join(", ")}`);
+    }
+    if (Array.isArray(briefSummary.toneKeywords) && briefSummary.toneKeywords.length > 0) {
+      parts.push(`tone: ${(briefSummary.toneKeywords as string[]).slice(0, 3).join(", ")}`);
+    }
+    if (parts.length > 0) {
+      lines.push(`- Original design intent: ${parts.join(" — ")}`);
+    }
+  }
   if (lines.length === 0) return message;
   return wrapWithSection({
     heading: PROMPT_WRAPPER_HEADINGS.continuity,
