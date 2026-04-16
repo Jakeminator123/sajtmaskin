@@ -271,6 +271,18 @@ Directive Cascade.
 - **Pre-match är en hint** — full scaffold/variant-selektion (med embedding + brief-kontext)
   körs fortfarande i `resolveOrchestrationBase` / `finalizeOrchestrationPrompts`.
 
+### Fas C: Trimmat Scaffold Research Priorities — GENOMFÖRD
+
+- **Reference inspirations**: 5→2 templates, utan strengths-detaljer (briefen har redan
+  absorberat stilriktningen via variant-hints från Fas A).
+- **Upgrade targets**: 5→3 (behåller de mest relevanta).
+- **Quality checklist**: Oförändrad (6 items, unika per scaffold).
+- **Template guidance**: Oförändrad (redan gated av feature flag, max 2).
+- **Token-budget**: `DEFAULT_REFS_BUDGET_TOKENS` borttagen — referenserna är nu
+  fasta (2 kompakta rader, ingen dynamisk budgetering behövs).
+- **Konservativ approach**: Inget block borttaget helt — bara kortat. Om A/B-test visar
+  att ytterligare trimning är säker kan det göras senare.
+
 ---
 
 ## Filindex (berörda av framtidsplanen)

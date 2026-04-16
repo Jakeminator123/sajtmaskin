@@ -199,7 +199,6 @@ function buildShadcnToolkitSummary(ctx?: {
   );
 }
 
-const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
 const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 30_000;
 
 const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
@@ -604,27 +603,13 @@ export function buildDynamicContext(
 
   if (resolvedScaffold) {
     const checklist = resolvedScaffold.qualityChecklist?.slice(0, 6) ?? [];
-    const upgradeTargets = resolvedScaffold.research?.upgradeTargets?.slice(0, 5) ?? [];
+    const upgradeTargets = resolvedScaffold.research?.upgradeTargets?.slice(0, 3) ?? [];
     const referenceTemplates = resolvedScaffold.research?.referenceTemplates ?? [];
-    const refsBudgetTokens = Math.max(
-      450,
-      buildSpec?.tokenBudgets.refsTokens ?? DEFAULT_REFS_BUDGET_TOKENS,
+    // Fas C: Brief now carries variant-derived design direction (Fas A/B),
+    // so reference inspirations are trimmed to 2 compact lines (no strengths).
+    const referenceLines = referenceTemplates.slice(0, 2).map(
+      (t) => `  - ${t.title} (${t.categorySlug}, score ${t.qualityScore})`,
     );
-    const referenceLines: string[] = [];
-    let refsUsedTokens = 0;
-    for (const template of referenceTemplates.slice(0, 5)) {
-      const strengths = (template.strengths ?? []).slice(0, 3).join("; ");
-      const summary = strengths
-        ? `${template.title} (${template.categorySlug}, score ${template.qualityScore}): ${strengths}`
-        : `${template.title} (${template.categorySlug}, score ${template.qualityScore})`;
-      const line = `  - ${summary}`;
-      const lineTokens = estimateTokens(line);
-      if (refsUsedTokens + lineTokens > refsBudgetTokens && referenceLines.length > 0) {
-        break;
-      }
-      referenceLines.push(line);
-      refsUsedTokens += lineTokens;
-    }
 
     if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0 || templateGuidance) {
       parts.push(
@@ -637,11 +622,11 @@ export function buildDynamicContext(
         parts.push(...checklist.map((item) => `  - ${item}`));
       }
       if (upgradeTargets.length > 0) {
-        parts.push("", "- Upgrade targets from curated research:");
+        parts.push("", "- Upgrade targets:");
         parts.push(...upgradeTargets.map((item) => `  - ${item}`));
       }
       if (referenceLines.length > 0) {
-        parts.push("", "- Reference inspirations from curated templates:");
+        parts.push("", "- Reference inspirations:");
         parts.push(...referenceLines);
       }
       if (templateGuidance) {
