@@ -37,7 +37,8 @@ Relaterade dokument:
 | BuildSpec | `src/lib/gen/build-spec.ts` |
 | LLM-input / systemprompt | `src/lib/gen/system-prompt.ts` |
 | Tokenbudget / pruning | `src/lib/gen/tokens.ts` |
-| Static core | `src/lib/gen/static-core-loader.ts` |
+| Core Rules + static core loader | `src/lib/gen/static-core-loader.ts` |
+| Directives loader | `src/lib/gen/directive-loader.ts` |
 | Finalize pipeline | `src/lib/gen/stream/finalize-version.ts` |
 | Pipelineordning | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
 | Deterministisk autofix | `src/lib/gen/autofix/pipeline.ts` |
@@ -54,7 +55,8 @@ Relaterade dokument:
 
 | Del | Innehall | Var det byggs |
 |---|---|---|
-| System (statisk karna) | `config/codegen-static-prompt.json` + `config/prompt-static/*.md` | `getStaticCoreFromWorkspace()` |
+| System (Core Rules) | `config/codegen-core-manifest.json` + `config/prompt-core/*.md` (fallback: `codegen-static-prompt.json` + `prompt-static/*.md`) | `getStaticCoreFromWorkspace()` |
+| System (Directives, Level 4) | `config/prompt-directives/*.md` via `directive-loader.ts` | `getDirectiveRawText()` i `buildDynamicContext()` |
 | System (dynamisk kontext) | Scaffold, route plan, contracts, brief, capabilities, refs, BuildSpec-signaler | `buildDynamicContext()` |
 | Separator | `SYSTEM_PROMPT_SEPARATOR` | `system-prompt.ts` |
 | User-turn | Senaste prompten (ev. URL-komprimerad) | API-lager -> pipeline |

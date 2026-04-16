@@ -47,10 +47,12 @@ superseded; **historical** notes may exist in git under `docs/plans/avklarat/`
 
 ## Related configuration (not schema definitions)
 
-The **own-engine static system prompt** is not a “schema” doc in this folder; it
-is configured as JSON + Markdown under the repo root: `config/codegen-static-prompt.json`
-and `config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
-dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md) (prompt layering and STATIC_CORE live there; older prompt-tree narrative was removed with the archive — recover via `git log` on that path if needed).
+The **own-engine system prompt** is not a "schema" doc in this folder; it is
+configured as Core Rules (`config/codegen-core-manifest.json` +
+`config/prompt-core/*.md`) and Directives (`config/codegen-directives-manifest.json` +
+`config/prompt-directives/*.md`). Legacy fallback: `config/codegen-static-prompt.json` +
+`config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
+dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md).
 
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
 
@@ -68,4 +70,3 @@ the runtime source of truth.
 
 Older overlapping schema notes may exist in git under `docs/plans/avklarat/`. Keep them
 only for historical reference, not as the current source of truth.
-

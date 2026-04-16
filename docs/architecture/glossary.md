@@ -77,7 +77,7 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Deep Brief | UI-term för brief-generering. Samma datatyp som Brief. `canUseDeepBrief` = `!chatId` (bara på init). Togglen `promptAssistDeep` i header styr om LLM-brief körs. | kanonisk |
 | Server Auto-Brief | Server-side brief-fallback (`tryGenerateServerAutoBrief`) som körs av `create-chat-stream-post` om klient inte skickade `meta.brief`. `briefQuality: "server-auto"`. Avstängs för audit, follow-up, tekniska payloads. | kanonisk |
 | Fallback Brief | Deterministisk minimal brief utan LLM (variant-defaults + prompt-heuristik). Planerad men ej implementerad. | planerad |
-| Delta-Brief | Partiell brief-uppdatering vid redesign-follow-ups. `classifyFollowUpIntent() === "clear-redesign"` → kör Brief-LLM med original-brief + redesign-prompt. | planerad |
+| Delta-Brief | Partiell brief-uppdatering vid `clear-redesign` follow-ups. `classifyFollowUpIntent() === "clear-redesign"` → kör `tryGenerateServerAutoBrief` med redesign-prompt + `priorDesignContext` (från `briefSummary` i snapshot) + variant-hints (pre-match). Ger Kod-LLM:en strukturerad designkontext vid redesigns istället för rått textmeddelande. | kanonisk |
 | Shallow / Prompt-only | Inget brief-objekt. Prompten wrappas av `formatPrompt()` (MÅL/TILLGÄNGLIGHET) och nyckelord extraheras heuristiskt av `buildDynamicInstructionAddendumFromPrompt()`. Legacy-fallback. | kanonisk |
 | ~~WebsiteSpec / SajtmaskinSpec~~ | Spec-first LLM-genererat strukturobjekt. `specMode` default false sedan Fas 1 världsklass. | **legacy** |
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
@@ -283,4 +283,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-16 (Fas A + B + D: Variant Pre-Match + Brief Guidance Override — variant-hints till Brief-LLM, domainProfile/motionLevel/qualityBar/seasonalHints i brief-schema, guidance-resolvers med brief-fallback, visual-design-direktiv injicerat som Level 4-default). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-16 (Fas A-D + Fas 6: Delta-Brief vid clear-redesign, Variant Pre-Match, Brief Guidance Override, Core Rules + Directives, Directive Cascade. Dokumentationsharmonisering: scaffold-schema, fas2-orchestration, signal-ownership-matrix, schemas/README uppdaterade med nya termer). Versionhistorik finns i git.
