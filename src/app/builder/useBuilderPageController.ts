@@ -131,6 +131,21 @@ export function useBuilderPageController() {
     pauseWhileGenerating: true,
   });
 
+  const repairAvailableToastShownRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!Array.isArray(versions) || versions.length === 0) return;
+    const latest = versions[0] as Record<string, unknown> | undefined;
+    if (!latest) return;
+    const vid = typeof latest.id === "string" ? latest.id : null;
+    const state = typeof latest.verificationState === "string" ? latest.verificationState : null;
+    if (vid && state === "repair_available" && !repairAvailableToastShownRef.current.has(vid)) {
+      repairAvailableToastShownRef.current.add(vid);
+      toast.message("Serverreparation tillgänglig", {
+        description: "Acceptera reparationen i versionspanelen för att applicera fixen.",
+      });
+    }
+  }, [versions]);
+
   // ── Derived / memoized state ─────────────────────────────────────────
   const derived = useBuilderDerivedState({
     chatId: state.chatId,

@@ -179,7 +179,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
   const handlePrint = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      alert("Tillat popup-fonster for att generera PDF");
+      alert("Tillåt popup-fönster för att generera PDF");
       return;
     }
 
@@ -591,9 +591,9 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
 
         <div class="exec-summary">
           <p style="font-size: 11pt; color: #334155; margin-bottom: 4px;">
-            <strong>${safeCompanyOrDomain}</strong> fick ett totalbetyg pa
+            <strong>${safeCompanyOrDomain}</strong> fick ett totalbetyg på
             <strong style="color: ${avgScore >= 80 ? "#16a34a" : avgScore >= 60 ? "#d97706" : "#ef4444"}">${avgScore}/100</strong>
-            (${avgScore >= 80 ? "Bra" : avgScore >= 60 ? "Godkant" : "Behover forbattring"}).
+            (${avgScore >= 80 ? "Bra" : avgScore >= 60 ? "Godkänt" : "Behöver förbättring"}).
           </p>
 
           <div class="exec-grid">
@@ -610,9 +610,9 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
               </ul>
             </div>
             <div class="exec-card">
-              <div class="exec-card-title blue">${SVG_ICONS.bulb} Forbattringar</div>
+              <div class="exec-card-title blue">${SVG_ICONS.bulb} Förbättringar</div>
               <ul>
-                ${topImprovements.length ? topImprovements.map((imp) => `<li>${escapeHtml(imp.item)}</li>`).join("") : "<li>Inga direkta forbattringar foreslagna</li>"}
+                ${topImprovements.length ? topImprovements.map((imp) => `<li>${escapeHtml(imp.item)}</li>`).join("") : "<li>Inga direkta förbättringar föreslagna</li>"}
               </ul>
             </div>
           </div>

@@ -743,7 +743,7 @@ export async function handleSseStream(
             const summary =
               typeof payload.summary === "string" && payload.summary.trim().length > 0
                 ? payload.summary.trim()
-                : "En serverreparation finns tillganglig och kan accepteras i versionspanelen.";
+                : "En serverreparation finns tillgänglig och kan accepteras i versionspanelen.";
 
             appendToolPartToMessage(setMessages, assistantMessageId, {
               type: "tool:quality-gate",
@@ -765,7 +765,7 @@ export async function handleSseStream(
             } as Parameters<typeof appendToolPartToMessage>[2]);
 
             mutateVersions();
-            toast.message("Serverreparation tillganglig", {
+            toast.message("Serverreparation tillgänglig", {
               description: summary,
             });
             break;

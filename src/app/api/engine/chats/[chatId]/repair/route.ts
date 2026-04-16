@@ -386,7 +386,7 @@ export async function POST(
       earlyStopReason: loopResult.earlyStopReason,
       status: loopResult.promoted ? "repair_available" : "completed",
       reason: loopResult.promoted
-        ? "Server-reparation finns sparad och vantar pa att accepteras."
+        ? "Serverreparation finns sparad och väntar på att accepteras."
         : null,
     });
   } catch (err) {

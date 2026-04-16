@@ -98,7 +98,7 @@ export function describePreviewDiagnosticCode(code?: string | null): string | nu
     case "preflight_preview_blocked":
       return "Preview blockerades redan i preflight.";
     case "preflight_verification_blocked":
-      return "Previewn ar tillganglig, men verifieringen hittade blockerande problem.";
+      return "Previewn är tillgänglig, men verifieringen hittade blockerande problem.";
     case "preview_waiting_for_vm":
       return "Live-preview byggs fortfarande i VM.";
     case "render_route_version_not_found":

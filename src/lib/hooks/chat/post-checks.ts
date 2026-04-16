@@ -571,8 +571,8 @@ async function handleRepairOrAutofix(params: {
 
   if (serverRepaired.repaired && serverRepaired.status === "repair_available") {
     mutateVersions?.();
-    toast.message("Serverreparation tillganglig", {
-      description: "Acceptera reparationen i versionspanelen for att applicera fixen.",
+    toast.message("Serverreparation tillgänglig", {
+      description: "Acceptera reparationen i versionspanelen för att applicera fixen.",
     });
   }
 

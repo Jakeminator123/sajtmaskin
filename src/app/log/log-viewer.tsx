@@ -166,9 +166,9 @@ export function LogViewer() {
             <div>
               <h1 className="text-2xl font-semibold">/logg</h1>
               <p className="mt-1 text-sm text-neutral-400">
-                Lokal prompt- och runtime-timeline for dev-loggen. Finns pa
-                `/logg` och `/log`, visar senaste flodet, sluggar och
-                promptlogs nar admin-API:t ar tillgangligt.
+                Lokal prompt- och runtime-timeline för dev-loggen. Finns på
+                `/logg` och `/log`, visar senaste flödet, sluggar och
+                promptlogs när admin-API:t är tillgängligt.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -433,7 +433,7 @@ export function LogViewer() {
 
             {!promptLogs.length && !promptError ? (
               <div className="rounded-xl border border-dashed border-neutral-700 p-6 text-sm text-neutral-400">
-                Inga prompt logs tillgangliga just nu.
+                Inga prompt logs tillgängliga just nu.
               </div>
             ) : null}
           </div>

@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: "Legacy V0-export ar inte langre tillganglig. Export fungerar bara for own-engine-chattar.",
+            error: "Legacy V0-export är inte längre tillgänglig. Export fungerar bara för own-engine-chattar.",
           },
           { status: 410 },
         );
