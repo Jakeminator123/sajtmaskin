@@ -84,7 +84,10 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Build Profile | `fast`, `pro`, `max`, `codex`, `anthropic` — UI-tiername för codegen | kanonisk |
 | Generation Phase | `planner`, `generator`, `fixer`, `verifier`, `deploy-assistant` — per-fas modellrouting | kanonisk |
 | Thinking | Reasoning-flagga, inte en separat lane | kanonisk |
-| Static Core | Stabila produktpolicyregler från `config/prompt-static/*.md` | kanonisk |
+| Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". | kanonisk |
+| Static Core | Alias för Core Rules. Legacy-term — använd "Core Rules" i nya sammanhang. | alias |
+| Directives | Adaptiva promptmoduler i `config/prompt-directives/*.md` med placeholder-defaults som löses genom Directive Cascade. Läses av `directive-loader.ts`. | kanonisk |
+| Directive Cascade | 4-nivå resolution: (1) EXPLICIT — brief/prompt anger exakt, (2) INDICATED — Brief-LLM infererar, (3) INFERRED — guidance-resolvers, (4) DEFAULT — placeholder i direktivfilen. Generalisering av Design Priority. | kanonisk |
 | ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn. Rewrite/Polish/model-picker borttagna. Deep Brief lever kvar. | **borttagen** |
 | ~~StructuredBrief~~ | Docs-synonym för Deep Brief | **döda** |
 | ~~simplifiedBriefSchema~~ | Borttaget brief-schema med 34 optionals, failade Anthropic >24 | **döda** |
@@ -116,8 +119,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Finalize Path | Telemetrietikett för finalize-läge: `full` (hela kedjan) eller `light` (skippar image/verifier) | kanonisk |
 | Orchestration Contract | Binder scaffold→routes→valideringsförväntningar | kanonisk |
 | Design Priority | Explicit hierarki i dynamisk kontext: (1) user-locked theme, (2) brief, (3) variant defaults, (4) scaffold CSS baseline. Löser prioritetskonflikt mellan designkällor. `required: true`, priority 89. | kanonisk |
-| Dynamic Context | Request-specifik promptdel: scaffold + routes + contracts + brief + tema. Prunad. | kanonisk |
-| System Prompt | Static Core + Dynamic Context | kanonisk |
+| Dynamic Context | Request-specifik promptdel: scaffold + routes + contracts + brief + tema + resolverade direktiv. Prunad. Konsumerar Directives via `directive-loader.ts`. | kanonisk |
+| System Prompt | Core Rules + Directives + Dynamic Context | kanonisk |
 | Generation Package | Kanonisk fan-in: systemPrompt + dynamicContext + pruning + lineageHash | kanonisk |
 | Your Toolkit | Scaffold-medveten shadcn-sammanfattning i prompten. Primära komponentgrupper per scaffold (via `SCAFFOLD_PRIMARY_GROUPS` + variant `sectionInventory`), sedan "also available". + capability-hints. | kanonisk |
 | Google Font Registry | Central fontdatapost (`src/lib/gen/data/google-font-registry.ts`): ~75 fonts med importnamn, displaynamn, CSS-variabel, kategori. Används av font-import-fixer (autofix) och font-hint i systemprompten. | kanonisk |
@@ -277,4 +280,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-16 (Design Priority-block, server-auto-brief policy-fix, variant-frysning vid follow-up via persistedVariantId, interna env-variabler exkluderade från integrationsdetektering). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-16 (Core Rules + Directives-omstrukturering — 16 prompt-static → 3 core + 12 directives, Directive Cascade, directive-loader.ts, nya backoffice-sidor). Versionhistorik finns i git.

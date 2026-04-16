@@ -3,27 +3,29 @@
  *
  * Architecture:
  *  ┌─────────────────────────────────────────────────┐
- *  │  Static core — config/codegen-static-prompt.json +             │
- *  │    config/prompt-static/*.md (or monolithic systemprompt.md;   │
- *  │    not extensionless config/systemprompt)                      │
+ *  │  Core Rules — config/codegen-core-manifest.json +              │
+ *  │    config/prompt-core/*.md (immutable product rules)           │
  *  │  (~6–8K tokens, mtime-cached per process)        │
+ *  ├─────────────────────────────────────────────────┤
+ *  │  Directives — config/prompt-directives/*.md      │
+ *  │  (adaptive modules resolved via Directive Cascade)│
  *  ├─────────────────────────────────────────────────┤
  *  │  Dynamic context  (varies per request)           │
  *  │  → Build intent, visual identity, project ctx    │
  *  └─────────────────────────────────────────────────┘
  *
- * Fas 2 — what actually reaches the model (own-engine):
- *  - **Static core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
- *    **dynamic context** from this file = full **system** message.
- *  - **User turn** = current request prompt (possibly URL-compressed); it is **not**
- *    duplicated here — we do not inject a second "original request" block that mirrors
- *    the same user text (see `buildDynamicContext`).
- *  - **Chat history** = prior user/assistant turns, assembled by the generation
- *    pipeline (`createOwnEnginePipelineAndGenerationStream`, etc.), separate from system.
- * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
+ * Directive Cascade (resolution priority):
+ *  1. EXPLICIT  — Brief/prompt provides exact value
+ *  2. INDICATED — Brief-LLM infers from context
+ *  3. INFERRED  — guidance-resolvers / deterministic heuristics
+ *  4. DEFAULT   — Placeholder text in directive file
  *
- * Keeping the static block in one stable file helps prompt-prefix caching;
- * edit config/prompt-static/*.md and/or the manifest; see _READ_ME_FIRST.md.
+ * What reaches the model (own-engine):
+ *  - **Core Rules** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
+ *    **dynamic context** from this file = full **system** message.
+ *  - **User turn** = current request prompt; not duplicated here.
+ *  - **Chat history** = prior turns, assembled by the generation pipeline.
+ * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
  */
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -39,6 +41,7 @@ import type {
 } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
+import { getDirectiveRawText } from "./directive-loader";
 import { resolveGuidanceBlocks, type ColorPalette } from "./guidance-resolvers";
 import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
@@ -913,8 +916,8 @@ export function buildDynamicContext(
   }
 
   // ── Guidance blocks (domain, motion, quality bar) ────────────────────────
-  // Previously produced client-side by buildDynamicInstructionAddendumFromBrief;
-  // now resolved server-side from the user prompt + brief signals.
+  // Level 3 (INFERRED): guidance-resolvers provide deterministic heuristics.
+  // Level 4 (DEFAULT): directive file text is used when resolvers have no signal.
   if (userPrompt) {
     const briefPaletteForGuidance: ColorPalette = briefPalette
       ? {
@@ -981,6 +984,14 @@ export function buildDynamicContext(
     if (guidance.seasonalPaletteGuidance.length > 0) {
       parts.push(...guidance.seasonalPaletteGuidance.map((g) => `- ${g}`));
     }
+  }
+
+  // ── Directive defaults (level 4) ───────────────────────────────────────
+  // Inject directive content for areas not already covered by brief/variant/resolvers.
+  // Content-voice and integration-contracts are always useful context.
+  const contentVoiceDirective = getDirectiveRawText("content-voice");
+  if (contentVoiceDirective) {
+    parts.push("## Coding Direction", "", contentVoiceDirective, "");
   }
 
   // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)

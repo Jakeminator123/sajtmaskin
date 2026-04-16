@@ -7,6 +7,8 @@ from . import (
     ai_models,
     artifacts_pipeline,
     autofix,
+    codegen_core,
+    codegen_directives,
     codegen_static,
     cursor_agents,
     env_policy,
@@ -17,6 +19,8 @@ from . import (
     overview,
     pipeline,
     preview,
+    prompt_core,
+    prompt_directives,
     prompt_static,
     research,
     runtime_scaffolds,
@@ -38,8 +42,11 @@ class PageSpec:
 PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Översikt", "Konfiguration", overview.render),
     PageSpec("LLM-faser & runtime-sanning", "Konfiguration", llm_config.render),
-    PageSpec("Codegen static", "Konfiguration", codegen_static.render),
-    PageSpec("prompt-static", "Konfiguration", prompt_static.render),
+    PageSpec("Codegen core", "Konfiguration", codegen_core.render),
+    PageSpec("prompt-core", "Konfiguration", prompt_core.render),
+    PageSpec("Codegen directives", "Konfiguration", codegen_directives.render),
+    PageSpec("prompt-directives", "Konfiguration", prompt_directives.render),
+    PageSpec("prompt-static (legacy)", "Konfiguration", prompt_static.render),
     PageSpec("ai_models", "Konfiguration", ai_models.render),
     PageSpec("Runtime scaffolds", "Konfiguration", runtime_scaffolds.render),
     PageSpec("Template pipeline", "Konfiguration", template_pipeline.render),
@@ -65,5 +72,8 @@ PAGE_GROUPS = ("Konfiguration", "Overhead", "Pipelines")
 PAGE_QUERY_ALIASES = {
     "llm": "LLM-faser & runtime-sanning",
     "artifacts": "Artifacts pipeline",
+    "core": "prompt-core",
+    "directives": "prompt-directives",
+    "static": "prompt-static (legacy)",
 }
 

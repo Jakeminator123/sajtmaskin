@@ -1,0 +1,22 @@
+{
+  "fragmentSeparator": "\n\n",
+  "directives": [
+    "prompt-directives/01-visual-design.md",
+    "prompt-directives/02-images.md",
+    "prompt-directives/03-scaffold-starters.md",
+    "prompt-directives/04-follow-up-scope.md",
+    "prompt-directives/05-motion.md",
+    "prompt-directives/06-quality-bar.md",
+    "prompt-directives/07-domain-hints.md",
+    "prompt-directives/08-seasonal-palette.md",
+    "prompt-directives/09-design-priority.md",
+    "prompt-directives/10-content-voice.md",
+    "prompt-directives/11-creative-extensions.md",
+    "prompt-directives/12-integration-contracts.md"
+  ],
+  "editorNotes": {
+    "purpose": "Lists Markdown directive files that form the ADAPTIVE half of the codegen system prompt. Each directive contains placeholder defaults resolved through the Directive Cascade: EXPLICIT (brief/prompt) > INDICATED (Brief-LLM) > INFERRED (guidance-resolvers) > DEFAULT (directive file text).",
+    "metadataConvention": "Each directive file uses HTML comments for metadata: <!-- directive: name -->, <!-- cascade: ... -->, <!-- default: value -->. These are parsed by directive-loader.ts.",
+    "implementation": "src/lib/gen/directive-loader.ts"
+  }
+}

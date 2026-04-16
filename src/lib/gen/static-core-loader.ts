@@ -3,14 +3,14 @@ import { join } from "node:path";
 import { toPosixPath } from "@/lib/utils/path-utils";
 
 /**
- * Own-engine static system prompt.
+ * Own-engine Core Rules loader.
  *
- * **Preferred:** `config/codegen-static-prompt.json` lists Markdown fragments under
- * `config/prompt-static/*.md` (see `config/prompt-static/_READ_ME_FIRST.md`).
- *
- * **Fallback:** monolithic `config/systemprompt.md` (e.g. before re-split), or
- * `src/config/systemprompt` / `scripts/systemprompt` on older checkouts.
- * The extensionless `config/systemprompt` path is intentionally not supported — use fragments or `.md`.
+ * Resolution order:
+ *   1. `config/codegen-core-manifest.json` — new canonical manifest with
+ *      `config/prompt-core/*.md` fragments (see `config/prompt-core/_READ_ME_FIRST.md`).
+ *   2. `config/codegen-static-prompt.json` — legacy manifest with
+ *      `config/prompt-static/*.md` fragments (migration fallback).
+ *   3. Monolithic `config/systemprompt.md` (or older checkout paths).
  *
  * Paths are resolved once at module init so Turbopack never sees a nullable
  * `cwd` (which produced `null/...` union patterns and huge file sets).
@@ -18,7 +18,11 @@ import { toPosixPath } from "@/lib/utils/path-utils";
 
 const PROJECT_ROOT = join(/* turbopackIgnore: true */ process.cwd());
 
-function getManifestPath(): string {
+function getCoreManifestPath(): string {
+  return join(/* turbopackIgnore: true */ PROJECT_ROOT, "config", "codegen-core-manifest.json");
+}
+
+function getLegacyManifestPath(): string {
   return join(/* turbopackIgnore: true */ PROJECT_ROOT, "config", "codegen-static-prompt.json");
 }
 
@@ -50,8 +54,8 @@ function safeConfigFragmentPath(rel: string): string | null {
   return join(getConfigDir(), /* turbopackIgnore: true */ ...normalized.split("/"));
 }
 
-function manifestCacheKey(fragmentRels: string[]): string {
-  const parts: string[] = [String(statSync(/* turbopackIgnore: true */ getManifestPath()).mtimeMs)];
+function manifestCacheKey(manifestPath: string, fragmentRels: string[]): string {
+  const parts: string[] = [String(statSync(/* turbopackIgnore: true */ manifestPath).mtimeMs)];
   for (const rel of fragmentRels) {
     const fp = safeConfigFragmentPath(rel);
     if (fp === null) {
@@ -67,8 +71,7 @@ function manifestCacheKey(fragmentRels: string[]): string {
   return parts.join("|");
 }
 
-function tryLoadFromManifest(): string | null {
-  const manifestPath = getManifestPath();
+function tryLoadFromManifestFile(manifestPath: string): string | null {
   if (!existsSync(/* turbopackIgnore: true */ manifestPath)) return null;
 
   let parsed: ManifestJson;
@@ -87,7 +90,7 @@ function tryLoadFromManifest(): string | null {
   const sep =
     typeof parsed.fragmentSeparator === "string" ? parsed.fragmentSeparator : "\n\n";
 
-  const key = manifestCacheKey(fragmentRels);
+  const key = manifestCacheKey(manifestPath, fragmentRels);
   if (cache && cache.key === key) {
     return cache.content;
   }
@@ -109,7 +112,7 @@ function tryLoadFromManifest(): string | null {
 
   const text = chunks.join(sep);
   if (!text.trim()) {
-    throw new Error("[sajtmaskin] Static prompt fragments produced an empty string.");
+    throw new Error("[sajtmaskin] Core prompt fragments produced an empty string.");
   }
 
   cache = { key, content: text };
@@ -136,9 +139,14 @@ function tryLoadMonolith(): string | null {
 }
 
 export function getStaticCoreFromWorkspace(): string {
-  const fromManifest = tryLoadFromManifest();
-  if (fromManifest !== null) {
-    return fromManifest;
+  const fromCore = tryLoadFromManifestFile(getCoreManifestPath());
+  if (fromCore !== null) {
+    return fromCore;
+  }
+
+  const fromLegacy = tryLoadFromManifestFile(getLegacyManifestPath());
+  if (fromLegacy !== null) {
+    return fromLegacy;
   }
 
   const fromMono = tryLoadMonolith();
@@ -146,8 +154,8 @@ export function getStaticCoreFromWorkspace(): string {
     return fromMono;
   }
 
-  const tried = [getManifestPath(), ...getMonolithCandidates()].map(toPosixPath).join(", ");
+  const tried = [getCoreManifestPath(), getLegacyManifestPath(), ...getMonolithCandidates()].map(toPosixPath).join(", ");
   throw new Error(
-    `[sajtmaskin] Missing static system prompt. Expected config/codegen-static-prompt.json + fragments, or a monolithic config/systemprompt.md. Tried: ${tried}`,
+    `[sajtmaskin] Missing core prompt. Expected config/codegen-core-manifest.json + fragments, or legacy config/codegen-static-prompt.json. Tried: ${tried}`,
   );
 }
