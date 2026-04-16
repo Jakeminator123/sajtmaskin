@@ -1,5 +1,9 @@
 /**
  * Pure URL/route helpers for the preview panel (client-only callers).
+ *
+ * Preview-host URLs follow the convention `/<chatId>/<appRoute>`.
+ * Helpers must preserve the chatId prefix when navigating between routes
+ * and strip it when detecting the active route for tab highlighting.
  */
 
 export function buildOwnEngineRoutePreviewUrl(
@@ -27,11 +31,27 @@ export function buildExternalRoutePreviewUrl(
 
   try {
     const url = new URL(currentUrl, window.location.origin);
-    url.pathname = href;
+    const basePrefix = extractTier2BasePrefix(url.pathname);
+    url.pathname = href === "/" ? basePrefix : `${basePrefix}${href}`;
     return currentUrl.startsWith("/") ? `${url.pathname}${url.search}` : url.toString();
   } catch {
     return null;
   }
+}
+
+/**
+ * Extract the app-level route from a tier-2 preview URL pathname.
+ * For `/<chatId>/users` returns `/users`; for `/<chatId>` returns `/`.
+ */
+export function extractTier2AppRoute(pathname: string): string {
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length <= 1) return "/";
+  return `/${segments.slice(1).join("/")}`;
+}
+
+function extractTier2BasePrefix(pathname: string): string {
+  const segments = pathname.split("/").filter(Boolean);
+  return segments.length > 0 ? `/${segments[0]}` : "";
 }
 
 export function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {

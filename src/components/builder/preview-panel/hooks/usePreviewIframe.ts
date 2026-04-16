@@ -10,6 +10,7 @@ import {
 
 const PREVIEW_READY_TIMEOUT_MS = 45_000;
 const PREVIEW_READY_POLL_MS = 250;
+const TIER2_LOAD_TIMEOUT_MS = 30_000;
 
 export function usePreviewIframe(params: {
   previewUrl: string | null;
@@ -41,11 +42,16 @@ export function usePreviewIframe(params: {
   const internalIframeRef = useRef<HTMLIFrameElement | null>(null);
   const iframeRef = externalIframeRef ?? internalIframeRef;
   const previewReadyTimerRef = useRef<number | null>(null);
+  const tier2LoadTimerRef = useRef<number | null>(null);
 
   const clearPreviewReadyTimer = useCallback(() => {
     if (previewReadyTimerRef.current) {
       window.clearTimeout(previewReadyTimerRef.current);
       previewReadyTimerRef.current = null;
+    }
+    if (tier2LoadTimerRef.current) {
+      window.clearTimeout(tier2LoadTimerRef.current);
+      tier2LoadTimerRef.current = null;
     }
   }, []);
 
@@ -75,7 +81,15 @@ export function usePreviewIframe(params: {
     setIframeError(false);
     setIframeErrorMessage(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [previewUrl, refreshToken]);
+
+    if (!isOwnEnginePreview && isTier2LivePreviewUrl(previewUrl)) {
+      if (tier2LoadTimerRef.current) window.clearTimeout(tier2LoadTimerRef.current);
+      tier2LoadTimerRef.current = window.setTimeout(() => {
+        tier2LoadTimerRef.current = null;
+        onPreviewSessionSuspect?.();
+      }, TIER2_LOAD_TIMEOUT_MS);
+    }
+  }, [previewUrl, refreshToken, isOwnEnginePreview, onPreviewSessionSuspect]);
 
   const handleIframeLoad = useCallback(() => {
     clearPreviewReadyTimer();
@@ -155,6 +169,10 @@ export function usePreviewIframe(params: {
       return;
     }
 
+    if (tier2LoadTimerRef.current) {
+      window.clearTimeout(tier2LoadTimerRef.current);
+      tier2LoadTimerRef.current = null;
+    }
     setIframeLoading(false);
     setIframeError(false);
     setIframeErrorMessage(null);

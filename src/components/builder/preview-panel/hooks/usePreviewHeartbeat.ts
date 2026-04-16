@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   postPreviewHeartbeat,
   postPreviewHibernate,
@@ -47,6 +47,25 @@ export function usePreviewHeartbeat(params: {
     }
   };
 
+  const sendHeartbeat = useCallback(async () => {
+    if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
+    if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const data = await postPreviewHeartbeat({
+      chatId,
+      versionId,
+      previewSessionId: activePreviewSessionId.trim(),
+      viewerId: viewerIdRef.current ?? "unknown",
+    });
+    if (
+      data &&
+      data.ok === false &&
+      (data.reason === "no_session" || data.reason === "session_mismatch")
+    ) {
+      onSessionSuspect?.();
+    }
+  }, [chatId, versionId, activePreviewSessionId, previewUrl, onSessionSuspect]);
+
   useEffect(() => {
     if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
     if (!previewUrl || !isTier2LivePreviewUrl(previewUrl)) return;
@@ -55,26 +74,9 @@ export function usePreviewHeartbeat(params: {
       (previewLifecycle === undefined && isTier2LivePreviewUrl(previewUrl));
     if (!allowHeartbeat) return;
 
-    const tick = async () => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      const data = await postPreviewHeartbeat({
-        chatId,
-        versionId,
-        previewSessionId: activePreviewSessionId.trim(),
-        viewerId: viewerIdRef.current ?? "unknown",
-      });
-      if (
-        data &&
-        data.ok === false &&
-        (data.reason === "no_session" || data.reason === "session_mismatch")
-      ) {
-        onSessionSuspect?.();
-      }
-    };
-
-    const id = window.setInterval(tick, 25_000);
+    const id = window.setInterval(sendHeartbeat, 25_000);
     return () => window.clearInterval(id);
-  }, [chatId, versionId, activePreviewSessionId, previewUrl, previewLifecycle, onSessionSuspect]);
+  }, [chatId, versionId, activePreviewSessionId, previewUrl, previewLifecycle, sendHeartbeat]);
 
   useEffect(() => {
     if (!chatId || !versionId || !activePreviewSessionId?.trim()) return;
@@ -103,6 +105,7 @@ export function usePreviewHeartbeat(params: {
         }, HIDDEN_HIBERNATE_DELAY_MS);
       } else {
         clearHiddenHibernateTimer();
+        void sendHeartbeat();
       }
     };
 
@@ -118,5 +121,5 @@ export function usePreviewHeartbeat(params: {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pagehide", handlePageHide);
     };
-  }, [chatId, versionId, activePreviewSessionId, previewUrl]);
+  }, [chatId, versionId, activePreviewSessionId, previewUrl, sendHeartbeat]);
 }

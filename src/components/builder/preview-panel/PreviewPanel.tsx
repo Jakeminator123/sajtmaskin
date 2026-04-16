@@ -48,6 +48,7 @@ import type {
 import {
   buildExternalRoutePreviewUrl,
   buildOwnEngineRoutePreviewUrl,
+  extractTier2AppRoute,
 } from "./preview-route-helpers";
 import { findFileNodeByPath } from "./code-file-tree-utils";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
@@ -600,7 +601,7 @@ export function PreviewPanel({
         return current.searchParams.get("route") || "/";
       }
       const current = new URL(previewUrl, window.location.origin);
-      return current.pathname || "/";
+      return extractTier2AppRoute(current.pathname);
     } catch {
       return null;
     }
