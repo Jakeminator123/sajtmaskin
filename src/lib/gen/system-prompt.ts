@@ -205,6 +205,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
   { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
+  { match: /^design priority$/i, priority: 89, required: true },
   { match: /^scaffold$/i, priority: 90, required: true },
   { match: /^scaffold:\s/i, priority: 90, required: true },
   { match: /^layout & theme files/i, priority: 85 },
@@ -544,6 +545,17 @@ export function buildDynamicContext(
     }
     parts.push("");
   }
+
+  parts.push(
+    "## Design Priority",
+    "",
+    "When multiple sources suggest different colors, fonts, or visual direction, follow this order:",
+    "1. User-locked theme tokens (if set in builder UI) — absolute, never override",
+    "2. Brief visual direction (colorPalette, typography, tone) — primary design intent",
+    "3. Scaffold Variant defaults (theme tokens, font pairings) — fallback when brief is silent",
+    "4. Scaffold globals.css baseline — structural placeholder only, always replace its colors",
+    "",
+  );
 
   if (variantStructuralFiles && variantStructuralFiles.files.length > 0) {
     parts.push(

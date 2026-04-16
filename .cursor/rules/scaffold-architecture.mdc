@@ -125,7 +125,8 @@ Research-blocket (`## Scaffold Research Priorities`) skickas separat av `buildDy
 2. **## Scaffold Research Priorities** — Quality checklist + upgrade targets + reference template-sammanfattningar
 3. **## Route Plan** — Planerade sidor (/, /products, /product/[id], etc.)
 4. **## Scaffold Variant (this generation)** — Deterministiskt valt visuellt uttryck inom den valda scaffolden (typografi, motif, theme tokens, prompt hints, dossier-härledd guidance)
-5. **## Your Toolkit** — Grupperad shadcn-komponentvägledning + capability-hints
+5. **## Design Priority** — Explicit hierarki: (1) user-locked theme, (2) brief, (3) variant defaults, (4) scaffold CSS baseline
+6. **## Your Toolkit** — Grupperad shadcn-komponentvägledning + capability-hints
 
 ## Token-kostnad
 

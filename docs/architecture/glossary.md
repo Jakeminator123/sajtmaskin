@@ -70,8 +70,12 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Prompt Orchestration | Strategi-/budget-/trunkerings-gate; väljer PromptStrategy | kanonisk |
 | Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
-| Deep Brief | LLM-genererad strukturerad sajtbrief. Kanonisk semantisk expansion för init. | kanonisk |
-| Server Auto-Brief | Server-side brief-fallback för underspecificerade prompts | kanonisk |
+| Brief (`meta.brief`) | Strukturerat JSON-objekt (~20 fält: projectTitle, pages[], visualDirection, toneAndVoice, imagery, seo m.m.) som bär designintention. Genereras av LLM via `/api/ai/brief` (init) eller `tryGenerateServerAutoBrief` (server-fallback). `briefQuality`: `"full"`, `"server-auto"`, eller `"none"`. Follow-ups skickar inte brief — kontext via orchestration snapshot istället. | kanonisk |
+| Deep Brief | UI-term för brief-generering. Samma datatyp som Brief. `canUseDeepBrief` = `!chatId` (bara på init). Togglen `promptAssistDeep` i header styr om LLM-brief körs. | kanonisk |
+| Server Auto-Brief | Server-side brief-fallback (`tryGenerateServerAutoBrief`) som körs av `create-chat-stream-post` om klient inte skickade `meta.brief`. `briefQuality: "server-auto"`. Avstängs för audit, follow-up, tekniska payloads. | kanonisk |
+| Fallback Brief | Deterministisk minimal brief utan LLM (variant-defaults + prompt-heuristik). Planerad men ej implementerad. | planerad |
+| Delta-Brief | Partiell brief-uppdatering vid redesign-follow-ups. `classifyFollowUpIntent() === "clear-redesign"` → kör Brief-LLM med original-brief + redesign-prompt. | planerad |
+| Shallow / Prompt-only | Inget brief-objekt. Prompten wrappas av `formatPrompt()` (MÅL/TILLGÄNGLIGHET) och nyckelord extraheras heuristiskt av `buildDynamicInstructionAddendumFromPrompt()`. Legacy-fallback. | kanonisk |
 | ~~WebsiteSpec / SajtmaskinSpec~~ | Spec-first LLM-genererat strukturobjekt. `specMode` default false sedan Fas 1 världsklass. | **legacy** |
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
@@ -108,9 +112,10 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Route Plan | Planerad IA/ruttlista. Provenance: brief > scaffold > prompt | kanonisk |
 | Route Realization | Policylager: vilka routes realiseras i denna generation | kanonisk |
 | Contract Plan | Auth, payment, database, env vars, integrations | kanonisk |
-| Build Policy / BuildSpec | Körpolicy: changeScope, qualityTarget, contextPolicy, tokenBudgets | kanonisk |
+| Build Policy / BuildSpec | Runtime-körpolicy härledd per request av `deriveBuildSpec()`. Fält: `changeScope` (copy/local-layout/redesign/...), `qualityTarget`, `contextPolicy` (light/normal/heavy), `verificationPolicy`, `previewPolicy`, `tokenBudgets`, `routeRealization`, `stylePack`, `forbiddenPatterns`. Inte en fil — ett internt objekt som styr *hur* generering körs, inte *vad* som genereras. | kanonisk |
 | Finalize Path | Telemetrietikett för finalize-läge: `full` (hela kedjan) eller `light` (skippar image/verifier) | kanonisk |
 | Orchestration Contract | Binder scaffold→routes→valideringsförväntningar | kanonisk |
+| Design Priority | Explicit hierarki i dynamisk kontext: (1) user-locked theme, (2) brief, (3) variant defaults, (4) scaffold CSS baseline. Löser prioritetskonflikt mellan designkällor. `required: true`, priority 89. | kanonisk |
 | Dynamic Context | Request-specifik promptdel: scaffold + routes + contracts + brief + tema. Prunad. | kanonisk |
 | System Prompt | Static Core + Dynamic Context | kanonisk |
 | Generation Package | Kanonisk fan-in: systemPrompt + dynamicContext + pruning + lineageHash | kanonisk |
@@ -272,4 +277,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-15 (Fas 2+3: finalizePath full/light, qualityGateTiers i manifest, delad runRepairLoop + warm repair, repair_available/accept-repair/timeout, syncad preview/deploy-telemetri). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-16 (Design Priority-block tillagd i dynamisk kontext, server-auto-brief policy-fix — strukturerade prompts blockeras inte längre). Versionhistorik finns i git.

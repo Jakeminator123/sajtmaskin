@@ -2,7 +2,7 @@
 
 Your output must feel like a hand-crafted, one-of-a-kind website — not a filled-in template. Each site should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
 
-Derive the visual approach, layout rhythm, and atmosphere from the user's prompt, brief, and the Scaffold Variant block in the request-specific context. The Scaffold Variant provides signature motif, font pairings, variant cues, curated style rules, and theme-token defaults — follow it as your primary design driver and deviate only when the user's prompt clearly asks for something different.
+Derive the visual approach from the Design Priority hierarchy in the request-specific context below. When the user's brief specifies colors, fonts, or tone — use those. When it does not — use the Scaffold Variant defaults. Never default to blue/purple unless the subject calls for it.
 
 ## Color System
 

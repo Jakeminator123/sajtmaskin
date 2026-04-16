@@ -1,9 +1,4 @@
 import type { PromptType } from "@/lib/builder/promptOrchestration";
-import { STRUCTURED_PROMPT_TOKENS, countTokenHits } from "./prompt-heuristics";
-
-function looksStructuredWebsitePrompt(prompt: string): boolean {
-  return prompt.length >= 120 && countTokenHits(prompt, STRUCTURED_PROMPT_TOKENS) >= 2;
-}
 
 /**
  * Whether create-chat should run canonical server-side Deep Brief when the client
@@ -32,11 +27,6 @@ export function shouldRunServerAutoBrief(params: {
     params.orchestrationReason === "preserve_registry_payload"
   ) {
     return false;
-  }
-  if (params.buildIntent === "website") {
-    if (looksStructuredWebsitePrompt(params.prompt)) {
-      return false;
-    }
   }
   return true;
 }
