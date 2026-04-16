@@ -198,7 +198,8 @@ const BRIEF_SYSTEM_PROMPT =
   "Convert the user request into a concise website brief that is immediately usable for implementation. " +
   "Infer the most likely site type from the user request and adjust pages, sections, and content to fit. " +
   "Be specific about pages/sections, visual direction, and copy direction. " +
-  "Include every field in the schema. If a value is unknown, use an empty string. " +
+  "Include every required field in the schema. For optional fields (domainProfile, motionLevel, qualityBar, seasonalHints), include them when the request gives you signal — omit when ambiguous. " +
+  "If a required value is unknown, use an empty string. " +
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
   "SCOPE AWARENESS (important):\n" +
   "- Match the scope to the complexity of the user's request.\n" +
