@@ -298,6 +298,8 @@ function resolveInstallCommand(filesJson) {
       command: "pnpm install --frozen-lockfile --no-optional",
       successLabel: "pnpm install passed.",
       logLabel: "pnpm install --frozen-lockfile",
+      fallbackCommand: null,
+      fallbackLogLabel: null,
     };
   }
   const hasPackageLock = typeof filesJson?.["package-lock.json"] === "string";
@@ -306,12 +308,100 @@ function resolveInstallCommand(filesJson) {
       command: "npm ci --no-audit",
       successLabel: "npm ci passed.",
       logLabel: "npm ci --no-audit",
+      fallbackCommand: "npm ci --no-audit --legacy-peer-deps",
+      fallbackLogLabel: "npm ci --no-audit --legacy-peer-deps",
     };
   }
   return {
-    command: "npm install --no-audit --legacy-peer-deps",
+    command: "npm install --no-audit",
     successLabel: "npm install passed.",
-    logLabel: "npm install --no-audit --legacy-peer-deps",
+    logLabel: "npm install --no-audit",
+    fallbackCommand: "npm install --no-audit --legacy-peer-deps",
+    fallbackLogLabel: "npm install --no-audit --legacy-peer-deps",
+  };
+}
+
+function isPeerDependencyInstallFailure(output) {
+  const text = String(output || "");
+  if (!text.trim()) return false;
+  return (
+    /ERESOLVE/i.test(text) ||
+    /unable to resolve dependency tree/i.test(text) ||
+    /peer dependency/i.test(text) ||
+    /Conflicting peer dependency/i.test(text)
+  );
+}
+
+async function runInstallCommandWithFallback(workspaceDir, install) {
+  const env = sanitizedEnv();
+  const runAttempt = async (command) => {
+    const startedAt = Date.now();
+    const result = await runShellCommand(command, {
+      cwd: workspaceDir,
+      stdio: ["ignore", "pipe", "pipe"],
+      env,
+    });
+    return {
+      ...result,
+      durationMs: Date.now() - startedAt,
+      clippedOutput: clipVerifyOutput("install", result.output),
+    };
+  };
+
+  const primary = await runAttempt(install.command);
+  if (primary.exitCode === 0) {
+    return {
+      passed: true,
+      exitCode: 0,
+      durationMs: primary.durationMs,
+      output: install.successLabel,
+      usedFallback: false,
+      peerConflictDetected: false,
+    };
+  }
+
+  const peerConflictDetected = isPeerDependencyInstallFailure(primary.output);
+  if (peerConflictDetected && install.fallbackCommand) {
+    const fallback = await runAttempt(install.fallbackCommand);
+    if (fallback.exitCode === 0) {
+      return {
+        passed: true,
+        exitCode: 0,
+        durationMs: primary.durationMs + fallback.durationMs,
+        output: [
+          install.successLabel,
+          `[quality-warning] Peer dependency conflict detected. Compatibility fallback used: ${install.fallbackLogLabel}.`,
+        ].join("\n"),
+        usedFallback: true,
+        peerConflictDetected: true,
+      };
+    }
+
+    return {
+      passed: false,
+      exitCode: fallback.exitCode,
+      durationMs: primary.durationMs + fallback.durationMs,
+      output: [
+        `[primary] ${install.logLabel} failed:`,
+        primary.clippedOutput || `(No install output captured; exit ${primary.exitCode}).`,
+        "",
+        `[fallback] ${install.fallbackLogLabel} failed:`,
+        fallback.clippedOutput || `(No install output captured; exit ${fallback.exitCode}).`,
+      ].join("\n"),
+      usedFallback: true,
+      peerConflictDetected: true,
+    };
+  }
+
+  return {
+    passed: false,
+    exitCode: primary.exitCode,
+    durationMs: primary.durationMs,
+    output:
+      primary.clippedOutput ||
+      `(No install output captured; exit ${primary.exitCode}).`,
+    usedFallback: false,
+    peerConflictDetected,
   };
 }
 
@@ -469,6 +559,60 @@ function dependencyFingerprint(filesJson) {
   return hash.digest("hex");
 }
 
+function readDependencyFingerprintForWorkspace(workspaceDir) {
+  const state = readJsonIfExists(dependencyStatePathForWorkspace(workspaceDir));
+  if (!state || typeof state !== "object") return null;
+  const fingerprint =
+    typeof state.fingerprint === "string" && state.fingerprint.trim().length > 0
+      ? state.fingerprint.trim()
+      : null;
+  return fingerprint;
+}
+
+function tryShareNodeModules(params) {
+  const {
+    sourceWorkspaceDir,
+    targetWorkspaceDir,
+    expectedFingerprint,
+  } = params;
+  if (!expectedFingerprint) {
+    return { reused: false, reason: "missing_fingerprint" };
+  }
+  const sourceFingerprint = readDependencyFingerprintForWorkspace(sourceWorkspaceDir);
+  if (!sourceFingerprint || sourceFingerprint !== expectedFingerprint) {
+    return { reused: false, reason: "fingerprint_mismatch" };
+  }
+
+  const sourceNodeModules = path.join(sourceWorkspaceDir, "node_modules");
+  const targetNodeModules = path.join(targetWorkspaceDir, "node_modules");
+  if (!fs.existsSync(sourceNodeModules)) {
+    return { reused: false, reason: "source_node_modules_missing" };
+  }
+
+  fs.rmSync(targetNodeModules, { recursive: true, force: true });
+
+  try {
+    fs.symlinkSync(
+      sourceNodeModules,
+      targetNodeModules,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+    return { reused: true, method: "symlink" };
+  } catch {
+    // fallback to copy below
+  }
+
+  try {
+    fs.cpSync(sourceNodeModules, targetNodeModules, { recursive: true });
+    return { reused: true, method: "copy" };
+  } catch (error) {
+    return {
+      reused: false,
+      reason: `share_failed:${error instanceof Error ? error.message : "unknown"}`,
+    };
+  }
+}
+
 function projectOwnsLintSetup(filesJson) {
   const names = new Set(
     Object.keys(filesJson || {}).map((name) => name.replace(/\\/g, "/").toLowerCase()),
@@ -524,32 +668,35 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
     return;
   }
   await appendRuntimeLog(sandboxId, `Installing workspace dependencies with ${install.logLabel}.`);
-  await new Promise((resolve, reject) => {
-    const child = runShellCommand(install.command, {
-      cwd: workspaceDir,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: sanitizedEnv(),
-    });
-    child
-      .then(async (result) => {
-        if (result.exitCode === 0) {
-          fs.writeFileSync(
-            dependencyStatePathForWorkspace(workspaceDir),
-            JSON.stringify({ fingerprint }, null, 2),
-            "utf8",
-          );
-          await appendRuntimeLog(sandboxId, `${install.logLabel} completed.`);
-          resolve();
-          return;
-        }
-        await appendRuntimeLog(
-          sandboxId,
-          `${install.logLabel} failed.\n${trimSnippet(result.output || "")}`,
-        );
-        reject(new Error(`${install.logLabel} failed with exit code ${result.exitCode ?? "unknown"}`));
-      })
-      .catch(reject);
-  });
+  const installResult = await runInstallCommandWithFallback(workspaceDir, install);
+  if (installResult.passed) {
+    fs.writeFileSync(
+      dependencyStatePathForWorkspace(workspaceDir),
+      JSON.stringify({ fingerprint }, null, 2),
+      "utf8",
+    );
+    if (installResult.usedFallback) {
+      await appendRuntimeLog(
+        sandboxId,
+        `${install.logLabel} encountered peer dependency conflicts; fallback ${install.fallbackLogLabel} succeeded.`,
+      );
+      await appendRuntimeLog(
+        sandboxId,
+        trimSnippet(installResult.output || install.successLabel),
+      );
+    } else {
+      await appendRuntimeLog(sandboxId, `${install.logLabel} completed.`);
+    }
+    return;
+  }
+
+  await appendRuntimeLog(
+    sandboxId,
+    `${install.logLabel} failed.\n${trimSnippet(installResult.output || "")}`,
+  );
+  throw new Error(
+    `${install.logLabel} failed with exit code ${installResult.exitCode ?? "unknown"}`,
+  );
 }
 
 async function runVerifyJob(params) {
@@ -575,29 +722,48 @@ async function runVerifyJob(params) {
       writeFilesIntoWorkspace(workspaceDir, filesJson);
       const results = [];
       const install = resolveInstallCommand(filesJson);
-
-      const installStartedAt = Date.now();
-      const installResult = await runShellCommand(install.command, {
-        cwd: workspaceDir,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: sanitizedEnv(),
+      const fingerprint = dependencyFingerprint(filesJson);
+      const shareNodeModulesResult = tryShareNodeModules({
+        sourceWorkspaceDir: workspaceDirForChat(chatId),
+        targetWorkspaceDir: workspaceDir,
+        expectedFingerprint: fingerprint,
       });
-      const installDurationMs = Date.now() - installStartedAt;
-      const installOutput = clipVerifyOutput("install", installResult.output);
+      if (shareNodeModulesResult.reused) {
+        results.push(
+          pushResult({
+            check: "install-cache-share",
+            passed: true,
+            exitCode: 0,
+            durationMs: 0,
+            output: `Reused node_modules from live workspace via ${shareNodeModulesResult.method}.`,
+          }),
+        );
+      } else if (shareNodeModulesResult.reason !== "missing_fingerprint") {
+        results.push(
+          pushResult({
+            check: "install-cache-share",
+            passed: true,
+            exitCode: 0,
+            durationMs: 0,
+            output: `Skipped node_modules reuse: ${shareNodeModulesResult.reason}.`,
+          }),
+        );
+      }
+      const installResult = await runInstallCommandWithFallback(workspaceDir, install);
       results.push(
         pushResult({
           check: "install",
-          passed: installResult.exitCode === 0,
+          passed: installResult.passed,
           exitCode: installResult.exitCode,
-          durationMs: installDurationMs,
+          durationMs: installResult.durationMs,
           output:
-            installResult.exitCode === 0
+            installResult.passed
               ? install.successLabel
-              : installOutput ||
-                `(No install output captured; exit ${installResult.exitCode}).`,
+              : installResult.output ||
+                `(No install output captured; exit ${installResult.exitCode ?? "unknown"}).`,
         }),
       );
-      if (installResult.exitCode !== 0) {
+      if (!installResult.passed) {
         const finishedAtIso = new Date().toISOString();
         return {
           verifyId,
@@ -608,6 +774,24 @@ async function runVerifyJob(params) {
           firstFailureCheck,
           results,
         };
+      }
+      if (shareNodeModulesResult.reused) {
+        fs.writeFileSync(
+          dependencyStatePathForWorkspace(workspaceDir),
+          JSON.stringify({ fingerprint }, null, 2),
+          "utf8",
+        );
+      }
+      if (installResult.usedFallback && installResult.peerConflictDetected) {
+        results.push(
+          pushResult({
+            check: "install-peer-fallback",
+            passed: true,
+            exitCode: 0,
+            durationMs: 0,
+            output: `Peer dependency conflict detected; fallback used: ${install.fallbackLogLabel}.`,
+          }),
+        );
       }
 
       const ownsLintSetup = projectOwnsLintSetup(filesJson);

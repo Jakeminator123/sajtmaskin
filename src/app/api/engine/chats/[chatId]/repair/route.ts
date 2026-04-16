@@ -7,8 +7,7 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
   markVersionRepairing,
   failVersionVerification,
-  updateVersionFiles,
-  promoteVersion,
+  saveRepairedFiles,
   getChat,
 } from "@/lib/db/chat-repository-pg";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
@@ -23,6 +22,7 @@ import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES } from "@/lib/gen/defaults";
 import {
+  buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
   runRepairLoop,
 } from "@/lib/gen/verify/repair-loop";
@@ -171,8 +171,8 @@ export async function POST(
       const { projectContent, method } = params;
       const promoteReason =
         method === "deterministic"
-          ? "Server repair succeeded (deterministic); quality gate re-passed."
-          : "Server repair succeeded (LLM); quality gate re-passed.";
+          ? "Server repair passed quality gate (deterministic). Awaiting acceptance."
+          : "Server repair passed quality gate (LLM). Awaiting acceptance.";
       const repairedFiles = codeProjectToFiles(projectContent);
       const exportable = await buildExportableProject(repairedFiles);
       const decision = await shouldPromoteAfterRepair({
@@ -196,19 +196,13 @@ export async function POST(
       let newVersionId: string | null = null;
       if (decision.promote && dbConfigured) {
         const filesJson = JSON.stringify(repairedFiles);
-        const updated = await updateVersionFiles(currentVersionId, filesJson).catch((err) => {
-          console.warn("[repair] Failed to update repaired version files:", err);
-          return false;
+        const savedVersion = await saveRepairedFiles(currentVersionId, filesJson, promoteReason).catch((err) => {
+          console.warn("[repair] Failed to save repaired version files:", err);
+          return null;
         });
-        if (updated) {
-          const promotedVersion = await promoteVersion(currentVersionId, promoteReason).catch((err) => {
-            console.warn("[repair] Failed to promote repaired version:", err);
-            return null;
-          });
-          if (promotedVersion) {
-            promoted = true;
-            newVersionId = promotedVersion.id;
-          }
+        if (savedVersion) {
+          promoted = true;
+          newVersionId = savedVersion.id;
         }
       }
       if (dbConfigured) {
@@ -219,9 +213,9 @@ export async function POST(
             level: promoted ? ("info" as const) : ("warning" as const),
             category: "preflight:quality-gate",
             message: promoted
-              ? `Post-repair quality gate passed (${method}).`
+              ? `Post-repair quality gate passed (${method}); repair is ready for acceptance.`
               : decision.promote
-                ? `Post-repair quality gate passed but promotion failed (${method}).`
+                ? `Post-repair quality gate passed but repair could not be saved (${method}).`
                 : "Post-repair quality gate did not pass; not promoting.",
             meta: buildServerVerifyQualityGateMeta({
               results: decision.results,
@@ -234,6 +228,7 @@ export async function POST(
               promoted,
               serverOwned: false,
               visualQA: visualQAMeta,
+              errorManifest: groupedGateContext.errorManifest,
             }),
           },
         ]).catch((err) => {
@@ -249,6 +244,9 @@ export async function POST(
       output: failure.output,
       durationMs: failure.durationMs ?? null,
     }));
+    const groupedGateContext = buildGroupedRepairErrorContext(normalizedFailures, {
+      projectContent: initialContent,
+    });
     const gateErrorLines = [
       ...buildServerVerifyRepairContextLines({
         failedOutputs: normalizedFailures,
@@ -257,6 +255,7 @@ export async function POST(
         jobStartedAt: repairContext.qualityGateMeta?.jobStartedAt ?? null,
         jobFinishedAt: repairContext.qualityGateMeta?.jobFinishedAt ?? null,
       }),
+      ...groupedGateContext.contextLines,
       ...buildRepairErrorContextLines(normalizedFailures),
       ...currentVersionErrors,
       ...previousVersionErrors,
@@ -306,6 +305,7 @@ export async function POST(
               remainingErrors: 0,
               qualityGateFailureCount: gateFailures.length,
               serverOwned: false,
+              errorManifest: loopResult.errorManifest,
             },
           },
         ]).catch((err) => {
@@ -338,6 +338,7 @@ export async function POST(
         loopResult.remainingErrors,
         loopResult.earlyStopReason,
         repairContext.qualityGateMeta,
+        loopResult.errorManifest,
       );
       return NextResponse.json({
         repaired: false,
@@ -373,6 +374,7 @@ export async function POST(
       loopResult.remainingErrors,
       loopResult.earlyStopReason,
       repairContext.qualityGateMeta,
+      loopResult.errorManifest,
     );
 
     return NextResponse.json({
@@ -382,6 +384,10 @@ export async function POST(
       remainingErrors: loopResult.remainingErrors,
       improvedSyntax: loopResult.improvedSyntax,
       earlyStopReason: loopResult.earlyStopReason,
+      status: loopResult.promoted ? "repair_available" : "completed",
+      reason: loopResult.promoted
+        ? "Serverreparation finns sparad och väntar på att accepteras."
+        : null,
     });
   } catch (err) {
     console.error("[repair] Error:", err);
@@ -412,6 +418,7 @@ function logRepair(
     jobStartedAt?: string | null;
     jobFinishedAt?: string | null;
   },
+  errorManifest?: import("@/lib/gen/verify/repair-loop").RepairErrorManifest | null,
 ) {
   if (!dbConfigured) return;
   createEngineVersionErrorLogs([
@@ -434,6 +441,7 @@ function logRepair(
         jobStartedAt: qualityGateMeta?.jobStartedAt ?? null,
         jobFinishedAt: qualityGateMeta?.jobFinishedAt ?? null,
         serverOwned: false,
+        errorManifest: errorManifest ?? null,
       }),
     },
   ]).catch((err) => {

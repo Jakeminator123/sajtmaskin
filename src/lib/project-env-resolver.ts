@@ -6,9 +6,18 @@
  *
  * Canonical source of truth: app-project env store in
  * `project_data.meta.projectEnvVars`.
+ *
+ * Placeholder awareness: global preview placeholders
+ * (`40-generated-site-integration-placeholders.env.txt`) keep the preview
+ * running without real credentials.  `missingEnvKeys` only lists keys that
+ * are missing from *both* user config AND placeholders.
+ * `placeholderCoveredKeys` lists keys that the user hasn't configured but
+ * that already have working preview values — these are deferred to publish
+ * (tier 3) and should never block tier 2 preview.
  */
 
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
+import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import {
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,
@@ -25,7 +34,10 @@ export type ResolvedProjectEnvRequirements = {
   detectedIntegrations: DetectedIntegration[];
   requiredEnvKeys: string[];
   configuredEnvKeys: string[];
+  /** Keys missing from both user config and placeholders — truly absent. */
   missingEnvKeys: string[];
+  /** Keys the user hasn't configured but that have a preview placeholder. */
+  placeholderCoveredKeys: string[];
 };
 
 export async function resolveProjectEnv(
@@ -61,6 +73,18 @@ function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
 }
 
+let _cachedPlaceholderKeys: Set<string> | null = null;
+function getPlaceholderKeys(): Set<string> {
+  if (!_cachedPlaceholderKeys) {
+    try {
+      _cachedPlaceholderKeys = loadPlaceholderKeySet();
+    } catch {
+      _cachedPlaceholderKeys = new Set();
+    }
+  }
+  return _cachedPlaceholderKeys;
+}
+
 function resolveEnvRequirementsFromDetected(
   detectedIntegrations: DetectedIntegration[],
   env: ResolvedProjectEnv,
@@ -69,8 +93,17 @@ function resolveEnvRequirementsFromDetected(
     detectedIntegrations.flatMap((integration) => integration.envVars ?? []),
   );
   const configuredEnvKeys = Array.from(env.configuredKeys);
-  const missingEnvKeys = requiredEnvKeys.filter(
+  const placeholderKeys = getPlaceholderKeys();
+
+  const unconfigured = requiredEnvKeys.filter(
     (key) => !env.configuredKeys.has(key),
+  );
+
+  const placeholderCoveredKeys = unconfigured.filter((key) =>
+    placeholderKeys.has(key),
+  );
+  const missingEnvKeys = unconfigured.filter(
+    (key) => !placeholderKeys.has(key),
   );
 
   return {
@@ -78,6 +111,7 @@ function resolveEnvRequirementsFromDetected(
     requiredEnvKeys,
     configuredEnvKeys,
     missingEnvKeys,
+    placeholderCoveredKeys,
   };
 }
 

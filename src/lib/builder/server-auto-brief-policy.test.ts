@@ -135,7 +135,7 @@ describe("shouldRunServerAutoBrief", () => {
     }
   });
 
-  it("skips auto-brief for already structured website prompts", () => {
+  it("runs auto-brief for structured website prompts (no longer blocked)", () => {
     expect(
       shouldRunServerAutoBrief({
         hasClientBrief: false,
@@ -147,7 +147,7 @@ describe("shouldRunServerAutoBrief", () => {
           "Skapa en professionell hemsida med hero-sektion, om oss, kontakt, CTA och en varm grön färgpalett för en veterinärklinik i Malmö.",
         buildIntent: "website",
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("runs auto-brief for short underspecified website prompts", () => {

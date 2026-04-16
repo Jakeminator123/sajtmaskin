@@ -19,21 +19,29 @@ const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
   { match: /\b(blogg|portfolio)\b/i, hint: "blog portfolio" },
 ];
 
-// In-memory cache — loaded once per process lifetime
-let cachedEmbeddings: EmbeddingEntry[] | null = null;
+let cachedEmbeddings: EmbeddingEntry[] | undefined;
+let templateEmbeddingLoadFailed = false;
 let catalogLookup: Map<string, TemplateCatalogItem> | null = null;
 
 function loadEmbeddings(): EmbeddingEntry[] {
-  if (cachedEmbeddings) return cachedEmbeddings;
+  if (cachedEmbeddings !== undefined) return cachedEmbeddings;
   try {
-    // Dynamic require to load the JSON at runtime (not bundled by webpack)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const data: EmbeddingsFile = require("./template-embeddings.json");
     cachedEmbeddings = data.embeddings ?? [];
+    templateEmbeddingLoadFailed = false;
   } catch {
     cachedEmbeddings = [];
+    templateEmbeddingLoadFailed = true;
   }
   return cachedEmbeddings;
+}
+
+function retryIfTemplateEmbeddingLoadFailed(): boolean {
+  if (!templateEmbeddingLoadFailed) return false;
+  cachedEmbeddings = undefined;
+  templateEmbeddingLoadFailed = false;
+  return true;
 }
 
 function getCatalogLookup(): Map<string, TemplateCatalogItem> {
@@ -139,7 +147,10 @@ export async function searchTemplates(
   const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) return fallbackResults;
 
-  const embeddings = loadEmbeddings();
+  let embeddings = loadEmbeddings();
+  if (embeddings.length === 0 && retryIfTemplateEmbeddingLoadFailed()) {
+    embeddings = loadEmbeddings();
+  }
   if (embeddings.length === 0) return fallbackResults;
 
   const openai = new OpenAI({ apiKey });

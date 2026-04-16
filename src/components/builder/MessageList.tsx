@@ -393,6 +393,19 @@ const MessageListComponent = ({
                   </Sources>
                 )}
 
+                {chatId &&
+                  versionId &&
+                  message.role === "assistant" &&
+                  messageIndex === lastGenMessageIndex &&
+                  !message.isStreaming &&
+                  hasGenerationContent(textContent) && (
+                    <VersionFeedback
+                      key={versionId}
+                      chatId={chatId}
+                      versionId={versionId}
+                      className="mt-2 pt-2 border-t border-zinc-700/50"
+                    />
+                  )}
               </MessageContent>
             </Message>
           );

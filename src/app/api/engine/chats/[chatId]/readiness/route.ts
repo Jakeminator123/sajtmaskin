@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   failVersionVerification,
   getLatestVersion,
+  maybeAutoAcceptTimedOutRepair,
   getPreferredVersion,
 } from "@/lib/db/chat-repository-pg";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
@@ -25,6 +26,7 @@ import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
 } from "@/lib/tenant";
+import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 
 const STALE_VERIFICATION_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -57,6 +59,16 @@ function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   };
 }
 
+function buildPlaceholderCoveredEnvWarning(keys: string[]): ChatReadinessItem {
+  return {
+    id: "placeholder-env",
+    title: "Vissa miljövariabler använder preview-placeholders.",
+    detail: `Fungerar i preview men behöver riktiga värden vid publicering: ${keys.join(", ")}`,
+    severity: "warning",
+    action: "env",
+  };
+}
+
 function buildLifecycleBlocker(status: string, summary?: string | null): ChatReadinessItem | null {
   if (status === "draft") {
     return {
@@ -74,6 +86,18 @@ function buildLifecycleBlocker(status: string, summary?: string | null): ChatRea
       title: "Verifiering pågår fortfarande.",
       detail: summary || "Quality gate och efterkontroller körs i bakgrunden. Preview är tillgänglig under tiden.",
       severity: "warning",
+      action: "versions",
+    };
+  }
+
+  if (status === "repair_available") {
+    return {
+      id: "version-repair-available",
+      title: "En serverreparation väntar på godkännande.",
+      detail:
+        summary ||
+        "Acceptera reparationen i versionspanelen för att applicera fixen innan publicering.",
+      severity: "blocker",
       action: "versions",
     };
   }
@@ -162,6 +186,25 @@ async function buildEngineReadiness(
     return buildNoVersionReadiness();
   }
 
+  const { version: normalizedVersion, wasAutoAccepted } =
+    await maybeAutoAcceptTimedOutRepair(version);
+  version = normalizedVersion;
+  if (wasAutoAccepted) {
+    await createEngineVersionErrorLogs([
+      {
+        chatId: chat.id,
+        versionId: version.id,
+        level: "info",
+        category: "server-repair:auto-accepted",
+        message: "Pending server repair auto-accepted after timeout.",
+        meta: {
+          acceptedAt: new Date().toISOString(),
+          serverOwned: true,
+        },
+      },
+    ]).catch(() => null);
+  }
+
   if (isTimedOutVerificationState(version.verification_state, version.created_at)) {
     const timedOutVersion = await failVersionVerification(
       version.id,
@@ -214,7 +257,7 @@ async function buildEngineReadiness(
   }
 
   const envRequirements = resolveEnvRequirementsFromVersionFiles(versionRows, projectEnv);
-  const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys } = envRequirements;
+  const { requiredEnvKeys, configuredEnvKeys, missingEnvKeys, placeholderCoveredKeys } = envRequirements;
 
   if (requiredEnvKeys.length > 0 && !chat.project_id) {
     blockers.push({
@@ -226,6 +269,10 @@ async function buildEngineReadiness(
     });
   } else if (missingEnvKeys.length > 0) {
     blockers.push(buildMissingEnvBlocker(missingEnvKeys));
+  }
+
+  if (placeholderCoveredKeys.length > 0) {
+    warnings.push(buildPlaceholderCoveredEnvWarning(placeholderCoveredKeys));
   }
 
   const latestPreviewSignal = errorLogs.find(
@@ -261,6 +308,7 @@ async function buildEngineReadiness(
       requiredEnvKeys,
       configuredEnvKeys,
       missingEnvKeys,
+      placeholderCoveredKeys,
     },
   });
 }

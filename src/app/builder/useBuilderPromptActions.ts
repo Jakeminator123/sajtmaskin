@@ -6,18 +6,8 @@ import type { PaletteSelection, PaletteState } from "@/lib/builder/palette";
 import type { BuildMethod } from "@/lib/builder/build-intent";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
-import type { PromptRewriteOptions } from "@/lib/hooks/prompt-assist-types";
 import type { InitBriefOptions } from "@/lib/hooks/prompt-assist-types";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
-import {
-  DEFAULT_BRIEF_ADDENDUM_MODE,
-  DEFAULT_PROMPT_POLISH_MODEL,
-} from "@/lib/builder/defaults";
-import {
-  formatPrompt,
-  isOpenAIAssistModel,
-  resolvePromptAssistProvider,
-} from "@/lib/builder/promptAssist";
 import {
   useCallback,
   useState,
@@ -40,7 +30,6 @@ type Args = {
   customInstructions: string;
   applyInstructionsOnce: boolean;
   promptAssistModel: string;
-  promptAssistDeep: boolean;
   themeColors: ThemeColors | null;
   paletteState: PaletteState;
   selectedModelTier: ModelTier;
@@ -64,20 +53,14 @@ type Args = {
   setEntryIntentActive: Dispatch<SetStateAction<boolean>>;
   setIsPreparingPrompt: Dispatch<SetStateAction<boolean>>;
   setCustomInstructions: Dispatch<SetStateAction<string>>;
-  setPromptAssistModel: Dispatch<SetStateAction<string>>;
-  setPromptAssistDeep: Dispatch<SetStateAction<boolean>>;
   setPromptAssistMode: Dispatch<SetStateAction<"polish" | "rewrite" | null>>;
   setDesignTheme: Dispatch<SetStateAction<DesignTheme>>;
   setPaletteState: Dispatch<SetStateAction<PaletteState>>;
-  maybeEnhanceInitialPrompt: (
-    message: string,
-    options?: PromptRewriteOptions,
-  ) => Promise<string>;
   generateDynamicInstructions: (
     message: string,
     options?: InitBriefOptions,
   ) => Promise<string>;
-  createNewChat: (message: string, options?: CreateChatOptions, systemOverride?: string) => Promise<void>;
+  createNewChat: (message: string, options?: CreateChatOptions, systemOverride?: string) => Promise<boolean>;
   cancelActiveGeneration: () => void;
   resetBeforeCreateChat: () => void;
   applyAppProjectId: (nextProjectId: string | null, options?: { chatId?: string | null }) => void;
@@ -89,8 +72,7 @@ export function useBuilderPromptActions({
   scaffoldMode: _scaffoldMode,
   customInstructions,
   applyInstructionsOnce,
-  promptAssistModel,
-  promptAssistDeep: _promptAssistDeep,
+  promptAssistModel: _promptAssistModel,
   themeColors: _themeColors,
   paletteState,
   selectedModelTier: _selectedModelTier,
@@ -114,12 +96,9 @@ export function useBuilderPromptActions({
   setEntryIntentActive,
   setIsPreparingPrompt,
   setCustomInstructions,
-  setPromptAssistModel,
-  setPromptAssistDeep,
   setPromptAssistMode,
   setDesignTheme: _setDesignTheme,
   setPaletteState,
-  maybeEnhanceInitialPrompt,
   generateDynamicInstructions,
   createNewChat,
   cancelActiveGeneration,
@@ -127,7 +106,6 @@ export function useBuilderPromptActions({
   applyAppProjectId: _applyAppProjectId,
 }: Args) {
   const [templateSwitchDialog, setTemplateSwitchDialog] = useState<TemplateSwitchDialogState>(null);
-  const skipBriefAddendum = DEFAULT_BRIEF_ADDENDUM_MODE === "server";
 
   const applyTemplateSwitch = useCallback(
     (templateId: string) => {
@@ -179,45 +157,9 @@ export function useBuilderPromptActions({
     setTemplateSwitchDialog(null);
   }, []);
 
-  const handlePromptAssistModelChange = useCallback((model: string) => {
-    setPromptAssistModel(model);
-    if (!isOpenAIAssistModel(model)) {
-      setPromptAssistDeep(false);
-    }
-  }, [setPromptAssistModel, setPromptAssistDeep]);
-
   const clearPromptAssistMode = useCallback(() => {
     setPromptAssistMode(null);
   }, [setPromptAssistMode]);
-
-  const handlePromptEnhance = useCallback(
-    async (message: string) => {
-      setPromptAssistMode("polish");
-      const polishModelOverride =
-        resolvePromptAssistProvider(promptAssistModel) === "anthropic"
-          ? promptAssistModel
-          : DEFAULT_PROMPT_POLISH_MODEL;
-      const enhanced = await maybeEnhanceInitialPrompt(message, {
-        forceShallow: true,
-        mode: "polish",
-        modelOverride: polishModelOverride,
-      });
-      return formatPrompt(enhanced);
-    },
-    [maybeEnhanceInitialPrompt, promptAssistModel, setPromptAssistMode],
-  );
-
-  const handlePromptRewrite = useCallback(
-    async (message: string) => {
-      setPromptAssistMode("rewrite");
-      const enhanced = await maybeEnhanceInitialPrompt(message, {
-        forceShallow: true,
-        mode: "rewrite",
-      });
-      return formatPrompt(enhanced);
-    },
-    [maybeEnhanceInitialPrompt, setPromptAssistMode],
-  );
 
   const captureInstructionSnapshot = useCallback(() => {
     pendingInstructionsRef.current = customInstructions.trim() || null;
@@ -232,26 +174,26 @@ export function useBuilderPromptActions({
       setIsPreparingPrompt(true);
       try {
         pendingBriefRef.current = null;
-        const addendum = await generateDynamicInstructions(trimmed, {
+        await generateDynamicInstructions(trimmed, {
           forceShallow: false,
           forceDeepBrief: true,
-          skipAddendum: skipBriefAddendum,
+          skipAddendum: true,
           onBrief: (brief) => {
             pendingBriefRef.current = brief;
           },
         });
 
         const baseInstructions = customInstructions.trim();
-        const addendumText = addendum?.trim() ?? "";
         const paletteHint = buildPaletteInstruction(paletteState);
-        const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
-        const combined = [baseInstructions, addendumText, paletteSuffix.trim()]
+        const combined = [baseInstructions, paletteHint]
           .filter(Boolean)
           .join("\n\n");
-        setCustomInstructions(combined);
-        pendingInstructionsRef.current = combined;
+        if (combined) {
+          setCustomInstructions(combined);
+        }
+        pendingInstructionsRef.current = combined || null;
         pendingInstructionsOnceRef.current = false;
-        return combined;
+        return combined || null;
       } catch (error) {
         debugLog("builder", "Dynamic instructions failed", error);
         return null;
@@ -267,7 +209,6 @@ export function useBuilderPromptActions({
       pendingBriefRef,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
-      skipBriefAddendum,
       setIsPreparingPrompt,
       setCustomInstructions,
     ],
@@ -281,8 +222,7 @@ export function useBuilderPromptActions({
         captureInstructionSnapshot();
       }
       const systemOverride = userInstructions?.trim() ? userInstructions.trim() : undefined;
-      await createNewChat(message, options, systemOverride);
-      return true;
+      return await createNewChat(message, options, systemOverride);
     },
     [createNewChat, captureInstructionSnapshot, applyDynamicInstructionsForNewChat, setEntryIntentActive, pendingBriefRef, pendingInstructionsRef],
   );
@@ -353,10 +293,7 @@ export function useBuilderPromptActions({
     templateSwitchDialog,
     confirmTemplateSwitchDialog,
     cancelTemplateSwitchDialog,
-    handlePromptAssistModelChange,
     clearPromptAssistMode,
-    handlePromptEnhance,
-    handlePromptRewrite,
     captureInstructionSnapshot,
     requestCreateChat,
     handleStartFromRegistry,

@@ -4,8 +4,8 @@ import { SHADCN_COMPONENTS } from "./shadcn-components";
 import type { ScaffoldId } from "@/lib/gen/scaffolds/types";
 
 const SEARCH_ROOTS = [
-  join(process.cwd(), "src", "components", "ui"),
-  join(process.cwd(), "components", "ui"),
+  join(/* turbopackIgnore: true */ process.cwd(), "src", "components", "ui"),
+  join(/* turbopackIgnore: true */ process.cwd(), "components", "ui"),
 ] as const;
 
 interface ToolkitGroup {
@@ -142,8 +142,8 @@ function readLocalUiSubpaths(): string[] {
 
   const names = new Set<string>();
   for (const root of SEARCH_ROOTS) {
-    if (!existsSync(root)) continue;
-    for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!existsSync(/* turbopackIgnore: true */ root)) continue;
+    for (const entry of readdirSync(/* turbopackIgnore: true */ root, { withFileTypes: true })) {
       if (!entry.isFile()) continue;
       const match = entry.name.match(/^(.+)\.(tsx|ts|jsx|js)$/);
       if (!match) continue;

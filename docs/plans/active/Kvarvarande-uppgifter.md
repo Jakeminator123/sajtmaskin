@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-15 (Repair/verify worldclass-pass: delad loop, manifeststyrda gate-tiers, warm repair, utökad partial-file retry).
+Senast uppdaterad: 2026-04-15 (Repair/verify worldclass-pass: delad loop, manifeststyrda gate-tiers, warm repair, utökad partial-file retry, repair-accept/timeout, verify install fallback + node_modules sharing).
 
 ## Öppna punkter
 
@@ -18,6 +18,11 @@ Senast uppdaterad: 2026-04-15 (Repair/verify worldclass-pass: delad loop, manife
 | Repair/verify worldclass-pass: delad `runRepairLoop`, warm repair (targeted filer + imports) | 2026-04-15 |
 | Quality-gate tiers flyttade till `manifest.json` (`qualityGateTiers`) | 2026-04-15 |
 | Partial-file repair: manifeststyrt antal försök + `partial-file-repair.outcome` telemetry | 2026-04-15 |
+| Transparent serverrepair: `repair_available`, `repaired_files_json`, `accept-repair` API, SSE `version-repair-available` | 2026-04-15 |
+| Auto-accept timeout för pending repair via `repairAcceptTimeoutMinutes` | 2026-04-15 |
+| Structured repair context: `RepairErrorManifest` med filgruppering + beroendeprioritering | 2026-04-15 |
+| Preview-host verify: primär install utan `--legacy-peer-deps`, fallback endast vid peer-konflikt | 2026-04-15 |
+| Preview-host verify: fingerprint-baserad `node_modules`-delning live↔verify (`install-cache-share`) | 2026-04-15 |
 | jsx-checker: `import type { … }` räknas nu som import — undviker lucide/Three `Group`-kollision | 2026-04-15 |
 | P17: Unsplash felklassning (401/429/network/timeout) | `e75325c9d` |
 | Font-register: 75 Google Fonts, autofix whitelist, importnamn i prompt | `c28be72db` |

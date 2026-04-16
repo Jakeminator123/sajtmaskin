@@ -64,3 +64,14 @@ def render(ctx: BackofficeContext) -> None:
         "`preview-ready`/VM-preview och hur buildern växlar mellan versioner."
     )
 
+    st.subheader("Fas 3-status (begrepp)")
+    st.markdown(
+        """
+- **`repair_available`**: serverrepair passerade quality gate men väntar på `accept-repair`.
+- **`accept-repair`**: applicerar staged `repaired_files_json` till `files_json` för senaste versionen.
+- **Auto-accept timeout**: styrs av `repairPolicies.repairAcceptTimeoutMinutes` i `manifest.json`.
+- **Verify install-signaler**: `install-cache-share` (node_modules-delning) och `install-peer-fallback` (peer-fallback använd).
+- **SSE för pending repair**: `version-repair-available` triggar klientnotis + versions-refresh.
+"""
+    )
+

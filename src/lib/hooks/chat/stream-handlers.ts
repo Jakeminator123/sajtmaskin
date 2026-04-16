@@ -733,6 +733,43 @@ export async function handleSseStream(
             );
             break;
           }
+          case "version-repair-available": {
+            const payload =
+              data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+            const repairVersionId =
+              typeof payload.versionId === "string" && payload.versionId.trim().length > 0
+                ? payload.versionId.trim()
+                : null;
+            const summary =
+              typeof payload.summary === "string" && payload.summary.trim().length > 0
+                ? payload.summary.trim()
+                : "En serverreparation finns tillgänglig och kan accepteras i versionspanelen.";
+
+            appendToolPartToMessage(setMessages, assistantMessageId, {
+              type: "tool:quality-gate",
+              toolName: "Server repair",
+              toolCallId: repairVersionId
+                ? `server-repair-available:${repairVersionId}`
+                : `server-repair-available:${Date.now()}`,
+              state: "output-available",
+              output: {
+                repaired: true,
+                status: "repair_available",
+                reason: summary,
+                method: null,
+                newVersionId: repairVersionId,
+                remainingErrors: null,
+                improvedSyntax: null,
+                earlyStopReason: null,
+              },
+            } as Parameters<typeof appendToolPartToMessage>[2]);
+
+            mutateVersions();
+            toast.message("Serverreparation tillgänglig", {
+              description: summary,
+            });
+            break;
+          }
           case "done": {
             didReceiveDone = true;
             streamStats.didReceiveDone = true;
@@ -1070,6 +1107,7 @@ export async function handleSseStream(
       assistantMessageId,
       setMessages,
       streamQuality,
+      mutateVersions,
       onAutoFix: (payload) => autoFixHandlerRef.current(payload),
     });
   }

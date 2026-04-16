@@ -98,6 +98,49 @@ export function mergePersistedOrchestrationSnapshots(
   return merged;
 }
 
+// ── Delta-brief helpers ───────────────────────────────────────────────────
+
+export interface BriefSummarySnapshot {
+  projectTitle?: string;
+  brandName?: string;
+  styleKeywords?: string[];
+  toneKeywords?: string[];
+}
+
+export function extractBriefSummaryFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): BriefSummarySnapshot | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const bs = snapshot.briefSummary;
+  if (!bs || typeof bs !== "object") return null;
+  const s = bs as Record<string, unknown>;
+  const has =
+    typeof s.projectTitle === "string" ||
+    typeof s.brandName === "string" ||
+    (Array.isArray(s.styleKeywords) && s.styleKeywords.length > 0) ||
+    (Array.isArray(s.toneKeywords) && s.toneKeywords.length > 0);
+  if (!has) return null;
+  return {
+    projectTitle: typeof s.projectTitle === "string" ? s.projectTitle : undefined,
+    brandName: typeof s.brandName === "string" ? s.brandName : undefined,
+    styleKeywords: Array.isArray(s.styleKeywords) ? (s.styleKeywords as string[]) : undefined,
+    toneKeywords: Array.isArray(s.toneKeywords) ? (s.toneKeywords as string[]) : undefined,
+  };
+}
+
+export function formatPriorDesignContext(summary: BriefSummarySnapshot): string {
+  const lines = [
+    "Prior design context (preserve aspects not contradicted by the change request):",
+  ];
+  if (summary.projectTitle) lines.push(`- Project: ${summary.projectTitle}`);
+  if (summary.brandName) lines.push(`- Brand: ${summary.brandName}`);
+  if (summary.styleKeywords?.length) lines.push(`- Style: ${summary.styleKeywords.join(", ")}`);
+  if (summary.toneKeywords?.length) lines.push(`- Tone: ${summary.toneKeywords.join(", ")}`);
+  return lines.join("\n");
+}
+
+// ── Continuity ────────────────────────────────────────────────────────────
+
 export function prependOrchestrationContinuityToFollowUp(
   message: string,
   snapshot: Record<string, unknown> | null | undefined,
@@ -129,6 +172,26 @@ export function prependOrchestrationContinuityToFollowUp(
   }
   if (typeof buildSpec?.stylePack === "string") {
     lines.push(`- Previous style pack: ${buildSpec.stylePack}`);
+  }
+  const briefSummary =
+    snapshot.briefSummary && typeof snapshot.briefSummary === "object"
+      ? (snapshot.briefSummary as Record<string, unknown>)
+      : null;
+  if (briefSummary) {
+    const parts: string[] = [];
+    if (typeof briefSummary.projectTitle === "string") parts.push(briefSummary.projectTitle);
+    if (typeof briefSummary.brandName === "string" && briefSummary.brandName !== briefSummary.projectTitle) {
+      parts.push(`(${briefSummary.brandName})`);
+    }
+    if (Array.isArray(briefSummary.styleKeywords) && briefSummary.styleKeywords.length > 0) {
+      parts.push(`style: ${(briefSummary.styleKeywords as string[]).slice(0, 4).join(", ")}`);
+    }
+    if (Array.isArray(briefSummary.toneKeywords) && briefSummary.toneKeywords.length > 0) {
+      parts.push(`tone: ${(briefSummary.toneKeywords as string[]).slice(0, 3).join(", ")}`);
+    }
+    if (parts.length > 0) {
+      lines.push(`- Original design intent: ${parts.join(" — ")}`);
+    }
   }
   if (lines.length === 0) return message;
   return wrapWithSection({

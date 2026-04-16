@@ -346,9 +346,9 @@ export function VideoRecorder({
                 Sekretess vid videoinspelning
               </p>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Din video bearbetas for att transkribera talet och ge konstruktiv
-                feedback pa din presentation. Vi analyserar ton, tydlighet, hallning och
-                blickkontakt -- allt for att hjalpa dig kommunicera battre.
+                Din video bearbetas för att transkribera talet och ge konstruktiv
+                feedback på din presentation. Vi analyserar ton, tydlighet, hållning och
+                blickkontakt — allt för att hjälpa dig kommunicera bättre.
               </p>
               <ul className="space-y-1 text-xs text-muted-foreground">
                 <li className="flex items-center gap-1.5">
@@ -357,11 +357,11 @@ export function VideoRecorder({
                 </li>
                 <li className="flex items-center gap-1.5">
                   <span className="h-1 w-1 rounded-full bg-primary" />
-                  Ett fatal stillbilder analyseras av AI for kroppssprak och hallning
+                  Ett fåtal stillbilder analyseras av AI för kroppsspråk och hållning
                 </li>
                 <li className="flex items-center gap-1.5">
                   <span className="h-1 w-1 rounded-full bg-primary" />
-                  Ingen video sparas pa vara servrar
+                  Ingen video sparas på våra servrar
                 </li>
                 <li className="flex items-center gap-1.5">
                   <span className="h-1 w-1 rounded-full bg-primary" />
@@ -378,7 +378,7 @@ export function VideoRecorder({
             className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
           >
             <Video className="h-4 w-4" />
-            Jag forstar -- aktivera videoinspelning
+            Jag förstår — aktivera videoinspelning
           </Button>
         </div>
       </div>

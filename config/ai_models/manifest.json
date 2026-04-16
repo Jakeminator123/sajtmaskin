@@ -267,6 +267,7 @@
     "syntaxFixPasses": 4,
     "manualRepairRouteLlmPasses": 2,
     "serverRepairPasses": 2,
+    "repairAcceptTimeoutMinutes": 5,
     "partialFileRepairMaxAttempts": 1
   },
   "qualityGateTiers": {

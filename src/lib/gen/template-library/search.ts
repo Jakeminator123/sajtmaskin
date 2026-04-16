@@ -28,7 +28,7 @@ const STOPWORDS = new Set([
   "template", "templates", "scaffold", "scaffolds", "build", "create", "website", "webbplats",
 ]);
 
-let cachedEmbeddings: TemplateLibraryEmbeddingEntry[] | null = null;
+let cachedEmbeddings: TemplateLibraryEmbeddingEntry[] | undefined;
 
 function createEmbeddingAbortSignal(): AbortSignal | undefined {
   if (typeof AbortSignal === "undefined" || typeof AbortSignal.timeout !== "function") {
@@ -113,16 +113,27 @@ function keywordSearch(query: string, topK: number): TemplateLibrarySearchResult
     .slice(0, topK);
 }
 
+let templateLibraryEmbeddingLoadFailed = false;
+
 function loadEmbeddings(): TemplateLibraryEmbeddingEntry[] {
-  if (cachedEmbeddings) return cachedEmbeddings;
+  if (cachedEmbeddings !== undefined) return cachedEmbeddings;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const data: TemplateLibraryEmbeddingsFile = require("./template-library-embeddings.json");
     cachedEmbeddings = data.embeddings ?? [];
+    templateLibraryEmbeddingLoadFailed = false;
   } catch {
     cachedEmbeddings = [];
+    templateLibraryEmbeddingLoadFailed = true;
   }
   return cachedEmbeddings;
+}
+
+function retryIfTemplateLibraryEmbeddingLoadFailed(): boolean {
+  if (!templateLibraryEmbeddingLoadFailed) return false;
+  cachedEmbeddings = undefined;
+  templateLibraryEmbeddingLoadFailed = false;
+  return true;
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -245,7 +256,10 @@ export async function searchTemplateLibraryWithDiagnostics(
     };
   }
 
-  const embeddings = loadEmbeddings();
+  let embeddings = loadEmbeddings();
+  if (embeddings.length === 0 && retryIfTemplateLibraryEmbeddingLoadFailed()) {
+    embeddings = loadEmbeddings();
+  }
   if (embeddings.length === 0) {
     if (FEATURES.strictGeneratedArtifacts) {
       throw new Error(

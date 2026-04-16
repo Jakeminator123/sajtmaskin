@@ -56,6 +56,8 @@ type VersionSummary = {
   releaseState?: string | null;
   verificationState?: string | null;
   verificationSummary?: string | null;
+  hasPendingRepair?: boolean;
+  repairAvailableAt?: string | Date | null;
   promotedAt?: string | Date | null;
   pinned?: boolean;
   canPin?: boolean;
@@ -82,6 +84,13 @@ type RestoreVersionResponse = {
   versionId?: string | null;
   demoUrl?: string | null;
   legacyShimPreviewUrl?: string | null;
+  error?: string;
+};
+
+type AcceptRepairResponse = {
+  success?: boolean;
+  versionId?: string | null;
+  previewUrl?: string | null;
   error?: string;
 };
 
@@ -125,6 +134,7 @@ export function VersionHistory({
   const [collaborationVersionId, setCollaborationVersionId] = useState<string | null>(null);
   const [confirmRestoreVersion, setConfirmRestoreVersion] = useState<VersionSummary | null>(null);
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
+  const [acceptingRepairVersionId, setAcceptingRepairVersionId] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState("/projects");
   const [syncingElapsed, setSyncingElapsed] = useState(false);
   const [showLocalTimes, setShowLocalTimes] = useState(false);
@@ -368,6 +378,36 @@ export function VersionHistory({
     setConfirmRestoreVersion(version);
   };
 
+  const handleAcceptRepair = async (e: React.MouseEvent, version: VersionSummary) => {
+    e.stopPropagation();
+    if (!chatId) return;
+
+    const versionId = version.id || version.versionId || null;
+    if (!versionId) return;
+    setAcceptingRepairVersionId(versionId);
+    try {
+      const res = await fetch(`${engineChatBaseUrl(chatId)}/accept-repair`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId }),
+      });
+      const data = (await res.json().catch(() => null)) as AcceptRepairResponse | null;
+      if (!res.ok) {
+        throw new Error(data?.error || `Accept repair failed (HTTP ${res.status})`);
+      }
+      toast.success("Serverreparation accepterad och applicerad");
+      mutate();
+      if (data?.versionId) {
+        onVersionSelect(String(data.versionId), data.previewUrl ?? undefined);
+      }
+    } catch (error) {
+      console.error("Accept repair error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to accept repair");
+    } finally {
+      setAcceptingRepairVersionId(null);
+    }
+  };
+
   const canToggleCollapse = typeof onToggleCollapse === "function";
 
   if (isCollapsed) {
@@ -514,6 +554,9 @@ export function VersionHistory({
             const canRollback =
               canRestore &&
               (version.releaseState === "promoted" || version.verificationState === "passed");
+            const hasPendingRepair =
+              version.hasPendingRepair === true || version.verificationState === "repair_available";
+            const isAcceptingRepair = acceptingRepairVersionId === internalVersionId;
             const lifecycleStatus = resolveEngineVersionDisplayStatus(
               {
                 versionId: version.versionId,
@@ -539,6 +582,8 @@ export function VersionHistory({
                   ? "Verifierar"
                   : lifecycleStatus === "repairing"
                     ? "Reparerar"
+                    : lifecycleStatus === "repair_available"
+                      ? "Reparation tillgänglig"
                     : lifecycleStatus === "retrying"
                       ? "Ersatt"
                       : lifecycleStatus === "failed"
@@ -549,14 +594,18 @@ export function VersionHistory({
                 ? "destructive"
                 : lifecycleStatus === "promoted"
                   ? "default"
-                  : lifecycleStatus === "retrying" || lifecycleStatus === "repairing"
+                  : lifecycleStatus === "retrying" ||
+                      lifecycleStatus === "repairing" ||
+                      lifecycleStatus === "repair_available"
                     ? "outline"
                     : "secondary";
             const lifecycleBadgeClassName =
               lifecycleStatus === "retrying"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
                 : lifecycleStatus === "repairing"
-                  ? "border-orange-500/40 bg-orange-500/10 text-orange-700"
+                  ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300"
+                  : lifecycleStatus === "repair_available"
+                    ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
                   : undefined;
             const isEngineVersionRow =
               version.canPin === false || typeof version.versionNumber === "number";
@@ -635,6 +684,9 @@ export function VersionHistory({
                   : null;
               if (lifecycleStatus === "retrying") {
                 return summary || "Ersatt av en nyare version innan denna hann bli klar.";
+              }
+              if (lifecycleStatus === "repair_available") {
+                return summary || "Serverreparation finns sparad och väntar på godkännande.";
               }
               return summary;
             })();
@@ -785,6 +837,24 @@ export function VersionHistory({
                           <RotateCcw className="mr-1 h-3 w-3" />
                         )}
                         {canRollback ? "Rollback" : "Återställ"}
+                      </Button>
+                    )}
+                    {hasPendingRepair && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleAcceptRepair(e, version)}
+                        disabled={isAcceptingRepair || isRestoring}
+                        title="Acceptera serverreparation"
+                        aria-label="Acceptera serverreparation"
+                        className="h-7 px-2 text-xs"
+                      >
+                        {isAcceptingRepair ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <CheckCircle className="mr-1 h-3 w-3" />
+                        )}
+                        Acceptera fix
                       </Button>
                     )}
                     <Button

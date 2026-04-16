@@ -1,8 +1,7 @@
 import { rewriteRegistryImports } from "@/lib/shadcn/registry-utils";
 import {
   getRegistryBaseUrl,
-  resolveRegistryStyle,
-  LEGACY_STYLE_DEFAULT,
+  getStyleFallbackChain,
 } from "@/lib/shadcn/registry-url";
 import type { ComponentReference } from "./shadcn-example-loader";
 
@@ -48,11 +47,7 @@ interface RegistryItemResponse {
 }
 
 async function fetchOneExample(name: string): Promise<ComponentReference | null> {
-  const style = resolveRegistryStyle();
-  const styles = [style];
-  if (style !== "new-york-v4" && style !== LEGACY_STYLE_DEFAULT) {
-    styles.push("new-york-v4");
-  }
+  const styles = getStyleFallbackChain();
 
   for (const s of styles) {
     const url = buildItemUrl(name, s);

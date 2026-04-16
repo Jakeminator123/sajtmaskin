@@ -89,6 +89,12 @@ export type BuilderBuildErrorPayload = {
   raw?: string;
 };
 
+export type BuilderVersionRepairAvailablePayload = {
+  versionId: string;
+  summary?: string | null;
+  repairAvailableAt?: string | null;
+};
+
 export interface BuilderStreamEventMap {
   meta: BuilderMetaPayload;
   thinking: BuilderTextPayload;
@@ -102,6 +108,7 @@ export interface BuilderStreamEventMap {
   projectId: BuilderProjectIdPayload;
   "preview-ready": BuilderPreviewReadyPayload;
   "build-error": BuilderBuildErrorPayload;
+  "version-repair-available": BuilderVersionRepairAvailablePayload;
   done: BuilderDonePayload;
   error: BuilderErrorPayload;
 }
@@ -126,6 +133,7 @@ const BUILDER_STREAM_EVENT_NAMES = new Set<BuilderStreamEventName>([
   "projectId",
   "preview-ready",
   "build-error",
+  "version-repair-available",
   "done",
   "error",
 ]);

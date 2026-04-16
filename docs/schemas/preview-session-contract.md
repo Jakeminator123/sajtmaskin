@@ -10,9 +10,14 @@ Primary code sources:
 - `src/lib/gen/preview/preview-contract.ts`
 - `src/lib/gen/preview/preview-host-client.ts`
 - `src/lib/gen/verify/preview-quality-gate.ts`
+- `src/lib/db/chat-repository-pg.ts`
 - `preview-host/src/server.js`
 - `preview-host/src/validate.js`
 - `preview-host/src/runtime.js`
+- `src/app/api/engine/chats/[chatId]/accept-repair/route.ts`
+- `src/app/api/engine/chats/[chatId]/versions/route.ts`
+- `src/app/api/engine/chats/[chatId]/route.ts`
+- `src/app/api/engine/chats/[chatId]/readiness/route.ts`
 - `docs/architecture/fas3-preview-and-deploy.md`
 
 Machine-oriented companion:
@@ -58,6 +63,11 @@ The quality-gate / server-verify lane is isolated from the live preview:
 - may run `npm install`, `npx tsc --noEmit`, `npx next build`, and optional lint
 - does not expose a live preview URL
 
+Verify responses can contain extra install-context rows in `results[]`:
+
+- `install-cache-share` (node_modules reuse attempt via dependency fingerprint)
+- `install-peer-fallback` (peer-conflict fallback with `--legacy-peer-deps` was used)
+
 Generated/exportable Next projects ship a minimal `eslint.config.mjs` and `npm run lint`
 in the scaffold baseline, so lint is available when a caller explicitly requests it.
 That does **not** change the default tier-2 contract: live preview still optimizes for
@@ -80,6 +90,27 @@ När alla verify-resultat är godkända och `SAJTMASKIN_VISUAL_QA` är på kan S
 
 Samma villkor och filurval delas av `maybeAnalyzeVisualQAForPassedExportable()` i `src/lib/gen/verify/preview-quality-gate.ts` (anropas från quality-gate-routen, `repair/route.ts` och `server-verify.ts`). Sammanfattningstext för DB vid promote/fail styrs av `describeQualityGateVerification()` i samma modul.
 
+### Repair-available + accept-repair (app-side contract)
+
+När post-repair quality gate passerar sparas reparerade filer tillfälligt i
+`repaired_files_json` och versionen får status `repair_available`.
+
+Surface i app-kontrakt:
+
+- `latestVersion.hasPendingRepair`
+- `latestVersion.repairAvailableAt`
+- `verificationState = "repair_available"`
+- SSE: `version-repair-available` (under aktiv stream)
+
+Applicering sker via:
+
+- `POST /api/engine/chats/[chatId]/accept-repair` med `{ versionId }`
+
+Timeout-fallback:
+
+- `maybeAutoAcceptTimedOutRepair()` kan auto-accepta i `chat`, `versions` och
+  `readiness` routes när `repairAcceptTimeoutMinutes` passerats.
+
 ## Public app/API contracts
 
 ### SSE boundary from finalize (`done` -> preview start)
@@ -89,6 +120,7 @@ After finalize, stream contract should be read as:
 - `done` = version is persisted (not that preview is already live)
 - `done.previewPending` = preview bootstrap is expected
 - `done.previewUrlHint` = optional temporary VM boot hint
+- `version-repair-available` = server-repair passed quality gate and pending fix can be accepted
 - `preview-ready` / `build-error` = actual preview start outcome
 
 `previewUrlHint` must not be treated as persisted live `previewUrl` in version APIs.
@@ -206,6 +238,8 @@ Response contains:
 4. `previewUrl` is the public field; `sandboxUrl` remains structural legacy naming.
 5. The verify lane is part of preview-host infrastructure, but it is not the same
    thing as the live preview lane.
+6. `repair_available` means pending server repair exists; files are applied first
+   when `accept-repair` (or timeout auto-accept) completes.
 
 ## Remaining `sandbox` wording (explicit allowlist)
 

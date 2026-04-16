@@ -611,12 +611,20 @@ function applyBriefKeywordBoost(
   const addBoost = (id: string, amount: number) => boosts.set(id, (boosts.get(id) ?? 0) + amount);
 
   if (countKeywordMatches(combinedText, AUTH_KEYWORDS) > 0) addBoost("auth-pages", 2);
-  if (countKeywordMatches(combinedText, ECOMMERCE_KEYWORDS) > 0) addBoost("ecommerce", 2);
+  if (countKeywordMatches(combinedText, ECOMMERCE_KEYWORDS) > 0) {
+    const briefHospitality = countKeywordMatches(combinedText, HOSPITALITY_SERVICE_KEYWORDS);
+    const briefStrongEcommerce = countKeywordMatches(combinedText, STRONG_ECOMMERCE_INTENT);
+    if (briefHospitality === 0 || briefStrongEcommerce > 0) {
+      addBoost("ecommerce", 2);
+    }
+  }
   if (countKeywordMatches(combinedText, DASHBOARD_KEYWORDS) > 0) addBoost("dashboard", 2);
   if (countKeywordMatches(combinedText, APP_KEYWORDS) > 0) addBoost("app-shell", 2);
   if (countKeywordMatches(combinedText, BLOG_KEYWORDS) > 0) addBoost("blog", 2);
   if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
   if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
+  if (countKeywordMatches(combinedText, LANDING_KEYWORDS) > 0) addBoost("landing-page", 2);
+  if (countKeywordMatches(combinedText, CONTENT_KEYWORDS) > 0) addBoost("content-site", 2);
 
   if (boosts.size === 0) return scores;
   return scores.map((entry) => ({
@@ -885,6 +893,8 @@ function getEmbeddingOverrideReason(params: {
   authScore: number;
   appScore: number;
   dashboardScore: number;
+  hospitalityScore: number;
+  strongEcommerceScore: number;
   buildIntent?: BuildIntent | null;
 }): string | null {
   const {
@@ -896,6 +906,8 @@ function getEmbeddingOverrideReason(params: {
     authScore,
     appScore,
     dashboardScore,
+    hospitalityScore,
+    strongEcommerceScore,
     buildIntent,
   } = params;
 
@@ -907,6 +919,8 @@ function getEmbeddingOverrideReason(params: {
       authScore,
       appScore,
       dashboardScore,
+      hospitalityScore,
+      strongEcommerceScore,
       buildIntent,
     })
   ) {
@@ -935,10 +949,19 @@ function canUseEmbeddingOverride(params: {
   authScore: number;
   appScore: number;
   dashboardScore: number;
+  hospitalityScore: number;
+  strongEcommerceScore: number;
   buildIntent?: BuildIntent | null;
 }): boolean {
-  const { embeddingResult, authScore, appScore, dashboardScore, buildIntent } = params;
+  const { embeddingResult, authScore, appScore, dashboardScore, hospitalityScore, strongEcommerceScore, buildIntent } = params;
   if (embeddingResult.id === "auth-pages" && authScore < 1) {
+    return false;
+  }
+  if (
+    embeddingResult.id === "ecommerce" &&
+    hospitalityScore > 0 &&
+    strongEcommerceScore === 0
+  ) {
     return false;
   }
   if (
@@ -1047,6 +1070,8 @@ export async function matchScaffoldAuto(
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   const appScore = countKeywordMatches(lower, APP_KEYWORDS);
   const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
+  const hospitalityScore = countKeywordMatches(lower, HOSPITALITY_SERVICE_KEYWORDS);
+  const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
   const embedBias = readEmbedVsKeywordBias();
 
   const embeddingTopResult =
@@ -1091,6 +1116,8 @@ export async function matchScaffoldAuto(
     authScore,
     appScore,
     dashboardScore,
+    hospitalityScore,
+    strongEcommerceScore,
     buildIntent,
   });
 

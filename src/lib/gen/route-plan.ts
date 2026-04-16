@@ -484,6 +484,19 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Ensure a root route exists even when brief pages didn't map to `/`.
+  // A multi-page site without `/` leads to broken IA and missing homepage.
+  if (!useFollowUpFreeze && !routes.some((r) => normalizeRoutePath(r.path) === "/")) {
+    pushRoute(routes, {
+      path: "/",
+      name: buildIntent === "app" ? "Dashboard" : "Home",
+      intent: buildIntent === "app"
+        ? "Use the root route as the main product workspace or dashboard."
+        : "Use the root route for the primary landing page or homepage.",
+      required: true,
+    });
+  }
+
   if (useFollowUpFreeze && explicitRouteRemovals.size > 0) {
     for (let i = routes.length - 1; i >= 0; i -= 1) {
       const normalizedPath = normalizeRoutePath(routes[i]!.path);
@@ -521,6 +534,8 @@ export function buildRoutePlan(params: {
       ? "Route structure merges brief-defined pages with explicit prompt route requests."
       : hasBriefRoutes && scaffoldAddedRoutes
         ? "Route structure starts from brief pages and adds scaffold defaults when relevant."
+    : hasBriefRoutes
+    ? "Route structure derived from brief-defined pages; keep real App Router pages for each planned path."
     : scaffoldAddedRoutes
     ? "Scaffold defaults added routes on top of prompt-inferred structure; keep real App Router pages for each planned path."
     : routes.length > 1

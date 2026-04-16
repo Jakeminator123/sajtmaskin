@@ -166,7 +166,7 @@ entry is consumed:
   the server may run the same structured Deep Brief model as `/api/ai/brief`
   (unless disabled via `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF=1` or skipped by
   `server-auto-brief-policy.ts`, for example on follow-ups, audit/technical-preserve
-  paths, or already-structured website prompts).
+  paths).
 - UI-driven fetch to `/api/ai/brief` remains useful for previewing/editing the brief before send; if the client attaches `meta.brief`, the server does not regenerate it.
 - Response `meta` may include `serverAutoBriefGenerated` / `serverAutoBriefModel` for telemetry.
 

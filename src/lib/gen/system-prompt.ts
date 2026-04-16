@@ -3,27 +3,29 @@
  *
  * Architecture:
  *  ┌─────────────────────────────────────────────────┐
- *  │  Static core — config/codegen-static-prompt.json +             │
- *  │    config/prompt-static/*.md (or monolithic systemprompt.md;   │
- *  │    not extensionless config/systemprompt)                      │
+ *  │  Core Rules — config/codegen-core-manifest.json +              │
+ *  │    config/prompt-core/*.md (immutable product rules)           │
  *  │  (~6–8K tokens, mtime-cached per process)        │
+ *  ├─────────────────────────────────────────────────┤
+ *  │  Directives — config/prompt-directives/*.md      │
+ *  │  (adaptive modules resolved via Directive Cascade)│
  *  ├─────────────────────────────────────────────────┤
  *  │  Dynamic context  (varies per request)           │
  *  │  → Build intent, visual identity, project ctx    │
  *  └─────────────────────────────────────────────────┘
  *
- * Fas 2 — what actually reaches the model (own-engine):
- *  - **Static core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
- *    **dynamic context** from this file = full **system** message.
- *  - **User turn** = current request prompt (possibly URL-compressed); it is **not**
- *    duplicated here — we do not inject a second "original request" block that mirrors
- *    the same user text (see `buildDynamicContext`).
- *  - **Chat history** = prior user/assistant turns, assembled by the generation
- *    pipeline (`createOwnEnginePipelineAndGenerationStream`, etc.), separate from system.
- * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
+ * Directive Cascade (resolution priority):
+ *  1. EXPLICIT  — Brief/prompt provides exact value
+ *  2. INDICATED — Brief-LLM infers from context
+ *  3. INFERRED  — guidance-resolvers / deterministic heuristics
+ *  4. DEFAULT   — Placeholder text in directive file
  *
- * Keeping the static block in one stable file helps prompt-prefix caching;
- * edit config/prompt-static/*.md and/or the manifest; see _READ_ME_FIRST.md.
+ * What reaches the model (own-engine):
+ *  - **Core Rules** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
+ *    **dynamic context** from this file = full **system** message.
+ *  - **User turn** = current request prompt; not duplicated here.
+ *  - **Chat history** = prior turns, assembled by the generation pipeline.
+ * Canonical map: `docs/architecture/fas2-orchestration-and-build.md`.
  */
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -39,6 +41,8 @@ import type {
 } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
+import { getDirectiveRawText } from "./directive-loader";
+import { resolveGuidanceBlocks, type ColorPalette } from "./guidance-resolvers";
 import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
 import type { ScaffoldId, ScaffoldManifest } from "./scaffolds/types";
@@ -107,6 +111,10 @@ export interface Brief {
     shotTypes?: string[];
     altTextRules?: string[];
   };
+  domainProfile?: string;
+  motionLevel?: "minimal" | "moderate" | "lively";
+  qualityBar?: "clean" | "premium" | "bold-dramatic";
+  seasonalHints?: string[];
   mustHave?: string[];
   avoid?: string[];
   uiNotes?: {
@@ -151,6 +159,8 @@ export interface DynamicContextOptions {
   designReferences?: DesignReferenceAsset[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;
+  /** Raw user prompt text — used for domain/motion/quality inference. */
+  userPrompt?: string;
   /** `init` = first gen (rich brief), `followUp` = delta-only editing. */
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
@@ -189,7 +199,6 @@ function buildShadcnToolkitSummary(ctx?: {
   );
 }
 
-const DEFAULT_REFS_BUDGET_TOKENS = 7_500;
 const DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS = 30_000;
 
 const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
@@ -202,7 +211,11 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^build intent:/i, priority: 95, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
   { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
+  { match: /^design priority$/i, priority: 89, required: true },
   { match: /^scaffold$/i, priority: 90, required: true },
+  { match: /^scaffold:\s/i, priority: 90, required: true },
+  { match: /^layout & theme files/i, priority: 85 },
+  { match: /^import reference/i, priority: 75 },
   { match: /^route plan$/i, priority: 90, required: true },
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
@@ -216,7 +229,15 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
+  { match: /^domain inference$/i, priority: 77 },
+  { match: /^structure hints$/i, priority: 76 },
+  { match: /^contract.*backend.*hints$/i, priority: 75 },
   { match: /^coding direction$/i, priority: 76 },
+  { match: /^color system$/i, priority: 73 },
+  { match: /^art direction/i, priority: 73 },
+  { match: /^typography/i, priority: 72 },
+  { match: /^visual polish$/i, priority: 71 },
+  { match: /^charts$/i, priority: 65 },
   { match: /^interaction.+motion$/i, priority: 68 },
   { match: /^quality bar$/i, priority: 74 },
   { match: /^component palette$/i, priority: 72 },
@@ -384,6 +405,7 @@ export function buildDynamicContext(
     designThemePreset,
     designReferences,
     customInstructions,
+    userPrompt,
     generationMode,
     buildSpec,
     sessionSeed,
@@ -403,7 +425,7 @@ export function buildDynamicContext(
     parts.push(
       "## Generation Mode: Follow-Up",
       "",
-      "You are editing/refining the current project state from previous generations. Treat the scaffold, brief, route plan, and continuity signals below as the latest known implementation context. Apply only the user's requested changes unless they clearly ask for a redesign.",
+      "You are editing/refining the current project state from previous generations. Treat the scaffold, route plan, project context, and continuity signals below as the latest known implementation context. Apply only the user's requested changes unless they clearly ask for a redesign.",
       "",
     );
   }
@@ -537,6 +559,17 @@ export function buildDynamicContext(
     parts.push("");
   }
 
+  parts.push(
+    "## Design Priority",
+    "",
+    "When multiple sources suggest different colors, fonts, or visual direction, follow this order:",
+    "1. User-locked theme tokens (if set in builder UI) — absolute, never override",
+    "2. Brief visual direction (colorPalette, typography, tone) — primary design intent",
+    "3. Scaffold Variant defaults (theme tokens, font pairings) — fallback when brief is silent",
+    "4. Scaffold globals.css baseline — structural placeholder only, always replace its colors",
+    "",
+  );
+
   if (variantStructuralFiles && variantStructuralFiles.files.length > 0) {
     parts.push(
       "## Structural References",
@@ -558,37 +591,27 @@ export function buildDynamicContext(
     }
   }
 
-  // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
+  // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
   // (static core, cached per process — no longer eats dynamic context token budget)
 
   // ── Scaffold ───────────────────────────────────────────────────────────
+  // scaffoldContext already starts with its own ## heading from serialize.ts
+  // (e.g. "## Scaffold: landing-page (inspirational mode)"). Adding an extra
+  // "## Scaffold" wrapper would create a near-empty required block while the
+  // real content ends up in a separate block with wrong priority.
   if (scaffoldContext) {
-    parts.push("## Scaffold", "", scaffoldContext.trim(), "");
+    parts.push(scaffoldContext.trim(), "");
   }
 
   if (resolvedScaffold) {
     const checklist = resolvedScaffold.qualityChecklist?.slice(0, 6) ?? [];
-    const upgradeTargets = resolvedScaffold.research?.upgradeTargets.slice(0, 5) ?? [];
+    const upgradeTargets = resolvedScaffold.research?.upgradeTargets?.slice(0, 3) ?? [];
     const referenceTemplates = resolvedScaffold.research?.referenceTemplates ?? [];
-    const refsBudgetTokens = Math.max(
-      450,
-      buildSpec?.tokenBudgets.refsTokens ?? DEFAULT_REFS_BUDGET_TOKENS,
+    // Fas C: Brief now carries variant-derived design direction (Fas A/B),
+    // so reference inspirations are trimmed to 2 compact lines (no strengths).
+    const referenceLines = referenceTemplates.slice(0, 2).map(
+      (t) => `  - ${t.title} (${t.categorySlug}, score ${t.qualityScore})`,
     );
-    const referenceLines: string[] = [];
-    let refsUsedTokens = 0;
-    for (const template of referenceTemplates.slice(0, 5)) {
-      const strengths = template.strengths.slice(0, 3).join("; ");
-      const summary = strengths
-        ? `${template.title} (${template.categorySlug}, score ${template.qualityScore}): ${strengths}`
-        : `${template.title} (${template.categorySlug}, score ${template.qualityScore})`;
-      const line = `  - ${summary}`;
-      const lineTokens = estimateTokens(line);
-      if (refsUsedTokens + lineTokens > refsBudgetTokens && referenceLines.length > 0) {
-        break;
-      }
-      referenceLines.push(line);
-      refsUsedTokens += lineTokens;
-    }
 
     if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0 || templateGuidance) {
       parts.push(
@@ -601,11 +624,11 @@ export function buildDynamicContext(
         parts.push(...checklist.map((item) => `  - ${item}`));
       }
       if (upgradeTargets.length > 0) {
-        parts.push("", "- Upgrade targets from curated research:");
+        parts.push("", "- Upgrade targets:");
         parts.push(...upgradeTargets.map((item) => `  - ${item}`));
       }
       if (referenceLines.length > 0) {
-        parts.push("", "- Reference inspirations from curated templates:");
+        parts.push("", "- Reference inspirations:");
         parts.push(...referenceLines);
       }
       if (templateGuidance) {
@@ -888,7 +911,101 @@ export function buildDynamicContext(
     parts.push("");
   }
 
-  // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
+  // ── Guidance blocks (domain, motion, quality bar) ────────────────────────
+  // Level 3 (INFERRED): guidance-resolvers provide deterministic heuristics.
+  // Level 4 (DEFAULT): directive file text is used when resolvers have no signal.
+  if (userPrompt) {
+    const briefPaletteForGuidance: ColorPalette = briefPalette
+      ? {
+          primary: briefPalette.primary,
+          secondary: briefPalette.secondary,
+          accent: briefPalette.accent,
+          background: briefPalette.background,
+          text: briefPalette.text,
+        }
+      : {};
+    const guidance = resolveGuidanceBlocks({
+      userPrompt,
+      buildIntent: intent,
+      tone: toneKeywords,
+      styleKeywords,
+      briefPalette: briefPaletteForGuidance,
+      themeOverride,
+      topicSignal: [
+        str(brief?.projectTitle),
+        str(brief?.brandName),
+        str(brief?.oneSentencePitch),
+        userPrompt,
+      ]
+        .filter(Boolean)
+        .join(" "),
+      briefDomainProfile: str(brief?.domainProfile) || undefined,
+      briefMotionLevel: brief?.motionLevel,
+      briefQualityBar: brief?.qualityBar,
+      briefSeasonalHints: brief?.seasonalHints?.filter(Boolean),
+    });
+
+    if (guidance.domainProfile !== "general") {
+      const domainSource = brief?.domainProfile
+        ? "from brief"
+        : "inferred from prompt keywords";
+      parts.push(
+        "## Domain Inference",
+        "",
+        `- Domain profile (${domainSource}): **${guidance.domainProfile}**.`,
+        "",
+      );
+    }
+    if (guidance.domainStructureHints.length > 0) {
+      parts.push(
+        "## Structure Hints",
+        "",
+        ...guidance.domainStructureHints.map((h) => `- ${h}`),
+        "",
+      );
+    }
+    if (guidance.domainContractHints.length > 0) {
+      parts.push(
+        "## Contract & Backend Hints",
+        "",
+        ...guidance.domainContractHints.map((h) => `- ${h}`),
+        "",
+      );
+    }
+    parts.push(
+      "## Interaction & Motion",
+      "",
+      ...guidance.motionGuidance.map((g) => `- ${g}`),
+      "",
+    );
+    parts.push(
+      "## Quality Bar",
+      "",
+      ...guidance.qualityBarGuidance.map((g) => `- ${g}`),
+      "",
+    );
+    if (guidance.seasonalPaletteGuidance.length > 0) {
+      parts.push(...guidance.seasonalPaletteGuidance.map((g) => `- ${g}`));
+    }
+  }
+
+  // ── Directive defaults (level 4) ───────────────────────────────────────
+  // Inject directive content for areas not already covered by brief/variant/resolvers.
+  const visualDesignDirective = getDirectiveRawText("visual-design");
+  if (visualDesignDirective) {
+    const cleaned = visualDesignDirective
+      .replace(/<!--[^>]*-->\n?/g, "")
+      .replace(/^#\s+.+\n/m, "")
+      .trim();
+    parts.push(cleaned, "");
+  }
+
+  const contentVoiceDirective = getDirectiveRawText("content-voice");
+  if (contentVoiceDirective) {
+    parts.push("## Coding Direction", "", contentVoiceDirective, "");
+  }
+
+  // ── Imagery (brief-specific only; global rules live in prompt-directives/02-images.md)
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
   // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
   if (brief?.imagery) {
@@ -1004,7 +1121,7 @@ export function buildDynamicContext(
 // PUBLIC API — buildSystemPrompt(), getSystemPromptLengths()
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Between static core (files under config/prompt-static) and buildDynamicContext output. */
+/** Between static core (config/prompt-core) and buildDynamicContext output. */
 export const SYSTEM_PROMPT_SEPARATOR = "\n\n---\n\n# Request-Specific Context\n\n";
 
 export interface BuildSystemPromptOptions {
@@ -1021,6 +1138,7 @@ export interface BuildSystemPromptOptions {
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
   customInstructions?: string;
+  userPrompt?: string;
   generationMode?: "init" | "followUp";
   buildSpec?: BuildSpec | null;
   variantStructuralFiles?: VariantStructuralFilesSelection | null;
@@ -1049,6 +1167,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
     designReferences: options.designReferences,
     buildSpec: options.buildSpec,
     customInstructions: options.customInstructions,
+    userPrompt: options.userPrompt,
     generationMode: options.generationMode,
     variantStructuralFiles: options.variantStructuralFiles,
   });

@@ -73,6 +73,7 @@ function providerFromString(
 export function deriveSetupContract(
   contracts: PlanContracts | undefined | null,
   configuredEnvKeys: Set<string>,
+  placeholderKeys?: Set<string>,
 ): SetupContract {
   const integrations = (contracts?.integrations ?? []).map(providerFromPlanIntegration);
   const planIntegrations = contracts?.integrations ?? [];
@@ -107,8 +108,11 @@ export function deriveSetupContract(
   );
 
   const requiredEnvKeys = Array.from(allEnvKeys).sort();
+  const effectiveKeys = placeholderKeys
+    ? new Set([...configuredEnvKeys, ...placeholderKeys])
+    : configuredEnvKeys;
   const missingEnvKeys = requiredEnvKeys.filter(
-    (key) => !configuredEnvKeys.has(key),
+    (key) => !effectiveKeys.has(key),
   );
 
   const hasUnresolved =

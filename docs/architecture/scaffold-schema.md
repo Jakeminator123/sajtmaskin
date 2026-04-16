@@ -84,7 +84,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 14 | Scaffold serialisering | `serializeScaffoldForPrompt()` | `serialize.ts` | Ja | Budgeterad markdown-injection i systemprompt |
 | 14a | Serialize mode auto-detect | `detectScaffoldMode()` | `serialize.ts` | **Oanvänd** | Exporterad + testad men aldrig anropad i production. Mode bestäms mekaniskt i orchestrate.ts |
 | 15 | Dynamic context | `buildDynamicContext()` | `system-prompt.ts` | Ja | scaffold + routes + contracts + brief + tema + capabilities → prioriterad + prunad |
-| 16 | System prompt | `composeEngineSystemPrompt()` | `system-prompt.ts` | Ja | Static Core + Dynamic Context |
+| 16 | System prompt | `composeEngineSystemPrompt()` | `system-prompt.ts` | Ja | Core Rules + Directives + Dynamic Context |
 | 17 | Kodgenerering | `generateCode()` | `engine.ts` | Ja | LLM-anrop med systemprompt + user turn |
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
@@ -273,23 +273,26 @@ Viktiga serialiserings-features:
 ### STEG 10 — Dynamic Context + System Prompt (`system-prompt.ts`)
 
 ```
-System Prompt = Static Core + Dynamic Context
+System Prompt = Core Rules + Directives + Dynamic Context
 
-Static Core (config/prompt-static/*.md):
-├── intro
-├── output-format
-├── planning
-├── intent-fidelity
-├── visual-design-quality
-├── accessibility
-└── ...
+Core Rules (config/prompt-core/*.md via codegen-core-manifest.json):
+├── 00-core-contract (stack, format, Lucide)
+├── 01-behavioral-contract (a11y, import, beteende)
+└── 02-component-contract (shadcn patterns)
+
+Directives (config/prompt-directives/*.md, Level 4 defaults via Directive Cascade):
+├── visual-design, images, scaffold-starters, follow-up-scope
+├── motion, quality-bar, domain-hints, seasonal-palette
+├── design-priority, content-voice, creative-extensions, integration-contracts
+└── Cascade: EXPLICIT (brief) > INDICATED (Brief-LLM) > INFERRED (resolvers) > DEFAULT (directive)
 
 Dynamic Context (request-specifik, prioriterad + prunad):
 ├── scaffold context (serialiserad scaffold)
 ├── route plan
 ├── contracts
-├── brief (om finns)
-├── scaffold variant (scaffold-bunden variation: signaturmotiv, fontpar, variant-hints, tema-tokens)
+├── brief (om finns, inkl. domainProfile, motionLevel, qualityBar, seasonalHints)
+├── scaffold variant (signaturmotiv, fontpar, variant-hints, tema-tokens)
+├── guidance-resolvers (brief-override > deterministisk fallback)
 ├── capability hints
 ├── scaffold research priorities
 └── your toolkit (registry-synced local shadcn summary + capability-hints)
@@ -534,8 +537,12 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Fil | Vad |
 |-----|-----|
-| `config/codegen-static-prompt.json` | Fragment-lista för static system prompt |
-| `config/prompt-static/*.md` | 14 fragment-filer som blir LLM:ens statiska instruktioner |
+| `config/codegen-core-manifest.json` | Fragment-lista för Core Rules (primär) |
+| `config/codegen-directives-manifest.json` | Fragment-lista för Directives |
+| `config/prompt-core/*.md` | 3 Core Rules-filer (stack, beteende, komponenter) |
+| `config/prompt-directives/*.md` | 12 Directive-filer (adaptiva, Level 4 defaults) |
+| `config/codegen-static-prompt.json` | Legacy fallback fragment-lista |
+| `config/prompt-static/*.md` | Legacy fragment-filer (fallback om core-manifest saknas) |
 | `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index-pekare, phase routing |
 | `config/ai_models/40-generated-site-integration-placeholders.env.txt` | Fake env vars för preview |
 | `config/env-policy.json` | Env-audit regler |
@@ -555,7 +562,9 @@ Dimension 5: VAD BERIKAR scaffolden?
 |-----|-----|
 | `config/README.md` | Index över config/ |
 | `config/ai_models/_READ_ME_FIRST.md` + `*.md` | Modell-dokumentation |
-| `config/prompt-static/_READ_ME_FIRST.md` | Prompt-fragment dokumentation |
+| `config/prompt-core/_READ_ME_FIRST.md` | Core Rules dokumentation |
+| `config/prompt-directives/_READ_ME_FIRST.md` | Directives dokumentation |
+| `config/prompt-static/_READ_ME_FIRST.md` | Legacy prompt-fragment dokumentation |
 | `config/user_degraded_env.txt` | Policy-text, inte parsad |
 
 ### Lokal dashboard (valfri GUI)

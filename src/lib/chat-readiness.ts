@@ -20,6 +20,8 @@ export type ChatReadinessInfo = {
   requiredEnvKeys: string[];
   configuredEnvKeys: string[];
   missingEnvKeys: string[];
+  /** Keys not configured by user but covered by preview placeholders — deferred to publish. */
+  placeholderCoveredKeys?: string[];
 };
 
 export type ChatReadiness = {

@@ -740,11 +740,18 @@ LLM-generering
      |                  (kan trigga LLM autofix)
 [Quality gate] ← VM, npx tsc --noEmit
      |                  (kan trigga server repair → LLM autofix)
+[Server repair pass]  ← delad runRepairLoop()
+     |
+[repair_available]    ← repaired_files_json + repair_available_at
+     |
+[accept-repair]       ← explicit användaraccept i versionspanelen
+     |
+[timeout auto-accept] ← repairPolicies.repairAcceptTimeoutMinutes
 ```
 """
         )
         st.caption(
-            "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är read-only och advisory (stoppar inte persist). Post-checks och quality gate körs efter att versionen har sparats, men quality gate hoppas över om post-checks redan har köat autofix."
+            "Preflight kan stoppa leverans före databasen. Verifier-pass i finalize är read-only och advisory (stoppar inte persist). Post-checks och quality gate körs efter att versionen har sparats, men quality gate hoppas över om post-checks redan har köat autofix. Serverrepair appliceras inte längre tyst: först `repair_available`, sedan `accept-repair` (eller timeout-autoaccept)."
         )
 
         st.divider()
@@ -898,11 +905,12 @@ LLM-generering
             pgp = manifest.setdefault("postGenerationPasses", {})
             routing = phase_routing_defaults(manifest)
 
-            c1, c2, c3, c4 = st.columns(4)
+            c1, c2, c3, c4, c5 = st.columns(5)
             c1.metric("Mekaniska pass", int(rp.get("deterministicAutofixPasses", 2)))
             c2.metric("Syntax-pass", int(rp.get("syntaxFixPasses", 3)))
             c3.metric("Server repair-pass", int(rp.get("serverRepairPasses", 2)))
             c4.metric("Manual repair-pass", int(rp.get("manualRepairRouteLlmPasses", 2)))
+            c5.metric("Repair accept-timeout (min)", int(rp.get("repairAcceptTimeoutMinutes", 5)))
 
             left, right = st.columns(2)
             with left:
@@ -938,6 +946,15 @@ LLM-generering
                     max_value=10,
                     step=1,
                     key="bo_repair_server",
+                )
+                repair_accept_timeout = st.number_input(
+                    "Repair available: auto-accept timeout (minuter)",
+                    value=int(rp.get("repairAcceptTimeoutMinutes", 5)),
+                    min_value=1,
+                    max_value=120,
+                    step=1,
+                    key="bo_repair_accept_timeout",
+                    help="Efter denna tid kan pending `repair_available` auto-accepteras i chat/versions/readiness-routes.",
                 )
 
             with right:
@@ -1056,6 +1073,7 @@ LLM-generering
                 rp["syntaxFixPasses"] = int(syntax_passes)
                 rp["manualRepairRouteLlmPasses"] = int(manual_passes)
                 rp["serverRepairPasses"] = int(server_passes)
+                rp["repairAcceptTimeoutMinutes"] = int(repair_accept_timeout)
                 manifest.setdefault("phaseRouting", {})["defaultByTier"] = edited_routing
                 for tier, phase_entries in edited_thinking.items():
                     for phase, cfg in phase_entries.items():

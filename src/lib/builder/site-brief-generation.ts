@@ -138,6 +138,42 @@ const siteBriefSchema = z.object({
     metaDescription: z.string().describe("One concise meta description"),
     keywords: z.array(z.string()).min(3).max(30),
   }),
+  domainProfile: z
+    .string()
+    .optional()
+    .describe(
+      "Specific domain classification beyond generic labels. " +
+      "E.g. 'heavy-metal-merch-store', 'artisan-bakery', 'luxury-spa'. " +
+      "Drives structural hints and backend contract decisions. " +
+      "Omit if the site does not fit a clear domain."
+    ),
+  motionLevel: z
+    .enum(["minimal", "moderate", "lively"])
+    .optional()
+    .describe(
+      "How much animation suits this site. " +
+      "'minimal' for corporate/serious/text-heavy, " +
+      "'moderate' for balanced (default when unsure), " +
+      "'lively' for energetic/playful/animated."
+    ),
+  qualityBar: z
+    .enum(["clean", "premium", "bold-dramatic"])
+    .optional()
+    .describe(
+      "Visual density target. " +
+      "'clean' for minimal/airy/whitespace-driven, " +
+      "'premium' for layered/polished/card-heavy (default when unsure), " +
+      "'bold-dramatic' for high-contrast/oversized/maximal."
+    ),
+  seasonalHints: z
+    .array(z.string())
+    .min(0)
+    .max(6)
+    .optional()
+    .describe(
+      "Seasonal or cultural themes present in the request. " +
+      "E.g. ['christmas', 'winter']. Leave empty/omit if not seasonal."
+    ),
   mustHave: z
     .array(z.string())
     .min(0)
@@ -162,24 +198,43 @@ const BRIEF_SYSTEM_PROMPT =
   "Convert the user request into a concise website brief that is immediately usable for implementation. " +
   "Infer the most likely site type from the user request and adjust pages, sections, and content to fit. " +
   "Be specific about pages/sections, visual direction, and copy direction. " +
-  "Include every field in the schema. If a value is unknown, use an empty string. " +
+  "Include every required field in the schema. For optional fields (domainProfile, motionLevel, qualityBar, seasonalHints), include them when the request gives you signal — omit when ambiguous. " +
+  "If a required value is unknown, use an empty string. " +
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
   "SCOPE AWARENESS (important):\n" +
   "- Match the scope to the complexity of the user's request.\n" +
-  "- A short, casual request without specific page needs (e.g. 'a page for Lasse's flea market') can be a compact brief with 4-6 sections on a single page.\n" +
-  "- When the user's input mentions multiple pages or the needs-analysis specifies pages (Om oss, Kontakt, Priser, etc.), always include them in the brief's pages array with proper paths.\n" +
-  "- A detailed, structured request should produce a multi-page brief (2-5 pages) with richer sections.\n" +
-  "- When in doubt, include the pages the user's input references rather than collapsing everything into one page.\n\n" +
-  "SWEDISH CONTENT (default language):\n" +
-  "- All text, headings, section names, and metadata in Swedish with correct å, ä, ö. No emojis.\n" +
-  "- Authentic Swedish names and places. Tone: professional yet warm (lagom).\n" +
-  "- Full Swedish content rules are in the codegen system prompt (14-swedish-content.md).";
+  "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
+  "- A detailed, structured request with many requirements should produce a multi-page brief (2-5 pages) with richer sections.\n" +
+  "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
+  "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.\n\n" +
+  "DESIGN GUIDANCE FIELDS (optional — fill when the request gives you signal):\n" +
+  "- domainProfile: Go beyond generic labels. A heavy-metal band selling merch is 'heavy-metal-merch-store', not just 'ecommerce'. An artisan bakery is 'artisan-bakery', not 'restaurant'. Be specific — this drives structural hints.\n" +
+  "- motionLevel: Match animation to the subject. A law firm → 'minimal'. A children's toy store → 'lively'. Most sites → 'moderate'. Omit only if truly ambiguous.\n" +
+  "- qualityBar: Visual density. A zen meditation studio → 'clean'. A SaaS landing page → 'premium'. A gaming/nightclub site → 'bold-dramatic'.\n" +
+  "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Omit when not seasonal.\n\n" +
+  "VARIANT HINTS (when provided in the user message):\n" +
+  "- Use the scaffold variant as a design starting point for colorPalette, typography, and styleKeywords.\n" +
+  "- Adjust when the user's request clearly calls for a different direction.\n" +
+  "- If the variant says 'dark' but the user asks for a bright, airy site — follow the user.\n" +
+  "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.\n\n" +
+  "DELTA-BRIEF (when prior design context is provided):\n" +
+  "- You are updating a prior design, not starting from scratch.\n" +
+  "- Preserve aspects not explicitly changed by the new request (brand, structure, tone).\n" +
+  "- If the user says 'make it dark' — change palette/mood but keep pages, brand, and structure.\n" +
+  "- If the user describes a completely new site — treat it as a fresh brief, ignoring prior context.";
 
-function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string {
+function buildBriefUserPrompt(
+  prompt: string,
+  imageGenerations: boolean,
+  variantHints?: string,
+  priorDesignContext?: string,
+): string {
   const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
   return (
     prompt +
+    (priorDesignContext ? `\n\n${priorDesignContext}` : "") +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +
+    (variantHints ? `\n\n${variantHints}` : "") +
     (imageGenerations
       ? "\n\nInclude imagery guidance because image generation is enabled."
       : "\n\nImage generation is disabled; prefer layout and iconography, keep imagery optional.")
@@ -281,6 +336,8 @@ export async function generateSiteBriefObject(
     maxTokens?: number;
     abortSignal?: AbortSignal;
     source?: string;
+    variantHints?: string;
+    priorDesignContext?: string;
   },
 ): Promise<SiteBriefGenerationResult | null> {
   const {
@@ -291,10 +348,12 @@ export async function generateSiteBriefObject(
     maxTokens: requestedMaxTokens,
     abortSignal,
     source,
+    variantHints,
+    priorDesignContext,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
   const maxTokens = resolveMaxTokens(requestedMaxTokens);
-  const userPrompt = buildBriefUserPrompt(prompt, imageGenerations);
+  const userPrompt = buildBriefUserPrompt(prompt, imageGenerations, variantHints, priorDesignContext);
   const briefSource = normalizeBriefLogSource(source);
 
   debugLog("brief", `model_call ${normalizedModel} provider=${resolvedProvider} maxTokens=${maxTokens}`);
@@ -426,6 +485,8 @@ export async function tryGenerateServerAutoBrief(params: {
   assistModelHint?: string | null;
   imageGenerations: boolean;
   signal?: AbortSignal;
+  variantHints?: string;
+  priorDesignContext?: string;
 }): Promise<{ brief: Record<string, unknown>; modelUsed: string } | null> {
   const normalized = normalizeAssistModel(
     params.assistModelHint?.trim() || AUTO_BRIEF_MODEL_OPENAI,
@@ -439,7 +500,9 @@ export async function tryGenerateServerAutoBrief(params: {
       normalizedModel: runnable,
       imageGenerations: params.imageGenerations,
       abortSignal: params.signal,
-      source: "server_auto_brief",
+      source: params.priorDesignContext ? "server_delta_brief" : "server_auto_brief",
+      variantHints: params.variantHints,
+      priorDesignContext: params.priorDesignContext,
     });
     if (!generated) return null;
     const { brief, normalizedModel } = generated;

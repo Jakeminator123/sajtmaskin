@@ -35,7 +35,7 @@ const requestSchema = z.object({
   frames: z.array(z.string()).max(6).optional(),
 });
 
-const TEXT_ONLY_PROMPT = `Du ar en uppmutrande presentationscoach. Analysera denna transkribering av en elevator pitch / foretagspresentation.
+const TEXT_ONLY_PROMPT = `Du är en uppmuntrande presentationscoach. Analysera denna transkribering av en elevator pitch / företagspresentation.
 
 Svara BARA med JSON i exakt detta format:
 {
@@ -43,20 +43,20 @@ Svara BARA med JSON i exakt detta format:
   "toneFeedback": "Kort feedback om ton och energi",
   "clarityFeedback": "Kort feedback om tydlighet och struktur",
   "pitchFeedback": "Kort feedback om elevator pitch-kvalitet",
-  "confidenceFeedback": "Kort feedback om sjalvsakerhet i talet",
+  "confidenceFeedback": "Kort feedback om självsäkerhet i talet",
   "keyMessage": "Vad som kom fram som huvudbudskap",
-  "suggestions": ["Forbattringsforslag 1", "Forbattringsforslag 2"],
+  "suggestions": ["Förbättringsförslag 1", "Förbättringsförslag 2"],
   "strengthHighlight": "Den starkaste delen av presentationen"
 }
 
 Regler:
-- Var POSITIV och uppmutrande -- lyft styrkor forst
-- overallScore: 1-10 (var generos, de flesta bor fa 6-9)
-- Alla texter pa svenska
-- Kort och konkret, max 1-2 meningar per falt
+- Var POSITIV och uppmuntrande — lyft styrkor först
+- overallScore: 1-10 (var generös, de flesta bör få 6-9)
+- Alla texter på svenska
+- Kort och konkret, max 1-2 meningar per fält
 - suggestions: max 3, actionable`;
 
-const VISION_PROMPT = `Du ar en uppmutrande presentationscoach. Du far en transkribering av en elevator pitch PLUS stillbilder fran videon. Analysera BADE talet och kroppspraket.
+const VISION_PROMPT = `Du är en uppmuntrande presentationscoach. Du får en transkribering av en elevator pitch PLUS stillbilder från videon. Analysera BÅDE talet och kroppsspråket.
 
 Svara BARA med JSON i exakt detta format:
 {
@@ -64,20 +64,20 @@ Svara BARA med JSON i exakt detta format:
   "toneFeedback": "Kort feedback om ton och energi",
   "clarityFeedback": "Kort feedback om tydlighet och struktur",
   "pitchFeedback": "Kort feedback om elevator pitch-kvalitet",
-  "confidenceFeedback": "Kort feedback om sjalvsakerhet",
-  "postureFeedback": "Kort feedback om hallning och kroppssprak",
-  "eyeContactFeedback": "Kort feedback om blickkontakt och narvaro",
-  "keyMessage": "Huvudbudskapet som nadde fram",
-  "suggestions": ["Forbattringsforslag 1", "Forbattringsforslag 2"],
+  "confidenceFeedback": "Kort feedback om självsäkerhet",
+  "postureFeedback": "Kort feedback om hållning och kroppsspråk",
+  "eyeContactFeedback": "Kort feedback om blickkontakt och närvaro",
+  "keyMessage": "Huvudbudskapet som nådde fram",
+  "suggestions": ["Förbättringsförslag 1", "Förbättringsförslag 2"],
   "strengthHighlight": "Den starkaste delen av presentationen"
 }
 
-Regler for visuell analys:
-- Kommentera hallning positivt: rak rygg, avslappnade axlar, oppet kroppssprak
-- Kommentera blickkontakt: tittar de i kameran? ar blicken stadig?
-- Var POSITIV -- lyft vad som ar bra forst, ge sedan milda forbattringsforslag
-- overallScore: 1-10 (generos)
-- Alla texter pa svenska, korta (1-2 meningar per falt)
+Regler för visuell analys:
+- Kommentera hållning positivt: rak rygg, avslappnade axlar, öppet kroppsspråk
+- Kommentera blickkontakt: tittar de i kameran? Är blicken stadig?
+- Var POSITIV — lyft vad som är bra först, ge sedan milda förbättringsförslag
+- overallScore: 1-10 (generös)
+- Alla texter på svenska, korta (1-2 meningar per fält)
 - suggestions: max 3`;
 
 
@@ -128,26 +128,26 @@ function buildFallbackAnalysis(
 
   return {
     overallScore: shortTranscript ? 6 : 7,
-    toneFeedback: "Bra energi i tonen. Behall lugnt tempo och tydliga pauser.",
+    toneFeedback: "Bra energi i tonen. Behåll lugnt tempo och tydliga pauser.",
     clarityFeedback: shortTranscript
-      ? "Inspelningen ar kort, sa analysen blir begransad. Laggar du till 2-3 meningar blir feedbacken mer exakt."
-      : "Budskapet ar begripligt. Tydlig inledning och avslut gor presentationen annu starkare.",
+      ? "Inspelningen är kort, så analysen blir begränsad. Lägger du till 2-3 meningar blir feedbacken mer exakt."
+      : "Budskapet är begripligt. Tydlig inledning och avslut gör presentationen ännu starkare.",
     pitchFeedback:
-      "Du far fram nyttan pa ett bra satt. Lyft problem -> losning -> resultat i den ordningen.",
+      "Du får fram nyttan på ett bra sätt. Lyft problem → lösning → resultat i den ordningen.",
     confidenceFeedback:
-      "Du later trygg. Fortsatt med stadig rytm och korta pauser efter viktiga punkter.",
+      "Du låter trygg. Fortsätt med stadig rytm och korta pauser efter viktiga punkter.",
     ...(hasFrames
       ? {
           postureFeedback:
-            "Hall en oppen hallning med avslappnade axlar. Smatt handrorelse kan forstarka budskapet.",
+            "Håll en öppen hållning med avslappnade axlar. Små handrörelser kan förstärka budskapet.",
           eyeContactFeedback:
-            "Forsok halla blicken nara kameran i nyckelmeningar for starkare narvaro.",
+            "Försök hålla blicken nära kameran i nyckelmeningar för starkare närvaro.",
         }
       : {}),
     keyMessage,
     suggestions: [
-      "Borja med en mening som beskriver vem ni hjalper.",
-      "Ge ett konkret exempel pa resultat kunden far.",
+      "Börja med en mening som beskriver vem ni hjälper.",
+      "Ge ett konkret exempel på resultat kunden får.",
       "Avsluta med en tydlig uppmaning (t.ex. boka demo/kontakta oss).",
     ],
     strengthHighlight: "Du kommunicerar med positiv energi och tydlig riktning.",

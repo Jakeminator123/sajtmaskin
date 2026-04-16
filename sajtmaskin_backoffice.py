@@ -12,8 +12,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from backoffice.app_main import run_backoffice_app
 from backoffice.shared import launch_streamlit_if_needed
+
+load_dotenv(".env.local", override=False)
 
 
 def main() -> None:

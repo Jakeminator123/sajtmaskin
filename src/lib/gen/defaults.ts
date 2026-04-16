@@ -137,6 +137,8 @@ export const DETERMINISTIC_AUTOFIX_MAX_PASSES =
 export const MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES =
   repairPolicies.manualRepairRouteLlmPasses;
 export const SERVER_REPAIR_MAX_PASSES = repairPolicies.serverRepairPasses;
+export const REPAIR_ACCEPT_TIMEOUT_MINUTES = repairPolicies.repairAcceptTimeoutMinutes;
+export const REPAIR_ACCEPT_TIMEOUT_MS = REPAIR_ACCEPT_TIMEOUT_MINUTES * 60 * 1000;
 export const PARTIAL_FILE_REPAIR_MAX_ATTEMPTS =
   repairPolicies.partialFileRepairMaxAttempts;
 

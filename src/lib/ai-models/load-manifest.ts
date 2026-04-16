@@ -139,6 +139,7 @@ const repairPoliciesSchema = z.object({
   syntaxFixPasses: z.number().int().positive(),
   manualRepairRouteLlmPasses: z.number().int().positive(),
   serverRepairPasses: z.number().int().positive(),
+  repairAcceptTimeoutMinutes: z.number().int().min(1).max(120),
   partialFileRepairMaxAttempts: z.number().int().min(1).max(3),
 });
 

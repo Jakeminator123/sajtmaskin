@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { formatPrompt } from "@/lib/builder/promptAssist";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, errorLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {
@@ -27,7 +27,7 @@ export function useSendMessage(
       initialMessage: string,
       options?: MessageOptions,
       systemPromptOverride?: string,
-    ) => Promise<void>;
+    ) => Promise<boolean>;
     streamAbortRef: React.MutableRefObject<AbortController | null>;
     autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
     lastSentSystemPromptRef: React.MutableRefObject<string | null>;
@@ -82,7 +82,7 @@ export function useSendMessage(
       if (!messageText?.trim()) return;
 
       if (!chatId) {
-        await createNewChat(messageText, options);
+        if (!(await createNewChat(messageText, options))) return;
         return;
       }
 
@@ -199,6 +199,7 @@ export function useSendMessage(
             preflight,
             assistantMessageId,
             setMessages,
+            mutateVersions,
             onAutoFix: (payload) => autoFixHandlerRef.current(payload),
           });
         }
@@ -374,7 +375,7 @@ export function useSendMessage(
             finalError = fallbackErr;
           }
         }
-        console.error("Error sending streaming message:", finalError);
+        errorLog("AI", "Error sending streaming message", finalError);
         const message =
           finalError instanceof Error ? finalError.message : "Kunde inte skicka meddelandet.";
         toast.error(message);

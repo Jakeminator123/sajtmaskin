@@ -13,6 +13,27 @@ import type { GenerationStreamMeta } from "@/lib/providers/own-engine/generation
 import type { PreGenerationContractGateReadableParams } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 
+function extractBriefSummary(brief: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!brief || typeof brief !== "object") return null;
+  const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const strList = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 6) : [];
+  const vis = brief.visualDirection as Record<string, unknown> | undefined;
+  const palette = vis?.colorPalette as Record<string, unknown> | undefined;
+  return {
+    projectTitle: str(brief.projectTitle) ?? str(brief.siteName),
+    brandName: str(brief.brandName),
+    styleKeywords: strList(vis?.styleKeywords),
+    toneKeywords: strList(brief.toneAndVoice),
+    primaryCTA: str(brief.primaryCallToAction),
+    colorPalette: palette ? {
+      primary: str(palette.primary),
+      secondary: str(palette.secondary),
+      accent: str(palette.accent),
+    } : undefined,
+  };
+}
+
 type OwnEngineContractGateCommon = {
   sseChatId: string;
   assistantMessageId: string | null;
@@ -109,8 +130,10 @@ export type OwnEngineGenerationStreamMetaInput = {
   buildSpec: BuildSpec;
   engineSystemPromptLength: number;
   metaBriefApplied: boolean;
+  metaBrief?: Record<string, unknown> | null;
   customInstructionsLength: number;
   scaffoldId: string | null;
+  variantId?: string | null;
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -154,7 +177,9 @@ export function buildOwnEngineGenerationStreamMeta(
     buildSpec: input.buildSpec,
     systemPromptLength: input.engineSystemPromptLength,
     briefApplied: input.metaBriefApplied,
+    briefSummary: extractBriefSummary(input.metaBrief),
     customInstructionsLength: input.customInstructionsLength,
+    variantId: input.variantId ?? null,
   };
   if (input.routeVariant === "new-chat") {
     (meta as Record<string, unknown>).chatPrivacy = input.chatPrivacy;

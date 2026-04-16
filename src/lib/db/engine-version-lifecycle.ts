@@ -5,6 +5,7 @@ export const ENGINE_VERSION_VERIFICATION_STATES = [
   "pending",
   "verifying",
   "repairing",
+  "repair_available",
   "passed",
   "failed",
 ] as const;
@@ -21,7 +22,13 @@ export type EngineVersionLifecycleLike = {
   verification_state?: string | null;
 };
 
-export type EngineVersionLifecycleStatus = "draft" | "verifying" | "repairing" | "failed" | "promoted";
+export type EngineVersionLifecycleStatus =
+  | "draft"
+  | "verifying"
+  | "repairing"
+  | "repair_available"
+  | "failed"
+  | "promoted";
 
 export type EngineVersionDisplayStatus = EngineVersionLifecycleStatus | "retrying";
 
@@ -58,6 +65,9 @@ export function resolveEngineVersionLifecycleStatus(
   if (verificationState === "repairing") {
     return "repairing";
   }
+  if (verificationState === "repair_available") {
+    return "repair_available";
+  }
   if (verificationState === "failed") {
     return "failed";
   }
@@ -93,7 +103,8 @@ export function resolveEngineVersionDisplayStatus<T extends EngineVersionLifecyc
   if (
     lifecycleStatus === "failed" ||
     lifecycleStatus === "repairing" ||
-    lifecycleStatus === "verifying"
+    lifecycleStatus === "verifying" ||
+    lifecycleStatus === "repair_available"
   ) {
     return "retrying";
   }

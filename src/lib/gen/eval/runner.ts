@@ -6,7 +6,7 @@ import { parseCodeProject } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
 import { DEFAULT_MODEL } from "../models";
 import { buildCompleteProject } from "../export/project-scaffold";
-import { collectRequiredUiComponents } from "../export/build-exportable-project";
+import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { runFinalizePreflight } from "../stream/finalize-preflight";
 import { runSeoPreflightChecks } from "../validation/seo-preflight";
 import { EVAL_PROMPTS, type EvalPrompt } from "./prompts";

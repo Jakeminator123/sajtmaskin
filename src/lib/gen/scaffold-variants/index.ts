@@ -16,3 +16,8 @@ export type {
   VariantStructuralFileReference,
   VariantStructuralFilesSelection,
 } from "./structural-files";
+export {
+  buildVariantHintsForBrief,
+  formatVariantHintsForPrompt,
+} from "./variant-hints";
+export type { VariantHints } from "./variant-hints";

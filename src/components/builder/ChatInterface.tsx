@@ -29,15 +29,7 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { ChevronUp, FileText, HelpCircle, ImageIcon, Loader2, Paperclip, Plus, Wand2, X } from "lucide-react";
-import { ActionHubPopup } from "@/components/builder/ActionHubPopup";
-import type { ActionHubItemAction } from "@/lib/builder/action-hub-items";
-import { HELP_SUGGESTIONS } from "@/lib/builder/help-suggestions";
+import { FileText, ImageIcon, Loader2, Plus, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
@@ -62,8 +54,6 @@ import {
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
-import { cn } from "@/lib/utils";
-import { debugLog } from "@/lib/utils/debug";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -202,8 +192,6 @@ interface ChatInterfaceProps {
   designTheme?: DesignTheme;
   onDesignThemeChange?: (theme: DesignTheme) => void;
   onPromptAssistModeReset?: () => void;
-  onEnhancePrompt?: (message: string) => Promise<string>;
-  onRewritePrompt?: (message: string) => Promise<string>;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;
   isBusy?: boolean;
@@ -212,13 +200,6 @@ interface ChatInterfaceProps {
   currentCode?: string;
   existingUiComponents?: string[];
   continuePlanMode?: boolean;
-  showAdvancedControls?: boolean;
-  quickChips?: string[];
-  onQuickChipSend?: (text: string) => void;
-  answerSuggestions?: string[];
-  answerSuggestionsField?: string | null;
-  showActionHub?: boolean;
-  onActionHubAction?: (action: ActionHubItemAction) => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -275,8 +256,6 @@ export function ChatInterface({
   designTheme = "blue",
   onDesignThemeChange,
   onPromptAssistModeReset,
-  onEnhancePrompt,
-  onRewritePrompt,
   isFigmaInputOpen: controlledFigmaInputOpen,
   onFigmaInputOpenChange,
   isBusy,
@@ -285,19 +264,9 @@ export function ChatInterface({
   currentCode,
   existingUiComponents,
   continuePlanMode = false,
-  showAdvancedControls = true,
-  quickChips,
-  onQuickChipSend,
-  answerSuggestions,
-  answerSuggestionsField: _answerSuggestionsField,
-  showActionHub: showActionHubProp = false,
-  onActionHubAction,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [activePromptRefineMode, setActivePromptRefineMode] = useState<
-    "polish" | "rewrite" | null
-  >(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -309,8 +278,6 @@ export function ChatInterface({
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
   const [figmaPreviewLoading, setFigmaPreviewLoading] = useState(false);
   const [inspectPoints, setInspectPoints] = useState<InspectPointToken[]>([]);
-  const [actionHubOpen, setActionHubOpen] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);
   const isFigmaInputOpen = controlledFigmaInputOpen ?? internalFigmaInputOpen;
   const setFigmaInputOpen = useCallback(
     (next: boolean | ((prev: boolean) => boolean)) => {
@@ -324,16 +291,14 @@ export function ChatInterface({
     [isFigmaInputOpen, onFigmaInputOpenChange],
   );
 
+  // Single unified picker state replaces 4 separate picker states
   const [pickerTab, setPickerTab] = useState<UnifiedPickerTab | null>(null);
-  const [showHelpSuggestions, setShowHelpSuggestions] = useState(false);
-  const [showAnswerSuggestions, setShowAnswerSuggestions] = useState(false);
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
-  const isEnhancing = activePromptRefineMode !== null;
 
   const handleInputChange = (value: string) => {
     setInput(value);
@@ -342,14 +307,6 @@ export function ChatInterface({
 
   const prefilledPromptRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(chatId);
-  const focusPromptTextarea = () => {
-    requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLTextAreaElement>(
-        '[data-openclaw-text-target="builder.chat.primary"]',
-      );
-      el?.focus();
-    });
-  };
   useEffect(() => {
     if (chatId) return;
     if (!initialPrompt) return;
@@ -400,7 +357,7 @@ export function ChatInterface({
         if (!response.ok) {
           const message =
             (data && typeof data === "object" && data.error) ||
-            `Kunde inte hämta förhandsvisning (HTTP ${response.status})`;
+            `Preview failed (HTTP ${response.status})`;
           throw new Error(String(message));
         }
 
@@ -561,46 +518,6 @@ export function ChatInterface({
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
 
-  const runPromptRefine = async (
-    mode: "polish" | "rewrite",
-    handler: ((message: string) => Promise<string>) | undefined,
-  ) => {
-    if (!handler) return;
-    const current = input.trim();
-    if (!current) return;
-
-    setActivePromptRefineMode(mode);
-    try {
-      const enhanced = await handler(current);
-      const trimmedEnhanced = enhanced.trim();
-      if (trimmedEnhanced) {
-        setInput(trimmedEnhanced);
-        debugLog("AI", "Prompt manually refined", {
-          mode,
-          length: trimmedEnhanced.length,
-        });
-      }
-    } catch (error) {
-      console.error("Prompt refine failed:", error);
-      toast.error(
-        mode === "rewrite"
-          ? "Kunde inte förbättra prompten just nu."
-          : "Kunde inte skriva om prompten just nu.",
-      );
-    } finally {
-      setActivePromptRefineMode(null);
-      onPromptAssistModeReset?.();
-    }
-  };
-
-  const handleEnhancePrompt = async () => {
-    await runPromptRefine("polish", onEnhancePrompt);
-  };
-
-  const handleRewritePrompt = async () => {
-    await runPromptRefine("rewrite", onRewritePrompt);
-  };
-
   const handlePlanRequest = async () => {
     if (inputDisabled) return;
     const current = input.trim();
@@ -659,7 +576,7 @@ export function ChatInterface({
     const figmaLink = normalizedFigmaUrl;
     const inspectPointsPrompt = buildInspectPointsPrompt(inspectPoints);
     const contextBlocks = [
-      figmaLink ? `Använd denna Figma-design som referens: ${figmaLink}` : "",
+      figmaLink ? `Use this Figma design as a reference: ${figmaLink}` : "",
       inspectPointsPrompt,
     ].filter(Boolean);
     const finalMessage = contextBlocks.length
@@ -706,7 +623,6 @@ export function ChatInterface({
         setFigmaUrl("");
         setFigmaInputOpen(false);
         setInspectPoints([]);
-        focusPromptTextarea();
       }
     } finally {
       setIsSending(false);
@@ -717,7 +633,7 @@ export function ChatInterface({
     if (submitDisabled) return;
     const trimmed = text.trim();
     if (!trimmed && !hasSuccessFiles) return;
-    const baseMessage = trimmed || "Använd de bifogade filerna som visuella referenser för designen.";
+    const baseMessage = trimmed || "Use the attached files as visual references for the design.";
     await sendMessagePayload(baseMessage, {
       planMode: continuePlanMode || undefined,
     });
@@ -726,7 +642,7 @@ export function ChatInterface({
   const handleTextContentReady = async (content: string, filename: string) => {
     const trimmedContent = content.trim();
     if (!trimmedContent) return;
-    const baseMessage = `Använd följande innehåll från "${filename}" som källtext:\n\n${trimmedContent}`;
+    const baseMessage = `Use the following content from "${filename}" as source text:\n\n${trimmedContent}`;
     await sendMessagePayload(baseMessage);
   };
 
@@ -937,174 +853,43 @@ export function ChatInterface({
     });
   };
 
-  const handleChatDragOver = useCallback((e: React.DragEvent) => {
-    if (!mediaEnabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  }, [mediaEnabled]);
-
-  const handleChatDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  }, []);
-
-  const handleChatDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    if (!mediaEnabled) return;
-    const droppedFiles = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith("image/") || f.type.startsWith("video/"),
-    );
-    if (!droppedFiles.length) return;
-
-    for (const rawFile of droppedFiles) {
-      const tempId = `drop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      setFiles((prev) => [
-        ...prev,
-        { id: tempId, url: "", filename: rawFile.name, mimeType: rawFile.type, size: rawFile.size, status: "uploading" as const },
-      ]);
-      const formData = new FormData();
-      formData.append("file", rawFile);
-      fetch("/api/media/upload", { method: "POST", body: formData })
-        .then((res) => res.json())
-        .then((data: { url?: string; media?: { url?: string } }) => {
-          const resolvedUrl = data.media?.url ?? data.url;
-          if (resolvedUrl) {
-            setFiles((prev) =>
-              prev.map((f) => f.id === tempId ? { ...f, url: resolvedUrl, status: "success" as const, isPublicUrl: true, purpose: "user-placement" } : f),
-            );
-          } else {
-            setFiles((prev) => prev.map((f) => f.id === tempId ? { ...f, status: "error" as const } : f));
-          }
-        })
-        .catch(() => {
-          setFiles((prev) => prev.map((f) => f.id === tempId ? { ...f, status: "error" as const } : f));
-        });
-    }
-  }, [mediaEnabled]);
-
-  const hasActionHub = showActionHubProp && !showAdvancedControls && Boolean(chatId);
-
   return (
-    <div
-      className="border-border bg-background/95 relative border-t p-3 backdrop-blur-[2px] sm:p-4"
-      onDragOver={handleChatDragOver}
-      onDragLeave={handleChatDragLeave}
-      onDrop={handleChatDrop}
-    >
-      {isDragOver && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-[1.25rem] border-2 border-dashed border-primary/30 bg-primary/[0.05] backdrop-blur-sm">
-          <p className="text-sm text-primary/85">Släpp här</p>
-        </div>
-      )}
+    <div className="border-border bg-background border-t p-4">
       <PromptInput
         value={input}
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         disabled={inputDisabled}
-        className="rounded-[1.25rem] border-border/45 bg-card/90 shadow-[0_1px_0_hsl(var(--border)/0.4)] ring-1 ring-border/25 transition-[box-shadow,ring-color] duration-[var(--transition-base,200ms)] focus-within:ring-primary/22"
+        className="border-input bg-background rounded-lg border shadow-sm"
       >
-        <PromptInputHeader className="items-center gap-1.5 border-border/40 px-0.5">
-          {showAdvancedControls && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--transition-fast,150ms)] hover:bg-muted/55 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                  disabled={inputDisabled}
-                  title="Verktyg"
-                >
-                  <Plus className="size-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-48 rounded-xl border-border/50 p-1.5 shadow-lg">
-                {onEnhancePrompt && (
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
-                    onClick={handleEnhancePrompt}
-                    disabled={inputDisabled || isEnhancing || !input.trim()}
-                  >
-                    {isEnhancing ? <Loader2 className="size-3.5 animate-spin" /> : <Wand2 className="size-3.5" />}
-                    Skriv om
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
-                  onClick={handlePlanRequest}
-                  disabled={inputDisabled || !input.trim()}
-                >
-                  <FileText className="size-3.5" />
-                  Plan
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
-                  onClick={() => setPickerTab("ui")}
-                  disabled={inputDisabled}
-                >
-                  <Plus className="size-3.5" />
-                  Element
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:pointer-events-none disabled:opacity-40"
-                  onClick={() => setPickerTab("mall")}
-                  disabled={inputDisabled}
-                >
-                  <ImageIcon className="size-3.5" />
-                  Mall
-                </button>
-              </PopoverContent>
-            </Popover>
-          )}
-          {showAdvancedControls && (
+        <PromptInputHeader className="flex-col items-stretch gap-2">
+          <p className="text-[11px] leading-4 text-zinc-500" suppressHydrationWarning>
+            Förfina innan du skickar
+          </p>
+          <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--transition-fast,150ms)] hover:bg-muted/55 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-              disabled={inputDisabled}
-              title="Förslag och hjälp"
-              onClick={() => setShowHelpSuggestions((prev) => !prev)}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+              onClick={handlePlanRequest}
+              disabled={inputDisabled || !input.trim()}
+              title="Gör en plan eller PRD innan kod"
             >
-              <HelpCircle className="size-4" />
+              <FileText className="size-3" />
+              Plan
             </button>
-          )}
-        </PromptInputHeader>
-        {showAdvancedControls && showHelpSuggestions && (
-          <div className="max-h-52 space-y-3 overflow-y-auto border-t border-border/50 px-3 py-2.5">
-            {HELP_SUGGESTIONS.map((group) => (
-              <div key={group.group}>
-                <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  {group.group}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {group.items.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => {
-                        setShowHelpSuggestions(false);
-                        if (onQuickChipSend) {
-                          onQuickChipSend(item);
-                        } else {
-                          setInput(item);
-                        }
-                      }}
-                      className="rounded-xl border border-border/60 bg-muted/20 px-3 py-1.5 text-[12px] text-foreground transition-colors hover:bg-muted/50"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <button
+              type="button"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+              onClick={() => setPickerTab("ui")}
+              disabled={inputDisabled}
+              title="Lägg till element, AI-block, mallar eller tema"
+            >
+              <Plus className="size-3" />
+              Element
+            </button>
           </div>
-        )}
-        {showAdvancedControls && (isFigmaInputOpen || figmaUrl.trim()) && (
+        </PromptInputHeader>
+        {(isFigmaInputOpen || figmaUrl.trim()) && (
           <div className="space-y-2 px-3 pb-2">
             <div className="flex items-center gap-2">
               <Input
@@ -1132,7 +917,7 @@ export function ChatInterface({
             {figmaPreviewLoading && (
               <div className="text-muted-foreground text-xs">Hämtar Figma-preview...</div>
             )}
-            {figmaPreviewError && <div className="text-xs text-destructive">{figmaPreviewError}</div>}
+            {figmaPreviewError && <div className="text-xs text-red-500">{figmaPreviewError}</div>}
             {!figmaPreviewUrl && !figmaPreviewLoading && (
               <div className="text-muted-foreground text-[11px]">
                 Kräver FIGMA_ACCESS_TOKEN för preview.
@@ -1182,7 +967,7 @@ export function ChatInterface({
                   <button
                     type="button"
                     onClick={() => handleRemoveInspectPoint(point.id)}
-                    className="absolute -top-1 -right-1 rounded-full bg-muted p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                    className="absolute -top-1 -right-1 rounded-full bg-zinc-900 p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
                     title="Ta bort punkt"
                   >
                     <X className="size-3" />
@@ -1203,7 +988,7 @@ export function ChatInterface({
                       </div>
                     )}
                     {point.element?.selector && (
-                      <div className="mt-1 line-clamp-2 font-mono text-[10px] text-muted-foreground">
+                      <div className="mt-1 line-clamp-2 font-mono text-[10px] text-zinc-400">
                         {point.element.selector}
                       </div>
                     )}
@@ -1226,7 +1011,7 @@ export function ChatInterface({
                       </div>
                     )}
                     {point.uploadError && (
-                      <div className="mt-1 text-[11px] text-destructive">{point.uploadError}</div>
+                      <div className="mt-1 text-[11px] text-red-500">{point.uploadError}</div>
                     )}
                     {!point.uploading && !point.uploadError && (
                       <div className="text-muted-foreground mt-1 text-[11px]">
@@ -1239,123 +1024,60 @@ export function ChatInterface({
             </div>
           </div>
         )}
-        {!showAdvancedControls && answerSuggestions && answerSuggestions.length > 0 && chatId && !input && (
-          <div className="flex flex-wrap gap-2 px-3 pb-1 pt-2">
-            {answerSuggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => {
-                  if (onQuickChipSend) {
-                    onQuickChipSend(suggestion);
-                  } else {
-                    setInput(suggestion);
-                  }
-                }}
-                disabled={inputDisabled}
-                className="rounded-2xl border border-primary/25 bg-primary/[0.07] px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-primary/12 disabled:opacity-50"
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
-        )}
         <PromptInputBody>
-          {quickChips && quickChips.length > 0 && !chatId && !input && (
-            <div className="flex flex-wrap gap-2 px-3 pt-2">
-              {quickChips.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => onQuickChipSend?.(chip)}
-                  className="rounded-2xl border border-border/50 bg-muted/35 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
-          )}
           <PromptInputTextarea
             data-openclaw-text-target="builder.chat.primary"
             data-openclaw-text-label="Builderns huvudprompt"
             placeholder={
-              showAdvancedControls
-                ? chatId
-                  ? "Skriv en uppdatering... (Enter för att skicka)"
-                  : "Beskriv vad du vill bygga... (Enter för att skicka)"
-                : hasSuccessFiles && chatId
-                  ? "Beskriv var bilden ska placeras..."
-                  : chatId
-                    ? "Beskriv vad du vill ändra..."
-                    : "Skriv eller prata. Jag guidar dig."
+              chatId
+                ? "Skriv en uppdatering... (Enter för att skicka)"
+                : "Beskriv vad du vill bygga... (Enter för att skicka)"
             }
-            aria-label={
-              showAdvancedControls
-                ? chatId
-                  ? "Skriv en uppdatering"
-                  : "Beskriv vad du vill bygga"
-                : "Skriv ditt svar"
-            }
+            aria-label={chatId ? "Skriv en uppdatering" : "Beskriv vad du vill bygga"}
             autoComplete="off"
             disabled={inputDisabled}
-            className="min-h-[76px] border-0 bg-transparent px-1 text-[15px] leading-relaxed shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0 sm:min-h-[80px]"
+            className="min-h-[80px] border-0 shadow-none focus-visible:ring-0"
           />
         </PromptInputBody>
         <PromptInputFooter className="flex-col items-stretch gap-1.5">
           {showPreparingPrompt && (
-            <div className="text-muted-foreground flex items-center gap-2 text-xs motion-safe:animate-pulse">
-              <Loader2 className="size-3.5 animate-spin text-primary/80" />
-              Förbereder…
+            <div className="text-muted-foreground flex items-center gap-2 text-xs">
+              <Loader2 className="size-3.5 animate-spin" />
+              Förbereder prompt...
             </div>
           )}
           <div className="flex items-end justify-between gap-2">
-            <PromptInputTools className="flex items-center gap-1">
+            <PromptInputTools className="flex flex-wrap items-center gap-1.5">
               {mediaEnabled && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={inputDisabled}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--transition-fast,150ms)] hover:bg-muted/55 hover:text-foreground disabled:opacity-50"
-                      title="Bifoga"
-                    >
-                      <Paperclip className="size-4" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-48 rounded-xl border-border/50 p-1.5 shadow-lg">
-                    <div className="p-1">
-                      <FileUploadZone
-                        projectId={null}
-                        files={files}
-                        onFilesChange={setFiles}
-                        disabled={inputDisabled}
-                        compact
-                      />
-                    </div>
-                    {showAdvancedControls && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setIsMediaDrawerOpen(true)}
-                          disabled={inputDisabled}
-                          className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
-                        >
-                          <ImageIcon className="size-3.5" />
-                          Media
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsTextUploaderOpen(true)}
-                          disabled={inputDisabled}
-                          className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/80 disabled:opacity-50"
-                        >
-                          <FileText className="size-3.5" />
-                          Text/PDF
-                        </button>
-                      </>
-                    )}
-                  </PopoverContent>
-                </Popover>
+                <>
+                  <FileUploadZone
+                    projectId={null}
+                    files={files}
+                    onFilesChange={setFiles}
+                    disabled={inputDisabled}
+                    compact
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsMediaDrawerOpen(true)}
+                    disabled={inputDisabled}
+                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
+                    title="Öppna mediabibliotek"
+                  >
+                    <ImageIcon className="size-3" />
+                    Media
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsTextUploaderOpen(true)}
+                    disabled={inputDisabled}
+                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
+                    title="Lägg till text eller PDF"
+                  >
+                    <FileText className="size-3" />
+                    Text
+                  </button>
+                </>
               )}
               <VoiceRecorder
                 compact
@@ -1364,86 +1086,13 @@ export function ChatInterface({
                   setInput((prev) => (prev ? `${prev} ${text}` : text))
                 }
               />
-              {answerSuggestions && answerSuggestions.length > 0 && !hasActionHub && (
-                <Popover open={showAnswerSuggestions} onOpenChange={setShowAnswerSuggestions}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors duration-[var(--transition-fast,150ms)] hover:bg-primary/[0.09] disabled:opacity-50"
-                      disabled={inputDisabled}
-                      title="Svarsförslag"
-                      aria-label="Visa svarsförslag"
-                    >
-                      <HelpCircle className="size-3.5" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    align="end"
-                    side="top"
-                    className="w-64 rounded-xl border-border/50 p-2.5 shadow-lg"
-                    sideOffset={12}
-                  >
-                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Svarsförslag
-                    </p>
-                    <div className="flex flex-col gap-1">
-                      {answerSuggestions.map((suggestion) => (
-                        <button
-                          key={suggestion}
-                          type="button"
-                          onClick={() => {
-                            setShowAnswerSuggestions(false);
-                            if (onQuickChipSend) {
-                              onQuickChipSend(suggestion);
-                            } else {
-                              setInput(suggestion);
-                            }
-                          }}
-                          className="rounded-xl border border-border/50 px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-muted/70"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              )}
-              {hasActionHub && (
-                <button
-                  type="button"
-                  onClick={() => setActionHubOpen(true)}
-                  disabled={inputDisabled}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors duration-[var(--transition-fast,150ms)] hover:bg-primary/[0.09] disabled:opacity-50"
-                  title="Åtgärder"
-                  aria-label="Visa åtgärder"
-                >
-                  <ChevronUp className="size-3.5" />
-                </button>
-              )}
             </PromptInputTools>
-            <PromptInputSubmit
-              disabled={submitDisabled}
-              className="rounded-full px-3.5 text-primary-foreground shadow-[0_1px_0_hsl(var(--primary)/0.35)] transition-[transform,box-shadow] duration-[var(--transition-fast,150ms)] hover:shadow-md active:scale-[0.97]"
-              aria-label="Skicka"
-            >
+            <PromptInputSubmit disabled={submitDisabled}>
               {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
             </PromptInputSubmit>
           </div>
         </PromptInputFooter>
       </PromptInput>
-
-      {hasActionHub && actionHubOpen && (
-        <ActionHubPopup
-          onAction={(action) => {
-            if (action.type === "prompt") {
-              setInput(action.text);
-            } else if (onActionHubAction) {
-              onActionHubAction(action);
-            }
-          }}
-          onClose={() => setActionHubOpen(false)}
-        />
-      )}
 
       {mediaEnabled && (
         <MediaDrawer
@@ -1462,7 +1111,7 @@ export function ChatInterface({
         />
       )}
 
-      {showAdvancedControls && pickerTab && (
+      {pickerTab && (
         <UnifiedElementPicker
           open={Boolean(pickerTab)}
           initialTab={pickerTab}

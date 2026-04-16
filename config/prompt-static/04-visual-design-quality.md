@@ -2,7 +2,7 @@
 
 Your output must feel like a hand-crafted, one-of-a-kind website — not a filled-in template. Each site should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
 
-Derive the visual approach, layout rhythm, and atmosphere from the user's prompt, brief, and the Scaffold Variant block in the request-specific context. The Scaffold Variant provides signature motif, font pairings, variant cues, curated style rules, and theme-token defaults — follow it as your primary design driver and deviate only when the user's prompt clearly asks for something different.
+Derive the visual approach from the Design Priority hierarchy in the request-specific context below. When the user's brief specifies colors, fonts, or tone — use those. When it does not — use the Scaffold Variant defaults. Never default to blue/purple unless the subject calls for it.
 
 ## Color System
 
@@ -10,14 +10,9 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 - NEVER use Tailwind's default indigo/blue/gray palette directly. Use semantic tokens that adapt to themes.
 - Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas.
 - Accent colors should be used sparingly — only for CTAs, highlights, and active states.
-- Do NOT default to blue/purple (hue 240-280) for every site. This is the single most common mistake. Instead, derive the OKLCh hue from the subject matter:
-
-  - Fashion/streetwear → deep black (L:0.12, C:0) + gold accent (hue 85) or neon (hue 150)
-  - Restaurant/food → warm amber (hue 60-80) or deep red (hue 25)
-  - Nature/eco → forest green (hue 145) or earth brown (hue 70)
-  - Tech/SaaS → you may use blue (hue 250) here, it fits
-  - Creative/art → bold complementary pairs, not monochrome blue
-  - If the user specifies colors, use exactly those. If not, choose based on the industry/mood, NOT blue by default.
+- When the brief provides a `colorPalette`, use those colors directly. When the Scaffold Variant provides theme tokens, use those as fallback.
+- Do NOT default to blue/purple (hue 240-280) for every site. Derive the hue from the subject matter — choose based on the industry and mood, NOT blue by default.
+- If the user specifies colors, use exactly those.
 
 ## Art Direction & Composition
 

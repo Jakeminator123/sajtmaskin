@@ -31,6 +31,10 @@ alwaysApply: true
 | `LLM-fix` / **LLM-autofix** | "fixer", "syntax fixer", generiskt "autofix" (blandat) |
 | `Ersatt` (UI-etikett) | Omtag (döda) |
 | `backoffice/` | "dashboard" (legacy) |
+| `Core Rules` / `prompt-core` | "static prompt", "prompt-static" (legacy alias) |
+| `Directives` / `prompt-directives` | "dynamic prompt files", "adaptiva prompter" |
+| `Directive Cascade` | "resolution order", "priority hierarchy" |
+| `Brief Guidance Override` | "brief override", "brief-driven inference" |
 
 **Skilj på begreppen:** en **namnskugga** är ett tvetydigt ord med flera betydelser. **Mekanisk autofix** och **LLM-fix** är i stället två olika fixkategorier och ska inte behandlas som samma sak med olika namn.
 

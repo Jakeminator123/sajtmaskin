@@ -111,13 +111,15 @@ def render(ctx: BackofficeContext) -> None:
         checks: list[tuple[str, bool]] = []
         checks.append(("manifest.json finns", man_path.is_file()))
         try:
-            cg_path = ctx.config_dir / "codegen-static-prompt.json"
+            cg_core_path = ctx.config_dir / "codegen-core-manifest.json"
+            cg_legacy_path = ctx.config_dir / "codegen-static-prompt.json"
+            cg_path = cg_core_path if cg_core_path.is_file() else cg_legacy_path
             cg = read_json(cg_path)
             frags = cg.get("fragments") or []
             missing = [f for f in frags if not (ctx.config_dir / f).is_file()]
-            checks.append(("codegen-static: alla fragmentfiler finns", len(missing) == 0))
+            checks.append((f"core manifest ({cg_path.name}): alla fragmentfiler finns", len(missing) == 0))
         except Exception:
-            checks.append(("codegen-static går att läsa och validera", False))
+            checks.append(("core manifest går att läsa och validera", False))
         checks.append(("catalog.ts: DEFAULT_MODEL_ID kunde läsas", default_tier is not None))
         checks.append((".env.local finns (API-nycklar m.m., lokalt)", ctx.env_local.is_file()))
         for label, ok in checks:
@@ -167,4 +169,24 @@ def render(ctx: BackofficeContext) -> None:
                 filtered = error_df
             st.caption(f"{len(filtered)} av {len(error_df)} rader visas.")
             st.dataframe(filtered, use_container_width=True, hide_index=True, height=400)
+
+    # ── Follow-up tuning ────────────────────────────────────────────────
+    st.subheader("Follow-up tuning")
+    st.caption(
+        "Styr hur mycket kontext follow-up-prompter bär. "
+        "Sätts via env-variabler (`SAJTMASKIN_FOLLOWUP_*`). "
+        "Defaults i `src/lib/config.ts` → `FOLLOW_UP_TUNING`."
+    )
+    tuning_env = {
+        "SAJTMASKIN_FOLLOWUP_HISTORY_PAIRS": ("Antal senaste user+assistant-par i chatthistorik", "4"),
+        "SAJTMASKIN_FOLLOWUP_LIGHT_MAX_CHARS": ("Max tecken filkontext (light policy)", "32000"),
+        "SAJTMASKIN_FOLLOWUP_LIGHT_FILES_MANY": ("Max filer med innehåll (>14 filer, light)", "4"),
+        "SAJTMASKIN_FOLLOWUP_LIGHT_FILES_FEW": ("Max filer med innehåll (<=14 filer, light)", "6"),
+    }
+    import os
+    rows = []
+    for key, (desc, default) in tuning_env.items():
+        current = os.environ.get(key, "")
+        rows.append({"Env": key, "Beskrivning": desc, "Default": default, "Aktuellt": current or f"(default: {default})"})
+    st.dataframe(rows, use_container_width=True, hide_index=True)
 

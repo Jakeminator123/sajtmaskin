@@ -1,287 +1,230 @@
-# Fas 2 — Orkestrering och Build (pedagogisk genomgång)
+# Fas 2 — Orkestrering och Build
 
-Syfte: förstå vad som händer från att Fas 1 levererar prompt + brief
-till att en version är sparad i databasen.
+Vad som händer från att Fas 1 levererar prompt + brief till att en version är sparad i databasen.
 
----
-
-## Ordlista — vanliga ord i Fas 2
-
-| Ord | Vad det betyder | Förväxlingsrisk |
-|-----|-----------------|-----------------|
-| **Orchestration** | Samla alla signaler (brief, scaffold, route plan, contracts) till en komplett LLM-input | Förväxlas med "prompt orchestration" (Fas 1) som bara hanterar budget/trunkering |
-| **BuildSpec** | Normaliserad policy-bundle: intent, läge, scope, budget, kvalitet, preview/verify-policy | Förväxlas med Spec File — BuildSpec styr *hur* generering körs, Spec File var ett *dataformat* |
-| **Scaffold** | Startpunkt-mall (~10 st: landing-page, blog, ecommerce, dashboard, etc.) som ger fil-skelett och regler | Förväxlas med "template" — scaffold styr codegen-ramverk, template är galleri-produkter |
-| **Route Plan** | Vilka URL-routes appen ska ha (`/`, `/meny`, `/boka`). Drivs av brief eller scaffold. | — |
-| **Dynamic Context** | 20+ markdown-block med `##`-rubriker som bildar systemprompten | — |
-| **Static Core** | `config/prompt-static/*.md` — fasta regler som alltid gäller (format, tillgänglighet, korstil) | — |
-| **Finalize** | Allt som händer *efter* att LLM:en svarat: autofix, syntax, bilder, verifier, parse, persist | Förväxlas med "deploy" — finalize sparar i DB, deploy skickar till Vercel |
-| **Finalize Path (`full` / `light`)** | `full` = hela finalize-kedjan (bilder + verifier). `light` = hoppar över bilder och verifier för låg-risk follow-ups. | Förväxlas med "deep/fast" (äldre etiketter i telemetri) |
-| **Autofix** | 28 mekaniska fixers (imports, JSX, fonts, metadata, etc.) — inga LLM:er | Förväxlas med LLM-fixer — autofix är deterministisk regex/AST |
-| **LLM Fixer** | Eskalerad reparation av syntax-fel med LLM. Dyrt, icke-deterministiskt. | Förväxlas med autofix — LLM-fixer körs bara som sista utväg |
-| **Verifier Pass** | Read-only LLM-granskning som rapporterar `blocking`/`quality` findings utan att ändra kod | Förväxlas med quality gate (Fas 3). `blocking` här är **advisory** och stoppar inte persist i finalize. |
-| **Preflight** | Slutkontroller före DB-persist: sanity, SEO, route-matchning, partial-file-detektering | — |
-| **PartialFileOutputError** | LLM genererade avhuggna/ofullständiga filer. `partialFileRepairMaxAttempts` repair-rundor försöks (manifeststyrt, default 1, max 3, 60 s timeout/försök). Om repair misslyckas sparas ingen version. | Förväxlas med syntaxfel — partial-file innebär strukturellt trasig fil (avhuggen), inte bara felaktig syntax |
-| **Image Materialization** | Byta placeholder-bilder mot riktiga Unsplash-foton | — |
+**Ordlista:** `docs/architecture/glossary.md`. **Kod är source of truth.**
 
 ---
 
-## Steg för steg: vad som händer i Fas 2
+## Orkestrering (`orchestrate.ts`)
 
-### Steg 1 — Orkestrering (`resolveOrchestrationBase`)
+### `prepareGenerationContext()` — huvudflödet
 
-```
-IN: prompt + brief + modell + scaffold-hint (från Fas 1)
-│
-├── 1. inferCapabilities(prompt)
-│      → "3D", "motion", "karusell", "auth", "ecommerce" etc.
-│
-├── 2. buildScaffoldQueryContext(brief)
-│      → pages[], styleKeywords[], domainHints[] (för scaffold-matchning)
-│
-├── 3. SCAFFOLD-VAL:
-│      ├── off → ingen scaffold
-│      ├── manual → getScaffoldById("ecommerce")
-│      ├── persisted (follow-up) → befintlig scaffold
-│      └── auto → matchScaffoldAuto()
-│          ├── KEYWORD-BANA: domänord + brief-boost (+2/kategori)
-│          │   Poängsättning per scaffold-id, MIN_SCORE=2
-│          │   T.ex. "restaurang" → landing-page +2, content-site +2
-│          ├── EMBEDDING-BANA (parallellt): cosine similarity
-│          │   Kräver score ≥0.35 (generisk kräver ≥0.45)
-│          └── MERGE: embedding kan override keyword om score
-│              ≥ keywordStrength × 0.82 (bias, env-konfigurerbar)
-│
-├── 4. buildRoutePlan()
-│      → routes med provenance: "brief" | "scaffold" | "prompt"
-│      Brief-sidor prioriteras vid init.
-│      Vid follow-up: befintliga routes fryses oftast.
-│
-├── 5. inferPreGenerationContracts()
-│      → auth?, payment?, database?, CMS?
-│      Kontraktspunkter som modellen ska respektera.
-│
-├── 6. deriveBuildSpec()
-│      → Den centrala policy-bundlen:
-│        ├── generationMode: "init" | "followUp"
-│        ├── changeScope: "integration" | "redesign" | "page-addition" | "copy" | "local-layout"
-│        ├── qualityTarget: "standard" | "premium" | "release-candidate"
-│        ├── previewPolicy, verificationPolicy, contextPolicy
-│        ├── tokenBudgets: { systemContextTokens, scaffoldTokens, refsTokens }
-│        └── routeRealization: { mode: "full" | "primary+shells", paths... }
-│
-├── 7. serializeScaffoldForPrompt()
-│      → Scaffold → markdown-text (budgeterat)
-│      Follow-up: "structural" (filträd). Init: "inspirational" (traits).
-│
-└── 8. Ladda shadcn-referenser + community blocks (parallellt med auto-match)
-       → Capability-matchade kodexempel (max 8 + 3 community)
-```
+Samlar alla signaler till en komplett LLM-input i tre steg:
 
-### Steg 2 — Bygga systemprompten (`buildDynamicContext`)
+1. **`resolveOrchestrationBase()`** — deterministiska beslut
+2. **`finalizeOrchestrationPrompts()`** — bygger system prompt
+3. **`buildGenerationInputPackage()`** — slutpaket + debug-dump
 
-20+ markdown-block med `##`-rubriker, prioriterade för budgetering:
+### Signaler som samlas (steg 1)
 
-```
-PRIORITET 100 (alltid kvar):
-├── ## Generation Mode: Follow-Up        (om follow-up)
-├── ## Custom Instructions                (användarens egna)
-
-PRIORITET 90-95 (nästan alltid kvar):
-├── ## Build Intent: Website/App/Template (regler per typ)
-├── ## Generation Profile                 (stilpaket, kvalitetsmål)
-├── ## Scaffold                           (serialiserad scaffold-text)
-├── ## Route Plan                         (alla routes + realization-mode)
-├── ## Pre-Generation Contracts           (auth/payment/db-krav)
-
-PRIORITET 80-88 (behålls vid normal budget):
-├── ## Project Context                    (från brief: titel, pitch, audience, CTA, ton)
-├── ## Your Toolkit                       (shadcn-komponenter + capabilities)
-├── ## Pages & Sections                   (brief-drivna sidor med rubriker/bullets)
-├── ## Component References               (kodexempel)
-├── ## Media Catalog                      (om media-assets finns)
-
-PRIORITET 60-78 (kan prunas vid tight budget):
-├── ## Scaffold Variant                   (visuell variant)
-├── ## Visual Identity                    (färger, typografi, tema)
-├── ## Structural References              (layout/page-utdrag, bara init)
-├── ## Scaffold Research Priorities        (kvalitetschecklista, referensmallar)
-├── ## Design References                  (extern inspiration)
-├── ## Imagery                            (Unsplash-ledning)
-├── ## SEO                                (title, meta, keywords)
-├── ## Must Have / Avoid / UX & UI Notes  (brief-constraints)
-```
-
-**Budgetering:**
-1. Block delas vid `##`-rubriker → `splitContextIntoBudgetBlocks`
-2. Sorteras fallande på prioritet
-3. Fylls in till `systemContextTokens`-budgeten (default 30 000 tokens)
-4. Required-block trunkeras hellre än kastas
-5. Heuristik: ~3.2 tecken/token
-
-**Slutresultat:**
-```
-composeEngineSystemPrompt() = [statisk kärna] + [separator] + [dynamisk kontext]
-```
-
-### Steg 3 — Codegen-stream
-
-```
-streamText({
-  model: getOpenAIModel(engineModel),  ← t.ex. gpt-5.4 eller claude-opus-4.6
-  system: engineSystemPrompt,          ← från steg 2
-  messages: [user-turn + ev. historik],
-  tools: getAgentTools(),
-  │   ├── suggestIntegration  (execute ✓ → non-blocking)
-  │   ├── requestEnvVar       (execute ✓ → non-blocking)
-  │   ├── askClarifyingQuestion (NO execute → blocking)
-  │   └── emitPlanArtifact    (NO execute → plan mode)
-  maxSteps: 4,                         ← tillåter multi-step efter tool result
-  maxOutputTokens: 131072              ← ENGINE_MAX_OUTPUT_TOKENS
-})
-```
-
-SSE-events till klienten under streaming:
-- `meta` (modell, tier, scaffold, contracts)
-- `thinking` (resonemang, om aktiverat)
-- `content` (kodchunks — ackumuleras)
-- `integration` (env-hints)
-- `tool-call` (clarification/plan)
-- `progress` (pipeline-steg)
-- `ping` (var 15s)
-
-### Steg 4 — Finalize-pipeline (`finalizeAndSaveVersion`)
-
-```
-accumulatedContent (rå LLM-output)
-│
-├── 1. AUTOFIX (28 mekaniska fixers)
-│      import-validator, react-import, next-image, lucide-link,
-│      metadata-client-conflict, cn-import, jsx-checker,
-│      dep-completer, scroll-smooth, font-import, icon-value, ...
-│      Max DETERMINISTIC_AUTOFIX_MAX_PASSES (manifest-styrt)
-│
-├── 2. URL EXPAND
-│      expandUrls() — komprimerade URL:er tillbaka till fulla
-│
-├── 3. VALIDATE SYNTAX (+ ev. LLM-fixer)
-│      validateAndFix():
-│      ├── Mekanisk autofix
-│      ├── validateGeneratedCode() → syntax-fel?
-│      │   └── Om ja: LLM-fixer (resolvePhaseModel → fixer-modell)
-│      │       ├── Max SYNTAX_FIX_MAX_PASSES
-│      │       ├── Timeout: 180s
-│      │       ├── bestContent-rollback vid regression
-│      │       └── Ge upp vid: fixer_noop, no_improvement, time_budget
-│      └── Returnerar: passed | partial | failed | pipeline-error
-│
-├── 4. MATERIALIZE IMAGES (bara deep path)
-│      ├── Söker placeholder.svg?text=... i koden
-│      ├── sanitizeQuery() + isViableImageQuery()
-│      ├── Unsplash Search (8s timeout, concurrency 2)
-│      ├── Cap: 6 bilder (8 vid premium/fidelity3)
-│      └── Non-fatal: vid fel → logga, fortsätt
-│
-├── 5. VERIFIER PASS (bara full path + policy)
-│      ├── Read-only LLM-granskning
-│      ├── Rapporterar: blocking | quality findings
-│      └── Non-fatal: findings loggas men stoppar inte persist
-│          ("blocking" i verifier-fynd = advisory severity, inte pipeline-gate)
-│
-├── 6. PARSE / MERGE / PREFLIGHT
-│      ├── parseFilesFromContent() → CodeFile[]
-│      ├── mergeGeneratedProjectFiles() → sammanslagna filer
-│      ├── runFinalizePreflight():
-│      │   ├── repairGeneratedFiles() (en till mekanisk fix-pass)
-│      │   ├── sanity checks (partial-file-detektering)
-│      │   ├── SEO preflight
-│      │   └── route-plan vs filer-matchning
-│      └── injectIntegrationManifestIntoFilesJson()
-│
-├── 7. PARTIAL-FILE REPAIR (manifeststyrt maxförsök)
-│      Om sanity hittar: "partial repair snippet",
-│      "overlapping import statements", etc.
-│      → tryRepairPartialFileOutput() (LLM fixer, 60 s timeout/försök)
-│        ├── Antal försök: partialFileRepairMaxAttempts (default 1, max 3)
-│        ├── Lyckas → re-parse + re-merge + re-preflight
-│        ├── Utfall telemetri: partial-file-repair.outcome
-│        └── Misslyckas → PartialFileOutputError → INGEN VERSION SPARAS
-│
-├── 8. PERSIST
-│      addAssistantMessageAndCreateDraftVersion()
-│      → assistant-meddelande + engine_versions.files_json (atomiskt)
-│
-└── 9. EFTERARBETE (best-effort)
-       ├── orchestration_snapshot → chat
-       ├── preflight-loggar → engine_version_error_logs
-       ├── generation telemetry
-       ├── generation log (chatRepo.logGeneration)
-       └── Om verification-blocking preflight-fel:
-           failVersionVerification()
-```
-
-### Light path vs Full path
-
-| Villkor | Path | Bilder | Verifier |
-|---------|------|--------|----------|
-| Init, normal | Full (`full`) | Körs (cap 6) | Körs om policy |
-| Follow-up, normal | Full | Körs | Körs |
-| Follow-up, `verificationPolicy: "fast"` + `contextPolicy: "light"` + `changeScope: copy/local-layout` | Light (`light`) | **Hoppas över** | **Hoppas över** |
-| Repair-pass (`repairPassIndex > 0`) | Full (tvingat) | Körs | Körs |
+| Signal | Källa | Deterministisk? |
+|--------|-------|-----------------|
+| Capabilities | `inferCapabilities(prompt)` — regex | Ja |
+| Generation mode | `"init"` / `"followUp"` från `persistedScaffoldId` | Ja |
+| Scaffold + variant | `matchScaffoldAuto()` eller `persistedScaffoldId` | Delvis (embedding = API) |
+| Shadcn-exempel | `loadShadcnExamples()` + `fetchMissingRegistryExamples()` | Nätverksanrop |
+| Community blocks | `fetchCommunityBlocks()` | Nätverksanrop |
+| Capability hints | `buildCapabilityHints()` — markdown-tips | Ja |
+| Route plan | `buildRoutePlan()` | Ja |
+| Pre-generation contracts | `inferPreGenerationContracts()` | Ja |
+| BuildSpec | `deriveBuildSpec()` | Ja |
+| Orchestration contract | `buildOrchestrationContract()` | Ja |
+| Scaffold-serialisering | `serializeScaffoldForPrompt()` med budget | Ja |
 
 ---
 
-## SSE efter finalize
+## BuildSpec (`build-spec.ts`)
+
+En **härledd policy-bundle** som styr hela körningen.
+
+### Nyckelparametrar
+
+| Parameter | Möjliga värden | Vad det styr |
+|-----------|---------------|--------------|
+| `changeScope` | `copy`, `local-layout`, `page-addition`, `redesign`, `integration` | Hur stor ändring prompten begär |
+| `qualityTarget` | `standard`, `premium`, `release-candidate` | Kvalitetskrav på output |
+| `contextPolicy` | `light`, `normal`, `heavy` | Token-budget (se nedan) |
+| `previewPolicy` | `fidelity2`, `fidelity3` | Preview-djup |
+| `verificationPolicy` | `fast`, `standard`, `strict` | Verifier-inställning |
+| `routeRealization` | `null`, `primary-full-with-shells` | Om extra routes skjuts upp |
+| `forbiddenPatterns` | Symboliska flaggor | T.ex. `unrequested_full_redesign` |
+
+### Token-budgetar per contextPolicy
+
+| Policy | scaffoldTokens | refsTokens | systemContextTokens |
+|--------|---------------|------------|---------------------|
+| `light` | 11 250 | 3 750 | 15 000 |
+| `normal` | 18 000 | 9 000 | 40 000 |
+| `heavy` | 25 000 | 12 500 | 50 000 |
+
+---
+
+## System Prompt (`system-prompt.ts`)
+
+### Uppbyggnad
 
 ```
-done {
-  versionId: "...",
-  previewPending: true/false,    ← signal att Fas 3 preview-start kommer
-  previewUrlHint: "...",         ← tillfällig boot-hint, INTE kanonisk URL
-  awaitingInput: false,          ← true bara vid askClarifyingQuestion
-}
+┌──── STATISK KÄRNA (prefix-cache) ────────────────────────┐
+│  Core Rules (config/prompt-core/*.md)                     │
+│  Laddas en gång per process via codegen-core-manifest.json│
+└──────────────────────────────────────────────────────────┘
+                    --- separator ---
+┌──── DYNAMISK KONTEXT (per request) ─────────────────────┐
+│  20+ markdown-block med ## rubriker, prioriterade        │
+│  och prunade efter token-budget                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
-`done` = version är sparad. Preview är INTE redo ännu.
+### Dynamisk kontext — block i ordning
+
+`buildDynamicContext()` bygger dessa block:
+
+1. **Generation Mode** — `## Generation Mode: Follow-Up` (vid follow-up)
+2. **Custom instructions + Build Intent**
+3. **Generation Profile** — style pack, quality, forbidden patterns
+4. **Scaffold Variant** — typografi, motif, theme tokens, guidance
+5. **Design Priority** — hierarki: locked theme → brief → variant → scaffold CSS
+6. **Structural References** — variant/capability file excerpts (bara init)
+7. **Scaffold** — serialiserade filer (från `serialize.ts`)
+8. **Scaffold Research Priorities** — checklist, upgrade targets, reference templates
+9. **Your Toolkit** — shadcn-komponenter + capability hints + palett
+10. **Route Plan** — planerade routes med shell-policy
+11. **Pre-generation Contracts** — data mode, providers, env vars
+12. **Project Context** — brief-härledda fält, pages, must-have/avoid
+13. **Visual Identity + Design References**
+14. **Coding Direction** — directives (visual-design, content-voice)
+15. **Imagery + Media Catalog**
+16. **Component References** — upp till 5 fenced shadcn-exempel
+17. **SEO**
+
+### Pruning
+
+Hela dynamiska strängen splitas på `## `-rubriker. Varje block får en **prioritet** och en **required**-flagga från `CONTEXT_BLOCK_PRIORITY_RULES`. Required-block behålls alltid; resten fylls i prioritetsordning tills `systemContextTokens`-budgeten tar slut.
 
 ---
 
-## Legacy och döda stigar
+## Scaffold-serialisering (`serialize.ts`)
 
-| Vad | Status | Var |
-|-----|--------|-----|
-| `imageGenerations` param i `buildDynamicContext` | Bindas som `_imageGenerations`, oanvänd | `system-prompt.ts` |
-| `AutoFixEntry` typ | `@deprecated`, ersatt av `FixEntry` | `autofix/types.ts` |
-| `repair-generated-files.ts` | Delvis duplicerar `runAutoFix` — parallell väg i preflight | `autofix/` |
-| Priority-regler för `spec file`, `quality bar`, `coding direction` | Finns i `CONTEXT_BLOCK_PRIORITY_RULES` men skapas sällan av `buildDynamicContext` | `system-prompt.ts` |
-| `layout-provider-fixer.ts` | Inte listad i `runAutoFix` pipeline — kan vara äldre/separat | `autofix/` |
-| Verifier-findings blockerar inte persist | `blocking` i verifiern är advisory-severity; `done` skickas fortfarande | `finalize-version.ts` |
+### Två lägen
 
----
+| Läge | När | Vad LLM:en ser |
+|------|-----|-----------------|
+| `inspirational` | Init (default) | Filträd + korta layout/theme-excerpts + "designa fritt, kopiera inte" |
+| `structural` | Follow-up / heavy context | Fullständigt filinnehåll (3–4 kritiska filer), budgeterat mot `maxChars` |
 
-## BUILD_INTENT_GUIDANCE — dubbletten
-
-Finns på **två** ställen:
-
-| Plats | Syfte |
-|-------|-------|
-| `system-prompt.ts` (rad 70) | Regler för codegen: "Template → compact, reusable layout", "Website → rich, multi-section" |
-| `promptAssist.ts` (rad 140) | Samma regler men för rewrite/polish-prompter |
-
-Kommentaren: *"Keep in sync but do not merge (circular import risk)"*
-
-Risken: om en uppdateras men inte den andra kan rewrite ge andra signaler
-än codegen — modellen tror att det är en "template" i rewrite men en "website"
-i codegen.
+Lightweight structural (default): filträd + `selectCriticalScaffoldFiles()` (3 filer vid `light`, 4 annars), sorterade efter kritisk path-score justerat för route/capability-relevans.
 
 ---
 
-## Vanliga felscenarion i Fas 2
+## LLM-anropet (`engine.ts`)
 
-| Scenario | Vad som händer | Var |
-|----------|----------------|-----|
-| LLM genererar bara tool calls, ingen kod | `handleEmptyGeneration()` → `done_empty_output` | `generation-stream.ts` |
-| LLM genererar avhuggna filer | `partialFileRepairMaxAttempts` repair-försök → om de misslyckas: `PartialFileOutputError` → ingen version | `finalize-version.ts` |
-| Syntax-fel överlever alla fix-pass | `validateAndFix` returnerar `failed` → version sparas ändå men med varningar | `validate-and-fix.ts` |
-| Unsplash-timeout / garbage-query | Non-fatal → fallback-bild eller hoppas över | `image-materializer.ts` |
-| Budget sprängs (för lång dynamisk kontext) | Lågprio-block prunas: SEO, imagery, design refs slängs först | `tokens.ts` |
+`generateCode()` använder Vercel AI SDK `streamText`:
+
+- **Modell**: OpenAI (default) eller Anthropic (om `modelId` börjar med `claude-`)
+- **System**: Komplett system prompt från orkestrering
+- **Messages**: Valfri chat-historik + user-meddelande
+- **Thinking**: Om på → `providerOptions` med Anthropic `thinking: { type: "adaptive" }` eller OpenAI `reasoningEffort`
+- **Tools/Steps**: Upp till 4 steg (tool use)
+
+Returnerar `createCodeGenSSEStream()` → SSE-ström till klienten.
+
+### SSE-events
+
+| Event | Innehåll |
+|-------|----------|
+| `meta` | chatId, versionId |
+| `progress` | phase: start → reasoning → awaiting-output → done |
+| `thinking` | Reasoning-deltas (om thinking är på) |
+| `content` | Kodtext-deltas |
+| `tool-call` | Tool-anrop med args |
+| `error` | Felmeddelande |
+| `done` | Token-användning |
+
+---
+
+## Finalize (`finalize-version.ts`)
+
+### Pipeline (efter att LLM-streamen avslutats)
+
+Definierad i `finalize-pipeline-contract.ts`:
+
+| Steg | Vad | Typ |
+|------|-----|-----|
+| 1. **autofix** | ~24 mekaniska fixar (imports, JSX, fonts, metadata, etc.) | Deterministisk |
+| 2. **url_expand** | Expandera förkortade URL:er | Deterministisk |
+| 3. **validate_syntax** | esbuild-validering + ev. LLM-fixer-loop (max 180s) | Hybrid |
+| 4. **materialize_images** | Byt placeholder-bilder mot Unsplash (6–8 st) | Nätverksanrop |
+| 5. **verifier** | Read-only LLM-granskning: `blocking` / `quality` findings | LLM |
+| 6. **parse_merge_preflight** | Parse → merge med befintliga filer → preflight-kontroller → persist | Deterministisk |
+
+### Autofix-detaljer
+
+`runAutoFix()` kör upp till `DETERMINISTIC_AUTOFIX_MAX_PASSES` iterationer av ~24 fixar:
+
+Imports (use-client, react, next/image, lokala symboler, cn-utility, lucide), font-hantering, metadata-konflikter, icon-fixer, tailwind arbitrary values, scroll-smooth, esbuild syntax-validering, JSX-kontroll, dependency-komplettering, basepath-fix, säkerhetskontroller.
+
+Alla är **mekaniska** (regex/AST). Ingen LLM i autofix.
+
+### LLM-fixer (separat)
+
+`runLlmFixer()` — eskalerad reparation med dedikerad LLM. Körs bara via `validateAndFix()` om mekanisk autofix inte räckte, eller vid partial-file-reparation.
+
+### Light vs Full finalize path
+
+| Path | Villkor | Steg som hoppas över |
+|------|---------|---------------------|
+| **Full** (default) | Init eller komplex follow-up | Inga |
+| **Light** | Follow-up + `verificationPolicy === "fast"` + `contextPolicy === "light"` + scope `copy`/`local-layout` | `materialize_images`, `verifier` |
+
+### Persist
+
+`addAssistantMessageAndCreateDraftVersion()` (init) eller `addAssistantMessageAndUpdateExistingVersion()` (follow-up med `targetVersionId`). Därefter orchestration snapshot-merge på chatten.
+
+---
+
+## Pre-generation Contracts (`pre-generation-contracts.ts`)
+
+`inferPreGenerationContracts()` producerar:
+
+- **dataMode**: `none` / `mocked` / `persisted` / `mixed`
+- **providers**: `databaseProvider`, `authProvider`, `paymentProvider`
+- **integrations[]**, **envVars[]**
+- **unresolvedDecisions**, **confirmedAnswers**
+
+Defaults: NextAuth Credentials om `needsAuth`; Stripe test-placeholders om betalning; SQLite om persistence. Blockerar aldrig preview.
+
+---
+
+## Init vs Follow-up
+
+| | Init | Follow-up |
+|---|---|---|
+| Scaffold-serialisering | `inspirational` | `structural` |
+| Variant structural files | Ja | Bara om `isFirstCodeGeneration` |
+| Template guidance | Ja (om refs finns) | Bara om `isFirstCodeGeneration` |
+| Route plan | Fri planering + ev. shell deferral | Shell preservation + frys |
+| Finalize path | Full (typiskt) | Light möjlig för small copy/layout |
+| Merge | Ren version | `mergeGeneratedProjectFiles` med `previousFiles` |
+
+---
+
+## Kodfiler
+
+| Steg | Fil |
+|------|-----|
+| Orkestrering | `src/lib/gen/orchestrate.ts` |
+| System prompt | `src/lib/gen/system-prompt.ts` |
+| BuildSpec | `src/lib/gen/build-spec.ts` |
+| LLM-anrop | `src/lib/gen/engine.ts` |
+| SSE-formatering | `src/lib/gen/stream/stream-format.ts` |
+| Scaffold-serialisering | `src/lib/gen/scaffolds/serialize.ts` |
+| Finalize | `src/lib/gen/stream/finalize-version.ts` |
+| Finalize-kontrakt | `src/lib/gen/stream/finalize-pipeline-contract.ts` |
+| Autofix-pipeline | `src/lib/gen/autofix/pipeline.ts` |
+| LLM-fixer | `src/lib/gen/autofix/llm-fixer.ts` |
+| Syntax-validering | `src/lib/gen/autofix/validate-and-fix.ts` |
+| Pre-gen contracts | `src/lib/gen/contract/pre-generation-contracts.ts` |
+| Verifier | `src/lib/gen/verifier/` |
+| Core Rules | `config/prompt-core/*.md` |
+| Directives | `config/prompt-directives/*.md` |

@@ -1,413 +1,192 @@
-# Fas 1 — Prompt och Brief (pedagogisk genomgång)
+# Fas 1 — Prompt till streamstart
 
-Syfte: förstå vad som faktiskt händer från knapptryck till att LLM-streamen
-startar. Skrivet för att reda ut vanliga förväxlingar.
+Vad som händer från knapptryck till att LLM-streamen startar.
 
----
-
-## Ordlista — vanliga ord i Fas 1
-
-| Ord | Vad det betyder i Sajtmaskin | Förväxlingsrisk |
-|-----|------------------------------|-----------------|
-| **Prompt** | Rå text som användaren skriver i inputfältet | — |
-| **Deep Brief** | LLM-genererat strukturerat objekt (sidor, färger, stil, CTA, målgrupp, etc.) som skapas *från* prompten | Förväxlas med "rewrite" eller "improve" — men briefen ändrar inte prompten, den skapar ett separat dataunderlag |
-| **Server Auto-Brief** | Samma Deep Brief men genererad av servern som fallback om klienten inte skickade en | Förväxlas med "dubbel brief" — det är inte ett nytt koncept, bara en reservväg |
-| **Prompt Rewrite** | "Förbättra"-knappen — en LLM skriver om prompten till bättre svenska/engelska. Resultatet syns *i inputfältet*. Ingen brief skapas. | Förväxlas med Deep Brief — men rewrite ändrar text, brief skapar struktur |
-| **Prompt Polish** | "Skriv om"-knappen — lättare copy-edit av prompten. Billigare modell. Resultatet syns *i inputfältet*. | Förväxlas med rewrite — skillnaden är depth |
-| **formatPrompt()** | Mekanisk wrapper som lägger till MÅL / TILLGÄNGLIGHET-rubriker runt prompten. Ingen LLM involverad. | Förväxlas med rewrite/polish — men detta är ren strängmanipulation |
-| **Prompt Orchestration** | Server-side budget/trunkering/strategi. Bestämmer om prompten är "direct", "phase_plan_build_refine" eller "preserved". | Förväxlas med brief — men orchestration handlar om *budget*, inte *berikande* |
-| **Build Intent** | `"website"`, `"app"` eller `"template"`. Klassificerar *vad* användaren vill bygga. | Förväxlas med Build Profile — intent = typ av sak, profile = vilken modell |
-| **Build Profile / Model Tier** | `fast`, `pro`, `max`, `codex`, `anthropic`. Vilken LLM som kör codegen. | Förväxlas med Assist Model — detta styr *kodgenereringen*, inte briefen |
-| **Assist Model** | Vilken LLM som kör brief/rewrite/polish. Separat val i UI. | Förväxlas med Build Profile — dessa är *två olika modellval* |
-| **Scaffold** | Startpunkt/mall för projektstrukturen (landing-page, blog, dashboard, etc.) | Förväxlas med template — scaffold styr genereringens ramverk, template är galleri-produkter |
-| **Spec File** | (`sajtmaskin.spec.json`) — ett äldre/parallellt sätt att ge strukturerad input till codegen. Brief konverteras till spec via `briefToSpec()`. | Spec-first är idag `active: false` — briefen har tagit den rollen |
-| **`pendingBriefRef`** | React ref som håller brief-objektet mellan brief-generering och chat-skapande | — |
-| **`meta.brief`** | Briefen som skickas till servern i SSE-anropets metadata | — |
-| **`customInstructions`** | Fältet för användarens egna extra instruktioner (+ ev. palette/spec-suffix) | Briefen läggs INTE i customInstructions längre — den skickas separat via meta.brief |
+**Ordlista:** `docs/architecture/glossary.md`. **Kod är source of truth.**
 
 ---
 
-## Vad händer steg för steg (init = ny chatt)
+## Steg för steg (init = ny chatt)
 
-### Steg 1 — Användaren skriver och klickar skicka
+### 1. Landningssidan → Builder
 
-```
-Användaren har skrivit: "Skapa en hemsida för min restaurang Gustavs Krog
-med meny, boka bord och om oss"
+`startBuild()` i `use-landing-controller.ts`:
+- `createProject()` → `appProjectId`
+- `POST /api/prompts` → `promptId`
+- `router.push("/builder?project=X&promptId=Y&buildMethod=freeform")`
 
-Inställningar i UI:
-├── Byggmodell: pro (gpt-5.3-codex)
-├── Promptverktyg: openai/gpt-5.4
-└── Djup/-Deep brief: ✅ (default on)
-```
+### 2. Builder tar emot prompt-handoff
 
-Knappen triggar `requestCreateChat()` i `useBuilderPromptActions.ts`.
+`deriveBuilderEntryState(searchParams)` i `builder-entry.ts` läser URL-params och bestämmer `entryKind`:
 
-### Steg 2 — Deep Brief körs (steg [A])
+| Prioritet | Villkor | entryKind |
+|-----------|---------|-----------|
+| 1 | `templateId` finns | `template` |
+| 2 | `source === "audit"` | `audit` |
+| 3 | `prompt` eller `promptId` | `prompt-handoff` |
+| 4 | `project` utan `chatId` | `project-restore` |
+| 5 | Inget | `blank` |
 
-```
-requestCreateChat()
-└── applyDynamicInstructionsForNewChat(message)
-    ├── pendingBriefRef.current = null  (rensa gammal)
-    ├── pendingSpecRef.current = null
-    │
-    └── await generateDynamicInstructions(message, {
-          forceDeepBrief: true,
-          skipAddendum: true,      ← VIKTIGT: vi vill INTE blanda brief i text
-          onBrief: (brief) => {
-            pendingBriefRef.current = brief   ← sparar brief-objektet
-          }
-        })
-```
+Prompten fylls i inputfältet. **Ingen chatt skapas ännu.**
 
-Inuti `generateDynamicInstructions` (i `useInitBrief.ts`):
+### 3. Användaren trycker "Skapa"
 
-```
-1. Kolla att modell är giltig och att deep brief är på
-2. POST /api/ai/brief med:
-   ├── prompt: "Skapa en hemsida för min restaurang..."
-   ├── provider: "openai"
-   ├── model: "openai/gpt-5.4"
-   └── temperature: 0.2
+`useCreateChat` → `createNewChat()`:
 
-3. Servern (site-brief-generation.ts):
-   ├── generateSiteBriefObject()
-   │   ├── FÖRSÖK 1: siteBriefSchema (fullt schema)
-   │   │   └── generateObject() via AI SDK
-   │   │       → strukturerat objekt med:
-   │   │         projectTitle: "Gustavs Krog"
-   │   │         brandName: "Gustavs Krog"
-   │   │         oneSentencePitch: "En restaurang i..."
-   │   │         targetAudience: "Matintresserade i..."
-   │   │         pages: [
-   │   │           { name: "Start", path: "/", sections: [hero, menu-preview, cta] },
-   │   │           { name: "Meny", path: "/meny", sections: [menu-full, gallery] },
-   │   │           { name: "Boka", path: "/boka", sections: [booking-form, contact] },
-   │   │           { name: "Om oss", path: "/om-oss", sections: [about, team, map] }
-   │   │         ]
-   │   │         visualDirection: { style: "warm", palette: "earth tones", ... }
-   │   │         seo: { titleTemplate: "...", description: "..." }
-   │   │         mustHave: ["dark mode toggle", ...]
-   │   │         avoid: ["generic stock photos", ...]
-   │   │
-   │   └── FALLBACK (om Anthropic/schema-fel):
-   │       └── (simplifiedBriefSchema borttaget — enda schemat nu)
-   │
-   └── Returnerar brief-objekt till klienten
+1. Bygger optimistisk UI: user-meddelande + tom streaming-assistentbubbla.
+2. **Prompt-formatering**: Om klienten redan har en brief → rå prompt. Annars `formatPrompt()`.
+3. `formatPrompt()` lägger till `MÅL` / `TILLGÄNGLIGHET`-rubriker runt ostrukturerade prompter. Strukturerade prompter (≥ 2 kända rubriker) passerar oförändrade.
+4. Bilagor appendas via `appendAttachmentPrompt()`.
 
-4. onBrief(brief) → pendingBriefRef.current = brief  ✅
-5. Toast: "Brief klar — own-engine kan starta."
-```
-
-**Det du minns är korrekt:** briefen *broderar ut* en kort prompt till en rik,
-schema-liknande struktur med sidor, sektioner, färger, stil, målgrupp etc.
-Denna struktur matchas sedan mot scaffold-registry och route plan i Fas 2.
-
-### Steg 3 — Chatten skapas (steg [B])
+### 4. Klienten bygger `meta`-objektet
 
 ```
-requestCreateChat() fortsätter:
-└── await createNewChat(message, options, systemOverride)
-    │
-    ├── Bygger promptMeta med:
-    │   ├── brief: pendingBriefRef.current  ← briefen från steg 2
-    │   ├── modelId, modelTier, scaffold, palette, etc.
-    │   └── Om brief SAKNAS (timeout/fail): ingen meta.brief
-    │       └── prompten wrappas med formatPrompt() istället
-    │
-    └── POST /api/engine/chats/stream (SSE)
-        med body: { message, meta: { brief, ... } }
-```
-
-### Steg 4 — Server tar emot
-
-```
-create-chat-stream-post.ts:
-├── parseChatRequestMeta(meta) → extraherar brief, tier, scaffold etc.
-├── resolveModelSelection() → kanonisk modell-ID
-├── orchestratePromptMessage() → budget/strategi (INTE brief-relaterat)
-│
-├── BRIEF RESOLUTION:
-│   ├── clientBrief = meta.brief   (från steg 2, om den hann)
-│   ├── Om clientBrief finns → effectiveBrief = clientBrief  ✅
-│   └── Om clientBrief SAKNAS:
-│       ├── shouldRunServerAutoBrief()? → policy-check:
-│       │   ├── Inte audit, technical, follow-up
-│       │   ├── Inte redan strukturerad website-prompt (>120 tecken, >2 rubriker)
-│       │   └── Om alla villkor uppfyllda: → tryServerAutoBrief()
-│       └── effectiveBrief = serverAutoBrief ?? null
-│
-└── → brief + prompt + modell → Fas 2 (orkestrering)
-```
-
----
-
-## Varför kan Deep Brief "missas"? (din fråga 2)
-
-Sekvensen i koden är:
-
-```
-requestCreateChat()
-├── [A] await applyDynamicInstructionsForNewChat(message)
-│       └── await generateDynamicInstructions(...)  ← VÄNTAR på brief
-│           └── POST /api/ai/brief  (kan ta 3-15s)
-│
-└── [B] await createNewChat(message)  ← startar EFTER att [A] är klar
-```
-
-**I dagens kod väntar [B] faktiskt på [A]** — de körs i sekvens med `await`.
-Briefen HAR tid att genereras innan chatten skapas.
-
-Men: om briefen **failar** (timeout, parse-error, schema-error), kastas felet
-i `useInitBrief.ts` och `pendingBriefRef.current` förblir `null`. Då:
-
-1. `createNewChat` ser att `pendingBriefRef.current === null`
-2. Prompten wrappas med `formatPrompt()` istället (MÅL/STIL/TILLGÄNGLIGHET)
-3. Servern ser att `meta.brief` saknas → kan köra server auto-brief
-
-Det är alltså inte en parallellitets-race — det är en **fail-fallback-kedja**.
-Men resultatet är osynligt för användaren (ingen tydlig notis att briefen
-misslyckades, förutom en toast som är lätt att missa).
-
----
-
-## orchestratePromptMessage() — din fråga 3
-
-**Nej, den suger inte upp saker från briefen.** Den hanterar en helt annan sak:
-
-```
-orchestratePromptMessage() bestämmer:
-├── Är prompten för lång? → strategi: "phase_plan_build_refine" eller "preserved"
-├── Är prompten lagom? → strategi: "direct" (skicka som den är)
-├── Behöver den fasplanering? → strategi: "phase_plan_build_refine"
-└── Returnerar: { optimizedPrompt, strategy, budget, ... }
-```
-
-Det är en **budget/trunkerings-gate**, inte en brief-consumer.
-Briefen konsumeras senare i Fas 2 av `buildDynamicContext()`.
-
----
-
-## Vad Fas 1 faktiskt "gjort" vid överlämning till Fas 2
-
-| Signal | Från | Till Fas 2 |
-|--------|------|-----------|
-| Rå prompt | Användaren | `prompt` (user-turn) |
-| Brief (strukturerat objekt) | Deep Brief LLM | `brief` → scaffold-val, route plan, dynamisk kontext |
-| Modellval (tier) | UI | `selectedModelTier` → vilken LLM som kör codegen |
-| Scaffold-hint | UI (auto/manual) | `scaffoldMode`, `scaffoldId` |
-| Prompt-strategi | `orchestratePromptMessage` | `promptStrategy` (direct/phase/preserved) |
-| Build intent | Klassificering | `"website"` / `"app"` / `"template"` |
-| Custom instructions | Användarens egna + palette/spec | `customInstructions` |
-
----
-
-## Follow-up — vad som INTE körs
-
-Vid follow-up (befintlig chatt):
-
-- Deep Brief körs **INTE** (briefen är per-init)
-- Server auto-brief körs **INTE**
-- `formatPrompt()` wrapping körs istället
-- Scaffold är "persisted" (den som valdes vid init)
-- Befintliga filer laddas och wrappas i user-turnen
-
-Det finns **ingen summering** av briefen vid follow-up — den "försvinner".
-Det finns dock en `orchestration_snapshot` som bevarar viss scaffold/routing-info
-från init, men brief-specifika signaler (visuell riktning, toneOfVoice) tappas.
-
----
-
-## Kopplingen du minns: "brief som matchade mot textfiler"
-
-Det du beskriver stämmer. Briefen producerar strukturerade fält som sedan
-matchar mot **tre** nedströms-system i Fas 2:
-
-```
-Brief-objekt
-│
-├── pages[] → buildRoutePlan()
-│   └── Briefens sidor blir routes i appen
-│
-├── styleKeywords + domainHints → matchScaffoldAuto()
-│   └── Keyword-boost (+2 per matchad kategori)
-│   └── Embedding-query berikas med brief-fragment
-│   └── → väljer t.ex. "landing-page" eller "ecommerce"
-│
-├── visualDirection + toneAndVoice → buildDynamicContext()
-│   └── Blir ## Pages & sections, ## Visual identity, etc.
-│   └── → system prompt-block med prioritet 82 (av 100)
-│
-├── mustHave / avoid → buildDynamicContext()
-│   └── Blir constraints i prompten
-│
-└── seo → buildDynamicContext()
-    └── Blir SEO-block med prioritet 62
-```
-
-Så ja: briefen *broderar ut* prompten, och den schemaaktiga strukturen
-konsumeras systematiskt av orkestreringen. Det är inte en "prompt-förbättring"
-— det är en **semantisk expansion** som driver scaffold-val, route plan och
-systemprompten.
-
----
-
-## FAQ — vanliga frågor om Fas 1
-
-### F1: Vad gör `formatPrompt()` egentligen? Kan den krympa text?
-
-`formatPrompt()` **lägger till** rubriker runt prompten — den tar aldrig bort
-eller skriver om användarens text. Så här ser output ut:
-
-```
-MÅL
-
-Skapa en hemsida för min restaurang Gustavs Krog med meny, boka bord och om oss
-
-SEKTIONER
-hero, meny, bokningsformulär, om oss
-
-STIL
-warm, modern
-
-TILLGÄNGLIGHET
-- Use semantic HTML (header, nav, main, footer)
-- Ensure color contrast ratio meets WCAG AA (4.5:1)
-- All images must have descriptive alt text
-- Interactive elements must be keyboard accessible
-```
-
-Funktionen:
-1. Kollar först om prompten redan är "strukturerad" (`isStructuredPrompt`):
-   om den har `##`-rubriker, `MÅL`, `CONSTRAINTS` etc. → **returneras orörd**.
-2. Annars extraherar den keyword-matchningar (sektioner, stil, constraints, URLs)
-   med regex — ren strängmanipulation, ingen LLM.
-3. Lägger till TILLGÄNGLIGHET-krav som **inte redan finns** i prompten.
-4. Returnerar allt ihopslaget med `\n\n`.
-
-**Den krymper aldrig text.** Risken är snarare att den *lägger till brus* som
-gör prompten längre och mer mekanisk. Det var nog det du upplevde som "pannkaka"
-— en kort, naturlig prompt blev en stelbent struktur med rubriker som modellen
-tolkade överdrivet bokstavligt.
-
-**Viktigt: `formatPrompt()` körs bara som fallback.** När Deep Brief finns
-skickas rå user-text och briefen bär strukturen separat. Wrappern behövs bara
-om brief saknas (fail/timeout).
-
-### F2: Om Deep Brief misslyckas — gör server auto-brief samma sak?
-
-Ja, **exakt samma funktion** (`generateSiteBriefObject`) körs av både klient-
-brief (`POST /api/ai/brief`) och server auto-brief (`tryGenerateServerAutoBrief`).
-Schema, systemprompt och fallback-logik är identiska.
-
-Skillnaden:
-
-| | Client Deep Brief | Server Auto-Brief |
-|---|---|---|
-| Vem triggar | Klienten (React) | Servern (fallback) |
-| Modell | Användarens valda assist-modell | `resolveRunnableBriefModel()` (bästa tillgängliga) |
-| Timeout | `PROMPT_ASSIST_TIMEOUT_MS` (klient) | `req.signal` (server request lifetime) |
-| Logg | Toast i UI | Server devLog |
-
-Resultatet *borde* vara likvärdigt givet samma prompt. Men modellvalet kan
-skilja sig: om klienten kör Anthropic som assist-modell och den failar, kan
-serverns fallback välja OpenAI istället — och ge en annorlunda brief.
-
-### F3: Spec File vs `briefToSpec()` — hur såg det ut?
-
-**Spec File** (`sajtmaskin.spec.json`) var ett äldre format som skulle ge
-*all* strukturerad input i en enda JSON-fil:
-
-```json
-{
-  "version": "1.0",
-  "business": { "name": "Gustavs Krog", "tagline": "", "tone": ["warm"], "audience": "" },
-  "theme": { "primary": "#3b82f6", "secondary": "#6366f1", "font": "system", "styleKeywords": [] },
-  "pages": [{ "path": "/", "name": "Home", "sections": ["hero", "features", "cta"] }],
-  "constraints": { "noNewDependencies": true, "originalPrompt": "..." }
+meta = {
+  promptOriginal, promptFormatted, isFirstPrompt: true,
+  buildIntent, buildMethod, scaffoldMode, scaffoldId,
+  designTheme, themeColors, palette,
+  promptAssistModel, promptAssistMode, promptAssistDeep,
+  modelTier, buildProfileId, imageGenerations,
+  // Om brief genererades på klienten:
+  brief: pendingBriefRef.current
 }
 ```
 
-**`briefToSpec()`** konverterar en Deep Brief till detta format. Jämfört med
-briefen är spec-formatet **mycket fattigare**: inget `mustHave`/`avoid`, ingen
-`imagery`, inga `uiNotes`, enklare sida-representation (bara stränglistor
-istället för objekt med heading/bullets).
+### 5. Request till servern
 
-**`promptToSpec()`** är ännu smalare: skapar en minimal spec med default-värden
-och bara `"Home"` som enda sida — den vet ingenting om användarens intention.
-
-Spec-first är `active: false` sedan ~2026-04-08. Briefen har tagit den rollen
-och levererar rikare data direkt via `meta.brief` → `buildDynamicContext()`.
-Spec-koden lever kvar men körs bara om `specMode: true` är explicit satt.
-
-### F4: `pendingBriefRef` och `meta.brief`
-
-Dessa är **två steg i samma kedja**, inte separata system:
-
+`POST /api/engine/chats/stream` med:
 ```
-pendingBriefRef.current          meta.brief
-       │                              │
-       │  React ref som håller        │  JSON-fält i HTTP-body
-       │  briefen i klienten          │  som skickas till servern
-       │                              │
-       └──── sätts i steg 2 ────────────→ läses i steg 3 ───→ server
-             (onBrief callback)            (createNewChat)
+{ message, modelId, thinking, imageGenerations, meta, system?, attachments? }
 ```
 
-Om briefen failar: `pendingBriefRef.current` förblir `null` → `meta.brief`
-skickas inte → servern ser att brief saknas.
+---
 
-### F5: Hur många filer skickas? Init vs Follow-up
+## Deep Brief
 
-**Init (ny chatt):** Inga filer skickas. Allt kommer från prompten + briefen +
-scaffolden. Modellen genererar *alla* filer från scratch.
+### Vad det är
 
-**Follow-up (befintlig chatt):**
+Ett LLM-genererat strukturerat objekt som beskriver sajten. Produceras av `generateSiteBriefObject()` i `site-brief-generation.ts` med Vercel AI SDK `generateObject` + Zod-schema.
+
+### Vad briefen innehåller (siteBriefSchema)
 
 ```
-resolveFollowUpPreviousFiles(chatId, baseVersionId)
-└── Hämtar alla filer från senaste version i engine_versions.files_json
-    └── Wrappas i user-turnen:
-        ├── "## Existing Project Files (reference)"
-        ├── Komprimerade filinnehåll (budget-styrt)
-        ├── "## Follow-up Editing Mode"
-        └── "## Requested Changes" + användarens nya prompt
+projectTitle, brandName,
+pages[]: { name, sections[]: { name, purpose, heroPosition, ctaText } },
+visualDirection: { styleKeywords[], colorScheme, mood },
+imagery: { strategy, examples },
+uiNotes, seo: { title, description },
+domainProfile, motionLevel, qualityBar, seasonalHints,
+mustHave[], avoid[], toneAndVoice[]
 ```
 
-Antalet filer beror på versionen men är typiskt 10-30 filer (layout.tsx,
-page.tsx per route, components, globals.css, etc.). Budget-systemet kan
-trunkera eller utelämna filer vid tight context.
+### Två vägar till brief
+
+| Väg | Trigger | Källa |
+|-----|---------|-------|
+| **Klient-brief** | Användaren har brief-verktyget på | `meta.brief` i request |
+| **Server auto-brief** | `shouldRunServerAutoBrief()` returnerar true | Genereras på servern i `tryGenerateServerAutoBrief()` |
+
+### Server auto-brief policy (`server-auto-brief-policy.ts`)
+
+Auto-brief körs **inte** om:
+- `SAJTMASKIN_DISABLE_SERVER_AUTO_BRIEF === "1"`
+- Klienten redan skickade brief
+- `promptSourceTechnical` eller `promptSourcePreservePayload`
+- `promptType === "audit"`
+- Follow-up (`followup_general` / `followup_technical`)
+- Orchestration-reason: `technical_content_preserved` / `preserve_registry_payload`
+
+### Modellval för brief
+
+Bestäms via `resolveRunnableBriefModel()`:
+- Default: `AUTO_BRIEF_MODEL_OPENAI` / `AUTO_BRIEF_MODEL_ANTHROPIC` (från `config/ai_models/manifest.json`)
+- Om bara en API-nyckel finns → byter till tillgänglig leverantör
+- Båda saknas → ingen brief
+
+---
+
+## Scaffold-val
+
+Sker i `orchestrate.ts` → `matchScaffoldAuto()` i `matcher.ts`.
+
+### Tre möjliga scaffold-lägen
+
+| Läge | Beteende |
+|------|----------|
+| `off` | Inget scaffold |
+| `manual` | Användaren valde ett specifikt scaffold-id |
+| `auto` | Keyword + embedding-matchning |
+
+### Auto-matchning (steg)
+
+1. **Keyword-matchning** (synkron): 9 nyckelordslistor (landing, saas, portfolio, blog, dashboard, app, auth, ecommerce, content) med tvåspråkiga termer. Hospitality-veto: restaurang/frisör etc. blockerar ecommerce om inte starka e-handelsord finns.
+
+2. **Embedding-matchning** (parallell): `searchScaffoldsWithDiagnostics()` vektoriserar prompten via OpenAI och jämför mot förberäknade scaffold-vektorer med cosine-similarity.
+
+3. **Merge-policy**: Embeddings kan override:a keyword-resultatet om:
+   - Score ≥ 0.35 (generell) / 0.45 (generiskt keyword-resultat)
+   - Safety guards: auth-scaffold kräver auth-keywords, ecommerce blockeras av hospitality, etc.
+   - Icke-generiskt keyword: embedding vinner om `embeddingScore >= keywordStrength × 0.82`
+
+### Persisted scaffold (follow-up)
+
+Vid follow-up: `persistedScaffoldId` från snapshot → `getScaffoldById()` direkt — ingen ny matchning om inget tvingar det.
+
+---
+
+## Capability-inferens
+
+`inferCapabilities(prompt)` i `capability-inference.ts` — **deterministisk regex**, ingen LLM.
+
+Flaggor: `needsMotion`, `needs3D`, `needsCharts`, `needsDatabase`, `needsAuth`, `needsAppShell`, `needsDataUI`, `needsForms`, `needsEcommerce`, `needsCarousel`, `needsPremiumVisuals`, `needsCalendar`, `needsCommandSearch`, `needsThemeToggle`.
+
+Dessa boostar scaffold-matchning och påverkar vilka filer som inkluderas i prompt-kontexten.
+
+---
+
+## Route Plan
+
+`buildRoutePlan()` i `route-plan.ts` bestämmer vilka URL-routes sajten ska ha.
+
+**Provenance** (varifrån routes kommer):
+
+| Källa | Prioritet |
+|-------|-----------|
+| Brief (`pages[]`) | Primär om den har routes |
+| Scaffold-defaults | Blog → `/blog/[slug]`, ecommerce → `/products`, etc. |
+| Prompt-patterns | Regex: `/about`, `/contact`, `/pricing`, etc. |
+
+**Output:** `RoutePlan` med `routes[]`, `siteType` (one-page/brochure/content-heavy/app-shell), `provenance`.
+
+**Follow-up-frys:** Befintliga routes bevaras. Nya routes läggs bara till om användaren uttryckligen ber om det (`hasExplicitAddRouteIntent`). Borttag kräver explicit remove-verb + path.
+
+---
+
+## Init vs Follow-up
 
 | | Init | Follow-up |
 |---|---|---|
-| Filer skickade | 0 | Alla från senaste version (10-30 st) |
-| Brief | Ja (om på) | Nej |
-| Scaffold | Auto/manual | Persisted |
-| Prompt wrapper | Ingen (raw) / formatPrompt() | File context + continuity headers |
-| Summering av brief | N/A | **Ingen** — briefen försvinner |
+| Brief | Klient eller server auto-brief | Vanligtvis ingen; delta-brief vid redesign |
+| Scaffold | `matchScaffoldAuto()` | `persistedScaffoldId` |
+| Routes | Fri planering | Fryst med explicita add/remove |
+| Continuity | Ingen | `prependOrchestrationContinuityToFollowUp()` |
+| `isFirstPrompt` | `true` | `false` |
 
-### F6: Anthropic schema-error — API-nyckel eller schema-storlek?
+---
 
-Felet är **inte** relaterat till API-nyckeln eller dess format. Det specifika
-felet är:
+## Kodfiler (huvudflöde)
 
-```
-Schemas contains too many optional parameters (34), which would make
-grammar compilation inefficient. Reduce the number of optional parameters
-in your tool schemas (limit: 24).
-```
-
-Detta är en **Anthropic-specifik begränsning i deras structured output/tool-use
-API**. Anthropic kompilerar JSON-schemat till en grammar, och den grammatiken
-blir för stor om schemat har >24 optional-params. OpenAI har inte samma
-begränsning.
-
-`siteBriefSchema` är nu det enda schemat (alla fält obligatoriska, 0 optionals).
-`simplifiedBriefSchema` (34 optionals) är borttaget. Om genereringen misslyckas
-returneras `null` och server auto-brief tar vid som säkerhetsnät.
-
-### F7: `BUILD_INTENT_GUIDANCE` — konsoliderat
-
-`BUILD_INTENT_GUIDANCE` finns nu i en gemensam modul: `src/lib/gen/intent-guidance.ts`.
-Både `system-prompt.ts` (codegen) och `promptAssist.ts` (rewrite/polish) importerar
-samma källa — ingen manuell synk behövs längre.
+| Steg | Fil |
+|------|-----|
+| Landning → builder | `src/app/(landing)/use-landing-controller.ts` |
+| URL-parsing | `src/app/builder/builder-entry.ts` |
+| Klient skapar chatt | `src/lib/hooks/chat/useCreateChat.ts` |
+| Follow-up skickar | `src/lib/hooks/chat/useSendMessage.ts` |
+| Prompt-formatering | `src/lib/builder/promptAssist.ts` |
+| Deep Brief | `src/lib/builder/site-brief-generation.ts` |
+| Auto-brief policy | `src/lib/builder/server-auto-brief-policy.ts` |
+| Scaffold-matchning | `src/lib/gen/scaffolds/matcher.ts` |
+| Embedding-sökning | `src/lib/gen/scaffolds/scaffold-search.ts` |
+| Capability-inferens | `src/lib/gen/capability-inference.ts` |
+| Route plan | `src/lib/gen/route-plan.ts` |
+| Server init-handler | `src/lib/api/engine/chats/create-chat-stream-post.ts` |

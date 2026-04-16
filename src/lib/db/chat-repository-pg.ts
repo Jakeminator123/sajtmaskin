@@ -17,6 +17,7 @@ import {
   engineGenerationLogs,
 } from "./schema";
 import { eq, desc, sql } from "drizzle-orm";
+import { REPAIR_ACCEPT_TIMEOUT_MS } from "@/lib/gen/defaults";
 
 export interface Chat {
   id: string;
@@ -46,13 +47,23 @@ export interface Version {
   message_id: string | null;
   version_number: number;
   files_json: string;
+  repaired_files_json: string | null;
   preview_url: string | null;
   release_state: EngineVersionReleaseState;
   verification_state: EngineVersionVerificationState;
   verification_summary: string | null;
+  repair_available_at: string | null;
   promoted_at: string | null;
   created_at: string;
 }
+
+export type VersionRepairStatus = {
+  versionId: string;
+  verificationState: EngineVersionVerificationState;
+  hasPendingRepair: boolean;
+  repairAvailableAt: string | null;
+  wasAutoAccepted?: boolean;
+};
 
 export interface GenerationLog {
   id: string;
@@ -176,10 +187,12 @@ async function insertDraftVersionRow(
     messageId: params.messageId,
     versionNumber,
     filesJson: params.filesJson,
+    repairedFilesJson: null,
     previewUrl: params.previewUrl ?? null,
     releaseState: "draft",
     verificationState: "pending",
     verificationSummary: null,
+    repairAvailableAt: null,
     promotedAt: null,
   });
   return loadVersionById(executor, id);
@@ -264,6 +277,8 @@ export async function addAssistantMessageAndUpdateExistingVersion(
       .update(engineVersions)
       .set({
         filesJson,
+        repairedFilesJson: null,
+        repairAvailableAt: null,
         messageId,
         releaseState: "draft" as EngineVersionReleaseState,
         verificationState: "pending" as EngineVersionVerificationState,
@@ -386,9 +401,159 @@ export async function getVersionById(versionId: string): Promise<Version | null>
 export async function updateVersionFiles(versionId: string, filesJson: string): Promise<boolean> {
   const result = await db
     .update(engineVersions)
-    .set({ filesJson })
+    .set({
+      filesJson,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
+      releaseState: sql<EngineVersionReleaseState>`
+        CASE
+          WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'draft'
+          ELSE ${engineVersions.releaseState}
+        END
+      `,
+      verificationState: sql<EngineVersionVerificationState>`
+        CASE
+          WHEN ${engineVersions.verificationState} = 'repair_available' THEN 'pending'
+          ELSE ${engineVersions.verificationState}
+        END
+      `,
+      verificationSummary: sql<string | null>`
+        CASE
+          WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
+          ELSE ${engineVersions.verificationSummary}
+        END
+      `,
+      promotedAt: sql<Date | null>`
+        CASE
+          WHEN ${engineVersions.verificationState} = 'repair_available' THEN NULL
+          ELSE ${engineVersions.promotedAt}
+        END
+      `,
+    })
     .where(eq(engineVersions.id, versionId));
   return (result.rowCount ?? 0) > 0;
+}
+
+export async function saveRepairedFiles(
+  versionId: string,
+  repairedFilesJson: string,
+  verificationSummary: string | null = "Server repair completed. Waiting for acceptance.",
+): Promise<Version | null> {
+  if (!repairedFilesJson.trim()) return null;
+  const result = await db
+    .update(engineVersions)
+    .set({
+      repairedFilesJson,
+      repairAvailableAt: new Date(),
+      releaseState: "draft",
+      verificationState: "repair_available",
+      verificationSummary,
+      promotedAt: null,
+    })
+    .where(eq(engineVersions.id, versionId));
+  if ((result.rowCount ?? 0) === 0) {
+    return null;
+  }
+  return getStoredVersion(versionId);
+}
+
+export async function getRepairStatus(versionId: string): Promise<VersionRepairStatus | null> {
+  const rows = await db
+    .select({
+      id: engineVersions.id,
+      verificationState: engineVersions.verificationState,
+      repairedFilesJson: engineVersions.repairedFilesJson,
+      repairAvailableAt: engineVersions.repairAvailableAt,
+    })
+    .from(engineVersions)
+    .where(eq(engineVersions.id, versionId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    versionId: row.id,
+    verificationState:
+      (row.verificationState as EngineVersionVerificationState) ?? "pending",
+    hasPendingRepair:
+      typeof row.repairedFilesJson === "string" && row.repairedFilesJson.trim().length > 0,
+    repairAvailableAt:
+      row.repairAvailableAt instanceof Date ? row.repairAvailableAt.toISOString() : null,
+  };
+}
+
+export async function acceptRepair(
+  versionId: string,
+  verificationSummary: string | null = "Server repair accepted.",
+): Promise<Version | null> {
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select({
+        repairedFilesJson: engineVersions.repairedFilesJson,
+      })
+      .from(engineVersions)
+      .where(eq(engineVersions.id, versionId))
+      .limit(1);
+    const repairedFilesJson = rows[0]?.repairedFilesJson;
+    if (typeof repairedFilesJson !== "string" || repairedFilesJson.trim().length === 0) {
+      return null;
+    }
+    const result = await tx
+      .update(engineVersions)
+      .set({
+        filesJson: repairedFilesJson,
+        repairedFilesJson: null,
+        repairAvailableAt: null,
+        releaseState: "promoted" as EngineVersionReleaseState,
+        verificationState: "passed" as EngineVersionVerificationState,
+        verificationSummary,
+        promotedAt: new Date(),
+      })
+      .where(eq(engineVersions.id, versionId));
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
+    const versionRows = await tx
+      .select()
+      .from(engineVersions)
+      .where(eq(engineVersions.id, versionId))
+      .limit(1);
+    return toRow(versionRows[0]) as unknown as Version;
+  });
+}
+
+type AutoAcceptResult = {
+  version: Version;
+  wasAutoAccepted: boolean;
+};
+
+function parseIsoToMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function shouldAutoAcceptRepair(
+  verificationState: EngineVersionVerificationState | null | undefined,
+  repairAvailableAt: string | null | undefined,
+): boolean {
+  if (verificationState !== "repair_available") return false;
+  const repairAvailableAtMs = parseIsoToMs(repairAvailableAt);
+  if (repairAvailableAtMs === null) return false;
+  return Date.now() - repairAvailableAtMs >= REPAIR_ACCEPT_TIMEOUT_MS;
+}
+
+export async function maybeAutoAcceptTimedOutRepair(version: Version): Promise<AutoAcceptResult> {
+  if (!shouldAutoAcceptRepair(version.verification_state, version.repair_available_at)) {
+    return { version, wasAutoAccepted: false };
+  }
+  const accepted = await acceptRepair(
+    version.id,
+    "Server repair auto-accepted after timeout.",
+  );
+  if (!accepted) {
+    return { version, wasAutoAccepted: false };
+  }
+  return { version: accepted, wasAutoAccepted: true };
 }
 
 export async function updateVersionPreviewUrl(
@@ -412,6 +577,8 @@ export async function markVersionVerifying(
       releaseState: "draft",
       verificationState: "verifying",
       verificationSummary,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
       promotedAt: null,
     })
     .where(eq(engineVersions.id, versionId));
@@ -431,6 +598,8 @@ export async function markVersionRepairing(
       releaseState: "draft",
       verificationState: "repairing",
       verificationSummary,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
       promotedAt: null,
     })
     .where(eq(engineVersions.id, versionId));
@@ -451,6 +620,8 @@ export async function promoteVersion(
       releaseState: "promoted",
       verificationState: "passed",
       verificationSummary,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
       promotedAt,
     })
     .where(eq(engineVersions.id, versionId));
@@ -470,6 +641,8 @@ export async function failVersionVerification(
       releaseState: "draft",
       verificationState: "failed",
       verificationSummary,
+      repairedFilesJson: null,
+      repairAvailableAt: null,
       promotedAt: null,
     })
     .where(eq(engineVersions.id, versionId));

@@ -50,6 +50,7 @@ legacy/diagnostik.
 | `POST /api/engine/chats/[chatId]/preview-destroy` | Stang session + rensa preview-url |
 | `POST /api/engine/chats/[chatId]/quality-gate` | Interaktiv quality-gate lane |
 | `POST /api/engine/chats/[chatId]/repair` | Manual/klientdriven repair |
+| `POST /api/engine/chats/[chatId]/accept-repair` | Applicera serverrepair som vantar i `repair_available` |
 
 Compat-routes under `/api/v0/chats/...` finns kvar dar det behovs.
 
@@ -97,9 +98,34 @@ Preview-host kor tva separata lanes:
 
 En version kan alltsa vara live i preview men anda fa verify-fail.
 
+Om serverrepair passerar quality gate blir versionen `repair_available` i stallet
+for att direkt skrivas over. Filerna ligger da i `repaired_files_json` tills
+`accept-repair` (eller timeout-autoaccept) applicerar dem till `files_json`.
+
 Check-profilerna (`tier2`, `serverVerify`, `promotion`, `interactive`) ar nu
 manifeststyrda via `config/ai_models/manifest.json` (`qualityGateTiers`) i
 stallet for hardkodade arrayer i kod.
+
+Verify-lane returnerar dessutom informativa checks:
+
+- `install-cache-share` (node_modules-delning mellan live och verify workspace)
+- `install-peer-fallback` (peer-konflikt, fallback med `--legacy-peer-deps`)
+
+## Repair-accept lifecycle
+
+```
+quality gate fail
+  -> server repair (runRepairLoop)
+  -> quality gate repass
+    -> pass: saveRepairedFiles -> verificationState=repair_available
+    -> fail: verificationState=failed
+
+repair_available
+  -> SSE: version-repair-available
+  -> versions/readiness visar pending repair
+  -> POST /accept-repair applicerar filer och markerar passed/promoted
+  -> timeout: auto-accept enligt repairAcceptTimeoutMinutes
+```
 
 ---
 
@@ -112,6 +138,7 @@ stallet for hardkodade arrayer i kod.
 | Preview-host runtimefel | `build-error` eller retrybar bootstrapfail |
 | Session mismatch/version mismatch | Recover/resync kravs |
 | Npm/dependency-fel i VM | Preview startar ej eller kraschar tidigt |
+| `repair_available` pa senaste version | Deploy-readiness blockerar tills repair accepteras/autoaccepteras |
 
 ---
 
@@ -124,7 +151,8 @@ stallet for hardkodade arrayer i kod.
 - Vercel webhook-sparet hanteras av `src/app/api/webhooks/vercel/route.ts`.
 
 `server-verify` och manuell `repair` delar nu samma repair-karnlogik
-(`runRepairLoop`) inklusive targeted/warm repair av trasiga filer.
+(`runRepairLoop`) inklusive targeted/warm repair av trasiga filer och
+strukturerat `errorManifest` i verify/repair-loggar.
 
 ---
 

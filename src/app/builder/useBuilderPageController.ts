@@ -19,7 +19,6 @@ import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
-import { usePromptRewrite } from "@/lib/hooks/usePromptRewrite";
 import { useInitBrief } from "@/lib/hooks/useInitBrief";
 import { useChatMessaging } from "@/lib/hooks/chat/useChatMessaging";
 import { useVersions } from "@/lib/hooks/useVersions";
@@ -135,6 +134,21 @@ export function useBuilderPageController() {
     isGenerating: isAnyStreamingEarly,
     pauseWhileGenerating: true,
   });
+
+  const repairAvailableToastShownRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!Array.isArray(versions) || versions.length === 0) return;
+    const latest = versions[0] as Record<string, unknown> | undefined;
+    if (!latest) return;
+    const vid = typeof latest.id === "string" ? latest.id : null;
+    const state = typeof latest.verificationState === "string" ? latest.verificationState : null;
+    if (vid && state === "repair_available" && !repairAvailableToastShownRef.current.has(vid)) {
+      repairAvailableToastShownRef.current.add(vid);
+      toast.message("Serverreparation tillgänglig", {
+        description: "Acceptera reparationen i versionspanelen för att applicera fixen.",
+      });
+    }
+  }, [versions]);
 
   // ── Derived / memoized state ─────────────────────────────────────────
   const derived = useBuilderDerivedState({
@@ -378,17 +392,7 @@ export function useBuilderPageController() {
 
   const sendMessage = rawSendMessage;
 
-  // ── Prompt rewrite (manual "Förbättra"/"Skriv om") ──────────────────
-  const { maybeEnhanceInitialPrompt } = usePromptRewrite({
-    model: state.promptAssistModel,
-    deep: state.promptAssistDeep,
-    imageGenerations: state.enableImageGenerations,
-    codeContext: state.promptAssistContext,
-    buildIntent: state.resolvedBuildIntent,
-    themeColors: state.themeColors,
-  });
-
-  // ── Init brief (Deep Brief + fallback addendum) ────────────────────
+  // ── Init brief (Deep Brief) ─────────────────────────────────────────
   const { generateDynamicInstructions } = useInitBrief({
     model: state.promptAssistModel,
     deep: state.promptAssistDeep,
@@ -404,7 +408,6 @@ export function useBuilderPageController() {
     customInstructions: state.customInstructions,
     applyInstructionsOnce: state.applyInstructionsOnce,
     promptAssistModel: state.promptAssistModel,
-    promptAssistDeep: state.promptAssistDeep,
     themeColors: state.themeColors,
     paletteState: state.paletteState,
     selectedModelTier: state.selectedModelTier,
@@ -428,12 +431,9 @@ export function useBuilderPageController() {
     setEntryIntentActive: state.setEntryIntentActive,
     setIsPreparingPrompt: state.setIsPreparingPrompt,
     setCustomInstructions: state.setCustomInstructions,
-    setPromptAssistModel: state.setPromptAssistModel,
-    setPromptAssistDeep: state.setPromptAssistDeep,
-      setPromptAssistMode: state.setPromptAssistMode,
+    setPromptAssistMode: state.setPromptAssistMode,
     setDesignTheme: state.setDesignTheme,
     setPaletteState: state.setPaletteState,
-    maybeEnhanceInitialPrompt,
     generateDynamicInstructions,
     createNewChat,
     cancelActiveGeneration,
@@ -1648,10 +1648,7 @@ export function useBuilderPageController() {
     handleConfirmDeploy: deployActions.handleConfirmDeploy,
 
     // Prompt actions
-    handlePromptAssistModelChange: promptActions.handlePromptAssistModelChange,
     handlePromptAssistModeReset: promptActions.clearPromptAssistMode,
-    handlePromptEnhance: promptActions.handlePromptEnhance,
-    handlePromptRewrite: promptActions.handlePromptRewrite,
     requestCreateChat: promptActions.requestCreateChat,
     handleStartFromRegistry: promptActions.handleStartFromRegistry,
     handleStartFromTemplate: promptActions.handleStartFromTemplate,

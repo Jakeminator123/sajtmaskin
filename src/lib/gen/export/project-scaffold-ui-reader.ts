@@ -1,19 +1,17 @@
 import fs from "node:fs";
 import nodePath from "node:path";
 import type { CodeFile } from "../parser";
+import type { UiComponent } from "./project-scaffold-ui-types";
 
 const UI_IMPORT_RE = /@\/components\/ui\/([a-z][a-z0-9-]*)/g;
 
-const CWD = process.cwd();
+const PROJECT_ROOT = nodePath.resolve(/* turbopackIgnore: true */ process.cwd());
 const SEARCH_ROOTS = [
-  nodePath.resolve(CWD, "src/components/ui"),
-  nodePath.resolve(CWD, "components/ui"),
+  nodePath.join(PROJECT_ROOT, "src", "components", "ui"),
+  nodePath.join(PROJECT_ROOT, "components", "ui"),
 ] as const;
 
-export interface UiComponent {
-  filename: string;
-  content: string;
-}
+export type { UiComponent } from "./project-scaffold-ui-types";
 
 type UiComponentFileIndex = Map<string, string>;
 
@@ -61,8 +59,8 @@ function buildUiComponentFileIndex(): UiComponentFileIndex {
   const index: UiComponentFileIndex = new Map();
 
   for (const root of SEARCH_ROOTS) {
-    if (!fs.existsSync(root)) continue;
-    for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!fs.existsSync(/* turbopackIgnore: true */ root)) continue;
+    for (const entry of fs.readdirSync(/* turbopackIgnore: true */ root, { withFileTypes: true })) {
       if (!entry.isFile() || !entry.name.endsWith(".tsx")) continue;
       const key = entry.name.slice(0, -4);
       if (!index.has(key)) {
@@ -78,7 +76,7 @@ function readUiComponent(name: string, fileIndex: UiComponentFileIndex): string 
   const fullPath = fileIndex.get(name);
   if (!fullPath) return null;
   try {
-    return fs.readFileSync(fullPath, "utf-8");
+    return fs.readFileSync(/* turbopackIgnore: true */ fullPath, "utf-8");
   } catch {
     return null;
   }

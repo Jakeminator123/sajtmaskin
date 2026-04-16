@@ -13,6 +13,8 @@
       "src/lib/gen/verify/server-verify.ts",
       "src/app/api/engine/chats/[chatId]/quality-gate/route.ts",
       "src/app/api/engine/chats/[chatId]/repair/route.ts",
+      "src/app/api/engine/chats/[chatId]/accept-repair/route.ts",
+      "src/lib/db/chat-repository-pg.ts",
       "preview-host/src/server.js",
       "preview-host/src/validate.js",
       "preview-host/src/runtime.js"

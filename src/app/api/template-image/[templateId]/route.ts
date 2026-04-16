@@ -6,7 +6,13 @@ import { getTemplateById } from "@/lib/templates/template-data";
 let _templateImagesRoot: string | null = null;
 function getTemplateImagesRoot(): string {
   if (!_templateImagesRoot) {
-    _templateImagesRoot = join(process.cwd(), "templates_v0", "downloads", "template-images");
+    // Narrow Turbopack file tracing: do not union-scan the repo for dynamic image paths.
+    _templateImagesRoot = join(
+      /* turbopackIgnore: true */ process.cwd(),
+      "templates_v0",
+      "downloads",
+      "template-images",
+    );
   }
   return _templateImagesRoot;
 }
@@ -22,9 +28,9 @@ const MIME_TYPES: Record<string, string> = {
 
 const CACHE_HEADER = "public, max-age=86400, stale-while-revalidate=604800";
 
-async function canAccess(path: string): Promise<boolean> {
+async function canAccess(filePath: string): Promise<boolean> {
   try {
-    await access(path);
+    await access(/* turbopackIgnore: true */ filePath);
     return true;
   } catch {
     return false;
@@ -43,13 +49,17 @@ async function findFirstImage(
       : `${templateId}.jpg`;
   const ext = extname(imageFilename).toLowerCase();
   const contentType = MIME_TYPES[ext] || "application/octet-stream";
-  const base = join(getTemplateImagesRoot(), template.category, templateId);
+  const base = join(
+    /* turbopackIgnore: true */ getTemplateImagesRoot(),
+    template.category,
+    templateId,
+  );
 
   for (const subdir of ["listing", "detail"]) {
-    const fullPath = join(base, subdir, imageFilename);
+    const fullPath = join(/* turbopackIgnore: true */ base, subdir, imageFilename);
     if (!(await canAccess(fullPath))) continue;
     try {
-      const buffer = await readFile(fullPath);
+      const buffer = await readFile(/* turbopackIgnore: true */ fullPath);
       return { buffer, contentType };
     } catch {
       continue;

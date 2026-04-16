@@ -47,11 +47,18 @@ ANVÄNDARENS PROMPT
   │      Typer: freeform | wizard | template | audit | followup_*
   │      Strategi: direct | phase_plan_build_refine | preserved
   │
-  ├─ 2. Deep Brief (valfri, server-auto-brief)
+  ├─ 2a. Variant Pre-Match (create-chat-stream-post.ts, ~1ms)
+  │      Keyword-only scaffold+variant-matchning före brief.
+  │      Producerar VariantHints (colorMode, motif, fonts, styleRules)
+  │      som injiceras i brief-prompten som designstartpunkt.
+  │
+  ├─ 2b. Deep Brief (valfri, server-auto-brief)
   │      Strukturerat objekt: pages[], visualDirection, SEO, toneAndVoice
+  │      + designguidance-fält: domainProfile, motionLevel, qualityBar, seasonalHints
+  │      Ser variant-hints → harmoniserar designval med variantens defaults
   │      Downstream: matar scaffold-matchning, route plan, dynamic context
   │
-  ├─ 3. Scaffold-val (orchestrate.ts → matcher.ts)
+  ├─ 3. Scaffold-val (orchestrate.ts → matcher.ts, full match med embedding)
   │      ScaffoldMode: off | auto | manual
   │      ├─ Keyword-matchning (synkron, 9 nyckelordslistor)
   │      ├─ Embedding-matchning (parallell, cosine similarity)
@@ -79,7 +86,8 @@ ANVÄNDARENS PROMPT
   │      Budgeteras mot maxChars, pruneas mot contextPolicy
   │
   ├─ 9. Dynamic Context + System Prompt (system-prompt.ts)
-  │      Static Core (config/prompt-static/*.md)
+  │      Core Rules (config/prompt-core/*.md — immutable)
+  │      + Directives (config/prompt-directives/*.md — adaptive via Directive Cascade)
   │      + Dynamic Context (prioriterad + prunad):
   │        - Scaffold context (serialiserade filer)
   │        - Scaffold Research Priorities (checklist + upgrade targets + reference templates)
@@ -121,11 +129,12 @@ Research-blocket (`## Scaffold Research Priorities`) skickas separat av `buildDy
 
 ## Vad LLM:en faktiskt ser (för en ecommerce-prompt)
 
-1. **## Scaffold** — Filträd + utvalda filer (layout.tsx, globals.css, page.tsx) med placeholder-innehåll
+1. **## Scaffold: \<label\>** — Filträd + utvalda filer (layout.tsx, globals.css, page.tsx) med placeholder-innehåll (rubriken inkluderar scaffold-id, t.ex. `## Scaffold: ecommerce`)
 2. **## Scaffold Research Priorities** — Quality checklist + upgrade targets + reference template-sammanfattningar
 3. **## Route Plan** — Planerade sidor (/, /products, /product/[id], etc.)
-4. **## Scaffold Variant (this generation)** — Deterministiskt valt visuellt uttryck inom den valda scaffolden (typografi, motif, theme tokens, prompt hints, dossier-härledd guidance)
-5. **## Your Toolkit** — Grupperad shadcn-komponentvägledning + capability-hints
+4. **## Scaffold Variant (this generation)** — Deterministiskt valt visuellt uttryck inom den valda scaffolden (typografi, motif, theme tokens, prompt hints, dossier-härledd guidance). `variantId` bevaras i snapshot och återanvänds vid follow-up — förhindrar variant-drift.
+5. **## Design Priority** — Explicit hierarki: (1) user-locked theme, (2) brief, (3) variant defaults, (4) scaffold CSS baseline
+6. **## Your Toolkit** — Grupperad shadcn-komponentvägledning + capability-hints
 
 ## Token-kostnad
 

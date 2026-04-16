@@ -3,7 +3,9 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["esbuild", "pg"],
-  outputFileTracingRoot: path.join(__dirname, "./"),
+  // Monorepo tracing root: use cwd (project root at build time), not __dirname, to avoid NFT
+  // pulling next.config into odd dependency graphs with Turbopack.
+  outputFileTracingRoot: path.join(/* turbopackIgnore: true */ process.cwd(), "./"),
   outputFileTracingExcludes: {
     "*": [
       "./data/external-template-pipeline/**",

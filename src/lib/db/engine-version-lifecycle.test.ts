@@ -23,6 +23,12 @@ describe("resolveEngineVersionLifecycleStatus", () => {
     expect(resolveEngineVersionLifecycleStatus({ verificationState: "repairing" })).toBe("repairing");
   });
 
+  it("returns repair_available for repair-available state", () => {
+    expect(resolveEngineVersionLifecycleStatus({ verificationState: "repair_available" })).toBe(
+      "repair_available",
+    );
+  });
+
   it("returns failed for failed state", () => {
     expect(resolveEngineVersionLifecycleStatus({ verificationState: "failed" })).toBe("failed");
   });
@@ -51,6 +57,14 @@ describe("resolveEngineVersionDisplayStatus", () => {
     const repairing = { verificationState: "repairing", versionNumber: 1 };
     const newer = { verificationState: "passed", releaseState: "promoted", versionNumber: 2 };
     expect(resolveEngineVersionDisplayStatus(repairing, [repairing, newer])).toBe("retrying");
+  });
+
+  it("shows retrying when repair_available but newer version exists", () => {
+    const repairAvailable = { verificationState: "repair_available", versionNumber: 1 };
+    const newer = { verificationState: "passed", releaseState: "promoted", versionNumber: 2 };
+    expect(resolveEngineVersionDisplayStatus(repairAvailable, [repairAvailable, newer])).toBe(
+      "retrying",
+    );
   });
 
   it("shows retrying when failed but newer version exists", () => {
@@ -83,6 +97,10 @@ describe("resolveQualityTier", () => {
 describe("canExposeEnginePreview", () => {
   it("allows preview during repairing", () => {
     expect(canExposeEnginePreview({ verificationState: "repairing" })).toBe(true);
+  });
+
+  it("allows preview when repair is available", () => {
+    expect(canExposeEnginePreview({ verificationState: "repair_available" })).toBe(true);
   });
 
   it("blocks preview when failed", () => {

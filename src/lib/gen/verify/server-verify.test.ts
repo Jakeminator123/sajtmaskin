@@ -7,6 +7,10 @@ import {
   compactVisualQAForQualityGateLog,
 } from "./server-verify-log-meta";
 import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
+import {
+  buildGroupedRepairErrorContext,
+  buildRepairErrorContextLines,
+} from "./repair-loop";
 
 describe("resolveServerRepairEarlyStopReason", () => {
   it("stops when the fixer produced no output", () => {
@@ -301,5 +305,59 @@ describe("buildServerRepairOutcomeMeta", () => {
       jobFinishedAt: null,
       serverOwned: true,
     });
+  });
+});
+
+describe("buildGroupedRepairErrorContext", () => {
+  it("groups diagnostics per file and prioritizes dependency hubs", () => {
+    const grouped = buildGroupedRepairErrorContext(
+      [
+        {
+          check: "typecheck",
+          exitCode: 2,
+          output: [
+            "src/lib/config.ts(12,5): error TS2304: Cannot find name 'SiteConfig'.",
+            "src/lib/config.ts(15,9): error TS2339: Property 'theme' does not exist on type '{}'.",
+            "src/app/page.tsx(3,1): error TS2724: '@/lib/config' has no exported member named 'siteConfig'.",
+          ].join("\n"),
+        },
+      ],
+      {
+        projectContent: [
+          '```ts file="src/lib/config.ts"',
+          "export const siteConfig = {};",
+          "```",
+          '```tsx file="src/app/page.tsx"',
+          'import { siteConfig } from "@/lib/config";',
+          "export default function Page() {",
+          "  return <main>{siteConfig.theme}</main>;",
+          "}",
+          "```",
+        ].join("\n"),
+      },
+    );
+
+    expect(grouped.errorManifest.length).toBe(2);
+    expect(grouped.errorManifest[0]?.file).toBe("src/lib/config.ts");
+    expect(grouped.errorManifest[0]?.importedByCount).toBeGreaterThanOrEqual(1);
+    expect(grouped.contextLines.some((line) => line.startsWith("File: src/lib/config.ts"))).toBe(
+      true,
+    );
+  });
+});
+
+describe("buildRepairErrorContextLines", () => {
+  it("returns grouped file-first context instead of flat log snippets", () => {
+    const lines = buildRepairErrorContextLines([
+      {
+        check: "typecheck",
+        exitCode: 2,
+        output: "src/app/page.tsx(4,12): error TS2322: Type 'number' is not assignable to type 'string'.",
+      },
+    ]);
+
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines[0]?.startsWith("File: src/app/page.tsx")).toBe(true);
+    expect(lines.some((line) => line.includes("Type 'number' is not assignable"))).toBe(true);
   });
 });

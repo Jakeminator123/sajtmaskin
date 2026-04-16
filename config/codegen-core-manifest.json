@@ -1,0 +1,21 @@
+{
+  "fragmentSeparator": "\n\n",
+  "fragments": [
+    "prompt-core/00-core-contract.md",
+    "prompt-core/01-behavioral-contract.md",
+    "prompt-core/02-component-contract.md"
+  ],
+  "editorNotes": {
+    "purpose": "Lists Markdown fragments concatenated (in order) into the CORE half of the own-engine system prompt. Core rules are immutable product constraints that never vary per request. The DIRECTIVES half (config/codegen-directives-manifest.json) contains adaptive prompt modules resolved through the Directive Cascade.",
+    "doNotPutInTheseFiles": [
+      "Per-request custom instructions from the builder UI",
+      "Build-intent bullet lists (template / website / app)",
+      "Full scaffold JSON or serialized scaffold body",
+      "Route plan, pre-generation contracts, template-library matches",
+      "Structured brief fields from deep brief (unless you intentionally duplicate — avoid)",
+      "Visual design quality rules that vary per domain/tone (those belong in directives)"
+    ],
+    "implementation": "src/lib/gen/static-core-loader.ts",
+    "migrationNote": "Consolidated from 15 fragments in the previous config/codegen-static-prompt.json. The old manifest is kept as a fallback during migration."
+  }
+}

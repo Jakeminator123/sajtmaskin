@@ -1322,8 +1322,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const handleApplyAnthropicComparePreset = useCallback(() => {
     vm.setSelectedModelTier("anthropic");
-    vm.handlePromptAssistModelChange("anthropic/claude-sonnet-4.6");
-    vm.setPromptAssistDeep(!vm.chatId);
   }, [
     vm,
   ]);
@@ -1579,9 +1577,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onSelectedModelTierChange={vm.setSelectedModelTier}
         onApplyAnthropicComparePreset={handleApplyAnthropicComparePreset}
         promptAssistModel={vm.promptAssistModel}
-        onPromptAssistModelChange={vm.handlePromptAssistModelChange}
         promptAssistDeep={vm.promptAssistDeep}
-        onPromptAssistDeepChange={vm.setPromptAssistDeep}
         canUseDeepBrief={!vm.chatId}
         scaffoldMode={vm.scaffoldMode}
         scaffoldId={vm.scaffoldId}
@@ -1781,7 +1777,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             paletteSelections={vm.paletteState.selections}
             designTheme={vm.designTheme}
             onDesignThemeChange={vm.setDesignTheme}
-            onEnhancePrompt={vm.handlePromptEnhance}
+            onPromptAssistModeReset={vm.handlePromptAssistModeReset}
             isFigmaInputOpen={isFigmaInputOpen}
             onFigmaInputOpenChange={setIsFigmaInputOpen}
             isBusy={isBusy}

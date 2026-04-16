@@ -1,7 +1,7 @@
 import { buildPreviewHtml } from "@/lib/gen/preview/build-preview-document";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
-import { collectRequiredUiComponents } from "@/lib/gen/export/build-exportable-project";
+import { collectRequiredUiComponents } from "@/lib/gen/export/project-scaffold-ui-reader";
 
 import {
   extractAppRoutePathsFromFilePaths,
@@ -559,6 +559,10 @@ export async function runFinalizePreflight({
     const completeProjectFiles = repairGeneratedFiles(
       buildCompleteProject(cleanedFiles, collectRequiredUiComponents(cleanedFiles)),
     ).files;
+    // Canonical persistence payload after finalize-preflight:
+    // store the complete scaffold-merged + repaired project so downstream
+    // preview/bootstrap does not need to rebuild it again.
+    nextFilesJson = JSON.stringify(completeProjectFiles);
     preflightFileCount = completeProjectFiles.length;
     preflightIssues.push(...collectTier2HygieneIssues(completeProjectFiles));
     const sanity = runProjectSanityChecks(completeProjectFiles);

@@ -19,7 +19,6 @@ export interface BudgetedSystemPromptResult {
  * We can swap this for exact tokenization later without changing call-sites.
  */
 const CHARS_PER_TOKEN_ESTIMATE = 3.2;
-const MIN_TRUNCATED_BLOCK_TOKENS = 80;
 
 export function estimateTokens(text: string): number {
   const normalized = text.trim();
@@ -102,7 +101,7 @@ export function buildBudgetedSystemPrompt(options: {
       continue;
     }
 
-    if (block.required && remainingTokens >= MIN_TRUNCATED_BLOCK_TOKENS) {
+    if (block.required && remainingTokens > 0) {
       const truncated = truncateToTokenBudget(block.text, remainingTokens);
       if (truncated) {
         keptContentByIndex.set(block.index, truncated);
