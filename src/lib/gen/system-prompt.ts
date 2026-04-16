@@ -589,7 +589,7 @@ export function buildDynamicContext(
     }
   }
 
-  // ── Import Rules & Known Pitfalls moved to config/prompt-static/12-import-rules-and-pitfalls.md
+  // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
   // (static core, cached per process — no longer eats dynamic context token budget)
 
   // ── Scaffold ───────────────────────────────────────────────────────────
@@ -1003,7 +1003,7 @@ export function buildDynamicContext(
     parts.push("## Coding Direction", "", contentVoiceDirective, "");
   }
 
-  // ── Imagery (brief-specific only; global rules live in prompt-static/06-images.md)
+  // ── Imagery (brief-specific only; global rules live in prompt-directives/02-images.md)
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
   // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
   if (brief?.imagery) {
@@ -1119,7 +1119,7 @@ export function buildDynamicContext(
 // PUBLIC API — buildSystemPrompt(), getSystemPromptLengths()
 // ═══════════════════════════════════════════════════════════════════════════
 
-/** Between static core (files under config/prompt-static) and buildDynamicContext output. */
+/** Between static core (config/prompt-core) and buildDynamicContext output. */
 export const SYSTEM_PROMPT_SEPARATOR = "\n\n---\n\n# Request-Specific Context\n\n";
 
 export interface BuildSystemPromptOptions {

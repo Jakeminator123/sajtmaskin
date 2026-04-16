@@ -108,22 +108,6 @@ const MOTION_GUIDANCE = {
   ],
 };
 
-const VISUAL_IDENTITY_GUIDANCE = {
-  detailed: [
-    "Never use flat pure-white backgrounds across the whole page.",
-    "Use layered backgrounds: gradients, soft tints, and section bands to create depth.",
-    "Ensure the hero uses a distinctive background (gradient or tinted panel).",
-    "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
-    "Create a cohesive color palette: primary, secondary, accent, with consistent application.",
-  ],
-  compact: [
-    "Never use flat pure-white backgrounds across the whole page.",
-    "Use layered backgrounds: gradients, soft tints, and section bands to create depth.",
-    "Ensure the hero uses a distinctive background (gradient or tinted panel).",
-    "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
-  ],
-};
-
 const QUALITY_BAR_GUIDANCE = {
   detailed: [
     "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels, depth.",
@@ -138,11 +122,6 @@ const QUALITY_BAR_GUIDANCE = {
     "Avoid flat, empty sections; use section separators or subtle gradients.",
   ],
 };
-
-export const IMAGE_DENSITY_GUIDANCE = [
-  "Images in hero + at least 2 additional sections.",
-  "Consistent aspect ratios and professional cropping throughout.",
-];
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -163,22 +142,6 @@ export interface ColorPalette {
   accent?: string;
   background?: string;
   text?: string;
-}
-
-export function toColorPalette(themeOverride?: ThemeColors | null): ColorPalette {
-  if (!themeOverride) return {};
-  const palette: ColorPalette = {};
-  if (themeOverride.primary) palette.primary = themeOverride.primary;
-  if (themeOverride.secondary) palette.secondary = themeOverride.secondary;
-  if (themeOverride.accent) palette.accent = themeOverride.accent;
-  return palette;
-}
-
-export function hasThemeOverride(themeOverride?: ThemeColors | null): boolean {
-  return Boolean(
-    themeOverride &&
-      (themeOverride.primary || themeOverride.secondary || themeOverride.accent),
-  );
 }
 
 function isDarkPalette(palette: ColorPalette): boolean {
@@ -290,41 +253,6 @@ export function resolveMotionGuidance(
   base.push(
     "Use consistent animation hooks (data-animate, data-stagger, data-delay) so motion can be extended later.",
   );
-  return base;
-}
-
-// ── Visual identity guidance ──────────────────────────────────────────────
-
-export function resolveVisualIdentityGuidance(
-  palette: ColorPalette,
-  styleKeywords: string[],
-  tone: string[],
-  variant: "detailed" | "compact" = "detailed",
-  options?: { themeLocked?: boolean },
-): string[] {
-  const base = [...VISUAL_IDENTITY_GUIDANCE[variant]];
-  if (isDarkPalette(palette)) {
-    base[0] = "Use a rich dark background with subtle gradients or noise texture for depth.";
-    base.push("Ensure sufficient contrast between text and dark backgrounds (WCAG AA+).");
-  }
-  if (options?.themeLocked) {
-    const paletteIndex = base.findIndex((line) => line.toLowerCase().includes("color palette"));
-    if (paletteIndex >= 0) {
-      base[paletteIndex] = "Use the provided theme tokens; do not invent a new palette.";
-    }
-  }
-  if (hasAny(styleKeywords, ["neon", "cyberpunk", "futuristic"])) {
-    base.push("Use neon accent glows, high-contrast borders, and monospace or geometric fonts.");
-  }
-  if (hasAny(tone, ["luxury", "elegant", "premium"])) {
-    base.push("Use generous whitespace, serif headings, and restrained accent color application.");
-  }
-  if (hasAny(tone, ["playful", "fun", "colorful", "lekfull"])) {
-    base.push("Use vibrant accent colors, rounded shapes, and energetic color contrasts.");
-  }
-  if (palette.primary) {
-    base.push(`Use the primary color (${palette.primary}) consistently for CTAs, links, and key accents.`);
-  }
   return base;
 }
 

@@ -9,7 +9,6 @@ from . import (
     autofix,
     codegen_core,
     codegen_directives,
-    codegen_static,
     cursor_agents,
     env_policy,
     eval_page,
