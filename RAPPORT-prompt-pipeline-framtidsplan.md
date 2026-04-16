@@ -227,6 +227,37 @@ Dessa ändringar gjordes som förberedelse och löser det mest akuta problemet:
 
 ---
 
+## Implementerade faser (2026-04-16, session 2)
+
+### Prompt-omstrukturering (förberedelse)
+
+16 `prompt-static`-filer konsoliderades till 3 `Core Rules` (`config/prompt-core/`) +
+12 `Directives` (`config/prompt-directives/`). Ny `directive-loader.ts` med mtime-cache.
+Nya backoffice-sidor. Glossary + terminology uppdaterade med Core Rules, Directives,
+Directive Cascade.
+
+### Fas B: Brief tar över guidance-fält — GENOMFÖRD
+
+- **Brief-schema utökat** (`siteBriefSchema`) med 4 nya optionella fält:
+  `domainProfile`, `motionLevel`, `qualityBar`, `seasonalHints`.
+- **Brief-LLM instruerad** — `BRIEF_SYSTEM_PROMPT` utökat med konkreta fältinstruktioner.
+- **`resolveGuidanceBlocks()`** accepterar brief-värden som Level 1-2 overrides.
+  Nya hjälpfunktioner: `mapBriefMotionLevel()`, `resolveQualityBarFromBrief()`.
+- **`buildDynamicContext()`** skickar brief-fält till guidance-resolvers.
+- **Bakåtkompatibelt:** alla nya fält optionella; deterministisk fallback bevarad.
+
+### Fas D: Förenklad statisk prompt — GENOMFÖRD
+
+- **OKLCh-hue-tabell trimmad** — 6 branschspecifika rader → 3 koncisa rader
+  ("använd brief-palette, sedan variant-tokens, sedan subject-derived").
+- **Visual-design-direktivet injiceras** som Level 4-default i `buildDynamicContext()`.
+  Craft-regler (art direction, typografi, spacing, polish) når nu modellen
+  via direktivsystemet istället för den statiska prompten.
+- **Priority-regler tillagda** för visuella design-block i token-budget-systemet.
+- Samma trim applicerad på legacy `prompt-static/04-visual-design-quality.md`.
+
+---
+
 ## Filindex (berörda av framtidsplanen)
 
 | Fil | Fas | Ändring |

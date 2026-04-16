@@ -138,6 +138,42 @@ const siteBriefSchema = z.object({
     metaDescription: z.string().describe("One concise meta description"),
     keywords: z.array(z.string()).min(3).max(30),
   }),
+  domainProfile: z
+    .string()
+    .optional()
+    .describe(
+      "Specific domain classification beyond generic labels. " +
+      "E.g. 'heavy-metal-merch-store', 'artisan-bakery', 'luxury-spa'. " +
+      "Drives structural hints and backend contract decisions. " +
+      "Omit if the site does not fit a clear domain."
+    ),
+  motionLevel: z
+    .enum(["minimal", "moderate", "lively"])
+    .optional()
+    .describe(
+      "How much animation suits this site. " +
+      "'minimal' for corporate/serious/text-heavy, " +
+      "'moderate' for balanced (default when unsure), " +
+      "'lively' for energetic/playful/animated."
+    ),
+  qualityBar: z
+    .enum(["clean", "premium", "bold-dramatic"])
+    .optional()
+    .describe(
+      "Visual density target. " +
+      "'clean' for minimal/airy/whitespace-driven, " +
+      "'premium' for layered/polished/card-heavy (default when unsure), " +
+      "'bold-dramatic' for high-contrast/oversized/maximal."
+    ),
+  seasonalHints: z
+    .array(z.string())
+    .min(0)
+    .max(6)
+    .optional()
+    .describe(
+      "Seasonal or cultural themes present in the request. " +
+      "E.g. ['christmas', 'winter']. Leave empty/omit if not seasonal."
+    ),
   mustHave: z
     .array(z.string())
     .min(0)
@@ -169,7 +205,12 @@ const BRIEF_SYSTEM_PROMPT =
   "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
   "- A detailed, structured request with many requirements should produce a multi-page brief (2-5 pages) with richer sections.\n" +
   "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
-  "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.";
+  "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.\n\n" +
+  "DESIGN GUIDANCE FIELDS (optional — fill when the request gives you signal):\n" +
+  "- domainProfile: Go beyond generic labels. A heavy-metal band selling merch is 'heavy-metal-merch-store', not just 'ecommerce'. An artisan bakery is 'artisan-bakery', not 'restaurant'. Be specific — this drives structural hints.\n" +
+  "- motionLevel: Match animation to the subject. A law firm → 'minimal'. A children's toy store → 'lively'. Most sites → 'moderate'. Omit only if truly ambiguous.\n" +
+  "- qualityBar: Visual density. A zen meditation studio → 'clean'. A SaaS landing page → 'premium'. A gaming/nightclub site → 'bold-dramatic'.\n" +
+  "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Omit when not seasonal.";
 
 function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string {
   const siteTypeHint = inferSiteTypeHintFromDomain(prompt);

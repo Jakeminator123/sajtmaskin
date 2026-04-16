@@ -70,7 +70,8 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Prompt Orchestration | Strategi-/budget-/trunkerings-gate; väljer PromptStrategy | kanonisk |
 | Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
-| Brief (`meta.brief`) | Strukturerat JSON-objekt (~20 fält: projectTitle, pages[], visualDirection, toneAndVoice, imagery, seo m.m.) som bär designintention. Genereras av LLM via `/api/ai/brief` (init) eller `tryGenerateServerAutoBrief` (server-fallback). `briefQuality`: `"full"`, `"server-auto"`, eller `"none"`. Follow-ups skickar inte brief — kontext via orchestration snapshot istället. | kanonisk |
+| Brief (`meta.brief`) | Strukturerat JSON-objekt (~24 fält: projectTitle, pages[], visualDirection, toneAndVoice, imagery, seo + designguidance-fält). Bär designintention. Genereras av LLM via `/api/ai/brief` (init) eller `tryGenerateServerAutoBrief` (server-fallback). `briefQuality`: `"full"`, `"server-auto"`, eller `"none"`. Follow-ups skickar inte brief — kontext via orchestration snapshot istället. | kanonisk |
+| Brief Guidance Override | Brief-LLM-producerade designfält (`domainProfile`, `motionLevel`, `qualityBar`, `seasonalHints`) som overridar deterministisk inferens i `guidance-resolvers.ts`. Cascade Level 1-2. Fallback till Level 3 (deterministiska heuristiker) när fälten saknas. Alla nya fält optionella — bakåtkompatibelt. | kanonisk |
 | Deep Brief | UI-term för brief-generering. Samma datatyp som Brief. `canUseDeepBrief` = `!chatId` (bara på init). Togglen `promptAssistDeep` i header styr om LLM-brief körs. | kanonisk |
 | Server Auto-Brief | Server-side brief-fallback (`tryGenerateServerAutoBrief`) som körs av `create-chat-stream-post` om klient inte skickade `meta.brief`. `briefQuality: "server-auto"`. Avstängs för audit, follow-up, tekniska payloads. | kanonisk |
 | Fallback Brief | Deterministisk minimal brief utan LLM (variant-defaults + prompt-heuristik). Planerad men ej implementerad. | planerad |
@@ -280,4 +281,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-16 (Core Rules + Directives-omstrukturering — 16 prompt-static → 3 core + 12 directives, Directive Cascade, directive-loader.ts, nya backoffice-sidor). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-16 (Fas B + D: Brief Guidance Override — domainProfile/motionLevel/qualityBar/seasonalHints i brief-schema, guidance-resolvers med brief-fallback, visual-design-direktiv injicerat som Level 4-default, OKLCh-tabell trimmad). Versionhistorik finns i git.

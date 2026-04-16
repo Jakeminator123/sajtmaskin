@@ -462,6 +462,11 @@ export interface GuidanceBlocksInput {
   briefPalette?: ColorPalette;
   themeOverride?: ThemeColors | null;
   topicSignal?: string;
+  /** Brief-LLM-provided overrides (Cascade Level 1-2). When set, skip deterministic inference. */
+  briefDomainProfile?: string;
+  briefMotionLevel?: "minimal" | "moderate" | "lively";
+  briefQualityBar?: "clean" | "premium" | "bold-dramatic";
+  briefSeasonalHints?: string[];
 }
 
 export interface GuidanceBlocks {
@@ -474,27 +479,79 @@ export interface GuidanceBlocks {
   seasonalPaletteGuidance: string[];
 }
 
-export function resolveGuidanceBlocks(input: GuidanceBlocksInput): GuidanceBlocks {
-  const { userPrompt, buildIntent, tone, styleKeywords, topicSignal } = input;
+function mapBriefMotionLevel(level: "minimal" | "moderate" | "lively"): MotionProfile {
+  switch (level) {
+    case "minimal": return "static";
+    case "moderate": return "balanced";
+    case "lively": return "lively";
+  }
+}
 
-  const domainSignal = userPrompt;
-  const domainProfile = inferDomain(domainSignal);
+function resolveQualityBarFromBrief(
+  bar: "clean" | "premium" | "bold-dramatic",
+  tone: string[],
+  styleKeywords: string[],
+): string[] {
+  switch (bar) {
+    case "clean":
+      return [
+        "Aim for a clean, minimal look: generous whitespace, sharp typography, few decorative elements.",
+        "Use simple layouts: single-column hero, clean card grid, focused CTAs.",
+        "Avoid visual clutter; let content breathe with consistent spacing.",
+      ];
+    case "bold-dramatic": {
+      const base = [...QUALITY_BAR_GUIDANCE["detailed"]];
+      base.push("Go bold: oversized typography, full-bleed images, high-contrast sections.");
+      if (hasAny(tone, ["playful", "fun", "whimsical"])) {
+        base.push("Add personality: custom illustrations, emoji accents, or quirky layout variations.");
+      }
+      return base;
+    }
+    case "premium":
+    default:
+      return resolveQualityBarGuidance(tone, styleKeywords, "detailed");
+  }
+}
+
+export function resolveGuidanceBlocks(input: GuidanceBlocksInput): GuidanceBlocks {
+  const {
+    userPrompt, buildIntent, tone, styleKeywords, topicSignal,
+    briefDomainProfile, briefMotionLevel, briefQualityBar, briefSeasonalHints,
+  } = input;
+
+  // Domain: brief override (Level 1) > deterministic inference (Level 3)
+  const domainProfile: DomainProfile = briefDomainProfile
+    ? (briefDomainProfile as DomainProfile)
+    : inferDomain(userPrompt);
   const domainStructureHints = buildDomainStructureHints(domainProfile);
   const domainContractHints = buildDomainContractHints(domainProfile);
 
-  const motionProfile = inferMotionProfile({
-    prompt: userPrompt,
-    tone,
-    styleKeywords,
-    buildIntent,
-    preferLively: true,
-  });
+  // Motion: brief override (Level 1) > deterministic inference (Level 3)
+  const motionProfile: MotionProfile = briefMotionLevel
+    ? mapBriefMotionLevel(briefMotionLevel)
+    : inferMotionProfile({
+        prompt: userPrompt,
+        tone,
+        styleKeywords,
+        buildIntent,
+        preferLively: true,
+      });
   const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "detailed", motionProfile);
 
-  const qualityBarGuidance = resolveQualityBarGuidance(tone, styleKeywords, "detailed");
+  // Quality bar: brief override (Level 1) > deterministic inference (Level 3)
+  const qualityBarGuidance = briefQualityBar
+    ? resolveQualityBarFromBrief(briefQualityBar, tone, styleKeywords)
+    : resolveQualityBarGuidance(tone, styleKeywords, "detailed");
 
+  // Seasonal palette: brief override (Level 1) > deterministic inference (Level 3)
   const effectiveTopicSignal = topicSignal || userPrompt;
-  const seasonalPaletteGuidance = resolveSeasonalPaletteGuidance(effectiveTopicSignal);
+  const seasonalPaletteGuidance =
+    briefSeasonalHints && briefSeasonalHints.length > 0
+      ? [
+          "Use a subject-led palette instead of default SaaS blue. Seasonal/cultural themes should borrow color cues from the actual subject matter.",
+          `Seasonal themes detected from brief: ${briefSeasonalHints.join(", ")}.`,
+        ]
+      : resolveSeasonalPaletteGuidance(effectiveTopicSignal);
 
   return {
     domainProfile,

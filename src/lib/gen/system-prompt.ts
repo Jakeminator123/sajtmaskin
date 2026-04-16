@@ -111,6 +111,10 @@ export interface Brief {
     shotTypes?: string[];
     altTextRules?: string[];
   };
+  domainProfile?: string;
+  motionLevel?: "minimal" | "moderate" | "lively";
+  qualityBar?: "clean" | "premium" | "bold-dramatic";
+  seasonalHints?: string[];
   mustHave?: string[];
   avoid?: string[];
   uiNotes?: {
@@ -230,6 +234,11 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^structure hints$/i, priority: 76 },
   { match: /^contract.*backend.*hints$/i, priority: 75 },
   { match: /^coding direction$/i, priority: 76 },
+  { match: /^color system$/i, priority: 73 },
+  { match: /^art direction/i, priority: 73 },
+  { match: /^typography/i, priority: 72 },
+  { match: /^visual polish$/i, priority: 71 },
+  { match: /^charts$/i, priority: 65 },
   { match: /^interaction.+motion$/i, priority: 68 },
   { match: /^quality bar$/i, priority: 74 },
   { match: /^component palette$/i, priority: 72 },
@@ -943,13 +952,20 @@ export function buildDynamicContext(
       ]
         .filter(Boolean)
         .join(" "),
+      briefDomainProfile: str(brief?.domainProfile) || undefined,
+      briefMotionLevel: brief?.motionLevel,
+      briefQualityBar: brief?.qualityBar,
+      briefSeasonalHints: brief?.seasonalHints?.filter(Boolean),
     });
 
     if (guidance.domainProfile !== "general") {
+      const domainSource = brief?.domainProfile
+        ? "from brief"
+        : "inferred from prompt keywords";
       parts.push(
         "## Domain Inference",
         "",
-        `- Domain profile inferred from prompt: **${guidance.domainProfile}**.`,
+        `- Domain profile (${domainSource}): **${guidance.domainProfile}**.`,
         "",
       );
     }
@@ -988,7 +1004,15 @@ export function buildDynamicContext(
 
   // ── Directive defaults (level 4) ───────────────────────────────────────
   // Inject directive content for areas not already covered by brief/variant/resolvers.
-  // Content-voice and integration-contracts are always useful context.
+  const visualDesignDirective = getDirectiveRawText("visual-design");
+  if (visualDesignDirective) {
+    const cleaned = visualDesignDirective
+      .replace(/<!--[^>]*-->\n?/g, "")
+      .replace(/^#\s+.+\n/m, "")
+      .trim();
+    parts.push(cleaned, "");
+  }
+
   const contentVoiceDirective = getDirectiveRawText("content-voice");
   if (contentVoiceDirective) {
     parts.push("## Coding Direction", "", contentVoiceDirective, "");

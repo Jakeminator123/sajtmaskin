@@ -13,15 +13,11 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 - Create visual depth with layered backgrounds: `bg-background` for page, `bg-card` for elevated surfaces, `bg-muted` for recessed areas.
 - Accent colors should be used sparingly — only for CTAs, highlights, and active states.
 
-### Hue Derivation (default — override when brief or variant provides palette)
-<!-- default: hue-table -->
-- Do NOT default to blue/purple (hue 240-280) for every site. Instead, derive the OKLCh hue from the subject matter:
-  - Fashion/streetwear → deep black (L:0.12, C:0) + gold accent (hue 85) or neon (hue 150)
-  - Restaurant/food → warm amber (hue 60-80) or deep red (hue 25)
-  - Nature/eco → forest green (hue 145) or earth brown (hue 70)
-  - Tech/SaaS → you may use blue (hue 250) here, it fits
-  - Creative/art → bold complementary pairs, not monochrome blue
-  - If the user specifies colors, use exactly those. If not, choose based on the industry/mood, NOT blue by default.
+### Hue Derivation
+<!-- default: brief-or-subject-derived -->
+- When the brief provides a `colorPalette`, use those colors directly.
+- When the Scaffold Variant provides theme tokens, use those as fallback.
+- Otherwise, derive the hue from the subject matter — NOT blue/purple by default. Choose based on the industry and mood.
 
 ## Art Direction & Composition
 
@@ -53,14 +49,6 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 - Hover effects on cards: `hover:shadow-md hover:border-primary/20 transition-all`.
 - Icons next to text should be consistently sized (`h-5 w-5`) and colored (`text-primary` or `text-muted-foreground`).
 - Use subtle atmosphere when it fits: grain overlays, masked gradients, glass blur, glows, spotlight vignettes, or soft noise. Keep it cohesive with the site's subject, not as decoration for its own sake.
-
-## Visual Identity Guidance
-<!-- default: detailed -->
-- Never use flat pure-white backgrounds across the whole page.
-- Use layered backgrounds: gradients, soft tints, and section bands to create depth.
-- Ensure the hero uses a distinctive background (gradient or tinted panel).
-- Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).
-- Create a cohesive color palette: primary, secondary, accent, with consistent application.
 
 ## Charts
 
