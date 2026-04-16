@@ -10,9 +10,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..", "..");
 const MIN_CHARS = 500;
 
-const manifestPath = path.join(root, "config", "codegen-static-prompt.json");
+const coreManifestPath = path.join(root, "config", "codegen-core-manifest.json");
+const legacyManifestPath = path.join(root, "config", "codegen-static-prompt.json");
 
-function checkManifest() {
+function checkManifestFile(manifestPath) {
   if (!fs.existsSync(manifestPath)) return null;
   let parsed;
   try {
@@ -44,6 +45,10 @@ function checkManifest() {
     process.exit(1);
   }
   return path.relative(root, manifestPath);
+}
+
+function checkManifest() {
+  return checkManifestFile(coreManifestPath) ?? checkManifestFile(legacyManifestPath);
 }
 
 const monolithCandidates = [
