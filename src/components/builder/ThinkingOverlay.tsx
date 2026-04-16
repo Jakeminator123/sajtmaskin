@@ -18,15 +18,15 @@ const FACTS = [
 ];
 
 export function ThinkingOverlay({ isVisible }: { isVisible: boolean }) {
+  if (!isVisible) return null;
+  return <ThinkingOverlayContent />;
+}
+
+function ThinkingOverlayContent() {
   const [factIndex, setFactIndex] = useState(0);
   const [fadeIn, setFadeIn] = useState(true);
 
   useEffect(() => {
-    if (!isVisible) return;
-
-    setFactIndex(0);
-    setFadeIn(true);
-
     const interval = setInterval(() => {
       setFadeIn(false);
       setTimeout(() => {
@@ -36,9 +36,7 @@ export function ThinkingOverlay({ isVisible }: { isVisible: boolean }) {
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [isVisible]);
-
-  if (!isVisible) return null;
+  }, []);
 
   const current = FACTS[factIndex];
 

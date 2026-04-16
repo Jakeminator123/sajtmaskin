@@ -58,7 +58,8 @@ def render(ctx: BackofficeContext) -> None:
         st.dataframe(overview_rows, width="stretch", hide_index=True)
 
     paths = {
-        "codegen-static-prompt.json": ctx.config_dir / "codegen-static-prompt.json",
+        "codegen-core-manifest.json": ctx.config_dir / "codegen-core-manifest.json",
+        "codegen-directives-manifest.json": ctx.config_dir / "codegen-directives-manifest.json",
         "env-policy.json": ctx.config_dir / "env-policy.json",
         "shadcn-mirror-audit-policy.json": ctx.config_dir / "shadcn-mirror-audit-policy.json",
         "user_degraded_env.txt": ctx.config_dir / "user_degraded_env.txt",
@@ -73,7 +74,15 @@ def render(ctx: BackofficeContext) -> None:
             short = label.replace(".json", "").replace(".txt", "")
             st.metric(short, "finns" if exists else "saknas")
 
-    st.subheader("prompt-static (markdown-fragment)")
+    st.subheader("prompt-core (Core Rules)")
+    pc = sorted((ctx.config_dir / "prompt-core").glob("*.md"))
+    st.write(f"**{len(pc)}** `.md`-filer i `config/prompt-core/`")
+
+    st.subheader("prompt-directives (Directives)")
+    pd = sorted((ctx.config_dir / "prompt-directives").glob("*.md"))
+    st.write(f"**{len(pd)}** `.md`-filer i `config/prompt-directives/`")
+
+    st.subheader("prompt-static (legacy)")
     ps = sorted((ctx.config_dir / "prompt-static").glob("*.md"))
     st.write(f"**{len(ps)}** `.md`-filer i `config/prompt-static/`")
 
@@ -83,18 +92,19 @@ def render(ctx: BackofficeContext) -> None:
     )
     st.write(f"**{len(am)}** dokument i `config/ai_models/`")
 
-    try:
-        cg = read_json(paths["codegen-static-prompt.json"])
-        frags = cg.get("fragments") or []
-        missing = [f for f in frags if not (ctx.config_dir / f).is_file()]
-        if missing:
-            st.error(
-                f"Saknade fragmentfiler ({len(missing)}): "
-                + ", ".join(missing[:8])
-                + (" …" if len(missing) > 8 else "")
-            )
-        else:
-            st.success("Alla `fragments` i codegen-static-prompt.json pekar på befintliga filer.")
-    except Exception as e:
-        st.warning(f"Kunde inte validera codegen JSON: {e}")
+    for manifest_key in ("codegen-core-manifest.json", "codegen-directives-manifest.json"):
+        try:
+            cg = read_json(paths[manifest_key])
+            frags = cg.get("fragments") or []
+            missing = [f for f in frags if not (ctx.config_dir / f).is_file()]
+            if missing:
+                st.error(
+                    f"Saknade fragmentfiler i `{manifest_key}` ({len(missing)}): "
+                    + ", ".join(missing[:8])
+                    + (" …" if len(missing) > 8 else "")
+                )
+            else:
+                st.success(f"Alla `fragments` i `{manifest_key}` pekar på befintliga filer.")
+        except Exception as e:
+            st.warning(f"Kunde inte validera `{manifest_key}`: {e}")
 
