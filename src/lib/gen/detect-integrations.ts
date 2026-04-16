@@ -204,6 +204,10 @@ const WELL_KNOWN_PUBLIC_VARS = new Set([
   "VERCEL_URL",
   "VERCEL_ENV",
   "PORT",
+  "HOSTNAME",
+  "SAJTMASKIN_PREVIEW_BASE_PATH",
+  "SAJTMASKIN_APP_PROJECT_ID",
+  "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID",
 ]);
 
 function runDetectionPipeline(code: string): DetectedIntegration[] {
