@@ -94,14 +94,14 @@ export const SHADCN_FALLBACK_VERSIONS: DependencyVersionMap = {
   // Core shadcn utilities
   "class-variance-authority": "^0.7.1",
   "clsx": "^2.1.1",
-  "lucide-react": "^0.563.0",
+  "lucide-react": "^1",
   "tailwind-merge": "^3.4.0",
   // Common extras used by shadcn components
   "cmdk": "^1.1.1",
   "embla-carousel-react": "^8.6.0",
   "input-otp": "^1.4.2",
   "react-day-picker": "^9.6.4",
-  "react-resizable-panels": "^2.1.7",
+  "react-resizable-panels": "^4",
   "recharts": "^2.15.3",
   "vaul": "^1.1.2",
   "next-themes": "^0.4.6",
