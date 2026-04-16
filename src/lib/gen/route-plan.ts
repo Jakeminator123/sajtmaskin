@@ -24,6 +24,8 @@ export interface RoutePlan {
   siteType: RoutePlanSiteType;
   reason: string;
   routes: PlannedRoute[];
+  /** Set when the user explicitly stated a page count ("3 sidor"). */
+  explicitPageCount?: number;
 }
 
 export function isRoutePlanSource(value: unknown): value is RoutePlanSource {
@@ -167,7 +169,8 @@ const APP_ROUTE_PATTERNS: Array<{
   { match: /\b(settings|inställningar)\b/i, path: "/settings", name: "Settings", intent: "Manage account, workspace, or application settings." },
   { match: /\b(user|users|team|members|användare)\b/i, path: "/users", name: "Users", intent: "Manage users, roles, or members." },
   { match: /\b(billing|subscription|invoice|faktur)\b/i, path: "/billing", name: "Billing", intent: "Manage billing, subscriptions, or invoices." },
-  { match: /\b(report|reports|analytics|metrics|statistik)\b/i, path: "/reports", name: "Reports", intent: "Show analytics, reports, or metrics." },
+  { match: /\b(analytics|metrics|statistik|analys)\b/i, path: "/analytics", name: "Analytics", intent: "Show analytics, metrics, or statistical dashboards." },
+  { match: /\b(report|reports|rapport|rapporter)\b/i, path: "/reports", name: "Reports", intent: "Show reports or exportable summaries." },
   { match: /\b(sign.?up|register|registr(?:era|ering)?)\b/i, path: "/signup", name: "Signup", intent: "Provide account registration for the application." },
   { match: /\b(forgot.?password|reset.?password|glömt lösenord|återställ)\b/i, path: "/forgot-password", name: "Forgot Password", intent: "Provide password recovery in the authentication flow." },
   { match: /\b(login|inlogg|auth|sign.?in|logga in)\b/i, path: "/login", name: "Login", intent: "Provide authentication entry for the application." },
@@ -283,6 +286,20 @@ function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanS
   return "content-heavy";
 }
 
+const EXPLICIT_PAGE_COUNT_RE =
+  /\b(\d{1,2})\s*(?:sidor|sida|pages?|routes?|vyer?|views?)\b/i;
+
+/**
+ * Detect when the user explicitly states a page count ("3 sidor", "5 pages").
+ * Returns the count or null when no match is found.
+ */
+export function detectExplicitPageCount(prompt: string): number | null {
+  const match = prompt.match(EXPLICIT_PAGE_COUNT_RE);
+  if (!match) return null;
+  const count = parseInt(match[1]!, 10);
+  return count >= 1 && count <= 20 ? count : null;
+}
+
 function buildRoutesFromBrief(
   brief: Record<string, unknown> | null | undefined,
 ): PlannedRoute[] {
@@ -369,6 +386,21 @@ function applyScaffoldDefaults(buildIntent: BuildIntent, resolvedScaffold: Scaff
       });
       break;
     case "dashboard":
+      if (buildIntent === "app") {
+        pushRoute(routes, {
+          path: "/analytics",
+          name: "Analytics",
+          intent: "Dashboard apps benefit from an analytics or metrics route.",
+          required: false,
+        });
+        pushRoute(routes, {
+          path: "/settings",
+          name: "Settings",
+          intent: "App shells should usually expose at least one management/settings route.",
+          required: false,
+        });
+      }
+      break;
     case "app-shell":
       if (buildIntent === "app") {
         pushRoute(routes, {
@@ -526,6 +558,9 @@ export function buildRoutePlan(params: {
       ? "scaffold"
       : "prompt";
 
+  const explicitPageCount = detectExplicitPageCount(prompt);
+  const explicitPageCountActive = explicitPageCount !== null && explicitPageCount > routes.length && !useFollowUpFreeze;
+
   const reason = useFollowUpFreeze
     ? explicitRouteRemovals.size > 0
       ? "Follow-up mode preserves existing App Router routes by default, while explicit route-removal intent can remove selected pages."
@@ -538,15 +573,22 @@ export function buildRoutePlan(params: {
     ? "Route structure derived from brief-defined pages; keep real App Router pages for each planned path."
     : scaffoldAddedRoutes
     ? "Scaffold defaults added routes on top of prompt-inferred structure; keep real App Router pages for each planned path."
+    : explicitPageCountActive
+    ? `User explicitly requested ${explicitPageCount} pages; generate real App Router pages for each. Infer page names from the prompt context.`
     : routes.length > 1
       ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
       : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.";
 
+  const effectiveRouteCount = explicitPageCountActive
+    ? Math.max(routes.length, explicitPageCount)
+    : routes.length;
+
   return {
     provenance: { primarySource, sources },
-    siteType: inferSiteType(buildIntent, routes.length),
+    siteType: inferSiteType(buildIntent, effectiveRouteCount),
     reason,
     routes,
+    ...(explicitPageCountActive ? { explicitPageCount } : {}),
   };
 }
 
