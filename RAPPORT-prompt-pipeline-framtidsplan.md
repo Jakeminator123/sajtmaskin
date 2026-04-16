@@ -256,6 +256,21 @@ Directive Cascade.
 - **Priority-regler tillagda** för visuella design-block i token-budget-systemet.
 - Samma trim applicerad på legacy `prompt-static/04-visual-design-quality.md`.
 
+### Fas A: Brief-LLM:en får variant-kontext — GENOMFÖRD
+
+- **Variant Pre-Match**: Snabb, deterministisk keyword-only scaffold-matchning +
+  variant-picking (~1ms) körs *före* brief-generering i `create-chat-stream-post.ts`.
+- **Variant Hints**: Kompakt sammanfattning av variant-defaults (colorMode, signatureMotif,
+  fontPairing, promptHints, styleRules) injiceras i brief-prompten.
+- **Ny fil**: `src/lib/gen/scaffold-variants/variant-hints.ts` — `buildVariantHintsForBrief()`
+  + `formatVariantHintsForPrompt()`.
+- **Brief-generering utökad**: `generateSiteBriefObject()` och `tryGenerateServerAutoBrief()`
+  accepterar `variantHints`-parameter. `buildBriefUserPrompt()` inkluderar hints.
+- **BRIEF_SYSTEM_PROMPT utökad**: Instruktioner för att använda variant som startpunkt,
+  anpassa vid avvikande användarintention.
+- **Pre-match är en hint** — full scaffold/variant-selektion (med embedding + brief-kontext)
+  körs fortfarande i `resolveOrchestrationBase` / `finalizeOrchestrationPrompts`.
+
 ---
 
 ## Filindex (berörda av framtidsplanen)

@@ -47,11 +47,18 @@ ANVÄNDARENS PROMPT
   │      Typer: freeform | wizard | template | audit | followup_*
   │      Strategi: direct | phase_plan_build_refine | preserved
   │
-  ├─ 2. Deep Brief (valfri, server-auto-brief)
+  ├─ 2a. Variant Pre-Match (create-chat-stream-post.ts, ~1ms)
+  │      Keyword-only scaffold+variant-matchning före brief.
+  │      Producerar VariantHints (colorMode, motif, fonts, styleRules)
+  │      som injiceras i brief-prompten som designstartpunkt.
+  │
+  ├─ 2b. Deep Brief (valfri, server-auto-brief)
   │      Strukturerat objekt: pages[], visualDirection, SEO, toneAndVoice
+  │      + designguidance-fält: domainProfile, motionLevel, qualityBar, seasonalHints
+  │      Ser variant-hints → harmoniserar designval med variantens defaults
   │      Downstream: matar scaffold-matchning, route plan, dynamic context
   │
-  ├─ 3. Scaffold-val (orchestrate.ts → matcher.ts)
+  ├─ 3. Scaffold-val (orchestrate.ts → matcher.ts, full match med embedding)
   │      ScaffoldMode: off | auto | manual
   │      ├─ Keyword-matchning (synkron, 9 nyckelordslistor)
   │      ├─ Embedding-matchning (parallell, cosine similarity)

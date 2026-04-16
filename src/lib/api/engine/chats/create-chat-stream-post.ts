@@ -70,6 +70,13 @@ import {
 } from "@/lib/own-engine/session/own-engine-plan-mode";
 import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan-mode-response";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
+import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
+import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
+import { pickScaffoldVariant } from "@/lib/gen/scaffold-variants";
+import {
+  buildVariantHintsForBrief,
+  formatVariantHintsForPrompt,
+} from "@/lib/gen/scaffold-variants/variant-hints";
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
@@ -181,6 +188,19 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
       const clientBriefFromMeta = parsedMeta.brief;
       const assistModelHint = parsedMeta.promptAssistModel;
+
+      // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints
+      const preMatchScaffold = parsedMeta.scaffoldId
+        ? getScaffoldById(parsedMeta.scaffoldId)
+        : matchScaffold(message, metaBuildIntent as BuildIntent | null);
+      const preMatchVariant = preMatchScaffold
+        ? pickScaffoldVariant({ prompt: message, scaffoldId: preMatchScaffold.id })
+        : null;
+      const variantHints = buildVariantHintsForBrief(preMatchScaffold, preMatchVariant);
+      const variantHintsText = variantHints
+        ? formatVariantHintsForPrompt(variantHints)
+        : undefined;
+
       let serverAutoBrief: Record<string, unknown> | null = null;
       let serverAutoBriefModel: string | null = null;
       if (
@@ -200,6 +220,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           assistModelHint,
           imageGenerations: resolvedImageGenerations,
           signal: req.signal,
+          variantHints: variantHintsText,
         });
         if (generated) {
           serverAutoBrief = generated.brief;

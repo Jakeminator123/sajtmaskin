@@ -210,13 +210,19 @@ const BRIEF_SYSTEM_PROMPT =
   "- domainProfile: Go beyond generic labels. A heavy-metal band selling merch is 'heavy-metal-merch-store', not just 'ecommerce'. An artisan bakery is 'artisan-bakery', not 'restaurant'. Be specific — this drives structural hints.\n" +
   "- motionLevel: Match animation to the subject. A law firm → 'minimal'. A children's toy store → 'lively'. Most sites → 'moderate'. Omit only if truly ambiguous.\n" +
   "- qualityBar: Visual density. A zen meditation studio → 'clean'. A SaaS landing page → 'premium'. A gaming/nightclub site → 'bold-dramatic'.\n" +
-  "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Omit when not seasonal.";
+  "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Omit when not seasonal.\n\n" +
+  "VARIANT HINTS (when provided in the user message):\n" +
+  "- Use the scaffold variant as a design starting point for colorPalette, typography, and styleKeywords.\n" +
+  "- Adjust when the user's request clearly calls for a different direction.\n" +
+  "- If the variant says 'dark' but the user asks for a bright, airy site — follow the user.\n" +
+  "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.";
 
-function buildBriefUserPrompt(prompt: string, imageGenerations: boolean): string {
+function buildBriefUserPrompt(prompt: string, imageGenerations: boolean, variantHints?: string): string {
   const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
   return (
     prompt +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +
+    (variantHints ? `\n\n${variantHints}` : "") +
     (imageGenerations
       ? "\n\nInclude imagery guidance because image generation is enabled."
       : "\n\nImage generation is disabled; prefer layout and iconography, keep imagery optional.")
@@ -318,6 +324,7 @@ export async function generateSiteBriefObject(
     maxTokens?: number;
     abortSignal?: AbortSignal;
     source?: string;
+    variantHints?: string;
   },
 ): Promise<SiteBriefGenerationResult | null> {
   const {
@@ -328,10 +335,11 @@ export async function generateSiteBriefObject(
     maxTokens: requestedMaxTokens,
     abortSignal,
     source,
+    variantHints,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
   const maxTokens = resolveMaxTokens(requestedMaxTokens);
-  const userPrompt = buildBriefUserPrompt(prompt, imageGenerations);
+  const userPrompt = buildBriefUserPrompt(prompt, imageGenerations, variantHints);
   const briefSource = normalizeBriefLogSource(source);
 
   debugLog("brief", `model_call ${normalizedModel} provider=${resolvedProvider} maxTokens=${maxTokens}`);
@@ -463,6 +471,7 @@ export async function tryGenerateServerAutoBrief(params: {
   assistModelHint?: string | null;
   imageGenerations: boolean;
   signal?: AbortSignal;
+  variantHints?: string;
 }): Promise<{ brief: Record<string, unknown>; modelUsed: string } | null> {
   const normalized = normalizeAssistModel(
     params.assistModelHint?.trim() || AUTO_BRIEF_MODEL_OPENAI,
@@ -477,6 +486,7 @@ export async function tryGenerateServerAutoBrief(params: {
       imageGenerations: params.imageGenerations,
       abortSignal: params.signal,
       source: "server_auto_brief",
+      variantHints: params.variantHints,
     });
     if (!generated) return null;
     const { brief, normalizedModel } = generated;
