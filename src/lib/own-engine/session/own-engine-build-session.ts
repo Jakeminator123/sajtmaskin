@@ -133,6 +133,7 @@ export type OwnEngineGenerationStreamMetaInput = {
   metaBrief?: Record<string, unknown> | null;
   customInstructionsLength: number;
   scaffoldId: string | null;
+  variantId?: string | null;
 } & (
   | { routeVariant: "new-chat"; chatPrivacy: string; scaffoldLabel: string | null }
   | { routeVariant: "follow-up" }
@@ -178,6 +179,7 @@ export function buildOwnEngineGenerationStreamMeta(
     briefApplied: input.metaBriefApplied,
     briefSummary: extractBriefSummary(input.metaBrief),
     customInstructionsLength: input.customInstructionsLength,
+    variantId: input.variantId ?? null,
   };
   if (input.routeVariant === "new-chat") {
     (meta as Record<string, unknown>).chatPrivacy = input.chatPrivacy;

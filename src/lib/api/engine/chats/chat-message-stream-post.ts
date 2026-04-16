@@ -593,6 +593,11 @@ export async function handleMessageStreamRequest(
           engineIntent = "app";
         }
         const trimmedSystem = typeof system === "string" ? system.trim() : "";
+        const snapshotVariantId =
+          engineChat.orchestration_snapshot &&
+          typeof (engineChat.orchestration_snapshot as Record<string, unknown>).variantId === "string"
+            ? ((engineChat.orchestration_snapshot as Record<string, unknown>).variantId as string)
+            : null;
         const orchestrationInput = {
           prompt: optimizedMessage,
           routePlanPrompt: message,
@@ -607,6 +612,7 @@ export async function handleMessageStreamRequest(
           designThemePreset: metaDesignThemePreset,
           designReferences,
           persistedScaffoldId,
+          persistedVariantId: snapshotVariantId,
           contractAnswers: contractAnswerContext.confirmedAnswers,
           customInstructions: trimmedSystem || undefined,
           promptStrategyMeta: promptOrchestration.strategyMeta,
@@ -825,6 +831,7 @@ export async function handleMessageStreamRequest(
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
+            variantId: finalized.variantId,
           }),
           engineModel,
           optimizedMessage,

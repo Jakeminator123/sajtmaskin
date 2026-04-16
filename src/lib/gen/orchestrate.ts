@@ -11,6 +11,7 @@ import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import {
   pickScaffoldVariant,
+  getVariantById,
   selectVariantStructuralFiles,
   selectCapabilityStructuralFiles,
   type ScaffoldVariant,
@@ -124,6 +125,8 @@ export interface OrchestrationInput {
   capabilities?: InferredCapabilities;
   /** Per-session seed (e.g. chatId) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
+  /** Variant id from a previous generation's snapshot — reused on follow-ups to prevent variant drift. */
+  persistedVariantId?: string | null;
   /**
    * True when this is the first real code generation in a chat that already has a
    * persistedScaffoldId (e.g. after a contract gate turn). Allows init-only features
@@ -629,13 +632,20 @@ export async function finalizeOrchestrationPrompts(
     input.isFirstCodeGeneration,
   );
   const templateGuidanceText = formatTemplateGuidanceForPrompt(templateGuidanceMeta);
-  const resolvedVariant = resolveScaffoldVariant(
-    base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId,
-    prompt,
-    brief,
-    resolvedMode,
-    input.sessionSeed,
-  );
+  const scaffoldIdForVariant = base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId;
+  const persistedVariant =
+    input.persistedVariantId && scaffoldIdForVariant
+      ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
+      : null;
+  const resolvedVariant =
+    persistedVariant ??
+    resolveScaffoldVariant(
+      scaffoldIdForVariant,
+      prompt,
+      brief,
+      resolvedMode,
+      input.sessionSeed,
+    );
   const effectiveInit =
     resolvedMode === "init" || (resolvedMode === "followUp" && input.isFirstCodeGeneration);
   const variantStructuralFiles = (() => {

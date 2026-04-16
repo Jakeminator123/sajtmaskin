@@ -759,6 +759,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             metaBriefApplied: Boolean(metaBrief),
             customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
+            variantId: finalized.variantId,
           }),
           engineModel,
           optimizedMessage,
