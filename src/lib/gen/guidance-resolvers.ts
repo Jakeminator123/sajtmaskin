@@ -144,18 +144,6 @@ export interface ColorPalette {
   text?: string;
 }
 
-function isDarkPalette(palette: ColorPalette): boolean {
-  const bg = (palette.background || "").toLowerCase();
-  return (
-    bg.includes("#0") ||
-    bg.includes("#1") ||
-    bg.includes("#2") ||
-    bg.includes("dark") ||
-    bg.includes("black") ||
-    bg.includes("oklch(0.")
-  );
-}
-
 function isSeasonalOrCulturalTopic(value: string): boolean {
   const lower = value.toLowerCase();
   return [
