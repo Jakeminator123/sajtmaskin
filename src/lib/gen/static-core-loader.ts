@@ -12,31 +12,25 @@ import { toPosixPath } from "@/lib/utils/path-utils";
  * `src/config/systemprompt` / `scripts/systemprompt` on older checkouts.
  * The extensionless `config/systemprompt` path is intentionally not supported — use fragments or `.md`.
  *
- * Paths are resolved once at module init to avoid Turbopack flagging repeated
- * dynamic `join(process.cwd(), ...)` as overly broad file patterns.
+ * Paths are resolved once at module init so Turbopack never sees a nullable
+ * `cwd` (which produced `null/...` union patterns and huge file sets).
  */
 
-let _cwd: string | null = null;
-function getCwd(): string {
-  // Avoid Turbopack treating every join(cwd, …) as a pattern over the entire project tree.
-  if (!_cwd) _cwd = join(/* turbopackIgnore: true */ process.cwd());
-  return _cwd;
-}
+const PROJECT_ROOT = join(/* turbopackIgnore: true */ process.cwd());
 
 function getManifestPath(): string {
-  return join(/* turbopackIgnore: true */ getCwd(), "config", "codegen-static-prompt.json");
+  return join(/* turbopackIgnore: true */ PROJECT_ROOT, "config", "codegen-static-prompt.json");
 }
 
 function getConfigDir(): string {
-  return join(/* turbopackIgnore: true */ getCwd(), "config");
+  return join(/* turbopackIgnore: true */ PROJECT_ROOT, "config");
 }
 
 function getMonolithCandidates(): readonly string[] {
-  const cwd = getCwd();
   return [
-    join(/* turbopackIgnore: true */ cwd, "config", "systemprompt.md"),
-    join(/* turbopackIgnore: true */ cwd, "src", "config", "systemprompt"),
-    join(/* turbopackIgnore: true */ cwd, "scripts", "systemprompt"),
+    join(/* turbopackIgnore: true */ PROJECT_ROOT, "config", "systemprompt.md"),
+    join(/* turbopackIgnore: true */ PROJECT_ROOT, "src", "config", "systemprompt"),
+    join(/* turbopackIgnore: true */ PROJECT_ROOT, "scripts", "systemprompt"),
   ];
 }
 
@@ -57,7 +51,7 @@ function safeConfigFragmentPath(rel: string): string | null {
 }
 
 function manifestCacheKey(fragmentRels: string[]): string {
-  const parts: string[] = [String(statSync(getManifestPath()).mtimeMs)];
+  const parts: string[] = [String(statSync(/* turbopackIgnore: true */ getManifestPath()).mtimeMs)];
   for (const rel of fragmentRels) {
     const fp = safeConfigFragmentPath(rel);
     if (fp === null) {
@@ -65,7 +59,7 @@ function manifestCacheKey(fragmentRels: string[]): string {
       continue;
     }
     try {
-      parts.push(String(statSync(fp).mtimeMs));
+      parts.push(String(statSync(/* turbopackIgnore: true */ fp).mtimeMs));
     } catch {
       parts.push("missing");
     }
@@ -75,11 +69,11 @@ function manifestCacheKey(fragmentRels: string[]): string {
 
 function tryLoadFromManifest(): string | null {
   const manifestPath = getManifestPath();
-  if (!existsSync(manifestPath)) return null;
+  if (!existsSync(/* turbopackIgnore: true */ manifestPath)) return null;
 
   let parsed: ManifestJson;
   try {
-    parsed = JSON.parse(readFileSync(manifestPath, "utf8")) as ManifestJson;
+    parsed = JSON.parse(readFileSync(/* turbopackIgnore: true */ manifestPath, "utf8")) as ManifestJson;
   } catch {
     throw new Error(`[sajtmaskin] Invalid JSON: ${manifestPath}`);
   }
@@ -106,7 +100,7 @@ function tryLoadFromManifest(): string | null {
     }
     let raw: string;
     try {
-      raw = readFileSync(fp, "utf8");
+      raw = readFileSync(/* turbopackIgnore: true */ fp, "utf8");
     } catch {
       throw new Error(`[sajtmaskin] Manifest fragment missing: ${rel} → ${toPosixPath(fp)}`);
     }
@@ -124,13 +118,13 @@ function tryLoadFromManifest(): string | null {
 
 function tryLoadMonolith(): string | null {
   for (const candidate of getMonolithCandidates()) {
-    if (existsSync(candidate) && statSync(candidate).isFile()) {
-      const st = statSync(candidate);
+    if (existsSync(/* turbopackIgnore: true */ candidate) && statSync(/* turbopackIgnore: true */ candidate).isFile()) {
+      const st = statSync(/* turbopackIgnore: true */ candidate);
       const key = `mono|${candidate}|${st.mtimeMs}`;
       if (cache && cache.key === key) {
         return cache.content;
       }
-      const raw = readFileSync(candidate, "utf8").replace(/^\uFEFF/, "");
+      const raw = readFileSync(/* turbopackIgnore: true */ candidate, "utf8").replace(/^\uFEFF/, "");
       if (!raw.trim()) {
         throw new Error(`[sajtmaskin] Static system prompt file is empty: ${toPosixPath(candidate)}`);
       }

@@ -2,7 +2,7 @@ import type { CodeFile } from "../parser";
 import { buildCompleteProject } from "./project-scaffold";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
 
-export type { UiComponent } from "./project-scaffold-ui-reader";
+export type { UiComponent } from "./project-scaffold-ui-types";
 
 /**
  * Canonical pipeline for building the complete, repaired Next.js project
