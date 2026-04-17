@@ -67,7 +67,7 @@ function readThemeTokens(value: unknown): ScaffoldVariantThemeTokens | undefined
   return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
-function parseVariant(filePath: string, expectedScaffoldId: ScaffoldId): ScaffoldVariant | null {
+function parseVariant(filePath: string, expectedScaffoldId: ScaffoldId): ScaffoldVariant {
   let rawJson: unknown;
   try {
     rawJson = JSON.parse(fs.readFileSync(filePath, "utf-8"));
@@ -146,8 +146,7 @@ function loadVariants(): ScaffoldVariant[] {
       .map((entry) => entry.name)
       .sort((a, b) => a.localeCompare(b));
     for (const fileName of files) {
-      const variant = parseVariant(path.join(scaffoldDir, fileName), scaffoldId);
-      if (variant) variants.push(variant);
+      variants.push(parseVariant(path.join(scaffoldDir, fileName), scaffoldId));
     }
   }
 

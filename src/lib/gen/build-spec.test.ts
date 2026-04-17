@@ -107,8 +107,8 @@ describe("deriveBuildSpec", () => {
     expect(spec.previewPolicy).toBe("fidelity2");
     expect(spec.verificationPolicy).toBe("standard");
     expect(spec.contextPolicy).toBe("normal");
-    expect(spec.tokenBudgets.scaffoldTokens).toBe(15_000);
-    expect(spec.tokenBudgets.scaffoldChars).toBe(28_000);
+    expect(spec.tokenBudgets.scaffoldTokens).toBe(22_000);
+    expect(spec.tokenBudgets.scaffoldChars).toBe(42_000);
     expect(spec.routeRealization).toEqual({
       mode: "full",
       primaryRoutePath: "/",
@@ -413,12 +413,12 @@ Persisted errors for this version:
     });
     expect(light.contextPolicy).toBe("light");
     expect(light.tokenBudgets).toEqual({
-      scaffoldTokens: 11_250,
-      refsTokens: 3_750,
-      systemContextTokens: 15_000,
-      scaffoldChars: 20_000,
-      refsChars: 12_000,
-      systemContextChars: 48_000,
+      scaffoldTokens: 13_000,
+      refsTokens: 5_000,
+      systemContextTokens: 22_000,
+      scaffoldChars: 24_000,
+      refsChars: 16_000,
+      systemContextChars: 70_000,
     });
 
     const normal = deriveBuildSpec({
@@ -432,12 +432,12 @@ Persisted errors for this version:
     });
     expect(normal.contextPolicy).toBe("normal");
     expect(normal.tokenBudgets).toEqual({
-      scaffoldTokens: 15_000,
-      refsTokens: 7_500,
-      systemContextTokens: 30_000,
-      scaffoldChars: 28_000,
-      refsChars: 24_000,
-      systemContextChars: 96_000,
+      scaffoldTokens: 22_000,
+      refsTokens: 12_000,
+      systemContextTokens: 60_000,
+      scaffoldChars: 42_000,
+      refsChars: 38_000,
+      systemContextChars: 192_000,
     });
 
     const heavy = deriveBuildSpec({
@@ -462,12 +462,12 @@ Persisted errors for this version:
     });
     expect(heavy.contextPolicy).toBe("heavy");
     expect(heavy.tokenBudgets).toEqual({
-      scaffoldTokens: 25_000,
-      refsTokens: 12_500,
-      systemContextTokens: 50_000,
-      scaffoldChars: 48_000,
-      refsChars: 40_000,
-      systemContextChars: 160_000,
+      scaffoldTokens: 32_000,
+      refsTokens: 16_000,
+      systemContextTokens: 80_000,
+      scaffoldChars: 60_000,
+      refsChars: 50_000,
+      systemContextChars: 256_000,
     });
   });
 

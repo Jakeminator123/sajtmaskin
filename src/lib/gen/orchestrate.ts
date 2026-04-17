@@ -57,7 +57,7 @@ import {
   computeLineageHash,
   serializePackageForDump,
 } from "./generation-input-package";
-import { deriveBuildSpec, type BuildSpec } from "./build-spec";
+import { deriveBuildSpec, isEffectiveInit, type BuildSpec } from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
 import { FEATURES } from "@/lib/config";
 import { getTemplateLibraryEntryById } from "./template-library/catalog";
@@ -205,6 +205,12 @@ export function buildGenerationInputPackage(
     preGenerationContracts: base.preGenerationContracts,
     buildSpec: base.buildSpec,
     capabilityHints: base.capabilityHints,
+    customInstructions: input.customInstructions ?? null,
+    themeColors: input.themeColors ?? null,
+    componentPalette: input.componentPalette ?? null,
+    designReferences: input.designReferences ?? null,
+    variantId: finalized.variantId,
+    templateGuidanceIds: finalized.templateGuidanceMeta?.templateIds ?? null,
   });
 
   return {
@@ -512,8 +518,7 @@ function resolveTemplateGuidance(
 ): TemplateGuidanceMeta {
   const empty: TemplateGuidanceMeta = { enabled: false, templateIds: [], guidanceEntries: [] };
   if (!FEATURES.useRuntimeTemplateGuidance) return empty;
-  const effectiveInit = generationMode === "init" || (generationMode === "followUp" && isFirstCodeGeneration);
-  if (!effectiveInit) return empty;
+  if (!isEffectiveInit({ generationMode, isFirstCodeGeneration })) return empty;
   if (!resolvedScaffold?.research?.referenceTemplates?.length) return empty;
 
   const allRefs = resolvedScaffold.research.referenceTemplates;
@@ -663,8 +668,10 @@ export async function finalizeOrchestrationPrompts(
       resolvedMode,
       input.sessionSeed,
     );
-  const effectiveInit =
-    resolvedMode === "init" || (resolvedMode === "followUp" && input.isFirstCodeGeneration);
+  const effectiveInit = isEffectiveInit({
+    generationMode: resolvedMode,
+    isFirstCodeGeneration: input.isFirstCodeGeneration,
+  });
   const variantStructuralFiles = (() => {
     if (!effectiveInit) return null;
     const fromVariant = selectVariantStructuralFiles(resolvedVariant, FEATURES.useVariantStructuralFiles);

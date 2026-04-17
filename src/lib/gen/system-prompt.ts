@@ -436,19 +436,31 @@ export function buildDynamicContext(
 
   // ── Build Intent ────────────────────────────────────────────────────────
   const guidance = BUILD_INTENT_GUIDANCE[intent];
+  // Variant resolution: production callers (orchestrate) always pass
+  // `resolvedVariant`. The fallback below exists for legacy callers
+  // (`buildSystemPrompt` from eval/runner). Keep its inputs aligned with
+  // `orchestrate.resolveScaffoldVariant` so the fallback picks the same
+  // variant as orchestrate would — otherwise `variantId` logged downstream
+  // can drift from what shaped the prompt. Prefer the raw user prompt
+  // (canonical orchestrate input); fall back to brief-derived text only
+  // when no userPrompt is available.
+  const fallbackVariantPrompt =
+    str(userPrompt) ||
+    [
+      str(brief?.oneSentencePitch),
+      str(brief?.tagline),
+      strList(brief?.mustHave).join(" "),
+      toneKeywords.join(" "),
+      styleKeywords.join(" "),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    guidance.rules.join(" ");
   const effectiveVariant =
     resolvedVariant ??
     pickScaffoldVariant({
-      prompt: [
-        str(brief?.oneSentencePitch),
-        str(brief?.tagline),
-        strList(brief?.mustHave).join(" "),
-        toneKeywords.join(" "),
-        styleKeywords.join(" "),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .trim() || guidance.rules.join(" "),
+      prompt: fallbackVariantPrompt,
       scaffoldId: resolvedScaffold?.id ?? buildSpec?.scaffoldId ?? null,
       styleKeywords,
       toneKeywords,
@@ -1120,62 +1132,23 @@ export function buildDynamicContext(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PUBLIC API — buildSystemPrompt(), getSystemPromptLengths()
+// PUBLIC API — composeEngineSystemPrompt(), getSystemPromptLengths()
+//
+// The canonical generation path is:
+//   1. `prepareGenerationContext()` (orchestrate.ts) builds a `BuildSpec`,
+//      resolves scaffold/variant/route/contracts, then calls
+//      `buildDynamicContext()` with the full input set.
+//   2. `composeEngineSystemPrompt(dynamicContext)` glues the static Core
+//      Rules (`config/prompt-core/*.md`) onto the dynamic context to produce
+//      the single system message sent to the LLM.
+//
+// The legacy `buildSystemPrompt(options)` shortcut was removed in favor of
+// this two-step path because its options type kept drifting from
+// `DynamicContextOptions` and silently producing thinner prompts in eval.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Between static core (config/prompt-core) and buildDynamicContext output. */
 export const SYSTEM_PROMPT_SEPARATOR = "\n\n---\n\n# Request-Specific Context\n\n";
-
-export interface BuildSystemPromptOptions {
-  intent: BuildIntent;
-  brief?: Brief | null;
-  themeOverride?: ThemeColors | null;
-  imageGenerations?: boolean;
-  mediaCatalog?: MediaCatalogItem[];
-  scaffoldContext?: string;
-  resolvedScaffold?: ScaffoldManifest | null;
-  routePlan?: RoutePlan | null;
-  preGenerationContracts?: PreGenerationContractContext | null;
-  componentPalette?: PaletteState | null;
-  designThemePreset?: string | null;
-  designReferences?: DesignReferenceAsset[];
-  customInstructions?: string;
-  userPrompt?: string;
-  generationMode?: "init" | "followUp";
-  buildSpec?: BuildSpec | null;
-  variantStructuralFiles?: VariantStructuralFilesSelection | null;
-}
-
-/**
- * Builds the complete system prompt by combining the static core with
- * a dynamic, per-request context block.
- *
- * The static core is always the first portion of the string, which allows
- * OpenAI's prompt prefix caching to kick in after the first request.
- */
-export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
-  const { context } = buildDynamicContext({
-    intent: options.intent,
-    brief: options.brief,
-    themeOverride: options.themeOverride,
-    imageGenerations: options.imageGenerations,
-    mediaCatalog: options.mediaCatalog,
-    scaffoldContext: options.scaffoldContext,
-    resolvedScaffold: options.resolvedScaffold,
-    routePlan: options.routePlan,
-    preGenerationContracts: options.preGenerationContracts,
-    componentPalette: options.componentPalette,
-    designThemePreset: options.designThemePreset,
-    designReferences: options.designReferences,
-    buildSpec: options.buildSpec,
-    customInstructions: options.customInstructions,
-    userPrompt: options.userPrompt,
-    generationMode: options.generationMode,
-    variantStructuralFiles: options.variantStructuralFiles,
-  });
-
-  return `${loadStaticCoreSync()}${SYSTEM_PROMPT_SEPARATOR}${context}`;
-}
 
 /** Compose static codegen core + dynamic context without re-running retrieval. */
 export function composeEngineSystemPrompt(dynamicContextText: string): string {
@@ -1184,7 +1157,7 @@ export function composeEngineSystemPrompt(dynamicContextText: string): string {
 
 /**
  * Returns character counts for prompt-cache monitoring.
- * Use after buildSystemPrompt() to log total, static, and dynamic lengths.
+ * Use after `composeEngineSystemPrompt()` to log total, static, and dynamic lengths.
  */
 export function getSystemPromptLengths(fullPrompt: string): {
   total: number;

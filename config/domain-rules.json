@@ -8,8 +8,8 @@
   {
     "domain": "hotel",
     "briefHint": "hotel or hospitality site",
-    "keywords_sv": ["hotell", "boutiquehotell"],
-    "keywords_en": ["hotel", "boutique hotel", "spa retreat", "bed and breakfast", "b&b"]
+    "keywords_sv": ["hotell", "boutiquehotell", "vandrarhem", "pensionat", "övernattning"],
+    "keywords_en": ["hotel", "boutique hotel", "spa retreat", "bed and breakfast", "b&b", "hostel"]
   },
   {
     "domain": "spa-salon",

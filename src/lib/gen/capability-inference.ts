@@ -154,10 +154,16 @@ export function inferCapabilities(prompt: string): InferredCapabilities {
   if (result.needsCalendar) result.needsForms = true;
 
   if (result.needsEcommerce) {
+    // Unicode-aware boundaries: JS `\b` is ASCII-only, so `\bcafé\b` would
+    // never match `café ` (the `é` isn't a word char). Mirrors the pattern
+    // used in `gen/scaffolds/matcher.ts`. Note: this list is duplicated in
+    // `matcher.ts` (HOSPITALITY_SERVICE_KEYWORDS / STRONG_ECOMMERCE_INTENT)
+    // and `config/domain-rules.json`. Keep them in sync until the embedding
+    // migration replaces keyword lookup.
     const hospitalityVeto =
-      /\b(restaurang|restaurant|café|cafe|kafé|bistro|hotell|hotel|spa|salong|salon|klinik|clinic|bakeri|bageri|bakery|pizzeria|catering|matrestaurang|boka bord|book a table|meny|menu|öppettider|opening hours)\b/i;
+      /(^|[^\p{L}\p{N}])(?:restaurang|restaurant|café|cafe|kafé|bistro|hotell|hotel|spa|salong|salon|klinik|clinic|bakeri|bageri|bakery|pizzeria|catering|matrestaurang|boka bord|book a table|meny|menu|öppettider|opening hours)(?=[^\p{L}\p{N}]|$)/iu;
     const strongEcommerceIntent =
-      /\b(webshop|webbshop|e-handel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|online store)\b/i;
+      /(^|[^\p{L}\p{N}])(?:webshop|webbshop|e-handel|ecommerce|e-commerce|varukorg|kundvagn|cart|checkout|kassa|storefront|nätbutik|online store)(?=[^\p{L}\p{N}]|$)/iu;
     if (hospitalityVeto.test(prompt) && !strongEcommerceIntent.test(prompt)) {
       result.needsEcommerce = false;
     }
