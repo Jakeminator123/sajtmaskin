@@ -114,6 +114,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Scaffold Serialize Mode | `structural \| inspirational`. Init→inspirational, followUp/heavy→structural | kanonisk |
 | Scaffold Variant | Visuellt uttryck inom scaffold: typsnitt, motif, theme tokens, prompt hints. `variantId` bevaras i orchestration snapshot och återanvänds vid follow-up för att förhindra variant-drift. | kanonisk |
 | Variant Structural Files | Init-only kodreferenser från variantens sourceTemplateIds + capability-driven | kanonisk |
+| Variant Signature Patterns | `signaturePatterns` per variant: `{ layouts[], motifs[], antiPatterns[] }`. Konkret visuell guidance som ersatte de fyra borttagna generiska guidance-fälten 2026-04-17. Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket. | kanonisk |
+| Variant Embedding Pick | `pickScaffoldVariantAsync()` — embedding-driven variant-selection som faller graciöst tillbaka till keyword `pickScaffoldVariant` när embeddings/API-key saknas. Aktiv i orchestrate.ts; stream-pre-match förblir keyword-only by design (snabb hint till brief-LLM). | kanonisk |
 | Capability Map | Snabb klassificering: auth, ecommerce, forms, 3D, motion, charts | kanonisk |
 | Route Plan | Planerad IA/ruttlista. Provenance: brief > scaffold > prompt | kanonisk |
 | Route Realization | Policylager: vilka routes realiseras i denna generation | kanonisk |

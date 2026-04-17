@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { getVariantsForScaffold } from "./registry";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
