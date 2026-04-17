@@ -57,6 +57,7 @@ class LegacyEntry(NamedTuple):
 # imports/reads these paths. Reports + standalone deprecated scripts.
 # =====================================================================
 SAFE_TO_MOVE: list[LegacyEntry] = [
+    # ----- Historical reports / loose notes -----
     LegacyEntry(
         "RAPPORT-prompt-pipeline-framtidsplan.md",
         "Historical planning report at repo root. Not referenced from code or docs/index.",
@@ -85,59 +86,104 @@ SAFE_TO_MOVE: list[LegacyEntry] = [
         "övrigt/troliga_buggar",
         "Old bug-investigation notes. Not referenced.",
     ),
+    # ----- Legacy template-library runtime guidance (cleared 2026-04-17, pass 1) -----
+    LegacyEntry(
+        "src/lib/gen/template-library/runtime-guidance.ts",
+        "Legacy generic guidance regelmotor — replaced by dossier pipeline. orchestrate.ts no longer imports it; build-template-library.ts (also moved) was the only other consumer.",
+    ),
+    LegacyEntry(
+        "src/lib/gen/template-library/runtime-guidance.test.ts",
+        "Tests for the removed regelmotor.",
+    ),
+    LegacyEntry(
+        "src/lib/gen/template-library/template-library-external-integration.test.ts",
+        "Snapshot test for the artifact built by build-template-library.ts (also moved).",
+    ),
+    LegacyEntry(
+        "scripts/scaffolds/derive-variants-from-dossiers.ts",
+        "BLUEPRINTS-based variant builder — replaced by signaturePatterns + auto-curate-variant-patterns.ts.",
+    ),
+    # ----- Full external-template-pipeline retirement (2026-04-17, pass 2) -----
+    # Backoffice flikar (artifacts_pipeline + template_pipeline) avregistrerade
+    # från backoffice/pages/__init__.py. scaffold_cli.py-knappar borttagna ur
+    # scaffold_lifecycle.py + _ops_impl.py. 11 npm scripts borttagna ur
+    # package.json. domain-map.json + egna_kommandon.txt uppdaterade.
+    LegacyEntry(
+        "data/external-template-pipeline",
+        "1.7 GB scrape-cache + raw discovery + reference-library — replaced by data/dossiers/ pipe.",
+    ),
+    LegacyEntry(
+        "scripts/template-library",
+        "Build scripts (build-template-library.ts, full_template_refresh.py, hydrate-template-library-cache.ts, etc.) for the legacy template-library pipeline.",
+    ),
+    LegacyEntry(
+        "scripts/scaffolds/scaffold_cli.py",
+        "Python orchestrator (`scaffold_cli.py status/import/hydrate/build/embeddings/eval/verify/all`) for the legacy pipeline. All npm run scaffolds:* scripts removed.",
+    ),
+    LegacyEntry(
+        "scripts/scaffolds/curate-scaffold-candidates.ts",
+        "Imports template-library; legacy scaffold-candidate curation step.",
+    ),
+    LegacyEntry(
+        "scripts/scaffolds/promote-to-scaffold.ts",
+        "Imports template-library; legacy scaffold-promotion step.",
+    ),
+    LegacyEntry(
+        "scripts/scaffolds/scaffold-candidate-report.ts",
+        "Imports template-library; legacy candidate-report writer.",
+    ),
+    LegacyEntry(
+        "scripts/embeddings/generate-template-library-embeddings.ts",
+        "Embeddings for the legacy template-library catalog. Dossier-embeddings replace it.",
+    ),
+    LegacyEntry(
+        "scripts/dossiers/import-from-playwright.ts",
+        "Legacy adapter that read playwright-catalog.json from the old pipeline. Replaced by import-from-enriched.ts (data/dossiers/_enriched/).",
+    ),
+    LegacyEntry(
+        "scripts/rebuild_artifacts.py",
+        "Smart-rebuild orchestrator for external-template-pipeline + scaffold_cli artifacts.",
+    ),
+    LegacyEntry(
+        "e2e/vercel-templates/scrape-catalog.spec.ts",
+        "Legacy scraper that imported template-library helpers. Dossier-pipens scrape-catalog-light.spec.ts (kept) is the new entrypoint.",
+    ),
+    LegacyEntry(
+        "backoffice/pages/artifacts_pipeline.py",
+        "Backoffice UI for triggering external-template-pipeline + scaffold_cli commands. Page unregistered from backoffice/pages/__init__.py.",
+    ),
+    LegacyEntry(
+        "backoffice/pages/template_pipeline.py",
+        "Backoffice UI for inspecting template-library artifacts. Page unregistered from backoffice/pages/__init__.py.",
+    ),
+    # ----- Final sweep: template-library runtime + structural-files spår (2026-04-17, pass 3) -----
+    # All consumers refactored: orchestrate.ts no longer calls
+    # resolveTemplateGuidance / structural-files; system-prompt.ts no longer
+    # has templateGuidance / variantStructuralFiles props; FEATURES flags
+    # (useRuntimeTemplateGuidance, useVariantStructuralFiles) and env vars
+    # (SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE / SAJTMASKIN_VARIANT_STRUCTURAL_FILES)
+    # removed; backoffice toggles deleted.
+    LegacyEntry(
+        "src/lib/gen/template-library",
+        "Whole runtime catalog/search/embeddings-core/types module + 4 MB of generated JSON. Replaced by data/dossiers/_index/. No remaining imports.",
+    ),
+    LegacyEntry(
+        "src/lib/gen/scaffold-variants/structural-files.ts",
+        "Variant + capability structural-file selectors. Read template-library catalog. No remaining callers (orchestrate.ts no longer imports them).",
+    ),
+    LegacyEntry(
+        "docs/schemas/strict/structural-references.schema.json",
+        "Strict JSON schema for the now-removed variantStructuralFiles prompt-dump output.",
+    ),
 ]
 
 
 # =====================================================================
-# RUNTIME-DEPRECATED — gated / scheduled for Fas 9 of dossier roadmap
-# but currently still touches the runtime. Requires explicit opt-in.
+# RUNTIME-DEPRECATED — gated / scheduled for future cleanup but still
+# imported somewhere. Requires --include-runtime-deprecated to move.
 # =====================================================================
 RUNTIME_DEPRECATED: list[LegacyEntry] = [
-    LegacyEntry(
-        "scripts/scaffolds/derive-variants-from-dossiers.ts",
-        "Marked @deprecated in source. Replaced by signaturePatterns + auto-curate-variant-patterns.ts.",
-        blocker=(
-            "backoffice/pages/scaffold_lifecycle.py exposes a button that "
-            "shells out to this script. Also referenced in "
-            "config/dashboard/domain-map.json. Move requires removing the "
-            "backoffice button + the dashboard map entry."
-        ),
-    ),
-    LegacyEntry(
-        "data/external-template-pipeline",
-        "Old template-library pipeline output (deprecated 2026-04-17).",
-        blocker=(
-            "Runtime still reads two artifacts BUILT from this folder: "
-            "src/lib/gen/template-library/template-library.generated.json "
-            "and src/lib/gen/scaffolds/scaffold-research.generated.json. "
-            "Both are gitignored. Moving this folder = those artifacts "
-            "cannot be regenerated locally until the new dossier pipe is "
-            "the only source. Avveckla i Fas 9 enligt "
-            "docs/architecture/dossier-pipeline-roadmap.md."
-        ),
-    ),
-    LegacyEntry(
-        "src/lib/gen/template-library/runtime-guidance.ts",
-        "Old guidance resolver — gated out via FEATURES.useDossierPipeline (Pass 9 gate).",
-        blocker=(
-            "Imported by orchestrate.ts even though the call returns "
-            "empty when the dossier flag is on. Removing requires "
-            "removing the import + a small refactor in orchestrate.ts."
-        ),
-    ),
-    LegacyEntry(
-        "src/lib/gen/template-library/runtime-guidance.test.ts",
-        "Tests for the gated guidance resolver above.",
-        blocker="Move together with runtime-guidance.ts.",
-    ),
-    LegacyEntry(
-        "scripts/template-library",
-        "Build scripts for the old template-library pipeline.",
-        blocker=(
-            "These build the runtime artifacts mentioned above. Moving = "
-            "no way to regenerate them. Wait for Fas 9 of dossier roadmap."
-        ),
-    ),
+    # (Empty — full template-library + structural-files sweep complete.)
 ]
 
 

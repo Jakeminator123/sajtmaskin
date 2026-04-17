@@ -348,16 +348,6 @@ export const FEATURES = {
   // Historical name: setting this to false disables the light fast-path
   // optimization and forces finalize to stay on the deep path.
   useFinalizeDeepPath: env.SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED !== "false",
-  useRuntimeTemplateGuidance:
-    env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "true" ||
-    env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE === "1" ||
-    (env.SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE !== "false" &&
-      env.NODE_ENV === "development"),
-  useVariantStructuralFiles:
-    env.SAJTMASKIN_VARIANT_STRUCTURAL_FILES === "true" ||
-    env.SAJTMASKIN_VARIANT_STRUCTURAL_FILES === "1" ||
-    (env.SAJTMASKIN_VARIANT_STRUCTURAL_FILES !== "false" &&
-      env.NODE_ENV === "development"),
 
   /**
    * New dossier pipeline (data/dossiers/). Reads master.json +

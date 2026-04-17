@@ -140,39 +140,40 @@ const siteBriefSchema = z.object({
   }),
   domainProfile: z
     .string()
-    .optional()
+    .nullable()
     .describe(
       "Specific domain classification beyond generic labels. " +
       "E.g. 'heavy-metal-merch-store', 'artisan-bakery', 'luxury-spa'. " +
       "Drives structural hints and backend contract decisions. " +
-      "Omit if the site does not fit a clear domain."
+      "Set to null if the site does not fit a clear domain."
     ),
   motionLevel: z
     .enum(["minimal", "moderate", "lively"])
-    .optional()
+    .nullable()
     .describe(
       "How much animation suits this site. " +
       "'minimal' for corporate/serious/text-heavy, " +
       "'moderate' for balanced (default when unsure), " +
-      "'lively' for energetic/playful/animated."
+      "'lively' for energetic/playful/animated. " +
+      "Set to null only when truly ambiguous."
     ),
   qualityBar: z
     .enum(["clean", "premium", "bold-dramatic"])
-    .optional()
+    .nullable()
     .describe(
       "Visual density target. " +
       "'clean' for minimal/airy/whitespace-driven, " +
       "'premium' for layered/polished/card-heavy (default when unsure), " +
-      "'bold-dramatic' for high-contrast/oversized/maximal."
+      "'bold-dramatic' for high-contrast/oversized/maximal. " +
+      "Set to null only when truly ambiguous."
     ),
   seasonalHints: z
     .array(z.string())
-    .min(0)
     .max(6)
-    .optional()
+    .nullable()
     .describe(
       "Seasonal or cultural themes present in the request. " +
-      "E.g. ['christmas', 'winter']. Leave empty/omit if not seasonal."
+      "E.g. ['christmas', 'winter']. Use an empty array [] or null when not seasonal."
     ),
   mustHave: z
     .array(z.string())
@@ -198,7 +199,7 @@ const BRIEF_SYSTEM_PROMPT =
   "Convert the user request into a concise website brief that is immediately usable for implementation. " +
   "Infer the most likely site type from the user request and adjust pages, sections, and content to fit. " +
   "Be specific about pages/sections, visual direction, and copy direction. " +
-  "Include every required field in the schema. For optional fields (domainProfile, motionLevel, qualityBar, seasonalHints), include them when the request gives you signal — omit when ambiguous. " +
+  "Include every key from the schema in your response — never omit a key. For nullable design-guidance fields (domainProfile, motionLevel, qualityBar, seasonalHints), set them to a real value when the request gives you signal, and set them to null (or [] for seasonalHints) when truly ambiguous. " +
   "If a required value is unknown, use an empty string. " +
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
   "SCOPE AWARENESS (important):\n" +
@@ -207,11 +208,11 @@ const BRIEF_SYSTEM_PROMPT =
   "- A detailed, structured request with many requirements should produce a multi-page brief (2-5 pages) with richer sections.\n" +
   "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
   "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.\n\n" +
-  "DESIGN GUIDANCE FIELDS (optional — fill when the request gives you signal):\n" +
-  "- domainProfile: Go beyond generic labels. A heavy-metal band selling merch is 'heavy-metal-merch-store', not just 'ecommerce'. An artisan bakery is 'artisan-bakery', not 'restaurant'. Be specific — this drives structural hints.\n" +
-  "- motionLevel: Match animation to the subject. A law firm → 'minimal'. A children's toy store → 'lively'. Most sites → 'moderate'. Omit only if truly ambiguous.\n" +
-  "- qualityBar: Visual density. A zen meditation studio → 'clean'. A SaaS landing page → 'premium'. A gaming/nightclub site → 'bold-dramatic'.\n" +
-  "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Omit when not seasonal.\n\n" +
+  "DESIGN GUIDANCE FIELDS (always present, set null/[] when ambiguous):\n" +
+  "- domainProfile: Go beyond generic labels. A heavy-metal band selling merch is 'heavy-metal-merch-store', not just 'ecommerce'. An artisan bakery is 'artisan-bakery', not 'restaurant'. Be specific — this drives structural hints. Use null only when no domain fits.\n" +
+  "- motionLevel: Match animation to the subject. A law firm → 'minimal'. A children's toy store → 'lively'. Most sites → 'moderate'. Use null only if truly ambiguous.\n" +
+  "- qualityBar: Visual density. A zen meditation studio → 'clean'. A SaaS landing page → 'premium'. A gaming/nightclub site → 'bold-dramatic'. Use null only if truly ambiguous.\n" +
+  "- seasonalHints: Only when the request has a clear seasonal or cultural theme (e.g. ['christmas', 'winter']). Use [] when not seasonal.\n\n" +
   "VARIANT HINTS (when provided in the user message):\n" +
   "- Use the scaffold variant as a design starting point for colorPalette, typography, and styleKeywords.\n" +
   "- Adjust when the user's request clearly calls for a different direction.\n" +

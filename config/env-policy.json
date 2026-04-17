@@ -26,8 +26,6 @@
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
-    "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
-    "SAJTMASKIN_VARIANT_STRUCTURAL_FILES",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
@@ -157,8 +155,6 @@
     "SAJTMASKIN_FOLLOWUP_LIGHT_CONTEXT",
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "SAJTMASKIN_LIGHTWEIGHT_SCAFFOLD_SERIALIZATION",
-    "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
-    "SAJTMASKIN_VARIANT_STRUCTURAL_FILES",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_SHOW_THINKING",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
@@ -292,18 +288,6 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Feature flag for budgeted scaffold serialization instead of broad scaffold file dumps."
-    },
-    {
-      "key": "SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "When true/1, inject scaffold-anchored template-library runtimeGuidance into init generations. Default off."
-    },
-    {
-      "key": "SAJTMASKIN_VARIANT_STRUCTURAL_FILES",
-      "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "When true/1, inject structural code references derived from scaffold variant sourceTemplateIds into init generations. Auto-on in development unless explicitly false."
     },
     {
       "key": "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",

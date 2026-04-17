@@ -395,6 +395,7 @@ export type ScaffoldSelectionMethod =
   | "persisted"
   | "keyword"
   | "embedding"
+  | "agreement"
   | "default";
 
 export type ScaffoldSelectionConfidence = "high" | "medium" | "low";
@@ -725,9 +726,13 @@ const KEYWORD_STRENGTH_CAP = 12;
 /**
  * When cosine similarity is at least this fraction of normalized keyword strength,
  * the embedding pick wins (non-generic keyword case). Lower → embeddings win more often.
- * Override: `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (e.g. `0.75`–`1.1`).
+ * Override: `SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS` (e.g. `0.55`–`1.1`).
+ *
+ * Lowered from 0.82 → 0.65 (2026-04-17) so embeddings are weighted more heavily
+ * against keyword matches when the two diverge. Cosine similarity ≥ 0.55 is
+ * empirically a strong signal in our scaffold corpus.
  */
-const DEFAULT_EMBED_VS_KEYWORD_BIAS = 0.82;
+const DEFAULT_EMBED_VS_KEYWORD_BIAS = 0.65;
 
 /** True → `matchScaffold()` does not use keyword lists; returns intent baseline only. */
 export function isScaffoldKeywordMatchDisabled(): boolean {
@@ -982,6 +987,25 @@ export async function matchScaffoldAuto(
   }
 
   const top = semantic.results[0]!;
+
+  if (
+    keywordResult &&
+    keywordResult.id === top.scaffold.id &&
+    top.score >= EMBEDDING_MIN_SCORE
+  ) {
+    const agreementConfidence: ScaffoldSelectionConfidence =
+      top.score >= 0.55 ? "high" : "medium";
+    return {
+      scaffold: keywordResult,
+      meta: {
+        ...fallbackMeta,
+        selectionMethod: "agreement",
+        selectionConfidence: agreementConfidence,
+        embeddingOverrideReason: null,
+      },
+    };
+  }
+
   const embeddingOverrideReason = getEmbeddingOverrideReason({
     keywordResult,
     keywordScores,

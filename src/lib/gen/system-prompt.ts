@@ -35,10 +35,7 @@ import { debugLog } from "@/lib/utils/debug";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
-import type {
-  ScaffoldVariant,
-  VariantStructuralFilesSelection,
-} from "./scaffold-variants";
+import type { ScaffoldVariant } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
 import { getDirectiveRawText } from "./directive-loader";
@@ -167,12 +164,8 @@ export interface DynamicContextOptions {
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;
-  /** Pre-rendered scaffold-anchored template-library guidance (init only, opt-in). */
-  templateGuidance?: string;
   /** Verified shadcn usage examples matched to this request's capabilities. */
   componentReferences?: { name: string; code: string }[];
-  /** Curated structural code references derived from the active scaffold variant. */
-  variantStructuralFiles?: VariantStructuralFilesSelection | null;
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
 }
@@ -229,7 +222,6 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^visual identity$/i, priority: 78 },
   { match: /^design references$/i, priority: 72 },
   { match: /^component references$/i, priority: 80 },
-  { match: /^structural references$/i, priority: 75 },
   { match: /^critical scaffold files$/i, priority: 86, required: true },
   { match: /^scaffold file tree$/i, priority: 84, required: true },
   { match: /^scaffold research priorities$/i, priority: 70 },
@@ -375,15 +367,6 @@ function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): str
   return lines;
 }
 
-function inferReferenceCodeFence(path: string): string {
-  if (/\.tsx$/i.test(path)) return "tsx";
-  if (/\.ts$/i.test(path)) return "ts";
-  if (/\.jsx$/i.test(path)) return "jsx";
-  if (/\.js$/i.test(path)) return "js";
-  if (/\.json$/i.test(path)) return "json";
-  return "text";
-}
-
 /**
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
@@ -411,9 +394,7 @@ export function buildDynamicContext(
     generationMode,
     buildSpec,
     sessionSeed,
-    templateGuidance,
     componentReferences,
-    variantStructuralFiles,
   } = options;
 
   const isFollowUp = generationMode === "followUp";
@@ -590,27 +571,6 @@ export function buildDynamicContext(
     "",
   );
 
-  if (variantStructuralFiles && variantStructuralFiles.files.length > 0) {
-    parts.push(
-      "## Structural References",
-      "",
-      "Verified structural patterns from curated references relevant to the active scaffold variant and detected capabilities. Adapt routing, middleware, and layout patterns to the user's request — do not clone them verbatim.",
-      "",
-    );
-    for (const ref of variantStructuralFiles.files) {
-      parts.push(
-        `### ${ref.path} (from ${ref.sourceTitle})`,
-        "",
-        `Reason: ${ref.reason}`,
-        "",
-        `\`\`\`${inferReferenceCodeFence(ref.path)}`,
-        ref.excerpt,
-        "```",
-        "",
-      );
-    }
-  }
-
   // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
   // (static core, cached per process — no longer eats dynamic context token budget)
 
@@ -633,7 +593,7 @@ export function buildDynamicContext(
       (t) => `  - ${t.title} (${t.categorySlug}, score ${t.qualityScore})`,
     );
 
-    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0 || templateGuidance) {
+    if (checklist.length > 0 || upgradeTargets.length > 0 || referenceLines.length > 0) {
       parts.push(
         "## Scaffold Research Priorities",
         "",
@@ -650,9 +610,6 @@ export function buildDynamicContext(
       if (referenceLines.length > 0) {
         parts.push("", "- Reference inspirations:");
         parts.push(...referenceLines);
-      }
-      if (templateGuidance) {
-        parts.push("", templateGuidance);
       }
       parts.push("");
     }

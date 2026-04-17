@@ -2,51 +2,29 @@
   SAJTMASKIN — EGNA KOMMANDON (snabbreferens)
 ===================================================================
 
----  TEMPLATE-PIPELINE (extern research → dossiers → artifacts)  ---
-
-npm run template-pipeline:refresh          # Full: scrape + import + hydrate + build + embeddings + validate
-npm run template-pipeline:refresh:reuse-cache   # Samma men hoppa over scrape (snabbare)
-
----  ARTEFAKTER — återbygg (template-library + scaffold-research + v0-mallar m.m.)  ---
-
-# Rekommenderat efter du har giltig scrape-summary under data/external-template-pipeline/:
-npm run artifacts:rebuild                  # Snabb: återanvänder scrape-cache/repo-cache, purge + rebuild + validate + typecheck
-npm run artifacts:rebuild:full             # Långsammare: kör även --refresh-scrape (ny scrape innan rebuild)
-npm run artifacts:rebuild:with-eval        # Som rebuild men kör även eval efteråt
-npm run artifacts:rebuild:full:with-eval # Full scrape + eval + typecheck
-
-# Avancerat (samma script som npm anropar):
-python scripts/rebuild_artifacts.py --help
-python scripts/rebuild_artifacts.py --with-typecheck              # minimalt
-python scripts/rebuild_artifacts.py --refresh-scrape --reset-repo-cache --with-typecheck  # hård reset av cache
-
-# Efter lyckad rebuild kan du sätta SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true (eller ta bort =false)
-# så att appen kräver att template-library.generated.json / scaffold-research.generated.json finns.
-
----  TEMPLATE-LIBRARY (enskilda steg)  ---
-
-npm run template-library:import            # Importera discovery-data
-npm run template-library:hydrate-cache     # Klona/uppdatera repo-cache (shallow)
-npm run template-library:build             # Bygg template-library.generated.json + dossiers + scaffold-research
-npm run template-library:validate-runtime  # Validera att catalog, embeddings och scaffold-research ar synkade
-npm run template-library:verify-summary    # Verifiera discovered summary
-npm run template-library:embeddings        # Generera template-library embeddings (OpenAI)
+---  TEMPLATE-PIPELINE (LEGACY — avvecklad 2026-04-17)  ---
+#
+# Den gamla template-library-pipen (scrape Vercel -> generated.json -> runtime
+# guidance) har avvecklats helt. data/external-template-pipeline/, scripts/
+# template-library/, scaffold_cli.py och rebuild_artifacts.py ligger nu i
+# legacy-stuff/ utanfor repot. Backoffice-flikarna "Template pipeline" och
+# "Artifacts pipeline" ar avregistrerade. 11 npm scripts borttagna.
+#
+# Per-integration-guidance hanteras nu helt av dossier-pipen (data/dossiers/).
+# Kor `npm run dossiers:rebuild` i stallet for `artifacts:rebuild`.
 
 ---  SCAFFOLDS  ---
 
-npm run scaffolds:status                   # Status over alla scaffolds
-npm run scaffolds:validate                 # Validera manifest-filer
-npm run scaffolds:embeddings               # Generera scaffold-embeddings.json (OpenAI)
-npm run scaffolds:eval                     # Kor scaffold-selection eval
-npm run scaffolds:curate                   # Curate scaffold candidates fran template-library
-npm run scaffolds:all                      # Kor alla steg i ordning
-python scripts/scaffolds/scaffold_cli.py status       # Python CLI: status
-python scripts/scaffolds/scaffold_cli.py all --typecheck  # Python CLI: allt + typecheck
+npm run scaffolds:validate                 # Validera manifest-filer (vitest)
+# Note (2026-04-17): scaffolds:status / import / hydrate / build / embeddings /
+# eval / verify / all / curate / promote har avvecklats tillsammans med
+# scaffold_cli.py och external-template-pipeline. Variant-underhall sker via
+# scripts nedan + npm run dossiers:rebuild.
 
 ---  SCAFFOLD-VARIANTER  ---
 
-npx tsx scripts/scaffolds/derive-variants-from-dossiers.ts          # @deprecated — gammal pipeline
 npm run scaffolds:variant-embeddings                                # Embeddings for alla 21 variants (OpenAI)
+npm run scaffolds:variant-patterns                                  # AI-curate signaturePatterns for alla variants
 
 ---  DOSSIERS (legoklossar: integrationer + UI-sektioner)  ---
 
@@ -96,10 +74,10 @@ npm run templates:local:refresh            # Sync + validering
 npm run templates:local:refresh:embeddings # Sync + validering + regenerera embeddings
 
 ---  VERCEL-TEMPLATES DISCOVERY (Playwright)  ---
-
-npm run references:discover                # Forsta pass: scrapa Vercel Templates
-npm run references:discover:second-pass    # Andra pass
-npm run references:discover:full           # Full scrape
+#
+# Gamla `references:discover*`-skripten avvecklade. Anvand:
+npm run dossiers:scrape                    # Light-katalog (~3 min, ~419 templates)
+npm run dossiers:enrich                    # Detaljer per template (~14 min)
 
 ---  DEV / TEST / TYPECHECK  ---
 
@@ -125,8 +103,6 @@ python scripts/env/manage_env.py audit --strict  # Strict audit
 
 ---  VIKTIGA ENV-FLAGGOR  ---
 
-SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE=true  # Scaffold-ankrad template guidance (init only). Auto-on i dev.
-SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true   # Injectera budgeterade structural references fran variantens sourceTemplateIds.
 SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true # Defer extra routes till shells i init-generering.
 SAJTMASKIN_STRICT_GENERATED_ARTIFACTS=true # Kräv genererade JSON-artefakter (satt false lokalt om du inte byggt om).
 SAJTMASKIN_DEFAULT_THINKING=true           # Server-side default for reasoning/thinking.

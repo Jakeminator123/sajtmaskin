@@ -9,7 +9,7 @@
  */
 import { createHash } from "node:crypto";
 
-import type { OrchestrationBase, TemplateGuidanceMeta } from "./orchestrate";
+import type { OrchestrationBase } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 
@@ -32,8 +32,6 @@ export interface GenerationInputPackage extends OrchestrationBase {
   variantId: string | null;
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
-  /** Scaffold-anchored template-library guidance metadata (observability). */
-  templateGuidanceMeta?: TemplateGuidanceMeta;
 }
 
 /**
@@ -44,8 +42,8 @@ export interface GenerationInputPackage extends OrchestrationBase {
  * **Lineage invariant:** if any field in here changes between two runs, the
  * resulting system prompt MAY differ. The optional fields cover signals that
  * end up in the dynamic context (theme tokens, custom instructions, palette,
- * design references, picked variant, template guidance ids) — leaving them
- * out caused two different prompts to share the same hash.
+ * design references, picked variant) — leaving them out caused two different
+ * prompts to share the same hash.
  */
 export function computeLineageHash(pkg: {
   userPrompt: string;
@@ -61,7 +59,6 @@ export function computeLineageHash(pkg: {
   componentPalette?: unknown;
   designReferences?: unknown;
   variantId?: string | null;
-  templateGuidanceIds?: string[] | null;
 }): string {
   const h = createHash("sha256");
   h.update(pkg.userPrompt);
@@ -77,7 +74,6 @@ export function computeLineageHash(pkg: {
   h.update(JSON.stringify(pkg.componentPalette ?? null));
   h.update(JSON.stringify(pkg.designReferences ?? null));
   h.update(pkg.variantId ?? "");
-  h.update(JSON.stringify(pkg.templateGuidanceIds ?? null));
   return h.digest("hex");
 }
 
@@ -106,12 +102,5 @@ export function serializePackageForDump(
     dynamicContextPruning: pkg.dynamicContextPruning,
     dynamicContextBlocks: pkg.dynamicContextBlocks,
     variantId: pkg.variantId,
-    templateGuidance: pkg.templateGuidanceMeta
-      ? {
-          enabled: pkg.templateGuidanceMeta.enabled,
-          templateIds: pkg.templateGuidanceMeta.templateIds,
-          entriesUsed: pkg.templateGuidanceMeta.guidanceEntries.length,
-        }
-      : null,
   };
 }

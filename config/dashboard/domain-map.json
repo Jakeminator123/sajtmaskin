@@ -148,46 +148,26 @@
         "src/lib/api/engine/chats/chat-message-stream-post.ts"
       ]
     },
-    "Template pipeline": {
-      "summary": "External-template research och de genererade artifacts som byggs från den. Research-data under data/ är inte runtime i sig, och current own-engine-prompten injicerar inte längre template-library-retrieval direkt. Kondenserad extern research kan dock nå modellen indirekt via scaffold-research/referenceTemplates.",
-      "canonicalPaths": [
-        "data/external-template-pipeline/",
-        "data/external-template-pipeline/raw-discovery/current/catalog.json",
-        "scripts/template-library/build-template-library.ts",
-        "scripts/template-library/hydrate-template-library-cache.ts",
-        "scripts/template-library/import-template-discovery.ts",
-        "src/lib/gen/template-library/template-library.generated.json",
-        "src/lib/gen/template-library/template-library-embeddings.json"
-      ],
-      "docsPaths": [
-        "docs/schemas/external-template-pipeline-contract.md",
-        "docs/README.md"
-      ],
-      "codeReaders": [
-        "src/lib/gen/template-library/search.ts",
-        "src/lib/gen/template-library/runtime-guidance.ts"
-      ]
-    },
     "Scaffold Lifecycle": {
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter -> dossier-kopplingar, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt beroendevaliderad scaffold-radering. Variants är det visuella uttrycket inom en scaffold; dossiers är build-time-källor som berikar varianterna statiskt via sourceTemplateIds.",
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter -> dossier-kopplingar, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, samt beroendevaliderad scaffold-radering. Variants är det visuella uttrycket inom en scaffold; dossiers är de modulära byggklossarna (data/dossiers/) som dynamiskt injiceras i system-prompten via embedding-baserat val.",
       "canonicalPaths": [
         "config/scaffold-variants/",
         "backoffice/pages/scaffold_lifecycle.py",
         "src/lib/gen/scaffold-variants/",
         "src/lib/gen/scaffolds/",
-        "scripts/template-library/build-template-library.ts",
-        "data/external-template-pipeline/reference-library/catalog.json"
+        "data/dossiers/"
       ],
       "docsPaths": [
         "docs/schemas/scaffold-contract.md",
-        "docs/schemas/external-template-pipeline-contract.md",
+        "docs/architecture/dossier-format.md",
         ".cursor/rules/scaffold-architecture.mdc"
       ],
       "codeReaders": [
         "backoffice/pages/scaffold_lifecycle.py",
         "src/lib/gen/scaffold-variants/registry.ts",
         "src/lib/gen/scaffold-variants/matcher.ts",
-        "scripts/scaffolds/derive-variants-from-dossiers.ts"
+        "scripts/scaffolds/auto-curate-variant-patterns.ts",
+        "scripts/scaffolds/generate-variant-embeddings.ts"
       ]
     },
     "Preview och versioner": {

@@ -72,8 +72,9 @@ export interface ScaffoldVariant {
   signaturePatterns?: ScaffoldVariantSignaturePatterns;
   themeTokens?: ScaffoldVariantThemeTokens;
   /**
-   * Curated dossier ids whose `selectedFiles` are eligible as structural
-   * references when `SAJTMASKIN_VARIANT_STRUCTURAL_FILES` is enabled.
+   * Curated dossier ids associated with this variant. Historically used by
+   * the legacy structural-files pipeline (removed 2026-04-17). Kept for
+   * backoffice display + cross-referencing in `data/dossiers/`.
    */
   sourceTemplateIds?: string[];
   default?: boolean;

@@ -13,7 +13,6 @@ CONFIG_NAV_PAGES = (
     "prompt-static",
     "ai_models",
     "Runtime scaffolds",
-    "Template pipeline",
     "Preview och versioner",
     "env-policy",
     "shadcn-audit",
@@ -26,7 +25,6 @@ CONFIG_NAV_PAGES = (
     "Orchestration Map",
     "Autofix & Kvalitet",
     "Mental modell",
-    "Artifacts pipeline",
 )
 
 

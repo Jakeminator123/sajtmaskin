@@ -159,6 +159,7 @@ scaffoldMode?
                  │   └─ → bästa embedding-match med score
                  │
                  └─ 3c. Merge-policy
+                     ├─ Keyword + embedding pekar på samma id → agreement (boostad confidence)
                      ├─ Stark keyword-match → keyword vinner
                      ├─ Generisk keyword (landing-page/base-nextjs) → embedding kan override
                      ├─ Safety guards (auth veto, app intent, portfolio)
@@ -167,7 +168,7 @@ scaffoldMode?
 
 | Meta-fält | Värden | Beskrivning |
 |-----------|--------|-------------|
-| `selectionMethod` | off, manual, persisted, keyword, embedding, default | Hur scaffolden valdes |
+| `selectionMethod` | off, manual, persisted, keyword, embedding, agreement, default | Hur scaffolden valdes (`agreement` = keyword + embedding pekar på samma scaffold) |
 | `selectionConfidence` | high, medium, low | Tillförlitlighet |
 | `keywordScores` | Record<id, score> | Poäng per scaffold |
 | `embeddingTopResult` | { id, score } \| null | Bästa embedding-träff |

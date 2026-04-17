@@ -33,7 +33,6 @@ class BackofficeContext:
     template_lib_json: Path
     eval_latest: Path
     schema_md: Path
-    scaffold_cli: Path
     error_log_csv: Path
     autofix_hook_ts: Path
 
@@ -116,7 +115,6 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
         / "template-library.generated.json",
         eval_latest=root / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json",
         schema_md=root / "docs" / "architecture" / "scaffold-schema.md",
-        scaffold_cli=scripts_dir / "scaffolds" / "scaffold_cli.py",
         error_log_csv=root / "logs" / "llm-segmentts-and-index" / "error-log.csv",
         autofix_hook_ts=root / "src" / "lib" / "hooks" / "chat" / "useAutoFix.ts",
     )
@@ -849,28 +847,4 @@ def extract_ts_union_values(text: str, type_name: str) -> list[str] | None:
     if not m:
         return None
     return re.findall(r'"([^"]+)"', m.group(1))
-
-
-def run_scaffold_cli(
-    ctx: BackofficeContext,
-    cmd: str,
-    extra_args: list[str] | None = None,
-) -> str:
-    args = [sys.executable, str(ctx.scaffold_cli), cmd]
-    if extra_args:
-        args.extend(extra_args)
-    try:
-        result = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            cwd=str(ctx.repo_root),
-            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
-        )
-        return result.stdout + result.stderr
-    except subprocess.TimeoutExpired:
-        return "Timeout after 300s"
-    except Exception as e:
-        return f"Error: {e}"
 

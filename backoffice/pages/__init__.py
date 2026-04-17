@@ -5,7 +5,6 @@ from typing import Callable
 
 from . import (
     ai_models,
-    artifacts_pipeline,
     autofix,
     codegen_core,
     codegen_directives,
@@ -27,7 +26,6 @@ from . import (
     scaffold_lifecycle,
     scaffolds,
     shadcn_audit,
-    template_pipeline,
     user_degraded_env,
 )
 
@@ -49,7 +47,6 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("prompt-static (legacy)", "Konfiguration", prompt_static.render),
     PageSpec("ai_models", "Konfiguration", ai_models.render),
     PageSpec("Runtime scaffolds", "Konfiguration", runtime_scaffolds.render),
-    PageSpec("Template pipeline", "Konfiguration", template_pipeline.render),
     PageSpec("Preview och versioner", "Konfiguration", preview.render),
     PageSpec("env-policy", "Konfiguration", env_policy.render),
     PageSpec("shadcn-audit", "Konfiguration", shadcn_audit.render),
@@ -64,15 +61,13 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Orchestration Map", "Overhead", orchestration.render),
     PageSpec("Autofix & Kvalitet", "Overhead", autofix.render),
     PageSpec("Mental modell", "Overhead", mental_model.render),
-    PageSpec("Artifacts pipeline", "Pipelines", artifacts_pipeline.render),
 )
 
 PAGE_MAP = {spec.name: spec for spec in PAGE_SPECS}
 PAGE_NAMES = tuple(spec.name for spec in PAGE_SPECS)
-PAGE_GROUPS = ("Konfiguration", "Overhead", "Pipelines")
+PAGE_GROUPS = ("Konfiguration", "Overhead")
 PAGE_QUERY_ALIASES = {
     "llm": "LLM-faser & runtime-sanning",
-    "artifacts": "Artifacts pipeline",
     "core": "prompt-core",
     "directives": "prompt-directives",
     "static": "prompt-static (legacy)",

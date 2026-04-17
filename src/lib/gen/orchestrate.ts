@@ -12,10 +12,7 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import {
   pickScaffoldVariantAsync,
   getVariantById,
-  selectVariantStructuralFiles,
-  selectCapabilityStructuralFiles,
   type ScaffoldVariant,
-  type VariantStructuralFilesSelection,
 } from "./scaffold-variants";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
@@ -60,24 +57,11 @@ import {
 import { deriveBuildSpec, isEffectiveInit, type BuildSpec } from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
 import { FEATURES } from "@/lib/config";
-import { getTemplateLibraryEntryById } from "./template-library/catalog";
-import { deriveTemplateRuntimeGuidance } from "./template-library/runtime-guidance";
-import type { TemplateLibraryRuntimeGuidance } from "./template-library/types";
 import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";
 import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
 import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
 import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
-
-export interface TemplateGuidanceMeta {
-  enabled: boolean;
-  templateIds: string[];
-  guidanceEntries: Array<{
-    id: string;
-    title: string;
-    guidance: TemplateLibraryRuntimeGuidance;
-  }>;
-}
 
 export interface OrchestrationInput {
   prompt: string;
@@ -158,7 +142,6 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
-  templateGuidanceMeta: TemplateGuidanceMeta;
 }
 
 function buildScaffoldQueryContext(
@@ -213,7 +196,6 @@ export function buildGenerationInputPackage(
     componentPalette: input.componentPalette ?? null,
     designReferences: input.designReferences ?? null,
     variantId: finalized.variantId,
-    templateGuidanceIds: finalized.templateGuidanceMeta?.templateIds ?? null,
   });
 
   return {
@@ -227,7 +209,6 @@ export function buildGenerationInputPackage(
     dynamicContextBlocks: finalized.dynamicContextBlocks,
     variantId: finalized.variantId,
     lineageHash,
-    templateGuidanceMeta: finalized.templateGuidanceMeta,
   };
 }
 
@@ -254,9 +235,6 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
       dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
       variantId: pkg.variantId ?? null,
-      templateGuidanceEnabled: pkg.templateGuidanceMeta?.enabled ?? false,
-      templateGuidanceIds: pkg.templateGuidanceMeta?.templateIds ?? [],
-      structuralRefsInjected: pkg.dynamicContext.includes("## Structural References"),
     },
   );
 }
@@ -493,124 +471,6 @@ export async function resolveOrchestrationBase(
   };
 }
 
-/**
- * Lightweight prompt-aware scoring for scaffold referenceTemplates.
- * Uses keyword overlap with prompt + brief + buildSpec signals to pick
- * the most relevant 1–2 refs instead of blindly taking the first ones.
- */
-function scoreReferenceRelevance(
-  ref: { id: string; title: string; categorySlug: string; qualityScore: number; strengths: string[] },
-  prompt: string,
-  brief: Record<string, unknown> | null | undefined,
-  referenceCategories: string[],
-): number {
-  let score = 0;
-  const promptLower = prompt.toLowerCase();
-
-  if (referenceCategories.includes(ref.categorySlug)) score += 5;
-
-  const haystack = [ref.title, ...ref.strengths].join(" ").toLowerCase();
-  const promptTokens = promptLower
-    .split(/\s+/)
-    .filter((t) => t.length > 3)
-    .slice(0, 20);
-  for (const token of promptTokens) {
-    if (haystack.includes(token)) score += 1;
-  }
-
-  if (brief) {
-    const briefText = [
-      typeof brief.oneSentencePitch === "string" ? brief.oneSentencePitch : "",
-      typeof brief.targetAudience === "string" ? brief.targetAudience : "",
-      typeof brief.primaryCallToAction === "string" ? brief.primaryCallToAction : "",
-    ].join(" ").toLowerCase();
-    const briefTokens = briefText.split(/\s+/).filter((t) => t.length > 3).slice(0, 15);
-    for (const token of briefTokens) {
-      if (haystack.includes(token)) score += 1.5;
-    }
-  }
-
-  score += ref.qualityScore / 100;
-
-  return score;
-}
-
-/**
- * Resolve scaffold-anchored template-library runtime guidance for init generations.
- * Reranks the scaffold's referenceTemplates by prompt/brief/buildSpec relevance
- * and picks the top 1–2 entries, using only compact runtimeGuidance.
- *
- * Also activates when the chat has a persistedScaffoldId but no previous files
- * (first real code generation after a contract gate turn).
- */
-function resolveTemplateGuidance(
-  resolvedScaffold: ScaffoldManifest | null,
-  generationMode: "init" | "followUp",
-  prompt?: string,
-  brief?: Record<string, unknown> | null,
-  referenceCategories?: string[],
-  isFirstCodeGeneration?: boolean,
-): TemplateGuidanceMeta {
-  const empty: TemplateGuidanceMeta = { enabled: false, templateIds: [], guidanceEntries: [] };
-  // GATE (2026-04-17): when the new dossier pipeline is active, skip the
-  // legacy generic template-guidance block entirely. Dossiers provide much
-  // richer per-integration guidance via ## Selected Dossier Instructions.
-  // This protects users from getting both the generic guidance + the
-  // specific dossier instructions in the same prompt.
-  if (FEATURES.useDossierPipeline) return empty;
-  if (!FEATURES.useRuntimeTemplateGuidance) return empty;
-  if (!isEffectiveInit({ generationMode, isFirstCodeGeneration })) return empty;
-  if (!resolvedScaffold?.research?.referenceTemplates?.length) return empty;
-
-  const allRefs = resolvedScaffold.research.referenceTemplates;
-  const scored = allRefs.map((ref) => ({
-    ref,
-    score: scoreReferenceRelevance(ref, prompt ?? "", brief, referenceCategories ?? []),
-  }));
-  scored.sort((a, b) => b.score - a.score);
-  const topRefs = scored.slice(0, 2);
-
-  const entries: TemplateGuidanceMeta["guidanceEntries"] = [];
-  for (const { ref } of topRefs) {
-    const entry = getTemplateLibraryEntryById(ref.id);
-    if (!entry) continue;
-    entries.push({
-      id: entry.id,
-      title: entry.title,
-      guidance: deriveTemplateRuntimeGuidance(entry),
-    });
-  }
-
-  return {
-    enabled: entries.length > 0,
-    templateIds: entries.map((e) => e.id),
-    guidanceEntries: entries,
-  };
-}
-
-function formatTemplateGuidanceForPrompt(meta: TemplateGuidanceMeta): string | undefined {
-  if (!meta.enabled || meta.guidanceEntries.length === 0) return undefined;
-
-  const lines: string[] = [];
-  lines.push("- External template guidance (adapt to the scaffold and user request, do not copy verbatim):");
-  for (const entry of meta.guidanceEntries) {
-    const g = entry.guidance;
-    if (g.styleRules.length > 0) {
-      lines.push(`  - **${entry.title}** style: ${g.styleRules.slice(0, 2).join("; ")}`);
-    }
-    if (g.sectionInventory.length > 0) {
-      lines.push(`  - Sections: ${g.sectionInventory.slice(0, 3).join(", ")}`);
-    }
-    if (g.avoidPatterns.length > 0) {
-      lines.push(`  - Avoid: ${g.avoidPatterns.slice(0, 2).join("; ")}`);
-    }
-    if (g.worldClassRubric.length > 0) {
-      lines.push(`  - Quality: ${g.worldClassRubric.slice(0, 2).join("; ")}`);
-    }
-  }
-  return lines.join("\n");
-}
-
 async function resolveScaffoldVariant(
   scaffoldId: string | null | undefined,
   prompt: string,
@@ -645,27 +505,6 @@ async function resolveScaffoldVariant(
   });
 }
 
-function mergeStructuralFiles(
-  variant: VariantStructuralFilesSelection | null,
-  capability: VariantStructuralFilesSelection | null,
-): VariantStructuralFilesSelection | null {
-  if (!variant && !capability) return null;
-  if (!variant) return capability;
-  if (!capability) return variant;
-  const usedSourcePaths = new Set(
-    variant.files.map((f) => `${f.sourceId}::${f.path}`),
-  );
-  const dedupedCapFiles = capability.files.filter(
-    (f) => !usedSourcePaths.has(`${f.sourceId}::${f.path}`),
-  );
-  const merged = [...variant.files, ...dedupedCapFiles];
-  return {
-    files: merged,
-    sourceIds: [...new Set(merged.map((f) => f.sourceId))],
-    totalChars: merged.reduce((sum, f) => sum + f.excerpt.length, 0),
-  };
-}
-
 /**
  * Build full system prompt from a resolved orchestration base.
  */
@@ -688,15 +527,6 @@ export async function finalizeOrchestrationPrompts(
 
   const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
 
-  const templateGuidanceMeta = resolveTemplateGuidance(
-    base.resolvedScaffold,
-    resolvedMode,
-    prompt,
-    brief,
-    base.buildSpec.referenceCategories,
-    input.isFirstCodeGeneration,
-  );
-  const templateGuidanceText = formatTemplateGuidanceForPrompt(templateGuidanceMeta);
   const scaffoldIdForVariant = base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId;
   const persistedVariant =
     input.persistedVariantId && scaffoldIdForVariant
@@ -711,22 +541,6 @@ export async function finalizeOrchestrationPrompts(
       resolvedMode,
       input.sessionSeed,
     ));
-  const effectiveInit = isEffectiveInit({
-    generationMode: resolvedMode,
-    isFirstCodeGeneration: input.isFirstCodeGeneration,
-  });
-  const variantStructuralFiles = (() => {
-    if (!effectiveInit) return null;
-    const fromVariant = selectVariantStructuralFiles(resolvedVariant, FEATURES.useVariantStructuralFiles);
-    const fromCapabilities = selectCapabilityStructuralFiles(
-      base.capabilities,
-      base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId,
-      fromVariant?.sourceIds,
-      FEATURES.useVariantStructuralFiles,
-    );
-    return mergeStructuralFiles(fromVariant, fromCapabilities);
-  })();
-
   const finalBuildIntent: BuildIntent = base.buildSpec.buildIntent;
 
   const dynamicOpts: DynamicContextOptions = {
@@ -747,9 +561,7 @@ export async function finalizeOrchestrationPrompts(
     userPrompt: input.prompt,
     generationMode: resolvedMode,
     sessionSeed: input.sessionSeed,
-    templateGuidance: templateGuidanceText,
     componentReferences: base.componentReferences,
-    variantStructuralFiles,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
   };
@@ -763,7 +575,6 @@ export async function finalizeOrchestrationPrompts(
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
     variantId: dynamic.variantId,
-    templateGuidanceMeta,
   };
 }
 

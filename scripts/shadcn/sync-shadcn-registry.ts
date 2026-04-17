@@ -15,7 +15,7 @@
  *   npx tsx scripts/shadcn/sync-shadcn-registry.ts --write   # update file
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const INDEX_URL = "https://ui.shadcn.com/r/index.json";
@@ -24,6 +24,11 @@ const COMPONENTS_PATH = join(
   process.cwd(),
   "src/lib/gen/data/shadcn-components.ts",
 );
+const LOCAL_UI_DIR = join(process.cwd(), "src/components/ui");
+
+function hasLocalFile(subpath: string): boolean {
+  return existsSync(join(LOCAL_UI_DIR, `${subpath}.tsx`));
+}
 
 const WRITE = process.argv.includes("--write");
 const JSON_OUTPUT = process.argv.includes("--json");
@@ -112,6 +117,12 @@ async function main() {
   console.log(`Found ${uiItems.length} registry:ui items.\n`);
 
   const registryMap: Record<string, string> = {};
+  // Track item names where upstream returned an empty files[] array.
+  // shadcn occasionally publishes registry:ui items with no files in the
+  // current style (e.g. radix-vega/form.json) — local entries pointing to
+  // these subpaths must NOT be reported as "removed", since they likely
+  // exist locally and only the upstream payload is incomplete.
+  const emptyUpstream = new Set<string>();
   let fetchOk = 0;
   let fetchFail = 0;
 
@@ -121,6 +132,7 @@ async function main() {
     );
     if (!detail?.files?.length) {
       console.warn(`  [skip] ${item.name}: no files or fetch failed`);
+      emptyUpstream.add(item.name);
       fetchFail++;
       continue;
     }
@@ -165,8 +177,16 @@ async function main() {
     const inRegistry = key in registryMap;
 
     if (!inExisting && inRegistry) {
+      // Don't suggest entries whose subpath isn't installed locally.
+      // SHADCN_COMPONENTS is the LLM-facing surface; offering imports
+      // for files that don't exist would just produce broken code.
+      if (!hasLocalFile(registryMap[key])) continue;
       added[key] = registryMap[key];
     } else if (inExisting && !inRegistry) {
+      // Suppress false positives: if the local entry's subpath corresponds
+      // to an upstream item that returned no files, we cannot prove it was
+      // removed — only that we couldn't extract its exports this run.
+      if (emptyUpstream.has(existing[key])) continue;
       removed[key] = existing[key];
     } else if (inExisting && inRegistry && existing[key] !== registryMap[key]) {
       changed[key] = { from: existing[key], to: registryMap[key] };

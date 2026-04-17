@@ -95,9 +95,23 @@ Before finishing each file, verify that EVERY symbol used in the file body has a
 
 - **Next.js builtins:** `Link` from `next/link`, `Image` from `next/image`, `notFound` from `next/navigation`, `useRouter` / `usePathname` / `useSearchParams` from `next/navigation`.
 - **React:** If using `useState`, `useEffect`, `useContext`, `useMemo`, `useCallback`, `createContext`, or `type ReactNode`, import them from `react`.
-- **shadcn/ui:** Every `<Button>`, `<Badge>`, `<Card>`, `<CardContent>`, `<Sheet>`, `<Input>`, `<Label>`, etc. needs an explicit import from `@/components/ui/<name>`. Never assume they are globally available.
+- **shadcn/ui (TOP autofix trigger — verify per file):** Every `<Button>`, `<Badge>`, `<Card>`, `<CardContent>`, `<CardHeader>`, `<CardTitle>`, `<CardDescription>`, `<Sheet>`, `<Input>`, `<Label>`, `<Tabs>`, `<Dialog>`, `<Avatar>`, `<Separator>`, `<Accordion>`, etc. needs an explicit import from `@/components/ui/<name>` (kebab-case file). It is NOT enough to import them in `app/layout.tsx` — every file that renders the JSX tag must import it. Missing shadcn imports is the #1 deterministic-autofix trigger; the host repair layer will add them, but every miss costs latency and risks instability upstream.
+- **Next.js metadata files (commonly missed):**
+  - `app/opengraph-image.tsx` and `app/twitter-image.tsx` MUST `import { ImageResponse } from "next/og"`.
+  - `app/sitemap.ts` MUST `import type { MetadataRoute } from "next"` (the return type is `MetadataRoute.Sitemap`).
+  - `app/robots.ts` MUST `import type { MetadataRoute } from "next"` (the return type is `MetadataRoute.Robots`).
+  - `app/manifest.ts` MUST `import type { MetadataRoute } from "next"` (the return type is `MetadataRoute.Manifest`).
+- **React types — single source of truth:** When typing `children` or other React node values, pick ONE style and stick to it: either `import type { ReactNode } from "react"` and use bare `ReactNode`, OR `import * as React from "react"` and use `React.ReactNode`. Never import `ReactNode` and then write `React.ReactNode` in the body — that creates an unused-import lint warning.
 - **Local modules:** If you create a Context provider (e.g. `CartProvider` with `useCart`), every file that calls `useCart()` MUST import it. Every file that references a type (e.g. `StoreProduct`) MUST import it.
 - **Provider wrapping:** If you create a React Context provider, you MUST wrap it around `{children}` in `app/layout.tsx`. Without this, any component calling the context hook will crash at runtime.
+
+### Default Export Checklist (every component / page / layout file)
+
+The repair layer can add a missing `export default`, but the safer path is to write it correctly the first time. Verify before finishing each file:
+
+- **Pages and route handlers under `app/`:** `app/page.tsx`, `app/<route>/page.tsx`, `app/layout.tsx`, `app/<route>/layout.tsx`, `app/loading.tsx`, `app/error.tsx`, `app/not-found.tsx`, `app/opengraph-image.tsx`, `app/twitter-image.tsx`, `app/sitemap.ts`, `app/robots.ts`, `app/manifest.ts` — each MUST have exactly one `export default`.
+- **Component files under `components/`:** every component file (e.g. `components/marketing-header.tsx`, `components/pricing-card.tsx`, `components/marketing-footer.tsx`) MUST end with either an inline `export default function Foo()` or an explicit trailing `export default Foo` — not both. Named-only exports (`export function Foo`) without a default are fine for utility files but NOT for top-level components imported as default elsewhere.
+- **Consistency check:** if file A does `import Foo from "@/components/foo"`, then `components/foo.tsx` MUST have `export default`. If file A does `import { Foo } from "@/components/foo"`, then `components/foo.tsx` MUST have a named `export function Foo` or `export const Foo`. Mixing causes silent build failures or undefined-component runtime errors.
 
 ### Known Pitfalls
 

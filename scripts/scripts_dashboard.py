@@ -24,7 +24,7 @@ def main() -> None:
     run_backoffice_app(
         title="Sajtmaskin Backoffice",
         legacy_source="scripts/scripts_dashboard.py",
-        initial_page="Artifacts pipeline",
+        initial_page="Översikt",
     )
 
 

@@ -20,34 +20,20 @@ const EMPTY_SCAFFOLD_RESEARCH: ScaffoldResearchFile = {
 
 let cachedScaffoldResearch: ScaffoldResearchFile | null = null;
 
-function isPipelineRebuildContext(): boolean {
-  const argv1 = (process.argv[1] ?? "").replace(/\\/g, "/");
-  return (
-    argv1.endsWith("/scripts/template-library/build-template-library.ts") ||
-    argv1.endsWith("/scripts/embeddings/generate-scaffold-embeddings.ts") ||
-    argv1.endsWith("/scripts/scaffolds/promote-to-scaffold.ts")
-  );
-}
-
 function loadScaffoldResearch(): ScaffoldResearchFile {
   if (cachedScaffoldResearch) return cachedScaffoldResearch;
-  const allowEmptyDuringRebuild = isPipelineRebuildContext();
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const rawResearch = require("./scaffold-research.generated.json") as
       | ScaffoldResearchFile
       | undefined;
-    if (!rawResearch && FEATURES.strictGeneratedArtifacts && !allowEmptyDuringRebuild) {
+    if (!rawResearch && FEATURES.strictGeneratedArtifacts) {
       throw new Error("scaffold-research.generated.json loaded empty content");
     }
-    const research = rawResearch ?? EMPTY_SCAFFOLD_RESEARCH;
-    if (FEATURES.strictGeneratedArtifacts && !allowEmptyDuringRebuild) {
-      validateReferenceTemplateIds(research, resolveTemplateLibraryEntryById);
-    }
-    cachedScaffoldResearch = research;
+    cachedScaffoldResearch = rawResearch ?? EMPTY_SCAFFOLD_RESEARCH;
   } catch (error) {
-    if (FEATURES.strictGeneratedArtifacts && !allowEmptyDuringRebuild) {
+    if (FEATURES.strictGeneratedArtifacts) {
       const reason = error instanceof Error ? error.message : String(error);
       throw new Error(
         `[scaffolds] Missing or unreadable generated scaffold research. ` +
@@ -60,14 +46,12 @@ function loadScaffoldResearch(): ScaffoldResearchFile {
   return cachedScaffoldResearch;
 }
 
-function resolveTemplateLibraryEntryById(id: string): unknown {
-  // Avoid importing template-library catalog during pipeline rebuild contexts.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { getTemplateLibraryEntryById } = require("../template-library/catalog") as
-    typeof import("../template-library/catalog");
-  return getTemplateLibraryEntryById(id);
-}
-
+/**
+ * Generic reference-template-id validator. Kept exported so the test suite can
+ * still exercise the shape, but no longer wired into runtime — the legacy
+ * template-library catalog it used to cross-check against was removed in the
+ * 2026-04-17 cleanup.
+ */
 export function validateReferenceTemplateIds(
   research: ScaffoldResearchFile,
   resolveTemplateById: TemplateResolver,
