@@ -1,3 +1,17 @@
+/**
+ * @deprecated Will be removed in Fas 9 (see docs/architecture/dossier-pipeline-roadmap.md).
+ *
+ * This regel-motor produces generic boilerplate strings ("primary entry section",
+ * "supporting content section", etc.) that were aggregated into ScaffoldVariant
+ * fields by `derive-variants-from-dossiers.ts`. Those variant fields were
+ * removed in Val A (2026-04-17). The remaining caller is
+ * `formatTemplateGuidanceForPrompt` in `orchestrate.ts`, used by the legacy
+ * `## Scaffold Research Priorities` block when `useDossierPipeline` is off.
+ *
+ * When all production traffic uses `FEATURES.useDossierPipeline` and the
+ * legacy `## Scaffold Research Priorities` block is no longer needed, this
+ * file (and `template-library.generated.json` consumers) can be deleted.
+ */
 import type {
   TemplateLibraryEntry,
   TemplateLibraryRuntimeGuidance,

@@ -1,3 +1,17 @@
+/**
+ * @deprecated Will be removed in Fas 9 — see docs/architecture/dossier-pipeline-roadmap.md.
+ *
+ * This script's BLUEPRINTS array is hand-edited and writes 21 variant JSON
+ * files under config/scaffold-variants/. After Val A (2026-04-17) it only
+ * writes the design-axes (label, fontPairings, signatureMotif, themeTokens,
+ * promptHints, sourceTemplateIds, default) — the generic guidance fields
+ * (styleRules, sectionInventory, avoidPatterns, worldClassRubric) were
+ * removed because they were noise.
+ *
+ * Variants are now effectively hand-curated. Don't run this script again
+ * unless you intentionally want to regenerate from blueprints. Edit the
+ * variant JSON files directly instead.
+ */
 import fs from "node:fs";
 import path from "node:path";
 

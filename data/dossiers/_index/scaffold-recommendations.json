@@ -1,6 +1,7 @@
 {
-  "generatedAt": "2026-04-17T15:17:41.387Z",
-  "generationMode": "merged",
+  "$schema": "../../../docs/schemas/strict/scaffold-recommendations.schema.json",
+  "generatedAt": "2026-04-17T16:26:12.451Z",
+  "generationMode": "auto",
   "scaffolds": {
     "base-nextjs": {
       "alwaysInclude": [],

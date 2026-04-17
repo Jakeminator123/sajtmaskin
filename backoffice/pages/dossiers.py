@@ -149,13 +149,21 @@ def _section_dossier_list() -> None:
             continue
         if filter_cat != "(alla)" and d["category"] != filter_cat:
             continue
+        files_declared = len(d.get("files", []))
+        files_present = d.get("_filesPresent", 0)
+        env_count = len(d.get("envVars", []))
+        deps_count = len(d.get("dependencies", []))
+        extracted = "✓ auto" if d.get("_extractedFromCache") else ("✓ hand" if status == "active" else "✗")
         rows.append({
             "id": d["id"],
             "kind": d["kind"],
             "category": d["category"],
             "label": d["label"],
             "status": status,
-            "files_present": d.get("_filesPresent", 0),
+            "files": f"{files_present}/{files_declared}",
+            "deps": deps_count,
+            "env": env_count,
+            "extracted": extracted,
             "primary_for": ", ".join(d.get("scaffoldFit", {}).get("primary", [])) or "—",
         })
     rows.sort(key=lambda r: (r["status"] != "active", r["category"], r["id"]))
@@ -269,6 +277,9 @@ def _section_pipeline_actions() -> None:
         if st.button("Promota draft-dossiers från curated-promotions.txt"):
             ok, out = _run_cmd(["npm", "run", "dossiers:promote"])
             (st.success if ok else st.error)(out[-1500:])
+        if st.button("Auto-extrahera filer + deps + env från _repo-cache"):
+            ok, out = _run_cmd(["npm", "run", "dossiers:extract-files"])
+            (st.success if ok else st.error)(out[-1500:])
 
     with cols[1]:
         st.markdown("**Långt — kör i terminal**")
@@ -278,6 +289,8 @@ def _section_pipeline_actions() -> None:
         st.caption("Hämtar detaljsidor med riktiga badges (~14 min, 419 templates)")
         st.code("npm run dossiers:embeddings", language="bash")
         st.caption("Embeddings för alla active dossiers (~30 sek, kräver OPENAI_API_KEY)")
+        st.code("npm run dossiers:clone-repos", language="bash")
+        st.caption("Shallow-cklona alla draft-repon till _repo-cache/ (~5 min, ~290 MB)")
         st.code("npm run dossiers:rebuild", language="bash")
         st.caption("index + recommend:merge + embeddings i sekvens")
 

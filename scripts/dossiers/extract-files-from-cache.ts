@@ -64,23 +64,38 @@ interface ExtractRule {
   contentMatch?: RegExp;
 }
 
+/**
+ * Path prefix variants we accept:
+ *   ""              standard
+ *   "src/"          common alt
+ *   "<workspace>/"  monorepo workspaces (frontend, landing, web, app, etc.)
+ *   "src/<workspace>/"  src + workspace
+ */
+const PREFIX = "(?:[a-z][a-z0-9-]+\\/)?(?:src\\/)?(?:[a-z][a-z0-9-]+\\/)?";
+
 const EXTRACT_RULES: ExtractRule[] = [
   // App Router middleware (auth pattern)
-  { match: /^(?:src\/)?middleware\.tsx?$/, kind: "middleware", role: "server" },
+  { match: new RegExp(`^${PREFIX}middleware\\.tsx?$`), kind: "middleware", role: "server" },
   // App Router root layout (provider wrappers, fonts, theme)
-  { match: /^(?:src\/)?app\/layout\.tsx$/, kind: "config", role: "shared" },
+  { match: new RegExp(`^${PREFIX}app\\/layout\\.tsx$`), kind: "config", role: "shared" },
   // App Router API routes — most valuable for integrations
-  { match: /^(?:src\/)?app\/api\/[^/]+\/route\.tsx?$/, kind: "api-route", role: "server" },
-  { match: /^(?:src\/)?app\/api\/[^/]+\/[^/]+\/route\.tsx?$/, kind: "api-route", role: "server" },
+  { match: new RegExp(`^${PREFIX}app\\/api\\/[^/]+\\/route\\.tsx?$`), kind: "api-route", role: "server" },
+  { match: new RegExp(`^${PREFIX}app\\/api\\/[^/]+\\/[^/]+\\/route\\.tsx?$`), kind: "api-route", role: "server" },
   // Page Router API routes (older Next)
-  { match: /^(?:src\/)?pages\/api\/[^/]+\.tsx?$/, kind: "api-route", role: "server" },
-  // Provider wrappers / hooks (typical auth/cms/payment patterns)
-  { match: /^(?:src\/)?lib\/(?:auth|stripe|supabase|clerk|cms|payments)\.tsx?$/, kind: "util", role: "shared" },
-  { match: /^(?:src\/)?(?:lib|utils)\/[a-z-]+\.tsx?$/, kind: "util", role: "shared" },
+  { match: new RegExp(`^${PREFIX}pages\\/api\\/[^/]+\\.tsx?$`), kind: "api-route", role: "server" },
+  // Provider wrappers (typical auth/cms/payment patterns)
+  { match: new RegExp(`^${PREFIX}lib\\/(?:auth|stripe|supabase|clerk|cms|payments|sanity|drizzle|prisma|db)\\.tsx?$`), kind: "util", role: "shared" },
+  // Sanity/CMS-specific config files
+  { match: new RegExp(`^${PREFIX}sanity\\/(?:client|env|loader|live)\\.tsx?$`), kind: "config", role: "shared" },
+  // Drizzle/Prisma schema/config
+  { match: new RegExp(`^${PREFIX}(?:drizzle|prisma)\\/(?:schema|client|migrate)\\.tsx?$`), kind: "config", role: "shared" },
+  { match: new RegExp(`^drizzle\\.config\\.tsx?$`), kind: "config", role: "shared" },
+  // Generic lib/utils helpers
+  { match: new RegExp(`^${PREFIX}(?:lib|utils)\\/[a-z-]+\\.tsx?$`), kind: "util", role: "shared" },
   // Hooks
-  { match: /^(?:src\/)?hooks\/use[A-Z][a-z-]+\.tsx?$/, kind: "hook", role: "client" },
+  { match: new RegExp(`^${PREFIX}hooks\\/use[A-Z][a-z-]+\\.tsx?$`), kind: "hook", role: "client" },
   // Specific component files in /components
-  { match: /^(?:src\/)?components\/[a-z-]+\.tsx?$/, kind: "component", role: "client" },
+  { match: new RegExp(`^${PREFIX}components\\/[a-z-]+\\.tsx?$`), kind: "component", role: "client" },
 ];
 
 const MAX_FILES = 5;

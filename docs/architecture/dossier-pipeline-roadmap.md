@@ -2,7 +2,7 @@
 
 **Skapat:** 2026-04-17. Trackar fasen "scaffolds + dossiers + kurationer + embeddings" till 100% färdigt.
 
-> **Status:** ~70% av "allt funkar". Fas 0-3 + 7 klara. Fas 4-6 + 8-9 återstår.
+> **Status:** ~85% av "allt funkar". Fas 0-3 + 5-7 klara. Fas 4 (manuell kuration), 8 (variant embeddings) och 9 (avveckling) återstår.
 
 ## Faser
 
@@ -10,12 +10,12 @@
 |---|---|---|
 | **0. Format + 2 manuella exempel** | ✅ KLAR | dossier-format.md, JSON Schema, 2 hand-curated dossiers (payments-stripe-checkout, ui-pricing-tier-table) |
 | **1. Legacy-städning** | ✅ KLAR | 97 gamla dossiers raderade. `data/external-template-pipeline/reference-library/` borttagen. tsconfig exclude lagt till. |
-| **2. Skript-infrastruktur** | ✅ KLAR | 9 npm-scripts (`dossiers:scrape/enrich/import/import-light/queue/promote/index/recommend/embeddings/rebuild`) |
+| **2. Skript-infrastruktur** | ✅ KLAR | 11 npm-scripts (`dossiers:scrape/enrich/import/import-light/queue/promote/clone-repos/extract-files/index/recommend/embeddings/rebuild`) |
 | **3. Skrap + enrich + import** | ✅ KLAR | 419 unika templates skrapade, alla enriched med riktiga Vercel-badges (useCases/stack/database/cms/auth/repo). 149 dossier-kandidater i 8 kategorier. |
-| **4. Kuration → riktiga dossiers** | ⏳ DELVIS | 27 draft-dossier-mappar skapade auto från `curated-promotions.txt`. Återstår: klona repon, plocka 2-5 filer, skriv instructions.md, sätt _status=active. ~16-22 h handarbete. |
-| **5. Master-index + embeddings** | ⏳ DELVIS | master.json + by-category.json + scaffold-recommendations.json funktionella (290 entries över 10 scaffolds). Embeddings väntar tills drafts blir active. |
-| **6. Runtime-migration** | ⏳ Återstår | orchestrate.ts läser `_index/master.json` + `dossier-embeddings.json` → cosine-search top N + recommendation-boost → injicerar i system-prompt. |
-| **7. Backoffice + docs sync** | ✅ KLAR | `backoffice/pages/dossiers.py` (6 flikar). Uppdaterad lane-doc + format-doc + glossary. |
+| **4. Kuration → riktiga dossiers** | ⏳ DELVIS | 27 drafts skapade. **20 av 27 auto-populerade** med 2-5 nyckelfiler + dependencies + envVars från `_repo-cache/` via `extract-files-from-cache.ts`. Återstår: skriv instructions.md per dossier + sätt `_status: "active"`. ~5-7 h handarbete (mot tidigare 16-22 h). |
+| **5. Master-index + embeddings** | ✅ KLAR | master.json + by-category.json + scaffold-recommendations.json (290 entries över 10 scaffolds, JSON Schema validerad). Embeddings genererade för 29 dossiers. |
+| **6. Runtime-migration** | ✅ KLAR | `orchestrate.ts` kallar `selectDossiersForRequest`. `system-prompt.ts` injicerar `## Available Dossiers` + `## Selected Dossier Instructions`. Feature-flag `useDossierPipeline` (default på i dev, av i prod). 6/6 unit tests grön. |
+| **7. Backoffice + docs sync** | ✅ KLAR | `backoffice/pages/dossiers.py` (6 flikar) med extraktion-status. JSON Schema för scaffold-recommendations. Lane-doc + format-doc + glossary uppdaterade. |
 | **8. Embedding-byte för variant + scaffold** | ⏳ Återstår | Variant `keywords` ersätts av embedding-matching. Scaffold matcher prioriterar embedding över keyword. |
 | **9. Avveckling av gammal pipeline** | ⏳ Återstår | Radera `runtime-guidance.ts` regelmotorn. Avveckla `template-library.generated.json` + `scaffold-research.generated.json`. Avveckla `derive-variants-from-dossiers.ts`. |
 

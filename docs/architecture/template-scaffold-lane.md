@@ -72,14 +72,25 @@ STEG 6a — REPO-CACHE  (npm run dossiers:clone-repos)
    Skip om sourceRepoUrl saknas eller redan klonad
    Tid: ~1-2 min för 27 repon, ~290 MB total
         │
-        ▼ (manuell kuration)
-STEG 6b — KOD + INSTRUCTIONS  (manuellt)
-   - Inspektera repon i _repo-cache/<id>/
-   - Plocka 2-5 nyckelfiler till data/dossiers/<id>/components/
-     (auth-flow, middleware, api-route, layout)
+        ▼
+STEG 6b — AUTO-EXTRAKTION  (npm run dossiers:extract-files)
+   scripts/dossiers/extract-files-from-cache.ts
+   För varje draft med _repo-cache:
+     - Plocka 2-5 nyckelfiler enligt prioriterade regex
+       (middleware, app/layout.tsx, app/api/*/route.ts, lib/{auth,stripe,...}.ts)
+     - Stöder src/ + monorepo-prefix (frontend/, landing/, web/, ...)
+     - Kopiera till data/dossiers/<id>/components/
+     - Parsa package.json → dependencies (filtrerar Next/React/etc.)
+     - Parsa .env.example → envVars (med kommentarer som purpose)
+     - Uppdatera manifest.json med files + deps + envVars + _extractedFromCache
+   Resultat (denna pass): 20 av 27 drafts populerade. Sparar ~7-8h handarbete.
+        │
+        ▼ (manuell kuration kvar)
+STEG 6c — INSTRUCTIONS + ACTIVATE  (manuellt)
+   - Verifiera extraherade filer är rätt
    - Skriv komplett instructions.md (When to use / How to integrate / UX rules / Avoid / Verification)
-   - Lägg till .env.example om providers-integration
    - Ändra _status till "active"
+   - Kör npm run dossiers:rebuild
         │
         ▼
 STEG 7 — INDEX  (npm run dossiers:index)
@@ -170,6 +181,7 @@ LLM-anrop
 | `build-curation-queue.ts` | `dossiers:queue` | Bygg läsbar kuration-kö |
 | `promote-skiss-to-dossier.ts` | `dossiers:promote` | Skapa draft-dossier från curated-promotions.txt |
 | `clone-draft-repos.ts` | `dossiers:clone-repos` | Shallow-clone alla draft-repon till _repo-cache/ |
+| `extract-files-from-cache.ts` | `dossiers:extract-files` | Plocka 2-5 nyckelfiler + deps + envVars från klonade repon → draft-dossier components/ |
 | `build-dossier-index.ts` | `dossiers:index` | Aggregera manifests → master.json + by-category.json |
 | `build-scaffold-recommendations.ts` | `dossiers:recommend[:merge|:force]` | Bygg möbleringsbart register |
 | `generate-dossier-embeddings.ts` | `dossiers:embeddings` | Embeddings för active dossiers |

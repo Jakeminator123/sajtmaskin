@@ -66,11 +66,14 @@ interface ScaffoldRecBucket {
 }
 
 interface RecommendationsFile {
+  $schema?: string;
   generatedAt: string;
   generationMode: "auto" | "merged" | "manual";
   scaffolds: Record<string, ScaffoldRecBucket>;
   notes?: string;
 }
+
+const SCHEMA_REF = "../../../docs/schemas/strict/scaffold-recommendations.schema.json";
 
 function generateAuto(master: MasterIndex): RecommendationsFile {
   const scaffolds: Record<string, ScaffoldRecBucket> = {};
@@ -90,6 +93,7 @@ function generateAuto(master: MasterIndex): RecommendationsFile {
     };
   }
   return {
+    $schema: SCHEMA_REF,
     generatedAt: new Date().toISOString(),
     generationMode: "auto",
     scaffolds,
@@ -103,6 +107,7 @@ function mergeWithExisting(
   validIds: Set<string>,
 ): RecommendationsFile {
   const merged: RecommendationsFile = {
+    $schema: SCHEMA_REF,
     generatedAt: new Date().toISOString(),
     generationMode: "merged",
     scaffolds: {},
