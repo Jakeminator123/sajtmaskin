@@ -67,6 +67,7 @@ import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/sha
 import { loadShadcnExamples, type ComponentReference } from "./data/shadcn-example-loader";
 import { fetchMissingRegistryExamples } from "./data/shadcn-registry-fetch";
 import { fetchCommunityBlocks } from "./data/community-registry-fetch";
+import { selectDossiersForRequest, type DossierSelectionResult } from "./dossiers";
 
 export interface TemplateGuidanceMeta {
   enabled: boolean;
@@ -147,6 +148,8 @@ export interface OrchestrationBase {
   buildSpec: BuildSpec;
   serializeMode: "inspirational" | "structural" | null;
   componentReferences: ComponentReference[];
+  /** Selected dossiers when FEATURES.useDossierPipeline is on, else null/undefined. Optional to keep test fixtures backward-compatible. */
+  dossierSelection?: DossierSelectionResult | null;
 }
 
 export interface FinalizedOrchestrationContext {
@@ -443,6 +446,37 @@ export async function resolveOrchestrationBase(
     });
   }
 
+  // Pool-modell: när dossier-pipen är på, plocka top dossiers via embedding +
+  // recommendation-boost. Misslyckad selektion (saknad fil, API-error) → null,
+  // system-prompt-block hoppas tyst över. Säker no-op om inga active dossiers.
+  let dossierSelection: DossierSelectionResult | null = null;
+  if (FEATURES.useDossierPipeline) {
+    try {
+      dossierSelection = await selectDossiersForRequest({
+        prompt,
+        brief,
+        scaffoldId: resolvedScaffold?.id ?? null,
+        scaffoldContext: resolvedScaffold
+          ? `Scaffold ${resolvedScaffold.label}. Tags: ${resolvedScaffold.tags.join(", ")}.`
+          : undefined,
+      });
+      if (dossierSelection.selected.length > 0) {
+        console.info("[orchestrate] dossiers_selected", {
+          count: dossierSelection.selected.length,
+          poolSize: dossierSelection.poolSize,
+          embeddingsUsed: dossierSelection.embeddingsUsed,
+          byCategory: dossierSelection.byCategory,
+        });
+      }
+    } catch (err) {
+      console.warn(
+        "[orchestrate] dossier selection failed — continuing without dossiers:",
+        err instanceof Error ? err.message : err,
+      );
+      dossierSelection = null;
+    }
+  }
+
   return {
     resolvedScaffold,
     scaffoldSelection,
@@ -455,6 +489,7 @@ export async function resolveOrchestrationBase(
     buildSpec,
     serializeMode: resolvedSerializeMode,
     componentReferences,
+    dossierSelection,
   };
 }
 
@@ -708,6 +743,7 @@ export async function finalizeOrchestrationPrompts(
     componentReferences: base.componentReferences,
     variantStructuralFiles,
     resolvedVariant,
+    dossierSelection: base.dossierSelection,
   };
 
   const dynamic = buildDynamicContext(dynamicOpts);

@@ -168,6 +168,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE: z.string().optional(),
   /** When "true"/"1", inject structural code references derived from scaffold variant sourceTemplateIds into init generations. */
   SAJTMASKIN_VARIANT_STRUCTURAL_FILES: z.string().optional(),
+  /** New dossier pipeline: read data/dossiers/_index/* and inject ## Available Dossiers + instructions into prompt. On in dev, off in prod by default. */
+  SAJTMASKIN_DOSSIER_PIPELINE: z.string().optional(),
   /** When true/1, init generations may plan multiple routes but only fully realize the primary route while extras become lightweight shells. */
   SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT: z.string().optional(),
   IMPLEMENT_UNDERSCORE_CLAW: z.string().optional(),

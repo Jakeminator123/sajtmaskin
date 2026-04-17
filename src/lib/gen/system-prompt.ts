@@ -51,6 +51,7 @@ import {
   estimateTokens,
   type PromptBudgetBlock,
 } from "./tokens";
+import type { DossierSelectionResult } from "./dossiers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
@@ -172,6 +173,8 @@ export interface DynamicContextOptions {
   componentReferences?: { name: string; code: string }[];
   /** Curated structural code references derived from the active scaffold variant. */
   variantStructuralFiles?: VariantStructuralFilesSelection | null;
+  /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
+  dossierSelection?: DossierSelectionResult | null;
 }
 
 function str(v: unknown): string {
@@ -217,6 +220,8 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^import reference/i, priority: 75 },
   { match: /^route plan$/i, priority: 90, required: true },
   { match: /^your toolkit$/i, priority: 85, required: true },
+  { match: /^available dossiers$/i, priority: 87 },
+  { match: /^selected dossier instructions$/i, priority: 84 },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
@@ -656,6 +661,46 @@ export function buildDynamicContext(
   }
   toolkitLines.push("");
   parts.push(...toolkitLines);
+
+  // ── Available Dossiers + Selected Instructions (pool-modellen) ────────
+  // Två block:
+  //   ## Available Dossiers — kompakt lista av valda legoklossar (LLM ser
+  //      vad som finns att stoppa in om prompten begär det)
+  //   ## Selected Dossier Instructions — full instructions.md per vald
+  //      dossier (When to use / How to integrate / UX rules / Avoid)
+  // Drivs av FEATURES.useDossierPipeline; opt-in. Tomt → block hoppas över.
+  const dossierSel = options.dossierSelection;
+  if (dossierSel && dossierSel.selected.length > 0) {
+    parts.push(
+      "## Available Dossiers",
+      "",
+      `Selected from a pool of ${dossierSel.poolSize} active dossiers (legoklossar) for this generation. Use only what the user's prompt actually needs.`,
+      "",
+    );
+    for (const sel of dossierSel.selected) {
+      const e = sel.entry;
+      const providers = e.providers && e.providers.length > 0
+        ? ` — providers: ${e.providers.map((p) => p.name).join(", ")}`
+        : "";
+      parts.push(`- **${e.label}** \`${e.id}\` (${e.kind}, ${e.category})${providers}`);
+      parts.push(`  - ${e.description}`);
+    }
+    parts.push("");
+
+    const withInstructions = dossierSel.selected.filter((s) => s.entry.instructions);
+    if (withInstructions.length > 0) {
+      parts.push(
+        "## Selected Dossier Instructions",
+        "",
+        "Concrete usage instructions for each selected dossier. Adapt to the user's request — do not paste blindly.",
+        "",
+      );
+      for (const sel of withInstructions) {
+        parts.push(`### ${sel.entry.label} (\`${sel.entry.id}\`)`, "");
+        parts.push(sel.entry.instructions!.trim(), "");
+      }
+    }
+  }
 
   if (routePlan && routePlan.routes.length > 0) {
     const routeRealization = buildSpec?.routeRealization ?? null;

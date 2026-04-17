@@ -1,0 +1,168 @@
+/**
+ * Dossier registry — disk-backed, mtime-cached.
+ *
+ * Reads:
+ *   data/dossiers/_index/master.json                  — full list
+ *   data/dossiers/_index/by-category.json             — active-only per category
+ *   data/dossiers/_index/scaffold-recommendations.json — möbleringsbart register
+ *   data/dossiers/_index/dossier-embeddings.json      — vectors (optional)
+ *   data/dossiers/<id>/instructions.md                — lazy-loaded per dossier
+ *
+ * Runtime callers should use `getActiveDossiers()` and friends rather than
+ * reading these files directly.
+ */
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+
+import type {
+  DossierEmbeddingsFile,
+  DossierEntry,
+  DossierStatus,
+  ScaffoldRecommendationsFile,
+} from "./types";
+
+const WORKSPACE_ROOT = process.cwd();
+const DOSSIER_ROOT = resolve(WORKSPACE_ROOT, "data", "dossiers");
+const INDEX_ROOT = join(DOSSIER_ROOT, "_index");
+
+const MASTER_PATH = join(INDEX_ROOT, "master.json");
+const BY_CATEGORY_PATH = join(INDEX_ROOT, "by-category.json");
+const RECOMMENDATIONS_PATH = join(INDEX_ROOT, "scaffold-recommendations.json");
+const EMBEDDINGS_PATH = join(INDEX_ROOT, "dossier-embeddings.json");
+
+interface MtimeCache<T> {
+  mtimeMs: number | null;
+  value: T | null;
+}
+
+let _master: MtimeCache<{ dossiers: DossierEntry[]; activeIds: Set<string> }> = { mtimeMs: null, value: null };
+let _recs: MtimeCache<ScaffoldRecommendationsFile> = { mtimeMs: null, value: null };
+let _embeddings: MtimeCache<DossierEmbeddingsFile> = { mtimeMs: null, value: null };
+const _instructionsCache = new Map<string, { mtimeMs: number; text: string }>();
+
+function fileMtime(path: string): number | null {
+  if (!existsSync(path)) return null;
+  try {
+    return statSync(path).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+function loadMaster(): { dossiers: DossierEntry[]; activeIds: Set<string> } {
+  const mtime = fileMtime(MASTER_PATH);
+  if (mtime !== null && _master.mtimeMs === mtime && _master.value) {
+    return _master.value;
+  }
+  if (mtime === null) {
+    const empty = { dossiers: [] as DossierEntry[], activeIds: new Set<string>() };
+    _master = { mtimeMs: null, value: empty };
+    return empty;
+  }
+  const parsed = JSON.parse(readFileSync(MASTER_PATH, "utf-8")) as { dossiers: DossierEntry[] };
+  const dossiers = parsed.dossiers ?? [];
+  const activeIds = new Set(
+    dossiers.filter((d) => (d._status ?? "active") === "active").map((d) => d.id),
+  );
+  const value = { dossiers, activeIds };
+  _master = { mtimeMs: mtime, value };
+  return value;
+}
+
+function loadRecommendations(): ScaffoldRecommendationsFile | null {
+  const mtime = fileMtime(RECOMMENDATIONS_PATH);
+  if (mtime !== null && _recs.mtimeMs === mtime && _recs.value) {
+    return _recs.value;
+  }
+  if (mtime === null) {
+    _recs = { mtimeMs: null, value: null };
+    return null;
+  }
+  _recs = {
+    mtimeMs: mtime,
+    value: JSON.parse(readFileSync(RECOMMENDATIONS_PATH, "utf-8")) as ScaffoldRecommendationsFile,
+  };
+  return _recs.value;
+}
+
+function loadEmbeddings(): DossierEmbeddingsFile | null {
+  const mtime = fileMtime(EMBEDDINGS_PATH);
+  if (mtime !== null && _embeddings.mtimeMs === mtime && _embeddings.value) {
+    return _embeddings.value;
+  }
+  if (mtime === null) {
+    _embeddings = { mtimeMs: null, value: null };
+    return null;
+  }
+  _embeddings = {
+    mtimeMs: mtime,
+    value: JSON.parse(readFileSync(EMBEDDINGS_PATH, "utf-8")) as DossierEmbeddingsFile,
+  };
+  return _embeddings.value;
+}
+
+function loadInstructions(dossierId: string): string {
+  const path = join(DOSSIER_ROOT, dossierId, "instructions.md");
+  if (!existsSync(path)) return "";
+  const mtime = statSync(path).mtimeMs;
+  const cached = _instructionsCache.get(dossierId);
+  if (cached && cached.mtimeMs === mtime) return cached.text;
+  const text = readFileSync(path, "utf-8");
+  _instructionsCache.set(dossierId, { mtimeMs: mtime, text });
+  return text;
+}
+
+// ─── PUBLIC API ────────────────────────────────────────────────────────
+
+/** All dossiers (active + draft) — for backoffice and tooling. */
+export function getAllDossiers(): DossierEntry[] {
+  return loadMaster().dossiers;
+}
+
+/** Active dossiers only — what runtime should ever surface. */
+export function getActiveDossiers(): DossierEntry[] {
+  const master = loadMaster();
+  return master.dossiers.filter((d) => master.activeIds.has(d.id));
+}
+
+export function getDossierById(id: string): DossierEntry | null {
+  return loadMaster().dossiers.find((d) => d.id === id) ?? null;
+}
+
+export function getDossierStatus(id: string): DossierStatus | null {
+  const master = loadMaster();
+  if (!master.dossiers.some((d) => d.id === id)) return null;
+  return master.activeIds.has(id) ? "active" : "draft";
+}
+
+/** Return scaffold-recommendations bucket for a scaffold-id, or null. */
+export function getScaffoldRecommendations(
+  scaffoldId: string,
+): { alwaysInclude: string[]; primaryRecommended: string[]; suggested: string[] } | null {
+  const recs = loadRecommendations();
+  if (!recs) return null;
+  const bucket = recs.scaffolds[scaffoldId];
+  if (!bucket) return null;
+  return {
+    alwaysInclude: bucket.alwaysInclude ?? [],
+    primaryRecommended: bucket.primaryRecommended ?? [],
+    suggested: bucket.suggested ?? [],
+  };
+}
+
+export function getDossierEmbeddings(): DossierEmbeddingsFile | null {
+  return loadEmbeddings();
+}
+
+/** Read instructions.md for a dossier (mtime-cached). */
+export function getDossierInstructions(id: string): string {
+  return loadInstructions(id);
+}
+
+/** Test helper / hot-reload — clear caches. */
+export function clearDossierRegistryCache(): void {
+  _master = { mtimeMs: null, value: null };
+  _recs = { mtimeMs: null, value: null };
+  _embeddings = { mtimeMs: null, value: null };
+  _instructionsCache.clear();
+}
