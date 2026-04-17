@@ -13,8 +13,23 @@
     }
   ],
   "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "dependencies": [
+    "@modelcontextprotocol/sdk",
+    "mcp-handler",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "app-shell",
@@ -45,5 +60,8 @@
     "app"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:04.146Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": false
 }

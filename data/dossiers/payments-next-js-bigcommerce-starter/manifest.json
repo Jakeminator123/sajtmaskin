@@ -12,9 +12,97 @@
       "url": "https://github.com/bigcommerce/nextjs-commerce"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "BIGCOMMERCE_CANONICAL_STORE_DOMAIN",
+      "required": true,
+      "purpose": "++++ Use the following exact values ++++"
+    },
+    {
+      "key": "BIGCOMMERCE_API_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "BIGCOMMERCE_CDN_HOSTNAME",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "COMPANY_NAME",
+      "required": true,
+      "purpose": "++++ Add custom values ++++"
+    },
+    {
+      "key": "TWITTER_CREATOR",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "TWITTER_SITE",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "SITE_NAME",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "BIGCOMMERCE_STORE_HASH",
+      "required": true,
+      "purpose": "++++ Store information ++++"
+    },
+    {
+      "key": "BIGCOMMERCE_CHANNEL_ID",
+      "required": true,
+      "purpose": "* Upsert site checkout URL (for the channel site): https://developer.bigcommerce.com/docs/rest-management/channels/channel-site-checkout-url#upsert-a-site's-checkout-url"
+    },
+    {
+      "key": "BIGCOMMERCE_ACCESS_TOKEN",
+      "required": true,
+      "purpose": "For more information, see https://developer.bigcommerce.com/api-docs/getting-started/api-accounts#oauth-scopes"
+    },
+    {
+      "key": "BIGCOMMERCE_CUSTOMER_IMPERSONATION_TOKEN",
+      "required": true,
+      "purpose": "Create a customer impersonation token (to sign customers in to a headless storefront): https://developer.bigcommerce.com/docs/storefront-auth/tokens/customer-impersonation-token"
+    }
+  ],
+  "dependencies": [
+    "@headlessui/react",
+    "@heroicons/react",
+    "clsx",
+    "geist",
+    "react-cookie"
+  ],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/revalidate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/constants.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/type-guards.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "ecommerce",
@@ -45,5 +133,8 @@
     "starter"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:06.799Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }

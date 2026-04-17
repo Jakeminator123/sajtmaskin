@@ -12,9 +12,67 @@
       "url": "https://github.com/vercel/commerce"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "COMPANY_NAME",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "SITE_NAME",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "SHOPIFY_REVALIDATION_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "SHOPIFY_STOREFRONT_ACCESS_TOKEN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "SHOPIFY_STORE_DOMAIN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@headlessui/react",
+    "@heroicons/react",
+    "clsx",
+    "geist",
+    "sonner"
+  ],
+  "files": [
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/revalidate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/constants.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/type-guards.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "ecommerce",
@@ -45,5 +103,8 @@
     "commerce"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:06.817Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }

@@ -12,9 +12,58 @@
       "url": "https://github.com/weaviate/BookRecs"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "WEAVIATE_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "WEAVIATE_CLUSTER_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "COHERE_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_COHERE_CONFIGURED",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@next/third-parties",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tooltip",
+    "class-variance-authority",
+    "clsx",
+    "lucide-react",
+    "react-spinners",
+    "tailwind-merge",
+    "weaviate-ts-client"
+  ],
+  "files": [
+    {
+      "path": "components/pages/api/recommendations.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "app-shell",
@@ -45,5 +94,8 @@
     "bookrecs"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:04.140Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }

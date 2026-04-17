@@ -13,8 +13,40 @@
     }
   ],
   "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "dependencies": [
+    "@vercel/analytics",
+    "autoprefixer",
+    "contentlayer",
+    "next-contentlayer",
+    "next-themes"
+  ],
+  "files": [
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/hello/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/components/analytics.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/mdx-components.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/mode-toggle.tsx",
+      "role": "client",
+      "kind": "component"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "blog",
@@ -45,5 +77,8 @@
     "contentlayer"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:07.051Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": false
 }

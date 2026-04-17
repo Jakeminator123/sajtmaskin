@@ -81,6 +81,7 @@
     "dossiers:queue": "npx tsx scripts/dossiers/build-curation-queue.ts",
     "dossiers:promote": "npx tsx scripts/dossiers/promote-skiss-to-dossier.ts",
     "dossiers:clone-repos": "npx tsx scripts/dossiers/clone-draft-repos.ts",
+    "dossiers:extract-files": "npx tsx scripts/dossiers/extract-files-from-cache.ts",
     "dossiers:recommend": "npx tsx scripts/dossiers/build-scaffold-recommendations.ts",
     "dossiers:recommend:merge": "npx tsx scripts/dossiers/build-scaffold-recommendations.ts --merge",
     "dossiers:recommend:force": "npx tsx scripts/dossiers/build-scaffold-recommendations.ts --force",

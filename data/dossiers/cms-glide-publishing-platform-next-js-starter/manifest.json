@@ -12,9 +12,55 @@
       "url": "https://github.com/GlideCMS/nextjs-demo-public"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "CONNECT_API_URL",
+      "required": true,
+      "purpose": "required variables"
+    },
+    {
+      "key": "CONNECT_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "MEDIA_BASE_PATH",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "ENVIRONMENT",
+      "required": true,
+      "purpose": "optional variables"
+    },
+    {
+      "key": "PREGENERATE_PATHS",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@glidecms/core-tools",
+    "@glidecms/deliver-core-dev",
+    "@glidecms/next-tools",
+    "@vercel/edge-config",
+    "axios",
+    "bootstrap",
+    "classnames",
+    "dotenv",
+    "html-react-parser",
+    "jquery",
+    "mitt",
+    "react-intersection-observer",
+    "vertx"
+  ],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "blog",
@@ -45,5 +91,8 @@
     "starter"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:04.567Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }

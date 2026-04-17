@@ -12,9 +12,53 @@
       "url": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "@vercel/analytics",
+    "@vercel/kv",
+    "ai",
+    "d3-scale",
+    "date-fns",
+    "framer-motion",
+    "react-use",
+    "sonner",
+    "streamdown",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/components/data.ts",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/icons.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/message.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/orders.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/tracker.tsx",
+      "role": "client",
+      "kind": "component"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "app-shell",
@@ -45,5 +89,8 @@
     "sdk"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:04.123Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }

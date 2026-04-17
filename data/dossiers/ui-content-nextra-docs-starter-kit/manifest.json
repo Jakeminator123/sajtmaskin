@@ -13,8 +13,17 @@
     }
   ],
   "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "dependencies": [
+    "nextra",
+    "nextra-theme-docs"
+  ],
+  "files": [
+    {
+      "path": "components/components/counters.tsx",
+      "role": "client",
+      "kind": "component"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "blog",
@@ -45,5 +54,8 @@
     "starter"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:07.066Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": false
 }

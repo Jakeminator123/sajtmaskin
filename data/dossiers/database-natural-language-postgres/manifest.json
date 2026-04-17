@@ -12,9 +12,101 @@
       "url": "https://github.com/vercel-labs/natural-language-postgres"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_PRISMA_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_URL_NO_SSL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_URL_NON_POOLING",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_USER",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_HOST",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_PASSWORD",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "POSTGRES_DATABASE",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-tooltip",
+    "@vercel/postgres",
+    "ai",
+    "autoprefixer",
+    "class-variance-authority",
+    "clsx",
+    "framer-motion",
+    "geist",
+    "lucide-react",
+    "ms",
+    "next-themes",
+    "recharts",
+    "sonner",
+    "tailwind-merge",
+    "vaul",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/lib/rechart-format.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/seed.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/types.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "app-shell",
@@ -45,5 +137,8 @@
     "language"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:04.610Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }

@@ -12,9 +12,52 @@
       "url": "https://github.com/clerk/nextjs-auth-starter-template"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "CLERK_SECRET_KEY",
+      "required": true,
+      "purpose": "To access your Clerk keys, first create a clerk.com account then open dashboard.clerk.com. Create a new Clerk application and copy the Keys from step 2 in the Next.js quickstart tab."
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
+      "required": true,
+      "purpose": "The route at which your authentication flow lives, for more information see: https://clerk.com/docs/deployments/clerk-environment-variables"
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL",
+      "required": true,
+      "purpose": "Redirect URLs for after authenticating, for more information see: https://clerk.com/docs/guides/custom-redirects"
+    },
+    {
+      "key": "NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@clerk/nextjs",
+    "@clerk/ui",
+    "clsx",
+    "prism-react-renderer",
+    "react-syntax-highlighter"
+  ],
+  "files": [
+    {
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/protected/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "auth-pages",
@@ -45,5 +88,8 @@
     "authentication"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:04.467Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }

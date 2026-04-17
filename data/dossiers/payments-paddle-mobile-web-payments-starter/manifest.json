@@ -12,9 +12,80 @@
       "url": "https://github.com/PaddleHQ/paddle-mobile-web-payments-starter"
     }
   ],
-  "envVars": [],
-  "dependencies": [],
-  "files": [],
+  "envVars": [
+    {
+      "key": "APPLE_TEAM_ID",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_BUNDLE_IDENTIFIER",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_REDIRECT_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_PADDLE_ENV",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@paddle/paddle-js",
+    "@radix-ui/react-accordion",
+    "@radix-ui/react-avatar",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-navigation-menu",
+    "@radix-ui/react-radio-group",
+    "@radix-ui/react-separator",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tabs",
+    "class-variance-authority",
+    "clsx",
+    "embla-carousel-react",
+    "lucide-react",
+    "motion",
+    "react-use-measure",
+    "sonner",
+    "tailwind-merge",
+    "vaul"
+  ],
+  "files": [
+    {
+      "path": "components/src/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/lib/format-billing-cycle.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/format-currency.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/format-trial-period.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/redirect.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "ecommerce",
@@ -45,5 +116,8 @@
     "in"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:19:07.000Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": true
 }
