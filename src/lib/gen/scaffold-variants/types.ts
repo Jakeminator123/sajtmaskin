@@ -35,12 +35,19 @@ export interface ScaffoldVariant {
   fontPairings: FontPairing[];
   signatureMotif: string;
   colorMode: "light" | "dark" | "either";
+  /**
+   * Short, scaffold-specific cues for the LLM (e.g. "Lead with editorial framing,
+   * not feature cards"). Only fields with high signal — generic guidance fields
+   * (styleRules, sectionInventory, avoidPatterns, worldClassRubric) were removed
+   * 2026-04-17 because the regelmotor-driven aggregation produced near-identical
+   * boilerplate across variants. See `docs/architecture/scaffold-variants-inventory.md`.
+   */
   promptHints: string[];
-  styleRules?: string[];
-  sectionInventory?: string[];
-  avoidPatterns?: string[];
-  worldClassRubric?: string[];
   themeTokens?: ScaffoldVariantThemeTokens;
+  /**
+   * Curated dossier ids whose `selectedFiles` are eligible as structural
+   * references when `SAJTMASKIN_VARIANT_STRUCTURAL_FILES` is enabled.
+   */
   sourceTemplateIds?: string[];
   default?: boolean;
 }

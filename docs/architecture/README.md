@@ -36,6 +36,8 @@ Detta ar ingangssidan for arkitekturdokumentationen.
 | [llm-signal-flow.md](./llm-signal-flow.md) | Hur signallager samspelar i kedjan |
 | [preview-white-screen-runbook.md](./preview-white-screen-runbook.md) | Felsokning av vit/tom preview |
 | [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fulla schema |
+| [scaffold-variants-inventory.md](./scaffold-variants-inventory.md) | Per-scaffold och per-variant inventarium med kvalitetsbedomning + cleanup-forslag (beslutsunderlag) |
+| [template-scaffold-lane.md](./template-scaffold-lane.md) | Botten-till-toppen-karta: Vercel-skrapan -> dossiers -> library -> variants -> runtime-prompt. Lane-ownership-dokument. |
 | [system-overview.md](./system-overview.md) | Hog niva: motor, builder, preview, deploy |
 | [repository-and-platform.md](./repository-and-platform.md) | Repohygien, plattformsgrans och nav |
 

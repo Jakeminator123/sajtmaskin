@@ -38,32 +38,6 @@
     "ring": "oklch(0.68 0.18 160)",
     "radius": "0.85rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Preserve clear information density with persistent navigation and scannable panels.",
-    "Use clear value hierarchy, product proof, and pricing rhythm before deep detail."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid turning dashboard references into generic marketing landing pages.",
-    "Avoid weak CTA hierarchy or pricing without surrounding trust signals."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Dense UI must still feel legible, fast, and trustworthy.",
-    "Commercial sections should feel conversion-ready without looking template-generic."
-  ],
   "sourceTemplateIds": [
     "saas-router-so-headless-forms-and-lead-routing",
     "saas-xata-typo-tolerant-full-text-search",

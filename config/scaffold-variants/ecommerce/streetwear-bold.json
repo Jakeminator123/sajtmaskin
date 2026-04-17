@@ -38,32 +38,6 @@
     "ring": "oklch(0.78 0.19 24)",
     "radius": "0.8rem"
   },
-  "styleRules": [
-    "Keep the strongest layout rhythm from the reference, but adapt it to the chosen runtime scaffold.",
-    "Prefer polished, production-looking App Router structure over screenshot-faithful clones.",
-    "Treat starter/boilerplate references as structural baselines, not final visual direction.",
-    "Preserve clear information density with persistent navigation and scannable panels."
-  ],
-  "sectionInventory": [
-    "primary entry section",
-    "supporting content section",
-    "overview metrics",
-    "filters or controls",
-    "table or chart area"
-  ],
-  "avoidPatterns": [
-    "Do not paste large reference code blocks verbatim into the generated site.",
-    "Do not let reference aesthetics override the user's actual topic, language, or route plan.",
-    "Avoid shipping starter-like visual defaults (generic cards, weak hierarchy, placeholder-feel copy).",
-    "Avoid turning dashboard references into generic marketing landing pages."
-  ],
-  "worldClassRubric": [
-    "Professional hierarchy above the fold: strong headline, CTA clarity, and balanced spacing.",
-    "Reusable sections with believable content, not generic lorem-style filler.",
-    "Accessible semantics and responsive layout decisions that survive a real Next.js preview.",
-    "Final output should feel custom and production-grade, not like a renamed starter.",
-    "Dense UI must still feel legible, fast, and trustworthy."
-  ],
   "sourceTemplateIds": [
     "ecommerce-blazity-enterprise-ecommerce-starter",
     "ecommerce-stripe-subscription-starter",

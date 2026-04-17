@@ -20,7 +20,6 @@ export interface VariantHints {
   signatureMotif: string;
   fontPairing: string | null;
   promptHints: string[];
-  styleRules: string[];
 }
 
 export function buildVariantHintsForBrief(
@@ -36,7 +35,6 @@ export function buildVariantHintsForBrief(
       ? `${variant.fontPairings[0].heading} + ${variant.fontPairings[0].body}`
       : null,
     promptHints: variant.promptHints.slice(0, 3),
-    styleRules: (variant.styleRules ?? []).slice(0, 3),
   };
 }
 
@@ -49,6 +47,5 @@ export function formatVariantHintsForPrompt(hints: VariantHints): string {
   ];
   if (hints.fontPairing) lines.push(`- Suggested font pairing: ${hints.fontPairing}`);
   if (hints.promptHints.length > 0) lines.push(`- Style cues: ${hints.promptHints.join(", ")}`);
-  if (hints.styleRules.length > 0) lines.push(`- Curated rules: ${hints.styleRules.join("; ")}`);
   return lines.join("\n");
 }

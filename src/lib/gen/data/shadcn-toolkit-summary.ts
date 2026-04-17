@@ -83,33 +83,8 @@ const SCAFFOLD_PRIMARY_GROUPS: Partial<Record<ScaffoldId, readonly string[]>> = 
   "base-nextjs": [],
 };
 
-const SECTION_TO_GROUPS: Record<string, string[]> = {
-  hero: ["Core primitives"],
-  pricing: ["Core primitives", "Data, charts & collections"],
-  testimonials: ["Core primitives", "Data, charts & collections"],
-  faq: ["Data, charts & collections"],
-  contact: ["Forms & inputs"],
-  auth: ["Forms & inputs", "Feedback & status"],
-  login: ["Forms & inputs"],
-  signup: ["Forms & inputs"],
-  checkout: ["Forms & inputs", "Feedback & status"],
-  search: ["Search, command & date picking"],
-  dashboard: ["Data, charts & collections", "Navigation & shell"],
-  settings: ["Forms & inputs", "Navigation & shell"],
-  analytics: ["Data, charts & collections"],
-  blog: ["Data, charts & collections", "Navigation & shell"],
-  gallery: ["Core primitives", "Overlays & reveals"],
-  sidebar: ["Navigation & shell"],
-  modal: ["Overlays & reveals"],
-  chart: ["Data, charts & collections"],
-  form: ["Forms & inputs"],
-  table: ["Data, charts & collections"],
-  calendar: ["Search, command & date picking"],
-};
-
 export interface ScaffoldToolkitContext {
   scaffoldId?: ScaffoldId | null;
-  sectionInventory?: string[];
 }
 
 function resolveRelevantGroups(ctx?: ScaffoldToolkitContext): Set<string> {
@@ -119,17 +94,6 @@ function resolveRelevantGroups(ctx?: ScaffoldToolkitContext): Set<string> {
   const scaffoldGroups = ctx.scaffoldId ? SCAFFOLD_PRIMARY_GROUPS[ctx.scaffoldId] : undefined;
   if (scaffoldGroups) {
     for (const g of scaffoldGroups) relevant.add(g);
-  }
-
-  if (ctx.sectionInventory) {
-    for (const section of ctx.sectionInventory) {
-      const lower = section.toLowerCase();
-      for (const [keyword, groups] of Object.entries(SECTION_TO_GROUPS)) {
-        if (lower.includes(keyword)) {
-          for (const g of groups) relevant.add(g);
-        }
-      }
-    }
   }
 
   return relevant;

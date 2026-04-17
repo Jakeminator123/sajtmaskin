@@ -115,30 +115,6 @@
         "bodyBackgroundImage": { "type": "string", "description": "CSS background-image for body (gradients, patterns)." }
       }
     },
-    "styleRules": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 10 },
-      "maxItems": 6,
-      "description": "Layout/surface/typography rules SPECIFIC to this variant. Not generic advice — describe what makes THIS variant's grid, surfaces, type, and CTAs distinct."
-    },
-    "sectionInventory": {
-      "type": "array",
-      "items": { "type": "string" },
-      "maxItems": 8,
-      "description": "Expected section types for this variant. E.g. 'hero with headline + CTA', 'social proof bar', 'metrics row'."
-    },
-    "avoidPatterns": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 10 },
-      "maxItems": 6,
-      "description": "What NOT to do for this variant. Be concrete — 'Avoid bubbly gradients' not 'Avoid bad design'."
-    },
-    "worldClassRubric": {
-      "type": "array",
-      "items": { "type": "string", "minLength": 10 },
-      "maxItems": 6,
-      "description": "Quality tests for the final output. Each item should be a pass/fail checkpoint."
-    },
     "sourceTemplateIds": {
       "type": "array",
       "items": { "type": "string" },

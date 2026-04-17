@@ -131,6 +131,7 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Agent Tools | Tool-definitioner för planner/agent-flöden | kanonisk |
 | Template-Library | Kuraterad referensartefakt byggd från externa Vercel-templates | kanonisk |
 | Dossier | Build-time researchartefakt per extern template | kanonisk |
+| Scaffold-Variant Inventarium | Beslutsunderlag (`docs/architecture/scaffold-variants-inventory.md`) — per-scaffold och per-variant tabell med kvalitet och förslag på cleanup. Inte runtime-data. | kanonisk |
 | ~~Capability Pack~~ | Borttaget. `buildCapabilityHints()` täcker behovet. | **borttaget** |
 | ~~Enhancement Pack~~ | Borttaget. Prompts styr via static core. | **borttaget** |
 | ~~DynamicContextAssembly~~ | Docs-synonym | **döda** |

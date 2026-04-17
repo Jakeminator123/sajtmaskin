@@ -2,6 +2,8 @@
 
 Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod är source of truth.
 
+> **Beslutsunderlag:** För konkret per-scaffold och per-variant inventarium med kvalitetsbedömning + förslag på vad som bör tas bort/slås ihop, se [`scaffold-variants-inventory.md`](./scaffold-variants-inventory.md).
+
 ---
 
 ## Genomförda förenklingar

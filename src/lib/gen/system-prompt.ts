@@ -192,7 +192,6 @@ function extractCapabilityHintLines(capabilityHints?: string): string[] {
 
 function buildShadcnToolkitSummary(ctx?: {
   scaffoldId?: ScaffoldId | null;
-  sectionInventory?: string[];
 }): string[] {
   return buildRegistryDrivenShadcnToolkitSummary(
     ctx?.scaffoldId ? ctx : undefined,
@@ -531,29 +530,12 @@ export function buildDynamicContext(
         parts.push(`  - ${hint}`);
       }
     }
-    if ((effectiveVariant.styleRules?.length ?? 0) > 0) {
-      parts.push("- **Style rules from curated references:**");
-      for (const rule of effectiveVariant.styleRules!.slice(0, 3)) {
-        parts.push(`  - ${rule}`);
-      }
-    }
-    if ((effectiveVariant.sectionInventory?.length ?? 0) > 0) {
-      parts.push(
-        `- **Section inventory to favor:** ${effectiveVariant.sectionInventory!.slice(0, 4).join(", ")}`,
-      );
-    }
-    if ((effectiveVariant.avoidPatterns?.length ?? 0) > 0) {
-      parts.push("- **Avoid patterns:**");
-      for (const pattern of effectiveVariant.avoidPatterns!.slice(0, 2)) {
-        parts.push(`  - ${pattern}`);
-      }
-    }
-    if ((effectiveVariant.worldClassRubric?.length ?? 0) > 0) {
-      parts.push("- **World-class quality bar:**");
-      for (const rubric of effectiveVariant.worldClassRubric!.slice(0, 3)) {
-        parts.push(`  - ${rubric}`);
-      }
-    }
+    // Variants previously surfaced styleRules / sectionInventory / avoidPatterns /
+    // worldClassRubric blocks. They were removed 2026-04-17 because the deterministic
+    // aggregator in derive-variants-from-dossiers.ts produced near-identical generic
+    // boilerplate across variants and added noise without signal. The scaffold's own
+    // `qualityChecklist` and `research.upgradeTargets` cover the same intent with
+    // scaffold-specific content. See `docs/architecture/scaffold-variants-inventory.md`.
     const themeTokenLines = formatThemeTokenLines(effectiveVariant);
     if (themeTokenLines.length > 0) {
       parts.push(
@@ -575,7 +557,7 @@ export function buildDynamicContext(
     "When multiple sources suggest different colors, fonts, or visual direction, follow this order:",
     "1. User-locked theme tokens (if set in builder UI) — absolute, never override",
     "2. Brief visual direction (colorPalette, typography, tone, domainProfile) — primary design intent",
-    "3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, style rules) — fallback when brief is silent",
+    "3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, prompt hints) — fallback when brief is silent",
     "4. Directive defaults — placeholder values from directive files, used when neither brief nor variant provides guidance",
     "",
   );
@@ -662,7 +644,6 @@ export function buildDynamicContext(
     "- shadcn/ui (registry-synced local layer; import from `@/components/ui/<subpath>`):",
     ...buildShadcnToolkitSummary({
       scaffoldId: resolvedScaffold?.id ?? null,
-      sectionInventory: effectiveVariant?.sectionInventory,
     }),
   ];
   if (capabilityLines.length > 0) {

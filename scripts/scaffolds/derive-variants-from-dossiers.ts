@@ -722,14 +722,6 @@ const BLUEPRINTS: VariantBlueprint[] = [
   },
 ];
 
-function unique(values: string[]): string[] {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
-}
-
-function limit(values: string[], max: number): string[] {
-  return unique(values).slice(0, max);
-}
-
 function normalize(value: string): string {
   return value.toLowerCase();
 }
@@ -783,28 +775,16 @@ function scoreEntry(entry: TemplateLibraryEntry, blueprint: VariantBlueprint): n
   return score;
 }
 
-function aggregateGuidance(
-  entries: TemplateLibraryEntry[],
-): Pick<
-  ScaffoldVariant,
-  "styleRules" | "sectionInventory" | "avoidPatterns" | "worldClassRubric" | "sourceTemplateIds"
-> {
-  return {
-    styleRules: limit(entries.flatMap((entry) => entry.runtimeGuidance?.styleRules ?? []), 4),
-    sectionInventory: limit(
-      entries.flatMap((entry) => entry.runtimeGuidance?.sectionInventory ?? []),
-      5,
-    ),
-    avoidPatterns: limit(
-      entries.flatMap((entry) => entry.runtimeGuidance?.avoidPatterns ?? []),
-      4,
-    ),
-    worldClassRubric: limit(
-      entries.flatMap((entry) => entry.runtimeGuidance?.worldClassRubric ?? []),
-      5,
-    ),
-    sourceTemplateIds: entries.slice(0, 4).map((entry) => entry.id),
-  };
+/**
+ * Pick top scoring dossier ids — kept around so variants can list their
+ * `sourceTemplateIds` (used by `selectVariantStructuralFiles` to surface real
+ * code references). The previous `aggregateGuidance` step that flattened
+ * `runtimeGuidance.styleRules` / `sectionInventory` / `avoidPatterns` /
+ * `worldClassRubric` was removed 2026-04-17 — see
+ * `docs/architecture/scaffold-variants-inventory.md` Val A.
+ */
+function pickSourceTemplateIds(entries: TemplateLibraryEntry[]): string[] {
+  return entries.slice(0, 4).map((entry) => entry.id);
 }
 
 function buildVariantFromBlueprint(
@@ -818,7 +798,6 @@ function buildVariantFromBlueprint(
     .slice(0, 4)
     .map((entry) => entry.entry);
 
-  const guidance = aggregateGuidance(ranked);
   return {
     id: blueprint.id,
     scaffoldId: blueprint.scaffoldId,
@@ -830,11 +809,7 @@ function buildVariantFromBlueprint(
     colorMode: blueprint.colorMode,
     promptHints: blueprint.promptHints,
     themeTokens: blueprint.themeTokens,
-    styleRules: guidance.styleRules,
-    sectionInventory: guidance.sectionInventory,
-    avoidPatterns: guidance.avoidPatterns,
-    worldClassRubric: guidance.worldClassRubric,
-    sourceTemplateIds: guidance.sourceTemplateIds,
+    sourceTemplateIds: pickSourceTemplateIds(ranked),
     default: blueprint.default ?? false,
   };
 }
