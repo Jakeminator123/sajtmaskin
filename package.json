@@ -66,6 +66,7 @@
     "scaffolds:hydrate": "python scripts/scaffolds/scaffold_cli.py hydrate",
     "scaffolds:build": "python scripts/scaffolds/scaffold_cli.py build",
     "scaffolds:embeddings": "python scripts/scaffolds/scaffold_cli.py embeddings",
+    "scaffolds:variant-embeddings": "npx tsx scripts/scaffolds/generate-variant-embeddings.ts",
     "scaffolds:eval": "python scripts/scaffolds/scaffold_cli.py eval",
     "scaffolds:verify": "python scripts/scaffolds/scaffold_cli.py verify",
     "scaffolds:all": "python scripts/scaffolds/scaffold_cli.py all",

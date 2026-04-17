@@ -1,5 +1,6 @@
 export { getAllScaffoldVariants, getVariantById, getVariantsForScaffold } from "./registry";
-export { pickScaffoldVariant } from "./matcher";
+export { pickScaffoldVariant, pickScaffoldVariantAsync } from "./matcher";
+export type { PickScaffoldVariantAsyncOptions } from "./matcher";
 export {
   selectVariantStructuralFiles,
   selectCapabilityStructuralFiles,

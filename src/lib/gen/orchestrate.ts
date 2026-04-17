@@ -552,6 +552,12 @@ function resolveTemplateGuidance(
   isFirstCodeGeneration?: boolean,
 ): TemplateGuidanceMeta {
   const empty: TemplateGuidanceMeta = { enabled: false, templateIds: [], guidanceEntries: [] };
+  // GATE (2026-04-17): when the new dossier pipeline is active, skip the
+  // legacy generic template-guidance block entirely. Dossiers provide much
+  // richer per-integration guidance via ## Selected Dossier Instructions.
+  // This protects users from getting both the generic guidance + the
+  // specific dossier instructions in the same prompt.
+  if (FEATURES.useDossierPipeline) return empty;
   if (!FEATURES.useRuntimeTemplateGuidance) return empty;
   if (!isEffectiveInit({ generationMode, isFirstCodeGeneration })) return empty;
   if (!resolvedScaffold?.research?.referenceTemplates?.length) return empty;
