@@ -53,5 +53,26 @@
   },
   "files.autoSave": "off",
   "git.autofetch": true,
-  "git.autofetchPeriod": 0
+  "git.autofetchPeriod": 0,
+  "terminal.integrated.defaultProfile.windows": "PowerShell 7",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell 7": {
+      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": ["-NoLogo"],
+      "icon": "terminal-powershell"
+    },
+    "PowerShell 5 (Windows PowerShell)": {
+      "source": "PowerShell",
+      "icon": "terminal-powershell"
+    },
+    "Command Prompt": {
+      "path": ["${env:windir}\\Sysnative\\cmd.exe", "${env:windir}\\System32\\cmd.exe"],
+      "args": [],
+      "icon": "terminal-cmd"
+    }
+  },
+  "terminal.integrated.automationProfile.windows": {
+    "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+    "args": ["-NoLogo", "-NoProfile"]
+  }
 }
