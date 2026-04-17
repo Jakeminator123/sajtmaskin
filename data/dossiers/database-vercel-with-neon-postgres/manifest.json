@@ -14,7 +14,33 @@
   ],
   "envVars": [],
   "dependencies": [],
-  "files": [],
+  "files": [
+    {
+      "path": "components/landing/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/landing/app/api/authorize/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/landing/app/api/health/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/landing/app/api/list-tools/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/landing/app/api/register/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "app-shell",
@@ -45,5 +71,8 @@
     "with"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:24:26.869Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": false
 }

@@ -14,7 +14,33 @@
   ],
   "envVars": [],
   "dependencies": [],
-  "files": [],
+  "files": [
+    {
+      "path": "components/examples/auth/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/examples/i18n-routing/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/examples/with-axiom/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/examples/with-clerk/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/examples/with-supertokens/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "ecommerce",
@@ -44,5 +70,8 @@
     "medusa"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:24:28.917Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": false
 }

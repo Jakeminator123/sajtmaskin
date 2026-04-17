@@ -14,7 +14,33 @@
   ],
   "envVars": [],
   "dependencies": [],
-  "files": [],
+  "files": [
+    {
+      "path": "components/drizzle-kit/src/utils/certs.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/drizzle-kit/src/utils/words.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/drizzle-orm/src/pg-core/utils/array.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/drizzle-orm/src/pg-core/utils/index.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/drizzle-orm/type-tests/utils/neon-auth-token.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
   "scaffoldFit": {
     "primary": [
       "app-shell",
@@ -45,5 +71,8 @@
     "drizzle"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "draft",
+  "_extractedAt": "2026-04-17T16:24:26.854Z",
+  "_extractedFromCache": true,
+  "_envExampleCopied": false
 }

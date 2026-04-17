@@ -56,6 +56,21 @@
       "path": "components/app/api/protected/route.ts",
       "role": "server",
       "kind": "api-route"
+    },
+    {
+      "path": "components/app/components/code-switcher.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/app/components/theme.ts",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/app/components/user-details.tsx",
+      "role": "client",
+      "kind": "component"
     }
   ],
   "scaffoldFit": {
@@ -89,7 +104,7 @@
   ],
   "_source": "vercel-light-catalog",
   "_status": "draft",
-  "_extractedAt": "2026-04-17T16:19:04.467Z",
+  "_extractedAt": "2026-04-17T16:24:26.731Z",
   "_extractedFromCache": true,
   "_envExampleCopied": true
 }
