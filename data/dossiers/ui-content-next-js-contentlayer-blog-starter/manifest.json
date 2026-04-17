@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-content-next-js-contentlayer-blog-starter",
+  "kind": "ui-section",
+  "category": "ui-content",
+  "label": "Next.js Contentlayer Blog Starter",
+  "description": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.",
+  "summary": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/nextjs-contentlayer. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/shadcn/next-contentlayer"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-contentlayer",
+  "sourceRepoUrl": "https://github.com/shadcn/next-contentlayer",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ui-content",
+    "ui-section",
+    "next",
+    "js",
+    "nextjs",
+    "contentlayer"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

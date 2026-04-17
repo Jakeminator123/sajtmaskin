@@ -1,0 +1,58 @@
+/*
+ * Curated list of skiss-ids to promote into draft dossiers.
+ *
+ * Hand-picked from data/dossiers/_raw/_curation-queue.md after enriched
+ * import (real Vercel badges, not title-guessed). Choose the highest-quality
+ * representatives across providers/categories.
+ *
+ * Each non-comment line: <skiss-id>
+ * Lines starting with # are comments.
+ *
+ * Run:  npm run dossiers:promote
+ */
+
+# === AUTH (5) — Clerk, Auth0, NextAuth, Supabase Auth, multi-tenant ===
+auth-clerk-authentication-starter
+auth-saastart-auth0-next-js-saas-starter-kit
+auth-platforms-starter-kit
+auth-multi-tenant-ai-native-todo-list-app-with-nile
+auth-b2b-multi-tenant-starter-kit
+
+# === PAYMENTS (5) — Stripe, Paddle, ecommerce ===
+payments-next-js-commerce
+payments-paddle-mobile-web-payments-starter
+payments-medusa-next-js-ecommerce-store-starter
+payments-next-js-bigcommerce-starter
+payments-next-js-saleor-commerce
+
+# === DATABASE (8) — Postgres, Supabase, Mongo, Drizzle, Prisma, Redis, Turso ===
+database-cockroachdb-prisma-next-js-starter
+database-mongodb-atlas-starter
+database-natural-language-postgres
+database-next-js-prisma-postgres-auth-starter
+database-postgres-drizzle-next-js-starter
+database-supabase-starter
+database-turso-per-user-starter
+database-vercel-with-neon-postgres
+
+# === CMS (6) — Sanity, Payload, Contentful, Notion, WordPress, Builder ===
+cms-clean-next-js-sanity-app
+cms-builder-io-personalization-starter
+cms-isr-blog-with-next-js-and-wordpress
+cms-glide-publishing-platform-next-js-starter
+
+# === REALTIME (2) ===
+realtime-ably-and-next-js-starter-kit
+realtime-anycable-real-time-starter-kit
+
+# === AI (5) — chatbot, RAG, voice, agents ===
+ai-azure-ai-rag-chatbot
+ai-bookrecs-next-js-weaviate-starter
+ai-chatgpt-app-with-next-js
+ai-ai-sdk-image-generator
+ai-automatic-tool-call-roundtrips-with-vercel-ai-sdk
+
+# === UI-CONTENT (3) — blog, docs ===
+ui-content-blog-starter-kit
+ui-content-next-js-contentlayer-blog-starter
+ui-content-nextra-docs-starter-kit

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-content-nextra-docs-starter-kit",
+  "kind": "ui-section",
+  "category": "ui-content",
+  "label": "Nextra: Docs Starter Kit",
+  "description": "Simple, powerful and flexible markdown-powered docs site. Built with Next.js.",
+  "summary": "Simple, powerful and flexible markdown-powered docs site. Built with Next.js.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/documentation-starter-kit. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/shuding/nextra-docs-template"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/documentation-starter-kit",
+  "sourceRepoUrl": "https://github.com/shuding/nextra-docs-template",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ui-content",
+    "ui-section",
+    "next",
+    "js",
+    "documentation",
+    "starter"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "realtime-anycable-real-time-starter-kit",
+  "kind": "integration",
+  "category": "realtime",
+  "label": "AnyCable Real-time Starter Kit",
+  "description": "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.",
+  "summary": "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/anycable. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/anycable/vercel-anycable-demo"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "blog",
+      "content-site",
+      "portfolio",
+      "auth-pages",
+      "landing-page",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/anycable",
+  "sourceRepoUrl": "https://github.com/anycable/vercel-anycable-demo",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "realtime",
+    "integration",
+    "next",
+    "js",
+    "anycable"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-saastart-auth0-next-js-saas-starter-kit",
+  "kind": "integration",
+  "category": "auth",
+  "label": "SaaStart: Auth0 + Next.js SaaS Starter Kit",
+  "description": "The Auth0 SaaS Starter Kit is a full-stack Next.js application designed to help you get started building B2B SaaS with Auth0 by Okta.",
+  "summary": "The Auth0 SaaS Starter Kit is a full-stack Next.js application designed to help you get started building B2B SaaS with Auth0 by Okta.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/auth0-nextjs-saas-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/nvm-sh/nvm"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/auth0-nextjs-saas-starter",
+  "sourceRepoUrl": "https://github.com/nvm-sh/nvm",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "auth",
+    "integration",
+    "next",
+    "js",
+    "auth0",
+    "nextjs"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

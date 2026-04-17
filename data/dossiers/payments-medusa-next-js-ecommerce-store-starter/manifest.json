@@ -1,0 +1,48 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-medusa-next-js-ecommerce-store-starter",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Medusa Next.js Ecommerce Store Starter",
+  "description": "Ecommerce store template built with Next.js App Router, Medusa and TailwindCSS, with features like Algolia search and Stripe checkout.",
+  "summary": "Ecommerce store template built with Next.js App Router, Medusa and TailwindCSS, with features like Algolia search and Stripe checkout.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/medusa. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel/next.js"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/medusa",
+  "sourceRepoUrl": "https://github.com/vercel/next.js",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "payments",
+    "integration",
+    "next",
+    "js",
+    "medusa"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

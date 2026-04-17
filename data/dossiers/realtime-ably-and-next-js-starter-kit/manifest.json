@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "realtime-ably-and-next-js-starter-kit",
+  "kind": "integration",
+  "category": "realtime",
+  "label": "Ably and Next.js Starter Kit",
+  "description": "Ably + Next.js starter for serverless WebSocket, real-time notifications, activity streams, chat, collaborative multiplayer experiences etc.",
+  "summary": "Ably + Next.js starter for serverless WebSocket, real-time notifications, activity streams, chat, collaborative multiplayer experiences etc.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/ably-nextjs-starter-kit. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/ably/"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "blog",
+      "content-site",
+      "portfolio",
+      "auth-pages",
+      "landing-page",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/ably-nextjs-starter-kit",
+  "sourceRepoUrl": "https://github.com/ably/",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "realtime",
+    "integration",
+    "next",
+    "js",
+    "ably",
+    "nextjs"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

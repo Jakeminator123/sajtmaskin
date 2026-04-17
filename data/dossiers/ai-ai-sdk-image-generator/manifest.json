@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-ai-sdk-image-generator",
+  "kind": "integration",
+  "category": "ai",
+  "label": "AI SDK Image Generator",
+  "description": "An open-source AI image generator built with Next.js, the AI SDK, and various AI providers (Replicate, Fireworks, Google Vertex AI, OpenAI)",
+  "summary": "An open-source AI image generator built with Next.js, the AI SDK, and various AI providers (Replicate, Fireworks, Google Vertex AI, OpenAI)\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/ai-sdk-image-generator. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel-labs/ai-sdk-image-generator"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/ai-sdk-image-generator",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-image-generator",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "ai",
+    "sdk"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -38,6 +38,8 @@ Detta ar ingangssidan for arkitekturdokumentationen.
 | [scaffold-schema.md](./scaffold-schema.md) | Scaffold-systemets fulla schema |
 | [scaffold-variants-inventory.md](./scaffold-variants-inventory.md) | Per-scaffold och per-variant inventarium med kvalitetsbedomning + cleanup-forslag (beslutsunderlag) |
 | [template-scaffold-lane.md](./template-scaffold-lane.md) | Botten-till-toppen-karta: Vercel-skrapan -> dossiers -> library -> variants -> runtime-prompt. Lane-ownership-dokument. |
+| [dossier-format.md](./dossier-format.md) | Schema och kontrakt for dossier-mappar (data/dossiers/). Kategorier, faltforklaringar, embedding-strategi. |
+| [dossier-pipeline-roadmap.md](./dossier-pipeline-roadmap.md) | Fas-uppdelad plan for nya dossier-pipen (skrap -> kuration -> embeddings -> runtime-migration -> avveckling av gammal pipeline). Trackar progress. |
 | [system-overview.md](./system-overview.md) | Hog niva: motor, builder, preview, deploy |
 | [repository-and-platform.md](./repository-and-platform.md) | Repohygien, plattformsgrans och nav |
 

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-postgres-drizzle-next-js-starter",
+  "kind": "integration",
+  "category": "database",
+  "label": "Postgres + Drizzle Next.js Starter",
+  "description": "Simple Next.js template that uses a Postgres database and Drizzle as the ORM.",
+  "summary": "Simple Next.js template that uses a Postgres database and Drizzle as the ORM.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/postgres-drizzle. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/drizzle-team/drizzle-orm"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/postgres-drizzle",
+  "sourceRepoUrl": "https://github.com/drizzle-team/drizzle-orm",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "postgres",
+    "drizzle"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

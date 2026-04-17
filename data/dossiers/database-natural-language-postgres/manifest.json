@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-natural-language-postgres",
+  "kind": "integration",
+  "category": "database",
+  "label": "Natural Language Postgres",
+  "description": "An Next.js application that allows you to query a PostgreSQL database with natural language.",
+  "summary": "An Next.js application that allows you to query a PostgreSQL database with natural language.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/natural-language-postgres. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel-labs/natural-language-postgres"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/natural-language-postgres",
+  "sourceRepoUrl": "https://github.com/vercel-labs/natural-language-postgres",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "natural",
+    "language"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

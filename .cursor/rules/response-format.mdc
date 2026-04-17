@@ -1,0 +1,14 @@
+---
+description: Hur jag svarar i chatten — kort, konkret, med översättningar
+alwaysApply: true
+---
+
+# Svarsformat
+
+- **Kort när det går.** Hellre 5 rader + en tabell än 30 raders prosa.
+- **Tabeller = mitt verktyg** för översikter (kategorier, status, val). Använd löpande.
+- **Förklara svåra/engelska ord inom parentes första gången.** Ex: `dossier (mapp med komponenter, env vars och en instruktion till LLM)`, `embedding (vektor som låter oss matcha på betydelse istället för exakta ord)`, `boilerplate (minimal startkod utan färdig design)`.
+- **Inga emojis** om inte uttryckligen efterfrågat.
+- **Inga commit/push utan att du säger till.**
+- **Vid större förändringar — fråga först, gör sen.** Quickwins (`isEffectiveInit`-helper, `\b` Unicode-fix, etc.) får göras direkt.
+- **När du beställer en plan: lever planen utan att starta exekvering** om det inte är tydligt att du vill det.

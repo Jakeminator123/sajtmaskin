@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-builder-io-personalization-starter",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Builder.io Personalization Starter",
+  "description": "Learn how to use Builder.io to personalize your Next.js pages.",
+  "summary": "Learn how to use Builder.io to personalize your Next.js pages.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/personalization-builder-io. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel/commerce"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/personalization-builder-io",
+  "sourceRepoUrl": "https://github.com/vercel/commerce",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "cms",
+    "integration",
+    "next",
+    "js",
+    "personalization",
+    "builder"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

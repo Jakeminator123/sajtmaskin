@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-clerk-authentication-starter",
+  "kind": "integration",
+  "category": "auth",
+  "label": "Clerk Authentication Starter",
+  "description": "A modern authentication and user management starter template, built with the Next.js App Router and powered by Clerk.",
+  "summary": "A modern authentication and user management starter template, built with the Next.js App Router and powered by Clerk.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/clerk-authentication-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/clerk/nextjs-auth-starter-template"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/clerk-authentication-starter",
+  "sourceRepoUrl": "https://github.com/clerk/nextjs-auth-starter-template",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "auth",
+    "integration",
+    "next",
+    "js",
+    "clerk",
+    "authentication"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

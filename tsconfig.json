@@ -39,6 +39,7 @@
   "exclude": [
     "node_modules",
     "data/external-template-pipeline",
+    "data/dossiers",
     "output",
     "src/templates",
     "src/lib/gen/scaffolds/*/files",

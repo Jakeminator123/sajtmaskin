@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-bookrecs-next-js-weaviate-starter",
+  "kind": "integration",
+  "category": "ai",
+  "label": "BookRecs: Next.js + Weaviate Starter",
+  "description": "A Next.js application that demonstrates the power of semantic search with Weaviate on a dataset of books.",
+  "summary": "A Next.js application that demonstrates the power of semantic search with Weaviate on a dataset of books.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/weaviate-bookrecs. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/weaviate/BookRecs"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/weaviate-bookrecs",
+  "sourceRepoUrl": "https://github.com/weaviate/BookRecs",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "weaviate",
+    "bookrecs"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-pricing-tier-table",
+  "kind": "ui-section",
+  "category": "ui-marketing",
+  "label": "Pricing Tier Table",
+  "description": "Three- or four-column pricing table with feature comparison and CTA per tier.",
+  "summary": "Standard pricing-section pattern with 2-4 plan columns. Each plan card shows name, price, billing cycle, feature checklist, and a primary CTA. Includes a 'Most popular' highlight on the recommended tier. Adapts gracefully from desktop (side-by-side) to mobile (stacked).",
+  "providers": [],
+  "envVars": [],
+  "dependencies": ["lucide-react"],
+  "files": [
+    { "path": "components/pricing-tier-table.tsx", "role": "client", "kind": "component" }
+  ],
+  "exposes": [
+    { "name": "PricingTierTable", "type": "component", "import": "@/components/pricing-tier-table" }
+  ],
+  "scaffoldFit": {
+    "primary": ["saas-landing", "landing-page"],
+    "compatible": ["content-site", "ecommerce", "portfolio", "blog", "app-shell", "dashboard", "auth-pages", "base-nextjs"]
+  },
+  "complexity": "simple",
+  "qualityScore": 90,
+  "lastVerified": "2026-04-17",
+  "tags": ["pricing", "tiers", "comparison", "saas", "marketing", "cta"],
+  "_source": "hand-curated"
+}

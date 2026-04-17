@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-vercel-with-neon-postgres",
+  "kind": "integration",
+  "category": "database",
+  "label": "Vercel with Neon Postgres",
+  "description": "A minimal template for building full-stack React applications using Next.js, Vercel, and Neon.",
+  "summary": "A minimal template for building full-stack React applications using Next.js, Vercel, and Neon.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/vercel-with-neon-postgres. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/neondatabase/mcp-server-neon"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/vercel-with-neon-postgres",
+  "sourceRepoUrl": "https://github.com/neondatabase/mcp-server-neon",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "vercel",
+    "with"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

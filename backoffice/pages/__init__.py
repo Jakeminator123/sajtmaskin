@@ -10,6 +10,7 @@ from . import (
     codegen_core,
     codegen_directives,
     cursor_agents,
+    dossiers,
     env_policy,
     eval_page,
     llm_config,
@@ -56,7 +57,8 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Cursor-agenter", "Konfiguration", cursor_agents.render),
     PageSpec("Scaffolds", "Overhead", scaffolds.render),
     PageSpec("Scaffold Lifecycle", "Overhead", scaffold_lifecycle.render),
-    PageSpec("Research & Dossiers", "Overhead", research.render),
+    PageSpec("Dossiers (legoklossar)", "Overhead", dossiers.render),
+    PageSpec("Research & Dossiers (legacy)", "Overhead", research.render),
     PageSpec("Pipeline", "Overhead", pipeline.render),
     PageSpec("Eval", "Overhead", eval_page.render),
     PageSpec("Orchestration Map", "Overhead", orchestration.render),
@@ -74,5 +76,6 @@ PAGE_QUERY_ALIASES = {
     "core": "prompt-core",
     "directives": "prompt-directives",
     "static": "prompt-static (legacy)",
+    "dossiers": "Dossiers (legoklossar)",
 }
 

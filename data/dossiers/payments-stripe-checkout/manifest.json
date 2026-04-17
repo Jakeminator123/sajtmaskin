@@ -1,0 +1,46 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-stripe-checkout",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Stripe Checkout",
+  "description": "One-time and subscription payments via Stripe Checkout (hosted page).",
+  "summary": "Adds a Checkout button that creates a Stripe Checkout Session server-side and redirects the user to Stripe's hosted payment page. Use when the user wants to accept payments without building a custom card form. Supports one-time and recurring (subscription) prices.",
+  "providers": [{ "name": "Stripe", "url": "https://stripe.com" }],
+  "envVars": [
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "required": true,
+      "purpose": "Server-side Stripe API authentication. Use a test-mode key for development."
+    },
+    {
+      "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "required": true,
+      "purpose": "Client-side Stripe.js initialization. Safe to expose."
+    },
+    {
+      "key": "NEXT_PUBLIC_SITE_URL",
+      "required": true,
+      "purpose": "Used for Stripe success/cancel redirect URLs. Example: https://example.com"
+    }
+  ],
+  "dependencies": ["stripe", "@stripe/stripe-js"],
+  "files": [
+    { "path": "components/checkout-button.tsx", "role": "client", "kind": "component" },
+    { "path": "components/api/checkout-session/route.ts", "role": "server", "kind": "api-route" }
+  ],
+  "exposes": [
+    { "name": "CheckoutButton", "type": "component", "import": "@/components/checkout-button" }
+  ],
+  "scaffoldFit": {
+    "primary": ["ecommerce", "saas-landing"],
+    "compatible": ["landing-page", "content-site", "blog", "portfolio", "app-shell", "dashboard", "auth-pages", "base-nextjs"]
+  },
+  "complexity": "medium",
+  "qualityScore": 95,
+  "sourceTemplateUrl": "https://vercel.com/templates/ecommerce/stripe-subscription-starter",
+  "sourceRepoUrl": "https://github.com/vercel/nextjs-subscription-payments",
+  "lastVerified": "2026-04-17",
+  "tags": ["payments", "checkout", "stripe", "subscription", "one-time"],
+  "_source": "hand-curated"
+}

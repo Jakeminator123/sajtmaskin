@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-glide-publishing-platform-next-js-starter",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Glide Publishing Platform - Next.js Starter",
+  "description": "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.",
+  "summary": "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/gpp-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/GlideCMS/nextjs-demo-public"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/gpp-starter",
+  "sourceRepoUrl": "https://github.com/GlideCMS/nextjs-demo-public",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "cms",
+    "integration",
+    "next",
+    "js",
+    "gpp",
+    "starter"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

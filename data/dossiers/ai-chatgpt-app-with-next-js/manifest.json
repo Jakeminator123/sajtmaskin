@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-chatgpt-app-with-next-js",
+  "kind": "integration",
+  "category": "ai",
+  "label": "ChatGPT app with Next.js",
+  "description": "Ship a ChatGPT app on Vercel with Next.js and Model Context Protocol (MCP).",
+  "summary": "Ship a ChatGPT app on Vercel with Next.js and Model Context Protocol (MCP).\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/chatgpt-app-with-next-js. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel-labs/chatgpt-apps-sdk-nextjs-starter"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/chatgpt-app-with-next-js",
+  "sourceRepoUrl": "https://github.com/vercel-labs/chatgpt-apps-sdk-nextjs-starter",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "chatgpt",
+    "app"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

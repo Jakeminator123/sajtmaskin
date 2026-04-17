@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-content-blog-starter-kit",
+  "kind": "ui-section",
+  "category": "ui-content",
+  "label": "Blog Starter Kit",
+  "description": "A statically generated blog example using Next.js and Markdown.",
+  "summary": "A statically generated blog example using Next.js and Markdown.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/blog-starter-kit. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/remarkjs/remark"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/blog-starter-kit",
+  "sourceRepoUrl": "https://github.com/remarkjs/remark",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ui-content",
+    "ui-section",
+    "next",
+    "js",
+    "blog",
+    "starter"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

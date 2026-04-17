@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-next-js-commerce",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Next.js Commerce",
+  "description": "Starter kit for high-performance commerce with Shopify.",
+  "summary": "Starter kit for high-performance commerce with Shopify.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/nextjs-commerce. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel/commerce"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-commerce",
+  "sourceRepoUrl": "https://github.com/vercel/commerce",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "payments",
+    "integration",
+    "next",
+    "js",
+    "nextjs",
+    "commerce"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

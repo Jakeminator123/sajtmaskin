@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-clean-next-js-sanity-app",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Clean Next.js + Sanity App",
+  "description": "A clean Next.js template with a native authoring experience",
+  "summary": "A clean Next.js template with a native authoring experience\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/sanity-template-nextjs-clean. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/sanity-io/sanity-template-nextjs-clean"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/sanity-template-nextjs-clean",
+  "sourceRepoUrl": "https://github.com/sanity-io/sanity-template-nextjs-clean",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "cms",
+    "integration",
+    "next",
+    "js",
+    "sanity",
+    "template"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

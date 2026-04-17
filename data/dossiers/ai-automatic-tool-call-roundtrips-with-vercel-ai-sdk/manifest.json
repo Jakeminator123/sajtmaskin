@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-automatic-tool-call-roundtrips-with-vercel-ai-sdk",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Automatic Tool Call Roundtrips with Vercel AI SDK",
+  "description": "A Next.js chatbot using the Vercel AI SDK's streamText function to automatically handle multiple tool call roundtrips.",
+  "summary": "A Next.js chatbot using the Vercel AI SDK's streamText function to automatically handle multiple tool call roundtrips.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/ai-sdk-roundtrips. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/ai-sdk-roundtrips",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "ai",
+    "sdk"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

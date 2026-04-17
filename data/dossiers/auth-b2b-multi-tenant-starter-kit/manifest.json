@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-b2b-multi-tenant-starter-kit",
+  "kind": "integration",
+  "category": "auth",
+  "label": "B2B Multi-Tenant Starter Kit",
+  "description": "A minimalistic B2B Next.js starter template that includes a landing page, a dashboard, authentication, multi-tenancy, and account settings.",
+  "summary": "A minimalistic B2B Next.js starter template that includes a landing page, a dashboard, authentication, multi-tenancy, and account settings.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/b2-b-multi-tenant-starter-kit. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/stack-auth/stack"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/b2-b-multi-tenant-starter-kit",
+  "sourceRepoUrl": "https://github.com/stack-auth/stack",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "auth",
+    "integration",
+    "next",
+    "js",
+    "b2",
+    "b"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-azure-ai-rag-chatbot",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Azure AI RAG Chatbot",
+  "description": "Sample retrieval-augmented generation (RAG) AI chatbot app template using Next.js, shadcn/ui, Azure AI Search, Azure OpenAI, and Vercel AI SDK",
+  "summary": "Sample retrieval-augmented generation (RAG) AI chatbot app template using Next.js, shadcn/ui, Azure AI Search, Azure OpenAI, and Vercel AI SDK\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/azure-ai-rag-chatbot. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/codespaces/new"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/azure-ai-rag-chatbot",
+  "sourceRepoUrl": "https://github.com/codespaces/new",
+  "lastVerified": "2026-04-17",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "azure",
+    "ai"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}
