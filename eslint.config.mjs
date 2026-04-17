@@ -33,6 +33,12 @@ export default defineConfig([
     // Vendored / cached third-party trees (not maintained in this repo)
     "research/**/*",
     "data/external-template-pipeline/repo-cache/**/*",
+    // Dossier pipeline: raw scraped repos + AI-extracted vendored components
+    // are not our code — they are inputs/outputs of the curation pipeline.
+    "data/dossiers/_repo-cache/**/*",
+    "data/dossiers/_raw/**/*",
+    "data/dossiers/*/components/**/*",
+    "data/dossiers/*/_removed/**/*",
     "pot_buggs/**/*",
     "src/templates/**/*",
     ".next/**/*",

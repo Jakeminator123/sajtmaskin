@@ -1,9 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
   "style": "radix-vega",
-  "registries": {
-    "@shadcn": "https://ui.shadcn.com/r/styles/radix-vega/{name}.json"
-  },
   "rsc": true,
   "tsx": true,
   "tailwind": {
@@ -13,6 +10,7 @@
     "cssVariables": true,
     "prefix": ""
   },
+  "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",

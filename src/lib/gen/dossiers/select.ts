@@ -158,7 +158,7 @@ export async function selectDossiersForRequest(
     Boolean(embeddingsFile) &&
     Boolean(options.embeddingApiKey ?? process.env.OPENAI_API_KEY?.trim());
 
-  let scored: { entry: DossierEntry; score: number; reason: SelectedDossier["reason"] }[] = [];
+  const scored: { entry: DossierEntry; score: number; reason: SelectedDossier["reason"] }[] = [];
 
   if (useEmbeddings && embeddingsFile) {
     const apiKey = (options.embeddingApiKey ?? process.env.OPENAI_API_KEY ?? "").trim();

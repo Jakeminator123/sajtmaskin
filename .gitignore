@@ -41,6 +41,10 @@ env.vercel*.local
 ENV_JAMFORRELSE.txt
 di-d.txt
 
+# Temp commit-message files from local commit workflow
+COMMIT_MSG.tmp
+COMMIT_EDITMSG.tmp
+
 # Local prompt dumps (opt-in: SAJTMASKIN_PROMPT_DUMP=1)
 data/prompt-dumps/*
 !data/prompt-dumps/README.md
