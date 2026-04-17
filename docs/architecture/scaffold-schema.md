@@ -92,6 +92,8 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
 | 20 | Template-library runtime guidance | `resolveTemplateGuidance()` | `orchestrate.ts` | **Auto i dev** | Scaffold-ankrad runtimeGuidance via `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`. Auto-on i `NODE_ENV=development`, explicit opt-in i prod. Init only. `searchTemplateLibrary()` ej använd i runtime. |
 | 21 | Variant structural files | `selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()` | `scaffold-variants/structural-files.ts`, `orchestrate.ts` | **Auto i dev** | Två pass: (1) variant-driven från `sourceTemplateIds` (max 3 filer), (2) capability-driven från hela katalogen baserat på `InferredCapabilities` (max 2 extra). Injecteras i `## Structural References (this variant)` via `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`. Init / first-code-generation only. |
+| 22 | Variant signature patterns | `signaturePatterns` per variant | `config/scaffold-variants/<scaffold>/<variant>.json`, `system-prompt.ts` | Ja (auto i dev) | Konkreta layouts/motifs/antiPatterns som ersatte de fyra borttagna guidance-fälten 2026-04-17 (`styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric`). Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket i systemprompten. |
+| 23 | Embedding-driven variant pick | `pickScaffoldVariantAsync()` | `scaffold-variants/matcher.ts`, `orchestrate.ts` + 3 stream-endpoints | Ja (sedan 2026-04-17) | Embeddar prompten via OpenAI, cosine vs precomputed `config/scaffold-variants/_index/variant-embeddings.json`, top-3 + deterministisk seed. Faller graciöst tillbaka till keyword-matchning (`pickScaffoldVariant`) när embeddings/API-key saknas. |
 
 ---
 
@@ -426,7 +428,7 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `template-library/types.ts` | `recommendedScaffoldIds: ScaffoldId[]` | **Nej** — en dossier kan rekommendera flera scaffold-id:n |
 | `scaffold-embedding-locale.ts` | Nycklar per family | Ja — byt till id |
 | `scaffold-aware-retry.ts` | Retry per family | Ja — byt till id |
-| `config/scaffold-variants/` | Variantdata per scaffold (keywords, fontPairings, themeTokens, dossier-härledd guidance) | Ja |
+| `config/scaffold-variants/` | Variantdata per scaffold (keywords, fontPairings, themeTokens, signaturePatterns) | Ja |
 | `diagnostics.ts` | Telemetri | Ja |
 | `orchestration-contract.ts` | `scaffoldId` i contract | Genomfört |
 | Dossier-manifests (catalog.json) | `recommendedScaffoldIds[]` | **Nej** — extern mapping |

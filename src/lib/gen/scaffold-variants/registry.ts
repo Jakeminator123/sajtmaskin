@@ -6,6 +6,7 @@ import type { ScaffoldId } from "../scaffolds/types";
 import type {
   FontPairing,
   ScaffoldVariant,
+  ScaffoldVariantSignaturePatterns,
   ScaffoldVariantThemeTokens,
 } from "./types";
 
@@ -35,6 +36,20 @@ function readFontPairings(value: unknown): FontPairing[] {
       return { heading, body };
     })
     .filter((item): item is FontPairing => Boolean(item));
+}
+
+function readSignaturePatterns(
+  value: unknown,
+): ScaffoldVariantSignaturePatterns | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const raw = value as Record<string, unknown>;
+  const layouts = readStringArray(raw.layouts);
+  const motifs = readStringArray(raw.motifs);
+  const antiPatterns = readStringArray(raw.antiPatterns);
+  if (layouts.length === 0 && motifs.length === 0 && antiPatterns.length === 0) {
+    return undefined;
+  }
+  return { layouts, motifs, antiPatterns };
 }
 
 function readThemeTokens(value: unknown): ScaffoldVariantThemeTokens | undefined {
@@ -115,6 +130,7 @@ function parseVariant(filePath: string, expectedScaffoldId: ScaffoldId): Scaffol
     signatureMotif,
     colorMode: colorMode as ScaffoldVariant["colorMode"],
     promptHints: readStringArray(raw.promptHints),
+    signaturePatterns: readSignaturePatterns(raw.signaturePatterns),
     themeTokens: readThemeTokens(raw.themeTokens),
     sourceTemplateIds: readStringArray(raw.sourceTemplateIds),
     default: Boolean(raw.default),

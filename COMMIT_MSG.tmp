@@ -1,0 +1,74 @@
+feat(dossiers+variants): quality pass — sharper selection, R3F dossier, signaturePatterns, embedding-driven variant pick
+
+DOSSIER SELECTION (M2 + M3)
+- Raised EMBEDDING_MIN_SCORE 0.2 → 0.3 in src/lib/gen/dossiers/select.ts
+  to drop weak matches (Weaviate at ~0.22 was spilling into SaaS prompts).
+- Lowered DEFAULT_MAX_TOTAL 6 → 5 for tighter prompt focus.
+- Rewrote payments-stripe-checkout summary to lead with subscription/
+  monthly billing/recurring/SaaS/abonnemang so embedding matching
+  prioritises Stripe over Paddle for SaaS prompts. Added matching tags.
+
+  Smoke-select result for "SaaS med användarinloggning, månadsabonnemang":
+    before: paddle 0.506, no stripe in top 4
+    after:  stripe 0.673, weaviate gone
+
+NEW DOSSIER: ai-3d-scene-r3f (K3 + K4 mitigation)
+- Hand-curated dossier with verified peer-dep pins (three@^0.170 +
+  @react-three/fiber@^9 + @react-three/drei@^10) — fixes the v1 SaaS
+  generation that produced incompatible R3F deps.
+- Self-containment rule front and centre: every imported mesh component
+  MUST also be generated, never imported "from the air".
+- floating-scene.tsx + floating-mesh.tsx as concrete starting code so the
+  runtime LLM sees both files when importing one references the other.
+
+SCAFFOLD VARIANTS — signaturePatterns replaces removed guidance fields
+- Added optional signaturePatterns { layouts, motifs, antiPatterns } to
+  ScaffoldVariant type + JSON schema. Replaces the four generic fields
+  (styleRules, sectionInventory, avoidPatterns, worldClassRubric)
+  removed in commit fd0f326df — those produced boilerplate.
+- New script scripts/scaffolds/auto-curate-variant-patterns.ts: GPT-5.4
+  reads each variant + sourceTemplateIds and produces strict, CONCRETE
+  patterns via Zod (layouts must read like "60/40 hero with floating
+  product card" not "modern layout"; motifs like "1rem radii + soft
+  shadow" not "subtle design"; antiPatterns honest to the variant).
+- Ran against all 21 variants — 21/21 curated, no failures, ~3 min total.
+- system-prompt.ts now renders three new lists in the Scaffold Variant
+  block: Signature layouts / Signature motifs / Avoid for this variant.
+- variant-hints.ts forwards top-3 layouts + top-2 motifs to the Brief-LLM
+  pre-match.
+- generate-variant-embeddings.ts includes signaturePatterns text in the
+  embedding source so semantic match becomes more accurate. Re-ran for
+  all 21 variants.
+
+VARIANT MATCHING — embedding-driven by default (was dead code)
+- pickScaffoldVariantAsync was built in pass 8 (commit 507031171) but
+  never wired in production. orchestrate.ts now uses it:
+  resolveScaffoldVariant is async and calls pickScaffoldVariantAsync
+  which falls back to keyword pickScaffoldVariant when embeddings or
+  OPENAI_API_KEY missing.
+- Stream pre-match call sites (create-chat-stream-post, chat-message-
+  stream-post) intentionally KEEP keyword pickScaffoldVariant — they
+  feed Brief-LLM hints in <1ms; +500ms embedding round-trip there is
+  wasted because final pick happens later in orchestrate.
+- system-prompt.ts buildDynamicContext keeps keyword fallback for the
+  rare path where resolvedVariant isn't pre-supplied (legacy tests,
+  snapshot rendering) so the function stays sync.
+
+DOCS + CONFIG
+- docs/architecture/scaffold-schema.md: new rows 22 (signaturePatterns)
+  + 23 (embedding-driven variant pick).
+- docs/schemas/strict/scaffold-variant.schema.json: signaturePatterns
+  required-when-present validation.
+- package.json: scaffolds:variant-patterns + :dry npm scripts.
+- egna_kommandon.txt previously updated.
+- .gitignore: logs/variant-patterns-batch.log.
+
+VERIFICATION
+- npx tsc --noEmit clean.
+- vitest run src/lib/gen/dossiers/ src/lib/gen/scaffold-variants/ → 13/13 green.
+- smoke-select.ts: pool=23 (was 22), Stripe wins all subscription queries,
+  Weaviate no longer spills.
+
+OUT OF SCOPE (other agent per övrigt/logg-sammanstallning-2026-04-17.md):
+K1 brief Zod, K2 package.json shrink, H1 import-checklist, H2 scaffold-
+selection bias, H3 verifier strictness, M1 Turbopack predev cleanup.

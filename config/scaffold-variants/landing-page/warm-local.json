@@ -27,6 +27,27 @@
     "Prioritize opening hours, location trust, and a strong local CTA such as booking or visit planning.",
     "Keep the emotional tone warm, welcoming, and clearly business-specific rather than startup-generic."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a split hero with welcoming copy on the left and a rounded booking or opening-hours card stacked over a storefront photo on the right.",
+      "Place a compact trust strip directly under the hero with address, hours, phone, rating, and walk-in or booking badges in pill rows.",
+      "Build services as softly layered two-column cards with price or duration chips, short descriptions, and a clear book-now action per row.",
+      "Use a local-proof section with three testimonial cards beside one larger map, interior, or team image to anchor neighborhood trust.",
+      "End with a visit-planning CTA block combining map snippet, parking or transit notes, opening hours, and one prominent booking button."
+    ],
+    "motifs": [
+      "Warm cream backgrounds with peach-tinted accents, 1.1rem rounded corners, and low-elevation stacked cards create an inviting neighborhood feel.",
+      "DM Serif Display headlines paired with simple sans body copy give service pages a personable, slightly editorial storefront character.",
+      "Softly tinted panels, pill badges, and gentle border lines should feel like printed menu cards or appointment cards, not software dashboards.",
+      "Photography should favor interiors, staff, food, treatment moments, or street-facing exteriors framed inside rounded rectangles with generous padding."
+    ],
+    "antiPatterns": [
+      "Avoid dark full-bleed hero sections with neon gradients; they read nightlife-tech and clash with this friendly daytime local-business tone.",
+      "Do not use enterprise dashboard layouts with dense tables, metric tiles, or app-style sidebars on customer-facing landing pages.",
+      "Avoid generic startup illustrations, abstract 3D blobs, or crypto-style visuals; this variant should feel rooted in a real place and service.",
+      "Never make the primary CTA feel SaaS-generic with copy like Get Started Free when booking, calling, or visit planning is the real action."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.985 0.012 82)",
     "foreground": "oklch(0.24 0.02 42)",

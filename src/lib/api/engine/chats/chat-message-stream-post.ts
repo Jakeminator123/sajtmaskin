@@ -316,6 +316,8 @@ export async function handleMessageStreamRequest(
           const deltaPreMatchScaffold = persistedScaffoldIdForDelta && !deltaIgnoreScaffold
             ? getScaffoldById(persistedScaffoldIdForDelta)
             : matchScaffold(message, (metaBuildIntent as BuildIntent | null));
+          // Keyword-only pre-match for delta hint (~1ms). Final embedding-driven
+          // pick happens in resolveOrchestrationBase later. See create-chat-stream-post.ts.
           const deltaPreMatchVariant = deltaPreMatchScaffold
             ? pickScaffoldVariant({ prompt: message, scaffoldId: deltaPreMatchScaffold.id })
             : null;

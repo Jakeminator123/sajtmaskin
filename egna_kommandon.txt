@@ -45,8 +45,36 @@ python scripts/scaffolds/scaffold_cli.py all --typecheck  # Python CLI: allt + t
 
 ---  SCAFFOLD-VARIANTER  ---
 
-npx tsx scripts/scaffolds/derive-variants-from-dossiers.ts          # Regenerera alla variant-JSON fran dossier-data
-npx tsx scripts/scaffolds/derive-variants-from-dossiers.ts --dry-run # Forhandsvisa utan att skriva
+npx tsx scripts/scaffolds/derive-variants-from-dossiers.ts          # @deprecated — gammal pipeline
+npm run scaffolds:variant-embeddings                                # Embeddings for alla 21 variants (OpenAI)
+
+---  DOSSIERS (legoklossar: integrationer + UI-sektioner)  ---
+
+# Status / overview:
+npm run dossiers:index                     # Bygg om master.json + by-category.json (snabbt)
+npm run dossiers:embeddings                # Regenerera dossier-embeddings.json (OpenAI, ~30 sek)
+npm run dossiers:rebuild                   # index + recommendations:merge + embeddings i sekvens
+
+# AI-kurering (GPT-5.4 gor grovjobbet, $1-3 per batch):
+npm run dossiers:curate                    # Alla drafts (~12 min)
+npm run dossiers:curate -- --only=<id>     # En specifik draft
+npm run dossiers:curate -- --dry-run --only=<id>   # Forhandsgranska utan att skriva
+npm run dossiers:curate -- --limit=5       # Max 5 at gangen
+npm run dossiers:curate -- --force --only=<id>     # Re-kurera redan aktiv
+
+# Smoke-test (verifiera att LLM-flodet plockar ratt dossiers):
+npx tsx scripts/dossiers/smoke-select.ts   # 5 realistiska prompts -> selected dossiers
+
+# Pipeline-steg (sallan):
+npm run dossiers:scrape                    # Playwright: hamta katalog (~3 min, 419 templates)
+npm run dossiers:enrich                    # Playwright: hamta detaljer (~14 min)
+npm run dossiers:import                    # Importera enriched -> skiss-filer
+npm run dossiers:queue                     # Bygg _curation-queue.md
+npm run dossiers:promote                   # Promota fran curated-promotions.txt -> drafts
+npm run dossiers:clone-repos               # Shallow-klona alla draft-repon (~5 min, 290 MB)
+npm run dossiers:extract-files             # Extrahera filer + deps + env fran cache
+npm run dossiers:recommend:merge           # Regenerera scaffold-recommendations (bevara dina edits)
+npm run dossiers:recommend:force           # Skriv over scaffold-recommendations helt
 
 ---  SHADCN-REGISTER  ---
 

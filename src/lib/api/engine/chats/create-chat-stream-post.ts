@@ -190,6 +190,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const assistModelHint = parsedMeta.promptAssistModel;
 
       // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
+      // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
+      // round-trip just for hint generation. The final, embedding-driven variant pick happens
+      // later in resolveOrchestrationBase after brief is ready (orchestrate.ts).
       // Only runs when scaffoldMode is not "off" — if off, resolveOrchestrationBase will
       // also skip scaffold selection, so we should not inject stale variant hints.
       const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";

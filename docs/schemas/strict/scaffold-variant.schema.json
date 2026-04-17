@@ -92,6 +92,35 @@
       "maxItems": 5,
       "description": "Directives injected as 'Scaffold hints' in the system prompt. Be SPECIFIC to this variant, not generic."
     },
+    "signaturePatterns": {
+      "type": "object",
+      "description": "Concrete layouts/motifs/antiPatterns that give the LLM specific visual direction. Replaces the generic guidance fields removed 2026-04-17. Populated by scripts/scaffolds/auto-curate-variant-patterns.ts. Each entry must be SPECIFIC ('asymmetric hero with floating product card') not abstract ('modern layout').",
+      "required": ["layouts", "motifs", "antiPatterns"],
+      "additionalProperties": false,
+      "properties": {
+        "layouts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 12 },
+          "minItems": 3,
+          "maxItems": 5,
+          "description": "3-5 concrete layout choices the variant prefers."
+        },
+        "motifs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 10 },
+          "minItems": 2,
+          "maxItems": 4,
+          "description": "2-4 visual motifs that read at first glance."
+        },
+        "antiPatterns": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 10 },
+          "minItems": 2,
+          "maxItems": 4,
+          "description": "2-4 patterns the LLM should NOT use for this variant."
+        }
+      }
+    },
     "themeTokens": {
       "type": "object",
       "description": "CSS custom property values injected into the @theme block. Use oklch() for colors.",

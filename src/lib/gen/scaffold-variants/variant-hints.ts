@@ -20,6 +20,10 @@ export interface VariantHints {
   signatureMotif: string;
   fontPairing: string | null;
   promptHints: string[];
+  /** 2-3 most distinctive layouts from signaturePatterns (compact for brief). */
+  signatureLayouts: string[];
+  /** 2 most distinctive motifs from signaturePatterns. */
+  signatureMotifs: string[];
 }
 
 export function buildVariantHintsForBrief(
@@ -35,6 +39,8 @@ export function buildVariantHintsForBrief(
       ? `${variant.fontPairings[0].heading} + ${variant.fontPairings[0].body}`
       : null,
     promptHints: variant.promptHints.slice(0, 3),
+    signatureLayouts: variant.signaturePatterns?.layouts.slice(0, 3) ?? [],
+    signatureMotifs: variant.signaturePatterns?.motifs.slice(0, 2) ?? [],
   };
 }
 
@@ -47,5 +53,11 @@ export function formatVariantHintsForPrompt(hints: VariantHints): string {
   ];
   if (hints.fontPairing) lines.push(`- Suggested font pairing: ${hints.fontPairing}`);
   if (hints.promptHints.length > 0) lines.push(`- Style cues: ${hints.promptHints.join(", ")}`);
+  if (hints.signatureLayouts.length > 0) {
+    lines.push(`- Signature layouts: ${hints.signatureLayouts.join(" | ")}`);
+  }
+  if (hints.signatureMotifs.length > 0) {
+    lines.push(`- Signature motifs: ${hints.signatureMotifs.join(" | ")}`);
+  }
   return lines.join("\n");
 }

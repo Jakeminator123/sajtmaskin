@@ -40,6 +40,11 @@ interface Variant {
   colorMode: string;
   keywords: string[];
   promptHints: string[];
+  signaturePatterns?: {
+    layouts: string[];
+    motifs: string[];
+    antiPatterns: string[];
+  };
 }
 
 interface VariantEmbedding {
@@ -81,7 +86,7 @@ function loadAllVariants(): Variant[] {
 }
 
 function buildEmbeddingText(v: Variant): string {
-  return [
+  const lines = [
     `Variant: ${v.label}`,
     `Scaffold: ${v.scaffoldId}`,
     `Description: ${v.description ?? ""}`,
@@ -89,7 +94,19 @@ function buildEmbeddingText(v: Variant): string {
     `Color mode: ${v.colorMode}`,
     `Keywords: ${v.keywords.join(", ")}`,
     `Prompt cues: ${v.promptHints.join("; ")}`,
-  ].join("\n");
+  ];
+  if (v.signaturePatterns) {
+    if (v.signaturePatterns.layouts.length > 0) {
+      lines.push(`Signature layouts: ${v.signaturePatterns.layouts.join("; ")}`);
+    }
+    if (v.signaturePatterns.motifs.length > 0) {
+      lines.push(`Signature motifs: ${v.signaturePatterns.motifs.join("; ")}`);
+    }
+    if (v.signaturePatterns.antiPatterns.length > 0) {
+      lines.push(`Avoid: ${v.signaturePatterns.antiPatterns.join("; ")}`);
+    }
+  }
+  return lines.join("\n");
 }
 
 async function main(): Promise<void> {

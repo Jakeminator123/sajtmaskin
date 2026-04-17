@@ -25,6 +25,27 @@
     "Lead with project imagery and work identity before biography copy.",
     "Every project block should feel curated and memorable, not like a feature card."
   ],
+  "signaturePatterns": {
+    "layouts": [
+      "Use a cinematic hero with one dominant project image, a compact intro block, and stacked client-year-role metadata pinned beside it.",
+      "Build the work index as alternating full-width project bands with oversized imagery, short titles, and overlay metadata anchored to image edges.",
+      "Compose featured case studies with a 70/30 split: immersive visual gallery first, then a narrow sticky column for project context and credits.",
+      "Arrange gallery pages as irregular masonry rows with occasional extra-tall images, letting select projects break the grid for deliberate emphasis.",
+      "Use a minimal about/contact page with a bold portrait or studio image on one side and tight, high-contrast biography details on the other."
+    ],
+    "motifs": [
+      "Dark charcoal surfaces with near-white type, one warm primary accent, and occasional green accent notes against image-heavy compositions.",
+      "Large rounded image frames paired with compact uppercase metadata chips and small overlay labels sitting directly on project photography.",
+      "Bricolage Grotesque headlines feel oversized and assertive, while DM Sans metadata stays tight, crisp, and editorial around the visuals.",
+      "Project cards should read like curated posters: sparse copy, strong edge contrast, and layered captions hovering over imagery."
+    ],
+    "antiPatterns": [
+      "Avoid dense multi-column text sections that compete with project imagery; this variant should reveal work first and explanation second.",
+      "Never turn projects into generic SaaS-style feature cards with icons, buttons, and equal-height boxes that flatten visual hierarchy.",
+      "Avoid soft pastel surfaces or airy white spacing systems; this style needs dark contrast, weight, and gallery-like drama.",
+      "Do not lead with a long personal biography hero; open with memorable work imagery and let identity emerge through project framing."
+    ]
+  },
   "themeTokens": {
     "background": "oklch(0.14 0.01 275)",
     "foreground": "oklch(0.95 0.006 275)",

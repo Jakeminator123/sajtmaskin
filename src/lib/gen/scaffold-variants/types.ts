@@ -26,6 +26,27 @@ export interface ScaffoldVariantThemeTokens {
   bodyBackgroundImage?: string;
 }
 
+/**
+ * Concrete, hand- or LLM-curated visual signatures for a variant. Replaces
+ * the four generic guidance fields (styleRules, sectionInventory,
+ * avoidPatterns, worldClassRubric) removed 2026-04-17 — those produced
+ * boilerplate. signaturePatterns are required to be SPECIFIC: layouts must
+ * read like "asymmetric hero with floating product card" rather than
+ * "modern layout"; motifs like "2px hairline borders + 1rem radius" rather
+ * than "subtle design"; antiPatterns like "never use gradient buttons on
+ * auth surfaces" rather than "bad patterns".
+ *
+ * Populated by scripts/scaffolds/auto-curate-variant-patterns.ts.
+ */
+export interface ScaffoldVariantSignaturePatterns {
+  /** 3-5 concrete layout choices the variant prefers. */
+  layouts: string[];
+  /** 2-3 visual motifs that read at first glance. */
+  motifs: string[];
+  /** 2-3 patterns the LLM should NOT use for this variant. */
+  antiPatterns: string[];
+}
+
 export interface ScaffoldVariant {
   id: ScaffoldVariantId;
   scaffoldId: ScaffoldId;
@@ -43,6 +64,12 @@ export interface ScaffoldVariant {
    * boilerplate across variants. See `docs/architecture/scaffold-variants-inventory.md`.
    */
   promptHints: string[];
+  /**
+   * Concrete layouts/motifs/antiPatterns. Optional during migration; once
+   * auto-curate-variant-patterns.ts has filled all 21 variants this becomes
+   * effectively required for prompt rendering.
+   */
+  signaturePatterns?: ScaffoldVariantSignaturePatterns;
   themeTokens?: ScaffoldVariantThemeTokens;
   /**
    * Curated dossier ids whose `selectedFiles` are eligible as structural

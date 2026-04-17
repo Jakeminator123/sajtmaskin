@@ -10,7 +10,7 @@ import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import {
-  pickScaffoldVariant,
+  pickScaffoldVariantAsync,
   getVariantById,
   selectVariantStructuralFiles,
   selectCapabilityStructuralFiles,
@@ -611,13 +611,13 @@ function formatTemplateGuidanceForPrompt(meta: TemplateGuidanceMeta): string | u
   return lines.join("\n");
 }
 
-function resolveScaffoldVariant(
+async function resolveScaffoldVariant(
   scaffoldId: string | null | undefined,
   prompt: string,
   brief: Record<string, unknown> | null,
   generationMode: "init" | "followUp",
   sessionSeed?: string,
-): ScaffoldVariant | null {
+): Promise<ScaffoldVariant | null> {
   const styleKeywords = Array.isArray(
     (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection?.styleKeywords,
   )
@@ -633,7 +633,9 @@ function resolveScaffoldVariant(
         (brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []
       ).filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
     : [];
-  return pickScaffoldVariant({
+  // Embedding-driven variant pick when an OpenAI key + variant-embeddings.json
+  // are present. Falls back to keyword `pickScaffoldVariant` automatically.
+  return pickScaffoldVariantAsync({
     prompt,
     scaffoldId: (scaffoldId as ScaffoldVariant["scaffoldId"] | null | undefined) ?? null,
     styleKeywords,
@@ -702,13 +704,13 @@ export async function finalizeOrchestrationPrompts(
       : null;
   const resolvedVariant =
     persistedVariant ??
-    resolveScaffoldVariant(
+    (await resolveScaffoldVariant(
       scaffoldIdForVariant,
       prompt,
       brief,
       resolvedMode,
       input.sessionSeed,
-    );
+    ));
   const effectiveInit = isEffectiveInit({
     generationMode: resolvedMode,
     isFirstCodeGeneration: input.isFirstCodeGeneration,

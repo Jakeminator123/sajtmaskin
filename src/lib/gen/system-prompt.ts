@@ -461,6 +461,11 @@ export function buildDynamicContext(
       .join(" ")
       .trim() ||
     guidance.rules.join(" ");
+  // resolvedVariant is the embedding-driven pick from resolveOrchestrationBase
+  // (orchestrate.ts → pickScaffoldVariantAsync). The keyword fallback below
+  // only runs when buildDynamicContext is called outside the standard
+  // orchestrate flow (e.g. legacy tests, snapshot rendering) — keeping it
+  // sync avoids forcing this whole function async.
   const effectiveVariant =
     resolvedVariant ??
     pickScaffoldVariant({
@@ -535,12 +540,30 @@ export function buildDynamicContext(
         parts.push(`  - ${hint}`);
       }
     }
-    // Variants previously surfaced styleRules / sectionInventory / avoidPatterns /
-    // worldClassRubric blocks. They were removed 2026-04-17 because the deterministic
-    // aggregator in derive-variants-from-dossiers.ts produced near-identical generic
-    // boilerplate across variants and added noise without signal. The scaffold's own
-    // `qualityChecklist` and `research.upgradeTargets` cover the same intent with
-    // scaffold-specific content. See `docs/architecture/scaffold-variants-inventory.md`.
+    const sig = effectiveVariant.signaturePatterns;
+    if (sig && (sig.layouts.length || sig.motifs.length || sig.antiPatterns.length)) {
+      // Concrete layout/motif/anti-pattern signatures, replacing the generic
+      // guidance fields removed 2026-04-17. Populated by
+      // scripts/scaffolds/auto-curate-variant-patterns.ts (GPT-5.4 + Zod).
+      if (sig.layouts.length > 0) {
+        parts.push("- **Signature layouts:**");
+        for (const layout of sig.layouts.slice(0, 5)) {
+          parts.push(`  - ${layout}`);
+        }
+      }
+      if (sig.motifs.length > 0) {
+        parts.push("- **Signature motifs:**");
+        for (const motif of sig.motifs.slice(0, 4)) {
+          parts.push(`  - ${motif}`);
+        }
+      }
+      if (sig.antiPatterns.length > 0) {
+        parts.push("- **Avoid for this variant:**");
+        for (const anti of sig.antiPatterns.slice(0, 4)) {
+          parts.push(`  - ${anti}`);
+        }
+      }
+    }
     const themeTokenLines = formatThemeTokenLines(effectiveVariant);
     if (themeTokenLines.length > 0) {
       parts.push(

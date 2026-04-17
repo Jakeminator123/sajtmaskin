@@ -4,8 +4,8 @@
   "kind": "integration",
   "category": "payments",
   "label": "Stripe Checkout",
-  "description": "One-time and subscription payments via Stripe Checkout (hosted page).",
-  "summary": "Use this when a site needs Stripe-hosted checkout for one-time purchases or subscriptions without building a custom payment form. It provides a client Checkout button plus a server API route that creates a Stripe Checkout Session and redirects the user to Stripe.",
+  "description": "Subscription and one-time payments via Stripe Checkout (hosted page) — månadsbetalning, recurring billing, SaaS abonnemang.",
+  "summary": "Subscription / monthly billing / recurring payments and one-time purchases via Stripe Checkout for SaaS, ecommerce and any site that sells access to plans, abonnemang, or products. The dossier provides a client Checkout button plus a server API route that creates a Stripe Checkout Session and redirects the user to Stripe's hosted page — no custom card form needed. Use this whenever the prompt mentions subscription, månadsabonnemang, månadsvis betalning, recurring payments, payment plans, paywalls, or upgrade flows.",
   "providers": [
     {
       "name": "Stripe",
@@ -89,11 +89,14 @@
   "sourceRepoUrl": "https://github.com/vercel/nextjs-subscription-payments",
   "lastVerified": "2026-04-17",
   "tags": [
+    "subscription",
+    "monthly-billing",
+    "recurring",
+    "saas",
+    "abonnemang",
     "stripe",
     "payments",
     "checkout",
-    "subscription",
-    "one-time",
     "hosted-checkout"
   ],
   "_source": "hand-curated",

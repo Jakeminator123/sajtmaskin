@@ -30,10 +30,14 @@ import {
 import type { DossierEntry, DossierSelectionResult, SelectedDossier } from "./types";
 
 const DEFAULT_MAX_PER_CATEGORY = 1;
-const DEFAULT_MAX_TOTAL = 6;
+const DEFAULT_MAX_TOTAL = 5;
 const PRIMARY_BOOST = 0.15;
 const SUGGESTED_BOOST = 0.05;
-const EMBEDDING_MIN_SCORE = 0.2;
+// Cosine threshold below which a dossier is considered too weak a match
+// to be worth its prompt budget. Raised from 0.2 → 0.3 (2026-04-17) after
+// observing irrelevant Weaviate dossier surfacing for SaaS-bookkeeping
+// prompts at score ~0.22. See övrigt/logg-sammanstallning-2026-04-17.md M2.
+const EMBEDDING_MIN_SCORE = 0.3;
 
 export interface SelectDossiersOptions {
   prompt: string;
