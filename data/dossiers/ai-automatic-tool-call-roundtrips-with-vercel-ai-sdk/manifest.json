@@ -5,10 +5,10 @@
   "category": "ai",
   "label": "Automatic Tool Call Roundtrips with Vercel AI SDK",
   "description": "A Next.js chatbot using the Vercel AI SDK's streamText function to automatically handle multiple tool call roundtrips.",
-  "summary": "A Next.js chatbot using the Vercel AI SDK's streamText function to automatically handle multiple tool call roundtrips.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/ai-sdk-roundtrips. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this when building a chat UI that needs the Vercel AI SDK to execute server-side tools and automatically continue the model conversation across multiple tool-call roundtrips in a single streamed response. It provides the integration pattern for defining tools with `streamText`, returning tool results, and rendering both assistant text and structured tool outputs in a Next.js app.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Vercel AI SDK",
       "url": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips"
     }
   ],
@@ -34,27 +34,22 @@
   ],
   "files": [
     {
-      "path": "components/components/data.ts",
-      "role": "client",
-      "kind": "component"
-    },
-    {
-      "path": "components/components/icons.tsx",
-      "role": "client",
-      "kind": "component"
-    },
-    {
       "path": "components/components/message.tsx",
       "role": "client",
       "kind": "component"
     },
     {
-      "path": "components/components/orders.tsx",
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/components/tool-result.tsx",
       "role": "client",
       "kind": "component"
     },
     {
-      "path": "components/components/tracker.tsx",
+      "path": "components/components/chat.tsx",
       "role": "client",
       "kind": "component"
     }
@@ -63,34 +58,31 @@
     "primary": [
       "app-shell",
       "dashboard",
-      "saas-landing"
+      "base-nextjs"
     ],
     "compatible": [
-      "landing-page",
-      "content-site",
-      "blog",
-      "portfolio",
-      "ecommerce",
+      "saas-landing",
       "auth-pages",
-      "base-nextjs"
+      "landing-page"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 88,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/ai-sdk-roundtrips",
   "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips",
   "lastVerified": "2026-04-17",
   "tags": [
+    "vercel-ai-sdk",
     "ai",
-    "integration",
-    "next",
-    "js",
-    "ai",
-    "sdk"
+    "tool-calling",
+    "multi-step",
+    "nextjs",
+    "streamtext",
+    "openai",
+    "chat"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.468Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:55:32.856Z",
+  "_curatedBy": "auto-curate.ts"
 }

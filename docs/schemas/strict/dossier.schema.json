@@ -140,6 +140,33 @@
       "items": { "type": "string", "minLength": 1 },
       "minItems": 1,
       "maxItems": 12
+    },
+    "_status": {
+      "type": "string",
+      "enum": ["draft", "active"],
+      "description": "Lifecycle. Drafts are filtered out at runtime; only active dossiers are matched against prompts."
+    },
+    "_curatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the dossier was last finalized (hand or auto)."
+    },
+    "_curatedBy": {
+      "type": "string",
+      "description": "Who or what produced this dossier. Examples: 'hand', 'auto-curate.ts', '<github-username>'."
+    },
+    "_extractedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Set by extract-files-from-cache.ts. Cleared once dossier is curated."
+    },
+    "_extractedFromCache": {
+      "type": "boolean",
+      "description": "Set by extract-files-from-cache.ts. Cleared once dossier is curated."
+    },
+    "_envExampleCopied": {
+      "type": "boolean",
+      "description": "Set by extract-files-from-cache.ts. Cleared once dossier is curated."
     }
   }
 }

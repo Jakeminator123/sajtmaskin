@@ -5,21 +5,16 @@
   "category": "cms",
   "label": "Clean Next.js + Sanity App",
   "description": "A clean Next.js template with a native authoring experience",
-  "summary": "A clean Next.js template with a native authoring experience\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/sanity-template-nextjs-clean. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a Next.js App Router site should read structured content from Sanity and support preview/draft authoring with next-sanity. It provides the core Sanity environment/config helpers, a reusable client, and the draft-mode enable route needed for Visual Editing and content previews.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Sanity",
       "url": "https://github.com/sanity-io/sanity-template-nextjs-clean"
     }
   ],
   "envVars": [],
   "dependencies": [],
   "files": [
-    {
-      "path": "components/frontend/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
     {
       "path": "components/frontend/app/api/draft-mode/enable/route.ts",
       "role": "server",
@@ -28,7 +23,7 @@
     {
       "path": "components/frontend/sanity/lib/api.ts",
       "role": "shared",
-      "kind": "util"
+      "kind": "config"
     },
     {
       "path": "components/frontend/sanity/lib/client.ts",
@@ -36,9 +31,14 @@
       "kind": "util"
     },
     {
-      "path": "components/frontend/sanity/lib/demo.ts",
+      "path": "components/frontend/sanity/lib/token.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/frontend/app/layout.tsx",
       "role": "shared",
-      "kind": "util"
+      "kind": "config"
     }
   ],
   "scaffoldFit": {
@@ -53,26 +53,26 @@
       "ecommerce",
       "app-shell",
       "dashboard",
-      "auth-pages",
       "base-nextjs"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 89,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/sanity-template-nextjs-clean",
   "sourceRepoUrl": "https://github.com/sanity-io/sanity-template-nextjs-clean",
   "lastVerified": "2026-04-17",
   "tags": [
-    "cms",
-    "integration",
-    "next",
-    "js",
     "sanity",
-    "template"
+    "cms",
+    "nextjs",
+    "app-router",
+    "draft-mode",
+    "visual-editing",
+    "preview",
+    "groq"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.772Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": false
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:58:28.558Z",
+  "_curatedBy": "auto-curate.ts"
 }

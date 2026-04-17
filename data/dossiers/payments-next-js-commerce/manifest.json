@@ -5,10 +5,10 @@
   "category": "payments",
   "label": "Next.js Commerce",
   "description": "Starter kit for high-performance commerce with Shopify.",
-  "summary": "Starter kit for high-performance commerce with Shopify.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/nextjs-commerce. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a site needs Shopify storefront integration in a Next.js App Router app. It provides the core environment rules, Shopify-specific constants, URL/env helpers, and an on-demand revalidation route pattern for keeping product, collection, and cart data fresh after Shopify updates.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Shopify",
       "url": "https://github.com/vercel/commerce"
     }
   ],
@@ -48,11 +48,6 @@
   ],
   "files": [
     {
-      "path": "components/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
       "path": "components/app/api/revalidate/route.ts",
       "role": "server",
       "kind": "api-route"
@@ -71,40 +66,41 @@
       "path": "components/lib/utils.ts",
       "role": "shared",
       "kind": "util"
+    },
+    {
+      "path": "components/lib/shopify.ts",
+      "role": "server",
+      "kind": "sdk"
     }
   ],
   "scaffoldFit": {
     "primary": [
-      "ecommerce",
-      "saas-landing"
+      "ecommerce"
     ],
     "compatible": [
+      "saas-landing",
       "landing-page",
-      "content-site",
-      "blog",
-      "portfolio",
       "app-shell",
-      "dashboard",
-      "auth-pages",
       "base-nextjs"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 86,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-commerce",
   "sourceRepoUrl": "https://github.com/vercel/commerce",
   "lastVerified": "2026-04-17",
   "tags": [
+    "shopify",
     "payments",
-    "integration",
-    "next",
-    "js",
+    "commerce",
+    "storefront-api",
     "nextjs",
-    "commerce"
+    "app-router",
+    "revalidation",
+    "webhooks"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:28.938Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:03:18.668Z",
+  "_curatedBy": "auto-curate.ts"
 }

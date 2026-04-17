@@ -5,10 +5,10 @@
   "category": "cms",
   "label": "Glide Publishing Platform - Next.js Starter",
   "description": "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.",
-  "summary": "A complete Bootstrap app with built-in features like routing, page rendering and basic SEO.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/gpp-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when building a Next.js site backed by Glide Publishing Platform content APIs. It provides the required environment configuration, a robots/noindex middleware pattern, and integration guidance for fetching and rendering Glide-managed pages, media, and SEO metadata.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "GlideCMS",
       "url": "https://github.com/GlideCMS/nextjs-demo-public"
     }
   ],
@@ -59,6 +59,21 @@
       "path": "components/middleware.ts",
       "role": "server",
       "kind": "middleware"
+    },
+    {
+      "path": "components/lib/glide.ts",
+      "role": "server",
+      "kind": "lib"
+    },
+    {
+      "path": "components/app/[...slug]/page.tsx",
+      "role": "server",
+      "kind": "route"
+    },
+    {
+      "path": "components/app/[...slug]/generate-static-params.ts",
+      "role": "server",
+      "kind": "static-generation"
     }
   ],
   "scaffoldFit": {
@@ -70,29 +85,27 @@
     "compatible": [
       "landing-page",
       "saas-landing",
-      "ecommerce",
       "app-shell",
-      "dashboard",
-      "auth-pages",
       "base-nextjs"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 73,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/gpp-starter",
   "sourceRepoUrl": "https://github.com/GlideCMS/nextjs-demo-public",
   "lastVerified": "2026-04-17",
   "tags": [
+    "glidecms",
     "cms",
-    "integration",
-    "next",
-    "js",
-    "gpp",
-    "starter"
+    "nextjs",
+    "publishing",
+    "seo",
+    "middleware",
+    "ssr",
+    "isr"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.781Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:59:03.832Z",
+  "_curatedBy": "auto-curate.ts"
 }

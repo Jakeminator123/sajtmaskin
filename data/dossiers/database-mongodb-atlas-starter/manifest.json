@@ -5,10 +5,10 @@
   "category": "database",
   "label": "MongoDB Atlas Starter",
   "description": "Minimal template for building full-stack React applications using Next.js, Vercel, and MongoDB.",
-  "summary": "Minimal template for building full-stack React applications using Next.js, Vercel, and MongoDB.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/mongo-db-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a Next.js app needs a production-safe MongoDB Atlas connection layer for server code, route handlers, or Server Actions. It provides a reusable MongoDB client module with dev/prod connection caching patterns and guidance for querying Atlas from the App Router.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "MongoDB Atlas",
       "url": "https://github.com/mongodb-developer/nextjs-template-mongodb"
     }
   ],
@@ -29,19 +29,19 @@
   ],
   "files": [
     {
-      "path": "components/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
+      "path": "components/lib/mongodb.ts",
+      "role": "server",
+      "kind": "util"
     },
     {
       "path": "components/lib/mongodb.ts",
-      "role": "shared",
+      "role": "server",
       "kind": "util"
     },
     {
-      "path": "components/lib/utils.ts",
-      "role": "shared",
-      "kind": "util"
+      "path": "components/app/api/health/db/route.ts",
+      "role": "server",
+      "kind": "api-route"
     }
   ],
   "scaffoldFit": {
@@ -49,33 +49,34 @@
       "app-shell",
       "dashboard",
       "ecommerce",
-      "saas-landing"
+      "base-nextjs"
     ],
     "compatible": [
+      "saas-landing",
       "blog",
       "content-site",
       "auth-pages",
       "landing-page",
-      "portfolio",
-      "base-nextjs"
+      "portfolio"
     ]
   },
-  "complexity": "medium",
-  "qualityScore": 80,
+  "complexity": "low",
+  "qualityScore": 88,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/mongo-db-starter",
   "sourceRepoUrl": "https://github.com/mongodb-developer/nextjs-template-mongodb",
   "lastVerified": "2026-04-17",
   "tags": [
+    "mongodb-atlas",
+    "mongodb",
     "database",
-    "integration",
-    "next",
-    "js",
-    "mongo",
-    "db"
+    "nextjs",
+    "app-router",
+    "server-only",
+    "atlas",
+    "vercel"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.787Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:59:28.876Z",
+  "_curatedBy": "auto-curate.ts"
 }

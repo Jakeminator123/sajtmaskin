@@ -5,10 +5,10 @@
   "category": "payments",
   "label": "Medusa Next.js Ecommerce Store Starter",
   "description": "Ecommerce store template built with Next.js App Router, Medusa and TailwindCSS, with features like Algolia search and Stripe checkout.",
-  "summary": "Ecommerce store template built with Next.js App Router, Medusa and TailwindCSS, with features like Algolia search and Stripe checkout.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/medusa. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when building a Next.js storefront that needs Medusa as the commerce backend for products, carts, checkout, regions, and order flows. It provides integration guidance for connecting a Next.js App Router ecommerce site to a Medusa server; the current extracted files are unrelated middleware examples and should not be used.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Medusa",
       "url": "https://github.com/vercel/next.js"
     }
   ],
@@ -16,62 +16,49 @@
   "dependencies": [],
   "files": [
     {
-      "path": "components/examples/auth/middleware.ts",
+      "path": "components/lib/medusa.ts",
       "role": "server",
-      "kind": "middleware"
+      "kind": "lib"
     },
     {
-      "path": "components/examples/i18n-routing/middleware.ts",
+      "path": "components/app/api/cart/route.ts",
       "role": "server",
-      "kind": "middleware"
+      "kind": "api-route"
     },
     {
-      "path": "components/examples/with-axiom/middleware.ts",
+      "path": "components/app/api/cart/items/route.ts",
       "role": "server",
-      "kind": "middleware"
-    },
-    {
-      "path": "components/examples/with-clerk/middleware.ts",
-      "role": "server",
-      "kind": "middleware"
-    },
-    {
-      "path": "components/examples/with-supertokens/middleware.ts",
-      "role": "server",
-      "kind": "middleware"
+      "kind": "api-route"
     }
   ],
   "scaffoldFit": {
     "primary": [
-      "ecommerce",
-      "saas-landing"
+      "ecommerce"
     ],
     "compatible": [
-      "landing-page",
-      "content-site",
-      "blog",
-      "portfolio",
       "app-shell",
       "dashboard",
-      "auth-pages",
-      "base-nextjs"
+      "base-nextjs",
+      "saas-landing"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 72,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/medusa",
   "sourceRepoUrl": "https://github.com/vercel/next.js",
   "lastVerified": "2026-04-17",
   "tags": [
+    "medusa",
     "payments",
-    "integration",
-    "next",
-    "js",
-    "medusa"
+    "ecommerce",
+    "nextjs",
+    "storefront",
+    "cart",
+    "checkout",
+    "products"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:28.917Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": false
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:02:03.827Z",
+  "_curatedBy": "auto-curate.ts"
 }

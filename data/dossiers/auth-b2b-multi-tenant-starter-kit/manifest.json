@@ -5,10 +5,10 @@
   "category": "auth",
   "label": "B2B Multi-Tenant Starter Kit",
   "description": "A minimalistic B2B Next.js starter template that includes a landing page, a dashboard, authentication, multi-tenancy, and account settings.",
-  "summary": "A minimalistic B2B Next.js starter template that includes a landing page, a dashboard, authentication, multi-tenancy, and account settings.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/b2-b-multi-tenant-starter-kit. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when building a Next.js app that needs Stack Auth with hosted auth UI, a global provider in the App Router, and route protection via middleware. It provides the minimal integration patterns for wrapping the app with StackProvider/StackTheme and enforcing auth on protected routes.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Stack Auth",
       "url": "https://github.com/stack-auth/stack"
     }
   ],
@@ -20,29 +20,24 @@
   ],
   "files": [
     {
-      "path": "components/docs/src/middleware.ts",
+      "path": "components/app/layout.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/stack.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/middleware.ts",
       "role": "server",
       "kind": "middleware"
     },
     {
-      "path": "components/docs/src/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
-      "path": "components/examples/cjs-test/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
-      "path": "components/examples/convex/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
-      "path": "components/examples/supabase/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
+      "path": "components/app/dashboard/page.tsx",
+      "role": "server",
+      "kind": "page"
     }
   ],
   "scaffoldFit": {
@@ -53,30 +48,31 @@
     ],
     "compatible": [
       "saas-landing",
-      "ecommerce",
+      "base-nextjs",
       "landing-page",
+      "ecommerce",
       "content-site",
       "blog",
-      "portfolio",
-      "base-nextjs"
+      "portfolio"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 85,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/b2-b-multi-tenant-starter-kit",
   "sourceRepoUrl": "https://github.com/stack-auth/stack",
   "lastVerified": "2026-04-17",
   "tags": [
+    "stack-auth",
     "auth",
-    "integration",
-    "next",
-    "js",
-    "b2",
-    "b"
+    "nextjs",
+    "app-router",
+    "middleware",
+    "b2b",
+    "multi-tenant",
+    "dashboard"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.722Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": false
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:57:23.492Z",
+  "_curatedBy": "auto-curate.ts"
 }

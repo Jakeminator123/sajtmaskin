@@ -197,7 +197,7 @@ function selectCriticalScaffoldFiles(
   contextPolicy: BuildSpecContextPolicy,
   options: ScaffoldSerializeOptions,
 ): typeof scaffold.files {
-  const maxFiles = contextPolicy === "light" ? 3 : 4;
+  const maxFiles = contextPolicy === "light" ? 4 : 5;
   return [...scaffold.files]
     .sort((a, b) => {
       const aScore =

@@ -5,10 +5,10 @@
   "category": "payments",
   "label": "Paddle Mobile Web Payments Starter",
   "description": "Starter project for iOS apps using Paddle checkout in Next.js.",
-  "summary": "Starter project for iOS apps using Paddle checkout in Next.js.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/paddle-in-app-checkout-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a Next.js site needs to launch Paddle Checkout for purchases tied to an iOS app and then deep-link the customer back into the app after payment. It provides the small set of client-side utilities needed for price/trial formatting and mobile redirect URL construction, plus guidance for wiring Paddle.js into a checkout button or pricing UI.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Paddle",
       "url": "https://github.com/PaddleHQ/paddle-mobile-web-payments-starter"
     }
   ],
@@ -61,18 +61,13 @@
   ],
   "files": [
     {
-      "path": "components/src/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
       "path": "components/src/lib/format-billing-cycle.ts",
       "role": "shared",
       "kind": "util"
     },
     {
       "path": "components/src/lib/format-currency.ts",
-      "role": "shared",
+      "role": "client",
       "kind": "util"
     },
     {
@@ -82,42 +77,50 @@
     },
     {
       "path": "components/src/lib/redirect.ts",
-      "role": "shared",
+      "role": "client",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/paddle.ts",
+      "role": "client",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/lib/open-paddle-checkout.ts",
+      "role": "client",
       "kind": "util"
     }
   ],
   "scaffoldFit": {
     "primary": [
-      "ecommerce",
-      "saas-landing"
+      "saas-landing",
+      "app-shell",
+      "dashboard"
     ],
     "compatible": [
+      "ecommerce",
       "landing-page",
-      "content-site",
-      "blog",
-      "portfolio",
-      "app-shell",
-      "dashboard",
       "auth-pages",
       "base-nextjs"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 82,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/paddle-in-app-checkout-starter",
   "sourceRepoUrl": "https://github.com/PaddleHQ/paddle-mobile-web-payments-starter",
   "lastVerified": "2026-04-17",
   "tags": [
-    "payments",
-    "integration",
-    "next",
-    "js",
     "paddle",
-    "in"
+    "payments",
+    "mobile",
+    "ios",
+    "deep-link",
+    "checkout",
+    "subscriptions",
+    "nextjs"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:29.095Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:03:53.312Z",
+  "_curatedBy": "auto-curate.ts"
 }

@@ -1,11 +1,20 @@
 {
   "$schema": "../../../docs/schemas/strict/scaffold-recommendations.schema.json",
-  "generatedAt": "2026-04-17T16:26:12.451Z",
-  "generationMode": "auto",
+  "generatedAt": "2026-04-17T17:06:42.962Z",
+  "generationMode": "merged",
   "scaffolds": {
     "base-nextjs": {
       "alwaysInclude": [],
-      "primaryRecommended": [],
+      "primaryRecommended": [
+        "ai-ai-sdk-image-generator",
+        "ai-automatic-tool-call-roundtrips-with-vercel-ai-sdk",
+        "ai-chatgpt-app-with-next-js",
+        "database-mongodb-atlas-starter",
+        "database-natural-language-postgres",
+        "database-postgres-drizzle-next-js-starter",
+        "database-vercel-with-neon-postgres",
+        "ui-content-nextra-docs-starter-kit"
+      ],
       "suggested": [
         "ai-ai-sdk-image-generator",
         "ai-automatic-tool-call-roundtrips-with-vercel-ai-sdk",
@@ -41,6 +50,7 @@
     "landing-page": {
       "alwaysInclude": [],
       "primaryRecommended": [
+        "cms-builder-io-personalization-starter",
         "ui-pricing-tier-table"
       ],
       "suggested": [
@@ -82,6 +92,7 @@
         "ai-azure-ai-rag-chatbot",
         "ai-bookrecs-next-js-weaviate-starter",
         "ai-chatgpt-app-with-next-js",
+        "cms-builder-io-personalization-starter",
         "database-cockroachdb-prisma-next-js-starter",
         "database-mongodb-atlas-starter",
         "database-natural-language-postgres",
@@ -96,6 +107,10 @@
         "ui-pricing-tier-table"
       ],
       "suggested": [
+        "ai-ai-sdk-image-generator",
+        "ai-automatic-tool-call-roundtrips-with-vercel-ai-sdk",
+        "ai-bookrecs-next-js-weaviate-starter",
+        "ai-chatgpt-app-with-next-js",
         "auth-b2b-multi-tenant-starter-kit",
         "auth-clerk-authentication-starter",
         "auth-saastart-auth0-next-js-saas-starter-kit",
@@ -103,6 +118,12 @@
         "cms-clean-next-js-sanity-app",
         "cms-glide-publishing-platform-next-js-starter",
         "cms-isr-blog-with-next-js-and-wordpress",
+        "database-mongodb-atlas-starter",
+        "database-natural-language-postgres",
+        "database-vercel-with-neon-postgres",
+        "payments-medusa-next-js-ecommerce-store-starter",
+        "payments-next-js-bigcommerce-starter",
+        "payments-next-js-commerce",
         "realtime-ably-and-next-js-starter-kit",
         "realtime-anycable-real-time-starter-kit",
         "ui-content-blog-starter-kit",
@@ -130,6 +151,7 @@
         "auth-b2b-multi-tenant-starter-kit",
         "auth-clerk-authentication-starter",
         "auth-saastart-auth0-next-js-saas-starter-kit",
+        "cms-builder-io-personalization-starter",
         "database-cockroachdb-prisma-next-js-starter",
         "database-mongodb-atlas-starter",
         "database-natural-language-postgres",
@@ -143,6 +165,7 @@
         "payments-stripe-checkout",
         "realtime-ably-and-next-js-starter-kit",
         "realtime-anycable-real-time-starter-kit",
+        "ui-content-nextra-docs-starter-kit",
         "ui-pricing-tier-table"
       ]
     },
@@ -198,6 +221,7 @@
         "database-natural-language-postgres",
         "database-postgres-drizzle-next-js-starter",
         "database-vercel-with-neon-postgres",
+        "payments-paddle-mobile-web-payments-starter",
         "realtime-ably-and-next-js-starter-kit",
         "realtime-anycable-real-time-starter-kit"
       ],
@@ -282,6 +306,8 @@
         "cms-clean-next-js-sanity-app",
         "cms-glide-publishing-platform-next-js-starter",
         "cms-isr-blog-with-next-js-and-wordpress",
+        "database-natural-language-postgres",
+        "payments-paddle-mobile-web-payments-starter",
         "realtime-ably-and-next-js-starter-kit",
         "realtime-anycable-real-time-starter-kit",
         "ui-content-blog-starter-kit",
@@ -293,6 +319,7 @@
     "content-site": {
       "alwaysInclude": [],
       "primaryRecommended": [
+        "ai-bookrecs-next-js-weaviate-starter",
         "cms-builder-io-personalization-starter",
         "cms-clean-next-js-sanity-app",
         "cms-glide-publishing-platform-next-js-starter",
@@ -342,6 +369,7 @@
         "database-natural-language-postgres",
         "database-postgres-drizzle-next-js-starter",
         "database-vercel-with-neon-postgres",
+        "payments-paddle-mobile-web-payments-starter",
         "realtime-ably-and-next-js-starter-kit",
         "realtime-anycable-real-time-starter-kit"
       ],

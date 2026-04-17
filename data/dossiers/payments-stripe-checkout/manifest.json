@@ -5,8 +5,13 @@
   "category": "payments",
   "label": "Stripe Checkout",
   "description": "One-time and subscription payments via Stripe Checkout (hosted page).",
-  "summary": "Adds a Checkout button that creates a Stripe Checkout Session server-side and redirects the user to Stripe's hosted payment page. Use when the user wants to accept payments without building a custom card form. Supports one-time and recurring (subscription) prices.",
-  "providers": [{ "name": "Stripe", "url": "https://stripe.com" }],
+  "summary": "Use this when a site needs Stripe-hosted checkout for one-time purchases or subscriptions without building a custom payment form. It provides a client Checkout button plus a server API route that creates a Stripe Checkout Session and redirects the user to Stripe.",
+  "providers": [
+    {
+      "name": "Stripe",
+      "url": "https://stripe.com"
+    }
+  ],
   "envVars": [
     {
       "key": "STRIPE_SECRET_KEY",
@@ -24,23 +29,75 @@
       "purpose": "Used for Stripe success/cancel redirect URLs. Example: https://example.com"
     }
   ],
-  "dependencies": ["stripe", "@stripe/stripe-js"],
+  "dependencies": [
+    "stripe",
+    "@stripe/stripe-js"
+  ],
   "files": [
-    { "path": "components/checkout-button.tsx", "role": "client", "kind": "component" },
-    { "path": "components/api/checkout-session/route.ts", "role": "server", "kind": "api-route" }
+    {
+      "path": "components/api/checkout-session/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/checkout-button.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/lib/stripe.ts",
+      "role": "server",
+      "kind": "lib"
+    },
+    {
+      "path": "components/success/page.tsx",
+      "role": "shared",
+      "kind": "page"
+    },
+    {
+      "path": "components/cancel/page.tsx",
+      "role": "shared",
+      "kind": "page"
+    }
   ],
   "exposes": [
-    { "name": "CheckoutButton", "type": "component", "import": "@/components/checkout-button" }
+    {
+      "name": "CheckoutButton",
+      "type": "component",
+      "import": "@/components/checkout-button"
+    }
   ],
   "scaffoldFit": {
-    "primary": ["ecommerce", "saas-landing"],
-    "compatible": ["landing-page", "content-site", "blog", "portfolio", "app-shell", "dashboard", "auth-pages", "base-nextjs"]
+    "primary": [
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
   },
   "complexity": "medium",
-  "qualityScore": 95,
+  "qualityScore": 93,
   "sourceTemplateUrl": "https://vercel.com/templates/ecommerce/stripe-subscription-starter",
   "sourceRepoUrl": "https://github.com/vercel/nextjs-subscription-payments",
   "lastVerified": "2026-04-17",
-  "tags": ["payments", "checkout", "stripe", "subscription", "one-time"],
-  "_source": "hand-curated"
+  "tags": [
+    "stripe",
+    "payments",
+    "checkout",
+    "subscription",
+    "one-time",
+    "hosted-checkout"
+  ],
+  "_source": "hand-curated",
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:04:21.812Z",
+  "_curatedBy": "auto-curate.ts"
 }

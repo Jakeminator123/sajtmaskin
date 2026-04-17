@@ -5,10 +5,10 @@
   "category": "cms",
   "label": "Builder.io Personalization Starter",
   "description": "Learn how to use Builder.io to personalize your Next.js pages.",
-  "summary": "Learn how to use Builder.io to personalize your Next.js pages.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/personalization-builder-io. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a site needs Builder.io-managed page content with audience personalization in a Next.js App Router app. It provides the minimal integration pattern: Builder SDK setup, a catch-all page that resolves Builder content by URL, and guidance for passing targeting attributes so Builder can serve personalized variants.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Builder.io",
       "url": "https://github.com/vercel/commerce"
     }
   ],
@@ -48,63 +48,51 @@
   ],
   "files": [
     {
-      "path": "components/app/layout.tsx",
+      "path": "components/lib/builder.ts",
       "role": "shared",
       "kind": "config"
     },
     {
-      "path": "components/app/api/revalidate/route.ts",
+      "path": "components/app/[[...slug]]/page.tsx",
       "role": "server",
-      "kind": "api-route"
+      "kind": "page"
     },
     {
-      "path": "components/lib/constants.ts",
-      "role": "shared",
-      "kind": "util"
-    },
-    {
-      "path": "components/lib/type-guards.ts",
-      "role": "shared",
-      "kind": "util"
-    },
-    {
-      "path": "components/lib/utils.ts",
-      "role": "shared",
-      "kind": "util"
+      "path": "components/app/[[...slug]]/render-builder-content.tsx",
+      "role": "client",
+      "kind": "component"
     }
   ],
   "scaffoldFit": {
     "primary": [
-      "blog",
-      "content-site",
-      "portfolio"
-    ],
-    "compatible": [
       "landing-page",
       "saas-landing",
-      "ecommerce",
+      "content-site",
+      "blog"
+    ],
+    "compatible": [
+      "portfolio",
       "app-shell",
       "dashboard",
-      "auth-pages",
       "base-nextjs"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 86,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/personalization-builder-io",
   "sourceRepoUrl": "https://github.com/vercel/commerce",
   "lastVerified": "2026-04-17",
   "tags": [
+    "builder.io",
     "cms",
-    "integration",
-    "next",
-    "js",
     "personalization",
-    "builder"
+    "nextjs",
+    "app-router",
+    "visual-editor",
+    "audience-targeting"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.759Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T16:57:59.220Z",
+  "_curatedBy": "auto-curate.ts"
 }

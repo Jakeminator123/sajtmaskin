@@ -38,6 +38,10 @@ RECOMMENDATIONS_PATH = INDEX_ROOT / "scaffold-recommendations.json"
 EMBEDDINGS_PATH = INDEX_ROOT / "dossier-embeddings.json"
 CURATION_QUEUE_PATH = RAW_ROOT / "_curation-queue.md"
 ENRICHED_DIR = RAW_ROOT / "_enriched"
+CURATE_BATCH_LOG = INDEX_ROOT / "curate-batch.log"
+
+VARIANT_EMBEDDINGS_PATH = REPO_ROOT / "config" / "scaffold-variants" / "_index" / "variant-embeddings.json"
+SCAFFOLD_VARIANTS_DIR = REPO_ROOT / "config" / "scaffold-variants"
 
 SCAFFOLD_IDS = (
     "base-nextjs", "landing-page", "saas-landing", "portfolio", "blog",
@@ -127,6 +131,14 @@ def _section_overview() -> None:
                 st.text(f"• {w}")
 
 
+def _load_embeddings_index() -> set[str]:
+    """Set of dossier ids that have an embedding."""
+    data = _load_json(EMBEDDINGS_PATH)
+    if not data:
+        return set()
+    return {e["id"] for e in data.get("embeddings", []) if "id" in e}
+
+
 def _section_dossier_list() -> None:
     st.subheader("Alla dossiers")
     master = _load_json(MASTER_PATH)
@@ -135,6 +147,7 @@ def _section_dossier_list() -> None:
         return
 
     dossiers = master.get("dossiers", [])
+    embedded_ids = _load_embeddings_index()
 
     show_drafts = st.checkbox("Visa drafts", value=True)
     filter_cat = st.selectbox(
@@ -153,21 +166,35 @@ def _section_dossier_list() -> None:
         files_present = d.get("_filesPresent", 0)
         env_count = len(d.get("envVars", []))
         deps_count = len(d.get("dependencies", []))
-        extracted = "✓ auto" if d.get("_extractedFromCache") else ("✓ hand" if status == "active" else "✗")
+        curated_by = d.get("_curatedBy")
+        if curated_by == "auto-curate.ts":
+            curation = "🤖 AI"
+        elif status == "active":
+            curation = "✋ hand"
+        else:
+            curation = "—"
         rows.append({
             "id": d["id"],
             "kind": d["kind"],
             "category": d["category"],
             "label": d["label"],
             "status": status,
+            "curated": curation,
             "files": f"{files_present}/{files_declared}",
             "deps": deps_count,
             "env": env_count,
-            "extracted": extracted,
+            "embedding": "✓" if d["id"] in embedded_ids else "—",
+            "quality": d.get("qualityScore", "—"),
             "primary_for": ", ".join(d.get("scaffoldFit", {}).get("primary", [])) or "—",
         })
     rows.sort(key=lambda r: (r["status"] != "active", r["category"], r["id"]))
     st.dataframe(rows, width="stretch", hide_index=True)
+    st.caption(
+        f"Visar {len(rows)} dossiers. "
+        f"🤖 = AI-kurerad via `auto-curate.ts`. "
+        f"✋ = hand-skriven. "
+        f"`embedding ✓` = dossiern matchas semantiskt mot prompts vid runtime."
+    )
 
 
 def _section_recommendations() -> None:
@@ -251,10 +278,68 @@ def _section_curation_queue() -> None:
         st.markdown(text)
 
 
+def _section_ai_curate() -> None:
+    st.subheader("AI-kurering (LLM gör grovjobbet)")
+    st.caption(
+        "GPT-5.4 läser varje draft (manifest + komponentfiler + .env.example) "
+        "och producerar: konkret summary, valid providers, ren files-lista (rensar "
+        "template-fluff), saknade filer (t.ex. middleware.ts), full instructions.md, "
+        "tags, qualityScore, scaffoldFit. Sätter `_status: active`. "
+        "Borttagna filer flyttas till `_removed/` så du kan rulla tillbaka."
+    )
+
+    master = _load_json(MASTER_PATH) or {"dossiers": []}
+    drafts = [d for d in master.get("dossiers", []) if d.get("_status") == "draft"]
+    actives = [d for d in master.get("dossiers", []) if d.get("_status") == "active"]
+    auto_curated = [d for d in actives if d.get("_curatedBy") == "auto-curate.ts"]
+
+    cols = st.columns(3)
+    cols[0].metric("Drafts kvar", len(drafts))
+    cols[1].metric("Aktiva totalt", len(actives))
+    cols[2].metric("Varav AI-kurerade", len(auto_curated))
+
+    if CURATE_BATCH_LOG.exists():
+        log_size = CURATE_BATCH_LOG.stat().st_size
+        st.caption(f"Senaste batch-logg: `data/dossiers/_index/curate-batch.log` ({log_size/1024:.1f} KB)")
+        with st.expander("Visa senaste batch-logg (sista 80 rader)"):
+            text = CURATE_BATCH_LOG.read_text(encoding="utf-8", errors="replace")
+            tail = "\n".join(text.splitlines()[-80:])
+            st.code(tail)
+
+    st.markdown("**Kör en specifik dossier (verifiera först med dry-run):**")
+    draft_ids = [d["id"] for d in drafts]
+    if draft_ids:
+        target = st.selectbox("Draft att kurera", draft_ids, key="ai_curate_target")
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("🔍 Dry-run (visa förslag, skriv inget)"):
+                with st.spinner(f"GPT-5.4 analyserar {target}…"):
+                    ok, out = _run_cmd(
+                        ["npx", "tsx", "scripts/dossiers/auto-curate.ts", "--dry-run", f"--only={target}"]
+                    )
+                (st.success if ok else st.error)(out[-3000:])
+        with c2:
+            if st.button("✅ Kör på riktigt (skriv ändringar)"):
+                with st.spinner(f"GPT-5.4 kurerar {target}…"):
+                    ok, out = _run_cmd(
+                        ["npx", "tsx", "scripts/dossiers/auto-curate.ts", f"--only={target}"]
+                    )
+                (st.success if ok else st.error)(out[-3000:])
+                if ok:
+                    st.info("Glöm inte: kör `npm run dossiers:index && npm run dossiers:embeddings` efteråt.")
+    else:
+        st.info("Inga drafts kvar att kurera. 🎉")
+
+    st.markdown("**Batch — kör i terminal (15+ min, ~$1-3 OpenAI-kostnad):**")
+    st.code("npm run dossiers:curate                     # alla drafts", language="bash")
+    st.code("npm run dossiers:curate -- --limit=5        # max 5 åt gången", language="bash")
+    st.code("npm run dossiers:curate -- --force --only=<id>  # re-kurera aktiv", language="bash")
+
+
 def _section_pipeline_actions() -> None:
     st.subheader("Pipeline-åtgärder")
     st.caption(
-        "Korta åtgärder körs här direkt. Långa (scrape, enrich, embeddings) "
+        "Korta åtgärder körs här direkt. Långa (scrape, enrich, embeddings, batch-curate) "
         "körs bättre från terminalen — visa kommandot."
     )
 
@@ -291,8 +376,56 @@ def _section_pipeline_actions() -> None:
         st.caption("Embeddings för alla active dossiers (~30 sek, kräver OPENAI_API_KEY)")
         st.code("npm run dossiers:clone-repos", language="bash")
         st.caption("Shallow-cklona alla draft-repon till _repo-cache/ (~5 min, ~290 MB)")
+        st.code("npm run dossiers:curate", language="bash")
+        st.caption("AI-kurera alla drafts via GPT-5.4 (~15 min, ~$1-3, kräver OPENAI_API_KEY)")
         st.code("npm run dossiers:rebuild", language="bash")
         st.caption("index + recommend:merge + embeddings i sekvens")
+
+
+def _section_scaffold_overview() -> None:
+    st.subheader("Scaffolds + variants")
+    st.caption(
+        "10 scaffolds är skeletten. Varje scaffold har 1-3 varianter (estetiska "
+        "tolkningar). Embeddings (om de finns) gör att rätt variant väljs "
+        "semantiskt utifrån prompten."
+    )
+
+    if not SCAFFOLD_VARIANTS_DIR.exists():
+        st.warning("config/scaffold-variants/ saknas.")
+        return
+
+    variant_files = sorted(SCAFFOLD_VARIANTS_DIR.glob("*.json"))
+    variant_data: list[dict[str, Any]] = []
+    embedded_variant_ids: set[str] = set()
+    if VARIANT_EMBEDDINGS_PATH.exists():
+        ve = _load_json(VARIANT_EMBEDDINGS_PATH) or {}
+        embedded_variant_ids = {e.get("id") for e in ve.get("embeddings", []) if e.get("id")}
+
+    for vf in variant_files:
+        if vf.stem.startswith("_"):
+            continue
+        v = _load_json(vf) or {}
+        variant_data.append({
+            "scaffold": v.get("scaffoldId", "—"),
+            "variant_id": v.get("id", vf.stem),
+            "label": v.get("label", "—"),
+            "default": "✓" if v.get("isDefault") else "—",
+            "fonts": ", ".join((v.get("design", {}) or {}).get("fonts", [])) or "—",
+            "embedding": "✓" if v.get("id") in embedded_variant_ids else "—",
+        })
+
+    variant_data.sort(key=lambda r: (r["scaffold"], r["default"] != "✓", r["variant_id"]))
+    st.dataframe(variant_data, width="stretch", hide_index=True)
+
+    cols = st.columns(3)
+    cols[0].metric("Variants totalt", len(variant_data))
+    cols[1].metric("Med embedding", sum(1 for v in variant_data if v["embedding"] == "✓"))
+    cols[2].metric("Default-variants", sum(1 for v in variant_data if v["default"] == "✓"))
+
+    st.markdown("**Generera embeddings för variants:**")
+    if st.button("Bygg variant-embeddings (kräver OPENAI_API_KEY)"):
+        ok, out = _run_cmd(["npm", "run", "scaffolds:variant-embeddings"])
+        (st.success if ok else st.error)(out[-2000:])
 
 
 def _section_files_on_disk() -> None:
@@ -326,14 +459,18 @@ def render(*_args: Any, **_kwargs: Any) -> None:
         "Format: `docs/architecture/dossier-format.md`"
     )
 
-    tab_overview, tab_list, tab_recommend, tab_curation, tab_pipeline, tab_files = st.tabs(
-        ["Översikt", "Lista", "Möblera", "Kurations-kö", "Pipeline", "Filer"],
+    tab_overview, tab_list, tab_ai, tab_scaffold, tab_recommend, tab_curation, tab_pipeline, tab_files = st.tabs(
+        ["Översikt", "Lista", "AI-kurera", "Scaffolds & Variants", "Möblera", "Kurations-kö", "Pipeline", "Filer"],
     )
 
     with tab_overview:
         _section_overview()
     with tab_list:
         _section_dossier_list()
+    with tab_ai:
+        _section_ai_curate()
+    with tab_scaffold:
+        _section_scaffold_overview()
     with tab_recommend:
         _section_recommendations()
     with tab_curation:

@@ -5,10 +5,10 @@
   "category": "payments",
   "label": "Next.js + BigCommerce Starter",
   "description": "A Next.js 14 and App Router-ready headless storefront template for BigCommerce.",
-  "summary": "A Next.js 14 and App Router-ready headless storefront template for BigCommerce.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/bigcommerce-starter-nextjs. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when building a headless Next.js storefront backed by BigCommerce. It provides the BigCommerce-specific wiring that a generic ecommerce scaffold needs: product-route middleware, on-demand revalidation endpoint, catalog sorting constants, and environment/config patterns for App Router storefronts.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "BigCommerce",
       "url": "https://github.com/bigcommerce/nextjs-commerce"
     }
   ],
@@ -83,11 +83,6 @@
       "kind": "middleware"
     },
     {
-      "path": "components/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
       "path": "components/app/api/revalidate/route.ts",
       "role": "server",
       "kind": "api-route"
@@ -101,40 +96,47 @@
       "path": "components/lib/type-guards.ts",
       "role": "shared",
       "kind": "util"
+    },
+    {
+      "path": "components/lib/bigcommerce.ts",
+      "role": "server",
+      "kind": "provider-client"
+    },
+    {
+      "path": "components/lib/bigcommerce-config.ts",
+      "role": "shared",
+      "kind": "config"
     }
   ],
   "scaffoldFit": {
     "primary": [
-      "ecommerce",
-      "saas-landing"
+      "ecommerce"
     ],
     "compatible": [
-      "landing-page",
-      "content-site",
-      "blog",
-      "portfolio",
       "app-shell",
       "dashboard",
-      "auth-pages",
-      "base-nextjs"
+      "base-nextjs",
+      "saas-landing"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 85,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/bigcommerce-starter-nextjs",
   "sourceRepoUrl": "https://github.com/bigcommerce/nextjs-commerce",
   "lastVerified": "2026-04-17",
   "tags": [
-    "payments",
-    "integration",
-    "next",
-    "js",
     "bigcommerce",
-    "starter"
+    "nextjs",
+    "ecommerce",
+    "headless-commerce",
+    "app-router",
+    "revalidation",
+    "middleware",
+    "catalog",
+    "checkout"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:28.928Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:02:41.524Z",
+  "_curatedBy": "auto-curate.ts"
 }

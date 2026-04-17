@@ -5,10 +5,10 @@
   "category": "database",
   "label": "Postgres + Drizzle Next.js Starter",
   "description": "Simple Next.js template that uses a Postgres database and Drizzle as the ORM.",
-  "summary": "Simple Next.js template that uses a Postgres database and Drizzle as the ORM.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/postgres-drizzle. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a Next.js app needs a relational database with PostgreSQL and a type-safe ORM plus migrations. It provides the minimal Drizzle + Postgres wiring patterns the runtime LLM should apply: database client setup, schema definition, query usage in server code, and migration configuration.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Drizzle",
       "url": "https://github.com/drizzle-team/drizzle-orm"
     }
   ],
@@ -16,29 +16,24 @@
   "dependencies": [],
   "files": [
     {
-      "path": "components/drizzle-kit/src/utils/certs.ts",
-      "role": "shared",
-      "kind": "util"
+      "path": "components/lib/db/schema.ts",
+      "role": "server",
+      "kind": "schema"
     },
     {
-      "path": "components/drizzle-kit/src/utils/words.ts",
-      "role": "shared",
-      "kind": "util"
+      "path": "components/lib/db/index.ts",
+      "role": "server",
+      "kind": "db-client"
     },
     {
-      "path": "components/drizzle-orm/src/pg-core/utils/array.ts",
-      "role": "shared",
-      "kind": "util"
+      "path": "components/drizzle.config.ts",
+      "role": "server",
+      "kind": "config"
     },
     {
-      "path": "components/drizzle-orm/src/pg-core/utils/index.ts",
-      "role": "shared",
-      "kind": "util"
-    },
-    {
-      "path": "components/drizzle-orm/type-tests/utils/neon-auth-token.ts",
-      "role": "shared",
-      "kind": "util"
+      "path": "components/app/api/health/db/route.ts",
+      "role": "server",
+      "kind": "api-route"
     }
   ],
   "scaffoldFit": {
@@ -46,33 +41,34 @@
       "app-shell",
       "dashboard",
       "ecommerce",
-      "saas-landing"
+      "saas-landing",
+      "base-nextjs"
     ],
     "compatible": [
       "blog",
       "content-site",
       "auth-pages",
       "landing-page",
-      "portfolio",
-      "base-nextjs"
+      "portfolio"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 88,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/postgres-drizzle",
   "sourceRepoUrl": "https://github.com/drizzle-team/drizzle-orm",
   "lastVerified": "2026-04-17",
   "tags": [
-    "database",
-    "integration",
-    "next",
-    "js",
+    "drizzle",
     "postgres",
-    "drizzle"
+    "nextjs",
+    "database",
+    "orm",
+    "migrations",
+    "drizzle-kit",
+    "server-actions"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.854Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": false
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:00:57.485Z",
+  "_curatedBy": "auto-curate.ts"
 }

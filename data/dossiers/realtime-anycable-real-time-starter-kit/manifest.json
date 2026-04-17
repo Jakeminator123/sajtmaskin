@@ -5,10 +5,10 @@
   "category": "realtime",
   "label": "AnyCable Real-time Starter Kit",
   "description": "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.",
-  "summary": "AnyCable/Next.js chat application demonstrating how to build real-time features, with all benefits of open-source. No PaaS bills.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/anycable. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a Next.js app needs authenticated WebSocket-style real-time features backed by AnyCable, such as chat, presence, notifications, or collaborative updates. It provides the server-side RPC endpoint AnyCable calls into, a client auth endpoint that returns a signed cable URL, and route protection patterns for cookie/JWT-based realtime sessions.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "AnyCable",
       "url": "https://github.com/anycable/vercel-anycable-demo"
     }
   ],
@@ -55,27 +55,22 @@
   ],
   "files": [
     {
-      "path": "components/middleware.ts",
-      "role": "server",
-      "kind": "middleware"
-    },
-    {
-      "path": "components/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
       "path": "components/app/api/anycable/route.ts",
       "role": "server",
       "kind": "api-route"
     },
     {
-      "path": "components/app/api/og/route.tsx",
+      "path": "components/app/api/auth/cable/route.ts",
       "role": "server",
       "kind": "api-route"
     },
     {
-      "path": "components/app/api/auth/cable/route.ts",
+      "path": "components/app/api/cable.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/auth/session/route.ts",
       "role": "server",
       "kind": "api-route"
     }
@@ -86,31 +81,29 @@
       "dashboard"
     ],
     "compatible": [
-      "saas-landing",
-      "ecommerce",
-      "blog",
-      "content-site",
-      "portfolio",
+      "base-nextjs",
       "auth-pages",
-      "landing-page",
-      "base-nextjs"
+      "saas-landing",
+      "ecommerce"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 83,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/anycable",
   "sourceRepoUrl": "https://github.com/anycable/vercel-anycable-demo",
   "lastVerified": "2026-04-17",
   "tags": [
+    "anycable",
     "realtime",
-    "integration",
-    "next",
-    "js",
-    "anycable"
+    "websocket",
+    "nextjs",
+    "chat",
+    "presence",
+    "jwt",
+    "serverless"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:29.103Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:04:58.837Z",
+  "_curatedBy": "auto-curate.ts"
 }

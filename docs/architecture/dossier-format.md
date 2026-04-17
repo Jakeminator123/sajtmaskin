@@ -175,6 +175,38 @@ Genereras initialt av `scripts/dossiers/build-scaffold-recommendations.ts` baser
 4. **`lastVerified` uppdateras varje gång dossiern hand-redigeras** — annars vet vi inte om koden är aktuell.
 5. **Hand-kuraterade dossiers har prioritet över skrapade.** En `qualityScore: 95` med `lastVerified` < 6 månader rankas före en `qualityScore: 90` med äldre verifiering.
 
+## Lifecycle-fält (`_status`, `_curatedAt`, `_curatedBy`)
+
+| Fält | När sätts | Vem skriver |
+|---|---|---|
+| `_status: "draft"` | När `promote-skiss-to-dossier.ts` skapar mappen från en skiss | promotion-skript |
+| `_extractedAt`, `_extractedFromCache`, `_envExampleCopied` | Efter `extract-files-from-cache.ts` har plockat filer från `_repo-cache/` | extract-skript |
+| `_status: "active"` + `_curatedAt` + `_curatedBy: "auto-curate.ts"` | Efter LLM-kurering (eller hand-kurering där `_curatedBy: "hand"`) | kurator |
+
+Endast `_status: "active"` dossiers exponeras i runtime — `master.json` har båda men `by-category.json` filtrerar till active.
+
+## AI-kurering (`scripts/dossiers/auto-curate.ts`)
+
+GPT-5.4 kan ta en draft (post-extraktion) → produktionsklar dossier:
+
+- Läser `manifest.json` + alla filer i `components/` + `.env.example`.
+- Strukturerat output (Zod-schema) producerar: `summary`, `providerName`, per-fil `keep|remove`-beslut + reason, lista av filer att skapa (ofta saknas t.ex. `middleware.ts`), full `instructions.md` (When to use / How to integrate / UX rules / Avoid / Verification), `tags`, `qualityScore`, `complexity`, `scaffoldFit`.
+- Filer markerade `remove` flyttas till `_removed/<path>` (rollback-säkerhetsnät, *INTE* raderas).
+- Filer i `filesToCreate` skrivs som **generiska** (inga template-imports, inga template-färger).
+- Sätter `_status: "active"`, `_curatedBy: "auto-curate.ts"`, `_curatedAt`-timestamp.
+- Rensar draft-markörer (`_extractedAt`, `_extractedFromCache`, `_envExampleCopied`).
+
+Användning:
+
+```bash
+npx tsx scripts/dossiers/auto-curate.ts --dry-run --only=<id>   # förhandsgranska
+npm run dossiers:curate -- --only=<id>                          # en dossier
+npm run dossiers:curate                                          # alla drafts (~12 min)
+npm run dossiers:curate -- --force --only=<id>                   # re-kurera aktiv
+```
+
+**Manuell granskning rekommenderas efter AI-kurering** för kritiska integrationer (auth, payments). Hand-kuraterade dossiers (`_curatedBy: "hand"`) behåller alltid prio över AI-kuraterade vid konflikt.
+
 ## Verkliga exempel — se
 
 - `data/dossiers/payments-stripe-checkout/` (integration)

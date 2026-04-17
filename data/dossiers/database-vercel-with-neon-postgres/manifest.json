@@ -5,10 +5,10 @@
   "category": "database",
   "label": "Vercel with Neon Postgres",
   "description": "A minimal template for building full-stack React applications using Next.js, Vercel, and Neon.",
-  "summary": "A minimal template for building full-stack React applications using Next.js, Vercel, and Neon.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/vercel-with-neon-postgres. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a Next.js app needs a hosted Postgres database on Neon, typically deployed on Vercel. It provides the core database wiring pattern for Neon server-side access, plus the essential health-check route; MCP-specific OAuth and tool-discovery endpoints from the source template should not be reused for a normal website app.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Neon",
       "url": "https://github.com/neondatabase/mcp-server-neon"
     }
   ],
@@ -16,27 +16,17 @@
   "dependencies": [],
   "files": [
     {
-      "path": "components/landing/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
-      "path": "components/landing/app/api/authorize/route.ts",
-      "role": "server",
-      "kind": "api-route"
-    },
-    {
       "path": "components/landing/app/api/health/route.ts",
       "role": "server",
       "kind": "api-route"
     },
     {
-      "path": "components/landing/app/api/list-tools/route.ts",
+      "path": "components/lib/db.ts",
       "role": "server",
-      "kind": "api-route"
+      "kind": "database-client"
     },
     {
-      "path": "components/landing/app/api/register/route.ts",
+      "path": "components/app/api/health/db/route.ts",
       "role": "server",
       "kind": "api-route"
     }
@@ -46,33 +36,31 @@
       "app-shell",
       "dashboard",
       "ecommerce",
-      "saas-landing"
+      "base-nextjs"
     ],
     "compatible": [
-      "blog",
-      "content-site",
+      "saas-landing",
       "auth-pages",
-      "landing-page",
-      "portfolio",
-      "base-nextjs"
+      "blog",
+      "content-site"
     ]
   },
-  "complexity": "medium",
-  "qualityScore": 80,
+  "complexity": "low",
+  "qualityScore": 72,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/vercel-with-neon-postgres",
   "sourceRepoUrl": "https://github.com/neondatabase/mcp-server-neon",
   "lastVerified": "2026-04-17",
   "tags": [
+    "neon",
+    "postgres",
     "database",
-    "integration",
-    "next",
-    "js",
+    "nextjs",
     "vercel",
-    "with"
+    "serverless-sql",
+    "health-check"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.869Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": false
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:01:25.255Z",
+  "_curatedBy": "auto-curate.ts"
 }

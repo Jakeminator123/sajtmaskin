@@ -5,10 +5,10 @@
   "category": "database",
   "label": "Natural Language Postgres",
   "description": "An Next.js application that allows you to query a PostgreSQL database with natural language.",
-  "summary": "An Next.js application that allows you to query a PostgreSQL database with natural language.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/natural-language-postgres. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when a user wants a chat-style or prompt-based interface that turns natural language into PostgreSQL queries and optionally visualizes tabular results. It provides the core schema/types and data-shaping logic for an AI-to-Postgres workflow, but the runtime LLM should add the actual server route that calls OpenAI and executes read-only SQL.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Vercel",
       "url": "https://github.com/vercel-labs/natural-language-postgres"
     }
   ],
@@ -82,63 +82,56 @@
   ],
   "files": [
     {
-      "path": "components/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
       "path": "components/lib/rechart-format.ts",
-      "role": "shared",
-      "kind": "util"
-    },
-    {
-      "path": "components/lib/seed.ts",
       "role": "shared",
       "kind": "util"
     },
     {
       "path": "components/lib/types.ts",
       "role": "shared",
-      "kind": "util"
+      "kind": "schema"
     },
     {
-      "path": "components/lib/utils.ts",
-      "role": "shared",
-      "kind": "util"
+      "path": "components/app/api/query/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/(nl-postgres)/page.tsx",
+      "role": "client",
+      "kind": "page"
     }
   ],
   "scaffoldFit": {
     "primary": [
       "app-shell",
       "dashboard",
-      "ecommerce",
-      "saas-landing"
+      "base-nextjs"
     ],
     "compatible": [
-      "blog",
-      "content-site",
+      "ecommerce",
+      "saas-landing",
       "auth-pages",
-      "landing-page",
-      "portfolio",
-      "base-nextjs"
+      "content-site"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 84,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/natural-language-postgres",
   "sourceRepoUrl": "https://github.com/vercel-labs/natural-language-postgres",
   "lastVerified": "2026-04-17",
   "tags": [
-    "database",
-    "integration",
-    "next",
-    "js",
-    "natural",
-    "language"
+    "vercel",
+    "postgres",
+    "openai",
+    "natural-language-query",
+    "sql",
+    "ai-sdk",
+    "charts",
+    "dashboard"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:26.794Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": true
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:00:18.871Z",
+  "_curatedBy": "auto-curate.ts"
 }

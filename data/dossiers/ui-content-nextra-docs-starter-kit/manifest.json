@@ -5,10 +5,10 @@
   "category": "ui-content",
   "label": "Nextra: Docs Starter Kit",
   "description": "Simple, powerful and flexible markdown-powered docs site. Built with Next.js.",
-  "summary": "Simple, powerful and flexible markdown-powered docs site. Built with Next.js.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/documentation-starter-kit. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when building a markdown/MDX documentation site in Next.js with Nextra’s docs theme. It provides the integration pattern, required config, and content structure for a docs-first site with sidebar navigation, theming, and search-ready pages.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Nextra",
       "url": "https://github.com/shuding/nextra-docs-template"
     }
   ],
@@ -19,43 +19,56 @@
   ],
   "files": [
     {
-      "path": "components/components/counters.tsx",
-      "role": "client",
-      "kind": "component"
+      "path": "components/next.config.mjs",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/theme.config.tsx",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/content/index.mdx",
+      "role": "shared",
+      "kind": "content"
+    },
+    {
+      "path": "components/content/_meta.json",
+      "role": "shared",
+      "kind": "content-config"
     }
   ],
   "scaffoldFit": {
     "primary": [
-      "blog",
       "content-site",
-      "portfolio"
+      "blog",
+      "base-nextjs"
     ],
     "compatible": [
-      "landing-page",
       "saas-landing",
       "app-shell",
       "dashboard",
-      "ecommerce",
-      "auth-pages",
-      "base-nextjs"
+      "portfolio",
+      "landing-page"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 88,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/documentation-starter-kit",
   "sourceRepoUrl": "https://github.com/shuding/nextra-docs-template",
   "lastVerified": "2026-04-17",
   "tags": [
-    "ui-content",
-    "ui-section",
-    "next",
-    "js",
+    "nextra",
+    "docs",
+    "mdx",
     "documentation",
-    "starter"
+    "nextjs",
+    "content-site",
+    "knowledge-base"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:29.114Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": false
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:05:55.545Z",
+  "_curatedBy": "auto-curate.ts"
 }

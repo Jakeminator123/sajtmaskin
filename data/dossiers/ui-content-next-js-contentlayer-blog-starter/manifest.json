@@ -5,10 +5,10 @@
   "category": "ui-content",
   "label": "Next.js Contentlayer Blog Starter",
   "description": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.",
-  "summary": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/nextjs-contentlayer. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "summary": "Use this dossier when building a blog, journal, docs-lite site, or portfolio section where posts are authored as local MDX files and rendered through Next.js App Router. It provides the essential MDX rendering component and the minimal app-shell patterns needed for Contentlayer-backed content, while excluding template/demo routes and branded layout chrome.",
   "providers": [
     {
-      "name": "TBD",
+      "name": "Contentlayer",
       "url": "https://github.com/shadcn/next-contentlayer"
     }
   ],
@@ -22,29 +22,34 @@
   ],
   "files": [
     {
-      "path": "components/app/layout.tsx",
-      "role": "shared",
-      "kind": "config"
-    },
-    {
-      "path": "components/app/api/hello/route.ts",
-      "role": "server",
-      "kind": "api-route"
-    },
-    {
-      "path": "components/components/analytics.tsx",
-      "role": "client",
-      "kind": "component"
-    },
-    {
       "path": "components/components/mdx-components.tsx",
       "role": "client",
       "kind": "component"
     },
     {
-      "path": "components/components/mode-toggle.tsx",
-      "role": "client",
-      "kind": "component"
+      "path": "components/contentlayer.config.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/next.config.mjs",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/blog/[slug]/page.tsx",
+      "role": "server",
+      "kind": "route"
+    },
+    {
+      "path": "components/app/blog/page.tsx",
+      "role": "server",
+      "kind": "route"
+    },
+    {
+      "path": "components/content/posts/hello-world.mdx",
+      "role": "shared",
+      "kind": "content"
     }
   ],
   "scaffoldFit": {
@@ -54,31 +59,28 @@
       "portfolio"
     ],
     "compatible": [
+      "base-nextjs",
       "landing-page",
       "saas-landing",
-      "app-shell",
-      "dashboard",
-      "ecommerce",
-      "auth-pages",
-      "base-nextjs"
+      "app-shell"
     ]
   },
   "complexity": "medium",
-  "qualityScore": 80,
+  "qualityScore": 89,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-contentlayer",
   "sourceRepoUrl": "https://github.com/shadcn/next-contentlayer",
   "lastVerified": "2026-04-17",
   "tags": [
-    "ui-content",
-    "ui-section",
-    "next",
-    "js",
+    "contentlayer",
     "nextjs",
-    "contentlayer"
+    "mdx",
+    "blog",
+    "app-router",
+    "static-content",
+    "local-content"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft",
-  "_extractedAt": "2026-04-17T16:24:29.111Z",
-  "_extractedFromCache": true,
-  "_envExampleCopied": false
+  "_status": "active",
+  "_curatedAt": "2026-04-17T17:05:36.367Z",
+  "_curatedBy": "auto-curate.ts"
 }
