@@ -4,6 +4,7 @@ export {
   getDossierById,
   getDossierEmbeddings,
   getDossierInstructions,
+  getDossierFileContent,
   getDossierStatus,
   getScaffoldRecommendations,
   clearDossierRegistryCache,
@@ -17,6 +18,7 @@ export type {
   DossierProvider,
   DossierEnvVar,
   DossierFile,
+  DossierFileInjectionMode,
   DossierExposes,
   DossierScaffoldFit,
   DossierEmbedding,
@@ -26,4 +28,5 @@ export type {
   SelectedDossier,
   DossierSelectionResult,
 } from "./types";
+export { defaultInjectionMode } from "./types";
 export type { SelectDossiersOptions } from "./select";

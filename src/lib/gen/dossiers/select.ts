@@ -45,6 +45,10 @@ export interface SelectDossiersOptions {
   scaffoldId?: string | null;
   /** Compact scaffold context (label + tags) — used as embedding signal. */
   scaffoldContext?: string;
+  /** Optional capability hint lines (auth/payments/data/ai/etc.) — added to embedding query. */
+  capabilityHints?: string;
+  /** Optional route-plan summary (page list + sections) — added to embedding query. */
+  routePlanSummary?: string;
   /** Override defaults. */
   maxPerCategory?: number;
   maxTotal?: number;
@@ -68,20 +72,75 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+/**
+ * Build the embedding query text. Broader = more accurate match, but capped
+ * to keep tokens reasonable. Order matters — earliest text gets highest
+ * implicit weight in the embedding.
+ *
+ * Includes (when present):
+ *   - prompt (always)
+ *   - brief: oneSentencePitch, targetAudience, primaryCallToAction, toneAndVoice
+ *           + pages[].purpose, mustHave, uiNotes.components, domainProfile,
+ *             qualityBar, motionLevel
+ *   - scaffoldContext (label + tags)
+ *   - capabilityHints (inferred capability lines)
+ *   - routePlanSummary (page-list summary)
+ */
 function buildQueryText(opts: SelectDossiersOptions): string {
   const parts: string[] = [opts.prompt.trim()];
+
   if (opts.brief && typeof opts.brief === "object") {
-    const briefText = [
-      typeof opts.brief.oneSentencePitch === "string" ? opts.brief.oneSentencePitch : "",
-      typeof opts.brief.targetAudience === "string" ? opts.brief.targetAudience : "",
-      typeof opts.brief.primaryCallToAction === "string" ? opts.brief.primaryCallToAction : "",
-      Array.isArray(opts.brief.toneAndVoice) ? opts.brief.toneAndVoice.join(" ") : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const brief = opts.brief as Record<string, unknown>;
+    const briefBits: string[] = [];
+
+    if (typeof brief.oneSentencePitch === "string") briefBits.push(brief.oneSentencePitch);
+    if (typeof brief.targetAudience === "string") briefBits.push(brief.targetAudience);
+    if (typeof brief.primaryCallToAction === "string") briefBits.push(brief.primaryCallToAction);
+    if (Array.isArray(brief.toneAndVoice)) briefBits.push(brief.toneAndVoice.join(" "));
+
+    // Domain + quality signals are strong dossier-selection hints
+    if (typeof brief.domainProfile === "string" && brief.domainProfile) {
+      briefBits.push(`domain: ${brief.domainProfile}`);
+    }
+    if (typeof brief.qualityBar === "string" && brief.qualityBar) {
+      briefBits.push(`quality: ${brief.qualityBar}`);
+    }
+
+    // Pages (purpose lines) — surfaces feature intent ("login", "checkout", etc.)
+    if (Array.isArray(brief.pages)) {
+      const purposes = brief.pages
+        .map((p) => (p && typeof p === "object" && typeof (p as { purpose?: unknown }).purpose === "string"
+          ? (p as { purpose: string }).purpose
+          : ""))
+        .filter(Boolean)
+        .slice(0, 8);
+      if (purposes.length > 0) briefBits.push(`pages: ${purposes.join(" | ")}`);
+    }
+
+    // Hard requirements + UI components — strong feature signals
+    if (Array.isArray(brief.mustHave) && brief.mustHave.length > 0) {
+      briefBits.push(`mustHave: ${(brief.mustHave as unknown[]).filter((v) => typeof v === "string").slice(0, 8).join(", ")}`);
+    }
+    if (brief.uiNotes && typeof brief.uiNotes === "object") {
+      const uiNotes = brief.uiNotes as { components?: unknown };
+      if (Array.isArray(uiNotes.components) && uiNotes.components.length > 0) {
+        briefBits.push(
+          `components: ${(uiNotes.components as unknown[])
+            .filter((v) => typeof v === "string")
+            .slice(0, 10)
+            .join(", ")}`,
+        );
+      }
+    }
+
+    const briefText = briefBits.filter(Boolean).join(" ");
     if (briefText) parts.push(briefText);
   }
+
   if (opts.scaffoldContext) parts.push(opts.scaffoldContext);
+  if (opts.capabilityHints?.trim()) parts.push(opts.capabilityHints.trim());
+  if (opts.routePlanSummary?.trim()) parts.push(opts.routePlanSummary.trim());
+
   return parts.join("\n");
 }
 

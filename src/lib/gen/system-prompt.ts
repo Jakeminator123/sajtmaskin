@@ -723,6 +723,25 @@ export function buildDynamicContext(
       fence: string;
       content: string;
     }
+    // Paths that belong to the scaffold and are dangerous to overwrite via a
+    // dossier verbatim block (would clobber fonts, providers, metadata). We
+    // skip these even if a dossier asks for verbatim — log so we can spot
+    // dossier-data that needs fixing.
+    const SCAFFOLD_RESERVED_PATHS = new Set([
+      "app/layout.tsx",
+      "app/globals.css",
+      "app/loading.tsx",
+      "app/error.tsx",
+      "app/not-found.tsx",
+      "app/template.tsx",
+      "package.json",
+      "tsconfig.json",
+      "next.config.js",
+      "next.config.mjs",
+      "next.config.ts",
+      "tailwind.config.ts",
+      "postcss.config.mjs",
+    ]);
     const verbatimFiles: VerbatimFile[] = [];
     for (const sel of dossierSel.selected) {
       for (const file of sel.entry.files) {
@@ -734,6 +753,13 @@ export function buildDynamicContext(
         // The "components/" prefix is the dossier-internal staging dir; strip it
         // for the actual output path so files land at app/.../route.ts etc.
         const outputPath = file.path.replace(/^components\//, "");
+        if (SCAFFOLD_RESERVED_PATHS.has(outputPath)) {
+          debugLog(
+            "GEN",
+            `[verbatim-skip] ${sel.entry.id}: refusing to emit verbatim file at scaffold-reserved path '${outputPath}'`,
+          );
+          continue;
+        }
         const ext = (outputPath.split(".").pop() ?? "ts").toLowerCase();
         const fence =
           ext === "tsx" || ext === "ts" || ext === "js" || ext === "jsx" || ext === "css"

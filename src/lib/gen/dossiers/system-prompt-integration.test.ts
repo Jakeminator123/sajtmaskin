@@ -5,10 +5,11 @@
  * Mocks dossier registry to avoid disk reads.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { buildDynamicContext } from "../system-prompt";
 import type { DossierSelectionResult } from "../dossiers";
+import * as registry from "../dossiers/registry";
 import type { BuildSpec } from "../build-spec";
 
 const TINY_BUILD_SPEC: BuildSpec = {
@@ -123,5 +124,99 @@ describe("buildDynamicContext + dossier injection", () => {
     });
 
     expect(result.context).not.toContain("## Available Dossiers");
+  });
+
+  it("renders ## Dossier Files To Emit Verbatim when integration files default to verbatim", async () => {
+    vi.spyOn(registry, "getDossierFileContent").mockReturnValue(
+      'import Stripe from "stripe";\nexport const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);\n',
+    );
+    const selection: DossierSelectionResult = {
+      ...MOCK_SELECTION,
+      selected: [
+        {
+          ...MOCK_SELECTION.selected[0]!,
+          entry: {
+            ...MOCK_SELECTION.selected[0]!.entry,
+            files: [
+              { path: "components/lib/stripe.ts", role: "server", kind: "util" },
+              { path: "components/checkout-button.tsx", role: "client", kind: "component" },
+            ],
+          },
+        },
+      ],
+    };
+    const result = await buildDynamicContext({
+      intent: "website",
+      generationMode: "init",
+      brief: { projectTitle: "Test" },
+      buildSpec: TINY_BUILD_SPEC,
+      scaffoldContext: "scaffold",
+      dossierSelection: selection,
+    });
+    expect(result.context).toContain("## Dossier Files To Emit Verbatim");
+    expect(result.context).toContain("MUST appear in your CodeProject output exactly");
+    expect(result.context).toContain('file="lib/stripe.ts"');
+    expect(result.context).toContain("import Stripe from");
+    expect(result.context).not.toContain('file="checkout-button.tsx"');
+    vi.restoreAllMocks();
+  });
+
+  it("respects explicit injectionMode override on a component", async () => {
+    vi.spyOn(registry, "getDossierFileContent").mockReturnValue("export {};\n");
+    const selection: DossierSelectionResult = {
+      ...MOCK_SELECTION,
+      selected: [
+        {
+          ...MOCK_SELECTION.selected[0]!,
+          entry: {
+            ...MOCK_SELECTION.selected[0]!.entry,
+            files: [
+              {
+                path: "components/special.tsx",
+                role: "client",
+                kind: "component",
+                injectionMode: "verbatim",
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const result = await buildDynamicContext({
+      intent: "website",
+      generationMode: "init",
+      brief: { projectTitle: "Test" },
+      buildSpec: TINY_BUILD_SPEC,
+      scaffoldContext: "scaffold",
+      dossierSelection: selection,
+    });
+    expect(result.context).toContain('file="special.tsx"');
+    vi.restoreAllMocks();
+  });
+
+  it("skips verbatim files where getDossierFileContent returns null", async () => {
+    vi.spyOn(registry, "getDossierFileContent").mockReturnValue(null);
+    const selection: DossierSelectionResult = {
+      ...MOCK_SELECTION,
+      selected: [
+        {
+          ...MOCK_SELECTION.selected[0]!,
+          entry: {
+            ...MOCK_SELECTION.selected[0]!.entry,
+            files: [{ path: "components/missing.ts", role: "server", kind: "util" }],
+          },
+        },
+      ],
+    };
+    const result = await buildDynamicContext({
+      intent: "website",
+      generationMode: "init",
+      brief: { projectTitle: "Test" },
+      buildSpec: TINY_BUILD_SPEC,
+      scaffoldContext: "scaffold",
+      dossierSelection: selection,
+    });
+    expect(result.context).not.toContain("## Dossier Files To Emit Verbatim");
+    vi.restoreAllMocks();
   });
 });

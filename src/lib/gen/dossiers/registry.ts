@@ -113,6 +113,48 @@ function loadInstructions(dossierId: string): string {
   return text;
 }
 
+const _fileContentCache = new Map<string, { mtimeMs: number; text: string }>();
+
+/**
+ * Read a dossier file (relative to the dossier root) with mtime cache.
+ * Used for verbatim-injected files in the system prompt.
+ *
+ * @param dossierId  Dossier directory name.
+ * @param relPath    Path inside the dossier (e.g. "components/middleware.ts").
+ * @returns          File content, or null if missing/unreadable.
+ */
+function loadDossierFileContent(dossierId: string, relPath: string): string | null {
+  // Defensive: prevent path traversal escapes outside the dossier dir.
+  // Two layers: (1) reject obvious markers in the input string, (2) verify
+  // the resolved absolute path stays inside the dossier directory.
+  const normalized = relPath.replace(/\\/g, "/");
+  if (normalized.includes("..") || normalized.startsWith("/")) return null;
+
+  const dossierDir = join(DOSSIER_ROOT, dossierId);
+  const path = join(dossierDir, ...normalized.split("/"));
+  // Belt-and-braces: resolved path must remain under dossierDir.
+  if (!path.startsWith(dossierDir)) return null;
+
+  if (!existsSync(path)) return null;
+  let mtime: number;
+  try {
+    mtime = statSync(path).mtimeMs;
+  } catch {
+    return null;
+  }
+  const cacheKey = `${dossierId}::${normalized}`;
+  const cached = _fileContentCache.get(cacheKey);
+  if (cached && cached.mtimeMs === mtime) return cached.text;
+  let text: string;
+  try {
+    text = readFileSync(path, "utf-8");
+  } catch {
+    return null;
+  }
+  _fileContentCache.set(cacheKey, { mtimeMs: mtime, text });
+  return text;
+}
+
 // ─── PUBLIC API ────────────────────────────────────────────────────────
 
 /** All dossiers (active + draft) — for backoffice and tooling. */
@@ -160,10 +202,20 @@ export function getDossierInstructions(id: string): string {
   return loadInstructions(id);
 }
 
+/**
+ * Read a single component file from a dossier (mtime-cached).
+ * Used for verbatim-injected files in the system prompt.
+ * Returns null if the file is missing or unreadable.
+ */
+export function getDossierFileContent(dossierId: string, relPath: string): string | null {
+  return loadDossierFileContent(dossierId, relPath);
+}
+
 /** Test helper / hot-reload — clear caches. */
 export function clearDossierRegistryCache(): void {
   _master = { mtimeMs: null, value: null };
   _recs = { mtimeMs: null, value: null };
   _embeddings = { mtimeMs: null, value: null };
   _instructionsCache.clear();
+  _fileContentCache.clear();
 }

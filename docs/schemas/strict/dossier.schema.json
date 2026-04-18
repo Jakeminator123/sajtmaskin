@@ -99,6 +99,11 @@
           "kind": {
             "type": "string",
             "enum": ["component", "api-route", "hook", "util", "config", "middleware"]
+          },
+          "injectionMode": {
+            "type": "string",
+            "enum": ["inline", "verbatim"],
+            "description": "How the file reaches the generated project. `inline` = LLM may rewrite (default for UI components). `verbatim` = LLM must emit the file unchanged (default for api-routes, middleware, config, util in integration dossiers — paraphrasing webhook signing or auth glue is risky). Override per file when default doesn't fit."
           }
         }
       }
@@ -143,8 +148,8 @@
     },
     "_status": {
       "type": "string",
-      "enum": ["draft", "active"],
-      "description": "Lifecycle. Drafts are filtered out at runtime; only active dossiers are matched against prompts."
+      "enum": ["draft", "active", "source-archived", "source-stale", "source-unreachable"],
+      "description": "Lifecycle + source-health. Only `active` dossiers are matched against prompts at runtime. `draft` = not yet curated. `source-archived`/`source-stale`/`source-unreachable` = compat-test flagged the GitHub source as bad; dossier is excluded from runtime selection until reviewed."
     },
     "_curatedAt": {
       "type": "string",
@@ -167,6 +172,16 @@
     "_envExampleCopied": {
       "type": "boolean",
       "description": "Set by extract-files-from-cache.ts. Cleared once dossier is curated."
+    },
+    "_deprecationReason": {
+      "type": "string",
+      "maxLength": 600,
+      "description": "Human-readable note about why the dossier was flagged. Set by hand or by compat-test workflows when a dossier source is broken. Informational only; runtime filtering is driven by `_status`."
+    },
+    "_replacementUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "If the source repo has been replaced/sunset, link to the new authoritative source so a re-curation pass knows where to look."
     }
   }
 }

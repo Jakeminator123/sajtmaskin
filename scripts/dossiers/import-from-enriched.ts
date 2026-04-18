@@ -23,9 +23,34 @@
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { SourceVerdict, GithubRepoData } from "./lib/github";
 
 const RAW_ROOT = resolve(process.cwd(), "data", "dossiers", "_raw");
 const ENRICHED_DIR = join(RAW_ROOT, "_enriched");
+
+interface GithubSidecar {
+  templateSlug: string;
+  repoUrl: string | null;
+  fetchedAt: string;
+  github: GithubRepoData | null;
+  ageDays: number | null;
+  sourceVerdict: SourceVerdict;
+  reasons: string[];
+  fetchError: { status: number; message: string } | null;
+}
+
+function loadGithubSidecar(slug: string): GithubSidecar | null {
+  const path = join(ENRICHED_DIR, `${slug}.github.json`);
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, "utf-8")) as GithubSidecar;
+  } catch (e) {
+    console.warn(
+      `[import] WARN: malformed github sidecar for ${slug} — ignoring (treated as no sidecar). Error: ${(e as Error).message}`,
+    );
+    return null;
+  }
+}
 
 interface EnrichedTemplate {
   templateUrl: string;
@@ -65,6 +90,17 @@ interface DossierSkiss {
   templateSlug: string;
   repoUrl: string | null;
   demoUrl: string | null;
+  github: {
+    archived: boolean;
+    pushed_at: string;
+    default_branch: string;
+    topics: string[];
+    language: string | null;
+    stargazers_count: number;
+    sourceVerdict: SourceVerdict;
+    fetchedAt: string;
+    ageDays: number | null;
+  } | null;
 }
 
 const SKIP_USE_CASES = new Set([
@@ -174,7 +210,11 @@ function passesUseCaseFilter(t: EnrichedTemplate): { ok: true } | { ok: false; r
   return { ok: true };
 }
 
-function buildSkiss(t: EnrichedTemplate, classification: Classification): DossierSkiss {
+function buildSkiss(
+  t: EnrichedTemplate,
+  classification: Classification,
+  sidecar: GithubSidecar | null,
+): DossierSkiss {
   const id = `${classification.category}-${slugify(t.title)}`.slice(0, 80);
   return {
     _status: "scraped",
@@ -196,6 +236,19 @@ function buildSkiss(t: EnrichedTemplate, classification: Classification): Dossie
     templateSlug: t.templateSlug,
     repoUrl: t.repoUrl,
     demoUrl: t.demoUrl,
+    github: sidecar?.github
+      ? {
+          archived: sidecar.github.archived,
+          pushed_at: sidecar.github.pushed_at,
+          default_branch: sidecar.github.default_branch,
+          topics: sidecar.github.topics,
+          language: sidecar.github.language,
+          stargazers_count: sidecar.github.stargazers_count,
+          sourceVerdict: sidecar.sourceVerdict,
+          fetchedAt: sidecar.fetchedAt,
+          ageDays: sidecar.ageDays,
+        }
+      : null,
   };
 }
 
@@ -205,12 +258,21 @@ function main(): void {
     process.exit(1);
   }
 
-  const files = readdirSync(ENRICHED_DIR).filter((f) => f.endsWith(".json"));
+  const files = readdirSync(ENRICHED_DIR).filter(
+    (f) => f.endsWith(".json") && !f.endsWith(".github.json") && !f.startsWith("_"),
+  );
   if (files.length === 0) {
     console.error("[import] No enriched files found.");
     process.exit(1);
   }
-  console.log(`[import] Reading ${files.length} enriched files`);
+  const skipArchivedSources = !process.argv.includes("--allow-archived-sources");
+  console.log(
+    `[import] Reading ${files.length} enriched files${
+      skipArchivedSources
+        ? " (skip-archived-sources: ON)"
+        : " (skip-archived-sources: OFF — --allow-archived-sources flag set)"
+    }`,
+  );
 
   const written: DossierSkiss[] = [];
   const skipped: { url: string; reason: string }[] = [];
@@ -247,7 +309,21 @@ function main(): void {
       continue;
     }
 
-    const skiss = buildSkiss(t, cls);
+    // Skip candidates whose GitHub source is dead before we even create a draft.
+    const slug = file.replace(/\.json$/, "");
+    const sidecar = loadGithubSidecar(slug);
+    if (skipArchivedSources && sidecar) {
+      if (sidecar.sourceVerdict === "source-archived") {
+        skipped.push({ url: t.templateUrl, reason: "github-archived" });
+        continue;
+      }
+      if (sidecar.sourceVerdict === "source-unreachable") {
+        skipped.push({ url: t.templateUrl, reason: "github-unreachable" });
+        continue;
+      }
+    }
+
+    const skiss = buildSkiss(t, cls, sidecar);
     if (seenIds.has(skiss.id)) {
       skipped.push({ url: t.templateUrl, reason: `duplicate-id:${skiss.id}` });
       continue;

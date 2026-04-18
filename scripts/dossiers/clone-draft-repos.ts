@@ -15,9 +15,10 @@
  * Resumable. Run again to retry failed.
  */
 
-import { readFileSync, existsSync, mkdirSync, statSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, statSync, readdirSync, cpSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { parseRepoRef } from "./lib/github";
 
 const WORKSPACE_ROOT = process.cwd();
 const MASTER_PATH = resolve(WORKSPACE_ROOT, "data", "dossiers", "_index", "master.json");
@@ -25,7 +26,7 @@ const REPO_CACHE_ROOT = resolve(WORKSPACE_ROOT, "data", "dossiers", "_repo-cache
 
 interface MasterDossier {
   id: string;
-  _status?: "draft" | "active";
+  _status?: string;
   sourceRepoUrl?: string;
 }
 
@@ -78,6 +79,51 @@ function shallowClone(repoUrl: string, dest: string): { ok: boolean; output: str
   };
 }
 
+/**
+ * Clone a repo and, if a subpath is provided (e.g. for monorepo subfolders
+ * like `vercel/next.js#examples/blog-starter`), keep only that subpath as the
+ * cache content. Falls back to full-repo clone if subpath does not exist.
+ */
+function cloneWithSubpath(
+  repoUrl: string,
+  dest: string,
+): { ok: boolean; output: string; usedSubpath: string | null } {
+  const parsed = parseRepoRef(repoUrl);
+  const subpath = parsed?.subpath ?? null;
+  const cleanRepoUrl = parsed
+    ? `https://github.com/${parsed.owner}/${parsed.repo}.git`
+    : repoUrl;
+
+  if (!subpath) {
+    const r = shallowClone(cleanRepoUrl, dest);
+    return { ...r, usedSubpath: null };
+  }
+
+  // Clone full repo into a temp dir, then keep only the subpath.
+  const tmpDest = `${dest}__tmp`;
+  if (existsSync(tmpDest)) rmSync(tmpDest, { recursive: true, force: true });
+  const cloneResult = shallowClone(cleanRepoUrl, tmpDest);
+  if (!cloneResult.ok) {
+    if (existsSync(tmpDest)) rmSync(tmpDest, { recursive: true, force: true });
+    return { ...cloneResult, usedSubpath: subpath };
+  }
+
+  const subpathFull = join(tmpDest, ...subpath.split("/"));
+  if (!existsSync(subpathFull) || !statSync(subpathFull).isDirectory()) {
+    rmSync(tmpDest, { recursive: true, force: true });
+    return {
+      ok: false,
+      output: `subpath '${subpath}' does not exist in cloned repo`,
+      usedSubpath: subpath,
+    };
+  }
+
+  mkdirSync(dest, { recursive: true });
+  cpSync(subpathFull, dest, { recursive: true });
+  rmSync(tmpDest, { recursive: true, force: true });
+  return { ok: true, output: `cloned subpath: ${subpath}`, usedSubpath: subpath };
+}
+
 function formatBytes(b: number): string {
   if (b > 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
   if (b > 1024) return `${(b / 1024).toFixed(0)} KB`;
@@ -93,12 +139,26 @@ function main(): void {
 
   mkdirSync(REPO_CACHE_ROOT, { recursive: true });
 
+  // Skip dossiers whose GitHub source has been flagged dead (compat-test --apply)
+  const SKIP_STATUSES = new Set(["source-archived", "source-stale", "source-unreachable"]);
   const draftWithRepo = master.dossiers.filter(
-    (d) => (d._status === "draft") && d.sourceRepoUrl,
+    (d) =>
+      (d._status === "draft" || d._status === "active") &&
+      !SKIP_STATUSES.has(d._status ?? "") &&
+      d.sourceRepoUrl,
   );
   const draftWithoutRepo = master.dossiers.filter(
     (d) => (d._status === "draft") && !d.sourceRepoUrl,
   );
+  const skippedByStatus = master.dossiers.filter((d) => SKIP_STATUSES.has(d._status ?? ""));
+  if (skippedByStatus.length > 0) {
+    console.log(
+      `[clone] Skipping ${skippedByStatus.length} dossiers with bad source status: ${skippedByStatus
+        .map((d) => `${d.id}(${d._status})`)
+        .slice(0, 5)
+        .join(", ")}${skippedByStatus.length > 5 ? "..." : ""}`,
+    );
+  }
 
   console.log(`[clone] Drafts to consider: ${draftWithRepo.length}`);
   console.log(`[clone] Drafts skipped (no sourceRepoUrl): ${draftWithoutRepo.length}`);
@@ -119,7 +179,7 @@ function main(): void {
       continue;
     }
     console.log(`[clone] ${d.id} <- ${d.sourceRepoUrl}`);
-    const { ok, output } = shallowClone(d.sourceRepoUrl!, dest);
+    const { ok, output, usedSubpath } = cloneWithSubpath(d.sourceRepoUrl!, dest);
     if (!ok) {
       failed++;
       const tail = output.trim().split("\n").slice(-2).join(" / ");
@@ -129,7 +189,8 @@ function main(): void {
     cloned++;
     const size = dirSizeBytes(dest);
     totalBytes += size;
-    console.log(`[clone]   OK (${formatBytes(size)})`);
+    const subpathTag = usedSubpath ? ` [subpath: ${usedSubpath}]` : "";
+    console.log(`[clone]   OK${subpathTag} (${formatBytes(size)})`);
   }
 
   const mins = ((Date.now() - startTs) / 60000).toFixed(1);

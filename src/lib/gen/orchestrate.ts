@@ -365,12 +365,16 @@ export async function resolveOrchestrationBase(
   // include `mode` in the log so noise from followUp can be filtered out.
   const briefScaffoldNom = (brief as { scaffoldNomination?: { id?: string; confidence?: number } } | null | undefined)
     ?.scaffoldNomination ?? null;
-  if (briefScaffoldNom?.id && resolvedScaffold && briefScaffoldNom.id !== resolvedScaffold.id) {
+  // Compare case-insensitively — Brief-LLM occasionally returns "SaaS-landing"
+  // when the canonical id is "saas-landing"; that is not real drift.
+  const briefNomNorm = briefScaffoldNom?.id?.trim().toLowerCase() ?? null;
+  const finalNorm = resolvedScaffold?.id.toLowerCase() ?? null;
+  if (briefNomNorm && finalNorm && briefNomNorm !== finalNorm) {
     console.info("[orchestrate] scaffold_drift", {
       mode: input.generationMode ?? "init",
-      briefNominated: briefScaffoldNom.id,
-      briefConfidence: briefScaffoldNom.confidence ?? null,
-      finalPick: resolvedScaffold.id,
+      briefNominated: briefScaffoldNom!.id,
+      briefConfidence: briefScaffoldNom!.confidence ?? null,
+      finalPick: resolvedScaffold!.id,
       pickMethod: scaffoldSelection.selectionMethod ?? "unknown",
       pickConfidence: scaffoldSelection.selectionConfidence ?? null,
     });
@@ -585,13 +589,15 @@ export async function finalizeOrchestrationPrompts(
   // ── Drift detection: Brief variant nomination vs embedding pick (Fas 1.0) ──
   const briefVariantNom = (brief as { variantNomination?: { id?: string; confidence?: number } } | null | undefined)
     ?.variantNomination ?? null;
-  if (briefVariantNom?.id && resolvedVariant && briefVariantNom.id !== resolvedVariant.id) {
+  const briefVarNomNorm = briefVariantNom?.id?.trim().toLowerCase() ?? null;
+  const finalVarNorm = resolvedVariant?.id.toLowerCase() ?? null;
+  if (briefVarNomNorm && finalVarNorm && briefVarNomNorm !== finalVarNorm) {
     console.info("[orchestrate] variant_drift", {
       mode: resolvedMode,
       scaffoldId: scaffoldIdForVariant,
-      briefNominated: briefVariantNom.id,
-      briefConfidence: briefVariantNom.confidence ?? null,
-      finalPick: resolvedVariant.id,
+      briefNominated: briefVariantNom!.id,
+      briefConfidence: briefVariantNom!.confidence ?? null,
+      finalPick: resolvedVariant!.id,
     });
   }
 

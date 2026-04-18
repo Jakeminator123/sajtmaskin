@@ -21,13 +21,15 @@
  * manifest.json with _status != "draft" — won't overwrite hand-curated work.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const WORKSPACE_ROOT = process.cwd();
 const RAW_ROOT = resolve(WORKSPACE_ROOT, "data", "dossiers", "_raw");
 const DOSSIER_ROOT = resolve(WORKSPACE_ROOT, "data", "dossiers");
 const PROMOTIONS_PATH = resolve(WORKSPACE_ROOT, "scripts", "dossiers", "curated-promotions.txt");
+
+const RESERVED_RAW_DIRS = new Set(["_enriched", "_curation-queue.md", "_import-summary.json"]);
 
 interface DossierSkiss {
   id: string;
@@ -80,6 +82,25 @@ function readPromotionsList(): string[] {
       return (idx === -1 ? line : line.slice(0, idx)).trim();
     })
     .filter((line) => line && /^[a-z0-9][-a-z0-9]*$/.test(line));
+}
+
+/** List every skiss-file id under _raw/ (skips reserved directories). */
+function listAllSkissIds(): string[] {
+  if (!existsSync(RAW_ROOT)) return [];
+  const ids: string[] = [];
+  for (const name of readdirSync(RAW_ROOT)) {
+    if (name.startsWith("_") || RESERVED_RAW_DIRS.has(name)) continue;
+    const candidate = join(RAW_ROOT, name);
+    let s;
+    try {
+      s = statSync(candidate);
+    } catch {
+      continue;
+    }
+    if (!s.isDirectory()) continue;
+    if (existsSync(join(candidate, "skiss.json"))) ids.push(name);
+  }
+  return ids.sort();
 }
 
 function loadSkiss(id: string): DossierSkiss | null {
@@ -229,9 +250,30 @@ function shouldOverwrite(existingManifestPath: string): boolean {
   }
 }
 
+function parseCli(): { mode: "list" | "all"; only: string | null } {
+  const argv = process.argv.slice(2);
+  let mode: "list" | "all" = "list";
+  let only: string | null = null;
+  for (const a of argv) {
+    if (a === "--all") mode = "all";
+    else if (a.startsWith("--only=")) only = a.slice("--only=".length);
+  }
+  return { mode, only };
+}
+
 function main(): void {
-  const ids = readPromotionsList();
-  console.log(`[promote] ${ids.length} ids to promote`);
+  const cli = parseCli();
+  let ids: string[];
+  if (cli.only) {
+    ids = [cli.only];
+    console.log(`[promote] --only mode: 1 id`);
+  } else if (cli.mode === "all") {
+    ids = listAllSkissIds();
+    console.log(`[promote] --all mode: ${ids.length} skiss-files in _raw/`);
+  } else {
+    ids = readPromotionsList();
+    console.log(`[promote] ${ids.length} ids in curated-promotions.txt`);
+  }
 
   let created = 0;
   let updated = 0;

@@ -185,6 +185,72 @@ const siteBriefSchema = z.object({
     .min(0)
     .max(8)
     .describe("Things to explicitly avoid based on user request or domain conventions"),
+
+  // ── Brief nominations (Fas 1.0) ───────────────────────────────────────
+  // Brief-LLM nominates scaffold + variant + dossiers based on the request.
+  // These are HINTS — the runtime embedding-pick may confirm or override
+  // them and logs drift. IDs are validated downstream against master indexes.
+  scaffoldNomination: z
+    .object({
+      id: z
+        .string()
+        .describe(
+          "scaffold-id from `src/lib/gen/scaffolds/`. Valid ids: " +
+          "base-nextjs, landing-page, saas-landing, portfolio, blog, " +
+          "dashboard, auth-pages, ecommerce, content-site, app-shell.",
+        ),
+      reason: z
+        .string()
+        .max(200)
+        .describe("1-2 sentences explaining why this scaffold fits the request."),
+      confidence: z
+        .number()
+        .min(0)
+        .max(1)
+        .describe(
+          "0.0-1.0. Use < 0.5 when ambiguous (lets embedding override). " +
+          "Use > 0.8 only when the prompt explicitly maps to a scaffold.",
+        ),
+    })
+    .nullable()
+    .describe(
+      "Brief-LLM's scaffold guess. Hint for orchestrator — embedding pick " +
+      "may override based on full brief context.",
+    ),
+  variantNomination: z
+    .object({
+      id: z
+        .string()
+        .describe(
+          "variant-id within the chosen scaffold (see config/scaffold-variants/<scaffold>/). " +
+          "Set null if scaffoldNomination is null.",
+        ),
+      reason: z.string().max(200),
+      confidence: z.number().min(0).max(1),
+    })
+    .nullable()
+    .describe(
+      "Brief-LLM's variant guess (visual signature within the scaffold). " +
+      "Set null if you didn't nominate a scaffold.",
+    ),
+  dossierNominations: z
+    .array(
+      z.object({
+        id: z
+          .string()
+          .describe(
+            "dossier-id from data/dossiers/ (e.g. payments-stripe-checkout, auth-clerk-authentication-starter).",
+          ),
+        reason: z.string().max(160),
+        confidence: z.number().min(0).max(1),
+      }),
+    )
+    .max(3)
+    .default([])
+    .describe(
+      "Up to 3 integration dossiers the request seems to need (auth, payments, db, ai, etc.). " +
+      "Only nominate when the prompt mentions a specific feature. Empty array if unsure.",
+    ),
 });
 
 import { inferSiteTypeHintFromDomain } from "./domain-inference";
@@ -202,6 +268,12 @@ const BRIEF_SYSTEM_PROMPT =
   "Include every key from the schema in your response — never omit a key. For nullable design-guidance fields (domainProfile, motionLevel, qualityBar, seasonalHints), set them to a real value when the request gives you signal, and set them to null (or [] for seasonalHints) when truly ambiguous. " +
   "If a required value is unknown, use an empty string. " +
   "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
+  "NOMINATIONS (scaffoldNomination, variantNomination, dossierNominations):\n" +
+  "- These are HINTS for the orchestrator, not commitments. Be honest about confidence (0.0-1.0).\n" +
+  "- scaffoldNomination: pick from {base-nextjs, landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell}. Use confidence < 0.5 when several would fit. Set to null only when the request is too vague to guess.\n" +
+  "- variantNomination: only nominate when scaffoldNomination is set. Variant ids live under config/scaffold-variants/<scaffold>/. If unsure of exact id, set to null.\n" +
+  "- dossierNominations: nominate ONLY when the prompt explicitly mentions a feature (login → auth-*, payments/subscription → payments-*, database/data → database-*, AI/chatbot/RAG → ai-*, blog → ui-content-*, etc.). Empty array [] if no clear feature is mentioned. Cap at 3.\n" +
+  "- Do NOT invent dossier ids. If unsure of the exact id, leave the array empty — the orchestrator's embedding pick will choose.\n\n" +
   "SCOPE AWARENESS (important):\n" +
   "- Match the scope to the complexity of the user's request.\n" +
   "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
