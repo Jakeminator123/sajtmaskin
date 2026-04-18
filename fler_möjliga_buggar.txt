@@ -1,0 +1,42 @@
+uggar jag hittade i streamen
+🔴 Allvarlig: reasoning persisteras INTE i DB → försvinner vid F5/chatbyte
+Detta är den verkliga buggen och den enda som direkt motsvarar din observation att "det vore bra att se vad den tänker" — du ser det live medan strömmen kommer in, men det är borta nästa gång du öppnar chatten.
+
+Bevis i koden:
+
+src/lib/db/schema.ts:419-427 — engineMessages-tabellen har bara content och ui_parts. Ingen thinking-kolumn.
+src/lib/db/chat-repository-pg.ts:215-259 — addAssistantMessageAndCreateDraftVersion tar emot content + uiParts, kastar m.thinking på golvet.
+src/app/api/engine/chats/[chatId]/route.ts:59-66 — GET-endpointen returnerar id/role/content/uiParts/tokenCount/createdAt — inget thinking-fält.
+src/lib/hooks/usePersistedChatMessages.ts:23 — klienten försöker läsa msg.thinking från servermeddelandet, men eftersom servern aldrig skickar det blir det alltid null.
+Notera också att Message-typen i chat-repository-pg.ts:34-42 har en spöktyp role: "thinking" som inte används någonstans (grep på role: "thinking" ger noll träffar) — antagligen en planerad men aldrig implementerad lösning.
+
+Hur man fixar det (ej gjort, du är i Ask mode):
+
+Lägg till thinking: text("thinking")-kolumn i engineMessages + en migration.
+Skicka in thinking i addAssistantMessageAndCreateDraftVersion/-UpdateExistingVersion. Värdet finns redan i finalize-stegen via accumulatedContent-grannar (det måste hämtas från strömmen — idag används det inte i finalize, så det får skickas in via finalizeAndSaveVersion-params).
+Returnera thinking i GET-endpointen.
+🟡 Medel: tomt resonemangsblock på fast-tier (gpt-4.1)
+Tier-väljaren visar ingen indikation på att fast-tier saknar reasoning-stöd. UI:t kan se ut att vara trasigt när toggeln är PÅ men inga events kommer.
+
+Fix: gråmarkera "Resonemang"-checkboxen, eller visa hint "(stöds inte av fast-tier)" när tier är fast. Logiken finns redan i phase-routing.ts — den kunde returnera thinking: false automatiskt för modeller som saknar stöd.
+🟡 Medel: reasoning-prefix kan klippas av mergeStreamingText
+src/lib/hooks/chat/helpers.ts:173:
+
+if (incoming.length < 50 && previous.endsWith(incoming)) return previous;
+Anthropic skickar ofta korta korrigerande chunks ("actually,", "wait,") som kan råka matcha förra chunkens svans → tyst tappade tokens i resonemangsblocket. Effekten är liten (5-50 tecken här och där) men reasoning-text är repetitivare än normal output, så det triggar oftare där än för code content.
+
+🟢 Liten: appendModelInfoPart visar thinking: null snarare än "off"
+stream-handlers.ts:340 skickar thinking: typeof meta.thinking === "boolean" ? meta.thinking : null — om servern råkar skicka något annat än boolean i meta blir det null snarare än explicit false. Inte trasigt, men gör mätbara felsökningssignaler något suddigare.
+
+Inga andra buggar i streamflödet
+SSE-parsing, suspense-flush, fallback-flush: ser korrekt ut.
+pendingStreamErrorMessage slits inte mot awaitingInput (rad 826-828).
+Heartbeat och reasoning-timer städas i alla branches.
+reasoning-start/reasoning-end/reasoning-delta mappas till AI SDK 5-kontraktet korrekt.
+Snabb checklista för dig att verifiera live
+Öppna .env.local — bekräfta OPENAI_API_KEY (och ev. ANTHROPIC_API_KEY) är satta.
+I Buildern → Inställningar → Generering → bocka i "Resonemang".
+Välj Pro/Max/Codex (inte Fast) i modellväljaren.
+Kör en prompt — du borde se ett gult/grått <Reasoning>-block dyka upp ÖVER själva svaret medan modellen tänker.
+F5 sidan → blocket är borta. Det är persistence-buggen.
+Säg till om du vill att jag plockar fram konkret patch-plan för DB-migrationen + finalize-väg som faktiskt sparar reasoning, eller om du vill att jag fokuserar på UI-disablingen för fast-tier först (mindre invasiv).
