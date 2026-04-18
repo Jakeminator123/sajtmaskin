@@ -887,7 +887,11 @@ export async function handleMessageStreamRequest(
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId,
           resolvedTier: resolvedModelTier,
-          includeIntegrationSignals: false,
+          // Integration tools (`requestEnvVar`, `suggestIntegration`) are
+          // only useful in F3 ("bygg integrationer") where the user is
+          // wiring real keys. Stays off in F2 follow-ups so design-iteration
+          // chats never surface env-var prompts.
+          includeIntegrationSignals: parsedMeta.lifecycleStage === "integrations",
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,

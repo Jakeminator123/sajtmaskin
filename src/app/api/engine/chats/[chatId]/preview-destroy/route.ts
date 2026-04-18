@@ -61,22 +61,37 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           : null;
 
       let destroyedOnProvider = false;
+      let providerDestroyMessage: string | null = null;
+      let providerDestroyRetryable = false;
       if (matchedSession?.tier2Provider === "preview_host") {
         const destroyed = await destroyPreviewHostSession({
           sandboxId: matchedSession.sandboxId,
         });
-        if (!destroyed.ok) {
-          return NextResponse.json(
-            {
-              ok: false,
-              reason: "destroy_failed",
-              message: destroyed.message,
-              tier2Provider: "preview_host",
-            } satisfies PreviewDestroyApiJson,
-            { status: destroyed.retryable ? 502 : 400 },
+        if (destroyed.ok) {
+          destroyedOnProvider = destroyed.destroyed;
+        } else {
+          // Hard fail (4xx, non-retryable) → keep local state and surface
+          // the error so the client can react.
+          if (!destroyed.retryable) {
+            return NextResponse.json(
+              {
+                ok: false,
+                reason: "destroy_failed",
+                message: destroyed.message,
+                tier2Provider: "preview_host",
+              } satisfies PreviewDestroyApiJson,
+              { status: 400 },
+            );
+          }
+          // Retryable host failure (5xx, network blip) — clear local state
+          // anyway so the user is never stuck pointing at a zombie sandbox.
+          // The host will reap orphans via idle TTL / `/admin/cleanup`.
+          providerDestroyMessage = destroyed.message;
+          providerDestroyRetryable = true;
+          console.warn(
+            `[preview-destroy] retryable host failure for ${chatId}/${matchedSession.sandboxId}: ${destroyed.message}. Clearing local state anyway.`,
           );
         }
-        destroyedOnProvider = destroyed.destroyed;
       }
 
       if (matchedSession) {
@@ -101,6 +116,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         clearedPreviewUrl: true,
         tier2Provider: matchedSession?.tier2Provider ?? null,
         ...(matchedSession ? {} : { reason: "no_matching_session" }),
+        ...(providerDestroyRetryable && providerDestroyMessage
+          ? {
+              providerDestroyDeferred: true,
+              message: providerDestroyMessage,
+            }
+          : {}),
       };
       return NextResponse.json(response);
     } catch (err) {

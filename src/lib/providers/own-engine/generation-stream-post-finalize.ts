@@ -179,6 +179,11 @@ export async function runOwnEngineStreamPostFinalize(params: {
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
           versionIdForSession: finalized.version.id,
+          // F3 previews must strip tier3-stub placeholders so missing real
+          // env vars surface as a runtime failure instead of being silently
+          // backfilled with `sk_test_...`-style stubs.
+          lifecycleStage:
+            buildSpec.previewPolicy === "fidelity3" ? "integrations" : "design",
           skipRepair: parsedFromFinalizeFilesJson,
           // filesJson from finalize is already scaffold-merged/repaired
           // so preview bootstrap can skip project scaffold rebuild.

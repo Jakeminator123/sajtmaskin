@@ -180,7 +180,12 @@
           "enum": ["preview_host", null]
         },
         "reason": { "type": "string", "required": false },
-        "message": { "type": "string", "required": false }
+        "message": { "type": "string", "required": false },
+        "providerDestroyDeferred": {
+          "type": "boolean",
+          "required": false,
+          "note": "True when local state was cleared but the host destroy returned a retryable failure (5xx). Host-side cleanup is deferred to idle TTL or `/admin/cleanup`."
+        }
       }
     },
     "FinalizeDesignApiJson": {

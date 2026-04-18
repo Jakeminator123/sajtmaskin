@@ -757,7 +757,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const engineStream = createOwnEnginePipelineAndGenerationStream({
           chatId: engineChat.id,
           resolvedTier: resolvedModelTier,
-          includeIntegrationSignals: true,
+          // F2-init must NEVER surface env-var prompts in chat. Tier-3 env
+          // input belongs in the F3 ("Bygg integrationer") flow, which goes
+          // through `chat-message-stream-post.ts` with
+          // `meta.lifecycleStage: "integrations"` and gates the tools there.
+          includeIntegrationSignals: false,
           pipeline: {
             prompt: enginePrompt,
             systemPrompt: engineSystemPrompt,

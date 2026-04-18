@@ -172,6 +172,25 @@ Stable contract types:
 - `PreviewHibernateApiJson`
 - `PreviewDestroyApiJson`
 
+### `PreviewDestroyApiJson` — host-failure semantics (2026-04-18)
+
+The destroy route now distinguishes between hard and transient host failures
+so the user can never end up pointing at a zombie sandbox:
+
+- **Host destroy ok** → 200 + `{ destroyed: <bool>, clearedPreviewUrl: true }`.
+- **Host destroy retryable failure** (5xx / network blip) → 200 +
+  `{ destroyed: false, clearedPreviewUrl: true, providerDestroyDeferred: true, message }`.
+  Local Redis pointer is cleared anyway so the next request boots fresh; the
+  host-side orphan is reaped by idle TTL or `POST /admin/cleanup`.
+- **Host destroy hard failure** (4xx, non-retryable) → 400 +
+  `{ ok: false, reason: "destroy_failed", message }`. Local state is preserved
+  so the caller can react.
+
+Best-effort destroy on `forceRestart` and resume-failure inside
+`startPreviewSession` follows the same pattern: the host destroy is
+fired-and-forgotten before the local pointer is cleared, so the Fly runtime
+is released even when the user hasn't explicitly clicked "destroy".
+
 `PreviewStatusApiJson.status` enum: `running | starting | stopped | missing | version_mismatch`.
 
 `starting` is returned during the 90-second boot grace period after session creation
