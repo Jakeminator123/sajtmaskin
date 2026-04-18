@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
@@ -62,6 +63,7 @@ export function VersionFeedback({ chatId, versionId, className }: VersionFeedbac
       setSubmitted(true);
     } catch (err) {
       console.error("[VersionFeedback] Submit failed:", err);
+      toast.error("Kunde inte skicka feedback. Försök igen.");
     } finally {
       setIsSubmitting(false);
     }

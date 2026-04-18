@@ -29,6 +29,7 @@ import { PreviewPanelCode } from "./PreviewPanelCode";
 import { PreviewPanelCodeSectionEditors } from "./PreviewPanelCodeSectionEditors";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
 import { PreviewPanelFrame } from "./PreviewPanelFrame";
+import { GenerationProgress } from "./GenerationProgress";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
 import { fetchChatVersionFilesJson } from "./chat-version-files-fetch";
 import { usePreviewHeartbeat } from "./hooks/usePreviewHeartbeat";
@@ -116,6 +117,7 @@ export function PreviewPanel({
   generationPhase,
   onInlineEditPrompt,
   onSuggestionClick,
+  onBuildOutRouteRequest,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
@@ -203,6 +205,20 @@ export function PreviewPanel({
     return isCompatibilityShimPreviewUrl(previewUrl);
   }, [previewUrl]);
 
+  const triggerBuildOut = useCallback(
+    (routePath: string) => {
+      if (!routePath) return;
+      if (onBuildOutRouteRequest) {
+        onBuildOutRouteRequest(routePath);
+        return;
+      }
+      onSuggestionClick?.(
+        `Bygg ut sidan ${routePath} med fullt innehåll och design som matchar resten av sajten.`,
+      );
+    },
+    [onBuildOutRouteRequest, onSuggestionClick],
+  );
+
   const {
     iframeLoading,
     setIframeLoading,
@@ -215,6 +231,8 @@ export function PreviewPanel({
     clearPreviewReadyTimer,
     handleIframeLoad,
     hasEverLoaded: iframeHasEverLoaded,
+    vmReady,
+    markVmReady,
   } = usePreviewIframe({
     previewUrl,
     refreshToken,
@@ -235,8 +253,14 @@ export function PreviewPanel({
     setIframeError,
     setIframeErrorMessage,
     onNavigatePreviewUrl,
-    onBuildOutRouteRequest: (path) =>
-      onSuggestionClick?.(`Bygg ut sidan ${path} med fullt innehåll och design som matchar resten av sajten.`),
+    onBuildOutRouteRequest: (path) => triggerBuildOut(path),
+    onPreviewLifecycleChange: (phase) => {
+      if (phase === "ready") {
+        markVmReady();
+      }
+      // preview-starting behöver inte gör något här; vmReady resettas redan
+      // i usePreviewIframe när previewUrl/versionId byts.
+    },
     reportOwnEngineRenderFailureSinkRef,
   });
 
@@ -934,9 +958,7 @@ export function PreviewPanel({
         shellRoutePaths={shellRoutePaths}
         activePreviewRoute={activePreviewRoute}
         onNavigateRoute={handleNavigateRoute}
-        onRequestBuildOutRoute={(route) =>
-          onSuggestionClick?.(`Bygg ut sidan ${route} med fullt innehåll och design som matchar resten av sajten.`)
-        }
+        onRequestBuildOutRoute={(route) => triggerBuildOut(route)}
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
         isTier2LivePreview={isTier2LivePreview}
@@ -1053,6 +1075,23 @@ export function PreviewPanel({
             />
           ) : null}
           <div className="relative min-h-0 min-w-0 flex-1">
+            {/*
+              Medan VM:ens Next.js fortfarande bootar serverar preview-hosten
+              en blank starting-stub som annars skulle synas som en "tom"
+              iframe. Vi låter iframen vara mountad (så den kan ladda och
+              signalera `preview-ready`) men lägger en overlay med vår riktiga
+              GenerationProgress ovanpå tills vmReady blir true.
+            */}
+            {previewUrl && !vmReady && !iframeError ? (
+              <div
+                className="pointer-events-none absolute inset-0 z-20 bg-background"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <GenerationProgress phase={generationPhase ?? "preview"} />
+              </div>
+            ) : null}
             <PreviewSurface
               isLoading={isLoading}
               iframeError={iframeError}

@@ -139,7 +139,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [scaffoldMode, setScaffoldMode] = useState<ScaffoldMode>(DEFAULT_SCAFFOLD_MODE);
   const [scaffoldId, setScaffoldId] = useState<string | null>(DEFAULT_SCAFFOLD_ID);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- refresh defaults when scaffold mode changes */
@@ -319,8 +318,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setScaffoldId,
     selectedTemplateIds,
     setSelectedTemplateIds,
-    showTemplatePicker,
-    setShowTemplatePicker,
     isThinkingSupported,
     effectiveThinking,
     resolvedBuildIntent,

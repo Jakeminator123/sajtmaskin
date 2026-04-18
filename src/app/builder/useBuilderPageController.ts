@@ -66,7 +66,7 @@ export function useBuilderPageController() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startUiTransition] = useTransition();
-  const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const { fetchUser, isAuthenticated, isLoading: isAuthLoading, guest } = useAuth();
   const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
   const [tipsEnabled, setTipsEnabled] = useState(false);
 
@@ -1524,6 +1524,7 @@ export function useBuilderPageController() {
     authModalReason,
     setAuthModalReason,
     isAuthenticated,
+    guest,
 
     // Router
     router,
@@ -1591,7 +1592,6 @@ export function useBuilderPageController() {
     existingUiComponents: state.existingUiComponents,
     appProjectId: state.appProjectId,
     selectedTemplateIds: state.selectedTemplateIds,
-    showTemplatePicker: state.showTemplatePicker,
     isThinkingSupported: state.isThinkingSupported,
 
     // Setters the shell needs for onChange handlers
@@ -1625,7 +1625,6 @@ export function useBuilderPageController() {
     setChatId: state.setChatId,
     setMessages: state.setMessages,
     setSelectedTemplateIds: state.setSelectedTemplateIds,
-    setShowTemplatePicker: state.setShowTemplatePicker,
 
     // Derived
     isAnyStreaming: derived.isAnyStreaming,

@@ -297,25 +297,56 @@ function buildShellPageContent(route: PlannedRoute): string {
   // the parent window (the builder). `usePreviewPanelOwnEnginePreviewTelemetry`
   // listens for this and triggers the same flow as the "Bygg ut"-arrow in the
   // preview-chrome route pill.
+  const routePathJson = JSON.stringify(route.path);
   return `"use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { ${iconName}, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 
 export default function ${funcName}Page() {
+  const routePath = ${routePathJson};
+
   const requestBuildOut = () => {
     if (typeof window === "undefined") return;
     try {
       if (window.parent && window.parent !== window) {
         window.parent.postMessage(
-          { source: "sajtmaskin-preview", type: "build-out-request", payload: { path: ${JSON.stringify(route.path)} } },
+          { source: "sajtmaskin-preview", type: "build-out-request", payload: { path: routePath } },
           "*",
         );
+        return;
       }
     } catch {
       // ignore cross-window postMessage failures
     }
+    // Fallback: previewn är öppnad i ny flik utan parent-window. Lägg
+    // build-out-intentet i URL:en så att builder-appen kan plocka upp det
+    // nästa gång användaren kommer tillbaka.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("sajtmaskin_buildout", routePath);
+      window.location.href = url.toString();
+    } catch {
+      // ignore URL construction failures
+    }
   };
+
+  // Direkt DOM-binding som fallback om React-hydration fördröjs/selektivt
+  // fallerar — den SSR-renderade knappen har stabilt id och blir
+  // klickbar direkt, utan att invänta Reacts event-system.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = document.getElementById("sajtmaskin-skapa-sida");
+    if (!el) return;
+    const handler = (ev: Event) => {
+      ev.preventDefault();
+      requestBuildOut();
+    };
+    el.addEventListener("click", handler);
+    return () => el.removeEventListener("click", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden px-6 py-24 text-center">
@@ -348,6 +379,8 @@ export default function ${funcName}Page() {
           Tillbaka till startsidan
         </Link>
         <button
+          id="sajtmaskin-skapa-sida"
+          data-sajtmaskin-path={routePath}
           type="button"
           onClick={requestBuildOut}
           className="inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"

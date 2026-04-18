@@ -115,7 +115,7 @@ export function PreviewPanelFrame({
             </ul>
           ) : (
             <p className="mb-4 text-center text-xs text-muted-foreground/60">
-              Öppna i ny flik eller försök reparera previewn om felet kvarstår.
+              Öppna i ny flik eller be AI:n försöka igen om felet kvarstår.
             </p>
           )}
           <div className="flex flex-wrap items-center justify-center gap-2">
@@ -125,7 +125,7 @@ export function PreviewPanelFrame({
             </Button>
             {onFixPreview ? (
               <Button variant="outline" onClick={onFixPreview} disabled={isLoading}>
-                Försök reparera preview
+                Be AI:n försöka igen
               </Button>
             ) : null}
           </div>

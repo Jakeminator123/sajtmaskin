@@ -39,8 +39,18 @@ export type InspectPulseMarker = {
 
 export type PreviewIframeMessage = {
   source?: string;
-  type?: "preview-error" | "preview-ready" | "navigation-attempt" | "build-out-request";
-  payload?: PreviewIssuePayload & { href?: string | null; path?: string | null };
+  type?:
+    | "preview-error"
+    | "preview-ready"
+    | "preview-starting"
+    | "navigation-attempt"
+    | "build-out-request";
+  payload?: PreviewIssuePayload & {
+    href?: string | null;
+    path?: string | null;
+    chatId?: string | null;
+    status?: string | null;
+  };
 };
 
 export interface PreviewPanelProps {
@@ -86,6 +96,13 @@ export interface PreviewPanelProps {
   generationPhase?: import("./GenerationProgress").GenerationPhase;
   onInlineEditPrompt?: (prompt: string, file?: File) => void;
   onSuggestionClick?: (prompt: string) => void;
+  /**
+   * Build-out-request från shell-sidors "Skapa sida"-knapp eller från
+   * preview-chrome:s "Bygg ut"-pil. Om ej angett faller vi tillbaka till
+   * `onSuggestionClick` med en generisk prompt. Builder-shellen bör koppla
+   * detta till `smartSendMessage` så gäst-gating och toast fungerar.
+   */
+  onBuildOutRouteRequest?: (routePath: string) => void;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

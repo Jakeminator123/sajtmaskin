@@ -59,12 +59,26 @@ function PopupInner({ onConfirm, onSkip }: ImageUploadPopupProps) {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const dragCountRef = useRef(0);
 
-  const purgedRef = useRef(false);
-  useEffect(() => {
-    if (purgedRef.current) return;
-    purgedRef.current = true;
-    void fetch("/api/media/purge", { method: "POST" }).catch(() => {});
-  }, []);
+  const [isPurging, setIsPurging] = useState(false);
+  const handlePurge = useCallback(async () => {
+    if (isPurging) return;
+    const ok = window.confirm("Rensa hela bildbanken? Detta tar bort alla tidigare uppladdade filer.");
+    if (!ok) return;
+    setIsPurging(true);
+    try {
+      const res = await fetch("/api/media/purge", { method: "POST" });
+      if (res.ok) {
+        toast.success("Bildbank rensad");
+        setFiles([]);
+      } else {
+        toast.error("Kunde inte rensa bildbank");
+      }
+    } catch {
+      toast.error("Nätverksfel vid rensning");
+    } finally {
+      setIsPurging(false);
+    }
+  }, [isPurging]);
 
   const isUploading = files.some((f) => f.status === "uploading");
   const successFiles = files.filter((f) => f.status === "success");
@@ -435,9 +449,19 @@ function PopupInner({ onConfirm, onSkip }: ImageUploadPopupProps) {
         {/* File grids */}
         {nonLogoFiles.length > 0 && (
           <div className="mx-auto mt-4 w-full max-w-2xl space-y-3">
-            <p className="text-xs text-muted-foreground">
-              {nonLogoFiles.length}/{MAX_FILES} filer
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {nonLogoFiles.length}/{MAX_FILES} filer
+              </p>
+              <button
+                type="button"
+                onClick={handlePurge}
+                disabled={isPurging}
+                className="text-[11px] text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+              >
+                {isPurging ? "Rensar…" : "Rensa bildbank"}
+              </button>
+            </div>
             {renderFileGrid(nonLogoFiles)}
           </div>
         )}

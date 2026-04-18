@@ -319,7 +319,7 @@ export function BuilderHeader(props: {
               }}
             >
               <Bot className="mr-2 h-4 w-4" />
-              Anthropic-jämförelse
+              Claude-läge
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

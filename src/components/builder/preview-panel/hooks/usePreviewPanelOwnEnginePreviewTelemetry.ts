@@ -48,6 +48,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
   setIframeErrorMessage: Dispatch<SetStateAction<string | null>>;
   onNavigatePreviewUrl?: ((url: string) => void) | null;
   onBuildOutRouteRequest?: ((path: string) => void) | null;
+  onPreviewLifecycleChange?: ((phase: "starting" | "ready") => void) | null;
   reportOwnEngineRenderFailureSinkRef: MutableRefObject<ReportFailure>;
 }): void {
   const {
@@ -60,6 +61,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
     setIframeErrorMessage,
     onNavigatePreviewUrl,
     onBuildOutRouteRequest,
+    onPreviewLifecycleChange,
     reportOwnEngineRenderFailureSinkRef,
   } = options;
 
@@ -175,14 +177,14 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
 
   useEffect(() => {
     const handlePreviewMessage = (event: MessageEvent<PreviewIframeMessage>) => {
-      const iframeWindow = iframeRef.current?.contentWindow;
-      if (!iframeWindow || event.source !== iframeWindow) return;
       const data = event.data;
       if (!data || typeof data !== "object" || data.source !== "sajtmaskin-preview") return;
 
       // build-out-request kommer från shell-sidors "Skapa sida"-knapp och är
       // preview-agnostisk — den ska fungera även när previewn renderas via
-      // VM/tier-2 (preview-host), inte bara compatibility-shimmen.
+      // VM/tier-2 (preview-host), inte bara compatibility-shimmen. Vi
+      // jämför inte event.source mot iframens contentWindow eftersom den
+      // identiteten ändras vid HMR/reload och postMessage då tappas bort.
       if (data.type === "build-out-request") {
         const path = typeof data.payload?.path === "string" ? data.payload.path : "";
         if (path && onBuildOutRouteRequest) {
@@ -191,6 +193,37 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
         return;
       }
 
+      // Lifecycle-signaler (preview-starting/preview-ready) gäller alla
+      // preview-typer, så de måste hanteras ovanför own-engine-gaten.
+      if (data.type === "preview-starting") {
+        onPreviewLifecycleChange?.("starting");
+        return;
+      }
+
+      if (data.type === "preview-ready") {
+        onPreviewLifecycleChange?.("ready");
+        setIframeLoading(false);
+        setIframeError(false);
+        setIframeErrorMessage(null);
+        if (!chatId || !versionId) return;
+        if (!shouldReportPreviewOutcome(renderOutcomeStateRef.current, versionId, "success")) {
+          return;
+        }
+        renderOutcomeStateRef.current = nextPreviewRenderOutcomeState(versionId, "success");
+        void reportRenderOutcome({
+          chatId,
+          versionId,
+          success: true,
+          source: isOwnEnginePreview ? "own-engine" : "own-engine",
+          demoUrl: previewUrl ?? undefined,
+        });
+        return;
+      }
+
+      // Resterande händelser (navigation-attempt, preview-error) är
+      // fortfarande specifika för compatibility-shimmen — behåll gaten.
+      const iframeWindow = iframeRef.current?.contentWindow;
+      if (!iframeWindow || event.source !== iframeWindow) return;
       if (!isOwnEnginePreview) return;
 
       if (data.type === "navigation-attempt") {
@@ -200,24 +233,6 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
         if (nextUrl && nextUrl !== previewUrl) {
           onNavigatePreviewUrl?.(nextUrl);
         }
-        return;
-      }
-
-      if (data.type === "preview-ready" && chatId && versionId) {
-        setIframeLoading(false);
-        setIframeError(false);
-        setIframeErrorMessage(null);
-        if (!shouldReportPreviewOutcome(renderOutcomeStateRef.current, versionId, "success")) {
-          return;
-        }
-        renderOutcomeStateRef.current = nextPreviewRenderOutcomeState(versionId, "success");
-        void reportRenderOutcome({
-          chatId,
-          versionId,
-          success: true,
-          source: "own-engine",
-          demoUrl: previewUrl ?? undefined,
-        });
         return;
       }
 
@@ -234,6 +249,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
     isOwnEnginePreview,
     onNavigatePreviewUrl,
     onBuildOutRouteRequest,
+    onPreviewLifecycleChange,
     reportOwnEngineRenderFailure,
     iframeRef,
     setIframeLoading,

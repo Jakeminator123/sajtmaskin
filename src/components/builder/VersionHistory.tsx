@@ -641,6 +641,7 @@ export function VersionHistory({
                   : undefined;
             const isEngineVersionRow =
               version.canPin === false || typeof version.versionNumber === "number";
+            const isLegacyRow = !isEngineVersionRow;
             const tier2PreviewNorm = normalizePreviewUrl(version.previewUrl ?? version.sandboxUrl);
             const hasTier2LivePreviewForRow = Boolean(
               tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm),
@@ -840,19 +841,21 @@ export function VersionHistory({
                         </a>
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (internalVersionId) setCompareVersionId(internalVersionId);
-                      }}
-                      title="Jämför med föregående version"
-                      aria-label="Jämför med föregående version"
-                      className="h-7 px-2 text-xs"
-                    >
-                      Jämför
-                    </Button>
+                    {!isLegacyRow && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (internalVersionId) setCompareVersionId(internalVersionId);
+                        }}
+                        title="Jämför med föregående version"
+                        aria-label="Jämför med föregående version"
+                        className="h-7 px-2 text-xs"
+                      >
+                        Jämför
+                      </Button>
+                    )}
                     {canRestore && (
                       <Button
                         variant="ghost"
@@ -915,52 +918,58 @@ export function VersionHistory({
                     >
                       <MessageSquare className="h-3 w-3" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={(e) => handleDownload(e, version)}
-                      disabled={isDownloading}
-                      title="Ladda ner version"
-                      aria-label="Ladda ner version"
-                      className="h-7 w-7"
-                    >
-                      {isDownloading ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Download className="h-3 w-3" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={(e) => handleExportToBlob(e, version)}
-                      disabled={isExporting}
-                      title="Exportera till Vercel Blob"
-                      aria-label="Exportera till Vercel Blob"
-                      className="h-7 w-7"
-                    >
-                      {isExporting ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <UploadCloud className="h-3 w-3" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={(e) => handleExportToGitHub(e, version)}
-                      disabled={isExportingGitHub}
-                      title="Exportera till GitHub"
-                      aria-label="Exportera till GitHub"
-                      className="h-7 w-7"
-                    >
-                      {isExportingGitHub ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <GitBranch className="h-3 w-3" />
-                      )}
-                    </Button>
-                    {canPin && (
+                    {!isLegacyRow && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => handleDownload(e, version)}
+                        disabled={isDownloading}
+                        title="Ladda ner version"
+                        aria-label="Ladda ner version"
+                        className="h-7 w-7"
+                      >
+                        {isDownloading ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Download className="h-3 w-3" />
+                        )}
+                      </Button>
+                    )}
+                    {!isLegacyRow && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => handleExportToBlob(e, version)}
+                        disabled={isExporting}
+                        title="Exportera till Vercel Blob"
+                        aria-label="Exportera till Vercel Blob"
+                        className="h-7 w-7"
+                      >
+                        {isExporting ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-3 w-3" />
+                        )}
+                      </Button>
+                    )}
+                    {!isLegacyRow && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => handleExportToGitHub(e, version)}
+                        disabled={isExportingGitHub}
+                        title="Exportera till GitHub"
+                        aria-label="Exportera till GitHub"
+                        className="h-7 w-7"
+                      >
+                        {isExportingGitHub ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <GitBranch className="h-3 w-3" />
+                        )}
+                      </Button>
+                    )}
+                    {!isLegacyRow && canPin && (
                       <Button
                         variant="ghost"
                         size="icon-sm"

@@ -1126,28 +1126,43 @@ function rewriteRequestUrl(req, chatId, restPath, search) {
 
 function sendRuntimeStartingPage(res, session) {
   if (!res || res.headersSent || res.writableEnded) return;
-  res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+  const chatId = getSessionChatId(session);
+  const status = String(session.status || "starting");
+  // Serve a blank, signalling page: no visible content, neutral/transparent
+  // background (matches parent). Parent listens for `preview-starting` and
+  // keeps showing GenerationProgress instead of this iframe while Next.js
+  // in the VM is still booting. Auto-refresh polls until Next.js is ready.
+  res.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+    "x-sajtmaskin-preview-state": "starting",
+  });
   res.end(`<!doctype html>
-<html lang="sv">
+<html lang="sv" data-sajtmaskin-preview-state="starting">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Startar preview</title>
-    <meta http-equiv="refresh" content="4" />
+    <meta name="color-scheme" content="light dark" />
+    <title>…</title>
+    <meta http-equiv="refresh" content="2" />
     <style>
-      body { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background: #fafafa; color: #1a1f36; display: grid; place-items: center; min-height: 100vh; }
-      main { max-width: 40rem; padding: 2rem; text-align: center; }
-      .muted { color: #6b7280; }
-      code { background: rgba(0,0,0,0.05); padding: 0.15rem 0.4rem; border-radius: 0.4rem; }
+      html, body { margin: 0; padding: 0; background: transparent; min-height: 100vh; }
     </style>
   </head>
   <body>
-    <main>
-      <h1>Startar preview</h1>
-      <p class="muted">Preview-host bygger projektet och startar Next.js i bakgrunden. Sidan laddar om automatiskt om några sekunder.</p>
-      <p class="muted">Chat: <code>${getSessionChatId(session)}</code></p>
-      <p class="muted">Status: <code>${session.status}</code></p>
-    </main>
+    <script>
+      (function () {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              source: "sajtmaskin-preview",
+              type: "preview-starting",
+              payload: { chatId: ${JSON.stringify(chatId)}, status: ${JSON.stringify(status)} }
+            }, "*");
+          }
+        } catch (e) { /* ignore cross-window postMessage failures */ }
+      })();
+    </script>
   </body>
 </html>`);
 }

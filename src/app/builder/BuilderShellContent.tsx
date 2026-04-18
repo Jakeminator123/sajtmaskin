@@ -55,12 +55,10 @@ import {
   getCurrentQuestionField,
   isNeedsAnalysisActive,
   QUESTION_SUGGESTIONS,
-  searchTemplatesForPicker,
   SITE_TYPE_LABELS,
   type ScrapeResult,
   type SelectedTemplateInfo,
   type SiteTypeKey,
-  type TemplatePickerItem,
   type UploadedMediaInfo,
 } from "@/lib/builder/needs-analysis";
 import { getTemplateCatalogItemById } from "@/lib/templates/template-catalog";
@@ -247,14 +245,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   const uploadedMediaRef = useRef<UploadedMediaInfo[] | null>(null);
 
-  const triggerStarterGeneration = useCallback(
-    (msgs: ChatMessage[], options?: Record<string, unknown>, promptOverride?: string) => {
-      pendingGenerationRef.current = { messages: msgs, options, promptOverride };
-      setShowImageUpload(true);
-    },
-    [],
-  );
-
   const executeStarterGeneration = useCallback(
     (attachments?: V0UserFileAttachment[]) => {
       const pending = pendingGenerationRef.current;
@@ -281,25 +271,16 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [vm.selectedTemplateIds, vm.messages, wrappedRequestCreateChat],
   );
 
-  const handleImageUploadConfirm = useCallback(
-    (attachments: V0UserFileAttachment[]) => {
-      setShowImageUpload(false);
-      uploadedMediaRef.current = attachments.map((a) => ({
-        filename: a.filename,
-        mimeType: a.mimeType ?? "image/jpeg",
-        url: a.url,
-        purpose: a.purpose,
-      }));
-      executeStarterGeneration(attachments);
+  // Tidigare öppnades ett ImageUploadPopup här som aldrig renderades — bygget
+  // startade därför aldrig. Kör genereringen direkt; eventuell mediauppladdning
+  // sker redan i wizard/chat-composer.
+  const triggerStarterGeneration = useCallback(
+    (msgs: ChatMessage[], options?: Record<string, unknown>, promptOverride?: string) => {
+      pendingGenerationRef.current = { messages: msgs, options, promptOverride };
+      executeStarterGeneration();
     },
     [executeStarterGeneration],
   );
-
-  const handleImageUploadSkip = useCallback(() => {
-    setShowImageUpload(false);
-    uploadedMediaRef.current = null;
-    executeStarterGeneration();
-  }, [executeStarterGeneration]);
 
   const handleIntakeWizardComplete = useCallback(
     (result: IntakeWizardResult) => {
@@ -429,12 +410,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   );
 
   const handleIntakeWizardScrape = useCallback(
-    async (url: string, companyName?: string): Promise<WizardScrapeData | null> => {
+    async (
+      url: string,
+      options?: { signal?: AbortSignal } | string,
+    ): Promise<WizardScrapeData | null> => {
+      const signal =
+        options && typeof options === "object" && "signal" in options ? options.signal : undefined;
+      const companyName = typeof options === "string" ? options : undefined;
       try {
         const res = await fetch("/api/builder/company-intel", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url, synthesize: true, ...(companyName ? { companyName } : {}) }),
+          signal,
         });
         const json = await res.json();
         if (!json.success || !json.data) return null;
@@ -528,7 +516,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         };
 
         return result;
-      } catch {
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return null;
         return null;
       }
     },
@@ -689,8 +678,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     },
     [sendMessage, vm.chatId],
   );
+  const deploymentIsBuilding =
+    vm.deploymentStatus === "pending" || vm.deploymentStatus === "building";
   const isDeployActionBusy =
-    vm.isCreatingChat || vm.isAnyStreaming || vm.isDeploying || vm.isTemplateLoading;
+    vm.isCreatingChat ||
+    vm.isAnyStreaming ||
+    vm.isDeploying ||
+    deploymentIsBuilding ||
+    vm.isTemplateLoading;
   const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
   const canDeploy = Boolean(
     vm.chatId &&
@@ -706,7 +701,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         ? "Vänta tills chatten och versionen är redo."
         : vm.isAnyStreaming
           ? "Vänta tills den pågående generationen är klar."
-          : vm.isDeploying
+          : vm.isDeploying || deploymentIsBuilding
             ? "Publicering pågår redan."
             : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
   const deployDisabledReason =
@@ -751,16 +746,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [placementConfirmOpen, setPlacementConfirmOpen] = useState(false);
   const [isPlacementSubmitting, setIsPlacementSubmitting] = useState(false);
   const placementResolverRef = useRef<((decision: VisualPlacementDecision) => void) | null>(null);
-  const [templatePickerItems, setTemplatePickerItems] = useState<TemplatePickerItem[]>([]);
-  const [isTemplatePickerLoading, setIsTemplatePickerLoading] = useState(false);
   const [showSiteTypePicker, setShowSiteTypePicker] = useState(false);
   const siteTypePickerShownRef = useRef(false);
   const [showMustHavePicker, setShowMustHavePicker] = useState(false);
   const mustHavePickerShownRef = useRef(false);
   const pendingSiteTypeRef = useRef<SiteTypeKey | null>(null);
-  const templatePickerMessagesRef = useRef<ChatMessage[] | null>(null);
   const templatePickerTriggeredRef = useRef(false);
-  const [showImageUpload, setShowImageUpload] = useState(false);
   const [showIntakeWizard, setShowIntakeWizard] = useState(!vm.chatId);
   useEffect(() => {
     if (vm.chatId) setShowIntakeWizard(false);
@@ -841,7 +832,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   useEffect(() => {
     if (vm.chatId) return;
     if (mustHavePickerShownRef.current) return;
-    if (showSiteTypePicker || vm.showTemplatePicker) return;
+    if (showSiteTypePicker) return;
     if (vm.messages.length < 2) return;
 
     const field = getCurrentQuestionField(vm.messages);
@@ -865,7 +856,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }
 
     setShowMustHavePicker(true);
-  }, [vm.chatId, vm.messages, vm.setMessages, showSiteTypePicker, vm.showTemplatePicker]);
+  }, [vm.chatId, vm.messages, vm.setMessages, showSiteTypePicker]);
 
   const handleMustHaveSelect = useCallback(
     (labels: string[]) => {
@@ -1359,53 +1350,20 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setEnableAutofix(next);
   }, []);
 
-  // Post-generation suggestions are now in the Verktyg dropdown (PreviewPanelChrome).
-
-  const handleTemplateSelect = useCallback(
-    (templateIds: string[]) => {
-      vm.setSelectedTemplateIds(templateIds);
-      vm.setShowTemplatePicker(false);
-      setTemplatePickerItems([]);
-      setIsTemplatePickerLoading(false);
-
-      const savedMessages = templatePickerMessagesRef.current;
-      templatePickerMessagesRef.current = null;
-
-      if (!savedMessages) return;
-
-      const selectedTemplates = templateIds
-        .map((id) => getTemplateCatalogItemById(id))
-        .filter(Boolean);
-
-      const confirmMsg: ChatMessage = {
-        id: `template-pick-${Date.now()}`,
-        role: "assistant",
-        content:
-          selectedTemplates.length > 0
-            ? "Bra val! Nu vet jag vilken stil du föredrar. Vi fortsätter."
-            : "Inga problem — vi bygger helt från grunden.",
-        isHelpMessage: true,
-      };
-
-      const afterPick = [...savedMessages, confirmMsg];
-      const nextState = deriveNeedsAnalysisState(afterPick);
-      if (!nextState.ready) {
-        const nextQ = buildNextNeedsAnalysisMessage(afterPick);
-        vm.setMessages(nextQ ? [...afterPick, nextQ] : afterPick);
-      } else {
-        vm.setMessages(afterPick);
-        triggerStarterGeneration(afterPick);
-      }
-    },
-    [vm, triggerStarterGeneration],
-  );
-
-  const handleTemplatePickerClose = useCallback(() => {
-    handleTemplateSelect([]);
-  }, [handleTemplateSelect]);
+  const guardGuestGeneration = useCallback((): boolean => {
+    if (vm.isAuthenticated) return true;
+    const g = vm.guest;
+    if (!g) return true;
+    const hasChat = Boolean(vm.chatId);
+    const allowed = hasChat ? g.canRefine : g.canGenerate;
+    if (allowed) return true;
+    vm.setAuthModalReason("builder");
+    return false;
+  }, [vm.isAuthenticated, vm.guest, vm.chatId, vm.setAuthModalReason]);
 
   const smartSendMessage = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
+      if (!guardGuestGeneration()) return;
       const intent = await classifyIntent(message);
       if (intent === "help") {
         await sendHelpMessage(message, vm.setMessages, vm.messages);
@@ -1414,11 +1372,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
       await vm.sendMessage(message, options);
     },
-    [sendHelpMessage, vm.sendMessage, vm.setMessages, vm.messages],
+    [guardGuestGeneration, sendHelpMessage, vm.sendMessage, vm.setMessages, vm.messages],
   );
 
   const smartCreateChat = useCallback(
     async (message: string, options?: Record<string, unknown>) => {
+      if (!guardGuestGeneration()) return false;
       if (isNeedsAnalysisActive(vm.messages, vm.chatId)) {
         const userMessage: ChatMessage = {
           id: `needs-analysis-user-${Date.now()}`,
@@ -1540,7 +1499,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       }
       return wrappedRequestCreateChat(message, options);
     },
-    [sendHelpMessage, vm.chatId, vm.messages, wrappedRequestCreateChat, vm.selectedTemplateIds, vm.setMessages, vm.setShowTemplatePicker, triggerStarterGeneration],
+    [guardGuestGeneration, sendHelpMessage, vm.chatId, vm.messages, wrappedRequestCreateChat, vm.selectedTemplateIds, vm.setMessages, triggerStarterGeneration],
   );
 
   const handleQuickReply = useCallback(
@@ -2151,6 +2110,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 }
               }}
               onSuggestionClick={(prompt) => void vm.sendMessage(prompt)}
+              onBuildOutRouteRequest={(routePath) => {
+                const prompt = `Bygg ut sidan ${routePath} med fullt innehåll och design som matchar resten av sajten.`;
+                toast.info(`Bygger ut sidan ${routePath}…`);
+                void smartSendMessage(prompt);
+              }}
             />
           </div>
           <div

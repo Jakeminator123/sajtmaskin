@@ -159,7 +159,7 @@ export interface WizardScrapeData {
 
 interface IntakeWizardProps {
   onComplete: (result: IntakeWizardResult) => void;
-  onScrapeUrl?: (url: string) => Promise<WizardScrapeData | null>;
+  onScrapeUrl?: (url: string, options?: { signal?: AbortSignal }) => Promise<WizardScrapeData | null>;
   suggestContext?: { siteType?: string; companyDescription?: string; scrapeText?: string };
   initialExistingUrl?: string;
   initialPrompt?: string;
@@ -711,6 +711,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   const [scrapedFields, setScrapedFields] = useState<Set<string>>(new Set());
   const [scrapedCategoryIds, setScrapedCategoryIds] = useState<string[]>([]);
   const scrapeAbortRef = useRef(false);
+  const scrapeAbortControllerRef = useRef<AbortController | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -923,11 +924,14 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
     const normalized = normalizeUrl(url);
     if (!normalized) return;
     scrapeAbortRef.current = false;
+    scrapeAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    scrapeAbortControllerRef.current = controller;
     setScraping(true);
     setScrapeComplete(false);
     startScrapeProgress();
     try {
-      const data = await onScrapeUrl(normalized);
+      const data = await onScrapeUrl(normalized, { signal: controller.signal });
       if (data && !scrapeAbortRef.current) {
         applyScrapeToBusiness(data);
         setScrapeComplete(true);
@@ -1386,6 +1390,8 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
               textareaRef={textareaRef}
               onAbortScrape={() => {
                 scrapeAbortRef.current = true;
+                scrapeAbortControllerRef.current?.abort();
+                scrapeAbortControllerRef.current = null;
                 setScraping(false);
                 setScrapeProgress(0);
                 if (scrapeProgressRef.current) {
@@ -1429,7 +1435,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
               : "sm:justify-end",
           )}
         >
-          {step !== "company" && step !== "siteType" && currentStep < totalSteps - 1 ? (
+          {step !== "company" && step !== "siteType" && step !== "pages" && currentStep < totalSteps - 1 ? (
             <button
               type="button"
               onClick={() => { setDirection("forward"); setCurrentStep((s) => s + 1); }}
@@ -1472,12 +1478,20 @@ function SiteTypeStep({ siteType, onSelect, suggestedCategoryIds }: { siteType: 
   const [siteSearch, setSiteSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
   const lowerSearch = siteSearch.toLowerCase();
-  const filtered = siteSearch
-    ? CATEGORIES.filter((cat) => cat.label.toLowerCase().includes(lowerSearch))
-    : showAll
-      ? CATEGORIES
-      : CATEGORIES.slice(0, 8);
   const activeLabel = siteType[0] ?? "";
+  const pinnedIds = new Set<string>(suggested);
+  const activeCat = CATEGORIES.find((c) => c.label === activeLabel);
+  if (activeCat) pinnedIds.add(activeCat.id);
+  // Lyft förvalda/valda kategorier till toppen så de alltid syns utan "Visa alla".
+  const reordered = [
+    ...CATEGORIES.filter((c) => pinnedIds.has(c.id)),
+    ...CATEGORIES.filter((c) => !pinnedIds.has(c.id)),
+  ];
+  const filtered = siteSearch
+    ? reordered.filter((cat) => cat.label.toLowerCase().includes(lowerSearch))
+    : showAll
+      ? reordered
+      : reordered.slice(0, 8);
   return (
     <div className="space-y-4">
       {suggested.length > 0 && (

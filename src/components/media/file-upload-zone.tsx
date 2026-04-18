@@ -300,12 +300,12 @@ export function FileUploadZone({
   };
 
   if (compact) {
-    // Compact inline version
+    // Compact inline version — align vertically with sibling buttons
     return (
-      <div className="space-y-2">
+      <div className="inline-flex flex-wrap items-center gap-1.5">
         {/* Uploaded files list */}
         {hasFiles && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {files.map((file) => (
               <div
                 key={file.id}
