@@ -75,7 +75,7 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 När `preview-host` används på Fly finns **två** olika env-ytor:
 
 - **Repo-rotens `.env.local` (Sajtmaskin-appen):** `SAJTMASKIN_PREVIEW_HOST_BASE_URL`, `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES`, och `SAJTMASKIN_PREVIEW_HOST_API_KEY` när preview-host kör icke-lokalt.
-- **Preview-host-tjänsten (Fly):** `PREVIEW_HOST_API_KEY`, plus host-sidans `PREVIEW_HOST_DATA_DIR=/data` i `preview-host/fly.toml` eller motsvarande service-env.
+- **Preview-host-tjänsten (Fly):** `PREVIEW_HOST_API_KEY`, plus host-sidans `PREVIEW_HOST_DATA_DIR=/data` i `preview-host/fly.toml` eller motsvarande service-env. Plus `SAJTMASKIN_PREVIEW_DISABLE_HMR` (default `true`) som styr om webpack-HMR-pluginen inaktiveras i preview-VM:ens Next dev — av som default eftersom Fly's edge-proxy droppar WS-handshakes på `/<chatId>/_next/webpack-hmr`-pathen och annars spammar klient-konsolen. Sätt `false` för att återaktivera HMR vid direkt-debug av VM:en.
 
 Praktisk rekommendation:
 
@@ -83,6 +83,7 @@ Praktisk rekommendation:
 - Sätt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` på preview-hosten
 - Sätt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
 - Låt `PREVIEW_HOST_DATA_DIR=/data` leva på host-sidan (`fly.toml` / Fly-env), inte i repo-rotens `.env.local`
+- Låt `SAJTMASKIN_PREVIEW_DISABLE_HMR=true` (default) ligga på host-sidan; ändra bara om du behöver hot-reload mellan kod-ändringar i en pågående preview-VM
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.
 
