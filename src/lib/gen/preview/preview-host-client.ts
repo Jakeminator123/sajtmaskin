@@ -226,6 +226,96 @@ export async function startPreviewHostSession(params: {
 }
 
 /**
+ * Updates an existing preview-host session with new files / new versionId.
+ * Hits `POST /preview/session/update` (preview-host server.js:453).
+ *
+ * Skiljer sig från `startPreviewHostSession` så här:
+ * - Sätter `lastAction: "update"` istället för `"start"` på sessionen
+ * - Returnerar alltid `startOutcome: "resumed"` (inte "fresh→recreated")
+ * - Kräver att sandboxen redan finns (404 om saknas, fall tillbaka till start)
+ *
+ * Använd för follow-up-generationer på samma chatId. Telemetry/UI får då
+ * "resumed"-signal istället för "recreated", vilket är semantiskt korrekt
+ * — samma sandbox lever vidare, bara filerna byts ut.
+ */
+export type PreviewHostUpdateOk = PreviewHostStartOk;
+export type PreviewHostUpdateErr = PreviewHostStartErr & {
+  /** True när host returnerade 404 (sandbox saknas). Caller bör då falla tillbaka till `startPreviewHostSession`. */
+  sessionMissing?: boolean;
+};
+
+export async function updatePreviewHostSession(params: {
+  sandboxId: string;
+  versionId: string;
+  filesJson: Record<string, string>;
+}): Promise<PreviewHostUpdateOk | PreviewHostUpdateErr> {
+  const base = getPreviewHostBaseUrl();
+  if (!base) {
+    return {
+      ok: false,
+      message: "SAJTMASKIN_PREVIEW_HOST_BASE_URL is not set.",
+      retryable: false,
+    };
+  }
+  return retryPreviewHostRequestAfterCleanup(async () => {
+    try {
+      const requestBody = {
+        sandboxId: params.sandboxId,
+        versionId: params.versionId,
+        filesJson: params.filesJson,
+        changeClass: "patch",
+      };
+      const res = await fetch(`${base}/preview/session/update`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...previewHostAuthHeaders(),
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(START_TIMEOUT_MS),
+      });
+      const responseBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (res.status === 404) {
+        return {
+          ok: false,
+          message:
+            typeof responseBody.message === "string" && responseBody.message
+              ? responseBody.message
+              : "preview-host session not found",
+          retryable: false,
+          sessionMissing: true,
+        };
+      }
+      if (!res.ok) {
+        const msg = describePreviewHostHttpFailure({
+          endpoint: "/preview/session/start",
+          status: res.status,
+          body: responseBody,
+        });
+        return {
+          ok: false,
+          message: msg,
+          retryable: res.status >= 500 || res.status === 429,
+        };
+      }
+      const sandboxUrl = typeof responseBody.previewUrl === "string" ? responseBody.previewUrl.trim() : "";
+      const sandboxId = typeof responseBody.sandboxId === "string" ? responseBody.sandboxId.trim() : "";
+      if (!sandboxUrl || !sandboxId) {
+        return {
+          ok: false,
+          message: "Preview host returned an invalid update payload.",
+          retryable: true,
+        };
+      }
+      return { ok: true, sandboxUrl, sandboxId, startOutcome: "resumed" };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Preview host update failed";
+      return { ok: false, message, retryable: true };
+    }
+  });
+}
+
+/**
  * Destroys a preview-host session by sandboxId or sessionId.
  * Host 404 is treated as already gone, so callers can still clear local state safely.
  */

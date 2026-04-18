@@ -11,6 +11,7 @@ import {
 import {
   destroyPreviewHostSession,
   startPreviewHostSession,
+  updatePreviewHostSession,
 } from "@/lib/gen/preview/preview-host-client";
 import {
   clearPreviewSessionAsync,
@@ -205,6 +206,8 @@ async function runStartPreviewSession(
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
     if (sess?.versionId === vid && sess.sandboxId) {
+      // Snabb-resume: samma versionId betyder att host troligen redan
+      // har korrekta filer + warm Next dev. Bara verifiera och returnera.
       const resumed = await tryResumeTier2Runtime(sess);
       if (resumed) {
         await touchPreviewSessionAsync({
@@ -230,6 +233,73 @@ async function runStartPreviewSession(
       // Best-effort destroy first to avoid leaking compute if the host
       // still holds the runtime, then clear the local pointer.
       await destroyAndClearPreviewSession(cid);
+    }
+  }
+
+  // Follow-up-flow: chatten har en session men på en ÄLDRE versionId.
+  // Tidigare hamnade vi här i `startPreviewHostSession`-pathen och fick
+  // `startOutcome: "fresh"` (= "recreated" i UI). Det var visserligen
+  // funktionellt OK eftersom preview-host själv återanvänder sandboxId
+  // när den ser samma chatId, men UI:t tappade resumed-signalen.
+  //
+  // Försök först `updatePreviewHostSession` (semantiskt korrekt: byter
+  // ut filer i en levande sandbox + restartar Next dev). Om host:en
+  // svarar 404 (sandboxen är död) faller vi tillbaka till start-pathen.
+  if (cid && vid && options?.forceRestart !== true) {
+    const sess = await getActivePreviewSessionAsync(cid);
+    if (sess?.sandboxId && sess.versionId !== vid) {
+      const skipRepairForUpdate = options?.skipRepair === true;
+      const skipScaffoldForUpdate = options?.skipProjectScaffold === true;
+      let updateFiles: CodeFile[];
+      try {
+        updateFiles = skipRepairForUpdate
+          ? generatedFiles
+          : repairGeneratedFiles(generatedFiles).files;
+      } catch {
+        updateFiles = generatedFiles;
+      }
+      const runtimeForUpdate: RuntimeFile[] = skipScaffoldForUpdate
+        ? updateFiles.map((f) => ({ name: f.path, content: f.content }))
+        : buildCompleteProject(
+            updateFiles,
+            collectRequiredUiComponents(updateFiles),
+          ).map((f) => ({ name: f.path, content: f.content }));
+      const updatePayload = Object.fromEntries(
+        runtimeForUpdate.map((f) => [f.name, f.content]),
+      );
+      const updated = await updatePreviewHostSession({
+        sandboxId: sess.sandboxId,
+        versionId: vid,
+        filesJson: updatePayload,
+      });
+      if (updated.ok) {
+        await touchPreviewSessionAsync({
+          chatId: cid,
+          sandboxId: updated.sandboxId,
+          sandboxUrl: updated.sandboxUrl,
+          versionId: vid,
+          tier2Provider: "preview_host",
+        });
+        return {
+          ok: true,
+          result: {
+            sandboxUrl: updated.sandboxUrl,
+            sandboxId: updated.sandboxId,
+            sandboxPreviewMode: resolvedMode,
+            fidelityTier: 2,
+            startOutcome: "resumed",
+            tier2Meta: { tier2Provider: "preview_host" as const },
+          },
+        };
+      }
+      // sessionMissing=true betyder host:en saknar sandboxen helt; clear
+      // den lokala pekaren så start-pathen nedan får skapa en ny utan
+      // att bli förvirrad av föråldrad session-store-data.
+      if ("sessionMissing" in updated && updated.sessionMissing === true) {
+        await destroyAndClearPreviewSession(cid);
+      }
+      // Annan typ av update-fel → fall genom till startPreviewHostSession
+      // som har full retry+disk-cleanup-logik.
     }
   }
 
