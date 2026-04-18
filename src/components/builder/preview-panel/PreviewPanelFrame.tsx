@@ -25,6 +25,13 @@ export interface PreviewPanelFrameProps {
 // och då gör flimrande overlay mer skada än nytta.
 const LOADING_OVERLAY_DEBOUNCE_MS = 350;
 
+// Hard-cap: defensiv backup om iframens onLoad aldrig fyrar (cross-origin
+// sandbox, HMR-WS-fel som blockerar load-event, eller cold-boot-VM som
+// tar längre än normal). Tvingar bort overlayen efter denna tid oavsett
+// state — det är bättre att visa innehållet (även halvfärdig preview)
+// än att låta spinnern hänga kvar för evigt.
+const LOADING_OVERLAY_HARD_CAP_MS = 6_000;
+
 export function PreviewPanelFrame({
   isLoading,
   iframeError,
@@ -40,32 +47,49 @@ export function PreviewPanelFrame({
   children,
 }: PreviewPanelFrameProps) {
   const [showOverlay, setShowOverlay] = useState(false);
+  const [showTopBar, setShowTopBar] = useState(false);
   const overlayTimerRef = useRef<number | null>(null);
+  const hardCapTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (overlayTimerRef.current) {
       window.clearTimeout(overlayTimerRef.current);
       overlayTimerRef.current = null;
     }
+    if (hardCapTimerRef.current) {
+      window.clearTimeout(hardCapTimerRef.current);
+      hardCapTimerRef.current = null;
+    }
     if (!isLoading) {
       setShowOverlay(false);
+      setShowTopBar(false);
       return;
     }
+    setShowTopBar(true);
     overlayTimerRef.current = window.setTimeout(() => {
       overlayTimerRef.current = null;
       setShowOverlay(true);
     }, LOADING_OVERLAY_DEBOUNCE_MS);
+    hardCapTimerRef.current = window.setTimeout(() => {
+      hardCapTimerRef.current = null;
+      setShowOverlay(false);
+      setShowTopBar(false);
+    }, LOADING_OVERLAY_HARD_CAP_MS);
     return () => {
       if (overlayTimerRef.current) {
         window.clearTimeout(overlayTimerRef.current);
         overlayTimerRef.current = null;
+      }
+      if (hardCapTimerRef.current) {
+        window.clearTimeout(hardCapTimerRef.current);
+        hardCapTimerRef.current = null;
       }
     };
   }, [isLoading]);
 
   return (
     <div className="relative h-full overflow-hidden bg-gray-950">
-      {isLoading ? (
+      {showTopBar ? (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-transparent"

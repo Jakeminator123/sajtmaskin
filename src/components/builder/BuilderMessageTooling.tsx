@@ -684,8 +684,21 @@ export function CompactToolParts({
                 {summaries.businessAction && (
                   <ActionStrip variant="compact" show color="emerald" title="" question={summaries.businessAction.question} options={summaries.businessAction.options} labels={summaries.businessAction.labels} keyPrefix="business" messageId={messageId} pendingQuickReplyKey={pendingQuickReplyKey} />
                 )}
-                {summaries.qualityGate && (
-                  <QualityGatePanel variant="compact" {...summaries.qualityGate} errorText={qualityGateErrorText} />
+                {(summaries.qualityGate || qualityGateErrorText) && (
+                  <QualityGatePanel
+                    variant="compact"
+                    {...(summaries.qualityGate ?? {
+                      passed: false,
+                      skipped: false,
+                      checks: [],
+                      verifyLaneDurationMs: null,
+                      firstFailureCheck: null,
+                      jobStartedAt: null,
+                      jobFinishedAt: null,
+                      visualQA: null,
+                    })}
+                    errorText={qualityGateErrorText}
+                  />
                 )}
                 {summaries.serverRepair && (
                   <ServerRepairPanel variant="compact" {...summaries.serverRepair} />
