@@ -47,6 +47,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "domains:link": { maxRequests: 10, windowMs: 60 * 1000 },
   "domains:verify": { maxRequests: 15, windowMs: 60 * 1000 },
   "domains:check": { maxRequests: 20, windowMs: 60 * 1000 },
+  "domains:whois": { maxRequests: 30, windowMs: 60 * 1000 },
   "download:create": { maxRequests: 10, windowMs: 60 * 1000 },
   "chat:create": { maxRequests: 15, windowMs: 60 * 1000 },
   "message:send": { maxRequests: 30, windowMs: 60 * 1000 },

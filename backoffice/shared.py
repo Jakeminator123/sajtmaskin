@@ -73,11 +73,11 @@ def find_repo_root(start: Path | None = None) -> Path:
     candidates = [here.parent] if here.is_file() else [here]
     base = candidates[0]
     for p in [base, *base.parents]:
-        marker = p / "config" / "codegen-static-prompt.json"
+        marker = p / "config" / "codegen-core-manifest.json"
         if marker.is_file():
             return p
     raise FileNotFoundError(
-        "Hittade inte repo-root (saknar config/codegen-static-prompt.json). "
+        "Hittade inte repo-root (saknar config/codegen-core-manifest.json). "
         "Kör appen från sajtmaskin-repot."
     )
 

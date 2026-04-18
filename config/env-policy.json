@@ -35,6 +35,10 @@
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
     "LOOPIA_API_USER",
     "LOOPIA_API_PASSWORD",
+    "GODADDY_API",
+    "GODADDY_SECRET",
+    "OTE_GODADDY_API",
+    "OTE_GODADDY_SECRET",
     "INSPECTOR_CAPTURE_WORKER_TOKEN",
     "SUPERADMIN_EMAIL",
     "INSPECTOR_CAPTURE_WORKER_URL",
@@ -604,6 +608,30 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Required where Loopia-backed domain flows are used."
+    },
+    {
+      "key": "GODADDY_API",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "GoDaddy production availability API key. Used by src/lib/domains/godaddy-client.ts as a supplementary availability/price source."
+    },
+    {
+      "key": "GODADDY_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "GoDaddy production availability API secret. Pairs with GODADDY_API."
+    },
+    {
+      "key": "OTE_GODADDY_API",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview"],
+      "notes": "GoDaddy OTE (test) availability API key. Used in dev/preview by src/lib/domains/godaddy-client.ts and the standalone tools in scripts/domains/."
+    },
+    {
+      "key": "OTE_GODADDY_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview"],
+      "notes": "GoDaddy OTE (test) availability API secret. Pairs with OTE_GODADDY_API."
     },
     {
       "key": "UNSPLASH_ACCESS_KEY",

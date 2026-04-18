@@ -5,10 +5,12 @@ alwaysApply: true
 
 # Svarsformat
 
-- **Kort när det går.** Hellre 5 rader + en tabell än 30 raders prosa.
-- **Tabeller = mitt verktyg** för översikter (kategorier, status, val). Använd löpande.
-- **Förklara svåra/engelska ord inom parentes första gången.** Ex: `dossier (mapp med komponenter, env vars och en instruktion till LLM)`, `embedding (vektor som låter oss matcha på betydelse istället för exakta ord)`, `boilerplate (minimal startkod utan färdig design)`.
-- **Inga emojis** om inte uttryckligen efterfrågat.
-- **Inga commit/push utan att du säger till.**
-- **Vid större förändringar — fråga först, gör sen.** Quickwins (`isEffectiveInit`-helper, `\b` Unicode-fix, etc.) får göras direkt.
-- **När du beställer en plan: lever planen utan att starta exekvering** om det inte är tydligt att du vill det.
+| Regel | Innebörd |
+|---|---|
+| Kortast möjligt | Hellre 3-5 rader + tabell än prosa. Skär bort allt som inte tillför beslut. |
+| Tabell/matris default | Översikter (status, val, jämförelser, fix-listor) ska vara tabell, inte punktlista. |
+| Parentes på svåra ord | Första gången: `term (kort förklaring på svenska)`. Ex: `embedding (vektor för betydelse-match)`, `boilerplate (minimal startkod utan design)`, `marker (filen som används för att hitta repo-roten)`. |
+| Inga emojis | Om inte uttryckligen begärt. |
+| Inga commit/push | Utan att du säger till. |
+| Större ändring → fråga först | Quickwins (lint, ren bug-fix, marker-byte) får göras direkt. |
+| Plan = bara plan | Lever planen, starta inte exekvering om det inte är uttryckligen begärt. |

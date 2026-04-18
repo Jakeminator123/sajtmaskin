@@ -9,8 +9,10 @@ from backoffice.shared import BackofficeContext, read_json, render_where_panel
 CONFIG_NAV_PAGES = (
     "Översikt",
     "LLM-faser & runtime-sanning",
-    "Codegen static",
-    "prompt-static",
+    "Codegen core",
+    "prompt-core",
+    "Codegen directives",
+    "prompt-directives",
     "ai_models",
     "Runtime scaffolds",
     "Preview och versioner",
@@ -79,10 +81,6 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("prompt-directives (Directives)")
     pd = sorted((ctx.config_dir / "prompt-directives").glob("*.md"))
     st.write(f"**{len(pd)}** `.md`-filer i `config/prompt-directives/`")
-
-    st.subheader("prompt-static (legacy)")
-    ps = sorted((ctx.config_dir / "prompt-static").glob("*.md"))
-    st.write(f"**{len(ps)}** `.md`-filer i `config/prompt-static/`")
 
     st.subheader("ai_models (dokument + manifest)")
     am = list((ctx.config_dir / "ai_models").glob("*.md")) + list(

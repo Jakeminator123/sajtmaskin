@@ -16,21 +16,11 @@ def render(ctx: BackofficeContext) -> None:
         "Adaptiva promptmoduler finns under **prompt-directives**."
     )
 
-    core_dir = ctx.config_dir / "prompt-core"
-    legacy_dir = ctx.config_dir / "prompt-static"
-
-    if core_dir.is_dir():
-        active_dir = core_dir
-        st.caption(f"Aktiv mapp: `{core_dir.relative_to(ctx.repo_root)}`")
-    elif legacy_dir.is_dir():
-        active_dir = legacy_dir
-        st.warning(
-            f"Använder legacy-mapp `{legacy_dir.relative_to(ctx.repo_root)}`. "
-            "Migrera till `config/prompt-core/` för nya konventionen."
-        )
-    else:
-        st.error("Varken `config/prompt-core/` eller `config/prompt-static/` hittades.")
+    active_dir = ctx.config_dir / "prompt-core"
+    if not active_dir.is_dir():
+        st.error("`config/prompt-core/` saknas.")
         return
+    st.caption(f"Aktiv mapp: `{active_dir.relative_to(ctx.repo_root)}`")
 
     files = sorted(f for f in active_dir.glob("*.md") if f.name != "_READ_ME_FIRST.md")
     labels = [f.name for f in files]

@@ -30,8 +30,8 @@ alwaysApply: true
 | `mekanisk fix` / **mekanisk autofix** | "autofix" utan att skilja från LLM; "deterministisk autofix", "repair" (blandat) |
 | `LLM-fix` / **LLM-autofix** | "fixer", "syntax fixer", generiskt "autofix" (blandat) |
 | `Ersatt` (UI-etikett) | Omtag (döda) |
-| `backoffice/` | "dashboard" (legacy) |
-| `Core Rules` / `prompt-core` | "static prompt", "prompt-static" (legacy alias) |
+| `backoffice/` | "dashboard" (legacy), "backend" (för Sajtmaskin = streamlit-appen från `python sajtmaskin_backoffice.py`, **inte** Next.js-server eller Fly-VM) |
+| `Core Rules` (= "statisk prompt" / "static system prompt") | "prompt-static" (legacy mapp), två olika koncept |
 | `Directives` / `prompt-directives` | "dynamic prompt files", "adaptiva prompter" |
 | `Directive Cascade` | "resolution order", "priority hierarchy" |
 | `Brief Guidance Override` | "brief override", "brief-driven inference" |

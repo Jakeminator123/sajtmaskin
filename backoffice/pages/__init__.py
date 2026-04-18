@@ -20,7 +20,6 @@ from . import (
     preview,
     prompt_core,
     prompt_directives,
-    prompt_static,
     research,
     runtime_scaffolds,
     scaffold_lifecycle,
@@ -44,7 +43,6 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("prompt-core", "Konfiguration", prompt_core.render),
     PageSpec("Codegen directives", "Konfiguration", codegen_directives.render),
     PageSpec("prompt-directives", "Konfiguration", prompt_directives.render),
-    PageSpec("prompt-static (legacy)", "Konfiguration", prompt_static.render),
     PageSpec("ai_models", "Konfiguration", ai_models.render),
     PageSpec("Runtime scaffolds", "Konfiguration", runtime_scaffolds.render),
     PageSpec("Preview och versioner", "Konfiguration", preview.render),
@@ -70,7 +68,6 @@ PAGE_QUERY_ALIASES = {
     "llm": "LLM-faser & runtime-sanning",
     "core": "prompt-core",
     "directives": "prompt-directives",
-    "static": "prompt-static (legacy)",
     "dossiers": "Dossiers (legoklossar)",
 }
 
