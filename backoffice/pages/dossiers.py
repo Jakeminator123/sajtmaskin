@@ -36,6 +36,8 @@ MASTER_PATH = INDEX_ROOT / "master.json"
 BY_CATEGORY_PATH = INDEX_ROOT / "by-category.json"
 RECOMMENDATIONS_PATH = INDEX_ROOT / "scaffold-recommendations.json"
 EMBEDDINGS_PATH = INDEX_ROOT / "dossier-embeddings.json"
+COMPAT_REPORT_PATH = INDEX_ROOT / "compat-report.json"
+GITHUB_SUMMARY_PATH = RAW_ROOT / "_enriched" / "_github-summary.json"
 CURATION_QUEUE_PATH = RAW_ROOT / "_curation-queue.md"
 ENRICHED_DIR = RAW_ROOT / "_enriched"
 CURATE_BATCH_LOG = INDEX_ROOT / "curate-batch.log"
@@ -80,16 +82,26 @@ def _save_json(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-def _run_cmd(cmd: list[str], cwd: Path = REPO_ROOT) -> tuple[bool, str]:
-    """Run a shell command and capture output. Returns (ok, combined_output)."""
+def _run_cmd(cmd: list[str], cwd: Path = REPO_ROOT, timeout_s: int = 120) -> tuple[bool, str]:
+    """Run a shell command and capture output. Returns (ok, combined_output).
+
+    Default timeout 120s suits most short steps (compat, index, recommend, queue,
+    promote). Long-running jobs (clone-repos, curate, full bulk-enrich) should
+    run from terminal — surface a friendly message instead of silently aborting.
+    """
     try:
         result = subprocess.run(
-            cmd, cwd=str(cwd), capture_output=True, text=True, check=False, timeout=120,
+            cmd, cwd=str(cwd), capture_output=True, text=True, check=False, timeout=timeout_s,
         )
         out = (result.stdout or "") + (result.stderr or "")
         return result.returncode == 0, out
     except subprocess.TimeoutExpired:
-        return False, "Command timed out (>2 min). Run from terminal for long jobs (e.g. dossiers:enrich)."
+        return (
+            False,
+            f"Command timed out after {timeout_s}s. Long jobs (`dossiers:enrich`, `dossiers:curate`, "
+            "`dossiers:clone-repos`, full `dossiers:github-enrich`) should run from terminal — "
+            "see `npm run dossiers:full-pipeline` or run the step manually.",
+        )
     except FileNotFoundError as e:
         return False, f"Missing binary: {e}"
 
@@ -173,6 +185,13 @@ def _section_dossier_list() -> None:
             curation = "✋ hand"
         else:
             curation = "—"
+        depreciated = d.get("_deprecationReason")
+        replacement = d.get("_replacementUrl")
+        deprecation_short = ""
+        if depreciated:
+            deprecation_short = depreciated[:80] + ("…" if len(depreciated) > 80 else "")
+            if replacement:
+                deprecation_short += f"  →  {replacement.split('://')[-1][:50]}"
         rows.append({
             "id": d["id"],
             "kind": d["kind"],
@@ -186,6 +205,7 @@ def _section_dossier_list() -> None:
             "embedding": "✓" if d["id"] in embedded_ids else "—",
             "quality": d.get("qualityScore", "—"),
             "primary_for": ", ".join(d.get("scaffoldFit", {}).get("primary", [])) or "—",
+            "deprecation": deprecation_short or "—",
         })
     rows.sort(key=lambda r: (r["status"] != "active", r["category"], r["id"]))
     st.dataframe(rows, width="stretch", hide_index=True)
@@ -193,7 +213,8 @@ def _section_dossier_list() -> None:
         f"Visar {len(rows)} dossiers. "
         f"🤖 = AI-kurerad via `auto-curate.ts`. "
         f"✋ = hand-skriven. "
-        f"`embedding ✓` = dossiern matchas semantiskt mot prompts vid runtime."
+        f"`embedding ✓` = dossiern matchas semantiskt mot prompts vid runtime. "
+        f"`deprecation` = informationsflagga (källan brustit) — runtime-filtrering drivs av `status`-kolumnen."
     )
 
 
@@ -262,20 +283,161 @@ def _section_recommendations() -> None:
         st.success(f"Sparat. Använd `npm run dossiers:recommend:merge` om du vill lägga till nytillkomna utan att förlora dina ändringar.")
 
 
+def _list_skiss_files() -> dict[str, list[dict[str, Any]]]:
+    by_cat: dict[str, list[dict[str, Any]]] = {}
+    if not RAW_ROOT.exists():
+        return by_cat
+    for entry in RAW_ROOT.iterdir():
+        if not entry.is_dir() or entry.name.startswith("_"):
+            continue
+        skiss_path = entry / "skiss.json"
+        if not skiss_path.exists():
+            continue
+        try:
+            data = json.loads(skiss_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        category = data.get("category", "uncategorized")
+        by_cat.setdefault(category, []).append(data)
+    for cat in by_cat:
+        by_cat[cat].sort(
+            key=lambda d: ((d.get("github") or {}).get("stargazers_count", 0) or 0),
+            reverse=True,
+        )
+    return by_cat
+
+
+def _write_promotions_list(ids: list[str], append: bool = True) -> None:
+    path = REPO_ROOT / "scripts" / "dossiers" / "curated-promotions.txt"
+    existing: set[str] = set()
+    if append and path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.split("#", 1)[0].strip()
+            if stripped:
+                existing.add(stripped)
+    final = sorted(existing | set(ids))
+    body = "\n".join(final) + "\n"
+    path.write_text(body, encoding="utf-8")
+
+
 def _section_curation_queue() -> None:
-    st.subheader("Kurations-kö (skiss-filer som väntar på promotion)")
-    if not CURATION_QUEUE_PATH.exists():
+    st.subheader("Promotion: skiss → draft → active")
+
+    skiss_by_cat = _list_skiss_files()
+    if not skiss_by_cat:
         st.info(
-            "Inga skiss-filer. Kör pipeline: `npm run dossiers:scrape && "
-            "npm run dossiers:enrich && npm run dossiers:import && "
-            "npm run dossiers:queue`."
+            "Inga skiss-filer i `_raw/`. Kör pipeline från terminal: "
+            "`npm run dossiers:full-pipeline`."
         )
         return
-    text = CURATION_QUEUE_PATH.read_text(encoding="utf-8")
-    skiss_count = sum(1 for line in text.splitlines() if line.strip().startswith("- [ ]"))
-    st.caption(f"{skiss_count} kandidater i kön. Markera `[x]` i kö-filen + lägg id i `scripts/dossiers/curated-promotions.txt` för att promota till draft.")
-    with st.expander("Visa kö (markdown)"):
-        st.markdown(text)
+
+    total_skiss = sum(len(v) for v in skiss_by_cat.values())
+    st.caption(
+        f"**{total_skiss} skiss-kandidater** över {len(skiss_by_cat)} kategorier. "
+        "Skiss = scrape-output, väntar på promotion till `draft`. "
+        "Drafts måste curreras (filer + instructions) innan de blir runtime-aktiva."
+    )
+
+    with st.expander("⚠ Storage-prognos om du promotar alla", expanded=False):
+        st.markdown(
+            f"- **{total_skiss} repos** shallow-clonas till `data/dossiers/_repo-cache/`\n"
+            f"- Uppskattning: **~3-15 MB per repo** ≈ **{total_skiss * 8} MB** "
+            f"({total_skiss * 8 // 1024 + 1} GB) totalt\n"
+            "- `_repo-cache/` är `.gitignore`-täckt — belastar inte git\n"
+            "- AI-kuration via `auto-curate.ts`: **~$0.02-0.10 per dossier** (gpt-5.4)\n"
+            f"  → **${total_skiss * 0.05:.0f}-${total_skiss * 0.15:.0f}** för hela batchen\n"
+            "- AI-kuration tar **~10-15 sek per dossier** ≈ "
+            f"**{total_skiss * 12 // 60} min** för hela batchen"
+        )
+
+    cols = st.columns(3)
+    with cols[0]:
+        if st.button("📌 Promote ALLA"):
+            all_ids = [s["id"] for cat in skiss_by_cat.values() for s in cat]
+            _write_promotions_list(all_ids, append=False)
+            with st.spinner(f"Skapar {len(all_ids)} drafts…"):
+                ok, out = _run_cmd(["npm", "run", "dossiers:promote"])
+                (st.success if ok else st.error)(out[-2500:])
+                if ok:
+                    st.info(
+                        "Nästa steg (kör i terminal):\n"
+                        "`npm run dossiers:full-pipeline -- --with-clone --with-extract "
+                        "--with-curate --with-rebuild`"
+                    )
+    with cols[1]:
+        if st.button("🧹 Töm curated-promotions.txt"):
+            _write_promotions_list([], append=False)
+            st.success("Töm.")
+    with cols[2]:
+        if st.button("🔄 Bygg om _curation-queue.md"):
+            ok, out = _run_cmd(["npm", "run", "dossiers:queue"])
+            (st.success if ok else st.error)(out[-1500:])
+
+    st.markdown("---")
+    st.markdown("**Granulär promotion** — välj specifika kandidater per kategori.")
+    if "promotion_selection" not in st.session_state:
+        st.session_state["promotion_selection"] = set()
+    selected: set[str] = st.session_state["promotion_selection"]
+
+    selected_cat = st.selectbox(
+        "Kategori",
+        sorted(skiss_by_cat.keys()),
+        format_func=lambda c: f"{c} ({len(skiss_by_cat.get(c, []))})",
+    )
+    candidates = skiss_by_cat.get(selected_cat, [])
+    rows = []
+    for s in candidates:
+        gh = s.get("github") or {}
+        rows.append({
+            "✓": s["id"] in selected,
+            "id": s["id"],
+            "title": s.get("title", ""),
+            "stars": gh.get("stargazers_count", "—") if gh else "—",
+            "ageDays": gh.get("ageDays", "—") if gh else "—",
+            "verdict": gh.get("sourceVerdict", "—") if gh else "—",
+            "repoUrl": (s.get("repoUrl") or "").replace("https://github.com/", "gh:"),
+        })
+    edited = st.data_editor(
+        rows,
+        width="stretch",
+        hide_index=True,
+        key=f"promo_editor_{selected_cat}",
+        column_config={
+            "✓": st.column_config.CheckboxColumn(width="small"),
+            "stars": st.column_config.NumberColumn("★", width="small"),
+            "ageDays": st.column_config.NumberColumn("ålder (d)", width="small"),
+            "verdict": st.column_config.TextColumn("källa", width="small"),
+        },
+    )
+    cat_ids_in_view = {r["id"] for r in edited}
+    new_selection = {r["id"] for r in edited if r["✓"]}
+    selected -= cat_ids_in_view
+    selected |= new_selection
+    st.session_state["promotion_selection"] = selected
+
+    st.caption(f"**Valt över alla kategorier: {len(selected)}**")
+    cols2 = st.columns(2)
+    with cols2[0]:
+        if st.button(
+            f"📌 Promote valda ({len(selected)})",
+            type="primary",
+            disabled=len(selected) == 0,
+        ):
+            _write_promotions_list(sorted(selected), append=True)
+            with st.spinner(f"Skapar {len(selected)} drafts…"):
+                ok, out = _run_cmd(["npm", "run", "dossiers:promote"])
+                (st.success if ok else st.error)(out[-2500:])
+                if ok:
+                    st.session_state["promotion_selection"] = set()
+                    st.rerun()
+    with cols2[1]:
+        if st.button("🗑 Rensa valda"):
+            st.session_state["promotion_selection"] = set()
+            st.rerun()
+
+    if CURATION_QUEUE_PATH.exists():
+        with st.expander("Se rådata: _curation-queue.md"):
+            st.markdown(CURATION_QUEUE_PATH.read_text(encoding="utf-8"))
 
 
 def _section_ai_curate() -> None:
@@ -428,6 +590,106 @@ def _section_scaffold_overview() -> None:
         (st.success if ok else st.error)(out[-2000:])
 
 
+def _verdict_emoji(verdict: str) -> str:
+    return {
+        "ok": "✓",
+        "source-archived": "⛔ archived",
+        "source-stale": "⏳ stale",
+        "source-unreachable": "✗ 404",
+        "no-source": "—",
+        "skipped": "⏭",
+    }.get(verdict, verdict)
+
+
+def _section_source_health() -> None:
+    st.subheader("Källhälsa — GitHub-status för dossier-källor")
+    st.caption(
+        "Kollar att varje dossier `sourceRepoUrl` (a) inte är arkiverat på "
+        "GitHub, (b) har commit nyare än 18 mån, (c) går att nå (inte 404). "
+        "Dossiers med `_status: source-archived/-stale/-unreachable` filtreras "
+        "automatiskt bort vid runtime-injektion."
+    )
+
+    cols = st.columns(3)
+    with cols[0]:
+        if st.button("🔍 Dry-run compat (ändrar inget)"):
+            with st.spinner("Hämtar GitHub-data för alla dossiers…"):
+                ok, out = _run_cmd(["npm", "run", "dossiers:compat"])
+                (st.success if ok else st.error)(out[-2500:])
+    with cols[1]:
+        if st.button("✏️ Apply (uppdatera _status i manifests)", type="primary"):
+            with st.spinner("Uppdaterar manifests + skriver report…"):
+                ok, out = _run_cmd(["npm", "run", "dossiers:compat:apply"])
+                if ok:
+                    st.success(out[-2500:])
+                    st.info("Kör `dossiers:rebuild` för att master.json + recommendations + embeddings ska reflektera de nya statuses.")
+                else:
+                    st.error(out[-2500:])
+    with cols[2]:
+        if st.button("📥 Bulk-enrich _enriched/ med GitHub-data"):
+            with st.spinner("Hämtar GitHub-API för alla scrape-templates… (~2 min med GITHUB_TOKEN, 7+ min utan)"):
+                ok, out = _run_cmd(["npm", "run", "dossiers:github-enrich"], timeout_s=600)
+                (st.success if ok else st.error)(out[-2500:])
+
+    report = _load_json(COMPAT_REPORT_PATH)
+    if not report:
+        st.info("Ingen compat-report ännu. Kör `Dry-run compat` ovan.")
+        return
+
+    totals = report.get("totals", {})
+    st.markdown("**Senaste resultat**")
+    m_cols = st.columns(6)
+    m_cols[0].metric("ok", totals.get("ok", 0))
+    m_cols[1].metric("archived", totals.get("source-archived", 0))
+    m_cols[2].metric("stale", totals.get("source-stale", 0))
+    m_cols[3].metric("unreachable", totals.get("source-unreachable", 0))
+    m_cols[4].metric("no-source", totals.get("no-source", 0))
+    m_cols[5].metric("applied", totals.get("applied", 0))
+
+    results = report.get("results", [])
+    bad = [r for r in results if r.get("verdict") not in ("ok", "no-source")]
+    if bad:
+        st.markdown(f"**Källproblem ({len(bad)} st)** — sortera kolumner för att hitta värsta")
+        rows = []
+        for r in bad:
+            gh = r.get("github") or {}
+            rows.append({
+                "dossier": r["id"],
+                "verdict": _verdict_emoji(r["verdict"]),
+                "stars": gh.get("stargazers_count", "—"),
+                "ageDays": r.get("ageDays", "—"),
+                "archived": "ja" if gh.get("archived") else "—",
+                "language": gh.get("language") or "—",
+                "skäl": "; ".join(r.get("reasons", []))[:120],
+            })
+        st.dataframe(rows, width="stretch", hide_index=True)
+
+    summary = _load_json(GITHUB_SUMMARY_PATH)
+    if summary:
+        st.markdown("**Bulk-enrich-status (alla scraped templates)**")
+        verdicts = summary.get("verdicts", {})
+        s_cols = st.columns(5)
+        s_cols[0].metric("ok", verdicts.get("ok", 0))
+        s_cols[1].metric("archived", verdicts.get("source-archived", 0))
+        s_cols[2].metric("stale", verdicts.get("source-stale", 0))
+        s_cols[3].metric("unreachable", verdicts.get("source-unreachable", 0))
+        s_cols[4].metric("totalt", summary.get("totalSidecars", 0))
+        st.caption(
+            f"Senast: {summary.get('generatedAt', '—')}. "
+            "Vid `dossiers:import` skippas archived/unreachable källor automatiskt."
+        )
+
+    with st.expander("Hur räknas en källa som dålig?"):
+        st.markdown(
+            "- **archived**: GitHub `repos/<owner>/<repo>` returnerar `archived: true`\n"
+            "- **stale**: `pushed_at > 540 dagar (~18 mån)` sedan\n"
+            "- **unreachable**: 404 / parse-error / nätverksfel\n"
+            "- **no-source**: dossiern saknar `sourceRepoUrl` (hand-curated, ej skrap-källa)\n\n"
+            "Recommendation: sätt `GITHUB_TOKEN` i `.env.local` för 5000 req/h "
+            "(annars 60 req/h, räcker bara för aktiva dossiers — inte hela skrap-katalogen)."
+        )
+
+
 def _section_files_on_disk() -> None:
     st.subheader("Filer på disk")
     rows = [
@@ -435,6 +697,8 @@ def _section_files_on_disk() -> None:
         ("by-category.json", BY_CATEGORY_PATH),
         ("scaffold-recommendations.json", RECOMMENDATIONS_PATH),
         ("dossier-embeddings.json", EMBEDDINGS_PATH),
+        ("compat-report.json", COMPAT_REPORT_PATH),
+        ("_enriched/_github-summary.json", GITHUB_SUMMARY_PATH),
         ("_curation-queue.md", CURATION_QUEUE_PATH),
         ("_enriched/ (folder)", ENRICHED_DIR),
     ]
@@ -459,14 +723,16 @@ def render(*_args: Any, **_kwargs: Any) -> None:
         "Format: `docs/architecture/dossier-format.md`"
     )
 
-    tab_overview, tab_list, tab_ai, tab_scaffold, tab_recommend, tab_curation, tab_pipeline, tab_files = st.tabs(
-        ["Översikt", "Lista", "AI-kurera", "Scaffolds & Variants", "Möblera", "Kurations-kö", "Pipeline", "Filer"],
+    tab_overview, tab_list, tab_health, tab_ai, tab_scaffold, tab_recommend, tab_curation, tab_pipeline, tab_files = st.tabs(
+        ["Översikt", "Lista", "Källhälsa", "AI-kurera", "Scaffolds & Variants", "Möblera", "Kurations-kö", "Pipeline", "Filer"],
     )
 
     with tab_overview:
         _section_overview()
     with tab_list:
         _section_dossier_list()
+    with tab_health:
+        _section_source_health()
     with tab_ai:
         _section_ai_curate()
     with tab_scaffold:

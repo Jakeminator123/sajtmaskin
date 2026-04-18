@@ -1,0 +1,149 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-ai-emoji-generator",
+  "kind": "integration",
+  "category": "database",
+  "label": "AI Emoji Generator",
+  "description": "Generate your favorite emojis for Slack/Discord using AI. Built with Next.js, Replicate, and Vercel.",
+  "summary": "Use this dossier when a site needs AI-generated emoji/image assets with persistent storage and shareable result pages. It provides the core API patterns for minting short-lived client tokens, fetching generated emoji records by id, and optionally exposing database-backed sitemap pages for indexed public results.",
+  "providers": [
+    {
+      "name": "Replicate",
+      "url": "https://github.com/pondorasti/emojis"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "REPLICATE_API_TOKEN",
+      "required": true,
+      "purpose": "Set up Replicate: https://replicate.com"
+    },
+    {
+      "key": "WEBHOOK_SECRET",
+      "required": true,
+      "purpose": "Generate a random secret for the webhook: https://generate-secret.vercel.app/32"
+    },
+    {
+      "key": "NGROK_URL",
+      "required": true,
+      "purpose": "Forward Requests Locally (local dev)"
+    },
+    {
+      "key": "BLOB_READ_WRITE_TOKEN",
+      "required": true,
+      "purpose": "Set up Vercel Blob: https://vercel.com/docs/storage/vercel-blob/quickstart"
+    },
+    {
+      "key": "KV_URL",
+      "required": true,
+      "purpose": "Set up Vercel KV: https://vercel.com/docs/storage/vercel-kv/quickstart"
+    },
+    {
+      "key": "KV_REST_API_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "KV_REST_API_TOKEN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "KV_REST_API_READ_ONLY_TOKEN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DATABASE_URL",
+      "required": true,
+      "purpose": "Set up PlanetScale: https://planetscale.com/docs/tutorials/planetscale-quick-start-guide"
+    }
+  ],
+  "dependencies": [
+    "@prisma/client",
+    "@prisma/extension-accelerate",
+    "@upstash/ratelimit",
+    "@vercel/analytics",
+    "@vercel/blob",
+    "@vercel/kv",
+    "autoprefixer",
+    "class-variance-authority",
+    "clsx",
+    "jose",
+    "lucide-react",
+    "ms",
+    "nanoid",
+    "next-axiom",
+    "prisma",
+    "react-hot-toast",
+    "replicate",
+    "server-only",
+    "swr",
+    "tailwind-merge",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/src/app/api/token/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/app/api/emojis/[id]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/app/api/generate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/lib/auth-token.ts",
+      "role": "server",
+      "kind": "utility"
+    },
+    {
+      "path": "components/src/app/api/webhooks/replicate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/app/api/emojis/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "content-site",
+      "landing-page"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 72,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/ai-emoji-generator",
+  "sourceRepoUrl": "https://github.com/pondorasti/emojis",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "replicate",
+    "ai-images",
+    "emoji-generator",
+    "nextjs",
+    "prisma",
+    "vercel-blob",
+    "webhooks",
+    "jwt"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:32:06.669Z",
+  "_curatedBy": "auto-curate.ts"
+}

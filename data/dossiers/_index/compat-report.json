@@ -1,0 +1,30 @@
+{
+  "$schema": "../../../docs/schemas/strict/compat-report.schema.json",
+  "generatedAt": "2026-04-18T02:44:54.184Z",
+  "ruleConfig": {
+    "staleAgeDays": 540
+  },
+  "totals": {
+    "ok": 0,
+    "source-archived": 0,
+    "source-stale": 0,
+    "source-unreachable": 0,
+    "no-source": 1,
+    "skipped": 0,
+    "applied": 0
+  },
+  "results": [
+    {
+      "id": "ai-3d-scene-r3f",
+      "status": "active",
+      "sourceRepoUrl": null,
+      "parsed": null,
+      "github": null,
+      "ageDays": null,
+      "verdict": "no-source",
+      "reasons": [
+        "manifest has no sourceRepoUrl"
+      ]
+    }
+  ]
+}

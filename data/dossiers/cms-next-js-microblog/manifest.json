@@ -1,0 +1,75 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-next-js-microblog",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Next.js Microblog",
+  "description": "A Microblog using Next.js, Tailwind CSS, and Hygraph",
+  "summary": "Use this dossier when building a blog, changelog, or editorial site in Next.js backed by Hygraph. It provides the essential GraphQL CMS integration pattern: environment configuration, a reusable Hygraph client, content fetching helpers, and route examples for listing posts and rendering post detail pages.",
+  "providers": [
+    {
+      "name": "Hygraph",
+      "url": "https://github.com/hygraph/hygraph-next-microblog-starter"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@graphql-codegen/cli",
+    "@tanstack/react-query",
+    "graphql-request"
+  ],
+  "files": [
+    {
+      "path": "components/lib/hygraph.ts",
+      "role": "server",
+      "kind": "lib"
+    },
+    {
+      "path": "components/lib/queries.ts",
+      "role": "server",
+      "kind": "data"
+    },
+    {
+      "path": "components/app/blog/page.tsx",
+      "role": "server",
+      "kind": "route"
+    },
+    {
+      "path": "components/app/blog/[slug]/page.tsx",
+      "role": "server",
+      "kind": "route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/microblog",
+  "sourceRepoUrl": "https://github.com/hygraph/hygraph-next-microblog-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "hygraph",
+    "cms",
+    "graphql",
+    "nextjs",
+    "blog",
+    "microblog",
+    "app-router",
+    "content"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:26:52.464Z",
+  "_curatedBy": "auto-curate.ts"
+}

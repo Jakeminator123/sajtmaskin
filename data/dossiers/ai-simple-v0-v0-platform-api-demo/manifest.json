@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-simple-v0-v0-platform-api-demo",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Simple v0: v0 Platform API Demo",
+  "description": "A Next.js application demonstrating the v0 Platform API",
+  "summary": "A Next.js application demonstrating the v0 Platform API\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/v0-platform-api-demo. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/v0-platform-api-demo",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "v0",
+    "platform"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

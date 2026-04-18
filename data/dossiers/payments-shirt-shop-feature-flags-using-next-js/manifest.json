@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-shirt-shop-feature-flags-using-next-js",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Shirt Shop — Feature Flags using Next.js",
+  "description": "Ecommerce product page example using Next.js, Flags SDK, and @vercel/toolbar to test showing free shipping and summer deal banners.",
+  "summary": "Ecommerce product page example using Next.js, Flags SDK, and @vercel/toolbar to test showing free shipping and summer deal banners.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/shirt-shop-feature-flags. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/shirt-shop-feature-flags",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "payments",
+    "integration",
+    "next",
+    "js",
+    "shirt",
+    "shop"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-next-js-buttercms-starter-project",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Next.JS ButterCMS Starter Project",
+  "description": "A fully-functional, drop-in proof-of-concept Next.js app, fully integrated with your ButterCMS account",
+  "summary": "A fully-functional, drop-in proof-of-concept Next.js app, fully integrated with your ButterCMS account\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/NextJS-starter-buttercms. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/ButterCMS/nextjs-starter-buttercms"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/NextJS-starter-buttercms",
+  "sourceRepoUrl": "https://github.com/ButterCMS/nextjs-starter-buttercms",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "cms",
+    "integration",
+    "next",
+    "js",
+    "nextjs",
+    "starter"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

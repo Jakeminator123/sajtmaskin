@@ -1,19 +1,28 @@
 # When to use
 
-Use this dossier when the site should primarily be a documentation or knowledge-base experience powered by Markdown/MDX in Next.js. It fits product docs, developer docs, internal guides, API references, onboarding manuals, and content-heavy help centers.
+Use this dossier for a Next.js site whose primary job is serving documentation, guides, API references, or a knowledge base written in MDX. Choose it when content authors should add pages by creating `.mdx` files rather than building custom React routes by hand.
+
+This is a good fit for:
+- product documentation
+- internal docs portals
+- developer guides
+- changelog/help-center style content sites
+
+Do not use it for a marketing homepage, app dashboard, or blog-first site unless docs are the main information architecture.
 
 # How to integrate
 
-1. Install the required packages:
+## 1) Install dependencies
 
 ```bash
 npm install nextra nextra-theme-docs
 ```
 
-2. Add a Nextra-enabled Next.js config:
+## 2) Configure Next.js to use Nextra
+
+Create or replace `next.config.mjs`:
 
 ```js
-// next.config.mjs
 import nextra from 'nextra'
 
 const withNextra = nextra({
@@ -26,10 +35,14 @@ export default withNextra({
 })
 ```
 
-3. Add a theme config:
+This is the core integration point. Without it, `.mdx` docs pages will not be processed by Nextra.
+
+## 3) Add theme config
+
+Create `theme.config.tsx` at the project root:
 
 ```tsx
-// theme.config.tsx
+import React from 'react'
 import type { DocsThemeConfig } from 'nextra-theme-docs'
 
 const config: DocsThemeConfig = {
@@ -40,13 +53,26 @@ const config: DocsThemeConfig = {
   docsRepositoryBase: 'https://github.com/your-org/your-repo/tree/main',
   footer: {
     text: 'Documentation'
+  },
+  useNextSeoProps() {
+    return {
+      titleTemplate: '%s – Documentation'
+    }
   }
 }
 
 export default config
 ```
 
-4. Create MDX content files for docs pages:
+Update these values:
+- `logo` → site or product name
+- `project.link` → canonical repo URL
+- `docsRepositoryBase` → base URL for editing/viewing docs source
+- `footer.text` → concise product/docs label
+
+## 4) Add MDX content
+
+Create docs pages as `.mdx` files. A minimal starter page:
 
 ```mdx
 ---
@@ -55,45 +81,89 @@ title: Introduction
 
 # Introduction
 
-Welcome to your docs.
-```
+Welcome to your documentation site.
 
-5. Add navigation metadata so pages appear in the intended order:
+## Getting started
 
-```json
-{
-  "index": "Introduction",
-  "getting-started": "Getting Started",
-  "api": "API"
+Create additional `.mdx` files to add new pages.
+
+## Example
+
+```ts
+export function hello(name: string) {
+  return `Hello, ${name}`
 }
 ```
+```
 
-6. Put docs content in a dedicated content area such as `content/` or the app root content structure used by the project. Keep the docs tree shallow and predictable.
+Place content where the target app expects docs routes. If using this dossier as a reusable building block, preserve the pattern of MDX-authored pages and let the consuming scaffold decide the exact route segment.
 
-7. Ensure the runtime scaffold does not conflict with Nextra routing or MDX handling. If the site already has a custom content pipeline, prefer one docs system only.
+## 5) Keep routing and content layout simple
+
+Nextra works best when docs pages are content-driven. Prefer:
+- one file per page
+- stable URL slugs
+- short, descriptive titles
+- shallow hierarchy unless the docs set is truly large
+
+## 6) Typical app-level usage
+
+The runtime LLM should integrate this into a Next.js app by:
+- enabling Nextra in `next.config.mjs`
+- placing `theme.config.tsx` at project root
+- creating MDX pages for docs content
+- wiring site navigation so `/docs` or the docs root is reachable from the main UI
 
 # UX rules
 
-- Use docs-first information architecture: concise sidebar labels, clear section nesting, and predictable page titles.
-- Every page should have one clear purpose and a visible H1.
-- Prefer short paragraphs, code examples, and step-by-step sections over long marketing copy.
-- Keep repository/edit links accurate if exposed in the theme config.
-- Make the docs homepage useful: overview, quickstart, and common paths.
-- Use frontmatter titles consistently so SEO titles and sidebar labels stay coherent.
+- Treat docs as content, not as a custom-designed marketing surface.
+- Keep the logo, footer text, and repo links accurate and production-real.
+- Use clear page titles and first-paragraph summaries so sidebar/search results are meaningful.
+- Prefer predictable URLs like `getting-started`, `installation`, `configuration`, `api`.
+- Ensure docs pages render well in both light and dark themes if the host app supports theme switching.
+- If the host product already has branding, align the Nextra theme config with it instead of leaving generic placeholders.
+- Include at least one real top-level introduction page before adding deep nested sections.
 
 # Avoid
 
-- Do not keep template demo components or tutorial widgets unless the user explicitly asked for them.
-- Do not mix Nextra with another MDX/docs framework in the same docs area.
-- Do not hardcode template branding, demo repo URLs, or placeholder product names in final output.
-- Do not create complex custom page chrome unless the user asked for a highly customized docs experience; start from the theme defaults.
-- Do not omit navigation metadata if page ordering matters.
+- Do not keep template-specific demo branding such as fake org names or placeholder repository URLs in production.
+- Do not depend on legacy `_meta.json` structure unless the target codebase is explicitly built around that version/pattern.
+- Do not mix docs content with unrelated landing-page components inside MDX pages.
+- Do not create a docs site with zero repository/edit links if the project is open source or docs contributions are expected.
+- Do not over-customize the theme until the basic docs information architecture is working.
 
 # Verification
 
-- `next.config.mjs` wraps the app with `nextra(...)` and references `nextra-theme-docs`.
-- `theme.config.tsx` exists and exports a valid docs theme config.
-- At least one `.mdx` page exists and renders successfully.
-- Navigation metadata exists for sections where ordering/labels matter.
-- Running the app shows docs pages with the Nextra docs layout, sidebar behavior, and MDX rendering.
-- No leftover demo-only components remain from the source template.
+After integration, verify all of the following:
+
+## Build-time checks
+
+- `nextra` and `nextra-theme-docs` are installed.
+- `next.config.mjs` wraps the app with `nextra(...)`.
+- `theme.config.tsx` exists at the path referenced by `themeConfig`.
+- At least one `.mdx` docs page exists.
+
+## Runtime checks
+
+Run the app locally and confirm:
+
+- the docs route loads without MDX compilation errors
+- the page uses the docs theme layout
+- the logo renders
+- repo/edit links point to real URLs
+- code blocks render correctly
+- page title template is applied
+
+## Minimal smoke test
+
+1. Start the app.
+2. Open the docs homepage.
+3. Confirm the introduction page renders.
+4. Add a second MDX page and verify it appears in navigation if the host routing/content structure supports it.
+5. Build for production:
+
+```bash
+npm run build
+```
+
+The integration is correct when MDX pages compile cleanly and the site behaves like a documentation-first Next.js app using Nextra.

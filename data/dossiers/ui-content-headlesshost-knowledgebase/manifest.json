@@ -1,0 +1,71 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-content-headlesshost-knowledgebase",
+  "kind": "ui-section",
+  "category": "ui-content",
+  "label": "Headlesshost Knowledgebase",
+  "description": "The Headelesshost knowledgebase template can be used to create a simple documentation website using Headlesshost and Next.js.",
+  "summary": "Use this dossier when building a documentation or knowledge-base site backed by Headlesshost content APIs. It provides the server-side data access layer, shared content types, and the minimal Next.js root layout patterns needed to fetch site structure, pages, guide data, authors, and search results from a Headlesshost site ID.",
+  "providers": [
+    {
+      "name": "Headlesshost",
+      "url": "https://github.com/Headlesshost/react.nextjs.knowledgebase"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "HEADLESSHOST_SITEID",
+      "required": true,
+      "purpose": "Headelesshost content site id. For more information, see https://react-nextjs-knowledgebase.vercel.app/knowledgebase/dp_local"
+    }
+  ],
+  "dependencies": [
+    "react-code-blocks",
+    "socket.io-client"
+  ],
+  "files": [
+    {
+      "path": "components/app/lib/api.ts",
+      "role": "server",
+      "kind": "util"
+    },
+    {
+      "path": "components/app/lib/types.ts",
+      "role": "shared",
+      "kind": "util"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "content-site",
+      "blog",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "portfolio",
+      "app-shell",
+      "dashboard",
+      "landing-page",
+      "saas-landing"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/headlesshost-knowledgebase",
+  "sourceRepoUrl": "https://github.com/Headlesshost/react.nextjs.knowledgebase",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "headlesshost",
+    "knowledgebase",
+    "documentation",
+    "cms",
+    "nextjs",
+    "server-components",
+    "search",
+    "content-api"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:47:22.629Z",
+  "_curatedBy": "auto-curate.ts"
+}

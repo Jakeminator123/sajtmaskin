@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-liveblocks-notion-like-ai-editor",
+  "kind": "integration",
+  "category": "database",
+  "label": "Liveblocks Notion-like AI Editor",
+  "description": "A Notion-like collaborative text editor with AI features built with Liveblocks, Lexical, Vercel AI SDK, and Next.js.",
+  "summary": "A Notion-like collaborative text editor with AI features built with Liveblocks, Lexical, Vercel AI SDK, and Next.js.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/liveblocks-notion-like-ai-editor. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/liveblocks-notion-like-ai-editor",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "liveblocks",
+    "notion"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-liveblocks-tldraw-whiteboard",
+  "kind": "integration",
+  "category": "database",
+  "label": "Liveblocks Tldraw Whiteboard",
+  "description": "A collaborative tldraw-like whiteboard built with Liveblocks Storage and Next.js.",
+  "summary": "A collaborative tldraw-like whiteboard built with Liveblocks Storage and Next.js.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/liveblocks-tldraw-whiteboard. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/liveblocks-tldraw-whiteboard",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "liveblocks",
+    "tldraw"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

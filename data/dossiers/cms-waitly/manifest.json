@@ -1,0 +1,132 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-waitly",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Waitly",
+  "description": "Launch a product waitlist fast using Next.js 15, Notion CMS, Upstash Redis, and Resend for email.",
+  "summary": "Use this dossier when a site needs a simple product waitlist backed by Notion, with optional welcome emails via Resend and API rate limiting via Upstash Redis. It provides the server-side patterns for storing signups, preventing duplicates, handling referral codes, and sending transactional welcome emails from Next.js route handlers.",
+  "providers": [
+    {
+      "name": "Waitly",
+      "url": "https://github.com/Idee8/waitly"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "NOTION_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NOTION_DB_ID",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "RESEND_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "RESEND_FROM_EMAIL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "UPSTASH_REDIS_REST_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "UPSTASH_REDIS_REST_TOKEN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@notionhq/client",
+    "@radix-ui/react-accordion",
+    "@radix-ui/react-slot",
+    "@react-email/components",
+    "@react-email/render",
+    "@upstash/ratelimit",
+    "@upstash/redis",
+    "canvas-confetti",
+    "class-variance-authority",
+    "clsx",
+    "lucide-react",
+    "motion",
+    "next-themes",
+    "resend",
+    "sonner",
+    "tailwind-merge"
+  ],
+  "files": [
+    {
+      "path": "components/src/app/api/mail/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/app/api/notion/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/lib/email-check.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/notion.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/src/emails/welcome-template.tsx",
+      "role": "shared",
+      "kind": "email-template"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "landing-page",
+      "saas-landing",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "blog",
+      "app-shell",
+      "dashboard",
+      "base-nextjs",
+      "ecommerce",
+      "auth-pages"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/waitly",
+  "sourceRepoUrl": "https://github.com/Idee8/waitly",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "waitly",
+    "notion",
+    "resend",
+    "upstash",
+    "waitlist",
+    "referrals",
+    "nextjs",
+    "cms"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:31:16.561Z",
+  "_curatedBy": "auto-curate.ts"
+}

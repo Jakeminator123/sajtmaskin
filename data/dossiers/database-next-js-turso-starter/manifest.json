@@ -1,0 +1,90 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-next-js-turso-starter",
+  "kind": "integration",
+  "category": "database",
+  "label": "Next.js Turso Starter",
+  "description": "Simple Next.js starter for using SQLite over HTTP with Turso.",
+  "summary": "Use this dossier when a Next.js app needs a hosted SQLite-compatible database with low-latency HTTP access and Drizzle ORM support. It provides the essential Turso + Drizzle configuration patterns, environment variables, schema/client setup, and migration workflow for App Router projects.",
+  "providers": [
+    {
+      "name": "Turso",
+      "url": "https://github.com/tursodatabase/nextjs-turso-starter"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "TURSO_DATABASE_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "TURSO_AUTH_TOKEN",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@libsql/client",
+    "drizzle-kit",
+    "drizzle-orm",
+    "react-confetti"
+  ],
+  "files": [
+    {
+      "path": "components/drizzle.config.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/db/index.ts",
+      "role": "server",
+      "kind": "db-client"
+    },
+    {
+      "path": "components/db/schema.ts",
+      "role": "shared",
+      "kind": "schema"
+    },
+    {
+      "path": "components/envConfig.ts",
+      "role": "shared",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 87,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/turso-starter",
+  "sourceRepoUrl": "https://github.com/tursodatabase/nextjs-turso-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "turso",
+    "database",
+    "sqlite",
+    "drizzle",
+    "nextjs",
+    "libsql",
+    "orm",
+    "migrations"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:39:06.647Z",
+  "_curatedBy": "auto-curate.ts"
+}

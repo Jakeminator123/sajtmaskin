@@ -1,0 +1,104 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-next-js-fastapi-starter",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Next.js FastAPI Starter",
+  "description": "AI chatbot with a Next.js frontend and FastAPI backend.",
+  "summary": "Use this dossier when a site needs a chat UI in Next.js that streams responses from a separate FastAPI backend using the Vercel AI SDK message format. It provides the client-side chat shell, message rendering patterns for text/tool/file parts, and the key integration rules for wiring `useChat` to a Python API.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel-labs/ai-sdk-preview-python-streaming"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@ai-sdk/react",
+    "@radix-ui/react-slot",
+    "@vercel/analytics",
+    "@vercel/kv",
+    "ai",
+    "autoprefixer",
+    "class-variance-authority",
+    "clsx",
+    "concurrently",
+    "date-fns",
+    "framer-motion",
+    "geist",
+    "lucide-react",
+    "sonner",
+    "streamdown",
+    "tailwind-merge",
+    "types",
+    "usehooks-ts",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/components/chat.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/message.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/components/multimodal-input.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/.env.example",
+      "role": "server",
+      "kind": "env-example"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-fastapi-starter",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-python-streaming",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel",
+    "ai",
+    "nextjs",
+    "fastapi",
+    "streaming",
+    "chat",
+    "ai-sdk",
+    "python"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:07:14.021Z",
+  "_curatedBy": "auto-curate.ts"
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-rsc-notes-demo",
+  "kind": "integration",
+  "category": "database",
+  "label": "RSC Notes Demo",
+  "description": "Demo of React Server Components with the Next.js App Router.",
+  "summary": "Demo of React Server Components with the Next.js App Router.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/react-server-components-notes-demo. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/reactjs/server-components-demo"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/react-server-components-notes-demo",
+  "sourceRepoUrl": "https://github.com/reactjs/server-components-demo",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "react",
+    "server"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

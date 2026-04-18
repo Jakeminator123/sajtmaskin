@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-payload-website-starter",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Payload Website Starter",
+  "description": "A production-ready website built with Payload, the only Next.js-native CMS.",
+  "summary": "A production-ready website built with Payload, the only Next.js-native CMS.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/payload-website-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/payload-website-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "cms",
+    "integration",
+    "next",
+    "js",
+    "payload",
+    "website"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

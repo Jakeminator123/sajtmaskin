@@ -5,7 +5,7 @@
   "category": "ui-content",
   "label": "Next.js Contentlayer Blog Starter",
   "description": "A blog template with Next.js 13 App Router, Contentlayer, Tailwind CSS and dark mode.",
-  "summary": "Use this dossier when building a blog, journal, docs-lite site, or portfolio section where posts are authored as local MDX files and rendered through Next.js App Router. It provides the essential MDX rendering component and the minimal app-shell patterns needed for Contentlayer-backed content, while excluding template/demo routes and branded layout chrome.",
+  "summary": "Use this dossier when building a blog or content site that stores posts as local MDX files and queries them through Contentlayer in a Next.js App Router app. It provides the core Contentlayer schema, MDX renderer, blog index/post route patterns, and a sample content structure for filesystem-backed publishing.",
   "providers": [
     {
       "name": "Contentlayer",
@@ -22,21 +22,6 @@
   ],
   "files": [
     {
-      "path": "components/components/mdx-components.tsx",
-      "role": "client",
-      "kind": "component"
-    },
-    {
-      "path": "components/contentlayer.config.ts",
-      "role": "server",
-      "kind": "config"
-    },
-    {
-      "path": "components/next.config.mjs",
-      "role": "server",
-      "kind": "config"
-    },
-    {
       "path": "components/app/blog/[slug]/page.tsx",
       "role": "server",
       "kind": "route"
@@ -47,9 +32,24 @@
       "kind": "route"
     },
     {
+      "path": "components/components/mdx-components.tsx",
+      "role": "client",
+      "kind": "component"
+    },
+    {
       "path": "components/content/posts/hello-world.mdx",
       "role": "shared",
       "kind": "content"
+    },
+    {
+      "path": "components/contentlayer.config.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/next.config.mjs",
+      "role": "server",
+      "kind": "config"
     }
   ],
   "scaffoldFit": {
@@ -66,7 +66,7 @@
     ]
   },
   "complexity": "medium",
-  "qualityScore": 89,
+  "qualityScore": 72,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-contentlayer",
   "sourceRepoUrl": "https://github.com/shadcn/next-contentlayer",
   "lastVerified": "2026-04-17",
@@ -81,6 +81,7 @@
   ],
   "_source": "vercel-light-catalog",
   "_status": "active",
-  "_curatedAt": "2026-04-17T17:05:36.367Z",
-  "_curatedBy": "auto-curate.ts"
+  "_curatedAt": "2026-04-18T02:47:53.091Z",
+  "_curatedBy": "auto-curate.ts",
+  "_deprecationReason": "Source repo last pushed 827d ago + Contentlayer.dev (the underlying lib) is unmaintained. Modern alternatives: velite (https://github.com/zce/velite) or @next/mdx + remark/rehype directly. Don't promote to active; replace with a fresh velite-based dossier."
 }

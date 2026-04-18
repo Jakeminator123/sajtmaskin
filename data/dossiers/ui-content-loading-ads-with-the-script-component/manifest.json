@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-content-loading-ads-with-the-script-component",
+  "kind": "ui-section",
+  "category": "ui-content",
+  "label": "Loading Ads with the Script Component",
+  "description": "Learn to lazy load ads using the Next.js Script Component.",
+  "summary": "Learn to lazy load ads using the Next.js Script Component.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/script-component-ad. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/script-component-ad",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "ui-content",
+    "ui-section",
+    "next",
+    "js",
+    "script",
+    "component"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

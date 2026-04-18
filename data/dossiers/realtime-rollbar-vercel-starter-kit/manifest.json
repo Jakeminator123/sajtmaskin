@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "realtime-rollbar-vercel-starter-kit",
+  "kind": "integration",
+  "category": "realtime",
+  "label": "Rollbar + Vercel starter kit",
+  "description": "A complete starter kit for integrating Rollbar error monitoring into your Next.js App Router application.",
+  "summary": "A complete starter kit for integrating Rollbar error monitoring into your Next.js App Router application.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/rollbar-vercel-starter-kit. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/rollbar/rollbar-vercel"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "blog",
+      "content-site",
+      "portfolio",
+      "auth-pages",
+      "landing-page",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/rollbar-vercel-starter-kit",
+  "sourceRepoUrl": "https://github.com/rollbar/rollbar-vercel",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "realtime",
+    "integration",
+    "next",
+    "js",
+    "rollbar",
+    "vercel"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,147 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-paddle-billing-subscription-starter",
+  "kind": "integration",
+  "category": "auth",
+  "label": "Paddle Billing Subscription Starter",
+  "description": "A complete starter kit to build and deploy a Next.js SaaS app powered by Paddle Billing, Supabase, and Vercel.",
+  "summary": "Use this dossier when a Next.js app needs Supabase authentication plus Paddle subscription billing with server-side session refresh and verified webhook processing. It provides the essential middleware and webhook route patterns, and identifies the missing Supabase and Paddle helper modules required to make the integration work.",
+  "providers": [
+    {
+      "name": "Paddle",
+      "url": "https://github.com/PaddleHQ/paddle-nextjs-starter-kit"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "required": true,
+      "purpose": "Private"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "required": true,
+      "purpose": "Public"
+    },
+    {
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.local.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_PADDLE_ENV",
+      "required": true,
+      "purpose": "Private"
+    },
+    {
+      "key": "PADDLE_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.local.example)."
+    },
+    {
+      "key": "PADDLE_NOTIFICATION_WEBHOOK_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.local.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_PADDLE_CLIENT_TOKEN",
+      "required": true,
+      "purpose": "Public"
+    }
+  ],
+  "dependencies": [
+    "@paddle/paddle-js",
+    "@paddle/paddle-node-sdk",
+    "@radix-ui/react-accordion",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-label",
+    "@radix-ui/react-select",
+    "@radix-ui/react-separator",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-toast",
+    "@supabase/ssr",
+    "@supabase/supabase-js",
+    "@tanstack/react-table",
+    "class-variance-authority",
+    "clsx",
+    "dayjs",
+    "lodash.throttle",
+    "lucide-react",
+    "tailwind-merge"
+  ],
+  "files": [
+    {
+      "path": "components/src/app/api/webhook/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/src/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/src/lib/supabase/server.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/lib/supabase/admin.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/lib/supabase/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/src/lib/paddle/get-paddle-instance.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/src/lib/paddle/process-webhook.ts",
+      "role": "server",
+      "kind": "service"
+    },
+    {
+      "path": "components/src/app/api/paddle/customer-portal/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 85,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/paddle-billing-subscription-starter",
+  "sourceRepoUrl": "https://github.com/PaddleHQ/paddle-nextjs-starter-kit",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "paddle",
+    "supabase",
+    "auth",
+    "billing",
+    "subscriptions",
+    "webhooks",
+    "nextjs",
+    "app-router"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:20:38.154Z",
+  "_curatedBy": "auto-curate.ts"
+}

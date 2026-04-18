@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-chatbot-by-aceternity",
+  "kind": "integration",
+  "category": "database",
+  "label": "Chatbot by Aceternity",
+  "description": "A modern, interactive chatbot template built with Next.js, AI SDK, Aceternity UI, and Neon's serverless Postgres.",
+  "summary": "Use this dossier when you need an AI chat endpoint that stores completed conversations in Postgres. It provides a Next.js App Router API route using the AI SDK with OpenAI for streaming responses and Neon serverless Postgres for persisting chat history.",
+  "providers": [
+    {
+      "name": "Neon",
+      "url": "https://github.com/neondatabase/neon-chatbot"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "DATABASE_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.sample)."
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.sample)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "@neondatabase/serverless",
+    "@tabler/icons-react",
+    "ai",
+    "clsx",
+    "framer-motion",
+    "react-markdown",
+    "react-textarea-autosize",
+    "react-wrap-balancer",
+    "tailwind-merge"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/chat-history.ts",
+      "role": "server",
+      "kind": "data-access"
+    },
+    {
+      "path": "components/app/api/chat/history/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/db/chat-history.sql",
+      "role": "server",
+      "kind": "schema"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "auth-pages",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/chatbot-by-aceternity",
+  "sourceRepoUrl": "https://github.com/neondatabase/neon-chatbot",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "neon",
+    "postgres",
+    "openai",
+    "ai-sdk",
+    "nextjs",
+    "chatbot",
+    "database",
+    "app-router"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:32:39.494Z",
+  "_curatedBy": "auto-curate.ts"
+}

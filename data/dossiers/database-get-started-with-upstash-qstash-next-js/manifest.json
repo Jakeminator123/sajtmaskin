@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-get-started-with-upstash-qstash-next-js",
+  "kind": "integration",
+  "category": "database",
+  "label": "Get Started with Upstash QStash & Next.js",
+  "description": "A simple example to demonstrate Upstash QStash with Next.js. We will make a publish request through QStash and observe what's delivered.",
+  "summary": "A simple example to demonstrate Upstash QStash with Next.js. We will make a publish request through QStash and observe what's delivered.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/get-started-with-upstash-qs-tash-and-next-js. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/get-started-with-upstash-qs-tash-and-next-js",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "get",
+    "started"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1474,7 +1474,7 @@ export function PreviewPanelCodeSectionEditors({
         </div>
       </div>
     ) : null}
-    {showElementRegistry && selectedRegistryLine && (
+    {showElementRegistry && selectedRegistryLine !== null && (
       <div className="text-xs text-purple-300">Målrad: {selectedRegistryLine}</div>
     )}
     {rawEditMode ? (

@@ -5,7 +5,7 @@
   "category": "payments",
   "label": "Stripe Checkout",
   "description": "Subscription and one-time payments via Stripe Checkout (hosted page) — månadsbetalning, recurring billing, SaaS abonnemang.",
-  "summary": "Subscription / monthly billing / recurring payments and one-time purchases via Stripe Checkout for SaaS, ecommerce and any site that sells access to plans, abonnemang, or products. The dossier provides a client Checkout button plus a server API route that creates a Stripe Checkout Session and redirects the user to Stripe's hosted page — no custom card form needed. Use this whenever the prompt mentions subscription, månadsabonnemang, månadsvis betalning, recurring payments, payment plans, paywalls, or upgrade flows.",
+  "summary": "Use this dossier when a site needs Stripe-hosted checkout for one-time purchases or subscriptions without building a custom card form. It provides the core server/client wiring: a Stripe SDK helper, an API route that creates Checkout Sessions, and a reusable button that redirects users to Stripe Checkout.",
   "providers": [
     {
       "name": "Stripe",
@@ -48,16 +48,6 @@
       "path": "components/lib/stripe.ts",
       "role": "server",
       "kind": "lib"
-    },
-    {
-      "path": "components/success/page.tsx",
-      "role": "shared",
-      "kind": "page"
-    },
-    {
-      "path": "components/cancel/page.tsx",
-      "role": "shared",
-      "kind": "page"
     }
   ],
   "exposes": [
@@ -84,23 +74,24 @@
     ]
   },
   "complexity": "medium",
-  "qualityScore": 93,
+  "qualityScore": 89,
   "sourceTemplateUrl": "https://vercel.com/templates/ecommerce/stripe-subscription-starter",
   "sourceRepoUrl": "https://github.com/vercel/nextjs-subscription-payments",
   "lastVerified": "2026-04-17",
   "tags": [
-    "subscription",
-    "monthly-billing",
-    "recurring",
-    "saas",
-    "abonnemang",
     "stripe",
     "payments",
     "checkout",
-    "hosted-checkout"
+    "subscriptions",
+    "one-time-payments",
+    "hosted-checkout",
+    "billing",
+    "saas"
   ],
   "_source": "hand-curated",
   "_status": "active",
-  "_curatedAt": "2026-04-17T17:04:21.812Z",
-  "_curatedBy": "auto-curate.ts"
+  "_curatedAt": "2026-04-18T02:43:48.958Z",
+  "_curatedBy": "auto-curate.ts",
+  "_deprecationReason": "Source repo vercel/nextjs-subscription-payments was archived on GitHub jan 2025 (449d ago). Vercel's own template page links to the replacement (see _replacementUrl). Re-curate against the new repo before marking active again. Current dossier code still works — it's just not aligned with Next 16 / latest Stripe SDK patterns.",
+  "_replacementUrl": "https://github.com/nextjs/saas-starter"
 }

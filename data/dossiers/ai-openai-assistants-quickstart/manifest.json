@@ -1,0 +1,95 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-openai-assistants-quickstart",
+  "kind": "integration",
+  "category": "ai",
+  "label": "OpenAI Assistants Quickstart",
+  "description": "A quick-start template using the OpenAI Assistants API with Next.js built by OpenAI",
+  "summary": "Use this dossier when a site needs a server-backed OpenAI Assistants integration with thread creation, assistant creation, file upload for retrieval, and file download endpoints. It provides the essential Next.js App Router API routes plus the minimal OpenAI client/config files needed to connect an existing UI to the Assistants API.",
+  "providers": [
+    {
+      "name": "OpenAI",
+      "url": "https://github.com/openai/openai-assistants-quickstart"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Create an OpenAI API key at https://platform.openai.com/account/api-keys"
+    },
+    {
+      "key": "OPENAI_ASSISTANT_ID",
+      "required": true,
+      "purpose": "IMPORTANT! Be sure to enable file search and code interpreter tools."
+    }
+  ],
+  "dependencies": [
+    "openai",
+    "react-markdown"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/assistants/files/route.tsx",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/assistants/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/assistants/threads/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/files/[fileId]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/openai.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/assistant-config.ts",
+      "role": "server",
+      "kind": "config"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "content-site",
+      "landing-page"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/openai-assistants-quickstart",
+  "sourceRepoUrl": "https://github.com/openai/openai-assistants-quickstart",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "openai",
+    "assistants",
+    "ai",
+    "nextjs",
+    "app-router",
+    "threads",
+    "vector-store",
+    "file-search"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:09:08.275Z",
+  "_curatedBy": "auto-curate.ts"
+}

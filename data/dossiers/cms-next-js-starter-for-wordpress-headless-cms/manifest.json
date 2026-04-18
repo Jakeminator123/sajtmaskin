@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-next-js-starter-for-wordpress-headless-cms",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Next.js Starter for WordPress Headless CMS",
+  "description": "next-wp is a Next.js application for Headless WordPress. Includes functions for fetching posts, categories, tags, pages, and featured media.",
+  "summary": "next-wp is a Next.js application for Headless WordPress. Includes functions for fetching posts, categories, tags, pages, and featured media.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/nextjs-wordpress-headless-cms. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/9d8dev/761"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-wordpress-headless-cms",
+  "sourceRepoUrl": "https://github.com/9d8dev/761",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "cms",
+    "integration",
+    "next",
+    "js",
+    "nextjs",
+    "wordpress"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

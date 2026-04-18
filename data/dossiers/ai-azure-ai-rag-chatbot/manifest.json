@@ -45,5 +45,6 @@
     "ai"
   ],
   "_source": "vercel-light-catalog",
-  "_status": "draft"
+  "_status": "source-unreachable",
+  "_deprecationReason": "Source URL was a GitHub Codespaces deploy button (codespaces/new), not a real repo. Real repo URL not recoverable from Vercel template page. Either re-scrape the Vercel mall to get the correct repo, or replace with another Azure-AI/RAG dossier (e.g. Azure OpenAI samples)."
 }

@@ -1,0 +1,107 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-ai-facts",
+  "kind": "integration",
+  "category": "ai",
+  "label": "AI Facts",
+  "description": "A Next.js application that transcribes and validates speech in realtime with the AI SDK.",
+  "summary": "Use this dossier when a site needs server-side claim validation for spoken or typed statements, especially in a realtime transcription workflow. It provides API routes for short-lived Deepgram auth and AI-based statement classification/validation using Deepgram, OpenAI, and Perplexity, plus a small shared text utility.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel-labs/ai-facts"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "DEEPGRAM_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "PERPLEXITY_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "@deepgram/sdk",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-label",
+    "@radix-ui/react-select",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-tooltip",
+    "ai",
+    "class-variance-authority",
+    "classnames",
+    "clsx",
+    "geist",
+    "lucide-react",
+    "motion",
+    "next-themes",
+    "react-device-detect",
+    "sonner",
+    "tailwind-merge",
+    "zod",
+    "zod-to-json-schema"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/authenticate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/validate-statement/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/schemas.ts",
+      "role": "shared",
+      "kind": "schema"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "base-nextjs",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 72,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/ai-facts",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-facts",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel",
+    "ai-sdk",
+    "deepgram",
+    "openai",
+    "perplexity",
+    "speech-to-text",
+    "fact-checking",
+    "nextjs"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:02:20.064Z",
+  "_curatedBy": "auto-curate.ts"
+}

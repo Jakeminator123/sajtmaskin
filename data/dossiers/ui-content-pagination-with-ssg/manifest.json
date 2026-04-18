@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-content-pagination-with-ssg",
+  "kind": "ui-section",
+  "category": "ui-content",
+  "label": "Pagination with SSG",
+  "description": "Learn to implement page based pagination with Next.js and Vercel.",
+  "summary": "Learn to implement page based pagination with Next.js and Vercel.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/pagination-with-ssg. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/pagination-with-ssg",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "ui-content",
+    "ui-section",
+    "next",
+    "js",
+    "pagination",
+    "with"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

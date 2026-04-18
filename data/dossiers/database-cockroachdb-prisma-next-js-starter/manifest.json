@@ -29,7 +29,7 @@
   "complexity": "medium",
   "qualityScore": 80,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/cockroachdb-prisma-nextjs-starter",
-  "lastVerified": "2026-04-17",
+  "lastVerified": "2026-04-18",
   "tags": [
     "database",
     "integration",

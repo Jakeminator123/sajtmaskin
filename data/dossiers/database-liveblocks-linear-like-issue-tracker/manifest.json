@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-liveblocks-linear-like-issue-tracker",
+  "kind": "integration",
+  "category": "database",
+  "label": "Liveblocks Linear-like Issue Tracker",
+  "description": "A Linear-like collaborative issue tracker using Liveblocks and Next.js.",
+  "summary": "A Linear-like collaborative issue tracker using Liveblocks and Next.js.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/liveblocks-linear-like-issue-tracker. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/liveblocks-linear-like-issue-tracker",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "liveblocks",
+    "linear"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

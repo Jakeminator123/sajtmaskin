@@ -1,24 +1,28 @@
 # When to use
 
-Use this dossier when the site needs **hosted payments with Stripe Checkout**:
+Use this dossier when the user wants:
+- Stripe payments via a hosted checkout page
+- one-time purchases (`mode: "payment"`)
+- recurring subscriptions (`mode: "subscription"`)
+- upgrade flows, paywalls, plan purchases, or simple ecommerce checkout
 
-- one-time purchases using a Stripe `Price`
-- recurring subscriptions using a Stripe `Price`
-- a fast integration without collecting card details directly in your UI
+Use it when you want the fastest reliable payment flow and do **not** need a custom on-site card form.
 
-Do **not** use this dossier for embedded Elements, saved payment methods, invoicing flows, or marketplace payouts.
+Do **not** use this dossier for:
+- Stripe Elements / embedded card forms
+- invoices-first billing flows
+- marketplace / Connect payouts
+- production-grade subscription lifecycle handling without adding webhooks
 
 # How to integrate
 
-## 1) Install and configure
-
-Required packages:
+## 1) Install dependencies
 
 ```bash
 npm install stripe @stripe/stripe-js
 ```
 
-Required env vars:
+## 2) Add environment variables
 
 ```env
 STRIPE_SECRET_KEY=sk_test_...
@@ -27,12 +31,13 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 Rules:
+- `STRIPE_SECRET_KEY` is server-only
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is safe for the browser
+- `NEXT_PUBLIC_SITE_URL` must be the public app origin used for redirects
 
-- `STRIPE_SECRET_KEY` is server-only.
-- `NEXT_PUBLIC_SITE_URL` must be the full origin, no trailing slash.
-- Use Stripe **Price IDs** (`price_...`) in the UI, not Product IDs.
+## 3) Add the server Stripe client
 
-## 2) Create a shared Stripe server client
+Create `components/lib/stripe.ts`:
 
 ```ts
 import Stripe from "stripe";
@@ -42,11 +47,11 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 ```
 
-Use this from server routes only.
+Use this shared instance from server routes instead of creating new clients in multiple files.
 
-## 3) Add the Checkout Session API route
+## 4) Add the Checkout Session API route
 
-Create a POST route that receives `priceId` and `mode`, validates them, then creates a Checkout Session.
+Create an API route at `app/api/checkout-session/route.ts` or adapt the dossier file to your app router structure:
 
 ```ts
 import { NextRequest, NextResponse } from "next/server";
@@ -57,16 +62,12 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL!;
 export async function POST(request: NextRequest) {
   try {
     const { priceId, mode } = (await request.json()) as {
-      priceId?: string;
-      mode?: "payment" | "subscription";
+      priceId: string;
+      mode: "payment" | "subscription";
     };
 
     if (!priceId) {
       return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
-    }
-
-    if (mode !== "payment" && mode !== "subscription") {
-      return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -84,13 +85,14 @@ export async function POST(request: NextRequest) {
 }
 ```
 
-Implementation notes:
+Important:
+- The route should accept a **Stripe Price ID**, not a raw amount
+- Validate allowed `priceId` values in production instead of trusting arbitrary client input
+- Keep this route server-only
 
-- Keep Checkout Session creation on the server.
-- Never expose `STRIPE_SECRET_KEY` to client components.
-- `mode` must match the Stripe Price type you configured.
+## 5) Add the client checkout button
 
-## 4) Add the checkout button client component
+Create `components/checkout-button.tsx`:
 
 ```tsx
 "use client";
@@ -156,15 +158,15 @@ export function CheckoutButton({
 }
 ```
 
-## 5) Use the button in product or pricing UI
+## 6) Use the button in pricing or product UI
 
 ```tsx
 import { CheckoutButton } from "@/components/checkout-button";
 
-export default function PricingCard() {
+export function PricingCard() {
   return (
     <CheckoutButton
-      priceId="price_123"
+      priceId="price_1234567890"
       mode="subscription"
       label="Start subscription"
     />
@@ -172,58 +174,82 @@ export default function PricingCard() {
 }
 ```
 
-Use:
-
-- `mode="payment"` for one-time payments
-- `mode="subscription"` for recurring prices
-
-## 6) Add success and cancel routes
-
-Create pages at `/success` and `/cancel` so Stripe redirects land on real routes.
-
-Minimal examples:
+For one-time payment:
 
 ```tsx
-export default function SuccessPage() {
-  return <h1>Payment successful</h1>;
-}
+<CheckoutButton
+  priceId="price_1234567890"
+  mode="payment"
+  label="Buy now"
+/>
 ```
 
-```tsx
-export default function CancelPage() {
-  return <h1>Checkout canceled</h1>;
-}
+## 7) Add your own success and cancel routes
+
+This dossier intentionally does not keep template success/cancel pages. Create app-specific routes such as:
+- `app/success/page.tsx`
+- `app/cancel/page.tsx`
+
+Keep them simple unless the product needs post-checkout fulfillment or entitlement messaging.
+
+## 8) Recommended production hardening
+
+For real apps, also add:
+- server-side mapping of plan keys to Stripe Price IDs
+- webhook handling for completed checkout and subscription updates
+- persistence of `customer`, `subscription`, or purchase records in your database
+- authenticated user linkage via `customer_email`, `client_reference_id`, or `metadata`
+
+Example pattern for safe server-side plan mapping:
+
+```ts
+const PRICE_IDS = {
+  starter: process.env.STRIPE_PRICE_STARTER!,
+  pro: process.env.STRIPE_PRICE_PRO!,
+} as const;
 ```
+
+Then accept `plan: "starter" | "pro"` from the client instead of arbitrary `priceId`.
 
 # UX rules
 
-- Button text must clearly describe the action: `Buy now`, `Subscribe`, `Start trial`, not vague labels.
-- Show a loading state immediately after click and disable repeat submissions.
-- Surface errors inline near the button with `role="alert"`.
-- Make pricing terms explicit before redirecting: amount, billing interval, and renewal behavior for subscriptions.
-- For subscriptions, link to refund/cancellation terms near the CTA.
-- Do not claim payment succeeded until the user returns from Stripe and the flow is verified server-side if fulfillment matters.
+- Always show the exact billing interval and amount before sending users to Stripe
+- Label recurring plans clearly as monthly/yearly subscriptions
+- Disable the button while the session is being created
+- Show an inline error if checkout setup fails
+- Use app-specific success and cancel pages that match the purchase context
+- If selling access to features, explain what unlocks after payment
+- For subscription products, mention renewal behavior and cancellation terms near the CTA
 
 # Avoid
 
-- Do not create Checkout Sessions in client code.
-- Do not pass raw amounts from the browser; use Stripe Price IDs configured in Stripe.
-- Do not use Product IDs (`prod_...`) where Stripe expects `price_...`.
-- Do not rely on `/success` alone for provisioning access, shipping, or entitlement changes; use webhooks for production fulfillment.
-- Do not hardcode localhost URLs in deployed environments.
-- Do not keep template-specific Swedish copy unless the site language is Swedish.
+- Do not expose `STRIPE_SECRET_KEY` in client code
+- Do not trust arbitrary client-submitted price IDs in production
+- Do not build fulfillment logic off the success page alone; users can land there without guaranteeing webhook-verified completion
+- Do not create duplicate Stripe client instances across many files unnecessarily
+- Do not assume a successful redirect means entitlement should already be granted
+- Do not keep generic demo success/cancel pages if the app needs account-specific next steps
 
 # Verification
 
-1. Set test keys in `.env.local`.
-2. Start the app and render a `CheckoutButton` with a valid test `price_...`.
-3. Click the button and confirm the browser redirects to `checkout.stripe.com`.
-4. Complete checkout with Stripe test card `4242 4242 4242 4242`.
-5. Confirm Stripe redirects back to `/success?session_id=...`.
-6. Repeat and use the back/cancel path to confirm `/cancel` renders correctly.
-7. Test both modes if supported:
-   - one-time price with `mode: "payment"`
-   - recurring price with `mode: "subscription"`
-8. Confirm server logs show no secret leakage and no client bundle imports `stripe` server SDK.
+1. Add valid Stripe test keys
+2. Use a real Stripe test `price_...` ID
+3. Start the app and click the checkout button
+4. Confirm the API route returns a Checkout Session ID
+5. Confirm redirect to `checkout.stripe.com`
+6. Complete payment with a Stripe test card, such as:
 
-Production note: if the site grants access, creates orders, or sends receipts based on successful payment, add a Stripe webhook handler before launch.
+```text
+4242 4242 4242 4242
+```
+
+7. Confirm Stripe redirects back to `/success`
+8. Confirm canceling redirects to `/cancel`
+9. For subscriptions, verify the Checkout Session is created with `mode: "subscription"`
+10. In production builds, verify all redirect URLs use the deployed site origin
+
+If the checkout page fails to load:
+- verify the publishable key is present in the browser build
+- verify the secret key is valid on the server
+- verify the `priceId` exists in the same Stripe account and mode
+- verify `NEXT_PUBLIC_SITE_URL` matches the running app origin

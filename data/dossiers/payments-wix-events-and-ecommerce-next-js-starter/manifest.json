@@ -1,0 +1,98 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-wix-events-and-ecommerce-next-js-starter",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Wix Events and eCommerce Next.js starter",
+  "description": "Next.js template, bootstrapped with create-next-app, using Wix Headless for event ticketing and a store via Wix Events and Stores",
+  "summary": "Use this dossier when a Next.js app needs Wix Headless commerce checkout flows for store products and event-driven commerce patterns, including quick-buy redirects and visitor token bootstrapping. It provides the essential server middleware and API routes needed to create Wix visitor sessions and redirect users into Wix-hosted checkout.",
+  "providers": [
+    {
+      "name": "Wix",
+      "url": "https://github.com/wix/wix-commerce-ticketing-nextjs-template"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@netlify/plugin-nextjs",
+    "@tanstack/react-query",
+    "@wix/ecom",
+    "@wix/events",
+    "@wix/redirects",
+    "@wix/ricos",
+    "@wix/sdk",
+    "@wix/stores",
+    "body-scroll-lock",
+    "cookie",
+    "date-fns",
+    "flowbite",
+    "flowbite-react",
+    "js-cookie",
+    "jsurl",
+    "react-google-recaptcha-enterprise"
+  ],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/api/redirect-to-checkout/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/quick-buy/[productId]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/lib/wix/constants.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/lib/wix/server.ts",
+      "role": "server",
+      "kind": "server-helper"
+    },
+    {
+      "path": "components/app/lib/wix/request-url.ts",
+      "role": "server",
+      "kind": "util"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "ecommerce",
+      "app-shell"
+    ],
+    "compatible": [
+      "saas-landing",
+      "dashboard",
+      "base-nextjs",
+      "landing-page"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 85,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/wix-commerce-ticketing",
+  "sourceRepoUrl": "https://github.com/wix/wix-commerce-ticketing-nextjs-template",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "wix",
+    "payments",
+    "checkout",
+    "ecommerce",
+    "headless",
+    "nextjs",
+    "app-router",
+    "middleware",
+    "stores"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:44:29.584Z",
+  "_curatedBy": "auto-curate.ts"
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-redis-next-js-starter",
+  "kind": "integration",
+  "category": "database",
+  "label": "Redis Next.js Starter",
+  "description": "Simple Next.js template that uses Redis to track pageviews.",
+  "summary": "Simple Next.js template that uses Redis to track pageviews.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/kv-redis-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/kv-redis-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "kv",
+    "redis"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-semantic-image-search",
+  "kind": "integration",
+  "category": "database",
+  "label": "Semantic Image Search",
+  "description": "An open-source AI semantic image search app template built with Next.js, Vercel AI SDK, OpenAI, Vercel Postgres, Vercel Blob and Vercel KV.",
+  "summary": "An open-source AI semantic image search app template built with Next.js, Vercel AI SDK, OpenAI, Vercel Postgres, Vercel Blob and Vercel KV.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/semantic-image-search. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/pgvector/pgvector-node"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/semantic-image-search",
+  "sourceRepoUrl": "https://github.com/pgvector/pgvector-node",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "semantic",
+    "image"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

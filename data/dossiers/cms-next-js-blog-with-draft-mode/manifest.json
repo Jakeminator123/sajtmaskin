@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "cms-next-js-blog-with-draft-mode",
+  "kind": "integration",
+  "category": "cms",
+  "label": "Next.js Blog with Draft Mode",
+  "description": "Static blog with Preview Mode, built with Next.js and Contentful.",
+  "summary": "Static blog with Preview Mode, built with Next.js and Contentful.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/nextjs-blog-draft-mode. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "ecommerce",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjs-blog-draft-mode",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "cms",
+    "integration",
+    "next",
+    "js",
+    "nextjs",
+    "blog"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

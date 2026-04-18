@@ -1,0 +1,146 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-stagehand-next-js-quickstart",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Stagehand + Next.js Quickstart",
+  "description": "Stagehand extends the power of Playwright, allowing you to reliably automate browsers in natural language.",
+  "summary": "Use this dossier when a Next.js app needs server-side browser automation driven by natural-language tasks, such as scraping, testing flows, or agent actions executed in a real browser. It provides the core Stagehand prompt/inference utilities and environment patterns for wiring a server action or API route to Stagehand-backed automation.",
+  "providers": [
+    {
+      "name": "Browserbase Stagehand",
+      "url": "https://github.com/browserbase/stagehand"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "CEREBRAS_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "GROQ_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "BROWSERBASE_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "BRAINTRUST_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "ANTHROPIC_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "HEADLESS",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "ENABLE_CACHING",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "EVAL_MODELS",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "EXPERIMENTAL_EVAL_MODELS",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "EVAL_CATEGORIES",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "AGENT_EVAL_MAX_STEPS",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/packages/core/lib/inference.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/packages/core/lib/logger.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/packages/core/lib/prompt.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/packages/core/lib/utils.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/app/api/stagehand/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/stagehand/actions.ts",
+      "role": "server",
+      "kind": "server-action"
+    },
+    {
+      "path": "components/.env.example",
+      "role": "shared",
+      "kind": "env-example"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/stagehand-next-js-quickstart",
+  "sourceRepoUrl": "https://github.com/browserbase/stagehand",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "stagehand",
+    "browserbase",
+    "nextjs",
+    "browser-automation",
+    "playwright",
+    "ai-agent",
+    "extraction",
+    "server-actions"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:12:47.597Z",
+  "_curatedBy": "auto-curate.ts"
+}

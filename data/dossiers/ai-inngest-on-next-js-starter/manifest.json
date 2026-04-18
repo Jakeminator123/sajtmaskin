@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-inngest-on-next-js-starter",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Inngest on Next.js Starter",
+  "description": "Develop AI products at the speed of thought with Inngest and Next.js. Demo features like background jobs, real-time updates, and throttling.",
+  "summary": "Develop AI products at the speed of thought with Inngest and Next.js. Demo features like background jobs, real-time updates, and throttling.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/inngest-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/inngest-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "inngest",
+    "starter"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

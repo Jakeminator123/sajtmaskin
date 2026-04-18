@@ -1,0 +1,113 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-next-js-book-inventory",
+  "kind": "integration",
+  "category": "database",
+  "label": "Next.js Book Inventory",
+  "description": "An example of searching, filtering, and pagination.",
+  "summary": "Use this dossier when building a Next.js App Router catalog or inventory UI backed by Postgres, with URL-synced search/filter state and Drizzle configuration. It provides the reusable database config and query-string state patterns from the book-inventory example, but not the template’s demo-specific layout or branded UI.",
+  "providers": [
+    {
+      "name": "Vercel",
+      "url": "https://github.com/vercel-labs/book-inventory"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "@heroicons/react",
+    "@neondatabase/serverless",
+    "@next/env",
+    "@radix-ui/react-checkbox",
+    "@radix-ui/react-collapsible",
+    "@radix-ui/react-label",
+    "@radix-ui/react-scroll-area",
+    "@radix-ui/react-select",
+    "@radix-ui/react-slider",
+    "@radix-ui/react-slot",
+    "ai",
+    "autoprefixer",
+    "class-variance-authority",
+    "clsx",
+    "dotenv",
+    "drizzle-kit",
+    "drizzle-orm",
+    "geist",
+    "lucide-react",
+    "p-limit",
+    "prettier",
+    "sharp",
+    "sonner",
+    "tailwind-merge",
+    "thumbhash",
+    "tsx",
+    "unlazy",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/drizzle.config.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/lib/url-state.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/use-backpressure.tsx",
+      "role": "client",
+      "kind": "hook"
+    },
+    {
+      "path": "components/lib/db/schema.ts",
+      "role": "shared",
+      "kind": "db-schema"
+    },
+    {
+      "path": "components/lib/db/index.ts",
+      "role": "server",
+      "kind": "db-client"
+    },
+    {
+      "path": "components/lib/db/queries.ts",
+      "role": "server",
+      "kind": "db-query"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "blog",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 83,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/next-book-inventory",
+  "sourceRepoUrl": "https://github.com/vercel-labs/book-inventory",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel",
+    "nextjs",
+    "drizzle",
+    "postgres",
+    "neon",
+    "search",
+    "filters",
+    "pagination",
+    "url-state",
+    "inventory"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:37:00.111Z",
+  "_curatedBy": "auto-curate.ts"
+}

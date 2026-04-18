@@ -1,0 +1,84 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-next-js-live-transcription",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Next.js Live Transcription",
+  "description": "Transcribe your voice in realtime. Useful for videos, conferences, adding speech-to-text to your apps.",
+  "summary": "Use this dossier when a Next.js app needs browser-based live speech-to-text with temporary Deepgram credentials issued from the server. It provides the server token endpoint and CORS middleware pattern required to connect a client microphone/transcription UI to Deepgram realtime transcription securely.",
+  "providers": [
+    {
+      "name": "Deepgram",
+      "url": "https://github.com/deepgram-devs/nextjs-live-transcription"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@deepgram/sdk",
+    "classnames",
+    "react-device-detect",
+    "react-github-btn",
+    "react-syntax-highlighter"
+  ],
+  "files": [
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/api/authenticate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/app/api/authenticate/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/lib/deepgram-live-transcription.ts",
+      "role": "shared",
+      "kind": "utility"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "auth-pages",
+      "landing-page",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/nextjslive-transcription",
+  "sourceRepoUrl": "https://github.com/deepgram-devs/nextjs-live-transcription",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "deepgram",
+    "transcription",
+    "speech-to-text",
+    "realtime",
+    "websocket",
+    "microphone",
+    "nextjs",
+    "app-router",
+    "cors",
+    "ai"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:08:06.635Z",
+  "_curatedBy": "auto-curate.ts"
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "payments-contentstack-commerce",
+  "kind": "integration",
+  "category": "payments",
+  "label": "Contentstack Commerce",
+  "description": "Learn to use Contentstack SDK to create apps with Next.js and Vercel.",
+  "summary": "Learn to use Contentstack SDK to create apps with Next.js and Vercel.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/cms-contentstack-commerce. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/cms-contentstack-commerce",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "payments",
+    "integration",
+    "next",
+    "js",
+    "cms",
+    "contentstack"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

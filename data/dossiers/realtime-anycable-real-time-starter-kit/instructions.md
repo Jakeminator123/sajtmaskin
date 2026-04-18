@@ -1,15 +1,12 @@
 # When to use
 
-Use AnyCable when the app needs low-latency realtime features in Next.js and you want a self-hosted or open infrastructure option instead of a hosted realtime SaaS. Typical fits: chat, live comments, presence, activity feeds, notifications, collaborative dashboards, and pub/sub updates.
+Use this dossier when a Next.js app needs self-hosted realtime transport through AnyCable: chat, presence, notifications, activity feeds, or collaborative state updates.
 
-This dossier covers the **Next.js-side integration points**:
-- an AnyCable RPC endpoint for server-side command handling
-- a cookie/JWT-based cable auth flow
-- the environment variables required to connect to the AnyCable server and HTTP broadcaster
+Choose it only if you already operate or are comfortable operating the AnyCable stack (`anycable-go`, broadcast endpoint, RPC endpoint). For simpler hosted realtime in Next.js, other providers may be lower-friction.
 
 # How to integrate
 
-## 1) Install and configure environment variables
+## 1. Install and configure environment variables
 
 Required env vars:
 
@@ -17,29 +14,35 @@ Required env vars:
 CABLE_URL=ws://localhost:8080/cable
 ANYCABLE_RPC_HOST=http://localhost:3000/api/anycable
 ANYCABLE_HTTP_BROADCAST_URL=http://localhost:8090/_broadcast
-ANYCABLE_HTTP_BROADCAST_SECRET=secr3t
+ANYCABLE_HTTP_BROADCAST_SECRET=replace-with-a-long-random-secret
 ANYCABLE_JWT_ID_KEY=jt1
 ```
 
-Use `CABLE_URL` for the websocket endpoint clients connect to. `ANYCABLE_RPC_HOST` is the URL your AnyCable server uses to call your Next.js RPC handler. `ANYCABLE_HTTP_BROADCAST_*` is used by server-side broadcasting code. `ANYCABLE_JWT_ID_KEY` should identify the signing key version; keep it stable unless rotating keys.
+Notes:
+- `CABLE_URL` is the browser WebSocket endpoint exposed by AnyCable.
+- `ANYCABLE_RPC_HOST` must point to the Next.js route that AnyCable calls (`/api/anycable`).
+- `ANYCABLE_HTTP_BROADCAST_SECRET` is also used here to sign and verify JWT identifiers; treat it as a server secret.
+- `ANYCABLE_JWT_ID_KEY` becomes the JWT `kid` header. Keep it stable unless rotating credentials intentionally.
 
-## 2) Add shared AnyCable config
+## 2. Keep the shared AnyCable/JWT config on the server
 
-Create `app/api/cable.ts` to centralize token issuing/verification and cable config:
+`components/app/api/cable.ts` is the core server-only module:
 
 ```ts
 import { jwtVerify, SignJWT } from "jose";
 import { createCable } from "@anycable/core";
 
 const encoder = new TextEncoder();
-const secret = encoder.encode(process.env.ANYCABLE_HTTP_BROADCAST_SECRET || "development-secret");
+const secret = encoder.encode(process.env.ANYCABLE_HTTP_BROADCAST_SECRET!);
 
-export const CABLE_URL = process.env.CABLE_URL || "ws://localhost:8080/cable";
+export const CABLE_URL = process.env.CABLE_URL!;
+export const ANYCABLE_RPC_HOST = process.env.ANYCABLE_RPC_HOST!;
+
 export const cable = createCable({ url: CABLE_URL });
 
 export const identifier = {
   async issue(claims: { sub: string; name?: string }) {
-    return await new SignJWT(claims)
+    return new SignJWT(claims)
       .setProtectedHeader({ alg: "HS256", typ: "JWT", kid: process.env.ANYCABLE_JWT_ID_KEY || "default" })
       .setSubject(claims.sub)
       .setIssuedAt()
@@ -48,15 +51,19 @@ export const identifier = {
   },
   async verify(token: string) {
     const { payload } = await jwtVerify(token, secret, { algorithms: ["HS256"] });
-    if (!payload.sub || typeof payload.sub !== "string") throw new Error("Invalid token");
+    if (!payload.sub || typeof payload.sub !== "string") {
+      throw new Error("Invalid token subject");
+    }
     return payload;
   },
 };
 ```
 
-## 3) Expose the AnyCable RPC route
+Important pattern: keep JWT signing and verification logic in one place so the session route and cable auth route cannot drift.
 
-Keep `app/api/anycable/route.ts` as the endpoint AnyCable calls:
+## 3. Expose the AnyCable RPC route
+
+AnyCable calls this route during connect/subscribe/command handling:
 
 ```ts
 import { NextResponse } from "next/server";
@@ -77,11 +84,17 @@ export async function POST(request: Request) {
 }
 ```
 
-If your app uses a different exported object than `app`, adjust the import, but preserve the `handler(request, app)` pattern.
+Route path:
 
-## 4) Add a session route that sets the auth cookie
+```txt
+/app/api/anycable/route.ts
+```
 
-Your app needs some login/session bootstrap point that stores a signed token in a cookie. A generic version:
+If you move it, update `ANYCABLE_RPC_HOST` accordingly.
+
+## 4. Issue a session token before opening realtime connections
+
+This route stores the JWT in an HTTP-only cookie:
 
 ```ts
 import { NextResponse } from "next/server";
@@ -89,8 +102,15 @@ import { cookies } from "next/headers";
 import { identifier } from "../../cable";
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const token = await identifier.issue({ sub: body.userId, name: body.name });
+  const body = await request.json().catch(() => null);
+  const userId = body?.userId;
+  const name = body?.name;
+
+  if (!userId || typeof userId !== "string") {
+    return NextResponse.json({ error: "userId is required" }, { status: 400 });
+  }
+
+  const token = await identifier.issue({ sub: userId, name });
 
   cookies().set("token", token, {
     httpOnly: true,
@@ -104,11 +124,24 @@ export async function POST(request: Request) {
 }
 ```
 
-In a real app, issue this token only after your normal auth layer has already verified the user.
+Call it after your app has authenticated the user with your real auth system:
 
-## 5) Keep the cable auth endpoint
+```ts
+await fetch("/api/auth/session", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    userId: user.id,
+    name: user.name,
+  }),
+});
+```
 
-Clients should not construct authenticated cable URLs themselves. Instead, request a server endpoint that verifies the cookie and returns a websocket URL with the token attached:
+Do not trust arbitrary client-provided `userId` in a production app. Derive it from your actual server-side auth session.
+
+## 5. Expose a cable auth endpoint for the browser
+
+The browser should not build its own JWT. Instead, it asks the server for a signed cable URL:
 
 ```ts
 import { NextResponse } from "next/server";
@@ -131,66 +164,99 @@ export async function POST() {
 }
 ```
 
-## 6) Connect the client after fetching the cable URL
+This keeps the JWT in an HTTP-only cookie while still letting the frontend obtain a usable WebSocket URL.
 
-Client components should fetch the authenticated cable URL from the server, then connect:
+## 6. Connect from the client through the auth endpoint
+
+Create a small client helper:
 
 ```ts
-const response = await fetch("/api/auth/cable", { method: "POST" });
-if (!response.ok) throw new Error("Unauthorized");
+import { createCable } from "@anycable/web";
 
-const { url } = await response.json();
+let cable: ReturnType<typeof createCable> | null = null;
 
-// Example: pass `url` into your AnyCable client setup.
-// Keep the connection logic in a client component or browser-only module.
+export async function getAuthorizedCable() {
+  if (cable) return cable;
+
+  const response = await fetch("/api/auth/cable", {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) throw new Error("Failed to authorize realtime connection");
+
+  const { url } = await response.json();
+  cable = createCable({ url });
+  return cable;
+}
 ```
 
-Do not hardcode a JWT in client code.
+Use it inside client components that need subscriptions.
 
-## 7) Protect pages separately from realtime auth
+## 7. Map it to your app auth model
 
-This dossier does not require a specific global middleware strategy. If a route must be protected, use your app's existing auth system or add route-specific checks. Only add `middleware.ts` if you intentionally want request-time redirects.
+Recommended production flow:
+1. User signs in with your real auth provider.
+2. Server verifies that auth session.
+3. Server calls `identifier.issue({ sub: user.id, ... })`.
+4. Server sets the `token` cookie.
+5. Client requests `/api/auth/cable` and connects.
+
+If the app logs out, also clear the `token` cookie so stale realtime sessions cannot reconnect.
 
 # UX rules
 
-- Hide realtime controls until the auth/cable endpoint succeeds.
-- Show connection states: connecting, live, reconnecting, offline.
-- Optimistically render messages or updates only if your domain can tolerate rollback.
-- Preserve user context during reconnects; do not silently drop draft input.
-- For chat or feeds, always render timestamps and a visible retry path if sending fails.
+- Realtime must enhance the app, not gate core reading flows. Render initial page state from normal server/client data fetching first.
+- Show explicit connection states for interactive surfaces: `connecting`, `connected`, `reconnecting`, `offline`, `failed`.
+- For chat or collaborative UI, optimistically render only when you also have retry/reconcile logic.
+- If `/api/auth/cable` returns 401, treat it as an auth problem and prompt re-authentication rather than silently retrying forever.
+- Reconnect automatically on transient network failures, but back off to avoid loops.
+- Presence indicators should degrade gracefully; never make them the sole source of truth for access or workflow state.
 
 # Avoid
 
-- Do not keep template-specific OG routes, branded layouts, or demo room pages in this dossier.
-- Do not expose broadcast secrets or JWT signing material to the browser.
-- Do not use the sample middleware unchanged; it references template paths and assumes a specific `/auth` page.
-- Do not treat `ANYCABLE_HTTP_BROADCAST_SECRET` as a general-purpose app secret unless you explicitly choose that design.
-- Do not let anonymous users hit authenticated channels unless that is an intentional product requirement.
+- Do not expose `ANYCABLE_HTTP_BROADCAST_SECRET` or JWT signing logic to client bundles.
+- Do not trust `userId` from the browser in a real app; derive identity from your server-side auth provider/session.
+- Do not open raw `CABLE_URL` directly from the browser without first validating auth and appending the signed `jid` token.
+- Do not import `components/app/api/cable.ts` into client components; it is server-only config.
+- Do not rely on the provided fallback development secrets in production. Require real env vars.
+- Do not treat this as a complete chat implementation; channel definitions, authorization rules, and message persistence still need to be built in your AnyCable backend/application layer.
 
 # Verification
 
-## Basic checks
+## Basic server verification
 
-1. Start the Next.js app and AnyCable server.
-2. Confirm the AnyCable server can reach `POST /api/anycable`.
-3. Call your session route to set the `token` cookie.
-4. Call `POST /api/auth/cable` and verify it returns JSON like:
+- `POST /api/auth/session` with a valid authenticated user context returns `200 { ok: true }` and sets a `token` cookie.
+- `POST /api/auth/cable` with that cookie returns `200 { url: "ws://.../cable?jid=..." }`.
+- `POST /api/auth/cable` without the cookie returns `401`.
+- AnyCable can reach `ANYCABLE_RPC_HOST` and receives JSON responses from `/api/anycable`.
 
-```json
-{ "url": "ws://localhost:8080/cable?jid=..." }
+## Manual smoke test
+
+1. Start Next.js and AnyCable locally.
+2. Create a session:
+
+```bash
+curl -i -X POST http://localhost:3000/api/auth/session \
+  -H 'Content-Type: application/json' \
+  -d '{"userId":"user_123","name":"Ada"}'
 ```
 
-5. Remove the cookie and verify the same endpoint returns `401`.
+3. Copy the returned `set-cookie` header value and call:
 
-## Realtime checks
+```bash
+curl -i -X POST http://localhost:3000/api/auth/cable \
+  -H 'Cookie: token=PASTE_TOKEN_HERE'
+```
 
-- Open two browser sessions and verify messages or broadcasts appear in both.
-- Expire or delete the auth cookie and verify reconnect attempts fail cleanly.
-- Rotate `CABLE_URL` or stop the websocket server and confirm the UI shows a disconnected state instead of hanging silently.
+4. Confirm the response includes a cable URL with `?jid=`.
+5. From the browser, load a page using `getAuthorizedCable()` and verify the WebSocket connects successfully.
+6. Remove or expire the cookie and confirm the client receives 401 and stops connecting.
 
-## Production checks
+## Production checklist
 
-- Ensure websocket URLs use `wss://` behind HTTPS.
-- Ensure cookies are `httpOnly` and `secure` in production.
-- Ensure secrets are set in deployment, not left at fallback defaults.
-- Ensure your AnyCable deployment is configured to call the same `ANYCABLE_RPC_HOST` you exposed from Next.js.
+- All AnyCable env vars are set with production values.
+- Cookie is `httpOnly`, `secure` in production, and cleared on logout.
+- Realtime identity is derived from your real auth provider, not raw request JSON.
+- Secrets are rotated and stored in a proper secrets manager.
+- Connection failures are surfaced in UI and logged server-side.

@@ -1,0 +1,72 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-no-schema-output-mode-with-vercel-ai-sdk",
+  "kind": "integration",
+  "category": "ai",
+  "label": "No Schema Output Mode with Vercel AI SDK",
+  "description": "A Next.js chatbot using the Vercel AI SDK's streamObject function without an underlying schema (no schema output mode).",
+  "summary": "Use this dossier when a Next.js app needs an API route that streams arbitrary JSON from an LLM without enforcing a predefined Zod or JSON schema. It provides the Vercel AI SDK server pattern for `streamObject({ output: 'no-schema' })`, including source-content fetching and safe response streaming.",
+  "providers": [
+    {
+      "name": "Vercel AI SDK",
+      "url": "https://github.com/vercel-labs/ai-sdk-preview-no-schema"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/openai",
+    "@vercel/analytics",
+    "@vercel/kv",
+    "ai",
+    "cheerio",
+    "date-fns",
+    "geist",
+    "react-use",
+    "sonner",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/chat/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "content-site",
+      "blog",
+      "landing-page"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/ai-sdk-no-schema",
+  "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-no-schema",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "vercel-ai-sdk",
+    "ai",
+    "streamobject",
+    "no-schema",
+    "nextjs",
+    "openai",
+    "structured-output"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:08:30.238Z",
+  "_curatedBy": "auto-curate.ts"
+}

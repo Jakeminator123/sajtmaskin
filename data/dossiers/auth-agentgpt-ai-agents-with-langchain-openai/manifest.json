@@ -1,0 +1,262 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-agentgpt-ai-agents-with-langchain-openai",
+  "kind": "integration",
+  "category": "auth",
+  "label": "AgentGPT - AI Agents with Langchain & OpenAI",
+  "description": "Assemble, configure, and deploy autonomous AI Agents in your browser, using Langchain, OpenAI, AutoGPT and T3 Stack.",
+  "summary": "Use this dossier when a site needs authenticated access before users can create or manage AI agents. It provides the integration patterns for NextAuth-based sign-in plus the key runtime config values AgentGPT-style apps rely on, while omitting template-specific blog/UI code.",
+  "providers": [
+    {
+      "name": "AgentGPT",
+      "url": "https://github.com/reworkd/AgentGPT"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "NEXT_PUBLIC_MAX_LOOPS",
+      "required": true,
+      "purpose": "Platform Config: (max loops determines how many times the agent may execute)"
+    },
+    {
+      "key": "REWORKD_PLATFORM_MAX_LOOPS",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NODE_ENV",
+      "required": true,
+      "purpose": "Deployment Environment:"
+    },
+    {
+      "key": "NEXT_PUBLIC_VERCEL_ENV",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "NEXT_PUBLIC_BACKEND_URL",
+      "required": true,
+      "purpose": "NextJS:"
+    },
+    {
+      "key": "NEXTAUTH_SECRET",
+      "required": true,
+      "purpose": "Next Auth config:"
+    },
+    {
+      "key": "NEXTAUTH_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "GOOGLE_CLIENT_ID",
+      "required": true,
+      "purpose": "Auth providers (Use if you want to get out of development mode sign-in):"
+    },
+    {
+      "key": "GOOGLE_CLIENT_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "GITHUB_CLIENT_ID",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "GITHUB_CLIENT_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DISCORD_CLIENT_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DISCORD_CLIENT_ID",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_ENVIRONMENT",
+      "required": true,
+      "purpose": "Backend:"
+    },
+    {
+      "key": "REWORKD_PLATFORM_FF_MOCK_MODE_ENABLED",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_OPENAI_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_FRONTEND_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_RELOAD",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_OPENAI_API_BASE",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_SERP_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_REPLICATE_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_SID_CLIENT_ID",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_SID_CLIENT_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_SID_REDIRECT_URI",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_DATABASE_USER",
+      "required": true,
+      "purpose": "Database (Backend):"
+    },
+    {
+      "key": "REWORKD_PLATFORM_DATABASE_PASSWORD",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_DATABASE_HOST",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_DATABASE_PORT",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_DATABASE_NAME",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "REWORKD_PLATFORM_DATABASE_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DATABASE_USER",
+      "required": true,
+      "purpose": "Database (Frontend):"
+    },
+    {
+      "key": "DATABASE_PASSWORD",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DATABASE_HOST",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DATABASE_PORT",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DATABASE_NAME",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "DATABASE_URL",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [],
+  "files": [
+    {
+      "path": "components/lib/auth.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/auth/[...nextauth]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/middleware.ts",
+      "role": "server",
+      "kind": "middleware"
+    },
+    {
+      "path": "components/app/sign-in/page.tsx",
+      "role": "server",
+      "kind": "page"
+    },
+    {
+      "path": "components/app/dashboard/page.tsx",
+      "role": "server",
+      "kind": "page"
+    },
+    {
+      "path": "components/types/next-auth.d.ts",
+      "role": "shared",
+      "kind": "types"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "base-nextjs",
+      "saas-landing",
+      "landing-page"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 72,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/agent-gpt",
+  "sourceRepoUrl": "https://github.com/reworkd/AgentGPT",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "agentgpt",
+    "auth",
+    "nextauth",
+    "oauth",
+    "github",
+    "google",
+    "discord",
+    "nextjs",
+    "protected-routes"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:16:42.370Z",
+  "_curatedBy": "auto-curate.ts"
+}

@@ -1,24 +1,32 @@
 # When to use
 
-Use this dossier when the site needs a local-file blog or article system powered by **Next.js App Router + Contentlayer + MDX**.
+Use this dossier when a site should publish content from local Markdown/MDX files inside the repo rather than from a CMS.
 
-Good fits:
-- blogs and journals
-- marketing sites with a news/resources section
-- portfolio sites with writing/case-study content
-- lightweight docs/content sites where content lives in the repo
+Best fit:
+- blogs
+- journals
+- docs-lite sites
+- founder notes / changelog sections
+- portfolio sites with article content
 
-Do **not** use this as the primary content system if the project needs a headless CMS, editorial workflows, remote content sync, or user-generated posts.
+Use an alternative if:
+- editors need a hosted admin UI
+- content must be updated by non-developers without git
+- the project should avoid unmaintained tooling
+
+Note: Contentlayer is widely used but currently not actively maintained. Prefer a newer stack like Velite or plain `@next/mdx` for greenfield projects when long-term maintenance matters.
 
 # How to integrate
 
-## 1) Install and configure Contentlayer
-
-Add the required packages if they are not already present:
+## 1. Install required packages
 
 ```bash
 npm install contentlayer next-contentlayer remark-gfm rehype-slug
 ```
+
+If the app does not already have MDX/content styling, also ensure your typography/UI stack supports article rendering.
+
+## 2. Add the Contentlayer config
 
 Create `contentlayer.config.ts`:
 
@@ -60,23 +68,28 @@ export default makeSource({
 })
 ```
 
-Wrap Next config with Contentlayer:
+## 3. Wrap Next config with Contentlayer
 
-```ts
+Create or update `next.config.mjs`:
+
+```js
 import { withContentlayer } from 'next-contentlayer'
 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
+  reactStrictMode: true,
 }
 
 export default withContentlayer(nextConfig)
 ```
 
-## 2) Keep MDX rendering isolated in a reusable component
+## 4. Add a minimal MDX renderer
 
-Use the provided renderer component pattern:
+Create `components/mdx-components.tsx` or equivalent:
 
 ```tsx
+'use client'
+
 import Image from 'next/image'
 import { useMDXComponent } from 'next-contentlayer/hooks'
 
@@ -90,11 +103,11 @@ export function Mdx({ code }: { code: string }) {
 }
 ```
 
-This component is the integration core. Extend `components` with design-system primitives like `Callout`, `CodeBlock`, `Tweet`, etc.
+Important: because `useMDXComponent` is a hook from `next-contentlayer/hooks`, this file should be treated as a client component.
 
-## 3) Author content in `content/posts/*.mdx`
+## 5. Author content in `/content/posts`
 
-Example:
+Example `content/posts/hello-world.mdx`:
 
 ```mdx
 ---
@@ -104,16 +117,17 @@ date: 2026-01-01
 published: true
 tags:
   - welcome
+  - mdx
 ---
 
 # Hello World
 
-This is a Contentlayer post.
+This post is loaded from the local `content/posts` directory and compiled by Contentlayer.
 ```
 
-Frontmatter should match the schema in `contentlayer.config.ts`.
+## 6. Build a blog index route
 
-## 4) Render a blog index page
+Example `app/blog/page.tsx`:
 
 ```tsx
 import Link from 'next/link'
@@ -125,18 +139,23 @@ export default function BlogIndexPage() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return (
-    <ul>
-      {posts.map((post) => (
-        <li key={post._id}>
-          <Link href={post.url}>{post.title}</Link>
-        </li>
-      ))}
-    </ul>
+    <main>
+      <h1>Blog</h1>
+      <ul>
+        {posts.map((post) => (
+          <li key={post._id}>
+            <Link href={post.url}>{post.title}</Link>
+          </li>
+        ))}
+      </ul>
+    </main>
   )
 }
 ```
 
-## 5) Render individual posts with static params
+## 7. Build a dynamic post route
+
+Example `app/blog/[slug]/page.tsx`:
 
 ```tsx
 import { allPosts } from 'contentlayer/generated'
@@ -150,49 +169,77 @@ export async function generateStaticParams() {
 }
 
 export default function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = allPosts.find((entry) => entry.slug === params.slug && entry.published !== false)
+  const post = allPosts.find(
+    (entry) => entry.slug === params.slug && entry.published !== false
+  )
 
   if (!post) notFound()
 
-  return <Mdx code={post.body.code} />
+  return (
+    <article>
+      <header>
+        <h1>{post.title}</h1>
+        {post.description ? <p>{post.description}</p> : null}
+        <time dateTime={post.date}>{new Date(post.date).toLocaleDateString()}</time>
+      </header>
+      <Mdx code={post.body.code} />
+    </article>
+  )
 }
 ```
 
-## 6) Restart dev server after config/schema changes
+## 8. Use the generated types and data only after Contentlayer is configured
 
-Contentlayer generates types and content artifacts during dev/build. If schema changes are not reflected, restart the Next.js dev server.
-
-# UX rules
-
-- Show post title, publish date, and optional description on article pages.
-- Sort blog lists newest-first unless the site has a different explicit information architecture.
-- Hide drafts by filtering `published !== false`.
-- Keep MDX content readable with a prose typographic container or equivalent content styling.
-- Ensure links to posts are stable and derived from slug/url computed fields.
-- If using custom MDX components, preserve semantic HTML for headings, lists, quotes, and code blocks.
-
-# Avoid
-
-- Do not keep template demo routes like `/api/hello`.
-- Do not hardwire analytics, dark-mode toggles, top navs, or branded layout chrome into the dossier.
-- Do not import from `contentlayer/generated` in client components.
-- Do not query unpublished posts in public indexes or static params.
-- Do not make the MDX component map depend on template-specific UI libraries unless those are already part of the target app.
-- Do not assume this is a CMS; content changes require redeploy/rebuild in typical production setups.
-
-# Verification
-
-Check these before shipping:
-
-1. `npm run dev` starts without Contentlayer config errors.
-2. Generated imports resolve:
+Imports like this should work after setup:
 
 ```ts
 import { allPosts } from 'contentlayer/generated'
 ```
 
-3. At least one MDX file exists under `content/posts/` with valid frontmatter.
-4. `/blog` renders a list of published posts.
-5. `/blog/[slug]` renders MDX body content for a real post.
-6. Draft posts with `published: false` do not appear in the index or generated params.
-7. Schema edits trigger regenerated types/content after a dev server restart.
+If they fail, the config or build integration is incomplete.
+
+# UX rules
+
+- Treat `published: false` as a draft flag and exclude drafts from public routes.
+- Always sort posts by date descending unless the product explicitly wants another order.
+- Render article pages inside readable typography styles; MDX without prose/article styling usually looks broken.
+- Show title, publish date, and optional description at minimum.
+- Preserve stable canonical URLs based on slug; do not derive URLs from mutable titles at runtime.
+- If using custom MDX components, keep the mapping small and predictable.
+- If using `next/image` inside MDX, ensure authors know the required props and allowed usage patterns.
+
+# Avoid
+
+- Do not keep template-branded blog chrome, demo hero sections, or unrelated landing-page UI in this dossier.
+- Do not import from `contentlayer/generated` before wiring `withContentlayer` in Next config.
+- Do not expose draft posts publicly unless the product explicitly needs preview behavior.
+- Do not rely on Contentlayer for user-generated or runtime-authored content.
+- Do not overfit the schema to a single blog template; keep frontmatter generic.
+- Do not assume Contentlayer is the best long-term choice for new projects; mention alternatives when relevant.
+
+# Verification
+
+Use this checklist after integration:
+
+1. Run the app and confirm Contentlayer generation succeeds.
+2. Verify `contentlayer/generated` imports resolve without type/build errors.
+3. Add a new file under `content/posts/test-post.mdx` and confirm it appears in `/blog`.
+4. Open `/blog/test-post` and confirm the article renders.
+5. Set `published: false` and confirm the post disappears from the index and direct route.
+6. Confirm markdown features from `remark-gfm` work as expected.
+7. Confirm heading IDs are generated from `rehype-slug`.
+8. Run a production build to ensure static generation works.
+
+Example verification commands:
+
+```bash
+npm run dev
+npm run build
+```
+
+If build fails with missing generated modules, re-check:
+- `contentlayer.config.ts` exists at project root
+- `next.config.mjs` uses `withContentlayer`
+- content files are inside the configured `contentDirPath`
+- imports point to `contentlayer/generated`
+```

@@ -1,0 +1,108 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-mongodb-atlas-forum",
+  "kind": "integration",
+  "category": "database",
+  "label": "MongoDB Atlas Forum",
+  "description": "A modern full-stack React template with Next.js, MongoDB, and Better Auth. Ships with a Hacker News-style forum and authentication.",
+  "summary": "Use this dossier when a Next.js app needs MongoDB Atlas as its primary database plus Better Auth backed by MongoDB. It provides the auth route, Better Auth server/client setup, and example server actions showing how to read/write MongoDB with authenticated users.",
+  "providers": [
+    {
+      "name": "MongoDB Atlas",
+      "url": "https://github.com/mongodb-developer/nextjs-news-template-mongodb"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "MONGODB_URI",
+      "required": true,
+      "purpose": "The connection string has the format `mongodb+srv://myDatabaseUser:D1fficultP%40ssw0rd@cluster0.example.mongodb.net/?retryWrites=true&w=majority`"
+    },
+    {
+      "key": "MONGODB_DB",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    },
+    {
+      "key": "BETTER_AUTH_URL",
+      "required": true,
+      "purpose": "Better Auth Configuration"
+    },
+    {
+      "key": "BETTER_AUTH_SECRET",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@hookform/resolvers",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-label",
+    "@radix-ui/react-slot",
+    "@vercel/functions",
+    "better-auth",
+    "class-variance-authority",
+    "clsx",
+    "lucide-react",
+    "mongodb",
+    "next-themes",
+    "react-hook-form",
+    "sonner",
+    "tailwind-merge",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/auth/[...all]/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/auth.ts",
+      "role": "server",
+      "kind": "config"
+    },
+    {
+      "path": "components/lib/auth-client.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/mongodb.ts",
+      "role": "server",
+      "kind": "util"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "auth-pages",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "blog",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/mongodb-atlas-forum",
+  "sourceRepoUrl": "https://github.com/mongodb-developer/nextjs-news-template-mongodb",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "mongodb",
+    "mongodb-atlas",
+    "better-auth",
+    "nextjs",
+    "app-router",
+    "database",
+    "authentication"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:36:15.737Z",
+  "_curatedBy": "auto-curate.ts"
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "database-multi-tenant-ai-native-todo-list-app-with-nile",
+  "kind": "integration",
+  "category": "database",
+  "label": "Multi-tenant AI-native todo list app with Nile",
+  "description": "This template shows how to use Nile with NextJS for a multi-tenant AI-native TODO list application.",
+  "summary": "This template shows how to use Nile with NextJS for a multi-tenant AI-native TODO list application.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/multi-tenant-ai-native-todo-list-app-with-nile. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "saas-landing"
+    ],
+    "compatible": [
+      "blog",
+      "content-site",
+      "auth-pages",
+      "landing-page",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/multi-tenant-ai-native-todo-list-app-with-nile",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "database",
+    "integration",
+    "next",
+    "js",
+    "multi",
+    "tenant"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

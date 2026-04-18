@@ -1,0 +1,110 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-next-js-assistloop-template",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Next.js AssistLoop Template",
+  "description": "A production-ready Next.js template with built-in AssistLoop AI agents for customer support. Add your Agent ID and deploy.",
+  "summary": "Use this dossier when a site needs an embedded AssistLoop customer-support chat agent in a Next.js App Router app. It provides the widget loader, a reusable helper to open the chat programmatically, and the integration rules for wiring the agent ID through a public environment variable.",
+  "providers": [
+    {
+      "name": "AssistLoop",
+      "url": "https://github.com/assistloop/nextjs-template"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [
+    "@hookform/resolvers",
+    "@radix-ui/react-accordion",
+    "@radix-ui/react-alert-dialog",
+    "@radix-ui/react-aspect-ratio",
+    "@radix-ui/react-avatar",
+    "@radix-ui/react-checkbox",
+    "@radix-ui/react-collapsible",
+    "@radix-ui/react-context-menu",
+    "@radix-ui/react-dialog",
+    "@radix-ui/react-dropdown-menu",
+    "@radix-ui/react-hover-card",
+    "@radix-ui/react-label",
+    "@radix-ui/react-menubar",
+    "@radix-ui/react-navigation-menu",
+    "@radix-ui/react-popover",
+    "@radix-ui/react-progress",
+    "@radix-ui/react-radio-group",
+    "@radix-ui/react-scroll-area",
+    "@radix-ui/react-select",
+    "@radix-ui/react-separator",
+    "@radix-ui/react-slider",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-switch",
+    "@radix-ui/react-tabs",
+    "@radix-ui/react-toast",
+    "@radix-ui/react-toggle",
+    "@radix-ui/react-toggle-group",
+    "@radix-ui/react-tooltip",
+    "@vercel/analytics",
+    "autoprefixer",
+    "class-variance-authority",
+    "clsx",
+    "cmdk",
+    "date-fns",
+    "embla-carousel-react",
+    "input-otp",
+    "lucide-react",
+    "next-themes",
+    "react-day-picker",
+    "react-hook-form",
+    "react-resizable-panels",
+    "recharts",
+    "sonner",
+    "tailwind-merge",
+    "vaul",
+    "zod"
+  ],
+  "files": [
+    {
+      "path": "components/lib/chat-widget.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/components/assistloop-widget.tsx",
+      "role": "client",
+      "kind": "component"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "simple",
+  "qualityScore": 86,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/next-js-assist-loop-template",
+  "sourceRepoUrl": "https://github.com/assistloop/nextjs-template",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "assistloop",
+    "ai",
+    "chat-widget",
+    "customer-support",
+    "nextjs",
+    "app-router",
+    "embedded-chat"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:06:33.959Z",
+  "_curatedBy": "auto-curate.ts"
+}

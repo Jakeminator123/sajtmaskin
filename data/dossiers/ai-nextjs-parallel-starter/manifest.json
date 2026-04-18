@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-nextjs-parallel-starter",
+  "kind": "integration",
+  "category": "ai",
+  "label": "NextJS + Parallel Starter",
+  "description": "A Next.js template demonstrating how to integrate Parallel's web research APIs with Vercel. This template provides a complete demo applicati",
+  "summary": "A Next.js template demonstrating how to integrate Parallel's web research APIs with Vercel. This template provides a complete demo applicati\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/next-js-parallel-starter. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/next-js-parallel-starter",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "next",
+    "js"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

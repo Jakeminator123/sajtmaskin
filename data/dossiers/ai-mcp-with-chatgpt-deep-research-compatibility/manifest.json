@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-mcp-with-chatgpt-deep-research-compatibility",
+  "kind": "integration",
+  "category": "ai",
+  "label": "MCP with ChatGPT Deep Research Compatibility",
+  "description": "Run a ChatGPT Deep Research-compatible Model Context Protocol (MCP) server on Vercel with Next.js.",
+  "summary": "Run a ChatGPT Deep Research-compatible Model Context Protocol (MCP) server on Vercel with Next.js.\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/openai-deep-research-compatible-mcp-with-next-js. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/vercel-labs/express-mcp"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "saas-landing"
+    ],
+    "compatible": [
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/openai-deep-research-compatible-mcp-with-next-js",
+  "sourceRepoUrl": "https://github.com/vercel-labs/express-mcp",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "ai",
+    "integration",
+    "next",
+    "js",
+    "openai",
+    "deep"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

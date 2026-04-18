@@ -1,0 +1,43 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "auth-v0-clone-v0-platform-api-demo",
+  "kind": "integration",
+  "category": "auth",
+  "label": "v0 Clone: v0 Platform API Demo",
+  "description": "A Next.js application demonstrating the v0 Platform API",
+  "summary": "A Next.js application demonstrating the v0 Platform API\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/v0-clone. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "auth-pages",
+      "app-shell",
+      "dashboard"
+    ],
+    "compatible": [
+      "saas-landing",
+      "ecommerce",
+      "landing-page",
+      "content-site",
+      "blog",
+      "portfolio",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/v0-clone",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "auth",
+    "integration",
+    "next",
+    "js",
+    "v0",
+    "clone"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

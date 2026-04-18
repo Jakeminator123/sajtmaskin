@@ -5,7 +5,7 @@
   "category": "ui-content",
   "label": "Nextra: Docs Starter Kit",
   "description": "Simple, powerful and flexible markdown-powered docs site. Built with Next.js.",
-  "summary": "Use this dossier when building a markdown/MDX documentation site in Next.js with Nextra’s docs theme. It provides the integration pattern, required config, and content structure for a docs-first site with sidebar navigation, theming, and search-ready pages.",
+  "summary": "Use this dossier when building a documentation or knowledge-base site in Next.js where MDX files are the source of truth and Nextra provides docs navigation, theming, and page layout. It provides the minimal Nextra v3 integration pattern: Next.js config, theme config, and starter MDX content structure.",
   "providers": [
     {
       "name": "Nextra",
@@ -19,9 +19,9 @@
   ],
   "files": [
     {
-      "path": "components/next.config.mjs",
-      "role": "server",
-      "kind": "config"
+      "path": "components/content/index.mdx",
+      "role": "shared",
+      "kind": "content"
     },
     {
       "path": "components/theme.config.tsx",
@@ -29,14 +29,9 @@
       "kind": "config"
     },
     {
-      "path": "components/content/index.mdx",
-      "role": "shared",
-      "kind": "content"
-    },
-    {
-      "path": "components/content/_meta.json",
-      "role": "shared",
-      "kind": "content-config"
+      "path": "components/next.config.mjs",
+      "role": "server",
+      "kind": "config"
     }
   ],
   "scaffoldFit": {
@@ -54,7 +49,7 @@
     ]
   },
   "complexity": "medium",
-  "qualityScore": 88,
+  "qualityScore": 90,
   "sourceTemplateUrl": "https://vercel.com/templates/next.js/documentation-starter-kit",
   "sourceRepoUrl": "https://github.com/shuding/nextra-docs-template",
   "lastVerified": "2026-04-17",
@@ -64,11 +59,13 @@
     "mdx",
     "documentation",
     "nextjs",
-    "content-site",
-    "knowledge-base"
+    "knowledge-base",
+    "content-site"
   ],
   "_source": "vercel-light-catalog",
   "_status": "active",
-  "_curatedAt": "2026-04-17T17:05:55.545Z",
-  "_curatedBy": "auto-curate.ts"
+  "_curatedAt": "2026-04-18T02:48:18.224Z",
+  "_curatedBy": "auto-curate.ts",
+  "_deprecationReason": "Source repo last pushed 637d ago, but Nextra v3 itself is current. Re-curate against https://github.com/shuding/nextra/tree/main/examples/docs (canonical Nextra v3 example) instead of the old starter-kit.",
+  "_replacementUrl": "https://github.com/shuding/nextra"
 }

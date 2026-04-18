@@ -1,0 +1,49 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ui-content-mantineui-nextra",
+  "kind": "ui-section",
+  "category": "ui-content",
+  "label": "MantineUI + Nextra",
+  "description": "Get started with beautiful documentation on the Next.js App Router, Nextra, and MantineUI",
+  "summary": "Get started with beautiful documentation on the Next.js App Router, Nextra, and MantineUI\n\nDraft generated from Vercel template https://vercel.com/templates/next.js/mantine-ui-nextra. Curator must replace this summary with concrete usage description (when to use, what it provides) before promoting to active.",
+  "providers": [
+    {
+      "name": "TBD",
+      "url": "https://github.com/sponsors/gfazioli"
+    }
+  ],
+  "envVars": [],
+  "dependencies": [],
+  "files": [],
+  "scaffoldFit": {
+    "primary": [
+      "blog",
+      "content-site",
+      "portfolio"
+    ],
+    "compatible": [
+      "landing-page",
+      "saas-landing",
+      "app-shell",
+      "dashboard",
+      "ecommerce",
+      "auth-pages",
+      "base-nextjs"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 80,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/mantine-ui-nextra",
+  "sourceRepoUrl": "https://github.com/sponsors/gfazioli",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "ui-content",
+    "ui-section",
+    "next",
+    "js",
+    "mantine",
+    "ui"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "draft"
+}

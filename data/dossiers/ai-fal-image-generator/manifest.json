@@ -1,0 +1,98 @@
+{
+  "$schema": "../../../docs/schemas/strict/dossier.schema.json",
+  "id": "ai-fal-image-generator",
+  "kind": "integration",
+  "category": "ai",
+  "label": "Fal Image Generator",
+  "description": "An open-source AI image generator built with Next.js, the AI SDK, and Fal.",
+  "summary": "Use this dossier when a site needs server-side AI image generation from text prompts using Fal models in a Next.js app. It provides the API route pattern, request/response types, and client-safe helpers for downloading generated base64 images.",
+  "providers": [
+    {
+      "name": "Fal",
+      "url": "https://github.com/vercel-labs/vercel-fal-image-generator"
+    }
+  ],
+  "envVars": [
+    {
+      "key": "FAL_API_KEY",
+      "required": true,
+      "purpose": "Required by source template (auto-extracted from .env.example)."
+    }
+  ],
+  "dependencies": [
+    "@ai-sdk/fal",
+    "@radix-ui/react-collapsible",
+    "@radix-ui/react-label",
+    "@radix-ui/react-scroll-area",
+    "@radix-ui/react-select",
+    "@radix-ui/react-slot",
+    "@radix-ui/react-toast",
+    "@radix-ui/react-toggle",
+    "@radix-ui/react-tooltip",
+    "@vercel/analytics",
+    "ai",
+    "class-variance-authority",
+    "clsx",
+    "embla-carousel-react",
+    "lucide-react",
+    "tailwind-merge"
+  ],
+  "files": [
+    {
+      "path": "components/app/api/generate-images/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    },
+    {
+      "path": "components/lib/api-types.ts",
+      "role": "shared",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/image-helpers.ts",
+      "role": "client",
+      "kind": "util"
+    },
+    {
+      "path": "components/lib/provider-config.ts",
+      "role": "shared",
+      "kind": "config"
+    },
+    {
+      "path": "components/app/api/generate-images/route.ts",
+      "role": "server",
+      "kind": "api-route"
+    }
+  ],
+  "scaffoldFit": {
+    "primary": [
+      "app-shell",
+      "dashboard",
+      "base-nextjs"
+    ],
+    "compatible": [
+      "saas-landing",
+      "landing-page",
+      "auth-pages",
+      "content-site"
+    ]
+  },
+  "complexity": "medium",
+  "qualityScore": 84,
+  "sourceTemplateUrl": "https://vercel.com/templates/next.js/fal-image-generator",
+  "sourceRepoUrl": "https://github.com/vercel-labs/vercel-fal-image-generator",
+  "lastVerified": "2026-04-18",
+  "tags": [
+    "fal",
+    "ai",
+    "image-generation",
+    "nextjs",
+    "ai-sdk",
+    "app-router",
+    "text-to-image"
+  ],
+  "_source": "vercel-light-catalog",
+  "_status": "active",
+  "_curatedAt": "2026-04-18T02:03:52.098Z",
+  "_curatedBy": "auto-curate.ts"
+}
