@@ -233,6 +233,12 @@ const siteBriefSchema = z.object({
       "Brief-LLM's variant guess (visual signature within the scaffold). " +
       "Set null if you didn't nominate a scaffold.",
     ),
+  // OBS: INGEN .default([]) här. Zod's .default() gör fältet optional i
+  // det genererade JSON-schemat, vilket kraschar OpenAI strict mode med
+  // "'required' is required to be supplied and to be an array including
+  // every key in properties. Missing 'dossierNominations'." Brief-LLM:n
+  // ska alltid skicka fältet (tom array [] om inga nomineringar) — det
+  // står redan explicit i BRIEF_SYSTEM_PROMPT under NOMINATIONS.
   dossierNominations: z
     .array(
       z.object({
@@ -246,10 +252,9 @@ const siteBriefSchema = z.object({
       }),
     )
     .max(3)
-    .default([])
     .describe(
       "Up to 3 integration dossiers the request seems to need (auth, payments, db, ai, etc.). " +
-      "Only nominate when the prompt mentions a specific feature. Empty array if unsure.",
+      "Only nominate when the prompt mentions a specific feature. Empty array [] if unsure.",
     ),
 });
 
