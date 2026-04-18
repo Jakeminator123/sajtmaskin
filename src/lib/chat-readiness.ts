@@ -15,6 +15,13 @@ export type ChatReadinessItem = {
 export type ChatReadinessInfo = {
   versionId: string | null;
   lifecycleStatus?: string | null;
+  /**
+   * F2 vs F3 stage of the active version (`design` | `integrations`).
+   * Used by the builder UI to hide the env panel in F2 and show the
+   * "Bygg nu" trigger in its place. See
+   * `.cursor/rules/env-flow-f2-mute.mdc`.
+   */
+  lifecycleStage?: "design" | "integrations" | null;
   verificationSummary?: string | null;
   appProjectId?: string | null;
   requiredEnvKeys: string[];

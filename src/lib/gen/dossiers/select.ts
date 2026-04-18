@@ -27,17 +27,58 @@ import {
   getDossierInstructions,
   getScaffoldRecommendations,
 } from "./registry";
+import { computeDomainVeto, filterBlockedCategories } from "./domain-veto";
 import type { DossierEntry, DossierSelectionResult, SelectedDossier } from "./types";
 
-const DEFAULT_MAX_PER_CATEGORY = 1;
-const DEFAULT_MAX_TOTAL = 5;
-const PRIMARY_BOOST = 0.15;
-const SUGGESTED_BOOST = 0.05;
-// Cosine threshold below which a dossier is considered too weak a match
-// to be worth its prompt budget. Raised from 0.2 → 0.3 (2026-04-17) after
-// observing irrelevant Weaviate dossier surfacing for SaaS-bookkeeping
-// prompts at score ~0.22. See övrigt/logg-sammanstallning-2026-04-17.md M2.
-const EMBEDDING_MIN_SCORE = 0.3;
+// All thresholds below are env-overridable so the bygg-LLM får mer
+// utrymme att styra utan kodändringar. Defaults är medvetet konservativa
+// (höjda 2026-04-18) efter att Stripe + Upstash drogs in på en
+// "graveyard punk museum"-prompt utan motivering. Se docs/ENV.md.
+
+function readNumberEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function readCsvEnv(name: string): string[] {
+  const raw = process.env[name];
+  if (!raw) return [];
+  return raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+}
+
+const DEFAULT_MAX_PER_CATEGORY = readNumberEnv("DOSSIER_MAX_PER_CATEGORY", 1);
+const DEFAULT_MAX_TOTAL = readNumberEnv("DOSSIER_MAX_TOTAL", 3); // sänkt 5 → 3
+const PRIMARY_BOOST = readNumberEnv("DOSSIER_PRIMARY_BOOST", 0.15);
+const SUGGESTED_BOOST = readNumberEnv("DOSSIER_SUGGESTED_BOOST", 0.05);
+
+// Globalt cosine-golv. Höjt 0.30 → 0.45 efter observerad regression där
+// peripheral dossiers (Stripe, pageview-counter) drogs in på irrelevanta
+// prompts. Per-kategori-tröskel nedan kan vara striktare.
+const EMBEDDING_MIN_SCORE = readNumberEnv("DOSSIER_MIN_SCORE", 0.45);
+
+// Per-kategori cosine-golv. Risk-vägd: payments/auth/database/realtime är
+// dyra fel att dra in (drar med externa beroenden, env-vars, kodyta som
+// kan falla sönder), så de kräver tydligare semantisk match än rena
+// UI-dossiers.
+const CATEGORY_MIN_SCORE: Record<string, number> = {
+  payments: readNumberEnv("DOSSIER_MIN_SCORE_PAYMENTS", 0.55),
+  auth: readNumberEnv("DOSSIER_MIN_SCORE_AUTH", 0.55),
+  database: readNumberEnv("DOSSIER_MIN_SCORE_DATABASE", 0.5),
+  realtime: readNumberEnv("DOSSIER_MIN_SCORE_REALTIME", 0.5),
+  ai: readNumberEnv("DOSSIER_MIN_SCORE_AI", 0.5),
+};
+
+// Hard-gate: kategorier som ALDRIG ska injiceras för en given siteType.
+// Default: brochure-sajter (rena landningssidor/portföljer/info-sidor)
+// behöver sällan payments/auth/database — låt heuristiken stå utanför
+// vägen om brief-LLM:n inte explicit har bett om det.
+const BROCHURE_BLOCKED_CATEGORIES = new Set(
+  readCsvEnv("DOSSIER_BROCHURE_BLOCK_CATEGORIES").length > 0
+    ? readCsvEnv("DOSSIER_BROCHURE_BLOCK_CATEGORIES")
+    : ["payments", "auth", "database", "realtime"],
+);
 
 export interface SelectDossiersOptions {
   prompt: string;
@@ -229,11 +270,24 @@ export async function selectDossiersForRequest(
         embeddingsFile._meta.dimensions,
       );
       const byId = new Map(embeddingsFile.embeddings.map((e) => [e.id, e]));
+      const briefSiteType =
+        options.brief && typeof options.brief === "object"
+          ? (options.brief as { siteType?: unknown }).siteType
+          : null;
+      const isBrochure = typeof briefSiteType === "string" && briefSiteType.toLowerCase() === "brochure";
       for (const entry of active) {
         const vecEntry = byId.get(entry.id);
         if (!vecEntry) continue;
         const cosine = cosineSimilarity(queryVec, vecEntry.embedding);
-        if (cosine < EMBEDDING_MIN_SCORE) continue;
+        // Brochure hard-gate: skippa heuristiskt riskabla kategorier
+        // (payments/auth/database/realtime) helt på info-/landningssidor
+        // om brief-LLM:n inte explicit har bett om dem via mustHave/pages.
+        if (isBrochure && BROCHURE_BLOCKED_CATEGORIES.has(entry.category)) {
+          continue;
+        }
+        // Per-kategori cosine-golv (striktare för riskfyllda kategorier)
+        const categoryFloor = CATEGORY_MIN_SCORE[entry.category] ?? EMBEDDING_MIN_SCORE;
+        if (cosine < categoryFloor) continue;
         let score = cosine;
         let reason: SelectedDossier["reason"] = "embedding";
         if (primaryBoostIds.has(entry.id)) {
@@ -268,9 +322,26 @@ export async function selectDossiersForRequest(
     }
   }
 
+  // 3.5) Domain veto — drop candidates whose category clearly mismatches
+  // the inferred lightweight domain (hospitality/portfolio/blog/etc.)
+  // unless the prompt explicitly mentions a service in that category.
+  // Always-include items bypass the veto by construction (handled later).
+  // See `./domain-veto.ts` and BUGGRAPPORT-2026-04-18 § A2/A4.
+  const veto = computeDomainVeto({ prompt: options.prompt, brief: options.brief ?? null });
+  const vetoFiltered = filterBlockedCategories(scored, veto);
+  if (veto.detectedDomain && vetoFiltered.length < scored.length) {
+    const droppedIds = scored
+      .filter((s) => !vetoFiltered.some((v) => v.entry.id === s.entry.id))
+      .map((s) => `${s.entry.id} (${s.entry.category})`);
+    console.warn(
+      `[dossiers] domain-veto (${veto.detectedDomain}) dropped ${droppedIds.length} dossier(s):`,
+      droppedIds.join(", "),
+    );
+  }
+
   // 4) Dedup + cap per category and total. Always-include items skip this cap.
   const alreadyIncludedIds = new Set(alwaysSelected.map((s) => s.entry.id));
-  const filtered = scored.filter((s) => !alreadyIncludedIds.has(s.entry.id));
+  const filtered = vetoFiltered.filter((s) => !alreadyIncludedIds.has(s.entry.id));
   const capped = dedupTopN(filtered, maxPerCategory, Math.max(0, maxTotal - alwaysSelected.length));
 
   const all: SelectedDossier[] = [

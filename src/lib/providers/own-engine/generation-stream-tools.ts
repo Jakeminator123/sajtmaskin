@@ -1,6 +1,7 @@
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
+import type { PreviewLifecycleStage } from "@/lib/gen/preview/env-local";
 import { formatSSEEvent } from "@/lib/streaming";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, warnLog } from "@/lib/utils/debug";
 
 export type OwnEngineToolSseBridge = {
   enc: TextEncoder;
@@ -9,7 +10,15 @@ export type OwnEngineToolSseBridge = {
   toolSignaledProviders: Set<string>;
   /** Set true when a tool implies we should not treat "no code" as hard failure */
   setBlockingToolCall: () => void;
+  /**
+   * F2 (`design`) hard-mutes env/integration tool surface so the chat
+   * never asks the user to fill in env vars. F3 (`integrations`) lets
+   * those tools through. See `.cursor/rules/env-flow-f2-mute.mdc`.
+   */
+  lifecycleStage?: PreviewLifecycleStage;
 };
+
+const ENV_TOOLS_F2_BLOCKED = new Set(["suggestIntegration", "requestEnvVar"]);
 
 /**
  * Maps AI SDK tool invocations from the codegen stream into builder-facing SSE
@@ -30,6 +39,23 @@ export function emitOwnEngineToolCallSse(
   if (toolName) bridge.toolCallNames.add(toolName);
 
   const { enc, safeEnqueue, toolSignaledProviders, setBlockingToolCall } = bridge;
+  const lifecycleStage: PreviewLifecycleStage = bridge.lifecycleStage ?? "design";
+
+  // Defense-in-depth: even if env/integration tools accidentally leak into
+  // the model's tool surface in F2 (e.g. via dossier instructions or a
+  // forgotten gate), drop the resulting SSE events so they never reach
+  // the chat. The tool exposure gates in `create-chat-stream-post.ts` and
+  // `chat-message-stream-post.ts` are the primary defense; this is a net.
+  if (
+    lifecycleStage !== "integrations" &&
+    ENV_TOOLS_F2_BLOCKED.has(toolName)
+  ) {
+    warnLog("engine", "Dropped F2 env/integration tool-call (defense-in-depth)", {
+      toolName,
+      lifecycleStage,
+    });
+    return;
+  }
 
   if (toolName === "suggestIntegration") {
     const envVars = Array.isArray(toolArgs.envVars) ? (toolArgs.envVars as string[]) : [];

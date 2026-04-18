@@ -83,6 +83,27 @@ export interface PreviewPanelProps {
   onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
   /** Own-engine / chat: skicka AI‑fallback när deterministisk patch inte är möjlig. */
   onComposerAiFallback?: (payload: ComposerAiFallbackPayload) => void | Promise<void>;
+  /**
+   * F2 vs F3 stage of the active version. Controls visibility of the
+   * "Bygg nu" (F3 trigger) button in the preview chrome. F2 (`design`)
+   * shows the button; F3 (`integrations`) hides it (already in F3).
+   * See `.cursor/rules/env-flow-f2-mute.mdc`.
+   */
+  lifecycleStage?: "design" | "integrations" | null;
+  /** Called when F3 trigger reports missing tier-3 env keys. */
+  onF3MissingEnv?: (payload: {
+    parentVersionId: string;
+    missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
+  }) => void;
+  /** Called when F3 readiness check passes. */
+  onF3Ready?: (payload: {
+    parentVersionId: string;
+    requirements: Array<{
+      key: string;
+      name: string;
+      requiredRealEnvKeys: string[];
+    }>;
+  }) => void;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */

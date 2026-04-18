@@ -1,0 +1,51 @@
+---
+description: F2 får ALDRIG generera env-frågor i chatten. All env-trafik gates till F3.
+globs:
+  - src/lib/api/engine/chats/**
+  - src/lib/providers/own-engine/**
+  - src/lib/gen/preview/**
+  - src/lib/gen/detect-integrations.ts
+  - src/lib/gen/stream/shared-own-engine-helpers.ts
+  - src/lib/project-env-resolver.ts
+  - src/app/api/engine/chats/[chatId]/readiness/**
+  - src/app/builder/BuilderShellContent.tsx
+  - src/components/builder/ProjectEnvVarsPanel.tsx
+  - src/components/builder/preview-panel/**
+  - config/ai_models/4*-placeholders.env.txt
+---
+
+# Env-flöde i F2 är tyst
+
+**Hård regel:** F2 (`previewPolicy === "fidelity2"` / `lifecycleStage === "design"`) får ALDRIG producera env-frågor i chatten på vänster sida. Alla detekterade env-keys parkeras tyst i projektets `env.env`-fil. F3 är den enda touchpointen där användaren ombeds fylla i riktiga värden.
+
+## Varför
+
+Användaren bygger sin sajt visuellt i F2. Om en dossier eller doc råkar dra in en Stripe-import ska sajten ändå boota i preview (med `sk_test_...`-stub) — inte stoppa flödet med "fyll i STRIPE_SECRET_KEY i chatten". Den huvudvärken hör hemma i F3 där användaren explicit klickar "Bygg nu" och förväntar sig att hantera externa tjänster.
+
+## Fyra lager skydd (ändra inte ett lager utan att förstå de andra)
+
+1. **Tool exposure gate** — `requestEnvVar` / `suggestIntegration` exponeras inte för LLM:n när `lifecycleStage !== "integrations"`.
+   - [`src/lib/api/engine/chats/create-chat-stream-post.ts`](../../src/lib/api/engine/chats/create-chat-stream-post.ts) (init: `includeIntegrationSignals: false` hårt).
+   - [`src/lib/api/engine/chats/chat-message-stream-post.ts`](../../src/lib/api/engine/chats/chat-message-stream-post.ts) (follow-up: gatad på `parsedMeta.lifecycleStage === "integrations"`).
+2. **SSE filter (defense-in-depth, tool-call-pathen)** — om verktygen ändå råkar kallas (dossier-instruction etc.) droppas tool-events i [`src/lib/providers/own-engine/generation-stream-tools.ts`](../../src/lib/providers/own-engine/generation-stream-tools.ts) när `lifecycleStage === "design"`. Loggar warning så regression syns.
+3. **Panel mount-gate** — `<ProjectEnvVarsPanel>` renderas bara när `lifecycleStage === "integrations"` i [`src/app/builder/BuilderShellContent.tsx`](../../src/app/builder/BuilderShellContent.tsx). I F2 visas en kompakt rad som pekar på `env.env` + "Bygg nu"-knappen.
+4. **Post-finalize code-scan gate** — efter generationen scannar [`generation-stream-post-finalize.ts`](../../src/lib/providers/own-engine/generation-stream-post-finalize.ts) genererad kod efter integration-imports (Stripe, Upstash, etc.) via `getUnsignaledDetectedIntegrations`. Detta är en SEPARAT path från tool-call-pathen (lager 2) — den kunde tidigare emittera `integration`-SSE direkt utan livscykel-check. Nu gatad på `buildSpec.previewPolicy === "fidelity3"`. I F2 droppas detected-integrations + loggas warning. Regression: 2026-04-18 — Stripe + Upstash dök upp i F2-chatten på en museum-prompt.
+
+## Sidoeffekter som följer regeln
+
+- **`env.env`-fil i projektets filträd** — auto-genererad per generering ([`src/lib/gen/preview/project-env-file.ts`](../../src/lib/gen/preview/project-env-file.ts)). I F2 fylld med harmless + tier3-stubs så sajten bootar; i F3 strippas tier3-stubs och `projectEnvVars` mergas in. Användarens enda anledning att titta på filen är som spegling av vad som händer — riktiga värden fylls i via env-panelen, inte direkt i filen (ändringar skrivs över vid nästa generering).
+- **Lansering-spärren (readiness-route)** — gatas på `version.lifecycle_stage` i [`src/app/api/engine/chats/[chatId]/readiness/route.ts`](../../src/app/api/engine/chats/[chatId]/readiness/route.ts). F2 returnerar alltid `ready: true`. Deploy-route ([`src/app/api/v0/deployments/route.ts`](../../src/app/api/v0/deployments/route.ts)) gör fortfarande full check — deploy är bortom F3.
+- **Custom-env-detection** — `appendCustomEnvIntegrations` i [`src/lib/gen/detect-integrations.ts`](../../src/lib/gen/detect-integrations.ts) tar nu en `lifecycleStage`-option och skippas i F2. Manifest/registry-baserad detection körs alltid (de är explicita).
+- **F3-knappen ("Bygg nu")** — [`PreviewPanelF3Trigger`](../../src/components/builder/preview-panel/PreviewPanelF3Trigger.tsx) mountas i [`PreviewPanelChrome.tsx`](../../src/components/builder/preview-panel/PreviewPanelChrome.tsx) action-rad och visas bara när `lifecycleStage !== "integrations"`. `onMissingEnv` öppnar env-panelen (som blir synlig vid F3-promotering).
+
+## Förbjudna mönster
+
+- ❌ Lägga till `requestEnvVar` / `suggestIntegration` i tool-listan för F2 utan att också blockera dem i SSE-filter.
+- ❌ Auto-promotera till F3 baserat på prompt-keywords ("deploy", "production"). F3 ska bara triggas av explicit knappklick. Se redan borttagen `RELEASE_CANDIDATE_PATTERNS` i glossary.
+- ❌ Använda `inferPreviewPolicy` till annat än `"fidelity2"`-default. F3 ska komma från `previewPolicyOverride` via `/finalize-design`.
+- ❌ Visa `<ProjectEnvVarsPanel>`, läsa `missingEnvKeys` som blocker, eller emittera tool-events i F2.
+- ❌ Skriva env-frågor som vanlig text via `content`-events från LLM:n. Det undviks redan via system-prompten — om en regression införs, lägg till en post-filter på `content`-streamen som strippar mönster som matchar "lägg in env" / "ange API-nyckel".
+
+## Vid ändring
+
+Innan du rör något i listan ovan: läs igenom alla tre lager. En ändring i ett lager kan göra de andra meningslösa eller redundanta. Om du verkligen behöver ge F2 en env-touchpoint — fråga användaren först. Sannolikt finns det ett bättre ställe (en F3-tillägg, ett asynkront snack i panelen, eller en notis i `env.env`-filens header).

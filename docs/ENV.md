@@ -49,6 +49,9 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 | Statisk Visual QA (heuristik) | `SAJTMASKIN_VISUAL_QA` satt till `1` eller `true` | Efter att **alla** verify-lanekontroller passerat kan appen köra `analyzeVisualQuality` på exportabla filer (ingen screenshot). Resultatet syns i quality-gate-svar och kan loggas kompakt i `preflight:quality-gate`-meta. Standard är av. Läses direkt från `process.env` i `src/lib/gen/visual-qa.ts`, inte via `serverSchema` i `env.ts`. |
 | LLM reasoning/thinking | `SAJTMASKIN_DEFAULT_THINKING=true` | Kanonisk server-side default för reasoning/thinking-flaggan i kodgenerering. Gäller när klienten inte skickar ett explicit val. `SAJTMASKIN_SHOW_THINKING` stöds bara som legacy-alias under migrering av äldre miljöer. |
 | Dossier pipeline | `SAJTMASKIN_DOSSIER_PIPELINE=true` | Aktiverar runtime-läsning av `data/dossiers/_index/` (master.json, dossier-embeddings.json, scaffold-recommendations.json) och injicerar `## Available Dossiers` + `## Selected Dossier Instructions` i system-prompten. **På i development**, opt-in i production. Ersätter den avvecklade `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE` + `SAJTMASKIN_VARIANT_STRUCTURAL_FILES` (template-library, borttagen 2026-04-17). |
+| Dossier-trösklar | `DOSSIER_MAX_TOTAL=3`, `DOSSIER_MAX_PER_CATEGORY=1`, `DOSSIER_MIN_SCORE=0.45`, `DOSSIER_MIN_SCORE_PAYMENTS=0.55`, `DOSSIER_MIN_SCORE_AUTH=0.55`, `DOSSIER_MIN_SCORE_DATABASE=0.5`, `DOSSIER_MIN_SCORE_REALTIME=0.5`, `DOSSIER_MIN_SCORE_AI=0.5`, `DOSSIER_PRIMARY_BOOST=0.15`, `DOSSIER_SUGGESTED_BOOST=0.05` | Styr embedding-cosine-trösklarna och taken för dossier-injection per request. Höjda 2026-04-18 efter att Stripe + Upstash drogs in på en irrelevant museum-prompt. Per-kategori är striktare för dyra kategorier (payments/auth/database/realtime). Källa: [`src/lib/gen/dossiers/select.ts`](../src/lib/gen/dossiers/select.ts). |
+| Dossier brochure-gate | `DOSSIER_BROCHURE_BLOCK_CATEGORIES=payments,auth,database,realtime` | Hard-gate: kategorier som ALDRIG injiceras när brief-LLM:n klassar sajten som `siteType=brochure` (ren landningssida/info-sajt). Kommaseparerad lista. Sätt tom sträng för att stänga av gaten. |
+| Klient-autofix-tak | `NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT=2`, `NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON=1`, `NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS=300000` | Styr klient-driven autofix i [`useAutoFix.ts`](../src/lib/hooks/chat/useAutoFix.ts). Max-per-chat hindrar oändliga repair-loopar. Max-per-reason hindrar samma fel-typ från att försöka fler gånger än tillåtet. NEXT_PUBLIC_-prefix krävs eftersom värdena läses i klient-bundlen. |
 | Deferred extra init routes | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT=true` | Opt-in för att låta init-genereringar (inklusive `isFirstCodeGeneration`-fallet efter scaffold/contract-gate) planera flera routes men bara fullt realisera primärrouten direkt. Extrasidor blir då giltiga shells med tydlig `Skapa sida`-yta. På follow-up bevaras shells automatiskt om inte användaren explicit ber om att bygga ut en specifik sida. Default av. |
 | Lokal dev-logg | `SAJTMASKIN_DEV_LOG` styr `devLog` (se kod); `GENERATIONSLOGG` styr generationsloggen | Runtime-only, inte i Zod-schemat. `logs/generationslogg/` behåller bara de 3 senaste körningarna. `SAJTMASKIN_LOG` / `file-logger.ts` är borttagna (2026-04, oanvänd). |
 | Övrigt | Se `serverSchema` i `env.ts` | Allt som appen läser ska finnas där. |
@@ -104,6 +107,30 @@ Djupare ämnen:
 ## Genererade användarsajter (preview / VM runtime)
 
 Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **fas3-preview-and-deploy.md**, avsnitt om tier-2 preview `.env.local`.
+
+### Project env file (`env.env`) — användar­synlig miljöfil
+
+Varje genererad sajt får en egen `env.env`-fil i projektets filträd (syns i builderns filpanel). Den genereras av [`src/lib/gen/preview/project-env-file.ts`](../src/lib/gen/preview/project-env-file.ts) och **regenereras vid varje generering** så lokala ändringar skrivs över — riktiga värden ska in via env-panelen i F3.
+
+Filen tar bort behovet av att fråga användaren om env-variabler i chatten under F2:
+
+| Stage | Innehåll i `env.env` | Källor |
+|-------|---------------------|--------|
+| **F2** (`design`) | Alla harmless-placeholders **+** tier-3-stubs **+** projekt-preview-tokens. Sajten bootar med fake-värden så användaren kan klicka runt. Ingen interaktion krävs. | `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt` + `project-preview-env.ts` |
+| **F3** (`integrations`) | Tier-3-stubs strippas. Värden från env-panelen (`projectEnvVars` i DB) mergas in som "user"-lager. Saknade tier-3 nycklar surfar som blockers via [`src/lib/integrations/tier3-build-spec.ts`](../src/lib/integrations/tier3-build-spec.ts). | Som F2 utan tier-3 + DB-lagrade `projectEnvVars` + ev. modell-emitterad `.env.local` |
+
+`env.env` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — `env.env` är **användarsynlig spegling** + förklaringsdokument; värdena är samma. Detaljer: [`src/lib/gen/stream/finalize-version.ts`](../src/lib/gen/stream/finalize-version.ts) (kallar `injectProjectEnvFileIntoFilesJson`).
+
+### Regelkontrakt: F2-tystnad
+
+F2 får aldrig generera env-frågor i chatten. Detta är en hård regel — se [`.cursor/rules/env-flow-f2-mute.mdc`](../.cursor/rules/env-flow-f2-mute.mdc). Fyra lager skydd är på plats:
+
+1. **Tool exposure gate** — `requestEnvVar` / `suggestIntegration` exponeras inte för LLM:n i F2 ([`create-chat-stream-post.ts`](../src/lib/api/engine/chats/create-chat-stream-post.ts), [`chat-message-stream-post.ts`](../src/lib/api/engine/chats/chat-message-stream-post.ts)).
+2. **SSE filter** — om verktygen ändå råkar kallas droppas tool-events av [`generation-stream-tools.ts`](../src/lib/providers/own-engine/generation-stream-tools.ts) i F2 (defense-in-depth, tool-call-pathen).
+3. **Panel mount-gate** — `ProjectEnvVarsPanel` renderas bara när `lifecycleStage === "integrations"` ([`BuilderShellContent.tsx`](../src/app/builder/BuilderShellContent.tsx)). I F2 visas en kompakt rad som pekar på `env.env` + "Bygg nu"-knappen.
+4. **Post-finalize code-scan gate** — efter finalize scannar [`generation-stream-post-finalize.ts`](../src/lib/providers/own-engine/generation-stream-post-finalize.ts) genererad kod efter integrations-imports (Stripe, Upstash etc.). I F2 droppas resultatet (loggas som warning). I F3 emitteras integration-SSE som vanligt. Tillagt 2026-04-18 efter regression där Stripe+Upstash visades i F2-chatten på en museum-prompt.
+
+Lansering-spärren (readiness-route) gatas också på lifecycleStage så att F2 alltid returnerar `ready: true` oavsett vad som detekteras i koden.
 
 ---
 

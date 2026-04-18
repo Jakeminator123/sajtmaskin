@@ -123,6 +123,7 @@ export function PreviewPanelF3Trigger({
       variant="default"
       onClick={handleClick}
       disabled={isLoading}
+      title="Lyft sajten till F3 / fidelity 3 — då frågas du efter riktiga env-värden för externa integrationer (Stripe, Klarna, Redis m.fl.)."
       className={className}
     >
       {isLoading ? (
@@ -130,7 +131,7 @@ export function PreviewPanelF3Trigger({
       ) : (
         <Wand2 className="h-4 w-4" />
       )}
-      <span className="ml-1.5">Bygg integrationer</span>
+      <span className="ml-1.5">Bygg nu</span>
     </Button>
   );
 }

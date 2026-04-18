@@ -16,9 +16,11 @@
 
 /** Module specifiers that indicate a tier-3 backend SDK. */
 const TIER3_SDK_MODULES: readonly string[] = [
+  // Payments
   "stripe",
   "@stripe/stripe-js",
   "@stripe/react-stripe-js",
+  // Auth providers
   "@clerk/nextjs",
   "@clerk/clerk-sdk-node",
   "@clerk/clerk-react",
@@ -27,18 +29,54 @@ const TIER3_SDK_MODULES: readonly string[] = [
   "@auth/nextjs",
   "@auth0/nextjs-auth0",
   "@auth0/auth0-react",
+  // Database / backend
   "@supabase/supabase-js",
   "@supabase/ssr",
   "@supabase/auth-helpers-nextjs",
   "mongodb",
   "mongoose",
+  // Caching / queues
   "redis",
   "ioredis",
   "@upstash/redis",
   "@upstash/ratelimit",
+  "@upstash/qstash",
+  // Email
   "resend",
   "@react-email/render",
+  // AI
   "openai",
+  "@anthropic-ai/sdk",
+  // Search providers
+  "algoliasearch",
+  "@algolia/client-search",
+  "react-instantsearch",
+  "react-instantsearch-dom",
+  "instantsearch.js",
+  "meilisearch",
+  "@meilisearch/instant-meilisearch",
+  "typesense",
+  "typesense-instantsearch-adapter",
+  "@elastic/elasticsearch",
+  // Observability
+  "@sentry/nextjs",
+  "@sentry/node",
+  "@sentry/react",
+  "@sentry/browser",
+  // Vercel managed (real Vercel project bindings)
+  "@vercel/blob",
+  "@vercel/kv",
+  "@vercel/postgres",
+  "@vercel/edge-config",
+  // CMS providers
+  "@sanity/client",
+  "next-sanity",
+  "contentful",
+  "contentful-management",
+  "@storyblok/react",
+  "storyblok-js-client",
+  // Analytics (server SDKs — public NEXT_PUBLIC_ values handled by placeholders)
+  "googleapis",
 ];
 
 /**

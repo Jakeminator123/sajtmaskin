@@ -110,6 +110,9 @@ export function PreviewPanel({
   pendingPlacementItem = null,
   onPlacementComplete,
   onComposerAiFallback,
+  lifecycleStage = null,
+  onF3MissingEnv,
+  onF3Ready,
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const isCodeView = viewMode !== "preview";
@@ -908,6 +911,11 @@ export function PreviewPanel({
         showImagesDisabledWarning={showImagesDisabledWarning}
         showImagesUnsupportedWarning={showImagesUnsupportedWarning}
         showExternalWarning={showExternalWarning}
+        chatId={chatId}
+        versionId={versionId}
+        lifecycleStage={lifecycleStage}
+        onF3MissingEnv={onF3MissingEnv}
+        onF3Ready={onF3Ready}
       />
 
       {isCodeView ? (

@@ -15,6 +15,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PreviewPanelF3Trigger } from "./PreviewPanelF3Trigger";
 import { cn } from "@/lib/utils";
 
 type SurfaceDescriptor = {
@@ -72,6 +73,22 @@ interface PreviewPanelChromeProps {
   showImagesDisabledWarning: boolean;
   showImagesUnsupportedWarning: boolean;
   showExternalWarning: boolean;
+  /** F3 trigger context — undefined props hide the button. */
+  chatId?: string | null;
+  versionId?: string | null;
+  lifecycleStage?: "design" | "integrations" | null;
+  onF3MissingEnv?: (payload: {
+    parentVersionId: string;
+    missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
+  }) => void;
+  onF3Ready?: (payload: {
+    parentVersionId: string;
+    requirements: Array<{
+      key: string;
+      name: string;
+      requiredRealEnvKeys: string[];
+    }>;
+  }) => void;
 }
 
 export function PreviewPanelChrome({
@@ -118,7 +135,16 @@ export function PreviewPanelChrome({
   showImagesDisabledWarning,
   showImagesUnsupportedWarning,
   showExternalWarning,
+  chatId,
+  versionId,
+  lifecycleStage,
+  onF3MissingEnv,
+  onF3Ready,
 }: PreviewPanelChromeProps) {
+  const showF3Trigger =
+    typeof chatId === "string" &&
+    chatId.length > 0 &&
+    lifecycleStage !== "integrations";
   return (
     <div className="max-h-[40%] shrink-0 overflow-y-auto">
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
@@ -147,6 +173,15 @@ export function PreviewPanelChrome({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {showF3Trigger ? (
+            <PreviewPanelF3Trigger
+              chatId={chatId as string}
+              versionId={versionId ?? null}
+              onMissingEnv={onF3MissingEnv}
+              onReady={onF3Ready}
+              className="h-7 bg-violet-600 px-2 text-[12px] text-white hover:bg-violet-500"
+            />
+          ) : null}
           <Button
             variant="ghost"
             size="sm"

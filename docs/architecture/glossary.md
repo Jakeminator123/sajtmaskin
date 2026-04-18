@@ -227,7 +227,10 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | Tier3BuildSpec | Strukturerat F3-byggkontrakt (`src/lib/integrations/tier3-build-spec.ts`): per integration `requiredRealEnvKeys`, `placeholderOkEnvKeys`, `buildInstructions[]`, `setupGuide`. Renderas som `## Tier-3 Integration Build Plan` i F3-system-prompten. | kanonisk |
 | `placeholderHarmless` (per env-key) | Booleansk klassificering: harmlösa keys (Stripe-publishable, AUTH_SECRET, GA-id, search-only) får placeholdras även i F3. Tier-3-keys (DB-URL, Stripe-secret, Redis, OpenAI) stripas från F3-merge och kräver riktiga värden. | kanonisk |
 | Pre-VM Typecheck | Finalize-fas (`pre_vm_typecheck`, 2026-04) som kör `tsc --noEmit` mot en varm scaffold-`node_modules`-cache och vid TS-fel försöker en LLM-fix-pass innan filer går till VM. Fail-open vid kall cache. Default av (`SAJTMASKIN_PRE_VM_TYPECHECK`); F3 force-runs alltid. | kanonisk |
-| F2 SDK Guard | Mekanisk autofix-fixer (`tier3-sdk-guard-fixer`) som strippar tier-3 SDK-imports (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, Resend, …) från F2-output. Aktiveras endast vid `previewPolicy === "fidelity2"`. Lista byggs från `placeholder-harmless.ts`. | kanonisk |
+| F2 SDK Guard | Mekanisk autofix-fixer (`tier3-sdk-guard-fixer`) som strippar tier-3 SDK-imports (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, Resend, Algolia, Sentry, Sanity, Storyblok, …) från F2-output. Aktiveras endast vid `previewPolicy === "fidelity2"`. Lista i `tier3-sdk-guard-fixer.ts:TIER3_SDK_MODULES`. | kanonisk |
+| F2 Contract (system-prompt) | Hård sektion (`## Generation Stage: F2 / Design (HARD CONTRACT)`) som injiceras i system-prompten när `previewPolicy !== "fidelity3"`. Förbjuder modellen att importera tier-3 SDKs eller använda `process.env.X` för tier-3 keys, instruerar mock-data + visual placeholders för payment/auth/search/etc. Komplement till F2 SDK Guard som städar mekaniskt om modellen ändå läcker. | kanonisk |
+| Domain Veto (dossiers) | Hård filter ovanpå embedding-similaritet i `dossiers/select.ts`. När prompten detekteras som "lightweight" (hospitality, restaurant, portfolio, blog, event, charity, small-business-brochure) blockeras dossier-kategorier som inte hör hemma där (`payments`, `auth`, `database`, `cms`, `realtime`, `ai`, `search`) — även om embedding säger ja. Explicit prompt-keywords ("Stripe", "inloggning", …) unblockar respektive kategori. Modul: `src/lib/gen/dossiers/domain-veto.ts`. | kanonisk |
+| Project env file (`env.env`) | Auto-genererad användarsynlig miljöfil som mountas i den genererade sajtens filträd (`versions.files_json`). Innehåller harmless + tier-3 stub placeholders i F2 så sajten bootar utan användarinteraktion; i F3 strippas tier-3 stubs och `projectEnvVars` mergas in som user-lager. Modul: `src/lib/gen/preview/project-env-file.ts`. Ej att förväxla med preview-VM:ns interna `.env.local` som skrivs av `buildPreviewEnvLocalContents`. | kanonisk |
 
 ---
 
@@ -280,7 +283,8 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 1. **Plattformens env:** repoets `.env*`, Vercel env vars, `src/lib/env.ts` + `config/env-policy.json`.
 2. **Genererad sajts env:** egen `.env.local` i byggprojektet/previewmiljön.
-3. **Felsökningsordning:** preview → plattforms-env.
+3. **Project env file (`env.env`):** användarsynlig miljöfil i den genererade sajtens filträd. Auto-genererad av `src/lib/gen/preview/project-env-file.ts` och mountad i `versions.files_json` av `injectProjectEnvFileIntoFilesJson` (kallas i `finalize-version.ts`). Innehåller harmless + tier3-stub placeholders i F2 (så sajten bootar utan användarinteraktion); i F3 strippas tier3-stubs och `projectEnvVars` mergas in som user-lager. Filens enda roll är att hålla F2-chatten tyst — riktiga värden fylls i via env-panelen som mountas först i F3. Se [`docs/ENV.md`](../ENV.md) § "Project env file".
+4. **Felsökningsordning:** preview → project env file → plattforms-env.
 
 ---
 

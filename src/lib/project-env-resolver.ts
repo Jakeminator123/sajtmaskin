@@ -22,7 +22,10 @@
  */
 
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
-import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
+import {
+  loadPlaceholderKeySet,
+  type PreviewLifecycleStage,
+} from "@/lib/gen/preview/env-local";
 import {
   detectIntegrationsFromVersionFiles,
   type DetectedIntegration,
@@ -123,9 +126,11 @@ function resolveEnvRequirementsFromDetected(
 export function resolveEnvRequirementsFromVersionFiles(
   files: Array<{ path: string; content: string }>,
   env: ResolvedProjectEnv,
+  options: { lifecycleStage?: PreviewLifecycleStage } = {},
 ): ResolvedProjectEnvRequirements {
   const detectedIntegrations = detectIntegrationsFromVersionFiles(
     files.map((f) => ({ name: f.path, content: f.content })),
+    { lifecycleStage: options.lifecycleStage },
   );
   return resolveEnvRequirementsFromDetected(detectedIntegrations, env);
 }

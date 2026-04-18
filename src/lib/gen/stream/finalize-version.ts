@@ -32,6 +32,7 @@ import {
 } from "./finalize-preflight";
 import { mergeGeneratedProjectFiles } from "./finalize-merge";
 import { injectIntegrationManifestIntoFilesJson } from "@/lib/integrations/inject-integration-manifest";
+import { injectProjectEnvFileIntoFilesJson } from "@/lib/gen/preview/project-env-file";
 import {
   buildPersistedOrchestrationSnapshot,
   mergePersistedOrchestrationSnapshots,
@@ -868,7 +869,35 @@ async function runFinalizeFastPath(params: {
     originalPrompt,
   });
   filesJson = preflightResult.filesJson;
-  filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
+  const envLifecycleStage =
+    buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design";
+  filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
+    lifecycleStage: envLifecycleStage,
+  });
+
+  // Cache appProjectId across both injection callsites (initial + post
+  // partial-file-repair). Lookup is lazy because most generations don't
+  // hit the repair branch.
+  let cachedAppProjectId: string | null | undefined;
+  const resolveAppProjectId = async (): Promise<string | null> => {
+    if (cachedAppProjectId !== undefined) return cachedAppProjectId;
+    try {
+      const row = await chatRepo.getChat(chatId);
+      const pid =
+        typeof row?.project_id === "string" && row.project_id.trim()
+          ? row.project_id.trim()
+          : null;
+      cachedAppProjectId = pid;
+      return pid;
+    } catch {
+      cachedAppProjectId = null;
+      return null;
+    }
+  };
+  filesJson = await injectProjectEnvFileIntoFilesJson(filesJson, {
+    appProjectId: await resolveAppProjectId(),
+    lifecycleStage: envLifecycleStage,
+  });
   let finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
   let preflightFileCount = preflightResult.preflightFileCount;
   let preflightIssues = preflightResult.preflightIssues;
@@ -925,7 +954,13 @@ async function runFinalizeFastPath(params: {
         originalPrompt,
       });
       filesJson = preflightResult.filesJson;
-      filesJson = injectIntegrationManifestIntoFilesJson(filesJson);
+      filesJson = injectIntegrationManifestIntoFilesJson(filesJson, {
+        lifecycleStage: envLifecycleStage,
+      });
+      filesJson = await injectProjectEnvFileIntoFilesJson(filesJson, {
+        appProjectId: await resolveAppProjectId(),
+        lifecycleStage: envLifecycleStage,
+      });
       finalizedFilesForPreview = preflightResult.finalizedFilesForPreview;
       preflightFileCount = preflightResult.preflightFileCount;
       preflightIssues = preflightResult.preflightIssues;

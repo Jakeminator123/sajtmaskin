@@ -556,6 +556,11 @@ export function ProjectEnvVarsPanel({
     loadMarketplaceMetadata,
   ]);
 
+  // These listeners only attach when the panel is mounted, and the panel
+  // is mount-gated to F3 (`integrations`) in `BuilderShellContent.tsx`.
+  // That means `project-env-vars-open` / `integrations-panel-open` events
+  // emitted during F2 are no-ops by construction — there is no listener
+  // to receive them. See `.cursor/rules/env-flow-f2-mute.mdc`.
   useEffect(() => {
     const handleEnvOpen = (event: Event) => {
       const customEvent = event as CustomEvent<ProjectEnvVarsOpenDetail>;

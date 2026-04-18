@@ -446,6 +446,51 @@ export function buildDynamicContext(
     parts.push("## Custom Instructions (from the user)", "", trimmedCustom, "");
   }
 
+  // ── F2 / Design Stage Contract (HARD) ─────────────────────────────────
+  // F2 = visual fidelity stage. The user is iterating on look-and-feel,
+  // NOT on backend integrations. Tier-3 imports/process.env references
+  // bloat output, leak imports the user didn't ask for, and force the
+  // builder UI into "fill in env vars"-mode which we explicitly want
+  // to avoid. F3 ("Bygg nu" / fidelity3) is when integrations are wired
+  // in — and only when the user has clicked that button.
+  // See `.cursor/rules/env-flow-f2-mute.mdc`.
+  if (buildSpec?.previewPolicy !== "fidelity3") {
+    parts.push(
+      "## Generation Stage: F2 / Design (HARD CONTRACT)",
+      "",
+      "You are generating a **visual design preview**. The user wants to see, click, and iterate on the UI. They have NOT asked you to wire in any external services.",
+      "",
+      "**FORBIDDEN in F2 — even if a dossier example shows it, even if the prompt mentions a service by name unless the user explicitly asks for backend wiring:**",
+      "",
+      "- Do NOT `import` any of these packages:",
+      "  - Payments: `stripe`, `@stripe/stripe-js`, `@stripe/react-stripe-js`",
+      "  - Auth: `@clerk/*`, `next-auth`, `@auth/*`, `@auth0/*`",
+      "  - Database: `@supabase/*`, `mongodb`, `mongoose`",
+      "  - Cache/queues: `redis`, `ioredis`, `@upstash/*`",
+      "  - Email: `resend`, `@react-email/render`",
+      "  - AI: `openai`, `@anthropic-ai/sdk`",
+      "  - Search: `algoliasearch`, `@algolia/*`, `meilisearch`, `@meilisearch/*`, `typesense`, `@elastic/elasticsearch`, `react-instantsearch*`, `instantsearch.js`",
+      "  - Observability: `@sentry/*`",
+      "  - Vercel managed: `@vercel/blob`, `@vercel/kv`, `@vercel/postgres`, `@vercel/edge-config`",
+      "  - CMS: `@sanity/*`, `next-sanity`, `contentful`, `@storyblok/*`, `storyblok-js-client`",
+      "  - Server APIs: `googleapis`",
+      "- Do NOT use `process.env.STRIPE_*`, `process.env.SUPABASE_*`, `process.env.CLERK_*`, `process.env.RESEND_*`, `process.env.SANITY_*`, `process.env.GOOGLE_CLIENT_*`, `process.env.AUTH_SECRET`, or any other tier-3 secret. Public `NEXT_PUBLIC_GA_ID` etc. is fine if the user wanted analytics.",
+      "- Do NOT emit a `.env.local` listing tier-3 keys.",
+      "- Do NOT add Stripe API routes (`/api/stripe/*`, `/api/checkout/*`), webhooks (`/api/webhooks/*`), or auth callbacks unless explicitly requested.",
+      "",
+      "**INSTEAD in F2, for any 'backend' need:**",
+      "",
+      "- Mock all data inline as TypeScript constants: `const ROOMS = [{ id: \"1\", name: \"Skogssvit\", price: 1290 }, ...]`.",
+      "- Forms: use `useState` + `toast.success(\"Bokningen mottagen!\")` on submit. No POST endpoint, no DB.",
+      "- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success(\"Inloggad (demo)\")` on submit. No real session.",
+      "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg nu' i previewpanelen.\" No Stripe, no API call.",
+      "- Search: client-side `Array.filter()` over the inline mock data.",
+      "",
+      "Why: the user will click **\"Bygg nu\"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.",
+      "",
+    );
+  }
+
   // ── Build Intent ────────────────────────────────────────────────────────
   const guidance = BUILD_INTENT_GUIDANCE[intent];
   // Variant resolution: production callers (orchestrate) always pass

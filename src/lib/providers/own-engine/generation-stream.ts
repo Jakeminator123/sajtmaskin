@@ -355,6 +355,10 @@ export function createOwnEngineGenerationStream(
                     setBlockingToolCall: () => {
                       sawBlockingToolCall = true;
                     },
+                    lifecycleStage:
+                      buildSpec.previewPolicy === "fidelity3"
+                        ? "integrations"
+                        : "design",
                   },
                   toolData,
                 );

@@ -185,6 +185,19 @@ Genereras initialt av `scripts/dossiers/build-scaffold-recommendations.ts` baser
 
 Endast `_status: "active"` dossiers exponeras i runtime — `master.json` har båda men `by-category.json` filtrerar till active.
 
+### Skelett-drafts (utan filer) städas normalt
+
+Drafts som bara består av en stomme (manifest med `files: []`, okurerad `instructions.md` med `_Curator: replace` -platshållare, ingen `components/`-mapp) är **scrape-skelett som väntar på pipelinen**. De når aldrig runtime — `getActiveDossiers()` filtrerar bort dem — men de tar plats på disk och visas missvisande i `scaffold-recommendations.json`. Kommandot för att ta tillbaka dem till liv:
+
+```bash
+npm run dossiers:clone-repos     # klona Vercel-repots filer till _repo-cache/
+npm run dossiers:extract-files   # plocka relevanta files till data/dossiers/<id>/components/
+npm run dossiers:curate          # LLM skriver instructions + flippar _status: "active"
+npm run dossiers:rebuild         # bygger om master + recommendations + embeddings
+```
+
+Om en draft inte är värd pipelinen är det säkert att radera mappen helt — den kan alltid scrape:as om från Vercel-katalogen via `npm run dossiers:scrape`.
+
 ## AI-kurering (`scripts/dossiers/auto-curate.ts`)
 
 GPT-5.4 kan ta en draft (post-extraktion) → produktionsklar dossier:
