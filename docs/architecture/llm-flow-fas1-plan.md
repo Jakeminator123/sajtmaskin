@@ -148,7 +148,7 @@ Idag finns redan `composeEngineSystemPrompt()` som limmar `prompt-core/` + dynam
 | `config/prompt-static/` (16 filer) | ✅ Raderat 2026-04-18 |
 | `backoffice/pages/prompt_static.py` | ✅ Raderat 2026-04-18 |
 | Dead loader-fallback i `static-core-loader.ts` | ✅ Raderat 2026-04-18 |
-| Backoffice `template_lib_json` + `scaffold_lifecycle.py` template-library-refs | ⏳ Återstår |
+| Backoffice `template_lib_json` + `scaffold_lifecycle.py` template-library-refs | ⏳ Delvis (rensning av `_ops_impl.py` Catalog-block + `app_main.py`-caption + DEPRECATED-kommentar i `shared.py` klart 2026-04-18; `scaffold_lifecycle.py` lämnad pga storlek — defensivt skrivet, kraschar inte) |
 | Dossier-pipelinens nuvarande `clone-draft-repos.ts` (utan subpath-stöd) | ⏳ Utvidgas, ej raderas |
 
 ---

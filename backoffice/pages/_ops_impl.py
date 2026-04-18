@@ -356,38 +356,9 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
             st.warning("Kunde inte läsa `config/prompt-heuristic-tokens.json`.")
         st.divider()
 
-        catalog = read_json(ctx.catalog_json)
-        template_lib = read_json(ctx.template_lib_json)
-        col1, col2 = st.columns(2)
-
-        if catalog and isinstance(catalog, dict):
-            entries = catalog.get("entries", [])
-            col1.metric("Catalog entries", len(entries))
-            curated = [e for e in entries if e.get("verdict") == "valid"]
-            st.subheader(f"Kuraterade templates ({len(curated)})")
-            cat_rows = []
-            for e in curated[:100]:
-                cat_rows.append(
-                    {
-                        "title": e.get("title", ""),
-                        "category": e.get("categorySlug", ""),
-                        "score": e.get("qualityScore", 0),
-                        "scaffoldIds": ", ".join(e.get("recommendedScaffoldIds", [])),
-                        "verdict": e.get("verdict", ""),
-                    }
-                )
-            if cat_rows:
-                st.dataframe(pd.DataFrame(cat_rows), width="stretch", hide_index=True)
-        else:
-            col1.metric("Catalog", "saknas")
-            st.info("catalog.json hittades inte. Kör pipeline: `npm run template-library:build`")
-
-        if template_lib and isinstance(template_lib, dict):
-            tl_entries = template_lib.get("entries", [])
-            col2.metric("Template-library entries", len(tl_entries))
-        else:
-            col2.metric("Template-library", "saknas")
-
+        # Catalog + template-library-statistiken har avlägsnats — den gamla
+        # external-template-pipen togs bort i 4ba06d96e (2026-04-17). Dossier-
+        # pipen är källan nu (se "Dossiers (legoklossar)"-sidan).
         research_data = read_json(ctx.research_json)
         if research_data and isinstance(research_data, dict):
             scaffolds_research = research_data.get("scaffolds", {})
@@ -397,8 +368,8 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
                     st.json(data)
         else:
             st.info(
-                "scaffold-research.generated.json saknas — den gamla template-library-pipen "
-                "är avvecklad. Dossier-pipen (`Dossiers (legoklossar)`-sidan) är källan nu."
+                "Scaffold-research-data saknas. Den gamla template-library-pipen "
+                "är avvecklad — använd **Dossiers (legoklossar)** + **Källhälsa**-fliken där."
             )
 
     elif page == "Pipeline":

@@ -30,6 +30,10 @@ class BackofficeContext:
     research_json: Path
     embeddings_json: Path
     catalog_json: Path
+    # DEPRECATED: pekar på src/lib/gen/template-library/template-library.generated.json
+    # som togs bort 2026-04-17 (4ba06d96e). Behålls bara för att inte bryta
+    # scaffold_lifecycle.py (defensivt skrivet, läser tomt om filen saknas).
+    # Ny kod ska använda dossier-master.json via `data/dossiers/_index/master.json`.
     template_lib_json: Path
     eval_latest: Path
     schema_md: Path
