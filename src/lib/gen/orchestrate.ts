@@ -54,7 +54,7 @@ import {
   computeLineageHash,
   serializePackageForDump,
 } from "./generation-input-package";
-import { deriveBuildSpec, isEffectiveInit, type BuildSpec } from "./build-spec";
+import { deriveBuildSpec, type BuildSpec } from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
 import { FEATURES } from "@/lib/config";
 import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";

@@ -82,8 +82,9 @@ Viktigt:
 - `capability-inference.ts` skapar `## Detected Capabilities`.
 - `## Your Toolkit` byggs fran lokal/saker shadcn-yta.
 - `## Component References` adderar capability-matchade exempel.
-- `## Structural References (this variant)` kan injiceras vid init nar
-  `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`.
+- ~~`## Structural References (this variant)` via `SAJTMASKIN_VARIANT_STRUCTURAL_FILES`~~
+  — **avvecklad 2026-04-17**. Strukturella exempel hanteras nu via
+  dossier-pipen (`data/dossiers/_index/`).
 
 ---
 
