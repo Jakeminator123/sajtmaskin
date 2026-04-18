@@ -59,6 +59,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useCallback, useEffect, useId, useState } from "react";
+import { BuilderProjectMenu } from "@/components/builder/BuilderProjectMenu";
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -101,6 +102,7 @@ export function BuilderHeader(props: {
 
   chatId: string | null;
   activeVersionId: string | null;
+  appProjectId: string | null;
 
   onOpenImport: () => void;
   onDeployProduction: () => void;
@@ -164,6 +166,7 @@ export function BuilderHeader(props: {
     onToggleFigmaInput,
     chatId,
     activeVersionId,
+    appProjectId,
     onOpenImport,
     onDeployProduction,
     onDomainSearch,
@@ -639,6 +642,13 @@ export function BuilderHeader(props: {
           </Button>
         ) : null}
 
+        {!compact && hasMounted && isAuthenticated && (
+          <BuilderProjectMenu
+            currentProjectId={appProjectId}
+            disabled={isBusy}
+          />
+        )}
+
         {!compact && (
           <Button
             variant="outline"
@@ -714,6 +724,14 @@ export function BuilderHeader(props: {
                 <Plus className="mr-2 h-4 w-4" />
                 Ny chat
               </DropdownMenuItem>
+              {hasMounted && isAuthenticated && (
+                <DropdownMenuItem asChild>
+                  <a href="/projects" className="flex items-center">
+                    <FolderGit2 className="mr-2 h-4 w-4" />
+                    Tidigare projekt
+                  </a>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 disabled={!canSaveProject || isBusy || isSavingProject}
                 onSelect={(event) => {

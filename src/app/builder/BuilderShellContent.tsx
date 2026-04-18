@@ -1755,6 +1755,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onToggleFigmaInput={() => setIsFigmaInputOpen((value) => !value)}
         chatId={vm.chatId}
         activeVersionId={vm.activeVersionId}
+        appProjectId={vm.appProjectId}
         onOpenImport={() => {
           vm.setIsImportModalOpen(true);
         }}
