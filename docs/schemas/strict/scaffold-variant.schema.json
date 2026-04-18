@@ -90,7 +90,7 @@
       "items": { "type": "string", "minLength": 10 },
       "minItems": 1,
       "maxItems": 5,
-      "description": "Directives injected as 'Scaffold hints' in the system prompt. Be SPECIFIC to this variant, not generic."
+      "description": "Short cues injected as '- Variant cues:' bullets in the '## Scaffold Variant (this generation)' block of the system prompt. Be SPECIFIC to this variant, not generic. The first 3 entries are rendered."
     },
     "signaturePatterns": {
       "type": "object",
