@@ -152,3 +152,5 @@ data/dossiers/_index/dossier-embeddings.json
 data/dossiers/_repo-cache/**
 data/dossiers/_index/master.json
 data/dossiers/_index/by-category.json
+# Auto-curate rollback-backup — gitignored ocksa, ingen runtime-konsumerar
+data/dossiers/*/_removed/**
