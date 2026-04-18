@@ -17,6 +17,10 @@
     {
       "heading": "Cormorant Garamond",
       "body": "Raleway"
+    },
+    {
+      "heading": "EB Garamond",
+      "body": "Outfit"
     }
   ],
   "signatureMotif": "editorial framing, premium contrast, and restrained luxury accents",
@@ -57,7 +61,8 @@
     "accent": "oklch(0.55 0.06 40)",
     "border": "oklch(0.3 0.01 45)",
     "ring": "oklch(0.78 0.1 85)",
-    "radius": "1.2rem"
+    "radius": "1.2rem",
+    "bodyBackgroundImage": "radial-gradient(ellipse at top, color-mix(in oklab, var(--color-primary) 14%, transparent) 0%, transparent 38%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-accent) 18%, transparent) 0%, transparent 32%)"
   },
   "sourceTemplateIds": [
     "portfolio-magic-portfolio-for-next-js",

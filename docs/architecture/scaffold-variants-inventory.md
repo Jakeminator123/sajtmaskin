@@ -44,13 +44,15 @@
 
 ### 2.2 `landing-page` (5 variants — bredast)
 
-| Variant | Default | colorMode | Heading / Body | signatureMotif | Guidance-kvalitet |
+> **Uppdaterad 2026-04-18:** Alla landing-page-varianter har nu **2 fontPairings** (primär + alternativ) så Brief-LLM kan välja det som passar prompten. `editorial-lux` fick också `bodyBackgroundImage` (subtil guld-glow) — tidigare flat-svart trots motif:ens "atmospheric, premium contrast"-anspråk.
+
+| Variant | Default | colorMode | Heading / Body (primär · alt) | signatureMotif | Guidance-kvalitet |
 |---|---|---|---|---|---|
-| `corporate-grid` | ✓ | light | Manrope / Inter | precise grid alignment, neutral surfaces, and partner-proof rhythm | 🟢 **handredigerad referens** |
-| `warm-local` | – | light | DM Serif Display / DM Sans | warm tints, rounded surfaces, and softly layered cards | 🔴 sectionInventory har "pricing" — fel för café/frisör |
-| `bold-startup` | – | dark | Space Grotesk / Inter | high-contrast headlines, sharp gradients, velocity-driven proof blocks | 🟡 generic |
-| `editorial-lux` | – | dark | Cormorant Garamond / Raleway | editorial framing, premium contrast, restrained luxury accents | 🟡 generic (article-list-mall) |
-| `nature-flow` | – | light | Fraunces / Nunito Sans | organic curves, earth gradients, natural contrast | 🔴 sectionInventory har "pricing" + sourceTemplates `documentation-taxonomy` |
+| `corporate-grid` | ✓ | light | Manrope / Inter · Plus Jakarta Sans / IBM Plex Sans | precise grid alignment, neutral surfaces, and partner-proof rhythm | 🟢 **handredigerad referens** |
+| `warm-local` | – | light | DM Serif Display / DM Sans · Lora / Karla | warm tints, rounded surfaces, and softly layered cards | 🔴 sectionInventory har "pricing" — fel för café/frisör |
+| `bold-startup` | – | dark | Space Grotesk / Inter · Bricolage Grotesque / Plus Jakarta Sans | high-contrast headlines, sharp gradients, velocity-driven proof blocks | 🟡 generic |
+| `editorial-lux` | – | dark | Cormorant Garamond / Raleway · EB Garamond / Outfit | editorial framing, premium contrast, restrained luxury accents | 🟡 generic (article-list-mall) |
+| `nature-flow` | – | light | Fraunces / Nunito Sans · Source Serif 4 / Karla | organic curves, earth gradients, natural contrast | 🔴 sectionInventory har "pricing" + sourceTemplates `documentation-taxonomy` |
 
 **Bedömning:** Bredd är värdefull. **`corporate-grid`** är referensen för hur en handredigerad variant ska se ut (specifika styleRules om "12-column grid", specifika sectionInventory). Övriga fyra har bra design-axes men generiska guidance-fält.
 

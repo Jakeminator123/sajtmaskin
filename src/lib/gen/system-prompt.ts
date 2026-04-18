@@ -395,7 +395,14 @@ function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): str
     .filter(([, value]) => Boolean(value))
     .map(([token, value]) => `  - ${token}: ${value}`);
   if (tokens.bodyBackgroundImage) {
-    lines.push(`  - background-image: ${tokens.bodyBackgroundImage}`);
+    // bodyBackgroundImage is NOT a CSS variable — it's a body-styling
+    // recipe. Emit it under its own sub-bullet with an explicit application
+    // hint so the model adds it to `body { background-image: … }` in
+    // app/globals.css rather than treating it as a stray --token.
+    lines.push(
+      `  - **Body background recipe** (apply on \`body { background-image: ... }\` in \`app/globals.css\`):`,
+      `    - ${tokens.bodyBackgroundImage}`,
+    );
   }
   return lines;
 }
@@ -574,10 +581,12 @@ export function buildDynamicContext(
         .join(", or ");
       parts.push(`- **Suggested font pairings:** ${pairStr} (via next/font/google)`);
       const importHints: string[] = [];
-      for (const pair of effectiveVariant.fontPairings.slice(0, 1)) {
+      const seenImportNames = new Set<string>();
+      for (const pair of effectiveVariant.fontPairings) {
         for (const name of [pair.heading, pair.body]) {
           const importName = resolveGoogleFontImportName(name);
-          if (importName && importName !== name) {
+          if (importName && importName !== name && !seenImportNames.has(importName)) {
+            seenImportNames.add(importName);
             importHints.push(`\`${name}\` → \`import { ${importName} } from "next/font/google"\``);
           }
         }

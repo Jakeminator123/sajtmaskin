@@ -808,7 +808,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 env.env
               </code>{" "}
               för det här projektet. Klicka{" "}
-              <span className="text-foreground font-medium">"Bygg nu"</span> i
+              <span className="text-foreground font-medium">&quot;Bygg nu&quot;</span> i
               previewen för att fylla i riktiga värden för externa
               integrationer.
             </div>
