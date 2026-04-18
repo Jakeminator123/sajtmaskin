@@ -115,7 +115,7 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 | Checkpoint | Kommando |
 |---|---|
 | Brief returnerar nomineringar | Trigga generation, kolla `data/prompt-dumps/orchestration-dynamic/generation-input-package.json` för `brief.scaffoldNomination/variantNomination/dossierNominations` |
-| Drift loggas | Sök terminal-output efter `[orchestrate] scaffold_drift`, `variant_drift`, `dossier_drift` |
+| Drift loggas | Sök terminal-output efter `[orchestrate] scaffold_drift`, `variant_drift`, `dossier_drift`. Brief-LLM-stavfel (id som inte finns i registry) loggas separat som `scaffold_unknown_brief_nomination` så äkta drift-signaler inte drunknar. |
 | Dossier-pick fungerar | `npm run dossiers:smoke-prompt` |
 | Verbatim-block syns | Sök `## Dossier Files To Emit Verbatim` i `data/prompt-dumps/own-engine-codegen/full-system.md` |
 | Källhälsa fungerar | `npm run dossiers:compat` (ska visa ok=N stora antal nu) |
