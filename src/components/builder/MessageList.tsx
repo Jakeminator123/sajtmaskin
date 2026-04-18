@@ -439,14 +439,55 @@ export const MessageList = memo(MessageListComponent);
 /**
  * CollapsibleUserMessage - Truncates long user messages (especially shadcn/ui block prompts)
  * Shows first few lines with expand button for long technical messages.
+ *
+ * Special-case: server- och klient-driven autofix-prompter (start med
+ * "AUTO-FIX REQUEST — TARGETED REPAIR") är interna repair-instruktioner
+ * till modellen och ska ALDRIG renderas som vanlig användarchat-text.
+ * De visas som en kompakt status-rad med expanderbart innehåll för
+ * felsökning.
  */
 function CollapsibleUserMessage({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Check if this is a long technical message (shadcn block prompt pattern)
-  const isTechnicalPrompt = content.includes("---") && content.includes("Registry files");
   const lineCount = content.split("\n").length;
   const charCount = content.length;
+
+  const isAutoFixPrompt = content.trimStart().startsWith("AUTO-FIX REQUEST");
+  if (isAutoFixPrompt) {
+    return (
+      <div className="space-y-2">
+        <div className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs">
+          <Loader2 className="h-3 w-3" />
+          Automatisk reparation körs
+        </div>
+        {isExpanded ? (
+          <div className="space-y-2">
+            <MessageResponse>
+              <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+            </MessageResponse>
+            <button
+              onClick={() => setIsExpanded(false)}
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+            >
+              <ChevronUp className="h-3 w-3" />
+              Dölj reparations-prompt
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+          >
+            <ChevronDown className="h-3 w-3" />
+            Visa intern reparations-prompt ({lineCount} rader)
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Check if this is a long technical message (shadcn block prompt pattern)
+  const isTechnicalPrompt = content.includes("---") && content.includes("Registry files");
 
   // Only collapse if message is long (>500 chars or >10 lines) and contains technical content
   const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);

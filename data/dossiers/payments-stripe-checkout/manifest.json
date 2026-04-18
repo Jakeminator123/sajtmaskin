@@ -89,9 +89,11 @@
     "saas"
   ],
   "_source": "hand-curated",
-  "_status": "active",
+  "_status": "source-archived",
   "_curatedAt": "2026-04-18T02:43:48.958Z",
   "_curatedBy": "auto-curate.ts",
+  "_statusUpdatedAt": "2026-04-18T11:00:00.000Z",
+  "_statusUpdatedReason": "Auto-flagged source-archived 2026-04-18 efter att dossiern injicerades på irrelevanta brochure-prompts. Originalflaggningen (deprecationReason nedan) erkändes inte av runtime-filtret eftersom _status fortfarande var 'active'. Re-curate mot _replacementUrl innan den markeras active igen.",
   "_deprecationReason": "Source repo vercel/nextjs-subscription-payments was archived on GitHub jan 2025 (449d ago). Vercel's own template page links to the replacement (see _replacementUrl). Re-curate against the new repo before marking active again. Current dossier code still works — it's just not aligned with Next 16 / latest Stripe SDK patterns.",
   "_replacementUrl": "https://github.com/nextjs/saas-starter"
 }

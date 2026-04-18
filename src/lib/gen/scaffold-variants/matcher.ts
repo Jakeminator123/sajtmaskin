@@ -18,7 +18,13 @@ function scoreVariant(
   styleKeywordsLower: string[],
   toneKeywordsLower: string[],
 ): number {
-  let score = variant.default ? 1 : 0;
+  // Tidigare: `let score = variant.default ? 1 : 0;` — gav default-varianten
+  // en poäng-fördel även när inga keywords matchade. Konsekvens: för prompts
+  // utan tydliga keyword-träffar (t.ex. "graveyard punk museum") vann alltid
+  // `corporate-grid` på sin default-flagga, vilket gav bristfällig stilmatch.
+  // Nu låter vi keyword/embedding-resultatet bestämma ensamt; vid total
+  // tie faller seed-hash-pickern (caller) tillbaka till första kandidaten.
+  let score = 0;
 
   let keywordHits = 0;
   for (const keyword of variant.keywords) {
@@ -199,8 +205,11 @@ export async function pickScaffoldVariantAsync(
     .map((variant) => {
       const vec = variantVecsById.get(variant.id);
       const cos = vec ? cosine(queryVec!, vec) : 0;
-      // Default-flagga ger fortfarande +0.05 boost för deterministisk fallback
-      const score = cos + (variant.default ? 0.05 : 0);
+      // Tidigare: `cos + (variant.default ? 0.05 : 0)` — när alla varianters
+      // cosine låg nära varandra (vanligt vid prompts som inte träffar någon
+      // variant tydligt) tippade +0.05 över till default-varianten. Nu får
+      // semantik bestämma ensamt; det ger LLM/embedding större roll.
+      const score = cos;
       return { variant, score };
     })
     .sort((a, b) => b.score - a.score || a.variant.id.localeCompare(b.variant.id));

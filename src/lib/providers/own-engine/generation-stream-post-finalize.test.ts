@@ -247,6 +247,121 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://preview.example");
   });
 
+  it("F2-mute layer 4: drops detected-integrations SSE in fidelity2 (design)", async () => {
+    const helpers = await import("@/lib/gen/stream/shared-own-engine-helpers");
+    const mockedDetect = vi.mocked(helpers.getUnsignaledDetectedIntegrations);
+    mockedDetect.mockReturnValueOnce([
+      {
+        key: "stripe",
+        name: "Stripe",
+        provider: "stripe",
+        intent: "env_vars",
+        envVars: ["STRIPE_SECRET_KEY"],
+        status: "Kräver konfiguration",
+      },
+    ]);
+    const enqueued: string[] = [];
+    const safeEnqueue = (data: Uint8Array) => {
+      enqueued.push(new TextDecoder().decode(data));
+    };
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "import Stripe from 'stripe'",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+    });
+
+    expect(formatSSEEventMock).not.toHaveBeenCalledWith(
+      "integration",
+      expect.anything(),
+    );
+    expect(devLogAppend).not.toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "engine.integration_signals" }),
+    );
+  });
+
+  it("F2-mute layer 4: emits detected-integrations SSE in fidelity3 (integrations)", async () => {
+    const helpers = await import("@/lib/gen/stream/shared-own-engine-helpers");
+    const mockedDetect = vi.mocked(helpers.getUnsignaledDetectedIntegrations);
+    mockedDetect.mockReturnValueOnce([
+      {
+        key: "stripe",
+        name: "Stripe",
+        provider: "stripe",
+        intent: "env_vars",
+        envVars: ["STRIPE_SECRET_KEY"],
+        status: "Kräver konfiguration",
+      },
+    ]);
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "import Stripe from 'stripe'",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "release-candidate",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        contextPolicy: "heavy",
+        referenceCategories: [],
+        forbiddenPatterns: [],
+        tokenBudgets: {
+          scaffoldChars: 80_000,
+          refsChars: 40_000,
+          systemContextChars: 160_000,
+        },
+      },
+    });
+
+    expect(formatSSEEventMock).toHaveBeenCalledWith(
+      "integration",
+      expect.objectContaining({
+        items: expect.arrayContaining([expect.objectContaining({ key: "stripe" })]),
+      }),
+    );
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "engine.integration_signals",
+        integrations: ["stripe"],
+      }),
+    );
+  });
+
   it("emits done with previewPending + previewUrlHint, but no previewUrl", async () => {
     shouldStartOwnEnginePreview.mockReturnValue(true);
     isTier2PreviewConfigured.mockReturnValue(false);

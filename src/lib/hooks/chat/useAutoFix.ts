@@ -67,9 +67,28 @@ function notifyAutofixSkipped(reasons: string[]) {
   });
 }
 
-const MAX_ATTEMPTS_PER_REASON = 1;
-const MAX_AUTOFIX_PER_CHAT = 2;
-const DEDUPE_TTL_MS = 5 * 60 * 1000;
+// Tak och timing för klient-driven autofix. Override via NEXT_PUBLIC_*
+// (klientside-bundling). Defaults är konservativa: max 1 försök per
+// fel-typ och max 2 totalt per chat, så en trasig generation inte
+// kan loop:a en oändlig repair-kedja.
+function readClientNumberEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+const MAX_ATTEMPTS_PER_REASON = readClientNumberEnv(
+  "NEXT_PUBLIC_AUTOFIX_MAX_PER_REASON",
+  1,
+);
+const MAX_AUTOFIX_PER_CHAT = readClientNumberEnv(
+  "NEXT_PUBLIC_AUTOFIX_MAX_PER_CHAT",
+  2,
+);
+const DEDUPE_TTL_MS = readClientNumberEnv(
+  "NEXT_PUBLIC_AUTOFIX_DEDUPE_TTL_MS",
+  5 * 60 * 1000,
+);
 const SOFT_ONLY_AUTOFIX_REASONS = new Set([
   "misstänkt scaffold-mismatch",
   "planerade routes saknas",

@@ -71,19 +71,37 @@ export async function runOwnEngineStreamPostFinalize(params: {
     repairPassIndex = 0,
   } = params;
 
+  // Lager 4 av F2-mute (se .cursor/rules/env-flow-f2-mute.mdc):
+  // post-finalize kod-scan av Stripe/Upstash/etc. emitterade tidigare
+  // `integration`-SSE direkt till chatten utan lifecycle-gate. I F2
+  // (design) hör de hemma i `env.env`-filen tyst, inte i chatten.
+  // I F3 (integrations) får de fram som vanligt.
+  const isIntegrationsStage = buildSpec.previewPolicy === "fidelity3";
   const newDetected = getUnsignaledDetectedIntegrations(
     accumulatedContent,
     toolSignaledProviders,
   );
   if (newDetected.length > 0) {
-    const integrationPayload: BuilderIntegrationEnvelope = { items: newDetected };
-    safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
-    devLogAppend("in-progress", {
-      type: "engine.integration_signals",
-      chatId,
-      integrations: newDetected.map((d) => d.key),
-      envVars: newDetected.flatMap((d) => d.envVars),
-    });
+    if (isIntegrationsStage) {
+      const integrationPayload: BuilderIntegrationEnvelope = { items: newDetected };
+      safeEnqueue(enc.encode(formatSSEEvent("integration", integrationPayload)));
+      devLogAppend("in-progress", {
+        type: "engine.integration_signals",
+        chatId,
+        integrations: newDetected.map((d) => d.key),
+        envVars: newDetected.flatMap((d) => d.envVars),
+      });
+    } else {
+      warnLog(
+        "engine",
+        "F2 post-finalize: dropped detected-integrations from chat (F2-mute layer 4)",
+        {
+          chatId,
+          integrations: newDetected.map((d) => d.key),
+          envVarCount: newDetected.flatMap((d) => d.envVars).length,
+        },
+      );
+    }
   }
 
   let parsedForPreview: CodeFile[] = [];
