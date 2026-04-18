@@ -454,6 +454,121 @@ const HOSPITALITY_SERVICE_KEYWORDS = [
 ];
 
 /**
+ * Professional-service domain keywords that route to the `business-services`
+ * scaffold. Split into STRONG (compound terms that are nearly unambiguous —
+ * kontorshotell, advokatbyrå, klinik…) and WEAK (single-word hints like
+ * konsult, jurist, byrå). Scoring: strong ×2 + weak ×1 ≥ MIN_SCORE triggers
+ * the scaffold, so a single strong match is enough, or two weak matches
+ * together.
+ *
+ * Deliberately avoids keywords already covered by HOSPITALITY_SERVICE_KEYWORDS
+ * (restaurang/hotell/café/bageri/bar/spa/salong/frisör/gym) so hospitality
+ * prompts keep routing to content-site / landing-page as before.
+ */
+const BUSINESS_SERVICES_STRONG_KEYWORDS = [
+  // office hotels / coworking
+  "kontorshotell",
+  "kontorshotellet",
+  "kontorshotellssida",
+  "coworking",
+  "coworking space",
+  "flexkontor",
+  "kontorsgemenskap",
+  // legal
+  "advokatbyrå",
+  "advokatfirma",
+  "juristbyrå",
+  "juristfirma",
+  "juridisk rådgivning",
+  // accounting / audit
+  "redovisningsbyrå",
+  "redovisningsfirma",
+  "revisionsbyrå",
+  "revisionsfirma",
+  // agencies
+  "reklambyrå",
+  "designbyrå",
+  "webbyrå",
+  "digitalbyrå",
+  "mediebyrå",
+  "kommunikationsbyrå",
+  "pr-byrå",
+  "eventbyrå",
+  // consulting
+  "konsultbyrå",
+  "konsultbolag",
+  "konsultfirma",
+  // real estate
+  "mäklarbyrå",
+  "mäklarfirma",
+  "fastighetsbolag",
+  // staffing
+  "bemanningsföretag",
+  "bemanningsbolag",
+  "rekryteringsbyrå",
+  "rekryteringsfirma",
+  // architecture
+  "arkitektbyrå",
+  "arkitektkontor",
+  // trades
+  "byggfirma",
+  "byggföretag",
+  "städfirma",
+  "städbolag",
+  "målerifirma",
+  "elfirma",
+  "takfirma",
+  // medical (non-hospitality)
+  "tandklinik",
+  "specialistklinik",
+  "läkarmottagning",
+  "veterinärklinik",
+  // generic anchors
+  "tjänsteföretag",
+  "serviceföretag",
+];
+
+const BUSINESS_SERVICES_WEAK_KEYWORDS = [
+  "byrå",
+  "kontor",
+  "kontoret",
+  "mottagning",
+  "advokat",
+  "jurist",
+  "revision",
+  "revisor",
+  "redovisning",
+  "bokföring",
+  "konsult",
+  "arkitekt",
+  "mäklare",
+  "fastighetsmäklare",
+  "bemanning",
+  "rekrytering",
+  "takläggare",
+  "snickare",
+  "målare",
+  "rörmokare",
+  "elektriker",
+  "hantverkare",
+  "tandläkare",
+  "tandvård",
+  "klinik",
+  "vårdcentral",
+  "veterinär",
+  "fysioterapeut",
+  "psykolog",
+  "terapeut",
+  "lokala tjänster",
+];
+
+function computeBusinessServicesScore(text: string): number {
+  const strong = countKeywordMatches(text, BUSINESS_SERVICES_STRONG_KEYWORDS);
+  const weak = countKeywordMatches(text, BUSINESS_SERVICES_WEAK_KEYWORDS);
+  return strong * 2 + weak;
+}
+
+/**
  * Strong ecommerce-intent keywords that override the hospitality veto.
  * Only if these appear alongside hospitality words should ecommerce still win.
  */
@@ -561,6 +676,7 @@ function buildKeywordScores(
   if (hospitalityScore > 0 && strongEcommerceScore === 0) {
     ecommerceScore = 0;
   }
+  const businessServicesScore = computeBusinessServicesScore(promptLower);
 
   const scores = [
     { id: "auth-pages", score: authScore },
@@ -571,6 +687,7 @@ function buildKeywordScores(
     { id: "portfolio", score: portfolioScore },
     { id: "landing-page", score: landingScore },
     { id: "blog", score: blogScore },
+    { id: "business-services", score: businessServicesScore },
     { id: "content-site", score: contentScore },
     { id: "base-nextjs", score: 0 },
   ];
@@ -625,6 +742,8 @@ function applyBriefKeywordBoost(
   if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
   if (countKeywordMatches(combinedText, LANDING_KEYWORDS) > 0) addBoost("landing-page", 2);
   if (countKeywordMatches(combinedText, CONTENT_KEYWORDS) > 0) addBoost("content-site", 2);
+  const briefBusinessServicesScore = computeBusinessServicesScore(combinedText);
+  if (briefBusinessServicesScore > 0) addBoost("business-services", briefBusinessServicesScore);
 
   if (boosts.size === 0) return scores;
   return scores.map((entry) => ({
@@ -812,10 +931,12 @@ export function matchScaffold(
     countPortfolioSignalBoost(lower);
   const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
   const blogScore = countKeywordMatches(lower, BLOG_KEYWORDS);
+  const businessServicesScore = computeBusinessServicesScore(lower);
 
   const bestSpecific = pickBestScaffold([
     { id: "saas-landing", score: saasScore },
     { id: "portfolio", score: portfolioScore },
+    { id: "business-services", score: businessServicesScore },
     { id: "landing-page", score: landingScore },
     { id: "blog", score: blogScore },
   ]);

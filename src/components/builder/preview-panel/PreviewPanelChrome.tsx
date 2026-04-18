@@ -3,6 +3,8 @@
 import {
   AlertCircle,
   ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
   CircleCheck,
   Code2,
   ExternalLink,
@@ -24,6 +26,7 @@ import {
   Undo2,
   Wrench,
 } from "lucide-react";
+import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -179,10 +182,11 @@ export function PreviewPanelChrome({
 }: PreviewPanelChromeProps) {
   const showPreviewToolbar = Boolean(previewUrl) && !isCodeView;
   const urlBar = previewUrl ? formatUrlForBar(previewUrl) : "";
+  const [toolbarExpanded, setToolbarExpanded] = useState(false);
 
   return (
     <div className="max-h-[38vh] shrink-0 overflow-y-auto border-b border-border bg-background/95 backdrop-blur-sm">
-      {showPreviewToolbar ? (
+      {showPreviewToolbar && toolbarExpanded ? (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2">
           <TooltipProvider>
             <Tooltip>
@@ -314,7 +318,7 @@ export function PreviewPanelChrome({
         </div>
       )}
 
-      {showPreviewToolbar && onNavigateRoute ? (
+      {showPreviewToolbar && toolbarExpanded && onNavigateRoute ? (
         <div
           className="flex items-center gap-1 overflow-x-auto border-t border-border/50 px-3 py-1.5 scrollbar-thin"
           role="tablist"
@@ -447,6 +451,25 @@ export function PreviewPanelChrome({
       ) : null}
 
       <div className="flex items-center gap-0.5 border-t border-border/50 bg-muted/15 px-2 py-1">
+        {showPreviewToolbar ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setToolbarExpanded((prev) => !prev)}
+            aria-expanded={toolbarExpanded}
+            aria-label={toolbarExpanded ? "Dölj URL och rutter" : "Visa URL och rutter"}
+            title={toolbarExpanded ? "Dölj URL och rutter" : "Visa URL och rutter"}
+            className="h-7 gap-1 rounded-md px-2 text-muted-foreground hover:text-foreground"
+          >
+            {toolbarExpanded ? (
+              <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span className="text-xs">Detaljer</span>
+          </Button>
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

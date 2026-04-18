@@ -77,16 +77,9 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const pendingSpecRef = useRef<object | null>(null);
   const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
-  // Apple-minimal builder UI: start minimal on the empty hero, but auto-open
-  // the chat rail as soon as a chat/generation exists (see effect below).
-  const [uiMode, setUiMode] = useState<"minimal" | "expanded">("minimal");
-  const autoExpandedRef = useRef(false);
-  useEffect(() => {
-    if (!chatId) return;
-    if (autoExpandedRef.current) return;
-    autoExpandedRef.current = true;
-    setUiMode((prev) => (prev === "minimal" ? "expanded" : prev));
-  }, [chatId]);
+  // Apple-minimal builder UI: chat rail is open from the start so the
+  // preview-side loading banner is visible together with the chat input.
+  const [uiMode, setUiMode] = useState<"minimal" | "expanded">("expanded");
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState("");

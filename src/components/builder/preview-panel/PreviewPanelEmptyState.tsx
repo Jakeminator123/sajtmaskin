@@ -59,6 +59,10 @@ export function PreviewPanelEmptyState({
     return <GenerationProgress phase={generationPhase} />;
   }
 
+  if (isInitialEmpty) {
+    return <GenerationProgress phase={null} />;
+  }
+
   if (simplified) {
     if (sandboxBuildError) {
       return (

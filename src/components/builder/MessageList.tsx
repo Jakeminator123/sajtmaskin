@@ -359,14 +359,13 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   textContent ? (
-                    hasGenerationContent(textContent) ? (
+                    message.isStreaming || hasGenerationContent(textContent) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
                       <MessageResponse>
                         <Streamdown
                           plugins={{ code: streamdownCode }}
-                          isAnimating={Boolean(message.isStreaming)}
-                          caret={message.isStreaming ? "block" : undefined}
+                          isAnimating={false}
                         >
                           {textContent}
                         </Streamdown>

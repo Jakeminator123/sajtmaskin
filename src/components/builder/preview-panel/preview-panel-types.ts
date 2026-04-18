@@ -39,8 +39,8 @@ export type InspectPulseMarker = {
 
 export type PreviewIframeMessage = {
   source?: string;
-  type?: "preview-error" | "preview-ready" | "navigation-attempt";
-  payload?: PreviewIssuePayload & { href?: string | null };
+  type?: "preview-error" | "preview-ready" | "navigation-attempt" | "build-out-request";
+  payload?: PreviewIssuePayload & { href?: string | null; path?: string | null };
 };
 
 export interface PreviewPanelProps {

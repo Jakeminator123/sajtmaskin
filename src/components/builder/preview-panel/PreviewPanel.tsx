@@ -235,6 +235,8 @@ export function PreviewPanel({
     setIframeError,
     setIframeErrorMessage,
     onNavigatePreviewUrl,
+    onBuildOutRouteRequest: (path) =>
+      onSuggestionClick?.(`Bygg ut sidan ${path} med fullt innehåll och design som matchar resten av sajten.`),
     reportOwnEngineRenderFailureSinkRef,
   });
 

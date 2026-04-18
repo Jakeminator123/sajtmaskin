@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MascotVideo } from "@/components/mascot/MascotVideo";
 import { cn } from "@/lib/utils";
 
 export type GenerationPhase =
@@ -82,8 +83,9 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
   }, []);
 
   const pct = Math.round(displayProgress);
+  const isIdle = !forceComplete && !phase;
   const resolvedPhase: NonNullable<GenerationPhase> = forceComplete ? "done" : (phase ?? "brief");
-  const label = PHASE_TARGETS[resolvedPhase]?.label ?? "Skapar din sajt";
+  const label = isIdle ? "Redo att bygga" : PHASE_TARGETS[resolvedPhase]?.label ?? "Skapar din sajt";
 
   return (
     <div
@@ -93,6 +95,11 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
       )}
     >
       <div className="flex w-full max-w-md flex-col items-center gap-8">
+        <MascotVideo
+          className="h-auto w-[clamp(180px,22vw,260px)] drop-shadow-[0_18px_30px_rgba(10,12,24,0.15)]"
+          aria-hidden
+        />
+
         <div className="text-6xl font-semibold tracking-tight text-foreground tabular-nums transition-opacity duration-300 sm:text-7xl">
           {pct}
           <span className="ml-1 text-xl font-medium text-muted-foreground align-top">%</span>

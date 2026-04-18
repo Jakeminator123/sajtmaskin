@@ -8,6 +8,7 @@ import {
   isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/types";
@@ -228,11 +229,18 @@ export function BuilderHeader(props: {
         <button
           type="button"
           onClick={onGoHome}
-          className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
+          className="flex items-center transition-opacity hover:opacity-80"
           aria-label="Gå till startsidan"
           title="Till startsidan"
         >
-          Sajtmaskin
+          <Image
+            src="/logo.png"
+            alt="Sajtmaskin"
+            width={1653}
+            height={437}
+            priority
+            className="h-6 w-auto object-contain"
+          />
         </button>
         {hasMounted && isAuthenticated && (
           <Button variant="ghost" size="sm" onClick={handleLogout} title="Logga ut">

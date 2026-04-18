@@ -47,6 +47,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
   setIframeError: Dispatch<SetStateAction<boolean>>;
   setIframeErrorMessage: Dispatch<SetStateAction<string | null>>;
   onNavigatePreviewUrl?: ((url: string) => void) | null;
+  onBuildOutRouteRequest?: ((path: string) => void) | null;
   reportOwnEngineRenderFailureSinkRef: MutableRefObject<ReportFailure>;
 }): void {
   const {
@@ -58,6 +59,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
     setIframeError,
     setIframeErrorMessage,
     onNavigatePreviewUrl,
+    onBuildOutRouteRequest,
     reportOwnEngineRenderFailureSinkRef,
   } = options;
 
@@ -189,6 +191,14 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
         return;
       }
 
+      if (data.type === "build-out-request") {
+        const path = typeof data.payload?.path === "string" ? data.payload.path : "";
+        if (path && onBuildOutRouteRequest) {
+          onBuildOutRouteRequest(path);
+        }
+        return;
+      }
+
       if (data.type === "preview-ready" && chatId && versionId) {
         setIframeLoading(false);
         setIframeError(false);
@@ -219,6 +229,7 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
     versionId,
     isOwnEnginePreview,
     onNavigatePreviewUrl,
+    onBuildOutRouteRequest,
     reportOwnEngineRenderFailure,
     iframeRef,
     setIframeLoading,

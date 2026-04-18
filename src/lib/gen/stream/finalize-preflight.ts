@@ -292,10 +292,31 @@ function buildShellPageContent(route: PlannedRoute): string {
   // string markers ("Förberedd sida", "Skapa sida", "Varför sidan är enkel
   // just nu") and the oklch accent fingerprint so follow-up generations can
   // preserve and/or build them out on demand.
-  return `import Link from "next/link";
+  //
+  // "Skapa sida" is a real button: it posts a `build-out-request` message to
+  // the parent window (the builder). `usePreviewPanelOwnEnginePreviewTelemetry`
+  // listens for this and triggers the same flow as the "Bygg ut"-arrow in the
+  // preview-chrome route pill.
+  return `"use client";
+
+import Link from "next/link";
 import { ${iconName}, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 
 export default function ${funcName}Page() {
+  const requestBuildOut = () => {
+    if (typeof window === "undefined") return;
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          { source: "sajtmaskin-preview", type: "build-out-request", payload: { path: ${JSON.stringify(route.path)} } },
+          "*",
+        );
+      }
+    } catch {
+      // ignore cross-window postMessage failures
+    }
+  };
+
   return (
     <main className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden px-6 py-24 text-center">
       <div
@@ -326,17 +347,21 @@ export default function ${funcName}Page() {
           <ArrowLeft className="h-4 w-4" />
           Tillbaka till startsidan
         </Link>
-        <span className="inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background shadow-sm">
+        <button
+          type="button"
+          onClick={requestBuildOut}
+          className="inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        >
           Skapa sida
           <ArrowRight className="h-4 w-4" />
-        </span>
+        </button>
       </div>
 
       <p className="mt-10 max-w-md text-[11px] leading-relaxed text-muted-foreground/70">
         {/* Varför sidan är enkel just nu */}
         Vi har planerat den här sidan men väntar med att bygga ut den tills
-        du eller teamet vill prioritera den. Tryck på <em>Bygg ut</em>-pilen
-        bredvid rutten i preview för att generera den fullt ut.
+        du eller teamet vill prioritera den. Tryck på <em>Skapa sida</em> ovan
+        eller <em>Bygg ut</em>-pilen bredvid rutten för att generera den fullt ut.
       </p>
     </main>
   );

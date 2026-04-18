@@ -190,6 +190,11 @@ const SCAFFOLD_CHECKLISTS: Record<ScaffoldId, string[]> = {
     "Allow auth, billing, and dashboard subflows to be layered in later.",
     "Primary layout should feel like a real product workspace, not a simple landing page with a sidebar.",
   ],
+  "business-services": [
+    "Lead with a clear service promise, trust signals, and an obvious contact or booking CTA.",
+    "Show services grid, process steps, pricing or packages, team, and contact as first-class sections.",
+    "Keep the tone professional and local-business specific — not e-commerce and not a generic landing page.",
+  ],
 };
 
 const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldId, string[]> = {
@@ -203,6 +208,10 @@ const SCAFFOLD_UPGRADE_TARGETS: Record<ScaffoldId, string[]> = {
   ecommerce: ["Stronger product and checkout patterns", "Clearer storefront information architecture"],
   "content-site": ["Broader reusable section coverage", "More believable content-first defaults"],
   "app-shell": ["Deeper app navigation patterns", "More settings, account, and workspace affordances"],
+  "business-services": [
+    "Stronger service-business identity with believable services, process, and contact flow",
+    "Clearer local-business trust signals (team, testimonials, opening hours, address)",
+  ],
 };
 
 function ensureDir(target: string): void {

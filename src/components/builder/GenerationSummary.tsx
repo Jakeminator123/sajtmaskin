@@ -107,12 +107,24 @@ export const GenerationSummary = memo(function GenerationSummary({
     );
   }
 
+  // Under streaming visar preview-panelen redan % + fas + maskot.
+  // Visa därför aldrig den råa, halvgenererade texten här.
+  if (isStreaming) {
+    return (
+      <div className="min-w-0">
+        <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-card-foreground overflow-hidden wrap-break-word">
+          {streamingNotice}
+        </div>
+      </div>
+    );
+  }
+
   const hasOpenFences = !parsed.hasCodeBlocks && /```/.test(content);
 
   if (!parsed.hasCodeBlocks && !hasOpenFences) {
     return (
       <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-card-foreground overflow-hidden wrap-break-word">
-        {isStreaming ? streamingNotice : content}
+        {content}
       </div>
     );
   }
@@ -153,26 +165,11 @@ export const GenerationSummary = memo(function GenerationSummary({
     );
   }
 
-  const previewText =
-    isStreaming
-      ? streamingNotice
-      : parsed.proseText;
+  const previewText = parsed.proseText;
   const generatedUnitLabel =
     parsed.files.length > 0
       ? `${parsed.files.length} ${parsed.files.length === 1 ? "fil" : "filer"}`
       : `${parsed.genericCodeBlocks} ${parsed.genericCodeBlocks === 1 ? "kodblock" : "kodblock"}`;
-
-  // Under streaming visar preview-panelen redan % + fas + ThinkingOverlay.
-  // Visa därför endast "Bygger..."-bubblan här och undvik dubbla statusar.
-  if (isStreaming) {
-    return (
-      <div className="min-w-0">
-        <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-card-foreground whitespace-pre-wrap overflow-hidden wrap-break-word">
-          {streamingNotice}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-2 min-w-0">
