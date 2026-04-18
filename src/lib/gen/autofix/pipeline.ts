@@ -55,11 +55,9 @@ export interface AutoFixContext {
   /**
    * Lifecycle stage of the build. Drives the F2 SDK guard
    * (`tier3-sdk-guard-fixer`): tier-3 backend SDK imports are stripped
-   * from F2 ("design") output but preserved as-is in F3
-   * ("bygg integrationer"). Defaults to undefined which is treated as
-   * F2 when set explicitly, but legacy callers without a buildSpec
-   * skip the guard so we don't accidentally strip imports from
-   * untyped flows.
+   * unless `previewPolicy === "fidelity3"`. Absent/undefined is treated
+   * as F2 — preview-blocking SDK leakage is the bigger risk than an
+   * occasional false-positive strip in test harnesses.
    */
   previewPolicy?: BuildSpecPreviewPolicy;
 }
@@ -283,9 +281,11 @@ async function runAutoFixSinglePass(
   const fixedFiles: CodeFile[] = [];
   const exportIndex = buildProjectExportIndex(project.files);
   const moduleExportIndex = buildProjectModuleExportIndex(project.files);
-  // F2 SDK guard is opt-in via explicit previewPolicy — legacy callers
-  // without a buildSpec leave it disabled so we don't surprise them.
-  const tier3GuardActive = context?.previewPolicy === "fidelity2";
+  // F2 SDK guard runs whenever we are NOT in F3. Backend SDK imports leaking
+  // into a design-phase build are a hard preview-blocker, so absent
+  // `previewPolicy` defaults to "guard on" — legacy callers that genuinely
+  // want F3 semantics must opt in explicitly.
+  const tier3GuardActive = context?.previewPolicy !== "fidelity3";
 
   for (const file of project.files) {
     const isTsxOrJsx =

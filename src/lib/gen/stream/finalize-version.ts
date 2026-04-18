@@ -298,8 +298,8 @@ function buildVerifierFailureLogs(params: {
   return blockingFindings.map((finding) => ({
     chatId,
     versionId,
-    level: "warning" as const,
-    category: "quality-gate:verifier",
+    level: "error" as const,
+    category: "quality-gate:verifier-blocking",
     message: finding.detail,
     meta: {
       verifierFindingId: finding.id,
@@ -537,11 +537,32 @@ async function tryRepairPartialFileOutput(params: {
   };
 }
 
+const IMAGERY_PROMPT_PATTERN =
+  /\b(bild|bilder|bildspel|foto|foton|hero|galleri|gallery|image|images|photo|photos|carousel|slideshow|illustration|illustrations|illustrat|porträtt|portrait)\b/i;
+
+const IMAGERY_PLACEHOLDER_PATTERN =
+  /\/placeholder\.svg|UNSPLASH_PLACEHOLDER|via\.placeholder\.com|placehold\.co/i;
+
+function followUpRequestsImagery(params: {
+  originalPrompt?: string;
+  accumulatedContent?: string;
+}): boolean {
+  if (params.originalPrompt && IMAGERY_PROMPT_PATTERN.test(params.originalPrompt)) {
+    return true;
+  }
+  if (params.accumulatedContent && IMAGERY_PLACEHOLDER_PATTERN.test(params.accumulatedContent)) {
+    return true;
+  }
+  return false;
+}
+
 function resolveFinalizePathPolicy(params: {
   buildSpec?: BuildSpec | null;
   repairPassIndex: number;
+  originalPrompt?: string;
+  accumulatedContent?: string;
 }): FinalizePathPolicy {
-  const { buildSpec, repairPassIndex } = params;
+  const { buildSpec, repairPassIndex, originalPrompt, accumulatedContent } = params;
   if (!FEATURES.useFinalizeDeepPath) {
     // Historical env naming: false here disables the light pipeline shortcut
     // and keeps finalize on the full pipeline for every run.
@@ -556,6 +577,13 @@ function resolveFinalizePathPolicy(params: {
     buildSpec?.contextPolicy === "light" &&
     (buildSpec?.changeScope === "copy" || buildSpec?.changeScope === "local-layout");
   if (isLightFollowUp) {
+    // Light path skips `materialize_images`. If the user explicitly asked for
+    // imagery (or the model emitted placeholders), force the deep path so
+    // Unsplash materialization actually runs — otherwise the preview ships
+    // with `/placeholder.svg` instead of the requested photo.
+    if (followUpRequestsImagery({ originalPrompt, accumulatedContent })) {
+      return { runDeepPath: true, reason: "default" };
+    }
     return { runDeepPath: false, reason: "light_followup_fast_policy" };
   }
   return { runDeepPath: true, reason: "default" };
@@ -1022,7 +1050,12 @@ export async function finalizeAndSaveVersion(
   } = params;
 
   let contentForVersion = accumulatedContent;
-  const finalizePath = resolveFinalizePathPolicy({ buildSpec, repairPassIndex });
+  const finalizePath = resolveFinalizePathPolicy({
+    buildSpec,
+    repairPassIndex,
+    originalPrompt,
+    accumulatedContent,
+  });
   let autoFixFixCount = 0;
   let autoFixWarningCount = 0;
   let autoFixDependencyCount = 0;
@@ -1236,6 +1269,18 @@ export async function finalizeAndSaveVersion(
   if (verifierFailureLogs.length > 0) {
     preflightLogs.push(...verifierFailureLogs);
   }
+  // Verifier-blocking findings need to actually gate the version. The
+  // preflight bundle only knows about preflight errors, so we OR the verifier
+  // signal in here and use the effective flag for telemetry, generation log
+  // status, and `failVersionVerification` below.
+  const verifierBlocked = verifierBlockingFindings.length > 0;
+  const hasVerificationBlockingErrors =
+    hasVerificationBlockingPreflightErrors || verifierBlocked;
+  const verificationFailureSummary = verifierBlocked
+    ? hasVerificationBlockingPreflightErrors
+      ? `${preflightFailureSummary} Verifier reported ${verifierBlockingFindings.length} blocking finding(s).`
+      : `Verifier reported ${verifierBlockingFindings.length} blocking finding(s).`
+    : preflightFailureSummary;
   if (autoFixHeavyLoad) {
     preflightLogs.push({
       chatId,
@@ -1264,7 +1309,8 @@ export async function finalizeAndSaveVersion(
     issueCount: preflightIssues.length,
     errorCount: preflightErrors.length,
     warningCount: preflightWarnings.length,
-    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingErrors,
+    verifierBlocked,
     previewBlocked: hasPreviewBlockingPreflightErrors,
     previewBlockingReason,
     scaffoldRetry,
@@ -1276,7 +1322,7 @@ export async function finalizeAndSaveVersion(
     versionId: version.id,
     fileCount: preflightFileCount,
     issueCount: preflightIssues.length,
-    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingErrors,
     previewBlocked: hasPreviewBlockingPreflightErrors,
   });
   try {
@@ -1312,7 +1358,9 @@ export async function finalizeAndSaveVersion(
       },
       preflight: {
         previewBlocked: hasPreviewBlockingPreflightErrors,
-        verificationBlocked: hasVerificationBlockingPreflightErrors,
+        verificationBlocked: hasVerificationBlockingErrors,
+        verifierBlocked,
+        verifierBlockingFindingCount: verifierBlockingFindings.length,
         issueCount: preflightIssues.length,
         previewFileCount: finalizedFilesForPreview.length,
         unresolvedImportFallbackUsed: preflightResult.unresolvedImportFallbackUsed,
@@ -1365,7 +1413,7 @@ export async function finalizeAndSaveVersion(
       preflightWarningCount: preflightWarnings.length,
       previewSuccess: !hasPreviewBlockingPreflightErrors,
       previewBlockingReason,
-      qualityGateResult: hasVerificationBlockingPreflightErrors
+      qualityGateResult: hasVerificationBlockingErrors
         ? "preflight_failed"
         : "preflight_passed",
       durationMs: Date.now() - startedAt,
@@ -1394,8 +1442,8 @@ export async function finalizeAndSaveVersion(
         completion: tokenUsage?.completion,
       },
       Date.now() - startedAt,
-      !hasVerificationBlockingPreflightErrors,
-      hasVerificationBlockingPreflightErrors ? preflightFailureSummary : logNote,
+      !hasVerificationBlockingErrors,
+      hasVerificationBlockingErrors ? verificationFailureSummary : logNote,
     );
     devLogAppend("in-progress", {
       type: "generation-log.persisted",
@@ -1417,11 +1465,11 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  if (hasVerificationBlockingPreflightErrors) {
+  if (hasVerificationBlockingErrors) {
     try {
       const failedVersion = await chatRepo.failVersionVerification(
         version.id,
-        preflightFailureSummary,
+        verificationFailureSummary,
       );
       if (failedVersion?.id) {
         version = failedVersion;
@@ -1431,6 +1479,7 @@ export async function finalizeAndSaveVersion(
         chatId,
         versionId: version.id,
         errorCount: preflightErrors.length,
+        verifierBlockingFindingCount: verifierBlockingFindings.length,
       });
     } catch (verificationErr) {
       console.warn("[preflight] Failed to mark version failed after blocking errors:", verificationErr);
@@ -1464,7 +1513,8 @@ export async function finalizeAndSaveVersion(
     contentLen: contentForVersion.length,
     scaffold: resolvedScaffold?.id ?? null,
     previewBlocked: hasPreviewBlockingPreflightErrors,
-    verificationBlocked: hasVerificationBlockingPreflightErrors,
+    verificationBlocked: hasVerificationBlockingErrors,
+    verifierBlocked,
   });
 
   return {
@@ -1476,7 +1526,7 @@ export async function finalizeAndSaveVersion(
     filesJson,
     contentForVersion,
     preflight: {
-      verificationBlocked: hasVerificationBlockingPreflightErrors,
+      verificationBlocked: hasVerificationBlockingErrors,
       previewBlocked: hasPreviewBlockingPreflightErrors,
       issueCount: preflightIssues.length,
       errorCount: preflightErrors.length,

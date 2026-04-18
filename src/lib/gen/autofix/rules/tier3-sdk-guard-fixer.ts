@@ -4,7 +4,9 @@
  * Stripe/Supabase/Clerk/etc. in F2 just bloats output and confuses
  * users (the buttons appear to do something but the SDK is inert).
  *
- * Activated only when the autofix context has `previewPolicy === "fidelity2"`.
+ * Activated whenever the autofix context's `previewPolicy` is anything other
+ * than `"fidelity3"` — including absent/undefined, which we treat as F2 so
+ * legacy callers without an explicit buildSpec still get the guard.
  * In F3 ("bygg integrationer") this fixer is a no-op so the LLM output
  * passes through verbatim.
  *

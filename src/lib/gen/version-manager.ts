@@ -202,7 +202,11 @@ export function mergeVersionFilesWithWarnings(
   }
   for (const f of newFiles) {
     const prev = merged.get(f.path);
-    const isShrunk = !!prev && f.content.length < prev.content.length * 0.3;
+    // 0.5 = drop generated files that retain less than half of the previous
+    // version. The earlier 0.3 threshold required a 70% shrink before a file
+    // was flagged, which routinely let through token-truncated outputs and
+    // "here's the relevant section…" partials.
+    const isShrunk = !!prev && f.content.length < prev.content.length * 0.5;
     if (isShrunk) {
       warnings.push({
         type: "significant-shrink",

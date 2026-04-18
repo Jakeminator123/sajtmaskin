@@ -638,8 +638,8 @@ describe("finalizeAndSaveVersion", () => {
     expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
-          category: "quality-gate:verifier",
-          level: "warning",
+          category: "quality-gate:verifier-blocking",
+          level: "error",
           message:
             "`app/page.tsx` uses external next/image hosts without confirmed remotePatterns config.",
           meta: expect.objectContaining({
@@ -647,6 +647,11 @@ describe("finalizeAndSaveVersion", () => {
           }),
         }),
       ]),
+    );
+    // Verifier-blocking findings must also gate the version, not just be logged.
+    expect(failVersionVerification).toHaveBeenCalledWith(
+      "ver_1",
+      expect.stringContaining("Verifier reported"),
     );
   });
 
