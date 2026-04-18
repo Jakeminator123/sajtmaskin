@@ -2,7 +2,7 @@
 
 **Skrivet:** 2026-04-18 efter observation att follow-up-prompts som ber om visuell ändring ("animationsaktig bakgrund", "ändra färg", "mörkare tema") ofta inte producerar synliga ändringar i `app/globals.css` trots att verksamheten loggar `~ app/globals.css ~ app/layout.tsx ~ app/page.tsx ~ tsconfig.json` som modifierade filer.
 
-**Status:** Utredning. Fix ej genomförd — riktning behöver godkännas av Jakob innan implementation.
+**Status:** Fix A + Fix B implementerade 2026-04-18. Fix C (mini-brief) och Fix D (auto-retry) kvarstår som möjliga uppföljningar om A+B inte räcker i praktiken.
 
 ---
 
@@ -57,17 +57,13 @@ Den är mer konservativ → bygg-LLM:n vågar inte rebuild:a `globals.css` från
 
 ## Föreslagna fixar (i prio-ordning)
 
-### A) Force-inkludera `app/globals.css` i light-context när design-intent detekteras (LITEN, ~15 min)
+### A) Force-inkludera `app/globals.css` i light-context när design-intent detekteras — IMPLEMENTERAD 2026-04-18
 
-I `buildFileContext`-anropet på rad 386-393, lägg till en `pinnedFiles: string[]`-option som alltid inkluderar specifika filer med fullt innehåll, oavsett relevans-ranking. För follow-ups med design-keywords ("bakgrund", "färg", "tema", "animation", "ljus", "mörk", etc.) pinna `app/globals.css` + `app/layout.tsx`.
+`buildFileContext` har nu en `pinnedFiles?: string[]`-option som alltid inkluderar pinned paths med fullt innehåll, oavsett relevans-ranking. Slice-limit höjs till `max(maxFilesWithContent, pinnedFiles.length)` så pinning inte stryps av light-context-budget. `chat-message-stream-post.ts` pinnar `app/globals.css` + `app/layout.tsx` när `hasDesignFollowUpSignal()` matchar något av: `bakgrund | färg | tema | animation | ljus | mörk | stil | look` (med Unicode-aware look-arounds, inte `\b`).
 
-Risk: Liten — `app/globals.css` är typiskt under 200 rader, ryms i budget.
+### B) Bredda `clear-redesign`-intent-detektion — IMPLEMENTERAD 2026-04-18
 
-### B) Bredda `clear-redesign`-intent-detektion (LITEN, ~10 min)
-
-Hitta intent-classifier-koden (sannolikt `deriveFollowUpContextPolicy` eller `classifyFollowUpIntent`). Lägg till svenska keywords som triggar `clear-redesign`: "byt", "ändra", "annan", "ny stil", "ny look", "coolare", "snyggare".
-
-Risk: Medel — kan över-trigga clear-redesign på små tweaks. Behöver testning.
+`classifyFollowUpIntent` kompletterad med verb+noun-kombination (`hasRedesignVerbNounCombo`). Verb-grupp: `byt | ändra | gör om | ny`. Noun-grupp: `färg | tema | bakgrund | stil | look | design`. Båda måste matcha samma prompt — `"ändra rubriken till X"` och `"byt logotypen"` triggar därmed inte redesign. Påverkar både den aggressiva editing-instruktionen i `chat-message-stream-post.ts:411–426` och `shouldIgnorePersistedScaffoldForMatch`.
 
 ### C) Mini-brief på design-intent-follow-ups (MEDEL, ~45 min)
 
@@ -85,7 +81,7 @@ Risk: Större — kräver post-generation diff-analys + automatisk retry-loop.
 
 ## Rekommendation
 
-Börja med **A + B** som ger mätbar förbättring för en bråkdel av tiden. Verifiera med 3-4 manuella follow-up-tester på Mannes-fotografier-style sajter ("byt till mörkt tema", "lägg till animation i bakgrunden"). Om det fortfarande inte räcker, gå vidare till C.
+A + B levererade 2026-04-18. Verifiera med manuell test-batch på Mannes-fotografier-style sajter ("byt till mörkt tema", "ändra bakgrunden till coolare", "ny stil på hero", "lägg till animation i bakgrunden", "snyggare färgschema"). Om det fortfarande inte räcker i praktiken, gå vidare till C.
 
 D är ren defensive-tactic och bör vänta tills A-C är på plats.
 

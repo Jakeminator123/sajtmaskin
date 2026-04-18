@@ -71,6 +71,7 @@ import { createPreGenerationContractGateReadableStream } from "@/lib/providers/o
 import {
   buildAwaitingClarificationStream,
   classifyFollowUpIntent,
+  hasDesignFollowUpSignal,
   persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
@@ -383,6 +384,9 @@ export async function handleMessageStreamRequest(
             FEATURES.useFollowUpLightContext &&
             followUpContextPolicy === "light";
           const manyFiles = previousFiles.length > 14;
+          const designPinnedFiles = hasDesignFollowUpSignal(message)
+            ? ["app/globals.css", "app/layout.tsx"]
+            : undefined;
           const fileCtx = buildFileContext({
             files: previousFiles,
             maxChars: useLightFollowUpContext ? FOLLOW_UP_TUNING.lightContextMaxChars : 140_000,
@@ -390,6 +394,7 @@ export async function handleMessageStreamRequest(
             maxFilesWithContent: useLightFollowUpContext
               ? (manyFiles ? FOLLOW_UP_TUNING.lightContextMaxFilesManyFiles : FOLLOW_UP_TUNING.lightContextMaxFilesFewFiles)
               : 8,
+            pinnedFiles: designPinnedFiles,
           });
 
           if (skipIntentClassification) {

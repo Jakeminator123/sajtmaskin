@@ -41,6 +41,48 @@ const FOLLOW_UP_SPECIFIC_TARGET_PATTERNS = [
   /\b(page\.tsx|layout\.tsx|globals\.css|app\/|src\/)\b/i,
 ];
 
+/**
+ * Design-intent-signaler i follow-ups. Användas för att pinna `app/globals.css`
+ * + `app/layout.tsx` i light-context så att bygg-LLM:n får befintliga
+ * gradient-/oklch-värden när prompten rör visuell identitet. Frikopplad från
+ * {@link classifyFollowUpIntent} eftersom pinning även är värdefull för
+ * mjukare prompts som "lägg till animation i bakgrunden" (där intent
+ * fortfarande är clear-refine, men kontexten behöver inkludera stilfilen).
+ */
+// Använder Unicode-aware look-arounds istället för \b — JS-default \b matchar
+// inte mellan ASCII och svenska tecken (ä/ö/å räknas som non-word), vilket
+// innebär att /\bändra\b/ aldrig matchar "ändra" i början av ett ord.
+const FOLLOW_UP_DESIGN_PIN_PATTERNS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(bakgrund(?:en|er|sbild)?|färg(?:er|en|schema|schemat)?|tema|teman|temat|animation(?:en|er)?|ljus(?:t|are)?|mörk(?:t|are)?|stil(?:en|ar)?|look(?:en)?)(?![\p{L}\p{N}_])/iu,
+];
+
+export function hasDesignFollowUpSignal(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed) return false;
+  return FOLLOW_UP_DESIGN_PIN_PATTERNS.some((re) => re.test(trimmed));
+}
+
+/**
+ * Verb+noun-kombination som signalerar genuin redesign på milda men tydliga
+ * design-prompts ("byt till mörkt tema", "ny stil på hero"). Skärpt mot
+ * Fix B-spec så att lösa enskilda verb (t.ex. "ändra rubriken till X") INTE
+ * triggar — verb måste paras med ett design-noun i samma prompt.
+ */
+// Unicode-aware look-arounds (se kommentar ovan vid FOLLOW_UP_DESIGN_PIN_PATTERNS).
+const FOLLOW_UP_REDESIGN_VERB_PATTERNS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(byt(?:er|t)?|ändra(?:r|de|t)?|gör\s+om|ny|nytt|nya)(?![\p{L}\p{N}_])/iu,
+];
+const FOLLOW_UP_REDESIGN_NOUN_PATTERNS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(färg(?:er|en|schema|schemat)?|tema|teman|temat|bakgrund(?:en|er|sbild)?|stil(?:en|ar)?|look(?:en)?|design(?:en|ade)?)(?![\p{L}\p{N}_])/iu,
+];
+
+function hasRedesignVerbNounCombo(message: string): boolean {
+  const hasVerb = FOLLOW_UP_REDESIGN_VERB_PATTERNS.some((re) => re.test(message));
+  if (!hasVerb) return false;
+  const hasNoun = FOLLOW_UP_REDESIGN_NOUN_PATTERNS.some((re) => re.test(message));
+  return hasNoun;
+}
+
 export type FollowUpIntentMode =
   | "clear-refine"
   | "clear-redesign"
@@ -157,6 +199,9 @@ export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   const trimmed = message.trim();
   if (!trimmed) return "neutral";
   if (FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    return "clear-redesign";
+  }
+  if (hasRedesignVerbNounCombo(trimmed)) {
     return "clear-redesign";
   }
   if (looksLikeDetailedNewSiteBrief(trimmed)) {

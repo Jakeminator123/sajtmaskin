@@ -5,6 +5,14 @@ export interface FileContextOptions {
   maxChars?: number;
   includeContents?: boolean;
   maxFilesWithContent?: number;
+  /**
+   * Files that MUST be included with full content when `includeContents` is true,
+   * regardless of `maxFilesWithContent` cap or default priority ranking. Paths
+   * that don't exist in `files` are ignored silently. Used by follow-up flows
+   * to guarantee design-critical files (e.g. `app/globals.css`, `app/layout.tsx`)
+   * survive light-context filtering when the prompt has design intent.
+   */
+  pinnedFiles?: string[];
 }
 
 export interface FileContext {
@@ -89,6 +97,7 @@ export function buildFileContext(options: FileContextOptions): FileContext {
     maxChars = 60_000,
     includeContents = false,
     maxFilesWithContent = 6,
+    pinnedFiles = [],
   } = options;
 
   const fileList = files.map((f) => f.path);
@@ -153,9 +162,21 @@ export function buildFileContext(options: FileContextOptions): FileContext {
   }
 
   if (includeContents && summary.length < maxChars) {
-    const prioritizedFiles = [...files]
-      .sort(compareByPriority)
-      .slice(0, Math.max(1, maxFilesWithContent));
+    const filesByPath = new Map(files.map((f) => [f.path, f]));
+    const pinnedSelection: CodeFile[] = [];
+    const seenPaths = new Set<string>();
+    for (const path of pinnedFiles) {
+      if (seenPaths.has(path)) continue;
+      const match = filesByPath.get(path);
+      if (!match) continue;
+      pinnedSelection.push(match);
+      seenPaths.add(path);
+    }
+    const remaining = [...files]
+      .filter((f) => !seenPaths.has(f.path))
+      .sort(compareByPriority);
+    const sliceLimit = Math.max(1, maxFilesWithContent, pinnedSelection.length);
+    const prioritizedFiles = [...pinnedSelection, ...remaining].slice(0, sliceLimit);
     const contentBudget = maxChars - summary.length - 2;
     if (contentBudget > 300) {
       const contentSections = buildContentSections(prioritizedFiles, contentBudget);
