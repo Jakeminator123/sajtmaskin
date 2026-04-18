@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode, RefObject } from "react";
-import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Mascot } from "@/components/mascot/Mascot";
 import { cn } from "@/lib/utils";
 
 function PreviewLoadingSkeleton() {
@@ -84,6 +85,12 @@ export function PreviewPanelFrame({
           aria-live="polite"
           aria-busy="true"
         >
+          <Mascot
+            slot="listening"
+            size={120}
+            decorative
+            className="mb-4 motion-safe:animate-pulse motion-reduce:animate-none"
+          />
           <PreviewLoadingSkeleton />
           <p className="mt-6 text-xs text-muted-foreground">Laddar…</p>
         </div>
@@ -93,7 +100,7 @@ export function PreviewPanelFrame({
 
       {iframeError ? (
         <div className="absolute inset-0 z-10 flex max-h-full flex-col items-center justify-center overflow-y-auto bg-background/95 p-4" role="alert" aria-live="assertive">
-          <AlertCircle className="mb-4 h-12 w-12 shrink-0 text-destructive" />
+          <Mascot slot="error" size={120} decorative className="mb-4 shrink-0" />
           <p className="mb-2 max-w-lg text-center text-sm text-muted-foreground">
             {iframeErrorMessage || "Preview kunde inte laddas i iframe. Öppna i ny flik istället."}
           </p>

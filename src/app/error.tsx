@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { Mascot } from "@/components/mascot/Mascot";
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
@@ -15,15 +16,8 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center">
-        <div className="mb-4 text-red-500">
-          <svg className="mx-auto h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
+        <div className="mb-4 flex justify-center">
+          <Mascot slot="error" size={160} decorative />
         </div>
         <h2 className="mb-2 text-xl font-bold text-foreground">Något gick fel</h2>
         <p className="mb-6 text-muted-foreground">Ett oväntat fel inträffade. Försök att ladda om sidan.</p>

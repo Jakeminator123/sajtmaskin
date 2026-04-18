@@ -2,6 +2,7 @@
 
 import { memo, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, FileCode2, Loader2 } from "lucide-react";
+import { Mascot } from "@/components/mascot/Mascot";
 import { cn } from "@/lib/utils";
 
 interface GeneratedFile {
@@ -84,6 +85,11 @@ export const GenerationSummary = memo(function GenerationSummary({
   if (simplified) {
     return (
       <div className="space-y-2 min-w-0">
+        {!isStreaming && (
+          <div className="flex justify-center py-1">
+            <Mascot slot="celebrate" size={96} decorative />
+          </div>
+        )}
         <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-foreground overflow-hidden wrap-break-word">
           {isStreaming ? streamingNotice : (parsed.proseText || "Din hemsida är klar!")}
         </div>

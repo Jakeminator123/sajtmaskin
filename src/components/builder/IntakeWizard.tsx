@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { NeedsAnalysisField } from "@/lib/builder/needs-analysis";
+import { Mascot } from "@/components/mascot/Mascot";
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
@@ -1329,6 +1330,14 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
         {/* Header */}
         <div className="px-6 pb-2 pt-6 sm:px-10">
           <div className="flex items-start gap-4">
+            {(step === "company" || step === "media") && (
+              <Mascot
+                slot={step === "company" ? "wave" : "thumbs-up"}
+                size={64}
+                decorative
+                className="shrink-0"
+              />
+            )}
             <div className="min-w-0 flex-1">
               <h2 className="text-[22px] font-semibold tracking-tight text-foreground sm:text-2xl">{stepTitle}</h2>
               {stepSubtitle && (

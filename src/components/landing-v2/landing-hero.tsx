@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useRef } from "react"
+import Image from "next/image"
 import { Mic, X, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
@@ -74,21 +75,30 @@ export function LandingHero({
   )
 
   return (
-    <section className="relative flex min-h-[min(100dvh,880px)] flex-col items-center justify-center overflow-hidden bg-background px-4 pb-12 pt-20 md:px-6 md:pb-16 md:pt-24">
-      {heroPrefix}
+    <section className="relative isolate flex min-h-[min(100dvh,880px)] flex-col items-center justify-start overflow-hidden bg-background px-4 pb-12 pt-20 md:justify-center md:px-6 md:pb-16 md:pt-24">
+      <Image
+        src="/background.jpg"
+        alt=""
+        aria-hidden
+        fill
+        priority
+        sizes="100vw"
+        className="pointer-events-none absolute inset-0 -z-10 select-none object-cover"
+      />
+      <div className="flex w-full max-w-5xl flex-col items-center gap-8 md:flex-row md:items-center md:justify-center md:gap-12">
+        <div className="flex w-full max-w-lg flex-col items-stretch">
+          <div className={`mb-8 max-w-md self-center text-center md:mb-10 ${motionEnter}`}>
+            <h1 className="font-(--font-heading) text-balance text-3xl font-semibold leading-[1.1] tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)] sm:text-4xl">
+              Bygg din sajt.
+            </h1>
+            <p className="mx-auto mt-3 max-w-xs text-sm text-white/85 drop-shadow-[0_1px_8px_rgba(0,0,0,0.3)]">
+              En kort beskrivning räcker.
+            </p>
+          </div>
 
-      <div className={`mb-8 max-w-md text-center md:mb-10 ${motionEnter}`}>
-        <h1 className="font-(--font-heading) text-balance text-3xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-4xl">
-          Bygg din sajt.
-        </h1>
-        <p className="mx-auto mt-3 max-w-xs text-sm text-muted-foreground">
-          En kort beskrivning räcker.
-        </p>
-      </div>
-
-      <div className={`flex w-full max-w-lg flex-col items-stretch ${motionEnter}`}>
+          <div className={`flex w-full flex-col items-stretch ${motionEnter}`}>
         {showVoiceRecorder && !isAuditMode && (
-          <div className="mb-4 rounded-2xl border border-border/50 bg-card/40 px-4 py-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200 motion-reduce:animate-none">
+          <div className="mb-4 rounded-2xl border border-border/50 bg-card/90 px-4 py-3 backdrop-blur-md motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200 motion-reduce:animate-none">
             <div className="flex items-center justify-between gap-4">
               <VoiceRecorder
                 compact
@@ -110,7 +120,7 @@ export function LandingHero({
           </div>
         )}
 
-        <div className="flex flex-col overflow-hidden rounded-3xl border border-border/50 bg-card/30 shadow-sm transition-[box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none focus-within:border-primary/35 focus-within:shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]">
+        <div className="flex flex-col overflow-hidden rounded-3xl border border-border/50 bg-card/90 shadow-sm backdrop-blur-md transition-[box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none focus-within:border-primary/35 focus-within:shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]">
           {isAuditMode ? (
             <div className="flex flex-1 flex-col justify-center p-6 md:p-7">
               <input
@@ -190,10 +200,22 @@ export function LandingHero({
               </div>
             </div>
           )}
+          </div>
+        </div>
         </div>
 
-        {expandedContent && <div className="mt-8 w-full motion-safe:animate-fade-up motion-reduce:animate-none">{expandedContent}</div>}
+        {heroPrefix && (
+          <div className="order-first flex shrink-0 items-center justify-center md:order-none">
+            {heroPrefix}
+          </div>
+        )}
       </div>
+
+      {expandedContent && (
+        <div className="mt-8 w-full max-w-lg motion-safe:animate-fade-up motion-reduce:animate-none md:max-w-4xl">
+          {expandedContent}
+        </div>
+      )}
     </section>
   )
 }

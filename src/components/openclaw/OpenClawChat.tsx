@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { MessageCircle, X } from "lucide-react";
+import { X } from "lucide-react";
+import { Mascot } from "@/components/mascot/Mascot";
 import { companyNameFromSlug } from "@/lib/kostnadsfri/company-name";
 import {
   normalizeKostnadsfriOpenClawConfig,
@@ -127,19 +128,23 @@ export function OpenClawChat() {
         </div>
       )}
 
-      {/* FAB — clean round bubble */}
+      {/* FAB — mascot headshot bubble */}
       <button
         type="button"
         onClick={toggle}
         className={cn(
-          "fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200",
+          "fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-200",
           isOpen
             ? "bg-muted text-muted-foreground hover:bg-muted/80"
-            : "bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5",
+            : "bg-primary text-primary-foreground hover:-translate-y-0.5",
         )}
         aria-label={isOpen ? "Stäng chatt" : "Öppna chatt"}
       >
-        {isOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
+        {isOpen ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <Mascot slot="headshot" size={56} decorative className="h-14 w-14 object-cover" />
+        )}
       </button>
     </>
   );

@@ -11,10 +11,10 @@ export function AnimatedLogo({ className = "" }: { className?: string }) {
       aria-label="SajtMaskin"
     >
       <Image
-        src="/images/sajtmaskin-logo.png"
-        alt="SajtMaskin"
-        width={148}
-        height={56}
+        src="/logo_white.png"
+        alt="Sajtmaskin"
+        width={1653}
+        height={437}
         className="h-6 w-auto object-contain transition-opacity duration-200 hover:opacity-80 md:h-7"
         priority
       />

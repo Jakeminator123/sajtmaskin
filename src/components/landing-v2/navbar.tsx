@@ -27,7 +27,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
       className={`absolute left-0 right-0 top-0 z-30 flex min-h-12 items-center justify-between px-4 py-2 transition-[background-color,border-color,backdrop-filter] duration-200 ease-out motion-reduce:transition-none md:min-h-14 md:px-6 md:py-2.5 ${
         scrolled
           ? "border-b border-border/50 bg-background/70 backdrop-blur-xl"
-          : "border-b border-transparent bg-background/25 backdrop-blur-xl"
+          : "border-b border-transparent bg-transparent"
       }`}
     >
       <AnimatedLogo />

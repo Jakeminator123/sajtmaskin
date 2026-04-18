@@ -24,10 +24,10 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
         <Link href="/" className="flex items-center">
           <Image
-            src="/images/sajtmaskin-logo.png"
-            alt="SajtMaskin"
-            width={148}
-            height={56}
+            src="/logo.png"
+            alt="Sajtmaskin"
+            width={1653}
+            height={437}
             className="h-7 w-auto object-contain transition-opacity hover:opacity-80"
             priority
           />

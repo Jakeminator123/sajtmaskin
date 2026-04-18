@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { ArrowRight, Play, AlertTriangle, Mail } from "lucide-react";
+import { Mascot } from "@/components/mascot/Mascot";
 
 /**
  * Welcome Overlay
@@ -45,6 +46,9 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
           {/* Top accent */}
           <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-primary/30 to-transparent" />
 
+          <div className="mx-auto mb-4 flex justify-center">
+            <Mascot slot="wave" size={120} decorative />
+          </div>
           <p className="mb-2 text-[13px] font-medium tracking-widest text-muted-foreground uppercase">
             Din sajt är redo
           </p>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertCircle, RefreshCw, Home } from "lucide-react";
+import { RefreshCw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Mascot } from "@/components/mascot/Mascot";
 
 export default function BuilderError({
   error,
@@ -18,7 +19,7 @@ export default function BuilderError({
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center bg-background px-6 text-center">
       <div className="flex w-full max-w-sm flex-col items-center gap-5 rounded-2xl border border-border bg-card px-8 py-10 shadow-sm">
-        <AlertCircle className="h-10 w-10 text-destructive/70" />
+        <Mascot slot="error" size={140} decorative />
         <div>
           <h2 className="mb-1.5 text-base font-medium text-foreground">
             Något gick fel
