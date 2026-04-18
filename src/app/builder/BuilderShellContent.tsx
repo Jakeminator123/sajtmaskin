@@ -946,8 +946,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           </div>
           <div
             className={cn(
-              "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
-              vm.isVersionPanelCollapsed ? "w-10" : "w-80",
+              "border-border bg-background hidden h-full flex-col border-l transition-[width] duration-200 lg:flex",
+              vm.isVersionPanelCollapsed ? "lg:w-10" : "lg:w-80",
             )}
           >
             <VersionHistory

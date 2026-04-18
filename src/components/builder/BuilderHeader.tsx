@@ -596,6 +596,7 @@ export function BuilderHeader(props: {
                   window.open(
                     `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
                     "_blank",
+                    "noopener,noreferrer",
                   );
                 }
               }}
@@ -673,7 +674,13 @@ export function BuilderHeader(props: {
             size="sm"
             variant="outline"
             className="border-green-500 text-green-600"
-            onClick={() => window.open(deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`, "_blank")}
+            onClick={() =>
+              window.open(
+                deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`,
+                "_blank",
+                "noopener,noreferrer",
+              )
+            }
           >
             <Globe className="h-4 w-4" />
             <span className="hidden sm:inline">Publicerad</span>

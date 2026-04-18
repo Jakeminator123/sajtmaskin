@@ -220,7 +220,11 @@ export function VersionHistory({
     setDownloadingVersionId(versionId);
 
     try {
-      window.open(`${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`, "_blank");
+      window.open(
+        `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/download?format=zip`,
+        "_blank",
+        "noopener,noreferrer",
+      );
       toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
@@ -251,7 +255,7 @@ export function VersionHistory({
 
       const url = data?.blob?.url;
       if (url) {
-        window.open(url, "_blank");
+        window.open(url, "_blank", "noopener,noreferrer");
       }
       toast.success("Exported to Blob");
     } catch (error) {
@@ -303,7 +307,7 @@ export function VersionHistory({
 
       const url = data?.repoUrl;
       if (url) {
-        window.open(url, "_blank");
+        window.open(url, "_blank", "noopener,noreferrer");
       }
       toast.success("Exported to GitHub");
     } catch (error) {
@@ -519,7 +523,11 @@ export function VersionHistory({
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  window.open(`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`, "_blank")
+                  window.open(
+                    `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`,
+                    "_blank",
+                    "noopener,noreferrer",
+                  )
                 }
                 className="h-7 px-2 text-xs"
               >

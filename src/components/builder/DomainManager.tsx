@@ -521,7 +521,13 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => window.open(`https://${selectedDomain.domain}`, "_blank")}
+                    onClick={() =>
+                      window.open(
+                        `https://${selectedDomain.domain}`,
+                        "_blank",
+                        "noopener,noreferrer",
+                      )
+                    }
                   >
                     Besök <ExternalLink className="ml-1 h-3.5 w-3.5" />
                   </Button>
