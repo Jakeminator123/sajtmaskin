@@ -63,6 +63,42 @@ const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
     "# Emitted during code generation — highest priority override.",
 };
 
+/**
+ * Symmetric to `quoteEnvValue` below: when a value is wrapped in double
+ * quotes, decode the same escape sequences that the writer encodes
+ * (`\\` → `\`, `\"` → `"`, `\n` → newline, `\r` → CR, `\t` → tab).
+ *
+ * Without this round-trip, every read+write cycle of a value containing
+ * a backslash, newline or quote DOUBLES the escape level: `\n` becomes
+ * `\\n`, then `\\\\n`, etc. — which is exactly the "constiga snedstreck"
+ * regression we kept seeing leak into preview env files.
+ *
+ * Single-quoted values follow POSIX shell semantics — no escape
+ * interpretation at all — and unquoted values are taken literally.
+ */
+function unescapeDoubleQuotedEnvValue(raw: string): string {
+  let out = "";
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw.charCodeAt(i);
+    if (ch !== 92 /* "\\" */ || i + 1 >= raw.length) {
+      out += raw[i];
+      continue;
+    }
+    const next = raw[i + 1];
+    switch (next) {
+      case "n": out += "\n"; i++; break;
+      case "r": out += "\r"; i++; break;
+      case "t": out += "\t"; i++; break;
+      case '"': out += '"'; i++; break;
+      case "\\": out += "\\"; i++; break;
+      default:
+        out += raw[i];
+        break;
+    }
+  }
+  return out;
+}
+
 function parseDotenvBody(text: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const line of text.split(/\r?\n/)) {
@@ -73,11 +109,15 @@ function parseDotenvBody(text: string): Record<string, string> {
     if (eq <= 0) continue;
     const key = t.slice(0, eq).trim();
     let value = t.slice(eq + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    let wasDoubleQuoted = false;
+    if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
       value = value.slice(1, -1);
+      wasDoubleQuoted = true;
+    } else if (value.startsWith("'") && value.endsWith("'") && value.length >= 2) {
+      value = value.slice(1, -1);
+    }
+    if (wasDoubleQuoted) {
+      value = unescapeDoubleQuotedEnvValue(value);
     }
     if (key) out[key] = value;
   }

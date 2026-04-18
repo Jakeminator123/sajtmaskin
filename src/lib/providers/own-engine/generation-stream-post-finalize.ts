@@ -12,7 +12,10 @@ import {
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
+import {
+  triggerBuildErrorRepair,
+  triggerServerVerification,
+} from "@/lib/gen/verify/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
@@ -301,6 +304,35 @@ export async function runOwnEngineStreamPostFinalize(params: {
           message: previewSessionResult.error.message,
         });
         safeEnqueue(enc.encode(formatSSEEvent("build-error", { ...previewSessionResult.error })));
+        // Opt-in (env-gated) auto-repair so VM build failures loop back
+        // through `runRepairLoop` automatically instead of waiting for
+        // a manual click on "Repair". See `triggerBuildErrorRepair`.
+        triggerBuildErrorRepair({
+          chatId,
+          versionId: finalized.version.id,
+          buildError: {
+            stage: previewSessionResult.error.stage,
+            message: previewSessionResult.error.message,
+            failureCode: previewSessionResult.error.failureCode ?? null,
+          },
+          onRepairAvailable: (payload) => {
+            safeEnqueue(
+              enc.encode(
+                formatSSEEvent("version-repair-available", {
+                  versionId: payload.versionId,
+                  summary: payload.summary,
+                  repairAvailableAt: payload.repairAvailableAt,
+                }),
+              ),
+            );
+          },
+        }).catch((repairErr) => {
+          warnLog("engine", "build_error_repair_trigger_failed", {
+            chatId,
+            versionId: finalized.version.id,
+            message: repairErr instanceof Error ? repairErr.message : "unknown",
+          });
+        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Preview start failed";
@@ -328,6 +360,31 @@ export async function runOwnEngineStreamPostFinalize(params: {
           }),
         ),
       );
+      triggerBuildErrorRepair({
+        chatId,
+        versionId: finalized.version.id,
+        buildError: {
+          stage: "preview-start",
+          message,
+        },
+        onRepairAvailable: (payload) => {
+          safeEnqueue(
+            enc.encode(
+              formatSSEEvent("version-repair-available", {
+                versionId: payload.versionId,
+                summary: payload.summary,
+                repairAvailableAt: payload.repairAvailableAt,
+              }),
+            ),
+          );
+        },
+      }).catch((repairErr) => {
+        warnLog("engine", "build_error_repair_trigger_failed", {
+          chatId,
+          versionId: finalized.version.id,
+          message: repairErr instanceof Error ? repairErr.message : "unknown",
+        });
+      });
     }
   }
 

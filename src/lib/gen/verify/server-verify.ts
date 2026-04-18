@@ -179,6 +179,70 @@ export async function triggerServerVerification(params: {
   }
 }
 
+/**
+ * Auto-trigger a server-side repair loop when the live preview-VM emits
+ * a `build-error` SSE (npm install / next build / dev server crashed).
+ *
+ * Closes the gap between "the user mental model" — *VM-fel ska åka
+ * tillbaka in i repair-kedjan automatiskt* — and the previous reality,
+ * where build-error only triggered a UI banner unless the user
+ * manually clicked "Repair" or the F2 verification policy happened to
+ * also schedule server-verify (which it usually doesn't in design
+ * mode, see `resolvePostFinalizeServerVerifyDecision`).
+ *
+ * **Opt-in for safety.** Gated by `SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR=1`
+ * so we don't change end-user-visible behavior in production until
+ * we've watched it in dev for a while. Same `inflight` dedup as
+ * server-verify, so we never run two repair loops on the same version
+ * concurrently regardless of which path triggered them.
+ */
+export async function triggerBuildErrorRepair(params: {
+  chatId: string;
+  versionId: string;
+  buildError: {
+    stage: string;
+    message: string;
+    failureCode?: string | null;
+  };
+  onRepairAvailable?: (payload: {
+    versionId: string;
+    summary: string | null;
+    repairAvailableAt: string | null;
+  }) => void;
+}): Promise<void> {
+  if (process.env.SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR !== "1") return;
+  const { chatId, versionId, buildError, onRepairAvailable } = params;
+  if (!isServerVerifyEligible(versionId)) return;
+  inflight.add(versionId);
+  try {
+    if (!(await isLatestVersionForChat(chatId, versionId))) return;
+    const codeFiles = await getVersionFiles(versionId);
+    if (!codeFiles || codeFiles.length === 0) return;
+    const failureCodeSuffix = buildError.failureCode ? ` [${buildError.failureCode}]` : "";
+    const failedOutput: ServerVerifyFailedOutput = {
+      check: "build",
+      exitCode: 1,
+      output: `[preview-vm:${buildError.stage}]${failureCodeSuffix} ${buildError.message}`,
+      durationMs: null,
+    };
+    await tryServerRepairLoop({
+      chatId,
+      versionId,
+      codeFiles,
+      failedOutputs: [failedOutput],
+      verifyLaneDurationMs: 0,
+      firstFailureCheck: "build",
+      jobStartedAt: null,
+      jobFinishedAt: null,
+      onRepairAvailable,
+    });
+  } catch (err) {
+    console.error("[server-verify] build-error repair failed:", err);
+  } finally {
+    inflight.delete(versionId);
+  }
+}
+
 async function tryServerRepairLoop(params: {
   chatId: string;
   versionId: string;

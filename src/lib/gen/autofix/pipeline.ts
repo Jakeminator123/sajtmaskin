@@ -15,8 +15,7 @@ import {
   fixNextOgImageResponseImport,
 } from "./common-import-fixer";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
-import { fixLucideImageMisuse } from "./rules/lucide-image-fixer";
-import { fixLucideLinkMisuse } from "./rules/lucide-link-fixer";
+import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import {
@@ -27,6 +26,7 @@ import {
 } from "./rules/metadata-import-fixer";
 import { fixFontImport } from "./rules/font-import-fixer";
 import { fixTier3SdkImports } from "./rules/tier3-sdk-guard-fixer";
+import { fixEscapeLeakage } from "./rules/escape-leakage-fixer";
 import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
@@ -230,7 +230,43 @@ export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: s
 /**
  * Run all mechanical (deterministic) fixers sequentially on accumulated content.
  *
+ * ─── Fixer-family map (so future readers don't think it's one big blob) ───
+ *
+ *  Each fixer is a small pure function with a SPECIFIC failure mode it
+ *  catches. Multiple "import" fixers exist because LLM output breaks
+ *  imports in subtly different ways and each fixer is the smallest
+ *  correct unit:
+ *
+ *  • Adding a missing import    → react-import-fixer, react-hook-import-fixer,
+ *    when the symbol is used      react-type-import-fixer, next-image-import-fixer,
+ *    but never imported.          next-og-image-response-import-fixer,
+ *                                  metadata-import-fixer, metadata-route-import-fixer,
+ *                                  cn-import-fixer, font-import-fixer.
+ *
+ *  • Wrong source for an       → tier3-sdk-guard-fixer (strips backend
+ *    existing import.              SDKs in F2), lucide-misuse-fixer (lucide
+ *                                   `Link`/`Image` re-routed to next/*).
+ *
+ *  • Cross-file import         → local-symbol-import-fixer (add missing
+ *    reconciliation that            local imports), local-named-import-default-fixer
+ *    needs the WHOLE project        and local-default-import-fixer (named ↔ default
+ *    to decide.                     mismatch when other file's export shape
+ *                                    contradicts the import shape),
+ *                                    import-declaration-conflict-fixer (drop
+ *                                    imports that shadow a local declaration),
+ *                                    duplicate-import-binding-fixer (same
+ *                                    identifier from two sources).
+ *
+ *  These five "cross-file" fixers look redundant but they're not — each
+ *  encodes a different decision predicate and they're cheap to run.
+ *  Consolidating them into one pass would force a more complex shared
+ *  state machine without measurable savings; the current split makes
+ *  each rule trivially auditable. If you ARE going to consolidate them
+ *  later, do it AFTER you have telemetry showing redundant work
+ *  (counters in `countByFixer(...)`), not before.
+ *
  * Fixer order:
+ *  0.   escape-leakage-fixer — unwrap JSON-double-encoded file content
  *  1.   use-client-fixer   — prepend "use client" when client APIs detected
  *  2.   import-validator   — fix shadcn import paths
  *  3.   react-import-fixer — add missing `import React` + hooks + types
@@ -293,6 +329,29 @@ async function runAutoFixSinglePass(
       file.language === "ts" || file.language === "js";
 
     let currentCode = file.content;
+
+    // 0. escape-leakage-fixer — detect and unwrap JSON-double-encoded
+    // file content (literal `\n`, `\\"`, optionally surrounded by outer
+    // quotes) BEFORE any downstream fixer runs. Otherwise rules that
+    // split on `\r?\n` see the entire file as a single line and either
+    // do nothing (silent skip) or, worse, generate over-escaped output.
+    // Runs on every language — env files, JSON, .ts, .tsx alike.
+    try {
+      const escapeResult = fixEscapeLeakage(currentCode);
+      if (escapeResult.fixed) {
+        currentCode = escapeResult.code;
+        allFixes.push({
+          fixer: "escape-leakage-fixer",
+          category: "mechanical",
+          description: `Unwrapped JSON-double-encoded content (${escapeResult.kind}, recovered ${escapeResult.bytesRecovered} bytes)`,
+          file: file.path,
+        });
+      }
+    } catch (err) {
+      allWarnings.push(
+        `[${file.path}] escape-leakage-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
 
     // 1. use-client-fixer (tsx/jsx only)
     if (file.language === "tsx" || file.language === "jsx") {

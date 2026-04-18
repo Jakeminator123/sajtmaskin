@@ -293,6 +293,11 @@ export async function POST(
         ).catch((err) => {
           console.warn("[repair] Failed to mark version failed (no context):", err);
         });
+        // NB: `loopResult` is in TDZ here — this callback fires from inside
+        // the awaited `runRepairLoop(...)` call below, so the outer
+        // `const loopResult = ...` binding is not yet assigned. Use the
+        // pre-computed gate manifest instead (the no-context branch by
+        // definition has no incremental loop output to surface).
         await createEngineVersionErrorLogs([
           {
             chatId,
@@ -305,7 +310,7 @@ export async function POST(
               remainingErrors: 0,
               qualityGateFailureCount: gateFailures.length,
               serverOwned: false,
-              errorManifest: loopResult.errorManifest,
+              errorManifest: groupedGateContext.errorManifest,
             },
           },
         ]).catch((err) => {

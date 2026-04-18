@@ -8,6 +8,10 @@ import {
   type RequestAttachment,
 } from "./request-metadata";
 import { createCodeGenSSEStream, type StreamMeta } from "./stream/stream-format";
+import {
+  assertSystemPromptShape,
+  logAndMaybeThrowOnSystemPromptAssert,
+} from "./system-prompt-assert";
 
 export type { StreamMeta };
 export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
@@ -107,6 +111,15 @@ export function generateCode(
           openai: { reasoningEffort },
         };
   }
+
+  // Pre-LLM systemprompt assertion — catches JSON-double-encoded leakage,
+  // missing separator, unbalanced fences, etc. before we burn tokens on
+  // a poisoned prompt. Soft by default (warns); set
+  // `SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT=1` to fail loud.
+  logAndMaybeThrowOnSystemPromptAssert(
+    assertSystemPromptShape(systemPrompt),
+    { chatId: meta?.chatId, phase: "engine.generateCode" },
+  );
 
   const result = streamText({
     model,

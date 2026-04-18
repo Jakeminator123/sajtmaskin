@@ -6,6 +6,7 @@ vi.mock("@/lib/project-env-vars", () => ({
 
 import {
   buildPreviewEnvLocalContents,
+  formatDotenvBody,
   mergePreviewEnvRecords,
   resolvePreviewEnvLayers,
 } from "./env-local";
@@ -88,6 +89,42 @@ describe("buildPreviewEnvLocalContents", () => {
     // Tier-3 stub layer must be stripped (Stripe secret is in tier-3 stub file)
     expect(body).not.toContain("STRIPE_SECRET_KEY=");
     expect(body).not.toContain("# ── Tier-3 stub placeholders");
+  });
+});
+
+describe("dotenv round-trip (parseDotenvBody ↔ quoteEnvValue)", () => {
+  it("does NOT inflate escape levels across one round-trip", async () => {
+    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+
+    // A value with all the chars that quoteEnvValue escapes:
+    // backslash, double-quote, newline, plus a regular space (forces quoting).
+    const original = 'multi\nline "quoted" \\ slash';
+    const encodedOnce = formatDotenvBody({ KEY: original });
+
+    // Feed the encoded form back as the model-emitted .env.local.
+    // resolvePreviewEnvLayers → parseDotenvBody must decode symmetrically.
+    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({});
+    const { merged } = await resolvePreviewEnvLayers({
+      appProjectId: "proj_rt",
+      generatedEnvLocal: encodedOnce,
+    });
+
+    expect(merged.KEY).toBe(original);
+
+    // Re-encode the merged result and verify it equals the first encoding —
+    // i.e. the cycle is idempotent and escapes don't double up.
+    const encodedTwice = formatDotenvBody({ KEY: merged.KEY ?? "" });
+    expect(encodedTwice).toBe(encodedOnce);
+  });
+
+  it("leaves single-quoted values literal (POSIX shell semantics)", async () => {
+    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({});
+    const { merged } = await resolvePreviewEnvLayers({
+      appProjectId: "proj_rt",
+      generatedEnvLocal: "KEY='no\\nescape'",
+    });
+    expect(merged.KEY).toBe("no\\nescape");
   });
 });
 

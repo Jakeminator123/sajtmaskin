@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixLucideLinkMisuse } from "./lucide-link-fixer";
+import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./lucide-misuse-fixer";
 
 describe("fixLucideLinkMisuse", () => {
   it("replaces lucide Link import with next/link when <Link href> is used", () => {
@@ -95,5 +95,80 @@ describe("fixLucideLinkMisuse", () => {
     expect(result.fixed).toBe(true);
     const linkImportCount = (result.code.match(/import Link from "next\/link"/g) || []).length;
     expect(linkImportCount).toBe(1);
+  });
+});
+
+describe("fixLucideImageMisuse", () => {
+  it("replaces lucide Image import with next/image when <Image src> is used", () => {
+    const code = [
+      'import { Image, Camera } from "lucide-react";',
+      "",
+      "export default function Hero() {",
+      '  return <Image src="/hero.png" alt="Hero" width={800} height={400} />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideImageMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import Image from "next/image"');
+    expect(result.code).toContain('import { Camera } from "lucide-react"');
+  });
+
+  it("triggers on <Image fill /> usage too", () => {
+    const code = [
+      'import { Image } from "lucide-react";',
+      "",
+      "export default function Card() {",
+      '  return <Image src="/x.png" fill />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideImageMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import Image from "next/image"');
+  });
+
+  it("does nothing when Image from lucide-react is used as an icon (no src/fill)", () => {
+    const code = [
+      'import { Image } from "lucide-react";',
+      "",
+      "export default function Icon() {",
+      '  return <Image className="h-4 w-4" />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideImageMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(false);
+  });
+
+  it("does not duplicate next/image import if already present", () => {
+    const code = [
+      'import Image from "next/image";',
+      'import { Image, Camera } from "lucide-react";',
+      "",
+      "export default function Hero() {",
+      '  return <Image src="/x.png" alt="x" width={1} height={1} />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideImageMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    const importCount = (result.code.match(/import Image from "next\/image"/g) || []).length;
+    expect(importCount).toBe(1);
+  });
+
+  it("removes entire lucide import when Image is the only import", () => {
+    const code = [
+      'import { Image } from "lucide-react";',
+      "",
+      "export default function Hero() {",
+      '  return <Image src="/x.png" alt="x" width={1} height={1} />;',
+      "}",
+    ].join("\n");
+
+    const result = fixLucideImageMisuse(code, "app/page.tsx");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import Image from "next/image"');
+    expect(result.code).not.toContain("lucide-react");
   });
 });

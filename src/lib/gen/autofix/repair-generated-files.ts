@@ -14,8 +14,10 @@ import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fix
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
 import { fixReactHookImports } from "@/lib/gen/autofix/react-hook-import-fixer";
-import { fixLucideImageMisuse } from "@/lib/gen/autofix/rules/lucide-image-fixer";
-import { fixLucideLinkMisuse } from "@/lib/gen/autofix/rules/lucide-link-fixer";
+import {
+  fixLucideImageMisuse,
+  fixLucideLinkMisuse,
+} from "@/lib/gen/autofix/rules/lucide-misuse-fixer";
 import { fixLayoutProviders } from "@/lib/gen/autofix/rules/layout-provider-fixer";
 import type { FixEntry } from "./types";
 import {
