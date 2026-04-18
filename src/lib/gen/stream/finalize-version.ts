@@ -77,6 +77,13 @@ export interface FinalizeParams {
    * Used by autofix so a repair attempt replaces v1 in-place rather than minting v2.
    */
   targetVersionId?: string | null;
+  /**
+   * F3 only: id of the F2 design version this build is forked from.
+   * Stored on the new `engine_versions` row as `parent_version_id`.
+   * Set by the `/finalize-design` flow; ignored when `buildSpec.previewPolicy`
+   * is not `fidelity3`.
+   */
+  lifecycleParentVersionId?: string | null;
 }
 
 export interface FinalizeResult {
@@ -98,6 +105,121 @@ interface FinalizePathPolicy {
     | "fast_path_disabled_by_flag"
     | "repair_pass"
     | "light_followup_fast_policy";
+}
+
+async function runPreVmTypecheckPhase(params: {
+  chatId: string;
+  contentForVersion: string;
+  buildSpec?: BuildSpec | null;
+  resolvedScaffold: ScaffoldManifest | null;
+  onProgress?: FinalizeProgressCallback;
+  stepTelemetry: FinalizeStepTelemetryMap;
+  setContent: (next: string) => void;
+}): Promise<void> {
+  const startedAt = Date.now();
+  params.onProgress?.("pre_vm_typecheck", { phase: "start" });
+  try {
+    const { runPreVmTypecheck, formatTypecheckDiagnosticsForRepair } = await import(
+      "@/lib/gen/preview/warm-typecheck"
+    );
+    const { parseCodeProject } = await import("@/lib/gen/parser");
+    const project = parseCodeProject(params.contentForVersion).files;
+    const result = await runPreVmTypecheck({
+      scaffoldId: params.resolvedScaffold?.id ?? null,
+      files: project,
+      force: params.buildSpec?.previewPolicy === "fidelity3",
+    });
+    if (result.skipped) {
+      params.onProgress?.("pre_vm_typecheck", {
+        phase: "done",
+        durationMs: result.durationMs,
+        skipped: result.skipped,
+      });
+      params.stepTelemetry.pre_vm_typecheck = {
+        status: "skipped",
+        durationMs: result.durationMs,
+        reason: result.skipped,
+      };
+      return;
+    }
+    if (result.ok) {
+      params.onProgress?.("pre_vm_typecheck", {
+        phase: "done",
+        durationMs: result.durationMs,
+        diagnosticCount: 0,
+      });
+      params.stepTelemetry.pre_vm_typecheck = {
+        status: "done",
+        durationMs: result.durationMs,
+        diagnosticCount: 0,
+      };
+      return;
+    }
+
+    devLogAppend("in-progress", {
+      type: "pre-vm-typecheck.diagnostics",
+      chatId: params.chatId,
+      diagnosticCount: result.diagnostics.length,
+      sample: result.diagnostics.slice(0, 5),
+    });
+
+    // Try one repair pass via the LLM fixer with diagnostics as input.
+    try {
+      const { runLlmFixer: runLlmFixerLazy } = await import(
+        "@/lib/gen/autofix/llm-fixer"
+      );
+      const errors = formatTypecheckDiagnosticsForRepair(result.diagnostics);
+      const repaired = await runLlmFixerLazy(params.contentForVersion, errors, {});
+      if (repaired.success && repaired.fixedContent) {
+        const reFixed = await runAutoFix(repaired.fixedContent, {
+          previewPolicy: params.buildSpec?.previewPolicy,
+        });
+        params.setContent(reFixed.fixedContent);
+        params.onProgress?.("pre_vm_typecheck", {
+          phase: "repaired",
+          durationMs: Date.now() - startedAt,
+          diagnosticCount: result.diagnostics.length,
+        });
+        params.stepTelemetry.pre_vm_typecheck = {
+          status: "done",
+          durationMs: Date.now() - startedAt,
+          diagnosticCount: result.diagnostics.length,
+          repaired: true,
+        };
+        return;
+      }
+    } catch (repairErr) {
+      devLogAppend("in-progress", {
+        type: "pre-vm-typecheck.repair-error",
+        chatId: params.chatId,
+        message: repairErr instanceof Error ? repairErr.message : String(repairErr),
+      });
+    }
+
+    // Repair did not run or did not improve — log and continue.
+    params.onProgress?.("pre_vm_typecheck", {
+      phase: "done",
+      durationMs: Date.now() - startedAt,
+      diagnosticCount: result.diagnostics.length,
+      repaired: false,
+    });
+    params.stepTelemetry.pre_vm_typecheck = {
+      status: "done",
+      durationMs: Date.now() - startedAt,
+      diagnosticCount: result.diagnostics.length,
+      repaired: false,
+    };
+  } catch (err) {
+    params.onProgress?.("pre_vm_typecheck", {
+      phase: "error",
+      durationMs: Date.now() - startedAt,
+    });
+    params.stepTelemetry.pre_vm_typecheck = {
+      status: "error",
+      durationMs: Date.now() - startedAt,
+      reason: err instanceof Error ? err.message : "unknown",
+    };
+  }
 }
 
 type FinalizeStepStatus = "done" | "skipped" | "error";
@@ -330,13 +452,14 @@ async function tryRepairPartialFileOutput(params: {
   chatId: string;
   resolvedTier?: CanonicalModelId;
   partialFileIssues: string[];
+  previewPolicy?: BuildSpec["previewPolicy"];
 }): Promise<{
   repairedContent: string | null;
   attempts: number;
   succeeded: boolean;
   partialFiles: string[];
 }> {
-  const { contentForVersion, chatId, resolvedTier, partialFileIssues } = params;
+  const { contentForVersion, chatId, resolvedTier, partialFileIssues, previewPolicy } = params;
   const partialFiles = extractPartialFileNames(partialFileIssues);
   if (partialFiles.length === 0) {
     return {
@@ -372,7 +495,7 @@ async function tryRepairPartialFileOutput(params: {
       if (!result.success && !result.partial) {
         break;
       }
-      const reFixed = await runAutoFix(result.fixedContent);
+      const reFixed = await runAutoFix(result.fixedContent, { previewPolicy });
       devLogAppend("in-progress", {
         type: "partial-file-repair.outcome",
         chatId,
@@ -509,6 +632,7 @@ async function runFinalizeFastPath(params: {
     chatId,
     model,
     resolvedTier,
+    previewPolicy: buildSpec?.previewPolicy,
     onProgress: (evt) => {
       onProgress?.("validate_syntax", {
         pass: evt.pass,
@@ -548,6 +672,21 @@ async function runFinalizeFastPath(params: {
       resolvedTier: params.resolvedTier ?? null,
     });
   }
+
+  // Pre-VM typecheck (warm scaffold cache). Fail-open: when the cache
+  // isn't provisioned in this environment we just continue. F3 gens
+  // force the check so the integrations build always pays for it.
+  await runPreVmTypecheckPhase({
+    chatId,
+    contentForVersion,
+    buildSpec,
+    resolvedScaffold,
+    onProgress,
+    stepTelemetry,
+    setContent: (next) => {
+      contentForVersion = next;
+    },
+  });
 
   ensureNonEmptyGenerationContent({
     contentForVersion,
@@ -728,6 +867,7 @@ async function runFinalizeFastPath(params: {
       chatId,
       resolvedTier,
       partialFileIssues,
+      previewPolicy: buildSpec?.previewPolicy,
     });
     const repairedContent = partialRepair.repairedContent;
 
@@ -878,6 +1018,7 @@ export async function finalizeAndSaveVersion(
     repairPassIndex = 0,
     lineageHash,
     targetVersionId,
+    lifecycleParentVersionId,
   } = params;
 
   let contentForVersion = accumulatedContent;
@@ -910,6 +1051,7 @@ export async function finalizeAndSaveVersion(
       const autoFixResult = await runAutoFix(accumulatedContent, {
         chatId,
         model,
+        previewPolicy: buildSpec?.previewPolicy,
       });
       contentForVersion = autoFixResult.fixedContent;
       autoFixFixCount = autoFixResult.fixes.length;
@@ -1009,7 +1151,10 @@ export async function finalizeAndSaveVersion(
         contentForVersion,
         filesJson,
       )
-    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson);
+    : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
+        lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
+        parentVersionId: lifecycleParentVersionId ?? null,
+      });
   let version = initialVersion;
   devLogAppend("in-progress", {
     type: "version.created",

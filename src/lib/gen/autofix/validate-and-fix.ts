@@ -1,6 +1,7 @@
 import { runLlmFixer } from "./llm-fixer";
 import { runAutoFix } from "./pipeline";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { SYNTAX_FIX_MAX_PASSES } from "../defaults";
@@ -66,6 +67,8 @@ export async function validateAndFix(
     resolvedTier?: CanonicalModelId;
     onProgress?: ValidateFixProgressCallback;
     fixBudgetMs?: number;
+    /** Forwarded to `runAutoFix` so the F2 SDK guard can run when active. */
+    previewPolicy?: BuildSpecPreviewPolicy;
   },
 ): Promise<ValidateFixResult> {
   const onProgress = opts.onProgress;
@@ -92,6 +95,7 @@ export async function validateAndFix(
     const preFixResult = await runAutoFix(content, {
       chatId: opts.chatId,
       model: opts.model,
+      previewPolicy: opts.previewPolicy,
     });
     let currentContent = preFixResult.fixedContent;
     totalMechanicalFixes += preFixResult.fixes.length;
@@ -316,6 +320,7 @@ export async function validateAndFix(
         const reFixed = await runAutoFix(fixerResult.fixedContent, {
           chatId: opts.chatId,
           model: opts.model,
+          previewPolicy: opts.previewPolicy,
         });
         currentContent = reFixed.fixedContent;
         totalMechanicalFixes += reFixed.fixes.length;

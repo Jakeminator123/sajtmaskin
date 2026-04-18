@@ -18,14 +18,13 @@ import {
 import {
   parseGeneratedSitePlaceholderLines,
   readGeneratedSitePlaceholdersEnvText,
-  resolveGeneratedSitePlaceholdersPath,
+  resolveHarmlessPlaceholdersPath,
+  resolveTier3StubPlaceholdersPath,
 } from "@/lib/ai-models/load-generated-site-placeholders";
 import { canonicalModelIdToOwnModelId, DEFAULT_OWN_MODEL_ID, QUALITY_TO_OPENAI_MODEL } from "@/lib/models/catalog";
 import {
-  INTERACTIVE_QUALITY_GATE_CHECKS,
-  PROMOTION_QUALITY_GATE_CHECKS,
-  SERVER_VERIFY_QUALITY_GATE_CHECKS,
-  TIER2_QUALITY_GATE_CHECKS,
+  DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
+  INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
 } from "@/lib/gen/verify/quality-gate-checks";
 
 describe("config/ai_models/manifest.json parity", () => {
@@ -110,14 +109,10 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(repairPolicies.partialFileRepairMaxAttempts).toBeGreaterThan(0);
     expect(repairPolicies.partialFileRepairMaxAttempts).toBeLessThanOrEqual(3);
 
-    expect(qualityGateTiers.tier2.length).toBeGreaterThan(0);
-    expect(qualityGateTiers.serverVerify.length).toBeGreaterThan(0);
-    expect(qualityGateTiers.promotion.length).toBeGreaterThan(0);
-    expect(qualityGateTiers.interactive.length).toBeGreaterThan(0);
-    expect(TIER2_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.tier2);
-    expect(SERVER_VERIFY_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.serverVerify);
-    expect(PROMOTION_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.promotion);
-    expect(INTERACTIVE_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.interactive);
+    expect(qualityGateTiers.designPreview.length).toBeGreaterThan(0);
+    expect(qualityGateTiers.integrationsBuild.length).toBeGreaterThan(0);
+    expect(DESIGN_PREVIEW_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.designPreview);
+    expect(INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS).toEqual(qualityGateTiers.integrationsBuild);
 
     expect(promptOrchestration.hardCaps.maxChatMessageChars.envKey).toBe(
       "SAJTMASKIN_MAX_PROMPT_LENGTH",
@@ -134,16 +129,18 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(contractConfig.providerRules.length).toBeGreaterThan(5);
   });
 
-  it("generated-site integration placeholders file exists and parses", () => {
+  it("generated-site integration placeholders files exist and parse (harmless + tier-3 stub)", () => {
     const m = getAiModelsManifest();
-    expect(m.generatedSiteIntegrationPlaceholders?.envFragmentFile).toBeTruthy();
+    expect(m.generatedSiteIntegrationPlaceholders?.harmlessEnvFragmentFile).toBeTruthy();
+    expect(m.generatedSiteIntegrationPlaceholders?.tier3StubEnvFragmentFile).toBeTruthy();
     const cwd = process.cwd();
-    const fp = resolveGeneratedSitePlaceholdersPath(cwd);
-    expect(existsSync(fp)).toBe(true);
+    expect(existsSync(resolveHarmlessPlaceholdersPath(cwd))).toBe(true);
+    expect(existsSync(resolveTier3StubPlaceholdersPath(cwd))).toBe(true);
     const raw = readGeneratedSitePlaceholdersEnvText(cwd);
     const pairs = parseGeneratedSitePlaceholderLines(raw);
     expect(pairs.length).toBeGreaterThan(10);
     expect(pairs.some((p) => p.key === "NEXT_PUBLIC_SUPABASE_URL")).toBe(true);
+    expect(pairs.some((p) => p.key === "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY")).toBe(true);
   });
 
   it("documents post-generation verifier workload", () => {

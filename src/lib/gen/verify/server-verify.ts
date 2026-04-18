@@ -25,7 +25,7 @@ import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildExportableProject } from "@/lib/gen/export/build-exportable-project";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
+import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "./quality-gate-checks";
 import {
   isQualityGateConfigured,
   maybeAnalyzeVisualQAForPassedExportable,
@@ -108,7 +108,7 @@ export async function triggerServerVerification(params: {
       chatId,
       versionId,
       exportable,
-      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
+      checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
     });
     if (!gateResult) {
       await failVersionVerification(versionId, "Quality gate unavailable during verification.").catch(() => null);
@@ -226,7 +226,7 @@ async function tryServerRepairLoop(params: {
       versionId,
       exportable: exportableForGate,
       hadQualityGateFailures,
-      checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
+      checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
     });
     const visualQA = maybeAnalyzeVisualQAForPassedExportable({
       exportable: exportableForGate,

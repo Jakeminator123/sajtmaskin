@@ -47,6 +47,8 @@ export type OwnEnginePipelineAndGenerationInput = {
   lineageHash?: string | null;
   targetVersionId?: string | null;
   includeIntegrationSignals?: boolean;
+  /** F3 only: parent F2 version id (forwarded into `engine_versions.parent_version_id`). */
+  lifecycleParentVersionId?: string | null;
 };
 
 /**
@@ -94,5 +96,6 @@ export function createOwnEnginePipelineAndGenerationStream(
     previousFiles: input.previousFiles,
     lineageHash: input.lineageHash,
     targetVersionId: input.targetVersionId,
+    lifecycleParentVersionId: input.lifecycleParentVersionId,
   });
 }

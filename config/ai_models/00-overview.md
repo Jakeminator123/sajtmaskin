@@ -20,15 +20,17 @@ Detaljer per fil och exakt `invocation`-fält finns under `workloads[]` i `manif
 
 ## Genererade användarsajter — preview-placeholders (inte Sajtmaskin `.env`)
 
-För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga Resend, Supabase, Stripe osv. ligger en **dotenv-liknande** fil i samma bibliotek:
+För att **genererade** Next-projekt ofta ska kunna byggas/köras utan riktiga Resend, Supabase, Stripe osv. ligger **två dotenv-liknande filer** i samma bibliotek (split sedan 2026-04):
 
-- [`40-generated-site-integration-placeholders.env.txt`](40-generated-site-integration-placeholders.env.txt) — kanoniska `KEY=value`-rader (osanna värden).
-- [`manifest.json`](manifest.json) → fältet `generatedSiteIntegrationPlaceholders` pekar på filnamnet och länkar till policy i [`../user_degraded_env.txt`](../user_degraded_env.txt).
+- [`40-harmless-placeholders.env.txt`](40-harmless-placeholders.env.txt) — `KEY=value`-rader som är **säkra även i F3** (test/publishable-keys, AUTH_SECRET, GA-id, search-only API-keys, m.m.).
+- [`41-tier3-stub-placeholders.env.txt`](41-tier3-stub-placeholders.env.txt) — F2-stubbar (Stripe-secret, Supabase-URL, Clerk-secret, Redis URL, OpenAI, …) som **strippas helt i F3-merge** och kräver riktiga värden via `validateTier3Readiness`.
+- Per-key-klassificering: [`src/lib/integrations/placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts).
+- [`manifest.json`](manifest.json) → fältet `generatedSiteIntegrationPlaceholders` pekar på båda filnamnen (`harmlessEnvFragmentFile`, `tier3StubEnvFragmentFile`) och länkar till policy i [`../user_degraded_env.txt`](../user_degraded_env.txt).
 - TypeScript: [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts) (endast Node — inte i klientbundles).
 
 Detta är **parallellt med** `config/codegen-static-prompt.json` + `prompt-static/*.md`: manifest + vanlig text under `config/`, men här är nyttolasten env-placeholders för slutkundsprojekt, inte systemprompt.
 
-**Tier-2 preview / VM:** Både `startPreviewSession` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) mergar nycklarna från denna fil in i `.env.local` via `buildPreviewEnvLocalContents` i [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts). Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever fortfarande kvar som legacy i vissa kontrakt och interna namn. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
+**Tier-2 preview / VM:** Både `startPreviewSession` (builder) och `generateOwnEngineSiteFromPrompt` (MCP/own-engine) mergar nycklarna in i `.env.local` via `buildPreviewEnvLocalContents` i [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts). Merge-ordning: `harmless → tier3-stub → project-preview → user → generated` (senare lager vinner). I F3 (`lifecycleStage: "integrations"`) hoppas tier-3-stub-laget över helt. Produktens primära live-preview är i dag `preview_host` / VM; ordet `sandbox` lever fortfarande kvar som legacy i vissa kontrakt och interna namn. **Tier-1 shim** använder inte samma merge. Översikt och lagerordning: [_READ_ME_FIRST.md](_READ_ME_FIRST.md).
 
 ## Direkt provider-API vs SDK (viktigt)
 
@@ -52,4 +54,4 @@ Primära direkt-API-länkar (canonical listan ligger i `manifest.json`):
 - [10-own-engine.md](10-own-engine.md) — byggprofiler och `claude-*`-normalisering.
 - [20-prompt-assist.md](20-prompt-assist.md) — provider-namngivning (`"openai" | "anthropic"`).
 - [30-embeddings-and-misc.md](30-embeddings-and-misc.md) — embedding-modeller och övriga routes.
-- [40-generated-site-integration-placeholders.env.txt](40-generated-site-integration-placeholders.env.txt) — preview-env för genererade sajter (se även [../user_degraded_env.txt](../user_degraded_env.txt)).
+- [40-harmless-placeholders.env.txt](40-harmless-placeholders.env.txt) + [41-tier3-stub-placeholders.env.txt](41-tier3-stub-placeholders.env.txt) — preview-env för genererade sajter (se även [../user_degraded_env.txt](../user_degraded_env.txt)).

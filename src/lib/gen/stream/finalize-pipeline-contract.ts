@@ -24,6 +24,11 @@ export const OWN_ENGINE_POST_STREAM_PIPELINE = [
     labelSv: "Syntaxvalidering",
   },
   {
+    id: "pre_vm_typecheck",
+    label: "Pre-VM TypeScript typecheck against warm scaffold cache",
+    labelSv: "Pre-VM typecheck",
+  },
+  {
     id: "materialize_images",
     label: "Placeholder image materialization",
     labelSv: "Bildmaterialisering",
@@ -51,6 +56,7 @@ export const OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES: OwnEnginePostStreamPhaseId[] 
   "autofix",
   "url_expand",
   "validate_syntax",
+  "pre_vm_typecheck",
   "parse_merge_preflight",
 ];
 

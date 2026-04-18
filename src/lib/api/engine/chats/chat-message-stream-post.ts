@@ -689,6 +689,7 @@ export async function handleMessageStreamRequest(
           existingRoutePaths,
           existingShellRoutePaths,
           capabilities: previousFiles.length > 0 ? inferCapabilities(message) : undefined,
+          lifecycleStage: parsedMeta.lifecycleStage,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -915,6 +916,10 @@ export async function handleMessageStreamRequest(
             metaPromptSourceKind === "autofix" && metaEngineBaseVersionId
               ? metaEngineBaseVersionId
               : undefined,
+          lifecycleParentVersionId:
+            parsedMeta.lifecycleStage === "integrations"
+              ? parsedMeta.parentVersionId
+              : null,
         });
 
         const engineHeaders = new Headers(createSSEHeaders());

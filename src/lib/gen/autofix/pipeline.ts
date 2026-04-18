@@ -26,6 +26,8 @@ import {
   fixMissingCnImport,
 } from "./rules/metadata-import-fixer";
 import { fixFontImport } from "./rules/font-import-fixer";
+import { fixTier3SdkImports } from "./rules/tier3-sdk-guard-fixer";
+import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
@@ -50,6 +52,16 @@ export interface AutoFixResult {
 export interface AutoFixContext {
   chatId?: string;
   model?: string;
+  /**
+   * Lifecycle stage of the build. Drives the F2 SDK guard
+   * (`tier3-sdk-guard-fixer`): tier-3 backend SDK imports are stripped
+   * from F2 ("design") output but preserved as-is in F3
+   * ("bygg integrationer"). Defaults to undefined which is treated as
+   * F2 when set explicitly, but legacy callers without a buildSpec
+   * skip the guard so we don't accidentally strip imports from
+   * untyped flows.
+   */
+  previewPolicy?: BuildSpecPreviewPolicy;
 }
 
 // ---------------------------------------------------------------------------
@@ -251,7 +263,7 @@ export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: s
  */
 async function runAutoFixSinglePass(
   content: string,
-  _context?: AutoFixContext,
+  context?: AutoFixContext,
 ): Promise<AutoFixResult> {
   const allFixes: FixEntry[] = [];
   const allWarnings: string[] = [];
@@ -271,6 +283,9 @@ async function runAutoFixSinglePass(
   const fixedFiles: CodeFile[] = [];
   const exportIndex = buildProjectExportIndex(project.files);
   const moduleExportIndex = buildProjectModuleExportIndex(project.files);
+  // F2 SDK guard is opt-in via explicit previewPolicy — legacy callers
+  // without a buildSpec leave it disabled so we don't surprise them.
+  const tier3GuardActive = context?.previewPolicy === "fidelity2";
 
   for (const file of project.files) {
     const isTsxOrJsx =
@@ -295,6 +310,28 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] use-client-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // 1b. tier3-sdk-guard-fixer (F2 only) — strip backend SDK imports the
+    // model emitted in design phase. Run before import-validator so it
+    // doesn't try to "fix" imports we're about to remove.
+    if (tier3GuardActive && isTsxOrJsx) {
+      try {
+        const guardResult = fixTier3SdkImports(currentCode);
+        if (guardResult.removedModules.length > 0) {
+          currentCode = guardResult.code;
+          allFixes.push({
+            fixer: "tier3-sdk-guard-fixer",
+            category: "mechanical",
+            description: `Removed F2 tier-3 SDK imports: ${guardResult.removedModules.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] tier3-sdk-guard-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

@@ -125,6 +125,13 @@ type DeriveBuildSpecParams = {
    * target are preserved as shells.
    */
   existingShellRoutePaths?: string[];
+  /**
+   * Explicit caller-controlled `previewPolicy` override.
+   * F3 (`fidelity3`) is ONLY entered via this override — never auto-promoted
+   * by prompt heuristics or buildIntent shape. Set by the F3 trigger route
+   * (`POST /api/engine/chats/[chatId]/finalize-design`).
+   */
+  previewPolicyOverride?: BuildSpecPreviewPolicy;
 };
 
 function escapeRegex(value: string): string {
@@ -141,12 +148,6 @@ function phrasePatterns(values: readonly string[]): RegExp[] {
     return new RegExp(`\\b${escaped}\\b`, "i");
   });
 }
-
-const RELEASE_CANDIDATE_PATTERNS = [
-  ...phrasePatterns(["release candidate", "ready for production", "launch"]),
-  /\bdeploy[- ]ready\b/i,
-  /\bprod(?:uction)?[- ]ready\b/i,
-];
 
 const REDESIGN_PATTERNS = phrasePatterns([
   "redesign",
@@ -497,24 +498,25 @@ function inferChangeScope(params: {
 }
 
 function inferQualityTarget(params: {
-  prompt: string;
   buildIntent: BuildIntent;
   generationMode: BuildSpecGenerationMode;
   resolvedScaffold: ScaffoldManifest | null;
   routePlan: RoutePlan;
   routeRealization: RouteRealizationPolicy;
   preGenerationContracts: PreGenerationContractContext;
+  /** Explicit override — F3 lifecycle stage forces release-candidate. */
+  previewPolicy: BuildSpecPreviewPolicy;
 }): BuildSpecQualityTarget {
   const {
-    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,
     routePlan,
     routeRealization,
     preGenerationContracts,
+    previewPolicy,
   } = params;
-  if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "release-candidate";
+  if (previewPolicy === "fidelity3") return "release-candidate";
 
   const advancedScaffoldId =
     resolvedScaffold?.id === "dashboard" ||
@@ -538,37 +540,15 @@ function inferQualityTarget(params: {
   return premiumSignals ? "premium" : "standard";
 }
 
-function inferPreviewPolicy(params: {
-  prompt: string;
-  generationMode: BuildSpecGenerationMode;
-  qualityTarget: BuildSpecQualityTarget;
-  routePlan: RoutePlan;
-  routeRealization: RouteRealizationPolicy;
-  preGenerationContracts: PreGenerationContractContext;
-  buildIntent: BuildIntent;
-}): BuildSpecPreviewPolicy {
-  const {
-    prompt,
-    generationMode,
-    qualityTarget,
-    routePlan,
-    routeRealization,
-    preGenerationContracts,
-    buildIntent,
-  } = params;
-  const routeCount = effectiveInitRouteCount({
-    generationMode,
-    routePlan,
-    routeRealization,
-  });
-  if (qualityTarget === "release-candidate") return "fidelity3";
-  if (
-    buildIntent === "app" &&
-    (preGenerationContracts.contracts.integrations.length > 1 || routeCount > 4)
-  ) {
-    return "fidelity3";
-  }
-  if (includesAny(RELEASE_CANDIDATE_PATTERNS, prompt)) return "fidelity3";
+/**
+ * Default `previewPolicy`. **Always returns `fidelity2`.** F3 is opt-in via
+ * `DeriveBuildSpecParams.previewPolicyOverride`, set explicitly by the
+ * "Bygg integrationer" button (`POST .../finalize-design`). Auto-promotion
+ * by prompt content or buildIntent shape was removed 2026-04 because it
+ * caused unwanted F3 builds whenever a prompt happened to mention "deploy"
+ * or "production".
+ */
+function inferPreviewPolicy(): BuildSpecPreviewPolicy {
   return "fidelity2";
 }
 
@@ -827,6 +807,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     capabilities = null,
     isFirstCodeGeneration,
     existingShellRoutePaths,
+    previewPolicyOverride,
   } = params;
 
   const capabilityHeavy = capabilities ? hasHeavyCapabilities(capabilities) : false;
@@ -845,23 +826,15 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     routePlan,
     preGenerationContracts,
   });
+  const previewPolicy = previewPolicyOverride ?? inferPreviewPolicy();
   const qualityTarget = inferQualityTarget({
-    prompt,
     buildIntent,
     generationMode,
     resolvedScaffold,
     routePlan,
     routeRealization,
     preGenerationContracts,
-  });
-  const previewPolicy = inferPreviewPolicy({
-    prompt,
-    generationMode,
-    qualityTarget,
-    routePlan,
-    routeRealization,
-    preGenerationContracts,
-    buildIntent,
+    previewPolicy,
   });
   const verificationPolicy = inferVerificationPolicy({
     generationMode,

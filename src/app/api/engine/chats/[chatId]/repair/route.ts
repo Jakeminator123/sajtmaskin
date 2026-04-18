@@ -15,7 +15,7 @@ import {
   maybeAnalyzeVisualQAForPassedExportable,
   shouldPromoteAfterRepair,
 } from "@/lib/gen/verify/preview-quality-gate";
-import { SERVER_VERIFY_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
+import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import { parseCodeProject } from "@/lib/gen/parser";
 import type { CodeFile } from "@/lib/gen/parser";
 import { ownModelIdToCanonicalModelId } from "@/lib/models/catalog";
@@ -180,7 +180,7 @@ export async function POST(
         versionId: currentVersionId,
         exportable,
         hadQualityGateFailures,
-        checks: SERVER_VERIFY_QUALITY_GATE_CHECKS,
+        checks: DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
       });
       const visualQA = maybeAnalyzeVisualQAForPassedExportable({
         exportable,

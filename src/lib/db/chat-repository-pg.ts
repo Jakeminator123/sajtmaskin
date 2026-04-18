@@ -54,6 +54,10 @@ export interface Version {
   verification_summary: string | null;
   repair_available_at: string | null;
   promoted_at: string | null;
+  /** F2/F3 lifecycle stage; defaults to "design" for legacy rows. */
+  lifecycle_stage: "design" | "integrations";
+  /** F3 versions point at the F2 version they were forked from. */
+  parent_version_id: string | null;
   created_at: string;
 }
 
@@ -172,6 +176,10 @@ async function insertDraftVersionRow(
     messageId: string | null;
     filesJson: string;
     previewUrl?: string;
+    /** F2/F3 lifecycle stage. Defaults to "design". */
+    lifecycleStage?: "design" | "integrations";
+    /** When set, F3 row pointing at the F2 version it was forked from. */
+    parentVersionId?: string | null;
   },
 ): Promise<Version> {
   const id = uuid();
@@ -194,6 +202,8 @@ async function insertDraftVersionRow(
     verificationSummary: null,
     repairAvailableAt: null,
     promotedAt: null,
+    lifecycleStage: params.lifecycleStage ?? "design",
+    parentVersionId: params.parentVersionId ?? null,
   });
   return loadVersionById(executor, id);
 }
@@ -210,9 +220,11 @@ export async function addAssistantMessageAndCreateDraftVersion(
     tokenCount?: number;
     uiParts?: Record<string, unknown>[] | null;
     previewUrl?: string;
+    lifecycleStage?: "design" | "integrations";
+    parentVersionId?: string | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, previewUrl } = options;
+  const { tokenCount, uiParts, previewUrl, lifecycleStage, parentVersionId } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -234,6 +246,8 @@ export async function addAssistantMessageAndCreateDraftVersion(
       messageId,
       filesJson,
       previewUrl,
+      lifecycleStage,
+      parentVersionId,
     });
 
     const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
@@ -301,8 +315,16 @@ export async function createDraftVersion(
   messageId: string | null,
   filesJson: string,
   previewUrl?: string,
+  lifecycle?: { stage?: "design" | "integrations"; parentVersionId?: string | null },
 ): Promise<Version> {
-  return insertDraftVersionRow(db, { chatId, messageId, filesJson, previewUrl });
+  return insertDraftVersionRow(db, {
+    chatId,
+    messageId,
+    filesJson,
+    previewUrl,
+    lifecycleStage: lifecycle?.stage,
+    parentVersionId: lifecycle?.parentVersionId,
+  });
 }
 
 export async function createAndPromoteDraftVersion(

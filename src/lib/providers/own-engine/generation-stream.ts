@@ -50,6 +50,8 @@ export interface GenerationStreamParams {
   lineageHash?: string | null;
   /** When set, repair replaces this version in-place instead of creating a new one. */
   targetVersionId?: string | null;
+  /** F3 only: parent F2 version id, forwarded into `engine_versions.parent_version_id`. */
+  lifecycleParentVersionId?: string | null;
 }
 
 export function createOwnEngineGenerationStream(
@@ -72,6 +74,7 @@ export function createOwnEngineGenerationStream(
     previousFiles,
     lineageHash,
     targetVersionId,
+    lifecycleParentVersionId,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -278,6 +281,7 @@ export function createOwnEngineGenerationStream(
         onProgress: emitProgress,
         lineageHash,
         targetVersionId,
+        lifecycleParentVersionId,
         ...extra,
       });
 

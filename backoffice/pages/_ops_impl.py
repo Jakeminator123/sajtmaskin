@@ -535,8 +535,8 @@ def render_ops_page(page: str, ctx: BackofficeContext) -> None:
             bs_text = build_spec_path.read_text(encoding="utf-8")
             for bs_type, bs_desc in [
                 ("BuildSpecContextPolicy", "Tokenbudget-nivå för scaffold"),
-                ("BuildSpecQualityTarget", "Kvalitetsmål (standard/premium/release-candidate)"),
-                ("BuildSpecPreviewPolicy", "Preview-policy: fidelity2 (typecheck) eller fidelity3 (build)"),
+                ("BuildSpecQualityTarget", "Kvalitetsmål (standard/premium/release-candidate). release-candidate sätts numera bara via explicit F3-trigger."),
+                ("BuildSpecPreviewPolicy", "F2 = `fidelity2` (design-loopen, typecheck). F3 = `fidelity3` (bygg integrationer, typecheck + build). F3 triggas ENBART via `POST .../finalize-design`."),
                 ("BuildSpecVerificationPolicy", "Verifieringsnivå: fast / standard / strict"),
             ]:
                 bs_vals = extract_ts_union_values(bs_text, bs_type)

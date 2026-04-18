@@ -561,6 +561,17 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         key="pgp_ver_snip",
     )
 
+    qg = manifest.setdefault("qualityGateTiers", {})
+    st.markdown("#### Quality gate-lanes")
+    st.caption(
+        "Konsoliderade 2026-04 från fyra lanes (`tier2`, `serverVerify`, `promotion`, `interactive`) till två: "
+        "`designPreview` (F2) och `integrationsBuild` (F3). Ändras här eller direkt i `manifest.json`."
+    )
+    qg_design = ", ".join(qg.get("designPreview") or ["typecheck"])
+    qg_int = ", ".join(qg.get("integrationsBuild") or ["typecheck", "build"])
+    st.text(f"designPreview (F2): {qg_design}")
+    st.text(f"integrationsBuild (F3): {qg_int}")
+
     deterministic_passes = st.number_input(
         "Mekaniska fix-pass före LLM",
         value=int(rp.get("deterministicAutofixPasses", 2)),

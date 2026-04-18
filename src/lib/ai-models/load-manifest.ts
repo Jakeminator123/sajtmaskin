@@ -146,10 +146,8 @@ const repairPoliciesSchema = z.object({
 const qualityGateCheckSchema = z.enum(["typecheck", "build", "lint"]);
 
 const qualityGateTiersSchema = z.object({
-  tier2: z.array(qualityGateCheckSchema).min(1),
-  serverVerify: z.array(qualityGateCheckSchema).min(1),
-  promotion: z.array(qualityGateCheckSchema).min(1),
-  interactive: z.array(qualityGateCheckSchema).min(1),
+  designPreview: z.array(qualityGateCheckSchema).min(1),
+  integrationsBuild: z.array(qualityGateCheckSchema).min(1),
 });
 
 const promptOrchestrationSchema = z.object({
@@ -227,7 +225,8 @@ const embeddingEntrySchema = z.object({
 });
 
 const generatedSiteIntegrationPlaceholdersSchema = z.object({
-  envFragmentFile: z.string(),
+  harmlessEnvFragmentFile: z.string(),
+  tier3StubEnvFragmentFile: z.string(),
   policyDocRelativeToConfig: z.string().optional(),
   preGenerationContractsEntry: z.string().optional(),
   notes: z.string().optional(),

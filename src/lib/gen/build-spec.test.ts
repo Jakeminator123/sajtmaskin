@@ -135,15 +135,15 @@ describe("deriveBuildSpec", () => {
     expect(spec.forbiddenPatterns).toContain("unrequested_full_redesign");
   });
 
-  it("promotes release-candidate prompts to fidelity3", () => {
-    const spec = deriveBuildSpec({
+  it("enters F3 only via explicit previewPolicyOverride and forces release-candidate", () => {
+    const params = {
       prompt: "Gör detta deploy-ready och ready for production med billing och auth.",
-      buildIntent: "app",
-      generationMode: "init",
+      buildIntent: "app" as const,
+      generationMode: "init" as const,
       resolvedScaffold: saasScaffold,
       routePlan: {
-        provenance: { primarySource: "prompt", sources: ["prompt"] },
-        siteType: "app-shell",
+        provenance: { primarySource: "prompt" as const, sources: ["prompt" as const] },
+        siteType: "app-shell" as const,
         reason: "test",
         routes: [
           { path: "/", name: "Dashboard", intent: "Main app", required: true },
@@ -153,25 +153,30 @@ describe("deriveBuildSpec", () => {
       },
       preGenerationContracts: {
         contracts: {
-          dataMode: "persisted",
+          dataMode: "persisted" as const,
           databaseProvider: "Supabase",
           authProvider: "NextAuth / Auth.js",
           paymentProvider: "Stripe",
           integrations: [
-            { provider: "Stripe", name: "Stripe", reason: "billing", status: "chosen", envVars: [] },
+            { provider: "Stripe", name: "Stripe", reason: "billing", status: "chosen" as const, envVars: [] },
           ],
           envVars: [],
         },
         unresolvedDecisions: [],
         confirmedAnswers: [],
       },
-      promptStrategyMeta: { strategy: "phase_plan_build_refine", promptType: "freeform" },
-    });
+      promptStrategyMeta: { strategy: "phase_plan_build_refine" as const, promptType: "freeform" as const },
+    };
 
-    expect(spec.qualityTarget).toBe("release-candidate");
-    expect(spec.previewPolicy).toBe("fidelity3");
-    expect(spec.verificationPolicy).toBe("strict");
-    expect(spec.referenceCategories).toContain("backend");
+    const f2 = deriveBuildSpec(params);
+    expect(f2.previewPolicy).toBe("fidelity2");
+    expect(f2.qualityTarget).not.toBe("release-candidate");
+
+    const f3 = deriveBuildSpec({ ...params, previewPolicyOverride: "fidelity3" });
+    expect(f3.qualityTarget).toBe("release-candidate");
+    expect(f3.previewPolicy).toBe("fidelity3");
+    expect(f3.verificationPolicy).toBe("strict");
+    expect(f3.referenceCategories).toContain("backend");
   });
 
   it("uses normal context and standard verification for page-addition follow-ups", () => {

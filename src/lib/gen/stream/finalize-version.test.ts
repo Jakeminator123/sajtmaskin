@@ -345,6 +345,7 @@ describe("finalizeAndSaveVersion", () => {
       "chat_1",
       expect.stringContaining("export default function Page()"),
       expect.any(String),
+      expect.objectContaining({ lifecycleStage: "design" }),
     );
     expect(deleteEngineMessage).not.toHaveBeenCalled();
   });

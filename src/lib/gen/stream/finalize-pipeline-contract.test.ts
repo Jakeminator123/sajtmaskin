@@ -28,6 +28,7 @@ describe("finalize-pipeline-contract", () => {
       "autofix",
       "url_expand",
       "validate_syntax",
+      "pre_vm_typecheck",
       "materialize_images",
       "verifier",
       "parse_merge_preflight",
@@ -40,6 +41,7 @@ describe("finalize-pipeline-contract", () => {
       "autofix",
       "url_expand",
       "validate_syntax",
+      "pre_vm_typecheck",
       "parse_merge_preflight",
     ]);
     expect(OWN_ENGINE_FINALIZE_DEEP_PATH_PHASES).toEqual([

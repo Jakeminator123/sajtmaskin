@@ -7,13 +7,18 @@
  * Canonical source of truth: app-project env store in
  * `project_data.meta.projectEnvVars`.
  *
- * Placeholder awareness: global preview placeholders
- * (`40-generated-site-integration-placeholders.env.txt`) keep the preview
- * running without real credentials.  `missingEnvKeys` only lists keys that
- * are missing from *both* user config AND placeholders.
+ * Placeholder awareness: global preview placeholders (split since 2026-04
+ * into `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`)
+ * keep the preview running without real credentials. `missingEnvKeys` only
+ * lists keys that are missing from *both* user config AND placeholders.
  * `placeholderCoveredKeys` lists keys that the user hasn't configured but
  * that already have working preview values — these are deferred to publish
- * (tier 3) and should never block tier 2 preview.
+ * (F3 / "Bygg integrationer") and should never block F2 preview.
+ *
+ * Per-key tier classification (harmless vs tier-3) lives in
+ * `src/lib/integrations/placeholder-harmless.ts`. The F3 readiness gate
+ * (`src/lib/integrations/tier3-build-spec.ts`) refuses to start an
+ * integrations build until every required tier-3 key has a real value.
  */
 
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";

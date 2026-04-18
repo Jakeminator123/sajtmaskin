@@ -51,6 +51,7 @@ legacy/diagnostik.
 | `POST /api/engine/chats/[chatId]/quality-gate` | Interaktiv quality-gate lane |
 | `POST /api/engine/chats/[chatId]/repair` | Manual/klientdriven repair |
 | `POST /api/engine/chats/[chatId]/accept-repair` | Applicera serverrepair som vantar i `repair_available` |
+| `POST /api/engine/chats/[chatId]/finalize-design` | F3-trigger ("Bygg integrationer"). Validerar tier-3 readiness; returnerar 412 + `missingByIntegration` om env-keys saknas. |
 
 Compat-routes under `/api/v0/chats/...` finns kvar dar det behovs.
 
@@ -102,9 +103,23 @@ Om serverrepair passerar quality gate blir versionen `repair_available` i stalle
 for att direkt skrivas over. Filerna ligger da i `repaired_files_json` tills
 `accept-repair` (eller timeout-autoaccept) applicerar dem till `files_json`.
 
-Check-profilerna (`tier2`, `serverVerify`, `promotion`, `interactive`) ar nu
-manifeststyrda via `config/ai_models/manifest.json` (`qualityGateTiers`) i
-stallet for hardkodade arrayer i kod.
+Check-profilerna konsoliderades 2026-04 fran fyra (`tier2` / `serverVerify` /
+`promotion` / `interactive`) till tva via `config/ai_models/manifest.json`
+(`qualityGateTiers`):
+
+- `designPreview` (F2): `["typecheck"]` — kor efter finalize och i bakgrunds-server-verify.
+- `integrationsBuild` (F3): `["typecheck", "build"]` — kor i `/finalize-design`/promotion-flodet.
+
+## F2/F3-livscykel (2026-04)
+
+`engine_versions.lifecycle_stage` ar nu `"design"` (default) eller
+`"integrations"`. F3-versioner pekar pa sin F2-ursprungsversion via
+`engine_versions.parent_version_id`.
+
+- F2 (`previewPolicy: fidelity2`) ar default. Tier-3 SDK-imports (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, Resend, ...) strippas mekaniskt av `tier3-sdk-guard-fixer` sa F2-output forblir sant placeholder-baserat.
+- F3 (`previewPolicy: fidelity3`) triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Routen validerar tier-3 readiness via `validateTier3Readiness` mot stored `projectEnvVars`. Vid 412 returneras `missingByIntegration` sa klienten kan visa env-formularet.
+- F3-systemprompten innehaller `## Tier-3 Integration Build Plan` med per-integration `requiredRealEnvKeys` + 4-8 build-steg.
+- F3-merge i `env-local.ts` stripar tier-3-stub-laget helt (`lifecycleStage: "integrations"`).
 
 Verify-lane returnerar dessutom informativa checks:
 

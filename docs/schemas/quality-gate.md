@@ -81,13 +81,16 @@ defaultvärden:
 
 | Profil | Checks | Var den används |
 |--------|--------|-----------------|
-| `TIER2_QUALITY_GATE_CHECKS` | `["typecheck"]` | normal quality gate på tier-2 / default |
-| `SERVER_VERIFY_QUALITY_GATE_CHECKS` | `["typecheck", "lint"]` | asynk `server-verify` och repair re-check |
-| `PROMOTION_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | promotion-/striktare flöden |
-| `INTERACTIVE_QUALITY_GATE_CHECKS` | alla tre | explicit interaktiv route |
+| `DESIGN_PREVIEW_QUALITY_GATE_CHECKS` | `["typecheck"]` | F2 quality gate (live-preview + bakgrunds-`server-verify` + repair re-check). |
+| `INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS` | `["typecheck", "build"]` | F3 / promotion-flödet (`/finalize-design`). |
 
 `next build` hör alltså inte till standard live-preview- eller standard
-background-verify-flödet.
+background-verify-flödet — bara F3.
+
+**Borttaget 2026-04:** `tier2`, `serverVerify`, `promotion`, `interactive`
+konsoliderades till `designPreview` + `integrationsBuild`. Lint-laden
+försvann ur background-verify (tysta lint-fail blockerade verifiering utan
+att lägga värde).
 
 ## När quality gate körs
 

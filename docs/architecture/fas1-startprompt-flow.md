@@ -209,8 +209,9 @@ syns inte i UI, vilket ger intryck av "saknas" för nycklar som tier-2 redan
 skulle ha via placeholder.
 
 ### P5 — Placeholder-lucka: NEXT_PUBLIC_SITE_URL
-Flaggas som relevant i `detect-integrations.ts` men finns inte i
-`40-generated-site-integration-placeholders.env.txt`.
+Flaggas som relevant i `detect-integrations.ts` och finns numera i
+`40-harmless-placeholders.env.txt` (klassad som harmlös via
+`src/lib/integrations/placeholder-harmless.ts`).
 
 ### P6 — Brief-loggning asymmetrisk
 OpenAI-grenen loggar `brief.full` i devLog. Anthropic-grenen gör det inte.

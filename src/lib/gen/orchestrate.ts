@@ -118,6 +118,13 @@ export interface OrchestrationInput {
    * like template guidance to activate even though generationMode resolves to "followUp".
    */
   isFirstCodeGeneration?: boolean;
+  /**
+   * F2/F3 lifecycle stage. `"integrations"` triggers F3:
+   * `BuildSpec.previewPolicyOverride: "fidelity3"` and the dynamic
+   * context block `## Tier-3 Integration Build Plan` is rendered.
+   * Defaults to `"design"` (F2) when unset.
+   */
+  lifecycleStage?: "design" | "integrations";
 }
 
 export interface OrchestrationBase {
@@ -350,6 +357,25 @@ export async function resolveOrchestrationBase(
 
   }
 
+  // ── Drift detection: Brief-LLM scaffold nomination vs final pick (Fas 1.0) ──
+  // Brief returns a hint; the embedding/keyword pick above is the final answer.
+  // Logging drift makes mismatches visible in dev and lets us tune confidence
+  // thresholds. Brief stays the source of truth for design direction either way.
+  // On followUp runs, the brief may carry stale nominations from init — we
+  // include `mode` in the log so noise from followUp can be filtered out.
+  const briefScaffoldNom = (brief as { scaffoldNomination?: { id?: string; confidence?: number } } | null | undefined)
+    ?.scaffoldNomination ?? null;
+  if (briefScaffoldNom?.id && resolvedScaffold && briefScaffoldNom.id !== resolvedScaffold.id) {
+    console.info("[orchestrate] scaffold_drift", {
+      mode: input.generationMode ?? "init",
+      briefNominated: briefScaffoldNom.id,
+      briefConfidence: briefScaffoldNom.confidence ?? null,
+      finalPick: resolvedScaffold.id,
+      pickMethod: scaffoldSelection.selectionMethod ?? "unknown",
+      pickConfidence: scaffoldSelection.selectionConfidence ?? null,
+    });
+  }
+
   if (!resolvedReferenceFetches) {
     [officialRefs, communityRefs] = await Promise.all([officialRefsPromise, communityRefsPromise]);
   }
@@ -400,6 +426,8 @@ export async function resolveOrchestrationBase(
     capabilities,
     isFirstCodeGeneration: input.isFirstCodeGeneration,
     existingShellRoutePaths,
+    previewPolicyOverride:
+      input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
   });
   const orchestrationContract = buildOrchestrationContract({
     resolvedScaffold,
@@ -430,6 +458,16 @@ export async function resolveOrchestrationBase(
   let dossierSelection: DossierSelectionResult | null = null;
   if (FEATURES.useDossierPipeline) {
     try {
+      // Build a compact route-plan summary if a plan exists. Helps the
+      // embedding query understand "user wants pricing page + login flow"
+      // beyond what the bare prompt says (Fas 1.0 fix).
+      const routePlanSummary = routePlan
+        ? `routes: ${routePlan.routes
+            .map((r) => `${r.path} (${r.intent})`)
+            .slice(0, 8)
+            .join(" | ")}`
+        : undefined;
+
       dossierSelection = await selectDossiersForRequest({
         prompt,
         brief,
@@ -437,6 +475,8 @@ export async function resolveOrchestrationBase(
         scaffoldContext: resolvedScaffold
           ? `Scaffold ${resolvedScaffold.label}. Tags: ${resolvedScaffold.tags.join(", ")}.`
           : undefined,
+        capabilityHints: capabilityHints || undefined,
+        routePlanSummary,
       });
       if (dossierSelection.selected.length > 0) {
         console.info("[orchestrate] dossiers_selected", {
@@ -541,6 +581,39 @@ export async function finalizeOrchestrationPrompts(
       resolvedMode,
       input.sessionSeed,
     ));
+
+  // ── Drift detection: Brief variant nomination vs embedding pick (Fas 1.0) ──
+  const briefVariantNom = (brief as { variantNomination?: { id?: string; confidence?: number } } | null | undefined)
+    ?.variantNomination ?? null;
+  if (briefVariantNom?.id && resolvedVariant && briefVariantNom.id !== resolvedVariant.id) {
+    console.info("[orchestrate] variant_drift", {
+      mode: resolvedMode,
+      scaffoldId: scaffoldIdForVariant,
+      briefNominated: briefVariantNom.id,
+      briefConfidence: briefVariantNom.confidence ?? null,
+      finalPick: resolvedVariant.id,
+    });
+  }
+
+  // ── Dossier nomination vs final selection diff (Fas 1.0) ────────────────
+  const briefDossierNoms = (brief as { dossierNominations?: Array<{ id?: string }> } | null | undefined)
+    ?.dossierNominations ?? [];
+  if (briefDossierNoms.length > 0 && base.dossierSelection) {
+    const nominatedIds = new Set(briefDossierNoms.map((n) => n.id).filter(Boolean));
+    const finalIds = new Set(base.dossierSelection.selected.map((s) => s.entry.id));
+    const matched = [...nominatedIds].filter((id) => finalIds.has(id!));
+    const briefOnly = [...nominatedIds].filter((id) => !finalIds.has(id!));
+    const embeddingOnly = [...finalIds].filter((id) => !nominatedIds.has(id));
+    console.info("[orchestrate] dossier_drift", {
+      mode: resolvedMode,
+      briefNominatedCount: nominatedIds.size,
+      finalSelectedCount: finalIds.size,
+      matched,
+      briefOnly,
+      embeddingOnly,
+    });
+  }
+
   const finalBuildIntent: BuildIntent = base.buildSpec.buildIntent;
 
   const dynamicOpts: DynamicContextOptions = {

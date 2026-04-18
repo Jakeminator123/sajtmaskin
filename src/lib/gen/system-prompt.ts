@@ -32,6 +32,10 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { debugLog } from "@/lib/utils/debug";
+import {
+  deriveTier3BuildSpec,
+  renderTier3BuildPlanBlock,
+} from "@/lib/integrations/tier3-build-spec";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
@@ -48,7 +52,11 @@ import {
   estimateTokens,
   type PromptBudgetBlock,
 } from "./tokens";
-import type { DossierSelectionResult } from "./dossiers";
+import {
+  defaultInjectionMode,
+  getDossierFileContent,
+  type DossierSelectionResult,
+} from "./dossiers";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — config manifest + fragments (see static-core-loader.ts)
@@ -126,6 +134,24 @@ export interface Brief {
     keywords?: string[];
   };
   siteName?: string;
+  /** Brief-LLM nominated scaffold (Fas 1.0). Hint — runtime embedding-pick may override. */
+  scaffoldNomination?: {
+    id: string;
+    reason: string;
+    confidence: number;
+  } | null;
+  /** Brief-LLM nominated variant (Fas 1.0). Hint — only meaningful if scaffoldNomination set. */
+  variantNomination?: {
+    id: string;
+    reason: string;
+    confidence: number;
+  } | null;
+  /** Brief-LLM nominated dossiers (Fas 1.0). Hints — orchestrator's embedding pick decides. */
+  dossierNominations?: Array<{
+    id: string;
+    reason: string;
+    confidence: number;
+  }>;
 }
 
 export interface MediaCatalogItem {
@@ -215,6 +241,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^available dossiers$/i, priority: 87 },
   { match: /^selected dossier instructions$/i, priority: 84 },
+  { match: /^dossier files to emit verbatim$/i, priority: 92, required: true },
   { match: /^pre-generation contracts$/i, priority: 90, required: true },
   { match: /^project context$/i, priority: 88, required: true },
   { match: /^pages & sections$/i, priority: 82 },
@@ -680,6 +707,66 @@ export function buildDynamicContext(
         parts.push(sel.entry.instructions!.trim(), "");
       }
     }
+
+    // ── Verbatim files (Fas 1.5: dossier-as-code) ─────────────────────────
+    // Files marked `injectionMode: "verbatim"` (or defaulting to it for
+    // integration api-routes/middleware/config/util) MUST be emitted by the
+    // codegen LLM exactly as given. This protects integration glue (Stripe
+    // webhook signing, auth middleware, SDK init) from accidental rewrites.
+    interface VerbatimFile {
+      dossierId: string;
+      dossierLabel: string;
+      relPath: string;
+      /** Output path in the generated project (without dossier `components/` prefix). */
+      outputPath: string;
+      /** File extension fence language for CodeProject blocks. */
+      fence: string;
+      content: string;
+    }
+    const verbatimFiles: VerbatimFile[] = [];
+    for (const sel of dossierSel.selected) {
+      for (const file of sel.entry.files) {
+        const mode = file.injectionMode ?? defaultInjectionMode(file.kind, sel.entry.kind);
+        if (mode !== "verbatim") continue;
+        const content = getDossierFileContent(sel.entry.id, file.path);
+        if (content === null) continue;
+        // Dossier files live under data/dossiers/<id>/components/<path-in-project>
+        // The "components/" prefix is the dossier-internal staging dir; strip it
+        // for the actual output path so files land at app/.../route.ts etc.
+        const outputPath = file.path.replace(/^components\//, "");
+        const ext = (outputPath.split(".").pop() ?? "ts").toLowerCase();
+        const fence =
+          ext === "tsx" || ext === "ts" || ext === "js" || ext === "jsx" || ext === "css"
+            ? ext
+            : "text";
+        verbatimFiles.push({
+          dossierId: sel.entry.id,
+          dossierLabel: sel.entry.label,
+          relPath: file.path,
+          outputPath,
+          fence,
+          content: content.trimEnd(),
+        });
+      }
+    }
+    if (verbatimFiles.length > 0) {
+      parts.push(
+        "## Dossier Files To Emit Verbatim",
+        "",
+        "The following files come from selected dossier integrations and **MUST appear in your CodeProject output exactly as written below**. Do not paraphrase, refactor, rename, or remove any line — these contain integration glue (auth, webhooks, SDK init) where deviation breaks the integration. Adjust only environment-variable comments if the user already provided a replacement value.",
+        "",
+        "Emit one CodeProject block per file with the exact path shown.",
+        "",
+      );
+      for (const vf of verbatimFiles) {
+        parts.push(`### From \`${vf.dossierId}\` (${vf.dossierLabel}) → \`${vf.outputPath}\``);
+        parts.push("");
+        parts.push("```" + vf.fence + ` file="${vf.outputPath}"`);
+        parts.push(vf.content);
+        parts.push("```");
+        parts.push("");
+      }
+    }
   }
 
   if (routePlan && routePlan.routes.length > 0) {
@@ -750,6 +837,26 @@ export function buildDynamicContext(
       parts.push("", "- Keep the route structure compact unless the prompt clearly requires extra pages.");
     }
     parts.push("");
+  }
+
+  // ── Tier-3 Integration Build Plan (F3 only) ────────────────────────────
+  // When previewPolicy is fidelity3 we render the structured tier-3 spec
+  // derived from the contracts. This block tells the F3 LLM exactly which
+  // env keys are guaranteed present and what wiring steps to perform.
+  if (
+    buildSpec?.previewPolicy === "fidelity3" &&
+    preGenerationContracts &&
+    preGenerationContracts.contracts.integrations.length > 0
+  ) {
+    try {
+      const spec = deriveTier3BuildSpec(preGenerationContracts.contracts);
+      const block = renderTier3BuildPlanBlock(spec);
+      if (block) {
+        parts.push(block, "");
+      }
+    } catch {
+      // Never block prompt assembly on a tier-3 rendering error.
+    }
   }
 
   if (preGenerationContracts) {

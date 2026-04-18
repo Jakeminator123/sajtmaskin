@@ -439,6 +439,23 @@ export const engineVersions = pgTable("engine_versions", {
   verificationSummary: text("verification_summary"),
   repairAvailableAt: timestamp("repair_available_at"),
   promotedAt: timestamp("promoted_at"),
+  /**
+   * Parent version this row was forked from. Set by the F3 ("Bygg
+   * integrationer") trigger so the integrations build is implicitly
+   * branched off a specific F2 design version. Null for plain F2
+   * versions and for versions migrated before the F2/F3 split.
+   */
+  parentVersionId: text("parent_version_id"),
+  /**
+   * Lifecycle stage:
+   *   - `"design"` (default) — F2 design preview row.
+   *   - `"integrations"` — F3 row produced by `/finalize-design`.
+   *
+   * Derived at row insertion time from `BuildSpec.previewPolicy`. Stored
+   * directly so deploy-readiness queries don't need to re-read the
+   * orchestration snapshot.
+   */
+  lifecycleStage: text("lifecycle_stage").notNull().default("design"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -329,7 +329,7 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
     ).toBe(false);
   });
 
-  it("allows verify for standard policy when version is eligible", () => {
+  it("allows verify when previewPolicy is fidelity3 (F3 lifecycle stage)", () => {
     expect(
       shouldTriggerPostFinalizeServerVerify({
         buildSpec: {
@@ -339,9 +339,9 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
           scaffoldId: null,
           routePlanSummary: "prompt:one-page:/",
           stylePack: "brand-led",
-          qualityTarget: "premium",
-          previewPolicy: "fidelity2",
-          verificationPolicy: "standard",
+          qualityTarget: "release-candidate",
+          previewPolicy: "fidelity3",
+          verificationPolicy: "strict",
           contextPolicy: "normal",
           referenceCategories: [],
           forbiddenPatterns: [],
@@ -352,6 +352,34 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
           },
         },
         finalized: finalized as never,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows verify on repair pass even when F2 lifecycle would normally skip", () => {
+    expect(
+      shouldTriggerPostFinalizeServerVerify({
+        buildSpec: {
+          buildIntent: "website",
+          generationMode: "followUp",
+          changeScope: "copy",
+          scaffoldId: null,
+          routePlanSummary: "prompt:one-page:/",
+          stylePack: "brand-led",
+          qualityTarget: "standard",
+          previewPolicy: "fidelity2",
+          verificationPolicy: "standard",
+          contextPolicy: "light",
+          referenceCategories: [],
+          forbiddenPatterns: [],
+          tokenBudgets: {
+            scaffoldChars: 36_000,
+            refsChars: 12_000,
+            systemContextChars: 48_000,
+          },
+        },
+        finalized: finalized as never,
+        repairPassIndex: 1,
       }),
     ).toBe(true);
   });
@@ -409,7 +437,7 @@ describe("shouldTriggerPostFinalizeServerVerify", () => {
       }),
     ).toEqual({
       run: false,
-      reason: "low_risk_standard_flow",
+      reason: "design_preview_skip_verify",
     });
   });
 });
@@ -456,7 +484,7 @@ describe("runOwnEngineStreamPostFinalize server verify policy logging", () => {
       expect.objectContaining({
         type: "server-verify.policy",
         run: false,
-        reason: "low_risk_standard_flow",
+        reason: "design_preview_skip_verify",
       }),
     );
   });

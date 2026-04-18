@@ -43,9 +43,9 @@ En **härledd policy-bundle** som styr hela körningen.
 | Parameter | Möjliga värden | Vad det styr |
 |-----------|---------------|--------------|
 | `changeScope` | `copy`, `local-layout`, `page-addition`, `redesign`, `integration` | Hur stor ändring prompten begär |
-| `qualityTarget` | `standard`, `premium`, `release-candidate` | Kvalitetskrav på output |
+| `qualityTarget` | `standard`, `premium`, `release-candidate` | Kvalitetskrav på output. `release-candidate` sätts numera bara när `previewPolicyOverride === "fidelity3"` (F3-trigger). |
 | `contextPolicy` | `light`, `normal`, `heavy` | Token-budget (se nedan) |
-| `previewPolicy` | `fidelity2`, `fidelity3` | Preview-djup |
+| `previewPolicy` | `fidelity2`, `fidelity3` | F2 = design-loopen (default). F3 = "Bygg integrationer" — sätts via `DeriveBuildSpecParams.previewPolicyOverride`, triggas explicit av `POST /api/engine/chats/[chatId]/finalize-design`. |
 | `verificationPolicy` | `fast`, `standard`, `strict` | Verifier-inställning |
 | `routeRealization` | `null`, `primary-full-with-shells` | Om extra routes skjuts upp |
 | `forbiddenPatterns` | Symboliska flaggor | T.ex. `unrequested_full_redesign` |

@@ -46,6 +46,16 @@ export function shouldTriggerPostFinalizeServerVerify(params: {
   return resolvePostFinalizeServerVerifyDecision(params).run;
 }
 
+/**
+ * Decide whether to run async server-verify after finalize.
+ *
+ * Simplified 2026-04: the post-finalize verify lane is now driven primarily
+ * by `previewPolicy === "fidelity3"`. F2 generations skip the async verify
+ * unless quality-gate already produced non-blocking warnings or this is a
+ * repair pass. The earlier multi-OR signal heuristic (buildIntent/app,
+ * contextPolicy/heavy, changeScope/integration etc.) was redundant once
+ * F3 became an explicit lifecycle stage instead of an auto-promoted policy.
+ */
 export function resolvePostFinalizeServerVerifyDecision(params: {
   buildSpec: BuildSpec;
   finalized: FinalizeResult;
@@ -67,20 +77,14 @@ export function resolvePostFinalizeServerVerifyDecision(params: {
 
   const previewStart = getPostFinalizePreviewStartContract(finalized);
   const hasNonBlockingWarnings = previewStart.issueCounts.non_blocking_quality_warning > 0;
-  const isHighSignalFlow =
-    buildSpec.verificationPolicy === "strict" ||
-    buildSpec.previewPolicy === "fidelity3" ||
-    buildSpec.qualityTarget !== "standard" ||
-    buildSpec.buildIntent === "app" ||
-    buildSpec.contextPolicy === "heavy" ||
-    buildSpec.changeScope === "integration" ||
-    buildSpec.changeScope === "page-addition" ||
-    (buildSpec.generationMode === "followUp" && buildSpec.changeScope === "redesign") ||
-    hasNonBlockingWarnings;
 
-  if (!isHighSignalFlow) {
-    return { run: false, reason: "low_risk_standard_flow" };
+  if (
+    buildSpec.previewPolicy === "fidelity3" ||
+    repairPassIndex > 0 ||
+    hasNonBlockingWarnings
+  ) {
+    return { run: true, reason: "policy_match" };
   }
 
-  return { run: true, reason: "policy_match" };
+  return { run: false, reason: "design_preview_skip_verify" };
 }

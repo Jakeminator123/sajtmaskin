@@ -171,8 +171,11 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | Image Materialize | Materialiserar bildalias/placeholders | kanonisk |
 | Verifier Pass | LLM-driven read-only granskning. `blocking` findings är advisory och stoppar inte persist. | kanonisk |
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking | kanonisk |
-| Quality Gate | Binärt pass/fail-beslut. Fyra lanes: tier-2, server-verify, promotion, interactive. | kanonisk |
-| Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`) | kanonisk |
+| Quality Gate | Binärt pass/fail-beslut. Två lanes (2026-04): `designPreview` (F2) och `integrationsBuild` (F3). | kanonisk |
+| Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`). 4-lane-shapen (`tier2`/`serverVerify`/`promotion`/`interactive`) konsoliderades 2026-04 till `designPreview`/`integrationsBuild`. | kanonisk |
+| ~~`tier2` / `serverVerify` / `promotion` / `interactive` (lanes)~~ | Gamla lane-namn. Konsoliderade 2026-04. | **borttagna** — se `designPreview` / `integrationsBuild` |
+| `designPreview` (lane) | F2 quality gate. `["typecheck"]`. Kör efter finalize och i bakgrunds-`server-verify`. | kanonisk |
+| `integrationsBuild` (lane) | F3 quality gate. `["typecheck", "build"]`. Används vid promotion / "Bygg integrationer"-flödet. | kanonisk |
 | Server Verify | Asynkron verify + repair-loop efter finalize | kanonisk |
 | Repair Loop Core (`runRepairLoop`) | Delad repair-kärna för server-verify och manuell `/repair` | kanonisk |
 | Warm Repair | Targeted repair där bara trasiga filer (+ imports) skickas till LLM-fixer | kanonisk |
@@ -218,7 +221,13 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `previewUrlHint` | Temporär VM-hint, inte slutlig previewUrl | kanonisk |
 | `legacyShimPreviewUrl` | Shim-/fallback-URL | legacy |
 | ~~sandbox~~ (generell term) | Legacy-/compat-term | **legacy** — använd VM / `preview_host` |
-| Fidelity 2 / 3 | Normal resp. strikt (next build) preview-lane | kanonisk |
+| Fidelity 2 / 3 | F2 = `previewPolicy: fidelity2` (design-loopen, npm install + next dev). F3 = `previewPolicy: fidelity3` (integrationer, install + build + dev). F3 triggas ENBART explicit via `POST /api/engine/chats/[chatId]/finalize-design`. Auto-promotering från prompt-heuristik (t.ex. "deploy-ready", `RELEASE_CANDIDATE_PATTERNS`) borttagen 2026-04. | kanonisk |
+| LifecycleStage | `"design"` (F2) eller `"integrations"` (F3). Härleds från `BuildSpec.previewPolicy` vid version-insert och persisteras i `engine_versions.lifecycle_stage`. F3-versioner pekar på sin F2-fork via `engine_versions.parent_version_id`. | kanonisk |
+| Tier-3 Integration / "tredje gradens integration" | Integration vars env-keys måste ha riktiga värden för att fungera vid runtime (Stripe-secret, Supabase-URL, Redis, OpenAI, …). Per-key-klassificering i `src/lib/integrations/placeholder-harmless.ts`. F3 vägrar starta tills alla `requiredRealEnvKeys` är satta — verifieras av `validateTier3Readiness` via `/finalize-design`. | kanonisk |
+| Tier3BuildSpec | Strukturerat F3-byggkontrakt (`src/lib/integrations/tier3-build-spec.ts`): per integration `requiredRealEnvKeys`, `placeholderOkEnvKeys`, `buildInstructions[]`, `setupGuide`. Renderas som `## Tier-3 Integration Build Plan` i F3-system-prompten. | kanonisk |
+| `placeholderHarmless` (per env-key) | Booleansk klassificering: harmlösa keys (Stripe-publishable, AUTH_SECRET, GA-id, search-only) får placeholdras även i F3. Tier-3-keys (DB-URL, Stripe-secret, Redis, OpenAI) stripas från F3-merge och kräver riktiga värden. | kanonisk |
+| Pre-VM Typecheck | Finalize-fas (`pre_vm_typecheck`, 2026-04) som kör `tsc --noEmit` mot en varm scaffold-`node_modules`-cache och vid TS-fel försöker en LLM-fix-pass innan filer går till VM. Fail-open vid kall cache. Default av (`SAJTMASKIN_PRE_VM_TYPECHECK`); F3 force-runs alltid. | kanonisk |
+| F2 SDK Guard | Mekanisk autofix-fixer (`tier3-sdk-guard-fixer`) som strippar tier-3 SDK-imports (Stripe, Supabase, Clerk, Auth.js, Redis, OpenAI, Resend, …) från F2-output. Aktiveras endast vid `previewPolicy === "fidelity2"`. Lista byggs från `placeholder-harmless.ts`. | kanonisk |
 
 ---
 
@@ -232,6 +241,7 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | scaffolds | Interna runtime-startpunkter | template-library, Vercel-mallar |
 | `Group` (ikon vs 3D) | Lucide exporterar ikonen `Group`; Three.js/`@react-three/fiber` använder `Group` som nod — samma PascalCase | Autofix får inte lägga till lucide-`Group` när filen redan har `import type { Group } from "three"` (jsx-checker känner igen `import type`) |
 | own-engine | Enda aktiva codegen-vägen | OpenClaw, gammal v0-runtime |
+| `backoffice` | Lokal Streamlit-app — startas via `python sajtmaskin_backoffice.py` (entrypoint relauncherar `streamlit run`). Källkod under `backoffice/` (`shared.py` + `pages/*`). Skriver till `config/`, läser från `config/`, `data/`, `logs/`. **Inte** Next.js API-server, **inte** Fly-VM/preview_host. | Next.js-runtime under `src/app/api/`, preview-VM (Fly), "dashboard" (legacy namn på samma sak) |
 | OpenClaw / Sajtagenten | Separat assistent-/agentyta | Builderns LLM-flöde |
 | `appProjectId` | Användarprojektets id | `chatId`, `VERCEL_PROJECT_ID` |
 | `chatId` | Own-engine-chattens id | `appProjectId` |
@@ -239,6 +249,30 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 **`v0` betyder tre saker:** (1) API-versionering `/api/v0/` (2) naming debt i symboler (3) Mallar-tab. `v0-sdk`, `src/lib/v0/`, `V0_API_KEY` borta ur runtime.
 
 **Builder model lanes:** Byggmodell = Build Profile · Deep Brief = automatisk init-expansion (alltid aktiv) · Thinking = reasoning-flagga, inte lane. _(Förbättra/Skriv om-knapparna borttagna.)_
+
+**Dossier-status (`_status`)** styr om en dossier injiceras vid runtime:
+
+| `_status` | Runtime-aktiv? | Sätts av | Innebörd |
+|---|---|---|---|
+| `active` | Ja | Curator (hand eller `auto-curate.ts`) | Färdig att användas |
+| `draft` | Nej | Pipeline (skiss → draft) | Behöver curation innan aktivering |
+| `source-archived` | Nej | `compat-test.ts --apply` | GitHub-källa är arkiverad |
+| `source-stale` | Nej | `compat-test.ts --apply` | GitHub-källa har inte commits > 540d |
+| `source-unreachable` | Nej | `compat-test.ts --apply` | GitHub-källa returnerar 404 / parse-fel |
+
+`_deprecationReason` = informationssträng (max 240 tecken) som förklarar varför dossiern är bruten. `_replacementUrl` = pekare till ersättnings-repo (när källan är sunset). Båda är informationsfält — runtime-filtrering drivs av `_status` ensamt.
+
+`compat-test.ts --apply` är **återhämtande**: om en dossier tidigare flaggats som `source-*` men källan är frisk igen, återställs `_status` till `active` automatiskt.
+
+---
+
+**Core Rules ↔ statisk prompt** är **samma sak** sett från olika håll:
+- `Core Rules` = innehållet (immutable produktregler — stack, output-format, behavior, komponentkontrakt).
+- `statisk prompt` / `static system prompt` / `static core` = den färdig-ihopklistrade prefix-strängen som skickas som `system`-meddelande till codegen-LLM:en.
+- Filhemmet: `config/prompt-core/*.md` listade i `config/codegen-core-manifest.json`.
+- Loadern: `src/lib/gen/static-core-loader.ts` → `getStaticCoreFromWorkspace()`.
+- Compose-funktionen: `composeEngineSystemPrompt(dynamicContextText)` limmar Core Rules + `\n\n---\n\n` + dynamic context.
+- **Den gamla `prompt-static/`-mappen är borttagen** (apr 2026). Säg `prompt-core/` eller `Core Rules`.
 
 ---
 
@@ -264,6 +298,9 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 | `GATEWAY_ASSIST_MODELS` | Borttagen re-export; använd `ASSIST_MODELS` |
 | `isGatewayAssistModel()` | Borttagen; ersatt av `isOpenAIAssistModel()` |
 | `SPEC_FILE_INSTRUCTION` | Borttagen ur init-flödet (specMode default false) |
+| `RELEASE_CANDIDATE_PATTERNS` | Borttagen 2026-04. Auto-promotering till F3 från prompt-keywords ("deploy-ready", "production") togs bort när F3 blev en explicit knapp. |
+| `qualityGateTiers.tier2` / `serverVerify` / `promotion` / `interactive` | Borttagna 2026-04. Konsoliderade till `designPreview` (F2) + `integrationsBuild` (F3). |
+| `40-generated-site-integration-placeholders.env.txt` | Splittad 2026-04 i `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`. |
 
 ---
 

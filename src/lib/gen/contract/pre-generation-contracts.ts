@@ -2,9 +2,10 @@
  * Integration env names and codegen contracts for the builder.
  *
  * Central registry for **models, workloads, and preview placeholders** lives under
- * `config/ai_models/` (`manifest.json` + `40-generated-site-integration-placeholders.env.txt`).
- * Contract provider metadata now comes from `config/ai_models/manifest.json`
- * so dashboard + runtime can stay in sync.
+ * `config/ai_models/` (`manifest.json` + `40-harmless-placeholders.env.txt`
+ * + `41-tier3-stub-placeholders.env.txt`). Contract provider metadata now
+ * comes from `config/ai_models/manifest.json` so dashboard + runtime can
+ * stay in sync.
  */
 import { getPreGenerationContractsConfigFromManifest } from "@/lib/ai-models/load-manifest";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -515,7 +516,8 @@ export function inferPreGenerationContracts(params: {
       envVars: rule.envVars,
     });
     // Inferred keyword matches are preview-first: never mark env as blocking — the
-    // merged `.env.local` placeholders (`config/ai_models/40-generated-site-integration-placeholders.env.txt`).
+    // merged `.env.local` placeholders cover both layers
+    // (`40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt`).
     pushEnvVars(envVars, rule.envVars, rule.reason, false);
   }
 

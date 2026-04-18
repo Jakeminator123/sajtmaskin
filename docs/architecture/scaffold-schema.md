@@ -548,8 +548,9 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `config/prompt-directives/*.md` | 12 Directive-filer (adaptiva, Level 4 defaults) |
 | `config/codegen-static-prompt.json` | Legacy fallback fragment-lista |
 | `config/prompt-static/*.md` | Legacy fragment-filer (fallback om core-manifest saknas) |
-| `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index-pekare, phase routing |
-| `config/ai_models/40-generated-site-integration-placeholders.env.txt` | Fake env vars för preview |
+| `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index-pekare, phase routing, qualityGateTiers (`designPreview` / `integrationsBuild`) |
+| `config/ai_models/40-harmless-placeholders.env.txt` | Placeholder env vars som är trygga även i F3 (Stripe-publishable, AUTH_SECRET, GA-id, ...) |
+| `config/ai_models/41-tier3-stub-placeholders.env.txt` | F2-stubbar (Stripe-secret, Supabase, Clerk-secret, Redis, OpenAI, ...) — strippas i F3 |
 | `config/env-policy.json` | Env-audit regler |
 
 **Scaffold-direkt:** `config/prompt-static/08-scaffold-starters.md` (scaffold merge-instruktioner för LLM) och `13-intent-fidelity-and-merge.md` (path-baserad scaffold merge).

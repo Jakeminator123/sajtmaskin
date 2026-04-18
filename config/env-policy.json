@@ -28,6 +28,8 @@
     "SAJTMASKIN_FINALIZE_DEEP_PATH_ENABLED",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
+    "SAJTMASKIN_PRE_VM_TYPECHECK",
+    "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_PREVIEW_HOST_API_KEY",
     "SAJTMASKIN_PREVIEW_HOST_BASE_URL",
     "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES",
@@ -167,6 +169,8 @@
     "SAJTMASKIN_PHASE_FORCE_CHARS",
     "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
     "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
+    "SAJTMASKIN_PRE_VM_TYPECHECK",
+    "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SOFT_TARGET_APP_CHARS",
@@ -312,6 +316,18 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Fail fast when required generated template-library or scaffold-research artifacts are missing or empty. Default is strict outside tests."
+    },
+    {
+      "key": "SAJTMASKIN_PRE_VM_TYPECHECK",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Feature flag for pre-VM `tsc --noEmit` against the warm scaffold node_modules cache (`src/lib/gen/preview/warm-typecheck.ts`). Off by default. F3 generations force-run regardless. When the cache is cold the phase fails open so the pipeline never blocks."
+    },
+    {
+      "key": "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Override directory for the per-scaffold typecheck cache (defaults to `<tmpdir>/sajtmaskin/typecheck-cache`). One subdirectory per scaffold id, each with its own `node_modules` + `tsconfig.json`."
     },
     {
       "key": "SAJTMASKIN_SHOW_THINKING",

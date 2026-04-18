@@ -1,31 +1,57 @@
 /**
  * Merge `.env.local` for live preview (`docs/architecture/fas3-preview-and-deploy.md` § Preview `.env.local`):
- * 1) global integration placeholders from `config/ai_models/*-placeholders.env.txt`
- * 2) per-app-project preview tokens (stable fake secrets from project id)
- * 3) decrypted `projectEnvVars` from app project meta (user-configured)
- * 4) any `.env.local` emitted by the model (wins on key collision)
+ *
+ * Layered by `EnvVarProvenance` (later overrides earlier):
+ *   1. **harmless** — placeholder values that are SAFE to leave fake even
+ *      in F3 (Stripe publishable, AUTH_SECRET, GA-id, etc.). From
+ *      `config/ai_models/40-harmless-placeholders.env.txt`.
+ *   2. **tier3-stub** — F2-ONLY placeholder values that boot the project
+ *      but won't function at runtime (Stripe-secret, Supabase-URL, Redis,
+ *      database URLs, OpenAI). From
+ *      `config/ai_models/41-tier3-stub-placeholders.env.txt`. **Stripped
+ *      entirely in F3** so missing real values surface as a readiness
+ *      failure via `tier3-build-spec.ts`.
+ *   3. **project-preview** — stable per-project preview tokens.
+ *   4. **user** — decrypted `projectEnvVars` from app project meta.
+ *   5. **generated** — `.env.local` emitted by the model (highest priority).
  *
  * Output is grouped by provenance so generated `.env.local` documents
- * which tier each variable belongs to (placeholder vs user-configured vs generated).
+ * which tier each variable belongs to.
  */
 
 import {
   parseGeneratedSitePlaceholderLines,
-  readGeneratedSitePlaceholdersEnvText,
+  readHarmlessPlaceholdersEnvText,
+  readTier3StubPlaceholdersEnvText,
 } from "@/lib/ai-models/load-generated-site-placeholders";
 import { buildProjectPreviewPlaceholderRecord } from "@/lib/gen/preview/project-preview-env";
 
-export type EnvVarProvenance = "placeholder" | "project-preview" | "user" | "generated";
+export type EnvVarProvenance =
+  | "harmless"
+  | "tier3-stub"
+  | "project-preview"
+  | "user"
+  | "generated";
 
-const FILE_HEADER = `# Sajtmaskin preview env — merged (placeholder → project → user → generated)
-# Placeholders keep the preview running; replace with real values before publishing.
+/**
+ * Lifecycle stage for the preview being built.
+ *  - `design` (F2) — both placeholder layers active.
+ *  - `integrations` (F3) — tier-3 stub layer stripped; project must
+ *    supply real values for tier-3 keys via `projectEnvVars`.
+ */
+export type PreviewLifecycleStage = "design" | "integrations";
+
+const FILE_HEADER = `# Sajtmaskin preview env — merged (harmless + tier3-stub → project → user → generated)
+# Placeholders keep the preview running; replace tier-3 values with real ones before F3 / publishing.
 `;
 
 const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
-  placeholder:
-    "# ── Placeholders (auto) ─────────────────────────────────────────────\n" +
-    "# Preview-only defaults — the site renders but integrations are inert.\n" +
-    "# No action needed for preview; replace before publishing.",
+  harmless:
+    "# ── Harmless placeholders (auto, safe in F3) ──────────────────────\n" +
+    "# Test/publishable keys + generic secrets. Safe to ship as-is.",
+  "tier3-stub":
+    "# ── Tier-3 stub placeholders (auto, F2 only) ──────────────────────\n" +
+    "# Boot the project in F2 only. Replace with real values before F3.",
   "project-preview":
     "# ── Project preview tokens (auto) ──────────────────────────────────\n" +
     "# Stable per-project identifiers for preview sessions.",
@@ -74,48 +100,77 @@ export function formatDotenvBody(vars: Record<string, string>): string {
   return keys.map((k) => `${k}=${quoteEnvValue(vars[k] ?? "")}`).join("\n");
 }
 
-/** Load global integration placeholders as a flat record. Canonical source for all env-merge consumers. */
-export function loadPlaceholderRecord(): Record<string, string> {
+function loadFragmentRecord(read: (cwd?: string) => string, label: string): Record<string, string> {
   try {
-    const text = readGeneratedSitePlaceholdersEnvText();
+    const text = read();
     return Object.fromEntries(
       parseGeneratedSitePlaceholderLines(text).map((x) => [x.key, x.value]),
     );
   } catch (err) {
     console.warn(
-      "[preview-env-local] Integration placeholders not loaded:",
+      `[preview-env-local] ${label} placeholders not loaded:`,
       err instanceof Error ? err.message : err,
     );
     return {};
   }
 }
 
-/** Set of keys covered by the global integration placeholder file. */
+/** Load harmless placeholders as a flat record. */
+export function loadHarmlessPlaceholderRecord(): Record<string, string> {
+  return loadFragmentRecord(readHarmlessPlaceholdersEnvText, "Harmless");
+}
+
+/** Load tier-3 stub placeholders as a flat record. */
+export function loadTier3StubPlaceholderRecord(): Record<string, string> {
+  return loadFragmentRecord(readTier3StubPlaceholdersEnvText, "Tier-3 stub");
+}
+
+/**
+ * Combined record (harmless + tier3-stub).
+ * @deprecated Prefer the per-tier loaders so callers can decide whether to
+ *   strip tier-3 stubs in F3.
+ */
+export function loadPlaceholderRecord(): Record<string, string> {
+  return {
+    ...loadHarmlessPlaceholderRecord(),
+    ...loadTier3StubPlaceholderRecord(),
+  };
+}
+
+/** Set of keys covered by both placeholder fragments. */
 export function loadPlaceholderKeySet(): Set<string> {
   return new Set(Object.keys(loadPlaceholderRecord()));
 }
 
 /** Pure merge for tests — later records override earlier keys. */
 export function mergePreviewEnvRecords(
-  placeholders: Record<string, string>,
-  project: Record<string, string>,
-  generated: Record<string, string>,
+  ...layers: Array<Record<string, string>>
 ): Record<string, string> {
-  return { ...placeholders, ...project, ...generated };
+  return layers.reduce<Record<string, string>>((acc, layer) => ({ ...acc, ...layer }), {});
 }
 
 /**
- * Build the four source layers and return both the merged record and
- * per-key provenance so consumers can group/annotate the output.
+ * Build the source layers and return both the merged record and per-key
+ * provenance so consumers can group/annotate the output.
+ *
+ * `lifecycleStage` controls whether the tier-3 stub layer is included:
+ *  - `"design"` (F2) — included so the project boots.
+ *  - `"integrations"` (F3) — excluded so the project must supply real
+ *    values via `projectEnvVars` (validated by `tier3-build-spec.ts`).
  */
 export async function resolvePreviewEnvLayers(params: {
   appProjectId?: string | null;
   generatedEnvLocal?: string | null;
+  lifecycleStage?: PreviewLifecycleStage;
 }): Promise<{
   merged: Record<string, string>;
   provenance: Record<string, EnvVarProvenance>;
 }> {
-  const placeholders = loadPlaceholderRecord();
+  const lifecycleStage = params.lifecycleStage ?? "design";
+  const harmless = loadHarmlessPlaceholderRecord();
+  const tier3Stub =
+    lifecycleStage === "design" ? loadTier3StubPlaceholderRecord() : {};
+
   let project: Record<string, string> = {};
   const pid = typeof params.appProjectId === "string" ? params.appProjectId.trim() : "";
   if (pid) {
@@ -135,13 +190,16 @@ export async function resolvePreviewEnvLayers(params: {
   const projectPreview = buildProjectPreviewPlaceholderRecord(pid);
 
   const merged = mergePreviewEnvRecords(
-    mergePreviewEnvRecords(placeholders, projectPreview, {}),
+    harmless,
+    tier3Stub,
+    projectPreview,
     project,
     generated,
   );
 
   const provenance: Record<string, EnvVarProvenance> = {};
-  for (const key of Object.keys(placeholders)) provenance[key] = "placeholder";
+  for (const key of Object.keys(harmless)) provenance[key] = "harmless";
+  for (const key of Object.keys(tier3Stub)) provenance[key] = "tier3-stub";
   for (const key of Object.keys(projectPreview)) provenance[key] = "project-preview";
   for (const key of Object.keys(project)) provenance[key] = "user";
   for (const key of Object.keys(generated)) provenance[key] = "generated";
@@ -154,19 +212,26 @@ function formatGroupedDotenvBody(
   provenance: Record<string, EnvVarProvenance>,
 ): string {
   const groups: Record<EnvVarProvenance, string[]> = {
-    placeholder: [],
+    harmless: [],
+    "tier3-stub": [],
     "project-preview": [],
     user: [],
     generated: [],
   };
 
   for (const key of Object.keys(merged).sort((a, b) => a.localeCompare(b))) {
-    const tier = provenance[key] ?? "placeholder";
+    const tier = provenance[key] ?? "harmless";
     groups[tier].push(`${key}=${quoteEnvValue(merged[key] ?? "")}`);
   }
 
   const sections: string[] = [];
-  const order: EnvVarProvenance[] = ["user", "generated", "project-preview", "placeholder"];
+  const order: EnvVarProvenance[] = [
+    "user",
+    "generated",
+    "project-preview",
+    "tier3-stub",
+    "harmless",
+  ];
   for (const tier of order) {
     if (groups[tier].length === 0) continue;
     sections.push(SECTION_HEADERS[tier]);
@@ -183,8 +248,9 @@ export async function buildPreviewEnvLocalContents(params: {
   appProjectId?: string | null;
   /** Raw `.env.local` from generated files, if any. */
   generatedEnvLocal?: string | null;
+  /** Lifecycle stage controls whether tier-3 stubs are included. */
+  lifecycleStage?: PreviewLifecycleStage;
 }): Promise<string> {
   const { merged, provenance } = await resolvePreviewEnvLayers(params);
   return `${FILE_HEADER}\n${formatGroupedDotenvBody(merged, provenance)}\n`;
 }
-
