@@ -33,7 +33,6 @@ import {
   AlertCircle,
   Trash2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Accepted file types
@@ -335,17 +334,16 @@ export function FileUploadZone({
 
         {/* Add button */}
         {canAddMore && (
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
             onClick={handleClick}
             disabled={disabled}
-            className="h-7 gap-1 border-border text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[11px] disabled:opacity-50"
+            title="Lägg till media"
           >
-            <Upload className="h-3 w-3" />
+            <Upload className="size-3" />
             Lägg till media
-          </Button>
+          </button>
         )}
 
         <input
