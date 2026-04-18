@@ -11,49 +11,56 @@
     "**/src/templates/**",
     "**/.cursor/**"
   ],
+
   "editor.formatOnSave": false,
-  "editor.defaultFormatter": null,
   "editor.tabSize": 2,
+
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "explicit"
   },
-  "prettier.enable": false,
+
   "eslint.useFlatConfig": true,
   "files.eol": "\n",
+  "files.autoSave": "off",
+
   "files.exclude": {
     "**/.git": true,
     "**/.next": true,
     "**/node_modules": true
   },
+
   "search.exclude": {
     "**/.next": true,
     "**/node_modules": true,
     "**/out": true,
     "**/build": true
   },
+
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   },
+
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
   "tailwindCSS.experimental.classRegex": [
     ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
     ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
   ],
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-  },
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[javascript]": {
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-  },
-  "[javascriptreact]": {
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-  },
-  "files.autoSave": "off",
+
   "git.autofetch": true,
-  "git.autofetchPeriod": 0,
+
   "terminal.integrated.defaultProfile.windows": "PowerShell 7",
   "terminal.integrated.profiles.windows": {
     "PowerShell 7": {
@@ -62,6 +69,7 @@
       "icon": "terminal-powershell"
     }
   },
+
   "terminal.integrated.automationProfile.windows": {
     "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
     "args": ["-NoLogo", "-NoProfile"]
