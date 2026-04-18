@@ -1,0 +1,126 @@
+[
+  {
+    "id": "nature_flow_01",
+    "prompt": "Bygg en landningssida för en ekologisk barnbutik med hållbara leksaker och naturmaterial.",
+    "expectedVariant": "nature-flow",
+    "rationale": "ekologisk + hållbar + natur — nature-flow keywords"
+  },
+  {
+    "id": "nature_flow_02",
+    "prompt": "Create a landing page for a forest yoga retreat focused on wellness, organic food and grounded tranquility.",
+    "expectedVariant": "nature-flow",
+    "rationale": "forest + yoga + wellness + organic — nature-flow keywords"
+  },
+  {
+    "id": "nature_flow_03",
+    "prompt": "Landing page for a green eco subscription delivering organic groceries from local farms.",
+    "expectedVariant": "nature-flow",
+    "rationale": "eco + organic + green — nature-flow keywords"
+  },
+  {
+    "id": "nature_flow_04",
+    "prompt": "Skapa en sida för en hållbar trädgårdsplanering-tjänst med naturligt formspråk och earth-tones.",
+    "expectedVariant": "nature-flow",
+    "rationale": "hållbar + trädgård (garden) + natur — nature-flow keywords"
+  },
+
+  {
+    "id": "warm_local_01",
+    "prompt": "Bygg en landningssida för en frisörsalong i Stockholm med bokning och öppettider.",
+    "expectedVariant": "warm-local",
+    "rationale": "frisör + salong — warm-local keywords"
+  },
+  {
+    "id": "warm_local_02",
+    "prompt": "Create a landing page for a neighborhood cafe and bakery with friendly community vibe and walk-in welcome.",
+    "expectedVariant": "warm-local",
+    "rationale": "café + bakery + community + friendly — warm-local keywords"
+  },
+  {
+    "id": "warm_local_03",
+    "prompt": "Landing page for a local family-owned restaurang with seasonal menu and cozy atmosphere.",
+    "expectedVariant": "warm-local",
+    "rationale": "lokal + restaurang — warm-local keywords"
+  },
+  {
+    "id": "warm_local_04",
+    "prompt": "Bygg en sida för en lokal spa- och välmåendebehandling med en varm och välkomnande känsla.",
+    "expectedVariant": "warm-local",
+    "rationale": "lokal + spa + välkomnande — warm-local keywords"
+  },
+
+  {
+    "id": "corporate_grid_01",
+    "prompt": "Build a landing page for a B2B enterprise SaaS aimed at corporate compliance and consulting teams.",
+    "expectedVariant": "corporate-grid",
+    "rationale": "B2B + enterprise + corporate + consulting — corporate-grid keywords"
+  },
+  {
+    "id": "corporate_grid_02",
+    "prompt": "Bygg en sajt för en redovisnings- och juridikbyrå med fokus på företagskunder och förtroende.",
+    "expectedVariant": "corporate-grid",
+    "rationale": "redovisning + juridik + byrå + företag — corporate-grid keywords"
+  },
+  {
+    "id": "corporate_grid_03",
+    "prompt": "Create a professional agency landing page with trust signals, partner logos and case studies.",
+    "expectedVariant": "corporate-grid",
+    "rationale": "professional + agency + trust — corporate-grid keywords"
+  },
+  {
+    "id": "corporate_grid_04",
+    "prompt": "Sida för en finanskonsult som vänder sig till enterprise-företag med fokus på trust och tydlighet.",
+    "expectedVariant": "corporate-grid",
+    "rationale": "finans + enterprise + trust — corporate-grid keywords"
+  },
+
+  {
+    "id": "editorial_lux_01",
+    "prompt": "Build a landing page for a luxury premium parfum brand with editorial framing and elegant atmosphere.",
+    "expectedVariant": "editorial-lux",
+    "rationale": "luxury + premium + editorial + elegant — editorial-lux keywords"
+  },
+  {
+    "id": "editorial_lux_02",
+    "prompt": "Skapa en sida för ett exklusivt lyxhotell med atmosfäriska bilder och elegant typografi.",
+    "expectedVariant": "editorial-lux",
+    "rationale": "exklusiv + lyx + elegant — editorial-lux keywords"
+  },
+  {
+    "id": "editorial_lux_03",
+    "prompt": "Landing page for a high-end fashion house showcasing exclusive collections with magazine-style storytelling.",
+    "expectedVariant": "editorial-lux",
+    "rationale": "fashion + exclusive + editorial — editorial-lux keywords"
+  },
+  {
+    "id": "editorial_lux_04",
+    "prompt": "Bygg en sida för ett premium modemärke med elegant editorial känsla och lyxiga produktpresentationer.",
+    "expectedVariant": "editorial-lux",
+    "rationale": "premium + mode + elegant + editorial + lyx — editorial-lux keywords"
+  },
+
+  {
+    "id": "bold_startup_01",
+    "prompt": "Bygg en landningssida för en AI-startup som launcher en ny produkt med waitlist och momentum.",
+    "expectedVariant": "bold-startup",
+    "rationale": "startup + launch + waitlist + product + momentum — bold-startup keywords"
+  },
+  {
+    "id": "bold_startup_02",
+    "prompt": "Build a bold landing page for a growth-stage SaaS launch with strong CTAs and product velocity.",
+    "expectedVariant": "bold-startup",
+    "rationale": "bold + growth + launch + product + scale — bold-startup keywords"
+  },
+  {
+    "id": "bold_startup_03",
+    "prompt": "Create a launch landing page for a new developer tool startup with snabb onboarding and bold contrast.",
+    "expectedVariant": "bold-startup",
+    "rationale": "launch + startup + snabb + bold — bold-startup keywords"
+  },
+  {
+    "id": "bold_startup_04",
+    "prompt": "Landing page for a product-led growth startup ready to scale with high-velocity launch messaging.",
+    "expectedVariant": "bold-startup",
+    "rationale": "product + growth + scale + launch + startup — bold-startup keywords"
+  }
+]

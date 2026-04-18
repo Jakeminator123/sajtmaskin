@@ -49,6 +49,10 @@ Senast uppdaterad: 2026-04-15 (Repair/verify worldclass-pass: delad loop, manife
 
 ## Noterat (inte uppgifter)
 
+- **Landing-page variant audit (2026-04-18, 20 prompts, embeddings on)** — körs via `npx tsx scripts/scaffolds/eval-landing-variants.ts`, full data i `data/scaffold-eval/reports/landing-variant-latest.json`.
+  - Vinster: `nature-flow=7`, `bold-startup=6`, `warm-local=4`, `editorial-lux=3`, `corporate-grid=0`.
+  - Körplan-frågan "behövs både `nature-flow` och `warm-local`?": **ja**, båda vinner cases. Inga av dem kandidat för borttagning.
+  - **Oväntad signal:** `corporate-grid` (default-varianten för landing-page, `default: true`) vann 0 av 20 — inkl. de 4 prompts som var explicit kuraterade för B2B/byrå/finans/professional. Embedding-pickern verkar systematiskt välja `bold-startup` eller `warm-local` istället. Ej kandidat för borttagning ännu (default-rollen kvarstår), men candidate for further investigation: variant-embeddings för `corporate-grid` vs prompts kan behöva regenereras eller hints justeras. Spåras inte som öppen punkt — auditen är beviset, ingen åtgärd schemalagd.
 - `@/hooks/use-mobile` och `@/hooks/use-toast` behålls som bakåtkompatibel fallback.
 - `useDeploymentStatus` använder `/api/v0/` (naming debt, ej trasigt).
 - `useIntegrationStatus` har `previewUrl` i dependency-array för re-trigger (funktionellt korrekt).

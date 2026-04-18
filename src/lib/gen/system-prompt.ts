@@ -36,6 +36,7 @@ import {
   deriveTier3BuildSpec,
   renderTier3BuildPlanBlock,
 } from "@/lib/integrations/tier3-build-spec";
+import { renderTier3F2DenyBlockLines } from "@/lib/integrations/tier3-sdk-deny";
 import type { BuildSpec } from "./build-spec";
 import type { PreGenerationContractContext } from "./contract/pre-generation-contracts";
 import { pickScaffoldVariant } from "./scaffold-variants";
@@ -463,17 +464,10 @@ export function buildDynamicContext(
       "**FORBIDDEN in F2 — even if a dossier example shows it, even if the prompt mentions a service by name unless the user explicitly asks for backend wiring:**",
       "",
       "- Do NOT `import` any of these packages:",
-      "  - Payments: `stripe`, `@stripe/stripe-js`, `@stripe/react-stripe-js`",
-      "  - Auth: `@clerk/*`, `next-auth`, `@auth/*`, `@auth0/*`",
-      "  - Database: `@supabase/*`, `mongodb`, `mongoose`",
-      "  - Cache/queues: `redis`, `ioredis`, `@upstash/*`",
-      "  - Email: `resend`, `@react-email/render`",
-      "  - AI: `openai`, `@anthropic-ai/sdk`",
-      "  - Search: `algoliasearch`, `@algolia/*`, `meilisearch`, `@meilisearch/*`, `typesense`, `@elastic/elasticsearch`, `react-instantsearch*`, `instantsearch.js`",
-      "  - Observability: `@sentry/*`",
-      "  - Vercel managed: `@vercel/blob`, `@vercel/kv`, `@vercel/postgres`, `@vercel/edge-config`",
-      "  - CMS: `@sanity/*`, `next-sanity`, `contentful`, `@storyblok/*`, `storyblok-js-client`",
-      "  - Server APIs: `googleapis`",
+      // Deny-list rendered from `config/integrations/tier3-sdk-deny.json` so
+      // this prompt block and the mechanical `tier3-sdk-guard-fixer` can
+      // never drift apart. Add a module in the JSON; both update.
+      ...renderTier3F2DenyBlockLines(),
       "- Do NOT use `process.env.STRIPE_*`, `process.env.SUPABASE_*`, `process.env.CLERK_*`, `process.env.RESEND_*`, `process.env.SANITY_*`, `process.env.GOOGLE_CLIENT_*`, `process.env.AUTH_SECRET`, or any other tier-3 secret. Public `NEXT_PUBLIC_GA_ID` etc. is fine if the user wanted analytics.",
       "- Do NOT emit a `.env.local` listing tier-3 keys.",
       "- Do NOT add Stripe API routes (`/api/stripe/*`, `/api/checkout/*`), webhooks (`/api/webhooks/*`), or auth callbacks unless explicitly requested.",

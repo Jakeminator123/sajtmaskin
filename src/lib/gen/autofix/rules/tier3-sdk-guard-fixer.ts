@@ -12,90 +12,25 @@
  *
  * Categorised as `mechanical` so it shows up in the deterministic-fix
  * telemetry alongside other autofix steps.
+ *
+ * The deny-list itself lives in `config/integrations/tier3-sdk-deny.json`
+ * and is read via `src/lib/integrations/tier3-sdk-deny.ts`. The same loader
+ * also feeds the `## Generation Stage: F2 / Design (HARD CONTRACT)` block in
+ * `system-prompt.ts`, so the LLM instruction and this mechanical strip can
+ * never drift apart.
  */
 
-/** Module specifiers that indicate a tier-3 backend SDK. */
-const TIER3_SDK_MODULES: readonly string[] = [
-  // Payments
-  "stripe",
-  "@stripe/stripe-js",
-  "@stripe/react-stripe-js",
-  // Auth providers
-  "@clerk/nextjs",
-  "@clerk/clerk-sdk-node",
-  "@clerk/clerk-react",
-  "next-auth",
-  "@auth/core",
-  "@auth/nextjs",
-  "@auth0/nextjs-auth0",
-  "@auth0/auth0-react",
-  // Database / backend
-  "@supabase/supabase-js",
-  "@supabase/ssr",
-  "@supabase/auth-helpers-nextjs",
-  "mongodb",
-  "mongoose",
-  // Caching / queues
-  "redis",
-  "ioredis",
-  "@upstash/redis",
-  "@upstash/ratelimit",
-  "@upstash/qstash",
-  // Email
-  "resend",
-  "@react-email/render",
-  // AI
-  "openai",
-  "@anthropic-ai/sdk",
-  // Search providers
-  "algoliasearch",
-  "@algolia/client-search",
-  "react-instantsearch",
-  "react-instantsearch-dom",
-  "instantsearch.js",
-  "meilisearch",
-  "@meilisearch/instant-meilisearch",
-  "typesense",
-  "typesense-instantsearch-adapter",
-  "@elastic/elasticsearch",
-  // Observability
-  "@sentry/nextjs",
-  "@sentry/node",
-  "@sentry/react",
-  "@sentry/browser",
-  // Vercel managed (real Vercel project bindings)
-  "@vercel/blob",
-  "@vercel/kv",
-  "@vercel/postgres",
-  "@vercel/edge-config",
-  // CMS providers
-  "@sanity/client",
-  "next-sanity",
-  "contentful",
-  "contentful-management",
-  "@storyblok/react",
-  "storyblok-js-client",
-  // Analytics (server SDKs — public NEXT_PUBLIC_ values handled by placeholders)
-  "googleapis",
-];
+import {
+  isTier3SdkModule,
+  listTier3SdkModules as loaderListTier3SdkModules,
+} from "@/lib/integrations/tier3-sdk-deny";
 
 /**
- * Names of the tier-3 SDK modules. Re-exportable so Core Rules and prompt
+ * Names of the tier-3 SDK modules. Re-exported so Core Rules and prompt
  * blocks can be generated from the same source.
  */
 export function listTier3SdkModules(): readonly string[] {
-  return TIER3_SDK_MODULES;
-}
-
-const TIER3_MODULE_SET = new Set(TIER3_SDK_MODULES);
-
-function isTier3Module(specifier: string): boolean {
-  if (TIER3_MODULE_SET.has(specifier)) return true;
-  // Match scoped subpath imports too (e.g. "@stripe/stripe-js/server").
-  for (const mod of TIER3_SDK_MODULES) {
-    if (mod.startsWith("@") && specifier.startsWith(`${mod}/`)) return true;
-  }
-  return false;
+  return loaderListTier3SdkModules();
 }
 
 const IMPORT_LINE_RE =
@@ -120,7 +55,7 @@ export function fixTier3SdkImports(code: string): Tier3SdkGuardResult {
 
   for (const line of lines) {
     const match = line.match(IMPORT_LINE_RE);
-    if (match && isTier3Module(match[1])) {
+    if (match && isTier3SdkModule(match[1])) {
       removed.push(match[1]);
       continue;
     }

@@ -1,0 +1,193 @@
+{
+  "timestamp": "2026-04-18T13:01:54.949Z",
+  "scaffoldId": "landing-page",
+  "totalCases": 20,
+  "embeddingApiKeyPresent": true,
+  "variantsBySummary": [
+    {
+      "id": "nature-flow",
+      "label": "Nature Flow",
+      "wins": 7,
+      "keywordCoverage": 3,
+      "expectedCount": 4,
+      "expectedWins": 2
+    },
+    {
+      "id": "bold-startup",
+      "label": "Bold Startup",
+      "wins": 6,
+      "keywordCoverage": 4,
+      "expectedCount": 4,
+      "expectedWins": 2
+    },
+    {
+      "id": "warm-local",
+      "label": "Warm Local",
+      "wins": 4,
+      "keywordCoverage": 3,
+      "expectedCount": 4,
+      "expectedWins": 1
+    },
+    {
+      "id": "editorial-lux",
+      "label": "Editorial Lux",
+      "wins": 3,
+      "keywordCoverage": 4,
+      "expectedCount": 4,
+      "expectedWins": 1
+    },
+    {
+      "id": "corporate-grid",
+      "label": "Corporate Grid",
+      "wins": 0,
+      "keywordCoverage": 3,
+      "expectedCount": 4,
+      "expectedWins": 0
+    }
+  ],
+  "results": [
+    {
+      "id": "nature_flow_01",
+      "prompt": "Bygg en landningssida för en ekologisk barnbutik med hållbara leksaker och naturmaterial.",
+      "expectedVariant": "nature-flow",
+      "pickedVariantId": "bold-startup",
+      "matchedExpected": false
+    },
+    {
+      "id": "nature_flow_02",
+      "prompt": "Create a landing page for a forest yoga retreat focused on wellness, organic food and grounded tranquility.",
+      "expectedVariant": "nature-flow",
+      "pickedVariantId": "editorial-lux",
+      "matchedExpected": false
+    },
+    {
+      "id": "nature_flow_03",
+      "prompt": "Landing page for a green eco subscription delivering organic groceries from local farms.",
+      "expectedVariant": "nature-flow",
+      "pickedVariantId": "nature-flow",
+      "matchedExpected": true
+    },
+    {
+      "id": "nature_flow_04",
+      "prompt": "Skapa en sida för en hållbar trädgårdsplanering-tjänst med naturligt formspråk och earth-tones.",
+      "expectedVariant": "nature-flow",
+      "pickedVariantId": "nature-flow",
+      "matchedExpected": true
+    },
+    {
+      "id": "warm_local_01",
+      "prompt": "Bygg en landningssida för en frisörsalong i Stockholm med bokning och öppettider.",
+      "expectedVariant": "warm-local",
+      "pickedVariantId": "warm-local",
+      "matchedExpected": true
+    },
+    {
+      "id": "warm_local_02",
+      "prompt": "Create a landing page for a neighborhood cafe and bakery with friendly community vibe and walk-in welcome.",
+      "expectedVariant": "warm-local",
+      "pickedVariantId": "nature-flow",
+      "matchedExpected": false
+    },
+    {
+      "id": "warm_local_03",
+      "prompt": "Landing page for a local family-owned restaurang with seasonal menu and cozy atmosphere.",
+      "expectedVariant": "warm-local",
+      "pickedVariantId": "nature-flow",
+      "matchedExpected": false
+    },
+    {
+      "id": "warm_local_04",
+      "prompt": "Bygg en sida för en lokal spa- och välmåendebehandling med en varm och välkomnande känsla.",
+      "expectedVariant": "warm-local",
+      "pickedVariantId": "nature-flow",
+      "matchedExpected": false
+    },
+    {
+      "id": "corporate_grid_01",
+      "prompt": "Build a landing page for a B2B enterprise SaaS aimed at corporate compliance and consulting teams.",
+      "expectedVariant": "corporate-grid",
+      "pickedVariantId": "bold-startup",
+      "matchedExpected": false
+    },
+    {
+      "id": "corporate_grid_02",
+      "prompt": "Bygg en sajt för en redovisnings- och juridikbyrå med fokus på företagskunder och förtroende.",
+      "expectedVariant": "corporate-grid",
+      "pickedVariantId": "warm-local",
+      "matchedExpected": false
+    },
+    {
+      "id": "corporate_grid_03",
+      "prompt": "Create a professional agency landing page with trust signals, partner logos and case studies.",
+      "expectedVariant": "corporate-grid",
+      "pickedVariantId": "bold-startup",
+      "matchedExpected": false
+    },
+    {
+      "id": "corporate_grid_04",
+      "prompt": "Sida för en finanskonsult som vänder sig till enterprise-företag med fokus på trust och tydlighet.",
+      "expectedVariant": "corporate-grid",
+      "pickedVariantId": "warm-local",
+      "matchedExpected": false
+    },
+    {
+      "id": "editorial_lux_01",
+      "prompt": "Build a landing page for a luxury premium parfum brand with editorial framing and elegant atmosphere.",
+      "expectedVariant": "editorial-lux",
+      "pickedVariantId": "nature-flow",
+      "matchedExpected": false
+    },
+    {
+      "id": "editorial_lux_02",
+      "prompt": "Skapa en sida för ett exklusivt lyxhotell med atmosfäriska bilder och elegant typografi.",
+      "expectedVariant": "editorial-lux",
+      "pickedVariantId": "warm-local",
+      "matchedExpected": false
+    },
+    {
+      "id": "editorial_lux_03",
+      "prompt": "Landing page for a high-end fashion house showcasing exclusive collections with magazine-style storytelling.",
+      "expectedVariant": "editorial-lux",
+      "pickedVariantId": "bold-startup",
+      "matchedExpected": false
+    },
+    {
+      "id": "editorial_lux_04",
+      "prompt": "Bygg en sida för ett premium modemärke med elegant editorial känsla och lyxiga produktpresentationer.",
+      "expectedVariant": "editorial-lux",
+      "pickedVariantId": "editorial-lux",
+      "matchedExpected": true
+    },
+    {
+      "id": "bold_startup_01",
+      "prompt": "Bygg en landningssida för en AI-startup som launcher en ny produkt med waitlist och momentum.",
+      "expectedVariant": "bold-startup",
+      "pickedVariantId": "bold-startup",
+      "matchedExpected": true
+    },
+    {
+      "id": "bold_startup_02",
+      "prompt": "Build a bold landing page for a growth-stage SaaS launch with strong CTAs and product velocity.",
+      "expectedVariant": "bold-startup",
+      "pickedVariantId": "editorial-lux",
+      "matchedExpected": false
+    },
+    {
+      "id": "bold_startup_03",
+      "prompt": "Create a launch landing page for a new developer tool startup with snabb onboarding and bold contrast.",
+      "expectedVariant": "bold-startup",
+      "pickedVariantId": "bold-startup",
+      "matchedExpected": true
+    },
+    {
+      "id": "bold_startup_04",
+      "prompt": "Landing page for a product-led growth startup ready to scale with high-velocity launch messaging.",
+      "expectedVariant": "bold-startup",
+      "pickedVariantId": "nature-flow",
+      "matchedExpected": false
+    }
+  ],
+  "candidatesForRemoval": [
+    "corporate-grid"
+  ]
+}
