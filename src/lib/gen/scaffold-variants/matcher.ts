@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import { getVariantsForScaffold } from "./registry";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
+import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 
 function hashSeed(value: string): number {
   let hash = 5381;
@@ -11,6 +12,27 @@ function hashSeed(value: string): number {
   }
   return Math.abs(hash);
 }
+
+/**
+ * Deterministic seed for tie-breaking variant picks across sessions.
+ * Same prompt + scaffold + mode + sessionSeed always picks the same variant.
+ */
+function buildVariantSeedKey(input: PickScaffoldVariantInput): string {
+  return [
+    input.prompt.trim().toLowerCase().slice(0, 200),
+    input.scaffoldId ?? "none",
+    input.generationMode ?? "init",
+    input.sessionSeed ?? "",
+  ].join("::");
+}
+
+/**
+ * Minimum cosine similarity that qualifies a variant pick as "semantic-driven".
+ * Below this, the embedding signal is treated as noise and we fall back to
+ * keyword scoring. Prevents brand-new variants without embeddings (or
+ * extremely off-topic prompts) from ranking purely on near-zero cosines.
+ */
+const VARIANT_EMBEDDING_MIN_SCORE = 0.25;
 
 function scoreVariant(
   variant: ScaffoldVariant,
@@ -81,13 +103,7 @@ export function pickScaffoldVariant(
       ? ranked.filter((entry) => entry.score > 0).slice(0, 4)
       : ranked.slice(0, 4);
 
-  const seedKey = [
-    input.prompt.trim().toLowerCase().slice(0, 200),
-    input.scaffoldId ?? "none",
-    input.generationMode ?? "init",
-    input.sessionSeed ?? "",
-  ].join("::");
-  const hash = hashSeed(seedKey);
+  const hash = hashSeed(buildVariantSeedKey(input));
   return topCandidates[hash % topCandidates.length]?.variant ?? variants[0] ?? null;
 }
 
@@ -136,17 +152,6 @@ function loadVariantEmbeddings(): VariantEmbeddingsFile | null {
   } catch {
     return null;
   }
-}
-
-function cosine(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0;
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    dot += a[i]! * b[i]!;
-    na += a[i]! * a[i]!;
-    nb += b[i]! * b[i]!;
-  }
-  return na === 0 || nb === 0 ? 0 : dot / (Math.sqrt(na) * Math.sqrt(nb));
 }
 
 export interface PickScaffoldVariantAsyncOptions extends PickScaffoldVariantInput {
@@ -204,7 +209,7 @@ export async function pickScaffoldVariantAsync(
   const ranked = variants
     .map((variant) => {
       const vec = variantVecsById.get(variant.id);
-      const cos = vec ? cosine(queryVec!, vec) : 0;
+      const cos = vec ? cosineSimilarity(queryVec!, vec) : 0;
       // Tidigare: `cos + (variant.default ? 0.05 : 0)` — när alla varianters
       // cosine låg nära varandra (vanligt vid prompts som inte träffar någon
       // variant tydligt) tippade +0.05 över till default-varianten. Nu får
@@ -214,18 +219,29 @@ export async function pickScaffoldVariantAsync(
     })
     .sort((a, b) => b.score - a.score || a.variant.id.localeCompare(b.variant.id));
 
-  if (ranked[0] && ranked[0].score === 0) {
-    // Inga embeddings för denna scaffolds variants → keyword-fallback
+  // Fallback to keyword scoring whenever the embedding signal is too weak
+  // to be informative. Three cases handled:
+  //   1) No variant under this scaffold has an embedding → top score = 0.
+  //   2) Top score sits below `VARIANT_EMBEDDING_MIN_SCORE` (noise floor).
+  //   3) The pick we'd return is a variant whose own embedding is missing
+  //      (cos = 0 by construction) — in that case the pick is effectively
+  //      arbitrary, so let keyword scoring decide instead.
+  const hasAnyEmbedding = ranked.some((entry) => entry.score > 0);
+  if (!hasAnyEmbedding) {
+    return pickScaffoldVariant(input);
+  }
+  if (!ranked[0] || ranked[0].score < VARIANT_EMBEDDING_MIN_SCORE) {
     return pickScaffoldVariant(input);
   }
 
-  const topCandidates = ranked.slice(0, 3);
-  const seedKey = [
-    input.prompt.trim().toLowerCase().slice(0, 200),
-    input.scaffoldId ?? "none",
-    input.generationMode ?? "init",
-    input.sessionSeed ?? "",
-  ].join("::");
-  const hash = hashSeed(seedKey);
+  // Only consider candidates that actually cleared the floor; otherwise the
+  // hash-modulo could land on a variant lacking embeddings entirely.
+  const topCandidates = ranked
+    .filter((entry) => entry.score >= VARIANT_EMBEDDING_MIN_SCORE)
+    .slice(0, 3);
+  if (topCandidates.length === 0) {
+    return pickScaffoldVariant(input);
+  }
+  const hash = hashSeed(buildVariantSeedKey(input));
   return topCandidates[hash % topCandidates.length]?.variant ?? variants[0] ?? null;
 }

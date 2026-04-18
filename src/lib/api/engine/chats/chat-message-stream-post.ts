@@ -681,12 +681,14 @@ export async function handleMessageStreamRequest(
           prompt: optimizedMessage,
           routePlanPrompt: message,
           buildSpecPrompt: message,
-          // QW-1: dossier-pick + contract-inferens får också rå message så
-          // file-context-wrappingen i optimizedMessage inte förgiftar deras
-          // semantiska beslut (t.ex. att import av Stripe i previousFiles
-          // skulle få contracts att gissa "ny stripe-integration").
+          // QW-1: dossier-pick + contract-inferens + capability-inferens får
+          // rå message så file-context-wrappingen i optimizedMessage inte
+          // förgiftar deras semantiska beslut (t.ex. att import av Stripe i
+          // previousFiles skulle få contracts att gissa "ny stripe-integration",
+          // eller att en LoginForm-fil i context skulle pinna `needsAuth`).
           dossierPickPrompt: message,
           contractsPrompt: message,
+          capabilitiesPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,

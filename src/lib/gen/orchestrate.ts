@@ -17,6 +17,7 @@ import {
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
+  getScaffoldIds,
   matchScaffoldAuto,
   type ScaffoldQueryContext,
   type ScaffoldSelectionMeta,
@@ -85,6 +86,19 @@ export interface OrchestrationInput {
    * that integration.
    */
   contractsPrompt?: string;
+  /**
+   * Optional prompt used for capability inference (defaults to `prompt`).
+   * QW-1 follow-up: capability inference (`needsAuth`, `needsEcommerce`, …)
+   * is keyword-based and triggers on terms like "login", "cart", "checkout"
+   * found anywhere in the input string. When the wrapped follow-up prompt
+   * carries previous file content (e.g. `LoginForm.tsx`), capabilities get
+   * stuck on "auth" even when the user only asked to change a color.
+   *
+   * Stream callers should pass the *raw* user message so capability-driven
+   * scaffold boosts, capabilityHints text, prompt-driven shadcn refs and
+   * dossier pick query reflect actual intent — not stale file context.
+   */
+  capabilitiesPrompt?: string;
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
@@ -303,7 +317,12 @@ export async function resolveOrchestrationBase(
     briefContextApplied: false,
   };
 
-  const capabilities = providedCapabilities ?? inferCapabilities(prompt);
+  // QW-1: capability + prompt-driven shadcn-ref inference must run against
+  // the raw user message, not the file-context-wrapped prompt. The wrapped
+  // prompt carries previous file content on follow-ups and would otherwise
+  // pin needsAuth/needsEcommerce to whatever the previous version imported.
+  const intentSourcePrompt = input.capabilitiesPrompt ?? prompt;
+  const capabilities = providedCapabilities ?? inferCapabilities(intentSourcePrompt);
   const resolvedMode = generationMode ?? (persistedScaffoldId ? "followUp" : "init");
 
   const effectivePersistedScaffoldId =
@@ -311,7 +330,7 @@ export async function resolveOrchestrationBase(
   const scaffoldQueryContext = buildScaffoldQueryContext(brief);
   const componentRefNames = [
     ...getRelevantExampleNames(capabilities),
-    ...getPromptDrivenExampleNames(prompt),
+    ...getPromptDrivenExampleNames(intentSourcePrompt),
   ];
   const uniqueRefNames = [...new Set(componentRefNames)];
   const localRefs = loadShadcnExamples(uniqueRefNames);
@@ -386,14 +405,29 @@ export async function resolveOrchestrationBase(
   const briefNomNorm = briefScaffoldNom?.id?.trim().toLowerCase() ?? null;
   const finalNorm = resolvedScaffold?.id.toLowerCase() ?? null;
   if (briefNomNorm && finalNorm && briefNomNorm !== finalNorm) {
-    console.info("[orchestrate] scaffold_drift", {
-      mode: input.generationMode ?? "init",
-      briefNominated: briefScaffoldNom!.id,
-      briefConfidence: briefScaffoldNom!.confidence ?? null,
-      finalPick: resolvedScaffold!.id,
-      pickMethod: scaffoldSelection.selectionMethod ?? "unknown",
-      pickConfidence: scaffoldSelection.selectionConfidence ?? null,
-    });
+    // Guard: brief-LLM occasionally hallucinates ids that aren't in the
+    // registry (e.g. "saas", "blog-page", "shop"). Logging those as
+    // scaffold_drift drowns out genuine drift signals where both sides
+    // pick a real scaffold. Surface unknown nominations under their own
+    // key so we can quantify schema-fidelity separately.
+    const knownIds = new Set(getScaffoldIds().map((id) => id.toLowerCase()));
+    if (!knownIds.has(briefNomNorm)) {
+      console.info("[orchestrate] scaffold_unknown_brief_nomination", {
+        mode: input.generationMode ?? "init",
+        briefNominated: briefScaffoldNom!.id,
+        briefConfidence: briefScaffoldNom!.confidence ?? null,
+        finalPick: resolvedScaffold!.id,
+      });
+    } else {
+      console.info("[orchestrate] scaffold_drift", {
+        mode: input.generationMode ?? "init",
+        briefNominated: briefScaffoldNom!.id,
+        briefConfidence: briefScaffoldNom!.confidence ?? null,
+        finalPick: resolvedScaffold!.id,
+        pickMethod: scaffoldSelection.selectionMethod ?? "unknown",
+        pickConfidence: scaffoldSelection.selectionConfidence ?? null,
+      });
+    }
   }
 
   if (!resolvedReferenceFetches) {

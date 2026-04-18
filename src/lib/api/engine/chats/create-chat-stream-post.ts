@@ -547,6 +547,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
         const orchestrationInput = {
           prompt: optimizedMessage,
+          // QW-1: capability inference (needsAuth/needsEcommerce/needsCharts…)
+          // är keyword-baserad. Använd rå user-message så bifogade text-utdrag
+          // (PDFs/.docx) inte triggar capabilities som skuggar prompt-intent.
+          capabilitiesPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,

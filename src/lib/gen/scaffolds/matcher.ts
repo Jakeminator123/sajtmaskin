@@ -900,7 +900,18 @@ export async function matchScaffoldAuto(
         (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
         (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
   );
-  const lower = scaffoldPrompt.toLowerCase();
+  // Embedding query + the sync `matchScaffold` baseline benefit from the
+  // combined prompt+brief text (a brief that explicitly says "Login page"
+  // should be allowed to promote auth-pages). The diagnostic
+  // `keywordScores` map in meta, however, must NOT double-count brief
+  // signals: when brief text is already merged into `scaffoldPrompt`,
+  // `buildKeywordScores` would count brief words and
+  // `applyBriefKeywordBoost` would then boost the same words a second
+  // time, inflating confidence and topCandidates ordering. So we score
+  // against the original prompt and let `applyBriefKeywordBoost` be the
+  // single brief-injection point in the diagnostics.
+  const lowerPrompt = prompt.toLowerCase();
+  const lowerScaffold = scaffoldPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
     ? searchScaffoldsWithDiagnostics(scaffoldPrompt, 3)
@@ -908,7 +919,7 @@ export async function matchScaffoldAuto(
 
   const keywordResult = matchScaffold(scaffoldPrompt, buildIntent);
   const baseKeywordScores = applyBriefKeywordBoost(
-    buildKeywordScores(lower, options.capabilities),
+    buildKeywordScores(lowerPrompt, options.capabilities),
     options.queryContext,
   );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
@@ -947,11 +958,14 @@ export async function matchScaffoldAuto(
   }
 
   const semantic = await embeddingPromise;
-  const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
-  const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-  const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-  const hospitalityScore = countKeywordMatches(lower, HOSPITALITY_SERVICE_KEYWORDS);
-  const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
+  // Override-guards intentionally use prompt+brief: a brief that says
+  // "checkout flow" is just as good evidence as the prompt itself for
+  // gating an ecommerce-embedding override.
+  const authScore = countKeywordMatches(lowerScaffold, AUTH_KEYWORDS);
+  const appScore = countKeywordMatches(lowerScaffold, APP_KEYWORDS);
+  const dashboardScore = countKeywordMatches(lowerScaffold, DASHBOARD_KEYWORDS);
+  const hospitalityScore = countKeywordMatches(lowerScaffold, HOSPITALITY_SERVICE_KEYWORDS);
+  const strongEcommerceScore = countKeywordMatches(lowerScaffold, STRONG_ECOMMERCE_INTENT);
   const embedBias = readEmbedVsKeywordBias();
 
   const embeddingTopResult =

@@ -65,6 +65,15 @@ function applyBriefQuality(
   return { ...brief, briefQuality };
 }
 
+/**
+ * Marker quality used while the brief is being finalized.
+ * `generateSiteBriefObject` always tags the raw object with `"full"`, and the
+ * outer caller (`tryGenerateServerAutoBrief`) downgrades it to `"server-auto"`
+ * when relevant. The downgrade is the single rewrite point; the inner tag is
+ * just a sentinel so the schema field is always populated.
+ */
+const INITIAL_BRIEF_QUALITY: Exclude<BriefQuality, "none"> = "full";
+
 const sectionTypeSchema = z.enum([
   "hero",
   "features",
@@ -460,13 +469,13 @@ export async function generateSiteBriefObject(
         abortSignal,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
-      const briefObject = applyBriefQuality(result.object as Record<string, unknown>, "full");
+      const briefObject = applyBriefQuality(result.object as Record<string, unknown>, INITIAL_BRIEF_QUALITY);
       const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
       devLogAppend("latest", {
         type: "assist.brief.response",
         provider: "anthropic",
         model: normalizedModel,
-        briefQuality: "full",
+        briefQuality: INITIAL_BRIEF_QUALITY,
         projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
         pages,
       });
@@ -501,13 +510,13 @@ export async function generateSiteBriefObject(
       abortSignal,
       ...getTemperatureConfig(normalizedModel, temperature),
     });
-    const briefObject = applyBriefQuality(result.object as Record<string, unknown>, "full");
+    const briefObject = applyBriefQuality(result.object as Record<string, unknown>, INITIAL_BRIEF_QUALITY);
     const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
     devLogAppend("latest", {
       type: "assist.brief.response",
       provider: "openai",
       model: normalizedModel,
-      briefQuality: "full",
+      briefQuality: INITIAL_BRIEF_QUALITY,
       projectTitle: typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
       pages,
     });
@@ -519,7 +528,7 @@ export async function generateSiteBriefObject(
     });
     return {
       brief: briefObject,
-      briefQuality: "full",
+      briefQuality: INITIAL_BRIEF_QUALITY,
       provider: "openai",
       normalizedModel,
     };

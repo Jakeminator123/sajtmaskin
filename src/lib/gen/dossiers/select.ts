@@ -29,6 +29,7 @@ import {
 } from "./registry";
 import { computeDomainVeto, filterBlockedCategories } from "./domain-veto";
 import type { DossierEntry, DossierSelectionResult, SelectedDossier } from "./types";
+import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 
 // All thresholds below are env-overridable so the bygg-LLM får mer
 // utrymme att styra utan kodändringar. Defaults är medvetet konservativa
@@ -97,20 +98,6 @@ export interface SelectDossiersOptions {
   useEmbeddings?: boolean;
   /** Inject API key for testing. */
   embeddingApiKey?: string;
-}
-
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0;
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i += 1) {
-    dot += a[i]! * b[i]!;
-    normA += a[i]! * a[i]!;
-    normB += b[i]! * b[i]!;
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 /**
@@ -203,9 +190,14 @@ function dedupTopN<T extends { score: number; entry: DossierEntry }>(
   items: T[],
   maxPerCategory: number,
   maxTotal: number,
+  initialCategoryCounts?: Map<string, number>,
 ): T[] {
   const sorted = [...items].sort((a, b) => b.score - a.score);
-  const perCategory = new Map<string, number>();
+  // Seed per-category counts with the alwaysInclude selections so the cap is
+  // honored across both selection sources. Without this seed an alwaysInclude
+  // dossier in category X plus an embedding match in X could push the
+  // category count to maxPerCategory + 1.
+  const perCategory = new Map<string, number>(initialCategoryCounts);
   const out: T[] = [];
   for (const item of sorted) {
     if (out.length >= maxTotal) break;
@@ -339,10 +331,22 @@ export async function selectDossiersForRequest(
     );
   }
 
-  // 4) Dedup + cap per category and total. Always-include items skip this cap.
+  // 4) Dedup + cap per category and total. Always-include items keep their
+  // slot but their categories DO count against `maxPerCategory` so the
+  // combined output never exceeds the configured limit per category.
   const alreadyIncludedIds = new Set(alwaysSelected.map((s) => s.entry.id));
   const filtered = vetoFiltered.filter((s) => !alreadyIncludedIds.has(s.entry.id));
-  const capped = dedupTopN(filtered, maxPerCategory, Math.max(0, maxTotal - alwaysSelected.length));
+  const alwaysCategoryCounts = new Map<string, number>();
+  for (const sel of alwaysSelected) {
+    const cat = sel.entry.category;
+    alwaysCategoryCounts.set(cat, (alwaysCategoryCounts.get(cat) ?? 0) + 1);
+  }
+  const capped = dedupTopN(
+    filtered,
+    maxPerCategory,
+    Math.max(0, maxTotal - alwaysSelected.length),
+    alwaysCategoryCounts,
+  );
 
   const all: SelectedDossier[] = [
     ...alwaysSelected,
