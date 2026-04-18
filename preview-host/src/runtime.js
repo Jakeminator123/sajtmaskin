@@ -238,6 +238,7 @@ const ENV_ALLOWLIST = new Set([
   "HOSTNAME", "PORT",
   "NEXT_TELEMETRY_DISABLED",
   "SAJTMASKIN_PREVIEW_BASE_PATH",
+  "SAJTMASKIN_PREVIEW_DISABLE_HMR",
   "TMPDIR", "TMP", "TEMP",
 ]);
 const ENV_ALLOWLIST_PREFIXES = ["NEXT_PUBLIC_"];
@@ -405,7 +406,16 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
   };
 }
 
-/** Inject basePath env hook so Fly /{chatId} previews get CSS/JS. Handles .ts/.mjs/.js and common export patterns. */
+/** Inject basePath env hook so Fly /{chatId} previews get CSS/JS. Handles .ts/.mjs/.js and common export patterns.
+ *
+ * Injicerar även (när `SAJTMASKIN_PREVIEW_DISABLE_HMR === "true"`) en
+ * `webpack`-mutator som filtrerar bort `HotModuleReplacementPlugin`.
+ * Resultat: Next dev's webpack-HMR-klient genereras inte alls och försöker
+ * inte upprätta `wss://vm-fly-jakem.fly.dev/<chatId>/_next/webpack-hmr`.
+ * Det tystar console-spammet som annars dyker upp några ggr per sekund
+ * eftersom Fly's edge-proxy inte alltid lyckas med WS-handshakes genom
+ * chatId-prefix. Hot-reload tappas men preview-host gör full iframe-
+ * reload via refreshToken vid varje generation ändå. */
 function patchNextConfigForPreviewBasePath(workspaceDir) {
   const candidates = ["next.config.ts", "next.config.mjs", "next.config.js"];
   let cfgPath = null;
@@ -418,7 +428,11 @@ function patchNextConfigForPreviewBasePath(workspaceDir) {
   if (s.includes("SAJTMASKIN_PREVIEW_BASE_PATH")) return;
   if (/\bbasePath\s*:/.test(s)) return;
 
-  const envSnippet = "(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim() ? { basePath: process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim() } : {})";
+  // En självkörande funktion bygger ett patch-objekt vid require-tid.
+  // Innehåller: basePath (när env satt) + webpack-mutator som tar bort
+  // HMR-plugin (när SAJTMASKIN_PREVIEW_DISABLE_HMR=true). Spread:as in
+  // i Next config med `...EXPRESSION`. Funkar för .js/.mjs/.ts.
+  const envSnippet = "(()=>{const o={};if(process.env.SAJTMASKIN_PREVIEW_BASE_PATH?.trim())o.basePath=process.env.SAJTMASKIN_PREVIEW_BASE_PATH.trim();if(process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR===\"true\"){o.webpack=(c)=>{c.plugins=(c.plugins||[]).filter((p)=>!(p&&p.constructor&&p.constructor.name===\"HotModuleReplacementPlugin\"));return c;};}return o;})()";
 
   const constPattern = /(const\s+\w+\s*(?::\s*\w+\s*)?=\s*\{)/;
   if (constPattern.test(s)) {
@@ -947,6 +961,13 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
         PORT: String(runtimePort),
         HOSTNAME: LOOPBACK,
         SAJTMASKIN_PREVIEW_BASE_PATH: basePath,
+        // Default-on: tystar webpack-HMR-WS i preview-VM så Chrome-konsolen
+        // inte spammas med "WebSocket connection ... failed". Hot-reload
+        // tappas men sajten reload:as ändå vid varje generation. Sätt till
+        // "false" för att återaktivera HMR (t.ex. när man debuggar VM:en
+        // direkt).
+        SAJTMASKIN_PREVIEW_DISABLE_HMR:
+          process.env.SAJTMASKIN_PREVIEW_DISABLE_HMR ?? "true",
       }),
     },
   );
