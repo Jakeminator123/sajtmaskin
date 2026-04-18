@@ -255,8 +255,12 @@ export async function handleSseStream(
         return [`Validerar genererad kod${pass ? ` (pass ${pass})` : ""}.`];
       }
       if (phase === "fixing") {
+        // Tidigare: "Försöker reparera syntaxfel..." — gav intryck av att
+        // något var allvarligt fel. Det här är normal autofix-poleringen
+        // som körs på varje generation och nästan alltid lyckas inom
+        // några sekunder. Neutralare formulering.
         return [
-          `Försöker reparera syntaxfel${pass ? ` i pass ${pass}` : ""}${errorCount !== null ? ` (${errorCount} fel)` : ""}.`,
+          `Polerar syntax${pass ? ` (pass ${pass})` : ""}${errorCount !== null ? `, ${errorCount} smafel` : ""}.`,
         ];
       }
       if (phase === "retrying") {

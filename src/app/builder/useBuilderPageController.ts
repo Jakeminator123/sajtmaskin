@@ -1382,10 +1382,24 @@ export function useBuilderPageController() {
           if (isActive) setPromptAssistContext("");
           return;
         }
+        // Liten delay sa fetchen inte race:ar mot finalize-pipens
+        // versions-persist (annars far vi 404 + console-spam pa nyligen
+        // skapade versionId i ~1s-fonstret innan DB:n hunnit committa).
+        await new Promise((resolve) => window.setTimeout(resolve, 600));
+        if (!isActive || controller.signal.aborted) return;
         const response = await fetch(
           `${engineChatBaseUrl(chatId)}/files?versionId=${encodeURIComponent(derived.activeVersionId)}`,
           { signal: controller.signal },
         );
+        // 404 inom kort fonster efter version.created ar normalt (race
+        // mot finalize-persist). Vi tystar dem och provar igen vid nasta
+        // refreshToken-tick istallet for att spamma Chrome-konsolen.
+        if (response.status === 404) {
+          if (isActive) {
+            setPromptAssistContext("");
+          }
+          return;
+        }
         const data = (await response.json().catch(() => null)) as {
           files?: Array<{ name: string; content?: string | null }>;
         } | null;

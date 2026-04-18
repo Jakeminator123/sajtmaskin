@@ -208,7 +208,7 @@ export function AgentLogCard({ items }: { items: AgentLogItem[] }) {
       className="border-border bg-muted/30 mb-3 rounded-md border"
     >
       <CollapsibleTrigger className="text-muted-foreground hover:bg-muted/50 flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs font-medium transition-colors">
-        <span>Agentlogg ({items.length}) — felsökning</span>
+        <span>Agentlogg ({items.length}) — aktivitet</span>
         <ChevronDown
           className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")}
           aria-hidden

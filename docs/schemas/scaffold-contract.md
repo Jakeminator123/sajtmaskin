@@ -217,18 +217,13 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 - free from unnecessary external infrastructure assumptions
 - equipped with `qualityChecklist` (>= 3 items) and `promptHints` (>= 2 items)
 
-## Structural References
+## ~~Structural References~~ (avvecklad 2026-04-17)
 
-When `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true`, the orchestration layer injects budgeted code excerpts from template-library entries into the system prompt as `## Structural References (this variant)`.
+**Status:** Borttagen från runtime. Tidigare körde `selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()` när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true` och injicerade kod-excerpter under `## Structural References (this variant)` i system-prompten. Hela template-library-pipen (inklusive `resolveTemplateGuidance` + env-flagga `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`) avvecklades 2026-04-17.
 
-Two passes:
+**Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen i `data/dossiers/_index/`. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default `true` i development). Se `docs/architecture/llm-flow-end-to-end.md` för det aktuella flödet.
 
-1. **Variant-driven** — reads the active scaffold variant's `sourceTemplateIds`, selects up to 3 structural files (layout, middleware, page) ranked by configurable priority from `config/structural-file-priorities.json`.
-2. **Capability-driven** — searches the full template-library catalog for entries matching `InferredCapabilities` signals (auth, ecommerce, dashboard, cms) not already covered by the variant pass, adds up to 2 additional files.
-
-File priority and capability-signal mappings are configurable via `config/structural-file-priorities.json`. Files with priority < 0 are blocked. See `docs/schemas/strict/structural-references.schema.json` for the machine-readable schema.
-
-Code source of truth: `src/lib/gen/scaffold-variants/structural-files.ts`.
+**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `system-prompt.ts`. Se `scaffold-schema.md` rad 22 för detaljer.
 
 ## Font handling
 

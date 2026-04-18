@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode, RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +19,12 @@ export interface PreviewPanelFrameProps {
   children?: ReactNode;
 }
 
+// Visa full-screen-overlayen bara om laddningen tar längre än
+// LOADING_OVERLAY_DEBOUNCE_MS. Snabba navigeringar (klick på sidonav i
+// builder, intern route-byte) hinner ofta bli klara inom några hundra ms
+// och då gör flimrande overlay mer skada än nytta.
+const LOADING_OVERLAY_DEBOUNCE_MS = 350;
+
 export function PreviewPanelFrame({
   isLoading,
   iframeError,
@@ -33,13 +39,45 @@ export function PreviewPanelFrame({
   handleIframeError,
   children,
 }: PreviewPanelFrameProps) {
+  const [showOverlay, setShowOverlay] = useState(false);
+  const overlayTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (overlayTimerRef.current) {
+      window.clearTimeout(overlayTimerRef.current);
+      overlayTimerRef.current = null;
+    }
+    if (!isLoading) {
+      setShowOverlay(false);
+      return;
+    }
+    overlayTimerRef.current = window.setTimeout(() => {
+      overlayTimerRef.current = null;
+      setShowOverlay(true);
+    }, LOADING_OVERLAY_DEBOUNCE_MS);
+    return () => {
+      if (overlayTimerRef.current) {
+        window.clearTimeout(overlayTimerRef.current);
+        overlayTimerRef.current = null;
+      }
+    };
+  }, [isLoading]);
+
   return (
     <div className="relative h-full overflow-hidden bg-gray-950">
       {isLoading ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-transparent"
+        >
+          <div className="bg-primary/70 h-full w-full animate-pulse rounded-full" />
+        </div>
+      ) : null}
+      {showOverlay ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px] transition-opacity">
           <div className="text-center">
-            <Loader2 className="text-primary mx-auto mb-2 h-8 w-8 animate-spin" />
-            <p className="text-muted-foreground text-sm">Laddar preview...</p>
+            <Loader2 className="text-primary mx-auto mb-2 h-6 w-6 animate-spin" />
+            <p className="text-muted-foreground text-xs">Laddar...</p>
           </div>
         </div>
       ) : null}

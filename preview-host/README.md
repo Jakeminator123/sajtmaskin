@@ -95,6 +95,10 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 4. **Autofix-loop**: throttla antal parallella preview-host-boots per chatt sa att autofix inte skapar 4 samtida install+dev-starter.
 5. **Observerbarhet**: lagg till tydligare loggning av Next.js stdout/stderr i runtime-loggar (just nu damps HMR-brus).
 
+### Kanda begransningar (acceptabla pa F2)
+
+- **Webpack-HMR WebSocket-spam i klient-konsolen** — Next.js dev-instansen i VM:en oppnar `wss://vm-fly-jakem.fly.dev/<chatId>/_next/webpack-hmr?id=...`. Trots att `proxy.ws()` ar aktiverad i runtime.js (`ws: true` + `server.on("upgrade")` i server.js) failar dessa WS-handshakes mot Fly's edge proxy med jamna mellanrum. Det ger upprepade `WebSocket connection ... failed`-meddelanden i Chrome-konsolen for builder-anvandare. **Det stor inte funktionalitet** — sajten renderas som vanligt, det enda som missas ar live hot-reload mellan kod-andringar i preview. Anvandaren ser "ny preview" anda eftersom Sajtmaskin gor full iframe-reload vid varje generation. Att fixa kraver antingen (a) deaktivera HMR i preview-host's Next dev (forlorar dev-experience for de som modifierar preview-koden direkt), eller (b) konfigurera Fly's edge proxy explicit for WebSocket-uppgraderingar pa `<chatId>/_next/webpack-hmr`-pathen. Inget av dessa ar prioriterat just nu.
+
 ## Det som nu finns har
 
 Detta spar ar nu scaffoldat som en liten, helt separat prototyp:
