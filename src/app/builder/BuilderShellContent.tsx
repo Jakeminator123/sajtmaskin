@@ -479,7 +479,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           vision: pick(wf.vision),
           contactPageText: pick(wf.contactPageText),
           orgNr: reg?.orgNr || undefined,
-          address: pick(wf.address, reg?.address ? `${reg.address}${reg.city ? `, ${reg.city}` : ""}` : undefined),
+          address: pick(
+            wf.address,
+            reg?.address ? `${reg.address}${reg.city ? `, ${reg.city}` : ""}` : undefined,
+            sc?.meta?.address,
+          ),
           industries: reg?.industries ?? undefined,
           employees: reg?.employees ?? undefined,
           phone: pick(wf.phone, sc?.meta?.phone),

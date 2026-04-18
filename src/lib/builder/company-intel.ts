@@ -280,7 +280,50 @@ function extractCompanyNameFromUrl(url: string): string {
   }
 }
 
+function extractContactFromText(text: string): {
+  phone?: string;
+  email?: string;
+  address?: string;
+} {
+  if (!text) return {};
+  const out: { phone?: string; email?: string; address?: string } = {};
+
+  const emailMatch = text.match(
+    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/,
+  );
+  if (emailMatch) {
+    const email = emailMatch[0];
+    if (!/\.(png|jpe?g|gif|webp|svg)$/i.test(email)) {
+      out.email = email;
+    }
+  }
+
+  const phoneMatch =
+    text.match(/\+46[\s-]?\d(?:[\s-]?\d){7,9}/) ||
+    text.match(/\b0\d{1,3}[\s-]?\d{2,3}[\s-]?\d{2,4}[\s-]?\d{2,4}\b/) ||
+    text.match(/\b\d{3}[\s-]?\d{3}[\s-]?\d{3,4}\b/);
+  if (phoneMatch) {
+    const phone = phoneMatch[0].trim();
+    if (phone.replace(/\D/g, "").length >= 7) out.phone = phone;
+  }
+
+  const addressPattern =
+    /\b([A-ZÅÄÖ][\wåäö.-]+(?:gatan|vägen|gränd|torget|plan|stigen|allén|backen|leden|väg|gata)\s+\d+[A-Za-z]?(?:\s*,\s*\d{3}\s?\d{2}\s+[A-ZÅÄÖ][\wåäö.-]+)?)/;
+  const addrMatch = text.match(addressPattern);
+  if (addrMatch) {
+    out.address = addrMatch[1].replace(/\s+/g, " ").trim();
+  } else {
+    const boxMatch = text.match(
+      /\b(Box\s+\d+,?\s*\d{3}\s?\d{2}\s+[A-ZÅÄÖ][\wåäö.-]+)/,
+    );
+    if (boxMatch) out.address = boxMatch[1].replace(/\s+/g, " ").trim();
+  }
+
+  return out;
+}
+
 function websiteContentToScraped(wc: WebsiteContent): CompanyIntelResult["scrapedContent"] {
+  const contact = extractContactFromText(wc.text);
   return {
     url: wc.url,
     title: wc.title,
@@ -292,6 +335,9 @@ function websiteContentToScraped(wc: WebsiteContent): CompanyIntelResult["scrape
     meta: {
       keywords: wc.meta.keywords,
       author: wc.meta.author,
+      phone: contact.phone,
+      email: contact.email,
+      address: contact.address,
     },
     wordCount: wc.wordCount,
     sampledUrls: wc.sampledUrls,

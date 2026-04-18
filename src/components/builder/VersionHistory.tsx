@@ -432,10 +432,30 @@ export function VersionHistory({
     );
   }
 
+  const collapseButton = canToggleCollapse ? (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onClick={onToggleCollapse}
+      title="Fäll in versioner"
+      aria-label="Fäll in versioner"
+      className="h-7 w-7"
+    >
+      <ChevronRight className="h-4 w-4" />
+    </Button>
+  ) : null;
+
   if (!chatId) {
     return (
-      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
-        <p className="text-center text-sm">Skicka ett meddelande för att starta</p>
+      <div className="flex h-full flex-col">
+        {canToggleCollapse && (
+          <div className="flex items-center justify-end border-border border-b px-2 py-2">
+            {collapseButton}
+          </div>
+        )}
+        <div className="text-muted-foreground flex flex-1 items-center justify-center p-4">
+          <p className="text-center text-sm">Skicka ett meddelande för att starta</p>
+        </div>
       </div>
     );
   }
@@ -444,8 +464,13 @@ export function VersionHistory({
     return (
       <div className="flex h-full flex-col">
         <div className="border-border border-b px-4 py-3">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="mt-2 h-3 w-24" />
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="mt-2 h-3 w-24" />
+            </div>
+            {collapseButton}
+          </div>
         </div>
         <div className="flex-1 space-y-2 overflow-y-auto p-2">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -470,12 +495,19 @@ export function VersionHistory({
   if (versions.length === 0) {
     const showSyncing = Boolean(chatId) && !syncingElapsed;
     return (
-      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
-        <p className="text-center text-sm" suppressHydrationWarning>
-          {showSyncing
-            ? "Synkar versionshistorik..."
-            : "Inga versioner ännu. Generera en sida för att skapa en version."}
-        </p>
+      <div className="flex h-full flex-col">
+        {canToggleCollapse && (
+          <div className="flex items-center justify-end border-border border-b px-2 py-2">
+            {collapseButton}
+          </div>
+        )}
+        <div className="text-muted-foreground flex flex-1 items-center justify-center p-4">
+          <p className="text-center text-sm" suppressHydrationWarning>
+            {showSyncing
+              ? "Synkar versionshistorik..."
+              : "Inga versioner ännu. Generera en sida för att skapa en version."}
+          </p>
+        </div>
       </div>
     );
   }
