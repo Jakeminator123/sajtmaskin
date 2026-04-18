@@ -65,7 +65,12 @@ interface MessageListProps {
 
 function hasGenerationContent(text: string): boolean {
   if (!text) return false;
-  return text.includes('file="') || text.includes("```");
+  if (text.includes('file="') || text.includes("```")) return true;
+  // Modellen strömmar ibland rå TSX/JSX/HTML utan öppnande code-fence innan
+  // strömmen stänger. Dessa fingerprints säkerställer att sådan text ruttas
+  // via GenerationSummary (som döljer rå kod bakom "Råtext") istället för
+  // att renderas bokstavligt som markdown i chatten.
+  return /<[A-Za-z][A-Za-z0-9]*[\s>/]|style=\{\{|className="|import\s+\w|export\s+default/.test(text);
 }
 
 const MessageListComponent = ({

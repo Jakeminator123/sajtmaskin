@@ -179,6 +179,18 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
       if (!iframeWindow || event.source !== iframeWindow) return;
       const data = event.data;
       if (!data || typeof data !== "object" || data.source !== "sajtmaskin-preview") return;
+
+      // build-out-request kommer från shell-sidors "Skapa sida"-knapp och är
+      // preview-agnostisk — den ska fungera även när previewn renderas via
+      // VM/tier-2 (preview-host), inte bara compatibility-shimmen.
+      if (data.type === "build-out-request") {
+        const path = typeof data.payload?.path === "string" ? data.payload.path : "";
+        if (path && onBuildOutRouteRequest) {
+          onBuildOutRouteRequest(path);
+        }
+        return;
+      }
+
       if (!isOwnEnginePreview) return;
 
       if (data.type === "navigation-attempt") {
@@ -187,14 +199,6 @@ export function usePreviewPanelOwnEnginePreviewTelemetry(options: {
         const nextUrl = buildOwnEngineRoutePreviewUrl(previewUrl, href);
         if (nextUrl && nextUrl !== previewUrl) {
           onNavigatePreviewUrl?.(nextUrl);
-        }
-        return;
-      }
-
-      if (data.type === "build-out-request") {
-        const path = typeof data.payload?.path === "string" ? data.payload.path : "";
-        if (path && onBuildOutRouteRequest) {
-          onBuildOutRouteRequest(path);
         }
         return;
       }

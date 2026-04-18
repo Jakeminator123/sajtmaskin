@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
-import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuthStore } from "@/lib/auth/auth-store";
@@ -1882,7 +1881,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 onRefresh={handleRefreshTip}
                 onClose={() => setTipPanelOpen(false)}
               />
-              <ThinkingOverlay isVisible={vm.isAnyStreaming && vm.detailsDrawerOpen} />
             </div>
             <ChatInterface
               chatId={vm.chatId}
@@ -1985,7 +1983,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 onRefresh={handleRefreshTip}
                 onClose={() => setTipPanelOpen(false)}
               />
-              <ThinkingOverlay isVisible={vm.isAnyStreaming} />
             </div>
             <ChatInterface
               chatId={vm.chatId}
