@@ -93,7 +93,7 @@ En **härledd policy-bundle** som styr hela körningen.
 11. **Pre-generation Contracts** — data mode, providers, env vars
 12. **Project Context** — brief-härledda fält, pages, must-have/avoid
 13. **Visual Identity + Design References**
-14. **Coding Direction** — directives (visual-design, content-voice)
+14. **Coding Direction** — kommer från `prompt-core/03-visual-design.md` + `04-coding-direction.md` i Core Rules ovanför separator (sedan directive cascade togs bort 2026-04-18)
 15. **Imagery + Media Catalog**
 16. **Component References** — upp till 5 fenced shadcn-exempel
 17. **SEO**
@@ -226,5 +226,4 @@ Defaults: NextAuth Credentials om `needsAuth`; Stripe test-placeholders om betal
 | Syntax-validering | `src/lib/gen/autofix/validate-and-fix.ts` |
 | Pre-gen contracts | `src/lib/gen/contract/pre-generation-contracts.ts` |
 | Verifier | `src/lib/gen/verifier/` |
-| Core Rules | `config/prompt-core/*.md` |
-| Directives | `config/prompt-directives/*.md` |
+| Core Rules | `config/prompt-core/*.md` (5 filer inkl. visual-design + coding-direction) |

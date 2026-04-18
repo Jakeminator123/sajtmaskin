@@ -12,8 +12,10 @@ def render(ctx: BackofficeContext) -> None:
 
     st.info(
         "**Core Rules** är oföränderliga produktregler som aldrig varierar per request. "
-        "De definierar stack, output-format, komponentkontrakt, beteenderegler och importkonventioner. "
-        "Adaptiva promptmoduler finns under **prompt-directives**."
+        "De definierar stack, output-format, komponentkontrakt, beteenderegler, importkonventioner, "
+        "visuell kvalitet och content-voice. Per-request signal kommer via brief, scaffold-variant "
+        "och route-plan i `buildDynamicContext()` — inte via separata directive-filer (cascade-"
+        "infrastrukturen togs bort 2026-04-18)."
     )
 
     active_dir = ctx.config_dir / "prompt-core"

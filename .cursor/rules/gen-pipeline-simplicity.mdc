@@ -4,8 +4,6 @@ alwaysApply: false
 globs:
   - src/lib/gen/**
   - config/prompt-core/**
-  - config/prompt-directives/**
-  - config/prompt-static/**
 ---
 
 # Generation pipeline simplicity

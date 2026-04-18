@@ -7,7 +7,6 @@ from . import (
     ai_models,
     autofix,
     codegen_core,
-    codegen_directives,
     cursor_agents,
     dossiers,
     env_policy,
@@ -19,7 +18,6 @@ from . import (
     pipeline,
     preview,
     prompt_core,
-    prompt_directives,
     research,
     runtime_scaffolds,
     scaffold_lifecycle,
@@ -41,8 +39,6 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("LLM-faser & runtime-sanning", "Konfiguration", llm_config.render),
     PageSpec("Codegen core", "Konfiguration", codegen_core.render),
     PageSpec("prompt-core", "Konfiguration", prompt_core.render),
-    PageSpec("Codegen directives", "Konfiguration", codegen_directives.render),
-    PageSpec("prompt-directives", "Konfiguration", prompt_directives.render),
     PageSpec("ai_models", "Konfiguration", ai_models.render),
     PageSpec("Runtime scaffolds", "Konfiguration", runtime_scaffolds.render),
     PageSpec("Preview och versioner", "Konfiguration", preview.render),
@@ -67,7 +63,6 @@ PAGE_GROUPS = ("Konfiguration", "Overhead")
 PAGE_QUERY_ALIASES = {
     "llm": "LLM-faser & runtime-sanning",
     "core": "prompt-core",
-    "directives": "prompt-directives",
     "dossiers": "Dossiers (legoklossar)",
 }
 

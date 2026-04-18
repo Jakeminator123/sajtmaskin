@@ -3,19 +3,21 @@
   "fragments": [
     "prompt-core/00-core-contract.md",
     "prompt-core/01-behavioral-contract.md",
-    "prompt-core/02-component-contract.md"
+    "prompt-core/02-component-contract.md",
+    "prompt-core/03-visual-design.md",
+    "prompt-core/04-coding-direction.md"
   ],
   "editorNotes": {
-    "purpose": "Lists Markdown fragments concatenated (in order) into the CORE half of the own-engine system prompt. Core rules are immutable product constraints that never vary per request. The DIRECTIVES half (config/codegen-directives-manifest.json) contains adaptive prompt modules resolved through the Directive Cascade.",
+    "purpose": "Lists Markdown fragments concatenated (in order) into the static system-prompt core for own-engine. Core fragments are immutable product constraints that never vary per request — they are mtime-cached per process. Per-request signal lives in `buildDynamicContext()` (brief, scaffold variant, route plan, contracts, etc.).",
     "doNotPutInTheseFiles": [
       "Per-request custom instructions from the builder UI",
       "Build-intent bullet lists (template / website / app)",
       "Full scaffold JSON or serialized scaffold body",
       "Route plan, pre-generation contracts, template-library matches",
       "Structured brief fields from deep brief (unless you intentionally duplicate — avoid)",
-      "Visual design quality rules that vary per domain/tone (those belong in directives)"
+      "Visual rules that vary per domain/tone (those should ride brief or scaffold-variant data)"
     ],
     "implementation": "src/lib/gen/static-core-loader.ts",
-    "migrationNote": "Consolidated from 15 fragments in the previous config/codegen-static-prompt.json. The old manifest is kept as a fallback during migration."
+    "migrationNote": "Consolidated from 15 fragments in the previous config/codegen-static-prompt.json. The directive cascade (config/prompt-directives/ + directive-loader.ts + codegen-directives-manifest.json) was removed 2026-04-18 — only `visual-design` and `content-voice` were ever runtime-injected, so they are now plain core fragments (`03-visual-design.md`, `04-coding-direction.md`). Brief and scaffold variant carry the per-request signal that those directives' aspirational `<!-- default -->` placeholders pretended to switch on."
   }
 }

@@ -1,11 +1,8 @@
-# Content Voice
-<!-- directive: content-voice -->
-<!-- cascade: explicit > indicated > inferred > default -->
+## Coding Direction
 
-Content quality is 50% of what makes a site look professional. This directive controls tone, copy style, and domain-specific content generation.
+Content quality is 50% of what makes a site look professional. This section controls tone, copy style, and domain-specific content generation.
 
 ## Default Voice
-<!-- default: professional-specific -->
 
 Write realistic, specific content that matches the site's purpose. NEVER use lorem ipsum or generic "Feature 1", "Feature 2" text.
 
@@ -37,7 +34,6 @@ Write realistic, specific content that matches the site's purpose. NEVER use lor
 - Client testimonials with names and company affiliations.
 
 ## Tone Adaptation
-<!-- default: from-brief -->
 
 When the brief provides `toneAndVoice` keywords, adapt content accordingly:
 - **Professional/corporate** → Formal language, industry terminology, measured claims.

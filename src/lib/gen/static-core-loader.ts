@@ -12,10 +12,11 @@ import { toPosixPath } from "@/lib/utils/path-utils";
  * `cwd` (which produced `null/...` union patterns and huge file sets).
  *
  * The legacy `codegen-static-prompt.json` + `config/prompt-static/` fallback
- * was removed 2026-04-18 — the manifest file was deleted in `5dab6a9fc` and
- * the prompt-static folder was deleted in this commit. Anything not in
- * `prompt-core/*.md` lives either in `prompt-directives/*.md` (adaptive) or
- * in `buildDynamicContext()` (request-specific).
+ * was removed 2026-04-18; the directive cascade (`config/prompt-directives/`
+ * + `directive-loader.ts`) was removed in the same wave because only two of
+ * its twelve files were ever runtime-injected — those were folded into core
+ * (`prompt-core/03-visual-design.md` + `prompt-core/04-coding-direction.md`).
+ * Anything per-request lives in `buildDynamicContext()` instead.
  */
 
 const PROJECT_ROOT = join(/* turbopackIgnore: true */ process.cwd());

@@ -25,14 +25,14 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 | **Brief** (Deep Brief output) | Project context, pages, sections, visual direction, mustHave/avoid | `## Project Context`, `## Visual Identity`, `## Pages & Sections`, `## Must Have`, `## Domain Inference` | Av user-locked theme tokens (UI-låsta värden) |
 | **Dossier instructions** | Hur en integration ska användas | `## Available Dossiers` + `## Selected Dossier Instructions` | — (anpassningsbara) |
 | **Dossier files (verbatim)** | Faktisk integration-glue (Stripe webhook, auth middleware) | `## Dossier Files To Emit Verbatim` | **Aldrig** — LLM måste emit:a oförändrade |
-| Directive defaults (`prompt-directives/*.md`) | Visuell standardprosa | `## Visual Design Quality`, `## Coding Direction` (bara 2 av 12 injiceras) | Av allt högre |
+| Statisk visuell baseline (`prompt-core/03-visual-design.md` + `04-coding-direction.md`) | Visuell standardprosa, content voice | `## Visual Design Quality`, `## Coding Direction` (i Core Rules sedan 2026-04-18) | Av allt högre |
 
 **Den explicita ordningen** står i prompten själv som `## Design Priority`-block:
 
 > 1. User-locked theme tokens (om satta i builder-UI) — absolut, bryts aldrig
 > 2. Brief visual direction (colorPalette, typography, tone, domainProfile) — primary intent
 > 3. Scaffold Variant defaults (theme tokens, font pairings, signature motif, prompt hints) — fallback när brief är tyst
-> 4. Directive defaults — placeholder-text, sista utvägen
+> 4. Static core defaults (`prompt-core/03-visual-design.md` + `04-coding-direction.md`) — sista utvägen
 
 **Så svaret på "vem vinner":** `Brief` vinner över `Variant`, men bara där brief säger något konkret. Där brief är tyst tar variant över. Och scaffold-koden (TSX-filerna) levereras som baseline oavsett — variant ändrar bara visuell signatur ovanpå.
 
@@ -85,7 +85,7 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
     Bygger ett 50-100 KB block med (i prioritetsordning):
     ├── Build Intent + Custom Instructions
     ├── Generation Profile + Generation Mode
-    ├── Design Priority (cascade-regel)
+    ├── Design Priority (per-request signal cascade)
     ├── Scaffold (filer + research priorities)
     ├── Scaffold Variant (signaturePatterns)
     ├── Pages & Sections (från brief)
@@ -97,8 +97,12 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
     ├── Dossier Files To Emit Verbatim (Fas 1.5 — krävs oförändrade)
     ├── Route Plan + Pre-generation Contracts
     ├── Your Toolkit (shadcn + komponent-palette)
-    ├── Component References (shadcn examples)
-    └── Visual Design Quality + Coding Direction (de 2 directives som klistras in)
+    └── Component References (shadcn examples)
+        │
+        ▼
+    (Visual Design Quality + Coding Direction levereras nu via Static Core
+     ovanför separator — `prompt-core/03-visual-design.md` + `04-coding-direction.md`,
+     mtime-cachat per process.)
         │
         ▼
 [7] COMPOSE FINAL SYSTEM PROMPT (composeEngineSystemPrompt)
@@ -163,7 +167,6 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
 | Brief-LLM får dossier-nominering-hint från top-1 embedding pre-call | Lägre drift, snabbare iteration | Liten |
 | `injectionPlan` i `DossierSelectionResult` (explicit lista över verbatim-filer) | Bättre observability | Liten |
 | Variant kan override:a vissa scaffold-filer (t.ex. `app/page.tsx`) inom ramen | Större varians per scaffold | **Stor** — kräver merge-logic mellan variant + scaffold + brief |
-| Substitutionsmotor för directives (`{{placeholder}}`) | Renare cascade | Medel — men inte nödvändig (cascade fungerar via separata block idag) |
 | Dossier embedding inkluderar `topics` från GitHub | Bättre matchning för niche-integrationer | Liten |
 
 ---

@@ -71,7 +71,7 @@ FAS 2 — Codegen LLM bygger sajten
 | Deep Brief är expansion + nominering, inget annat | Deep Brief returnerar Brief-JSON med (a) utbyggd intent, (b) `scaffoldNomination`, `variantNomination`, `dossierNominations`. Inget mer. |
 | Embedding är källa till sanning vid tvetydighet | Brief-nomineringen är en hint. Embedding-pick i orchestrate kan **bekräfta eller överrösta** med drift-logg. |
 | Scaffold = struktur. Variant = visuell signatur. Dossier = integration. | Inga ovanlappande ansvar. |
-| Cascade-ordning för directive-värden | EXPLICIT (Brief-fält) > INDICATED (Brief-LLM tolkning) > INFERRED (heuristik) > DEFAULT (variant) > FALLBACK (directive-MD). |
+| Per-Request Signal Cascade | EXPLICIT (Brief-fält) > INDICATED (Brief-LLM tolkning) > INFERRED (heuristik i `guidance-resolvers.ts`) > DEFAULT (variant) > FALLBACK (statiska defaults i `prompt-core/`). Tidigare termen "Directive Cascade" + `prompt-directives/`-katalogen är borttagna 2026-04-18. |
 | Dossier som riktig kod, inte bara prompt-instruktion | När dossier väljs ska dess `components/`-filer faktiskt levereras till output-projektet, inte bara beskrivas för LLM:n. |
 
 ---
@@ -128,7 +128,7 @@ Idag finns redan `composeEngineSystemPrompt()` som limmar `prompt-core/` + dynam
 | `## Available Dossiers` | Finns | Behåll |
 | `## Selected Dossier Instructions` | Finns | Behåll |
 | `## Dossier Files To Copy` *(nytt)* | Saknas | Lägg till — listar filer LLM:n ska behålla från dossier |
-| Substitutionsmotor för directive-placeholders | Saknas (cascade är konceptuell) | **Skjut till fas 1.5** — fungerar idag tack vare brief-fält som egna block |
+| ~~Substitutionsmotor för directive-placeholders~~ | **Borttagen 2026-04-18** — directive cascade raderad, signal-cascaden lever via brief + guidance-resolvers + statiska defaults i `prompt-core/`. |
 
 ---
 
@@ -166,7 +166,7 @@ Idag finns redan `composeEngineSystemPrompt()` som limmar `prompt-core/` + dynam
 | Embedding-pick överröstar brief utan motiv | Drift-logg med both pickar + reason → debugbar |
 | Dossier-filer krockar med scaffold-filer (samma path) | Konflikt-detection före leverans → varna LLM eller ta scaffold-filen |
 | Stale dossier-källa ger Next 14-mönster i Next 16-projekt | GitHub-health filter (kräver compat-test + github-enrich) |
-| Substitutionsmotor saknas → directives hänger löst | Skjut till fas 1.5 — funktionellt OK utan, bara mindre elegant |
+| ~~Substitutionsmotor saknas → directives hänger löst~~ | **Borttaget 2026-04-18** — directive-katalogen är raderad; visual-design + coding-direction lever som plain core fragments. |
 
 ---
 

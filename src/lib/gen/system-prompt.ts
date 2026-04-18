@@ -1,27 +1,33 @@
 /**
  * System prompt builder for sajtmaskin's own code generation engine.
  *
- * Architecture:
+ * Architecture (post 2026-04-18 directive-cascade removal):
  *  ┌─────────────────────────────────────────────────┐
- *  │  Core Rules — config/codegen-core-manifest.json +              │
- *  │    config/prompt-core/*.md (immutable product rules)           │
- *  │  (~6–8K tokens, mtime-cached per process)        │
- *  ├─────────────────────────────────────────────────┤
- *  │  Directives — config/prompt-directives/*.md      │
- *  │  (adaptive modules resolved via Directive Cascade)│
+ *  │  Static Core — config/codegen-core-manifest.json +             │
+ *  │    config/prompt-core/*.md (immutable product rules,           │
+ *  │    incl. visual-design + coding-direction)                     │
+ *  │  (~8–10K tokens, mtime-cached per process)       │
  *  ├─────────────────────────────────────────────────┤
  *  │  Dynamic context  (varies per request)           │
- *  │  → Build intent, visual identity, project ctx    │
+ *  │  → Build intent, scaffold variant, brief, route, │
+ *  │    contracts, dossiers, guidance                 │
  *  └─────────────────────────────────────────────────┘
  *
- * Directive Cascade (resolution priority):
- *  1. EXPLICIT  — Brief/prompt provides exact value
+ * Per-request signal cascade (highest precedence first):
+ *  1. EXPLICIT  — Brief/prompt provides an exact value
  *  2. INDICATED — Brief-LLM infers from context
- *  3. INFERRED  — guidance-resolvers / deterministic heuristics
- *  4. DEFAULT   — Placeholder text in directive file
+ *  3. INFERRED  — `resolveGuidanceBlocks` (deterministic heuristics)
+ *  4. STATIC    — Plain text in `config/prompt-core/*.md`
+ *
+ * The legacy `prompt-directives/` folder + `directive-loader.ts` were
+ * removed 2026-04-18: only `visual-design` and `content-voice` were ever
+ * runtime-injected, so they are now plain core fragments. The 10 unused
+ * directive files were aspirational placeholders the substitution engine
+ * never actually used. Brief and scaffold variant carry the per-request
+ * signal those defaults pretended to switch on.
  *
  * What reaches the model (own-engine):
- *  - **Core Rules** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
+ *  - **Static Core** (`getStaticCoreFromWorkspace`) + `SYSTEM_PROMPT_SEPARATOR` +
  *    **dynamic context** from this file = full **system** message.
  *  - **User turn** = current request prompt; not duplicated here.
  *  - **Chat history** = prior turns, assembled by the generation pipeline.
@@ -43,7 +49,6 @@ import { pickScaffoldVariant } from "./scaffold-variants";
 import type { ScaffoldVariant } from "./scaffold-variants";
 import { buildRegistryDrivenShadcnToolkitSummary } from "./data/shadcn-toolkit-summary";
 import { resolveGoogleFontImportName } from "./data/google-font-registry";
-import { getDirectiveRawText } from "./directive-loader";
 import { resolveGuidanceBlocks, type ColorPalette } from "./guidance-resolvers";
 import { BUILD_INTENT_GUIDANCE } from "./intent-guidance";
 import type { RoutePlan } from "./route-plan";
@@ -1177,27 +1182,18 @@ export function buildDynamicContext(
     }
   }
 
-  // ── Directive defaults (level 4) ───────────────────────────────────────
-  // Inject directive content for areas not already covered by brief/variant/resolvers.
-  const visualDesignDirective = getDirectiveRawText("visual-design");
-  if (visualDesignDirective) {
-    const cleaned = visualDesignDirective
-      .replace(/<!--[^>]*-->\n?/g, "")
-      .replace(/^#\s+.+\n/m, "")
-      .trim();
-    parts.push(cleaned, "");
-  }
+  // ── Visual-design + content-voice live in static core ─────────────────
+  // These were directive files (`config/prompt-directives/01-visual-design.md`
+  // + `10-content-voice.md`) injected per-request via the now-removed
+  // directive cascade. They never varied per request, so they are static
+  // core fragments today (`config/prompt-core/03-visual-design.md` +
+  // `04-coding-direction.md`) and load through `static-core-loader.ts`
+  // alongside the behavioral and component contracts. Per-request signal
+  // (brief, scaffold variant, guidance resolvers above) overrides them
+  // through the `## Design Priority` hierarchy emitted earlier in the
+  // dynamic context.
 
-  const contentVoiceDirective = getDirectiveRawText("content-voice");
-  if (contentVoiceDirective) {
-    const cleanedVoice = contentVoiceDirective
-      .replace(/<!--[^>]*-->\n?/g, "")
-      .replace(/^#\s+.+\n/m, "")
-      .trim();
-    parts.push("## Coding Direction", "", cleanedVoice, "");
-  }
-
-  // ── Imagery (brief-specific only; prompt-directives/02-images.md is a reference doc, not runtime-injected)
+  // ── Imagery (brief-specific only) ──────────────────────────────────────
   // Exclude imagery.styleKeywords that already appear in visualDirection.styleKeywords
   // (those already feed Scaffold Variant selection). Keep only concrete image subjects/notes.
   if (brief?.imagery) {

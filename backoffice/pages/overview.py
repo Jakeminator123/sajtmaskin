@@ -11,8 +11,6 @@ CONFIG_NAV_PAGES = (
     "LLM-faser & runtime-sanning",
     "Codegen core",
     "prompt-core",
-    "Codegen directives",
-    "prompt-directives",
     "ai_models",
     "Runtime scaffolds",
     "Preview och versioner",
@@ -59,7 +57,7 @@ def render(ctx: BackofficeContext) -> None:
 
     paths = {
         "codegen-core-manifest.json": ctx.config_dir / "codegen-core-manifest.json",
-        "codegen-directives-manifest.json": ctx.config_dir / "codegen-directives-manifest.json",
+        "tier3-sdk-deny.json": ctx.config_dir / "integrations" / "tier3-sdk-deny.json",
         "env-policy.json": ctx.config_dir / "env-policy.json",
         "shadcn-mirror-audit-policy.json": ctx.config_dir / "shadcn-mirror-audit-policy.json",
         "user_degraded_env.txt": ctx.config_dir / "user_degraded_env.txt",
@@ -78,29 +76,24 @@ def render(ctx: BackofficeContext) -> None:
     pc = sorted((ctx.config_dir / "prompt-core").glob("*.md"))
     st.write(f"**{len(pc)}** `.md`-filer i `config/prompt-core/`")
 
-    st.subheader("prompt-directives (Directives)")
-    pd = sorted((ctx.config_dir / "prompt-directives").glob("*.md"))
-    st.write(f"**{len(pd)}** `.md`-filer i `config/prompt-directives/`")
-
     st.subheader("ai_models (dokument + manifest)")
     am = list((ctx.config_dir / "ai_models").glob("*.md")) + list(
         (ctx.config_dir / "ai_models").glob("*.txt")
     )
     st.write(f"**{len(am)}** dokument i `config/ai_models/`")
 
-    for manifest_key in ("codegen-core-manifest.json", "codegen-directives-manifest.json"):
-        try:
-            cg = read_json(paths[manifest_key])
-            frags = cg.get("fragments") or []
-            missing = [f for f in frags if not (ctx.config_dir / f).is_file()]
-            if missing:
-                st.error(
-                    f"Saknade fragmentfiler i `{manifest_key}` ({len(missing)}): "
-                    + ", ".join(missing[:8])
-                    + (" …" if len(missing) > 8 else "")
-                )
-            else:
-                st.success(f"Alla `fragments` i `{manifest_key}` pekar på befintliga filer.")
-        except Exception as e:
-            st.warning(f"Kunde inte validera `{manifest_key}`: {e}")
+    try:
+        cg = read_json(paths["codegen-core-manifest.json"])
+        frags = cg.get("fragments") or []
+        missing = [f for f in frags if not (ctx.config_dir / f).is_file()]
+        if missing:
+            st.error(
+                f"Saknade fragmentfiler i `codegen-core-manifest.json` ({len(missing)}): "
+                + ", ".join(missing[:8])
+                + (" …" if len(missing) > 8 else "")
+            )
+        else:
+            st.success("Alla `fragments` i `codegen-core-manifest.json` pekar på befintliga filer.")
+    except Exception as e:
+        st.warning(f"Kunde inte validera `codegen-core-manifest.json`: {e}")
 

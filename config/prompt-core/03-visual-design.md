@@ -1,6 +1,4 @@
-# Visual Design Quality
-<!-- directive: visual-design -->
-<!-- cascade: explicit > indicated > inferred > default -->
+## Visual Design Quality
 
 Your output must feel like a hand-crafted, one-of-a-kind website — not a filled-in template. Each site should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
 
@@ -14,7 +12,7 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 - Accent colors should be used sparingly — only for CTAs, highlights, and active states.
 
 ### Hue Derivation
-<!-- default: brief-or-subject-derived -->
+
 - When the brief provides a `colorPalette`, use those colors directly.
 - When the Scaffold Variant provides theme tokens, use those as fallback.
 - Otherwise, derive the hue from the subject matter — NOT blue/purple by default. Choose based on the industry and mood.
@@ -31,10 +29,11 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 ## Typography & Spacing
 
 ### Font Selection
-<!-- default: variant-font-pairing -->
+
 - Use the font pairing suggested by the Scaffold Variant block. When the user specifies a font, use exactly that. When neither applies, choose a Google Font pairing that matches the site's subject — not Inter by default. Import via `next/font/google` and wire to a CSS variable (e.g. `--font-sans` for body, optionally `--font-display` for headings).
 
 ### Spacing Scale
+
 - Create clear typographic hierarchy: hero headings `text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight`, section headings `text-3xl font-semibold`, body `text-lg text-muted-foreground leading-relaxed`.
 - Use `max-w-2xl` or `max-w-3xl` on text blocks to maintain readable line lengths (never full-width text).
 - Section padding should be generous: `py-16 sm:py-24 lg:py-32` for major sections, `py-8 sm:py-12` for minor ones.

@@ -4,11 +4,8 @@ globs:
   - sajtmaskin_backoffice.py
   - backoffice/**
   - config/codegen-core-manifest.json
-  - config/codegen-directives-manifest.json
-  - config/codegen-static-prompt.json
   - config/prompt-core/**
-  - config/prompt-directives/**
-  - config/prompt-static/**
+  - config/integrations/**
   - config/ai_models/**
   - config/scaffold-variants/**
   - src/app/builder/builder-entry.ts
@@ -30,14 +27,14 @@ globs:
 
 # LLM-pipeline docs sync
 
-Ändrar du builder-entry, scaffold, route plan, LLM-input, Core Rules, Directives, manifest, autofix/repair/verifier eller finalize: **kod → verifiering → berörda kanoniska docs/schemas i samma leverans.** Diagram/docs = faktisk kod, inte ambition.
+Ändrar du builder-entry, scaffold, route plan, LLM-input, Core Rules, manifest, autofix/repair/verifier eller finalize: **kod → verifiering → berörda kanoniska docs/schemas i samma leverans.** Diagram/docs = faktisk kod, inte ambition.
 
 ## Alltid när ytan ändras (mappa fil → doc/schema)
 
 | Område | Uppdatera |
 |--------|-----------|
-| Core Rules / Directives | `config/prompt-core/_READ_ME_FIRST.md`, `config/prompt-directives/_READ_ME_FIRST.md`, `config/codegen-core-manifest.json`, `config/codegen-directives-manifest.json` |
-| Statisk prompt (legacy fallback) | `config/prompt-static/_READ_ME_FIRST.md`, `config/codegen-static-prompt.json` |
+| Core Rules | `config/prompt-core/_READ_ME_FIRST.md`, `config/codegen-core-manifest.json` |
+| Tier-3 SDK deny-list | `config/integrations/tier3-sdk-deny.json`, glossary-rad "F2 SDK Guard" |
 | Modeller / phase-routing / budget | `config/ai_models/_READ_ME_FIRST.md`, `manifest.json`; mänsklig guide: `docs/schemas/model-build-profiles.md` |
 | Generation / orchestrate / input | `docs/architecture/builder-generation.md`, `fas2-orchestration-and-build.md`, `llm-signal-flow.md` |
 | Fas 2 / finalize | `docs/architecture/fas2-orchestration-and-build.md` |

@@ -49,10 +49,12 @@ superseded; **historical** notes may exist in git under `docs/plans/avklarat/`
 
 The **own-engine system prompt** is not a "schema" doc in this folder; it is
 configured as Core Rules (`config/codegen-core-manifest.json` +
-`config/prompt-core/*.md`) and Directives (`config/codegen-directives-manifest.json` +
-`config/prompt-directives/*.md`). Legacy fallback: `config/codegen-static-prompt.json` +
-`config/prompt-static/*.md`. Full pipeline context (loader, checks, debug
-dumps, fallbacks) is summarized in [`docs/architecture/builder-generation.md`](../architecture/builder-generation.md).
+`config/prompt-core/*.md` — 5 fragments incl. visual-design and
+coding-direction). The directive cascade (`config/prompt-directives/` +
+`directive-loader.ts`) was removed 2026-04-18; the two used files are now
+plain core fragments. Full pipeline context (loader, checks, debug dumps,
+fallbacks) is summarized in
+[`docs/architecture/builder-generation.md`](../architecture/builder-generation.md).
 
 For runtime scaffold input specifically, also read `scaffold-contract.md`.
 

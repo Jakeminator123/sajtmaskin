@@ -86,8 +86,7 @@ ANVÄNDARENS PROMPT
   │      Budgeteras mot maxChars, pruneas mot contextPolicy
   │
   ├─ 9. Dynamic Context + System Prompt (system-prompt.ts)
-  │      Core Rules (config/prompt-core/*.md — immutable)
-  │      + Directives (config/prompt-directives/*.md — adaptive via Directive Cascade)
+  │      Core Rules (config/prompt-core/*.md — immutable, inkl. visual-design + coding-direction)
   │      + Dynamic Context (prioriterad + prunad):
   │        - Scaffold context (serialiserade filer)
   │        - Scaffold Research Priorities (checklist + upgrade targets + reference templates)

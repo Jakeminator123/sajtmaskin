@@ -71,7 +71,7 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Prompt Strategy | `direct`, `phase_plan_build_refine`, `preserved` | kanonisk |
 | Prompt Type | `wizard`, `freeform`, `technical`, `app`, `template`, etc. | kanonisk |
 | Brief (`meta.brief`) | Strukturerat JSON-objekt (~24 fält: projectTitle, pages[], visualDirection, toneAndVoice, imagery, seo + designguidance-fält). Bär designintention. Genereras av LLM via `/api/ai/brief` (init) eller `tryGenerateServerAutoBrief` (server-fallback). `briefQuality`: `"full"`, `"server-auto"`, eller `"none"`. Follow-ups skickar inte brief — kontext via orchestration snapshot istället. | kanonisk |
-| Brief Guidance Override | Brief-LLM-producerade designfält (`domainProfile`, `motionLevel`, `qualityBar`, `seasonalHints`) som overridar deterministisk inferens i `guidance-resolvers.ts`. Cascade Level 1-2. Fallback till Level 3 (deterministiska heuristiker) när fälten saknas. Alla nya fält optionella — bakåtkompatibelt. | kanonisk |
+| Brief Guidance Override | Brief-LLM-producerade designfält (`domainProfile`, `motionLevel`, `qualityBar`, `seasonalHints`) som overridar deterministisk inferens i `guidance-resolvers.ts`. Brief-explicit slår heuristik som slår statiska defaults i `prompt-core/`. Alla nya fält optionella — bakåtkompatibelt. | kanonisk |
 | Variant Pre-Match | Snabb deterministisk keyword-only scaffold+variant-matchning (~1ms) som körs *före* brief-generering i `create-chat-stream-post.ts`. Producerar `VariantHints` som injiceras i brief-prompten. Den riktiga selektionen körs fortfarande i `resolveOrchestrationBase`/`finalizeOrchestrationPrompts` med full kontext. | kanonisk |
 | Variant Hints | Kompakt sammanfattning av variant-defaults (colorMode, signatureMotif, fontPairing, promptHints, styleRules) som ges till Brief-LLM:en som startpunkt. `src/lib/gen/scaffold-variants/variant-hints.ts`. | kanonisk |
 | Deep Brief | UI-term för brief-generering. Samma datatyp som Brief. `canUseDeepBrief` = `!chatId` (bara på init). Togglen `promptAssistDeep` i header styr om LLM-brief körs. | kanonisk |
@@ -87,10 +87,11 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Build Profile | `fast`, `pro`, `max`, `codex`, `anthropic` — UI-tiername för codegen | kanonisk |
 | Generation Phase | `planner`, `generator`, `fixer`, `verifier`, `deploy-assistant` — per-fas modellrouting | kanonisk |
 | Thinking | Reasoning-flagga, inte en separat lane | kanonisk |
-| Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". | kanonisk |
+| Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import, visuell baseline, content voice). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". Sedan 2026-04-18 ingår även `03-visual-design.md` och `04-coding-direction.md` som tidigare låg i den borttagna directive-cascaden. | kanonisk |
 | Static Core | Alias för Core Rules. Legacy-term — använd "Core Rules" i nya sammanhang. | alias |
-| Directives | Adaptiva promptmoduler i `config/prompt-directives/*.md` med placeholder-defaults som löses genom Directive Cascade. Läses av `directive-loader.ts`. | kanonisk |
-| Directive Cascade | 4-nivå resolution: (1) EXPLICIT — brief/prompt anger exakt, (2) INDICATED — Brief-LLM infererar, (3) INFERRED — guidance-resolvers, (4) DEFAULT — placeholder i direktivfilen. Generalisering av Design Priority. | kanonisk |
+| Per-Request Signal Cascade | Prioritetsordning för designsignal: (1) brief explicit (colorPalette, typography, mustHave), (2) brief inferred (domainProfile, motionLevel, qualityBar), (3) guidance-resolvers heuristik, (4) statiska defaults i `prompt-core/`. Renderas i `## Design Priority`-blocket. Ersätter den tidigare "Directive Cascade" som hade en aspirationell substitutionsmotor som aldrig användes. | kanonisk |
+| ~~Directives~~ | Adaptiv promptmodul-katalog `config/prompt-directives/*.md` + `directive-loader.ts`. **Borttagen 2026-04-18**: bara 2 av 12 filer injicerades runtime. Innehållet flyttat till `prompt-core/03-visual-design.md` + `prompt-core/04-coding-direction.md`. Per-request signal lever i brief, scaffold-variant och guidance-resolvers. | **borttagen** |
+| ~~Directive Cascade~~ | 4-nivå resolution-modell. **Borttagen 2026-04-18** tillsammans med directive-katalogen. Ersatt av "Per-Request Signal Cascade". | **borttagen** |
 | ~~Prompt Assist (paraply)~~ | Otydligt samlingsnamn. Rewrite/Polish/model-picker borttagna. Deep Brief lever kvar. | **borttagen** |
 | ~~StructuredBrief~~ | Docs-synonym för Deep Brief | **döda** |
 | ~~simplifiedBriefSchema~~ | Borttaget brief-schema med 34 optionals, failade Anthropic >24 | **döda** |
@@ -124,8 +125,8 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Finalize Path | Telemetrietikett för finalize-läge: `full` (hela kedjan) eller `light` (skippar image/verifier) | kanonisk |
 | Orchestration Contract | Binder scaffold→routes→valideringsförväntningar | kanonisk |
 | Design Priority | Explicit hierarki i dynamisk kontext: (1) user-locked theme, (2) brief, (3) variant defaults, (4) scaffold CSS baseline. Löser prioritetskonflikt mellan designkällor. `required: true`, priority 89. | kanonisk |
-| Dynamic Context | Request-specifik promptdel: scaffold + routes + contracts + brief + tema + resolverade direktiv. Prunad. Konsumerar Directives via `directive-loader.ts`. | kanonisk |
-| System Prompt | Core Rules + Directives + Dynamic Context | kanonisk |
+| Dynamic Context | Request-specifik promptdel byggd i `buildDynamicContext()`: scaffold + routes + contracts + brief + tema + guidance-resolvers + tier-3 design/integrations-block. Prunad mot tokenbudget. | kanonisk |
+| System Prompt | Core Rules + Dynamic Context (sedan directive-cascade-borttaget 2026-04-18). | kanonisk |
 | Generation Package | Kanonisk fan-in: systemPrompt + dynamicContext + pruning + lineageHash | kanonisk |
 | Your Toolkit | Scaffold-medveten shadcn-sammanfattning i prompten. Primära komponentgrupper per scaffold (via `SCAFFOLD_PRIMARY_GROUPS` + variant `sectionInventory`), sedan "also available". + capability-hints. | kanonisk |
 | Google Font Registry | Central fontdatapost (`src/lib/gen/data/google-font-registry.ts`): ~75 fonts med importnamn, displaynamn, CSS-variabel, kategori. Används av font-import-fixer (autofix) och font-hint i systemprompten. | kanonisk |
@@ -327,4 +328,4 @@ En **namnskugga** betyder att samma ord används för flera olika saker. Det är
 
 ---
 
-Senast uppdaterad: 2026-04-16 (Fas A-D + Fas 6: Delta-Brief vid clear-redesign, Variant Pre-Match, Brief Guidance Override, Core Rules + Directives, Directive Cascade. Dokumentationsharmonisering: scaffold-schema, fas2-orchestration, signal-ownership-matrix, schemas/README uppdaterade med nya termer). Versionhistorik finns i git.
+Senast uppdaterad: 2026-04-18 (Directive cascade borttagen — 10 oanvända directive-filer + directive-loader.ts + manifest + 2 backoffice-pages raderade. visual-design och content-voice flyttade till prompt-core. "Per-Request Signal Cascade" ersätter "Directive Cascade" som term). Versionhistorik finns i git.

@@ -13,8 +13,7 @@
       "canonicalPaths": [
         "config/codegen-core-manifest.json",
         "config/prompt-core/",
-        "config/codegen-directives-manifest.json",
-        "config/prompt-directives/",
+        "config/integrations/tier3-sdk-deny.json",
         "config/ai_models/",
         "config/env-policy.json",
         "config/shadcn-mirror-audit-policy.json",
@@ -89,34 +88,6 @@
       ],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts"
-      ]
-    },
-    "Codegen directives": {
-      "summary": "Adaptiva promptmoduler resolverade via Directive Cascade (EXPLICIT > INDICATED > INFERRED > DEFAULT). Endast 2 av 12 (visual-design, content-voice) injiceras idag — resten är konceptuell dokumentation som koden redan rendrar via egna block.",
-      "canonicalPaths": [
-        "config/codegen-directives-manifest.json",
-        "config/prompt-directives/*.md (via directives i JSON)"
-      ],
-      "docsPaths": [
-        "docs/architecture/builder-generation.md",
-        "docs/architecture/llm-flow-fas1-plan.md"
-      ],
-      "codeReaders": [
-        "src/lib/gen/directive-loader.ts",
-        "src/lib/gen/system-prompt.ts"
-      ]
-    },
-    "prompt-directives": {
-      "summary": "Adaptiva markdown-moduler med <!-- default --> placeholders. Cascade-modellen är aspirationell — substitutionsmotor saknas (se llm-flow-fas1-plan.md).",
-      "canonicalPaths": [
-        "config/prompt-directives/",
-        "config/prompt-directives/_READ_ME_FIRST.md"
-      ],
-      "docsPaths": [
-        "docs/architecture/llm-flow-fas1-plan.md"
-      ],
-      "codeReaders": [
-        "src/lib/gen/directive-loader.ts"
       ]
     },
     "ai_models": {

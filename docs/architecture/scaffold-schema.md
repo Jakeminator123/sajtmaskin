@@ -86,7 +86,7 @@ Verifierat mot koden 2026-04-12. Uppdaterad efter ScaffoldFamily-kollaps. Kod ä
 | 14 | Scaffold serialisering | `serializeScaffoldForPrompt()` | `serialize.ts` | Ja | Budgeterad markdown-injection i systemprompt |
 | 14a | Serialize mode auto-detect | `detectScaffoldMode()` | `serialize.ts` | **Oanvänd** | Exporterad + testad men aldrig anropad i production. Mode bestäms mekaniskt i orchestrate.ts |
 | 15 | Dynamic context | `buildDynamicContext()` | `system-prompt.ts` | Ja | scaffold + routes + contracts + brief + tema + capabilities → prioriterad + prunad |
-| 16 | System prompt | `composeEngineSystemPrompt()` | `system-prompt.ts` | Ja | Core Rules + Directives + Dynamic Context |
+| 16 | System prompt | `composeEngineSystemPrompt()` | `system-prompt.ts` | Ja | Core Rules + Dynamic Context (directive cascade borttagen 2026-04-18) |
 | 17 | Kodgenerering | `generateCode()` | `engine.ts` | Ja | LLM-anrop med systemprompt + user turn |
 | 18 | Follow-up kontinuitet | `persistedScaffoldId` | `orchestrate.ts` | Ja | Återanvänder scaffold från init i follow-up |
 | 19 | Scaffold-aware retry | `inferScaffoldRetrySuggestion()` | `scaffold-aware-retry.ts` | Ja | Föreslår scaffold-pivot vid misslyckad generation |
@@ -278,18 +278,19 @@ Viktiga serialiserings-features:
 ### STEG 10 — Dynamic Context + System Prompt (`system-prompt.ts`)
 
 ```
-System Prompt = Core Rules + Directives + Dynamic Context
+System Prompt = Core Rules + Dynamic Context
+                (directive cascade togs bort 2026-04-18)
 
 Core Rules (config/prompt-core/*.md via codegen-core-manifest.json):
 ├── 00-core-contract (stack, format, Lucide)
-├── 01-behavioral-contract (a11y, import, beteende)
-└── 02-component-contract (shadcn patterns)
+├── 01-behavioral-contract (a11y, import, beteende, F2/F3-pekare)
+├── 02-component-contract (shadcn patterns)
+├── 03-visual-design (visual quality, color system, typography, polish, charts)
+└── 04-coding-direction (default voice, domain examples, tone adaptation)
 
-Directives (config/prompt-directives/*.md, Level 4 defaults via Directive Cascade):
-├── visual-design, images, scaffold-starters, follow-up-scope
-├── motion, quality-bar, domain-hints, seasonal-palette
-├── design-priority, content-voice, creative-extensions, integration-contracts
-└── Cascade: EXPLICIT (brief) > INDICATED (Brief-LLM) > INFERRED (resolvers) > DEFAULT (directive)
+Per-request signal cascade (brief explicit > brief inferred > guidance-
+resolvers heuristik > statiska defaults i prompt-core/) renderas i
+"## Design Priority"-blocket nedan.
 
 Dynamic Context (request-specifik, prioriterad + prunad):
 ├── scaffold context (serialiserad scaffold)
@@ -542,18 +543,13 @@ Dimension 5: VAD BERIKAR scaffolden?
 
 | Fil | Vad |
 |-----|-----|
-| `config/codegen-core-manifest.json` | Fragment-lista för Core Rules (primär) |
-| `config/codegen-directives-manifest.json` | Fragment-lista för Directives |
-| `config/prompt-core/*.md` | 3 Core Rules-filer (stack, beteende, komponenter) |
-| `config/prompt-directives/*.md` | 12 Directive-filer (adaptiva, Level 4 defaults) |
-| `config/codegen-static-prompt.json` | Legacy fallback fragment-lista |
-| `config/prompt-static/*.md` | Legacy fragment-filer (fallback om core-manifest saknas) |
+| `config/codegen-core-manifest.json` | Fragment-lista för Core Rules (enda manifestet sedan directive cascade togs bort 2026-04-18) |
+| `config/prompt-core/*.md` | 5 Core Rules-filer: 00 core-contract, 01 behavioral, 02 components, 03 visual-design, 04 coding-direction |
+| `config/integrations/tier3-sdk-deny.json` | Single source of truth för F2 SDK guard + F2 contract-block |
 | `config/ai_models/manifest.json` | Build profiles, token-budgetar, embedding-index-pekare, phase routing, qualityGateTiers (`designPreview` / `integrationsBuild`) |
 | `config/ai_models/40-harmless-placeholders.env.txt` | Placeholder env vars som är trygga även i F3 (Stripe-publishable, AUTH_SECRET, GA-id, ...) |
 | `config/ai_models/41-tier3-stub-placeholders.env.txt` | F2-stubbar (Stripe-secret, Supabase, Clerk-secret, Redis, OpenAI, ...) — strippas i F3 |
 | `config/env-policy.json` | Env-audit regler |
-
-**Scaffold-direkt:** `config/prompt-static/08-scaffold-starters.md` (scaffold merge-instruktioner för LLM) och `13-intent-fidelity-and-merge.md` (path-baserad scaffold merge).
 
 ### Bara build/audit (inte runtime)
 
@@ -569,8 +565,6 @@ Dimension 5: VAD BERIKAR scaffolden?
 | `config/README.md` | Index över config/ |
 | `config/ai_models/_READ_ME_FIRST.md` + `*.md` | Modell-dokumentation |
 | `config/prompt-core/_READ_ME_FIRST.md` | Core Rules dokumentation |
-| `config/prompt-directives/_READ_ME_FIRST.md` | Directives dokumentation |
-| `config/prompt-static/_READ_ME_FIRST.md` | Legacy prompt-fragment dokumentation |
 | `config/user_degraded_env.txt` | Policy-text, inte parsad |
 
 ### Lokal dashboard (valfri GUI)

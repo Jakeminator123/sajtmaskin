@@ -296,8 +296,8 @@ const LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
  * Returns the default Custom Instructions.
  *
  * Visual design, layout, motion and images are covered by Core Rules
- * (config/prompt-core/) and Directives (config/prompt-directives/) plus
- * brief-driven dynamic context — custom instructions only carry tech stack,
+ * (config/prompt-core/, including 03-visual-design.md and 04-coding-direction.md)
+ * plus brief-driven dynamic context — custom instructions only carry tech stack,
  * shadcn setup and a11y basics.
  */
 export function getDefaultCustomInstructions(_scaffoldMode: ScaffoldMode): string {
