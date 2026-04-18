@@ -540,16 +540,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [vm.chatId, vm.messages]);
 
   const generationPhase = useMemo((): GenerationPhase => {
+    const isPreBuild = vm.isPreparingPrompt || vm.isCreatingChat;
     const lastAssistant = [...displayMessages].reverse().find((m) => m.role === "assistant");
     if (!lastAssistant?.uiParts) {
-      if (vm.isAnyStreaming) return "brief";
+      if (vm.isAnyStreaming || isPreBuild) return "brief";
       return null;
     }
     const progressParts = lastAssistant.uiParts.filter(
       (p: Record<string, unknown>) => typeof p.type === "string" && (p.type as string).startsWith("tool:engine-"),
     );
     if (progressParts.length === 0) {
-      if (vm.isAnyStreaming) return "brief";
+      if (vm.isAnyStreaming || isPreBuild) return "brief";
       return null;
     }
     const last = progressParts[progressParts.length - 1] as Record<string, unknown>;
@@ -564,7 +565,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       preview: "preview",
     };
     return phaseMap[toolType] ?? "generation";
-  }, [displayMessages, vm.isAnyStreaming]);
+  }, [displayMessages, vm.isAnyStreaming, vm.isPreparingPrompt, vm.isCreatingChat]);
 
   const currentField = useMemo(() => {
     if (!needsAnalysisState || needsAnalysisState.ready) return null;

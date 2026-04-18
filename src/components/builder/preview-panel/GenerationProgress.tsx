@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MascotVideo } from "@/components/mascot/MascotVideo";
+import { Mascot } from "@/components/mascot/Mascot";
 import { cn } from "@/lib/utils";
 
 export type GenerationPhase =
@@ -95,9 +95,11 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
       )}
     >
       <div className="flex w-full max-w-md flex-col items-center gap-8">
-        <MascotVideo
+        <Mascot
+          slot="hero"
+          priority
+          decorative
           className="h-auto w-[clamp(180px,22vw,260px)] drop-shadow-[0_18px_30px_rgba(10,12,24,0.15)]"
-          aria-hidden
         />
 
         <div className="text-6xl font-semibold tracking-tight text-foreground tabular-nums transition-opacity duration-300 sm:text-7xl">
