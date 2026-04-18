@@ -9,14 +9,14 @@
  */
 export const OWN_ENGINE_POST_STREAM_PIPELINE = [
   {
-    id: "autofix",
-    label: "Deterministic autofix (imports, structure)",
-    labelSv: "Autofix",
-  },
-  {
     id: "url_expand",
     label: "URL decompression",
     labelSv: "URL-expansion",
+  },
+  {
+    id: "autofix",
+    label: "Deterministic autofix (imports, structure)",
+    labelSv: "Autofix",
   },
   {
     id: "validate_syntax",
@@ -53,8 +53,8 @@ export type OwnEnginePostStreamPhaseId = (typeof OWN_ENGINE_POST_STREAM_PIPELINE
  * in `resolveVerifierPassPolicy()` inside `finalize-version.ts`.
  */
 export const OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES: OwnEnginePostStreamPhaseId[] = [
-  "autofix",
   "url_expand",
+  "autofix",
   "validate_syntax",
   "pre_vm_typecheck",
   "parse_merge_preflight",

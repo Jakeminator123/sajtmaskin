@@ -61,7 +61,13 @@ Användarens intuition: "scaffold variant lägger upp grundstruktur, dynamisk pr
         │
         ▼
 [4] VARIANT PICK (orchestrate.ts)
-    - pickScaffoldVariantAsync: embedding mot signaturePatterns
+    - I create-chat-flödet: keyword pre-match (pickScaffoldVariant) körs
+      tidigt för brief-hints, och dess id skickas till orchestrate som
+      persistedVariantId. orchestrate hämtar då samma variant via
+      getVariantById — async embedding-pickaren körs INTE. Brief och
+      codegen ser garanterat samma variant.
+    - Fallback: om persistedVariantId saknas eller blir stale körs
+      pickScaffoldVariantAsync (embedding mot signaturePatterns).
     - Bara variants under valt scaffold (1:N)
     - Brief.variantNomination loggas som drift om mismatch
         │

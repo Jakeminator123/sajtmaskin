@@ -191,8 +191,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
       // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
       // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
-      // round-trip just for hint generation. The final, embedding-driven variant pick happens
-      // later in resolveOrchestrationBase after brief is ready (orchestrate.ts).
+      // round-trip just for hint generation.
+      // The picked preMatchVariant.id is later passed as orchestrationInput.persistedVariantId
+      // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
+      // brief-LLM hints and codegen aligned.
       // Only runs when scaffoldMode is not "off" — if off, resolveOrchestrationBase will
       // also skip scaffold selection, so we should not inject stale variant hints.
       const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";
@@ -562,6 +564,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           designReferences,
           customInstructions: trimmedSystemPrompt || undefined,
           promptStrategyMeta: strategyMeta,
+          // Lock variant to the pre-match pick so brief-LLM hints (variantHints
+          // built above) and the final codegen variant agree. Without this the
+          // async embedding-driven picker in finalizeOrchestrationPrompts can
+          // land on a different variant after brief is ready, causing
+          // brief→codegen drift. If preMatchVariant is null, async picker runs.
+          // getVariantById fallback in orchestrate.ts re-picks if id is stale.
+          persistedVariantId: preMatchVariant?.id ?? null,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);

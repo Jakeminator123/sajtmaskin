@@ -152,6 +152,8 @@ async function evaluatePrompt(
   const content = await collectSSEContent(stream);
   const generationTimeMs = Math.round(performance.now() - start);
 
+  // Eval path: standalone mechanical pass on raw stream content. Mirrors the
+  // outer autofix in finalize-version.ts but without the surrounding pipeline.
   const { fixedContent } = await runAutoFix(content);
   const project = parseCodeProject(fixedContent);
   const completeProjectFiles = buildCompleteProject(

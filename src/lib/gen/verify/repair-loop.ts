@@ -502,6 +502,9 @@ export async function runRepairLoop<TPayload = unknown>(
 ): Promise<RunRepairLoopResult<TPayload>> {
   const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
 
+  // Initial mechanical pass: repair-loop is invoked from contexts that may not
+  // have already autofixed (verifier rerun, eval). Idempotent if input is
+  // already clean.
   let content = (await runAutoFix(params.initialContent)).fixedContent;
   let syntaxResult = await validateGeneratedCode(content);
   const initialSyntaxErrorCount = syntaxResult.errors.length;
@@ -630,6 +633,8 @@ export async function runRepairLoop<TPayload = unknown>(
     const fixerOutput = targetedBundle
       ? targetedBundle.mergeBack(fixerResult.fixedContent)
       : fixerResult.fixedContent;
+    // post-LLM mechanical pass: normalizes the fixer output before the next
+    // validate iteration. Required after every LLM pass.
     const reFixed = await runAutoFix(fixerOutput);
     content = reFixed.fixedContent;
     syntaxResult = await validateGeneratedCode(content);

@@ -151,8 +151,8 @@ Definierad i `finalize-pipeline-contract.ts`:
 
 | Steg | Vad | Typ |
 |------|-----|-----|
-| 1. **autofix** | ~24 mekaniska fixar (imports, JSX, fonts, metadata, etc.) | Deterministisk |
-| 2. **url_expand** | Expandera förkortade URL:er | Deterministisk |
+| 1. **url_expand** | Expandera förkortade URL:er (`{{MEDIA_N}}` → riktiga URL:er). Körs först så autofix ser riktiga import-paths. | Deterministisk |
+| 2. **autofix** | ~24 mekaniska fixar (imports, JSX, fonts, metadata, etc.) | Deterministisk |
 | 3. **validate_syntax** | esbuild-validering + ev. LLM-fixer-loop (max 180s) | Hybrid |
 | 4. **materialize_images** | Byt placeholder-bilder mot Unsplash (6–8 st) | Nätverksanrop |
 | 5. **verifier** | Read-only LLM-granskning: `blocking` / `quality` findings | LLM |

@@ -172,6 +172,10 @@ async function runPreVmTypecheckPhase(params: {
       const errors = formatTypecheckDiagnosticsForRepair(result.diagnostics);
       const repaired = await runLlmFixerLazy(params.contentForVersion, errors, {});
       if (repaired.success && repaired.fixedContent) {
+        // post-LLM mechanical pass: cleans up artifacts the LLM fixer may have
+        // introduced (bare imports, missing aliases). Always required after a
+        // fresh LLM output — not idempotent with the outer autofix earlier in
+        // the pipeline because content has changed.
         const reFixed = await runAutoFix(repaired.fixedContent, {
           previewPolicy: params.buildSpec?.previewPolicy,
         });
@@ -496,6 +500,9 @@ async function tryRepairPartialFileOutput(params: {
       if (!result.success && !result.partial) {
         break;
       }
+      // post-LLM mechanical pass on partial-file repair output. Required
+      // because LLM fixer may emit imports/structure that need normalization
+      // before parse/merge runs again.
       const reFixed = await runAutoFix(result.fixedContent, { previewPolicy });
       devLogAppend("in-progress", {
         type: "partial-file-repair.outcome",
@@ -628,6 +635,12 @@ async function runFinalizeFastPath(params: {
   contentForVersion: string;
   finalizePath: FinalizePathPolicy;
   repairPassIndex: number;
+  /**
+   * True when the caller already ran a deterministic autofix pass on
+   * `contentForVersion`. Forwarded to `validateAndFix` to skip its
+   * redundant initial mechanical pass.
+   */
+  alreadyMechanicallyFixed: boolean;
 }): Promise<FinalizeFastPathResult> {
   const {
     chatId,
@@ -643,6 +656,7 @@ async function runFinalizeFastPath(params: {
     onProgress,
     finalizePath,
     repairPassIndex,
+    alreadyMechanicallyFixed,
   } = params;
   let contentForVersion = params.contentForVersion;
   const stepTelemetry: FinalizeStepTelemetryMap = {};
@@ -662,6 +676,7 @@ async function runFinalizeFastPath(params: {
     model,
     resolvedTier,
     previewPolicy: buildSpec?.previewPolicy,
+    alreadyMechanicallyFixed,
     onProgress: (evt) => {
       onProgress?.("validate_syntax", {
         pass: evt.pass,
@@ -1046,9 +1061,17 @@ async function runFinalizeFastPath(params: {
 }
 
 /**
- * Shared post-generation pipeline: autofix -> URL expansion -> syntax validate/fix ->
+ * Shared post-generation pipeline: URL expansion -> autofix -> syntax validate/fix ->
  * image materialize -> optional verifier -> file parsing -> scaffold merge ->
  * preflight -> assistant message -> version save.
+ *
+ * Why URL expansion runs first: `expandUrls` rewrites `{{MEDIA_N}}` aliases into
+ * real URLs, which can appear inside import paths. Running autofix on aliased
+ * paths could mis-trigger import rewrites (F2 SDK guard, bare-import resolver),
+ * so we expand first and then let the deterministic autofix see the final
+ * import strings. The internal `runAutoFix` call inside `validateAndFix` is
+ * therefore redundant on this path and is suppressed via
+ * `alreadyMechanicallyFixed: true`.
  *
  * Assistant row + draft version are persisted in one DB transaction (no orphan assistant
  * if version insert fails). Steps after that (preflight error logs, telemetry, generation
@@ -1111,17 +1134,31 @@ export async function finalizeAndSaveVersion(
     finalizePathReason: finalizePath.reason,
   });
 
-  // 1. Autofix
+  // 1. URL expansion — runs before autofix so {{MEDIA_N}} aliases inside
+  // import paths are rewritten to real URLs before any deterministic
+  // import rewriting (F2 SDK guard, bare-import resolver) inspects them.
+  const urlExpandStartedAt = Date.now();
+  onProgress?.("url_expand", { phase: "start" });
+  contentForVersion = expandUrls(accumulatedContent, urlMap);
+  onProgress?.("url_expand", { phase: "done", durationMs: Date.now() - urlExpandStartedAt });
+  finalizeStepTelemetry.url_expand = createFinalizeStepTelemetry(urlExpandStartedAt, "done");
+
+  // 2. Autofix — operates on URL-expanded content.
+  // idempotent: validateAndFix downstream is told to skip its initial mechanical
+  // pass (alreadyMechanicallyFixed: true) since nothing between here and there
+  // mutates contentForVersion.
+  let autofixSucceeded = false;
   if (runAutofix) {
     const autoFixStartedAt = Date.now();
     onProgress?.("autofix", { phase: "start", chatId });
     try {
-      const autoFixResult = await runAutoFix(accumulatedContent, {
+      const autoFixResult = await runAutoFix(contentForVersion, {
         chatId,
         model,
         previewPolicy: buildSpec?.previewPolicy,
       });
       contentForVersion = autoFixResult.fixedContent;
+      autofixSucceeded = true;
       autoFixFixCount = autoFixResult.fixes.length;
       autoFixWarningCount = autoFixResult.warnings.length;
       autoFixDependencyCount = Object.keys(autoFixResult.dependencies).length;
@@ -1171,13 +1208,6 @@ export async function finalizeAndSaveVersion(
     });
   }
 
-  // 2. URL expansion (before verifier / parse)
-  const urlExpandStartedAt = Date.now();
-  onProgress?.("url_expand", { phase: "start" });
-  contentForVersion = expandUrls(contentForVersion, urlMap);
-  onProgress?.("url_expand", { phase: "done", durationMs: Date.now() - urlExpandStartedAt });
-  finalizeStepTelemetry.url_expand = createFinalizeStepTelemetry(urlExpandStartedAt, "done");
-
   const {
     contentForVersion: fastPathContent,
     syntaxResult,
@@ -1205,6 +1235,7 @@ export async function finalizeAndSaveVersion(
     contentForVersion,
     finalizePath,
     repairPassIndex,
+    alreadyMechanicallyFixed: autofixSucceeded,
   });
   contentForVersion = fastPathContent;
   Object.assign(finalizeStepTelemetry, fastPathStepTelemetry);

@@ -92,9 +92,12 @@ Viktigt:
 
 Efter codegen-streamen kor `finalizeAndSaveVersion()` med denna ordning:
 
-1. **`autofix`** -> `runAutoFix()` (mekaniska fixar).
-2. **`url_expand`** -> `expandUrls()`.
+1. **`url_expand`** -> `expandUrls()` (kor forst sa autofix ser riktiga URL:er
+   i import-paths, inte `{{MEDIA_N}}`-aliaser).
+2. **`autofix`** -> `runAutoFix()` (mekaniska fixar).
 3. **`validate_syntax`** -> `validateAndFix()` (mekanisk + LLM-fixer vid behov).
+   Anropas med `alreadyMechanicallyFixed: true` nar steg 2 just kort, sa det
+   initiala mekaniska passet inom validateAndFix hoppas over (idempotent).
 4. **`materialize_images`** -> endast full path; non-fatal vid fel.
 5. **`verifier`** -> endast full path + verifier-policy; non-fatal vid fel.
 6. **`parse_merge_preflight`** -> parse, merge, preflight, integration-manifest.

@@ -27,7 +27,7 @@ import {
   getDossierInstructions,
   getScaffoldRecommendations,
 } from "./registry";
-import { computeDomainVeto, filterBlockedCategories } from "./domain-veto";
+import { computeDomainVeto, filterBlockedCategories, RISKY_BACKEND_CATEGORIES } from "./domain-veto";
 import type { DossierEntry, DossierSelectionResult, SelectedDossier } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 
@@ -75,10 +75,12 @@ const CATEGORY_MIN_SCORE: Record<string, number> = {
 // Default: brochure-sajter (rena landningssidor/portföljer/info-sidor)
 // behöver sällan payments/auth/database — låt heuristiken stå utanför
 // vägen om brief-LLM:n inte explicit har bett om det.
+// Delar default med `computeDomainVeto` via `RISKY_BACKEND_CATEGORIES`
+// så ändringar i den listan slår igenom på båda hållen.
 const BROCHURE_BLOCKED_CATEGORIES = new Set(
   readCsvEnv("DOSSIER_BROCHURE_BLOCK_CATEGORIES").length > 0
     ? readCsvEnv("DOSSIER_BROCHURE_BLOCK_CATEGORIES")
-    : ["payments", "auth", "database", "realtime"],
+    : [...RISKY_BACKEND_CATEGORIES],
 );
 
 export interface SelectDossiersOptions {

@@ -101,8 +101,13 @@ FAS 2 — Codegen LLM bygger sajten
 
 ### 3. Variant-pick
 
-Sker **efter** scaffold-pick (variants är 1:N under scaffold). Embedding-driven på `signaturePatterns`.
-Ingen större ändring krävs jämfört med idag.
+Sker **efter** scaffold-pick (variants är 1:N under scaffold).
+
+**Sedan 2026-04-18:** create-chat-flödet låser den keyword-baserade
+pre-match-varianten via `OrchestrationInput.persistedVariantId`. Brief-LLM
+får hint från samma variant som codegen senare använder — ingen drift
+mellan brief och kod. Embedding-pickaren (`pickScaffoldVariantAsync`)
+används som fallback (ej i normalflödet) och i plan-mode/eval.
 
 ### 4. Dossier-pick
 

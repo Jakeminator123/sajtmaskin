@@ -25,8 +25,8 @@ describe("finalize-pipeline-contract", () => {
 
   it("has stable ids for telemetry / UI", () => {
     const allowed: OwnEnginePostStreamPhaseId[] = [
-      "autofix",
       "url_expand",
+      "autofix",
       "validate_syntax",
       "pre_vm_typecheck",
       "materialize_images",
@@ -36,10 +36,15 @@ describe("finalize-pipeline-contract", () => {
     expect(OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id)).toEqual(allowed);
   });
 
+  it("orders url_expand before autofix so import paths see real URLs", () => {
+    const ids = OWN_ENGINE_POST_STREAM_PIPELINE.map((p) => p.id);
+    expect(ids.indexOf("url_expand")).toBeLessThan(ids.indexOf("autofix"));
+  });
+
   it("declares a fast-only subset and deep-path subset", () => {
     expect(OWN_ENGINE_FINALIZE_FAST_ONLY_PHASES).toEqual([
-      "autofix",
       "url_expand",
+      "autofix",
       "validate_syntax",
       "pre_vm_typecheck",
       "parse_merge_preflight",

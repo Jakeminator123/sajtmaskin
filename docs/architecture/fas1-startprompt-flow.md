@@ -103,8 +103,8 @@ Användaren skriver prompt på landingssidan
             │       └── Vid done: finalizeAndSaveVersion() eller handleEmptyGeneration()
             │
             └── Finalize-pipeline (om kod genererades):
-                ├── autofix
                 ├── url_expand
+                ├── autofix
                 ├── validate_syntax (ev. LLM-fixer)
                 ├── materialize_images
                 ├── verifier

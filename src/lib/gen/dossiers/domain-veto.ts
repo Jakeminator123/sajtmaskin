@@ -98,18 +98,31 @@ const EXPLICIT_OVERRIDE_PATTERNS: Record<string, RegExp> = {
 };
 
 /**
+ * Categories that drag in heavy backend wiring (env-vars, external accounts,
+ * extra build surface). Shared with the brochure hard-gate in `select.ts` so
+ * both filters reach the same baseline. Domain-specific blocklists below
+ * extend this with broader categories like `cms`/`ai`/`search`.
+ */
+export const RISKY_BACKEND_CATEGORIES = [
+  "payments",
+  "auth",
+  "database",
+  "realtime",
+] as const;
+
+/**
  * Default category blocklist per detected lightweight domain. These are
  * dossier categories that should be filtered out unless the prompt
  * explicitly mentions a service in the same area.
  */
 const DOMAIN_DEFAULT_BLOCKLIST: Record<string, ReadonlyArray<string>> = {
-  hospitality: ["payments", "auth", "database", "cms", "realtime", "ai", "search"],
-  restaurant: ["payments", "auth", "database", "cms", "realtime", "ai", "search"],
-  portfolio: ["payments", "auth", "database", "cms", "realtime", "ai", "search"],
-  blog: ["payments", "auth", "database", "realtime", "ai"],
-  event: ["payments", "auth", "database", "cms", "realtime", "ai", "search"],
-  "charity-or-nonprofit": ["payments", "auth", "database", "cms", "realtime", "ai", "search"],
-  "small-business-brochure": ["payments", "auth", "database", "cms", "realtime", "ai", "search"],
+  hospitality: [...RISKY_BACKEND_CATEGORIES, "cms", "ai", "search"],
+  restaurant: [...RISKY_BACKEND_CATEGORIES, "cms", "ai", "search"],
+  portfolio: [...RISKY_BACKEND_CATEGORIES, "cms", "ai", "search"],
+  blog: [...RISKY_BACKEND_CATEGORIES, "ai"],
+  event: [...RISKY_BACKEND_CATEGORIES, "cms", "ai", "search"],
+  "charity-or-nonprofit": [...RISKY_BACKEND_CATEGORIES, "cms", "ai", "search"],
+  "small-business-brochure": [...RISKY_BACKEND_CATEGORIES, "cms", "ai", "search"],
 };
 
 export type DomainVetoResult = {

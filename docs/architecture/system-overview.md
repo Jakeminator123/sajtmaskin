@@ -15,7 +15,7 @@ Användarprompt
   → Prompt assist (polish / deep brief, direkt mot OpenAI/Anthropic)
   → Orkestrering: scaffold, route-plan, kontrakt, systemprompt
   → Generering (build profile: fast / pro / max / codex m.fl.)
-  → Post: autofix, esbuild, URL/expansion, filparsning, scaffold-merge
+  → Post: URL-expansion, autofix, esbuild, filparsning, scaffold-merge
   → Version sparad i Postgres (`engine_versions.files_json`) → tier-2 preview (primärt `preview_host` / VM; shim endast legacy compat) → deploy (Vercel API)
 ```
 
