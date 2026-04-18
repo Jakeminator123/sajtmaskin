@@ -425,7 +425,7 @@ export function VersionHistory({
             <ChevronLeft className="h-4 w-4" />
           </Button>
         )}
-        <span className="text-muted-foreground rotate-90 text-[10px] tracking-wide uppercase">
+        <span className="text-muted-foreground mt-6 rotate-90 text-[10px] tracking-wide uppercase">
           Versioner
         </span>
       </div>
