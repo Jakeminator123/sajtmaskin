@@ -99,15 +99,27 @@ type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 const CODE_BLOCK_HEAVY_THRESHOLD = 500;
 
+/**
+ * QW-4: bevara assistant-prosa innan första file-blocket. Designrationale
+ * (typ "jag valde glassmorphism för att matcha ditt premium-tema", "lade
+ * pricing överst för konvertering") skrivs typiskt FÖRE file-blocken.
+ * Att kasta hela meddelandet gör att codegen-LLM:n förlorar sin egen
+ * motivering på senare turns och kan välja motsatt riktning. Vi behåller
+ * upp till ~800 tecken prosa-prefix + filsammanfattning.
+ */
 function compressOldAssistantContent(content: string): string {
   if (content.length < CODE_BLOCK_HEAVY_THRESHOLD) return content;
   const fileMatches = [...content.matchAll(/file="([^"]+)"/g)].map((m) => m[1]);
+  const firstFileIdx = content.search(/file="/);
+  // Ta prosa-prefixet om det finns (innan första file=) — annars första 800.
+  const proseHead = (firstFileIdx > 0 ? content.slice(0, firstFileIdx) : content.slice(0, 800)).trim();
   if (fileMatches.length === 0) {
     const codeBlocks = (content.match(/```/g) || []).length / 2;
     if (codeBlocks < 1) return content;
-    return content.slice(0, 200) + "\n\n[Earlier code generation truncated — see current project files for latest version.]";
+    return proseHead + "\n\n[Earlier code blocks truncated — see current project files for latest version.]";
   }
-  return `[Earlier code generation: ${fileMatches.slice(0, 8).join(", ")}${fileMatches.length > 8 ? ` (+${fileMatches.length - 8} more)` : ""}. Current project files contain the latest version.]`;
+  const fileSummary = `${fileMatches.slice(0, 8).join(", ")}${fileMatches.length > 8 ? ` (+${fileMatches.length - 8} more)` : ""}`;
+  return `${proseHead}\n\n[Earlier code generation: ${fileSummary}. Current project files contain the latest version.]`;
 }
 
 function buildBoundedChatHistory(messages: Array<{ role: string; content: string }>): HistoryMessage[] {
@@ -669,6 +681,12 @@ export async function handleMessageStreamRequest(
           prompt: optimizedMessage,
           routePlanPrompt: message,
           buildSpecPrompt: message,
+          // QW-1: dossier-pick + contract-inferens får också rå message så
+          // file-context-wrappingen i optimizedMessage inte förgiftar deras
+          // semantiska beslut (t.ex. att import av Stripe i previousFiles
+          // skulle få contracts att gissa "ny stripe-integration").
+          dossierPickPrompt: message,
+          contractsPrompt: message,
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,

@@ -59,7 +59,10 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsAuth",
     patterns: [
-      /\b(auth|login|sign.?up|sign.?in|register|password|forgot.?password|reset.?password|inloggning|registrer|logga.?in|lösenord|konto|session|oauth|jwt)\b/i,
+      // QW-2: `session` ensamt var för brett (träffar "session at the spa" på
+      // hospitality-sajter). Kräv compound-form (session.store/cookie/token)
+      // för att undvika false positives.
+      /\b(auth|login|sign.?up|sign.?in|register|password|forgot.?password|reset.?password|inloggning|registrer|logga.?in|lösenord|konto|session.?(store|cookie|token)|oauth|jwt)\b/i,
     ],
   },
   {
@@ -79,7 +82,12 @@ const RULES: CapabilityRule[] = [
   {
     key: "needsForms",
     patterns: [
-      /\b(form|contact.?form|booking|boka|survey|questionnaire|formulär|kontakt|multi.?step|wizard.?form)\b/i,
+      // QW-2: `boka`/`booking` ensamt var för brett — varje hotell-follow-up
+      // nämner "boka rum"/"booking" som en del av domänen, inte som en
+      // begäran om att (åter)skapa formulär. Kräv form-relaterad förstärkning
+      // (booking.form, boka.bord, kontaktformulär, multi-step-form, ...) så
+      // form-pipelinen inte triggas på varje turn på hospitality-sajter.
+      /\b(form|contact.?form|booking.?form|boka.?bord|survey|questionnaire|formulär|kontaktformulär|wizard.?form|multi.?step.?form)\b/i,
     ],
   },
   {

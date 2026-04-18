@@ -118,9 +118,22 @@ function countPatternMatches(patterns: RegExp[], message: string): number {
   );
 }
 
+/**
+ * QW-3: en explicit "starta om / bygg om / redesign"-signal måste finnas i
+ * meddelandet innan vi klassar det som full redesign. Annars klassades
+ * legitima utbyggnads-prompts som "Lägg till en spa-sektion på hemsidan
+ * med bilder och bokningsknapp" som clear-redesign och triggade en
+ * scaffold-omval + delta-brief-regenerering — vilket bytte ut den befintliga
+ * visuella identiteten på en sajt som användaren bara ville utöka.
+ */
+const NEW_BUILD_INTENT_PATTERNS: RegExp[] = [
+  /\b(ny hemsida|helt ny|from scratch|starta om|bygg om hela|gör om hela|redesign|rebrand|restyle)\b/i,
+];
+
 function looksLikeDetailedNewSiteBrief(message: string): boolean {
   const trimmed = message.trim();
-  if (trimmed.length < 80) return false;
+  // QW-3: höjt min-längd 80 -> 200 så små "lägg till X"-prompts inte träffas.
+  if (trimmed.length < 200) return false;
 
   const mentionsNewSite = FOLLOW_UP_NEW_SITE_PATTERNS.some((pattern) => pattern.test(trimmed));
   if (!mentionsNewSite) return false;
@@ -128,8 +141,16 @@ function looksLikeDetailedNewSiteBrief(message: string): boolean {
   const hasBriefIntent = FOLLOW_UP_SITE_BRIEF_INTENT_PATTERNS.some((pattern) => pattern.test(trimmed));
   if (!hasBriefIntent) return false;
 
+  // QW-3: kräver explicit nybygg-/redesign-signal — bara längd + ord-ur-domänen
+  // räcker inte. Förhindrar rugpull-redesign på legitima utbyggnads-prompts.
+  const hasNewBuildIntent = NEW_BUILD_INTENT_PATTERNS.some((pattern) => pattern.test(trimmed));
+  if (!hasNewBuildIntent) return false;
+
+  // QW-3: skärpt requirement-tröskel 2 -> 3 så random ord-träffar inte räknas.
+  // Behåller dock lång-text-undantaget (>= 320 tecken) så genuint utförliga
+  // briefs inte missas — bara medel-långa "lägg till"-prompts.
   const requirementMatches = countPatternMatches(FOLLOW_UP_SITE_BRIEF_REQUIREMENT_PATTERNS, trimmed);
-  return requirementMatches >= 2 || trimmed.length >= 160;
+  return requirementMatches >= 3 || trimmed.length >= 320;
 }
 
 export function classifyFollowUpIntent(message: string): FollowUpIntentMode {

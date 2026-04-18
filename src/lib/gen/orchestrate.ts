@@ -69,6 +69,22 @@ export interface OrchestrationInput {
   routePlanPrompt?: string;
   /** Optional prompt used for BuildSpec classification (defaults to `prompt`). */
   buildSpecPrompt?: string;
+  /**
+   * Optional prompt used for dossier-pick embedding query (defaults to `prompt`).
+   * QW-1: stream callers should pass the *raw* user message here, not the
+   * file-context-wrapped optimizedMessage — wrapped prompts contain previous
+   * file content that drowns out the user's actual intent and biases dossier
+   * embedding ranking toward whatever libraries the previous files imported.
+   */
+  dossierPickPrompt?: string;
+  /**
+   * Optional prompt used for pre-generation contract inference (defaults to `prompt`).
+   * QW-1: same reasoning as `dossierPickPrompt` — wrapped prompts cause false
+   * positives where contract inference triggers on provider names that only
+   * appear because previous files imported them, not because the user wants
+   * that integration.
+   */
+  contractsPrompt?: string;
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
@@ -413,7 +429,7 @@ export async function resolveOrchestrationBase(
     existingRoutePaths,
   });
   const preGenerationContracts = inferPreGenerationContracts({
-    prompt,
+    prompt: input.contractsPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
     brief,
     capabilities,
@@ -473,7 +489,7 @@ export async function resolveOrchestrationBase(
         : undefined;
 
       dossierSelection = await selectDossiersForRequest({
-        prompt,
+        prompt: input.dossierPickPrompt ?? prompt,
         brief,
         scaffoldId: resolvedScaffold?.id ?? null,
         scaffoldContext: resolvedScaffold
