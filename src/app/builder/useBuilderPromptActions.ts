@@ -217,6 +217,25 @@ export function useBuilderPromptActions({
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
       setEntryIntentActive(false);
+
+      // Wizard flow already ships a canonical `meta.brief` as the source of
+      // truth. Calling /api/ai/brief again on top of that produces flaky 422s
+      // and duplicate work, so we honour the wizard brief and skip the
+      // dynamic-instruction round-trip.
+      const optionsMeta = (options?.meta ?? null) as Record<string, unknown> | null;
+      const seededBrief = optionsMeta && typeof optionsMeta === "object"
+        ? (optionsMeta.brief as Record<string, unknown> | undefined)
+        : undefined;
+      const hasSeededBrief = Boolean(
+        seededBrief && typeof seededBrief === "object" && Object.keys(seededBrief).length > 0,
+      );
+
+      if (hasSeededBrief) {
+        pendingBriefRef.current = seededBrief ?? null;
+        captureInstructionSnapshot();
+        return await createNewChat(message, options);
+      }
+
       const userInstructions = await applyDynamicInstructionsForNewChat(message);
       if (userInstructions == null) {
         captureInstructionSnapshot();

@@ -54,6 +54,46 @@ function extractTier2BasePrefix(pathname: string): string {
   return segments.length > 0 ? `/${segments[0]}` : "";
 }
 
+/**
+ * Map page-file name → route path (mirror of {@link extractPreviewRoutesFromFileNames}
+ * but for a single file). Returns null when the file isn't a page.
+ */
+export function routePathFromPageFileName(rawName: string): string | null {
+  const name = rawName.replace(/\\/g, "/");
+  const toPath = (segments: string[]): string | null => {
+    const normalized = segments
+      .filter(Boolean)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment && !segment.startsWith("(") && !segment.startsWith("@"));
+    if (normalized.some((segment) => segment.includes("[") || segment.includes("]"))) return null;
+    return normalized.length > 0 ? `/${normalized.join("/")}` : "/";
+  };
+
+  const appMatch = name.match(/^(?:src\/)?app\/(.+)$/);
+  if (appMatch) {
+    const relative = appMatch[1];
+    if (relative !== "page.tsx" && !relative.endsWith("/page.tsx")) return null;
+    const routeDir = relative.replace(/\/?page\.tsx$/, "");
+    return toPath(routeDir ? routeDir.split("/") : []);
+  }
+
+  const pagesMatch = name.match(/^pages\/(.+)$/);
+  if (pagesMatch) {
+    const relative = pagesMatch[1];
+    if (relative.startsWith("api/")) return null;
+    if (!/\.(tsx|ts|jsx|js)$/.test(relative)) return null;
+    const routeFile = relative.replace(/\.(tsx|ts|jsx|js)$/, "");
+    const routePath = routeFile.endsWith("/index")
+      ? routeFile.slice(0, -"/index".length)
+      : routeFile === "index"
+        ? ""
+        : routeFile;
+    return toPath(routePath ? routePath.split("/") : []);
+  }
+
+  return null;
+}
+
 export function extractPreviewRoutesFromFileNames(fileNames: string[]): string[] {
   const routes = new Set<string>();
 

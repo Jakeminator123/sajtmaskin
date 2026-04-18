@@ -49,6 +49,18 @@ export async function POST(req: Request) {
           source: briefSource,
         });
         if (!result) {
+          errorLog("AI", "brief 422 (empty result)", {
+            model: normalizedModel,
+            promptLength: prompt.length,
+            source: briefSource,
+          });
+          devLogAppend("latest", {
+            type: "assist.brief.422",
+            reason: "empty_result",
+            model: normalizedModel,
+            promptLength: prompt.length,
+            source: briefSource,
+          });
           return NextResponse.json(
             {
               error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
@@ -69,6 +81,20 @@ export async function POST(req: Request) {
         return NextResponse.json(brief, { headers });
       } catch (briefErr) {
         const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
+        errorLog("AI", "brief 422 (exception)", {
+          model: normalizedModel,
+          promptLength: prompt.length,
+          source: briefSource,
+          error: errMsg,
+        });
+        devLogAppend("latest", {
+          type: "assist.brief.422",
+          reason: errMsg.includes("could not parse") ? "parse_error" : "exception",
+          model: normalizedModel,
+          promptLength: prompt.length,
+          source: briefSource,
+          message: errMsg,
+        });
         return NextResponse.json(
           {
             error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",

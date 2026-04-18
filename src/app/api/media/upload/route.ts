@@ -40,8 +40,13 @@ import { errorLog, warnLog } from "@/lib/utils/debug";
 // CONSTANTS
 // ============================================================================
 
-const MAX_IMAGES = 30;
-const MAX_VIDEOS = 6;
+// Per-user media library caps. The library is persistent across projects, so
+// these need to be high enough to survive many wizard/builder iterations.
+// TEMPORARY dev values — essentially unlimited while we iterate. Tighten
+// these before going to production (see limit_reached code path + client
+// messaging that already handles counts/limits payload).
+const MAX_IMAGES = 10_000;
+const MAX_VIDEOS = 1_000;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 const ALLOWED_MIME_TYPES = [
@@ -51,6 +56,9 @@ const ALLOWED_MIME_TYPES = [
   "image/png",
   "image/gif",
   "image/webp",
+  "image/avif",
+  "image/heic",
+  "image/heif",
   "image/svg+xml",
   "image/x-icon",
   "image/vnd.microsoft.icon",
@@ -99,16 +107,21 @@ export async function POST(request: NextRequest) {
     const tagsStr = formData.get("tags") as string | null;
 
     if (!file) {
-      return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, code: "missing_file", error: "Ingen fil bifogad" },
+        { status: 400 },
+      );
     }
 
     // Validate file type
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      warnLog("Media", "Upload blocked: unsupported file type", { type: file.type });
+      warnLog("Media", "Upload blocked: unsupported file type", { type: file.type, name: file.name });
       return NextResponse.json(
         {
           success: false,
-          error: `Filtypen ${file.type} är inte tillåten. Tillåtna: bilder, videos, PDF, textfiler.`,
+          code: "unsupported_mime",
+          mime: file.type || "unknown",
+          error: `Filtypen ${file.type || "(okänd)"} stöds inte. Tillåtet: JPG, PNG, WebP, AVIF, HEIC, SVG, GIF, MP4, WebM, PDF.`,
         },
         { status: 400 },
       );
@@ -120,6 +133,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          code: "too_large",
+          sizeMb: Number((file.size / 1024 / 1024).toFixed(2)),
+          maxSizeMb: MAX_FILE_SIZE / (1024 * 1024),
           error: `Filen är för stor (${(file.size / 1024 / 1024).toFixed(
             2,
           )}MB). Max storlek: ${MAX_FILE_SIZE / (1024 * 1024)}MB.`,
@@ -131,7 +147,23 @@ export async function POST(request: NextRequest) {
     // SERVER-SIDE LIMIT CHECK - Can't be bypassed by client
     const limitCheck = await canUserUploadFile(ownerId, file.type, MAX_IMAGES, MAX_VIDEOS);
     if (!limitCheck.allowed) {
-      return NextResponse.json({ success: false, error: limitCheck.reason }, { status: 400 });
+      const counts = await getMediaLibraryCounts(ownerId).catch(() => null);
+      warnLog("Media", "Upload blocked: library limit reached", {
+        ownerId,
+        mimeType: file.type,
+        counts,
+        limits: { maxImages: MAX_IMAGES, maxVideos: MAX_VIDEOS },
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          code: "limit_reached",
+          error: limitCheck.reason,
+          counts,
+          limits: { maxImages: MAX_IMAGES, maxVideos: MAX_VIDEOS },
+        },
+        { status: 400 },
+      );
     }
 
     // Parse tags if provided

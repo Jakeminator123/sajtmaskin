@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  ArrowUpRight,
   CircleCheck,
   Code2,
   ExternalLink,
@@ -77,8 +78,10 @@ export interface PreviewPanelChromeProps {
   onPreviewDeviceChange?: (mode: "desktop" | "tablet" | "mobile") => void;
   previewRoutes?: string[];
   previewRoutesLoading?: boolean;
+  shellRoutePaths?: string[];
   activePreviewRoute?: string | null;
   onNavigateRoute?: (route: string) => void;
+  onRequestBuildOutRoute?: (route: string) => void;
   surfaceDescriptor: SurfaceDescriptor;
   isOwnEnginePreview: boolean;
   isTier2LivePreview: boolean;
@@ -128,8 +131,10 @@ export function PreviewPanelChrome({
   onPreviewDeviceChange,
   previewRoutes = [],
   previewRoutesLoading = false,
+  shellRoutePaths = [],
   activePreviewRoute = null,
   onNavigateRoute,
+  onRequestBuildOutRoute,
   surfaceDescriptor,
   isOwnEnginePreview,
   isTier2LivePreview,
@@ -328,40 +333,65 @@ export function PreviewPanelChrome({
               const overflow = previewRoutes.slice(MAX_VISIBLE);
               // Always show the active route in the visible set
               const activeInOverflow = activeIdx >= MAX_VISIBLE ? previewRoutes[activeIdx] : null;
-              return (
-                <>
-                  {visible.map((route) => {
-                    const active = routesEqual(activePreviewRoute, route);
-                    return (
-                      <button
-                        key={route}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        onClick={() => onNavigateRoute(route)}
-                        className={cn(
-                          "shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors duration-150",
-                          active
-                            ? "bg-primary/15 text-foreground shadow-sm ring-1 ring-primary/20"
-                            : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
-                        )}
-                      >
-                        {route}
-                      </button>
-                    );
-                  })}
-                  {activeInOverflow && (
+              const shellSet = new Set(shellRoutePaths.map(normalizeRoutePath));
+              const isShellRoute = (route: string) => shellSet.has(normalizeRoutePath(route));
+              const renderRouteTab = (route: string) => {
+                const active = routesEqual(activePreviewRoute, route);
+                const isShell = isShellRoute(route);
+                return (
+                  <div
+                    key={route}
+                    className={cn(
+                      "group/route flex shrink-0 items-center rounded-full transition-colors duration-150",
+                      active
+                        ? "bg-primary/15 shadow-sm ring-1 ring-primary/20"
+                        : "hover:bg-muted/70",
+                      isShell && !active && "ring-1 ring-border/60 ring-dashed",
+                    )}
+                  >
                     <button
-                      key={activeInOverflow}
                       type="button"
                       role="tab"
-                      aria-selected
-                      onClick={() => onNavigateRoute(activeInOverflow)}
-                      className="shrink-0 rounded-full px-2.5 py-1 font-mono text-[11px] bg-primary/15 text-foreground shadow-sm ring-1 ring-primary/20 transition-colors duration-150"
+                      aria-selected={active}
+                      onClick={() => onNavigateRoute(route)}
+                      title={isShell ? `${route} — förberedd sida` : route}
+                      className={cn(
+                        "rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors duration-150",
+                        active
+                          ? "text-foreground"
+                          : isShell
+                            ? "text-muted-foreground/80"
+                            : "text-muted-foreground group-hover/route:text-foreground",
+                      )}
                     >
-                      {activeInOverflow}
+                      {route}
                     </button>
-                  )}
+                    {isShell && onRequestBuildOutRoute ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRequestBuildOutRoute(route);
+                        }}
+                        title={`Bygg ut ${route}`}
+                        aria-label={`Bygg ut ${route}`}
+                        className={cn(
+                          "mr-0.5 flex h-5 w-5 items-center justify-center rounded-full",
+                          "text-muted-foreground/70 transition-colors duration-150",
+                          "hover:bg-primary/15 hover:text-primary",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                        )}
+                      >
+                        <ArrowUpRight className="h-3 w-3" />
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              };
+              return (
+                <>
+                  {visible.map(renderRouteTab)}
+                  {activeInOverflow && renderRouteTab(activeInOverflow)}
                   {overflow.length > 0 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -373,18 +403,35 @@ export function PreviewPanelChrome({
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-                        {overflow.map((route) => (
-                          <DropdownMenuItem
-                            key={route}
-                            onClick={() => onNavigateRoute(route)}
-                            className={cn(
-                              "font-mono text-xs",
-                              routesEqual(activePreviewRoute, route) && "bg-primary/10 font-medium",
-                            )}
-                          >
-                            {route}
-                          </DropdownMenuItem>
-                        ))}
+                        {overflow.map((route) => {
+                          const isShell = isShellRoute(route);
+                          return (
+                            <DropdownMenuItem
+                              key={route}
+                              onClick={() => onNavigateRoute(route)}
+                              className={cn(
+                                "flex items-center justify-between gap-3 font-mono text-xs",
+                                routesEqual(activePreviewRoute, route) && "bg-primary/10 font-medium",
+                              )}
+                            >
+                              <span className="truncate">{route}</span>
+                              {isShell && onRequestBuildOutRoute ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onRequestBuildOutRoute(route);
+                                  }}
+                                  title={`Bygg ut ${route}`}
+                                  aria-label={`Bygg ut ${route}`}
+                                  className="ml-auto flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-primary/15 hover:text-primary"
+                                >
+                                  <ArrowUpRight className="h-3 w-3" />
+                                </button>
+                              ) : null}
+                            </DropdownMenuItem>
+                          );
+                        })}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}

@@ -26,6 +26,52 @@ const modelIdSchema = z.enum(
 const MAX_PROMPT_META_TEXT_CHARS = MAX_CHAT_MESSAGE_CHARS;
 const MAX_PROMPT_META_LABEL_CHARS = 200;
 
+/**
+ * Loose shape for `meta.brief`. The field is allowed to passthrough (so
+ * wizard/Deep Brief can add new keys without breaking the boundary), but a
+ * subset is validated so malformed client state is caught here — not after
+ * it reaches orchestration / prompt building.
+ */
+const briefMetaSchema = z
+  .object({
+    industry: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+    businessType: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+    primaryCallToAction: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+    primaryCallToActionId: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+    toneAndVoice: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16).optional(),
+    tagline: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+    mustHave: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(64).optional(),
+    pages: z
+      .array(
+        z.object({
+          name: z.string().max(MAX_PROMPT_META_LABEL_CHARS),
+          path: z.string().max(MAX_PROMPT_META_LABEL_CHARS),
+        }).passthrough(),
+      )
+      .max(32)
+      .optional(),
+    visualDirection: z
+      .object({
+        styleKeywords: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16).optional(),
+        imagery: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16).optional(),
+        avoid: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+      })
+      .passthrough()
+      .optional(),
+    avoid: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    imagery: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16).optional(),
+    oneSentencePitch: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    targetAudience: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    uniqueValueProposition: z.array(z.string().max(MAX_PROMPT_META_LABEL_CHARS)).max(16).optional(),
+    testimonialsSummary: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    coreMessage: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    caseStudiesSummary: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
+    briefSource: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+    briefQuality: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
+  })
+  .partial()
+  .passthrough();
+
 const promptMetaSchema = z
   .object({
     promptOriginal: z.string().max(MAX_PROMPT_META_TEXT_CHARS).optional(),
@@ -45,6 +91,7 @@ const promptMetaSchema = z
     promptSourceKind: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),
+    brief: briefMetaSchema.optional(),
   })
   .partial()
   .passthrough();

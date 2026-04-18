@@ -149,7 +149,10 @@ export function PreviewPanel({
     refreshToken,
     onFilesSaved,
   });
-  const { previewRoutes, previewRoutesLoading } = usePreviewPanelPreviewRoutes(chatId, versionId);
+  const { previewRoutes, previewRoutesLoading, shellRoutePaths } = usePreviewPanelPreviewRoutes(
+    chatId,
+    versionId,
+  );
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
     return findFileNodeByPath(files, selectedPath);
@@ -211,6 +214,7 @@ export function PreviewPanel({
     setIframeDiagnosticCode,
     clearPreviewReadyTimer,
     handleIframeLoad,
+    hasEverLoaded: iframeHasEverLoaded,
   } = usePreviewIframe({
     previewUrl,
     refreshToken,
@@ -925,8 +929,12 @@ export function PreviewPanel({
         onPreviewDeviceChange={setPreviewDevice}
         previewRoutes={previewRoutes}
         previewRoutesLoading={previewRoutesLoading}
+        shellRoutePaths={shellRoutePaths}
         activePreviewRoute={activePreviewRoute}
         onNavigateRoute={handleNavigateRoute}
+        onRequestBuildOutRoute={(route) =>
+          onSuggestionClick?.(`Bygg ut sidan ${route} med fullt innehåll och design som matchar resten av sajten.`)
+        }
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}
         isTier2LivePreview={isTier2LivePreview}
@@ -1056,6 +1064,7 @@ export function PreviewPanel({
               handleIframeLoad={handleIframeLoad}
               handleIframeError={handleIframeError}
               deviceMode={previewDevice}
+              hasEverLoaded={iframeHasEverLoaded}
             >
               {showComposerOverlay ? (
                 <PreviewPanelComposerOverlay

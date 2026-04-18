@@ -128,12 +128,79 @@ export interface Brief {
     keywords?: string[];
   };
   siteName?: string;
+
+  // ── Fact-bearing fields (populated from wizard answers / scrape) ─────────
+  // Copying ground-truth facts as structured data lets the model render them
+  // verbatim without having to be lectured in the user message.
+  contact?: {
+    phone?: string;
+    email?: string;
+    address?: string;
+    openingHours?: string;
+    bookingUrl?: string;
+  };
+  services?: string[];
+  uniqueSellingPoints?: string[];
+  products?: Array<{
+    name: string;
+    price?: string;
+    description?: string;
+    category?: string;
+  }>;
+  menuItems?: Array<{
+    name: string;
+    price?: string;
+    description?: string;
+    category?: string;
+  }>;
+  treatments?: Array<{
+    name: string;
+    price?: string;
+    duration?: string;
+  }>;
+  team?: Array<{ name: string; role?: string }>;
+  testimonials?: string[];
+  projectsShowcase?: Array<{ name: string; client?: string; description?: string }>;
+  /** Long-form copy the wizard / scrape collected verbatim. */
+  longCopy?: {
+    aboutUs?: string;
+    companyStory?: string;
+    vision?: string;
+    contactPageText?: string;
+  };
+  /** Commerce / hospitality flags carried through from the wizard. */
+  commerce?: {
+    delivery?: boolean;
+    acceptsReservations?: boolean;
+    paymentMethods?: string[];
+    shippingInfo?: string;
+    priceRange?: string;
+    cuisine?: string[];
+  };
+}
+
+export interface MediaCatalogCredit {
+  /** Rights holder / photographer name, displayed in attribution. */
+  name: string;
+  /** Optional link to the photographer page. */
+  profileUrl?: string;
+  /** Optional link to the asset's canonical page (for license compliance). */
+  sourceUrl?: string;
+  /** Provider label — "Unsplash", "Pexels", etc. */
+  provider: string;
 }
 
 export interface MediaCatalogItem {
   alias: string;
   url: string;
   alt?: string;
+  /**
+   * Origin of the asset. "user" = uploaded via the wizard. "stock" = fetched
+   * from a third-party stock provider and MUST be shown with attribution.
+   */
+  source?: "user" | "stock";
+  /** Attribution metadata, required when source === "stock". */
+  credit?: MediaCatalogCredit;
 }
 
 export interface DesignReferenceAsset {
@@ -848,6 +915,121 @@ export function buildDynamicContext(
       parts.push("## Avoid", "", ...avoid.map((a) => `- ${a}`), "");
     }
 
+    // ── Facts (ground truth — render verbatim, compose around as you like) ──
+    // These are strictly data; design/layout decisions remain with the model.
+    const factsLines: string[] = [];
+    const contact = brief.contact;
+    if (contact && (contact.phone || contact.email || contact.address || contact.openingHours || contact.bookingUrl)) {
+      factsLines.push("### Contact (use verbatim)");
+      if (contact.phone) factsLines.push(`- Phone: ${contact.phone}`);
+      if (contact.email) factsLines.push(`- Email: ${contact.email}`);
+      if (contact.address) factsLines.push(`- Address: ${contact.address}`);
+      if (contact.openingHours) factsLines.push(`- Opening hours: ${contact.openingHours}`);
+      if (contact.bookingUrl) factsLines.push(`- Booking URL: ${contact.bookingUrl}`);
+      factsLines.push("");
+    }
+    const services = strList(brief.services).slice(0, 12);
+    if (services.length > 0) {
+      factsLines.push("### Services / offerings", ...services.map((s) => `- ${s}`), "");
+    }
+    const usps = strList(brief.uniqueSellingPoints).slice(0, 8);
+    if (usps.length > 0) {
+      factsLines.push("### Unique selling points", ...usps.map((u) => `- ${u}`), "");
+    }
+    const products = Array.isArray(brief.products) ? brief.products.slice(0, 20) : [];
+    if (products.length > 0) {
+      factsLines.push("### Products (render with the exact names and prices)");
+      for (const p of products) {
+        const name = str(p?.name);
+        if (!name) continue;
+        const price = str(p?.price);
+        const desc = str(p?.description);
+        const cat = str(p?.category);
+        const bits = [name, price && `(${price})`, cat && `[${cat}]`].filter(Boolean).join(" ");
+        factsLines.push(`- ${bits}${desc ? ` — ${desc}` : ""}`);
+      }
+      factsLines.push("");
+    }
+    const menu = Array.isArray(brief.menuItems) ? brief.menuItems.slice(0, 30) : [];
+    if (menu.length > 0) {
+      factsLines.push("### Menu items (render with the exact names and prices)");
+      for (const m of menu) {
+        const name = str(m?.name);
+        if (!name) continue;
+        const price = str(m?.price);
+        const desc = str(m?.description);
+        const cat = str(m?.category);
+        const bits = [name, price && `(${price})`, cat && `[${cat}]`].filter(Boolean).join(" ");
+        factsLines.push(`- ${bits}${desc ? ` — ${desc}` : ""}`);
+      }
+      factsLines.push("");
+    }
+    const treatments = Array.isArray(brief.treatments) ? brief.treatments.slice(0, 20) : [];
+    if (treatments.length > 0) {
+      factsLines.push("### Treatments (render with the exact names, prices and durations)");
+      for (const t of treatments) {
+        const name = str(t?.name);
+        if (!name) continue;
+        const price = str(t?.price);
+        const duration = str(t?.duration);
+        const bits = [name, price && `(${price})`, duration && `[${duration}]`].filter(Boolean).join(" ");
+        factsLines.push(`- ${bits}`);
+      }
+      factsLines.push("");
+    }
+    const team = Array.isArray(brief.team) ? brief.team.slice(0, 12) : [];
+    if (team.length > 0) {
+      factsLines.push("### Team");
+      for (const t of team) {
+        const name = str(t?.name);
+        if (!name) continue;
+        const role = str(t?.role);
+        factsLines.push(`- ${name}${role ? ` — ${role}` : ""}`);
+      }
+      factsLines.push("");
+    }
+    const testimonialsList = strList(brief.testimonials).slice(0, 8);
+    if (testimonialsList.length > 0) {
+      factsLines.push("### Testimonials (quote verbatim)");
+      for (const q of testimonialsList) factsLines.push(`- "${q.replace(/"/g, "'")}"`);
+      factsLines.push("");
+    }
+    const showcase = Array.isArray(brief.projectsShowcase) ? brief.projectsShowcase.slice(0, 10) : [];
+    if (showcase.length > 0) {
+      factsLines.push("### Past projects / case studies");
+      for (const p of showcase) {
+        const name = str(p?.name);
+        if (!name) continue;
+        const client = str(p?.client);
+        const desc = str(p?.description);
+        factsLines.push(`- ${name}${client ? ` — ${client}` : ""}${desc ? `: ${desc}` : ""}`);
+      }
+      factsLines.push("");
+    }
+    const longCopy = brief.longCopy;
+    if (longCopy && (longCopy.aboutUs || longCopy.companyStory || longCopy.vision || longCopy.contactPageText)) {
+      factsLines.push("### Long-form copy (use as source text, rewrite for rhythm — do not invent contradicting facts)");
+      if (longCopy.aboutUs) factsLines.push(`- About us: ${longCopy.aboutUs.slice(0, 600)}`);
+      if (longCopy.companyStory) factsLines.push(`- Company story: ${longCopy.companyStory.slice(0, 600)}`);
+      if (longCopy.vision) factsLines.push(`- Vision: ${longCopy.vision.slice(0, 400)}`);
+      if (longCopy.contactPageText) factsLines.push(`- Contact copy: ${longCopy.contactPageText.slice(0, 400)}`);
+      factsLines.push("");
+    }
+    const commerce = brief.commerce;
+    if (commerce && (commerce.delivery != null || commerce.acceptsReservations != null || commerce.paymentMethods?.length || commerce.shippingInfo || commerce.priceRange || commerce.cuisine?.length)) {
+      factsLines.push("### Commerce / hospitality flags");
+      if (commerce.delivery != null) factsLines.push(`- Delivery: ${commerce.delivery ? "yes" : "no"}`);
+      if (commerce.acceptsReservations != null) factsLines.push(`- Reservations: ${commerce.acceptsReservations ? "yes" : "no"}`);
+      if (commerce.priceRange) factsLines.push(`- Price range: ${commerce.priceRange}`);
+      if (commerce.shippingInfo) factsLines.push(`- Shipping: ${commerce.shippingInfo}`);
+      if (commerce.paymentMethods?.length) factsLines.push(`- Payment: ${commerce.paymentMethods.join(", ")}`);
+      if (commerce.cuisine?.length) factsLines.push(`- Cuisine: ${commerce.cuisine.join(", ")}`);
+      factsLines.push("");
+    }
+    if (factsLines.length > 0) {
+      parts.push("## Facts", "", ...factsLines);
+    }
+
     // UX & UI notes from brief
     const uiComponents = strList(brief.uiNotes?.components).slice(0, 16);
     const uiInteractions = strList(brief.uiNotes?.interactions).slice(0, 16);
@@ -1032,14 +1214,35 @@ export function buildDynamicContext(
     parts.push(
       "## Media Catalog",
       "",
-      "Use the following media assets by their alias. The aliases will be expanded to full URLs during post-processing.",
+      "Use the following media assets by their alias. The aliases will be expanded to full URLs during post-processing. Prefer `[user]` assets over `[stock]` assets whenever both describe the same scene.",
       "",
     );
+    const stockItems: MediaCatalogItem[] = [];
     for (const item of mediaCatalog.slice(0, 30)) {
       const altText = item.alt ? ` (${item.alt})` : "";
-      parts.push(`- \`{{${item.alias}}}\`${altText}`);
+      const originTag =
+        item.source === "stock" ? " [stock]" : item.source === "user" ? " [user]" : "";
+      parts.push(`- \`{{${item.alias}}}\`${altText}${originTag}`);
+      if (item.source === "stock" && item.credit) stockItems.push(item);
     }
     parts.push("");
+    if (stockItems.length > 0) {
+      parts.push(
+        "### Stock attribution (MUST render visibly)",
+        "",
+        "When any `{{STOCK_IMG_*}}` or `{{STOCK_VID_*}}` asset is rendered, include a compact credit near the asset or in the footer. Use small but readable text. Accepted formats:",
+        "- Caption under image: `Photo: Jane Doe / Unsplash`",
+        "- Footer line aggregating credits: `Bilder: Jane Doe, John Smith / Unsplash, Pexels`",
+        "",
+        "Credits for this request:",
+      );
+      for (const item of stockItems) {
+        const c = item.credit!;
+        const profile = c.profileUrl ? ` (${c.profileUrl})` : "";
+        parts.push(`- \`{{${item.alias}}}\` → ${c.name} / ${c.provider}${profile}`);
+      }
+      parts.push("");
+    }
   }
 
   // ── Component References (capability-driven shadcn examples) ─────────

@@ -156,6 +156,18 @@ export const GenerationSummary = memo(function GenerationSummary({
       ? `${parsed.files.length} ${parsed.files.length === 1 ? "fil" : "filer"}`
       : `${parsed.genericCodeBlocks} ${parsed.genericCodeBlocks === 1 ? "kodblock" : "kodblock"}`;
 
+  // Under streaming visar preview-panelen redan % + fas + ThinkingOverlay.
+  // Visa därför endast "Bygger..."-bubblan här och undvik dubbla statusar.
+  if (isStreaming) {
+    return (
+      <div className="min-w-0">
+        <div className="rounded-2xl bg-card px-4 py-3 text-sm leading-relaxed text-card-foreground whitespace-pre-wrap overflow-hidden wrap-break-word">
+          {streamingNotice}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2 min-w-0">
       {previewText && (

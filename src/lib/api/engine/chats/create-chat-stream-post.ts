@@ -46,6 +46,12 @@ import {
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths, type MediaCatalogItem } from "@/lib/gen/system-prompt";
 import {
+  buildStockImageQueries,
+  fetchStockImages,
+  fetchStockVideos,
+  type StockImagePurpose,
+} from "@/lib/media/stock-providers";
+import {
   normalizeRequestAttachments,
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
@@ -77,6 +83,89 @@ import {
   buildVariantHintsForBrief,
   formatVariantHintsForPrompt,
 } from "@/lib/gen/scaffold-variants/variant-hints";
+
+/**
+ * True when a wizard brief is missing creative direction fields that the
+ * server auto-brief typically fills in (imagery, typography hint, palette).
+ * When this returns true the policy runs the auto-brief as an *enricher*.
+ */
+function briefHasNoCreative(brief: Record<string, unknown> | null | undefined): boolean {
+  if (!brief) return false;
+  const v = (brief.visualDirection ?? {}) as Record<string, unknown>;
+  const hasPalette = v && typeof v === "object" && (v as { colorPalette?: unknown }).colorPalette;
+  const hasTypography = v && typeof v === "object" && (v as { typography?: unknown }).typography;
+  const imagery = brief.imagery as Record<string, unknown> | undefined;
+  const hasImageryDetail =
+    imagery &&
+    (Array.isArray((imagery as { subjects?: unknown[] }).subjects) ||
+      Array.isArray((imagery as { shotTypes?: unknown[] }).shotTypes) ||
+      Array.isArray((imagery as { suggestedSubjects?: unknown[] }).suggestedSubjects));
+  const hasPageSections =
+    Array.isArray(brief.pages) &&
+    (brief.pages as Array<{ sections?: unknown[] }>).some(
+      (p) => Array.isArray(p?.sections) && p.sections.length > 0,
+    );
+  return !hasPalette && !hasTypography && !hasImageryDetail && !hasPageSections;
+}
+
+/**
+ * Merge a client-provided brief (wizard) with the server auto-brief.
+ * Client wins for every fact-bearing field; auto-brief fills only the holes
+ * (creative direction, page sections, imagery, seo). Arrays are replaced
+ * wholesale by whichever side has non-empty content (client has priority).
+ */
+function mergeClientAndAutoBrief(
+  client: Record<string, unknown>,
+  auto: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...auto, ...client };
+
+  const pickObj = (k: string) => {
+    const c = client[k] as Record<string, unknown> | undefined;
+    const a = auto[k] as Record<string, unknown> | undefined;
+    if (!c && !a) return undefined;
+    return { ...(a ?? {}), ...(c ?? {}) };
+  };
+
+  const vd = pickObj("visualDirection");
+  if (vd) merged.visualDirection = vd;
+
+  const imagery = pickObj("imagery");
+  if (imagery) merged.imagery = imagery;
+
+  const seo = pickObj("seo");
+  if (seo) merged.seo = seo;
+
+  const uiNotes = pickObj("uiNotes");
+  if (uiNotes) merged.uiNotes = uiNotes;
+
+  const contact = pickObj("contact");
+  if (contact) merged.contact = contact;
+
+  const longCopy = pickObj("longCopy");
+  if (longCopy) merged.longCopy = longCopy;
+
+  const commerce = pickObj("commerce");
+  if (commerce) merged.commerce = commerce;
+
+  // Pages: keep client's list (canonical routes) but fill in sections from
+  // auto-brief when the client entry has no sections yet.
+  const clientPages = Array.isArray(client.pages) ? (client.pages as Array<Record<string, unknown>>) : null;
+  const autoPages = Array.isArray(auto.pages) ? (auto.pages as Array<Record<string, unknown>>) : null;
+  if (clientPages && autoPages) {
+    merged.pages = clientPages.map((p) => {
+      if (Array.isArray(p.sections) && p.sections.length > 0) return p;
+      const match = autoPages.find(
+        (ap) => ap?.path === p.path || ap?.name === p.name,
+      );
+      return match?.sections ? { ...p, sections: match.sections, purpose: p.purpose ?? match.purpose } : p;
+    });
+  } else if (!clientPages && autoPages) {
+    merged.pages = autoPages;
+  }
+
+  return merged;
+}
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
@@ -209,6 +298,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
 
       let serverAutoBrief: Record<string, unknown> | null = null;
       let serverAutoBriefModel: string | null = null;
+
+      // Wizard briefs carry facts but typically lack creative direction
+      // (imagery subjects, typography hint, colorPalette). Allow the server
+      // auto-brief to *enrich* those missing creative fields so the wizard
+      // flow reaches parity with the raw-prompt flow.
+      const clientBriefIsWizard =
+        (clientBriefFromMeta as { briefSource?: string } | null | undefined)?.briefSource === "wizard";
+      const clientBriefAllowsEnrichment = clientBriefIsWizard && briefHasNoCreative(clientBriefFromMeta);
+
       if (
         shouldRunServerAutoBrief({
           hasClientBrief: Boolean(clientBriefFromMeta),
@@ -218,6 +316,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           orchestrationReason: strategyMeta.reason,
           prompt: message,
           buildIntent: metaBuildIntent,
+          clientBriefAllowsEnrichment,
         })
       ) {
         const autoBriefStartedAt = Date.now();
@@ -242,7 +341,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           });
         }
       }
-      const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+      const effectiveBrief =
+        clientBriefFromMeta && serverAutoBrief
+          ? mergeClientAndAutoBrief(clientBriefFromMeta, serverAutoBrief)
+          : (clientBriefFromMeta ?? serverAutoBrief);
       const briefQuality: "full" | "server-auto" | "none" = (() => {
         const clientQuality = clientBriefFromMeta?.briefQuality;
         if (clientQuality === "full" || clientQuality === "server-auto") return clientQuality;
@@ -389,6 +491,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
           engineIntent = "app";
         }
+        // Carry over user-uploaded media into plan mode too — otherwise the
+        // planner can't reason about placement of the user's logo/images in
+        // the plan it proposes (mismatch with the later own-engine run).
+        const planModeMediaCatalog: MediaCatalogItem[] = requestAttachments
+          .filter((a) => a.mimeType?.startsWith("image/") || /\.(jpe?g|png|gif|webp|svg)$/i.test(a.url))
+          .map((a, i) => ({
+            alias: `USER_IMG_${i + 1}`,
+            url: a.url,
+            alt: a.purpose || a.filename || `User image ${i + 1}`,
+          }));
+        const planModeDesignReferences = summarizeDesignReferences(requestAttachments);
+
         const planOrchestrationStartedAt = Date.now();
         const planOrchestration = await prepareGenerationContext({
           prompt: optimizedMessage,
@@ -398,6 +512,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
           promptStrategyMeta: strategyMeta,
+          mediaCatalog: planModeMediaCatalog.length > 0 ? planModeMediaCatalog : undefined,
+          designReferences: planModeDesignReferences,
         });
         debugLog("orchestration", "Plan mode orchestration prepared", {
           durationMs: Date.now() - planOrchestrationStartedAt,
@@ -549,7 +665,99 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             alias: `USER_IMG_${i + 1}`,
             url: a.url,
             alt: a.purpose || a.filename || `User image ${i + 1}`,
+            source: "user" as const,
           }));
+
+        // Stock-media fallback: top up with Unsplash when user assets are
+        // sparse (<3 images → hit at least 1 hero + 2 gallery). Pexels video
+        // is gated by ENABLE_PEXELS (default off); only adds a hero-loop when
+        // the user uploaded none of their own.
+        {
+          const userImageCount = mediaCatalog.length;
+          const briefLike = (metaBrief ?? {}) as Record<string, unknown>;
+          const briefOffer =
+            (typeof briefLike.oneSentencePitch === "string" && briefLike.oneSentencePitch) ||
+            (typeof briefLike.tagline === "string" && briefLike.tagline) ||
+            (typeof briefLike.description === "string" && briefLike.description) ||
+            optimizedMessage;
+          const briefCategoryId =
+            (typeof briefLike.categoryId === "string" && briefLike.categoryId) ||
+            (typeof briefLike.siteType === "string" && briefLike.siteType) ||
+            null;
+          const briefIndustry = typeof briefLike.industry === "string" ? briefLike.industry : null;
+
+          const purposes: StockImagePurpose[] = [];
+          if (userImageCount < 1) purposes.push("hero-image");
+          const galleryDeficit = Math.max(0, 2 - Math.max(0, userImageCount - (userImageCount < 1 ? 0 : 1)));
+          for (let i = 0; i < galleryDeficit; i += 1) purposes.push("gallery-image");
+
+          if (purposes.length > 0) {
+            const queries = buildStockImageQueries({
+              categoryId: briefCategoryId,
+              industry: briefIndustry,
+              offer: typeof briefOffer === "string" ? briefOffer : null,
+              purposes,
+            });
+            try {
+              const fetched = (
+                await Promise.all(queries.map((q) => fetchStockImages(q.query, 1)))
+              ).flat();
+              fetched.forEach((asset, i) => {
+                mediaCatalog.push({
+                  alias: `STOCK_IMG_${i + 1}`,
+                  url: asset.url,
+                  alt: asset.alt,
+                  source: "stock",
+                  credit: asset.credit,
+                });
+              });
+              debugLog("orchestration", "Stock image fallback merged", {
+                requested: purposes.length,
+                received: fetched.length,
+                userImageCount,
+              });
+            } catch (err) {
+              debugLog("orchestration", "Stock image fallback failed (non-fatal)", {
+                err: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+
+          const hasUserVideo = requestAttachments.some(
+            (a) => a.mimeType?.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(a.url),
+          );
+          if (!hasUserVideo) {
+            try {
+              const [videoQuery] = buildStockImageQueries({
+                categoryId: briefCategoryId,
+                industry: briefIndustry,
+                offer: typeof briefOffer === "string" ? briefOffer : null,
+                purposes: ["hero-image"],
+              });
+              if (videoQuery) {
+                const videos = await fetchStockVideos(videoQuery.query, 1);
+                videos.forEach((asset, i) => {
+                  mediaCatalog.push({
+                    alias: `STOCK_VID_${i + 1}`,
+                    url: asset.url,
+                    alt: asset.alt,
+                    source: "stock",
+                    credit: asset.credit,
+                  });
+                });
+                if (videos.length > 0) {
+                  debugLog("orchestration", "Stock video fallback merged", {
+                    received: videos.length,
+                  });
+                }
+              }
+            } catch (err) {
+              debugLog("orchestration", "Stock video fallback failed (non-fatal)", {
+                err: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+        }
 
         const orchestrationInput = {
           prompt: optimizedMessage,

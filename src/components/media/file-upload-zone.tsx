@@ -195,11 +195,28 @@ export function FileUploadZone({
 
             onFilesChange(updatedFiles.map((f) => (f.id === uploadingFile.id ? successFile : f)));
           } else {
-            // Update with error
+            // Update with error — use structured code when available
+            const code = result?.code as string | undefined;
+            const payload = result as
+              | { counts?: { images?: number; videos?: number }; limits?: { maxImages?: number; maxVideos?: number } }
+              | null;
+            const isVideo = uploadingFile.mimeType?.startsWith("video/");
+            const have = isVideo ? payload?.counts?.videos : payload?.counts?.images;
+            const cap = isVideo ? payload?.limits?.maxVideos : payload?.limits?.maxImages;
+            const friendly =
+              code === "unsupported_mime"
+                ? `Filtypen stöds inte (${uploadingFile.mimeType || "okänd"})`
+                : code === "too_large"
+                  ? "Filen är för stor (max 20 MB)"
+                  : code === "limit_reached"
+                    ? have != null && cap != null
+                      ? `Bildbanken är full (${have}/${cap}). Rensa några filer först.`
+                      : "Bildbanken är full. Rensa några filer först."
+                    : result.error || "Uppladdning misslyckades";
             const errorFile: UploadedFile = {
               ...uploadingFile,
               status: "error",
-              error: result.error || "Uppladdning misslyckades",
+              error: friendly,
             };
             onFilesChange(updatedFiles.map((f) => (f.id === uploadingFile.id ? errorFile : f)));
           }

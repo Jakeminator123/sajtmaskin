@@ -994,6 +994,20 @@ export function useBuilderPageController() {
   useLocalStorageBooleanSync("sajtmaskin:structuredChat", showStructuredChat, setShowStructuredChat);
   useLocalStorageBooleanSync("sajtmaskin:openclawTipsEnabled", tipsEnabled, setTipsEnabled);
 
+  const uiModeIsExpanded = state.uiMode === "expanded";
+  const setUiModeIsExpanded = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      state.setUiMode((prev) => {
+        const prevIsExpanded = prev === "expanded";
+        const nextIsExpanded =
+          typeof next === "function" ? (next as (p: boolean) => boolean)(prevIsExpanded) : next;
+        return nextIsExpanded ? "expanded" : "minimal";
+      });
+    },
+    [state],
+  );
+  useLocalStorageBooleanSync("sajtmaskin:uiMode:expanded", uiModeIsExpanded, setUiModeIsExpanded);
+
   // Custom instructions load / save
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1532,6 +1546,8 @@ export function useBuilderPageController() {
     isMediaEnabled: state.isMediaEnabled,
     enableBlobMedia: state.enableBlobMedia,
     showStructuredChat: state.showStructuredChat,
+    uiMode: state.uiMode,
+    detailsDrawerOpen: state.detailsDrawerOpen,
     tipsEnabled,
     designTheme: state.designTheme,
     scaffoldMode: state.scaffoldMode,
@@ -1587,6 +1603,8 @@ export function useBuilderPageController() {
     setEnableThinking: state.setEnableThinking,
     setEnableBlobMedia: state.setEnableBlobMedia,
     setShowStructuredChat: state.setShowStructuredChat,
+    setUiMode: state.setUiMode,
+    setDetailsDrawerOpen: state.setDetailsDrawerOpen,
     setTipsEnabled,
     setDesignTheme: state.setDesignTheme,
     setCustomThemeColors: state.setCustomThemeColors,

@@ -1,48 +1,13 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
-import {
-  ArrowRight,
-  Building2,
-  ShoppingBag,
-  Camera,
-  UtensilsCrossed,
-  FileText,
-  BookOpen,
-  Briefcase,
-  Laptop,
-  Heart,
-  Home,
-  Scissors,
-  Hammer,
-  GraduationCap,
-  Calendar,
-  Users,
-  Music,
-  Scale,
-  Calculator,
-  Car,
-  Plane,
-  Film,
-  Globe,
-  Loader2,
-  SkipForward,
-  Check,
-  Sparkles,
-  Plus,
-  X,
-  Trash2,
-  ImagePlus,
-  Upload,
-  type LucideIcon,
-} from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { NeedsAnalysisField } from "@/lib/builder/needs-analysis";
 
 /* ── Types ───────────────────────────────────────────────────────── */
 
-type StepId = "company" | "siteType" | "content" | "story" | "design" | "pages" | "media";
+type StepId = "company" | "siteType" | "content" | "story" | "pages" | "media";
 
 export interface ProductEntry {
   name: string;
@@ -81,7 +46,7 @@ export interface ProjectEntry {
   imagePreview?: string;
 }
 
-interface WizardAnswers {
+export interface WizardAnswers {
   siteType: string[];
   companyName: string;
   offer: string;
@@ -127,6 +92,11 @@ interface WizardAnswers {
   goal: string[];
   features: string[];
 
+  /** Fri text: saker som INTE ska finnas på sajten (popups, stockbilder, video i hero...). */
+  avoid: string;
+  /** Bildstil-preferens (chips). */
+  imagery: string[];
+
   siteMedia: Array<{ file: File; preview: string; context: string }>;
 }
 
@@ -135,7 +105,14 @@ interface WizardAnswers {
 export interface IntakeWizardResult {
   answers: WizardAnswers;
   fieldMessages: Array<{ field: NeedsAnalysisField; text: string }>;
-  mediaFiles?: Array<{ file: File; context: string }>;
+  /**
+   * Files the user wants embedded on the site.
+   * `context` is the human label (shown in LLM prompt for placement guidance).
+   * `purpose` is the canonical upload-catalog key consumed by own-engine
+   * (brand-logo, product-photo, hero-image, about-image, gallery-image,
+   * background-image, site-media).
+   */
+  mediaFiles?: Array<{ file: File; context: string; purpose: string }>;
 }
 
 export interface WizardScrapeData {
@@ -189,50 +166,43 @@ interface IntakeWizardProps {
 
 /* ── Site-type categories (full set) ─────────────────────────────── */
 
-type CategoryItem = { id: string; label: string; icon: LucideIcon };
+type CategoryItem = { id: string; label: string };
 
 const CATEGORIES: CategoryItem[] = [
-  { id: "business", label: "Företag / Tjänster", icon: Building2 },
-  { id: "ecommerce", label: "Webshop / E-handel", icon: ShoppingBag },
-  { id: "restaurant", label: "Restaurang / Café", icon: UtensilsCrossed },
-  { id: "portfolio", label: "Portfolio / CV", icon: Camera },
-  { id: "landing", label: "Landningssida", icon: FileText },
-  { id: "blog", label: "Blogg / Magasin", icon: BookOpen },
-  { id: "consulting", label: "Konsult / Byrå", icon: Briefcase },
-  { id: "tech", label: "Tech / Startup", icon: Laptop },
-  { id: "healthcare", label: "Vård / Klinik", icon: Heart },
-  { id: "realestate", label: "Fastighet / Mäklare", icon: Home },
-  { id: "salon", label: "Salong / Skönhet", icon: Scissors },
-  { id: "fitness", label: "Gym / Tränare", icon: Users },
-  { id: "construction", label: "Bygg / Hantverk", icon: Hammer },
-  { id: "education", label: "Utbildning / Skola", icon: GraduationCap },
-  { id: "event", label: "Event / Bröllop", icon: Calendar },
-  { id: "nonprofit", label: "Förening / Ideell", icon: Heart },
-  { id: "music", label: "Musik / Artist", icon: Music },
-  { id: "hotel", label: "Hotell / Boende", icon: Home },
-  { id: "legal", label: "Juridik / Advokat", icon: Scale },
-  { id: "accounting", label: "Ekonomi / Redovisning", icon: Calculator },
-  { id: "auto", label: "Bil / Motor", icon: Car },
-  { id: "travel", label: "Resa / Turism", icon: Plane },
-  { id: "food", label: "Mat / Catering", icon: UtensilsCrossed },
-  { id: "photo", label: "Foto / Video", icon: Film },
-  { id: "other", label: "Annat", icon: Sparkles },
+  { id: "business", label: "Företag / Tjänster" },
+  { id: "ecommerce", label: "Webshop / E-handel" },
+  { id: "restaurant", label: "Restaurang / Café" },
+  { id: "portfolio", label: "Portfolio / CV" },
+  { id: "landing", label: "Landningssida" },
+  { id: "blog", label: "Blogg / Magasin" },
+  { id: "consulting", label: "Konsult / Byrå" },
+  { id: "tech", label: "Tech / Startup" },
+  { id: "healthcare", label: "Vård / Klinik" },
+  { id: "realestate", label: "Fastighet / Mäklare" },
+  { id: "salon", label: "Salong / Skönhet" },
+  { id: "fitness", label: "Gym / Tränare" },
+  { id: "construction", label: "Bygg / Hantverk" },
+  { id: "education", label: "Utbildning / Skola" },
+  { id: "event", label: "Event / Bröllop" },
+  { id: "nonprofit", label: "Förening / Ideell" },
+  { id: "music", label: "Musik / Artist" },
+  { id: "hotel", label: "Hotell / Boende" },
+  { id: "legal", label: "Juridik / Advokat" },
+  { id: "accounting", label: "Ekonomi / Redovisning" },
+  { id: "auto", label: "Bil / Motor" },
+  { id: "travel", label: "Resa / Turism" },
+  { id: "food", label: "Mat / Catering" },
+  { id: "photo", label: "Foto / Video" },
+  { id: "other", label: "Annat" },
 ];
 
 /* ── Options ─────────────────────────────────────────────────────── */
 
+// Internal scrape-mapping lists. Not surfaced in the wizard UI (LLM owns
+// design decisions) — used only to normalize values that arrive from the
+// webscraper into a stable set of labels for downstream briefs.
 const TONE_OPTIONS = ["Professionell", "Varm och personlig", "Lekfull", "Exklusiv / lyxig", "Rak och enkel"];
 const DESIGN_STYLE_OPTIONS = ["Minimalistisk", "Kraftfull", "Elegant", "Lekfull och färgglad", "Låt AI:n välja"];
-
-const GOAL_OPTIONS = [
-  "Få fler kunder",
-  "Sälja produkter online",
-  "Bygga förtroende",
-  "Samla leads / offertförfrågningar",
-  "Öka lokal synlighet",
-  "Visa upp portfolio",
-  "Boka tid / möten",
-];
 
 const CTA_OPTIONS = [
   "Boka tid",
@@ -263,48 +233,48 @@ const MUST_HAVE_OPTIONS = [
   "Meny / Matsedel",
 ];
 
-type FeatureModule = { id: string; label: string; description: string; icon: LucideIcon };
+type FeatureModule = { id: string; label: string; description: string };
 
 const FEATURE_MODULES: { category: string; items: FeatureModule[] }[] = [
   {
     category: "Interaktion",
     items: [
-      { id: "booking", label: "Onlinebokning", description: "Bokningsformulär med datum, tid och tjänst", icon: Calendar },
-      { id: "contact-form", label: "Kontaktformulär", description: "Namn, e-post, meddelande med bekräftelse", icon: FileText },
-      { id: "newsletter", label: "Nyhetsbrev", description: "E-post signup i footer eller popup", icon: BookOpen },
-      { id: "live-chat", label: "Chatt / Support", description: "Chattbubbla eller supportwidget", icon: Users },
-      { id: "reviews", label: "Kundrecensioner", description: "Omdömen med stjärnbetyg och citat", icon: Sparkles },
+      { id: "booking", label: "Onlinebokning", description: "Bokningsformulär med datum, tid och tjänst" },
+      { id: "contact-form", label: "Kontaktformulär", description: "Namn, e-post, meddelande med bekräftelse" },
+      { id: "newsletter", label: "Nyhetsbrev", description: "E-post signup i footer eller popup" },
+      { id: "live-chat", label: "Chatt / Support", description: "Chattbubbla eller supportwidget" },
+      { id: "reviews", label: "Kundrecensioner", description: "Omdömen med stjärnbetyg och citat" },
     ],
   },
   {
     category: "Innehåll",
     items: [
-      { id: "blog", label: "Blogg / Nyheter", description: "Artikelsida med kategorier och datum", icon: BookOpen },
-      { id: "faq", label: "FAQ", description: "Vanliga frågor med expanderbar accordion", icon: FileText },
-      { id: "gallery", label: "Bildgalleri", description: "Responsivt grid med lightbox", icon: Camera },
-      { id: "portfolio", label: "Portfolio / Case", description: "Projekt med bilder och beskrivning", icon: Film },
-      { id: "team", label: "Teamsektion", description: "Medarbetare med bild, namn och roll", icon: Users },
-      { id: "menu", label: "Meny / Prislista", description: "Rätter eller tjänster med pris", icon: UtensilsCrossed },
-      { id: "pricing", label: "Prispaket", description: "Paketjämförelse i kolumner", icon: Briefcase },
+      { id: "blog", label: "Blogg / Nyheter", description: "Artikelsida med kategorier och datum" },
+      { id: "faq", label: "FAQ", description: "Vanliga frågor med expanderbar accordion" },
+      { id: "gallery", label: "Bildgalleri", description: "Responsivt grid med lightbox" },
+      { id: "portfolio", label: "Portfolio / Case", description: "Projekt med bilder och beskrivning" },
+      { id: "team", label: "Teamsektion", description: "Medarbetare med bild, namn och roll" },
+      { id: "menu", label: "Meny / Prislista", description: "Rätter eller tjänster med pris" },
+      { id: "pricing", label: "Prispaket", description: "Paketjämförelse i kolumner" },
     ],
   },
   {
     category: "E-handel",
     items: [
-      { id: "product-catalog", label: "Produktkatalog", description: "Produktgrid med filter och sortering", icon: ShoppingBag },
-      { id: "cart", label: "Varukorg", description: "Lägg till, ta bort, beställ", icon: ShoppingBag },
-      { id: "checkout", label: "Betalning / Checkout", description: "Betalflöde med Swish, kort etc.", icon: ShoppingBag },
+      { id: "product-catalog", label: "Produktkatalog", description: "Produktgrid med filter och sortering" },
+      { id: "cart", label: "Varukorg", description: "Lägg till, ta bort, beställ" },
+      { id: "checkout", label: "Betalning / Checkout", description: "Betalflöde med Swish, kort etc." },
     ],
   },
   {
     category: "Funktioner",
     items: [
-      { id: "login", label: "Inloggning", description: "Användarkonton med login/registrering", icon: Users },
-      { id: "search", label: "Sökfunktion", description: "Sök i innehåll eller produkter", icon: Globe },
-      { id: "map", label: "Karta / Hitta hit", description: "Google Maps med vägbeskrivning", icon: Globe },
-      { id: "dark-mode", label: "Mörkt läge", description: "Tema-switch för ljust/mörkt", icon: Laptop },
-      { id: "multi-lang", label: "Flerspråkig", description: "Stöd för svenska och engelska", icon: Globe },
-      { id: "cookie-banner", label: "Cookie-banner", description: "GDPR-kompatibel cookie-hantering", icon: FileText },
+      { id: "login", label: "Inloggning", description: "Användarkonton med login/registrering" },
+      { id: "search", label: "Sökfunktion", description: "Sök i innehåll eller produkter" },
+      { id: "map", label: "Karta / Hitta hit", description: "Google Maps med vägbeskrivning" },
+      { id: "dark-mode", label: "Mörkt läge", description: "Tema-switch för ljust/mörkt" },
+      { id: "multi-lang", label: "Flerspråkig", description: "Stöd för svenska och engelska" },
+      { id: "cookie-banner", label: "Cookie-banner", description: "GDPR-kompatibel cookie-hantering" },
     ],
   },
 ];
@@ -379,19 +349,22 @@ const CONSULTING_EXPERTISE_OPTIONS = ["Strategi", "IT / Digitalisering", "Markna
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   restaurant: [
-    "restaurang", "café", "cafe", "kafé", "bar", "pub", "pizzeria",
+    "restaurang", "café", "cafe ", "kafé", "pub ", "pizzeria",
     "sushi", "bistro", "krog", "matställe", "lunch", "middag", "brunch",
     "fine dining", "gastropub", "tapas", "burger", "kebab", "falafel",
+    "à la carte", "smörgås", "smörgåsbord",
   ],
   ecommerce: [
     "webshop", "e-handel", "nätbutik", "sälj", "produkter online",
     "butik online", "webbshop", "shop", "näthandel", "webbutik",
     "e-commerce", "onlinebutik", "handla online", "varukorg",
     "hudvårdsprodukter", "kosmetik", "skincare", "skönhetsprodukter",
+    "cbd", "cbg", "hampa", "cannabidiol", "tillskott", "kosttillskott",
+    "serum", "ansiktskräm", "hudserum", "produkter", "sortiment",
   ],
   salon: [
     "salong", "frisör", "frisörsalong", "skönhet", "naglar", "hudvård",
-    "spa", "hår", "barber", "makeup", "sminkning", "hårsalong",
+    "spa", "barber", "makeup", "sminkning", "hårsalong",
     "skönhetssalong", "nagelsalong", "fransar", "bryn", "klippning",
     "färgning", "massage", "wellness",
   ],
@@ -479,6 +452,16 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ],
 };
 
+const STRONG_ECOMMERCE_SIGNALS = [
+  "webshop", "webbshop", "e-handel", "e-commerce", "nätbutik", "webbutik",
+  "onlinebutik", "näthandel", "produkter online", "handla online", "varukorg",
+  "köp", "beställ", "leverans", "frakt", "checkout",
+];
+const STRONG_RESTAURANT_SIGNALS = [
+  "restaurang", "bistro", "krog", "pizzeria", "sushi", "café", "kafé",
+  "matställe", "fine dining", "à la carte",
+];
+
 function inferCategoriesFromText(text: string): string[] {
   const lower = text.toLowerCase();
   const matches: Array<{ id: string; score: number }> = [];
@@ -490,16 +473,33 @@ function inferCategoriesFromText(text: string): string[] {
     if (score > 0) matches.push({ id: catId, score });
   }
 
+  const hasStrongEcommerce = STRONG_ECOMMERCE_SIGNALS.some((s) => lower.includes(s));
+  const hasStrongRestaurant = STRONG_RESTAURANT_SIGNALS.some((s) => lower.includes(s));
+
   const hasEcommerce = matches.find((m) => m.id === "ecommerce");
   const hasSalon = matches.find((m) => m.id === "salon");
   if (hasEcommerce && hasSalon) {
-    const ecomSignals = ["webshop", "e-handel", "produkter", "shop", "köp", "beställ", "varukorg", "leverans", "frakt"];
-    const ecomBoost = ecomSignals.filter((s) => lower.includes(s)).length;
-    if (ecomBoost > 0) hasEcommerce.score += ecomBoost;
+    const ecomBoost = STRONG_ECOMMERCE_SIGNALS.filter((s) => lower.includes(s)).length;
+    if (ecomBoost > 0) hasEcommerce.score += ecomBoost * 2;
+  }
+
+  // Drop restaurant if text has strong ecommerce/salon evidence but no strong
+  // restaurant noun. "hudvårdsprodukter" + "shop" should never surface café
+  // just because the word "cafe" happens to appear elsewhere.
+  if (!hasStrongRestaurant && (hasStrongEcommerce || hasSalon)) {
+    const rIdx = matches.findIndex((m) => m.id === "restaurant");
+    if (rIdx >= 0) matches.splice(rIdx, 1);
+  }
+
+  // Give ecommerce an extra nudge whenever the user explicitly said they sell
+  // something — "produkter", "sortiment", "cbd" alone don't prove a webshop,
+  // but paired with any strong ecommerce verb they do.
+  if (hasEcommerce && hasStrongEcommerce) {
+    hasEcommerce.score += 2;
   }
 
   matches.sort((a, b) => b.score - a.score);
-  return matches.slice(0, 2).map((m) => m.id);
+  return matches.slice(0, 1).map((m) => m.id);
 }
 
 function extractOffer(prompt: string): string {
@@ -557,6 +557,43 @@ function contentBranchTitle(branch: ContentBranch): string {
 
 /* ── Empty state ─────────────────────────────────────────────────── */
 
+/**
+ * Category-aware must-have defaults. Keys are CATEGORIES.id — values are
+ * labels from MUST_HAVE_OPTIONS. Pre-checked so the user can add/remove but
+ * doesn't need to find them manually.
+ */
+const CATEGORY_MUST_HAVE_DEFAULTS: Record<string, string[]> = {
+  ecommerce: ["Webshop / Produkter", "Kontaktformulär"],
+  restaurant: ["Meny / Matsedel", "Bokning online", "Kontaktformulär"],
+  salon: ["Bokning online", "Priser och paket", "Kundrecensioner"],
+  fitness: ["Bokning online", "Priser och paket"],
+  portfolio: ["Bildgalleri", "Portfolio / Case", "Kontaktformulär"],
+  hotel: ["Bokning online", "Bildgalleri", "Priser och paket"],
+  construction: ["Portfolio / Case", "Kontaktformulär"],
+  healthcare: ["Bokning online", "Kontaktformulär"],
+  legal: ["Kontaktformulär", "FAQ"],
+  accounting: ["Priser och paket", "Kontaktformulär"],
+  realestate: ["Bildgalleri", "Kontaktformulär", "Karta / Hitta hit"],
+  consulting: ["Portfolio / Case", "Kontaktformulär"],
+  tech: ["Priser och paket", "Kontaktformulär"],
+  event: ["Bokning online", "Bildgalleri"],
+  landing: ["Kontaktformulär"],
+  blog: ["Blogg / Nyheter", "Nyhetsbrev"],
+  education: ["Kontaktformulär", "FAQ"],
+};
+
+function deriveMustHaveDefaults(inferredLabels: string[]): string[] {
+  const ids = inferredLabels
+    .map((l) => CATEGORIES.find((c) => c.label === l)?.id)
+    .filter(Boolean) as string[];
+  const merged = new Set<string>();
+  for (const id of ids) {
+    const defaults = CATEGORY_MUST_HAVE_DEFAULTS[id];
+    if (defaults) defaults.forEach((v) => merged.add(v));
+  }
+  return [...merged];
+}
+
 function emptyAnswers(promptOffer: string, inferredLabels: string[], initialUrl: string): WizardAnswers {
   const isEcommerce = inferredLabels.some((l) => {
     const cat = CATEGORIES.find((c) => c.label === l);
@@ -600,9 +637,11 @@ function emptyAnswers(promptOffer: string, inferredLabels: string[], initialUrl:
     tone: "",
     designStyle: "",
     tagline: "",
-    mustHave: [],
+    mustHave: deriveMustHaveDefaults(inferredLabels),
     goal: [],
     features: [],
+    avoid: "",
+    imagery: [],
     siteMedia: [],
   };
 }
@@ -614,7 +653,6 @@ const STEP_TITLES: Record<StepId, string> = {
   siteType: "Kategori",
   content: "Innehåll",
   story: "Om företaget",
-  design: "Design",
   pages: "Sidor",
   media: "Media",
 };
@@ -630,22 +668,11 @@ const FIELD_CLASS = cn(
   MOTION,
 );
 
-const STEP_ICONS: Record<StepId, LucideIcon> = {
-  company: Building2,
-  siteType: Sparkles,
-  content: FileText,
-  story: Heart,
-  design: ImagePlus,
-  pages: BookOpen,
-  media: Upload,
-};
-
 const STEP_SUBTITLES: Record<StepId, string> = {
   company: "",
   siteType: "",
   content: "",
   story: "Berätta mer — detta ger innehåll till Om oss och Kontakt",
-  design: "",
   pages: "",
   media: "",
 };
@@ -687,7 +714,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const steps: StepId[] = ["company", "siteType", "content", "story", "design", "pages", "media"];
+  const steps: StepId[] = ["company", "siteType", "content", "story", "pages", "media"];
   const totalSteps = steps.length;
   const step = steps[currentStep];
   const progress = totalSteps > 0 ? ((currentStep + 1) / totalSteps) * 100 : 0;
@@ -719,22 +746,41 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       combinedCatIds.push(...inferCategoriesFromText(descriptionText));
     }
 
-    if (data.menuItems?.length) combinedCatIds.push("restaurant");
-    if (data.products?.length) combinedCatIds.push("ecommerce");
+    // Structural signals from the scraper can be noisy (e.g. CBD price lists
+    // parsed as menu items). Only count them when they clear a bar of evidence
+    // AND don't contradict strong text signals for another category.
+    const textLower = `${data.metaDescription ?? ""} ${data.description ?? ""} ${data.title ?? ""} ${data.tagline ?? ""}`.toLowerCase();
+    const textSaysEcommerce = STRONG_ECOMMERCE_SIGNALS.some((s) => textLower.includes(s));
+    const textSaysRestaurant = STRONG_RESTAURANT_SIGNALS.some((s) => textLower.includes(s));
+
+    if (data.menuItems && data.menuItems.length >= 3 && !textSaysEcommerce) {
+      // Only trust "menu items" as restaurant when text doesn't scream webshop.
+      combinedCatIds.push("restaurant");
+    }
+    if (data.products?.length) {
+      combinedCatIds.push("ecommerce");
+      // Products outweighs weak menu hits — if both fire, ecommerce wins.
+      if (data.products.length >= 3) combinedCatIds.push("ecommerce");
+    }
     if (data.treatments?.length) combinedCatIds.push("salon");
     if (data.projects?.length) combinedCatIds.push("portfolio");
-    if (data.bookingUrl) combinedCatIds.push("salon");
+    if (data.bookingUrl && !textSaysEcommerce && !textSaysRestaurant) combinedCatIds.push("salon");
 
-    const uniqueCatIds = [...new Set(combinedCatIds)];
-    if (uniqueCatIds.length) {
-      setScrapedCategoryIds(uniqueCatIds);
-      const labels = uniqueCatIds
-        .map((id) => CATEGORIES.find((c) => c.id === id)?.label)
-        .filter(Boolean) as string[];
-      if (labels.length) {
+    const scoredCatIds = combinedCatIds.reduce<Record<string, number>>((acc, id) => {
+      acc[id] = (acc[id] ?? 0) + 1;
+      return acc;
+    }, {});
+    const rankedCatIds = Object.entries(scoredCatIds)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+
+    if (rankedCatIds.length) {
+      setScrapedCategoryIds(rankedCatIds);
+      const topLabel = CATEGORIES.find((c) => c.id === rankedCatIds[0])?.label;
+      if (topLabel) {
         setAnswers((prev) => ({
           ...prev,
-          siteType: [...new Set([...prev.siteType, ...labels])],
+          siteType: prev.siteType.length ? prev.siteType : [topLabel],
         }));
       }
     }
@@ -958,11 +1004,6 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
     finally { setSuggesting(false); }
   }, [suggesting, suggestContext, answers.siteType, answers.offer]);
 
-  const suggestedFeatureIds = useMemo(
-    () => inferFeatureModules(answers.siteType, answers.offer),
-    [answers.siteType, answers.offer],
-  );
-
   const mustHaveAutoSuggestedRef = useRef(false);
   const featureAutoSuggestedRef = useRef(false);
   useEffect(() => {
@@ -994,18 +1035,25 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       case "siteType": return answers.siteType.length > 0;
       case "content": return true;
       case "story": return true;
-      case "design": return true;
       case "pages": return answers.mustHave.length > 0;
       case "media": return true;
     }
   }, [step, answers, scraping]);
 
-  const toggleChip = useCallback((field: "siteType" | "goal" | "mustHave" | "cuisine" | "paymentMethods", value: string) => {
+  const toggleChip = useCallback((field: "goal" | "mustHave" | "cuisine" | "paymentMethods", value: string) => {
     setAnswers((prev) => {
       const arr = prev[field] as string[];
       const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
       return { ...prev, [field]: next };
     });
+  }, []);
+
+  const selectSiteType = useCallback((label: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      siteType: prev.siteType[0] === label ? prev.siteType : [label],
+      mustHave: prev.mustHave.length ? prev.mustHave : deriveMustHaveDefaults([label]),
+    }));
   }, []);
 
   const clearScrapedField = useCallback((field: string) => {
@@ -1025,8 +1073,11 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       const fieldMessages: IntakeWizardResult["fieldMessages"] = [];
       if (answers.siteType.length) fieldMessages.push({ field: "siteType", text: answers.siteType.join(", ") });
       if (answers.offer.trim()) fieldMessages.push({ field: "offer", text: answers.offer.trim() });
-      if (answers.existingSite.trim()) fieldMessages.push({ field: "existingSite", text: answers.existingSite.trim() });
-      else fieldMessages.push({ field: "existingSite", text: "Börja från noll" });
+      // Skip emitting "Börja från noll" literal when URL is missing — empty
+      // just means no existing site, and the LLM should treat that as such.
+      if (answers.existingSite.trim()) {
+        fieldMessages.push({ field: "existingSite", text: answers.existingSite.trim() });
+      }
 
       // Business details
       const bdParts: string[] = [];
@@ -1034,7 +1085,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       if (answers.phone) bdParts.push(`Tel: ${answers.phone}`);
       if (answers.email) bdParts.push(`E-post: ${answers.email}`);
       if (answers.address) bdParts.push(`Adress: ${answers.address}`);
-      if (bdParts.length) fieldMessages.push({ field: "businessDetails" as NeedsAnalysisField, text: bdParts.join("\n") });
+      if (bdParts.length) fieldMessages.push({ field: "businessDetails", text: bdParts.join("\n") });
 
       // Brand / design
       const biParts: string[] = [];
@@ -1042,7 +1093,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       if (answers.tone) biParts.push(`Ton: ${answers.tone}`);
       if (answers.designStyle) biParts.push(`Designstil: ${answers.designStyle}`);
       if (answers.brandColors.length) biParts.push(`Färger: ${answers.brandColors.join(", ")}`);
-      if (biParts.length) fieldMessages.push({ field: "brandIdentity" as NeedsAnalysisField, text: biParts.join("\n") });
+      if (biParts.length) fieldMessages.push({ field: "brandIdentity", text: biParts.join("\n") });
 
       // Services / products content
       const spParts: string[] = [];
@@ -1050,7 +1101,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       if (answers.uniqueSellingPoints.length) spParts.push(`USP: ${answers.uniqueSellingPoints.join(", ")}`);
       if (answers.testimonials.trim()) spParts.push(`Omdömen: ${answers.testimonials.trim()}`);
       if (answers.topics.length) spParts.push(`Ämnesområden: ${answers.topics.join(", ")}`);
-      if (spParts.length) fieldMessages.push({ field: "servicesProducts" as NeedsAnalysisField, text: spParts.join("\n") });
+      if (spParts.length) fieldMessages.push({ field: "servicesProducts", text: spParts.join("\n") });
 
       // Category-specific content
       const csParts: string[] = [];
@@ -1133,7 +1184,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
         }
       }
 
-      if (csParts.length) fieldMessages.push({ field: "categorySpecific" as NeedsAnalysisField, text: csParts.join("\n") });
+      if (csParts.length) fieldMessages.push({ field: "categorySpecific", text: csParts.join("\n") });
 
       // About / story / vision / contact
       const storyParts: string[] = [];
@@ -1141,10 +1192,10 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
       if (answers.companyStory.trim()) storyParts.push(`Historia: ${answers.companyStory.trim()}`);
       if (answers.vision.trim()) storyParts.push(`Vision/mission: ${answers.vision.trim()}`);
       if (answers.contactPageText.trim()) storyParts.push(`Kontaktintro: ${answers.contactPageText.trim()}`);
-      if (storyParts.length) fieldMessages.push({ field: "companyStory" as NeedsAnalysisField, text: storyParts.join("\n\n") });
+      if (storyParts.length) fieldMessages.push({ field: "companyStory", text: storyParts.join("\n\n") });
 
-      if (answers.targetAudience.trim()) fieldMessages.push({ field: "audience" as NeedsAnalysisField, text: answers.targetAudience.trim() });
-      if (answers.primaryCta.trim()) fieldMessages.push({ field: "cta" as NeedsAnalysisField, text: answers.primaryCta.trim() });
+      if (answers.targetAudience.trim()) fieldMessages.push({ field: "audience", text: answers.targetAudience.trim() });
+      if (answers.primaryCta.trim()) fieldMessages.push({ field: "cta", text: answers.primaryCta.trim() });
 
       if (answers.goal.length) fieldMessages.push({ field: "goal", text: answers.goal.join(", ") });
       if (answers.mustHave.length) fieldMessages.push({ field: "mustHave", text: answers.mustHave.join(", ") });
@@ -1157,7 +1208,14 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
           }
           return id;
         });
-        fieldMessages.push({ field: "features" as NeedsAnalysisField, text: featureLabels.join("\n") });
+        fieldMessages.push({ field: "features", text: featureLabels.join("\n") });
+      }
+
+      if (answers.avoid.trim()) {
+        fieldMessages.push({ field: "avoid", text: answers.avoid.trim() });
+      }
+      if (answers.imagery.length > 0) {
+        fieldMessages.push({ field: "imagery", text: answers.imagery.join(", ") });
       }
 
       if (answers.siteMedia.length > 0) {
@@ -1166,24 +1224,27 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
           const type = m.file.type.startsWith("video/") ? "video" : "bild";
           return `${contextLabel(m.context)} (${type}: ${m.file.name})`;
         });
-        fieldMessages.push({ field: "siteMedia" as NeedsAnalysisField, text: `Uppladdade filer:\n${mediaDesc.join("\n")}` });
+        fieldMessages.push({ field: "siteMedia", text: `Uppladdade filer:\n${mediaDesc.join("\n")}` });
       }
 
-      // Collect media files (product/menu/project images + logo + site media)
-      const mediaFiles: IntakeWizardResult["mediaFiles"] = [];
-      if (answers.logoFile) mediaFiles.push({ file: answers.logoFile, context: "Logo" });
+      // Collect media files with canonical `purpose` set directly (no keyword
+      // guessing needed in BuilderShellContent). The `context` string stays as
+      // a human-readable hint for the LLM's placement prompt.
+      const mediaFiles: NonNullable<IntakeWizardResult["mediaFiles"]> = [];
+      if (answers.logoFile) mediaFiles.push({ file: answers.logoFile, context: "Logotyp", purpose: "brand-logo" });
       for (const p of answers.products) {
-        if (p.imageFile) mediaFiles.push({ file: p.imageFile, context: `Produkt: ${p.name}` });
+        if (p.imageFile) mediaFiles.push({ file: p.imageFile, context: `Produkt: ${p.name}`, purpose: "product-photo" });
       }
       for (const m of answers.menuItems) {
-        if (m.imageFile) mediaFiles.push({ file: m.imageFile, context: `Menyrätt: ${m.name}` });
+        if (m.imageFile) mediaFiles.push({ file: m.imageFile, context: `Menyrätt: ${m.name}`, purpose: "product-photo" });
       }
       for (const p of answers.projects) {
-        if (p.imageFile) mediaFiles.push({ file: p.imageFile, context: `Projekt: ${p.name}` });
+        if (p.imageFile) mediaFiles.push({ file: p.imageFile, context: `Projekt: ${p.name}`, purpose: "product-photo" });
       }
       for (const sm of answers.siteMedia) {
         const label = MEDIA_CONTEXT_OPTIONS.find((o) => o.value === sm.context)?.label ?? sm.context;
-        mediaFiles.push({ file: sm.file, context: label || "Egen bild/video" });
+        // sm.context is now the canonical purpose value (hero-image, about-image, ...)
+        mediaFiles.push({ file: sm.file, context: label || "Egen bild/video", purpose: sm.context || "site-media" });
       }
 
       onComplete({ answers, fieldMessages, mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined });
@@ -1219,7 +1280,6 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
 
   if (!mounted) return null;
 
-  const StepIcon = step ? STEP_ICONS[step] : Sparkles;
   const stepTitle = step === "content" ? contentBranchTitle(contentBranch) : step ? STEP_TITLES[step] : "";
   const stepSubtitle = step === "content"
     ? "Det som gör din verksamhet unik"
@@ -1267,22 +1327,15 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
         </div>
 
         {/* Header */}
-        <div className="px-6 pb-2 pt-5 sm:px-10">
-          <div className="flex items-start gap-3">
-            <div
-              className={cn(
-                "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary",
-                MOTION,
-              )}
-            >
-              <StepIcon className="h-5 w-5" />
-            </div>
+        <div className="px-6 pb-2 pt-6 sm:px-10">
+          <div className="flex items-start gap-4">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">{stepTitle}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">{stepSubtitle}</p>
+              <h2 className="text-[22px] font-semibold tracking-tight text-foreground sm:text-2xl">{stepTitle}</h2>
+              {stepSubtitle && (
+                <p className="mt-1 text-sm text-muted-foreground">{stepSubtitle}</p>
+              )}
               {step === "siteType" && (inferredLabels.length > 0 || scrapedCategoryIds.length > 0) && (
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Sparkles className="h-3 w-3 shrink-0 text-primary" />
+                <p className="mt-1.5 text-xs italic text-muted-foreground/80">
                   {scrapedCategoryIds.length > 0 && inferredLabels.length > 0
                     ? "Förvalt utifrån din sajt och beskrivning"
                     : scrapedCategoryIds.length > 0
@@ -1334,16 +1387,13 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
             />
           )}
           {step === "siteType" && (
-            <SiteTypeStep siteType={answers.siteType} onToggle={(label) => toggleChip("siteType", label)} suggestedCategoryIds={scrapedCategoryIds} />
+            <SiteTypeStep siteType={answers.siteType} onSelect={selectSiteType} suggestedCategoryIds={scrapedCategoryIds} />
           )}
           {step === "content" && (
             <ContentStep branch={contentBranch} answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} onClearScraped={clearScrapedField} />
           )}
           {step === "story" && (
             <StoryStep answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} />
-          )}
-          {step === "design" && (
-            <DesignStep answers={answers} onChange={setAnswers} scrapedFields={scrapedFields} onClearScraped={clearScrapedField} />
           )}
           {step === "pages" && (
             <PagesStep
@@ -1353,7 +1403,6 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
               suggesting={suggesting}
               aiSuggestions={aiSuggestions}
               onSuggest={handleSuggestMustHaves}
-              suggestedFeatureIds={suggestedFeatureIds}
             />
           )}
           {step === "media" && (
@@ -1376,11 +1425,10 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
               type="button"
               onClick={() => { setDirection("forward"); setCurrentStep((s) => s + 1); }}
               className={cn(
-                "inline-flex min-h-11 items-center justify-center gap-1.5 self-start rounded-xl border border-transparent bg-transparent px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
+                "inline-flex min-h-11 items-center justify-center self-start rounded-xl border border-transparent bg-transparent px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
                 MOTION,
               )}
             >
-              <SkipForward className="h-3 w-3" />
               Hoppa över
             </button>
           ) : null}
@@ -1389,25 +1437,15 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
             onClick={goNext}
             disabled={!canContinue()}
             className={cn(
-              "inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-8 py-3 text-sm font-semibold sm:ml-auto sm:w-auto",
+              "inline-flex min-h-12 w-full items-center justify-center rounded-full px-8 py-3 text-sm font-medium sm:ml-auto sm:w-auto",
               MOTION,
               "motion-safe:active:scale-[0.99] motion-reduce:active:scale-100",
               canContinue()
-                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/92 hover:shadow-lg hover:shadow-primary/30"
+                ? "bg-foreground text-background hover:bg-foreground/90"
                 : "cursor-not-allowed bg-muted text-muted-foreground opacity-60",
             )}
           >
-            {currentStep === totalSteps - 1 ? (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Bygg min sajt
-              </>
-            ) : (
-              <>
-                Fortsätt
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
+            {currentStep === totalSteps - 1 ? "Bygg min sajt" : "Fortsätt"}
           </button>
         </div>
       </div>
@@ -1420,7 +1458,7 @@ export function IntakeWizard({ onComplete, onScrapeUrl, suggestContext, initialE
    Step 1: Site type
    ════════════════════════════════════════════════════════════════════ */
 
-function SiteTypeStep({ siteType, onToggle, suggestedCategoryIds }: { siteType: string[]; onToggle: (label: string) => void; suggestedCategoryIds?: string[] }) {
+function SiteTypeStep({ siteType, onSelect, suggestedCategoryIds }: { siteType: string[]; onSelect: (label: string) => void; suggestedCategoryIds?: string[] }) {
   const suggested = suggestedCategoryIds ?? [];
   const [siteSearch, setSiteSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -1430,54 +1468,42 @@ function SiteTypeStep({ siteType, onToggle, suggestedCategoryIds }: { siteType: 
     : showAll
       ? CATEGORIES
       : CATEGORIES.slice(0, 8);
+  const activeLabel = siteType[0] ?? "";
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {suggested.length > 0 && (
-        <div className="rounded-xl border border-primary/15 bg-primary/[0.06] px-3.5 py-2 text-xs text-muted-foreground backdrop-blur-[2px]">
-          <Sparkles className="mr-1.5 inline h-3 w-3 text-primary" />
-          Automatiskt förvalt — ändra om det inte stämmer
-        </div>
+        <p className="text-xs italic text-muted-foreground">
+          Vårt förslag — ändra om det inte stämmer.
+        </p>
       )}
       <input
         type="text"
-        placeholder="Sök kategori…"
+        placeholder="Sök kategori"
         value={siteSearch}
         onChange={(e) => setSiteSearch(e.target.value)}
         className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary/30"
       />
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {filtered.map((cat) => {
-          const selected = siteType.includes(cat.label);
+          const selected = activeLabel === cat.label;
           const isSuggested = suggested.includes(cat.id);
-          const Icon = cat.icon;
           return (
             <button
               key={cat.id}
               type="button"
-              onClick={() => onToggle(cat.label)}
+              onClick={() => onSelect(cat.label)}
               className={cn(
-                "group relative flex min-h-11 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm touch-manipulation",
+                "group relative flex min-h-11 items-center justify-center rounded-xl border px-3 py-3 text-center text-sm touch-manipulation",
                 "motion-safe:active:scale-[0.99] motion-reduce:active:scale-100",
                 MOTION,
                 selected
-                  ? "border-primary/40 bg-primary/10 font-medium text-foreground shadow-sm ring-1 ring-primary/20"
+                  ? "border-foreground bg-foreground text-background font-medium"
                   : isSuggested
-                    ? "border-border bg-muted/30 text-muted-foreground hover:border-primary/25 hover:bg-muted/50"
-                    : "border-border bg-card text-muted-foreground hover:border-muted-foreground/25 hover:bg-muted/35",
+                    ? "border-foreground/20 bg-background text-foreground hover:border-foreground/40"
+                    : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground",
               )}
             >
-              <div
-                className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                  MOTION,
-                  selected ? "bg-primary/12 text-primary" : isSuggested ? "bg-muted text-foreground" : "bg-muted/60 text-muted-foreground group-hover:bg-muted",
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </div>
               <span className="min-w-0 truncate">{cat.label}</span>
-              {selected && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-primary" />}
-              {isSuggested && !selected && <Sparkles className="ml-auto h-3 w-3 shrink-0 text-primary/45" />}
             </button>
           );
         })}
@@ -1561,31 +1587,28 @@ function CompanyStep({
         <p className="mb-1.5 text-xs text-muted-foreground/70">Fyll i din hemsida så hämtar vi info automatiskt</p>
         <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
           <div className="relative min-w-0 flex-1">
-            <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/50" />
             <input
               type="url"
               value={answers.existingSite}
               onChange={(e) => onChange((p) => ({ ...p, existingSite: e.target.value }))}
               placeholder="www.dinhemsida.se"
-              className={cn(FIELD_CLASS, "pl-10")}
+              className={FIELD_CLASS}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onScrape(answers.existingSite); } }}
             />
-            {scraping && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary" />}
           </div>
           <button
             type="button"
             disabled={scraping || !answers.existingSite.trim()}
             onClick={() => onScrape(answers.existingSite)}
             className={cn(
-              "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium touch-manipulation",
+              "inline-flex min-h-11 shrink-0 items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium touch-manipulation",
               MOTION,
               scraping || !answers.existingSite.trim()
                 ? "cursor-not-allowed bg-muted text-muted-foreground opacity-60"
-                : "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/92",
+                : "bg-foreground text-background hover:bg-foreground/90",
             )}
           >
-            <Sparkles className="h-4 w-4" />
-            Hämta
+            {scraping ? "Hämtar…" : "Hämta"}
           </button>
         </div>
 
@@ -1593,27 +1616,24 @@ function CompanyStep({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="w-full max-w-sm rounded-2xl border border-border bg-card px-8 py-8 shadow-xl">
               <div className="flex flex-col items-center gap-5">
-                <div className="flex items-center gap-3">
-                  <Globe className="h-5 w-5 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Analyserar din sajt</span>
-                </div>
+                <span className="text-sm font-medium text-foreground">Analyserar din sajt</span>
                 <div className="w-full space-y-2">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+                      className="h-full rounded-full bg-foreground transition-all duration-300 ease-out"
                       style={{ width: `${scrapeProgress}%` }}
                     />
                   </div>
                   <p className="text-center text-xs tabular-nums text-muted-foreground">{scrapeProgress}%</p>
                 </div>
                 <p className="text-center text-xs text-muted-foreground">
-                  {scrapeProgress < 30 ? "Hämtar sidor…" : scrapeProgress < 60 ? "Läser innehåll…" : scrapeProgress < 90 ? "Extraherar info…" : "Klar!"}
+                  {scrapeProgress < 30 ? "Hämtar sidor…" : scrapeProgress < 60 ? "Läser innehåll…" : scrapeProgress < 90 ? "Extraherar info…" : "Klar"}
                 </p>
                 {onAbortScrape && (
                   <button
                     type="button"
                     onClick={onAbortScrape}
-                    className="mt-2 text-xs text-muted-foreground underline hover:text-foreground"
+                    className="mt-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
                   >
                     Avbryt
                   </button>
@@ -1626,21 +1646,19 @@ function CompanyStep({
         {scrapeComplete && !scraping && scrapedFields.size > 0 && (
           <div className="mt-3 rounded-2xl border border-border bg-muted/40 px-4 py-3">
             <p className="mb-3 text-xs font-medium text-foreground">Hämtat</p>
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               {SCRAPE_CHECKS.map(({ key, label }) => {
                 const found = scrapedFields.has(key);
                 if (!found && !["companyName", "phone", "services", "tagline", "brandColors"].includes(key)) return null;
                 return (
                   <li key={key} className="flex items-center gap-2 text-xs">
-                    {found ? (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
-                        <Check className="h-3 w-3" strokeWidth={2.5} />
-                      </span>
-                    ) : (
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground/40">
-                        <X className="h-3 w-3" />
-                      </span>
-                    )}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "inline-block h-1.5 w-1.5 shrink-0 rounded-full",
+                        found ? "bg-foreground" : "bg-muted-foreground/30",
+                      )}
+                    />
                     <span className={found ? "text-foreground" : "text-muted-foreground/40"}>{label}</span>
                   </li>
                 );
@@ -1784,7 +1802,7 @@ function EcommerceContent({ answers, onChange, scrapedFields, onClearScraped }: 
                     >{cat}</button>
                   ))}
                 </div>
-                <button type="button" onClick={() => removeProduct(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => removeProduct(idx)} aria-label="Ta bort produkt" className="rounded-lg px-2 py-1 text-xs text-muted-foreground/60 transition-colors hover:text-foreground">Ta bort</button>
               </div>
             </div>
           </div>
@@ -1792,8 +1810,8 @@ function EcommerceContent({ answers, onChange, scrapedFields, onClearScraped }: 
       ))}
 
       {answers.products.length < 12 && (
-        <button type="button" onClick={addProduct} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary">
-          <Plus className="h-4 w-4" /> Lägg till produkt
+        <button type="button" onClick={addProduct} className="inline-flex w-full min-h-11 items-center justify-center rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-foreground/40 hover:bg-muted/30 hover:text-foreground">
+          Lägg till produkt
         </button>
       )}
 
@@ -1880,7 +1898,7 @@ function RestaurantContent({ answers, onChange, scrapedFields, onClearScraped }:
                     >{cat}</button>
                   ))}
                 </div>
-                <button type="button" onClick={() => removeItem(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => removeItem(idx)} aria-label="Ta bort rätt" className="rounded-lg px-2 py-1 text-xs text-muted-foreground/60 transition-colors hover:text-foreground">Ta bort</button>
               </div>
             </div>
           </div>
@@ -1888,8 +1906,8 @@ function RestaurantContent({ answers, onChange, scrapedFields, onClearScraped }:
       ))}
 
       {answers.menuItems.length < 20 && (
-        <button type="button" onClick={addItem} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary">
-          <Plus className="h-4 w-4" /> Lägg till rätt
+        <button type="button" onClick={addItem} className="inline-flex w-full min-h-11 items-center justify-center rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-foreground/40 hover:bg-muted/30 hover:text-foreground">
+          Lägg till rätt
         </button>
       )}
 
@@ -1964,10 +1982,10 @@ function SalonContent({ answers, onChange, scrapedFields, onClearScraped }: Cont
             <input type="text" value={t.name} onChange={(e) => updateTreatment(idx, { name: e.target.value })} placeholder="Behandling *" className={cn(FIELD_CLASS, "flex-1")} />
             <input type="text" value={t.price} onChange={(e) => updateTreatment(idx, { price: e.target.value })} placeholder="Pris (kr)" className={cn(FIELD_CLASS, "w-24")} />
             <input type="text" value={t.duration} onChange={(e) => updateTreatment(idx, { duration: e.target.value })} placeholder="Min" className={cn(FIELD_CLASS, "w-16")} />
-            <button type="button" onClick={() => removeTreatment(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+            <button type="button" onClick={() => removeTreatment(idx)} aria-label="Ta bort behandling" className="rounded-lg px-2 py-1 text-xs text-muted-foreground/60 transition-colors hover:text-foreground">Ta bort</button>
           </div>
         ))}
-        <button type="button" onClick={addTreatment} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/5"><Plus className="h-3 w-3" /> Lägg till behandling</button>
+        <button type="button" onClick={addTreatment} className="mt-1 inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium text-foreground underline underline-offset-2 transition-colors hover:opacity-80">Lägg till behandling</button>
       </div>
 
       <div className="h-px bg-border" />
@@ -1978,10 +1996,10 @@ function SalonContent({ answers, onChange, scrapedFields, onClearScraped }: Cont
           <div key={idx} className="mb-2 flex gap-2 rounded-xl border border-border bg-muted/25 p-2.5">
             <input type="text" value={m.name} onChange={(e) => updateMember(idx, { name: e.target.value })} placeholder="Namn" className={cn(FIELD_CLASS, "flex-1")} />
             <input type="text" value={m.role} onChange={(e) => updateMember(idx, { role: e.target.value })} placeholder="Roll / specialitet" className={cn(FIELD_CLASS, "flex-1")} />
-            <button type="button" onClick={() => removeMember(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
+            <button type="button" onClick={() => removeMember(idx)} aria-label="Ta bort person" className="rounded-lg px-2 py-1 text-xs text-muted-foreground/60 transition-colors hover:text-foreground">Ta bort</button>
           </div>
         ))}
-        <button type="button" onClick={addMember} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/5"><Plus className="h-3 w-3" /> Lägg till person</button>
+        <button type="button" onClick={addMember} className="mt-1 inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium text-foreground underline underline-offset-2 transition-colors hover:opacity-80">Lägg till person</button>
       </div>
 
       <div className="h-px bg-border" />
@@ -2036,15 +2054,15 @@ function PortfolioContent({ answers, onChange }: ContentProps) {
               <input type="text" value={project.client} onChange={(e) => updateProject(idx, { client: e.target.value })} placeholder="Kund / kontext (valfritt)" className={FIELD_CLASS} />
               <div className="flex items-center gap-2">
                 <input type="text" value={project.description} onChange={(e) => updateProject(idx, { description: e.target.value })} placeholder="Kort beskrivning" className={cn(FIELD_CLASS, "flex-1")} />
-                <button type="button" onClick={() => removeProject(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                <button type="button" onClick={() => removeProject(idx)} aria-label="Ta bort projekt" className="rounded-lg px-2 py-1 text-xs text-muted-foreground/60 transition-colors hover:text-foreground">Ta bort</button>
               </div>
             </div>
           </div>
         </div>
       ))}
 
-      <button type="button" onClick={addProject} className="inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-primary/35 hover:bg-primary/5 hover:text-primary">
-        <Plus className="h-4 w-4" /> Lägg till projekt
+      <button type="button" onClick={addProject} className="inline-flex w-full min-h-11 items-center justify-center rounded-xl border border-dashed border-border py-3.5 text-sm text-muted-foreground/70 transition-all hover:border-foreground/40 hover:bg-muted/30 hover:text-foreground">
+        Lägg till projekt
       </button>
 
       <div>
@@ -2626,100 +2644,8 @@ function StoryStep({ answers, onChange, scrapedFields }: { answers: WizardAnswer
   );
 }
 
-/* ── Step 4 : Design ────────────────────────────────────────────── */
-/* ═════════════════════════════════════════════════════════════════
-   ════════════════════════════════════════════════════════════════════ */
-
-function DesignStep({ answers, onChange, scrapedFields, onClearScraped }: { answers: WizardAnswers; onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>; scrapedFields?: Set<string>; onClearScraped?: (f: string) => void }) {
-  const addColor = () => onChange((p) => ({ ...p, brandColors: [...p.brandColors, "#"] }));
-  const removeColor = (idx: number) => onChange((p) => ({ ...p, brandColors: p.brandColors.filter((_, i) => i !== idx) }));
-  const updateColor = (idx: number, val: string) => onChange((p) => ({ ...p, brandColors: p.brandColors.map((c, i) => i === idx ? val : c) }));
-
-  const handleLogoFile = (file: File) => {
-    onChange((p) => {
-      if (p.logoPreview) URL.revokeObjectURL(p.logoPreview);
-      return { ...p, logoFile: file, logoPreview: URL.createObjectURL(file) };
-    });
-  };
-
-  return (
-    <div className="space-y-5">
-      {/* Logo upload */}
-      <div>
-        <SectionLabel>Logotyp</SectionLabel>
-        {answers.logoPreview ? (
-          <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/40 p-4">
-            <img src={answers.logoPreview} alt="Logo" className="h-16 w-16 rounded-xl border border-border object-contain bg-background p-1.5" />
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-foreground">Logotyp uppladdad</span>
-              <button type="button" onClick={() => onChange((p) => { if (p.logoPreview) URL.revokeObjectURL(p.logoPreview); return { ...p, logoFile: null, logoPreview: "" }; })} className="w-fit rounded-lg px-2 py-0.5 text-xs text-muted-foreground/60 transition-all hover:bg-destructive/10 hover:text-destructive">Ta bort</button>
-            </div>
-          </div>
-        ) : (
-          <label className={cn("group flex min-h-[10rem] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-primary/30 bg-primary/[0.04] py-8 text-muted-foreground touch-manipulation", MOTION, "hover:border-primary/50 hover:bg-primary/[0.08] hover:text-foreground")}>
-            <Upload className="h-7 w-7 transition-transform group-hover:scale-110" />
-            <div className="text-center">
-              <span className="block text-sm font-medium">Ladda upp din logotyp</span>
-              <span className="block text-xs text-muted-foreground/60 mt-1">PNG, JPG eller SVG</span>
-            </div>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleLogoFile(e.target.files[0]); }} />
-          </label>
-        )}
-      </div>
-
-      <div className="h-px bg-border" />
-
-      {/* Brand colors */}
-      <div>
-        <FieldLabel>Profilfärger (valfritt)</FieldLabel>
-        <div className="space-y-2">
-          {answers.brandColors.map((color, idx) => (
-            <div key={idx} className="flex items-center gap-2 rounded-xl border border-border bg-muted/25 p-2">
-              <input type="color" value={color.startsWith("#") && color.length === 7 ? color : "#000000"} onChange={(e) => updateColor(idx, e.target.value)} className="h-8 w-8 shrink-0 cursor-pointer rounded-lg border border-border" />
-              <input type="text" value={color} onChange={(e) => updateColor(idx, e.target.value)} placeholder="#FF6600" className={cn(FIELD_CLASS, "flex-1")} />
-              <button type="button" onClick={() => removeColor(idx)} className="rounded-lg p-1.5 text-muted-foreground/50 transition-colors hover:bg-destructive/10 hover:text-destructive"><X className="h-3.5 w-3.5" /></button>
-            </div>
-          ))}
-          <button type="button" onClick={addColor} className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/5"><Plus className="h-3 w-3" /> Lägg till färg</button>
-        </div>
-      </div>
-
-      {/* Tagline */}
-      <div>
-        <FieldLabel>Tagline / slogan (valfritt)</FieldLabel>
-        <div className="relative">
-          <input type="text" value={answers.tagline} onChange={(e) => { onChange((p) => ({ ...p, tagline: e.target.value })); onClearScraped?.("tagline"); }} placeholder="T.ex. Vi gör det enkelt att växa" className={FIELD_CLASS} />
-          {scrapedFields?.has("tagline") && <ScrapeBadge />}
-        </div>
-      </div>
-
-      <div className="h-px bg-border" />
-
-      {/* Tone */}
-      <div>
-        <FieldLabel>Ton och stil</FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {TONE_OPTIONS.map((opt) => (
-            <Chip key={opt} label={opt} selected={answers.tone === opt} onClick={() => onChange((p) => ({ ...p, tone: p.tone === opt ? "" : opt }))} />
-          ))}
-        </div>
-      </div>
-
-      {/* Design style */}
-      <div>
-        <FieldLabel>Designstil</FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {DESIGN_STYLE_OPTIONS.map((opt) => (
-            <Chip key={opt} label={opt} selected={answers.designStyle === opt} onClick={() => onChange((p) => ({ ...p, designStyle: p.designStyle === opt ? "" : opt }))} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ════════════════════════════════════════════════════════════════════
-   Step 5: Pages + Goals (combined)
+   Step 5: Pages (confirm)
    ════════════════════════════════════════════════════════════════════ */
 
 function PagesStep({
@@ -2729,7 +2655,6 @@ function PagesStep({
   suggesting,
   aiSuggestions,
   onSuggest,
-  suggestedFeatureIds = [],
 }: {
   answers: WizardAnswers;
   onChange: React.Dispatch<React.SetStateAction<WizardAnswers>>;
@@ -2737,96 +2662,20 @@ function PagesStep({
   suggesting: boolean;
   aiSuggestions: string[];
   onSuggest: () => void;
-  suggestedFeatureIds?: string[];
 }) {
-  const toggleFeature = useCallback((id: string) => {
-    onChange((prev) => {
-      const arr = prev.features.includes(id) ? prev.features.filter((v) => v !== id) : [...prev.features, id];
-      return { ...prev, features: arr };
-    });
-  }, [onChange]);
-
   return (
     <div className="space-y-6">
       <div>
-        <SectionLabel>Vilka sidor vill du ha?</SectionLabel>
+        <SectionLabel>Vi bygger dessa sidor</SectionLabel>
+        <p className="mb-3 text-xs text-muted-foreground/80">Förvalt utifrån din kategori — ta bort de du inte vill ha eller lägg till fler.</p>
         <div className="flex flex-wrap gap-2">
           {MUST_HAVE_OPTIONS.map((opt) => (
             <Chip key={opt} label={opt} selected={answers.mustHave.includes(opt)} suggested={aiSuggestions.includes(opt)} onClick={() => toggleChip("mustHave", opt)} />
           ))}
         </div>
-        <button type="button" onClick={onSuggest} disabled={suggesting} className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/5">
-          {suggesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-          {suggesting ? "Hämtar förslag..." : "AI-förslag baserat på din beskrivning"}
+        <button type="button" onClick={onSuggest} disabled={suggesting} className="mt-3 inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-medium text-foreground underline underline-offset-2 transition-colors hover:opacity-80 disabled:opacity-40">
+          {suggesting ? "Hämtar förslag…" : "Föreslå sidor utifrån din beskrivning"}
         </button>
-      </div>
-
-      <div className="h-px bg-border" />
-
-      <div>
-        <SectionLabel>Funktioner och moduler</SectionLabel>
-        {suggestedFeatureIds.length > 0 && (
-          <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Sparkles className="h-3 w-3 shrink-0 text-primary" />
-            AI-förslag baserat på din beskrivning
-          </p>
-        )}
-        <p className="mb-3 text-xs text-muted-foreground">Välj vilka funktioner du vill ha med. Alla går att lägga till eller ta bort senare.</p>
-        <div className="space-y-4">
-          {FEATURE_MODULES.map((group) => (
-            <div key={group.category}>
-              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                {group.category}
-              </span>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {group.items.map((mod) => {
-                  const selected = answers.features.includes(mod.id);
-                  const Icon = mod.icon;
-                  return (
-                    <button
-                      key={mod.id}
-                      type="button"
-                      onClick={() => toggleFeature(mod.id)}
-                      className={cn(
-                        "group flex items-start gap-3 rounded-xl border p-3 text-left transition-all",
-                        MOTION,
-                        selected
-                          ? "border-primary/40 bg-primary/5 shadow-sm shadow-primary/10"
-                          : "border-border bg-background hover:border-primary/20 hover:bg-muted/30",
-                      )}
-                    >
-                      <div className={cn(
-                        "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
-                        selected ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground/50",
-                      )}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <span className={cn(
-                          "block text-sm font-medium transition-colors",
-                          selected ? "text-foreground" : "text-foreground/80",
-                        )}>
-                          {mod.label}
-                        </span>
-                        <span className="block text-[11px] leading-snug text-muted-foreground/60">
-                          {mod.description}
-                        </span>
-                      </div>
-                      <div className={cn(
-                        "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all",
-                        selected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background",
-                      )}>
-                        {selected && <Check className="h-3 w-3" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
 
       <div className="h-px bg-border" />
@@ -2859,20 +2708,6 @@ function PagesStep({
           className={cn(FIELD_CLASS, "mt-2")}
         />
       </div>
-
-      <div className="h-px bg-border" />
-
-      <div>
-        <FieldLabel>Mål med sajten (valfritt)</FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {GOAL_OPTIONS.map((opt) => (
-            <Chip key={opt} label={opt} selected={answers.goal.includes(opt)} onClick={() => onChange((p) => {
-              const arr = p.goal.includes(opt) ? p.goal.filter((v) => v !== opt) : [...p.goal, opt];
-              return { ...p, goal: arr };
-            })} />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -2883,8 +2718,11 @@ function PagesStep({
 
 function ScrapeBadge() {
   return (
-    <span className="absolute right-2 top-1 rounded-full bg-primary/10 p-0.5 text-primary" title="Hämtat från sajt">
-      <Sparkles className="h-3 w-3" />
+    <span
+      className="absolute right-2 top-1 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/70"
+      title="Hämtat från sajt"
+    >
+      Hämtat
     </span>
   );
 }
@@ -2896,13 +2734,12 @@ function Chip({ label, selected, suggested, onClick }: { label: string; selected
         "min-h-10 touch-manipulation rounded-full border px-3.5 py-1.5 text-sm",
         MOTION,
         selected
-          ? "border-primary/40 bg-primary/10 font-medium text-foreground shadow-sm ring-1 ring-primary/15"
-          : "border-border text-muted-foreground hover:border-muted-foreground/30 hover:bg-muted/50",
-        suggested && !selected && "border-primary/20 bg-primary/[0.05]",
+          ? "border-foreground bg-foreground font-medium text-background"
+          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+        suggested && !selected && "border-foreground/25 text-foreground",
       )}
     >
       {label}
-      {selected && <Check className="ml-1.5 inline h-3 w-3 text-primary" />}
     </button>
   );
 }
@@ -2919,15 +2756,13 @@ function ImagePickerThumb({ preview, onPick }: { preview?: string; onPick: (file
   return (
     <label className={cn(
       "group flex h-20 w-20 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-all duration-200",
-      preview ? "border-border bg-muted/40" : "border-2 border-dashed border-primary/25 bg-primary/[0.02] hover:border-primary/50 hover:bg-primary/[0.05]",
+      preview ? "border-border bg-muted/40" : "border-2 border-dashed border-border bg-muted/20 hover:border-foreground/30 hover:bg-muted/40",
     )}>
       {preview ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
         <img src={preview} alt="" className="h-full w-full rounded-xl object-cover" />
       ) : (
-        <div className="flex flex-col items-center gap-0.5">
-          <ImagePlus className="h-5 w-5 text-primary/40 transition-colors group-hover:text-primary/70" />
-          <span className="text-[11px] text-primary/40 group-hover:text-primary/70">Bild</span>
-        </div>
+        <span className="text-[11px] font-medium text-muted-foreground group-hover:text-foreground">Bild</span>
       )}
       <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) onPick(e.target.files[0]); }} />
     </label>
@@ -2939,12 +2774,12 @@ function ImagePickerThumb({ preview, onPick }: { preview?: string; onPick: (file
 const ACCEPTED_MEDIA_TYPES = "image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/webm,video/quicktime";
 
 const MEDIA_CONTEXT_OPTIONS = [
-  { value: "hero", label: "Herobild (stor bild högst upp)" },
-  { value: "about", label: "Om oss / teamfoto" },
-  { value: "product", label: "Produktbild" },
-  { value: "gallery", label: "Galleri / portfolio" },
-  { value: "background", label: "Bakgrundsbild" },
-  { value: "other", label: "Annat (AI bestämmer)" },
+  { value: "hero-image", label: "Herobild (stor bild högst upp)" },
+  { value: "about-image", label: "Om oss / teamfoto" },
+  { value: "product-photo", label: "Produktbild" },
+  { value: "gallery-image", label: "Galleri / portfolio" },
+  { value: "background-image", label: "Bakgrundsbild" },
+  { value: "site-media", label: "Annat (AI bestämmer)" },
 ];
 
 function MediaStep({ answers, onChange }: {
@@ -2954,12 +2789,26 @@ function MediaStep({ answers, onChange }: {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  const handleLogoFile = useCallback((file: File) => {
+    onChange((p) => {
+      if (p.logoPreview) URL.revokeObjectURL(p.logoPreview);
+      return { ...p, logoFile: file, logoPreview: URL.createObjectURL(file) };
+    });
+  }, [onChange]);
+
+  const removeLogo = useCallback(() => {
+    onChange((p) => {
+      if (p.logoPreview) URL.revokeObjectURL(p.logoPreview);
+      return { ...p, logoFile: null, logoPreview: "" };
+    });
+  }, [onChange]);
+
   const addFiles = useCallback((files: FileList | File[]) => {
     const newMedia: Array<{ file: File; preview: string; context: string }> = [];
     for (const file of Array.from(files)) {
       if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) continue;
       const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
-      newMedia.push({ file, preview, context: "other" });
+      newMedia.push({ file, preview, context: "site-media" });
     }
     if (newMedia.length > 0) {
       onChange((prev) => ({ ...prev, siteMedia: [...prev.siteMedia, ...newMedia] }));
@@ -2990,8 +2839,32 @@ function MediaStep({ answers, onChange }: {
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">
-        Ladda upp bilder och videos. AI:n placerar dem där de passar bäst, men du kan hjälpa till med kategorin.
+        Ladda upp logotyp, bilder och videos. AI:n placerar dem där de passar bäst, men du kan hjälpa till med kategorin.
       </p>
+
+      <div>
+        <SectionLabel>Logotyp</SectionLabel>
+        {answers.logoPreview ? (
+          <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/40 p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={answers.logoPreview} alt="Logo" className="h-16 w-16 rounded-xl border border-border object-contain bg-background p-1.5" />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-foreground">Logotyp uppladdad</span>
+              <button type="button" onClick={removeLogo} className="w-fit rounded-lg px-2 py-0.5 text-xs text-muted-foreground/60 transition-all hover:bg-destructive/10 hover:text-destructive">Ta bort</button>
+            </div>
+          </div>
+        ) : (
+          <label className={cn("group flex min-h-[7rem] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-border bg-muted/20 py-6 text-muted-foreground touch-manipulation", MOTION, "hover:border-foreground/30 hover:bg-muted/40 hover:text-foreground")}>
+            <div className="text-center">
+              <span className="block text-sm font-medium">Ladda upp din logotyp</span>
+              <span className="block text-xs text-muted-foreground/60 mt-1">PNG, JPG eller SVG</span>
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) handleLogoFile(e.target.files[0]); }} />
+          </label>
+        )}
+      </div>
+
+      <div className="h-px bg-border" />
 
       {/* Drop zone */}
       <div
@@ -3004,14 +2877,13 @@ function MediaStep({ answers, onChange }: {
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
         className={cn(
-          "group flex min-h-[10rem] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 text-muted-foreground touch-manipulation",
+          "group flex min-h-[10rem] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed py-8 text-muted-foreground touch-manipulation",
           MOTION,
           dragOver
-            ? "border-primary bg-primary/10 text-foreground"
-            : "border-primary/30 bg-primary/[0.04] hover:border-primary/50 hover:bg-primary/[0.08] hover:text-foreground",
+            ? "border-foreground bg-muted/60 text-foreground"
+            : "border-border bg-muted/20 hover:border-foreground/30 hover:bg-muted/40 hover:text-foreground",
         )}
       >
-        <Upload className="h-7 w-7 transition-transform group-hover:scale-110" />
         <div className="text-center">
           <span className="block text-sm font-medium">
             {dragOver ? "Släpp för att ladda upp" : "Dra och släpp filer hit"}
@@ -3041,8 +2913,9 @@ function MediaStep({ answers, onChange }: {
               <div key={idx} className="group/card relative rounded-xl border border-border bg-muted/25 overflow-hidden">
                 {item.file.type.startsWith("video/") ? (
                   <div className="flex h-28 items-center justify-center bg-muted/50">
-                    <Film className="h-8 w-8 text-muted-foreground/40" />
-                    <span className="ml-2 text-xs text-muted-foreground/60">{item.file.name.split(".").pop()?.toUpperCase()}</span>
+                    <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/70">
+                      {item.file.name.split(".").pop()?.toUpperCase() || "Video"}
+                    </span>
                   </div>
                 ) : (
                   <div className="h-28 overflow-hidden">
@@ -3054,9 +2927,10 @@ function MediaStep({ answers, onChange }: {
                 <button
                   type="button"
                   onClick={() => removeFile(idx)}
-                  className="absolute right-1.5 top-1.5 rounded-full bg-background/80 p-1 text-muted-foreground/60 backdrop-blur-sm transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Ta bort fil"
+                  className="absolute right-1.5 top-1.5 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:text-foreground"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  Ta bort
                 </button>
 
                 <div className="p-2 space-y-1">
@@ -3113,17 +2987,17 @@ function TagInput({ values, onChange, placeholder, max = 999 }: { values: string
             onKeyDown={(e) => { if (e.key === "Enter" || (e.key === "," && input.trim())) { e.preventDefault(); add(); } }}
             placeholder={placeholder} className={cn(FIELD_CLASS, "flex-1")}
           />
-          <button type="button" onClick={add} disabled={!input.trim()} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted disabled:opacity-30">
-            <Plus className="h-3.5 w-3.5" />
+          <button type="button" onClick={add} disabled={!input.trim()} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-all hover:bg-muted disabled:opacity-30">
+            Lägg till
           </button>
         </div>
       )}
       {values.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {values.map((v) => (
-            <span key={v} className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary">
+            <span key={v} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-foreground">
               {v}
-              <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} className="ml-0.5 rounded-full p-0.5 text-primary/40 transition-colors hover:bg-primary/10 hover:text-primary"><X className="h-3 w-3" /></button>
+              <button type="button" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={`Ta bort ${v}`} className="rounded-full px-1 text-muted-foreground transition-colors hover:text-foreground">Ta bort</button>
             </span>
           ))}
         </div>

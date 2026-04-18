@@ -4,13 +4,15 @@ import type { V0UserFileAttachment } from "@/components/media/file-upload-zone";
 import { Loader2, Upload, X, Film, ImageIcon, FileText } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "sonner";
 
 const MAX_FILES = 15;
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
 const ACCEPTED_TYPES = [
   "image/jpeg", "image/jpg", "image/png", "image/gif",
-  "image/webp", "image/svg+xml",
+  "image/webp", "image/avif", "image/heic", "image/heif",
+  "image/svg+xml",
   "video/mp4", "video/webm", "video/quicktime",
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -75,20 +77,40 @@ function PopupInner({ onConfirm, onSkip }: ImageUploadPopupProps) {
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch("/api/media/upload", { method: "POST", body: formData });
+      const data = await res.json().catch(() => null as unknown);
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.warn("[ImageUpload] Server upload failed:", res.status, text);
+        const code = (data as { code?: string } | null)?.code;
+        const serverMsg = (data as { error?: string } | null)?.error;
+        const payload = data as
+          | { counts?: { images?: number; videos?: number }; limits?: { maxImages?: number; maxVideos?: number } }
+          | null;
+        const isVideo = file.type?.startsWith("video/");
+        const have = isVideo ? payload?.counts?.videos : payload?.counts?.images;
+        const cap = isVideo ? payload?.limits?.maxVideos : payload?.limits?.maxImages;
+        const reason =
+          code === "unsupported_mime"
+            ? `Filtypen stöds inte (${file.type || "okänd"})`
+            : code === "too_large"
+              ? "Filen är för stor (max 20 MB)"
+              : code === "limit_reached"
+                ? have != null && cap != null
+                  ? `Din bildbank är full (${have}/${cap}). Rensa några filer först.`
+                  : "Din bildbank är full. Rensa några filer först."
+                : serverMsg || `HTTP ${res.status}`;
+        console.warn("[ImageUpload] Server upload failed:", res.status, reason);
+        toast.error(`${file.name}: ${reason}`);
         return null;
       }
-      const data = await res.json();
-      if (!data.success) return null;
-      const rawUrl = data.media?.url ?? data.url;
+      if (!(data as { success?: boolean } | null)?.success) return null;
+      const rawUrl = (data as { media?: { url?: string }; url?: string } | null)?.media?.url ?? (data as { url?: string } | null)?.url;
       const url = rawUrl && !rawUrl.startsWith("http")
         ? `${window.location.origin}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`
-        : rawUrl;
-      return { url, mediaId: data.media?.id ?? null };
+        : rawUrl ?? "";
+      const mediaId = (data as { media?: { id?: number } } | null)?.media?.id ?? null;
+      return { url, mediaId };
     } catch (err) {
       console.warn("[ImageUpload] Upload error:", err);
+      toast.error(`${file.name}: nätverksfel vid uppladdning`);
       return null;
     }
   }, []);

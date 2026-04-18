@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode, RefObject } from "react";
-import { AlertCircle, ExternalLink } from "lucide-react";
+import { AlertCircle, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,20 @@ function PreviewLoadingSkeleton() {
   );
 }
 
+function PreviewReloadIndicator() {
+  return (
+    <div
+      className="pointer-events-none absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-background/90 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur-sm"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <Loader2 className="h-3 w-3 animate-spin text-primary/70" />
+      <span>Uppdaterar</span>
+    </div>
+  );
+}
+
 export interface PreviewPanelFrameProps {
   isLoading: boolean;
   iframeError: boolean;
@@ -32,6 +46,12 @@ export interface PreviewPanelFrameProps {
   handleIframeLoad: () => void;
   handleIframeError: () => void;
   deviceMode?: "desktop" | "tablet" | "mobile";
+  /**
+   * True after the iframe has rendered at least once successfully. While false
+   * we show the full Apple-ish loading skeleton; once true we only show a tiny
+   * top-right spinner for subsequent reloads/navigations.
+   */
+  hasEverLoaded?: boolean;
   children?: ReactNode;
 }
 
@@ -48,6 +68,7 @@ export function PreviewPanelFrame({
   handleIframeLoad,
   handleIframeError,
   deviceMode = "desktop",
+  hasEverLoaded = false,
   children,
 }: PreviewPanelFrameProps) {
   const isMobileFrame = deviceMode === "mobile";
@@ -56,9 +77,9 @@ export function PreviewPanelFrame({
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-muted/25">
-      {isLoading ? (
+      {isLoading && !hasEverLoaded ? (
         <div
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/85 backdrop-blur-[2px] transition-opacity duration-200"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/85 transition-opacity duration-200"
           role="status"
           aria-live="polite"
           aria-busy="true"
@@ -66,6 +87,8 @@ export function PreviewPanelFrame({
           <PreviewLoadingSkeleton />
           <p className="mt-6 text-xs text-muted-foreground">Laddar…</p>
         </div>
+      ) : isLoading ? (
+        <PreviewReloadIndicator />
       ) : null}
 
       {iframeError ? (

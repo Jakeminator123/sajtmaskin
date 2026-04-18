@@ -29,8 +29,14 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Plus, X } from "lucide-react";
+import { FileText, ImageIcon, Loader2, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
+import { ChatToolsPalette } from "@/components/builder/ChatToolsPalette";
+import {
+  dispatchChatToolAction,
+  type ToolActionAvailability,
+  type ToolActionId,
+} from "@/lib/builder/chat-tools";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
 import {
@@ -200,6 +206,7 @@ interface ChatInterfaceProps {
   currentCode?: string;
   existingUiComponents?: string[];
   continuePlanMode?: boolean;
+  toolAvailability?: ToolActionAvailability;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -264,6 +271,7 @@ export function ChatInterface({
   currentCode,
   existingUiComponents,
   continuePlanMode = false,
+  toolAvailability,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -832,6 +840,47 @@ export function ChatInterface({
     setPickerTab(null);
   };
 
+  const handleToolAction = useCallback(
+    (id: ToolActionId) => {
+      switch (id) {
+        case "generate.plan":
+          void handlePlanRequest();
+          return;
+        case "generate.elements":
+        case "generate.switchScaffold":
+          setPickerTab("ui");
+          return;
+        case "generate.theme":
+          setPickerTab("tema");
+          return;
+        case "content.uploadMedia":
+          if (mediaEnabled) {
+            setIsMediaDrawerOpen(true);
+          } else {
+            toast.info("Mediabibliotek är inaktiverat för detta projekt.");
+          }
+          return;
+        case "content.stockImages":
+          if (mediaEnabled) {
+            setIsMediaDrawerOpen(true);
+          } else {
+            toast.info("Mediabibliotek är inaktiverat för detta projekt.");
+          }
+          return;
+        case "content.uploadText":
+          if (mediaEnabled) {
+            setIsTextUploaderOpen(true);
+          } else {
+            toast.info("Textinläsning är inaktiverad för detta projekt.");
+          }
+          return;
+        default:
+          dispatchChatToolAction(id);
+      }
+    },
+    [handlePlanRequest, mediaEnabled],
+  );
+
   const handleMediaSelect = (item: {
     id: string;
     url: string;
@@ -867,30 +916,19 @@ export function ChatInterface({
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="flex-col items-stretch gap-2">
-          <p className="text-[11px] leading-4 text-zinc-500" suppressHydrationWarning>
-            Förfina innan du skickar
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              onClick={handlePlanRequest}
-              disabled={inputDisabled || !input.trim()}
-              title="Gör en plan eller PRD innan kod"
-            >
-              <FileText className="size-3" />
-              Plan
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-              onClick={() => setPickerTab("ui")}
+          <div className="flex items-center justify-between">
+            <ChatToolsPalette
+              availability={
+                toolAvailability ?? {
+                  hasChat: Boolean(chatId),
+                  hasVersion: false,
+                  hasPreview: false,
+                  hasDeployment: false,
+                }
+              }
               disabled={inputDisabled}
-              title="Lägg till element, AI-block, mallar eller tema"
-            >
-              <Plus className="size-3" />
-              Element
-            </button>
+              onSelect={handleToolAction}
+            />
           </div>
         </PromptInputHeader>
         {(isFigmaInputOpen || figmaUrl.trim()) && (

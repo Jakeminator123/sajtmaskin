@@ -388,6 +388,21 @@ export function useCreateChat(
           promptMeta.brief = pendingBriefRef.current;
           promptMeta.promptAssistDeep = true;
         }
+        // Wizard-derived meta overrides anything above (e.g. a structured brief
+        // seeded from IntakeWizard takes priority over the auto-generated one
+        // so canonical ids like primaryCallToAction / industry / mustHave win).
+        if (options.meta && typeof options.meta === "object") {
+          const { brief: wizardBrief, ...rest } = options.meta as Record<string, unknown>;
+          for (const [k, v] of Object.entries(rest)) {
+            if (v !== undefined) promptMeta[k] = v;
+          }
+          if (wizardBrief && typeof wizardBrief === "object") {
+            const base = (promptMeta.brief && typeof promptMeta.brief === "object")
+              ? (promptMeta.brief as Record<string, unknown>)
+              : {};
+            promptMeta.brief = { ...base, ...(wizardBrief as Record<string, unknown>) };
+          }
+        }
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;

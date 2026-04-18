@@ -288,26 +288,56 @@ function buildShellPageContent(route: PlannedRoute): string {
     ? purpose.charAt(0).toUpperCase() + purpose.slice(1)
     : `Här kommer vi snart visa mer om ${title.toLowerCase()}.`;
 
+  // NOTE: Shell pages are detected by `isShellPageContent` — keep these
+  // string markers ("Förberedd sida", "Skapa sida", "Varför sidan är enkel
+  // just nu") and the oklch accent fingerprint so follow-up generations can
+  // preserve and/or build them out on demand.
   return `import Link from "next/link";
-import { ${iconName}, ArrowLeft } from "lucide-react";
+import { ${iconName}, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
 
 export default function ${funcName}Page() {
   return (
-    <main className="flex min-h-[60vh] flex-col items-center justify-center bg-gradient-to-b from-white to-gray-50 px-6 py-32 text-center">
-      <${iconName} className="mx-auto mb-6 h-12 w-12 text-black/15" />
-      <h1 className="text-3xl font-bold tracking-tight text-black">
+    <main className="relative flex min-h-[70vh] flex-col items-center justify-center overflow-hidden px-6 py-24 text-center">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 mx-auto h-56 w-56 rounded-full bg-[oklch(0.58_0.22_262)] opacity-[0.08] blur-3xl"
+      />
+
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+        <Sparkles className="h-3 w-3" />
+        Förberedd sida
+      </span>
+
+      <${iconName} className="mt-6 h-10 w-10 text-muted-foreground/70" />
+
+      <h1 className="mt-4 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        {/* Dynamisk routeskal för ${route.path} */}
         ${title}
       </h1>
-      <p className="mt-3 max-w-md text-black/60">
+      <p className="mt-3 max-w-md text-sm text-muted-foreground">
         ${shortDesc}
       </p>
-      <Link
-        href="/"
-        className="mt-8 inline-flex items-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-black/80"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Tillbaka till startsidan
-      </Link>
+
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-5 py-2.5 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted/60"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Tillbaka till startsidan
+        </Link>
+        <span className="inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background shadow-sm">
+          Skapa sida
+          <ArrowRight className="h-4 w-4" />
+        </span>
+      </div>
+
+      <p className="mt-10 max-w-md text-[11px] leading-relaxed text-muted-foreground/70">
+        {/* Varför sidan är enkel just nu */}
+        Vi har planerat den här sidan men väntar med att bygga ut den tills
+        du eller teamet vill prioritera den. Tryck på <em>Bygg ut</em>-pilen
+        bredvid rutten i preview för att generera den fullt ut.
+      </p>
     </main>
   );
 }

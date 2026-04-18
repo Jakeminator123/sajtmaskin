@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type GenerationPhase =
   | "brief"
@@ -15,35 +15,43 @@ export type GenerationPhase =
   | "done"
   | null;
 
+// Apple-minimal progress: a single 0-100% journey. Every phase nudges the
+// target up; we never exceed 95 until the iframe confirms `preview-ready`
+// (phase === "done"), at which point we snap cleanly to 100.
 const PHASE_TARGETS: Record<NonNullable<GenerationPhase>, { target: number; label: string }> = {
-  brief:                 { target: 8,   label: "Bygger backend…" },
-  scaffold:              { target: 15,  label: "Väljer struktur…" },
-  generation:            { target: 45,  label: "Genererar filer…" },
-  autofix:               { target: 72,  label: "Fixar problem…" },
-  verifier:              { target: 82,  label: "Kontrollerar…" },
-  validate_syntax:       { target: 87,  label: "Validerar syntax…" },
-  parse_merge_preflight: { target: 92,  label: "Förbereder filer…" },
-  preview:               { target: 97,  label: "Startar preview…" },
-  done:                  { target: 100, label: "Klar!" },
+  brief:                 { target: 8,  label: "Planerar sidor" },
+  scaffold:              { target: 18, label: "Väljer layout" },
+  generation:            { target: 48, label: "Bygger layout" },
+  autofix:               { target: 68, label: "Polerar detaljer" },
+  verifier:              { target: 78, label: "Kvalitetskoll" },
+  validate_syntax:       { target: 84, label: "Validerar syntax" },
+  parse_merge_preflight: { target: 90, label: "Förbereder filer" },
+  preview:               { target: 95, label: "Laddar preview" },
+  done:                  { target: 100, label: "Klar" },
 };
 
 const TICK_MS = 50;
-const SMOOTH_FACTOR = 0.04;
+// Ease-out smoothing: bigger steps when far, gentle when close.
+const SMOOTH_FACTOR = 0.06;
 
 interface GenerationProgressProps {
   phase?: GenerationPhase;
+  /** Optional override — used when preview-ready signals completion. */
+  forceComplete?: boolean;
+  className?: string;
 }
 
-export function GenerationProgress({ phase }: GenerationProgressProps) {
+export function GenerationProgress({ phase, forceComplete, className }: GenerationProgressProps) {
   const [displayProgress, setDisplayProgress] = useState(0);
   const targetRef = useRef(0);
   const currentRef = useRef(0);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const phaseTarget = phase ? PHASE_TARGETS[phase]?.target ?? 0 : 2;
-    targetRef.current = Math.max(targetRef.current, phaseTarget);
-  }, [phase]);
+    const phaseTarget = phase ? PHASE_TARGETS[phase]?.target ?? 0 : 3;
+    const effective = forceComplete ? 100 : phaseTarget;
+    targetRef.current = Math.max(targetRef.current, effective);
+  }, [phase, forceComplete]);
 
   useEffect(() => {
     let running = true;
@@ -74,24 +82,41 @@ export function GenerationProgress({ phase }: GenerationProgressProps) {
   }, []);
 
   const pct = Math.round(displayProgress);
-  const label = phase ? PHASE_TARGETS[phase]?.label ?? "Skapar din sajt…" : "Skapar din sajt…";
+  const resolvedPhase: NonNullable<GenerationPhase> = forceComplete ? "done" : (phase ?? "brief");
+  const label = PHASE_TARGETS[resolvedPhase]?.label ?? "Skapar din sajt";
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-card px-8 py-8">
-      <div className="flex w-full max-w-sm flex-col items-center gap-6 rounded-2xl border border-border/40 bg-background/80 px-8 py-10 shadow-lg backdrop-blur-sm">
-        <div className="text-2xl font-medium tracking-tight text-foreground tabular-nums">{pct}%</div>
+    <div
+      className={cn(
+        "flex h-full flex-col items-center justify-center bg-background px-8 py-12",
+        className,
+      )}
+    >
+      <div className="flex w-full max-w-md flex-col items-center gap-8">
+        <div className="text-6xl font-semibold tracking-tight text-foreground tabular-nums transition-opacity duration-300 sm:text-7xl">
+          {pct}
+          <span className="ml-1 text-xl font-medium text-muted-foreground align-top">%</span>
+        </div>
 
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-[2px] w-full overflow-hidden rounded-full bg-border/60"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pct}
+        >
           <div
-            className="h-full rounded-full bg-primary transition-[width] duration-1000 ease-in-out"
+            className="h-full rounded-full bg-foreground/90 transition-[width] duration-500 ease-out"
             style={{ width: `${displayProgress}%` }}
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary/60" />
-          <p className="text-sm font-medium text-foreground">{label}</p>
-        </div>
+        <p
+          key={label}
+          className="text-sm font-medium text-muted-foreground motion-safe:animate-in motion-safe:fade-in-50 motion-safe:duration-300"
+        >
+          {label}
+        </p>
       </div>
     </div>
   );

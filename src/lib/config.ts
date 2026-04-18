@@ -359,8 +359,8 @@ export const FEATURES = {
     (env.SAJTMASKIN_VARIANT_STRUCTURAL_FILES !== "false" &&
       env.NODE_ENV === "development"),
   deferExtraRoutesOnInit:
-    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "true" ||
-    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT === "1",
+    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT !== "false" &&
+    env.SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT !== "0",
   strictGeneratedArtifacts:
     env.NODE_ENV !== "test" &&
     env.SAJTMASKIN_STRICT_GENERATED_ARTIFACTS !== "false",

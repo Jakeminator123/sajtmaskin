@@ -119,6 +119,14 @@ export function BuilderHeader(props: {
   deploymentStatus?: "pending" | "building" | "ready" | "error" | "cancelled" | null;
   deploymentUrl?: string | null;
   deployDisabledReason?: string | null;
+
+  /**
+   * Apple-minimal header: only logo + (Avbryt) + Publicera are visible.
+   * The rest is collapsed into a single "···" dropdown.
+   */
+  compact?: boolean;
+  onOpenDetailsDrawer?: () => void;
+  onToggleUiMode?: () => void;
 }) {
   const {
     selectedModelTier,
@@ -172,6 +180,9 @@ export function BuilderHeader(props: {
     deploymentStatus,
     deploymentUrl,
     deployDisabledReason,
+    compact = false,
+    onOpenDetailsDrawer,
+    onToggleUiMode,
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
@@ -232,7 +243,7 @@ export function BuilderHeader(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {<><DropdownMenu>
+        {!compact && <><DropdownMenu>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -553,58 +564,60 @@ export function BuilderHeader(props: {
           </DropdownMenuContent>
         </DropdownMenu></>}
 
-        <DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isBusy}
-                    aria-label="Fler åtgärder: import, runtime och nedladdning"
-                    title="Importera, starta runtime eller ladda ner ZIP"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="hidden sm:inline">Mer</span>
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Importera från GitHub eller ZIP, eller ladda ner projektet som ZIP</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-60">
-            <DropdownMenuLabel>Importera och exportera</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                runDeferredAction(onOpenImport);
-              }}
-            >
-              <FolderGit2 className="mr-2 h-4 w-4" />
-              Importera (GitHub eller ZIP)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!chatId || !activeVersionId || isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                if (chatId && activeVersionId) {
-                  window.open(
-                    `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
-                    "_blank",
-                  );
-                }
-              }}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Ladda ner som ZIP
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {!compact && (
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isBusy}
+                      aria-label="Fler åtgärder: import, runtime och nedladdning"
+                      title="Importera, starta runtime eller ladda ner ZIP"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="hidden sm:inline">Mer</span>
+                      <ChevronDown className="h-3 w-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-xs">
+                  <p>Importera från GitHub eller ZIP, eller ladda ner projektet som ZIP</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuLabel>Importera och exportera</DropdownMenuLabel>
+              <DropdownMenuItem
+                disabled={isBusy}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runDeferredAction(onOpenImport);
+                }}
+              >
+                <FolderGit2 className="mr-2 h-4 w-4" />
+                Importera (GitHub eller ZIP)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!chatId || !activeVersionId || isBusy}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  if (chatId && activeVersionId) {
+                    window.open(
+                      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
+                      "_blank",
+                    );
+                  }
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Ladda ner som ZIP
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {isBusy ? (
           <Button
@@ -618,50 +631,156 @@ export function BuilderHeader(props: {
           </Button>
         ) : null}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => runDeferredAction(onNewChat)}
-          disabled={isBusy}
-          title="Starta en ny chat (nuvarande finns kvar i historiken)"
-        >
-          {isCreatingChat ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Ny chat</span>
-        </Button>
+        {!compact && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => runDeferredAction(onNewChat)}
+            disabled={isBusy}
+            title="Starta en ny chat (nuvarande finns kvar i historiken)"
+          >
+            {isCreatingChat ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Ny chat</span>
+          </Button>
+        )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            runDeferredAction(() => {
-              void onSaveProject();
-            })
-          }
-          disabled={!canSaveProject || isBusy || isSavingProject}
-          title="Spara projekt"
-        >
-          {isSavingProject ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Spara</span>
-        </Button>
+        {!compact && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              runDeferredAction(() => {
+                void onSaveProject();
+              })
+            }
+            disabled={!canSaveProject || isBusy || isSavingProject}
+            title="Spara projekt"
+          >
+            {isSavingProject ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Spara</span>
+          </Button>
+        )}
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => runDeferredAction(onDomainSearch)}
-          disabled={!canManageDomain || isBusy}
-          title="Sök & köp domän"
-        >
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">Domän</span>
-        </Button>
+        {!compact && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => runDeferredAction(onDomainSearch)}
+            disabled={!canManageDomain || isBusy}
+            title="Sök & köp domän"
+          >
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">Domän</span>
+          </Button>
+        )}
+
+        {compact && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Fler åtgärder"
+                title="Fler åtgärder"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Projekt</DropdownMenuLabel>
+              <DropdownMenuItem
+                disabled={isBusy}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runDeferredAction(onNewChat);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Ny chat
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canSaveProject || isBusy || isSavingProject}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runDeferredAction(() => {
+                    void onSaveProject();
+                  });
+                }}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Spara projekt
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canManageDomain || isBusy}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runDeferredAction(onDomainSearch);
+                }}
+              >
+                <Globe className="mr-2 h-4 w-4" />
+                Domän
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Import &amp; export</DropdownMenuLabel>
+              <DropdownMenuItem
+                disabled={isBusy}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  runDeferredAction(onOpenImport);
+                }}
+              >
+                <FolderGit2 className="mr-2 h-4 w-4" />
+                Importera (GitHub/ZIP)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!chatId || !activeVersionId || isBusy}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  if (chatId && activeVersionId) {
+                    window.open(
+                      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
+                      "_blank",
+                    );
+                  }
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Ladda ner som ZIP
+              </DropdownMenuItem>
+              {(onOpenDetailsDrawer || onToggleUiMode) && <DropdownMenuSeparator />}
+              {onOpenDetailsDrawer && (
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onOpenDetailsDrawer();
+                  }}
+                >
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Verktyg &amp; inställningar
+                </DropdownMenuItem>
+              )}
+              {onToggleUiMode && (
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onToggleUiMode();
+                  }}
+                >
+                  <Layers className="mr-2 h-4 w-4" />
+                  Växla läge (utökat)
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {deploymentStatus === "building" ? (
           <Button size="sm" variant="outline" disabled>

@@ -9,6 +9,7 @@ import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/com
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { IntakeWizard, type IntakeWizardResult, type WizardScrapeData } from "@/components/builder/IntakeWizard";
 import { resolveScaffoldHintFromLabels } from "@/lib/builder/scaffold-hint";
+import { buildWizardBrief, buildWizardCreativePrompt } from "@/lib/builder/wizard-brief";
 import { MessageList } from "@/components/builder/MessageList";
 import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
@@ -17,6 +18,8 @@ import type { ComposerAiFallbackPayload } from "@/components/builder/preview-pan
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/ModelTraceOverlay";
+import { BuilderDetailsDrawer } from "@/components/builder/BuilderDetailsDrawer";
+import { BuilderDisclosurePill } from "@/components/builder/BuilderDisclosurePill";
 import { LaunchReadinessCard } from "@/components/builder/LaunchReadinessCard";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
@@ -81,6 +84,12 @@ import {
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
 import { useBuilderHelpChat } from "@/lib/hooks/chat/useBuilderHelpChat";
+import {
+  CHAT_TOOL_EVENT,
+  type ChatToolEventDetail,
+  type ToolActionAvailability,
+} from "@/lib/builder/chat-tools";
+import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -240,8 +249,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const uploadedMediaRef = useRef<UploadedMediaInfo[] | null>(null);
 
   const triggerStarterGeneration = useCallback(
-    (msgs: ChatMessage[], options?: Record<string, unknown>) => {
-      pendingGenerationRef.current = { messages: msgs, options };
+    (msgs: ChatMessage[], options?: Record<string, unknown>, promptOverride?: string) => {
+      pendingGenerationRef.current = { messages: msgs, options, promptOverride };
       setShowImageUpload(true);
     },
     [],
@@ -257,13 +266,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       const currentMessages = vm.messages.length > (pending.messages?.length ?? 0)
         ? vm.messages
         : pending.messages;
-      const prompt = buildNeedsAnalysisPrompt(
-        currentMessages,
-        scrapeDataRef.current,
-        tmplInfos.length > 0 ? tmplInfos : null,
-        mediaInfos && mediaInfos.length > 0 ? mediaInfos : null,
-        companyBriefRef.current,
-      );
+      const prompt = pending.promptOverride
+        ?? buildNeedsAnalysisPrompt(
+          currentMessages,
+          scrapeDataRef.current,
+          tmplInfos.length > 0 ? tmplInfos : null,
+          mediaInfos && mediaInfos.length > 0 ? mediaInfos : null,
+          companyBriefRef.current,
+        );
       void wrappedRequestCreateChat(prompt, {
         ...pending.options,
         ...(attachments && attachments.length > 0 ? { attachments } : {}),
@@ -296,12 +306,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     (result: IntakeWizardResult) => {
       setShowIntakeWizard(false);
 
+      // Leave scaffold selection to orchestrate.ts (auto mode). Locking to a
+      // specific family here collapses creative variant picking — the enriched
+      // wizard brief gives orchestrate.ts enough signal on its own.
       const siteTypeField = result.fieldMessages.find((fm) => fm.field === "siteType");
       if (siteTypeField) {
         const labels = siteTypeField.text.split(", ").map((s) => s.trim());
         const hint = resolveScaffoldHintFromLabels(labels);
         if (hint.suggestedFamily) {
-          vm.setScaffoldMode("manual");
+          vm.setScaffoldMode("auto");
           vm.setScaffoldId(hint.suggestedFamily);
         }
       }
@@ -326,31 +339,57 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
       const allMessages = [...vm.messages, ...userMessages];
 
+      // Structured brief seeded from wizard answers — overrides auto-generated
+      // Deep Brief fields so canonical ids win over LLM extraction.
+      const wizardBrief = buildWizardBrief(result.answers);
+      const starterOptions: Record<string, unknown> = {
+        meta: { brief: wizardBrief },
+      };
+
+      // Short, creative one-liner instead of the full needs-analysis dump.
+      // All facts live in `meta.brief`; this prompt just asks the model to
+      // build something opinionated, matching the raw-prompt flow's freedom.
+      const wizardPrompt = buildWizardCreativePrompt(result.answers, wizardBrief);
+
       if (result.mediaFiles?.length) {
-        pendingGenerationRef.current = { messages: allMessages };
+        pendingGenerationRef.current = { messages: allMessages, options: starterOptions, promptOverride: wizardPrompt };
 
         const uploadAll = async () => {
           const uploaded: UploadedMediaInfo[] = [];
-          for (const { file, context } of result.mediaFiles!) {
+          for (const mediaEntry of result.mediaFiles!) {
+            const { file, context, purpose } = mediaEntry;
             try {
               const formData = new FormData();
               formData.append("file", file);
               formData.append("context", context);
+              formData.append("purpose", purpose);
               const res = await fetch("/api/media/upload", { method: "POST", body: formData });
-              const data = await res.json();
-              const rawUrl = data?.media?.url ?? data?.url;
+              const data = await res.json().catch(() => null as unknown);
+              if (!res.ok) {
+                const code = (data as { code?: string } | null)?.code;
+                const serverMsg = (data as { error?: string } | null)?.error;
+                const payload = data as
+                  | { counts?: { images?: number; videos?: number }; limits?: { maxImages?: number; maxVideos?: number } }
+                  | null;
+                const isVideo = file.type?.startsWith("video/");
+                const have = isVideo ? payload?.counts?.videos : payload?.counts?.images;
+                const cap = isVideo ? payload?.limits?.maxVideos : payload?.limits?.maxImages;
+                const reason =
+                  code === "unsupported_mime"
+                    ? `Filtypen stöds inte (${file.type || "okänd"})`
+                    : code === "too_large"
+                      ? "Filen är för stor (max 20 MB)"
+                      : code === "limit_reached"
+                        ? have != null && cap != null
+                          ? `Din bildbank är full (${have}/${cap}). Rensa några filer först.`
+                          : "Din bildbank är full. Rensa några filer först."
+                        : serverMsg || `Uppladdning misslyckades (HTTP ${res.status})`;
+                toast.error(`${file.name}: ${reason}`);
+                continue;
+              }
+              const rawUrl = (data as { media?: { url?: string }; url?: string } | null)?.media?.url ?? (data as { url?: string } | null)?.url;
               const mediaUrl = rawUrl && !rawUrl.startsWith("http") ? `${window.location.origin}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}` : rawUrl;
               if (mediaUrl) {
-                const ctx = context.toLowerCase();
-                let purpose = "site-media";
-                if (ctx.includes("logo")) purpose = "brand-logo";
-                else if (ctx.includes("produkt") || ctx.includes("product")) purpose = "product-photo";
-                else if (ctx.includes("meny") || ctx.includes("menu")) purpose = "product-photo";
-                else if (ctx.includes("projekt") || ctx.includes("project")) purpose = "product-photo";
-                else if (ctx.includes("hero")) purpose = "hero-image";
-                else if (ctx.includes("about") || ctx.includes("om oss") || ctx.includes("team")) purpose = "about-image";
-                else if (ctx.includes("galleri") || ctx.includes("gallery") || ctx.includes("portfolio")) purpose = "gallery-image";
-                else if (ctx.includes("background") || ctx.includes("bakgrund")) purpose = "background-image";
                 uploaded.push({
                   filename: file.name,
                   mimeType: file.type || "image/jpeg",
@@ -365,7 +404,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               }
             } catch (uploadErr) {
               console.error("[wizard] Media upload failed:", file.name, uploadErr);
-              toast.error(`Uppladdning misslyckades: ${file.name}`);
+              toast.error(`${file.name}: nätverksfel vid uppladdning`);
             }
           }
           if (uploaded.length > 0) {
@@ -384,10 +423,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         };
         void uploadAll();
       } else {
-        triggerStarterGeneration(allMessages);
+        triggerStarterGeneration(allMessages, starterOptions, wizardPrompt);
       }
     },
-    [vm.messages, vm.setMessages, vm.setScaffoldMode, vm.setScaffoldId, triggerStarterGeneration, executeStarterGeneration],
+    [vm.messages, vm.setMessages, vm.setDesignTheme, vm.setCustomThemeColors, vm.setScaffoldMode, vm.setScaffoldId, triggerStarterGeneration, executeStarterGeneration],
   );
 
   const handleIntakeWizardScrape = useCallback(
@@ -725,6 +764,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const pendingGenerationRef = useRef<{
     messages: ChatMessage[];
     options?: Record<string, unknown>;
+    /**
+     * When set, used as the user-facing prompt instead of the templated
+     * buildNeedsAnalysisPrompt output. Wizard-driven runs use this to send
+     * a short creative one-liner while keeping all facts in meta.brief.
+     */
+    promptOverride?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -1505,6 +1550,153 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [smartCreateChat, smartSendMessage, vm.chatId],
   );
 
+  const toolAvailability = useMemo<ToolActionAvailability>(
+    () => ({
+      hasChat: Boolean(vm.chatId),
+      hasVersion: Boolean(vm.activeVersionId),
+      hasPreview: Boolean(vm.currentPreviewUrl),
+      hasDeployment: Boolean(vm.deploymentUrl || vm.activeDeploymentId),
+    }),
+    [vm.activeDeploymentId, vm.activeVersionId, vm.chatId, vm.currentPreviewUrl, vm.deploymentUrl],
+  );
+
+  const handleOpenTip = useCallback(() => {
+    if (!vm.tipsEnabled) {
+      toast.info("Aktivera tips under Avancerat först.");
+      return;
+    }
+    const latest = getLatestCompletedAssistantMessage(vm.messages);
+    void requestTip(latest);
+  }, [requestTip, vm.messages, vm.tipsEnabled]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<ChatToolEventDetail>).detail;
+      if (!detail?.id) return;
+
+      switch (detail.id) {
+        case "generate.new":
+          vm.resetToNewChat();
+          return;
+        case "generate.regenerate": {
+          const latestUser = getLatestUserMessage(vm.messages);
+          if (!latestUser) {
+            toast.info("Inget meddelande att generera om från.");
+            return;
+          }
+          void vm.sendMessage(latestUser.content);
+          return;
+        }
+        case "generate.stop":
+          vm.cancelActiveGeneration();
+          return;
+        case "generate.deepBrief":
+          vm.setPromptAssistDeep(true);
+          toast.success("Djup brief aktiverad för nästa generation.");
+          return;
+        case "generate.polishPrompt":
+          vm.setPromptAssistDeep(false);
+          toast.success("Prompt-polish aktiverad (snabb).");
+          return;
+        case "generate.switchModel":
+          vm.setDetailsDrawerOpen(true);
+          toast.info("Välj modell i panelen.");
+          return;
+        case "preview.refresh":
+          vm.bumpPreviewRefreshToken();
+          return;
+        case "preview.restart":
+          void vm.handleFixPreview?.();
+          toast.info("Startar om preview-VM…");
+          return;
+        case "preview.destroy":
+          handleClearPreview();
+          return;
+        case "preview.openExternal":
+          if (vm.currentPreviewUrl) {
+            window.open(vm.currentPreviewUrl, "_blank", "noopener,noreferrer");
+          }
+          return;
+        case "preview.status":
+          toast.info(
+            vm.previewLifecycle
+              ? `Preview: ${vm.previewLifecycle}${vm.currentPreviewUrl ? " • live" : ""}`
+              : "Ingen aktiv preview.",
+          );
+          return;
+        case "preview.inspect":
+          window.dispatchEvent(new CustomEvent("sajtmaskin:inspector:toggle"));
+          return;
+        case "versions.history":
+          if (vm.isVersionPanelCollapsed) vm.handleToggleVersionPanel();
+          return;
+        case "publish.deploy":
+          if (canDeploy) vm.handleOpenDeployDialog();
+          else if (deployDisabledReason) toast.info(deployDisabledReason);
+          return;
+        case "publish.openDeployment":
+          if (vm.deploymentUrl) {
+            window.open(vm.deploymentUrl, "_blank", "noopener,noreferrer");
+          } else {
+            toast.info("Ingen publicerad version än.");
+          }
+          return;
+        case "publish.domain":
+          if (vm.lastDeployVercelProjectId) vm.setDomainManagerOpen(true);
+          else vm.setDomainSearchOpen(true);
+          return;
+        case "publish.env":
+          vm.setDetailsDrawerOpen(true);
+          toast.info("Projektets miljövariabler är öppna i panelen.");
+          return;
+        case "publish.status":
+          toast.info(
+            vm.deploymentStatus ? `Bygg-status: ${vm.deploymentStatus}` : "Ingen aktiv build.",
+          );
+          return;
+        case "quality.autofix":
+          if (vm.chatId && vm.activeVersionId) {
+            dispatchAutoFixEvent({
+              chatId: vm.chatId,
+              versionId: vm.activeVersionId,
+              reasons: ["manual-tool-palette"],
+            });
+            toast.info("Autofix startad.");
+          } else {
+            toast.info("Saknar chat eller version.");
+          }
+          return;
+        case "data.modelTrace":
+          window.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "M", altKey: true, shiftKey: true }),
+          );
+          return;
+        case "data.saveProject":
+          if (vm.chatId) void vm.handleSaveProject();
+          else toast.info("Saknar projekt att spara.");
+          return;
+        case "help.openclaw":
+          window.dispatchEvent(new CustomEvent("openclaw:open"));
+          return;
+        case "help.dailyTip":
+          handleOpenTip();
+          return;
+        case "help.shortcuts":
+          toast("⌘K öppnar verktyg", { description: "Alt+Shift+M: modellspår" });
+          return;
+        case "help.advanced":
+        case "generate.switchScaffold":
+          vm.setDetailsDrawerOpen(true);
+          return;
+        default:
+          toast.info("Verktyget är inte kopplat än.");
+      }
+    };
+
+    window.addEventListener(CHAT_TOOL_EVENT, handler as EventListener);
+    return () => window.removeEventListener(CHAT_TOOL_EVENT, handler as EventListener);
+  }, [vm, canDeploy, deployDisabledReason, handleClearPreview, handleOpenTip]);
+
   const autoReplyKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!latestPendingReply) return;
@@ -1584,8 +1776,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deploymentStatus={vm.deploymentStatus}
         deploymentUrl={vm.deploymentUrl}
         deployDisabledReason={deployDisabledReason}
+        compact={vm.uiMode === "minimal"}
+        onOpenDetailsDrawer={() => vm.setDetailsDrawerOpen(true)}
+        onToggleUiMode={() => vm.setUiMode(vm.uiMode === "minimal" ? "expanded" : "minimal")}
       />
-      {(
+      {(vm.uiMode === "expanded" || vm.detailsDrawerOpen) && (
         <ModelTraceOverlay
           selectedModelTier={vm.selectedModelTier}
           promptAssistModel={vm.promptAssistModel}
@@ -1595,9 +1790,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         />
       )}
 
-      {/* Mobile tab bar (visible < lg); chat first tills sajt finns */}
+      {/* Mobile tab bar (visible < lg); chat first tills sajt finns.
+          In minimal mode there's no inline chat panel — tapping "Chatt" opens
+          the details drawer instead. */}
       <div
-        className="border-border bg-background/95 flex shrink-0 border-b lg:hidden"
+        className={cn(
+          "border-border bg-background/95 shrink-0 border-b lg:hidden",
+          vm.uiMode === "minimal" ? "hidden" : "flex",
+        )}
         role="tablist"
         aria-label="Byggarvyer"
       >
@@ -1638,9 +1838,92 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         </button>
       </div>
 
+      {/* Apple-minimal builder: pulse disclosure pill + Cmd/Ctrl+K. */}
+      {vm.uiMode === "minimal" && !vm.detailsDrawerOpen && (
+        <BuilderDisclosurePill
+          onOpen={() => vm.setDetailsDrawerOpen(true)}
+          pulsing={vm.isAnyStreaming}
+          attention={Boolean(latestPendingReply)}
+        />
+      )}
+      {/* Right column tooling: Apple-minimal builder keeps this hidden by default
+          and only mounts it inside BuilderDetailsDrawer on demand. In expanded
+          mode we keep the legacy inline chat panel for power users. */}
+      {(() => {
+        const rightColumnContent = (
+          <>
+            <LaunchReadinessCard
+              readiness={vm.deployReadiness}
+              isLoading={vm.isDeployReadinessLoading}
+            />
+            <ProjectEnvVarsPanel
+              externalProjectId={vm.externalProjectId}
+              appProjectId={vm.appProjectId}
+              chatId={vm.chatId}
+              activeVersionId={vm.activeVersionId}
+            />
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <MessageList
+                chatId={vm.chatId}
+                versionId={vm.activeVersionId}
+                messages={displayMessages}
+                showStructuredParts={vm.showStructuredChat}
+                onQuickReply={handleQuickReply}
+                onApproveBuildPlan={handleApproveBuildPlan}
+                quickReplyDisabled={isBusy}
+              />
+              <TipCard
+                open={tipPanelOpen && vm.tipsEnabled}
+                isLoading={isTipLoading}
+                tip={tipText}
+                error={tipError}
+                cost={tipCost}
+                onRefresh={handleRefreshTip}
+                onClose={() => setTipPanelOpen(false)}
+              />
+              <ThinkingOverlay isVisible={vm.isAnyStreaming && vm.detailsDrawerOpen} />
+            </div>
+            <ChatInterface
+              chatId={vm.chatId}
+              initialPrompt={vm.initialPrompt}
+              onCreateChat={smartCreateChat}
+              onSendMessage={smartSendMessage}
+              onRequestPlacement={handleRequestPlacement}
+              onStartFromTemplate={vm.handleStartFromTemplate}
+              onPaletteSelection={vm.handlePaletteSelection}
+              paletteSelections={vm.paletteState.selections}
+              designTheme={vm.designTheme}
+              onDesignThemeChange={vm.setDesignTheme}
+              onPromptAssistModeReset={vm.handlePromptAssistModeReset}
+              isFigmaInputOpen={isFigmaInputOpen}
+              onFigmaInputOpenChange={setIsFigmaInputOpen}
+              isBusy={isBusy}
+              isPreparingPrompt={vm.isPreparingPrompt}
+              mediaEnabled={vm.mediaEnabled}
+              currentCode={vm.currentPageCode}
+              existingUiComponents={vm.existingUiComponents}
+              continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              toolAvailability={toolAvailability}
+            />
+          </>
+        );
+        return (
+          <>
+            {vm.uiMode === "minimal" ? (
+              <BuilderDetailsDrawer
+                open={vm.detailsDrawerOpen}
+                onOpenChange={vm.setDetailsDrawerOpen}
+              >
+                {rightColumnContent}
+              </BuilderDetailsDrawer>
+            ) : null}
+          </>
+        );
+      })()}
+
       <div className="flex min-h-0 flex-1 overflow-hidden lg:flex-row-reverse">
-        {/* ---------- Chat panel (desktop: right) ---------- */}
-        {chatCollapsed && (
+        {/* ---------- Chat panel (desktop: right, expanded mode only) ---------- */}
+        {vm.uiMode === "expanded" && chatCollapsed && (
           <div className="border-border hidden items-start border-l pt-2 lg:flex">
             <button
               onClick={toggleChatCollapsed}
@@ -1652,78 +1935,81 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             </button>
           </div>
         )}
-        <div
-          id="builder-chat-panel"
-          role="tabpanel"
-          className={cn(
-            "border-border bg-muted/20 text-foreground min-h-0 w-full flex-col border-r motion-safe:transition-[background-color,border-color,width,max-width] motion-safe:duration-200 lg:border-l lg:border-r-0",
-            chatCollapsed ? "lg:hidden" : "lg:flex lg:w-80 lg:max-w-[20rem]",
-            mobileTab === "chat" ? "flex" : "hidden",
-          )}
-        >
-          <div className="hidden items-center justify-end px-2 pt-1 lg:flex">
-            <button
-              onClick={toggleChatCollapsed}
-              className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md p-1"
-              aria-label="Dölj chatt"
-              title="Dölj chatt"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <LaunchReadinessCard
-            readiness={vm.deployReadiness}
-            isLoading={vm.isDeployReadinessLoading}
-          />
-          <ProjectEnvVarsPanel
-            externalProjectId={vm.externalProjectId}
-            appProjectId={vm.appProjectId}
-            chatId={vm.chatId}
-            activeVersionId={vm.activeVersionId}
-          />
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            <MessageList
+        {vm.uiMode === "expanded" && (
+          <div
+            id="builder-chat-panel"
+            role="tabpanel"
+            className={cn(
+              "border-border bg-muted/20 text-foreground min-h-0 w-full flex-col border-r motion-safe:transition-[background-color,border-color,width,max-width] motion-safe:duration-200 lg:border-l lg:border-r-0",
+              chatCollapsed ? "lg:hidden" : "lg:flex lg:w-80 lg:max-w-[20rem]",
+              mobileTab === "chat" ? "flex" : "hidden",
+            )}
+          >
+            <div className="hidden items-center justify-end px-2 pt-1 lg:flex">
+              <button
+                onClick={toggleChatCollapsed}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent rounded-md p-1"
+                aria-label="Dölj chatt"
+                title="Dölj chatt"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <LaunchReadinessCard
+              readiness={vm.deployReadiness}
+              isLoading={vm.isDeployReadinessLoading}
+            />
+            <ProjectEnvVarsPanel
+              externalProjectId={vm.externalProjectId}
+              appProjectId={vm.appProjectId}
               chatId={vm.chatId}
-              versionId={vm.activeVersionId}
-              messages={displayMessages}
-              showStructuredParts={vm.showStructuredChat}
-              onQuickReply={handleQuickReply}
-              onApproveBuildPlan={handleApproveBuildPlan}
-              quickReplyDisabled={isBusy}
+              activeVersionId={vm.activeVersionId}
             />
-            <TipCard
-              open={tipPanelOpen && vm.tipsEnabled}
-              isLoading={isTipLoading}
-              tip={tipText}
-              error={tipError}
-              cost={tipCost}
-              onRefresh={handleRefreshTip}
-              onClose={() => setTipPanelOpen(false)}
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <MessageList
+                chatId={vm.chatId}
+                versionId={vm.activeVersionId}
+                messages={displayMessages}
+                showStructuredParts={vm.showStructuredChat}
+                onQuickReply={handleQuickReply}
+                onApproveBuildPlan={handleApproveBuildPlan}
+                quickReplyDisabled={isBusy}
+              />
+              <TipCard
+                open={tipPanelOpen && vm.tipsEnabled}
+                isLoading={isTipLoading}
+                tip={tipText}
+                error={tipError}
+                cost={tipCost}
+                onRefresh={handleRefreshTip}
+                onClose={() => setTipPanelOpen(false)}
+              />
+              <ThinkingOverlay isVisible={vm.isAnyStreaming} />
+            </div>
+            <ChatInterface
+              chatId={vm.chatId}
+              initialPrompt={vm.initialPrompt}
+              onCreateChat={smartCreateChat}
+              onSendMessage={smartSendMessage}
+              onRequestPlacement={handleRequestPlacement}
+              onStartFromTemplate={vm.handleStartFromTemplate}
+              onPaletteSelection={vm.handlePaletteSelection}
+              paletteSelections={vm.paletteState.selections}
+              designTheme={vm.designTheme}
+              onDesignThemeChange={vm.setDesignTheme}
+              onPromptAssistModeReset={vm.handlePromptAssistModeReset}
+              isFigmaInputOpen={isFigmaInputOpen}
+              onFigmaInputOpenChange={setIsFigmaInputOpen}
+              isBusy={isBusy}
+              isPreparingPrompt={vm.isPreparingPrompt}
+              mediaEnabled={vm.mediaEnabled}
+              currentCode={vm.currentPageCode}
+              existingUiComponents={vm.existingUiComponents}
+              continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              toolAvailability={toolAvailability}
             />
-            <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           </div>
-          <ChatInterface
-            chatId={vm.chatId}
-            initialPrompt={vm.initialPrompt}
-            onCreateChat={smartCreateChat}
-            onSendMessage={smartSendMessage}
-            onRequestPlacement={handleRequestPlacement}
-            onStartFromTemplate={vm.handleStartFromTemplate}
-            onPaletteSelection={vm.handlePaletteSelection}
-            paletteSelections={vm.paletteState.selections}
-            designTheme={vm.designTheme}
-            onDesignThemeChange={vm.setDesignTheme}
-            onPromptAssistModeReset={vm.handlePromptAssistModeReset}
-            isFigmaInputOpen={isFigmaInputOpen}
-            onFigmaInputOpenChange={setIsFigmaInputOpen}
-            isBusy={isBusy}
-            isPreparingPrompt={vm.isPreparingPrompt}
-            mediaEnabled={vm.mediaEnabled}
-            currentCode={vm.currentPageCode}
-            existingUiComponents={vm.existingUiComponents}
-            continuePlanMode={Boolean(latestPendingReply?.planMode)}
-          />
-        </div>
+        )}
 
         {showIntakeWizard && !vm.chatId && (
           <IntakeWizard
@@ -1799,7 +2085,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           role="tabpanel"
           className={cn(
             "bg-background min-h-0 flex-1 overflow-hidden motion-safe:transition-[background-color] motion-safe:duration-200",
-            mobileTab === "preview" ? "flex" : "hidden lg:flex",
+            vm.uiMode === "minimal"
+              ? "flex"
+              : mobileTab === "preview"
+                ? "flex"
+                : "hidden lg:flex",
           )}
         >
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:min-h-0">

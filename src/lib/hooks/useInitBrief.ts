@@ -163,7 +163,25 @@ export function useInitBrief(params: PromptAssistConfig) {
         debugLog("AI", "Dynamic instructions failed", {
           durationMs: Date.now() - startedAt,
           error: rawMessage,
+          isAbort,
+          isParseError,
         });
+
+        // Discreet user-facing notice: silent on abort, one toast per session
+        // otherwise. We still return the shallow-fallback below so generation
+        // never blocks on a failed brief.
+        if (!isAbort && typeof window !== "undefined") {
+          try {
+            const SEEN_KEY = "sajtmaskin.briefFallbackToastShown";
+            const alreadyShown = window.sessionStorage?.getItem(SEEN_KEY) === "1";
+            if (!alreadyShown) {
+              toast.warning("Använder snabb-brief — AI-analysen misslyckades.");
+              window.sessionStorage?.setItem(SEEN_KEY, "1");
+            }
+          } catch {
+            // sessionStorage may be disabled; swallow.
+          }
+        }
 
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,

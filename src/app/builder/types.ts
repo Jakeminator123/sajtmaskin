@@ -7,6 +7,13 @@ export type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
   planMode?: boolean;
+  /**
+   * Additional metadata merged into the request body's `meta` object.
+   * Special case: `meta.brief` is deep-merged on top of any server-generated
+   * Deep Brief so wizard-derived structured fields (primaryCallToAction,
+   * industry, mustHave, pages, visualDirection, etc.) win over LLM extraction.
+   */
+  meta?: Record<string, unknown>;
 };
 
 const _inverted = Object.entries(QUALITY_TO_MODEL).reduce(

@@ -32,6 +32,11 @@ describe("needs-analysis", () => {
         role: "user" as const,
         content: "Börja från noll, jag har ingen hemsida idag.",
       },
+      {
+        id: "3",
+        role: "user" as const,
+        content: "Jag har ingen logotyp än — ni får välja passande bilder.",
+      },
     ];
 
     const state = deriveNeedsAnalysisState(messages);

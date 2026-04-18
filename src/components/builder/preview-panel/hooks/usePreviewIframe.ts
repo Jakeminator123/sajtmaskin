@@ -38,6 +38,7 @@ export function usePreviewIframe(params: {
   const [iframeError, setIframeError] = useState(false);
   const [iframeErrorMessage, setIframeErrorMessage] = useState<string | null>(null);
   const [iframeDiagnosticCode, setIframeDiagnosticCode] = useState<string | null>(null);
+  const [hasEverLoaded, setHasEverLoaded] = useState(false);
 
   const internalIframeRef = useRef<HTMLIFrameElement | null>(null);
   const iframeRef = externalIframeRef ?? internalIframeRef;
@@ -124,6 +125,7 @@ export function usePreviewIframe(params: {
             setIframeLoading(false);
             setIframeError(false);
             setIframeErrorMessage(null);
+            setHasEverLoaded(true);
             clearPreviewReadyTimer();
             return;
           }
@@ -176,6 +178,7 @@ export function usePreviewIframe(params: {
     setIframeLoading(false);
     setIframeError(false);
     setIframeErrorMessage(null);
+    setHasEverLoaded(true);
   }, [
     clearPreviewReadyTimer,
     previewUrl,
@@ -197,5 +200,6 @@ export function usePreviewIframe(params: {
     setIframeDiagnosticCode,
     clearPreviewReadyTimer,
     handleIframeLoad,
+    hasEverLoaded,
   };
 }
