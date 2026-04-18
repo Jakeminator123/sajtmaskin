@@ -99,7 +99,7 @@ export function GenerationProgress({ phase, forceComplete, className }: Generati
           slot="hero"
           priority
           decorative
-          className="h-auto w-[clamp(180px,22vw,260px)] drop-shadow-[0_18px_30px_rgba(10,12,24,0.15)]"
+          className="h-auto w-[clamp(128px,15vw,180px)] drop-shadow-[0_18px_30px_rgba(10,12,24,0.15)]"
         />
 
         <div className="text-6xl font-semibold tracking-tight text-foreground tabular-nums transition-opacity duration-300 sm:text-7xl">
