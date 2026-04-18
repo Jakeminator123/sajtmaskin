@@ -13,12 +13,38 @@ const PREVIEW_READY_POLL_MS = 250;
 const TIER2_LOAD_TIMEOUT_MS = 30_000;
 const VM_BOOT_POLL_MS = 600;
 const VM_BOOT_TIMEOUT_MS = 90_000;
+/**
+ * Efter ett iframe-load väntar vi kort så preview-hostens `preview-starting`-
+ * postMessage hinner fram innan vi avgör om det var fallback eller riktig
+ * Next.js. DOMContentLoaded (som skickar meddelandet) föregår `load`, men
+ * vi lägger en liten marginal för att tåla varierande event-ordning i olika
+ * browsers.
+ */
+const VM_CROSS_ORIGIN_GRACE_MS = 400;
+
+/**
+ * Är previewURL:en same-origin med buildern? Cross-origin-previews (t.ex.
+ * `https://vm-fly-*.fly.dev`) gör att vi inte får läsa `contentDocument` utan
+ * att Safari loggar säkerhetsöverträdelse — i de fallen förlitar vi oss helt
+ * på postMessage-livscykel istället för DOM-polling.
+ */
+function isSameOriginPreviewUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  if (typeof window === "undefined") return false;
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Detektera preview-hostens fallback-sida ("Startar preview") så parent kan
  * behålla GenerationProgress-overlayn istället för att visa en nästan tom
  * iframe medan Next.js i VM:en fortfarande bootar. Vi känner igen sidan på
- * data-attributet som preview-host sätter på `<html>`.
+ * data-attributet som preview-host sätter på `<html>`. Endast användbart för
+ * same-origin-iframes — cross-origin får vi aldrig läsa.
  */
 function isVmFallbackDocument(doc: Document | null | undefined): boolean {
   if (!doc || !doc.documentElement) return false;
@@ -27,7 +53,8 @@ function isVmFallbackDocument(doc: Document | null | undefined): boolean {
 
 /**
  * Detektera att tier-2 Next.js faktiskt renderat något substantiellt i
- * iframen. Används när preview-hosten inte aktivt postar `preview-ready`.
+ * iframen. Används när preview-hosten inte aktivt postar `preview-ready` —
+ * endast meningsfullt för same-origin-iframes.
  */
 function isTier2DocumentReady(doc: Document | null | undefined): boolean {
   if (!doc || !doc.body) return false;
@@ -79,11 +106,23 @@ export function usePreviewIframe(params: {
   const tier2LoadTimerRef = useRef<number | null>(null);
   const vmBootTimerRef = useRef<number | null>(null);
   const vmBootStartedAtRef = useRef<number>(0);
+  /**
+   * För cross-origin-previews räknar vi antalet `preview-starting`-signaler
+   * från VM-fallbacken. När `sawStartingSinceLoadRef` är true när ett
+   * iframe-load inträffar vet vi att iframen just renderade fallback-stubben
+   * och väntar på nästa onLoad istället för att markera VM:en klar.
+   */
+  const sawStartingSinceLoadRef = useRef(false);
+  const crossOriginGraceTimerRef = useRef<number | null>(null);
 
   const clearVmBootTimer = useCallback(() => {
     if (vmBootTimerRef.current) {
       window.clearTimeout(vmBootTimerRef.current);
       vmBootTimerRef.current = null;
+    }
+    if (crossOriginGraceTimerRef.current) {
+      window.clearTimeout(crossOriginGraceTimerRef.current);
+      crossOriginGraceTimerRef.current = null;
     }
   }, []);
 
@@ -116,6 +155,7 @@ export function usePreviewIframe(params: {
     setIframeErrorMessage(null);
     setIframeDiagnosticCode(null);
     setVmReady(false);
+    sawStartingSinceLoadRef.current = false;
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [chatId, versionId, previewUrl, clearPreviewReadyTimer]);
 
@@ -123,6 +163,15 @@ export function usePreviewIframe(params: {
     clearVmBootTimer();
     setVmReady(true);
   }, [clearVmBootTimer]);
+
+  /**
+   * Signaleras från telemetri-hooken när VM-fallbacken postar `preview-starting`.
+   * Vi använder detta för att säkerställa att nästa iframe-load inte markeras
+   * som redo, eftersom det bara är preview-hostens stub som precis renderats.
+   */
+  const notifyPreviewStarting = useCallback(() => {
+    sawStartingSinceLoadRef.current = true;
+  }, []);
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -230,36 +279,62 @@ export function usePreviewIframe(params: {
     setIframeErrorMessage(null);
     setHasEverLoaded(true);
 
-    // Tier-2 / VM-preview: onLoad triggas både av preview-hostens
-    // fallback-sida och av den riktiga Next.js-dev-sajten. Vi låter vmReady
-    // flippa först när DOM:en faktiskt ser ut som användarens sajt, så att
-    // vår GenerationProgress-overlay hålls kvar under VM-boot.
     vmBootStartedAtRef.current = Date.now();
-    const pollVmReady = () => {
-      vmBootTimerRef.current = null;
-      const liveIframe = iframeRef.current;
-      let doc: Document | null = null;
-      try {
-        doc = liveIframe?.contentDocument ?? null;
-      } catch {
-        doc = null;
-      }
-      if (isVmFallbackDocument(doc)) {
-        // preview-host serverar fortfarande sin starting-stub; vänta.
-      } else if (isTier2DocumentReady(doc)) {
-        setVmReady(true);
+
+    // Tier-2 / VM-preview: onLoad triggas både av preview-hostens fallback-
+    // sida och av den riktiga Next.js-dev-sajten. Vi låter vmReady flippa
+    // först när vi faktiskt tror att användarens sajt är renderad.
+    if (isSameOriginPreviewUrl(previewUrl)) {
+      // Same-origin: vi får läsa iframens DOM och kan polla direkt.
+      const pollVmReady = () => {
+        vmBootTimerRef.current = null;
+        const liveIframe = iframeRef.current;
+        let doc: Document | null = null;
+        try {
+          doc = liveIframe?.contentDocument ?? null;
+        } catch {
+          doc = null;
+        }
+        if (isVmFallbackDocument(doc)) {
+          // preview-host serverar fortfarande sin starting-stub; vänta.
+        } else if (isTier2DocumentReady(doc)) {
+          setVmReady(true);
+          return;
+        }
+        if (Date.now() - vmBootStartedAtRef.current >= VM_BOOT_TIMEOUT_MS) {
+          setVmReady(true);
+          return;
+        }
+        vmBootTimerRef.current = window.setTimeout(pollVmReady, VM_BOOT_POLL_MS);
+      };
+      pollVmReady();
+      return;
+    }
+
+    // Cross-origin (t.ex. https://vm-*.fly.dev från localhost): vi får inte
+    // läsa iframens contentDocument utan att browsern loggar
+    // säkerhetsöverträdelse. Istället avgör vi fallback vs riktig sajt via
+    // postMessage-livscykel — preview-hostens stub postar `preview-starting`
+    // på DOMContentLoaded före varje load.
+    if (crossOriginGraceTimerRef.current) {
+      window.clearTimeout(crossOriginGraceTimerRef.current);
+      crossOriginGraceTimerRef.current = null;
+    }
+    crossOriginGraceTimerRef.current = window.setTimeout(() => {
+      crossOriginGraceTimerRef.current = null;
+      if (sawStartingSinceLoadRef.current) {
+        // Detta var fallback-stubben — nollställ flaggan och vänta på att
+        // nästa refresh laddar riktig Next.js (eller tills fail-open-timern
+        // slår in nedan).
+        sawStartingSinceLoadRef.current = false;
+        if (Date.now() - vmBootStartedAtRef.current >= VM_BOOT_TIMEOUT_MS) {
+          setVmReady(true);
+        }
         return;
       }
-      if (Date.now() - vmBootStartedAtRef.current >= VM_BOOT_TIMEOUT_MS) {
-        // Fail-open: efter timeout visar vi iframen oavsett — annars
-        // fastnar användaren för evigt i GenerationProgress.
-        setVmReady(true);
-        return;
-      }
-      vmBootTimerRef.current = window.setTimeout(pollVmReady, VM_BOOT_POLL_MS);
-    };
-    // Kick off en första check direkt; onLoad har precis triggat.
-    pollVmReady();
+      // Inga starting-signaler sedan senaste load → detta är användarens sajt.
+      setVmReady(true);
+    }, VM_CROSS_ORIGIN_GRACE_MS);
   }, [
     clearPreviewReadyTimer,
     previewUrl,
@@ -284,5 +359,6 @@ export function usePreviewIframe(params: {
     hasEverLoaded,
     vmReady,
     markVmReady,
+    notifyPreviewStarting,
   };
 }

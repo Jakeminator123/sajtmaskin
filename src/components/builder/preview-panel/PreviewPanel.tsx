@@ -233,6 +233,7 @@ export function PreviewPanel({
     hasEverLoaded: iframeHasEverLoaded,
     vmReady,
     markVmReady,
+    notifyPreviewStarting,
   } = usePreviewIframe({
     previewUrl,
     refreshToken,
@@ -257,9 +258,14 @@ export function PreviewPanel({
     onPreviewLifecycleChange: (phase) => {
       if (phase === "ready") {
         markVmReady();
+        return;
       }
-      // preview-starting behöver inte gör något här; vmReady resettas redan
-      // i usePreviewIframe när previewUrl/versionId byts.
+      if (phase === "starting") {
+        // Preview-hostens fallback-stub har just renderats i iframen. Tala
+        // om det för iframe-hooken så att efterföljande onLoad inte
+        // felaktigt markerar VM:en som klar under cross-origin-boot.
+        notifyPreviewStarting();
+      }
     },
     reportOwnEngineRenderFailureSinkRef,
   });
