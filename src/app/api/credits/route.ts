@@ -9,6 +9,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
 import { getUserTransactions } from "@/lib/db/services/transactions";
+import { isGuestUnlimited } from "@/lib/credits/server";
 
 /**
  * GET: Get current credit balance and usage info
@@ -61,8 +62,8 @@ export async function GET(req: NextRequest) {
       guest: {
         generationsUsed: guestUsage.generations_used,
         refinesUsed: guestUsage.refines_used,
-        canGenerate: guestUsage.generations_used < 1,
-        canRefine: guestUsage.refines_used < 1,
+        canGenerate: isGuestUnlimited() || guestUsage.generations_used < 1,
+        canRefine: isGuestUnlimited() || guestUsage.refines_used < 1,
       },
     });
   } catch (error) {

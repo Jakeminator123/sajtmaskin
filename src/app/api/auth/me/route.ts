@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
+import { isGuestUnlimited } from "@/lib/credits/server";
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,8 +47,8 @@ export async function GET(req: NextRequest) {
             sessionId,
             generationsUsed: guestUsage.generations_used,
             refinesUsed: guestUsage.refines_used,
-            canGenerate: guestUsage.generations_used < 1,
-            canRefine: guestUsage.refines_used < 1,
+            canGenerate: isGuestUnlimited() || guestUsage.generations_used < 1,
+            canRefine: isGuestUnlimited() || guestUsage.refines_used < 1,
           }
         : null,
     });

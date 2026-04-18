@@ -22,8 +22,16 @@ type ActionRule = {
   guestLimit?: number;
 };
 
-const GUEST_GEN_LIMIT = process.env.NODE_ENV === "development" ? 50 : 1;
-const GUEST_REFINE_LIMIT = process.env.NODE_ENV === "development" ? 50 : 1;
+// Obegränsat för gäster i dev (och när SAJTMASKIN_GUEST_UNLIMITED=true),
+// annars 1 gratis per session i produktion.
+export function isGuestUnlimited(): boolean {
+  return (
+    process.env.NODE_ENV === "development" ||
+    process.env.SAJTMASKIN_GUEST_UNLIMITED === "true"
+  );
+}
+const GUEST_GEN_LIMIT = isGuestUnlimited() ? Number.POSITIVE_INFINITY : 1;
+const GUEST_REFINE_LIMIT = isGuestUnlimited() ? Number.POSITIVE_INFINITY : 1;
 
 const ACTION_RULES: Record<CreditAction, ActionRule> = {
   "prompt.create": { allowGuest: true, guestUsageType: "generate", guestLimit: GUEST_GEN_LIMIT },
@@ -147,8 +155,8 @@ async function evaluateCredits(
     guest: {
       generationsUsed: guestUsage.generations_used,
       refinesUsed: guestUsage.refines_used,
-      canGenerate: guestUsage.generations_used < 1,
-      canRefine: guestUsage.refines_used < 1,
+      canGenerate: isGuestUnlimited() || guestUsage.generations_used < 1,
+      canRefine: isGuestUnlimited() || guestUsage.refines_used < 1,
     },
     failureType: guestBlocked ? "guest_limit" : undefined,
   };

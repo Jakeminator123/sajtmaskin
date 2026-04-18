@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
 import { isTestUser } from "@/lib/db/services/users";
+import { isGuestUnlimited } from "@/lib/credits/server";
 import {
   getCreditCost,
   type CreditAction,
@@ -100,12 +101,12 @@ export async function GET(req: NextRequest) {
           : null;
 
     if (guestAction === "generate") {
-      canProceed = guestUsage.generations_used < 1;
+      canProceed = isGuestUnlimited() || guestUsage.generations_used < 1;
       if (!canProceed) {
         reason = "Du har använt din gratis generation. Skapa ett konto för att fortsätta bygga!";
       }
     } else if (guestAction === "refine") {
-      canProceed = guestUsage.refines_used < 1;
+      canProceed = isGuestUnlimited() || guestUsage.refines_used < 1;
       if (!canProceed) {
         reason = "Du har använt din gratis förfining. Skapa ett konto för att fortsätta förfina!";
       }
@@ -123,8 +124,8 @@ export async function GET(req: NextRequest) {
       guest: {
         generationsUsed: guestUsage.generations_used,
         refinesUsed: guestUsage.refines_used,
-        canGenerate: guestUsage.generations_used < 1,
-        canRefine: guestUsage.refines_used < 1,
+        canGenerate: isGuestUnlimited() || guestUsage.generations_used < 1,
+        canRefine: isGuestUnlimited() || guestUsage.refines_used < 1,
       },
     });
   } catch (error) {
