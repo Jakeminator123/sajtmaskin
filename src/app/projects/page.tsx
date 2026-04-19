@@ -279,7 +279,15 @@ function ProjectsPageInner() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-gray-500 hover:bg-red-500/10 hover:text-red-400"
-                        onClick={() => openDeleteDialog(project.id, project.name)}
+                        onClick={(e) => {
+                          // Radix AlertDialog sätter aria-hidden på resten av
+                          // sidan när den öppnas. Om triggern behåller fokus
+                          // hamnar fokus på en ancestor med aria-hidden →
+                          // browsern varnar (a11y-violation). Blurra först
+                          // så Radix kan ta över fokus rent.
+                          e.currentTarget.blur();
+                          openDeleteDialog(project.id, project.name);
+                        }}
                         aria-label={`Ta bort projektet ${project.name}`}
                       >
                         <Trash2 className="h-4 w-4" />
