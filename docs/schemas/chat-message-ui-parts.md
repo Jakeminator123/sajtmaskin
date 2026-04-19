@@ -16,6 +16,7 @@ The current stable use case is the Phase 8 planning review card.
 | Surface           | Field                          | Purpose                                                                          |
 | ----------------- | ------------------------------ | -------------------------------------------------------------------------------- |
 | `engine_messages` | `ui_parts`                     | Canonical own-engine chat persistence for structured assistant message parts     |
+| `engine_messages` | `thinking`                     | Concatenated reasoning/chain-of-thought captured for assistant messages whose generator emitted `reasoning-delta` parts. Nullable. Read back by `GET /api/engine/chats/[chatId]` as `messages[].thinking` so the builder can re-render the collapsed thinking panel after F5. |
 | `project_data`    | `messages`                     | Convenience snapshot for saved projects, not the primary planner source of truth |
 | local storage     | `sajtmaskin:messages:{chatId}` | Client cache used for fast restore between sessions                              |
 

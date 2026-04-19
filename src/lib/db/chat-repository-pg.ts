@@ -34,7 +34,7 @@ export interface Chat {
 export interface Message {
   id: string;
   chat_id: string;
-  role: "system" | "user" | "assistant" | "thinking";
+  role: "system" | "user" | "assistant";
   content: string;
   ui_parts?: Record<string, unknown>[] | null;
   token_count: number | null;
