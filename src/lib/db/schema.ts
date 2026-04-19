@@ -405,7 +405,7 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
 
 export const engineChats = pgTable("engine_chats", {
   id: text("id").primaryKey(),
-  projectId: text("project_id"),
+  projectId: text("project_id").references(() => appProjects.id, { onDelete: "cascade" }),
   title: text("title"),
   model: text("model").notNull().default("gpt-5.4"),
   systemPrompt: text("system_prompt"),
@@ -498,8 +498,8 @@ export const engineVersionErrorLogs = pgTable("engine_version_error_logs", {
 
 export const generationTelemetry = pgTable("generation_telemetry", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
-  versionId: text("version_id").references(() => engineVersions.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+  versionId: text("version_id").references(() => engineVersions.id, { onDelete: "cascade" }),
   scaffoldId: text("scaffold_id"),
   scaffoldAlternatives: jsonb("scaffold_alternatives").$type<string[] | null>(),
   scaffoldSelectionMethod: text("scaffold_selection_method"),
@@ -534,7 +534,7 @@ export const generationTelemetry = pgTable("generation_telemetry", {
 export const versionComments = pgTable("version_comments", {
   id: text("id").primaryKey(),
   versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
   userId: text("user_id"),
   authorName: text("author_name"),
   content: text("content").notNull(),
@@ -546,7 +546,7 @@ export const versionComments = pgTable("version_comments", {
 export const versionApprovals = pgTable("version_approvals", {
   id: text("id").primaryKey(),
   versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
   userId: text("user_id"),
   approverName: text("approver_name"),
   status: text("status").notNull().default("pending"),

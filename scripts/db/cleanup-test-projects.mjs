@@ -18,14 +18,21 @@
  * Tuning:
  *   --keep N              Keep N most recent projects per user (default 4)
  *
- * Cascading delete covers (i ordning):
- * 1. generation_telemetry (FK utan cascade → engine_chats / engine_versions)
- * 2. version_comments + version_approvals (FK utan cascade → engine_chats)
- * 3. engine_chats (FK CASCADE → engine_messages, engine_versions,
- *    engine_generation_logs, engine_version_error_logs)
- * 4. app_projects (FK CASCADE → project_data, project_files, images,
- *    company_profiles, prompt_logs har ingen FK så lämnas som "soft-orphan"
- *    eftersom det är read-only telemetri)
+ * Cascading delete täcks helt av FK-kedjan efter
+ * `add-cascade-engine-chats-project.sql`: en enda `DELETE FROM app_projects`
+ * cascade:ar via app_projects → project_data, project_files, images,
+ * company_profiles, engine_chats → engine_messages, engine_versions,
+ * engine_generation_logs, engine_version_error_logs, generation_telemetry,
+ * version_comments, version_approvals.
+ *
+ * `domain_orders.project_id` saknar FK (text-kolumn) och är finansiella
+ * records — raderas explicit eftersom de annars blir dangling.
+ *
+ * `prompt_logs` har ingen FK så telemetrin överlever projekt-radering med
+ * vilja (analytics ska inte tappas).
+ *
+ * `media_library.project_id` är text utan FK — by design eftersom media
+ * ägs av användaren, inte projektet, och kan delas mellan flera projekt.
  *
  * Examples:
  *   node scripts/db/cleanup-test-projects.mjs                       # dry-run all test users, keep 4
@@ -182,64 +189,19 @@ async function main() {
 }
 
 /**
- * Cascading delete inom en transaktion. Vissa FK saknar `ON DELETE CASCADE`
- * (generation_telemetry, version_comments, version_approvals) så de måste
- * tömmas manuellt INNAN engine_chats raderas. FK med cascade (engine_messages,
- * engine_versions, engine_generation_logs, engine_version_error_logs,
- * project_data, project_files, images, company_profiles) sköts av Postgres.
+ * Cascading delete inom en transaktion. Efter migrationerna
+ * `add-cascade-to-engine-fks.sql` och `add-cascade-engine-chats-project.sql`
+ * räcker det med två DELETE: en för domain_orders (text utan FK) och en
+ * för app_projects (cascade:ar resten).
  */
 async function deleteProjectsCascade(projectIds) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-
-    const chatRows = await client.query(
-      `SELECT id FROM engine_chats WHERE project_id = ANY($1::text[])`,
+    await client.query(
+      `DELETE FROM domain_orders WHERE project_id = ANY($1::text[])`,
       [projectIds],
     );
-    const chatIds = chatRows.rows.map((r) => r.id);
-
-    if (chatIds.length > 0) {
-      const versionRows = await client.query(
-        `SELECT id FROM engine_versions WHERE chat_id = ANY($1::text[])`,
-        [chatIds],
-      );
-      const versionIds = versionRows.rows.map((r) => r.id);
-
-      // Tabeller utan ON DELETE CASCADE måste tömmas explicit.
-      await client.query(
-        `DELETE FROM generation_telemetry WHERE chat_id = ANY($1::text[])`,
-        [chatIds],
-      );
-      if (versionIds.length > 0) {
-        await client.query(
-          `DELETE FROM generation_telemetry WHERE version_id = ANY($1::text[])`,
-          [versionIds],
-        );
-        await client.query(
-          `DELETE FROM version_comments WHERE version_id = ANY($1::text[])`,
-          [versionIds],
-        );
-        await client.query(
-          `DELETE FROM version_approvals WHERE version_id = ANY($1::text[])`,
-          [versionIds],
-        );
-      }
-      await client.query(
-        `DELETE FROM version_comments WHERE chat_id = ANY($1::text[])`,
-        [chatIds],
-      );
-      await client.query(
-        `DELETE FROM version_approvals WHERE chat_id = ANY($1::text[])`,
-        [chatIds],
-      );
-
-      await client.query(
-        `DELETE FROM engine_chats WHERE id = ANY($1::text[])`,
-        [chatIds],
-      );
-    }
-
     await client.query(
       `DELETE FROM app_projects WHERE id = ANY($1::text[])`,
       [projectIds],

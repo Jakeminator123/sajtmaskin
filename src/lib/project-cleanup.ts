@@ -15,7 +15,6 @@ import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
-  companyProfiles,
   images,
   projectData,
   projectFiles,
@@ -164,13 +163,19 @@ export async function runCleanup(): Promise<CleanupResult> {
 }
 
 /**
- * Delete a project and all associated data
+ * Delete a project and all associated data.
+ *
+ * Tack vare FK CASCADE räcker en DELETE på app_projects:
+ *   project_data, project_files, images, company_profiles    (FK CASCADE)
+ *   engine_chats → engine_messages, engine_versions, etc.    (FK CASCADE,
+ *     add-cascade-engine-chats-project.sql)
+ *
+ * domain_orders (text utan FK) raderas inte här eftersom denna cleanup-väg
+ * körs på inaktiva/anonyma projekt — domain-orders ska överleva för audit.
+ * Inhämtar samma policy som backoffice cleanup-scriptet (där rensar vi
+ * dom medvetet eftersom där kör vi total nuke).
  */
 async function deleteProjectAndData(projectId: string): Promise<void> {
-  await db.delete(projectData).where(eq(projectData.project_id, projectId));
-  await db.delete(projectFiles).where(eq(projectFiles.project_id, projectId));
-  await db.delete(images).where(eq(images.project_id, projectId));
-  await db.delete(companyProfiles).where(eq(companyProfiles.project_id, projectId));
   await db.delete(appProjects).where(eq(appProjects.id, projectId));
 }
 

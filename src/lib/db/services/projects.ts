@@ -3,9 +3,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
   appProjects,
-  companyProfiles,
   domainOrders,
-  images,
   projectData,
   projectFiles,
   promptHandoffs,
@@ -233,10 +231,18 @@ export async function deleteProject(id: string, scope?: ProjectOwnerScope): Prom
   const existing = scope ? await getProjectByIdForOwner(id, scope) : await getProjectById(id);
   if (!existing) return false;
 
-  await db.delete(projectData).where(eq(projectData.project_id, id));
-  await db.delete(projectFiles).where(eq(projectFiles.project_id, id));
-  await db.delete(images).where(eq(images.project_id, id));
-  await db.delete(companyProfiles).where(eq(companyProfiles.project_id, id));
+  // Tack vare FK CASCADE räcker det med en DELETE på app_projects:
+  //   project_data, project_files, images, company_profiles      (FK CASCADE)
+  //   engine_chats → engine_messages, engine_versions,            (FK CASCADE,
+  //     engine_generation_logs, engine_version_error_logs,         add-cascade-
+  //     generation_telemetry, version_comments, version_approvals  *.sql)
+  //
+  // Två tabeller saknar FK och raderas explicit:
+  //   domain_orders   – text-kolumn utan FK; finansiella records som annars
+  //                     blir dangling efter projekt-radering.
+  //   media_library   – text-kolumn utan FK *by design*: media ägs av
+  //                     användaren och kan delas mellan projekt, så vi rör
+  //                     den INTE här.
   await db.delete(domainOrders).where(eq(domainOrders.project_id, id));
   await db.delete(appProjects).where(eq(appProjects.id, id));
 
