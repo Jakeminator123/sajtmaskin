@@ -165,4 +165,4 @@ Scaffold-kontexten är typiskt 5-15% av systempromten. Budgeteras via BuildSpec:
 
 ## Beslutsunderlag
 
-Innan du föreslår att lägga till, ta bort eller slå ihop scaffolds/variants — läs `docs/architecture/scaffold-variants-inventory.md`. Den listar alla 10 scaffolds + 21 variants med kvalitetsbedömning, hur build-skripten fungerar, och konkreta rangordnade cleanup-förslag.
+Innan du föreslår att lägga till, ta bort eller slå ihop scaffolds/variants — läs `docs/architecture/scaffold-variants-inventory.md`. Den listar alla 10 scaffolds + variants (idag 26) med kvalitetsbedömning, hur build-skripten fungerar, och konkreta rangordnade cleanup-förslag.

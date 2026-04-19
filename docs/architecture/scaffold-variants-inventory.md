@@ -12,7 +12,7 @@
 
 | ID | Label | siteKind | complexity | allowedBuildIntents | Variants | Default-variant | Anteckning |
 |---|---|---|---|---|---|---|---|
-| `base-nextjs` | Base Next.js | marketing | simple | website, template | 1 | `starter-neutral` | Minimal fallback. OK. |
+| `base-nextjs` | Base Next.js | marketing | simple | website, template | 4 | `starter-neutral` | Neutral fallback + 3 starter-axes (mono dev, soft studio, fresh teal). |
 | `landing-page` | Landing Page | marketing | medium | website, template | **5** | `corporate-grid` | Bredast täckning. Enda scaffold med >2 variants. |
 | `saas-landing` | SaaS Landing | marketing | medium | website, template | 2 | `friendly-saas` | Tydlig nisch. |
 | `portfolio` | Portfolio | editorial | medium | website, template | 2 | `minimal-studio` | Tydlig nisch. |
@@ -23,7 +23,7 @@
 | `content-site` | Content Site | marketing | medium | website, template | 1 | `warm-editorial` | **Överlapp med landing-page.** Diskussion: slå ihop. |
 | `app-shell` | App Shell | app | medium | app | 2 | `clean-utility` | **Överlapp med dashboard.** |
 
-**Totalt:** 10 scaffolds, 21 variants. Variants ojämnt fördelade (5 hos landing-page, 1 hos fyra scaffolds).
+**Totalt:** 10 scaffolds, 26 variants (per `config/scaffold-variants/_index/variant-embeddings.json`). Variants ojämnt fördelade (5 hos landing-page, 4 hos base-nextjs, 1 hos vissa scaffolds).
 
 ---
 
@@ -34,13 +34,18 @@
 > - **Guidance-fält** = härledda från template-library (styleRules, sectionInventory, avoidPatterns, worldClassRubric, sourceTemplateIds).
 > - 🟢 = scaffold-relevant och specifik. 🟡 = generic men inte direkt felaktig. 🔴 = direkt missvisande för scaffolden.
 
-### 2.1 `base-nextjs` (1 variant)
+### 2.1 `base-nextjs` (4 variants)
 
-| Variant | Default | colorMode | Heading / Body | signatureMotif | Guidance-kvalitet |
+> **Uppdaterad 2026-04-20:** Utökad från 1 → 4 starter-axes. `starter-neutral` ligger kvar som default neutral fallback; tre nya varianter täcker dev-, designer- och fresh-product-leaning starter-prompts utan att stjäla ranking från andra scaffolds. Alla fyra följer samma kanoniska variant-format ($schema-ref + minimal token-uppsättning + 5 layouts/4 motifs/4 antiPatterns).
+
+| Variant | Default | colorMode | Heading / Body (primär · alt) | signatureMotif | Guidance-kvalitet |
 |---|---|---|---|---|---|
-| `starter-neutral` | ✓ | either | Geist / Geist | quiet starter baseline, restrained tokens, and safe extension-first clarity | 🟡 generic (godtagbar) |
+| `starter-neutral` | ✓ | either | Geist / Geist · Inter / Inter | quiet near-monochrome shell, restrained tokens, and extension-first clarity | 🟢 handredigerad |
+| `playground-mono` | – | dark | JetBrains Mono / Inter · Geist Mono / Geist | calm dark playground shell, mono headings, and prototype-friendly chrome | 🟢 handredigerad |
+| `studio-soft` | – | light | Inter / Inter · Plus Jakarta Sans / Inter | soft warm light surfaces, generous whitespace, and quiet designer-leaning baseline | 🟢 handredigerad |
+| `fresh-mint` | – | light | Geist / Geist · Manrope / Inter | crisp light surfaces, a fresh teal accent, and product-leaning starter rhythm | 🟢 handredigerad |
 
-**Bedömning:** OK som fallback. Inga åtgärder.
+**Bedömning:** Bredd över starter-personligheter (neutral, dev, soft, fresh) utan att klampa in i landing-page eller dashboard. Default kvar på `starter-neutral` för fallback-rollen.
 
 ### 2.2 `landing-page` (5 variants — bredast)
 
@@ -290,7 +295,7 @@ Vid scaffold-borttagning, sammanslagning, eller variantfältsförändring:
 
 ## 8. Sammanfattning för icke-tekniska beslutsfattare
 
-- **Idag:** 10 scaffolds, 21 variants. En variant (`corporate-grid`) är handredigerad och ger LLM:en specifika instruktioner. De andra 20 ärver generic mall-text från ett deterministiskt regel-script.
+- **Idag:** 10 scaffolds, 26 variants. Flera varianter är handredigerade (referens: `corporate-grid`, samtliga `base-nextjs`-varianter) och ger LLM:en specifika instruktioner; några äldre varianter ärver fortfarande generisk mall-text från ett deterministiskt regel-script.
 - **Det generiska bruset gör inte sajter sämre i praktiken** — LLM:en ignorerar mestadels det som inte passar — men det tar plats i system-prompten och kan i edge-fall förvirra.
 - **Två scaffolds överlappar betydande:** content-site med landing-page (samma roll), dashboard med app-shell (snarlik roll).
 - **Mest värdefulla pipelinedelar** är dossier-koden (`selectedFiles`) och de hand-skrivna design-axes-fälten i variants. Inte runtime-guidance-regelmotorn.

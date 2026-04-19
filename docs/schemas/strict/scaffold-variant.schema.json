@@ -18,7 +18,7 @@
   "properties": {
     "$schema": {
       "type": "string",
-      "description": "Optional JSON Schema reference for editor validation."
+      "description": "Optional JSON Schema reference for editor validation. Recommended on every variant file: `\"$schema\": \"../../../docs/schemas/strict/scaffold-variant.schema.json\"`."
     },
     "id": {
       "type": "string",
@@ -152,7 +152,7 @@
     },
     "default": {
       "type": "boolean",
-      "description": "If true, this variant gets +1 base score in matching and acts as fallback for the scaffold. Exactly one variant per scaffold should be default."
+      "description": "Marks the canonical fallback variant for this scaffold (used by the backoffice and as the safety pick when no other ranking signal applies). NOTE: as of 2026-04 the matcher no longer adds a numeric scoring bonus for `default: true` (see src/lib/gen/scaffold-variants/matcher.ts) — keyword and embedding matches decide. Convention: keep exactly one default per scaffold; sibling variants stay `default: false` and earn their priority via keywords + embeddings."
     }
   }
 }

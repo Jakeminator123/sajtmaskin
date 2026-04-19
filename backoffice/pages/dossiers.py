@@ -556,7 +556,10 @@ def _section_scaffold_overview() -> None:
         st.warning("config/scaffold-variants/ saknas.")
         return
 
-    variant_files = sorted(SCAFFOLD_VARIANTS_DIR.glob("*.json"))
+    # Variants live in subfolders per scaffoldId (e.g.
+    # config/scaffold-variants/base-nextjs/starter-neutral.json) — recursive
+    # glob is required, top-level "*.json" returned nothing.
+    variant_files = sorted(SCAFFOLD_VARIANTS_DIR.glob("**/*.json"))
     variant_data: list[dict[str, Any]] = []
     embedded_variant_ids: set[str] = set()
     if VARIANT_EMBEDDINGS_PATH.exists():
@@ -564,15 +567,27 @@ def _section_scaffold_overview() -> None:
         embedded_variant_ids = {e.get("id") for e in ve.get("embeddings", []) if e.get("id")}
 
     for vf in variant_files:
-        if vf.stem.startswith("_"):
+        # Skip the _index/ folder (variant-embeddings.json etc).
+        if any(part.startswith("_") for part in vf.relative_to(SCAFFOLD_VARIANTS_DIR).parts):
             continue
         v = _load_json(vf) or {}
+        # Schema-canonical field is `default` (boolean). The legacy
+        # `isDefault` key never existed in any variant file — using it meant
+        # every row showed "—" for default in the backoffice. fontPairings
+        # is an array of {heading, body}; project to a compact "Heading +
+        # Body" string per pair.
+        font_pairs = v.get("fontPairings") or []
+        font_label = ", ".join(
+            f"{(p.get('heading') or '?').strip()} + {(p.get('body') or '?').strip()}"
+            for p in font_pairs
+            if isinstance(p, dict)
+        ) or "—"
         variant_data.append({
             "scaffold": v.get("scaffoldId", "—"),
             "variant_id": v.get("id", vf.stem),
             "label": v.get("label", "—"),
-            "default": "✓" if v.get("isDefault") else "—",
-            "fonts": ", ".join((v.get("design", {}) or {}).get("fonts", [])) or "—",
+            "default": "✓" if v.get("default") else "—",
+            "fonts": font_label,
             "embedding": "✓" if v.get("id") in embedded_variant_ids else "—",
         })
 
