@@ -69,6 +69,48 @@ vi.mock("@/lib/utils/debug", () => ({
   warnLog: vi.fn(),
 }));
 
+// scaffold-search calls `new OpenAI({ apiKey })` and `openai.embeddings.create`
+// for semantic scaffold matching. Under vitest's default jsdom environment
+// that throws "running in a browser-like environment" before any network
+// happens — the test here only verifies pipeline wiring, not embedding
+// quality, so we short-circuit to the empty result (same shape that
+// `useEmbeddings:false` would produce).
+vi.mock("@/lib/gen/scaffolds/scaffold-search", () => ({
+  searchScaffoldsWithDiagnostics: vi.fn(async () => ({
+    results: [],
+    diagnostics: {
+      attempted: false,
+      available: false,
+      failed: false,
+      unavailableReason: "missing_embeddings",
+      errorMessage: null,
+      durationMs: null,
+    },
+  })),
+}));
+
+// system-prompt.ts uses `require("./static-core-loader")` (CJS) to keep
+// `node:fs` out of Turbopack's static analysis. Vitest's ESM transformer
+// can't resolve that dynamic require, so we stub the heavy entry points
+// the pipeline calls (composeEngineSystemPrompt, buildDynamicContext)
+// rather than trying to mock the require target. Test only asserts
+// pipeline wiring, not prompt content.
+vi.mock("@/lib/gen/system-prompt", () => ({
+  SYSTEM_PROMPT_SEPARATOR: "\n\n---\n\n# Request-Specific Context\n\n",
+  composeEngineSystemPrompt: (dynamic: string) => `STATIC_CORE_STUB\n\n---\n\n${dynamic}`,
+  buildDynamicContext: () => ({
+    text: "DYNAMIC_CONTEXT_STUB",
+    pruning: {
+      budgetTokens: 30000,
+      usedTokens: 10,
+      droppedBlockKeys: [],
+      keptBlockKeys: ["build_intent_website"],
+    },
+    blocks: [],
+  }),
+  getSystemPromptLengths: () => ({ total: 100, static: 50, dynamic: 50 }),
+}));
+
 import { generateOwnEngineSiteFromPrompt } from "./generate-site-from-prompt";
 
 const LLM_CONTENT = [
