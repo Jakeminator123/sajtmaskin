@@ -95,7 +95,11 @@ export async function runCleanup(): Promise<CleanupResult> {
     result.deletedAnonymousProjects++;
   }
 
-  // 1b. Delete projects that were never saved (no chat_id or demo_url in project_data)
+  // 1b. Delete projects that were never saved (no chat_id or demo_url in project_data).
+  //     Begränsas till ANONYMA projekt (user_id IS NULL) — inloggade users
+  //     omfattas av 30/90-dagarspolicyn ovan, inte 24-timmars-utkastrensningen.
+  //     Annars riskerade vi att rensa en betalande users tomma utkast efter
+  //     en arbetsdag bort från datorn.
   const unsavedCutoff = new Date();
   unsavedCutoff.setHours(unsavedCutoff.getHours() - CLEANUP_CONFIG.UNSAVED_PROJECT_TTL_HOURS);
 
@@ -105,6 +109,7 @@ export async function runCleanup(): Promise<CleanupResult> {
     .leftJoin(projectData, eq(projectData.project_id, appProjects.id))
     .where(
       and(
+        isNull(appProjects.user_id),
         lt(appProjects.created_at, unsavedCutoff),
         or(isNull(projectData.chat_id), eq(projectData.chat_id, "")),
         or(isNull(projectData.demo_url), eq(projectData.demo_url, "")),

@@ -243,8 +243,15 @@ export async function deleteProject(id: string, scope?: ProjectOwnerScope): Prom
   //   media_library   – text-kolumn utan FK *by design*: media ägs av
   //                     användaren och kan delas mellan projekt, så vi rör
   //                     den INTE här.
-  await db.delete(domainOrders).where(eq(domainOrders.project_id, id));
-  await db.delete(appProjects).where(eq(appProjects.id, id));
+  //
+  // Wrap:as i en transaktion så vi inte hamnar i partial-failure där
+  // domain_orders raderats men app_projects-rensningen faller (deadlock,
+  // timeout etc). Motsvarande pattern finns i scripts/db/cleanup-test-
+  // projects.mjs (`deleteProjectsCascade`).
+  await db.transaction(async (tx) => {
+    await tx.delete(domainOrders).where(eq(domainOrders.project_id, id));
+    await tx.delete(appProjects).where(eq(appProjects.id, id));
+  });
 
   return true;
 }

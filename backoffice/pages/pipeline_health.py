@@ -12,6 +12,7 @@ det lyckades.
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -33,6 +34,11 @@ class HealthScript:
     cost: str
     requires_api: bool
     tags: tuple[str, ...] = field(default_factory=tuple)
+    # Freshness-detection: när källfiler är nyare än output_path räknas skriptet
+    # som "STALE" och kan auto-fixas via "Fixa stale"-knappen. Båda måste vara
+    # angivna för att checken ska aktiveras.
+    output_path: str | None = None
+    source_globs: tuple[str, ...] = field(default_factory=tuple)
 
 
 # Underhållsskript som inte ingår i `npm run dev`-flödet och därför lätt glöms.
@@ -81,6 +87,8 @@ SCRIPTS: tuple[HealthScript, ...] = (
         cost="expensive",
         requires_api=True,
         tags=("embeddings",),
+        output_path="config/scaffold-variants/_index/variant-embeddings.json",
+        source_globs=("config/scaffold-variants/*/*.json",),
     ),
     HealthScript(
         id="dossiers-embeddings",
@@ -93,6 +101,8 @@ SCRIPTS: tuple[HealthScript, ...] = (
         cost="expensive",
         requires_api=True,
         tags=("embeddings", "dossiers"),
+        output_path="data/dossiers/_index/dossier-embeddings.json",
+        source_globs=("data/dossiers/_index/master.json",),
     ),
     HealthScript(
         id="templates-embeddings",
@@ -166,6 +176,23 @@ def _save_state(ctx: BackofficeContext, state: dict[str, Any]) -> None:
     )
 
 
+def _resolve_command(command: tuple[str, ...]) -> list[str]:
+    """Resolva första argumentet via PATH (PATHEXT på Windows).
+
+    Utan detta kraschar `subprocess.run([...npm...], shell=False)` på Windows
+    med FileNotFoundError eftersom `npm` är en `.cmd`-shim. `shutil.which`
+    respekterar PATHEXT och hittar `npm.cmd`/`npm.exe` automatiskt.
+    Faller tillbaka till originalkommandot om PATH-lookup misslyckas så
+    felet ändå rapporteras (snarare än att vi tyst byter binär).
+    """
+    if not command:
+        return []
+    resolved = shutil.which(command[0])
+    if not resolved:
+        return list(command)
+    return [resolved, *command[1:]]
+
+
 def _run_script(ctx: BackofficeContext, script: HealthScript) -> dict[str, Any]:
     started_iso = datetime.now(timezone.utc).isoformat()
     started = time.time()
@@ -174,7 +201,7 @@ def _run_script(ctx: BackofficeContext, script: HealthScript) -> dict[str, Any]:
     exit_code: int = -99
     try:
         proc = subprocess.run(
-            list(script.command),
+            _resolve_command(script.command),
             cwd=str(ctx.repo_root),
             capture_output=True,
             text=True,
@@ -223,6 +250,117 @@ def _status_text(result: dict[str, Any] | None) -> str:
     if code in (-2,):
         return "MISSING-BIN"
     return "FAIL"
+
+
+@dataclass(frozen=True)
+class StaleInfo:
+    is_stale: bool
+    output_exists: bool
+    output_mtime: float | None
+    newest_source_path: str | None
+    newest_source_mtime: float | None
+    sources_checked: int
+
+    @property
+    def reason(self) -> str:
+        if not self.output_exists:
+            return "Output-fil saknas — har aldrig genererats."
+        if self.is_stale and self.newest_source_path:
+            from datetime import datetime as _dt, timezone as _tz
+
+            def _fmt(ts: float | None) -> str:
+                if ts is None:
+                    return "?"
+                return _dt.fromtimestamp(ts, tz=_tz.utc).isoformat(timespec="seconds")
+
+            return (
+                f"`{self.newest_source_path}` ({_fmt(self.newest_source_mtime)}) "
+                f"är nyare än output ({_fmt(self.output_mtime)})."
+            )
+        return ""
+
+
+def _collect_known_output_paths(ctx: BackofficeContext) -> set[Path]:
+    """Resolverade absolut-paths för alla scripts output_path.
+
+    Används för att exkludera *andra scripts* output från source-globs så vi
+    inte jämför en pipeline-fil mot derivat av sig själv (t.ex. embeddings
+    som plockar upp en sibling `_index/`-fil). Vi exkluderar dock INTE syskon
+    i samma mapp som inte är registrerade outputs — det skulle felaktigt
+    göra checken tyst för scripts vars källor lever i samma mapp som deras
+    output (se `dossiers-embeddings` med `master.json` i `_index/`).
+    """
+    out: set[Path] = set()
+    for s in SCRIPTS:
+        if not s.output_path:
+            continue
+        try:
+            out.add((ctx.repo_root / s.output_path).resolve())
+        except OSError:
+            continue
+    return out
+
+
+def _check_staleness(ctx: BackofficeContext, script: HealthScript) -> StaleInfo | None:
+    """Returnerar None när skriptet inte deklarerat output_path + source_globs."""
+    if not script.output_path or not script.source_globs:
+        return None
+    output_abs = (ctx.repo_root / script.output_path).resolve()
+    output_mtime = output_abs.stat().st_mtime if output_abs.is_file() else None
+    known_outputs = _collect_known_output_paths(ctx)
+
+    newest_path: str | None = None
+    newest_mtime: float | None = None
+    sources_checked = 0
+    for pattern in script.source_globs:
+        for match in ctx.repo_root.glob(pattern):
+            if not match.is_file():
+                continue
+            try:
+                resolved = match.resolve()
+            except OSError:
+                continue
+            if resolved == output_abs:
+                continue
+            if resolved in known_outputs:
+                continue
+            sources_checked += 1
+            mtime = resolved.stat().st_mtime
+            if newest_mtime is None or mtime > newest_mtime:
+                newest_mtime = mtime
+                newest_path = str(resolved.relative_to(ctx.repo_root)).replace("\\", "/")
+
+    if output_mtime is None:
+        # Output saknas helt → räknas som stale så fort minst en källa finns.
+        return StaleInfo(
+            is_stale=sources_checked > 0,
+            output_exists=False,
+            output_mtime=None,
+            newest_source_path=newest_path,
+            newest_source_mtime=newest_mtime,
+            sources_checked=sources_checked,
+        )
+
+    is_stale = newest_mtime is not None and newest_mtime > output_mtime
+    return StaleInfo(
+        is_stale=is_stale,
+        output_exists=True,
+        output_mtime=output_mtime,
+        newest_source_path=newest_path,
+        newest_source_mtime=newest_mtime,
+        sources_checked=sources_checked,
+    )
+
+
+def _combined_status(result: dict[str, Any] | None, stale: StaleInfo | None) -> str:
+    base = _status_text(result)
+    if stale and stale.is_stale:
+        # STALE övertrumfar OK eftersom det signalerar att output inte längre
+        # speglar källorna. FAIL/TIMEOUT är fortfarande viktigare att synliggöra.
+        if base in ("OK", "—"):
+            return "STALE"
+        return f"{base}+STALE"
+    return base
 
 
 def _format_age(iso_ts: str | None) -> str:
@@ -276,14 +414,38 @@ def render(ctx: BackofficeContext) -> None:
     cheap_scripts = fast_scripts + medium_scripts
     all_scripts = list(SCRIPTS)
 
+    # Räkna ut staleness en gång och dela mellan tabell, banner och per-skript-vy
+    # så vi inte glob:ar samma filer flera gånger per render.
+    stale_info: dict[str, StaleInfo | None] = {
+        s.id: _check_staleness(ctx, s) for s in SCRIPTS
+    }
+    stale_scripts = [s for s in SCRIPTS if (stale_info[s.id] and stale_info[s.id].is_stale)]
+
+    if stale_scripts:
+        lines = ["**Stale output upptäckt — re-genering rekommenderas:**"]
+        for s in stale_scripts:
+            info = stale_info[s.id]
+            assert info is not None
+            lines.append(f"- **{s.label}** — {info.reason}")
+        st.warning("\n".join(lines))
+        if st.button(
+            f"Fixa stale ({len(stale_scripts)} skript)",
+            type="primary",
+            key="pipeline-health-fix-stale",
+            help="Kör endast de skript där källfilerna är nyare än output.",
+        ):
+            _run_batch(ctx, state, stale_scripts)
+            st.rerun()
+
     st.subheader("Status översikt")
     rows: list[dict[str, str]] = []
     for s in SCRIPTS:
         result = state.get(s.id)
+        info = stale_info[s.id]
         rows.append(
             {
                 "Skript": s.label,
-                "Status": _status_text(result),
+                "Status": _combined_status(result, info),
                 "Kostnad": _COST_LABELS[s.cost],
                 "API": "OpenAI" if s.requires_api else "—",
                 "Senast körd": _format_age((result or {}).get("finishedAt")),
@@ -308,10 +470,11 @@ def render(ctx: BackofficeContext) -> None:
         and (state.get(s.id) or {}).get("exitCode") != 0
     )
     never_count = len(SCRIPTS) - ok_count - fail_count
-    cols = st.columns(3)
+    cols = st.columns(4)
     cols[0].metric("OK", ok_count)
     cols[1].metric("FAIL", fail_count)
     cols[2].metric("Aldrig kört", never_count)
+    cols[3].metric("STALE", len(stale_scripts))
 
     st.divider()
 
@@ -349,11 +512,18 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("Per skript")
     for script in SCRIPTS:
         result = state.get(script.id)
-        status = _status_text(result)
+        info = stale_info[script.id]
+        status = _combined_status(result, info)
         title = f"[{status}] {script.label}"
         with st.expander(title, expanded=False):
             st.caption(script.description)
             st.code(" ".join(script.command), language="bash")
+            if info and info.is_stale:
+                st.warning(f"STALE: {info.reason}")
+            elif info and info.output_exists and info.sources_checked > 0:
+                st.caption(
+                    f"Freshness OK — output speglar {info.sources_checked} källfil(er)."
+                )
 
             meta_cols = st.columns([1, 1, 1, 2])
             meta_cols[0].metric("Status", status)
