@@ -282,6 +282,79 @@ describe("createCodeGenSSEStream", () => {
     expect(contentText).toContain("```tsx file=\"app/page.tsx\"");
   });
 
+  it("invokes onAccumulatedThinking with the joined reasoning text before stream end", async () => {
+    let captured: string | null | undefined = undefined;
+    let capturedBeforeDone = false;
+    const stream = createCodeGenSSEStream(
+      createResult([
+        { type: "start" },
+        { type: "reasoning-start" },
+        { type: "reasoning-delta", reasoningDelta: "First, " },
+        { type: "reasoning-delta", reasoningDelta: "second." },
+        { type: "text-start" },
+        { type: "text-delta", textDelta: "ok" },
+        { type: "finish" },
+      ]),
+      {
+        thinking: true,
+        meta: { chatId: "chat_test" },
+        onAccumulatedThinking: (text) => {
+          captured = text;
+          capturedBeforeDone = true;
+        },
+      },
+    );
+
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let sawDone = false;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSSEBuffer(buffer);
+      buffer = parsed.remaining;
+      for (const evt of parsed.events) {
+        if (evt.event === "done") {
+          sawDone = true;
+          // The producer must have already invoked the callback by the
+          // time consumers see `done`, otherwise downstream finalize
+          // would persist `null` for thinking.
+          expect(captured).toBe("First, second.");
+        }
+      }
+    }
+    expect(sawDone).toBe(true);
+    expect(capturedBeforeDone).toBe(true);
+    expect(captured).toBe("First, second.");
+  });
+
+  it("invokes onAccumulatedThinking with null when no reasoning was streamed", async () => {
+    let captured: string | null | undefined = "untouched";
+    const stream = createCodeGenSSEStream(
+      createResult([
+        { type: "start" },
+        { type: "text-start" },
+        { type: "text-delta", textDelta: "ok" },
+        { type: "finish" },
+      ]),
+      {
+        thinking: false,
+        meta: { chatId: "chat_test" },
+        onAccumulatedThinking: (text) => {
+          captured = text;
+        },
+      },
+    );
+    const reader = stream.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+    expect(captured).toBeNull();
+  });
+
   it("keeps leading thinking-tagged text when thinking is enabled", async () => {
     const events = await collectEvents(
       [

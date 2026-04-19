@@ -13,7 +13,11 @@
  */
 
 import type { ShadcnRegistryItem } from "@/lib/shadcn/registry-types";
-import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/shadcn/registry-url";
+import {
+  getRegistryBaseUrl,
+  getStyleFallbackChain,
+  resolveRegistryStyle,
+} from "@/lib/shadcn/registry-url";
 import {
   resolveShadcnComponentMetadata,
   type ComponentPreviewKind,
@@ -279,6 +283,74 @@ export async function fetchRegistrySummary(style?: string): Promise<RegistrySumm
 }
 
 /**
+ * Indikerar om en payload är "användbar" — har minst en fil eller block-meta.
+ * Används av fallback-kedjan för att fortsätta till nästa style när primary
+ * returnerar HTTP 200 men tomt innehåll (t.ex. radix-vega/form.json som per
+ * 2026-04 publiceras utan files-array).
+ */
+function isUsableRegistryItem(data: ShadcnRegistryItem | null | undefined): boolean {
+  if (!data) return false;
+  if (Array.isArray(data.files) && data.files.length > 0) return true;
+  // Block-only payloads (markdown/preview-only) räknas också som "fanns".
+  if (typeof data.docs === "string" && data.docs.trim().length > 0) return true;
+  return false;
+}
+
+/**
+ * Försöker hämta ett registry-item genom STYLE_FALLBACK-kedjan.
+ * - Om explicit style anges: använder bara den (caller har valt medvetet).
+ * - Annars: primary → new-york-v4 → new-york.
+ *
+ * Returnerar första style där HTTP är ok OCH payload bedöms användbar.
+ * Kastar bara om alla styles misslyckas (med felmeddelandet från sista
+ * försöket, så caller kan se varför).
+ */
+async function fetchRegistryItemViaFallback(
+  name: string,
+  explicitStyle: string | undefined,
+  options: { force?: boolean; source?: string } = {},
+): Promise<ShadcnRegistryItem> {
+  const force = Boolean(options.force);
+  const styles = explicitStyle ? [explicitStyle] : getStyleFallbackChain();
+
+  let lastError: Error | null = null;
+
+  for (const style of styles) {
+    const url =
+      typeof window === "undefined"
+        ? buildRegistryItemUrl(name, style)
+        : buildRegistryProxyItemUrl(name, style, { force, source: options.source });
+    let response: Response;
+    try {
+      response = await fetch(url, force ? { cache: "no-store" } : undefined);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      continue;
+    }
+
+    if (!response.ok) {
+      const details = await parseRegistryError(response);
+      const suffix = details ? ` - ${details}` : "";
+      lastError = new Error(
+        `Kunde inte hämta registry-item "${name}" från style "${style}" (HTTP ${response.status})${suffix}`,
+      );
+      continue;
+    }
+
+    const data = (await response.json()) as ShadcnRegistryItem;
+    if (!isUsableRegistryItem(data)) {
+      lastError = new Error(
+        `Registry-item "${name}" finns men saknar användbart innehåll i style "${style}".`,
+      );
+      continue;
+    }
+    return data;
+  }
+
+  throw lastError ?? new Error(`Kunde inte hämta registry-item "${name}".`);
+}
+
+/**
  * Fetch a specific registry item (component/block)
  */
 export async function fetchRegistryItem(name: string, style?: string): Promise<ShadcnRegistryItem> {
@@ -286,19 +358,7 @@ export async function fetchRegistryItem(name: string, style?: string): Promise<S
   const cached = getCached<ShadcnRegistryItem>(cacheKey);
   if (cached) return cached;
 
-  const url =
-    typeof window === "undefined"
-      ? buildRegistryItemUrl(name, style)
-      : buildRegistryProxyItemUrl(name, style);
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    const details = await parseRegistryError(response);
-    const suffix = details ? ` - ${details}` : "";
-    throw new Error(`Kunde inte hämta registry-item "${name}" (HTTP ${response.status})${suffix}`);
-  }
-
-  const data = (await response.json()) as ShadcnRegistryItem;
+  const data = await fetchRegistryItemViaFallback(name, style);
   setCache(cacheKey, data);
   return data;
 }
@@ -314,19 +374,7 @@ export async function fetchRegistryItemWithOptions(
   const cached = getCached<ShadcnRegistryItem>(cacheKey);
   if (cached && !force) return cached;
 
-  const url =
-    typeof window === "undefined"
-      ? buildRegistryItemUrl(name, style)
-      : buildRegistryProxyItemUrl(name, style, { force, source: options.source });
-  const response = await fetch(url, force ? { cache: "no-store" } : undefined);
-
-  if (!response.ok) {
-    const details = await parseRegistryError(response);
-    const suffix = details ? ` - ${details}` : "";
-    throw new Error(`Kunde inte hämta registry-item "${name}" (HTTP ${response.status})${suffix}`);
-  }
-
-  const data = (await response.json()) as ShadcnRegistryItem;
+  const data = await fetchRegistryItemViaFallback(name, style, options);
   setCache(cacheKey, data);
   return data;
 }

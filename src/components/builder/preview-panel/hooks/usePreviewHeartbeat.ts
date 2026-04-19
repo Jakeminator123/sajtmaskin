@@ -8,7 +8,16 @@ import {
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 
-const HIDDEN_HIBERNATE_DELAY_MS = 60_000;
+// Tid som tab får vara dold innan klienten begär hibernation av VM:en.
+// 60s var aggressivt under utveckling: ett kort tabbsbyte triggade
+// hibernation → cold-boot (upp till 10 min) när användaren kom tillbaka.
+// Default höjt till 10 min. Override via NEXT_PUBLIC_PREVIEW_HIBERNATE_DELAY_MS
+// så prod kan vara striktare om vi vill spara VM-resurser.
+const HIDDEN_HIBERNATE_DELAY_MS = (() => {
+  const raw = process.env.NEXT_PUBLIC_PREVIEW_HIBERNATE_DELAY_MS;
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 600_000;
+})();
 
 export function usePreviewHeartbeat(params: {
   chatId: string | null;

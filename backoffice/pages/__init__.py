@@ -16,6 +16,7 @@ from . import (
     orchestration,
     overview,
     pipeline,
+    pipeline_health,
     preview,
     prompt_core,
     research,
@@ -54,6 +55,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
     PageSpec("Eval", "Overhead", eval_page.render),
     PageSpec("Orchestration Map", "Overhead", orchestration.render),
     PageSpec("Autofix & Kvalitet", "Overhead", autofix.render),
+    PageSpec("Pipeline Health", "Overhead", pipeline_health.render),
     PageSpec("Mental modell", "Overhead", mental_model.render),
 )
 

@@ -48,6 +48,13 @@ export interface GenerateOptions {
   tools?: ToolSet;
   maxSteps?: number;
   referenceAttachments?: RequestAttachment[];
+  /**
+   * Invoked once the underlying SSE stream completes (success, abort,
+   * or error) with the concatenated reasoning emitted by the model
+   * during the run. Callers wire this into the finalize step so the
+   * chain-of-thought is persisted alongside the assistant message.
+   */
+  onAccumulatedThinking?: (thinkingText: string | null) => void;
 }
 
 /**
@@ -83,6 +90,7 @@ export function generateCode(
     tools,
     maxSteps,
     referenceAttachments,
+    onAccumulatedThinking,
   } = options;
   const resolvedThinking = thinking ?? defaultThinkingEnabled;
 
@@ -135,6 +143,7 @@ export function generateCode(
     thinking: resolvedThinking,
     meta,
     abortController: internalAbortController ?? undefined,
+    onAccumulatedThinking,
   });
 }
 
@@ -151,6 +160,7 @@ export interface PipelineOptions {
   maxSteps?: number;
   referenceAttachments?: GenerateOptions["referenceAttachments"];
   meta?: StreamMeta;
+  onAccumulatedThinking?: GenerateOptions["onAccumulatedThinking"];
 }
 
 export function createGenerationPipeline(
@@ -169,6 +179,7 @@ export function createGenerationPipeline(
       tools: options.tools,
       maxSteps: options.maxSteps,
       referenceAttachments: options.referenceAttachments,
+      onAccumulatedThinking: options.onAccumulatedThinking,
     },
     options.meta,
   );

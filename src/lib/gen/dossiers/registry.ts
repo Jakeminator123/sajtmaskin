@@ -21,6 +21,19 @@ import type {
   ScaffoldRecommendationsFile,
 } from "./types";
 
+// Note: Turbopack's static analyzer reports 3 "Overly broad pattern" warnings
+// here because it traces these path strings flowing into node:fs.* calls and
+// concludes that any file under data/dossiers/** is a potential build-time
+// dependency. The warnings are cosmetic — the registry only reads at runtime,
+// and the `data/dossiers` subtree is not bundled. Attempts to suppress:
+//   - /* turbopackIgnore: true */ — only honored on import/require/new URL,
+//     not on path.resolve/join. No effect.
+//   - outputFileTracingExcludes — controls NFT deploy packaging, not the
+//     bundler's dependency tracer. No effect on these warnings.
+//   - JSON.parse('[...]') indirection to defeat constant folding — actually
+//     made it worse: Turbopack lost the path constraint and broadened the
+//     match to the entire project root (321k files instead of 139k).
+// Tracking until Turbopack honors the magic comment on path/fs calls.
 const WORKSPACE_ROOT = process.cwd();
 const DOSSIER_ROOT = resolve(WORKSPACE_ROOT, "data", "dossiers");
 const INDEX_ROOT = join(DOSSIER_ROOT, "_index");

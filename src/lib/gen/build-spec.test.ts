@@ -315,7 +315,12 @@ Persisted errors for this version:
     expect(spec.contextPolicy).toBe("heavy");
   });
 
-  it("keeps common multi-page websites at standard quality when they lack app/integration signals", () => {
+  it("promotes multi-page websites to premium quality even without explicit app/integration signals", () => {
+    // Prior to the multi-route promotion fix, multi-page sites stayed at
+    // "standard". That under-spent the budget on the most error-prone
+    // category (sites with >1 route hit cross-page consistency issues
+    // disproportionately often). RouteCount > 1 now bumps quality to
+    // premium so the verifier pass and richer context are enabled.
     const spec = deriveBuildSpec({
       prompt: "Bygg en hemsida för ett lokalt företag med startsida, om oss och produkter.",
       buildIntent: "website",
@@ -327,7 +332,7 @@ Persisted errors for this version:
     });
 
     expect(spec.changeScope).toBe("page-addition");
-    expect(spec.qualityTarget).toBe("standard");
+    expect(spec.qualityTarget).toBe("premium");
     expect(spec.contextPolicy).toBe("normal");
   });
 

@@ -61,11 +61,23 @@ export function createOwnEnginePipelineAndGenerationStream(
     includeIntegrationSignals: input.includeIntegrationSignals !== false,
   });
   const generatorThinking = resolvePhaseThinking(input.resolvedTier, "generator");
+  // Server-side enforcement: if the manifest declares the generator phase
+  // does not support reasoning for this tier (e.g. `fast` tier on
+  // gpt-5.4-fast where reasoning is unsupported), force `thinking=false`
+  // even when the client requested it. This prevents the provider from
+  // silently dropping reasoning deltas, leaving the UI to display an
+  // empty "thinking" panel forever.
+  const requestedThinking = input.pipeline.thinking ?? false;
+  const effectiveThinking = requestedThinking && generatorThinking.thinking;
+  // Captured at stream end via `onAccumulatedThinking`, then handed to
+  // `finalizeAndSaveVersion` so the chain-of-thought is persisted on the
+  // assistant message row alongside the final files.
+  const accumulatedThinkingRef: { current: string | null } = { current: null };
   const pipelineStream = createGenerationPipeline({
     prompt: input.pipeline.prompt,
     systemPrompt: input.pipeline.systemPrompt,
     model: input.pipeline.model,
-    thinking: input.pipeline.thinking,
+    thinking: effectiveThinking,
     reasoningEffort: generatorThinking.reasoningEffort,
     abortSignal: input.pipeline.abortSignal,
     tools,
@@ -78,12 +90,17 @@ export function createOwnEnginePipelineAndGenerationStream(
       versionId: input.targetVersionId ?? undefined,
       modelId: input.engineModel,
     },
+    onAccumulatedThinking: (thinkingText) => {
+      accumulatedThinkingRef.current = thinkingText;
+    },
   });
   return createOwnEngineGenerationStream({
     chatId: input.chatId,
     pipelineStream,
     abortSignal: input.pipeline.abortSignal,
-    meta: input.meta,
+    // Reflect the *effective* thinking flag in `meta` so the builder UI
+    // can grey out the reasoning toggle when the server downgraded it.
+    meta: { ...input.meta, thinking: effectiveThinking },
     engineModel: input.engineModel,
     optimizedMessage: input.optimizedMessage,
     engineIntent: input.engineIntent,
@@ -97,5 +114,6 @@ export function createOwnEnginePipelineAndGenerationStream(
     lineageHash: input.lineageHash,
     targetVersionId: input.targetVersionId,
     lifecycleParentVersionId: input.lifecycleParentVersionId,
+    accumulatedThinkingRef,
   });
 }

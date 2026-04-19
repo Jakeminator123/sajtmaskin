@@ -690,7 +690,7 @@
     },
     "streamSafetyTimeoutMs": {
       "envKey": "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
-      "default": 720000,
+      "default": 840000,
       "min": 60000,
       "max": 900000
     }

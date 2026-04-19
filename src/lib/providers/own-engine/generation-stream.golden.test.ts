@@ -195,4 +195,63 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
 
     expect(commitCredits).toHaveBeenCalled();
   });
+
+  it("forwards accumulatedThinkingRef.current into finalize at done time", async () => {
+    const pipelinePayload =
+      formatSSEEvent("content", { text: "code" }) +
+      formatSSEEvent("done", { promptTokens: 1, completionTokens: 1 });
+
+    // Simulates the pipeline reporting the accumulated reasoning before
+    // the SSE consumer processes the `done` event (matches the real
+    // ordering enforced in `stream-format.ts`).
+    const ref = { current: "I picked the hero scaffold because…" };
+
+    const out = createOwnEngineGenerationStream({
+      chatId: "chat_thinking",
+      pipelineStream: pipelineStreamFromSsePayload(pipelinePayload),
+      meta: {
+        modelId: "gpt-5.4",
+        modelTier: "pro",
+        buildProfileId: "default",
+        buildProfileLabel: "Default",
+        enginePath: "own-engine",
+        thinking: true,
+      },
+      engineModel: "gpt-5.4",
+      optimizedMessage: "build me a page",
+      engineIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      },
+      routePlan: null,
+      resolvedScaffold: null,
+      urlMap: {},
+      commitCredits,
+      accumulatedThinkingRef: ref,
+    });
+
+    await collectSseEvents(out);
+
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
+    const finalizeArg = finalizeAndSaveVersionMock.mock.calls[0]?.[0] as {
+      accumulatedThinking?: string | null;
+    };
+    expect(finalizeArg.accumulatedThinking).toBe("I picked the hero scaffold because…");
+  });
 });

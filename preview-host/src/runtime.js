@@ -416,6 +416,20 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
  * eftersom Fly's edge-proxy inte alltid lyckas med WS-handshakes genom
  * chatId-prefix. Hot-reload tappas men preview-host gör full iframe-
  * reload via refreshToken vid varje generation ändå. */
+// TODO(#4): Geist (and likely other recently-added Google Fonts) sometimes
+// 404 in preview at `/<chatId>/_next/static/media/<hash>-s.p.woff2`. Suspected
+// causes (timebox lapsed before reproducing live):
+//   1. Next dev's font loader fetches the woff2 from Google Fonts at compile
+//      time and caches it under `.next/static/media`. If the Fly machine has
+//      restricted egress to fonts.gstatic.com / fonts.googleapis.com the
+//      compiled `_next/static/media/*` references are stale/missing and 404.
+//   2. The font loader's hashed asset path may not pick up the basePath we
+//      inject via `SAJTMASKIN_PREVIEW_BASE_PATH`, so the <link rel="preload">
+//      points at `/{chatId}/_next/static/media/...` but the asset only exists
+//      at `/_next/static/media/...` (or vice versa).
+// Bandage in place: `font-import-fixer.ts` rewrites `Geist`/`Geist_Mono` to
+// `Inter`/`JetBrains_Mono` for generated layouts. Remove that bandage once the
+// root cause here is fixed.
 function patchNextConfigForPreviewBasePath(workspaceDir) {
   const candidates = ["next.config.ts", "next.config.mjs", "next.config.js"];
   let cfgPath = null;
@@ -678,10 +692,20 @@ async function runInstallCommand(workspaceDir, sandboxId, filesJson) {
     priorDeps.fingerprint === fingerprint &&
     fs.existsSync(nodeModulesDir)
   ) {
-    await appendRuntimeLog(sandboxId, "Skipping npm install; dependency fingerprint unchanged.");
+    await appendRuntimeLog(
+      sandboxId,
+      `Skipping npm install; dependency fingerprint unchanged (${fingerprint.slice(0, 12)}).`,
+    );
     return;
   }
-  await appendRuntimeLog(sandboxId, `Installing workspace dependencies with ${install.logLabel}.`);
+  const priorFingerprint =
+    priorDeps && typeof priorDeps.fingerprint === "string"
+      ? priorDeps.fingerprint.slice(0, 12)
+      : "none";
+  await appendRuntimeLog(
+    sandboxId,
+    `Dependency fingerprint changed (prior=${priorFingerprint}, next=${fingerprint.slice(0, 12)}); installing with ${install.logLabel}.`,
+  );
   const installResult = await runInstallCommandWithFallback(workspaceDir, install);
   if (installResult.passed) {
     fs.writeFileSync(
@@ -1095,8 +1119,18 @@ async function bootRuntimeForSession(session, options = {}) {
 
 async function ensureRuntimeForChat(chatId, options = {}) {
   const existing = inflightBootByChat.get(chatId);
-  if (existing) {
+  // When a `restart: true` boot is requested while a non-restart boot is
+  // already in flight (e.g. /preview/session/update arriving while the
+  // initial /preview/session/start boot is still running), we MUST NOT
+  // dedupe to the existing one — the restart flag would silently be
+  // dropped and the new files would never trigger `npm install`.
+  // Instead, wait for the existing boot to finish (best-effort) and then
+  // run a fresh boot with the restart flag applied.
+  if (existing && options.restart !== true) {
     return existing;
+  }
+  if (existing && options.restart === true) {
+    await existing.catch(() => undefined);
   }
   const run = (async () => {
     const data = readStoreSync();
@@ -1109,7 +1143,9 @@ async function ensureRuntimeForChat(chatId, options = {}) {
   try {
     return await run;
   } finally {
-    inflightBootByChat.delete(chatId);
+    if (inflightBootByChat.get(chatId) === run) {
+      inflightBootByChat.delete(chatId);
+    }
   }
 }
 

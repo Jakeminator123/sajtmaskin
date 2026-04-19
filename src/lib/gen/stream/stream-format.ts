@@ -151,12 +151,26 @@ function resolveDirectProviderFromMeta(meta?: StreamMeta): "openai" | "anthropic
  *  `done`     — { promptTokens, completionTokens }
  *  `error`    — { message }             on failures
  */
+export interface CreateCodeGenSSEStreamOptions {
+  thinking?: boolean;
+  meta?: StreamMeta;
+  abortController?: AbortController;
+  /**
+   * Invoked when the stream finishes (success, abort, or error) with
+   * the concatenated reasoning/`thinking-delta` text observed during the
+   * run, or `null` if no reasoning deltas were seen. Callers use this
+   * to persist the chain-of-thought alongside the final assistant
+   * message (see `finalizeAndSaveVersion`).
+   */
+  onAccumulatedThinking?: (thinkingText: string | null) => void;
+}
+
 export function createCodeGenSSEStream(
   result: StreamTextLike,
-  options: { thinking?: boolean; meta?: StreamMeta; abortController?: AbortController } = {},
+  options: CreateCodeGenSSEStreamOptions = {},
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
-  const { thinking = false, meta } = options;
+  const { thinking = false, meta, onAccumulatedThinking } = options;
   const stripLeadingThinkingLeak = createLeadingThinkingLeakFilter(!thinking);
 
   return new ReadableStream({
@@ -176,7 +190,19 @@ export function createCodeGenSSEStream(
       let emittedReasoningWait = false;
       let emittedOutputWait = false;
       let sawContentEvent = false;
+      let abortedByProvider = false;
+      let accumulatedThinking = "";
       let reasoningHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+      const reportAccumulatedThinking = () => {
+        if (typeof onAccumulatedThinking !== "function") return;
+        try {
+          onAccumulatedThinking(accumulatedThinking.length > 0 ? accumulatedThinking : null);
+        } catch (callbackErr) {
+          debugLog("engine", "onAccumulatedThinking callback threw", {
+            error: callbackErr instanceof Error ? callbackErr.message : String(callbackErr),
+          });
+        }
+      };
       const enqueue = <TEvent extends BuilderStreamEventName>(
         streamEvent: BuilderStreamEvent<TEvent>,
       ) => {
@@ -376,6 +402,9 @@ export function createCodeGenSSEStream(
               if (reasoningText && firstReasoningTokenAt === null) {
                 firstReasoningTokenAt = Date.now();
               }
+              if (reasoningText) {
+                accumulatedThinking += reasoningText;
+              }
               if (thinking && reasoningText) {
                 enqueue(createBuilderStreamEvent("thinking", { text: reasoningText }));
               }
@@ -472,6 +501,18 @@ export function createCodeGenSSEStream(
                 }),
               );
               break;
+
+            case "abort": {
+              // AI SDK 5+ emits an explicit `abort` part when the provider
+              // (or an upstream proxy) aborts the stream mid-flight. Without
+              // this branch the loop would simply exit silently after the
+              // last delta, leaving the UI to assume "done" and the user
+              // staring at a half-rendered response. Mark it so the
+              // post-loop block can surface a user-visible error instead.
+              ensureGenerationStarted();
+              abortedByProvider = true;
+              break;
+            }
           }
         }
 
@@ -479,7 +520,25 @@ export function createCodeGenSSEStream(
           emitToolCall(pending);
         }
 
-        if (!sawContentEvent && toolCallCounts.size === 0) {
+        if (abortedByProvider) {
+          eventCounts.set(
+            "aborted_by_provider",
+            (eventCounts.get("aborted_by_provider") ?? 0) + 1,
+          );
+          enqueue(
+            createBuilderStreamEvent("progress", {
+              step: "generation",
+              phase: "empty-output",
+            }),
+          );
+          enqueue(
+            createBuilderStreamEvent("error", {
+              message: sawContentEvent
+                ? "Provider avbröt strömmen innan svaret var klart — försök igen eller byt modell."
+                : "Provider avbröt strömmen — försök igen eller byt modell.",
+            }),
+          );
+        } else if (!sawContentEvent && toolCallCounts.size === 0) {
           enqueue(
             createBuilderStreamEvent("progress", {
               step: "generation",
@@ -515,6 +574,12 @@ export function createCodeGenSSEStream(
             outputMs: streamTiming.outputMs,
           }),
         );
+        // IMPORTANT: report accumulated thinking BEFORE the `done` event so
+        // downstream consumers (generation-stream → finalizeAndSaveVersion)
+        // see the populated ref by the time they handle `done` and persist
+        // the assistant message. The `finally` block also calls this as a
+        // safety net for error/abort paths.
+        reportAccumulatedThinking();
         enqueue(
           createBuilderStreamEvent("done", {
             promptTokens: usage?.inputTokens ?? 0,
@@ -537,6 +602,11 @@ export function createCodeGenSSEStream(
           // controller may already be closed
         }
       } finally {
+        if (reasoningHeartbeatTimer !== null) {
+          clearInterval(reasoningHeartbeatTimer);
+          reasoningHeartbeatTimer = null;
+        }
+        reportAccumulatedThinking();
         try {
           controller.close();
         } catch {

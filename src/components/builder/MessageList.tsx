@@ -42,11 +42,38 @@ import { GenerationSummary } from "@/components/builder/GenerationSummary";
 import { VersionFeedback } from "@/components/builder/VersionFeedback";
 import { Streamdown } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
+
+/**
+ * Streamdown 2.x renders inline links inside a wrapper that, in
+ * combination with the link-safety modal portal, occasionally injects
+ * block-level elements inside `<p>` tags during hydration ("nested
+ * `<a>`/`<div>` inside `<p>`" warning in console). We don't need the
+ * link-safety popup or fancy preview affordance for assistant messages,
+ * so render a plain anchor instead. This is the documented escape
+ * hatch: the `components` prop forwards ReactMarkdown's component
+ * override map straight through.
+ *
+ * If/when Streamdown ships an explicit `linkPreview={false}` toggle
+ * this override can be replaced.
+ */
+const STREAMDOWN_PLAIN_COMPONENTS = {
+  a: ({ children, href, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a
+      {...rest}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline underline-offset-2"
+    >
+      {children}
+    </a>
+  ),
+};
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes } from "react";
 
 interface MessageListProps {
   chatId: string | null;
@@ -324,6 +351,7 @@ const MessageListComponent = ({
                       <MessageResponse>
                         <Streamdown
                           plugins={{ code: streamdownCode }}
+                          components={STREAMDOWN_PLAIN_COMPONENTS}
                           isAnimating={Boolean(message.isStreaming)}
                           caret={message.isStreaming ? "block" : undefined}
                         >
@@ -463,7 +491,12 @@ function CollapsibleUserMessage({ content }: { content: string }) {
         {isExpanded ? (
           <div className="space-y-2">
             <MessageResponse>
-              <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+              <Streamdown
+                plugins={{ code: streamdownCode }}
+                components={STREAMDOWN_PLAIN_COMPONENTS}
+              >
+                {content}
+              </Streamdown>
             </MessageResponse>
             <button
               onClick={() => setIsExpanded(false)}
@@ -495,7 +528,12 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   if (!shouldCollapse) {
     return (
       <MessageResponse>
-        <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+        <Streamdown
+          plugins={{ code: streamdownCode }}
+          components={STREAMDOWN_PLAIN_COMPONENTS}
+        >
+          {content}
+        </Streamdown>
       </MessageResponse>
     );
   }
@@ -510,7 +548,12 @@ function CollapsibleUserMessage({ content }: { content: string }) {
     return (
       <div className="space-y-2">
         <MessageResponse>
-          <Streamdown plugins={{ code: streamdownCode }}>{content}</Streamdown>
+          <Streamdown
+            plugins={{ code: streamdownCode }}
+            components={STREAMDOWN_PLAIN_COMPONENTS}
+          >
+            {content}
+          </Streamdown>
         </MessageResponse>
         <button
           onClick={() => setIsExpanded(false)}
@@ -526,7 +569,12 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   return (
     <div className="space-y-2">
       <MessageResponse>
-        <Streamdown plugins={{ code: streamdownCode }}>{summary}</Streamdown>
+        <Streamdown
+          plugins={{ code: streamdownCode }}
+          components={STREAMDOWN_PLAIN_COMPONENTS}
+        >
+          {summary}
+        </Streamdown>
       </MessageResponse>
       <button
         onClick={() => setIsExpanded(true)}

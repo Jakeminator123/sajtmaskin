@@ -1053,6 +1053,25 @@ export function isAbortLikeError(error: unknown): boolean {
   return false;
 }
 
+/**
+ * Distinguishes a *client-initiated* abort (user pressed stop, route
+ * change, hot-reload, etc.) from an abort-shaped error that surfaced
+ * because the *server/provider* tore down the stream. We swallow the
+ * former silently; we surface the latter as a toast so the user knows
+ * the model didn't actually finish.
+ *
+ * Pass the AbortController whose signal was attached to the original
+ * `fetch()`. When that controller's `.aborted` is true at the time of
+ * the catch, the abort came from us.
+ */
+export function isClientInitiatedAbort(
+  error: unknown,
+  controller: AbortController | null | undefined,
+): boolean {
+  if (!isAbortLikeError(error)) return false;
+  return Boolean(controller?.signal?.aborted);
+}
+
 export function buildStreamErrorMessage(errorData: Record<string, unknown> | null): string {
   const code = typeof errorData?.code === "string" ? errorData.code : "";
   const retryAfter = toNumber(errorData?.retryAfter ?? errorData?.retry_after);

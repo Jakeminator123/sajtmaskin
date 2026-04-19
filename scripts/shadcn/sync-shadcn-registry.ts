@@ -19,7 +19,15 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const INDEX_URL = "https://ui.shadcn.com/r/index.json";
-const DETAIL_BASE = "https://ui.shadcn.com/r/styles/radix-vega";
+const REGISTRY_BASE = "https://ui.shadcn.com/r/styles";
+/**
+ * Style-fallback-kedja: shadcn publicerar inte alltid alla komponenter i alla
+ * styles. Senast 2026-04 saknar `radix-vega/form.json` files-arrayen helt
+ * medan `new-york/form.json` har den intakt. Vi försöker primary först (matchar
+ * runtime-default i `src/lib/shadcn/registry-url.ts`), sen `new-york-v4` och
+ * `new-york` som fallback. Speglar mönstret i `shadcn-registry-fetch.ts`.
+ */
+const STYLE_FALLBACK_CHAIN = ["radix-vega", "new-york-v4", "new-york"] as const;
 const COMPONENTS_PATH = join(
   process.cwd(),
   "src/lib/gen/data/shadcn-components.ts",
@@ -101,6 +109,29 @@ async function fetchJSON<T>(url: string): Promise<T | null> {
   }
 }
 
+/**
+ * Hämtar detaljer för en registry:ui-komponent och faller tillbaka genom
+ * STYLE_FALLBACK_CHAIN om primary returnerar tom files-array eller saknar
+ * .tsx-content. Returnerar både payload och vilken style som matchade
+ * (för diagnostik). null = ingen style hade användbart innehåll.
+ */
+async function fetchDetailWithFallback(
+  itemName: string,
+): Promise<{ detail: DetailItem; style: string } | null> {
+  for (const style of STYLE_FALLBACK_CHAIN) {
+    const detail = await fetchJSON<DetailItem>(
+      `${REGISTRY_BASE}/${style}/${itemName}.json`,
+    );
+    if (!detail?.files?.length) continue;
+    const tsxFile = detail.files.find(
+      (f) => f.content && (f.path.endsWith(".tsx") || f.path.endsWith(".ts")),
+    );
+    if (!tsxFile?.content) continue;
+    return { detail, style };
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -117,36 +148,33 @@ async function main() {
   console.log(`Found ${uiItems.length} registry:ui items.\n`);
 
   const registryMap: Record<string, string> = {};
-  // Track item names where upstream returned an empty files[] array.
-  // shadcn occasionally publishes registry:ui items with no files in the
-  // current style (e.g. radix-vega/form.json) — local entries pointing to
-  // these subpaths must NOT be reported as "removed", since they likely
-  // exist locally and only the upstream payload is incomplete.
+  // Track item names where ALL fallback styles returned empty files[] / no
+  // usable .tsx-content. Local entries pointing to these subpaths must NOT
+  // be reported as "removed", since they likely exist locally and only the
+  // upstream payloads are incomplete across every style.
   const emptyUpstream = new Set<string>();
+  const fallbackUsed: Array<{ name: string; style: string }> = [];
   let fetchOk = 0;
   let fetchFail = 0;
 
   for (const item of uiItems) {
-    const detail = await fetchJSON<DetailItem>(
-      `${DETAIL_BASE}/${item.name}.json`,
-    );
-    if (!detail?.files?.length) {
-      console.warn(`  [skip] ${item.name}: no files or fetch failed`);
+    const result = await fetchDetailWithFallback(item.name);
+    if (!result) {
+      console.warn(`  [skip] ${item.name}: no usable files in any fallback style`);
       emptyUpstream.add(item.name);
       fetchFail++;
       continue;
     }
 
-    const tsxFile = detail.files.find(
-      (f) => f.content && (f.path.endsWith(".tsx") || f.path.endsWith(".ts")),
-    );
-    if (!tsxFile?.content) {
-      console.warn(`  [skip] ${item.name}: no .tsx content`);
-      fetchFail++;
-      continue;
+    if (result.style !== STYLE_FALLBACK_CHAIN[0]) {
+      fallbackUsed.push({ name: item.name, style: result.style });
     }
 
-    const exports = extractExports(tsxFile.content);
+    const tsxFile = result.detail.files!.find(
+      (f) => f.content && (f.path.endsWith(".tsx") || f.path.endsWith(".ts")),
+    )!;
+
+    const exports = extractExports(tsxFile.content!);
     if (exports.length === 0) {
       console.warn(`  [skip] ${item.name}: no PascalCase exports found`);
       fetchFail++;
@@ -162,6 +190,16 @@ async function main() {
   console.log(
     `\nFetched details: ${fetchOk} ok, ${fetchFail} skipped.\n`,
   );
+
+  if (fallbackUsed.length > 0) {
+    console.log(
+      `Style fallback engaged for ${fallbackUsed.length} item(s) (primary "${STYLE_FALLBACK_CHAIN[0]}" returned empty):`,
+    );
+    for (const { name, style } of fallbackUsed) {
+      console.log(`  ~ ${name} → resolved via "${style}"`);
+    }
+    console.log();
+  }
 
   // ----- Diff -----
 

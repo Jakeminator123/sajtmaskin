@@ -423,6 +423,15 @@ export const engineMessages = pgTable("engine_messages", {
   content: text("content").notNull(),
   uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
   tokenCount: integer("token_count"),
+  /**
+   * Concatenated reasoning / chain-of-thought captured during streaming
+   * for assistant messages whose model emits `reasoning-delta` parts.
+   * Persisted so the builder UI can re-show the thinking section after a
+   * page refresh (F5) instead of only displaying it during the live
+   * stream. Nullable for messages with no reasoning (user messages,
+   * fast-tier responses, etc.).
+   */
+  thinking: text("thinking"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

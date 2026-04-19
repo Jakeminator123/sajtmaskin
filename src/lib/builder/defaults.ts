@@ -167,8 +167,11 @@ export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
 /** Default for AI image generation toggle */
 export const DEFAULT_IMAGE_GENERATIONS = true;
 
-/** Default for reasoning/thinking toggle — off for faster first generation */
-export const DEFAULT_THINKING = false;
+/** Default for reasoning/thinking toggle.
+ * Önskat beteende: alltid på. Reasoning ger märkbart bättre arkitekturval och
+ * struktur, särskilt för multi-page och scenes. Kostar lite tid (~5-15s extra)
+ * men ger högre kvalitet. Användare kan toggla av per-chat i UI:t. */
+export const DEFAULT_THINKING = true;
 
 /** Default for spec mode in builder */
 export const DEFAULT_SPEC_MODE = false;

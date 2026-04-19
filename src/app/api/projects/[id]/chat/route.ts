@@ -99,7 +99,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       sessionId,
     });
     if (!project) {
-      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
+      // Builder bootstrap calls this on every load — when the project
+      // either doesn't exist or isn't owned by the current
+      // user/session, return the same shape we'd send for "no chat
+      // yet" instead of a 404. The client only branches on `chatId`,
+      // so a 200 with `chatId: null` keeps the bootstrap quiet (no
+      // console-noise 404) and behaves identically downstream.
+      return NextResponse.json({
+        success: true,
+        chatId: null,
+        v0ChatId: null,
+        internalChatId: null,
+        message: "Project not found or not accessible",
+      });
     }
 
     // Preferred restore source for app projects.

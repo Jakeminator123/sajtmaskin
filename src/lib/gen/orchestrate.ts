@@ -426,12 +426,27 @@ export async function resolveOrchestrationBase(
         finalPick: resolvedScaffold!.id,
       });
     } else {
+      // The picker's `selectionMethod` reports HOW the picker arrived at
+      // its choice (e.g. "agreement", "embeddings", "default") — not how
+      // the picker's choice relates to the brief's nomination. When brief
+      // and final pick differ, "agreement" is misleading. Compute a
+      // brief-vs-picker outcome label from the brief's confidence so this
+      // log clearly shows the relationship between the two stages.
+      const briefConfidenceValue =
+        typeof briefScaffoldNom!.confidence === "number"
+          ? briefScaffoldNom!.confidence
+          : null;
+      const briefVsPickerOutcome =
+        briefConfidenceValue !== null && briefConfidenceValue < 0.6
+          ? "picker_default_low_brief_confidence"
+          : "picker_override";
       console.info("[orchestrate] scaffold_drift", {
         mode: input.generationMode ?? "init",
         briefNominated: briefScaffoldNom!.id,
-        briefConfidence: briefScaffoldNom!.confidence ?? null,
+        briefConfidence: briefConfidenceValue,
         finalPick: resolvedScaffold!.id,
-        pickMethod: scaffoldSelection.selectionMethod ?? "unknown",
+        pickMethod: briefVsPickerOutcome,
+        pickerInternalMethod: scaffoldSelection.selectionMethod ?? "unknown",
         pickConfidence: scaffoldSelection.selectionConfidence ?? null,
       });
     }

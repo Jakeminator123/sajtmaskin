@@ -85,6 +85,13 @@ export interface FinalizeParams {
    * is not `fidelity3`.
    */
   lifecycleParentVersionId?: string | null;
+  /**
+   * Concatenated reasoning text from the live stream. Persisted on the
+   * assistant message so the builder UI can re-render the "thinking"
+   * panel after a refresh. `null` when the model emitted no reasoning
+   * deltas (e.g. fast-tier responses).
+   */
+  accumulatedThinking?: string | null;
 }
 
 export interface FinalizeResult {
@@ -1243,16 +1250,22 @@ export async function finalizeAndSaveVersion(
   // 5–6. Persist assistant + version atomically after merge/preflight.
   // When targetVersionId is set (autofix / repair), update existing version in-place
   // instead of minting a new version number.
+  const thinkingForPersist =
+    typeof params.accumulatedThinking === "string" && params.accumulatedThinking.length > 0
+      ? params.accumulatedThinking
+      : null;
   const { message: assistantMsg, version: initialVersion } = targetVersionId
     ? await chatRepo.addAssistantMessageAndUpdateExistingVersion(
         chatId,
         targetVersionId,
         contentForVersion,
         filesJson,
+        { thinking: thinkingForPersist },
       )
     : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
         lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
         parentVersionId: lifecycleParentVersionId ?? null,
+        thinking: thinkingForPersist,
       });
   let version = initialVersion;
   devLogAppend("in-progress", {

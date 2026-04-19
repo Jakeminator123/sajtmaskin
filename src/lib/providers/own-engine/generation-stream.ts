@@ -52,6 +52,13 @@ export interface GenerationStreamParams {
   targetVersionId?: string | null;
   /** F3 only: parent F2 version id, forwarded into `engine_versions.parent_version_id`. */
   lifecycleParentVersionId?: string | null;
+  /**
+   * Mutable container holding the concatenated reasoning emitted by the
+   * pipeline. The pipeline writes into `current` once the stream completes
+   * (success/abort/error); the finalize step reads it just before persisting
+   * the assistant message so the chain-of-thought survives a page refresh.
+   */
+  accumulatedThinkingRef?: { current: string | null };
 }
 
 export function createOwnEngineGenerationStream(
@@ -75,6 +82,7 @@ export function createOwnEngineGenerationStream(
     lineageHash,
     targetVersionId,
     lifecycleParentVersionId,
+    accumulatedThinkingRef,
   } = params;
 
   const engineStartedAt = Date.now();
@@ -282,6 +290,7 @@ export function createOwnEngineGenerationStream(
         lineageHash,
         targetVersionId,
         lifecycleParentVersionId,
+        accumulatedThinking: accumulatedThinkingRef?.current ?? null,
         ...extra,
       });
 

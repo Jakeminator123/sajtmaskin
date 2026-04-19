@@ -49,6 +49,9 @@ COMMIT_EDITMSG.tmp
 data/prompt-dumps/*
 !data/prompt-dumps/README.md
 
+# Pipeline-health-state (backoffice-paneldata, lokalt per-maskin)
+data/backoffice/
+
 # Database files (local data, not for git)
 data/*.db
 data/*.db-shm

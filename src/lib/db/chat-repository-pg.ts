@@ -38,6 +38,12 @@ export interface Message {
   content: string;
   ui_parts?: Record<string, unknown>[] | null;
   token_count: number | null;
+  /**
+   * Concatenated reasoning emitted during the stream that produced this
+   * message. Persisted on assistant messages so the builder UI can
+   * re-render the "thinking" panel after a refresh; null otherwise.
+   */
+  thinking?: string | null;
   created_at: string;
 }
 
@@ -222,9 +228,15 @@ export async function addAssistantMessageAndCreateDraftVersion(
     previewUrl?: string;
     lifecycleStage?: "design" | "integrations";
     parentVersionId?: string | null;
+    /**
+     * Concatenated reasoning captured from the stream for this
+     * assistant message. Persisted on the row so the builder UI can
+     * re-show the "thinking" panel after an F5 refresh.
+     */
+    thinking?: string | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, previewUrl, lifecycleStage, parentVersionId } = options;
+  const { tokenCount, uiParts, previewUrl, lifecycleStage, parentVersionId, thinking } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -234,6 +246,7 @@ export async function addAssistantMessageAndCreateDraftVersion(
       content,
       uiParts: Array.isArray(uiParts) ? uiParts : null,
       tokenCount: tokenCount ?? null,
+      thinking: typeof thinking === "string" && thinking.length > 0 ? thinking : null,
     });
     await tx
       .update(engineChats)
@@ -270,9 +283,11 @@ export async function addAssistantMessageAndUpdateExistingVersion(
   options: {
     tokenCount?: number;
     uiParts?: Record<string, unknown>[] | null;
+    /** See `addAssistantMessageAndCreateDraftVersion` for semantics. */
+    thinking?: string | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts } = options;
+  const { tokenCount, uiParts, thinking } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -282,6 +297,7 @@ export async function addAssistantMessageAndUpdateExistingVersion(
       content,
       uiParts: Array.isArray(uiParts) ? uiParts : null,
       tokenCount: tokenCount ?? null,
+      thinking: typeof thinking === "string" && thinking.length > 0 ? thinking : null,
     });
     await tx
       .update(engineChats)

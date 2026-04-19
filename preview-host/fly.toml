@@ -31,7 +31,10 @@ primary_region = "arn"
 
   [[http_service.checks]]
     interval = "30s"
-    timeout = "10s"
+    # Höjt från 10s → 20s så health-checken inte falsk-larmar när VM:en
+    # är upptagen med npm install / boot för en ny preview. Tre missade i
+    # rad markerar fortfarande VM som unhealthy, men marginalen räcker nu.
+    timeout = "20s"
     grace_period = "30s"
     method = "GET"
     path = "/health"

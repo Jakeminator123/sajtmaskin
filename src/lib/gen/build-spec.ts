@@ -537,6 +537,24 @@ function inferQualityTarget(params: {
     preGenerationContracts.contracts.dataMode === "persisted" ||
     advancedScaffoldId;
 
+  // Multi-page renders that don't otherwise trip a premium signal still
+  // benefit from the higher token / verification budget — single-route
+  // landings have one chance to look right, but every additional route
+  // multiplies the surface area where a "standard" budget can drop visual
+  // polish or cross-route consistency. Promote when we're rendering more
+  // than one route at init.
+  if (!premiumSignals && routeCount > 1) {
+    console.info("[build-spec] quality_target_promoted_for_multipage", {
+      routeCount,
+      buildIntent,
+      generationMode,
+      scaffoldId: resolvedScaffold?.id ?? null,
+      from: "standard",
+      to: "premium",
+    });
+    return "premium";
+  }
+
   return premiumSignals ? "premium" : "standard";
 }
 
