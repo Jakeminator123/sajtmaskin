@@ -473,6 +473,10 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Track brief-origin routes separately so cap-enforced trim can drop
+  // prompt-pattern / scaffold-default routes (which also use required:true)
+  // without ever dropping the user's brief-defined pages.
+  const briefRoutePaths = new Set<string>();
   if (hasBriefRoutes) {
     if (useFollowUpFreeze && !explicitAddRouteIntent) {
       const existingSet = new Set(routes.map((route) => normalizeRoutePath(route.path)));
@@ -480,10 +484,12 @@ export function buildRoutePlan(params: {
         const normalizedBriefPath = normalizeRoutePath(briefRoute.path);
         if (!existingSet.has(normalizedBriefPath)) continue;
         pushRoute(routes, briefRoute);
+        briefRoutePaths.add(normalizedBriefPath);
       }
     } else {
       for (const briefRoute of briefRoutes) {
         pushRoute(routes, briefRoute);
+        briefRoutePaths.add(normalizeRoutePath(briefRoute.path));
       }
     }
   }
@@ -538,15 +544,48 @@ export function buildRoutePlan(params: {
     }
   }
 
+  // Compute explicit page-count cap upfront so scaffold defaults respect it
+  // (e.g. "snickerifirma 2 sidor" should not trigger ecommerce auto-adding
+  // /products + /cart on top of the brief's 2 pages).
+  const earlyExplicitPageCount = detectExplicitPageCount(prompt);
   const pathsBeforeScaffoldDefaults = new Set(
     routes.map((route) => normalizeRoutePath(route.path)),
   );
-  if (!useFollowUpFreeze) {
+  const skipScaffoldDefaults =
+    earlyExplicitPageCount !== null && routes.length >= earlyExplicitPageCount;
+  if (!useFollowUpFreeze && !skipScaffoldDefaults) {
     applyScaffoldDefaults(buildIntent, resolvedScaffold, routes);
   }
   const scaffoldAddedRoutes = routes.some(
     (route) => !pathsBeforeScaffoldDefaults.has(normalizeRoutePath(route.path)),
   );
+
+  // Symmetric downward trim: detectExplicitPageCount is also used below to
+  // boost route counts upward (Math.max). Without this trim the user's
+  // explicit "2 sidor" gets silently overridden when brief + scaffold +
+  // patterns produce more. Trim happens in two passes:
+  //   pass 1: drop routes flagged required:false (rare — most adders use true)
+  //   pass 2: drop routes that are not from the brief and not "/"
+  // Brief-origin routes are preserved even if the total still exceeds the
+  // cap (logged via `reason` so the LLM resolves the conflict).
+  let trimmedRouteCount = 0;
+  if (!useFollowUpFreeze && earlyExplicitPageCount !== null && routes.length > earlyExplicitPageCount) {
+    for (let i = routes.length - 1; i >= 0 && routes.length > earlyExplicitPageCount; i -= 1) {
+      const candidate = routes[i]!;
+      if (candidate.required) continue;
+      if (normalizeRoutePath(candidate.path) === "/") continue;
+      routes.splice(i, 1);
+      trimmedRouteCount += 1;
+    }
+    for (let i = routes.length - 1; i >= 0 && routes.length > earlyExplicitPageCount; i -= 1) {
+      const candidate = routes[i]!;
+      const normalizedPath = normalizeRoutePath(candidate.path);
+      if (normalizedPath === "/") continue;
+      if (briefRoutePaths.has(normalizedPath)) continue;
+      routes.splice(i, 1);
+      trimmedRouteCount += 1;
+    }
+  }
 
   const sources: RoutePlanSource[] = [];
   if (hasBriefRoutes) sources.push("brief");
@@ -558,13 +597,16 @@ export function buildRoutePlan(params: {
       ? "scaffold"
       : "prompt";
 
-  const explicitPageCount = detectExplicitPageCount(prompt);
+  const explicitPageCount = earlyExplicitPageCount;
   const explicitPageCountActive = explicitPageCount !== null && explicitPageCount > routes.length && !useFollowUpFreeze;
+  const explicitPageCountTrimmed = trimmedRouteCount > 0;
 
   const reason = useFollowUpFreeze
     ? explicitRouteRemovals.size > 0
       ? "Follow-up mode preserves existing App Router routes by default, while explicit route-removal intent can remove selected pages."
       : "Follow-up mode preserves existing App Router routes by default; only explicit user intent should add new pages."
+    : explicitPageCountTrimmed
+      ? `User explicitly requested ${explicitPageCount} pages — trimmed ${trimmedRouteCount} optional route(s) to honor the cap. Generate real App Router pages for the remaining entries.`
     : hasBriefRoutes && promptAddedRoutes
       ? "Route structure merges brief-defined pages with explicit prompt route requests."
       : hasBriefRoutes && scaffoldAddedRoutes
@@ -588,7 +630,9 @@ export function buildRoutePlan(params: {
     siteType: inferSiteType(buildIntent, effectiveRouteCount),
     reason,
     routes,
-    ...(explicitPageCountActive ? { explicitPageCount } : {}),
+    ...(explicitPageCount !== null && (explicitPageCountActive || explicitPageCountTrimmed)
+      ? { explicitPageCount }
+      : {}),
   };
 }
 

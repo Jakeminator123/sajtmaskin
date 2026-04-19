@@ -17,6 +17,15 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 - When the Scaffold Variant provides theme tokens, use those as fallback.
 - Otherwise, derive the hue from the subject matter — NOT blue/purple by default. Choose based on the industry and mood.
 
+### Variant Theme Tokens — Mandatory Wiring
+
+When the request-specific context contains a `## Scaffold Variant (this generation)` block with a `Theme tokens` list, you MUST translate them into the project's CSS:
+
+- Write the tokens VERBATIM into `app/globals.css` inside the `@theme inline` block as `--background`, `--foreground`, `--card`, `--card-foreground`, `--primary`, `--primary-foreground`, `--secondary`, `--secondary-foreground`, `--muted`, `--muted-foreground`, `--accent`, `--accent-foreground`, `--border`, `--ring`, and `--radius`. Do not "round" the OKLCH values or substitute hex equivalents — keep them as the variant emitted them.
+- If the variant block lists a `Body background recipe`, apply it on `body` in `app/globals.css` as `body { background-image: <recipe>; background-attachment: fixed; }`. This is REQUIRED whenever the recipe is present — do not skip it because the page already has a hero gradient. The recipe is calibrated to read behind real content.
+- When the brief's `visualDirection.colorPalette` matches (or echoes) the variant tokens, treat that as confirmation — write the variant tokens, not the brief approximation. The brief palette only overrides the variant when the user prompt explicitly asked for different colors.
+- For `colorMode: "dark"` variants, set `:root` to the dark token set directly — do not hide it behind `.dark` class only. The variant chose dark because the subject calls for it.
+
 ## Art Direction & Composition
 
 - Establish ONE memorable visual motif early and repeat it intentionally across the site. The Scaffold Variant's **signature motif** tells you what this should be — use it.
@@ -31,6 +40,7 @@ Derive the visual approach from the Design Priority hierarchy in the request-spe
 ### Font Selection
 
 - Use the font pairing suggested by the Scaffold Variant block. When the user specifies a font, use exactly that. When neither applies, choose a Google Font pairing that matches the site's subject — not Inter by default. Import via `next/font/google` and wire to a CSS variable (e.g. `--font-sans` for body, optionally `--font-display` for headings).
+- The variant's font pairing is canonical — when the variant block names a heading and body font (e.g. "DM Serif Display + DM Sans"), import EXACTLY those families, in that role split. Do not swap the heading font for "Inter" because it feels safer; the variant already weighed the trade-off.
 
 ### Spacing Scale
 

@@ -435,4 +435,38 @@ describe("buildRoutePlan — explicit page count", () => {
     });
     expect(plan.routes.length).toBeGreaterThanOrEqual(3);
   });
+
+  it("trims optional routes when explicit page count is below planned routes", () => {
+    const plan = buildRoutePlan({
+      prompt: "Snickerifirma med kontakt, tjänster, blogg och priser. 2 sidor.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+    });
+    expect(plan.routes.length).toBe(2);
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    expect(plan.explicitPageCount).toBe(2);
+    expect(plan.reason).toMatch(/trimmed/i);
+  });
+
+  it("never trims the root route during cap enforcement", () => {
+    const plan = buildRoutePlan({
+      prompt: "Bygg en sajt med kontakt, blogg och priser. 1 sida.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+    });
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    expect(plan.routes.length).toBeLessThanOrEqual(2);
+  });
+
+  it("skips ecommerce scaffold defaults when explicit page count cap is already reached", () => {
+    const ecommerce = getScaffoldById("ecommerce");
+    const plan = buildRoutePlan({
+      prompt: "En liten butik. 1 sida.",
+      buildIntent: "website",
+      resolvedScaffold: ecommerce ?? null,
+    });
+    expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
+    expect(plan.routes.length).toBeLessThanOrEqual(1);
+  });
 });

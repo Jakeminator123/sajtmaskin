@@ -268,6 +268,7 @@ const siteBriefSchema = z.object({
 });
 
 import { inferSiteTypeHintFromDomain } from "./domain-inference";
+import { detectExplicitPageCount } from "@/lib/gen/route-plan";
 
 function resolveAnthropicBriefModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
@@ -303,7 +304,12 @@ const BRIEF_SYSTEM_PROMPT =
   "- Use the scaffold variant as a design starting point for colorPalette, typography, and styleKeywords.\n" +
   "- Adjust when the user's request clearly calls for a different direction.\n" +
   "- If the variant says 'dark' but the user asks for a bright, airy site — follow the user.\n" +
-  "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.\n\n" +
+  "- If the variant has a font pairing and nothing in the prompt contradicts it — adopt it.\n" +
+  "- When variant hints contain explicit `Variant theme tokens` (background, primary, accent, etc.), copy them VERBATIM into `visualDirection.colorPalette` UNLESS the prompt explicitly mentions different colors. Map: variant background → palette.background, variant foreground → palette.text, variant primary → palette.primary, variant secondary → palette.secondary, variant accent → palette.accent.\n" +
+  "- When variant hints contain a font pairing, copy `heading` and `body` VERBATIM into `visualDirection.typography.headings` / `.body` UNLESS the prompt names a specific font.\n" +
+  "- Do NOT 'improve', 'modernize', or substitute variant tokens for trendier defaults — they are calibrated per scaffold variant. Echoing them keeps brief and downstream CSS aligned.\n\n" +
+  "PAGE COUNT (when the user message states an explicit number of pages):\n" +
+  "- If the user message contains a `User explicitly requested N pages` line, that count is a HARD CAP. Produce EXACTLY N entries in `pages`, never more. Pick the most important pages and merge sub-purposes into sections of those pages instead of spawning new entries.\n\n" +
   "DELTA-BRIEF (when prior design context is provided):\n" +
   "- You are updating a prior design, not starting from scratch.\n" +
   "- Preserve aspects not explicitly changed by the new request (brand, structure, tone).\n" +
@@ -317,11 +323,16 @@ function buildBriefUserPrompt(
   priorDesignContext?: string,
 ): string {
   const siteTypeHint = inferSiteTypeHintFromDomain(prompt);
+  const explicitPageCount = detectExplicitPageCount(prompt);
+  const pageCapLine = explicitPageCount !== null
+    ? `\n\nUser explicitly requested ${explicitPageCount} pages — produce EXACTLY ${explicitPageCount} entries in the pages array, no more. Merge sub-purposes into sections of those pages instead of spawning new pages.`
+    : "";
   return (
     prompt +
     (priorDesignContext ? `\n\n${priorDesignContext}` : "") +
     (siteTypeHint ? `\n\nSite type hint: ${siteTypeHint}.` : "") +
     (variantHints ? `\n\n${variantHints}` : "") +
+    pageCapLine +
     (imageGenerations
       ? "\n\nInclude imagery guidance because image generation is enabled."
       : "\n\nImage generation is disabled; prefer layout and iconography, keep imagery optional.")

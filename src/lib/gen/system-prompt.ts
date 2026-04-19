@@ -370,6 +370,33 @@ export type BuildDynamicContextResult = {
   variantId: string | null;
 };
 
+/**
+ * Standardized "sterile but better" body background recipe used when a variant
+ * does not ship its own `bodyBackgroundImage`. Keeps a calm visual rhythm
+ * derived from the variant's own primary color instead of leaving the surface
+ * dead-flat. Light variants get a soft top-left primary wash; dark variants
+ * get a slightly heavier wash so depth is still readable on near-black.
+ */
+function buildFallbackBodyBackgroundImage(
+  variant: ScaffoldVariant | null | undefined,
+): string | null {
+  const tokens = variant?.themeTokens;
+  if (!tokens) return null;
+  const primary = tokens.primary;
+  const accent = tokens.accent;
+  if (!primary && !accent) return null;
+  const isDark = variant?.colorMode === "dark";
+  const primaryMix = isDark ? 14 : 6;
+  const accentMix = isDark ? 10 : 5;
+  const primaryStop = primary
+    ? `radial-gradient(circle at top left, color-mix(in oklab, ${primary} ${primaryMix}%, transparent) 0%, transparent 38%)`
+    : null;
+  const accentStop = accent
+    ? `radial-gradient(circle at bottom right, color-mix(in oklab, ${accent} ${accentMix}%, transparent) 0%, transparent 42%)`
+    : null;
+  return [primaryStop, accentStop].filter(Boolean).join(", ") || null;
+}
+
 function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): string[] {
   const tokens = variant?.themeTokens;
   if (!tokens) return [];
@@ -403,6 +430,14 @@ function formatThemeTokenLines(variant: ScaffoldVariant | null | undefined): str
       `  - **Body background recipe** (apply on \`body { background-image: ... }\` in \`app/globals.css\`):`,
       `    - ${tokens.bodyBackgroundImage}`,
     );
+  } else {
+    const fallback = buildFallbackBodyBackgroundImage(variant);
+    if (fallback) {
+      lines.push(
+        `  - **Body background recipe** (standardized fallback — apply on \`body { background-image: ... }\` in \`app/globals.css\` so the surface is not dead-flat):`,
+        `    - ${fallback}`,
+      );
+    }
   }
   return lines;
 }
