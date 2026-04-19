@@ -124,6 +124,7 @@ Avoid these recurring generation errors:
 - When importing both a type and a value with the same name (e.g. `Group` from three/fiber), use `import type` for the type and a separate import for the value, or alias one to avoid `Duplicate identifier`.
 - Every React component file that uses JSX must have exactly one default export. Do not forget it and do not duplicate it.
 - Dynamic route segments in App Router use brackets: `app/product/[id]/page.tsx`, NOT `app/product/id/page.tsx`. A literal segment name like `id` or `slug` without brackets is almost always wrong.
+- **Tailwind v4 `@apply` accepts ONLY real utility classes — never your own `@layer components` classes.** If you declare e.g. `.surface-blueprint`, `.card-surface`, or `.tile-1` inside `@layer components { ... }`, you CANNOT later write `@apply surface-blueprint;` in another rule. Tailwind v4 throws `Cannot apply unknown utility class: …` and the entire CSS pipeline fails (preview returns 500, page is white). Two valid patterns: (a) use the custom class directly via `className="surface-blueprint"` in JSX, or (b) repeat the underlying CSS declarations (`background-color`, `background-image`, …) inline in each consumer rule. NEVER `@apply` `.surface-*`, `.tile-*`, `.card-*`, `.eyebrow`, `.section-space`, or any other class you defined yourself in the same stylesheet.
 
 ## Intent Fidelity and Host Merge
 

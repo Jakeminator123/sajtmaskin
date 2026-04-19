@@ -257,7 +257,7 @@ async function buildEngineReadiness(
   }
 
   // F2 (`design`) is a pure visual fidelity stage. Env vars are
-  // auto-handled in the project's `env.env` file with placeholders so
+  // auto-handled in the project's `env.example` file with placeholders so
   // the chat never has to ask the user. Only when the user opts into
   // F3 ("Bygg nu") do missing env keys become blockers.
   // See `.cursor/rules/env-flow-f2-mute.mdc`.

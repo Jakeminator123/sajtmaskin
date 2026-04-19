@@ -77,7 +77,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   // Lager 4 av F2-mute (se .cursor/rules/env-flow-f2-mute.mdc):
   // post-finalize kod-scan av Stripe/Upstash/etc. emitterade tidigare
   // `integration`-SSE direkt till chatten utan lifecycle-gate. I F2
-  // (design) hör de hemma i `env.env`-filen tyst, inte i chatten.
+  // (design) hör de hemma i `env.example`-filen tyst, inte i chatten.
   // I F3 (integrations) får de fram som vanligt.
   const isIntegrationsStage = buildSpec.previewPolicy === "fidelity3";
   const newDetected = getUnsignaledDetectedIntegrations(
@@ -399,6 +399,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     versionId: finalized.version.id,
     run: serverVerifyDecision.run,
     reason: serverVerifyDecision.reason,
+    diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
     verificationPolicy: buildSpec.verificationPolicy,
     qualityTarget: buildSpec.qualityTarget,
     buildIntent: buildSpec.buildIntent,
@@ -409,6 +410,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
     triggerServerVerification({
       chatId,
       versionId: finalized.version.id,
+      diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
       onRepairAvailable: (payload) => {
         safeEnqueue(
           enc.encode(

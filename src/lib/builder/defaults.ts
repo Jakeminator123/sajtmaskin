@@ -241,6 +241,7 @@ const LEGACY_EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
 - Use responsive prefixes: sm:, md:, lg:, xl:, 2xl:
 - Prefer gap-* over margins between flex/grid items
 - Use group/peer for interactive states
+- Tailwind v4 \`@apply\` accepts ONLY real utility classes — NEVER your own \`@layer components\` classes (e.g. \`.surface-*\`, \`.tile-*\`, \`.card-*\`). Doing \`@apply surface-blueprint;\` after declaring \`.surface-blueprint { ... }\` in \`@layer components\` produces a hard build error ("Cannot apply unknown utility class") that whitescreens the preview. Either use the custom class directly via \`className=\"surface-blueprint\"\` in JSX, or repeat the underlying CSS declarations inline in each consumer rule.
 
 ## Visual Identity
 - Never use flat pure-white backgrounds across the whole page

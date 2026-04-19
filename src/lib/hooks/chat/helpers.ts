@@ -1110,7 +1110,6 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
 // ---------------------------------------------------------------------------
 
 export function buildAutoFixPrompt(payload: AutoFixPayload): string {
-  const reasons = payload.reasons.length > 0 ? payload.reasons.join(", ") : "unknown issues";
   const repair = payload.repair;
 
   const currentVersionErrors = repair?.currentVersionErrors
@@ -1121,6 +1120,55 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     ?? (Array.isArray(payload.meta?.previousVersionErrors)
       ? payload.meta!.previousVersionErrors.filter((value): value is string => typeof value === "string")
       : []);
+
+  // Aggregate the headline from ALL known sources, not just `reasons[]`.
+  //
+  // The previous implementation joined `payload.reasons[]` only, which on
+  // the Snickar Anders run produced "Issues detected: contact-form invalid
+  // imports, autofix heavy load." while the actual persisted errors
+  // included three distinct verifier-blocking findings (`floating-cta`,
+  // `contact-form`, `project-gallery`) plus a fresh typecheck failure.
+  // The LLM read the headline first and ended up "fixing" only the named
+  // contact-form, missing `floating-cta` (the SSR-500 root cause).
+  //
+  // The new headline merges:
+  //   1. payload.reasons[] (legacy summary)
+  //   2. quality-gate check names (typecheck/build/lint)
+  //   3. one-line summaries extracted from currentVersionErrors that
+  //      look like verifier or build/typecheck blockers (so the LLM
+  //      sees them up front, not just in the "Persisted errors" tail).
+  const headlineEntries = new Set<string>();
+  for (const reason of payload.reasons) {
+    if (reason) headlineEntries.add(reason);
+  }
+  if (repair?.qualityGate?.length) {
+    for (const failure of repair.qualityGate) {
+      if (failure.check) {
+        headlineEntries.add(`${failure.check} failed (exit ${failure.exitCode})`);
+      }
+    }
+  }
+  for (const entry of currentVersionErrors) {
+    if (typeof entry !== "string") continue;
+    // Headline shouldn't drown in 16 long lines — pick verifier/typecheck/
+    // build/preflight categories which are the actual promotion-blockers.
+    const isBlocker =
+      entry.startsWith("[quality-gate:") ||
+      entry.startsWith("[preflight:") ||
+      entry.startsWith("[verifier") ||
+      entry.startsWith("[react") ||
+      entry.startsWith("[syntax") ||
+      entry.startsWith("[routes") ||
+      entry.startsWith("[preview]") ||
+      entry.startsWith("[render-telemetry]");
+    if (!isBlocker) continue;
+    // Trim to a single line + cap length so the headline stays readable.
+    const oneLine = entry.replace(/\s+/g, " ").trim();
+    if (oneLine.length > 0) headlineEntries.add(oneLine.slice(0, 220));
+    if (headlineEntries.size > 8) break;
+  }
+  const reasons =
+    headlineEntries.size > 0 ? [...headlineEntries].join("; ") : "unknown issues";
 
   const scaffoldRetry = repair?.scaffoldRetry
     ?? (payload.meta?.scaffoldRetry && typeof payload.meta.scaffoldRetry === "object"

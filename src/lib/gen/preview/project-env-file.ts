@@ -1,25 +1,31 @@
 /**
- * Per-project user-visible env file (`env.env`) generated into the project
- * filetree.
+ * Per-project user-visible env file (`env.example`) generated into the
+ * project filetree.
  *
  * Purpose: keep ALL env-variable trafficking out of the chat. The user
  * never has to answer "which env vars do you need?" in F2 — instead, every
- * detected/required key is silently parked in `env.env` with placeholder
- * values that boot the project. The only place a user is ever asked to
- * fill in real values is the F3 ("Bygg nu") flow, which mounts
- * `ProjectEnvVarsPanel`.
+ * detected/required key is silently parked in `env.example` with placeholder
+ * values that document what the project COULD use. The only place a user
+ * is ever asked to fill in real values is the F3 ("Bygg nu") flow, which
+ * mounts `ProjectEnvVarsPanel`.
+ *
+ * IMPORTANT: this file is intentionally `env.example` (not `.env.local`,
+ * not `.env`, not the prior `env.env`). Next.js does NOT load it at
+ * runtime — it is a *documentation* artifact. The preview VM keeps
+ * writing its own `.env.local` separately via `buildPreviewEnvLocalContents`
+ * ({@link ./env-local.ts}); when downloading the project locally the
+ * user copies `env.example` → `.env.local` and fills in real values.
+ *
+ * Filename history: previously `env.env`, which Next.js silently ignored
+ * but which downloaded as a foreign-looking sibling next to `.env.local`
+ * and confused users into thinking they had two competing env files.
+ * Renamed 2026-04 to follow the standard `.example` convention.
  *
  * Layering matches `buildPreviewEnvLocalContents`
  * ({@link ./env-local.ts}): harmless placeholders + tier-3 stubs (F2 only)
  * + per-project preview tokens + user-stored values + values emitted by
  * the model. F3 strips the tier-3 stub layer so missing real values
  * surface as a runtime failure.
- *
- * The file is mounted in `versions.files_json` via
- * {@link injectProjectEnvFileIntoFilesJson} so it appears in the builder's
- * file panel just like any other generated file. Preview-VM bootstrap
- * keeps writing its own `.env.local` separately — `env.env` is the
- * user-visible spelling + explanation document.
  */
 
 import {
@@ -29,38 +35,48 @@ import {
 } from "@/lib/gen/preview/env-local";
 import { detectIntegrationsFromVersionFiles } from "@/lib/gen/detect-integrations";
 
-export const PROJECT_ENV_FILE_PATH = "env.env";
+export const PROJECT_ENV_FILE_PATH = "env.example";
+/**
+ * Legacy filename — kept here so the injector can RIP this file out of
+ * older versions when the new artifact is written. Removing this list
+ * would silently leave the old `env.env` next to the new `env.example`
+ * after a regeneration of an existing project.
+ */
+const LEGACY_PROJECT_ENV_FILE_PATHS = ["env.env", "./env.env"] as const;
 
 const F2_HEADER = `# ─────────────────────────────────────────────────────────────────────
-# env.env — auto-genererad miljöfil för det här projektet (F2 / fidelity 2)
+# env.example — DOCUMENTATION ONLY (F2 / fidelity 2)
 # ─────────────────────────────────────────────────────────────────────
 #
-# Den här filen skapas automatiskt av Sajtmaskin så att din sajt kan
-# bootas i preview även om den importerar saker som Stripe, Supabase,
-# Redis eller liknande. Värdena nedan är PLACEHOLDERS — de gör att
-# koden kompilerar och kör, men inga riktiga externa anrop fungerar.
+# Next.js läser INTE den här filen. Det är en hjälpkommentar som listar
+# alla env-variabler din sajt kan tänkas använda. Sajtmaskin auto-fyller
+# placeholder-värden så du kan se exakt vilka nycklar som finns.
 #
-# Du behöver INTE fylla i något här i F2. När du är redo att koppla på
-# riktiga integrationer klickar du på "Bygg nu"-knappen ovanför
-# previewen. Då går projektet upp i F3 / fidelity 3, och du får en panel
-# där du kan fylla i bara de nycklar som faktiskt behövs (t.ex.
-# STRIPE_SECRET_KEY, KLARNA_API_SECRET, REDIS_URL).
+# För att köra projektet LOKALT: kopiera den här filen till .env.local
+# och fyll i riktiga värden. För preview/F2 i Sajtmaskin behöver du
+# inte göra något — preview-VM:en bootar med interna placeholders.
 #
-# Allt nedan auto-regenereras vid varje generering — egna ändringar i
-# den här filen skrivs över. För riktiga värden, använd "Bygg nu" → env-panelen.
+# När du är redo att koppla på riktiga integrationer klickar du på
+# "Bygg nu" — då får du en env-panel där du fyller i bara de nycklar
+# som faktiskt behövs (t.ex. STRIPE_SECRET_KEY, RESEND_API_KEY).
+#
+# Allt nedan auto-regenereras vid varje generering. Egna ändringar i
+# DEN HÄR filen skrivs över — fyll i .env.local lokalt istället, och
+# använd env-panelen i builder:n för värden som ska persistenta i Sajtmaskin.
 `;
 
 const F3_HEADER = `# ─────────────────────────────────────────────────────────────────────
-# env.env — projekt-miljöfil (F3 / fidelity 3)
+# env.example — DOCUMENTATION ONLY (F3 / fidelity 3)
 # ─────────────────────────────────────────────────────────────────────
 #
-# Du har klickat "Bygg nu" och projektet är i F3. Tier-3-stubbar är
-# bortskalade här — varje rad nedan som SAKNAR värde måste fyllas i
-# via env-panelen i builderns högerspalt innan sajten kan publiceras.
+# Next.js läser INTE den här filen. Det är en hjälpkommentar som listar
+# vilka env-variabler din sajt behöver. Tier-3-stubbar är bortskalade
+# här — varje rad nedan som SAKNAR värde är något du måste fylla i
+# via env-panelen i builderns högerspalt eller (lokalt) i .env.local
+# innan sajten kan publiceras.
 #
 # Värden från env-panelen mergas in automatiskt vid nästa generering.
-# Du kan också skriva direkt här lokalt om du föredrar det, men
-# panel-värden vinner vid konflikt.
+# Vill du köra lokalt: kopiera till .env.local och fyll i där.
 `;
 
 const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
@@ -249,14 +265,20 @@ export async function injectProjectEnvFileIntoFilesJson(
   const generatedEnvLocal = extractGeneratedEnvLocal(files);
   // Pass the project files so the F2 builder can render
   // "detected but commented" hints for integrations the model still
-  // wired in despite the F2 contract.
+  // wired in despite the F2 contract. Strip both the new project env
+  // path AND any legacy `env.env` carry-overs so they never show up
+  // as "detected" hints in the new file.
+  const isProjectOrLegacyEnvPath = (p: string | undefined) => {
+    if (!p) return false;
+    return (
+      p === PROJECT_ENV_FILE_PATH ||
+      p === `./${PROJECT_ENV_FILE_PATH}` ||
+      LEGACY_PROJECT_ENV_FILE_PATHS.includes(p as (typeof LEGACY_PROJECT_ENV_FILE_PATHS)[number])
+    );
+  };
+
   const projectFiles = files
-    .filter(
-      (f) =>
-        f?.path !== PROJECT_ENV_FILE_PATH &&
-        f?.path !== `./${PROJECT_ENV_FILE_PATH}` &&
-        typeof f?.content === "string",
-    )
+    .filter((f) => !isProjectOrLegacyEnvPath(f?.path) && typeof f?.content === "string")
     .map((f) => ({ path: f.path, content: f.content }));
   let contents: string;
   try {
@@ -268,17 +290,15 @@ export async function injectProjectEnvFileIntoFilesJson(
     });
   } catch (err) {
     console.warn(
-      "[project-env-file] Failed to build env.env contents:",
+      "[project-env-file] Failed to build env.example contents:",
       err instanceof Error ? err.message : err,
     );
     return filesJson;
   }
 
-  const withoutEnvFile = files.filter(
-    (f) =>
-      f?.path !== PROJECT_ENV_FILE_PATH &&
-      f?.path !== `./${PROJECT_ENV_FILE_PATH}`,
-  );
+  // Drop both the canonical project env file (it gets re-added) AND any
+  // legacy `env.env` so a re-generation cleans up after the rename.
+  const withoutEnvFile = files.filter((f) => !isProjectOrLegacyEnvPath(f?.path));
   const next: FileEntry[] = [
     ...withoutEnvFile,
     {

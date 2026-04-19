@@ -109,18 +109,20 @@ Djupare ämnen:
 
 Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **fas3-preview-and-deploy.md**, avsnitt om tier-2 preview `.env.local`.
 
-### Project env file (`env.env`) — användar­synlig miljöfil
+### Project env file (`env.example`) — användar­synlig dokumentationsfil
 
-Varje genererad sajt får en egen `env.env`-fil i projektets filträd (syns i builderns filpanel). Den genereras av [`src/lib/gen/preview/project-env-file.ts`](../src/lib/gen/preview/project-env-file.ts) och **regenereras vid varje generering** så lokala ändringar skrivs över — riktiga värden ska in via env-panelen i F3.
+Varje genererad sajt får en egen `env.example`-fil i projektets filträd (syns i builderns filpanel). Den genereras av [`src/lib/gen/preview/project-env-file.ts`](../src/lib/gen/preview/project-env-file.ts) och **regenereras vid varje generering** så lokala ändringar skrivs över — riktiga värden ska in via env-panelen i F3, eller (lokalt) genom att kopiera till `.env.local`.
+
+> **Filnamnet hette tidigare `env.env`.** Renamed 2026-04 till `env.example` för att följa standardkonventionen och tydliggöra att Next.js INTE läser filen vid runtime — det är ren dokumentation. Injectorn rensar gamla `env.env`-filer automatiskt vid nästa generering, så befintliga projekt slipper manuell migrering.
 
 Filen tar bort behovet av att fråga användaren om env-variabler i chatten under F2:
 
-| Stage | Innehåll i `env.env` | Källor |
+| Stage | Innehåll i `env.example` | Källor |
 |-------|---------------------|--------|
-| **F2** (`design`) | Alla harmless-placeholders **+** tier-3-stubs **+** projekt-preview-tokens. Sajten bootar med fake-värden så användaren kan klicka runt. Ingen interaktion krävs. | `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt` + `project-preview-env.ts` |
+| **F2** (`design`) | Alla harmless-placeholders **+** tier-3-stubs **+** projekt-preview-tokens. Användaren ser exakt vilka nycklar projektet kan tänkas använda. Ingen interaktion krävs — preview-VM:en bootar oberoende av denna fil. | `40-harmless-placeholders.env.txt` + `41-tier3-stub-placeholders.env.txt` + `project-preview-env.ts` |
 | **F3** (`integrations`) | Tier-3-stubs strippas. Värden från env-panelen (`projectEnvVars` i DB) mergas in som "user"-lager. Saknade tier-3 nycklar surfar som blockers via [`src/lib/integrations/tier3-build-spec.ts`](../src/lib/integrations/tier3-build-spec.ts). | Som F2 utan tier-3 + DB-lagrade `projectEnvVars` + ev. modell-emitterad `.env.local` |
 
-`env.env` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — `env.env` är **användarsynlig spegling** + förklaringsdokument; värdena är samma. Detaljer: [`src/lib/gen/stream/finalize-version.ts`](../src/lib/gen/stream/finalize-version.ts) (kallar `injectProjectEnvFileIntoFilesJson`).
+`env.example` skrivs in i `versions.files_json` som vilken annan genererad fil som helst. Preview-host fortsätter parallellt skriva sin egen `.env.local` i sandboxen — det är `.env.local` som faktiskt boot:ar previewen, `env.example` är **användarsynlig spegling** + förklaringsdokument. Detaljer: [`src/lib/gen/stream/finalize-version.ts`](../src/lib/gen/stream/finalize-version.ts) (kallar `injectProjectEnvFileIntoFilesJson`).
 
 ### Regelkontrakt: F2-tystnad
 
@@ -128,7 +130,7 @@ F2 får aldrig generera env-frågor i chatten. Detta är en hård regel — se [
 
 1. **Tool exposure gate** — `requestEnvVar` / `suggestIntegration` exponeras inte för LLM:n i F2 ([`create-chat-stream-post.ts`](../src/lib/api/engine/chats/create-chat-stream-post.ts), [`chat-message-stream-post.ts`](../src/lib/api/engine/chats/chat-message-stream-post.ts)).
 2. **SSE filter** — om verktygen ändå råkar kallas droppas tool-events av [`generation-stream-tools.ts`](../src/lib/providers/own-engine/generation-stream-tools.ts) i F2 (defense-in-depth, tool-call-pathen).
-3. **Panel mount-gate** — `ProjectEnvVarsPanel` renderas bara när `lifecycleStage === "integrations"` ([`BuilderShellContent.tsx`](../src/app/builder/BuilderShellContent.tsx)). I F2 visas en kompakt rad som pekar på `env.env` + "Bygg nu"-knappen.
+3. **Panel mount-gate** — `ProjectEnvVarsPanel` renderas bara när `lifecycleStage === "integrations"` ([`BuilderShellContent.tsx`](../src/app/builder/BuilderShellContent.tsx)). I F2 visas en kompakt rad som pekar på `env.example` + "Bygg nu"-knappen.
 4. **Post-finalize code-scan gate** — efter finalize scannar [`generation-stream-post-finalize.ts`](../src/lib/providers/own-engine/generation-stream-post-finalize.ts) genererad kod efter integrations-imports (Stripe, Upstash etc.). I F2 droppas resultatet (loggas som warning). I F3 emitteras integration-SSE som vanligt. Tillagt 2026-04-18 efter regression där Stripe+Upstash visades i F2-chatten på en museum-prompt.
 
 Lansering-spärren (readiness-route) gatas också på lifecycleStage så att F2 alltid returnerar `ready: true` oavsett vad som detekteras i koden.

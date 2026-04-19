@@ -33,6 +33,14 @@ const MAX_SUMMARY_TIMELINE_ROWS = 180;
 const MAX_SITE_HISTORY_RUNS = 50;
 const runDirBySlug = new Map<string, string>();
 const runDirByChatId = new Map<string, string>();
+// runDirByRunId is the most specific scoping: each `site.start` event mints
+// a unique runId (from the timestamp + slug folder name) and any subsequent
+// event that includes runId/generationId in its data routes only to its own
+// folder. This prevents cross-contamination when two followup runs land on
+// the same chatId (see logs 20260419-235012 vs 20260419-235205, where
+// `site.finalized` from run B leaked into run A's timeline.ndjson because
+// runDirByChatId only knew about the latest run).
+const runDirByRunId = new Map<string, string>();
 
 type RunFixPattern = {
   pattern: string;
@@ -1501,12 +1509,35 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
   const type = readString(entry.data.type);
   const slug = normalizeSlug(entry.slug || readString(entry.data.slug));
   const chatId = readString(entry.data.chatId);
+  // runId / generationId comes from the producer when it has been wired
+  // through (see writeGenerationLogEntry callers in the engine stream).
+  // When present it is the most reliable key — every event for the SAME
+  // generation pass shares the same runId, so we never misroute to a
+  // sibling run on the same chat.
+  const runId =
+    readString(entry.data.runId) ?? readString(entry.data.generationId) ?? null;
 
   if (type === "site.start") {
     const dir = createRunDir(entry.ts, slug);
+    const dirRunId = path.basename(dir);
+    runDirByRunId.set(dirRunId, dir);
+    if (runId && runId !== dirRunId) runDirByRunId.set(runId, dir);
     if (slug) runDirBySlug.set(slug, dir);
     if (chatId) runDirByChatId.set(chatId, dir);
     return dir;
+  }
+
+  // Most specific: explicit runId on the event.
+  if (runId) {
+    const fromRun = runDirByRunId.get(runId);
+    if (fromRun && fs.existsSync(fromRun)) {
+      if (chatId) runDirByChatId.set(chatId, fromRun);
+      if (slug) runDirBySlug.set(slug, fromRun);
+      return fromRun;
+    }
+    if (fromRun && !fs.existsSync(fromRun)) {
+      runDirByRunId.delete(runId);
+    }
   }
 
   if (chatId) {
@@ -1532,16 +1563,21 @@ function resolveRunDir(entry: StoredGenerationEntry): string | null {
   }
 
   // Fallback: recover from HMR / process restart by reading _latest.txt.
-  // In dev there is typically one active generation, so the latest dir is correct.
-  const fallbackDir = resolveLatestRunDirFromDisk();
-  if (fallbackDir) {
-    if (slug) runDirBySlug.set(slug, fallbackDir);
-    if (chatId) runDirByChatId.set(chatId, fallbackDir);
-    return fallbackDir;
+  // We only do this for events that have NO chatId/runId/slug context —
+  // those carry zero risk of cross-contamination because they're
+  // ambient/global. Events that DO have such context but didn't match
+  // any in-memory run map are likely orphans (their start event was lost
+  // or the process restarted between start and the event); using
+  // _latest.txt for those would mix unrelated runs, which is exactly the
+  // bug we just patched. Better to drop the event and warn.
+  const hasContext = Boolean(runId || chatId || slug);
+  if (!hasContext) {
+    const fallbackDir = resolveLatestRunDirFromDisk();
+    if (fallbackDir) return fallbackDir;
   }
 
   console.warn(
-    `[generationslogg] resolveRunDir: could not resolve run dir for event type=${type ?? "?"} slug=${slug ?? "?"} chatId=${chatId?.slice(0, 8) ?? "?"}`,
+    `[generationslogg] resolveRunDir: could not resolve run dir for event type=${type ?? "?"} slug=${slug ?? "?"} chatId=${chatId?.slice(0, 8) ?? "?"} runId=${runId?.slice(0, 16) ?? "?"}`,
   );
   return null;
 }

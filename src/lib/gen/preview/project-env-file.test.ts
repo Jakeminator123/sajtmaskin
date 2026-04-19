@@ -52,7 +52,7 @@ describe("buildProjectEnvFileContents", () => {
 });
 
 describe("injectProjectEnvFileIntoFilesJson", () => {
-  it("appends env.env to a generated files array", async () => {
+  it("appends env.example to a generated files array", async () => {
     const filesJson = JSON.stringify([
       { path: "app/page.tsx", content: "export default function Page(){}" },
     ]);
@@ -63,10 +63,11 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
     const envFile = parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH);
     expect(envFile).toBeDefined();
+    expect(envFile?.path).toBe("env.example");
     expect(envFile?.content).toContain("STRIPE_SECRET_KEY=");
   });
 
-  it("replaces an existing env.env file rather than duplicating", async () => {
+  it("replaces an existing env.example file rather than duplicating", async () => {
     const filesJson = JSON.stringify([
       { path: "app/page.tsx", content: "x" },
       { path: PROJECT_ENV_FILE_PATH, content: "OLD=value" },
@@ -79,6 +80,20 @@ describe("injectProjectEnvFileIntoFilesJson", () => {
     const envFiles = parsed.filter((f) => f.path === PROJECT_ENV_FILE_PATH);
     expect(envFiles.length).toBe(1);
     expect(envFiles[0]?.content).not.toContain("OLD=value");
+  });
+
+  it("strips legacy env.env carry-overs when writing the new env.example", async () => {
+    const filesJson = JSON.stringify([
+      { path: "app/page.tsx", content: "x" },
+      { path: "env.env", content: "LEGACY=carried_over_from_old_run" },
+    ]);
+    const next = await injectProjectEnvFileIntoFilesJson(filesJson, {
+      appProjectId: "proj_test",
+      lifecycleStage: "design",
+    });
+    const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
+    expect(parsed.find((f) => f.path === "env.env")).toBeUndefined();
+    expect(parsed.find((f) => f.path === PROJECT_ENV_FILE_PATH)).toBeDefined();
   });
 
   it("uses generated .env.local body as the generated layer", async () => {

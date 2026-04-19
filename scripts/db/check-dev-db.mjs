@@ -41,6 +41,7 @@ const checks = [
   "engine_messages",
   "engine_versions",
   "engine_generation_logs",
+  "engine_version_error_logs",
   "generation_telemetry",
   "version_comments",
   "version_approvals",

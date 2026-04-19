@@ -3,6 +3,7 @@ import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
 import { fixReactHookImports } from "./react-hook-import-fixer";
+import { fixNextNavigationImports } from "./nextjs-navigation-import-fixer";
 import {
   buildProjectModuleExportIndex,
   fixImportedDeclarationConflicts,
@@ -17,6 +18,7 @@ import {
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
 import { fixLucideImageMisuse, fixLucideLinkMisuse } from "./rules/lucide-misuse-fixer";
 import { fixTailwindFontArbitrary } from "./rules/tailwind-font-arbitrary-fixer";
+import { fixTailwindApplyOfComponents } from "./rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "./rules/as-const-boolean-keys";
 import {
   fixCnImportConflict,
@@ -448,6 +450,28 @@ async function runAutoFixSinglePass(
         );
       }
 
+      // 3b-nav. nextjs-navigation-import-fixer — add missing usePathname/useRouter/etc.
+      // Mirrors react-hook-import-fixer for `next/navigation` because LLMs frequently
+      // call these hooks without an import, which causes ReferenceError at SSR
+      // (preview-VM 500 / whiteout). Run AFTER react-hook-import-fixer so the
+      // two never compete for the same import block.
+      try {
+        const navResult = fixNextNavigationImports(currentCode);
+        if (navResult.fixed) {
+          currentCode = navResult.code;
+          allFixes.push({
+            fixer: "nextjs-navigation-import-fixer",
+            category: "mechanical",
+            description: `Added missing next/navigation imports: ${navResult.addedSymbols.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] nextjs-navigation-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // 3c. react-type-import-fixer — add missing ReactNode / common type-only imports
       try {
         const reactTypeResult = fixMissingReactTypeImports(currentCode);
@@ -868,6 +892,29 @@ async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] tier2-preview-basepath threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // 4l-css. tailwind-apply-component-fixer (for .css files) — Tailwind v4
+    // forbids `@apply` of `@layer components` classes. Detect and inline.
+    // This is the most common cause of "Cannot apply unknown utility class"
+    // build errors on freshly generated sites.
+    if (/\.css$/i.test(file.path)) {
+      try {
+        const applyResult = fixTailwindApplyOfComponents(currentCode);
+        if (applyResult.fixed) {
+          currentCode = applyResult.code;
+          allFixes.push({
+            fixer: "tailwind-apply-component-fixer",
+            category: "mechanical",
+            description: `Inlined Tailwind v4 @apply of ${applyResult.replacedClasses.length} component-layer class(es): ${applyResult.replacedClasses.join(", ")}`,
+            file: file.path,
+          });
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] tailwind-apply-component-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     }

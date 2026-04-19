@@ -474,6 +474,58 @@ export const MessageList = memo(MessageListComponent);
  * De visas som en kompakt status-rad med expanderbart innehåll för
  * felsökning.
  */
+/**
+ * Best-effort phase guess for the auto-repair status line.
+ *
+ * The repair pipeline does not currently emit per-phase SSE events to
+ * this component, so we derive a phase label from elapsed wall-clock
+ * since the user-message rendered. Numbers are calibrated against the
+ * observed Snickar Anders timings (see logs/generationslogg/20260419-235205):
+ *   reasoning ~10s, output ~40s, autofix ~5s, verifier ~3-5s,
+ *   quality-gate ~30-40s. Total around 100-150s.
+ *
+ * The label is intentionally hedged ("ungefär") — when the model takes
+ * substantially longer (e.g. max-tier with thinking can spend 6 min on
+ * reasoning alone) the phase shown will lag reality, but at least the
+ * elapsed counter is honest.
+ */
+function describeRepairPhase(elapsedSec: number): string {
+  if (elapsedSec < 12) return "LLM tänker";
+  if (elapsedSec < 50) return "Skriver kod";
+  if (elapsedSec < 60) return "Autofix";
+  if (elapsedSec < 100) return "Verifierar";
+  return "Slutför";
+}
+
+function RepairProgressIndicator() {
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      const next = Math.floor((Date.now() - startedAt) / 1000);
+      setElapsedSec(next);
+      // Cap at 5 min — by then either the chat has moved on or
+      // something is clearly stuck and we shouldn't keep counting.
+      if (next > 300) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+  const phase = describeRepairPhase(elapsedSec);
+  return (
+    <div
+      className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
+      aria-live="polite"
+    >
+      <Loader2 className="h-3 w-3 animate-spin" />
+      <span>Automatisk reparation körs</span>
+      <span className="text-muted-foreground/70">·</span>
+      <span className="text-foreground/80">{phase}</span>
+      <span className="text-muted-foreground/70">·</span>
+      <span className="tabular-nums">{elapsedSec}s</span>
+    </div>
+  );
+}
+
 function CollapsibleUserMessage({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -484,10 +536,7 @@ function CollapsibleUserMessage({ content }: { content: string }) {
   if (isAutoFixPrompt) {
     return (
       <div className="space-y-2">
-        <div className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs">
-          <Loader2 className="h-3 w-3" />
-          Automatisk reparation körs
-        </div>
+        <RepairProgressIndicator />
         {isExpanded ? (
           <div className="space-y-2">
             <MessageResponse>

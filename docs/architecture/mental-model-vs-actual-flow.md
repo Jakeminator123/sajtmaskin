@@ -51,7 +51,7 @@ Vad det fångar:
 
 Tre fixer-familjer med ÖVERLÄGSEN OLIKA decision-predicates. Varje fixer är 30–80 rader och **trivialt auditabel** isolerat:
 
-1. **"Add a missing import"** (~9 fixers) — `react-import-fixer`, `react-hook-import-fixer`, `react-type-import-fixer`, `next-image-import-fixer`, `next-og-image-response-import-fixer`, `metadata-import-fixer`, `metadata-route-import-fixer`, `cn-import-fixer`, `font-import-fixer`. Olika triggers, olika modul-väg, olika syntax-shape — sammanslagning skulle kräva en tabelldriven generisk insertor som är svårare att förstå.
+1. **"Add a missing import"** (~10 fixers) — `react-import-fixer`, `react-hook-import-fixer`, `nextjs-navigation-import-fixer` (täcker `usePathname`/`useRouter`/`useSearchParams`/`useParams`/`redirect`/`notFound`), `react-type-import-fixer`, `next-image-import-fixer`, `next-og-image-response-import-fixer`, `metadata-import-fixer`, `metadata-route-import-fixer`, `cn-import-fixer`, `font-import-fixer`. Olika triggers, olika modul-väg, olika syntax-shape — sammanslagning skulle kräva en tabelldriven generisk insertor som är svårare att förstå.
 
 2. **"Wrong source for an existing import"** (2 fixers efter mitt arbete; var 3) — `tier3-sdk-guard-fixer` (strippar backend-SDKs i F2) och `lucide-misuse-fixer` (lucide-react `Link`/`Image` re-routas till `next/link`/`next/image`). De två gamla `lucide-link-fixer.ts` + `lucide-image-fixer.ts` var nästan-duplicerade — nu konsoliderade till en enda fil med delad helper.
 

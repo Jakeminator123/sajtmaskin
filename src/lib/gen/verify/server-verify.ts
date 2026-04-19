@@ -71,17 +71,24 @@ async function isLatestVersionForChat(chatId: string, versionId: string): Promis
 /**
  * Fire-and-forget server-side verification + capped repair loop.
  * Called from generation stream after finalize. Does NOT block the SSE response.
+ *
+ * `diagnosticOnly` (default false) skips both auto-promotion and the
+ * auto-repair loop — we only persist quality-gate findings as logs so
+ * SSR/build-error visibility exists for whitelisted UIs even when the
+ * version has verifier-blocking findings (in which case promotion is
+ * disallowed by design).
  */
 export async function triggerServerVerification(params: {
   chatId: string;
   versionId: string;
+  diagnosticOnly?: boolean;
   onRepairAvailable?: (payload: {
     versionId: string;
     summary: string | null;
     repairAvailableAt: string | null;
   }) => void;
 }): Promise<void> {
-  const { chatId, versionId, onRepairAvailable } = params;
+  const { chatId, versionId, onRepairAvailable, diagnosticOnly = false } = params;
   if (!isServerVerifyEligible(versionId)) return;
   inflight.add(versionId);
 
@@ -144,6 +151,22 @@ export async function triggerServerVerification(params: {
     });
 
     if (passed) {
+      if (diagnosticOnly) {
+        // Diagnostics-only mode: even a passing gate must NOT promote,
+        // because verifier-blocking findings (which the caller
+        // explicitly knew about when picking diagnosticOnly) still
+        // disallow promotion regardless of build/typecheck status.
+        await createEngineVersionErrorLogs([{
+          chatId,
+          versionId,
+          level: "info",
+          category: "server-verify:diagnostic",
+          message:
+            "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
+          meta: { serverOwned: true, diagnosticOnly: true },
+        }]).catch(() => null);
+        return;
+      }
       await promoteVersion(versionId, "Automatic server verification passed.").catch(() => null);
       return;
     }
@@ -156,6 +179,32 @@ export async function triggerServerVerification(params: {
         output: r.output,
         durationMs: r.durationMs ?? null,
       }));
+
+    if (diagnosticOnly) {
+      // Diagnostics-only mode: log the failures and return. Do NOT enter
+      // the repair loop — that would mutate the version under
+      // conditions where promotion is forbidden anyway, and would
+      // contribute to the regress-on-repair pattern (see Snickar
+      // Anders log: blocking went from 1 → 3 across two repair passes
+      // because every pass mutated and re-failed). Surfacing the
+      // failures is enough; manual repair via the explicit
+      // `/api/engine/chats/.../repair` HTTP path is still available
+      // for the user.
+      await createEngineVersionErrorLogs([{
+        chatId,
+        versionId,
+        level: "warning",
+        category: "server-verify:diagnostic",
+        message:
+          "Server verify gate failed but auto-repair suppressed (verifier blockers already exist; surface findings for inspection only).",
+        meta: {
+          serverOwned: true,
+          diagnosticOnly: true,
+          failedChecks: failedOutputs.map((f) => f.check),
+        },
+      }]).catch(() => null);
+      return;
+    }
 
     await tryServerRepairLoop({
       chatId,

@@ -805,7 +805,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               </span>{" "}
               auto-hanterade i{" "}
               <code className="bg-background rounded px-1 py-0.5 text-[11px]">
-                env.env
+                env.example
               </code>{" "}
               för det här projektet. Klicka{" "}
               <span className="text-foreground font-medium">&quot;Bygg nu&quot;</span> i
