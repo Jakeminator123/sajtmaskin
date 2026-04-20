@@ -81,23 +81,13 @@ Källor: `docs/plans/active/P27-validator.md` blocking_note, `docs/plans/active/
 
 ---
 
-### §1.4 `docs/övergipande-vision-och-mål.md` har stavfel i filnamnet
+### §1.4 `docs/övergipande-vision-och-mål.md` har stavfel i filnamnet — **DONE 2026-04-20**
 
 | Fält | Värde |
 |------|-------|
-| **Fil** | `docs/övergipande-vision-och-mål.md` |
-| **Bevis** | "övergipande" → "övergripande" (saknar `r`) |
-| **Svårighet** | Enkel |
-| **Tidsåtgång** | 5 minuter |
-| **Kostnad infra** | 0 |
-| **Värde** | Sökbart, citerbart filnamn |
-
-**Manual:**
-
-1. `git mv "docs/övergipande-vision-och-mål.md" "docs/overgripande-vision-och-mal.md"` (eller med rätt ÅÄÖ — välj policy först).
-2. Sök i kodbasen efter referenser till gamla filnamnet och uppdatera.
-
-> **Notera:** Diskutera om docs-filnamn ska vara ASCII (rekommenderat — förebygger ÅÄÖ-incidenter på Windows + git portability) eller behålla svenska tecken.
+| **Fil** | tidigare: `docs/övergipande-vision-och-mål.md` → nu: `docs/övergripande-vision-och-mål.md` |
+| **Bevis** | "övergipande" → "övergripande" (saknade `r`) |
+| **Status** | Klart i hygien-paketet 2026-04-20. Policy: behåll ÅÄÖ i docs-filnamn (förebygger ÅÄÖ-stripping i samma yta som `preview-host/README.md`). |
 
 ---
 
@@ -128,37 +118,13 @@ Källor: `docs/plans/active/P27-validator.md` blocking_note, `docs/plans/active/
 
 ---
 
-### §1.6 Manifest-schema och manifest har drivit isär
+### §1.6 Manifest-schema och manifest har drivit isär — **DONE 2026-04-20**
 
 | Fält | Värde |
 |------|-------|
-| **Fil** | `docs/schemas/strict/manifest.schema.json` vs `config/ai_models/manifest.json` |
-| **Bevis** | P28 §7: schemat kräver `qualityGateTiers.tier2/serverVerify/promotion/interactive`, men 2026-04-konsolideringen bytte till `designPreview/integrationsBuild`. Schemat är inte uppdaterat. |
-| **Svårighet** | Enkel |
-| **Tidsåtgång** | 30 minuter |
-| **Kostnad infra** | 0 |
-| **Värde** | Schema-validering blir trovärdig igen |
-
-**Manual:**
-
-1. Öppna `docs/schemas/strict/manifest.schema.json`
-2. Ersätt:
-   ```json
-   "qualityGateTiers": {
-     "type": "object",
-     "required": ["tier2", "serverVerify", "promotion", "interactive"],
-     "properties": { ... }
-   }
-   ```
-   med:
-   ```json
-   "qualityGateTiers": {
-     "type": "object",
-     "required": ["designPreview", "integrationsBuild"],
-     "properties": { ... }
-   }
-   ```
-3. Kör manifest-parity-test: `npx vitest run src/lib/ai-models/manifest-parity.test.ts`
+| **Fil** | `config/ai_models/manifest.schema.json` (audit-rapporten pekade på `docs/schemas/strict/manifest.schema.json` — den filen finns inte; det kanoniska schemat ligger bredvid manifestet under `config/ai_models/`). |
+| **Bevis** | P28 §7: schemat krävde `qualityGateTiers.tier2/serverVerify/promotion/interactive`, men 2026-04-konsolideringen bytte till `designPreview/integrationsBuild`. |
+| **Status** | Klart i hygien-paketet 2026-04-20. `qualityGateTiers.required` uppdaterat till `["designPreview", "integrationsBuild"]`; `properties` slimmade till samma två. Verifierat mot `src/lib/ai-models/manifest-parity.test.ts`. |
 
 ---
 
