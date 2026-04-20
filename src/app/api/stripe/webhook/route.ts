@@ -71,9 +71,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "User not found" }, { status: 400 });
       }
 
-      // Add diamonds to user
       try {
-        const transaction = await createTransaction(
+        await createTransaction(
           userId,
           "purchase",
           diamonds,
@@ -85,12 +84,27 @@ export async function POST(req: NextRequest) {
         console.info(
           "[Stripe/webhook] Added",
           diamonds,
-          "diamonds to user",
-          userId,
-          "- new balance:",
-          transaction.balance_after,
+          "diamonds for session",
+          session.id,
         );
       } catch (error) {
+        // Race-condition idempotency guard: when two concurrent webhook
+        // deliveries race past the SELECT-by-session-id check above, the
+        // unique index on transactions.stripe_session_id will reject the
+        // second insert. Treat that as success so Stripe doesn't retry.
+        const message = error instanceof Error ? error.message : String(error);
+        if (
+          message.includes("transactions_stripe_session_idx") ||
+          message.includes("duplicate key value") ||
+          (typeof (error as { code?: string }).code === "string" &&
+            (error as { code?: string }).code === "23505")
+        ) {
+          console.info(
+            "[Stripe/webhook] Duplicate session insert ignored:",
+            session.id,
+          );
+          return NextResponse.json({ received: true });
+        }
         console.error("[Stripe/webhook] Failed to add diamonds:", error);
         return NextResponse.json({ error: "Failed to add diamonds" }, { status: 500 });
       }

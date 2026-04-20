@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { createSSEHeaders } from "@/lib/streaming";
 import { withRateLimit } from "@/lib/rateLimit";
-import { getEngineChatByIdForRequest } from "@/lib/tenant";
+import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend, devLogStartGeneration } from "@/lib/logging/devLog";
@@ -224,14 +224,27 @@ export async function handleMessageStreamRequest(
         const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
+          // IDOR guard: the caller can request a re-mapping to any
+          // project id, so we must independently verify they actually
+          // own the target project before re-pointing the chat row.
+          const ownedTarget = await getAppProjectByIdForRequest(
+            req,
+            metaAppProjectId,
+            { sessionId },
+          );
+          if (!ownedTarget) {
+            return attachSessionCookie(
+              NextResponse.json({ error: "forbidden" }, { status: 403 }),
+            );
+          }
           try {
-            await chatRepo.updateChatProjectId(engineChat.id, metaAppProjectId);
-            engineChat.project_id = metaAppProjectId;
+            await chatRepo.updateChatProjectId(engineChat.id, ownedTarget.id);
+            engineChat.project_id = ownedTarget.id;
           } catch (error) {
             console.warn("[API/engine/chats/:chatId/stream] Failed to repair chat project mapping", {
               chatId,
               currentProjectId: engineChat.project_id,
-              targetProjectId: metaAppProjectId,
+              targetProjectId: ownedTarget.id,
               error: error instanceof Error ? error.message : String(error),
             });
           }

@@ -251,19 +251,30 @@ export const userIntegrations = pgTable(
   }),
 );
 
-export const transactions = pgTable("transactions", {
-  id: text("id").primaryKey(),
-  user_id: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  type: text("type").notNull(),
-  amount: integer("amount").notNull(),
-  balance_after: integer("balance_after").notNull(),
-  description: text("description"),
-  stripe_payment_intent: text("stripe_payment_intent"),
-  stripe_session_id: text("stripe_session_id"),
-  created_at: timestamp("created_at").defaultNow().notNull(),
-});
+export const transactions = pgTable(
+  "transactions",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    amount: integer("amount").notNull(),
+    balance_after: integer("balance_after").notNull(),
+    description: text("description"),
+    stripe_payment_intent: text("stripe_payment_intent"),
+    stripe_session_id: text("stripe_session_id"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Idempotency guard for Stripe webhooks: a given session id may only
+    // ever produce one transaction row, so a duplicate webhook delivery
+    // surfaces as a unique-violation we can swallow.
+    stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(
+      table.stripe_session_id,
+    ),
+  }),
+);
 
 export const guestUsage = pgTable(
   "guest_usage",
