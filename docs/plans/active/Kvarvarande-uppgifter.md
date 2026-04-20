@@ -1,17 +1,19 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13.** 1214/1214 tester gröna. Se `docs/plans/active/handoff-2026-04-20-next-session.md` för full handoff till nästa agent inkl. prompt-utkast.
+Senast uppdaterad: 2026-04-20 efter cloud-loop (PR #69 — 21 commits) ovanpå master `51751bd30`. **Tier S = 7/7, Tier A = 9/12, Tier B = 5/13. + 21 nya etapper (Block 0+1+2 i cloud-loopen).** Se `STATUS-2026-04-20.md` i repo-roten för fullständig sammanfattning + Linear-projektet [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
 
-## Öppna punkter (smal lista — 6 saker)
+## Öppna punkter (smal lista — 4 saker)
 
 | # | Område | Beskrivning | Prio | Blocker |
 |---|--------|-------------|------|---------|
-| 1 | Typografi | **`Source_Sans_3`-violation** — refereras av `editorial-serif.json` men saknas i `google-font-registry.ts`. Verifiera med `npm run typography:validate-pairings`. Fix: lägg till i registret ELLER byt variant. | Låg | Produktbeslut (5 min) |
-| 2 | UX (P25b-rest) | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. | Låg | Visuell verifiering |
-| 3 | Ingress (P19 Steg 3) | UX-transparens vid follow-up-bas != latest ("du redigerar version X, inte senaste Y"). | Låg | UI-arbete (4–8h) |
-| 4 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). | Låg | — |
+| 1 | UX (P25b-rest) | VersionHistory-tooltips ("Verifying"/"Fel" badges) + mjuk "promoted"-badge + `VersionMismatchOverlayPayload` overlay-rendering i `PreviewPanelFrame.tsx`. | Låg | Visuell verifiering — [SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23) |
+| 2 | Ingress (P19 Steg 3) | UX-transparens vid follow-up-bas != latest ("du redigerar version X, inte senaste Y"). | Låg | UI-arbete (4–8h) — [SAJ-22](https://linear.app/sajtmaskin/issue/SAJ-22) |
+| 3 | Eval | Automatisk baseline-uppdatering (CI-script för eval-svit). | Låg | — |
+| 4 | Pre-existing test failures | 5 fail på master (phase-routing 3, model-selection 1, dossiers 1) — inte rörda i cloud-loopen. | Medel | Egen PR |
 | 5 | shadcn (P20 Nivå 3) | Uppströms `registry:font`-ingestion (fullt format). CI-MVP-validering klar 2026-04-20. | Låg | Inte blockerande |
 | 6 | shadcn (P20 Nivå 2) | Uppströms `registry:block`-integration (fullt format). Deterministic-pick shrink-leverans klar 2026-04-20. | Låg | Inte blockerande |
+
+> Tidigare punkt #1 (`Source_Sans_3`-violation) löstes 2026-04-20 i cloud-loopen, commit `808735e2`.
 
 ## Telemetri-blockad (vänta 1 vecka, sen plocka)
 
@@ -34,7 +36,18 @@ Senast uppdaterad: 2026-04-20 efter 11 etapper (A-K) på master `9249a0994`. **T
 | # | Vad | Blocker |
 |---|---|---|
 | 13 | **Tier A #9** ÅÄÖ pre-commit hook | Husky/lint-staged install |
-| 14 | **Skuld-spår från arkiverade rapport-dokument** (FIXA.txt + imorgon.txt — borttagna 2026-04-20) | Båda konsoliderade i `handoff-2026-04-20-next-session.md` sektion "Skuld från arkiverade rapport-dokument". 33 buggar (A1-A18 + B1-B9 + C1-C4 + D1-D2) + 2 från imorgon (I1 tier-2-env-default, I2 sektion-landmarks). Topp-3 quickwins: I1 (5 min), C1 (Turbopack-flagga), C2 (sandbox-pointer-lock 2 min). Toppen-5 högvärde: C1, B1, A3, A1, A2. |
+| 14 | **Skuld-spår från arkiverade rapport-dokument** (FIXA.txt + imorgon.txt — borttagna 2026-04-20) | **Stort framsteg i cloud-loopen 2026-04-20:** Topp-15 från FIXA + I1 från imorgon adresserade. Klara: A1, A2, A3, A4, A5, A6, A7, A8, A10, A11, A12, A13, A15, A16, A18, B1, B2, B3, B4, B5, C1, C2, C3, I1 (24 av ~35). Defer:ade per blocker eller telemetri-vänta: B6/B7/B8/B9 (utredning), I2 (kräver `done.rejectedStructural`-data). Se `STATUS-2026-04-20.md` för commit-mappning. |
+
+## Avklarat i cloud-loop 2026-04-20 (PR #69, 21 commits, branch `cursor/source-sans-3-registrering-02d5`)
+
+> Källa: `STATUS-2026-04-20.md` i repo-roten + Linear-projekt [Sajtmaskin-skuld 2026-04-20](https://linear.app/sajtmaskin/project/sajtmaskin-skuld-2026-04-20-1f82a9728a0a).
+
+| Block | Vad | Commits |
+|---|---|---|
+| **Block 0 — Bugsvep (9)** | Source_Sans_3 + C1 Turbopack + I1 fly.dev + C2 sandbox + B2 verifier-retry + B3 OpenAI-felmappning + B4 detectPromptType + B5 follow-up brief + B1 DB pool | `808735e2` `5375807e` `7df48d48` `8fabf4ef` `9059e35d` `9141049f` `a3fb69d5` `c03c5db7` `3a4decf0` |
+| **Block 1 — FIXA topp-rest (6)** | A5 ThemeProvider + A2 Lucide-alias + A1 stub-förbud + A4 rapier-bort + A3 source.unsplash.com + C3 inspector-overlay | `671b7a55` `3fe52147` `b43772f7` `d57ac978` `8ce87312` `0d6ba30a` |
+| **Block 2 — FIXA polish (10 prompt-regler i 2 commits)** | A6 + A7 + A8 + A10 + A15 + A16 + A18 / A11 + A12 + A13 | `83c0dfa4` `b51b0e2b` |
+| **Slutleverans** | Audit-mapp → `docs/reports/avklarade/`, denna fil uppdaterad, `STATUS-2026-04-20.md` skapad i roten, handoff orörd | (denna commit) |
 
 ## Avklarat i LLM-flöde Fas 2/3-leverans (2026-04-20)
 
