@@ -11,7 +11,7 @@ import {
  * for broken/hallucinated URLs (e.g., non-existent Unsplash photos).
  *
  * Used by:
- * - POST /api/v0/chats/[chatId]/validate-images (auto-fix)
+ * - POST /api/engine/chats/[chatId]/validate-images (auto-fix)
  * - runPostGenerationChecks (reporting)
  */
 
