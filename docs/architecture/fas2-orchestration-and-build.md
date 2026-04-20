@@ -105,6 +105,12 @@ Efter codegen-streamen kor `finalizeAndSaveVersion()` med denna ordning:
    forcear `forceTsc: true`. SSE-progress emitterar `phase`-vardena
    `validating` / `fixing` / `tsc-validating` / `tsc-fixing` / `tsc-passed` /
    `tsc-skipped` / `passed` / `gave-up` under samma `validate_syntax`-event.
+   **Bug-fix 2026-04-20:** `runLlmFixer` triggas nu pa alla pass inom budget.
+   Tidigare lag `gave-up`-grenen *fore* fixer-blocket pa sista pass, vilket
+   gjorde fixern dead code nar `pass === SYNTAX_FIX_MAX_PASSES` (och helt
+   oatkomlig om manifestets `syntaxFixPasses` satts till 1). Loop-ordningen
+   ar nu: validate -> fixer -> reValidate -> (om sista pass och fortfarande
+   fel) gave-up.
 4. **`materialize_images`** -> endast full path; non-fatal vid fel.
 5. **`verifier`** -> endast full path + verifier-policy; non-fatal vid fel.
    **Sedan 2026-04-20:** blocking-fynd matas in i `runLlmFixer` direkt efter
