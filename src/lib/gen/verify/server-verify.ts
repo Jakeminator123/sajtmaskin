@@ -19,6 +19,7 @@ import {
   saveRepairedFiles,
   getChat,
   getLatestVersion,
+  getPreferredVersion,
   markVersionSupersededByRepair,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
@@ -64,8 +65,9 @@ export function isServerVerifyInFlight(versionId: string): boolean {
 }
 
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
-  const latest = await getLatestVersion(chatId).catch(() => null);
-  return !latest || latest.id === versionId;
+  const preferred = (await getPreferredVersion(chatId).catch(() => null))
+    ?? (await getLatestVersion(chatId).catch(() => null));
+  return !preferred || preferred.id === versionId;
 }
 
 /**

@@ -83,7 +83,7 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
 | Generation Mode | `init \| followUp` | kanonisk |
-| Follow-up Intent | `clear-refine \| clear-redesign \| ambiguous-redesign \| ambiguous-followup \| neutral` från `classifyFollowUpIntent`. `classifyFollowUpIntentWithLlmFallback` (sedan 2026-04-20) ringer `gpt-4.1` (2 s timeout) som double-check när regex returnerar `neutral` och meddelandet är ≥80 ord. `lockedVariantForFollowUp` håller scaffold-varianten stabil mellan v1→v2 om intent ≠ `clear-redesign`. `inheritQualityTargetFromPriorVersion` arvslår om-räkningen av `qualityTarget` på follow-ups. | kanonisk |
+| Follow-up Intent | `clear-refine \| clear-redesign \| ambiguous-redesign \| ambiguous-followup \| neutral` från `classifyFollowUpIntent` (regex-only). `lockedVariantForFollowUp` håller scaffold-varianten stabil mellan v1→v2 om intent ≠ `clear-redesign`. `inheritQualityTargetFromPriorVersion` arvslår om-räkningen av `qualityTarget` på follow-ups. | kanonisk |
 | Plan Mode | Planner-LLM med plan-artefakt; PlanPhase: plan, build, refine, verify, done | kanonisk |
 | Build Profile | `fast`, `pro`, `max`, `codex`, `anthropic` — UI-tiername för codegen | kanonisk |
 | Generation Phase | `planner`, `generator`, `fixer`, `verifier`, `deploy-assistant` — per-fas modellrouting | kanonisk |

@@ -166,19 +166,20 @@ export function sortEngineVersionsNewestFirst<T extends EngineVersionLifecycleLi
   return [...versions].sort((a, b) => getVersionSortKey(b) - getVersionSortKey(a));
 }
 
+/**
+ * Pick the preferred version for follow-ups and UI display.
+ *
+ * Semantics: newest non-failed version wins. `promoted` is a quality
+ * signal (used by deploy via `selectDeployTargetEngineVersion`), NOT a
+ * version-selection signal — otherwise a newer draft is silently ignored
+ * and follow-ups merge against stale files.
+ */
 export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLike>(
   versions: T[],
 ): T | undefined {
   const sorted = sortEngineVersionsNewestFirst(versions);
   if (sorted.length === 0) {
     return undefined;
-  }
-
-  const latestPromoted = sorted.find(
-    (version) => resolveEngineVersionLifecycleStatus(version) === "promoted",
-  );
-  if (latestPromoted) {
-    return latestPromoted;
   }
 
   return (

@@ -181,6 +181,8 @@ async function getStoredVersion(versionId: string): Promise<Version> {
   return loadVersionById(db, versionId);
 }
 
+const MAX_VERSION_INSERT_RETRIES = 3;
+
 async function insertDraftVersionRow(
   executor: typeof db,
   params: {
@@ -195,28 +197,41 @@ async function insertDraftVersionRow(
   },
 ): Promise<Version> {
   const id = uuid();
-  const latest = await executor
-    .select({ maxVer: sql<number>`COALESCE(MAX(${engineVersions.versionNumber}), 0)` })
-    .from(engineVersions)
-    .where(eq(engineVersions.chatId, params.chatId));
-  const versionNumber = (latest[0]?.maxVer ?? 0) + 1;
 
-  await executor.insert(engineVersions).values({
-    id,
-    chatId: params.chatId,
-    messageId: params.messageId,
-    versionNumber,
-    filesJson: params.filesJson,
-    repairedFilesJson: null,
-    previewUrl: params.previewUrl ?? null,
-    releaseState: "draft",
-    verificationState: "pending",
-    verificationSummary: null,
-    repairAvailableAt: null,
-    promotedAt: null,
-    lifecycleStage: params.lifecycleStage ?? "design",
-    parentVersionId: params.parentVersionId ?? null,
-  });
+  for (let attempt = 0; attempt < MAX_VERSION_INSERT_RETRIES; attempt++) {
+    try {
+      await executor.execute(
+        sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, created_at)
+            VALUES (
+              ${id},
+              ${params.chatId},
+              ${params.messageId},
+              (SELECT COALESCE(MAX(version_number), 0) + 1 FROM engine_versions WHERE chat_id = ${params.chatId}),
+              ${params.filesJson},
+              ${null},
+              ${params.previewUrl ?? null},
+              ${"draft"},
+              ${"pending"},
+              ${null},
+              ${null},
+              ${null},
+              ${params.lifecycleStage ?? "design"},
+              ${params.parentVersionId ?? null},
+              NOW()
+            )`,
+      );
+      break;
+    } catch (e: unknown) {
+      const isUniqueViolation =
+        e instanceof Error &&
+        ("code" in e && (e as Record<string, unknown>).code === "23505");
+      if (isUniqueViolation && attempt < MAX_VERSION_INSERT_RETRIES - 1) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
   return loadVersionById(executor, id);
 }
 

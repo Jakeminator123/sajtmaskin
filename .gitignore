@@ -10,6 +10,8 @@ __pycache__/
 node_modules/
 node_modules.old/
 .next/
+.next/dev/cache/
+.next/dev/node_modules/
 out/
 .cache/
 dist/
