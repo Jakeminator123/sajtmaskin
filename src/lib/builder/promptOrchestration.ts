@@ -160,14 +160,22 @@ function detectPromptType(input: OrchestratePromptInput, normalizedMessage: stri
   const method = toSafeLower(input.buildMethod);
   const intent = toSafeLower(input.buildIntent);
 
+  // Follow-ups are detected first so the buildMethod-derived branches below
+  // (audit / wizard / freeform / template) do not short-circuit a follow-up
+  // into a first-prompt-shaped budget. Before SAJ-12 (handoff B4), freeform
+  // and kostnadsfri buildMethods always returned "freeform" — meaning every
+  // follow-up to a freeform-launched chat skipped the
+  // ORCHESTRATION_SOFT_TARGET_FOLLOWUP_CHARS budget and was treated as a
+  // freeform first-prompt. The same drift would happen for audit/wizard
+  // follow-ups, just less common in practice.
+  if (!input.isFirstPrompt) {
+    return looksTechnicalMessage(normalizedMessage, input) ? "followup_technical" : "followup_general";
+  }
+
   if (method === "audit") return "audit";
   if (method === "wizard") return "wizard";
   if (method === "freeform" || method === "kostnadsfri") return "freeform";
   if (method === "category" || intent === "template") return "template";
-
-  if (!input.isFirstPrompt) {
-    return looksTechnicalMessage(normalizedMessage, input) ? "followup_technical" : "followup_general";
-  }
 
   return "unknown";
 }

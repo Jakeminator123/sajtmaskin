@@ -218,9 +218,20 @@ export async function handleMessageStreamRequest(
         const metaScaffoldMode = parsedMeta.scaffoldMode;
         const metaScaffoldId = parsedMeta.scaffoldId;
         const metaThemeColors = parsedMeta.themeColors;
-        // Follow-ups do not carry the init brief. For clear-redesign follow-ups,
-        // a delta-brief is generated below. Otherwise brief stays null.
+        // Follow-ups do not carry the init brief inline. For clear-redesign
+        // follow-ups, a delta-brief is generated below. Otherwise `metaBrief`
+        // stays null — but the original brief still lives in the chat's
+        // orchestration_snapshot and is applied to the system prompt
+        // downstream. The hasPersistedBrief flag below lets the model-info
+        // panel ("Brief: applicerad / Systempromt: NK tecken" — SAJ-6/B5)
+        // surface that the brief is still in effect for follow-ups, not just
+        // for first prompts and clear-redesign deltas.
         let metaBrief: Record<string, unknown> | null = null;
+        const hasPersistedBrief = Boolean(
+          extractBriefSummaryFromSnapshot(
+            engineChat.orchestration_snapshot as Record<string, unknown> | null,
+          ),
+        );
         const metaDesignThemePreset = parsedMeta.designThemePreset;
         const metaPalette = parsedMeta.palette;
         const metaPromptAssistModel = parsedMeta.promptAssistModel;
@@ -910,7 +921,7 @@ export async function handleMessageStreamRequest(
               resolvedScaffold,
               strategyMeta: promptOrchestration.strategyMeta,
               buildSpec: orchestrationBase.buildSpec,
-              metaBriefApplied: Boolean(metaBrief),
+              metaBriefApplied: Boolean(metaBrief) || hasPersistedBrief,
               customInstructionsLength: trimmedSystem?.length ?? 0,
             }),
           );
@@ -993,7 +1004,7 @@ export async function handleMessageStreamRequest(
             orchestrationBase,
             buildSpec: orchestrationBase.buildSpec,
             engineSystemPromptLength: engineSystemPrompt.length,
-            metaBriefApplied: Boolean(metaBrief),
+            metaBriefApplied: Boolean(metaBrief) || hasPersistedBrief,
             customInstructionsLength: trimmedSystem?.length ?? 0,
             scaffoldId: resolvedScaffold?.id ?? null,
             variantId: finalized.variantId,

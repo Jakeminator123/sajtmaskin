@@ -13,6 +13,7 @@ import { devLogAppend, devLogFinalizeSite } from "@/lib/logging/devLog";
 import { warnLog } from "@/lib/utils/debug";
 import { emitOwnEngineToolCallSse } from "./generation-stream-tools";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
+import { classifyProviderError } from "./provider-error-messages";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -484,17 +485,33 @@ export function createOwnEngineGenerationStream(
               }
 
               case "error": {
-                const msg =
-                  typeof (evt.data as Record<string, unknown>)?.message === "string"
-                    ? (evt.data as Record<string, string>).message
+                const data = evt.data as Record<string, unknown> | undefined;
+                const rawMsg =
+                  typeof data?.message === "string"
+                    ? (data.message as string)
                     : "Engine generation failed";
-                fallbackVerificationSummary =
-                  `Återställd ofullständig version efter streamfel: ${msg}`;
-                safeEnqueue(enc.encode(formatSSEEvent("error", { message: msg })));
+                const classified = classifyProviderError(
+                  // Pass the whole data shape so classifier can read code/status.
+                  { ...(data ?? {}), message: rawMsg },
+                  rawMsg,
+                );
+                fallbackVerificationSummary = `Återställd ofullständig version efter streamfel: ${classified.userMessage}`;
+                safeEnqueue(
+                  enc.encode(
+                    formatSSEEvent("error", {
+                      message: classified.userMessage,
+                      ...(classified.code ? { code: classified.code } : {}),
+                      ...(classified.permanent ? { permanent: true } : {}),
+                    }),
+                  ),
+                );
                 devLogAppend("in-progress", {
                   type: "comm.error.create",
                   chatId,
-                  message: msg,
+                  message: classified.userMessage,
+                  rawMessage: rawMsg !== classified.userMessage ? rawMsg : undefined,
+                  providerCode: classified.code,
+                  permanent: classified.permanent,
                 });
                 break;
               }
@@ -503,14 +520,14 @@ export function createOwnEngineGenerationStream(
         }
       } catch (error) {
         console.error("Engine streaming error:", error);
-        fallbackVerificationSummary =
-          `Återställd ofullständig version efter streamfel: ${
-            error instanceof Error ? error.message : "Engine streaming failed"
-          }`;
+        const classified = classifyProviderError(error, "Engine streaming failed");
+        fallbackVerificationSummary = `Återställd ofullständig version efter streamfel: ${classified.userMessage}`;
         safeEnqueue(
           enc.encode(
             formatSSEEvent("error", {
-              message: error instanceof Error ? error.message : "Engine streaming failed",
+              message: classified.userMessage,
+              ...(classified.code ? { code: classified.code } : {}),
+              ...(classified.permanent ? { permanent: true } : {}),
             }),
           ),
         );

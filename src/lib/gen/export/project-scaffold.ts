@@ -31,7 +31,7 @@ const PACKAGE_JSON = `{
     "node": "${GENERATED_PROJECT_NODE_RANGE}"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
@@ -63,7 +63,6 @@ const PACKAGE_JSON = `{
     "three": "0.176.0",
     "@react-three/fiber": "9.1.2",
     "@react-three/drei": "10.7.7",
-    "@react-three/rapier": "2.2.0",
     "date-fns": "4.1.0"
   },
   "devDependencies": {
