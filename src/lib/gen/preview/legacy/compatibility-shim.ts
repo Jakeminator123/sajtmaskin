@@ -10,6 +10,21 @@ export type AlternatePreviewUrls = {
 const OWN_ENGINE_PREVIEW_PATH = "/api/preview-render";
 const PREVIEW_URL_BASE = "https://preview.local";
 
+/**
+ * When `SAJTMASKIN_SHIM_PREVIEW_DISABLED` is truthy, the legacy compatibility
+ * (shim) preview is suppressed end-to-end:
+ * - `buildPreviewUrl` returns null so no shim URL is ever constructed
+ * - `/api/preview-render` returns HTTP 410 with an explanatory page
+ * - `isShimOrMissingPreviewUrl` always returns true so the tier-2 VM
+ *   bootstrap re-attempts even if a stale shim URL leaks in from persisted state
+ */
+export function isShimPreviewDisabled(): boolean {
+  if (typeof process === "undefined" || !process.env) return false;
+  const raw = process.env.SAJTMASKIN_SHIM_PREVIEW_DISABLED?.trim().toLowerCase();
+  if (!raw) return false;
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
+}
+
 export function normalizePreviewUrl(url: string | null | undefined): string | null {
   return typeof url === "string" && url.trim().length > 0 ? url.trim() : null;
 }
@@ -21,7 +36,12 @@ export function isCompatibilityShimPreviewUrl(url: string | null | undefined): b
 
 export function isShimOrMissingPreviewUrl(url: string | null | undefined): boolean {
   const normalized = normalizePreviewUrl(url);
-  return !normalized || isCompatibilityShimPreviewUrl(normalized);
+  if (!normalized) return true;
+  if (isCompatibilityShimPreviewUrl(normalized)) return true;
+  // When shim is disabled, any non-tier-2 URL counts as "needs upgrade"
+  // so the bootstrap re-runs even if a stale legacy URL slipped through.
+  if (isShimPreviewDisabled() && !isTier2LivePreviewUrl(normalized)) return true;
+  return false;
 }
 
 function tier2PreviewHostSuffixesFromEnv(): string[] {

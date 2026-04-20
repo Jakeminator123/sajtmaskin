@@ -33,6 +33,7 @@ import type { BuildSpecPreviewPolicy } from "@/lib/gen/build-spec";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
+import { validateAndUpgradeDeps } from "./dep-version-validator";
 import { runSecurityChecks } from "../security/run-security-checks";
 import { DETERMINISTIC_AUTOFIX_MAX_PASSES } from "../defaults";
 import type { FixEntry } from "./types";
@@ -288,6 +289,9 @@ export function ensureTier2PreviewBasePathInNextConfig(code: string, filePath: s
  *  6.   jsx-checker        — tag matching + missing imports/exports
  *  7.   dep-completer      — collect third-party dependencies
  *  7b.  dep-merge          — merge collected deps into package.json
+ *  7c.  dep-version-validator — verify deps against live npm registry,
+ *                                bump invalid majors to ^latest. Last line of
+ *                                defense against "vit sida pga npm install ENOENT".
  *  8.   security checks    — sanitize suspicious payloads
  *
  * The full `runAutoFix()` wrapper may execute multiple deterministic passes
@@ -965,6 +969,54 @@ async function runAutoFixSinglePass(
         }
       } catch {
         allWarnings.push("[package.json] dep-merge skipped: invalid JSON");
+      }
+    }
+  }
+
+  // 7c. dep-version-validator — verifierar package.json-deps mot npm-registret
+  // och rättar majors som inte finns publicerade (t.ex. LLM-hallucinerad version
+  // ELLER stale entry i KNOWN_PACKAGES). Är registret otillgängligt lämnas
+  // specen orörd. Detta är sista skyddet mot "vit sida pga `npm install` ENOENT".
+  {
+    const pkgIdx = fixedFiles.findIndex((f) => f.path === "package.json");
+    if (pkgIdx >= 0) {
+      try {
+        const pkg = JSON.parse(fixedFiles[pkgIdx].content) as {
+          dependencies?: Record<string, string>;
+          devDependencies?: Record<string, string>;
+        };
+        const hasDeps =
+          (pkg.dependencies && Object.keys(pkg.dependencies).length > 0) ||
+          (pkg.devDependencies && Object.keys(pkg.devDependencies).length > 0);
+        if (hasDeps) {
+          const result = await validateAndUpgradeDeps({
+            dependencies: pkg.dependencies,
+            devDependencies: pkg.devDependencies,
+          });
+          if (result.corrections.length > 0) {
+            const updated = {
+              ...pkg,
+              ...(pkg.dependencies ? { dependencies: result.dependencies } : {}),
+              ...(pkg.devDependencies ? { devDependencies: result.devDependencies } : {}),
+            };
+            fixedFiles[pkgIdx] = {
+              ...fixedFiles[pkgIdx],
+              content: JSON.stringify(updated, null, 2),
+            };
+            for (const c of result.corrections) {
+              allFixes.push({
+                fixer: "dep-version-validator",
+                category: "mechanical",
+                description: `Bumped ${c.pkg} from ${c.from} to ${c.to} (${c.reason})`,
+                file: "package.json",
+              });
+            }
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `dep-version-validator threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   }
