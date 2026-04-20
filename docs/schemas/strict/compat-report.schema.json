@@ -7,6 +7,7 @@
   "required": ["generatedAt", "ruleConfig", "totals", "results"],
   "additionalProperties": false,
   "properties": {
+    "$schema": { "type": "string" },
     "generatedAt": {
       "type": "string",
       "format": "date-time"
