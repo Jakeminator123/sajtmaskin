@@ -26,9 +26,22 @@ const PHASE_DURATION_BUCKETS_MS = [
   10, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000, 120000,
 ];
 
+/**
+ * End-to-end "prompt → done" buckets span seconds to minutes because the
+ * codegen pipeline (brief + orchestrate + generate + verify + repair + persist)
+ * routinely lands in the 10s–3min range, with long-tail outliers beyond.
+ */
+const PROMPT_TO_DONE_BUCKETS_MS = [
+  1000, 5000, 15000, 30000, 60000, 90000, 120000, 180000, 300000, 600000,
+];
+
+export type PromptToDoneOutcome = "done" | "failed" | "aborted";
+export type PromptToDoneKind = "init" | "followup";
+
 type MetricsBundle = {
   register: prom.Registry;
   phaseDuration: prom.Histogram<string>;
+  promptToDone: prom.Histogram<string>;
   fixerCall: prom.Counter<string>;
   verifierBlocking: prom.Counter<string>;
   partialFileRepair: prom.Counter<string>;
@@ -59,6 +72,16 @@ function initMetrics(): MetricsBundle {
     help: "Duration of a Sajtmaskin pipeline phase, in milliseconds.",
     labelNames: ["phase"],
     buckets: PHASE_DURATION_BUCKETS_MS,
+    registers: [register],
+  });
+
+  const promptToDone = new prom.Histogram({
+    name: "sajtmaskin_prompt_to_done_ms",
+    help:
+      "End-to-end duration from POST /api/engine/chats[...]/stream entry " +
+      "until the SSE `done` event is emitted (or the stream errors/aborts).",
+    labelNames: ["outcome", "kind"],
+    buckets: PROMPT_TO_DONE_BUCKETS_MS,
     registers: [register],
   });
 
@@ -93,6 +116,7 @@ function initMetrics(): MetricsBundle {
   const bundle: MetricsBundle = {
     register,
     phaseDuration,
+    promptToDone,
     fixerCall,
     verifierBlocking,
     partialFileRepair,
@@ -146,6 +170,23 @@ export function incEarlyStop(reason: string, phase: string): void {
 }
 
 /**
+ * Observe the end-to-end "prompt → done" duration in milliseconds. `kind`
+ * distinguishes the initial chat-creation stream from follow-up streams;
+ * `outcome` separates successful `done` emissions from client aborts and
+ * pipeline failures. Designed to be called from a `finally`-style wrapper
+ * so telemetry never breaks codegen — callers should wrap in try/catch
+ * regardless (prom-client label validation can throw on bad inputs).
+ */
+export function recordPromptToDone(
+  durationMs: number,
+  outcome: PromptToDoneOutcome,
+  kind: PromptToDoneKind,
+): void {
+  if (!Number.isFinite(durationMs) || durationMs < 0) return;
+  metrics.promptToDone.observe({ outcome, kind }, durationMs);
+}
+
+/**
  * Used by the `/api/metrics` route. prom-client v15 returns a Promise<string>.
  */
 export function getPrometheusMetrics(): Promise<string> {
@@ -159,6 +200,7 @@ export function getPrometheusMetrics(): Promise<string> {
  */
 export function resetMetricsForTest(): void {
   metrics.phaseDuration.reset();
+  metrics.promptToDone.reset();
   metrics.fixerCall.reset();
   metrics.verifierBlocking.reset();
   metrics.partialFileRepair.reset();

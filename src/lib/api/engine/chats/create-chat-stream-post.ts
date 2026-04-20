@@ -1,4 +1,9 @@
 import { createSSEHeaders } from "@/lib/streaming";
+import { recordPromptToDone } from "@/lib/observability/metrics";
+import {
+  withPromptToDoneMetricResponse,
+  wrapStreamForPromptToDoneMetric,
+} from "@/lib/observability/prompt-to-done-stream";
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -527,7 +532,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           mode: "plan",
           chatId: plannerChat.id,
         });
-        return attachSessionCookie(planModeResponse);
+        return attachSessionCookie(
+          withPromptToDoneMetricResponse(planModeResponse, {
+            kind: "init",
+            promptStartedAt: requestStartedAt,
+            signal: req.signal,
+          }),
+        );
       }
 
       // ── Own Engine Path ───────────────────────────────────────────────
@@ -693,9 +704,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             mode: "pre-generation-contract-gate",
             chatId: engineChat.id,
           });
-          return attachSessionCookie(new Response(contractGateStream, {
-            headers: createSSEHeaders(),
-          }));
+          return attachSessionCookie(new Response(
+            wrapStreamForPromptToDoneMetric(contractGateStream, {
+              kind: "init",
+              promptStartedAt: requestStartedAt,
+              signal: req.signal,
+            }),
+            { headers: createSSEHeaders() },
+          ));
         }
         const finalizePromptStartedAt = Date.now();
         const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
@@ -825,10 +841,26 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           mode: "own-engine",
           chatId: engineChat.id,
         });
-        return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
+        return attachSessionCookie(new Response(
+          wrapStreamForPromptToDoneMetric(engineStream, {
+            kind: "init",
+            promptStartedAt: requestStartedAt,
+            signal: req.signal,
+          }),
+          { headers: engineHeaders },
+        ));
       }
     } catch (err) {
       errorLog("engine", `Create chat error (requestId=${requestId})`, err);
+      try {
+        recordPromptToDone(
+          Date.now() - requestStartedAt,
+          req.signal?.aborted ? "aborted" : "failed",
+          "init",
+        );
+      } catch {
+        // Telemetry is fail-safe.
+      }
       const normalized = normalizeProviderError(err);
       devLogAppend("latest", {
         type: "comm.error.create",

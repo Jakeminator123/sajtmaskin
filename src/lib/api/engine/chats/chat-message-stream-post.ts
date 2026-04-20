@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { createSSEHeaders } from "@/lib/streaming";
+import { recordPromptToDone } from "@/lib/observability/metrics";
+import {
+  withPromptToDoneMetricResponse,
+  wrapStreamForPromptToDoneMetric,
+} from "@/lib/observability/prompt-to-done-stream";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
@@ -155,6 +160,7 @@ export async function handleMessageStreamRequest(
     return response;
   };
   const runHandler = async () => {
+    const promptStartedAt = Date.now();
     try {
       const { chatId } = await ctx.params;
       const body = await req.json().catch(() => ({}));
@@ -319,10 +325,17 @@ export async function handleMessageStreamRequest(
           });
           return attachSessionCookie(
             new Response(
-              buildAwaitingClarificationStream({
-                chatId,
-                clarification: followUpClarification,
-              }),
+              wrapStreamForPromptToDoneMetric(
+                buildAwaitingClarificationStream({
+                  chatId,
+                  clarification: followUpClarification,
+                }),
+                {
+                  kind: "followup",
+                  promptStartedAt,
+                  signal: req.signal,
+                },
+              ),
               { headers: createSSEHeaders() },
             ),
           );
@@ -642,7 +655,7 @@ export async function handleMessageStreamRequest(
             referenceAttachments: requestAttachments,
           });
 
-          return attachSessionCookie(createOwnEnginePlanModeResponse({
+          return attachSessionCookie(withPromptToDoneMetricResponse(createOwnEnginePlanModeResponse({
             pipelineStream: planPipelineStream,
             chatId,
             modelTier: resolvedModelTier,
@@ -679,6 +692,10 @@ export async function handleMessageStreamRequest(
             commitCredits: commitCreditsOnce,
             commitCreditsPosition: "before-done",
             normalizeQuestionToolCallIds: true,
+          }), {
+            kind: "followup",
+            promptStartedAt,
+            signal: req.signal,
           }));
         }
 
@@ -897,9 +914,14 @@ export async function handleMessageStreamRequest(
               customInstructionsLength: trimmedSystem?.length ?? 0,
             }),
           );
-          return attachSessionCookie(new Response(contractGateStream, {
-            headers: createSSEHeaders(),
-          }));
+          return attachSessionCookie(new Response(
+            wrapStreamForPromptToDoneMetric(contractGateStream, {
+              kind: "followup",
+              promptStartedAt,
+              signal: req.signal,
+            }),
+            { headers: createSSEHeaders() },
+          ));
         }
         const finalizePromptStartedAt = Date.now();
         const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
@@ -998,9 +1020,25 @@ export async function handleMessageStreamRequest(
         });
 
         const engineHeaders = new Headers(createSSEHeaders());
-        return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
+        return attachSessionCookie(new Response(
+          wrapStreamForPromptToDoneMetric(engineStream, {
+            kind: "followup",
+            promptStartedAt,
+            signal: req.signal,
+          }),
+          { headers: engineHeaders },
+        ));
     } catch (err) {
       errorLog("engine", `Send message error (requestId=${requestId})`, err);
+      try {
+        recordPromptToDone(
+          Date.now() - promptStartedAt,
+          req.signal?.aborted ? "aborted" : "failed",
+          "followup",
+        );
+      } catch {
+        // Telemetry is fail-safe.
+      }
       const normalized = normalizeProviderError(err);
       devLogAppend("latest", {
         type: "comm.error.send",

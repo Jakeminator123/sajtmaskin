@@ -7,6 +7,7 @@ import {
   incPartialFileRepair,
   incVerifierBlocking,
   recordPhaseDuration,
+  recordPromptToDone,
   register,
   resetMetricsForTest,
 } from "./metrics";
@@ -107,6 +108,47 @@ describe("observability/metrics", () => {
     const after = values.find((v) => v.labels.fixer === "react-import-fixer");
     // After reset the label combination is no longer present (or value is 0).
     expect(after?.value ?? 0).toBe(0);
+  });
+
+  it("records prompt→done duration partitioned by outcome + kind", async () => {
+    recordPromptToDone(45000, "done", "init");
+    recordPromptToDone(12000, "aborted", "followup");
+
+    const text = await getPrometheusMetrics();
+    expect(text).toContain("sajtmaskin_prompt_to_done_ms");
+    expect(text).toMatch(
+      /sajtmaskin_prompt_to_done_ms_bucket\{[^}]*outcome="done"[^}]*kind="init"[^}]*\}/,
+    );
+    expect(text).toMatch(
+      /sajtmaskin_prompt_to_done_ms_sum\{[^}]*outcome="done"[^}]*kind="init"[^}]*\}\s+45000/,
+    );
+    expect(text).toMatch(
+      /sajtmaskin_prompt_to_done_ms_count\{[^}]*outcome="aborted"[^}]*kind="followup"[^}]*\}\s+1/,
+    );
+  });
+
+  it("ignores non-finite or negative prompt→done durations", async () => {
+    recordPromptToDone(Number.NaN, "done", "init");
+    recordPromptToDone(-1, "done", "init");
+    const text = await getPrometheusMetrics();
+    expect(text).not.toMatch(
+      /sajtmaskin_prompt_to_done_ms_count\{[^}]*outcome="done"[^}]*kind="init"[^}]*\}\s+[1-9]/,
+    );
+  });
+
+  it("resets prompt→done histogram via resetMetricsForTest", async () => {
+    recordPromptToDone(2000, "done", "init");
+    let text = await getPrometheusMetrics();
+    expect(text).toMatch(
+      /sajtmaskin_prompt_to_done_ms_count\{[^}]*outcome="done"[^}]*kind="init"[^}]*\}\s+1/,
+    );
+
+    resetMetricsForTest();
+
+    text = await getPrometheusMetrics();
+    expect(text).not.toMatch(
+      /sajtmaskin_prompt_to_done_ms_count\{[^}]*outcome="done"[^}]*kind="init"[^}]*\}\s+[1-9]/,
+    );
   });
 
   it("caches the registry on globalThis so dev hot-reload reuses the singleton", () => {
