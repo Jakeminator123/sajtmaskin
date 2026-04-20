@@ -1,6 +1,6 @@
 # Sajtmaskin — kvarvarande uppgifter (kanonisk lista)
 
-Senast uppdaterad: 2026-04-15 (Repair/verify worldclass-pass: delad loop, manifeststyrda gate-tiers, warm repair, utökad partial-file retry, repair-accept/timeout, verify install fallback + node_modules sharing).
+Senast uppdaterad: 2026-04-20 (P27-validator: sektion A+B+D körda. Wave 2026-04 P21-P27 + P21b flyttade till `avklarat/`. Tre uppföljare i `active/`: P22b, P25b, P28).
 
 ## Öppna punkter
 
@@ -10,6 +10,9 @@ Senast uppdaterad: 2026-04-15 (Repair/verify worldclass-pass: delad loop, manife
 | 2 | shadcn | Nivå 3: `registry:font` — konsolidera upstream font-format med nuvarande `fontPairings` + `google-font-registry.ts` | Medel | P20 |
 | 3 | Ingress | Old-content ingress hardening — bevisa ingresspunkter, sedan små fixar | Medel-hög | P19 |
 | 4 | Eval | Automatisk baseline-uppdatering (CI/script för eval-svit) | Låg | — |
+| 5 | Follow-up wiring | Wira `priorQualityTarget`/`followUpIntent`/`persistedVariantId` i `chat-message-stream-post.ts` så P22:s helpers aktiveras runtime + två stream-route-tests blir gröna. | Medel | P22b |
+| 6 | UX polish | VersionHistory-tooltips + mjuk "promoted"-badge + version_mismatch overlay-rendering. Använder `VersionMismatchOverlayPayload` från P24. | Låg | P25b |
+| 7 | Hygien-städ | 7 pre-existing test-failures (env-vars, route × 2, preview-status × 2, stream × 2), 1 lint-error (`font-import-fixer.ts:45`), schema-mismatch i `qualityGateTiers`, plus engine-test isolation (`engine.test.ts` failar i full suite men passerar standalone — `vi.resetModules()` saknas i någon av P22/P23/P26:s nya test-filer). | Låg | P28 |
 
 ## Avklarat denna session (2026-04-15)
 

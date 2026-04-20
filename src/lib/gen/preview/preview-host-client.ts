@@ -104,6 +104,28 @@ export type PreviewHostStartOk = {
   startOutcome: "resumed" | "recreated";
 };
 
+/**
+ * Payload describing a transient `version_mismatch` window between a finalized
+ * version being persisted in the app and the preview-VM having booted that
+ * version. Emitted by preview-host-client consumers so the builder UI (P25)
+ * can render a non-blocking overlay instead of leaving a white iframe sitting
+ * for ~10s during the restart.
+ *
+ * Field name `version_mismatch_overlay_payload` (snake_case) is the
+ * cross-process channel key used between this module and the builder overlay;
+ * the TS type uses our usual camelCase for fields.
+ */
+export type VersionMismatchOverlayPayload = {
+  /** Own-engine chat id whose preview is mid-restart. */
+  chatId: string;
+  /** Version id the app has finalized and expects the preview to be running. */
+  expectedVersionId: string;
+  /** Version id the preview-VM most recently booted, or null if unknown. */
+  currentVersionId: string | null;
+  /** Milliseconds elapsed since the mismatch was first observed. */
+  msSinceMismatch: number;
+};
+
 export type PreviewHostStartErr = {
   ok: false;
   message: string;

@@ -1,11 +1,139 @@
 "use client";
 
-import type { ModelTraceSnapshot } from "@/lib/models/trace";
+import {
+  getPhaseRoutingFromManifest,
+  getPhaseThinkingFromManifest,
+} from "@/lib/ai-models/load-manifest";
+import { MODEL_TIER_OPTIONS } from "@/lib/builder/defaults";
+import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
+import type { ModelTraceSnapshot, PerTierPhaseMatrixRow } from "@/lib/models/trace";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 const STORAGE_KEY = "sajtmaskin:model-trace-overlay";
+
+const MATRIX_PHASES: PerTierPhaseMatrixRow["phase"][] = [
+  "planner",
+  "generator",
+  "fixer",
+  "verifier",
+  "deploy-assistant",
+];
+
+/**
+ * Static projection of the manifest's tier × phase routing into a flat list
+ * of {@link PerTierPhaseMatrixRow}. Computed once per render via `useMemo`
+ * inside {@link PerTierPhaseMatrix}; the manifest is a static JSON import so
+ * this is safe on the client.
+ */
+function buildPerTierPhaseMatrix(): PerTierPhaseMatrixRow[] {
+  const phaseRouting = getPhaseRoutingFromManifest();
+  const phaseThinking = getPhaseThinkingFromManifest();
+  const rows: PerTierPhaseMatrixRow[] = [];
+  for (const tierOption of MODEL_TIER_OPTIONS) {
+    const tier = tierOption.value;
+    const tierRouting = phaseRouting[tier];
+    const tierThinking = phaseThinking[tier];
+    if (!tierRouting || !tierThinking) continue;
+    const baseModel = canonicalModelIdToOwnModelId(tier);
+    for (const phase of MATRIX_PHASES) {
+      const ref = tierRouting[phase];
+      const modelId = ref === "selected_build_model" ? baseModel : ref;
+      const thinkingCfg = tierThinking[phase];
+      rows.push({
+        tier,
+        phase,
+        modelId,
+        thinking: thinkingCfg?.thinking ?? false,
+        reasoningEffort: thinkingCfg?.reasoningEffort ?? "medium",
+      });
+    }
+  }
+  return rows;
+}
+
+function PerTierPhaseMatrix() {
+  // Memoised so the 5×5 derivation doesn't rerun on every parent rerender;
+  // manifest data is static for the lifetime of the bundle.
+  const perTierPhaseMatrix = useMemo(() => buildPerTierPhaseMatrix(), []);
+  const tiers = MODEL_TIER_OPTIONS.map((option) => option.value);
+
+  return (
+    <details className="rounded-lg border border-white/10 bg-white/3 p-2">
+      <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+        Tier × Phase Matrix
+      </summary>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full border-collapse text-[10px]">
+          <thead>
+            <tr className="text-left text-slate-400">
+              <th className="border-b border-white/10 px-1.5 py-1 font-medium">tier \\ phase</th>
+              {MATRIX_PHASES.map((phase) => (
+                <th
+                  key={phase}
+                  className="border-b border-white/10 px-1.5 py-1 font-medium"
+                >
+                  {phase}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tiers.map((tier) => (
+              <tr key={tier} className="align-top">
+                <th
+                  scope="row"
+                  className="border-b border-white/5 px-1.5 py-1 text-left font-medium text-slate-200"
+                >
+                  {tier}
+                </th>
+                {MATRIX_PHASES.map((phase) => {
+                  const row = perTierPhaseMatrix.find(
+                    (entry) => entry.tier === tier && entry.phase === phase,
+                  );
+                  if (!row) {
+                    return (
+                      <td
+                        key={phase}
+                        className="border-b border-white/5 px-1.5 py-1 text-slate-500"
+                      >
+                        —
+                      </td>
+                    );
+                  }
+                  return (
+                    <td
+                      key={phase}
+                      className="border-b border-white/5 px-1.5 py-1 text-slate-300"
+                    >
+                      <div className="font-mono break-all">{row.modelId}</div>
+                      <div className="mt-0.5 flex flex-wrap gap-1 text-[9px] text-slate-400">
+                        <span
+                          className={cn(
+                            "rounded border px-1",
+                            row.thinking
+                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                              : "border-white/10 bg-white/5",
+                          )}
+                        >
+                          think:{row.thinking ? "on" : "off"}
+                        </span>
+                        <span className="rounded border border-white/10 bg-white/5 px-1">
+                          re:{row.reasoningEffort}
+                        </span>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
 
 type ModelTraceOverlayProps = {
   selectedModelTier: string;
@@ -308,6 +436,8 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                     ))}
                   </div>
                 </details>
+
+                <PerTierPhaseMatrix />
 
                 <details className="rounded-lg border border-white/10 bg-white/3 p-2">
                   <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">

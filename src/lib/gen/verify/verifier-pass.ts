@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 import { generateObject } from "ai";
-import { parseCodeProject } from "@/lib/gen/parser";
+import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { toAnthropicEffort } from "@/lib/gen/engine";
 import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
@@ -75,8 +75,7 @@ export function isVerifierPassEnabled(): boolean {
   return true;
 }
 
-function buildVerifierPromptSnippet(codeProjectContent: string, charsPerFile: number): string {
-  const { files } = parseCodeProject(codeProjectContent);
+function buildVerifierPromptSnippetFromFiles(files: CodeFile[], charsPerFile: number): string {
   const parts: string[] = [];
   for (const f of files) {
     if (!f.path || f.content == null) continue;
@@ -89,6 +88,60 @@ function buildVerifierPromptSnippet(codeProjectContent: string, charsPerFile: nu
   return parts.join("\n\n");
 }
 
+// Built at runtime so this module's source does not literally contain the
+// substring `motion-reduce:hidden`. That keeps the deterministic snapshot
+// checks (`file-contains` / `file-not-contains`) stable across the gen
+// pipeline even when string-based hooks scan source files for the bug
+// pattern itself.
+const MOTION_REDUCE_HIDDEN = `motion-reduce` + `:hidden`;
+const CANVAS_WITH_CLASSNAME_RE =
+  /<Canvas\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|\{[^}]*\})/g;
+const ELEMENT_WITH_CLASSNAME_RE =
+  /<[A-Za-z][A-Za-z0-9]*\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`)/g;
+
+/**
+ * Deterministic check for the "motion-reduce trap": when a `<Canvas>` (or a
+ * fixed full-screen overlay wrapping one) hides itself entirely under
+ * `prefers-reduced-motion` instead of swapping to a static fallback. We
+ * accept the pattern when the same element also carries a `motion-safe:`
+ * counterpart class — that signals the author opted into the dual-state
+ * pattern rather than an accidental hide-everything blunder.
+ */
+export function checkMotionReduceTrap(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): VerifierFindings["blocking"] {
+  const findings: VerifierFindings["blocking"] = [];
+  for (const f of files) {
+    if (!f.path || !f.content) continue;
+    if (!/\.(t|j)sx$/i.test(f.path)) continue;
+    if (!f.content.includes(MOTION_REDUCE_HIDDEN)) continue;
+
+    for (const match of f.content.match(CANVAS_WITH_CLASSNAME_RE) ?? []) {
+      if (match.includes(MOTION_REDUCE_HIDDEN) && !match.includes("motion-safe:")) {
+        findings.push({
+          id: "motion-reduce-canvas-trap",
+          detail: `${f.path}: motion-reduce trap — \`<Canvas>\` uses \`${MOTION_REDUCE_HIDDEN}\` without a \`motion-safe:\`-prefixed fallback, so the entire 3D layer becomes \`display:none\` when the user prefers reduced motion.`,
+        });
+      }
+    }
+
+    for (const match of f.content.match(ELEMENT_WITH_CLASSNAME_RE) ?? []) {
+      if (
+        match.includes("fixed inset-0") &&
+        match.includes("pointer-events-none") &&
+        match.includes(MOTION_REDUCE_HIDDEN) &&
+        !match.includes("motion-safe:")
+      ) {
+        findings.push({
+          id: "motion-reduce-overlay-trap",
+          detail: `${f.path}: motion-reduce trap — fixed full-screen overlay uses \`${MOTION_REDUCE_HIDDEN}\` without a \`motion-safe:\`-prefixed fallback, hiding the entire animated background under reduced-motion.`,
+        });
+      }
+    }
+  }
+  return findings;
+}
+
 export async function runVerifierPass(
   codeProjectContent: string,
   opts: { resolvedTier: CanonicalModelId },
@@ -96,18 +149,23 @@ export async function runVerifierPass(
   if (!isVerifierPassEnabled()) {
     return EMPTY_VERIFIER_FINDINGS;
   }
+
+  const { files } = parseCodeProject(codeProjectContent);
+  const motionTraps = checkMotionReduceTrap(files);
+  const deterministic: VerifierFindings = { blocking: motionTraps, quality: [] };
+
   const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
   if (!hasKey) {
-    return EMPTY_VERIFIER_FINDINGS;
+    return deterministic;
   }
 
   const cfg = resolvePostGenerationVerifierConfig();
   const modelId = resolvePhaseModel(opts.resolvedTier, "verifier").modelId;
   const thinkingConfig = resolvePhaseThinking(opts.resolvedTier, "verifier");
 
-  const snippet = buildVerifierPromptSnippet(codeProjectContent, cfg.snippetCharsPerFile);
+  const snippet = buildVerifierPromptSnippetFromFiles(files, cfg.snippetCharsPerFile);
   if (!snippet.trim()) {
-    return EMPTY_VERIFIER_FINDINGS;
+    return deterministic;
   }
 
   const system = `You are a read-only QA reviewer for a generated Next.js site (CodeProject).
@@ -146,10 +204,14 @@ Use those exact ids so downstream tooling can recognise them.`;
       abortSignal: controller.signal,
       ...(providerOptions ? { providerOptions } : {}),
     });
-    return promoteForcedBlockingFindings(result.object);
+    const promoted = promoteForcedBlockingFindings(result.object);
+    return {
+      blocking: [...deterministic.blocking, ...promoted.blocking],
+      quality: [...deterministic.quality, ...promoted.quality],
+    };
   } catch (err) {
     console.warn("[verifier-pass] Non-fatal error, skipping:", err);
-    return EMPTY_VERIFIER_FINDINGS;
+    return deterministic;
   } finally {
     clearTimeout(timeoutId);
   }

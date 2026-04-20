@@ -950,6 +950,9 @@ export function buildDynamicContext(
     } else {
       parts.push("", "- Keep the route structure compact unless the prompt clearly requires extra pages.");
     }
+    parts.push(
+      "- Generate routes in the project's primary language only. Do not emit both '/contact' and '/kontakt' — pick one based on the brief locale.",
+    );
     parts.push("");
   }
 

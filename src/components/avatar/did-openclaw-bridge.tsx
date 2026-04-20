@@ -11,7 +11,49 @@ type BridgeMessage = {
   isError?: boolean;
 };
 
-type ConnectionState = "mock-ready" | "idle" | "connecting" | "connected" | "speaking" | "error";
+type ConnectionState =
+  | "mock-ready"
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "speaking"
+  | "offline"
+  | "error";
+
+// D-ID v2_agt_* agents periodically rate-limit or refuse CORS preflights from
+// localhost/preview-domains. Treat that as a soft "offline" state rather than a
+// hard "error" toast — users should see a discreet status pill, not an alarmist
+// failure banner. See P25.
+function handleAvatarConnectError(
+  err: unknown,
+  agentId: string | undefined,
+): { kind: "offline" | "error"; message: string } {
+  const message =
+    err instanceof Error && err.message
+      ? err.message
+      : "Kunde inte ansluta avataren.";
+  const lower = message.toLowerCase();
+  const looksLikeCorsOrRateLimit =
+    lower.includes("cors") ||
+    lower.includes("access-control") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("network error") ||
+    lower.includes("403") ||
+    lower.includes("429");
+  const isV2Agent = !!agentId && agentId.startsWith("v2_agt_");
+
+  if (looksLikeCorsOrRateLimit && isV2Agent) {
+    if (typeof console !== "undefined") {
+      console.info(
+        "[avatar-bridge] D-ID v2_agt connect blocked (CORS/rate-limit), going offline:",
+        message,
+      );
+    }
+    return { kind: "offline", message };
+  }
+  return { kind: "error", message };
+}
 
 type DidClientSdk = typeof import("@d-id/client-sdk");
 type DidAgentManager = Awaited<ReturnType<DidClientSdk["createAgentManager"]>>;
@@ -87,6 +129,8 @@ function connectionLabel(state: ConnectionState) {
       return "Ansluten";
     case "speaking":
       return "Talar";
+    case "offline":
+      return "Sajtagenten offline";
     case "error":
       return "Fel";
     default:
@@ -103,6 +147,8 @@ function connectionDotClass(state: ConnectionState) {
       return "bg-emerald-500";
     case "connecting":
       return "animate-pulse bg-amber-500";
+    case "offline":
+      return "bg-zinc-500";
     case "error":
       return "bg-red-500";
     default:
@@ -241,8 +287,14 @@ export function DidOpenClawBridge({
       await agent.connect();
       setConnectionState("connected");
     } catch (error) {
-      setConnectionState("error");
-      setLastError(error instanceof Error ? error.message : "Kunde inte ansluta avataren.");
+      const outcome = handleAvatarConnectError(error, AGENT_ID);
+      if (outcome.kind === "offline") {
+        // Soft state: keep retry-knappen tillgänglig och undvik högljudd toast/debug-rad.
+        setConnectionState("offline");
+      } else {
+        setConnectionState("error");
+        setLastError(outcome.message);
+      }
     }
   }, [connectionState, initAgent, testMode]);
 

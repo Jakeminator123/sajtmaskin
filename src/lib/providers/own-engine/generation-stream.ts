@@ -22,6 +22,51 @@ import * as chatRepo from "@/lib/db/chat-repository-pg";
 
 type UrlMap = Record<string, string>;
 
+/**
+ * Pulls a non-negative reasoning-token count out of whatever shape the
+ * upstream pipeline forwarded in its `done` event. Both the OpenAI
+ * Responses API (`usage.reasoning_tokens`) and the AI-SDK wrappers
+ * (`tokenUsage.reasoningTokens`) eventually reach us as a flat object on
+ * the `done` SSE payload, but the exact key has historically drifted
+ * between providers/wrappers. We normalise it here so downstream summaries
+ * see "visible output tokens" (`outputTokens` / `completionTokens`) and
+ * "reasoning tokens" as two distinct numbers — without that, a thinking
+ * model that emits 38 files from a 600-token visible response looks
+ * suspiciously cheap in the logs.
+ */
+function extractReasoningTokens(streamResponse: unknown): number | undefined {
+  if (!streamResponse || typeof streamResponse !== "object") return undefined;
+  const root = streamResponse as Record<string, unknown>;
+
+  const candidates: unknown[] = [
+    root.reasoningTokens,
+    root.reasoning_tokens,
+  ];
+
+  const usage =
+    typeof root.usage === "object" && root.usage !== null
+      ? (root.usage as Record<string, unknown>)
+      : null;
+  if (usage) {
+    candidates.push(usage.reasoningTokens, usage.reasoning_tokens);
+  }
+
+  const tokenUsage =
+    typeof root.tokenUsage === "object" && root.tokenUsage !== null
+      ? (root.tokenUsage as Record<string, unknown>)
+      : null;
+  if (tokenUsage) {
+    candidates.push(tokenUsage.reasoningTokens, tokenUsage.reasoning_tokens);
+  }
+
+  for (const value of candidates) {
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
 export interface GenerationStreamMeta extends Record<string, unknown> {
   modelId: string;
   modelTier: string;
@@ -402,6 +447,30 @@ export function createOwnEngineGenerationStream(
                 }
 
                 const doneData = evt.data as Record<string, unknown> | null;
+                const reasoningTokens = extractReasoningTokens(doneData);
+                if (typeof reasoningTokens === "number") {
+                  // Emit reasoning-token usage as a first-class signal so the
+                  // generationslogg summary can show "visible output tokens"
+                  // (`outputTokens`) and "reasoning tokens" as two distinct
+                  // numbers — the previous summary made a thinking model that
+                  // emitted dozens of files from a 600-token visible response
+                  // look suspiciously cheap. The downstream `tokenUsage` shape
+                  // is intentionally left untouched here; finalize-version
+                  // still receives the visible (prompt/completion) totals.
+                  devLogAppend("in-progress", {
+                    type: "stream.token-usage",
+                    chatId,
+                    promptTokens:
+                      typeof doneData?.promptTokens === "number"
+                        ? doneData.promptTokens
+                        : null,
+                    outputTokens:
+                      typeof doneData?.completionTokens === "number"
+                        ? doneData.completionTokens
+                        : null,
+                    reasoningTokens,
+                  });
+                }
                 const finalized = await finalizeOrHandleEmptyGeneration({
                   finalizeParams: buildFinalizeParams(accumulatedContent, doneData),
                   emptyGenerationReason: "done_empty_output",

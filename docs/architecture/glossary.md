@@ -83,9 +83,11 @@ Tolkning, förbättring och strukturering av prompt; modellval; intent-klassific
 | Build Intent | `template \| website \| app` — vad användaren vill bygga | kanonisk |
 | Build Method | `wizard \| category \| audit \| freeform \| kostnadsfri` — hur entry skedde | kanonisk |
 | Generation Mode | `init \| followUp` | kanonisk |
+| Follow-up Intent | `clear-refine \| clear-redesign \| ambiguous-redesign \| ambiguous-followup \| neutral` från `classifyFollowUpIntent`. `classifyFollowUpIntentWithLlmFallback` (sedan 2026-04-20) ringer `gpt-4.1` (2 s timeout) som double-check när regex returnerar `neutral` och meddelandet är ≥80 ord. `lockedVariantForFollowUp` håller scaffold-varianten stabil mellan v1→v2 om intent ≠ `clear-redesign`. `inheritQualityTargetFromPriorVersion` arvslår om-räkningen av `qualityTarget` på follow-ups. | kanonisk |
 | Plan Mode | Planner-LLM med plan-artefakt; PlanPhase: plan, build, refine, verify, done | kanonisk |
 | Build Profile | `fast`, `pro`, `max`, `codex`, `anthropic` — UI-tiername för codegen | kanonisk |
 | Generation Phase | `planner`, `generator`, `fixer`, `verifier`, `deploy-assistant` — per-fas modellrouting | kanonisk |
+| Per-Tier Policy Fields | `perTierTimeouts`, `perTierRepairPolicies`, `perTierBriefing` i `config/ai_models/manifest.json` (sedan 2026-04-20). Tier-differentierade `engineRouteMaxDurationSeconds`/`verifierTimeoutMs`, `deterministicAutofixPasses`/`syntaxFixPasses`/`serverRepairPasses`, samt `briefingModel`. Snabb cap:as på 180s + `gpt-5.2` brief, Tanker får 800s + 240s verifier-timeout + `gpt-5.4`. Gamla globala fält behålls som fallback tills accessor-funktioner använder per-tier-fälten. | kanonisk |
 | Thinking | Reasoning-flagga, inte en separat lane | kanonisk |
 | Core Rules | Oföränderliga produktregler från `config/prompt-core/*.md` (stack, format, beteende, a11y, import, visuell baseline, content voice). Läses av `static-core-loader.ts` via `config/codegen-core-manifest.json`. Ersätter "Static Core". Sedan 2026-04-18 ingår även `03-visual-design.md` och `04-coding-direction.md` som tidigare låg i den borttagna directive-cascaden. | kanonisk |
 | Static Core | Alias för Core Rules. Legacy-term — använd "Core Rules" i nya sammanhang. | alias |
@@ -117,7 +119,9 @@ Scaffold-val → route plan → contracts → BuildSpec → dynamic context → 
 | Variant Structural Files | Init-only kodreferenser från variantens sourceTemplateIds + capability-driven | kanonisk |
 | Variant Signature Patterns | `signaturePatterns` per variant: `{ layouts[], motifs[], antiPatterns[] }`. Konkret visuell guidance som ersatte de fyra borttagna generiska guidance-fälten 2026-04-17. Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket. | kanonisk |
 | Variant Embedding Pick | `pickScaffoldVariantAsync()` — embedding-driven variant-selection som faller graciöst tillbaka till keyword `pickScaffoldVariant` när embeddings/API-key saknas. Existerar i orchestrate.ts som fallback. **Sedan 2026-04-18 låser create-chat det keyword-baserade pre-match-resultatet via `persistedVariantId`**, så async-pickaren körs i praktiken endast när låsningen missas (id stale, plan-mode, eval-runner). Detta håller brief-LLM-hints och codegen synkade på samma variant. | kanonisk |
-| Capability Map | Snabb klassificering: auth, ecommerce, forms, 3D, motion, charts | kanonisk |
+| Capability Map | Snabb klassificering: auth, ecommerce, forms, 3D, motion, charts, **physics** (sedan 2026-04-20: `needsPhysics` triggas av "åker omkring/svävar/flyger/gravity/kolliderar/fysik" och kräver `@react-three/rapier` med `<Physics>` + `<RigidBody>` ovanpå `needs3D`) | kanonisk |
+| Motion-Reduce Trap | Anti-mönster där generatorn applicerar `motion-reduce:hidden` på hela `<Canvas>` eller fixed-overlay-wrapper utan `motion-safe:`-fallback → 3D-lagret blir `display:none` när användaren har prefers-reduced-motion. Verifier:s `checkMotionReduceTrap` (sedan 2026-04-20) ger blocking-finding och capability-inference instruerar nu explicit `motion-safe:` på inre mesh istället. | kanonisk |
+| Locale Alternate Routes | `/contact`↔`/kontakt`, `/about`↔`/om`, `/services`↔`/tjanster`. `deduplicateLocaleAlternateRoutes` (sedan 2026-04-20) i `route-plan.ts` behåller den som matchar projektets resolved locale (default `sv`). | kanonisk |
 | Route Plan | Planerad IA/ruttlista. Provenance: brief > scaffold > prompt | kanonisk |
 | Route Realization | Policylager: vilka routes realiseras i denna generation | kanonisk |
 | Contract Plan | Auth, payment, database, env vars, integrations | kanonisk |
@@ -170,7 +174,10 @@ Kodtypen `FixCategory` är `"mechanical" | "llm"` (`src/lib/gen/autofix/types.ts
 | LLM Fixer | LLM-fix med fixer-prompt | kanonisk |
 | Finalize | Samlad pipeline: URL-expansion → autofix → validate → image materialize → ev. verifier → save | kanonisk |
 | Image Materialize | Materialiserar bildalias/placeholders | kanonisk |
-| Verifier Pass | LLM-driven read-only granskning. `blocking` findings är advisory och stoppar inte persist. | kanonisk |
+| Verifier Pass | LLM-driven read-only granskning. `blocking` findings är advisory och stoppar inte persist. Sedan 2026-04-20: `checkMotionReduceTrap` flaggar `motion-reduce:hidden` på `<Canvas>` / fixed-overlay utan `motion-safe:`-fallback. | kanonisk |
+| Run-Dir Resolver | `resolveRunDirFromContext({ chatId, runId, slug })` i `generation-log-writer.ts` (sedan 2026-04-20). Slår upp aktiv run-katalog via `runId`, sedan via `chatId`-index, sist `_unrouted/<slug>/`-fallback. Eliminerar `could not resolve run dir`-warning-spam i normalfallet. `runIdResolverFromSession` i preview-host (`runtime.js`) trådar `runId` från sajtmaskin via `/preview/session/start` + `/update`. | kanonisk |
+| Reasoning Tokens | Separat token-mätvärde för LLM-reasoning (osynlig "tankearbete") vs visible output. `extractReasoningTokens` (sedan 2026-04-20) i `generation-stream.ts` läser från `usage.reasoning_tokens` (OpenAI Responses-API) eller `tokenUsage.reasoningTokens` (AI-SDK). Loggas som separat `stream.token-usage`-event så thinking-modeller inte längre ser misstänkt billiga i loggen. | kanonisk |
+| Version-Mismatch Overlay | UX-mekanism för perioden mellan att en ny version sparas och att preview-VM:en hunnit reload:a. `VersionMismatchOverlayPayload`-typ exporteras från `preview-host-client.ts` (sedan P24, 2026-04-20). Faktisk overlay-rendering läggs in i preview-panel-komponenten (P25b). | kanonisk |
 | Preflight | Teknisk kontroll inför preview: routing, filkonsistens, blocking | kanonisk |
 | Quality Gate | Binärt pass/fail-beslut. Två lanes (2026-04): `designPreview` (F2) och `integrationsBuild` (F3). | kanonisk |
 | Quality Gate Tiers | Manifeststyrda check-profiler i `config/ai_models/manifest.json` (`qualityGateTiers`). 4-lane-shapen (`tier2`/`serverVerify`/`promotion`/`interactive`) konsoliderades 2026-04 till `designPreview`/`integrationsBuild`. | kanonisk |

@@ -45,6 +45,9 @@ di-d.txt
 COMMIT_MSG.tmp
 COMMIT_EDITMSG.tmp
 
+# Lokala tmp-dumpar (t.ex. accidental API-responsfångster)
+.tmp-*
+
 # Local prompt dumps (opt-in: SAJTMASKIN_PROMPT_DUMP=1)
 data/prompt-dumps/*
 !data/prompt-dumps/README.md

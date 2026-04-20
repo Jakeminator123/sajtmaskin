@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
 import {
   buildRoutePlan,
+  deduplicateLocaleAlternateRoutes,
   detectExplicitPageCount,
   findMissingPlannedRoutes,
   parseRoutePlanFromUnknown,
@@ -394,6 +395,46 @@ describe("buildRoutePlan — dashboard scaffold with app intent", () => {
     });
     expect(plan.routes.some((r) => r.path === "/analytics")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/reports")).toBe(false);
+  });
+});
+
+describe("deduplicateLocaleAlternateRoutes", () => {
+  it("route-plan deduplicates /contact + /kontakt", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/contact", "/kontakt", "/meny"], "sv"),
+    ).toEqual(["/", "/kontakt", "/meny"]);
+  });
+
+  it("keeps the English variant when locale is en", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/contact", "/kontakt", "/meny"], "en"),
+    ).toEqual(["/", "/contact", "/meny"]);
+  });
+
+  it("dedupes /about ↔ /om and /services ↔ /tjanster pairs", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(
+        ["/", "/about", "/om", "/services", "/tjanster"],
+        "sv",
+      ),
+    ).toEqual(["/", "/om", "/tjanster"]);
+  });
+
+  it("leaves routes alone when only one variant is present", () => {
+    expect(deduplicateLocaleAlternateRoutes(["/", "/kontakt"], "sv")).toEqual([
+      "/",
+      "/kontakt",
+    ]);
+    expect(deduplicateLocaleAlternateRoutes(["/", "/about"], "en")).toEqual([
+      "/",
+      "/about",
+    ]);
+  });
+
+  it("normalizes input paths and removes duplicates", () => {
+    expect(
+      deduplicateLocaleAlternateRoutes(["/", "/contact/", "/kontakt"], "sv"),
+    ).toEqual(["/", "/kontakt"]);
   });
 });
 

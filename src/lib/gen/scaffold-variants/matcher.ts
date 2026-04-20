@@ -1,10 +1,56 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { getVariantsForScaffold } from "./registry";
+import { getVariantsForScaffold, getVariantById } from "./registry";
 import { getBlockedVariantIds } from "./eval-blocklist";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
+
+/**
+ * P22: lokal kopia av `FollowUpIntentMode` (från
+ * `providers/own-engine/follow-up-clarification.ts`). Återimporteras inte
+ * härifrån för att undvika att dra in provider-laget i scaffold-matchern.
+ */
+export type LockedVariantFollowUpIntent =
+  | "clear-refine"
+  | "clear-redesign"
+  | "ambiguous-redesign"
+  | "ambiguous-followup"
+  | "neutral";
+
+export interface LockedVariantForFollowUpInput {
+  chatId?: string | null;
+  intent: LockedVariantFollowUpIntent;
+  scaffoldId: string | null | undefined;
+  priorVariantId: string | null | undefined;
+}
+
+/**
+ * P22: variant-lock på follow-ups. Returnerar prior versionens variant så
+ * länge intenten inte är `clear-redesign` — då släpper vi loss matchern
+ * så användaren kan få en ny stilriktning. För `clear-refine`,
+ * `ambiguous-*` och `neutral` håller vi variant stabil mellan turns,
+ * vilket stoppar drift av typen `warm-local → corporate-grid` mellan
+ * v1 och v2 i samma chat.
+ *
+ * Returnerar `null` när:
+ *  - intent === 'clear-redesign'
+ *  - prior-id eller scaffold-id saknas
+ *  - prior-id inte längre resolvar i registret
+ */
+export function lockedVariantForFollowUp(
+  input: LockedVariantForFollowUpInput,
+): ScaffoldVariant | null {
+  if (input.intent === "clear-redesign") return null;
+  if (!input.scaffoldId || !input.priorVariantId) return null;
+  const variant = getVariantById(
+    input.scaffoldId as ScaffoldVariant["scaffoldId"],
+    input.priorVariantId,
+  );
+  if (!variant) return null;
+  if (variant.scaffoldId !== input.scaffoldId) return null;
+  return variant;
+}
 
 /**
  * Removes variant ids that the eval pipeline flagged as

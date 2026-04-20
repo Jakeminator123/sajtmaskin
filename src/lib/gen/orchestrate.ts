@@ -14,6 +14,7 @@ import {
   getVariantById,
   type ScaffoldVariant,
 } from "./scaffold-variants";
+import { lockedVariantForFollowUp } from "./scaffold-variants/matcher";
 import type { ScaffoldManifest } from "./scaffolds/types";
 import {
   getScaffoldById,
@@ -55,7 +56,11 @@ import {
   computeLineageHash,
   serializePackageForDump,
 } from "./generation-input-package";
-import { deriveBuildSpec, type BuildSpec } from "./build-spec";
+import {
+  deriveBuildSpec,
+  type BuildSpec,
+  type BuildSpecQualityTarget,
+} from "./build-spec";
 import { estimateCharsForTokens } from "./tokens";
 import { FEATURES } from "@/lib/config";
 import { getRelevantExampleNames, getPromptDrivenExampleNames } from "./data/shadcn-example-map";
@@ -162,6 +167,29 @@ export interface OrchestrationInput {
    * Defaults to `"design"` (F2) when unset.
    */
   lifecycleStage?: "design" | "integrations";
+  /**
+   * P22: optional chatId — propagated to inheritance helpers + variant lock
+   * so per-chat decisions can be made deterministically. Stays optional so
+   * existing callers compile unchanged.
+   */
+  chatId?: string | null;
+  /**
+   * P22: previously accepted version's `qualityTarget` (from
+   * `orchestration_snapshot.buildSpec`). Lets follow-up runs reuse the
+   * same target instead of re-running `quality_target_promoted_for_multipage`.
+   */
+  priorQualityTarget?: BuildSpecQualityTarget | null;
+  /**
+   * P22: previously persisted follow-up intent for this chat. Used by
+   * the variant-lock helper — `clear-redesign` allows fresh matching,
+   * everything else reuses the prior variant.
+   */
+  followUpIntent?:
+    | "clear-refine"
+    | "clear-redesign"
+    | "ambiguous-redesign"
+    | "ambiguous-followup"
+    | "neutral";
 }
 
 export interface OrchestrationBase {
@@ -186,6 +214,34 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+}
+
+/**
+ * P22: när vi kör en follow-up och en tidigare accepterad version finns
+ * (med en `qualityTarget` i sin orchestration-snapshot) ska vi ärva det
+ * värdet i stället för att räkna om från scratch. Det stoppar dubbel-
+ * loggen `quality_target_promoted_for_multipage` på samma chat och säkrar
+ * att senare turns inte plötsligt ändrar kvalitetstak.
+ *
+ * Faller tillbaka till `baseSpec` oförändrat när:
+ *  - `generationMode !== "followUp"`
+ *  - inget `priorQualityTarget` finns
+ *  - värdet redan matchar baseSpec
+ */
+export function inheritQualityTargetFromPriorVersion(
+  chatId: string | null | undefined,
+  baseSpec: BuildSpec,
+  priorQualityTarget?: BuildSpecQualityTarget | null,
+): BuildSpec {
+  if (baseSpec.generationMode !== "followUp") return baseSpec;
+  if (!priorQualityTarget) return baseSpec;
+  if (priorQualityTarget === baseSpec.qualityTarget) return baseSpec;
+  console.info("[orchestrate] quality_target_inherited_from_prior_version", {
+    chatId: chatId ?? null,
+    from: baseSpec.qualityTarget,
+    to: priorQualityTarget,
+  });
+  return { ...baseSpec, qualityTarget: priorQualityTarget };
 }
 
 function buildScaffoldQueryContext(
@@ -491,7 +547,7 @@ export async function resolveOrchestrationBase(
     capabilities,
     contractAnswers,
   });
-  const buildSpec = deriveBuildSpec({
+  const rawBuildSpec = deriveBuildSpec({
     prompt: buildSpecPrompt ?? prompt,
     buildIntent: effectiveBuildIntent,
     generationMode: resolvedMode,
@@ -505,6 +561,11 @@ export async function resolveOrchestrationBase(
     previewPolicyOverride:
       input.lifecycleStage === "integrations" ? "fidelity3" : undefined,
   });
+  const buildSpec = inheritQualityTargetFromPriorVersion(
+    input.chatId,
+    rawBuildSpec,
+    input.priorQualityTarget,
+  );
   const orchestrationContract = buildOrchestrationContract({
     resolvedScaffold,
     routePlan,
@@ -644,10 +705,25 @@ export async function finalizeOrchestrationPrompts(
   const resolvedMode = generationMode ?? (input.persistedScaffoldId ? "followUp" : "init");
 
   const scaffoldIdForVariant = base.resolvedScaffold?.id ?? base.buildSpec.scaffoldId;
-  const persistedVariant =
-    input.persistedVariantId && scaffoldIdForVariant
-      ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
+  // P22: variant-lock på follow-ups. När caller lämnar `followUpIntent`
+  // omarkerat tolkas det som "neutral" — då behåller vi nuvarande beteende
+  // och låser till `persistedVariantId`. Om en framtida caller skickar in
+  // `clear-redesign` släpper helpern loss matchern så att en ny stilriktning
+  // kan väljas.
+  const lockedVariant =
+    resolvedMode === "followUp"
+      ? lockedVariantForFollowUp({
+          chatId: input.chatId,
+          intent: input.followUpIntent ?? "neutral",
+          scaffoldId: scaffoldIdForVariant,
+          priorVariantId: input.persistedVariantId,
+        })
       : null;
+  const persistedVariant =
+    lockedVariant ??
+    (input.persistedVariantId && scaffoldIdForVariant
+      ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
+      : null);
   const resolvedVariant =
     persistedVariant ??
     (await resolveScaffoldVariant(

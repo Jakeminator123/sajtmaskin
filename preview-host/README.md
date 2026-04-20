@@ -97,7 +97,26 @@ Sessioner skrivs till **JSON-fil** (atomiskt rename) under `PREVIEW_HOST_DATA_DI
 
 ### Kanda begransningar (acceptabla pa F2)
 
-- **Webpack-HMR WebSocket-spam i klient-konsolen** — *(Mitigerad 2026-04-18.)* Next.js dev-instansen i VM:en oppnar tidigare `wss://vm-fly-jakem.fly.dev/<chatId>/_next/webpack-hmr?id=...` som failade mot Fly's edge-proxy och spammade Chrome-konsolen. Nu inaktiveras HMR-pluginen automatiskt via `SAJTMASKIN_PREVIEW_DISABLE_HMR=true` (default-on i `spawnDevServer`). `patchNextConfigForPreviewBasePath` injicerar en `webpack`-mutator i preview-VM:ens `next.config` som filtrerar bort `HotModuleReplacementPlugin`. Sajten renderas som vanligt, hot-reload mellan kod-andringar tappas men preview-host gor full iframe-reload vid varje ny generation anda. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover HMR for att debugga VM:en direkt.
+- **Forsta boot ar fortfarande seg pa tunga deps.** Workspace-cachen hjalper vid andra koerningen, men forsta `npm install` pa ett nytt projekt kan ta minuter.
+- **Aktiv preview-workspace kan bli stor** — framfor allt pga `node_modules` och dev-artifacts. Diskanvandning sjunker forst efter cleanup eller destroy.
+
+### Next.config-patch (AST + regex-fallback)
+
+`patchNextConfigForPreviewBasePath` (i `src/runtime.js`) injicerar `basePath` + en `webpack`-mutator (som filtrerar bort `HotModuleReplacementPlugin` nar `SAJTMASKIN_PREVIEW_DISABLE_HMR=true`) i workspaceens `next.config.{ts,mjs,js}` vid varje boot. Detta tystar tidigare HMR-WebSocket-spam i Chrome-konsolen och fixar `basePath` for `/{chatId}`-prefixet.
+
+Patchen kor i tva lager:
+
+1. **AST-laget** (`patchNextConfigViaAst`, acorn-baserat) parsar konfigen och injicerar i ratt object literal. Stoder fem shapes:
+   - `const cfg = { … }`
+   - `const cfg: NextConfig = { … }` (TS-typen strippas till same-length whitespace innan parse, sa AST-positioner mappar 1:1 till originalkallan)
+   - `module.exports = { … }`
+   - `export default { … }`
+   - `export default function () { return { … } }`
+2. **Regex-fallback** (`patchNextConfigViaRegex`) anropas endast om AST-parsen failar eller ingen kand object literal hittas. Skip-villkor (`SAJTMASKIN_PREVIEW_BASE_PATH` redan injicerat, `basePath:` redan satt, ingen config-fil) ar terminala — fallback retryas inte da, sa redan-patchade filer kan inte korrumperas.
+
+Snapshot-test for alla fem shapes finns i `scripts/test-patch.mjs` (`node scripts/test-patch.mjs`).
+
+Hot-reload mellan kod-andringar tappas medvetet — preview-host gor full iframe-reload via `refreshToken` vid varje ny generation anda. Satt `SAJTMASKIN_PREVIEW_DISABLE_HMR=false` om du behover HMR direkt mot VM:en.
 
 ## Det som nu finns har
 

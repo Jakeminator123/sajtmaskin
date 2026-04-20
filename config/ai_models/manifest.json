@@ -151,8 +151,8 @@
     "thinkingByTier": {
       "fast": {
         "planner": {
-          "thinking": true,
-          "reasoningEffort": "medium"
+          "thinking": false,
+          "reasoningEffort": "low"
         },
         "generator": {
           "thinking": true,
@@ -174,11 +174,11 @@
       "pro": {
         "planner": {
           "thinking": true,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "high"
         },
         "generator": {
           "thinking": true,
-          "reasoningEffort": "medium"
+          "reasoningEffort": "high"
         },
         "fixer": {
           "thinking": false,
@@ -207,7 +207,7 @@
           "reasoningEffort": "medium"
         },
         "verifier": {
-          "thinking": false,
+          "thinking": true,
           "reasoningEffort": "medium"
         },
         "deploy-assistant": {
@@ -261,6 +261,27 @@
       }
     },
     "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override."
+  },
+  "perTierRepairPolicies": {
+    "fast":      { "deterministicAutofixPasses": 1, "syntaxFixPasses": 2, "serverRepairPasses": 1 },
+    "pro":       { "deterministicAutofixPasses": 2, "syntaxFixPasses": 3, "serverRepairPasses": 2 },
+    "max":       { "deterministicAutofixPasses": 2, "syntaxFixPasses": 4, "serverRepairPasses": 2 },
+    "codex":     { "deterministicAutofixPasses": 2, "syntaxFixPasses": 4, "serverRepairPasses": 2 },
+    "anthropic": { "deterministicAutofixPasses": 2, "syntaxFixPasses": 3, "serverRepairPasses": 2 }
+  },
+  "perTierTimeouts": {
+    "fast":      { "engineRouteMaxDurationSeconds": 180, "verifierTimeoutMs": 120000 },
+    "pro":       { "engineRouteMaxDurationSeconds": 360, "verifierTimeoutMs": 120000 },
+    "max":       { "engineRouteMaxDurationSeconds": 800, "verifierTimeoutMs": 240000 },
+    "codex":     { "engineRouteMaxDurationSeconds": 800, "verifierTimeoutMs": 240000 },
+    "anthropic": { "engineRouteMaxDurationSeconds": 600, "verifierTimeoutMs": 120000 }
+  },
+  "perTierBriefing": {
+    "fast":      { "briefingModel": "openai/gpt-5.2" },
+    "pro":       { "briefingModel": "openai/gpt-5.3-codex" },
+    "max":       { "briefingModel": "openai/gpt-5.4" },
+    "codex":     { "briefingModel": "openai/gpt-5.4" },
+    "anthropic": { "briefingModel": "anthropic/claude-sonnet-4.6" }
   },
   "repairPolicies": {
     "deterministicAutofixPasses": 2,

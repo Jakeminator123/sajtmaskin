@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  _resetLlmFallbackCacheForTests,
   classifyFollowUpIntent,
+  classifyFollowUpIntentWithLlmFallback,
   hasDesignFollowUpSignal,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
@@ -111,5 +113,90 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
         scaffoldId: null,
       }),
     ).toBe(true);
+  });
+});
+
+describe("classifyFollowUpIntentWithLlmFallback (P22)", () => {
+  beforeEach(() => {
+    _resetLlmFallbackCacheForTests();
+  });
+
+  it("returns regex result without calling LLM when prompt is short", async () => {
+    const llmCaller = vi.fn();
+    const result = await classifyFollowUpIntentWithLlmFallback("kort prompt", {
+      llmCaller,
+      bypassCache: true,
+    });
+    expect(result).toBe("neutral");
+    expect(llmCaller).not.toHaveBeenCalled();
+  });
+
+  it("returns regex result without calling LLM when regex already classified", async () => {
+    const llmCaller = vi.fn();
+    const result = await classifyFollowUpIntentWithLlmFallback("byt till mörkt tema", {
+      llmCaller,
+      bypassCache: true,
+    });
+    expect(result).toBe("clear-redesign");
+    expect(llmCaller).not.toHaveBeenCalled();
+  });
+
+  it("calls LLM and uses its label when regex is neutral on a 90-word prompt", async () => {
+    const longNeutralPrompt = Array.from({ length: 90 })
+      .map((_, idx) => `word${idx}`)
+      .join(" ");
+    expect(classifyFollowUpIntent(longNeutralPrompt)).toBe("neutral");
+
+    const llmCaller = vi.fn().mockResolvedValue("clear-redesign");
+    const result = await classifyFollowUpIntentWithLlmFallback(longNeutralPrompt, {
+      llmCaller,
+      bypassCache: true,
+    });
+    expect(llmCaller).toHaveBeenCalledTimes(1);
+    expect(result).toBe("clear-redesign");
+  });
+
+  it("falls back to regex result when LLM throws", async () => {
+    const longNeutralPrompt = Array.from({ length: 90 })
+      .map((_, idx) => `word${idx}`)
+      .join(" ");
+    const llmCaller = vi.fn().mockRejectedValue(new Error("boom"));
+    const result = await classifyFollowUpIntentWithLlmFallback(longNeutralPrompt, {
+      llmCaller,
+      bypassCache: true,
+    });
+    expect(result).toBe("neutral");
+  });
+
+  it("ignores garbage labels from the LLM and falls back to regex result", async () => {
+    const longNeutralPrompt = Array.from({ length: 90 })
+      .map((_, idx) => `word${idx}`)
+      .join(" ");
+    const llmCaller = vi.fn().mockResolvedValue("totally-not-a-mode");
+    const result = await classifyFollowUpIntentWithLlmFallback(longNeutralPrompt, {
+      llmCaller,
+      bypassCache: true,
+    });
+    expect(result).toBe("neutral");
+  });
+
+  it("caches results per chatId+messageHash so the LLM only runs once", async () => {
+    const longNeutralPrompt = Array.from({ length: 90 })
+      .map((_, idx) => `word${idx}`)
+      .join(" ");
+    const llmCaller = vi.fn().mockResolvedValue("ambiguous-followup");
+
+    const first = await classifyFollowUpIntentWithLlmFallback(longNeutralPrompt, {
+      chatId: "chat-1",
+      llmCaller,
+    });
+    const second = await classifyFollowUpIntentWithLlmFallback(longNeutralPrompt, {
+      chatId: "chat-1",
+      llmCaller,
+    });
+
+    expect(first).toBe("ambiguous-followup");
+    expect(second).toBe("ambiguous-followup");
+    expect(llmCaller).toHaveBeenCalledTimes(1);
   });
 });

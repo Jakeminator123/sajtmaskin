@@ -1,4 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { debugLog } from "@/lib/utils/debug";
 import type { ScaffoldManifest } from "./scaffolds/types";
 
 export type RoutePlanSiteType = "one-page" | "brochure" | "content-heavy" | "app-shell";
@@ -634,6 +635,55 @@ export function buildRoutePlan(params: {
       ? { explicitPageCount }
       : {}),
   };
+}
+
+/**
+ * Locale-alternate route pairs that mean the same destination in different
+ * languages. When the generator (LLM) emits both variants we keep only the
+ * one that matches the project's resolved locale so navigation, sitemaps,
+ * and internal linking stay coherent. Sv-default for sajtmaskin's typical
+ * Swedish builds.
+ */
+const LOCALE_ROUTE_PAIRS: Array<{ en: string; sv: string }> = [
+  { en: "/contact", sv: "/kontakt" },
+  { en: "/about", sv: "/om" },
+  { en: "/services", sv: "/tjanster" },
+];
+
+export function deduplicateLocaleAlternateRoutes(
+  routes: string[],
+  locale: string,
+): string[] {
+  if (!Array.isArray(routes) || routes.length === 0) return [];
+  const lc = (locale ?? "sv").toLowerCase();
+  const isSwedish = lc.startsWith("sv");
+  const keepKey: "sv" | "en" = isSwedish ? "sv" : "en";
+  const dropKey: "sv" | "en" = isSwedish ? "en" : "sv";
+  const normalized = routes.map((r) => normalizeRoutePath(r));
+  const present = new Set(normalized);
+  const dropped: string[] = [];
+  for (const pair of LOCALE_ROUTE_PAIRS) {
+    if (present.has(pair[keepKey]) && present.has(pair[dropKey])) {
+      present.delete(pair[dropKey]);
+      dropped.push(pair[dropKey]);
+    }
+  }
+  if (dropped.length > 0) {
+    debugLog("GEN", "[route-plan] dropped duplicate locale-alternate routes", {
+      locale: lc,
+      kept: keepKey,
+      dropped,
+    });
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const path of normalized) {
+    if (!present.has(path)) continue;
+    if (seen.has(path)) continue;
+    seen.add(path);
+    result.push(path);
+  }
+  return result;
 }
 
 export function extractAppRoutePathsFromFilePaths(filePaths: string[]): string[] {

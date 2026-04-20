@@ -62,6 +62,36 @@ export type ModelTraceRouteInfo = {
   active: boolean;
 };
 
+/**
+ * Reasoning-token usage for a single generation pass. `outputTokens` is the
+ * visible-text token count (matches `tokenUsage.completionTokens`);
+ * `reasoningTokens` is the hidden chain-of-thought token count surfaced by
+ * thinking models (OpenAI Responses API: `usage.reasoning_tokens`,
+ * AI-SDK wrappers: `tokenUsage.reasoningTokens`). Surfacing both prevents
+ * a thinking model that emits 38 files from a 600-token visible response
+ * from looking suspiciously cheap in the observability summary.
+ */
+export type ReasoningTokenSummary = {
+  promptTokens: number | null;
+  outputTokens: number | null;
+  reasoningTokens: number | null;
+};
+
+/**
+ * One cell in the per-tier × per-phase routing matrix rendered by the
+ * ModelTraceOverlay debug panel. The matrix is a static projection of
+ * `manifest.phaseRouting.defaultByTier` × `phaseRouting.thinkingByTier`,
+ * surfaced so a developer can answer "which model handles `fixer` on
+ * `max`?" or "is verifier thinking on `pro`?" without reading the manifest.
+ */
+export type PerTierPhaseMatrixRow = {
+  tier: CanonicalModelId;
+  phase: "planner" | "generator" | "fixer" | "verifier" | "deploy-assistant";
+  modelId: string;
+  thinking: boolean;
+  reasoningEffort: "none" | "low" | "medium" | "high" | "xhigh";
+};
+
 export interface ModelTraceSnapshot {
   generatedAt: string;
   selected: {
@@ -92,6 +122,12 @@ export interface ModelTraceSnapshot {
     anthropic: boolean;
   };
   routes: ModelTraceRouteInfo[];
+  /**
+   * Optional latest reasoning-token count for the active tier/phase. The
+   * builder route fills this in when a generation pass has emitted a
+   * `stream.token-usage` signal; absent for cold loads.
+   */
+  reasoningTokens?: number;
   warnings: string[];
   notes: string[];
 }
