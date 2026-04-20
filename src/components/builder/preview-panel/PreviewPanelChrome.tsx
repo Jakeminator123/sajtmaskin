@@ -66,7 +66,20 @@ interface PreviewPanelChromeProps {
   previewRoutes: string[];
   activePreviewRoute: string | null;
   handleNavigateRoute: (route: string) => void;
-  showTier2UnifiedStrip: boolean;
+  /** Optional: device toggle UI (desktop/tablet/mobile) inside chrome. */
+  previewDevice?: "desktop" | "tablet" | "mobile";
+  onPreviewDeviceChange?: (mode: "desktop" | "tablet" | "mobile") => void;
+  /** Shell routes that trigger a one-click build from chrome affordance. */
+  shellRoutePaths?: string[];
+  onRequestBuildOutRoute?: (route: string) => void;
+  /** Apple-minimal chrome: hide power-user controls. */
+  simplified?: boolean;
+  /** Inline edit toggle (composer-like). */
+  inlineEditMode?: boolean;
+  handleToggleInlineEdit?: () => void;
+  /** Suggestion-click handler for quick prompts from chrome. */
+  onSuggestionClick?: (prompt: string) => void;
+  showTier2UnifiedStrip?: boolean;
   showBlobWarning: boolean;
   showBlobConfigWarning: boolean;
   integrationError: boolean;

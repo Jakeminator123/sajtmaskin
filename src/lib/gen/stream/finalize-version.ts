@@ -261,6 +261,7 @@ interface FinalizeFastPathResult {
   scaffoldRetry: ScaffoldRetrySuggestion | null;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   stepTelemetry: FinalizeStepTelemetryMap;
+  rejectedShrinks: Array<{ file: string; previousSize: number; newSize: number }>;
 }
 
 function buildSyntaxFailureLog(params: {
@@ -1069,6 +1070,7 @@ async function runFinalizeFastPath(params: {
     scaffoldRetry,
     verifierBlockingFindings,
     stepTelemetry,
+    rejectedShrinks,
   };
 }
 
@@ -1232,6 +1234,7 @@ export async function finalizeAndSaveVersion(
     scaffoldRetry,
     verifierBlockingFindings,
     stepTelemetry: fastPathStepTelemetry,
+    rejectedShrinks,
   } = await runFinalizeFastPath({
     chatId,
     model,

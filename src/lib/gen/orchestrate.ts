@@ -33,6 +33,7 @@ import {
   type DesignReferenceAsset,
   type DynamicContextOptions,
   type DynamicContextPruning,
+  type MediaCatalogItem,
 } from "./system-prompt";
 import {
   inferCapabilities,
@@ -110,6 +111,8 @@ export interface OrchestrationInput {
   brief?: Record<string, unknown> | null;
   themeColors?: ThemeColors | null;
   imageGenerations?: boolean;
+  /** Optional media catalog (user uploads + stock fallbacks) — see `system-prompt.ts`. */
+  mediaCatalog?: MediaCatalogItem[];
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
   designReferences?: DesignReferenceAsset[];
@@ -775,6 +778,7 @@ export async function finalizeOrchestrationPrompts(
     brief: brief as DynamicContextOptions["brief"],
     themeOverride: themeColors,
     imageGenerations,
+    mediaCatalog: input.mediaCatalog,
     scaffoldContext: base.scaffoldContext,
     capabilityHints: base.capabilityHints,
     resolvedScaffold: base.resolvedScaffold,

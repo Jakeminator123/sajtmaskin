@@ -713,7 +713,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                   url: asset.url,
                   alt: asset.alt,
                   source: "stock",
-                  credit: asset.credit,
+                  credit: `${asset.credit.name} (${asset.credit.provider})`,
                 });
               });
               debugLog("orchestration", "Stock image fallback merged", {
@@ -747,7 +747,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
                     url: asset.url,
                     alt: asset.alt,
                     source: "stock",
-                    credit: asset.credit,
+                    credit: `${asset.credit.name} (${asset.credit.provider})`,
                   });
                 });
                 if (videos.length > 0) {

@@ -84,7 +84,6 @@ import { useBuilderHelpChat } from "@/lib/hooks/chat/useBuilderHelpChat";
 import {
   CHAT_TOOL_EVENT,
   type ChatToolEventDetail,
-  type ToolActionAvailability,
 } from "@/lib/builder/chat-tools";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { cn } from "@/lib/utils";
@@ -1581,16 +1580,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     })();
   }, [guardGuestGeneration, smartSendMessage]);
 
-  const toolAvailability = useMemo<ToolActionAvailability>(
-    () => ({
-      hasChat: Boolean(vm.chatId),
-      hasVersion: Boolean(vm.activeVersionId),
-      hasPreview: Boolean(vm.currentPreviewUrl),
-      hasDeployment: Boolean(vm.deploymentUrl || vm.activeDeploymentId),
-    }),
-    [vm.activeDeploymentId, vm.activeVersionId, vm.chatId, vm.currentPreviewUrl, vm.deploymentUrl],
-  );
-
   const handleOpenTip = useCallback(() => {
     if (!vm.tipsEnabled) {
       toast.info("Aktivera tips under Avancerat först.");
@@ -1950,7 +1939,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               currentCode={vm.currentPageCode}
               existingUiComponents={vm.existingUiComponents}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
-              toolAvailability={toolAvailability}
             />
           </>
         );
@@ -2052,7 +2040,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               currentCode={vm.currentPageCode}
               existingUiComponents={vm.existingUiComponents}
               continuePlanMode={Boolean(latestPendingReply?.planMode)}
-              toolAvailability={toolAvailability}
             />
           </div>
         )}

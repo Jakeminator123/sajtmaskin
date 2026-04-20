@@ -164,6 +164,10 @@ export interface MediaCatalogItem {
   alias: string;
   url: string;
   alt?: string;
+  /** Where this asset came from — user upload vs. stock fallback. */
+  source?: "user" | "stock";
+  /** Attribution text for stock assets (photographer, provider). */
+  credit?: string;
 }
 
 export interface DesignReferenceAsset {

@@ -976,7 +976,7 @@ export function PreviewPanel({
         previewRoutesLoading={previewRoutesLoading}
         shellRoutePaths={shellRoutePaths}
         activePreviewRoute={activePreviewRoute}
-        onNavigateRoute={handleNavigateRoute}
+        handleNavigateRoute={handleNavigateRoute}
         onRequestBuildOutRoute={(route) => triggerBuildOut(route)}
         surfaceDescriptor={surfaceDescriptor}
         isOwnEnginePreview={isOwnEnginePreview}

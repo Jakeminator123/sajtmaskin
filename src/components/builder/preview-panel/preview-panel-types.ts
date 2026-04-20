@@ -42,9 +42,30 @@ export type InspectPulseMarker = {
 
 export type PreviewIframeMessage = {
   source?: string;
-  type?: "preview-error" | "preview-ready" | "navigation-attempt";
-  payload?: PreviewIssuePayload & { href?: string | null };
+  type?:
+    | "preview-error"
+    | "preview-ready"
+    | "navigation-attempt"
+    | "preview-starting"
+    | "build-out-request";
+  payload?: PreviewIssuePayload & {
+    href?: string | null;
+    path?: string;
+    intent?: string | null;
+    name?: string | null;
+  };
 };
+
+/**
+ * Kontext för en build-out-förfrågan. Shell-sidorna bakar in `intent` + `name`
+ * från `PlannedRoute` så builder-shellen kan formulera en prompt som matchar
+ * det som redan förberetts i backend i stället för en generisk text.
+ */
+export interface BuildOutRouteRequestContext {
+  path: string;
+  intent?: string | null;
+  name?: string | null;
+}
 
 export interface PreviewPanelProps {
   chatId: string | null;
@@ -84,8 +105,19 @@ export interface PreviewPanelProps {
     description?: string | null;
   } | null;
   onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
+  simplified?: boolean;
   /** Own-engine / chat: skicka AI‑fallback när deterministisk patch inte är möjlig. */
   onComposerAiFallback?: (payload: ComposerAiFallbackPayload) => void | Promise<void>;
+  generationPhase?: import("./GenerationProgress").GenerationPhase;
+  onInlineEditPrompt?: (prompt: string, file?: File) => void;
+  onSuggestionClick?: (prompt: string) => void;
+  /**
+   * Build-out-request från shell-sidors "Skapa sida"-knapp eller från
+   * preview-chrome:s "Bygg ut"-pil. Om ej angett faller vi tillbaka till
+   * `onSuggestionClick` med en generisk prompt. Builder-shellen bör koppla
+   * detta till `smartSendMessage` så gäst-gating och toast fungerar.
+   */
+  onBuildOutRouteRequest?: (context: BuildOutRouteRequestContext) => void;
   /**
    * F2 vs F3 stage of the active version. Controls visibility of the
    * "Bygg nu" (F3 trigger) button in the preview chrome. F2 (`design`)
