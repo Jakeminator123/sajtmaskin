@@ -3,6 +3,8 @@ import {
   getLatestVersion,
   getVersionById,
 } from "@/lib/db/chat-repository-pg";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { incIngressEvent } from "@/lib/observability/metrics";
 import { parseCodeProject, type CodeFile } from "./parser";
 import { extractStructuralElements } from "./context/structural-elements";
 
@@ -85,11 +87,43 @@ export async function resolveFollowUpPreviousFiles(
         chatId: version.chat_id,
       });
       if (parsed && parsed.length > 0) {
+        // P19 ingress 2: explicit `engineBaseVersionId` from client meta was
+        // honoured. Wrapped in try/catch so telemetry can never break codegen.
+        // Double-counter is intentional: `followup_base_resolved` gives a
+        // single-line dashboard view, the typed counter gives per-branch detail.
+        try {
+          incIngressEvent("followup_base_resolved", { reason: "explicit" });
+          incIngressEvent("followup_base_explicit");
+        } catch {}
+        try {
+          devLogAppend("latest", {
+            type: "version-manager.followup-base",
+            chatId,
+            branch: "explicit",
+            versionId: version.id,
+          });
+        } catch {}
         return parsed;
       }
     }
   }
-  const version = (await getPreferredVersion(chatId)) ?? (await getLatestVersion(chatId));
+  const preferred = await getPreferredVersion(chatId);
+  const version = preferred ?? (await getLatestVersion(chatId));
+  const branch: "preferred" | "latest" = preferred ? "preferred" : "latest";
+  try {
+    incIngressEvent("followup_base_resolved", { reason: branch });
+    incIngressEvent(
+      branch === "preferred" ? "followup_base_preferred" : "followup_base_latest",
+    );
+  } catch {}
+  try {
+    devLogAppend("latest", {
+      type: "version-manager.followup-base",
+      chatId,
+      branch,
+      versionId: version?.id ?? null,
+    });
+  } catch {}
   if (!version?.files_json) return [];
   return (
     parseStoredVersionFiles(version.files_json, {

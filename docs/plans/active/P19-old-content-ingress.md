@@ -1,6 +1,6 @@
 # P19 — Old-content ingress hardening (konservativ)
 
-Status: Active (Steg 2 KLART 2026-04-20; Steg 4 KLART 2026-04-20; Steg 1, 3 öppna)
+Status: Active (Steg 1 + 2 + 4 KLARA 2026-04-20; Steg 3 öppen)
 Skapad: 2026-04-15
 Prioritet: Medel
 
@@ -39,15 +39,15 @@ Detta måste angripas konservativt: först bevisa ingresspunkter, sedan små sä
 
 ## Genomförande
 
-### Steg 1 — Evidens och reproducerbarhet
+### Steg 1 — Evidens och reproducerbarhet — **DONE 2026-04-20**
 
-- Lägg till riktad loggning/telemetri för:
-  - när `reused_url` används
-  - vilken `engineBaseVersionId` som skickas i follow-up
-  - vilken versionsrad som faktiskt används av `resolveFollowUpPreviousFiles()`
-- Dokumentera 2-3 reproducerbara scenarier.
+- ✅ Ny Prometheus-räknare `sajtmaskin_ingress_event_total{type, reason}` exponerad via `incIngressEvent()` i `src/lib/observability/metrics.ts`. Reset i `resetMetricsForTest()`. Täcker:
+  - `preview_reused_url` — wired i `src/app/api/engine/chats/[chatId]/preview-session/route.ts` precis innan `startOutcome: "reused_url"`-svar (med `devLogAppend({ type: "preview.reused-url", chatId, versionId, previewUrl })`, URL trunkerad till 60 tecken).
+  - `followup_base_resolved{reason="explicit"|"preferred"|"latest"}` + per-branch räknarna `followup_base_explicit|preferred|latest` — wired i `resolveFollowUpPreviousFiles()` i `src/lib/gen/version-manager.ts`. Dubbel-räknare medvetet: `_resolved` ger en linje för dashboard, typade räknare ger drilldown utan label-join. Per call `devLogAppend({ type: "version-manager.followup-base", chatId, branch, versionId })`.
+- Alla telemetri-anrop wrappade i `try { ... } catch {}` så observability aldrig blockerar codegen eller preview-svar.
+- Reproducerbara scenarier dokumenteras separat när första analysfönstret rullats in.
 
-> **Status:** Öppen. Blockad på telemetri-grund (audit Tier B #19 Prometheus/OTel) för meningsfull analys.
+> **Status:** Klart 2026-04-20. Analysen av insamlad data är nästa steg (kopplas till Steg 3).
 
 ### Steg 2 — Konservativa skydd — **DONE 2026-04-20**
 
