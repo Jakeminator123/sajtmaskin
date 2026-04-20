@@ -143,20 +143,26 @@ export async function addMessage(
   uiParts?: Record<string, unknown>[] | null,
 ): Promise<Message> {
   const id = uuid();
-  await db.insert(engineMessages).values({
-    id,
-    chatId,
-    role,
-    content,
-    uiParts: Array.isArray(uiParts) ? uiParts : null,
-    tokenCount: tokenCount ?? null,
+  return await db.transaction(async (tx) => {
+    await tx.insert(engineMessages).values({
+      id,
+      chatId,
+      role,
+      content,
+      uiParts: Array.isArray(uiParts) ? uiParts : null,
+      tokenCount: tokenCount ?? null,
+    });
+    await tx
+      .update(engineChats)
+      .set({ updatedAt: new Date() })
+      .where(eq(engineChats.id, chatId));
+    const rows = await tx
+      .select()
+      .from(engineMessages)
+      .where(eq(engineMessages.id, id))
+      .limit(1);
+    return toRow(rows[0]) as unknown as Message;
   });
-  await db
-    .update(engineChats)
-    .set({ updatedAt: new Date() })
-    .where(eq(engineChats.id, chatId));
-  const rows = await db.select().from(engineMessages).where(eq(engineMessages.id, id)).limit(1);
-  return toRow(rows[0]) as unknown as Message;
 }
 
 async function loadVersionById(

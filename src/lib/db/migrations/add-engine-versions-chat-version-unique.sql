@@ -1,0 +1,21 @@
+-- Adds a unique index on engine_versions(chat_id, version_number) to enforce
+-- the invariant that each chat has at most one row per version_number.
+--
+-- Without this constraint, two concurrent inserts that compute the same
+-- "next" version_number (via SELECT MAX(version_number) + 1) can both
+-- succeed, producing duplicate rows that confuse downstream version
+-- selection and promotion logic.
+--
+-- WARNING: this DDL will fail on environments where duplicates already
+-- exist. If the migration aborts, run:
+--
+--   SELECT chat_id, version_number, COUNT(*) AS dupes
+--   FROM engine_versions
+--   GROUP BY chat_id, version_number
+--   HAVING COUNT(*) > 1
+--   ORDER BY dupes DESC;
+--
+-- to surface the offending rows, then resolve them (typically by
+-- renumbering or deleting orphaned drafts) before re-running.
+CREATE UNIQUE INDEX IF NOT EXISTS "engine_versions_chat_version_unique"
+  ON "engine_versions" ("chat_id", "version_number");
