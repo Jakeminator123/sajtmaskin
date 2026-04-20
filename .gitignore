@@ -144,8 +144,13 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 mcp-monitoring-report.txt
+# logs/ innehåller runtime-artefakter (NDJSON/CSV/JSON som växer per körning).
+# Capping/retention sker i src/lib/logging/generation-log-writer.ts:
+#   - generationslogg/<run>/   max 15 mappar
+#   - site-observability/<chat>/ max 30 mappar (LRU)
+#   - generationslogg/_unrouted/<bucket>/ max 10 mappar (LRU)
+#   - llm-segmentts-and-index/error-log.csv   max 2000 rader
 logs/*
-!logs/README.md
 manual_log/
 input_files_for_cursor/logg_*.txt
 DOM_dev_tols.txt

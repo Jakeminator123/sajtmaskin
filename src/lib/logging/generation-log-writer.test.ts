@@ -129,8 +129,12 @@ describe("generation-log writer", () => {
     const timeline = fs.readFileSync(path.join(runDir, "timeline.ndjson"), "utf8");
     const faultFix = fs.readFileSync(path.join(runDir, "fault-fix-index.md"), "utf8");
     const faultFixCsv = fs.readFileSync(path.join(runDir, "fault-fix-index.csv"), "utf8");
-    const siteSummary = fs.readFileSync(
-      path.join(tempDir, "logs", "site-observability", "chat_1", "latest", "summary.md"),
+    // Dedup (2026-04-20): summary.md/meta.json/timeline.ndjson/fault-fix-index.{csv,md}
+    // kopieras inte längre till site-observability/<chat>/latest/. Per-chat-mappen
+    // håller bara observability.json + fix-patterns.json + _source_run.txt + history.ndjson.
+    // Råfilerna nås via pekaren `_source_run.txt` → logs/generationslogg/<run>/.
+    const siteSourceRun = fs.readFileSync(
+      path.join(tempDir, "logs", "site-observability", "chat_1", "latest", "_source_run.txt"),
       "utf8",
     );
     const siteObservability = JSON.parse(
@@ -168,7 +172,7 @@ describe("generation-log writer", () => {
     expect(summary).toContain("Verifier quality findings: 2");
     expect(summary).toContain("Background verify: skipped");
     expect(summary).toContain("Background verify reason: fast_policy");
-    expect(siteSummary).toContain("Background verify reason: fast_policy");
+    expect(siteSourceRun.trim()).toBe(latestDirName);
     expect(timeline).toContain("\"type\":\"comm.request.followup\"");
     expect(observability.chatId).toBe("chat_1");
     expect(Array.isArray(observability.recurringPatterns)).toBe(true);
@@ -194,7 +198,7 @@ describe("generation-log writer", () => {
     expect(meta.status).toBe("done");
   });
 
-  it("retains only the three latest generation folders", async () => {
+  it("retains only the latest MAX_RUN_DIRS (15) generation folders", async () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sajtmaskin-generation-log-"));
     process.chdir(tempDir);
     vi.stubEnv("NODE_ENV", "development");
@@ -203,19 +207,26 @@ describe("generation-log writer", () => {
 
     const { devLogStartGeneration, devLogAppend } = await import("./devLog");
 
-    for (let i = 1; i <= 5; i += 1) {
-      const chatId = `chat_${i}`;
+    // Create 17 runs; expect prune to retain the 15 most recent.
+    // We zero-pad the slug so lexicographic sort matches numeric order even
+    // when all runs share the same `formatRunTimestamp(...)` prefix (the
+    // tests run in well under a second).
+    const totalRuns = 17;
+    const expectedRetained = 15;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    for (let i = 1; i <= totalRuns; i += 1) {
+      const chatId = `chat_${pad(i)}`;
       devLogStartGeneration({
-        message: `Bygg sajt ${i}`,
+        message: `Bygg sajt ${pad(i)}`,
         modelId: "gpt-5.4",
-        slug: `site-${i}`,
+        slug: `site-${pad(i)}`,
         chatId,
         generationKind: "create",
       });
       devLogAppend("latest", {
         type: "site.done",
         chatId,
-        versionId: `ver_${i}`,
+        versionId: `ver_${pad(i)}`,
         durationMs: i * 100,
       });
     }
@@ -228,10 +239,10 @@ describe("generation-log writer", () => {
       .filter((name) => !name.startsWith("_"))
       .sort();
 
-    expect(dirs).toHaveLength(3);
-    expect(dirs[0]).toContain("site-3");
-    expect(dirs[1]).toContain("site-4");
-    expect(dirs[2]).toContain("site-5");
+    expect(dirs).toHaveLength(expectedRetained);
+    const firstRetainedIdx = totalRuns - expectedRetained + 1;
+    expect(dirs[0]).toContain(`site-${pad(firstRetainedIdx)}`);
+    expect(dirs[dirs.length - 1]).toContain(`site-${pad(totalRuns)}`);
   });
 
   it("generation-log-writer resolves runId from chatId fallback", async () => {

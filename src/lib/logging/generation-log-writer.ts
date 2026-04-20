@@ -30,10 +30,24 @@ const GLOBAL_ERROR_LOG_CSV_FILE = "error-log.csv";
 const SITE_HISTORY_FILE = "history.ndjson";
 const SITE_LATEST_DIR = "latest";
 const FALSE_VALUES = new Set(["0", "false", "off", "no"]);
-const MAX_RUN_DIRS = 3;
+// Per-run-mappar under generationslogg/. Vi vill behålla mer historik än
+// förut (3 var aggressivt — du tappade kontext från igår direkt) men inte
+// heller låta det svälla. 15 räcker för ett par dagars gen-iteration.
+const MAX_RUN_DIRS = 15;
 const MAX_TIMELINE_ENTRIES_PER_RUN = 1_000;
 const MAX_SUMMARY_TIMELINE_ROWS = 180;
+// Per-chat history.ndjson cappar fortfarande till 50 rader per chat. Det här
+// är OCAPAT antalet *chat-mappar* under site-observability/. Med LRU-prune
+// nedan kommer äldsta chats att rensas bort när vi går över 30.
 const MAX_SITE_HISTORY_RUNS = 50;
+const MAX_SITE_OBSERVABILITY_CHATS = 30;
+// _unrouted/ är fallback-bucketar för events som saknar runId/chatId/slug.
+// Förut kunde de ackumuleras för evigt; vi cappar dem på samma sätt.
+const MAX_UNROUTED_BUCKETS = 10;
+// Legacy global CSV (logs/llm-segmentts-and-index/error-log.csv) läses av
+// backoffice (Autofix & Kvalitet, llm_config.py). Förut växte den utan tak.
+// 2000 senaste rader räcker för fix-statistiken; äldre rader trunkeras.
+const MAX_GLOBAL_ERROR_LOG_ROWS = 2_000;
 const runDirBySlug = new Map<string, string>();
 const runDirByChatId = new Map<string, string>();
 // runDirByRunId is the most specific scoping: each `site.start` event mints
@@ -234,6 +248,46 @@ function pruneChatToRunIndexAgainstDisk(): void {
     }
   }
   if (changed) writeChatToRunIndex(idx);
+}
+
+// LRU-prune helper used by both site-observability/<chatId>/ and
+// generationslogg/_unrouted/<bucket>/. We use the most recent mtime among
+// files inside each subdirectory as a proxy for "last activity" — this is
+// stable enough for cleanup and avoids a full recursive walk.
+function lruPruneSubdirs(parentDir: string, maxDirs: number): void {
+  try {
+    if (!fs.existsSync(parentDir)) return;
+    const entries = fs
+      .readdirSync(parentDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+    if (entries.length <= maxDirs) return;
+
+    const scored = entries.map((name) => {
+      const dir = path.join(parentDir, name);
+      let latestMtime = 0;
+      try {
+        for (const child of fs.readdirSync(dir, { withFileTypes: true })) {
+          const childPath = path.join(dir, child.name);
+          const stat = fs.statSync(childPath);
+          if (stat.mtimeMs > latestMtime) latestMtime = stat.mtimeMs;
+        }
+      } catch {
+        latestMtime = 0;
+      }
+      return { name, latestMtime };
+    });
+    scored.sort((a, b) => a.latestMtime - b.latestMtime);
+    const toRemove = scored.slice(0, scored.length - maxDirs);
+    for (const { name } of toRemove) {
+      fs.rmSync(path.join(parentDir, name), { recursive: true, force: true });
+    }
+  } catch (err) {
+    console.warn(
+      `[generationslogg] lruPruneSubdirs(${parentDir}) failed:`,
+      err instanceof Error ? err.message : err,
+    );
+  }
 }
 
 function createRunDir(ts: string, slug: string | null): string {
@@ -1213,9 +1267,17 @@ function appendGlobalFaultFixCsv(rows: FaultFixRow[]): void {
     ...existingBody,
     ...rows.map(faultFixRowToCsvLine),
   ])];
+  // Cap: behåll de N senaste raderna. Förut växte filen för evigt eftersom
+  // dedup bara skedde på exakta rader (ts gör i princip varje rad unik).
+  // Backoffice-konsumenterna (Autofix & Kvalitet, llm_config) bryr sig bara
+  // om senaste fix-statistiken, så att klippa äldre rader är säkert.
+  const cappedLines =
+    mergedLines.length > MAX_GLOBAL_ERROR_LOG_ROWS
+      ? mergedLines.slice(mergedLines.length - MAX_GLOBAL_ERROR_LOG_ROWS)
+      : mergedLines;
   fs.writeFileSync(
     csvPath,
-    [FAULT_FIX_CSV_HEADER, ...mergedLines].join("\n") + "\n",
+    [FAULT_FIX_CSV_HEADER, ...cappedLines].join("\n") + "\n",
     "utf8",
   );
 }
@@ -1453,16 +1515,11 @@ function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnaps
     .slice(-MAX_SITE_HISTORY_RUNS);
   fs.writeFileSync(historyPath, deduped.join("\n") + "\n", "utf8");
 
-  const copyIfExists = (fileName: string) => {
-    const src = path.join(runDir, fileName);
-    if (fs.existsSync(src)) fs.copyFileSync(src, path.join(latestDir, fileName));
-  };
-  copyIfExists(SUMMARY_FILE);
-  copyIfExists(META_FILE);
-  copyIfExists(TIMELINE_FILE);
-  copyIfExists(FAULT_FIX_CSV_FILE);
-  copyIfExists(FAULT_FIX_FILE);
-
+  // Dedup: timeline/meta/summary/fault-fix-index.{csv,md} skrevs förut till
+  // BÅDE generationslogg/<run>/ OCH hit. Inga konsumenter läser kopiorna här
+  // — de är redundans. Vi behåller bara observability.json, fix-patterns.json
+  // och history-raden ovan, plus en _source_run.txt-pekare. Behöver du
+  // råfilerna: följ pekaren till logs/generationslogg/<run>/.
   fs.writeFileSync(
     path.join(latestDir, OBSERVABILITY_FILE),
     JSON.stringify(snapshot, null, 2) + "\n",
@@ -1478,6 +1535,47 @@ function updateSiteObservability(runDir: string, snapshot: RunObservabilitySnaps
     `${path.basename(runDir)}\n`,
     "utf8",
   );
+
+  // LRU-prune: cap antalet chat-mappar under site-observability/. Förut
+  // växte detta linjärt med antalet unika chats för evigt.
+  lruPruneSubdirs(SITE_OBSERVABILITY_DIR, MAX_SITE_OBSERVABILITY_CHATS);
+}
+
+/**
+ * Returns the recurring failure patterns observed for a given chatId across
+ * its previous runs (read from `logs/site-observability/<chatId>/latest/
+ * fix-patterns.json`). Used by the LLM fixer to avoid repeating the same
+ * fix attempt that already failed N times in this site.
+ *
+ * Returns `[]` when the file is missing, malformed, or the chatId is empty.
+ * Never throws — fix feedback is best-effort and must not break repair.
+ */
+export function readRecurringPatternsForChat(
+  chatId: string | null | undefined,
+): RunFixPattern[] {
+  const trimmed = (chatId ?? "").trim();
+  if (!trimmed || trimmed === "-") return [];
+  try {
+    const filePath = path.join(
+      SITE_OBSERVABILITY_DIR,
+      trimmed,
+      SITE_LATEST_DIR,
+      FIX_PATTERNS_FILE,
+    );
+    if (!fs.existsSync(filePath)) return [];
+    const raw = fs.readFileSync(filePath, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is RunFixPattern =>
+        Boolean(item) &&
+        typeof item === "object" &&
+        typeof (item as { pattern?: unknown }).pattern === "string" &&
+        typeof (item as { occurrences?: unknown }).occurrences === "number",
+    );
+  } catch {
+    return [];
+  }
 }
 
 function buildSummary(dir: string, entries: StoredGenerationEntry[]): string {
@@ -1618,8 +1716,12 @@ export function resolveRunDirFromContext(params: {
   if (slug) {
     const fallbackDir = path.join(UNROUTED_DIR, slug);
     try {
-      if (!fs.existsSync(fallbackDir)) {
+      const isNewBucket = !fs.existsSync(fallbackDir);
+      if (isNewBucket) {
         fs.mkdirSync(fallbackDir, { recursive: true });
+        // LRU-prune: cap antalet bucketar under _unrouted/. Förut växte
+        // detta linjärt med antalet unika orphan-event-slugs.
+        lruPruneSubdirs(UNROUTED_DIR, MAX_UNROUTED_BUCKETS);
       }
       return fallbackDir;
     } catch {
