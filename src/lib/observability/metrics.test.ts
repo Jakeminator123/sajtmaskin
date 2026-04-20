@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   OBSERVED_PHASES,
   getPrometheusMetrics,
+  incBriefCache,
   incEarlyStop,
   incFixerCall,
+  incIngressEvent,
   incPartialFileRepair,
   incVerifierBlocking,
   recordPhaseDuration,
@@ -148,6 +150,49 @@ describe("observability/metrics", () => {
     text = await getPrometheusMetrics();
     expect(text).not.toMatch(
       /sajtmaskin_prompt_to_done_ms_count\{[^}]*outcome="done"[^}]*kind="init"[^}]*\}\s+[1-9]/,
+    );
+  });
+
+  it("records P19 ingress events partitioned by type and reason", async () => {
+    incIngressEvent("preview_reused_url");
+    incIngressEvent("followup_base_resolved", { reason: "explicit" });
+    incIngressEvent("followup_base_explicit");
+
+    const text = await getPrometheusMetrics();
+    expect(text).toContain("sajtmaskin_ingress_event_total");
+    expect(text).toMatch(
+      /sajtmaskin_ingress_event_total\{[^}]*type="preview_reused_url"[^}]*reason=""[^}]*\}\s+1/,
+    );
+    expect(text).toMatch(
+      /sajtmaskin_ingress_event_total\{[^}]*type="followup_base_resolved"[^}]*reason="explicit"[^}]*\}\s+1/,
+    );
+    expect(text).toMatch(
+      /sajtmaskin_ingress_event_total\{[^}]*type="followup_base_explicit"[^}]*reason=""[^}]*\}\s+1/,
+    );
+
+    resetMetricsForTest();
+    const after = await getPrometheusMetrics();
+    expect(after).not.toMatch(
+      /sajtmaskin_ingress_event_total\{[^}]*type="preview_reused_url"[^}]*\}\s+[1-9]/,
+    );
+  });
+
+  it("counts brief-cache outcomes (hit/miss/skip) and resets cleanly", async () => {
+    incBriefCache("hit");
+    incBriefCache("hit");
+    incBriefCache("miss");
+    incBriefCache("skip");
+
+    const text = await getPrometheusMetrics();
+    expect(text).toContain("sajtmaskin_brief_cache_total");
+    expect(text).toMatch(/sajtmaskin_brief_cache_total\{[^}]*outcome="hit"[^}]*\}\s+2/);
+    expect(text).toMatch(/sajtmaskin_brief_cache_total\{[^}]*outcome="miss"[^}]*\}\s+1/);
+    expect(text).toMatch(/sajtmaskin_brief_cache_total\{[^}]*outcome="skip"[^}]*\}\s+1/);
+
+    resetMetricsForTest();
+    const after = await getPrometheusMetrics();
+    expect(after).not.toMatch(
+      /sajtmaskin_brief_cache_total\{[^}]*outcome="hit"[^}]*\}\s+[1-9]/,
     );
   });
 

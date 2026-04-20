@@ -38,6 +38,24 @@ const PROMPT_TO_DONE_BUCKETS_MS = [
 export type PromptToDoneOutcome = "done" | "failed" | "aborted";
 export type PromptToDoneKind = "init" | "followup";
 
+/**
+ * P19 ingress telemetry — old-content ingress paths we want to attribute
+ * before adding any further hardening:
+ * - `preview_reused_url`: preview-session short-circuit returning an existing
+ *   `preview_url` instead of bootstrapping a fresh sandbox.
+ * - `followup_base_resolved`: single-line dashboard view for which branch
+ *   `resolveFollowUpPreviousFiles()` selected (label `reason`).
+ * - `followup_base_explicit|preferred|latest`: per-branch counters for detail
+ *   views; intentionally redundant with `followup_base_resolved` so both
+ *   levels of granularity are queryable without joins.
+ */
+export type IngressEventType =
+  | "preview_reused_url"
+  | "followup_base_resolved"
+  | "followup_base_explicit"
+  | "followup_base_preferred"
+  | "followup_base_latest";
+
 type MetricsBundle = {
   register: prom.Registry;
   phaseDuration: prom.Histogram<string>;
@@ -46,6 +64,8 @@ type MetricsBundle = {
   verifierBlocking: prom.Counter<string>;
   partialFileRepair: prom.Counter<string>;
   earlyStop: prom.Counter<string>;
+  ingressEvent: prom.Counter<string>;
+  briefCache: prom.Counter<string>;
 };
 
 declare global {
@@ -113,6 +133,25 @@ function initMetrics(): MetricsBundle {
     registers: [register],
   });
 
+  const ingressEvent = new prom.Counter({
+    name: "sajtmaskin_ingress_event_total",
+    help:
+      "P19 old-content ingress telemetry: preview-session short-circuits and " +
+      "follow-up base-version selection, partitioned by event type and reason.",
+    labelNames: ["type", "reason"],
+    registers: [register],
+  });
+
+  const briefCache = new prom.Counter({
+    name: "sajtmaskin_brief_cache_total",
+    help:
+      "Outcomes of the /api/ai/brief Redis cache lookup. " +
+      "`hit` = cached brief replayed, `miss` = LLM call required, " +
+      "`skip` = cache bypassed because Redis is disabled or unavailable.",
+    labelNames: ["outcome"],
+    registers: [register],
+  });
+
   const bundle: MetricsBundle = {
     register,
     phaseDuration,
@@ -121,6 +160,8 @@ function initMetrics(): MetricsBundle {
     verifierBlocking,
     partialFileRepair,
     earlyStop,
+    ingressEvent,
+    briefCache,
   };
 
   globalThis.__sajtmaskinMetricsRegistry = bundle;
@@ -170,6 +211,28 @@ export function incEarlyStop(reason: string, phase: string): void {
 }
 
 /**
+ * P19 ingress telemetry counter. The `reason` label is always present
+ * (Prometheus label sets are fixed-cardinality) but defaults to "" when the
+ * event type does not need a sub-classification — this keeps the metric
+ * shape stable while letting `followup_base_resolved` carry the "explicit |
+ * preferred | latest" branch on a single line in dashboards.
+ */
+export function incBriefCache(outcome: "hit" | "miss" | "skip"): void {
+  metrics.briefCache.inc({ outcome });
+}
+
+export function incIngressEvent(
+  type: IngressEventType,
+  attrs?: { reason?: string },
+): void {
+  const reason =
+    typeof attrs?.reason === "string" && attrs.reason.length > 0
+      ? attrs.reason
+      : "";
+  metrics.ingressEvent.inc({ type, reason });
+}
+
+/**
  * Observe the end-to-end "prompt → done" duration in milliseconds. `kind`
  * distinguishes the initial chat-creation stream from follow-up streams;
  * `outcome` separates successful `done` emissions from client aborts and
@@ -205,4 +268,6 @@ export function resetMetricsForTest(): void {
   metrics.verifierBlocking.reset();
   metrics.partialFileRepair.reset();
   metrics.earlyStop.reset();
+  metrics.ingressEvent.reset();
+  metrics.briefCache.reset();
 }

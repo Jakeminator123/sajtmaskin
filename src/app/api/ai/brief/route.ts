@@ -9,9 +9,33 @@ import {
   generateSiteBriefObject,
   validateBriefModelForHttp,
 } from "@/lib/builder/site-brief-generation";
+import {
+  buildBriefCacheKey,
+  readBriefCache,
+  writeBriefCache,
+} from "@/lib/api/ai/brief-cache";
+import { FEATURES } from "@/lib/config";
+import { incBriefCache } from "@/lib/observability/metrics";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
+
+type CachedBriefPayload = {
+  brief: Record<string, unknown>;
+  briefQuality: "full" | "server-auto";
+  provider: "openai" | "anthropic";
+};
+
+function buildBriefHeaders(payload: CachedBriefPayload, cacheState: "hit" | "miss" | "skip"): Record<string, string> {
+  return {
+    "Cache-Control": "no-store",
+    "X-Provider": payload.provider === "anthropic" ? "anthropic" : "openai",
+    "X-Key-Source":
+      payload.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY",
+    "X-Brief-Quality": payload.briefQuality,
+    "X-Brief-Cache": cacheState,
+  };
+}
 
 export async function POST(req: Request) {
   return withRateLimit(req, "ai:brief", async () => {
@@ -39,6 +63,42 @@ export async function POST(req: Request) {
 
       debugLog("brief", `start ${normalizedModel} (${prompt.length} chars, images=${imageGenerations})`);
 
+      const cacheKey = buildBriefCacheKey({
+        chatId: null,
+        prompt,
+        modelId: normalizedModel,
+        extraInputsForHash: {
+          imageGenerations,
+          temperature: typeof temperature === "number" ? temperature : null,
+          maxTokens: typeof maxTokens === "number" ? maxTokens : null,
+        },
+      });
+
+      if (FEATURES.useRedisCache) {
+        const cached = await readBriefCache(cacheKey);
+        if (cached && cached.json && typeof cached.json === "object") {
+          const payload = cached.json as CachedBriefPayload;
+          if (
+            payload.brief &&
+            typeof payload.brief === "object" &&
+            (payload.briefQuality === "full" || payload.briefQuality === "server-auto") &&
+            (payload.provider === "openai" || payload.provider === "anthropic")
+          ) {
+            incBriefCache("hit");
+            devLogAppend("latest", {
+              type: "brief-cache.hit",
+              chatId: cacheKey.chatId,
+              modelId: cacheKey.modelId,
+            });
+            return NextResponse.json(payload.brief, {
+              headers: buildBriefHeaders(payload, "hit"),
+            });
+          }
+        }
+      } else {
+        incBriefCache("skip");
+      }
+
       try {
         const result = await generateSiteBriefObject({
           prompt,
@@ -59,14 +119,26 @@ export async function POST(req: Request) {
           );
         }
         const { brief, briefQuality, provider: briefProvider } = result;
-
-        const headers: Record<string, string> = {
-          "Cache-Control": "no-store",
-          "X-Provider": briefProvider === "anthropic" ? "anthropic" : "openai",
-          "X-Key-Source": briefProvider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY",
-          "X-Brief-Quality": briefQuality,
+        const payload: CachedBriefPayload = {
+          brief: brief as Record<string, unknown>,
+          briefQuality,
+          provider: briefProvider,
         };
-        return NextResponse.json(brief, { headers });
+
+        if (FEATURES.useRedisCache) {
+          incBriefCache("miss");
+          devLogAppend("latest", {
+            type: "brief-cache.miss",
+            chatId: cacheKey.chatId,
+            modelId: cacheKey.modelId,
+          });
+          await writeBriefCache(cacheKey, payload);
+        }
+
+        const cacheState = FEATURES.useRedisCache ? "miss" : "skip";
+        return NextResponse.json(brief, {
+          headers: buildBriefHeaders(payload, cacheState),
+        });
       } catch (briefErr) {
         const errMsg = briefErr instanceof Error ? briefErr.message : String(briefErr);
         return NextResponse.json(
