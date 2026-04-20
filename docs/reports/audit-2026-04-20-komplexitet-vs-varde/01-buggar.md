@@ -190,18 +190,11 @@ P28 är redan en aktiv plan — följ den. Sammanfattat:
 
 ---
 
-### §2.4 v0/engine API-duplikat introducerar `null`/`undefined`-glipor
+### §2.4 v0/engine API-duplikat introducerar `null`/`undefined`-glipor — **DONE 2026-04-20**
 
 | Fält | Värde |
 |------|-------|
-| **Fil** | `src/app/api/v0/chats/[chatId]/preview-status/route.ts` + `src/app/api/engine/chats/[chatId]/preview-status/route.ts` |
-| **Bevis** | Båda har test som failar med samma mönster (`returns stopped when resume fails`) — duplikat ger 2× bug surface |
-| **Svårighet** | Medel |
-| **Tidsåtgång** | 1 dag (denna bugg + början på konsolidering — se `03-konsolidering-pipeline.md` §3.7) |
-| **Kostnad infra** | 0 |
-| **Värde** | Halverar API-yta + fixar 2 tester på ett ställe |
-
-**Manual:** Se `03-konsolidering-pipeline.md` §3.7 — denna bugg löses som en bieffekt av API-konsolideringen.
+| **Status** | Klart i P29 Fas 1B 2026-04-20. `/api/v0/chats/[chatId]/preview-status/route.ts` borttagen, unique test-coverage migrerat till `/api/engine/chats/[chatId]/preview-status/route.test.ts`. Duplikat-yta borta = en bug-källa, inte två. Audit §3.4 chat-ytan stängd. |
 
 ---
 

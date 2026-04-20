@@ -1,16 +1,15 @@
 /**
  * Canonical HTTP prefix for own-engine chat APIs (builder core).
  *
- * **Client:** Builder hooks and components should use `ENGINE_CHATS_API_PREFIX` and `engineChatBaseUrl`
- * — not hardcoded `/api/v0/chats/...`.
+ * **Client:** Builder hooks and components must use `ENGINE_CHATS_API_PREFIX`
+ * and `engineChatBaseUrl` — never hardcode `/api/...` chat paths.
  *
- * **Server split (current):**
- * - New-chat stream + shared sync-adapter live under `src/lib/api/engine/chats/`; `/api/engine/chats/stream`
- *   calls the lib handler; `/api/v0/chats/stream` wraps the same handler with legacy telemetry.
- * - Many routes under `src/app/api/engine/chats/**` still re-export handlers from `src/app/api/v0/chats/**`
- *   (thin alias until handlers move into lib).
- *
- * Legacy `/api/v0/chats/*` remains for external/older clients until usage is zero.
+ * **Server (since P29 Fas 1B, 2026-04-20):** All chat routes live exclusively
+ * under `src/app/api/engine/chats/**`. The legacy `/api/v0/chats/**` tree was
+ * fully removed; the `v0-chats-compat.ts` helper (`logLegacyV0ChatsHit`) is
+ * gone. Other `/api/v0/**` segments (deployments, projects, integrations)
+ * remain as Class C legacy with real client callsites — see
+ * `docs/plans/active/P29-v0-engine-consolidation.md` Fas 2.
  */
 export const ENGINE_CHATS_API_PREFIX = "/api/engine/chats";
 

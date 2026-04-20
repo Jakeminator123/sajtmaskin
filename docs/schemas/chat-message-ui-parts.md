@@ -26,12 +26,13 @@ Code sources of truth:
 - `src/lib/db/schema.ts`
 - `src/lib/db/chat-repository-pg.ts`
 - `src/lib/gen/plan/schema.ts`
-- `src/app/api/v0/chats/stream/route.ts`
+- `src/app/api/engine/chats/stream/route.ts` (kanonisk create-stream route)
 - `src/lib/api/engine/chats/chat-message-stream-post.ts` (kanonisk follow-up stream-handler)
-- `src/app/api/v0/chats/[chatId]/stream/route.ts` (compat re-export)
-- `src/app/api/engine/chats/[chatId]/stream/route.ts` (engine re-export)
-- `src/app/api/v0/chats/[chatId]/route.ts`
+- `src/app/api/engine/chats/[chatId]/stream/route.ts` (kanonisk follow-up route)
+- `src/app/api/engine/chats/[chatId]/route.ts`
 - `src/lib/hooks/usePersistedChatMessages.ts`
+
+> Tidigare `/api/v0/chats/**`-aliases borttagna 2026-04-20 (P29 Fas 1B).
 
 ## Message shape
 

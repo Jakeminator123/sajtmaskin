@@ -78,30 +78,19 @@ Ingen åtgärd.
 - `src/app/api/v0/chats/[chatId]/versions/collaboration-summaries/route.ts`
 - `src/app/api/v0/chats/[chatId]/versions/[versionId]/{approval,comments,download,error-log,export,feedback}/route.ts`
 
-### Fas 1B — Routes med UNIQUE test-coverage (~1 dag)
+### Fas 1B — Routes med UNIQUE test-coverage (KLAR 2026-04-20)
 
-**Scope:** 10 v0-chat-routes vars test-fil innehåller assertions engine-sidan saknar. Subagent-inventering 2026-04-20 visade att 5 routes saknar engine-test helt (`init`, `[chatId]/route`, `[chatId]/files`, `[chatId]/preview-heartbeat`, `[chatId]/versions`), och 5 har engine-test som bara delegerar (real coverage ligger på v0-sidan).
+**Scope:** 10 v0-chat-routes vars test-fil innehöll assertions engine-sidan saknade.
 
-**Steg:**
+**Status:** **KLAR**. Två parallella write-subagents migrerade test-assertioner till engine-sidan (5 nya engine-test-filer, 5 utökade). Sedan borttagna alla 20 v0-filer (10 routes + 10 tester) + `src/lib/api/engine/chats/v0-chats-compat.ts` (`logLegacyV0ChatsHit`-helpern har inga callers kvar).
 
-1. För varje av de 10 v0-test-filerna:
-   - Skapa eller utöka motsvarande `src/app/api/engine/.../route.test.ts` med samma `it(...)`-block. Eftersom v0-routerna är re-exports kan testerna pekas direkt mot `engine/`-handlern utan att ändra mock-setup.
-   - Verifiera att de nya engine-testerna passerar.
-   - Radera v0-routen + dess test-fil.
-2. När alla 10 är borta, radera `src/lib/api/engine/chats/v0-chats-compat.ts` (`logLegacyV0ChatsHit` har då inga callers).
+**Resultat:** `/api/v0/chats/**` är nu tom i runtime-trädet. 1172/1172 tester gröna (- 4 mot 1176 = duplikat-coverage som engine redan hade på samma scenarier; ingen unique coverage förlorad).
 
-**Berörda v0-test-filer:**
+**Verifikation:**
 
-- `src/app/api/v0/chats/route.test.ts` (POST/GET, stream-handler-pass-through)
-- `src/app/api/v0/chats/init/route.test.ts` (ZIP import scenario)
-- `src/app/api/v0/chats/stream/route.test.ts` (own-engine finalize, awaiting-input)
-- `src/app/api/v0/chats/[chatId]/route.test.ts` (preview-URL exposure for failed/incomplete versions)
-- `src/app/api/v0/chats/[chatId]/messages/route.test.ts` (sync fallback payload)
-- `src/app/api/v0/chats/[chatId]/files/route.test.ts` (PATCH/DELETE per-file)
-- `src/app/api/v0/chats/[chatId]/stream/route.test.ts` (follow-up clarification, scoped edits)
-- `src/app/api/v0/chats/[chatId]/preview-status/route.test.ts` (400 missing versionId)
-- `src/app/api/v0/chats/[chatId]/preview-heartbeat/route.test.ts` (session ownership)
-- `src/app/api/v0/chats/[chatId]/versions/route.test.ts` (failed version preview-URL handling)
+- `npm run typecheck` → clean (efter cache-clearing av `.next/dev/types/validator.ts`)
+- `npx vitest run` → 1172/1172
+- Audit §3.4 chat-ytan markerad DONE i `01-buggar.md` / `03-konsolidering-pipeline.md`
 
 ### Fas 2 — Class C rename eller behåll (~½–1 dag)
 
@@ -139,11 +128,11 @@ Ingen åtgärd.
 - `npm run typecheck` clean
 - `npm run lint` clean
 
-**Fas 1B klart när:**
+**Fas 1B klart när:** ✅ **Klart 2026-04-20**
 
 - 10 v0-chat-routes med UNIQUE test-coverage borta efter att tester migrerats till engine-sidan
 - `src/lib/api/engine/chats/v0-chats-compat.ts` (`logLegacyV0ChatsHit`) borta — inga v0-chat-callers kvar
-- Audit §3.4 markerad **DONE** i `01-buggar.md` / `03-konsolidering-pipeline.md`
+- Audit §3.4 chat-ytan markerad **DONE** i `01-buggar.md` / `03-konsolidering-pipeline.md`
 
 **Fas 2 klart när:**
 

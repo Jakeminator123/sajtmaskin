@@ -301,9 +301,9 @@ finalize → done → preview-session + server-verify (parallellt)
 
 ---
 
-### §3.4 Slå ihop `/api/v0/*` ↔ `/api/engine/*` — **PARTIELLT DONE 2026-04-20**
+### §3.4 Slå ihop `/api/v0/*` ↔ `/api/engine/*` — **CHAT-YTAN DONE 2026-04-20**
 
-> **Status 2026-04-20:** Subagent-inventering klar. 18 av 28 v0-chat-routes (rena re-exports utan unique test-coverage) borttagna i Fas 1A. Plan + acceptanskriterier för Fas 1B (10 routes med unique tester — kräver test-migrering till engine-sidan) och Fas 2 (7 Class C legacy-routes — rename till `/api/legacy/v0/*` eller behåll) finns i `docs/plans/active/P29-v0-engine-consolidation.md`.
+> **Status 2026-04-20:** Hela `/api/v0/chats/**`-trädet borttaget. Fas 1A (18 testlösa re-exports) + Fas 1B (10 routes vars unique test-coverage migrerades till engine-side test-filer via 2 parallella write-subagents). `v0-chats-compat.ts`/`logLegacyV0ChatsHit` borta. 1172/1172 tester gröna. Kvarstår Fas 2: 7 Class C legacy-routes (deployments/projects/integrations) med riktiga klient-callsites — rename till `/api/legacy/v0/*` eller dokumenterat keep-beslut. Detaljer i `docs/plans/active/P29-v0-engine-consolidation.md`.
 
 | Fält | Värde |
 |------|-------|

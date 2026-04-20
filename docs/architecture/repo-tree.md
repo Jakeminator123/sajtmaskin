@@ -39,7 +39,7 @@ Cursor indexerar inte allt under repo-rot. **Byt normalt inte ut ignore-listan**
 | **Preview runtime / livscykel** | `src/lib/builder/preview-session/*`, `src/components/builder/preview-panel/*`, `src/lib/gen/preview/*` (ingen barrel-`index`; shim-URL: `preview/legacy/compatibility-shim`, HTML för `/api/preview-render`: `preview/build-preview-document`) |
 | **Generation engine** | `src/lib/gen/stream/*`, `src/lib/providers/own-engine/*`, `src/lib/own-engine/*` |
 | **DB / versioner / diagnostik** | `src/lib/db/*` — Postgres via Drizzle; **DB CRUD** i `src/lib/db/services/<domän>.ts` (importera t.ex. `@/lib/db/services/projects`, inte en gemensam barrel). Även `preview-diagnostics`, `eval`. |
-| **HTTP API (v0)** | `src/app/api/v0/chats/*`, övriga `src/app/api/*` |
+| **HTTP API** | `src/app/api/engine/chats/*` (chat-yta sedan P29 Fas 1B 2026-04-20), `src/app/api/v0/*` (kvarvarande Class C: deployments/projects/integrations), övriga `src/app/api/*` |
 
 ## Viktiga `src/lib/`-områden
 

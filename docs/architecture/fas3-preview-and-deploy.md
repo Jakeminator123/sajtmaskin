@@ -53,7 +53,7 @@ legacy/diagnostik.
 | `POST /api/engine/chats/[chatId]/accept-repair` | Applicera serverrepair som vantar i `repair_available` |
 | `POST /api/engine/chats/[chatId]/finalize-design` | F3-trigger ("Bygg integrationer"). Validerar tier-3 readiness; returnerar 412 + `missingByIntegration` om env-keys saknas. |
 
-Compat-routes under `/api/v0/chats/...` finns kvar dar det behovs.
+Sedan 2026-04-20 (P29 Fas 1B) finns inga `/api/v0/chats/...` compat-routes kvar — chat-ytan ar konsoliderad under `/api/engine/chats/...`. Ovriga `/api/v0/*` segment (deployments/projects/integrations) ar Class C legacy med riktiga klient-callsites; se `docs/plans/active/P29-v0-engine-consolidation.md` Fas 2.
 
 ---
 

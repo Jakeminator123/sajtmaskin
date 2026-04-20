@@ -172,11 +172,11 @@ def sync_route_timeout_literals(
     engine_seconds: int,
     assist_seconds: int,
 ) -> int:
+    # /api/v0/chats/** removed in P29 Fas 1B (2026-04-20). Only the engine
+    # chat routes carry timeouts now; assist routes remain unchanged.
     route_targets = {
         "src/app/api/engine/chats/stream/route.ts": engine_seconds,
-        "src/app/api/v0/chats/stream/route.ts": engine_seconds,
         "src/app/api/engine/chats/[chatId]/stream/route.ts": engine_seconds,
-        "src/app/api/v0/chats/[chatId]/stream/route.ts": engine_seconds,
         "src/app/api/ai/chat/route.ts": assist_seconds,
         "src/app/api/ai/brief/route.ts": assist_seconds,
     }
